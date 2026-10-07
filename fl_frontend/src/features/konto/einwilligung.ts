@@ -22,7 +22,7 @@ export const BEWERBUNG_NICHT_MEHR_OFFEN =
 
 // The same, on a pending registration: the team admitted or declined it, or it was deleted unadmitted.
 export const REGISTRIERUNG_NICHT_MEHR_OFFEN =
-  "Diese Registrierung ist nicht mehr offen. Lade die Seite neu, dort steht, was jetzt für Dich gilt.";
+  "Diese Registrierung ist nicht mehr offen. Lade die Seite neu. Dort steht, was jetzt für Dich gilt.";
 
 // A grant on the person's own record that takes a withdrawal alone (`REQ-EINWILLIGUNG-004`): the page
 // offers none there, so a page drawn before the record stopped admitting one sent it.

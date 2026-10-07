@@ -11,7 +11,7 @@ import { Table } from "@heroui/react/table";
 import { reactivateSaisonSpielerAction, reactivateSpielerAction } from "@/features/spieler/actions";
 import {
   LIST_REACTIVATION_NEEDS_A_TEAM_IN_SAISON,
-  OHNE_NUMMER,
+  NUMMER_NICHT_HINTERLEGT,
   REACTIVATION_NEEDS_ROOM_IN_SQUAD,
   rolleLabel,
   SPIELER_CRUD_COPY,
@@ -31,6 +31,7 @@ import {
   identityName,
   TABLE_HEADING_CLASSES,
 } from "@/shared/components/ui/adminTable";
+import { Leer } from "@/shared/components/ui/Angabe";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
@@ -183,7 +184,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
         spieler.selected?.nummer ? "bg-muted text-foreground" : "bg-muted/50"
       }`}>
       {/* Text, never an `aria-label`, which a screen reader ignores on a span with no role. */}
-      {spieler.selected?.nummer ?? <span className="sr-only">{OHNE_NUMMER}</span>}
+      {spieler.selected?.nummer ?? <span className="sr-only">{NUMMER_NICHT_HINTERLEGT}</span>}
     </span>
   );
 
@@ -194,7 +195,12 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
    */
   const renderTeam = (spieler: AdminSpielerRow) => {
     const row = spieler.selected;
-    if (row?.teamName == null || row.teamName === "") return <span className={IDENTITY_LINE_CLASSES}>Kein Team in dieser Saison</span>;
+    if (row?.teamName == null || row.teamName === "")
+      return (
+        <span className={IDENTITY_LINE_CLASSES}>
+          <Leer>Kein Team in dieser Saison</Leer>
+        </span>
+      );
 
     return (
       <Link

@@ -159,7 +159,7 @@ describe("deriveKontakteDraftStatus", () => {
     assert.equal(row?.error, "Bitte gib an, wann die Kenntnisnahme erfasst wurde.");
     // Both fallbacks render rather than hiding: they are the mid-edit states the schema rejects on
     // save, and the change list is where the admin sees what is still missing.
-    assert.equal(row?.draftText, "ohne Fassung (ohne Datum)");
+    assert.equal(row?.draftText, "Fassung nicht hinterlegt (Datum nicht hinterlegt)");
   });
 
   /* A seat holds a person once anybody is recorded in it, and a name is one of the fields that
@@ -169,7 +169,10 @@ describe("deriveKontakteDraftStatus", () => {
     const nameless = person({ vorname: "", nachname: "" });
     const status = deriveKontakteDraftStatus({ stored: EMPTY, draft: block({ trainer: nameless }), fieldErrors: {} });
 
-    assert.equal(status.byPath.get("kontakte.trainer")?.draftText, "Ohne Namen, erika@beispiel.de, 069 1234567, geboren am 01.01.1990");
+    assert.equal(
+      status.byPath.get("kontakte.trainer")?.draftText,
+      "Name nicht hinterlegt, erika@beispiel.de, 069 1234567, geboren am 01.01.1990",
+    );
     assert.equal(status.byPath.get("kontakte.trainer")?.isChanged, true);
   });
 

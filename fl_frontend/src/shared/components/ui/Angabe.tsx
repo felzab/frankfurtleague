@@ -1,7 +1,17 @@
+import { PLACEHOLDER } from "@/shared/utils/format";
+
 import type { ReactNode } from "react";
 
-/** What a stored fact reads where the record holds none, on every page that shows one. */
-export const NICHT_HINTERLEGT = "Nicht hinterlegt";
+/** What a stored fact reads where the record holds none, on every page that shows one: the fixtures' word too. */
+export const NICHT_HINTERLEGT = PLACEHOLDER.entity;
+
+/**
+ * Every word standing where a value would, an empty fact or a state such as „Nicht bestätigt“ alike, on
+ * every page. Colour and slant alone: size and weight stay the slot's, so the hierarchy holds.
+ */
+export function Leer({ children = NICHT_HINTERLEGT }: { children?: string }) {
+  return <span className="text-foreground-muted not-italic">{children}</span>;
+}
 
 /** One stored fact. A `<dl>` is its only valid parent: the pair is what makes the value a fact about the label. */
 export function Angabe({ label, children }: { label: string; children: ReactNode }) {

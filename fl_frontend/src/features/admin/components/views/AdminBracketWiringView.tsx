@@ -7,6 +7,7 @@ import { Table } from "@heroui/react/table";
 import { PHASE_TINTS } from "@/features/saisons/constants";
 import { adminSpielEditHref, deriveSlotHerkunft, formatQuelle, sideLabel } from "@/features/spiele/utils";
 import { spieltagLabels } from "@/features/spieltage/utils";
+import { Leer } from "@/shared/components/ui/Angabe";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { BRAND_ICON_BUTTON_CLASSES } from "@/shared/components/ui/brandTile";
 import { card } from "@/shared/components/ui/card";
@@ -88,7 +89,7 @@ function SlotWiring({
       {/* `break-words` and not `truncate`: a review surface that hides half a club's name cannot be
           finished, and the row is free to grow. */}
       {team === null ? (
-        <span className="text-foreground-muted italic">{PLACEHOLDER.slot}</span>
+        <Leer>{PLACEHOLDER.slot}</Leer>
       ) : (
         <strong className="max-w-full font-bold break-words text-foreground">{team.name}</strong>
       )}

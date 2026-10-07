@@ -52,7 +52,7 @@ describe("which page a referee's editor route answers with", () => {
     assert.doesNotMatch(textOf(html, " "), /Daten gelöscht/, "a deletion is claimed over a row nothing deleted");
   });
 
-  /* Italic „anonym“ names a deletion, and a screen reader hears neither the italics nor the
+  /* „anonym“ names a deletion, and a screen reader hears neither the empty-value grade nor the
      difference: the heading has to say this row is merely unfinished. */
   it("heads the nameless row with the word the list uses for it", () => {
     assert.match(textOf(view({ name: null, inactiveSince: null }), " "), new RegExp(SCHIEDSRICHTER_OHNE_NAMEN_LABEL));

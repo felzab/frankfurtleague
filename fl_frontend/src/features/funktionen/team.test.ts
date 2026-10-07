@@ -443,7 +443,7 @@ describe("the team's squad, as a seat holder reads it", () => {
     try {
       const { markup, text } = await renderedKader();
 
-      assert.ok(text.includes("Ohne Nummer"), text);
+      assert.ok(text.includes("Nummer nicht hinterlegt"), text);
       assert.ok(!/aria-label="[^"]*Nummer/.test(markup), "the chip names its absence where no screen reader reads it");
     } finally {
       answerReadsWith(EMPTIEST_ANSWER);

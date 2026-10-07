@@ -11,6 +11,7 @@ import { TextArea } from "@heroui/react/textarea";
 import { ablehnenBewerbungAction } from "@/features/bewerbungen/actions";
 import { BEWERBUNG_GRUND_MAX_LENGTH } from "@/features/bewerbungen/constants";
 import { FLAblehnenBewerbungPayloadSchema } from "@/features/bewerbungen/schemas";
+import { Leer } from "@/shared/components/ui/Angabe";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReadoutRow } from "@/shared/components/ui/ConfirmReadoutRow";
@@ -170,7 +171,7 @@ export function AdminBewerbungAblehnenSection({
               <dl className="flex w-full flex-col gap-y-1">
                 <ConfirmReadoutRow
                   label="Team"
-                  value={teamName ?? "Kein Team benannt"}
+                  value={teamName ?? <Leer />}
                 />
                 <ConfirmReadoutRow
                   label="Saison"

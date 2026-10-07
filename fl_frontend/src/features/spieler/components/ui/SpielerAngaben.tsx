@@ -1,23 +1,25 @@
+import { Fragment } from "react";
 import Link from "next/link";
 
-import { Angabe, NICHT_HINTERLEGT } from "@/shared/components/ui/Angabe";
+import { Angabe, Leer } from "@/shared/components/ui/Angabe";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { FIELD_PAIR_CLASSES, FORM_SECTION_HEADING_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { textLink } from "@/shared/components/ui/textLink";
 import { formatSpielDatum } from "@/shared/utils/format";
 import { withSaisonId } from "@/shared/utils/saisonHref";
 
-import { ausgetragenSeit, kaderName, OHNE_NUMMER, rolleLabel } from "../../constants";
+import { ausgetragenSeit, kaderName, NUMMER_NICHT_HINTERLEGT, rolleLabel } from "../../constants";
 
+import type { ReactNode } from "react";
 import type { FLSpielerSelbst, FLSpielerSelbstKaderZeile } from "../../schemas";
 
 /** One squad row, linked to the squad where everyone reads it rather than repeated here. */
 function KaderEintrag({ zeile }: { zeile: FLSpielerSelbstKaderZeile }) {
-  const fakten = [
-    zeile.nummer === null ? OHNE_NUMMER : `Nummer ${zeile.nummer}`,
-    zeile.position ?? "Ohne Position",
-    ...(zeile.stufe === null ? [] : [zeile.stufe]),
-    ...(zeile.rolle === null ? [] : [rolleLabel(zeile.rolle)]),
+  const fakten: readonly (readonly [string, ReactNode])[] = [
+    ["nummer", zeile.nummer === null ? <Leer>{NUMMER_NICHT_HINTERLEGT}</Leer> : `Nummer ${zeile.nummer}`],
+    ["position", zeile.position ?? <Leer>Position nicht hinterlegt</Leer>],
+    ...(zeile.stufe === null ? [] : [["stufe", zeile.stufe] as const]),
+    ...(zeile.rolle === null ? [] : [["rolle", rolleLabel(zeile.rolle)] as const]),
   ];
 
   return (
@@ -25,7 +27,14 @@ function KaderEintrag({ zeile }: { zeile: FLSpielerSelbstKaderZeile }) {
       <p className="fluid-sm font-bold text-foreground">
         {zeile.team_name}, Saison {zeile.saison_id}
       </p>
-      <p className="muted-hint">{fakten.join(" · ")}</p>
+      <p className="muted-hint">
+        {fakten.map(([feld, fakt], index) => (
+          <Fragment key={feld}>
+            {index > 0 && " · "}
+            {fakt}
+          </Fragment>
+        ))}
+      </p>
       {/* The tones and the precedence the administrator's squad list gives the same two facts. */}
       {zeile.inactive_since !== null ? (
         <p>
@@ -65,7 +74,7 @@ export function SpielerAngaben({ spieler, kaderEbene }: { spieler: FLSpielerSelb
     <>
       <dl className={FIELD_PAIR_CLASSES}>
         <Angabe label="Name">{kaderName(spieler)}</Angabe>
-        <Angabe label="Geburtsdatum">{formatSpielDatum(spieler.geburtsdatum, NICHT_HINTERLEGT)}</Angabe>
+        <Angabe label="Geburtsdatum">{spieler.geburtsdatum ? formatSpielDatum(spieler.geburtsdatum) : <Leer />}</Angabe>
       </dl>
 
       {spieler.kader.length > 0 && (

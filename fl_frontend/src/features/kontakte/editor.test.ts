@@ -1179,8 +1179,9 @@ describe("what the editor says about a Kenntnisnahme it may not write", () => {
     assert.match(renderedSeats, />Bestätigt am</, "the confirmation stamp is no longer shown at all");
     assert.ok(renderedSeats.includes(`value="${eingetragenVonLabel("bewerbung")}"`), "an applicant's seat does not say so");
     assert.ok(renderedSeats.includes(`value="${eingetragenVonLabel("liga")}"`), "a seat the league filled does not say so");
-    // The Stellvertretung was seated before the field: stored, so its origin is unrecorded rather than pending.
-    assert.ok(renderedSeats.includes(`value="${eingetragenVonLabel(null)}"`), "a seat stored before the field reads as one still pending");
+    // The Stellvertretung was seated before the field: stored, so its origin is unrecorded rather than
+    // pending, and its box is labelled, so it takes the labelled word.
+    assert.ok(renderedSeats.includes('value="Nicht hinterlegt"'), "a seat stored before the field reads as one still pending");
     assert.ok(renderedSeats.includes("14.03.2026"), "the stamp renders no date, or renders it as the stored string");
 
     for (const fieldName of ["erfasst_von", "eingetragen_von", "bestaetigt_am"]) {

@@ -78,7 +78,7 @@ describe("the panel a triage decision is taken from", () => {
     const html = markup({ wunschgegner: null, kontakte: { ...BEWERBUNG.kontakte, ansprechperson: { ...ansprechperson, geburtsdatum: null } } });
 
     assert.equal(textOf(factLine(html, "Geburtsdatum")), "Nicht hinterlegt");
-    assert.equal(textOf(factLine(html, "Wunschgegner")), "Nicht angegeben");
+    assert.equal(textOf(factLine(html, "Wunschgegner")), "Nicht hinterlegt");
   });
 
   /* The Herkunft is who seated the person, `eingetragen_von`: `erfasst_von` is written by nothing new

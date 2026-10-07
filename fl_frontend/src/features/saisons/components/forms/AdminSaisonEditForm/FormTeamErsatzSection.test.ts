@@ -85,6 +85,12 @@ describe("the replacement panel", () => {
         assert.equal(readout("Platz in der Saison"), "Gruppe A");
         assert.equal(readout("Angesetzte Spiele"), describeAngesetzteSpiele(4));
         assert.equal(readout("Austritt von SG Alpha"), "keiner eingetragen");
+        // A withdrawal never recorded stands where one would, so it takes the one empty grade.
+        const grade = screen.getByText("keiner eingetragen").className.split(" ");
+        assert.ok(
+          grade.includes("text-foreground-muted") && !grade.includes("italic"),
+          `the absent withdrawal is not in the empty grade: ${grade.join(" ")}`,
+        );
         assert.match(screen.getByRole("alert").textContent, new RegExp(`keinen Weg zurück\\. ${describeKaderAustragungDanach("SG Alpha")}`));
       },
     });

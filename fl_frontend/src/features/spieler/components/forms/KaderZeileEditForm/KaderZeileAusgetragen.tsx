@@ -1,14 +1,13 @@
 "use client";
 
-import { ausgetragenSeit, KADER_AUSTRAGEN_FOLGE, kaderName, OHNE_NUMMER, rolleLabel } from "@/features/spieler/constants";
-import { Angabe } from "@/shared/components/ui/Angabe";
+import { ausgetragenSeit, KADER_AUSTRAGEN_FOLGE, kaderName, rolleLabel } from "@/features/spieler/constants";
+import { Angabe, Leer } from "@/shared/components/ui/Angabe";
 import { BackButton } from "@/shared/components/ui/BackButton";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { FIELD_PAIR_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { focusSection } from "@/shared/utils/focusAfterWrite";
-import { PLACEHOLDER } from "@/shared/utils/format";
 
 import { KADERZEILE_PLACE } from "./FormKaderZeileAustragenSection";
 
@@ -21,7 +20,7 @@ import type { FLKaderZeile } from "@/features/spieler/schemas";
 export function KaderZeileAusgetragen({ zeile, kaderHref }: { zeile: FLKaderZeile & { inactive_since: string }; kaderHref: string }) {
   const panel = formPanel();
   const facts = [
-    { term: "Nummer", value: zeile.nummer ?? OHNE_NUMMER },
+    { term: "Nummer", value: zeile.nummer },
     { term: "Position", value: zeile.position },
     { term: "Stufe", value: zeile.stufe },
     { term: "Rolle", value: zeile.rolle === null ? null : rolleLabel(zeile.rolle) },
@@ -53,7 +52,7 @@ export function KaderZeileAusgetragen({ zeile, kaderHref }: { zeile: FLKaderZeil
                 <Angabe
                   key={term}
                   label={term}>
-                  {value ?? PLACEHOLDER.entity}
+                  {value ?? <Leer />}
                 </Angabe>
               ))}
             </dl>

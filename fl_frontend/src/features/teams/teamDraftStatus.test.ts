@@ -117,6 +117,6 @@ describe("deriveTeamDraftStatus", () => {
 
     const row = status.byPath.get("austritt");
     assert.equal(row?.error, "Bitte wähle, wie das Team ausgeschieden ist.");
-    assert.match(row?.draftText ?? "", /^Art offen: /);
+    assert.match(row?.draftText ?? "", /^Art nicht hinterlegt: /);
   });
 });

@@ -16,9 +16,9 @@ import {
   SCHIEDSRICHTER_KORREKTUR_HINWEIS,
   SCHIEDSRICHTER_UMFANG_LABELS,
 } from "@/features/schiedsrichter/constants";
-import { Beleg, Fassung, KeinTag } from "@/features/spieler/components/ui/Nachweis";
+import { Beleg, Fassung } from "@/features/spieler/components/ui/Nachweis";
 import { EINWILLIGUNG_FASSUNG_FRAGE, EINWILLIGUNG_MEDIEN_FRAGE, EINWILLIGUNG_MEDIEN_LABELS } from "@/features/spieler/constants";
-import { Angabe, NICHT_HINTERLEGT } from "@/shared/components/ui/Angabe";
+import { Angabe, Leer } from "@/shared/components/ui/Angabe";
 import { FocusSlot } from "@/shared/components/ui/FocusSlot";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { FIELD_PAIR_CLASSES } from "@/shared/components/ui/formFieldStyles";
@@ -59,7 +59,7 @@ function LinkStand({ bestaetigung, offenUndAbgelaufen }: { bestaetigung: FLSchie
           // A state rather than a gap: nothing reminds a referee, so „Keine Erinnerung“ is the fact
           // rather than a day that went missing.
           <Angabe label="Erinnert am">
-            {bestaetigung.erinnert_am === null ? <KeinTag>Keine Erinnerung</KeinTag> : formatSpielDatum(bestaetigung.erinnert_am)}
+            {bestaetigung.erinnert_am === null ? <Leer>Keine Erinnerung</Leer> : formatSpielDatum(bestaetigung.erinnert_am)}
           </Angabe>
         }
       />
@@ -96,7 +96,7 @@ function EinwilligungStand({
         />
       </Angabe>
       <Angabe label="Bestätigt am">
-        {einwilligung.bestaetigt_am === null ? <KeinTag>Nicht bestätigt</KeinTag> : formatSpielDatum(einwilligung.bestaetigt_am)}
+        {einwilligung.bestaetigt_am === null ? <Leer>Nicht bestätigt</Leer> : formatSpielDatum(einwilligung.bestaetigt_am)}
       </Angabe>
       {/* The key rather than a German gloss of it, which would be a second name for one wording. */}
       <Angabe label={EINWILLIGUNG_FASSUNG_FRAGE}>
@@ -107,7 +107,7 @@ function EinwilligungStand({
       </Angabe>
       {/* Beside the record because the same press wrote it, and on no field of this form: the person
           enters it themselves and no admin payload carries it. */}
-      <Angabe label="Geburtsdatum">{geburtsdatum === null ? <KeinTag>{NICHT_HINTERLEGT}</KeinTag> : formatSpielDatum(geburtsdatum)}</Angabe>
+      <Angabe label="Geburtsdatum">{geburtsdatum === null ? <Leer /> : formatSpielDatum(geburtsdatum)}</Angabe>
     </dl>
   );
 }

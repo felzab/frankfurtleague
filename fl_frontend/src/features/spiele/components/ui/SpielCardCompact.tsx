@@ -5,6 +5,7 @@ import CircleExclamation from "@gravity-ui/icons/CircleExclamation";
 import { Button } from "@heroui/react/button";
 import { Card } from "@heroui/react/card";
 
+import { Leer } from "@/shared/components/ui/Angabe";
 import { card } from "@/shared/components/ui/card";
 import { IconTooltip } from "@/shared/components/ui/IconTooltip";
 import { benannt } from "@/shared/utils/benannt";
@@ -43,7 +44,7 @@ export function SpielCardCompact({
             {/* One non-breaking unit: a date split across lines reads as two dates. */}
             <div className="flex shrink-0 flex-row items-center gap-x-2 fluid-sm font-bold whitespace-nowrap text-foreground-muted">
               {/* A comma joins the pair, never a dash: no dash is punctuation (`docs/frontend/spec.md` §1.12). */}
-              <span>{spielDatum},</span>
+              <span>{spielData.datum ? spielDatum : <Leer>{spielDatum}</Leer>},</span>
               <span>{spielUhrzeit}</span>
             </div>
 

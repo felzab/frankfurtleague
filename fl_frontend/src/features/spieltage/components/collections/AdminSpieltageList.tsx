@@ -10,6 +10,7 @@ import Pencil from "@gravity-ui/icons/Pencil";
 import { PHASE_LABELS, SAISON_PHASE_OPTIONS } from "@/features/saisons/constants";
 import { describeSpieltageCount } from "@/features/saisons/utils";
 import { SaisonPhaseChip } from "@/features/spiele/components/ui/SaisonPhaseChip";
+import { Leer } from "@/shared/components/ui/Angabe";
 import { BRAND_TILE_CLASSES } from "@/shared/components/ui/brandTile";
 import { card } from "@/shared/components/ui/card";
 import { RowActionLink, RowActions } from "@/shared/components/ui/RowActions";
@@ -177,7 +178,9 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
                         branch below would render its absence as a single placeholder date. A range
                         repeating one date twice reads as two facts. */}
                     {spieltag.beginn === null && spieltag.ende === null ? (
-                      <span className="fluid-xs text-foreground-muted">Noch kein Zeitraum</span>
+                      <span className="fluid-xs">
+                        <Leer>Noch kein Zeitraum</Leer>
+                      </span>
                     ) : (
                       <span className="font-numeric fluid-xs text-foreground-muted tabular-nums">
                         {spieltag.beginn === spieltag.ende

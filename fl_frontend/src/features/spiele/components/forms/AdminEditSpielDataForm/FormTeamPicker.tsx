@@ -18,6 +18,7 @@ import {
   toStoredSide,
 } from "@/features/spiele/utils";
 import { austrittZustand, GRUPPEN_OPTIONS } from "@/features/teams/constants";
+import { Leer } from "@/shared/components/ui/Angabe";
 import { Autocomplete } from "@/shared/components/ui/Autocomplete";
 import { labelBadge, trackLabelBadge } from "@/shared/components/ui/badges";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
@@ -291,9 +292,7 @@ export function FormTeamPicker({
       <Autocomplete.Trigger className={FIELD_TRIGGER_CLASSES}>
         {/* The name from the prop, never `Autocomplete.Value`, and `flex-1` as
             `.autocomplete__value` carries on every sibling trigger (`docs/frontend/spec.md` I30 and I61). */}
-        <span className={`min-w-0 flex-1 truncate fluid-sm ${teamPayload === null ? "text-foreground-muted" : ""}`}>
-          {teamPayload?.name ?? PLACEHOLDER.slot}
-        </span>
+        <span className="min-w-0 flex-1 truncate fluid-sm">{teamPayload === null ? <Leer>{PLACEHOLDER.slot}</Leer> : teamPayload.name}</span>
         {/* A SIBLING of the truncating span: the free space above parks it at the trailing edge,
             so the clear button does not move when a team has left the season. */}
         {selectedAustritt !== null && <span className={`${labelBadge("danger")} ms-2 shrink-0`}>{austrittZustand(selectedAustritt.type)}</span>}
@@ -334,8 +333,8 @@ export function FormTeamPicker({
             <ListBox.Item
               id={OPEN_SLOT_KEY}
               textValue={PLACEHOLDER.slot}
-              className="cursor-pointer rounded-lg px-3 py-2 fluid-xs font-semibold text-foreground-muted italic data-hovered:bg-hover">
-              {PLACEHOLDER.slot}
+              className="cursor-pointer rounded-lg px-3 py-2 fluid-xs font-semibold data-hovered:bg-hover">
+              <Leer>{PLACEHOLDER.slot}</Leer>
             </ListBox.Item>
 
             {/* A rule between two rows is an element between them, never an edge painted on one:

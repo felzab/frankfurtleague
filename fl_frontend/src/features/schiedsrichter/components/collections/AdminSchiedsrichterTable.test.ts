@@ -104,7 +104,7 @@ describe("the referee row's copy control", () => {
     ]);
 
     assert.ok(!textOf(html).includes("adresse-fehlt@frankfurtleague.invalid"), "the placeholder is shown as the row's address");
-    assert.ok(textOf(html).includes("Keine E-Mail"), "the row holding the placeholder does not say it holds no address");
+    assert.ok(textOf(html).includes("E-Mail nicht hinterlegt"), "the row holding the placeholder does not say it holds no address");
     assert.deepEqual(
       accessibleNames(html).filter((name) => name.startsWith("Kontaktdaten")),
       [],
@@ -125,8 +125,8 @@ describe("the referee row's copy control", () => {
 });
 
 describe("what a screen reader is told a row is about", () => {
-  /* The word is rendered in italics precisely so a reader takes it for a state, and italics reach a
-     screen reader as nothing: a label carrying it announces the state as this person's name. */
+  /* The word is rendered in the empty-value grade precisely so a reader takes it for a state, and the
+     grade reaches a screen reader as nothing: a label carrying it announces the state as this person's name. */
   it("names the state on a nameless row and the referee on a named one", () => {
     // Both nameless rows, because a control withheld for want of a value is a control the assertion
     // never reaches: the copy is the one this row's empty twin does not render.

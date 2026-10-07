@@ -98,7 +98,7 @@ describe("the stored consent panel", () => {
   it("leaves an unasked consent undated without borrowing the fixture placeholder", () => {
     const text = words(UEBERNOMMEN);
     assert.ok(!text.includes(PLACEHOLDER.datum), "an absent day promises a day that is coming");
-    assert.ok(text.includes("Kein Datum"), "an absent day renders as blank rather than as an absence");
+    assert.match(text, /Erteilt am\s*Nicht hinterlegt/, "an absent day renders as blank rather than as an absence");
   });
 
   it("shows the wording a record cites, and says in words where it cites none", () => {

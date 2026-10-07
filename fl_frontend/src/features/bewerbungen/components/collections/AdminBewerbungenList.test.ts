@@ -181,7 +181,7 @@ describe("which of the two the card says an application is", () => {
     const read = text(list([NOTHING_NAMED]));
 
     // First, so the absences below are read off a card that rendered at all.
-    assert.ok(read.includes("Kein Team benannt"), `the card does not render the row nothing names: ${read}`);
+    assert.ok(read.includes("Team nicht hinterlegt"), `the card does not render the row nothing names: ${read}`);
     assert.ok(!read.includes("Bestehendes Team"), "a row naming nothing is badged as a club already in the league");
     assert.ok(!read.includes("Neue Schule"), "a row naming nothing is badged as a new school");
   });
@@ -196,6 +196,6 @@ describe("a card whose cells have nothing to hold", () => {
     assert.ok(read.includes("Keine Bestätigungen angefragt"), `the cell is empty rather than answered: ${read}`);
     assert.ok(!read.includes("bestätigt"), "a count stands over an application with no per-seat state");
     assert.ok(read.includes("Keine Kontaktperson"), "the emptied seat reads as a name that failed to load");
-    assert.ok(read.includes("Keine E-Mail"), "the emptied seat's address reads as a value that failed to load");
+    assert.ok(read.includes("E-Mail nicht hinterlegt"), "the emptied seat's address reads as a value that failed to load");
   });
 });

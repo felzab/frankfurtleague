@@ -6,7 +6,7 @@ import TrashBin from "@gravity-ui/icons/TrashBin";
 
 import { anonymiseSchiedsrichterAction } from "@/features/schiedsrichter/actions";
 import { SCHIEDSRICHTER_ANONYM_LABEL } from "@/features/schiedsrichter/constants";
-import { NICHT_HINTERLEGT } from "@/shared/components/ui/Angabe";
+import { Leer } from "@/shared/components/ui/Angabe";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReadoutRow } from "@/shared/components/ui/ConfirmReadoutRow";
@@ -112,21 +112,21 @@ export function FormAnonymisierenSection({
                     outlive the person, and the word standing on them is what somebody will meet. */}
                 <ConfirmReadoutRow
                   label="Name"
-                  value={name === null ? NICHT_HINTERLEGT : `${name}, danach nur „${SCHIEDSRICHTER_ANONYM_LABEL}“`}
+                  value={name === null ? <Leer /> : `${name}, danach nur „${SCHIEDSRICHTER_ANONYM_LABEL}“`}
                 />
                 {/* The school goes with the name: beside a fixture list that never expires it narrows the
                     person to the few referees one school ever sent. */}
                 <ConfirmReadoutRow
                   label="Schule / Verein"
-                  value={schule ?? NICHT_HINTERLEGT}
+                  value={schule ?? <Leer />}
                 />
                 <ConfirmReadoutRow
                   label="E-Mail"
-                  value={kontakt.email ?? NICHT_HINTERLEGT}
+                  value={kontakt.email ?? <Leer />}
                 />
                 <ConfirmReadoutRow
                   label="Telefon"
-                  value={kontakt.telefon ?? NICHT_HINTERLEGT}
+                  value={kontakt.telefon ?? <Leer />}
                 />
                 {/* The log's own words for the pre-image it stores, so the readout names what the row
                     loses rather than a subset of it: the redaction clears the WHOLE stand. */}

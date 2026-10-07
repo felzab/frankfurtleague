@@ -17,6 +17,7 @@ import { ZUSTELLUNG_CHIP } from "@/features/bewerbungen/zustellung";
 import { deleteEinladungAction, mailEinladungAction, postEinladungAction } from "@/features/einladungen/actions";
 import { useEinladungLink } from "@/features/einladungen/components/EinladungLinkHolder";
 import { STUFE_CHIP_CLASSES } from "@/features/saisons/components/forms/StufenPicker";
+import { Leer } from "@/shared/components/ui/Angabe";
 import { Callout } from "@/shared/components/ui/Callout";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
@@ -246,7 +247,7 @@ export function FormEinladungSection({
               <dl className="flex w-full flex-col gap-y-1">
                 <ConfirmReadoutRow
                   label="Offener Link"
-                  value={einladung === null ? "Keiner" : `seit ${formatSpielDatum(einladung.erstellt_am)}`}
+                  value={einladung === null ? <Leer>Keiner</Leer> : `seit ${formatSpielDatum(einladung.erstellt_am)}`}
                 />
                 {einladung !== null && (
                   <ConfirmReadoutRow

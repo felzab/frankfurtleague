@@ -26,6 +26,7 @@ import {
   gleichesPostfach,
 } from "@/features/bewerbungen/schemas";
 import { ZUSTELLUNG_CHIP } from "@/features/bewerbungen/zustellung";
+import { Leer } from "@/shared/components/ui/Angabe";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { FocusSlot } from "@/shared/components/ui/FocusSlot";
 import { Form } from "@/shared/components/ui/Form";
@@ -94,7 +95,7 @@ const STAND_ICON = {
 } as const;
 
 /** The queue's own wording for the same fact, so the two admin surfaces read alike. */
-const KEINE_EMAIL = "Keine E-Mail";
+const EMAIL_NICHT_HINTERLEGT = "E-Mail nicht hinterlegt";
 
 const ADRESSE_BELEGT = "Diese E-Mail-Adresse ist schon bei einer anderen Person eingetragen.";
 
@@ -308,14 +309,14 @@ function SitzZeile({
         {sitz.zugleichTrainer && <span className={`${labelBadge("info")} ${STRIP_CHIP_CLASSES}`}>Zugleich Trainer</span>}
 
         <span className="min-w-0 fluid-sm font-medium text-foreground">
-          {sitz.name === null ? <span className="text-foreground-muted italic">{sitz.nameSatz}</span> : sitz.nameSatz}
+          {sitz.name === null ? <Leer>{sitz.nameSatz}</Leer> : sitz.nameSatz}
         </span>
 
         {/* The foreground grade rather than the queue's muted one: it is the value the pencil beside
             it edits and the thing the delivery chip is about. */}
         {sitz.name !== null && (
           <span className="max-w-full min-w-0 truncate fluid-xs font-medium text-foreground">
-            {sitz.email ?? <span className="text-foreground-muted italic">{KEINE_EMAIL}</span>}
+            {sitz.email ?? <Leer>{EMAIL_NICHT_HINTERLEGT}</Leer>}
           </span>
         )}
 

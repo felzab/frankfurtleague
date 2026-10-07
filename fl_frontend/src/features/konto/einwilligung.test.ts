@@ -99,6 +99,13 @@ describe("the consent writes' mappers", () => {
     });
   }
 
+  /* The words themselves, through the mapper: the table above takes the sentence from the module it tests. */
+  it("tells a pupil whose registration closed to reload, in sentences of their own", () => {
+    assert.deepEqual(mapRegistrierungEinwilligungRefusal(refusedOn(MAPPERS[2][1], "REQ-FUNKTION-001", 403)), {
+      error: "Diese Registrierung ist nicht mehr offen. Lade die Seite neu. Dort steht, was jetzt für Dich gilt.",
+    });
+  });
+
   it("gives each cause its own sentence", () => {
     const saetze = [EINTRAG_WEG, BEWERBUNG_NICHT_MEHR_OFFEN, REGISTRIERUNG_NICHT_MEHR_OFFEN, NUR_WIDERRUF, MEDIEN_ZU_JUNG];
     assert.equal(new Set(saetze).size, saetze.length);
