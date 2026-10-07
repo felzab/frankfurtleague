@@ -694,6 +694,12 @@ other sections running beside it, so neither figure ever stands in for the other
 A command-line `-m` overrides it — addopts are prepended rather than merged — so `pytest -m db` runs
 exactly what the default run skips.
 
+**`pytest -m db` imports only the test modules whose source spells a db case**
+(`fl_backend/tests/db_modules.py`): `@pytest.mark.db` at a line's start, or a `pytestmark` line
+naming it. A db case spelled any other way — the marker imported bare, or carried by a
+`pytest.param` — fails its module's collection by name in every run collecting whole modules, the
+default tier's among them, rather than leaving the tier unseen.
+
 **A test that touches the database carries `@pytest.mark.db`.** Without it the test runs in the fast
 tier, where there is no container, and passes only where a server happens to answer.
 `--strict-markers` catches a misspelled marker, and `fl_backend/tests/tier.py` fails an unmarked
