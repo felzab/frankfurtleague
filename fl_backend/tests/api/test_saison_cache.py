@@ -1,5 +1,6 @@
 import ast
 import asyncio
+import functools
 import inspect
 import sys
 import textwrap
@@ -332,6 +333,14 @@ def _drops(node: ast.AST) -> bool:
     )
 
 
+@functools.cache
+def _source_of(function: Any) -> ast.Module:
+    """Cached: most handlers reach the same helpers, and every xdist worker runs the sweep below at collection to parametrize it."""
+
+    # Dedented, so a handler that is not at column zero still parses.
+    return ast.parse(textwrap.dedent(inspect.getsource(function)))
+
+
 def _writes_the_season_inside_the_drop(endpoint: Any) -> bool:
     """Whether a season write is reached from INSIDE `with dropping_the_saison_cache()`, never merely beside one.
 
@@ -339,7 +348,7 @@ def _writes_the_season_inside_the_drop(endpoint: Any) -> bool:
     `with_transaction` uncalled, and into this package's functions.
     """
 
-    tree = ast.parse(textwrap.dedent(inspect.getsource(endpoint)))
+    tree = _source_of(endpoint)
     names = _season_collection_names(tree)
     namespace = vars(sys.modules[endpoint.__module__])
     nested = {node.name: node for node in ast.walk(tree) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))}
@@ -351,11 +360,7 @@ def _writes_the_season_inside_the_drop(endpoint: Any) -> bool:
             block = pending.pop()
             if _writes_the_season(block, names=names):
                 return True
-            if any(
-                _writes_the_season(reached)
-                for called in _called_functions(ast.walk(block), namespace)
-                for reached in _source_reached_by(called)
-            ):
+            if any(_reaches_a_season_write(called) for called in _called_functions(ast.walk(block), namespace)):
                 return True
 
             for name in {node.id for node in ast.walk(block) if isinstance(node, ast.Name) and node.id in nested} - followed:
@@ -392,7 +397,7 @@ def _writes_the_season_outside_the_drop(endpoint: Any) -> bool:
             continue
         walked.add(function)
 
-        tree = ast.parse(textwrap.dedent(inspect.getsource(function)))
+        tree = _source_of(function)
         names = _season_collection_names(tree)
         namespace = vars(sys.modules[function.__module__])
         nested = {node.name: node for node in ast.walk(tree) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))}
@@ -444,14 +449,23 @@ def _called_functions(nodes: Iterable[ast.AST], namespace: Mapping[str, Any]) ->
     return resolved
 
 
-def _source_reached_by(endpoint: Any) -> tuple[ast.AST, ...]:
-    """The handler's own source and every helper it reaches, however deep.
+@functools.cache
+def _calls_of(function: Any) -> tuple[FunctionType, ...]:
+    return tuple(_called_functions(ast.walk(_source_of(function)), vars(sys.modules[function.__module__])))
+
+
+@functools.cache
+def _writes_the_season_itself(function: Any) -> bool:
+    return _writes_the_season(_source_of(function))
+
+
+def _reaches_a_season_write(endpoint: Any) -> bool:
+    """Whether the handler's own source or any helper it reaches, however deep, writes a season.
 
     A refusal helper takes the season's own write inside its caller's transaction
     (`app/api/teams/crud.py :: refuse_a_full_gruppe`), where a handler-only sweep cannot see it.
     """
 
-    reached: list[ast.AST] = []
     walked: set[Any] = set()
     pending: list[Any] = [endpoint]
     while pending:
@@ -460,12 +474,11 @@ def _source_reached_by(endpoint: Any) -> tuple[ast.AST, ...]:
             continue
         walked.add(current)
 
-        # Dedented, so a handler that is not at column zero still parses.
-        tree = ast.parse(textwrap.dedent(inspect.getsource(current)))
-        reached.append(tree)
-        pending.extend(_called_functions(ast.walk(tree), vars(sys.modules[current.__module__])))
+        if _writes_the_season_itself(current):
+            return True
+        pending.extend(_calls_of(current))
 
-    return tuple(reached)
+    return False
 
 
 def _season_write_handlers() -> dict[str, Any]:
@@ -483,7 +496,7 @@ def _season_write_handlers() -> dict[str, Any]:
             endpoint = getattr(route, "endpoint", None)
             if endpoint is None or not getattr(route, "methods", set()) & WRITE_METHODS:
                 continue
-            if any(_writes_the_season(tree) for tree in _source_reached_by(endpoint)):
+            if _reaches_a_season_write(endpoint):
                 handlers[endpoint.__name__] = endpoint
 
     return handlers
