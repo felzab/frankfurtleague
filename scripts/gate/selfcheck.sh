@@ -854,7 +854,14 @@ for (const name of names) if (!groups.some((group) => takes(group.matcher || "",
   # Queued, then answered by one node importing the reader's `refusal`: a node pair per arm cost this
   # step most of its time.
   SUITE_ROUTES=(); SUITE_EXPECTS=(); SUITE_AGENTS=(); SUITE_TOOLS=(); SUITE_COMMANDS=()
+  # How many arms the answer pass judged, -1 until it has run: the step's last check compares it with
+  # the queue, so a pass deleted or a probe queued after it fails rather than judging nothing.
+  SUITE_JUDGED=-1
   suite_queue() { # $1 refused or through · $2 agent type, empty for the main session · $3 tool · $4 command
+    if (( SUITE_JUDGED >= 0 )); then
+      note_fail "whole-suite hook: ${3} '${4}' was queued after the arms were answered, so nothing judged it"
+      return 0
+    fi
     SUITE_ROUTES+=("${suite_route:-reader}"); SUITE_EXPECTS+=("$1")
     SUITE_AGENTS+=("$2"); SUITE_TOOLS+=("$3"); SUITE_COMMANDS+=("$4")
   }
@@ -866,6 +873,7 @@ for (const name of names) if (!groups.some((group) => takes(group.matcher || "",
   suite_answer_queued() {
     local arms="${SELFCHECK_TMP}/suite-arms" answers="${SELFCHECK_TMP}/suite-answers" rc=0 i said unanswered
     local -a answered=()
+    SUITE_JUDGED=0
     : > "$arms"
     for i in "${!SUITE_EXPECTS[@]}"; do
       printf '%s\0%s\0%s\0%s\0' "${SUITE_ROUTES[i]}" "${SUITE_AGENTS[i]}" "${SUITE_TOOLS[i]}" "${SUITE_COMMANDS[i]}" >> "$arms"
@@ -908,6 +916,7 @@ import(pathToFileURL(reader).href).then(({ refusal }) => {
         esac
       elif [[ "$said" == "0 " ]]; then info "whole-suite hook: ${1:-the main session} ${2} '${3}' — let through"
       else note_fail "whole-suite hook: ${1:-the main session} ${2} '${3}' must exit 0 silently, got '${said:0:200}'"; fi
+      SUITE_JUDGED=$(( SUITE_JUDGED + 1 ))
     done
   }
   # One probe per arm of the reader, every member of its word lists included: an arm no probe reaches
@@ -1137,6 +1146,12 @@ process.exit(said.hookEventName === "SubagentStart" && absolute && /own worktree
     if [[ -z "$definition_said" ]]; then info "definition hook: ${definition_case%%|*} — silent"
     else note_fail "definition hook: ${definition_case%%|*} must stay silent, got '${definition_said:0:200}'"; fi
   done
+
+  if (( ${#SUITE_EXPECTS[@]} > 0 && SUITE_JUDGED == ${#SUITE_EXPECTS[@]} )); then
+    info "whole-suite hook: all ${SUITE_JUDGED} queued arms judged"
+  else
+    note_fail "whole-suite hook: ${#SUITE_EXPECTS[@]} arm(s) were queued and $(( SUITE_JUDGED < 0 ? 0 : SUITE_JUDGED )) judged — suite_answer_queued must run once, after the last probe is queued"
+  fi
 fi
 
 step "13. Every deliberate non-run reaches the gate"
