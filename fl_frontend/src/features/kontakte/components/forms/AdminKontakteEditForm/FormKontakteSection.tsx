@@ -24,10 +24,12 @@ import {
   TRAINER_ZUGLEICH_FRAGE,
 } from "@/features/teams/constants";
 import { buildEmptyKontakte } from "@/features/teams/utils";
+import { LEER_CLASSES } from "@/shared/components/ui/Angabe";
 import { AppDatePicker } from "@/shared/components/ui/DateTimeFields";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import {
   FIELD_ERROR_CLASSES,
+  FIELD_INPUT_BOX_CLASSES,
   FIELD_INPUT_CLASSES,
   FIELD_PAIR_CLASSES,
   FORM_SECTION_HEADING_CLASSES,
@@ -81,6 +83,9 @@ function istEinladbar(stored: FLSaisonTeamKontakte | null, rolle: KontaktRolle):
   const gepaart = stored?.trainer_ist_zugleich ?? null;
   return !(rolle === "trainer" && gepaart !== null && unbestaetigt(gepaart));
 }
+
+/** A read-only box's value, in the empty-value grade where it is a stand-in word rather than a value. */
+const readoutClasses = (isStandIn: boolean): string => (isStandIn ? `${FIELD_INPUT_BOX_CLASSES} ${LEER_CLASSES}` : FIELD_INPUT_CLASSES);
 
 /** The empty string is a date nobody has entered yet, which the picker has to show as empty rather than refuse. */
 function toCalendarDate(stored: string): CalendarDate | null {
@@ -491,7 +496,7 @@ function KontaktpersonInputs({
           value={formatSpielDatum(person.geburtsdatum, kontaktGeburtsdatumLeer(person.einwilligung.bestaetigt_am))}
           onChange={() => undefined}>
           <FieldLabel<KontakteFieldPath> path={`kontakte.${rolle}`}>Geburtsdatum</FieldLabel>
-          <Input className={FIELD_INPUT_CLASSES} />
+          <Input className={readoutClasses(person.geburtsdatum === null)} />
         </TextField>
       </div>
 
@@ -512,7 +517,7 @@ function KontaktpersonInputs({
             }
             onChange={() => undefined}>
             <FieldLabel<KontakteFieldPath> path={`kontakte.${rolle}.einwilligung`}>Eingetragen</FieldLabel>
-            <Input className={FIELD_INPUT_CLASSES} />
+            <Input className={readoutClasses(person.einwilligung.eingetragen_von === null)} />
           </TextField>
 
           <TextField
@@ -520,7 +525,7 @@ function KontaktpersonInputs({
             value={formatSpielDatum(person.einwilligung.bestaetigt_am, NOCH_NICHT_BESTAETIGT)}
             onChange={() => undefined}>
             <FieldLabel<KontakteFieldPath> path={`kontakte.${rolle}.einwilligung`}>Bestätigt am</FieldLabel>
-            <Input className={FIELD_INPUT_CLASSES} />
+            <Input className={readoutClasses(person.einwilligung.bestaetigt_am === null)} />
           </TextField>
         </div>
 

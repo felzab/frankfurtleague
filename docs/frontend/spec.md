@@ -2027,11 +2027,11 @@ holds whether a conditional block renders or not
   `bg-brand-solid-foreground` on a brand tile
   (`fl_frontend/src/features/meta/components/views/KontaktView.tsx`).
 - **Empty is muted and upright, through one component on every page**
-  (`fl_frontend/src/shared/components/ui/Angabe.tsx :: Leer`, my rule, 2026-10-07): every word
-  standing where a value would, a value nobody recorded, an absent or withheld name, a slot or a
-  date still open, a state word in a value's place. The slot keeps its own size and weight, so the
-  hierarchy holds. A sentence saying where a step stands is the value itself, and a message about
-  an empty list is no value; neither takes it.
+  (`fl_frontend/src/shared/components/ui/Angabe.tsx :: Leer`, my rule, 2026-10-07): everything
+  standing where a value would, word or sentence, a value nobody recorded, an absent or withheld
+  name, a slot or a date still open, a state or a step not yet taken. The slot keeps its own size
+  and weight, so the hierarchy holds; a control that cannot hold the component, a read-only box,
+  takes its classes (`:: LEER_CLASSES`). Only a message about an empty list keeps its own style.
 - **An admin list row built on `fl_frontend/src/shared/components/ui/adminTable.ts` leads with one
   identity block** — the entity's own token, its name, the row's
   pills and one or two muted lines

@@ -191,7 +191,9 @@ export function FormRolloverSection({
                     <span className="flex h-6 min-w-8 shrink-0 items-center justify-center rounded-md bg-muted fluid-xxs font-extrabold text-foreground-muted">
                       {spiel.spielNr}
                     </span>
-                    <span className="min-w-0 flex-1 truncate fluid-xs font-semibold text-foreground">{spiel.paarung}</span>
+                    <span className="min-w-0 flex-1 truncate fluid-xs font-semibold text-foreground">
+                      {spiel.paarung.team1 ?? <Leer>{PLACEHOLDER.slot}</Leer>} gegen {spiel.paarung.team2 ?? <Leer>{PLACEHOLDER.slot}</Leer>}
+                    </span>
                     <span className="shrink-0 fluid-xxs text-foreground-muted">
                       {spiel.datum ? formatSpielDatum(spiel.datum) : <Leer>{PLACEHOLDER.datum}</Leer>}
                     </span>

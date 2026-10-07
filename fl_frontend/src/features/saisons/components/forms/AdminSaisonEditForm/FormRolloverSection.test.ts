@@ -11,7 +11,9 @@ import { render, screen } from "@testing-library/react";
 import { SPIELTAGE_UNDATED } from "@/features/saisons/constants.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { closedControl } from "@/shared/testing/closedControl.ts";
+import { assertLeer } from "@/shared/testing/leerGrade.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
+import { PLACEHOLDER } from "@/shared/utils/format.ts";
 
 /** A write nobody has answered yet: no case here presses, and a real one needs a session and a backend. */
 doubleActions({ modules: ["/src/features/saisons/actions.ts"], answer: () => new Promise<never>(() => undefined) });
@@ -42,6 +44,20 @@ const panel = (props: RolloverProps) => underNext(h(FormRolloverSection, props))
 function calloutBody(title: string): string | null {
   return screen.getByText(title).nextElementSibling?.textContent ?? null;
 }
+
+describe("the rollover panel's unfinished fixtures", () => {
+  /* A knockout side the bracket has not filled stands where a club's name would, so it takes the one
+     empty grade, and so does an undated fixture's open appointment. */
+  it("sets an open slot and an open date in the empty-value grade", () => {
+    const offen = { id: "6890a1b2c3d4e5f607190401", spielNr: 31, datum: null, paarung: { team1: "SG Alpha", team2: null } };
+    const { unmount } = render(panel({ ...OPEN, rollover: { ...OPEN.rollover, outgoingSaisonId: "2025", offeneSpiele: [offen] } }));
+
+    assert.ok(screen.getByText(/SG Alpha gegen/), "the filled side lost its name");
+    assertLeer(screen.getByText(PLACEHOLDER.slot), PLACEHOLDER.slot);
+    assertLeer(screen.getByText(PLACEHOLDER.datum), PLACEHOLDER.datum);
+    unmount();
+  });
+});
 
 describe("the rollover panel's blocked states", () => {
   /* Both closures are said in the body as well as on the control, and each names the panel that repairs

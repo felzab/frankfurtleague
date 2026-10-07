@@ -15,7 +15,10 @@ const FIELD_HEIGHT_CLASSES = "h-10";
  * `data-slot` attributes; repeating them is how they drifted before.
  * `border-control`, never `border-border`: a field's border alone identifies it.
  */
-export const FIELD_INPUT_CLASSES = `border-control bg-surface fluid-sm text-foreground ${FIELD_HEIGHT_CLASSES} flex items-center rounded-lg border px-3 py-0 transition-colors outline-none`;
+export const FIELD_INPUT_BOX_CLASSES = `border-control bg-surface fluid-sm ${FIELD_HEIGHT_CLASSES} flex items-center rounded-lg border px-3 py-0 transition-colors outline-none`;
+
+/** The ink apart from the box: a read-only stand-in takes the empty grade's, and two inks in one string go by stylesheet order. */
+export const FIELD_INPUT_CLASSES = `${FIELD_INPUT_BOX_CLASSES} text-foreground`;
 
 /**
  * The one multi-line field; `border-control`, never `border-border`, a field's border alone identifying it.

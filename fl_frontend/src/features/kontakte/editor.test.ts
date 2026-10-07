@@ -1633,6 +1633,13 @@ describe("whose birthdate a seat holds, and who may put one there", () => {
     const box = birthdateBox(sectionMarkup(WITHOUT_BIRTHDATE), "trainer");
 
     assert.ok(box.includes("Trägt die Person selbst ein"), "an undated seat leaves the reader without who fills the field");
+    // A step in a value's place takes the empty-value grade, and never a second ink beside it.
+    const classes = /class="([^"]*)"/.exec(box)?.[1]?.split(" ") ?? [];
+    assert.ok(
+      classes.includes("text-foreground-muted") && classes.includes("not-italic"),
+      `the stand-in reads as a value: ${classes.join(" ")}`,
+    );
+    assert.ok(!classes.includes("text-foreground"), `the stand-in carries the value's ink as well: ${classes.join(" ")}`);
   });
 
   /* Once the person has confirmed, the date was theirs to give and was not: a field held empty, in the

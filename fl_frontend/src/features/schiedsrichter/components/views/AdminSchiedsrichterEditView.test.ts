@@ -5,6 +5,7 @@ import { createElement as h } from "react";
 
 import { SCHIEDSRICHTER_OHNE_NAMEN_LABEL } from "@/features/schiedsrichter/constants.ts";
 import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
+import { assertLeerMarkup } from "@/shared/testing/leerGrade.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
@@ -56,5 +57,6 @@ describe("which page a referee's editor route answers with", () => {
      difference: the heading has to say this row is merely unfinished. */
   it("heads the nameless row with the word the list uses for it", () => {
     assert.match(textOf(view({ name: null, inactiveSince: null }), " "), new RegExp(SCHIEDSRICHTER_OHNE_NAMEN_LABEL));
+    assertLeerMarkup(view({ name: null, inactiveSince: null }), SCHIEDSRICHTER_OHNE_NAMEN_LABEL);
   });
 });
