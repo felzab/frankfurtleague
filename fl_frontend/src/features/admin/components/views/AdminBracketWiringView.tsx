@@ -89,7 +89,9 @@ function SlotWiring({
       {/* `break-words` and not `truncate`: a review surface that hides half a club's name cannot be
           finished, and the row is free to grow. */}
       {team === null ? (
-        <Leer>{PLACEHOLDER.slot}</Leer>
+        <span className="max-w-full font-bold break-words">
+          <Leer>{PLACEHOLDER.slot}</Leer>
+        </span>
       ) : (
         <strong className="max-w-full font-bold break-words text-foreground">{team.name}</strong>
       )}

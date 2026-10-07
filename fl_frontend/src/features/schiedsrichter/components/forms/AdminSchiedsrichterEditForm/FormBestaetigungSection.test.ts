@@ -14,6 +14,7 @@ import { SCHIEDSRICHTER_KORREKTUR_HINWEIS } from "@/features/schiedsrichter/cons
 import { EINWILLIGUNG_FASSUNG_FRAGE, EINWILLIGUNG_MEDIEN_FRAGE, EINWILLIGUNG_MEDIEN_LABELS } from "@/features/spieler/constants.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { closedControl } from "@/shared/testing/closedControl.ts";
+import { assertLeerMarkup } from "@/shared/testing/leerGrade.ts";
 import { nextRouter, recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
@@ -115,6 +116,7 @@ describe("what the editor shows about a referee's own confirmation", () => {
 
   it("says in words where the record cites no label, and shows a known one as its key", () => {
     assert.equal(fassungRow({ einwilligung: { ...BESTAETIGT, text_version: null } }), "Nicht hinterlegt");
+    assertLeerMarkup(renderTree(panel({ einwilligung: { ...BESTAETIGT, text_version: null } })), "Nicht hinterlegt");
     assert.equal(fassungRow({ einwilligung: BESTAETIGT }), String(BESTAETIGT.text_version));
   });
 

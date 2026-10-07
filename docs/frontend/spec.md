@@ -1455,9 +1455,9 @@ where a comment quotes a rendered string, which tracks it. The wording rules:
   which no grep for the noun will find; `sideLabel` also numbers a fixture's two seats `Team`, so a
   sentence naming both says the club by name.
 - **An empty stored field reads „Nicht hinterlegt“, whatever the field is about** (my rule,
-  2026-10-07): `fl_frontend/src/shared/components/ui/Angabe.tsx :: NICHT_HINTERLEGT` where a label
-  stands beside the value, and „<Feld> nicht hinterlegt“ where none does, a chip, a line of facts or
-  a screen-reader text („Nummer nicht hinterlegt“). A state or an event that did not happen keeps its
+  2026-10-07): `fl_frontend/src/shared/utils/format.ts :: NICHT_HINTERLEGT` where a label stands
+  beside the value, a table's column heading included, a glyph such as `#` too, and `:: nichtHinterlegt`'s „<Feld> nicht hinterlegt“ where none does, a chip, a
+  line of facts or a screen-reader text („Nummer nicht hinterlegt“). A state or an event that did not happen keeps its
   own words („Nicht bestätigt“, „Termin offen“, „Noch offen“), and so does a record's own name
   („Eintrag ohne Namen“). A picker's „Keine Angabe“ row is a choice that clears the field, not a
   readout.
@@ -2027,11 +2027,11 @@ holds whether a conditional block renders or not
   `bg-brand-solid-foreground` on a brand tile
   (`fl_frontend/src/features/meta/components/views/KontaktView.tsx`).
 - **Empty is muted and upright, through one component on every page**
-  (`fl_frontend/src/shared/components/ui/Angabe.tsx :: Leer`, my rule, 2026-10-07): every word
-  standing where a value would, a value nobody recorded, an absent or withheld name, a slot or a
-  date still open, a state word in a value's place. The slot keeps its own size and weight, so the
-  hierarchy holds. A sentence saying where a step stands is the value itself, and a message about
-  an empty list is no value; neither takes it.
+  (`fl_frontend/src/shared/components/ui/Angabe.tsx :: Leer`, my rule, 2026-10-07): everything
+  standing where a value would, word or sentence, a value nobody recorded, an absent or withheld
+  name, a slot or a date still open, a state or a step not yet taken. The slot keeps its own size
+  and weight, so the hierarchy holds; a control that cannot hold the component, a read-only box,
+  takes its classes (`:: LEER_CLASSES`). Only a message about an empty list keeps its own style.
 - **An admin list row built on `fl_frontend/src/shared/components/ui/adminTable.ts` leads with one
   identity block** — the entity's own token, its name, the row's
   pills and one or two muted lines

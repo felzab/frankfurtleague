@@ -3,6 +3,7 @@ import "@/shared/testing/renderTest.ts";
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { assertLeerMarkup } from "@/shared/testing/leerGrade.ts";
 import { renderMarkup, textOf } from "@/shared/testing/renderTest.ts";
 
 /* Reached after the harness above has evaluated, which is when the JSX compile step is registered. */
@@ -14,6 +15,7 @@ const fassung = (textVersion: string | null, istBekannt: boolean | null): string
 describe("the stored label a consent readout shows", () => {
   it("says a record cites no label in words, never as an empty cell", () => {
     assert.equal(fassung(null, true).trim(), "Nicht hinterlegt");
+    assertLeerMarkup(renderMarkup(Fassung, { textVersion: null, istBekannt: true }), "Nicht hinterlegt");
   });
 
   it("shows a known label as its key alone", () => {

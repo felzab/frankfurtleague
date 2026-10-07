@@ -5,6 +5,7 @@ import { createElement as h } from "react";
 
 import { KONTAKT_ROLLEN } from "@/features/teams/constants.ts";
 import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
+import { assertLeerMarkup } from "@/shared/testing/leerGrade.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
 
@@ -98,6 +99,7 @@ describe("the seats a contacts card carries", () => {
     const nextSeat = at(html, labelOf("trainer"));
 
     assert.ok(at(html, "Niemand hinterlegt") > emptySeat, "the empty seat's cell says nothing about being empty");
+    assertLeerMarkup(html, "Niemand hinterlegt");
     assert.ok(at(html, "Niemand hinterlegt") < nextSeat, "the emptiness stands outside the cell of the seat it is about");
     assert.ok(nextSeat > emptySeat, "the seats no longer stand in the order they arrived");
     assert.ok(at(html, PEOPLE.trainer.email) > nextSeat, "the Trainer's address stands under the emptied seat");

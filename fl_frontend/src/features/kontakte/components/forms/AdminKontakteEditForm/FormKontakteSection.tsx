@@ -20,14 +20,16 @@ import {
   KONTAKT_ROLLEN,
   KONTAKT_WHATSAPP_FRAGE,
   KONTAKT_WHATSAPP_LABELS,
+  kontaktGeburtsdatumLeer,
   TRAINER_ZUGLEICH_FRAGE,
 } from "@/features/teams/constants";
 import { buildEmptyKontakte } from "@/features/teams/utils";
-import { NICHT_HINTERLEGT } from "@/shared/components/ui/Angabe";
+import { LEER_CLASSES } from "@/shared/components/ui/Angabe";
 import { AppDatePicker } from "@/shared/components/ui/DateTimeFields";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import {
   FIELD_ERROR_CLASSES,
+  FIELD_INPUT_BOX_CLASSES,
   FIELD_INPUT_CLASSES,
   FIELD_PAIR_CLASSES,
   FORM_SECTION_HEADING_CLASSES,
@@ -40,7 +42,7 @@ import { Switch } from "@/shared/components/ui/Switch";
 import { TextField } from "@/shared/components/ui/TextField";
 import { textLink } from "@/shared/components/ui/textLink";
 import { focusSection } from "@/shared/utils/focusAfterWrite";
-import { formatSpielDatum } from "@/shared/utils/format";
+import { formatSpielDatum, NICHT_HINTERLEGT } from "@/shared/utils/format";
 import { FASSUNG_UNLESBAR } from "@/shared/utils/refusal";
 
 import { FormKontaktEinladen } from "./FormKontaktEinladen";
@@ -68,12 +70,6 @@ const NOCH_OFFEN = "Noch offen";
 const NOCH_NICHT_BESTAETIGT = "Noch nicht bestätigt";
 
 /**
- * Names WHO fills it rather than reporting that nobody has: `NOCH_OFFEN` on a read-only box reads as
- * a field the administrator is expected to get round to.
- */
-const TRAEGT_DIE_PERSON_EIN = "Trägt die Person selbst ein";
-
-/**
  * Any seat whose person has not confirmed takes a re-send. A pair shares one link, so its press
  * stands on the named seat while that is open and on the Trainer once the named seat alone is confirmed.
  */
@@ -87,6 +83,9 @@ function istEinladbar(stored: FLSaisonTeamKontakte | null, rolle: KontaktRolle):
   const gepaart = stored?.trainer_ist_zugleich ?? null;
   return !(rolle === "trainer" && gepaart !== null && unbestaetigt(gepaart));
 }
+
+/** A read-only box's value, in the empty-value grade where it is a stand-in word rather than a value. */
+const readoutClasses = (isStandIn: boolean): string => (isStandIn ? `${FIELD_INPUT_BOX_CLASSES} ${LEER_CLASSES}` : FIELD_INPUT_CLASSES);
 
 /** The empty string is a date nobody has entered yet, which the picker has to show as empty rather than refuse. */
 function toCalendarDate(stored: string): CalendarDate | null {
@@ -494,10 +493,10 @@ function KontaktpersonInputs({
             the payload carries no `geburtsdatum` for a message to land on (`docs/backend/spec.md :: I141`). */}
         <TextField
           isReadOnly
-          value={formatSpielDatum(person.geburtsdatum, TRAEGT_DIE_PERSON_EIN)}
+          value={formatSpielDatum(person.geburtsdatum, kontaktGeburtsdatumLeer(person.einwilligung.bestaetigt_am))}
           onChange={() => undefined}>
           <FieldLabel<KontakteFieldPath> path={`kontakte.${rolle}`}>Geburtsdatum</FieldLabel>
-          <Input className={FIELD_INPUT_CLASSES} />
+          <Input className={readoutClasses(person.geburtsdatum === null)} />
         </TextField>
       </div>
 
@@ -518,7 +517,7 @@ function KontaktpersonInputs({
             }
             onChange={() => undefined}>
             <FieldLabel<KontakteFieldPath> path={`kontakte.${rolle}.einwilligung`}>Eingetragen</FieldLabel>
-            <Input className={FIELD_INPUT_CLASSES} />
+            <Input className={readoutClasses(person.einwilligung.eingetragen_von === null)} />
           </TextField>
 
           <TextField
@@ -526,7 +525,7 @@ function KontaktpersonInputs({
             value={formatSpielDatum(person.einwilligung.bestaetigt_am, NOCH_NICHT_BESTAETIGT)}
             onChange={() => undefined}>
             <FieldLabel<KontakteFieldPath> path={`kontakte.${rolle}.einwilligung`}>Bestätigt am</FieldLabel>
-            <Input className={FIELD_INPUT_CLASSES} />
+            <Input className={readoutClasses(person.einwilligung.bestaetigt_am === null)} />
           </TextField>
         </div>
 

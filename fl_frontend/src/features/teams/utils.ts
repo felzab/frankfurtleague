@@ -101,7 +101,7 @@ export const computeQualifyingTeamIds = ({
 
 /**
  * Numbered as a `Platz` is (`docs/glossary.md :: Platz`), walking past a row that can hold none.
- * **A club absent from this map is the table's `N/A`**, so nothing may restate the rule at a cell.
+ * **A club absent from this map is the table's „Kein Platz“**, so nothing may restate the rule at a cell.
  */
 export const computePlatzByTeamId = (teams: readonly FLGruppenTeam[]): ReadonlyMap<string, number> => {
   const platzByTeamId = new Map<string, number>();

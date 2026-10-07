@@ -9,7 +9,8 @@ import { createElement as h } from "react";
 import { render, screen } from "@testing-library/react";
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
-const { Leer, NICHT_HINTERLEGT } = await import("./Angabe.tsx");
+const { Leer } = await import("./Angabe.tsx");
+const { NICHT_HINTERLEGT } = await import("@/shared/utils/format.ts");
 
 describe("the one grade an empty value takes", () => {
   it("reads an empty stored fact as „Nicht hinterlegt“ unless told its own words", () => {

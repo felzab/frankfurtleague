@@ -5,7 +5,7 @@ import { Angabe, Leer } from "@/shared/components/ui/Angabe";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { FIELD_PAIR_CLASSES, FORM_SECTION_HEADING_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { textLink } from "@/shared/components/ui/textLink";
-import { formatSpielDatum } from "@/shared/utils/format";
+import { formatSpielDatum, nichtHinterlegt } from "@/shared/utils/format";
 import { withSaisonId } from "@/shared/utils/saisonHref";
 
 import { ausgetragenSeit, kaderName, NUMMER_NICHT_HINTERLEGT, rolleLabel } from "../../constants";
@@ -17,7 +17,7 @@ import type { FLSpielerSelbst, FLSpielerSelbstKaderZeile } from "../../schemas";
 function KaderEintrag({ zeile }: { zeile: FLSpielerSelbstKaderZeile }) {
   const fakten: readonly (readonly [string, ReactNode])[] = [
     ["nummer", zeile.nummer === null ? <Leer>{NUMMER_NICHT_HINTERLEGT}</Leer> : `Nummer ${zeile.nummer}`],
-    ["position", zeile.position ?? <Leer>Position nicht hinterlegt</Leer>],
+    ["position", zeile.position ?? <Leer>{nichtHinterlegt("Position")}</Leer>],
     ...(zeile.stufe === null ? [] : [["stufe", zeile.stufe] as const]),
     ...(zeile.rolle === null ? [] : [["rolle", rolleLabel(zeile.rolle)] as const]),
   ];

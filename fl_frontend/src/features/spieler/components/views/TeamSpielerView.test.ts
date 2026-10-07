@@ -8,6 +8,7 @@ import { createElement as h } from "react";
 
 import { render, screen } from "@testing-library/react";
 
+import { assertLeer } from "@/shared/testing/leerGrade.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 
 import { SPIELER_ANONYM_LABEL } from "../../constants.ts";
@@ -93,19 +94,17 @@ describe("a squad row whose name the publication gate withheld", () => {
   });
 
   /* The empty-value grade every page gives a word standing where a value would
-     (`fl_frontend/src/shared/components/ui/Angabe.tsx :: Leer`), below a name's weight: at a name's
-     weight the stand-in word reads as somebody's name rather than as the state it is. */
-  it("sets the withheld word apart from a name, and leaves a published one at a name's grade", () => {
+     (`fl_frontend/src/shared/components/ui/Angabe.tsx :: Leer`), at the slot's own size and weight:
+     the grade alone tells the stand-in word from a name, so the hierarchy holds. */
+  it("sets the withheld word apart from a name by the grade alone, at a name's weight", () => {
     shown([VEROEFFENTLICHT, ZURUECKGEHALTEN]);
 
     const withheldWord = screen.getByText(SPIELER_ANONYM_LABEL);
-    const withheld = withheldWord.className.split(/\s+/);
     const slot = withheldWord.parentElement?.className.split(/\s+/) ?? [];
     const named = screen.getByText("Alina F.").className.split(/\s+/);
 
-    assert.ok(withheld.includes("text-foreground-muted"), `the withheld word keeps a name's ink: ${withheld.join(" ")}`);
-    assert.ok(!withheld.includes("italic"), `the withheld word is slanted: ${withheld.join(" ")}`);
-    assert.ok(!slot.includes("font-bold"), `the withheld word keeps a name's weight: ${slot.join(" ")}`);
+    assertLeer(withheldWord, SPIELER_ANONYM_LABEL);
+    assert.ok(slot.includes("font-bold") && slot.includes("fluid-xs"), `the withheld word lost a name's size or weight: ${slot.join(" ")}`);
     assert.ok(named.includes("font-bold") && !named.includes("text-foreground-muted"), `a stored name lost its own grade: ${named.join(" ")}`);
   });
 
@@ -120,17 +119,13 @@ describe("a squad row whose name the publication gate withheld", () => {
 });
 
 describe("a squad row holding no number and no position", () => {
-  /* The number column is headed by a glyph, so its cell names the field; the position column's
-     heading names its own, so that cell takes the labelled word. */
-  it("names the empty number and leaves the empty position to its heading", () => {
+  /* Each column's heading is its cell's label, the number's `#` included, so both empty cells take the
+     labelled word. */
+  it("reads both empty cells as „Nicht hinterlegt“ under their headings", () => {
     shown([{ ...VEROEFFENTLICHT, nummer: null, position: null }]);
 
-    for (const leer of ["Nummer nicht hinterlegt", "Nicht hinterlegt"]) {
-      const grade = screen.getByText(leer).className.split(/\s+/);
-      assert.ok(
-        grade.includes("text-foreground-muted") && !grade.includes("italic"),
-        `„${leer}“ is not in the empty grade: ${grade.join(" ")}`,
-      );
-    }
+    const leer = screen.getAllByText("Nicht hinterlegt");
+    assert.equal(leer.length, 2, "the number and the position do not both read the labelled word");
+    for (const cell of leer) assertLeer(cell, "Nicht hinterlegt");
   });
 });

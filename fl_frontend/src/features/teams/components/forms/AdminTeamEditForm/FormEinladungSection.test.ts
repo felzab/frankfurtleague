@@ -11,6 +11,7 @@ import { userEvent } from "@testing-library/user-event";
 
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { closedControl, isInTheFlow } from "@/shared/testing/closedControl.ts";
+import { assertLeer } from "@/shared/testing/leerGrade.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
 
@@ -201,6 +202,7 @@ describe("the team's invite panel", () => {
     assert.ok(isInTheFlow("01.09.2026"), "the day the standing link was minted is not stated");
     assert.ok(isInTheFlow("vorstand@beispiel.de"), "the administrator who minted it is not named");
     assert.ok(isInTheFlow("Noch nicht gesendet"), "an unmailed link reads as a delivery that failed");
+    assertLeer(screen.getByText("Noch nicht gesendet"), "Noch nicht gesendet");
     assert.ok(screen.queryByRole("textbox", { name: "Der Link" }) === null, "a reloaded page shows a value the store does not hold");
     assert.equal(document.body.textContent.includes(TOKEN), false, "the link value survived the reload the store cannot serve it back from");
     assert.ok(
@@ -215,6 +217,7 @@ describe("the team's invite panel", () => {
     render(panel({ einladung: { ...LIVE, erstellt_von: null, erstellt_von_gesperrt: true } }));
 
     assert.ok(isInTheFlow(GESPERRTE_ADRESSE), "the barred minter is not named by state");
+    assertLeer(screen.getByText(GESPERRTE_ADRESSE), GESPERRTE_ADRESSE);
     assert.equal(document.body.textContent.includes("@"), false, "the row names an address the backend withheld");
   });
 

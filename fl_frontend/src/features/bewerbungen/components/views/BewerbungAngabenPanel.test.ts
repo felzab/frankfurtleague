@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 
 import { GESPERRTE_ADRESSE } from "@/features/berechtigungen/constants.ts";
 import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
+import { assertLeerMarkup } from "@/shared/testing/leerGrade.ts";
 import { renderMarkup, textOf } from "@/shared/testing/renderTest";
 
 import { FLBewerbungSchema } from "../../schemas.ts";
@@ -70,15 +71,25 @@ describe("the panel a triage decision is taken from", () => {
     assert.notEqual(factLine(markup(), "Team"), "", "no fact stands under „Team“ at all");
   });
 
-  /* The form never asks a contact's birthdate; it arrives with their confirmation, so an empty one is a
-     fact the league holds nothing for yet, never a field the school left empty. */
-  it("reads a contact's missing birthdate as not held, and a field the school left empty as not given", () => {
-    const ansprechperson = BEWERBUNG.kontakte.ansprechperson;
-    assert.ok(ansprechperson !== null);
-    const html = markup({ wunschgegner: null, kontakte: { ...BEWERBUNG.kontakte, ansprechperson: { ...ansprechperson, geburtsdatum: null } } });
+  /* The form never asks a contact's birthdate; it arrives with their confirmation, so until then the
+     step is theirs, and only a confirmed seat without one holds an empty field. */
+  for (const [bestaetigtAm, worte] of [
+    [null, "Trägt die Person selbst ein"],
+    ["2026-08-03", "Nicht hinterlegt"],
+  ] as const) {
+    it(`reads a missing birthdate on a seat confirmed ${bestaetigtAm ?? "never"} as „${worte}“, as the contacts editor does`, () => {
+      const ansprechperson = BEWERBUNG.kontakte.ansprechperson;
+      assert.ok(ansprechperson !== null);
+      const person = { ...ansprechperson, geburtsdatum: null, einwilligung: { ...ansprechperson.einwilligung, bestaetigt_am: bestaetigtAm } };
+      const html = markup({ kontakte: { ...BEWERBUNG.kontakte, ansprechperson: person } });
 
-    assert.equal(textOf(factLine(html, "Geburtsdatum")), "Nicht hinterlegt");
-    assert.equal(textOf(factLine(html, "Wunschgegner")), "Nicht hinterlegt");
+      assert.equal(textOf(factLine(html, "Geburtsdatum")), worte);
+      assertLeerMarkup(factLine(html, "Geburtsdatum"), worte);
+    });
+  }
+
+  it("reads a field the school left empty as not held", () => {
+    assert.equal(textOf(factLine(markup({ wunschgegner: null }), "Wunschgegner")), "Nicht hinterlegt");
   });
 
   /* The Herkunft is who seated the person, `eingetragen_von`: `erfasst_von` is written by nothing new
@@ -99,6 +110,7 @@ describe("the panel a triage decision is taken from", () => {
       });
 
       assert.match(textOf(factLine(html, "Kenntnisnahme")), new RegExp(`^${label}, `));
+      if (von === null) assertLeerMarkup(factLine(html, "Kenntnisnahme"), label);
     });
   }
 
@@ -225,6 +237,7 @@ describe("who the panel says decided", () => {
   /* The read serves a barred administrator as `null` beside the flag (`docs/frontend/spec.md :: I492`). */
   it("names an administrator the ban list holds by that state", () => {
     assert.equal(entschieden(null, true), GESPERRTE_ADRESSE);
+    assertLeerMarkup(markup({ entscheidung: { getroffen_am: "2026-09-10", von: null, von_gesperrt: true, grund: null } }), GESPERRTE_ADRESSE);
   });
 });
 

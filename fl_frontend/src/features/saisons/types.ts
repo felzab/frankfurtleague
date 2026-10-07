@@ -63,8 +63,8 @@ export type SaisonOffeneSpiel = {
   id: string;
   spielNr: number;
   datum: string | null;
-  /** The two sides joined by `gegen`, with a placeholder where the bracket has not filled one yet. */
-  paarung: string;
+  /** The two sides' names, `null` where the bracket has not filled one yet: the panel sets that slot's word in the empty grade. */
+  paarung: { team1: string | null; team2: string | null };
 };
 
 /** `outgoingSaisonId` is `null` when no season holds `active` — legitimate on a fresh database. */

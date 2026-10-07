@@ -6,6 +6,7 @@ import { ListBox } from "@heroui/react/list-box";
 
 import { trikotFarbeHex, trikotFarbeLabel } from "@/features/teams/constants";
 import { offeredTrikotFarben } from "@/features/teams/utils";
+import { Leer } from "@/shared/components/ui/Angabe";
 import { FIELD_ERROR_CLASSES, FIELD_LABEL_CLASSES, FIELD_TRIGGER_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { listboxRow } from "@/shared/components/ui/refusableOption";
@@ -95,7 +96,7 @@ export function TrikotFarbeSelect({
             show HeroUI's English placeholder. */}
         <span className="flex min-w-0 flex-row items-center gap-x-2">
           {value !== null && <Swatch farbe={value} />}
-          <span className={value ? "truncate" : "truncate text-foreground-muted"}>{value ? trikotFarbeLabel(value) : platzhalter}</span>
+          <span className="truncate">{value ? trikotFarbeLabel(value) : <Leer>{platzhalter}</Leer>}</span>
         </span>
         <Select.Indicator className="shrink-0 text-foreground-muted opacity-70" />
       </Select.Trigger>

@@ -1633,6 +1633,30 @@ describe("whose birthdate a seat holds, and who may put one there", () => {
     const box = birthdateBox(sectionMarkup(WITHOUT_BIRTHDATE), "trainer");
 
     assert.ok(box.includes("Trägt die Person selbst ein"), "an undated seat leaves the reader without who fills the field");
+    // A step in a value's place takes the empty-value grade, and never a second ink beside it.
+    const classes = /class="([^"]*)"/.exec(box)?.[1]?.split(" ") ?? [];
+    assert.ok(
+      classes.includes("text-foreground-muted") && classes.includes("not-italic"),
+      `the stand-in reads as a value: ${classes.join(" ")}`,
+    );
+    assert.ok(!classes.includes("text-foreground"), `the stand-in carries the value's ink as well: ${classes.join(" ")}`);
+  });
+
+  /* Once the person has confirmed, the date was theirs to give and was not: a field held empty, in the
+     application panel's words for the same seat. */
+  it("reads a confirmed seat without a birthdate as a field held empty", () => {
+    const bestaetigt: FLSaisonTeamKontakte = {
+      ...WITHOUT_BIRTHDATE,
+      trainer: WITHOUT_BIRTHDATE.trainer && {
+        ...WITHOUT_BIRTHDATE.trainer,
+        einwilligung: { ...WITHOUT_BIRTHDATE.trainer.einwilligung, bestaetigt_am: "2026-03-14" },
+      },
+    };
+
+    assert.ok(
+      birthdateBox(sectionMarkup(bestaetigt), "trainer").includes('value="Nicht hinterlegt"'),
+      "a confirmed seat still waits on its person",
+    );
   });
 
   /* A seat whose person has not confirmed holds no date: a payload requiring one refuses a body no

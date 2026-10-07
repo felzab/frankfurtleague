@@ -34,6 +34,8 @@ export type AdresswechselAnsicht = { zustand: "gueltig"; vorname: string; frist:
  */
 export type FLSchiedsrichterAngezeigt = Pick<FLSchiedsrichter, "id" | "schule" | "kontakt" | "default_payment" | "inactive_since"> & {
   name: string;
+  /** Where `name` is a stand-in word rather than a stored name, which a control sets in the empty-value grade. */
+  nameIstPlatzhalter?: boolean;
 };
 
 /**

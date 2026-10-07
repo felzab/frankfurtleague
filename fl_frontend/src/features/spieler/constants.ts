@@ -1,4 +1,4 @@
-import { formatSpielDatum } from "@/shared/utils/format";
+import { formatSpielDatum, nichtHinterlegt } from "@/shared/utils/format";
 import { buildRefusal } from "@/shared/utils/refusal";
 
 import type { FLEinwilligung, FLSpielerPosition, FLSpielerRolle, FLSpielerStufe } from "./schemas";
@@ -219,7 +219,7 @@ export const KADER_LEER = "Für dieses Team ist noch kein Kader eingetragen.";
 export const NUMMER_DOPPELT = "Nummer doppelt";
 
 /** An empty shirt number where no label stands beside it: a chip, a screen-reader text, a line of facts. */
-export const NUMMER_NICHT_HINTERLEGT = "Nummer nicht hinterlegt";
+export const NUMMER_NICHT_HINTERLEGT = nichtHinterlegt("Nummer");
 
 /**
  * The day a squad row was taken out, in the one sentence the admin editor's banner, a seat holder's

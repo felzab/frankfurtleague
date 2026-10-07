@@ -4,7 +4,7 @@ import { memo } from "react";
 
 import Ban from "@gravity-ui/icons/Ban";
 
-import { vonOderGesperrt } from "@/features/berechtigungen/constants";
+import { VonOderGesperrt } from "@/features/berechtigungen/components/ui/VonOderGesperrt";
 import { SPERRE_BIS_LABEL, sperreBisWert, SPERRLISTE_CRUD_COPY } from "@/features/sperrliste/constants";
 import { AdminCrudEmptyCard } from "@/shared/components/ui/AdminCrudEmpty";
 import { IDENTITY_HEAD_CLASSES, IDENTITY_LINE_CLASSES, IDENTITY_ROW_CLASSES, IDENTITY_STACK_CLASSES } from "@/shared/components/ui/adminTable";
@@ -54,7 +54,12 @@ export const AdminSperrlisteList = memo(function AdminSperrlisteList({
               day wears the grade `AdminBewerbungenList` gives one instead. */}
           <span className="font-numeric fluid-sm font-semibold text-foreground tabular-nums">{formatSpielDatum(eintrag.erstellt_am)}</span>
         </div>
-        <span className={IDENTITY_LINE_CLASSES}>{vonOderGesperrt(eintrag.erstellt_von, eintrag.erstellt_von_gesperrt)}</span>
+        <span className={IDENTITY_LINE_CLASSES}>
+          <VonOderGesperrt
+            von={eintrag.erstellt_von}
+            gesperrt={eintrag.erstellt_von_gesperrt}
+          />
+        </span>
       </div>
     </div>
   );

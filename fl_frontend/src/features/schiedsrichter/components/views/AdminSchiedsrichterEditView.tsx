@@ -4,6 +4,7 @@ import { reactivateSchiedsrichterAction } from "@/features/schiedsrichter/action
 import { AdminSchiedsrichterEditForm } from "@/features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/AdminSchiedsrichterEditForm";
 import { SCHIEDSRICHTER_OHNE_NAMEN_LABEL } from "@/features/schiedsrichter/constants";
 import { returnMayMint } from "@/features/schiedsrichter/linkMint";
+import { Leer } from "@/shared/components/ui/Angabe";
 import { PAGE_RISE_CLASSES } from "@/shared/components/ui/motion";
 import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
 import { useReactivation } from "@/shared/hooks/useReactivation";
@@ -40,7 +41,7 @@ export function AdminSchiedsrichterEditView({
         isRetired={isRetired}
         pageHeader={{
           // The list's word for the same row, so one state is not two phrases across two surfaces.
-          title: name ?? SCHIEDSRICHTER_OHNE_NAMEN_LABEL,
+          title: name ?? <Leer>{SCHIEDSRICHTER_OHNE_NAMEN_LABEL}</Leer>,
           // The retirement date, which the rail's banner states as a state and never as a day.
           chip: isRetired ? <RetiredBadge since={inactiveSince} /> : undefined,
           reactivate: isRetired

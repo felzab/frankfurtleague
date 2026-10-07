@@ -1,7 +1,7 @@
 import { SAISON_PHASE_OPTIONS } from "@/features/saisons/constants";
 import { GHOST_SCHIEDSRICHTER_ID } from "@/features/schiedsrichter/constants";
 import { austrittZustand } from "@/features/teams/constants";
-import { formatSpielDatum, formatUhrzeit, PLACEHOLDER } from "@/shared/utils/format";
+import { formatSpielDatum, formatUhrzeit, nichtHinterlegt, PLACEHOLDER } from "@/shared/utils/format";
 import { withSaisonId } from "@/shared/utils/saisonHref";
 
 import type { FLSaisonPhase } from "@/features/saisons/schemas";
@@ -65,15 +65,12 @@ export const computeSpielStatus = ({
 export const canStillBePlayed = (spiel: Pick<FLSpiel, "ergebnis" | "sonderereignis">, isFinishedSaison: boolean): boolean =>
   spiel.ergebnis === null && !isAbgesagt(spiel.sonderereignis) && !isFinishedSaison;
 
-/** A card's unrecorded date: no label stands beside it there, so the words name the field. */
-export const DATUM_NICHT_HINTERLEGT = "Datum nicht hinterlegt";
-
 /** The one derivation the three `SpielCard` variants share; they stay separate themselves. */
 export const formatSpielDisplay = (
   spiel: Pick<FLSpiel, "datum" | "uhrzeit" | "ergebnis" | "elfmeterschiessen" | "sonderereignis">,
   isFinishedSaison: boolean,
 ) => ({
-  datum: formatSpielDatum(spiel.datum, canStillBePlayed(spiel, isFinishedSaison) ? PLACEHOLDER.datum : DATUM_NICHT_HINTERLEGT),
+  datum: formatSpielDatum(spiel.datum, canStillBePlayed(spiel, isFinishedSaison) ? PLACEHOLDER.datum : nichtHinterlegt("Datum")),
   uhrzeit: formatUhrzeit(spiel.uhrzeit),
   ergebnis: spiel.ergebnis ?? PLACEHOLDER.ergebnis,
   elfmeterschiessen: formatElfmeterschiessen(spiel.elfmeterschiessen),

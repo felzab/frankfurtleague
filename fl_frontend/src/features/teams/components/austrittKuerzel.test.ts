@@ -9,6 +9,7 @@ import { createElement as h } from "react";
 import { render, screen, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
+import { assertLeer } from "@/shared/testing/leerGrade.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 
 import type { FLGruppenTeam } from "@/features/teams/schemas.ts";
@@ -54,5 +55,26 @@ describe("a club's Austritt badge", () => {
     await userEvent.setup().click(trigger);
     const heading = screen.getByRole("heading", { name: /Mainufer Beispiel/ });
     assert.match(within(heading).getByText("Disqualifiziert").className, /\bsr-only\b/, "the popover's heading reads the letters alone");
+  });
+});
+
+describe("a club holding no place", () => {
+  /* Nothing played and nothing left: the rank cell holds no number, so the eye reads a dash in the empty
+     grade and a screen reader the words. */
+  it("shows a muted dash and reads „Kein Platz“", () => {
+    const ohnePlatz: FLGruppenTeam = {
+      ...AUSGESCHIEDEN,
+      austritt_type: null,
+      statistik: { ...AUSGESCHIEDEN.statistik, anzahl_gespielte_spiele: 0 },
+    };
+    render(
+      underNext(h(SaisontabelleView, { gruppenData: { A: [ohnePlatz] }, qualifiersPerGroup: 1, saisonId: undefined, isFinishedSaison: false })),
+    );
+
+    const dash = screen.getByText("–");
+    assertLeer(dash, "–");
+    assert.equal(dash.parentElement?.getAttribute("aria-hidden"), "true", "the dash is read aloud");
+    assert.match(screen.getByText("Kein Platz").className, /\bsr-only\b/, "a screen reader is told nothing in the rank cell");
+    assert.equal(document.body.textContent.includes("N/A"), false, "the English placeholder came back");
   });
 });

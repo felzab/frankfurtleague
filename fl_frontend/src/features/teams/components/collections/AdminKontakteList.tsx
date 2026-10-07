@@ -40,8 +40,8 @@ const BESETZUNG_TINT: Record<Besetzung, PillTone> = {
 
 /**
  * What a seat holding nobody says. A PERSON is absent rather than a value, so it is not
- * `fl_frontend/src/shared/utils/format.ts :: PLACEHOLDER`'s „Keine Angabe“, which reads as a field
- * somebody left blank.
+ * `fl_frontend/src/shared/utils/format.ts :: NICHT_HINTERLEGT`, which reads as a field somebody left
+ * blank.
  */
 const EMPTY_SEAT = "Niemand hinterlegt";
 

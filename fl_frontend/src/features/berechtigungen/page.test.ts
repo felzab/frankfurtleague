@@ -132,6 +132,12 @@ describe("the page the administrators stand on", () => {
     const text = textOf(await renderPage(PAGE), " ");
 
     assert.equal(text.split("Gesperrte Adresse").length - 1, 2, "the barred row's address and its administrator are not both named by state");
+    const html = await renderPage(PAGE);
+    assert.equal(
+      html.split(`<span class="text-foreground-muted not-italic">Gesperrte Adresse</span>`).length - 1,
+      2,
+      "a withheld address keeps a name's ink",
+    );
   });
 
   it("dates a grant by the Berlin day it was made on", async () => {

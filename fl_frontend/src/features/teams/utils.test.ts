@@ -118,7 +118,7 @@ describe("computePlatzByTeamId", () => {
     assert.equal(platz.get(TEAM_ID(3)), 2);
   });
 
-  // The `N/A` the cell still has to reach: nothing earned and nothing left to earn it with.
+  // The „Kein Platz“ the cell still has to reach: nothing earned and nothing left to earn it with.
   it("gives a row with nothing played and nothing left no ordinal", () => {
     const platz = computePlatzByTeamId([row(1), row(2, { gespielt: 0 })]);
 
@@ -126,7 +126,7 @@ describe("computePlatzByTeamId", () => {
     assert.equal(platz.size, 1);
   });
 
-  // The backend numbers a club yet to play, so a cell that skips it prints `N/A` on that row and 2
+  // The backend numbers a club yet to play, so a cell that skips it reads „Kein Platz“ on that row and 2
   // on the row the bracket calls 3.
   it("numbers a row whose first fixture is still to come, and moves the row below it down", () => {
     const platz = computePlatzByTeamId([row(1), row(2, { gespielt: 0, ausstehend: 2 }), row(3)]);

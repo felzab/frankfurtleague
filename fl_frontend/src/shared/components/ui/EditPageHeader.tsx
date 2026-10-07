@@ -12,7 +12,8 @@ import type { ReactNode } from "react";
 
 /** What a slice fills in. The exit is the form's, so it arrives beside this rather than in it. */
 export type EditPageHeaderContent = {
-  title: string;
+  /** A node, so a row with no name of its own can head with its stand-in word in the empty-value grade. */
+  title: ReactNode;
   /**
    * At most ONE thing horizontally beside the title — a status badge, a Kürzel, a phase chip. There is no
    * second slot and no line below the title: a free slot is what lets the editors' headers diverge.

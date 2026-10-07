@@ -47,6 +47,7 @@ import { appToast } from "@/shared/utils/appToast";
 import { benannt } from "@/shared/utils/benannt";
 import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
 import { focusAfterWrite, focusRow, focusSection, focusSlot } from "@/shared/utils/focusAfterWrite";
+import { nichtHinterlegt } from "@/shared/utils/format";
 import { pressLinkWrite } from "@/shared/utils/linkWrite";
 import { FASSUNG_UNLESBAR } from "@/shared/utils/refusal";
 
@@ -93,9 +94,6 @@ const STAND_ICON = {
   geloescht: CircleXmark,
   unbeantwortet: CircleXmark,
 } as const;
-
-/** The queue's own wording for the same fact, so the two admin surfaces read alike. */
-const EMAIL_NICHT_HINTERLEGT = "E-Mail nicht hinterlegt";
 
 const ADRESSE_BELEGT = "Diese E-Mail-Adresse ist schon bei einer anderen Person eingetragen.";
 
@@ -316,7 +314,7 @@ function SitzZeile({
             it edits and the thing the delivery chip is about. */}
         {sitz.name !== null && (
           <span className="max-w-full min-w-0 truncate fluid-xs font-medium text-foreground">
-            {sitz.email ?? <Leer>{EMAIL_NICHT_HINTERLEGT}</Leer>}
+            {sitz.email ?? <Leer>{nichtHinterlegt("E-Mail")}</Leer>}
           </span>
         )}
 

@@ -1,7 +1,24 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { buildMapsSearchUrl, formatAddress, formatAddressFull, formatEuro, formatSpielDatum, formatUhrzeit, PLACEHOLDER } from "./format.ts";
+import {
+  buildMapsSearchUrl,
+  formatAddress,
+  formatAddressFull,
+  formatEuro,
+  formatSpielDatum,
+  formatUhrzeit,
+  NICHT_HINTERLEGT,
+  nichtHinterlegt,
+  PLACEHOLDER,
+} from "./format.ts";
+
+describe("the two forms of an empty stored field", () => {
+  it("reads „Nicht hinterlegt“ beside a label, and names the field where none stands", () => {
+    assert.equal(NICHT_HINTERLEGT, "Nicht hinterlegt");
+    assert.equal(nichtHinterlegt("E-Mail"), "E-Mail nicht hinterlegt");
+  });
+});
 
 const address = {
   strasse: "Hanauer Landstraße",

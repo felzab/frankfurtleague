@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 import { createElement as h } from "react";
 
 import { doubleActions } from "@/shared/testing/actionDoubles.ts";
+import { assertLeerMarkup } from "@/shared/testing/leerGrade.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
@@ -90,6 +91,7 @@ describe("what a row of the ban list shows", () => {
     const html = listMarkup([{ ...erste, erstellt_von: null, erstellt_von_gesperrt: true }, zweite]);
 
     assert.equal(textOf(html, " ").split(GESPERRTE_ADRESSE).length - 1, 1, "the barred author is not named by state, or twice");
+    assertLeerMarkup(html, GESPERRTE_ADRESSE);
     assert.deepEqual(addressesIn(html), [zweite.erstellt_von], "the row beside it lost its author");
   });
 
