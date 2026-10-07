@@ -49,8 +49,10 @@
 # median does -- `ops` reached 1.9 times its median inside its stamped runs, `frontend` 1.5 times
 # -- so a ceiling that never cries wolf on a quiet runner sits well above the reference, and a run
 # over it is a re-run or a regression, in that order. Raising one costs the runs that justify it: a
-# budget or a reference that rises against main carries a new stamp, refused otherwise by
-# `scripts/checks/check_gate_budget.py` in the pull request's `docs` job. Lowering one is free.
+# budget, a reference or a floor that rises against main carries a new stamp, a new stamp counts the
+# runs its figures need, and a pull-request run stamps no job whose cache is keyed on the tree, each
+# refused otherwise by `scripts/checks/check_gate_budget.py :: check_raise` in the pull request's
+# `docs` job. Lowering one is free.
 #
 # A check joining the gate records its measured cost here, the **gate** clause in
 # `.claude/rules/ops.md` being what asks for it. Only a new job is refused without a row; a check
@@ -87,7 +89,8 @@
 # windows of twelve, so its floor is the p95 movement between two 12-run medians drawn with
 # replacement from it. Over those 24 runs, on the three rows computable both ways, that draw landed
 # within a point of the reshuffle -- once narrower -- and on `images` about half again as wide, so
-# it is the method a short population leaves rather than a systematically looser one.
+# it is the method a short population leaves rather than a systematically looser one. The checker
+# refuses a new stamp under twenty-four runs beside a floor, so this one stands while its stamp does.
 #
 # `docs` gained two checks: `cell-prose` costs 0.05 s and `echo` 1.01 s over the whole corpus,
 # measured locally on 2026-09-02 with the file listing already warmed, so the figures are the

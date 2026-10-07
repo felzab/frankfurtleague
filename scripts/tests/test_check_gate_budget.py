@@ -613,11 +613,67 @@ def test_main_passes_an_unmoved_file(tmp_path: Path):
     assert f"no figure in {reference} rose" in out
 
 
+def restamped(measured: str, *, job: str = "backend", seconds: str = "37", floor: str = "14") -> dict[str, Any]:
+    """BASE with one row re-stamped, its figures otherwise unmoved."""
+    return budget.parse_reference(
+        table(row(job, seconds, floor, "60", measured), row("total", seconds if seconds != "-" else "0", "5", "-", "-"))
+    )
+
+
+def test_a_new_stamp_under_ten_runs_is_a_finding_even_on_a_raise():
+    """One run's stamp lifted a budget unrefused before; ten keeps the slow runner class in the population."""
+    findings = budget.check_raise(
+        BASE, budget.parse_reference(table(row("backend", "-", "-", "115", "1@2026-09-02"), row("total", "0", "5", "-", "-"))), TODAY
+    )
+
+    assert details(findings) == ["`backend`'s new stamp 1@2026-09-02 counts 1, and a stamp counts at least 10 runs"]
+
+
+def test_a_stamp_of_ten_runs_carries_a_budget_and_no_reference():
+    """Ten is the budget's minimum and not the reference's: two windows of twelve need twenty-four."""
+    assert budget.check_raise(BASE, restamped("10@2026-09-02", seconds="-", floor="-"), TODAY) == []
+
+    findings = budget.check_raise(BASE, restamped("23@2026-09-02"), TODAY)
+
+    assert details(findings) == ["`backend`'s new stamp 23@2026-09-02 counts 23, and a reference and its floor are cut from at least 24 runs"]
+
+
+def test_a_pull_request_stamp_on_a_job_whose_cache_is_keyed_on_the_tree_is_a_finding():
+    """A re-run of one commit restores the exact cache its first attempt wrote, which no push to main does."""
+    base = budget.parse_reference(table(row("format", "-", "-", "70", STAMP), row("total", "0", "5", "-", "-")))
+    head = budget.parse_reference(table(row("format", "-", "-", "70", "30@2026-09-02/123"), row("total", "0", "5", "-", "-")))
+
+    findings = budget.check_raise(base, head, TODAY)
+
+    assert len(findings) == 1
+    assert "names a pull-request run" in findings[0].detail and "`format`" in findings[0].detail
+    assert budget.check_raise(BASE, restamped("30@2026-09-02/123"), TODAY) == []
+
+
+def test_a_wider_floor_on_the_old_stamp_is_a_finding_and_a_narrower_one_is_free():
+    """A wider floor silences the report on a move the narrower one names, which is a figure rising like any other."""
+    findings = budget.check_raise(BASE, restamped(STAMP, floor="20"), TODAY)
+
+    assert details(findings) == [f"`backend` rose (floor 14 -> 20%) on the unchanged stamp {STAMP}: a raise carries the runs that measured it"]
+    assert budget.check_raise(BASE, restamped(STAMP, floor="9"), TODAY) == []
+
+
+def test_a_stamp_the_base_already_carries_is_not_judged_again():
+    """A row stamped before the minimum held keeps standing while nothing moves it, as `ops`' thirteen-run stamp does."""
+    short = budget.parse_reference(table(row("ops", "17", "29", "45", "13@2026-09-01"), row("total", "17", "-", "-", "-")))
+
+    assert budget.check_raise(short, short, TODAY) == []
+
+
 def test_a_stamp_naming_a_run_parses_and_one_naming_nothing_is_refused():
     """`/<run id>` is the pull-request form; anything else after the date is a typo."""
     rows = budget.parse_reference(table(row("backend", "-", "-", "60", "30@2026-09-01/37552113173"), row("total", "0", "5", "-", "-")))
 
-    assert rows["backend"].stamp_date == date(2026, 9, 1)
+    assert (rows["backend"].stamp_runs, rows["backend"].stamp_pull_request) == (30, 37552113173)
+    assert (budget.parse_reference(BASELINE)["backend"].stamp_runs, budget.parse_reference(BASELINE)["backend"].stamp_pull_request) == (
+        24,
+        None,
+    )
     for bad in ("30@2026-09-01/", "30@2026-09-01/0", "30@2026-09-01/run"):
         with contextlib.suppress(budget.Malformed):
             budget.parse_reference(table(row("backend", "-", "-", "60", bad), row("total", "0", "5", "-", "-")))

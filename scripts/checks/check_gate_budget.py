@@ -2,8 +2,8 @@
 
 Four questions over `.github/gate-wall-clock.tsv`, one per mode. `--jobs` holds every job of the
 run in hand to the budget its row gives it and refuses the run that breaks one, naming the job and
-both figures. `--base` holds the file itself: a budget or a reference that rose against the base
-carries a new measurement stamp, so a ceiling is never lifted by editing a number alone. `--window`
+both figures. `--base` holds the file itself: a figure that rose against the base carries a new
+stamp counting enough runs, so a ceiling is never lifted by editing a number alone. `--window`
 reports each job's median over the last main runs against its reference and floor, and decides no
 outcome. `--stamp` cuts rows from saved runs by the header's rules, so a stamp is recomputed from
 its run ids rather than trusted. `--reference` names the file every mode reads, so a copy is judged
@@ -83,11 +83,24 @@ class Row:
     budget: int | None
     measured: str | None
 
+    # Validated at parse, so a miss here is a row nothing parsed -- refused there, never read here.
+    def _stamp(self) -> re.Match[str] | None:
+        return None if self.measured is None else STAMP.match(self.measured)
+
     @property
     def stamp_date(self) -> date | None:
-        # Validated at parse, so a miss here is a row nothing parsed -- refused there, never read here.
-        match = None if self.measured is None else STAMP.match(self.measured)
+        match = self._stamp()
         return None if match is None else date.fromisoformat(match.group(2))
+
+    @property
+    def stamp_runs(self) -> int | None:
+        match = self._stamp()
+        return None if match is None else int(match.group(1))
+
+    @property
+    def stamp_pull_request(self) -> int | None:
+        match = self._stamp()
+        return None if match is None or match.group(3) is None else int(match.group(3))
 
 
 def _number(field: str, column: str, job: str) -> int | None:
@@ -227,11 +240,26 @@ def check_run(rows: dict[str, Row], spans: list[Span], reference: str) -> tuple[
     return findings, lines
 
 
-def check_raise(base: dict[str, Row] | None, head: dict[str, Row], today: date) -> list[Finding]:
-    """The file against its base: what rose carries a fresh stamp, and a ceiling never vanishes.
+def check_stamp(job: str, row: Row) -> list[str]:
+    """What a stamp written on this branch must have counted for the figures beside it."""
+    runs = row.stamp_runs
+    if runs is None:
+        return []
+    problems: list[str] = []
+    if runs < MIN_STAMP_RUNS:
+        problems.append(f"counts {runs}, and a stamp counts at least {MIN_STAMP_RUNS} runs")
+    elif runs < MIN_FLOOR_SPANS and (row.seconds is not None or row.floor is not None):
+        problems.append(f"counts {runs}, and a reference and its floor are cut from at least {MIN_FLOOR_SPANS} runs")
+    if row.stamp_pull_request is not None and job in TREE_KEYED:
+        problems.append("names a pull-request run, and this job's cache is keyed on the tree, so only main's first attempts time it")
+    return [f"`{job}`'s new stamp {row.measured} {problem}" for problem in problems]
 
-    Lowering and deleting a row are free. What costs a measurement is what makes the gate slower
-    on paper: a higher reference or budget, or a budget dropped to `-`.
+
+def check_raise(base: dict[str, Row] | None, head: dict[str, Row], today: date) -> list[Finding]:
+    """The file against its base: a rise carries a fresh stamp of enough runs, and a ceiling never vanishes.
+
+    Lowering and deleting a row are free; a higher reference, floor or budget, or a dropped budget,
+    costs a measurement.
     """
     findings: list[Finding] = []
     for job, row in head.items():
@@ -244,6 +272,9 @@ def check_raise(base: dict[str, Row] | None, head: dict[str, Row], today: date) 
                 Finding("fail", f"`{job}`'s stamp {row.measured} is dated after today ({today.isoformat()}), and a measurement cannot be")
             )
             continue
+        # Only a stamp this branch wrote: one the base already carries was judged when it landed.
+        if before is None or row.measured != before.measured:
+            findings += [Finding("fail", problem) for problem in check_stamp(job, row)]
         if before is None:
             # New to the file. A budget here is already held to carry a stamp at parse.
             continue
@@ -260,6 +291,9 @@ def check_raise(base: dict[str, Row] | None, head: dict[str, Row], today: date) 
             rose.append(f"budget {before.budget if before.budget is not None else NONE} -> {row.budget} s")
         if row.seconds is not None and (before.seconds is None or row.seconds > before.seconds):
             rose.append(f"reference {before.seconds if before.seconds is not None else NONE} -> {row.seconds} s")
+        # A wider floor silences the report on a move the narrower one names.
+        if row.floor is not None and (before.floor is None or row.floor > before.floor):
+            rose.append(f"floor {before.floor if before.floor is not None else NONE} -> {row.floor}%")
         if not rose:
             continue
         moved = ", ".join(rose)
