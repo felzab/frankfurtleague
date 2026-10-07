@@ -1,8 +1,6 @@
 // The reader behind `.claude/hooks/implementer-whole-suite.sh`, which says why it refuses and why it
 // lets through what it cannot read. It knows the common forms only, each probed by
 // `scripts/gate/selfcheck.sh` step 12: a form missing here is let through, never permitted.
-import { pathToFileURL } from "node:url";
-
 const REFUSE = [
   "Targeted forms: pnpm run test:base <files> in fl_frontend; uv run --frozen pytest <paths> in fl_backend,",
   "and uv run --frozen pytest -m db <file>, one database file, where your brief allows database files.",
@@ -298,8 +296,9 @@ export function refusal(raw) {
   return null;
 }
 
-// Run as the hook, not imported: step 12 imports `refusal` to judge every arm in one process.
-if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
+// Never a path comparison: a link in the hook's path makes the two spellings differ, letting every call
+// through, and step 12's driver, which imports this module, passes it as its own argument.
+if (import.meta.main) {
   let raw = "";
   process.stdin
     .on("data", (d) => (raw += d))
