@@ -256,6 +256,59 @@ def check_stamp(job: str, row: Row) -> list[str]:
     return [f"`{job}`'s new stamp {row.measured} {problem}" for problem in problems]
 
 
+def population_of(row: Row) -> str | None:
+    """What names a stamp's population: its pull-request run, or for pushes to main the day of the newest."""
+    if row.stamp_pull_request is not None:
+        return f"run {row.stamp_pull_request}"
+    return None if row.stamp_date is None else f"main to {row.stamp_date.isoformat()}"
+
+
+def check_total_floor(base: dict[str, Row] | None, head: dict[str, Row]) -> list[Finding]:
+    """A total floor that rose or appeared stands only where `--stamp` could have cut it.
+
+    That is from draws of every referenced row in one population, each re-stamped on this branch.
+    """
+    total = head.get(TOTAL)
+    before = None if base is None else base.get(TOTAL)
+    if total is None or total.floor is None or (before is not None and before.floor is not None and total.floor <= before.floor):
+        return []
+    referenced = [row for job, row in head.items() if job != TOTAL and row.seconds is not None and row.floor is not None]
+    unmoved = [row.job for row in referenced if base is not None and row.job in base and base[row.job].measured == row.measured]
+    populations = {population_of(row) for row in referenced}
+    if referenced and not unmoved and len(populations) == 1:
+        return []
+    why = (
+        f"{', '.join(unmoved)} kept the stamp the base carries"
+        if unmoved
+        else f"the references beside it name {len(populations)} populations"
+        if referenced
+        else "no row beside it holds a reference"
+    )
+    rose = f"{before.floor if before is not None and before.floor is not None else NONE} -> {total.floor}%"
+    return [
+        Finding("fail", f"the total's floor rose ({rose}), and it is cut only from references all re-stamped here from one population: {why}")
+    ]
+
+
+def check_matrix_budgets(head: dict[str, Row]) -> list[Finding]:
+    """The header's matrix rule, whoever wrote the rows: a matrix job's instances carry one budget."""
+    budgets: dict[str, dict[str, int | None]] = {}
+    for job, row in head.items():
+        match = INSTANCE.match(job)
+        if match is not None:
+            budgets.setdefault(match.group(1), {})[job] = row.budget
+    return [
+        Finding(
+            "fail",
+            f"`{matrix}`'s instances carry {len(set(members.values()))} budgets "
+            f"({', '.join(f'{job} {NONE if value is None else value}' for job, value in sorted(members.items()))}), "
+            "and a matrix job's instances carry one, the widest instance's",
+        )
+        for matrix, members in sorted(budgets.items())
+        if len(set(members.values())) > 1
+    ]
+
+
 def check_raise(base: dict[str, Row] | None, head: dict[str, Row], today: date) -> list[Finding]:
     """The file against its base: a rise carries a fresh stamp of enough runs, and a ceiling never vanishes.
 
@@ -263,8 +316,10 @@ def check_raise(base: dict[str, Row] | None, head: dict[str, Row], today: date) 
     costs a measurement.
     """
     findings: list[Finding] = []
+    findings += check_matrix_budgets(head)
     for job, row in head.items():
         if job == TOTAL:
+            findings += check_total_floor(base, head)
             continue
         before = None if base is None else base.get(job)
         stamp_date = row.stamp_date
@@ -518,8 +573,8 @@ RESAMPLES: Final = 20_000
 PERCENTILE: Final = 95
 SEED: Final = "gate-wall-clock"
 
-# Jobs whose own cache is keyed on the tree: a re-run of one commit hits the key its first attempt
-# wrote, which no fresh push to main does, so only first attempts of main's push runs time them.
+# Jobs whose own cache is keyed on the tree: a re-run restores everything its first attempt wrote,
+# a push to main only what earlier trees left unchanged, so only first attempts of pushes time them.
 TREE_KEYED: Final[frozenset[str]] = frozenset({"format", "frontend", "images"})
 
 # The header's `format` paragraph: that budget is the cold job's, and a population that happened
@@ -683,9 +738,11 @@ def window_moves(spans: list[int], job: str) -> list[int]:
     A stream per row, so a row's floor never moves with which other rows a stamp cuts.
     """
     draw = random.Random(f"{SEED}:{job}")
+    # Sorted, so the draws depend on the population alone and never on the order its attempts were named in.
+    population = sorted(spans)
     moves: list[int] = []
     for _ in range(RESAMPLES):
-        picked = draw.sample(spans, 2 * WINDOW)
+        picked = draw.sample(population, 2 * WINDOW)
         moves.append(_median(picked[:WINDOW]) - _median(picked[WINDOW:]))
     return moves
 
@@ -803,15 +860,22 @@ def stamp(
     referenced = sorted(job for job, row in proposed.items() if job != TOTAL and row.seconds is not None and row.floor is not None)
     summed = sum(row.seconds for job, row in proposed.items() if job != TOTAL and row.seconds is not None)
     total_floor = None
-    if referenced and all(job in draws for job in referenced):
+    named = {population_of(proposed[job]) for job in referenced}
+    # The condition `check_total_floor` holds a committed total floor to, so a proposal never carries one it refuses.
+    if referenced and all(job in draws for job in referenced) and len(named) == 1:
         # The report sums the referenced rows' window medians, so the total's floor is the same draws summed.
         total_floor = floor_of([sum(moves) for moves in zip(*(draws[job] for job in referenced), strict=True)], summed)
         lines.append(f"{TOTAL}: {summed} s, floor {total_floor}% over {', '.join(referenced)}")
     else:
         others = [job for job in referenced if job not in draws]
-        lines.append(
-            f"{TOTAL}: {summed} s, floor {NONE}" + (f" -- a reference cut from another population: {', '.join(others)}" if others else "")
+        why = (
+            f" -- a reference cut from another population: {', '.join(others)}"
+            if others
+            else f" -- the references' stamps name {len(named)} populations"
+            if referenced
+            else ""
         )
+        lines.append(f"{TOTAL}: {summed} s, floor {NONE}{why}")
     before = rows.get(TOTAL)
     proposed[TOTAL] = Row(TOTAL, summed, total_floor, None if before is None else before.budget, None if before is None else before.measured)
     return proposed, lines, missed
@@ -842,6 +906,11 @@ def stamp_main(reference: Path, directory: Path, ids: list[tuple[int, int]], wan
         print(f"      {line}")
     if missed:
         print(f"      asked for and not stamped: {', '.join(missed)}. Nothing was written.", file=sys.stderr)
+        return EXIT_REFUSED
+    stamped_any = any(proposed[job] != row for job, row in rows.items() if job != TOTAL) or set(proposed) != set(rows)
+    # A copy of the reference under a success exit would read as a proposal someone could commit.
+    if not stamped_any:
+        print("      no row could be stamped from these attempts. Nothing was written.", file=sys.stderr)
         return EXIT_REFUSED
     proposal = rewritten(text, proposed)
     parse_reference(proposal)  # what this writes, every mode reads

@@ -21,8 +21,9 @@
 # log carries the runner's own retry of an action download, a wait that is GitHub's rather than the
 # tree's; and for a job whose own cache is keyed on the tree
 # (`scripts/checks/check_gate_budget.py :: TREE_KEYED`), every attempt but the first of a push to
-# main, and any pull-request run, whose re-runs restore the exact cache their first attempt wrote
-# where a push to main restores an older tree's.
+# main, and any pull-request run: a re-run restores everything its first attempt wrote, while a push
+# to main finds warm only what the trees before it left unchanged, so re-runs read at least as warm
+# as the pushes the report compares and never colder.
 # A stamp counts at least ten runs. Each job gets a machine of its own, of a fast or a slow class no
 # log names; read off the binding unit's timing, the slow class ran 61-76 percent of the `backend`,
 # `db` and `scripts` jobs of the 33 pull-request runs of 2026-10-06, so ten runs leave it out of at
@@ -225,6 +226,7 @@
 # Their four budgets are one figure, cut by the rule above from the widest shard span in the runs
 # their stamp counts: `node --test --test-shard` hands a shard the files at its positions in the
 # sorted list, whatever they cost, so which shard is heaviest moves as files are added.
+# `scripts/checks/check_gate_budget.py :: check_matrix_budgets` refuses the four apart.
 #
 # `scripts` gained two cases: `scripts/tests/test_check_gate_budget.py` holds the `verify` job's
 # `needs` to every other job in the workflow, and drives that reader over a job left out of it. They
@@ -641,8 +643,8 @@
 #
 # No row moves and none takes a stamp.
 #
-# `scripts` gained twenty-seven cases in `scripts/tests/test_check_gate_budget.py` over the stamp
-# mode and its refusals: 1.49-1.50 s together over five runs of the module, against 0.04 s for its
+# `scripts` gained thirty-one cases in `scripts/tests/test_check_gate_budget.py` over the stamp
+# mode and its refusals: 2.12-2.22 s together over five runs of the module, against 0.04 s for its
 # other cases in the same runs, most of it the floor's draws
 # (`scripts/checks/check_gate_budget.py :: RESAMPLES`) in the cases that cut a reference. Measured
 # locally on 2026-10-07 on a sixteen-core Windows machine whose other load was not read, so an upper
@@ -651,12 +653,13 @@
 #
 # The total row is the sum of the seconds above it, compared the same way where it carries a floor.
 # Its floor sums each referenced row's draws, so `--stamp` cuts one only where every row holding a
-# reference was cut from the population it reads; otherwise it is `-`, as while `ops` is the one row
-# holding a reference: the sum is then that row's own median, which its row already compares
-# against its own floor, so a floor here would only print `ops` moving under the whole gate's name.
-# Move a job's seconds and move the total with it: where
-# the two disagree `scripts/checks/check_gate_budget.py` refuses the file at parse, in any of its
-# modes, and compares nothing at all.
+# reference was re-stamped from the one population it reads, and `--base` refuses a total floor that
+# rose any other way (`scripts/checks/check_gate_budget.py :: check_total_floor`); otherwise it is
+# `-`, as while `ops` is the one row holding a reference: the sum is then that row's own median,
+# which its row already compares against its own floor, so a floor here would only print `ops`
+# moving under the whole gate's name. Move a job's seconds and move the total with it: where the two
+# disagree `scripts/checks/check_gate_budget.py` refuses the file at parse, in any of its modes, and
+# compares nothing at all.
 #
 # job	seconds	floor	budget	measured
 backend	-	-	70	3@2026-09-26

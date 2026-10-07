@@ -658,6 +658,47 @@ def test_a_wider_floor_on_the_old_stamp_is_a_finding_and_a_narrower_one_is_free(
     assert budget.check_raise(BASE, restamped(STAMP, floor="9"), TODAY) == []
 
 
+def test_a_total_floor_stands_only_beside_references_re_stamped_from_one_population():
+    """A wider total floor silences the whole-gate line, and `--stamp` cuts one only from one population's draws."""
+
+    def pair(backend: str, db: str, total_floor: str) -> dict[str, Any]:
+        return budget.parse_reference(
+            table(row("backend", "40", "15", "60", backend), row("db", "100", "7", "135", db), row("total", "140", total_floor, "-", "-"))
+        )
+
+    base = pair(STAMP, STAMP, "-")
+
+    assert budget.check_raise(base, pair("30@2026-09-02/9", "30@2026-09-02/9", "5"), TODAY) == []
+    assert budget.check_raise(pair(STAMP, STAMP, "5"), pair(STAMP, STAMP, "4"), TODAY) == []
+    for head, why in (
+        (pair(STAMP, STAMP, "90"), "backend, db kept the stamp the base carries"),
+        (pair("30@2026-09-02/9", "30@2026-09-02/8", "5"), "the references beside it name 2 populations"),
+    ):
+        findings = budget.check_raise(base, head, TODAY)
+        assert len(findings) == 1 and findings[0].detail.startswith("the total's floor rose (- -> ") and why in findings[0].detail, details(
+            findings
+        )
+
+
+def test_a_matrix_job_s_instances_on_unequal_budgets_are_a_finding():
+    """The header gives the shards one figure; a hand edit or a partial re-cut that parts them is refused whatever the stamps."""
+
+    def shards(*budgets: str) -> dict[str, Any]:
+        return budget.parse_reference(
+            table(
+                *(row(f"frontend-units ({n})", "-", "-", value, STAMP) for n, value in enumerate(budgets, 1)), row("total", "0", "-", "-", "-")
+            )
+        )
+
+    assert budget.check_raise(shards("190", "190"), shards("190", "190"), TODAY) == []
+    findings = budget.check_raise(shards("190", "190"), shards("190", "175"), TODAY)
+
+    assert details(findings) == [
+        "`frontend-units`'s instances carry 2 budgets (frontend-units (1) 190, frontend-units (2) 175), "
+        "and a matrix job's instances carry one, the widest instance's"
+    ]
+
+
 def test_a_stamp_the_base_already_carries_is_not_judged_again():
     """A row stamped before the minimum held keeps standing while nothing moves it, as `ops`' thirteen-run stamp does."""
     short = budget.parse_reference(table(row("ops", "17", "29", "45", "13@2026-09-01"), row("total", "17", "-", "-", "-")))
@@ -727,6 +768,21 @@ def test_the_draws_are_seeded_per_row():
     assert len(first) == budget.RESAMPLES
     assert first == budget.window_moves(spans, "backend")
     assert first != budget.window_moves(spans, "db")
+
+
+def test_a_population_named_in_another_order_gives_the_same_proposal():
+    """The attempts' order is how they were typed, not a property of the runs, and another re-cut types its own.
+
+    The draws are compared too: a floor rounded to a whole percent can survive a reorder by chance.
+    """
+    rows = budget.parse_reference(table(row("backend", "-", "-", "60", STAMP), row("total", "0", "-", "-", "-")))
+    attempts = [attempt(n, 1, {"backend": 40 + (n * 7) % 23}) for n in range(1, 31)]
+    shuffled = [*attempts[1::2], *attempts[0::2]][::-1]
+    assert sorted(id(a) for a in shuffled) == sorted(id(a) for a in attempts)
+
+    assert budget.stamp(rows, shuffled, None, None) == budget.stamp(rows, attempts, None, None)
+    spans = [40 + (n * 7) % 23 for n in range(1, 31)]
+    assert budget.window_moves(spans[::-1], "backend") == budget.window_moves(spans, "backend")
 
 
 def test_a_row_under_ten_runs_is_not_stamped():
@@ -976,6 +1032,21 @@ def test_main_writes_nothing_where_a_row_asked_for_cannot_be_stamped(tmp_path: P
     assert not out.exists()
 
 
+def test_main_writes_nothing_where_no_row_could_be_stamped(tmp_path: Path):
+    """Exit 0 means a proposal was written, so an unchanged copy of the reference is never one."""
+    reference = written(tmp_path / "ref.tsv", BASELINE)
+    data = tmp_path / "attempts"
+    for number in (1, 2):
+        saved(data, 9, number, {"backend": 40})
+    out = tmp_path / "proposal.tsv"
+
+    code, _, err = run_main("--stamp", str(data), "--attempts", "9/1", "9/2", "--out", str(out), "--reference", str(reference))
+
+    assert code == 2
+    assert "no row could be stamped from these attempts" in err
+    assert not out.exists()
+
+
 def test_main_refuses_an_attempt_named_twice_and_an_unreadable_one(tmp_path: Path):
     reference = written(tmp_path / "ref.tsv", BASELINE)
     data = tmp_path / "attempts"
@@ -1158,7 +1229,7 @@ def test_the_floor_is_cut_for_the_window_the_report_takes():
 
 # A cache step of the job's own, or the image builds' layer cache in the Actions cache service. The
 # toolchain actions' caches are keyed on the lockfiles, which a push to main restores as a re-run does.
-OWN_CACHE_RE = re.compile(r"^      - uses: actions/cache@|^          VERIFY_IMAGES_CACHE: gha$", re.MULTILINE)
+OWN_CACHE_RE = re.compile(r"^\s+- uses: actions/cache(?:/restore|/save)?@|^\s+VERIFY_IMAGES_CACHE: gha$", re.MULTILINE)
 
 
 def test_every_job_with_a_cache_of_its_own_is_stamped_from_main_alone():

@@ -1108,9 +1108,10 @@ lockfile or a stylesheet moves — so it is cut from the widest cold run on reco
 the stamped main runs alone, most of which restored the cache.
 **Raising a budget, a reference or a floor costs a measurement.** In a pull request's `docs` job,
 `scripts/checks/check_gate_budget.py` under `--base` holds the file against the pull request's base and refuses a
-figure that rose on an unchanged stamp, a stamp dated after today or before the one it replaces, a
-new stamp counting fewer runs than the figures beside it need or naming a pull-request run for a job
-whose cache is keyed on the tree, or a
+figure that rose on an unchanged stamp or on one dated before the stamp it replaces, any stamp dated
+after today, a new stamp counting fewer runs than the figures beside it need or naming a pull-request
+run for a job whose cache is keyed on the tree, a total floor that rose beside references not all
+re-stamped from one population, a matrix job's instances on unequal budgets, or a
 budget dropped to `-`; lowering is free, and so is deleting the row of a job the gate no longer
 runs. Every mode reads the table through `--reference`, so a copy is judged before it is committed
 and the checker's suite needs no repository of its own. What the ceiling cannot see is a slowdown that stays under it — a check costing seconds on a
@@ -1415,7 +1416,8 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | Reference data stale for up to a day                                                              | Working as intended — an out-of-band MongoDB edit invalidates nothing                                                                           | Nothing. The bound is the cache lifetime: wait for the daily expiry, or recreate the frontend container                                                                                                              |
 | League table or fixtures stale after a season edit                                                | Same cause — a season decides the default season and the points                                                                                 | Same remedy, and the backend's own season cache expires separately ([`docs/backend/spec.md`](../backend/spec.md) I131); recreation drops every cached page at once                                                   |
 | The `verify` check is red naming a job, its seconds and a budget                                  | The job spanned longer than its ceiling in `.github/gate-wall-clock.tsv` — a cost the change added, or a slow runner (§1.6)                     | Re-run all jobs, not the failed ones alone, then take the cost out rather than raise it; a right raise stamps its measuring runs (§1.6)                                                                              |
-| The `docs` job is red naming a row that rose on an unchanged stamp                                | A figure in `.github/gate-wall-clock.tsv` rose on its old stamp, or a new stamp counts fewer runs than its figures need (§1.6)                  | Cut the row with `scripts/checks/check_gate_budget.py` under `--stamp` from CI's own saved runs, never a development machine (§1.6)                                                                                  |
+| The `docs` job is red naming a row's stamp or a figure beside it                                  | A figure rose on its old stamp, a new stamp counts too few runs, or a pull-request run stamps a job cached by tree (§1.6)                       | Cut the row with `scripts/checks/check_gate_budget.py` under `--stamp` from CI's own saved runs, a job cached by tree from main's pushes (§1.6)                                                                      |
+| The `docs` job is red naming the total's floor or a matrix job's budgets                          | The total's floor rose beside references not all re-stamped from one population, or a matrix job's instances carry unequal budgets (§1.6)       | Re-cut every referenced row from one population with `--stamp`, or give every instance the widest instance's budget (§1.6)                                                                                           |
 
 ## 4. Known-open
 
