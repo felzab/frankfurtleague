@@ -6,19 +6,29 @@
 # own figures were taken over, as `<runs>@<date of the newest>`. `-` is a column that does not apply
 # to the row, never a zero.
 #
-# Updated by hand, never by the workflow. A report that recomputed its reference from its own
-# recent past would let a slowdown become the new normal one window at a time, and the accumulated
-# growth would never appear in any single report.
+# Updated by hand, never by the workflow: `scripts/checks/check_gate_budget.py` under `--stamp` cuts
+# a row from the saved runs it is named, by the rules below, and a person commits what it proposes. A
+# report that recomputed its reference from its own recent past would let a slowdown become the new
+# normal one window at a time, and the accumulated growth would never appear in any single report.
 #
-# Seconds: the median first-step-to-last-step span over the completed main push runs the row's own
-# stamp counts, which is the one place the population is written. A stamp counts at least ten
-# completed main runs, drawn from both classes of runner GitHub hands a job: one tree's span differs
-# between the two, so a population of one class sets a reference and a budget the other breaks. A
-# row whose stamp counts fewer is due a re-cut.
+# Population: the completed main push runs a row's stamp counts, which is the one place it is
+# written. Left out of a row's population, that row alone: a job that did not succeed.
+# A stamp counts at least ten runs. Each job gets a machine of its own, of a fast or a slow class no
+# log names; read off the binding unit's timing, the slow class ran 61-76 percent of the `backend`,
+# `db` and `scripts` jobs of the 33 pull-request runs of 2026-10-06, so ten runs leave it out of at
+# most about one population in ten thousand, and one that leaves it out sets a budget that class
+# breaks. A row whose stamp counts fewer is due a re-cut.
+# Seconds: the median first-step-to-last-step span over the row's population; `-` under the
+# twenty-four runs its floor needs, which leave the fast class, 24-39 percent of those jobs, out of
+# at most about one population in seven hundred.
 # Floor: how far a 12-run median moves at p95, in percent of the reference beside it rather than in
-# seconds -- that same population reshuffled and re-cut into two windows of twelve, rounded up to a
-# whole percent, and whole runs resampled rather than single jobs, because a slow runner slows every
-# job on it. A job with no row here is not compared: the report lists it under "Measured with no
+# seconds -- the nearest-rank p95 of how far one window's median sits from the other's, over draws
+# of two disjoint windows of twelve out of the row's population, rounded up to a whole percent and
+# seeded per row so a re-cut reads the same floor
+# (`scripts/checks/check_gate_budget.py :: window_moves`). A row's spans are drawn alone rather than
+# whole runs: one run's jobs run on separate machines, and over those 33 runs two units of one job
+# moved together, a rank correlation of 0.96, where two jobs of one run did not, -0.28 to 0.15.
+# A job with no row here is not compared: the report lists it under "Measured with no
 # reference to compare against", the same line a row carrying `-` puts its job on
 # (`scripts/checks/check_gate_budget.py :: report_window`), and the budget check fails the run that
 # carries it (`:: check_run`). p95 rather than p90 because a report holding no verdict is worth
@@ -60,7 +70,7 @@
 # says of a run from before its merge, and a reference with no floor beside it is a median the
 # report cannot judge. So each of these rows carries `-` for both, is held by its budget alone where
 # it has one, and is listed by the report as measured rather than compared; its reference and floor
-# are cut once twelve runs of its population exist.
+# are cut once twenty-four runs of its population exist.
 #
 # `ops` answers to the main push runs to 2026-09-07 its own stamp counts, fewer than the 24 that
 # end on that day: `nginx/edge_test.sh` joined that scope partway through those 24, and a run from
@@ -618,9 +628,11 @@
 # No row moves and none takes a stamp.
 #
 # The total row is the sum of the seconds above it, compared the same way where it carries a floor.
-# Its floor is `-` while `ops` is the one row holding a reference: the sum is then that row's own
-# median, which its row already compares against its own floor, so a floor here would only print
-# `ops` moving under the whole gate's name. Move a job's seconds and move the total with it: where
+# Its floor sums each referenced row's draws, so `--stamp` cuts one only where every row holding a
+# reference was cut from the population it reads; otherwise it is `-`, as while `ops` is the one row
+# holding a reference: the sum is then that row's own median, which its row already compares
+# against its own floor, so a floor here would only print `ops` moving under the whole gate's name.
+# Move a job's seconds and move the total with it: where
 # the two disagree `scripts/checks/check_gate_budget.py` refuses the file at parse, in any of its
 # modes, and compares nothing at all.
 #

@@ -1057,7 +1057,7 @@ the last cache a passing run left, the cost of keeping a cache write out of ever
 **The aggregate `verify` job writes a wall-clock report** into its run summary on every push to
 main: per-job medians over the completed main runs already on record, against
 [`.github/gate-wall-clock.tsv`](../../.github/gate-wall-clock.tsv), which pairs a reference figure
-with a floor for each job its stamped main runs can cut a floor for. A row whose population is too
+with a floor for each job its stamped runs can cut a floor for. A row whose population is too
 short carries `-` in both columns, is held by its budget alone, and is named in the report as
 measured rather than compared: a reference with no floor beside it is a median nothing can judge.
 `scripts/checks/check_gate_budget.py` under `--window` writes it, and how a median is taken is at
@@ -1071,7 +1071,7 @@ so growth against it accumulates in the number rather than in the baseline.
 
 **A row appears only where that job's median has moved past that job's own floor**, and a report with
 nothing past a floor says so in one line. The floors are per job because one figure is wrong for most
-of them: resampled over whole runs of the population each row of `.github/gate-wall-clock.tsv`
+of them: resampled from the spans of the population each row of `.github/gate-wall-clock.tsv`
 stamps, a 12-run median moves by a different amount on every job in that table, so a single global
 figure dismisses a real move on the quiet jobs and cries wolf on
 the noisy ones. Each floor in the table is that job's own p95, so a delta under it is a reshuffle.
@@ -1091,7 +1091,9 @@ naming the job and both figures; on a job that ran with no row, so a new job arr
 measured cost or goes red, while a check added inside an existing job is held by review and by that
 job's budget, no step being measured on its own; and on a successful job the API carries no step timestamp for,
 a length nothing measured being no pass. A single run swings far wider than a median,
-which is why a budget is not the reference; the rule each budget is set by is the table's header's.
+which is why a budget is not the reference; the rule each budget is set by is the table's header's,
+and `scripts/checks/check_gate_budget.py` under `--stamp` applies it to saved runs, so a row is
+recomputed from its run ids rather than taken on trust.
 **One exceedance
 fails**: the ceiling sits above every run in the population it was set from, so a run over it is a
 re-run or a regression, and a re-run of all jobs is the repeat measurement at the cost of a click

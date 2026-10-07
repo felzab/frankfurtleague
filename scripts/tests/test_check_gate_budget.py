@@ -624,6 +624,261 @@ def test_main_refuses_where_no_base_resolves(tmp_path: Path):
     assert "not held against a base" in err
 
 
+# --- the stamp -------------------------------------------------------------------------------------
+
+DAY = date(2026, 9, 1)
+
+
+def attempt(run: int, number: int, spans: dict[str, int], *, day: date = DAY) -> Any:
+    return budget.Attempt(run, number, day, tuple(ok(name, seconds) for name, seconds in spans.items()))
+
+
+def test_a_budget_is_the_widest_span_and_the_greater_margin_rounded_up_to_five():
+    """Every pair here is a budget the header's rule set: the stamped rows, the shard rows, and BUDGET-MEASURE's PR runs.
+
+    56 + 14 lands on 70 itself, which a rounding to the next five above would have lifted to 75.
+    """
+    pairs = {56: 70, 45: 60, 108: 135, 30: 40, 115: 145, 151: 190, 89: 115, 159: 200, 84: 105, 71: 90, 1: 15}
+
+    assert {widest: budget.budget_over(widest) for widest in pairs} == pairs
+
+
+def test_a_floor_is_the_nearest_rank_p95_of_the_moves_rounded_up_to_a_whole_percent():
+    """A move's size is what counts, so a downward move weighs what an upward one does."""
+    moves = [(-1) ** n * n for n in range(100)]
+
+    assert budget.floor_of(moves, 100) == 94
+    assert budget.floor_of([1] * 100, 3) == 34
+
+
+def test_the_draws_are_seeded_per_row():
+    """The same spans give the same moves on every call, and a row's draws are its own rather than its neighbour's."""
+    spans = list(range(40, 70))
+
+    first = budget.window_moves(spans, "backend")
+
+    assert len(first) == budget.RESAMPLES
+    assert first == budget.window_moves(spans, "backend")
+    assert first != budget.window_moves(spans, "db")
+
+
+def test_a_row_under_ten_runs_is_not_stamped():
+    attempts = [attempt(1, n, {"backend": 50}) for n in range(1, 10)]
+
+    proposed, lines, missed = budget.stamp(budget.parse_reference(BASELINE), attempts, ["backend"])
+
+    assert proposed["backend"] == budget.parse_reference(BASELINE)["backend"]
+    assert missed == ["backend"]
+    assert lines[0] == "backend: not stamped -- 9 counted, and a stamp counts at least 10"
+
+
+def test_ten_runs_cut_a_budget_and_twenty_four_a_reference_and_floor():
+    """Under twenty-four the reference and floor are `-`: the report cannot judge a median with no floor beside it."""
+    rows = budget.parse_reference(BASELINE)
+    ten = [attempt(n, 1, {"backend": 40 + n}) for n in range(1, 11)]
+    many = [attempt(n, 1, {"backend": 40 + n % 5}) for n in range(1, 25)]
+
+    assert budget.stamp(rows, ten, ["backend"])[0]["backend"] == budget.Row("backend", None, None, 65, "10@2026-09-01")
+    reference = budget.stamp(rows, many, ["backend"])[0]["backend"]
+    assert (reference.seconds, reference.budget, reference.measured) == (42, 55, "24@2026-09-01")
+    assert reference.floor is not None
+
+
+def test_a_failed_job_is_left_out_of_its_row_alone():
+    """A failed job's length is no evidence, and the run's other jobs still count."""
+    attempts = [attempt(n, 1, {"backend": 50, "scripts": 50}) for n in range(1, 11)]
+    attempts.append(budget.Attempt(12, 1, DAY, (ok("backend", 61), budget.Span("scripts", "dropped", 0))))
+    rows = budget.parse_reference(
+        table(row("scripts", "-", "-", "60", STAMP), row("backend", "-", "-", "60", STAMP), row("total", "0", "-", "-", "-"))
+    )
+
+    proposed, lines, _ = budget.stamp(rows, attempts, None)
+
+    assert proposed["scripts"].budget == 65 and proposed["scripts"].measured == "10@2026-09-01"
+    assert proposed["backend"].budget == 80 and proposed["backend"].measured == "11@2026-09-01"
+    assert any(line.startswith("scripts: 10 counted, 1 did not succeed;") for line in lines), lines
+
+
+def test_an_unbudgeted_row_stays_unbudgeted_and_the_cold_budget_never_falls():
+    """`images`' budget is `-` by the header's decision, and `format`'s is the cold job's, which warm runs cannot lower."""
+    rows = budget.parse_reference(
+        table(row("format", "-", "-", "70", STAMP), row("images", "-", "-", "-", STAMP), row("total", "0", "-", "-", "-"))
+    )
+    attempts = [attempt(n, 1, {"format": 30, "images": 90}) for n in range(1, 11)]
+
+    proposed, _, _ = budget.stamp(rows, attempts, None)
+
+    assert (proposed["format"].budget, proposed["images"].budget) == (70, None)
+    assert budget.stamp(rows, [attempt(n, 1, {"format": 80}) for n in range(1, 11)], ["format"])[0]["format"].budget == 100
+
+
+def test_the_stamp_is_dated_by_the_newest_attempt_its_row_counts():
+    """A row whose newest attempt was left out is dated by the newest it kept, so its stamp names runs it counted."""
+    attempts = [attempt(n, 1, {"backend": 50}) for n in range(1, 11)]
+    attempts.append(budget.Attempt(11, 1, date(2026, 9, 2), (budget.Span("backend", "dropped", 0),)))
+
+    assert budget.stamp(budget.parse_reference(BASELINE), attempts, ["backend"])[0]["backend"].measured == "10@2026-09-01"
+
+
+def test_the_total_takes_a_floor_only_where_every_reference_beside_it_was_cut_here():
+    """The report sums the referenced rows' window medians, and a reference from another population has no draws to sum."""
+    attempts = [attempt(n, 1, {"backend": 40 + n % 7, "db": 100 + n % 11}) for n in range(1, 25)]
+    rows = budget.parse_reference(
+        table(row("backend", "-", "-", "60", STAMP), row("db", "-", "-", "135", STAMP), row("total", "0", "-", "-", "-"))
+    )
+
+    proposed, lines, _ = budget.stamp(rows, attempts, None)
+    total = proposed["total"]
+    assert total.seconds == proposed["backend"].seconds + proposed["db"].seconds
+    assert total.floor is not None and lines[-1].startswith(f"total: {total.seconds} s, floor {total.floor}% over backend, db")
+
+    proposed, lines, _ = budget.stamp(rows, attempts, ["db"])
+    assert proposed["total"].floor is not None
+
+    proposed, lines, _ = budget.stamp(budget.parse_reference(BASELINE), attempts, ["backend"])
+    assert proposed["total"].floor is None
+    assert lines[-1] == f"total: {proposed['total'].seconds} s, floor - -- a reference cut from another population: images"
+
+
+def saved(directory: Path, run: int, number: int, spans: dict[str, int], **overrides: Any) -> None:
+    """One attempt as the coordinator saves it: the run object and the attempt's jobs."""
+    directory.mkdir(exist_ok=True)
+    meta = {"id": run, "run_attempt": number, "status": "completed", "event": "push", "head_branch": "main"}
+    meta |= {"run_started_at": "2026-09-01T10:00:00Z", **overrides.get("meta", {})}
+    jobs = [{**job(name, seconds), "run_id": run, "run_attempt": number} for name, seconds in spans.items()]
+    jobs += overrides.get("jobs", [])
+    written(directory / budget.RUN_FILE.format(run, number), json.dumps(meta))
+    written(
+        directory / budget.ATTEMPT_JOBS_FILE.format(run, number), json.dumps({"total_count": overrides.get("total", len(jobs)), "jobs": jobs})
+    )
+
+
+def test_an_attempt_reads_its_spans_and_its_day(tmp_path: Path):
+    saved(tmp_path, 7, 2, {"backend": 50, "db": 90})
+
+    read = budget.read_attempt(tmp_path, 7, 2)
+
+    assert (read.run, read.number, read.day) == (7, 2, DAY)
+    assert [(span.job, span.seconds) for span in read.spans] == [("backend", 50), ("db", 90)]
+
+
+def test_an_attempt_that_cannot_stand_in_a_population_is_refused(tmp_path: Path):
+    """Each is a span that would be counted wrongly, so the whole stamp stops."""
+    cases: dict[str, tuple[dict[str, Any], str]] = {
+        "unfinished": ({"meta": {"status": "in_progress"}}, "only a completed attempt"),
+        "branch": ({"meta": {"head_branch": "feature"}}, "a stamp counts pushes to main"),
+        "event": ({"meta": {"event": "pull_request"}}, "a stamp counts pushes to main"),
+        "paged": ({"total": 20}, "one page of a longer listing"),
+        "carried": ({"jobs": [{**job("db", 90), "run_id": 7, "run_attempt": 1}]}, "re-run all jobs, never the failed ones alone"),
+        "other run": ({"meta": {"id": 8}}, "is not the run object of attempt 7/2"),
+    }
+    for name, (overrides, expected) in cases.items():
+        directory = tmp_path / name.replace(" ", "-")
+        saved(directory, 7, 2, {"backend": 50}, **overrides)
+        try:
+            budget.read_attempt(directory, 7, 2)
+        except budget.Unstampable as exc:
+            assert expected in str(exc), (name, str(exc))
+        else:
+            raise AssertionError(f"the {name} attempt was read")
+    try:
+        budget.read_attempt(tmp_path / "absent", 7, 2)
+    except budget.Unstampable as exc:
+        assert "could not be read" in str(exc)
+    else:
+        raise AssertionError("an attempt with no files was read")
+
+
+def test_main_writes_a_proposal_every_mode_reads_and_keeps_the_header(tmp_path: Path):
+    """The exit contract end to end: the proposal parses, and the header above it is untouched."""
+    reference = written(tmp_path / "ref.tsv", "# the header\n" + BASELINE)
+    data = tmp_path / "attempts"
+    for number in range(1, 25):
+        saved(data, number, 1, {"backend": 40 + number % 6}, meta={"run_started_at": "2026-09-02T10:00:00Z"})
+    out = tmp_path / "proposal.tsv"
+
+    code, stdout, _ = run_main(
+        "--stamp", str(data), "--attempts", *(f"{n}/1" for n in range(1, 25)), "--out", str(out), "--reference", str(reference)
+    )
+
+    assert code == 0, stdout
+    text = out.read_bytes().decode("utf-8")
+    assert text.startswith("# the header\n# job\tseconds\tfloor\tbudget\tmeasured\n") and "\r" not in text
+    rows = budget.parse_reference(text)
+    assert rows["backend"].measured == "24@2026-09-02"
+    assert rows["commits"] == budget.parse_reference(BASELINE)["commits"]
+    assert "24 attempts of pushes to main" in stdout
+
+
+def test_main_writes_nothing_where_a_row_asked_for_cannot_be_stamped(tmp_path: Path):
+    reference = written(tmp_path / "ref.tsv", BASELINE)
+    data = tmp_path / "attempts"
+    for number in range(1, 11):
+        saved(data, number, 1, {"backend": 40})
+    out = tmp_path / "proposal.tsv"
+
+    code, _, err = run_main(
+        "--stamp",
+        str(data),
+        "--attempts",
+        *(f"{n}/1" for n in range(1, 11)),
+        "--rows",
+        "commits",
+        "--out",
+        str(out),
+        "--reference",
+        str(reference),
+    )
+
+    assert code == 2
+    assert "asked for and not stamped: commits" in err
+    assert not out.exists()
+
+
+def test_main_refuses_an_attempt_named_twice_and_an_unreadable_one(tmp_path: Path):
+    reference = written(tmp_path / "ref.tsv", BASELINE)
+    data = tmp_path / "attempts"
+    saved(data, 9, 1, {"backend": 40})
+
+    for attempts, expected in ((("9/1", "9/1"), "named twice"), (("9/1", "9/2"), "attempt 9/2 could not be read")):
+        code, _, err = run_main(
+            "--stamp", str(data), "--attempts", *attempts, "--out", str(tmp_path / "out.tsv"), "--reference", str(reference)
+        )
+        assert code == 2 and expected in err, err
+
+
+def test_main_reports_a_proposal_its_own_base_check_would_refuse(tmp_path: Path):
+    """The proposal is held against the table it was cut from, so a stamp older than the one it replaces says so before any push."""
+    reference = written(tmp_path / "ref.tsv", table(row("backend", "-", "-", "45", "30@2026-09-05"), row("total", "0", "-", "-", "-")))
+    data = tmp_path / "attempts"
+    for number in range(1, 11):
+        saved(data, number, 1, {"backend": 50})
+
+    code, stdout, _ = run_main(
+        "--stamp", str(data), "--attempts", *(f"{n}/1" for n in range(1, 11)), "--out", str(tmp_path / "out.tsv"), "--reference", str(reference)
+    )
+
+    assert code == 1
+    assert "older than the 30@2026-09-05 it replaces" in stdout
+
+
+def test_the_stamp_flags_are_refused_apart_from_their_mode(tmp_path: Path):
+    """Without `--attempts` or `--out` a stamp has nothing to count or nowhere to go; beside another mode either would read as honoured."""
+    for flags in (
+        ("--stamp", str(tmp_path)),
+        ("--stamp", str(tmp_path), "--attempts", "1/1"),
+        ("--base", "--attempts", "1/1"),
+        ("--base", "--out", "x"),
+        ("--stamp", str(tmp_path), "--attempts", "1-1", "--out", "x"),
+    ):
+        try:
+            run_main(*flags)
+        except SystemExit as exc:
+            assert exc.code == 2, flags
+        else:
+            raise AssertionError(f"{flags} ran")
+
+
 # --- the committed reference and its call sites ------------------------------------------------------
 
 
@@ -751,3 +1006,10 @@ def test_the_aggregate_waits_on_every_other_job():
     missing, unknown = aggregate_gaps(workflow)
 
     assert not missing and not unknown, f"jobs `verify` does not wait on: {sorted(missing)}; `needs` names that are no job: {sorted(unknown)}"
+
+
+def test_the_floor_is_cut_for_the_window_the_report_takes():
+    """A floor measured over windows of one size judges medians over another size at the wrong width."""
+    workflow = (REPO_ROOT / ".github" / "workflows" / "verify.yml").read_text(encoding="utf-8")
+
+    assert re.findall(r"^\s+window=([0-9]+)$", workflow, re.MULTILINE) == [str(budget.WINDOW)]

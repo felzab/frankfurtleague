@@ -1,11 +1,13 @@
 """SCRIPTS · the gate's wall-clock budget, and the median report beside it.
 
-Three questions over `.github/gate-wall-clock.tsv`, one per mode. `--jobs` holds every job of the
+Four questions over `.github/gate-wall-clock.tsv`, one per mode. `--jobs` holds every job of the
 run in hand to the budget its row gives it and refuses the run that breaks one, naming the job and
 both figures. `--base` holds the file itself: a budget or a reference that rose against the base
 carries a new measurement stamp, so a ceiling is never lifted by editing a number alone. `--window`
 reports each job's median over the last main runs against its reference and floor, and decides no
-outcome. `--reference` names the file every mode reads, so a copy is judged before it is committed.
+outcome. `--stamp` cuts rows from saved runs by the header's rules, so a stamp is recomputed from
+its run ids rather than trusted. `--reference` names the file every mode reads, so a copy is judged
+before it is committed.
 """
 
 from __future__ import annotations
@@ -14,6 +16,7 @@ import argparse
 import json
 import math
 import os
+import random
 import re
 import statistics
 import sys
@@ -462,6 +465,262 @@ def annotate(findings: list[Finding]) -> None:
             print(f"::error title=Gate budget::{workflow_message(finding.detail)}")
 
 
+# --- the stamp: a row's figures out of the runs that measured them ---------------------------------
+
+# Fewer, and the slow class of runner can be absent from a row's population, which then sets a
+# budget that class breaks.
+MIN_STAMP_RUNS: Final = 10
+
+# `window=` in the report step of `.github/workflows/verify.yml`: a floor measures how far a median
+# over that many runs moves, so the two numbers are one.
+WINDOW: Final = 12
+MIN_FLOOR_SPANS: Final = 2 * WINDOW
+
+# Seeded, so a re-run of the stamp reads the same floor rather than a fresh sample of it. At this
+# count eight other seeds gave the same floor on each of three rows (2026-10-07, 30-33 spans each).
+RESAMPLES: Final = 20_000
+PERCENTILE: Final = 95
+SEED: Final = "gate-wall-clock"
+
+# The header's `format` paragraph: that budget is the cold job's, and a population that happened
+# to restore the cache never lowers it.
+COLD_BUDGET: Final[frozenset[str]] = frozenset({"format"})
+
+# What the coordinator saves per attempt: `gh api .../runs/<id>/attempts/<n>` and the same attempt's
+# `/jobs?per_page=100`. The run object is what says the attempt is a push to main.
+RUN_FILE: Final = "run-{}-{}.json"
+ATTEMPT_JOBS_FILE: Final = "jobs-{}-{}.json"
+ATTEMPT_ID: Final = re.compile(r"^([1-9][0-9]*)/([1-9][0-9]*)$")
+
+
+class Unstampable(Exception):
+    """The attempts named cannot make one population, so nothing is proposed."""
+
+
+@dataclass(frozen=True)
+class Attempt:
+    """One attempt of one push run on main, and its jobs' spans."""
+
+    run: int
+    number: int
+    day: date
+    spans: tuple[Span, ...]
+
+
+def attempt_id(text: str) -> tuple[int, int]:
+    match = ATTEMPT_ID.match(text)
+    if match is None:
+        raise argparse.ArgumentTypeError(f"`{text}` is not `<run id>/<attempt>`")
+    return int(match.group(1)), int(match.group(2))
+
+
+def read_attempt(directory: Path, run: int, number: int) -> Attempt:
+    named = f"attempt {run}/{number}"
+    try:
+        meta = json.loads((directory / RUN_FILE.format(run, number)).read_text(encoding="utf-8"))
+        payload = json.loads((directory / ATTEMPT_JOBS_FILE.format(run, number)).read_text(encoding="utf-8"))
+    except (*UNREADABLE, ValueError) as exc:
+        raise Unstampable(f"{named} could not be read ({exc})") from None
+    if not isinstance(meta, dict) or meta.get("id") != run or meta.get("run_attempt") != number:
+        raise Unstampable(f"{RUN_FILE.format(run, number)} is not the run object of {named}")
+    if meta.get("status") != "completed":
+        raise Unstampable(f"{named} is `{meta.get('status')}`, and only a completed attempt has timed every job")
+    if meta.get("event") != "push" or meta.get("head_branch") != "main":
+        raise Unstampable(f"{named} ran on `{meta.get('event')}` to `{meta.get('head_branch')}`, and a stamp counts pushes to main")
+    try:
+        day = datetime.fromisoformat(str(meta.get("run_started_at"))).astimezone(UTC).date()
+        spans = tuple(spans_of(payload))
+    except (ValueError, Malformed) as exc:
+        raise Unstampable(f"{named}: {exc}") from None
+    assert isinstance(payload, dict)  # spans_of refused anything else
+    jobs = payload["jobs"]
+    if payload.get("total_count") != len(jobs):
+        raise Unstampable(f"{named}'s payload holds {len(jobs)} of {payload.get('total_count')} jobs, one page of a longer listing")
+    for job in jobs:
+        # A job re-run alone keeps its earlier timing in the later attempt's listing, so that attempt
+        # would count one span twice.
+        if job.get("run_id") != run or job.get("run_attempt") != number:
+            raise Unstampable(
+                f"{named} lists `{job['name']}` from run {job.get('run_id')} attempt {job.get('run_attempt')}: "
+                "re-run all jobs, never the failed ones alone"
+            )
+    return Attempt(run, number, day, spans)
+
+
+@dataclass(frozen=True)
+class Counted:
+    """One row's population: the spans it counts with each one's day, and why the others were left out."""
+
+    spans: tuple[tuple[int, date], ...]
+    left: dict[str, int]
+
+
+def counted(attempts: list[Attempt], job: str) -> Counted:
+    spans: list[tuple[int, date]] = []
+    left: dict[str, int] = {}
+    for attempt in attempts:
+        for span in attempt.spans:
+            if span.job != job:
+                continue
+            reason = {"dropped": "did not succeed", "skipped": "skipped", "unmeasured": "untimed"}.get(span.state)
+            if reason is None:
+                spans.append((span.seconds, attempt.day))
+            else:
+                left[reason] = left.get(reason, 0) + 1
+    return Counted(tuple(spans), left)
+
+
+def budget_over(widest: int) -> int:
+    """The header's rule: the widest span, plus a quarter of it or ten seconds, rounded up to the next five."""
+    # Four times the sum, so the quarter stays a whole number until the one division.
+    quadrupled = 4 * widest + max(widest, 40)
+    return -(-quadrupled // 20) * 5
+
+
+def window_moves(spans: list[int], job: str) -> list[int]:
+    """One row's spans alone, never whole runs: one run's jobs run on separate machines and do not slow together.
+
+    A stream per row, so a row's floor never moves with which other rows a stamp cuts.
+    """
+    draw = random.Random(f"{SEED}:{job}")
+    moves: list[int] = []
+    for _ in range(RESAMPLES):
+        picked = draw.sample(spans, 2 * WINDOW)
+        moves.append(_median(picked[:WINDOW]) - _median(picked[WINDOW:]))
+    return moves
+
+
+def floor_of(moves: list[int], seconds: int) -> int:
+    """The nearest-rank p95 of the moves' sizes, in whole percent of the reference, rounded up."""
+    ranked = sorted(abs(move) for move in moves)
+    p95 = ranked[-(-PERCENTILE * len(ranked) // 100) - 1]
+    return -(-100 * p95 // seconds)
+
+
+@dataclass(frozen=True)
+class Proposal:
+    """A row's proposed figures, the floor's draws the total's floor sums, and the line saying why."""
+
+    row: Row | None
+    moves: list[int] | None
+    account: str
+
+
+def propose(job: str, current: Row | None, attempts: list[Attempt]) -> Proposal:
+    population = counted(attempts, job)
+    left = "".join(f", {count} {reason}" for reason, count in sorted(population.left.items()))
+    seconds = [span for span, _ in population.spans]
+    if len(seconds) < MIN_STAMP_RUNS:
+        return Proposal(None, None, f"{job}: not stamped -- {len(seconds)} counted{left}, and a stamp counts at least {MIN_STAMP_RUNS}")
+    widest = max(seconds)
+    reference = floor = moves = None
+    if len(seconds) >= MIN_FLOOR_SPANS and _median(seconds) > 0:
+        reference = _median(seconds)
+        moves = window_moves(seconds, job)
+        floor = floor_of(moves, reference)
+    if current is not None and current.budget is None:
+        budget = None
+    elif job in COLD_BUDGET and current is not None and current.budget is not None:
+        budget = max(budget_over(widest), current.budget)
+    else:
+        budget = budget_over(widest)
+    newest = max(day for _, day in population.spans)
+    measured = f"{len(seconds)}@{newest.isoformat()}"
+    row = Row(job, reference, floor, budget, measured)
+    shown = " ".join(NONE if value is None else str(value) for value in (reference, floor, budget))
+    account = f"{job}: {len(seconds)} counted{left}; median {_median(seconds)} s, widest {widest} s -> {shown} {measured}"
+    return Proposal(row, moves, account)
+
+
+def table_line(row: Row) -> str:
+    return "\t".join(
+        (row.job, *(NONE if value is None else str(value) for value in (row.seconds, row.floor, row.budget)), row.measured or NONE)
+    )
+
+
+def rewritten(text: str, rows: dict[str, Row]) -> str:
+    """The reference's text with each row's line replaced, a job new to it placed above the total."""
+    lines: list[str] = []
+    placed: set[str] = set()
+    for line in text.splitlines():
+        if not line.strip() or line.startswith("#"):
+            lines.append(line)
+            continue
+        job = line.split("\t", 1)[0]
+        if job == TOTAL:
+            lines += [table_line(rows[new]) for new in sorted(rows) if new not in placed and new != TOTAL]
+        lines.append(table_line(rows[job]))
+        placed.add(job)
+    return "\n".join(lines) + "\n"
+
+
+def stamp(rows: dict[str, Row], attempts: list[Attempt], wanted: list[str] | None) -> tuple[dict[str, Row], list[str], list[str]]:
+    """The proposed table, the account of every row, and the rows asked for that could not be stamped."""
+    jobs = sorted({span.job for attempt in attempts for span in attempt.spans} | (set(rows) - {TOTAL}))
+    if wanted is not None:
+        jobs = [job for job in jobs if job in wanted]
+    proposed = dict(rows)
+    draws: dict[str, list[int]] = {}
+    lines: list[str] = []
+    missed: list[str] = sorted(set(wanted or ()) - set(jobs))
+    for job in jobs:
+        proposal = propose(job, rows.get(job), attempts)
+        lines.append(proposal.account)
+        if proposal.row is None:
+            if wanted is not None:
+                missed.append(job)
+            continue
+        proposed[job] = proposal.row
+        if proposal.moves is not None:
+            draws[job] = proposal.moves
+    referenced = sorted(job for job, row in proposed.items() if job != TOTAL and row.seconds is not None and row.floor is not None)
+    summed = sum(row.seconds for job, row in proposed.items() if job != TOTAL and row.seconds is not None)
+    total_floor = None
+    if referenced and all(job in draws for job in referenced):
+        # The report sums the referenced rows' window medians, so the total's floor is the same draws summed.
+        total_floor = floor_of([sum(moves) for moves in zip(*(draws[job] for job in referenced), strict=True)], summed)
+        lines.append(f"{TOTAL}: {summed} s, floor {total_floor}% over {', '.join(referenced)}")
+    else:
+        others = [job for job in referenced if job not in draws]
+        lines.append(
+            f"{TOTAL}: {summed} s, floor {NONE}" + (f" -- a reference cut from another population: {', '.join(others)}" if others else "")
+        )
+    before = rows.get(TOTAL)
+    proposed[TOTAL] = Row(TOTAL, summed, total_floor, None if before is None else before.budget, None if before is None else before.measured)
+    return proposed, lines, missed
+
+
+def stamp_main(reference: Path, directory: Path, ids: list[tuple[int, int]], wanted: list[str] | None, out: Path) -> int:
+    try:
+        text = reference.read_text(encoding="utf-8")
+        rows = parse_reference(text)
+    except (*UNREADABLE, Malformed) as exc:
+        print(f"      {named(reference)} could not be read as a table ({exc}), so nothing was stamped.", file=sys.stderr)
+        return EXIT_REFUSED
+    if len(set(ids)) != len(ids):
+        print("      an attempt is named twice, and a population counts each once. Nothing was stamped.", file=sys.stderr)
+        return EXIT_REFUSED
+    try:
+        attempts = [read_attempt(directory, run, number) for run, number in ids]
+    except Unstampable as exc:
+        print(f"      {exc}. Nothing was stamped.", file=sys.stderr)
+        return EXIT_REFUSED
+    proposed, lines, missed = stamp(rows, attempts, wanted)
+    print(f"      {len(attempts)} attempts of pushes to main")
+    for line in lines:
+        print(f"      {line}")
+    if missed:
+        print(f"      asked for and not stamped: {', '.join(missed)}. Nothing was written.", file=sys.stderr)
+        return EXIT_REFUSED
+    proposal = rewritten(text, proposed)
+    parse_reference(proposal)  # what this writes, every mode reads
+    out.write_bytes(proposal.encode("utf-8"))
+    findings = check_raise(rows, proposed, datetime.now(UTC).date())
+    code = report_findings(findings)
+    print(f"      the proposal is {named(out)}; hold it with --base and with --jobs before it replaces {named(reference)}")
+    return code
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="The gate's wall-clock budget (.github/gate-wall-clock.tsv).")
     mode = parser.add_mutually_exclusive_group(required=True)
@@ -474,8 +733,17 @@ def main() -> int:
         metavar="DIR",
         help=f"report medians over the main runs listed in DIR/{RUNS_FILE}, each run's jobs in DIR/{JOBS_FILE.format('<id>')}",
     )
+    mode.add_argument(
+        "--stamp",
+        metavar="DIR",
+        help="propose rows from the attempts --attempts names, each saved in DIR as "
+        + ", ".join(pattern.format("<id>", "<n>") for pattern in (RUN_FILE, ATTEMPT_JOBS_FILE)),
+    )
     parser.add_argument("--runs", type=int, metavar="N", help="with --window: how many runs make a window, the page size they were listed with")
     parser.add_argument("--summary", metavar="PATH", help="with --window: the file the report is appended to (default: stdout)")
+    parser.add_argument("--attempts", nargs="+", type=attempt_id, metavar="ID/N", help="with --stamp: every attempt the population counts")
+    parser.add_argument("--rows", nargs="+", metavar="JOB", help="with --stamp: the rows to stamp (default: every row the attempts can stamp)")
+    parser.add_argument("--out", metavar="PATH", help="with --stamp: where the proposed table is written, the reference's header kept")
     parser.add_argument(
         "--reference",
         default=str(REPO_ROOT / REFERENCE),
@@ -488,6 +756,10 @@ def main() -> int:
     # Refused rather than ignored: beside `--jobs` or `--base` either flag would read as honoured.
     if args.window is None and any(flag is not None for flag in (args.runs, args.summary)):
         parser.error("--runs and --summary go with --window alone")
+    if args.stamp is not None and (args.attempts is None or args.out is None):
+        parser.error("--stamp needs --attempts, every attempt the population counts, and --out, where the proposal goes")
+    if args.stamp is None and any(flag is not None for flag in (args.attempts, args.rows, args.out)):
+        parser.error("--attempts, --rows and --out go with --stamp alone")
 
     def summarise(text: str) -> None:
         if args.summary is None:
@@ -497,6 +769,8 @@ def main() -> int:
 
     opened = Path(args.reference)
     reference = named(opened)
+    if args.stamp is not None:
+        return stamp_main(opened, Path(args.stamp), args.attempts, args.rows, Path(args.out))
 
     def unread(why: str) -> int:
         print(f"      {reference} {why}", file=sys.stderr)
