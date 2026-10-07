@@ -658,6 +658,28 @@ def test_a_wider_floor_on_the_old_stamp_is_a_finding_and_a_narrower_one_is_free(
     assert budget.check_raise(BASE, restamped(STAMP, floor="9"), TODAY) == []
 
 
+def test_a_total_floor_stands_only_beside_references_re_stamped_from_one_population():
+    """A wider total floor silences the whole-gate line, and `--stamp` cuts one only from one population's draws."""
+
+    def pair(backend: str, db: str, total_floor: str) -> dict[str, Any]:
+        return budget.parse_reference(
+            table(row("backend", "40", "15", "60", backend), row("db", "100", "7", "135", db), row("total", "140", total_floor, "-", "-"))
+        )
+
+    base = pair(STAMP, STAMP, "-")
+
+    assert budget.check_raise(base, pair("30@2026-09-02/9", "30@2026-09-02/9", "5"), TODAY) == []
+    assert budget.check_raise(pair(STAMP, STAMP, "5"), pair(STAMP, STAMP, "4"), TODAY) == []
+    for head, why in (
+        (pair(STAMP, STAMP, "90"), "backend, db kept the stamp the base carries"),
+        (pair("30@2026-09-02/9", "30@2026-09-02/8", "5"), "the references beside it name 2 populations"),
+    ):
+        findings = budget.check_raise(base, head, TODAY)
+        assert len(findings) == 1 and findings[0].detail.startswith("the total's floor rose (- -> ") and why in findings[0].detail, details(
+            findings
+        )
+
+
 def test_a_stamp_the_base_already_carries_is_not_judged_again():
     """A row stamped before the minimum held keeps standing while nothing moves it, as `ops`' thirteen-run stamp does."""
     short = budget.parse_reference(table(row("ops", "17", "29", "45", "13@2026-09-01"), row("total", "17", "-", "-", "-")))
@@ -730,7 +752,7 @@ def test_the_draws_are_seeded_per_row():
 
 
 def test_a_population_named_in_another_order_gives_the_same_proposal():
-    """The attempts' order is how they were typed, not a property of the runs; a re-cut by someone else names them in theirs.
+    """The attempts' order is how they were typed, not a property of the runs, and another re-cut types its own.
 
     The draws are compared too: a floor rounded to a whole percent can survive a reorder by chance.
     """

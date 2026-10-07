@@ -256,6 +256,40 @@ def check_stamp(job: str, row: Row) -> list[str]:
     return [f"`{job}`'s new stamp {row.measured} {problem}" for problem in problems]
 
 
+def population_of(row: Row) -> str | None:
+    """What names a stamp's population: its pull-request run, or for pushes to main the day of the newest."""
+    if row.stamp_pull_request is not None:
+        return f"run {row.stamp_pull_request}"
+    return None if row.stamp_date is None else f"main to {row.stamp_date.isoformat()}"
+
+
+def check_total_floor(base: dict[str, Row] | None, head: dict[str, Row]) -> list[Finding]:
+    """A total floor that rose or appeared stands only where `--stamp` could have cut it.
+
+    That is from draws of every referenced row in one population, each re-stamped on this branch.
+    """
+    total = head.get(TOTAL)
+    before = None if base is None else base.get(TOTAL)
+    if total is None or total.floor is None or (before is not None and before.floor is not None and total.floor <= before.floor):
+        return []
+    referenced = [row for job, row in head.items() if job != TOTAL and row.seconds is not None and row.floor is not None]
+    unmoved = [row.job for row in referenced if base is not None and row.job in base and base[row.job].measured == row.measured]
+    populations = {population_of(row) for row in referenced}
+    if referenced and not unmoved and len(populations) == 1:
+        return []
+    why = (
+        f"{', '.join(unmoved)} kept the stamp the base carries"
+        if unmoved
+        else f"the references beside it name {len(populations)} populations"
+        if referenced
+        else "no row beside it holds a reference"
+    )
+    rose = f"{before.floor if before is not None and before.floor is not None else NONE} -> {total.floor}%"
+    return [
+        Finding("fail", f"the total's floor rose ({rose}), and it is cut only from references all re-stamped here from one population: {why}")
+    ]
+
+
 def check_raise(base: dict[str, Row] | None, head: dict[str, Row], today: date) -> list[Finding]:
     """The file against its base: a rise carries a fresh stamp of enough runs, and a ceiling never vanishes.
 
@@ -265,6 +299,7 @@ def check_raise(base: dict[str, Row] | None, head: dict[str, Row], today: date) 
     findings: list[Finding] = []
     for job, row in head.items():
         if job == TOTAL:
+            findings += check_total_floor(base, head)
             continue
         before = None if base is None else base.get(job)
         stamp_date = row.stamp_date
@@ -805,15 +840,22 @@ def stamp(
     referenced = sorted(job for job, row in proposed.items() if job != TOTAL and row.seconds is not None and row.floor is not None)
     summed = sum(row.seconds for job, row in proposed.items() if job != TOTAL and row.seconds is not None)
     total_floor = None
-    if referenced and all(job in draws for job in referenced):
+    named = {population_of(proposed[job]) for job in referenced}
+    # The condition `check_total_floor` holds a committed total floor to, so a proposal never carries one it refuses.
+    if referenced and all(job in draws for job in referenced) and len(named) == 1:
         # The report sums the referenced rows' window medians, so the total's floor is the same draws summed.
         total_floor = floor_of([sum(moves) for moves in zip(*(draws[job] for job in referenced), strict=True)], summed)
         lines.append(f"{TOTAL}: {summed} s, floor {total_floor}% over {', '.join(referenced)}")
     else:
         others = [job for job in referenced if job not in draws]
-        lines.append(
-            f"{TOTAL}: {summed} s, floor {NONE}" + (f" -- a reference cut from another population: {', '.join(others)}" if others else "")
+        why = (
+            f" -- a reference cut from another population: {', '.join(others)}"
+            if others
+            else f" -- the references' stamps name {len(named)} populations"
+            if referenced
+            else ""
         )
+        lines.append(f"{TOTAL}: {summed} s, floor {NONE}{why}")
     before = rows.get(TOTAL)
     proposed[TOTAL] = Row(TOTAL, summed, total_floor, None if before is None else before.budget, None if before is None else before.measured)
     return proposed, lines, missed
