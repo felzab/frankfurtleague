@@ -96,9 +96,8 @@ export function SaisontabelleView({
            seeding passes over it too. */
         const qualifying = computeQualifyingTeamIds({ teams: teamsData, qualifiersPerGroup });
 
-        /* Numbered as a `Platz` is, not as a row index, so the ordinal is what the bracket's
-           "2. der Gruppe A" names. The map IS the rule: an absent club is the cell's „Kein Platz“, which
-           the cell must never decide for itself. */
+        /* Numbered as a `Platz` is, never a row index, so the ordinal is the bracket's "2. der Gruppe
+           A". The map IS the rule: a club absent from it holds no place, and the cell never decides that. */
         const platzByTeamId = computePlatzByTeamId(teamsData);
 
         return (
