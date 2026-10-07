@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { readEinwilligungDocument } from "@/core/einwilligungDocument.ts";
+import { assertLeerMarkup } from "@/shared/testing/leerGrade.ts";
 import { renderMarkup, textOf } from "@/shared/testing/renderTest";
 import { PLACEHOLDER } from "@/shared/utils/format";
 
@@ -99,6 +100,7 @@ describe("the stored consent panel", () => {
     const text = words(UEBERNOMMEN);
     assert.ok(!text.includes(PLACEHOLDER.datum), "an absent day promises a day that is coming");
     assert.match(text, /Erteilt am\s*Nicht hinterlegt/, "an absent day renders as blank rather than as an absence");
+    assertLeerMarkup(markup(UEBERNOMMEN), "Nicht hinterlegt");
   });
 
   it("shows the wording a record cites, and says in words where it cites none", () => {

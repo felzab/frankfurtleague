@@ -1486,7 +1486,27 @@ const eslintConfig = defineConfig([
           detectComponentClasses: false,
         },
       ],
+
+      // A word in a value's place takes the one upright empty grade (`docs/frontend/spec.md` §1.19), and
+      // the slant was the grade it replaced: one coming back is the old style, wherever it lands.
+      "better-tailwindcss/no-restricted-classes": [
+        "error",
+        {
+          restrict: [
+            {
+              pattern: "^(?:.*:)?italic$",
+              message: "An empty value renders through `Leer` from `@/shared/components/ui/Angabe`, upright (`docs/frontend/spec.md` §1.19).",
+            },
+          ],
+        },
+      ],
     },
+  },
+
+  // A message about an empty list is no value and keeps its own style, the slant included (§1.19).
+  {
+    files: ["src/features/spiele/components/views/SpielsucheView.tsx", "src/shared/components/ui/FilterPanel.tsx"],
+    rules: { "better-tailwindcss/no-restricted-classes": "off" },
   },
 
   // The a11y rule set. Only the rules are taken from the plugin: `eslint-config-next` already

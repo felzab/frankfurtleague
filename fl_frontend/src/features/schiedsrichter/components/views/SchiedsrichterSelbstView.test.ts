@@ -8,6 +8,7 @@ import { createElement as h } from "react";
 
 import { render, screen, within } from "@testing-library/react";
 
+import { assertLeer } from "@/shared/testing/leerGrade.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { schiedsrichterSelbst } from "@/shared/testing/selbstFixtures.ts";
 
@@ -45,6 +46,7 @@ describe("a referee's own page", () => {
     renderView([{ ...SCHIEDSRICHTERIN, schule: null, kontakt: { telefon: null, email: "ohne-adresse@example.invalid" } }]);
 
     assert.equal(screen.getAllByText("Nicht hinterlegt").length, 3);
+    for (const leer of screen.getAllByText("Nicht hinterlegt")) assertLeer(leer, "Nicht hinterlegt");
     assert.equal(screen.queryAllByText(/\.invalid/).length, 0, "the page shows the placeholder address");
   });
 

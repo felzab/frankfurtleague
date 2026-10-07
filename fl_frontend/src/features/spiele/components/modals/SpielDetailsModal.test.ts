@@ -9,6 +9,7 @@ import { createElement as h } from "react";
 import { render, screen, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
+import { assertLeer } from "@/shared/testing/leerGrade.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { spokenText } from "@/shared/testing/spokenText.ts";
 import { PLACEHOLDER } from "@/shared/utils/format.ts";
@@ -154,6 +155,7 @@ describe("the fixture dialog's cells for a fixture nobody dated", () => {
 
     for (const cell of ["Datum", "Uhrzeit", "Ort", "Schiedsrichter"])
       assert.equal(cellValue(dialog, cell), "Nicht hinterlegt", `the ${cell} cell reads another word for an empty field`);
+    for (const leer of within(dialog).getAllByText("Nicht hinterlegt")) assertLeer(leer, "Nicht hinterlegt");
   });
 
   /* Paired with the case above: the two cells describe ONE appointment, so a time reading „Keine

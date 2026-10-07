@@ -5,6 +5,7 @@ import { createElement as h } from "react";
 
 import { SCHIEDSRICHTER_ANONYM_LABEL, SCHIEDSRICHTER_OHNE_NAMEN_LABEL } from "@/features/schiedsrichter/constants.ts";
 import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
+import { assertLeerMarkup } from "@/shared/testing/leerGrade.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
@@ -105,6 +106,7 @@ describe("the referee row's copy control", () => {
 
     assert.ok(!textOf(html).includes("adresse-fehlt@frankfurtleague.invalid"), "the placeholder is shown as the row's address");
     assert.ok(textOf(html).includes("E-Mail nicht hinterlegt"), "the row holding the placeholder does not say it holds no address");
+    assertLeerMarkup(html, "E-Mail nicht hinterlegt");
     assert.deepEqual(
       accessibleNames(html).filter((name) => name.startsWith("Kontaktdaten")),
       [],
