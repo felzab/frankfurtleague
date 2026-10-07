@@ -1,6 +1,7 @@
 "use client";
 
 import { TeamPopoverMenu } from "@/features/teams/components/ui/TeamPopoverMenu";
+import { Leer } from "@/shared/components/ui/Angabe";
 import { PLACEHOLDER } from "@/shared/utils/format";
 
 import { formatQuelle } from "../../utils";
@@ -37,8 +38,8 @@ export function SpielTeamSlot({
   if (team === null) {
     return (
       <span className={`${className} ${TEAM_NAME_TRACK_CLASSES}`}>
-        <span className={`${className} ${SLOT_LABEL_WRAP_CLASSES} text-foreground-muted italic`}>
-          {formatQuelle(quelle) ?? PLACEHOLDER.slot}
+        <span className={`${className} ${SLOT_LABEL_WRAP_CLASSES}`}>
+          <Leer>{formatQuelle(quelle) ?? PLACEHOLDER.slot}</Leer>
         </span>
       </span>
     );

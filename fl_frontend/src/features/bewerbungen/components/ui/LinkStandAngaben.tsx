@@ -1,6 +1,5 @@
 import { ZUSTELLUNG_CHIP } from "@/features/bewerbungen/zustellung";
-import { KeinTag } from "@/features/spieler/components/ui/Nachweis";
-import { Angabe } from "@/shared/components/ui/Angabe";
+import { Angabe, Leer } from "@/shared/components/ui/Angabe";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { formatSpielDatum } from "@/shared/utils/format";
 
@@ -42,7 +41,7 @@ export function LinkStandAngaben({
       <Angabe label="Zustellung">
         {/* `null` covers accepted and delivered alike: the chip exists for what an administrator can
             act on, and the delivery register spells the one word for a blocked address. */}
-        {chip === null ? <KeinTag>Nichts zu melden</KeinTag> : <span className={`${labelBadge(chip.tone)} h-7 shrink-0`}>{chip.label}</span>}
+        {chip === null ? <Leer>Nichts zu melden</Leer> : <span className={`${labelBadge(chip.tone)} h-7 shrink-0`}>{chip.label}</span>}
       </Angabe>
     </>
   );

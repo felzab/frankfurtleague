@@ -1420,6 +1420,14 @@ function classesNaming(markup: string, text: string): string {
   return found[1] ?? "";
 }
 
+/** The classes of the slot around the empty-value grade holding `text`, and of that grade itself. */
+function classesAroundLeer(markup: string, text: string): { slot: string; grade: string } {
+  const found = new RegExp(`<span class="([^"]*)"><span class="([^"]*)">${text}</span></span>`).exec(markup);
+
+  assert.ok(found, `nothing renders „${text}“ as a slot holding one empty value`);
+  return { slot: found[1] ?? "", grade: found[2] ?? "" };
+}
+
 describe("the names a score surface sets", () => {
   const CLUB: FLSpielTeamFieldJoined = {
     team_id: "6890a1b2c3d4e5f607182936",
@@ -1435,14 +1443,18 @@ describe("the names a score surface sets", () => {
   for (const { name, markup, club } of SCORE_SURFACES) {
     it(`${name} dresses a club and a slot label with the shared wrap recipes`, () => {
       const html = markup(SPIEL_MIT_SEITEN);
+      const label = classesAroundLeer(html, "Verlierer von Spiel 29");
 
       for (const [classes, recipe] of [
         [classesNaming(html, club(CLUB)), TEAM_NAME_WRAP_CLASSES],
-        [classesNaming(html, "Verlierer von Spiel 29"), SLOT_LABEL_WRAP_CLASSES],
+        [label.slot, SLOT_LABEL_WRAP_CLASSES],
       ] as const) {
         const rendered = classes.split(" ");
         for (const token of recipe.split(" ")) assert.ok(rendered.includes(token), `${name} drops ${token}: ${classes}`);
       }
+      // The label stands where a club's name would, so every surface sets it in the one empty grade.
+      const grade = label.grade.split(" ");
+      assert.ok(grade.includes("text-foreground-muted") && !grade.includes("italic"), `${name} sets the slot label apart: ${label.grade}`);
     });
   }
 });

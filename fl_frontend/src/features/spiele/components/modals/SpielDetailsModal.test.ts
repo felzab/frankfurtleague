@@ -105,15 +105,32 @@ describe("the names the fixture dialog sets", () => {
   it("dresses a club and a slot label with the cards' own wrap recipes", () => {
     const { dialog } = openDialog({ ...HALBFINALE, team2: null, team2_quelle: { type: "spiel", spiel_nr: 29, ausgang: "verlierer" } });
 
-    for (const [text, recipe] of [
-      ["Mainufer Beispiel", TEAM_NAME_WRAP_CLASSES],
-      ["Verlierer von Spiel 29", SLOT_LABEL_WRAP_CLASSES],
+    // The slot label's words sit in the empty-value grade, so its recipe is on the slot around them.
+    for (const [element, text, recipe] of [
+      [within(dialog).getByText("Mainufer Beispiel"), "Mainufer Beispiel", TEAM_NAME_WRAP_CLASSES],
+      [within(dialog).getByText("Verlierer von Spiel 29").parentElement, "Verlierer von Spiel 29", SLOT_LABEL_WRAP_CLASSES],
     ] as const) {
-      const classes = within(dialog).getByText(text).className.split(" ");
+      const classes = element?.className.split(" ") ?? [];
 
       for (const token of recipe.split(" "))
         assert.ok(classes.includes(token), `„${text}“ drops ${token} from its recipe: ${classes.join(" ")}`);
     }
+  });
+
+  /* A slot nobody occupies stands where a club's name would, so it takes the grade every empty value
+     takes, upright and muted, while keeping the name's own size and weight. */
+  it("sets an open slot in the empty-value grade at a name's size", () => {
+    const { dialog } = openDialog({ ...HALBFINALE, team2: null });
+    const word = within(dialog).getByText(PLACEHOLDER.slot);
+    const grade = word.className.split(" ");
+    const slot = word.parentElement?.className.split(" ") ?? [];
+
+    assert.ok(
+      grade.includes("text-foreground-muted") && !grade.includes("italic"),
+      `the open slot is not in the empty grade: ${grade.join(" ")}`,
+    );
+    assert.ok(!slot.includes("italic"), `the open slot is slanted: ${slot.join(" ")}`);
+    assert.ok(slot.includes("fluid-xl") && slot.includes("font-bold"), `the open slot lost a name's size or weight: ${slot.join(" ")}`);
   });
 });
 

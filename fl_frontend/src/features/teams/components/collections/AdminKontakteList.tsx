@@ -9,6 +9,7 @@ import { KONTAKTE_CRUD_COPY } from "@/features/teams/constants";
 import { KONTAKTE_BESETZUNG_OPTIONS, kontakteBesetzung } from "@/features/teams/facets";
 import { AdminCrudEmptyCard } from "@/shared/components/ui/AdminCrudEmpty";
 import { IDENTITY_HEAD_CLASSES, IDENTITY_NAME_CLASSES, IDENTITY_ROW_CLASSES } from "@/shared/components/ui/adminTable";
+import { Leer } from "@/shared/components/ui/Angabe";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { SHORTHAND_CHIP_CLASSES } from "@/shared/components/ui/brandTile";
 import { card } from "@/shared/components/ui/card";
@@ -85,7 +86,9 @@ export const AdminKontakteList = memo(function AdminKontakteList({
       </div>
 
       {seat.person === null ? (
-        <span className="fluid-sm text-foreground-muted">{EMPTY_SEAT}</span>
+        <span className="fluid-sm">
+          <Leer>{EMPTY_SEAT}</Leer>
+        </span>
       ) : (
         <div className="flex min-w-0 flex-col gap-0.5">
           <span className="truncate fluid-sm font-semibold text-foreground">{`${seat.person.vorname} ${seat.person.nachname}`}</span>

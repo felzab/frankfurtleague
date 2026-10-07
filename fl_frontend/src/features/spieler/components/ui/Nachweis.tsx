@@ -1,13 +1,7 @@
 import { beschreibeNachweis } from "@/features/spieler/nachweis";
-import { NICHT_HINTERLEGT } from "@/shared/components/ui/Angabe";
+import { Leer } from "@/shared/components/ui/Angabe";
 
 import type { FLEinwilligungNachweis } from "@/features/spieler/schemas";
-import type { ReactNode } from "react";
-
-/** Its own grade, so a day the record does not carry never reads as one somebody wrote down. */
-export function KeinTag({ children }: { children: ReactNode }) {
-  return <span className="text-foreground-muted italic">{children}</span>;
-}
 
 /**
  * The act a choice stands on, under its value: the confirmation's day and label are another act's. One
@@ -30,13 +24,13 @@ export function Beleg({
  * record citing words nobody can produce, and a bare key renders the two alike.
  */
 export function Fassung({ textVersion, istBekannt }: { textVersion: string | null; istBekannt: boolean | null }) {
-  if (textVersion === null) return <KeinTag>{NICHT_HINTERLEGT}</KeinTag>;
+  if (textVersion === null) return <Leer />;
 
   // `null` where the registry's read failed: the key stands, and the check says it was not made.
   if (istBekannt === null) {
     return (
       <>
-        {textVersion} <KeinTag>Nicht geprüft</KeinTag>
+        {textVersion} <Leer>Nicht geprüft</Leer>
       </>
     );
   }
@@ -46,7 +40,7 @@ export function Fassung({ textVersion, istBekannt }: { textVersion: string | nul
   if (!istBekannt) {
     return (
       <>
-        {textVersion} <KeinTag>Unbekannte Fassung</KeinTag>
+        {textVersion} <Leer>Unbekannte Fassung</Leer>
       </>
     );
   }

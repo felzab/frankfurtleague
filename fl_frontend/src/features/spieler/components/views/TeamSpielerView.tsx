@@ -4,6 +4,7 @@ import { Avatar } from "@heroui/react/avatar";
 import { Chip } from "@heroui/react/chip";
 import { Table } from "@heroui/react/table";
 
+import { Leer } from "@/shared/components/ui/Angabe";
 import { BackButton } from "@/shared/components/ui/BackButton";
 import { PILL_RADIUS_CLASSES, PILL_TINT_CLASSES } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
@@ -81,20 +82,21 @@ export function TeamSpielerView({
                         className="hidden shrink-0 sm:flex">
                         <Avatar.Fallback className="font-bold">{spielerInitialen(spielerData)}</Avatar.Fallback>
                       </Avatar>
-                      {/* The grade a nameless row wears on `AdminSchiedsrichterTable`: at a name's
-                          weight the stand-in word reads as somebody's name. */}
-                      <span
-                        className={`line-clamp-1 fluid-xs ${
-                          istNameZurueckgehalten(spielerData) ? "text-foreground-muted italic" : "font-bold text-foreground"
-                        }`}>
-                        {spielerAnzeigename(spielerData)}
-                      </span>
+                      {/* Below a name's weight as well as in the empty-value grade: at a name's weight
+                          the stand-in word reads as somebody's name. */}
+                      {istNameZurueckgehalten(spielerData) ? (
+                        <span className="line-clamp-1 fluid-xs">
+                          <Leer>{spielerAnzeigename(spielerData)}</Leer>
+                        </span>
+                      ) : (
+                        <span className="line-clamp-1 fluid-xs font-bold text-foreground">{spielerAnzeigename(spielerData)}</span>
+                      )}
                     </div>
                   </Table.Cell>
 
                   {/* §1.12 names an absent value in words, so this cell says which value the player has none of. */}
                   <Table.Cell className="w-1 px-1 py-4 text-center muted-meta lg:px-4">
-                    {spielerData.nummer ? <span className="font-mono">{spielerData.nummer}</span> : OHNE_NUMMER}
+                    {spielerData.nummer ? <span className="font-mono">{spielerData.nummer}</span> : <Leer>{OHNE_NUMMER}</Leer>}
                   </Table.Cell>
 
                   <Table.Cell className="w-1 px-1 py-4 whitespace-nowrap lg:px-4">
@@ -109,7 +111,9 @@ export function TeamSpielerView({
                         </Chip>
                       ) : (
                         /* The tint reads as a stated position, so an unset one is words rather than a chip. */
-                        <span className="muted-meta">Ohne Position</span>
+                        <span className="muted-meta">
+                          <Leer>Ohne Position</Leer>
+                        </span>
                       )}
                     </div>
                   </Table.Cell>

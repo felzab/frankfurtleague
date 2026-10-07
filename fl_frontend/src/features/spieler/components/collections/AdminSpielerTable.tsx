@@ -31,6 +31,7 @@ import {
   identityName,
   TABLE_HEADING_CLASSES,
 } from "@/shared/components/ui/adminTable";
+import { Leer } from "@/shared/components/ui/Angabe";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
@@ -194,7 +195,12 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
    */
   const renderTeam = (spieler: AdminSpielerRow) => {
     const row = spieler.selected;
-    if (row?.teamName == null || row.teamName === "") return <span className={IDENTITY_LINE_CLASSES}>Kein Team in dieser Saison</span>;
+    if (row?.teamName == null || row.teamName === "")
+      return (
+        <span className={IDENTITY_LINE_CLASSES}>
+          <Leer>Kein Team in dieser Saison</Leer>
+        </span>
+      );
 
     return (
       <Link

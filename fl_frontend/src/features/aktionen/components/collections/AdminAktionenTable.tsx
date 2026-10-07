@@ -20,6 +20,7 @@ import {
   IDENTITY_STACK_CLASSES,
   TABLE_HEADING_CLASSES,
 } from "@/shared/components/ui/adminTable";
+import { Leer } from "@/shared/components/ui/Angabe";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 import { RowActionCopy, RowActionLink, RowActions } from "@/shared/components/ui/RowActions";
@@ -146,7 +147,9 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
 
   const renderAufruf = (aktion: AdminAktionRow) =>
     aktion.request === null ? (
-      <span className="fluid-xs text-foreground-muted italic">Ohne Aufruf</span>
+      <span className="fluid-xs">
+        <Leer>Ohne Aufruf</Leer>
+      </span>
     ) : (
       <span className="flex flex-row flex-wrap gap-x-1 font-mono fluid-xs break-all text-foreground-muted">
         <span className="font-bold">{aktion.request.method}</span>
@@ -158,7 +161,12 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
     const datensatz = describeAktionDatensatz(aktion);
 
     if (datensatz.kind === "dokument") return <span className="font-mono fluid-xs break-all text-foreground">{datensatz.id}</span>;
-    if (datensatz.kind === "ohne") return <span className="fluid-xs text-foreground-muted italic">Kein Datensatz benannt</span>;
+    if (datensatz.kind === "ohne")
+      return (
+        <span className="fluid-xs">
+          <Leer>Kein Datensatz benannt</Leer>
+        </span>
+      );
 
     return (
       <div className="flex flex-col gap-0.5">

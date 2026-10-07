@@ -9,6 +9,7 @@ import { annehmenBewerbungAction } from "@/features/bewerbungen/actions";
 import { GruppeSelect } from "@/features/teams/components/forms/GruppeSelect";
 import { TrikotFarbeSelect } from "@/features/teams/components/forms/TrikotFarbeSelect";
 import { trikotFarbeLabel } from "@/features/teams/constants";
+import { Leer } from "@/shared/components/ui/Angabe";
 import { Callout } from "@/shared/components/ui/Callout";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
@@ -207,7 +208,7 @@ export function AdminBewerbungAnnehmenSection({
                     />
                     <ConfirmReadoutRow
                       label="Trikotfarbe"
-                      value={trikotFarbe === null ? KEINE_FARBE : trikotFarbeLabel(trikotFarbe)}
+                      value={trikotFarbe === null ? <Leer>{KEINE_FARBE}</Leer> : trikotFarbeLabel(trikotFarbe)}
                     />
                   </dl>
                 </div>

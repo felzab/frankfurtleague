@@ -25,6 +25,7 @@ import {
   IDENTITY_ROW_CLASSES,
   IDENTITY_STACK_CLASSES,
 } from "@/shared/components/ui/adminTable";
+import { Leer } from "@/shared/components/ui/Angabe";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 import { RowActionLink, RowActions } from "@/shared/components/ui/RowActions";
@@ -90,7 +91,9 @@ export const AdminBewerbungenList = memo(function AdminBewerbungenList({
 
   const renderName = (bewerbung: AdminBewerbungRow) =>
     bewerbung.teamName === null ? (
-      <span className={`${IDENTITY_NAME_BOX_CLASSES} text-foreground-muted italic`}>{NO_TEAM}</span>
+      <span className={IDENTITY_NAME_BOX_CLASSES}>
+        <Leer>{NO_TEAM}</Leer>
+      </span>
     ) : (
       <span className={IDENTITY_NAME_CLASSES}>{bewerbung.teamName}</span>
     );
@@ -146,7 +149,12 @@ export const AdminBewerbungenList = memo(function AdminBewerbungenList({
 
     // An application submitted before the workflow has no per-seat state, and a badge reading „0 von
     // 3“ over one would send an administrator hunting for links that were never sent.
-    if (staende === null) return <span className="fluid-sm text-foreground-muted italic">{NO_BESTAETIGUNGEN}</span>;
+    if (staende === null)
+      return (
+        <span className="fluid-sm">
+          <Leer>{NO_BESTAETIGUNGEN}</Leer>
+        </span>
+      );
 
     // Ahead of the count, which would read „2 von 3“ over a row no answer can complete and send an
     // administrator waiting for a third that is never coming.
@@ -175,12 +183,16 @@ export const AdminBewerbungenList = memo(function AdminBewerbungenList({
       KONTAKT_LABEL[rolle],
       <div className="flex min-w-0 flex-col gap-0.5">
         {person === null ? (
-          <span className={`${IDENTITY_NAME_BOX_CLASSES} text-foreground-muted italic`}>Keine Kontaktperson</span>
+          <span className={IDENTITY_NAME_BOX_CLASSES}>
+            <Leer>Keine Kontaktperson</Leer>
+          </span>
         ) : (
           <span className={IDENTITY_NAME_CLASSES}>{`${person.vorname} ${person.nachname}`}</span>
         )}
         {person === null || person.email === "" ? (
-          <span className={`${IDENTITY_LINE_CLASSES} italic`}>Keine E-Mail</span>
+          <span className={IDENTITY_LINE_CLASSES}>
+            <Leer>Keine E-Mail</Leer>
+          </span>
         ) : (
           <span className={IDENTITY_LINE_CLASSES}>{person.email}</span>
         )}

@@ -14,6 +14,7 @@ import { findSwapPartnerRefusal } from "@/features/saisons/utils";
 import { postSaisonTeamAction } from "@/features/teams/actions";
 import { GruppeSelect } from "@/features/teams/components/forms/GruppeSelect";
 import { TrikotFarbeSelect } from "@/features/teams/components/forms/TrikotFarbeSelect";
+import { Leer } from "@/shared/components/ui/Angabe";
 import { Callout } from "@/shared/components/ui/Callout";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
@@ -355,7 +356,7 @@ export function FormSaisonSection({
                     aria-hidden="true"
                     className="size-3.5 shrink-0 text-foreground-muted"
                   />
-                  {gruppe ? `Gruppe ${gruppe}` : "Keine Gruppe"}
+                  {gruppe ? `Gruppe ${gruppe}` : <Leer>Keine Gruppe</Leer>}
                 </div>
               </div>
             ) : (

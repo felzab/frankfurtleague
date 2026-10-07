@@ -1,6 +1,7 @@
 import { FieldError } from "@heroui/react/field-error";
 import { Separator } from "@heroui/react/separator";
 
+import { Leer } from "@/shared/components/ui/Angabe";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import {
   FIELD_COUNT_INPUT_CLASSES,
@@ -259,7 +260,9 @@ export function FormErgebnisSection({
           aria-live="polite"
           className="flex w-full justify-center">
           {team1Tore === null || team2Tore === null ? (
-            <p className="muted-meta italic">Noch kein Ergebnis</p>
+            <p className="muted-meta">
+              <Leer>Noch kein Ergebnis</Leer>
+            </p>
           ) : (
             <p className="fluid-sm font-extrabold tracking-wide text-brand">
               {team1Tore === team2Tore &&

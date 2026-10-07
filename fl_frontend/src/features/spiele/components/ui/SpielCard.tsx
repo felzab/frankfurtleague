@@ -7,6 +7,7 @@ import PencilToSquare from "@gravity-ui/icons/PencilToSquare";
 
 import { Button } from "@heroui/react/button";
 
+import { Leer } from "@/shared/components/ui/Angabe";
 import { BRAND_ICON_BUTTON_CLASSES } from "@/shared/components/ui/brandTile";
 import { card } from "@/shared/components/ui/card";
 import { IconTooltip } from "@/shared/components/ui/IconTooltip";
@@ -65,7 +66,7 @@ export function SpielCard({
         {/* `shrink-0`: beside the `w-full` actions the column shrinks to its longest word, and „Termin
             offen“ splits into two lines the skeleton reserves one for. */}
         <div className="flex shrink-0 flex-col">
-          <span className="fluid-sm font-bold text-foreground">{spielDatum}</span>
+          <span className="fluid-sm font-bold text-foreground">{spielData.datum ? spielDatum : <Leer>{spielDatum}</Leer>}</span>
           <span className="muted-meta">{spielUhrzeit}</span>
         </div>
 

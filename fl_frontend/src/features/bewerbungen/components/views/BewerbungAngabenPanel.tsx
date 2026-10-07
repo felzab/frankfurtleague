@@ -14,7 +14,7 @@ import {
   trikotFarbeHex,
   trikotFarbeLabel,
 } from "@/features/teams/constants";
-import { Angabe, NICHT_HINTERLEGT } from "@/shared/components/ui/Angabe";
+import { Angabe, Leer } from "@/shared/components/ui/Angabe";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
@@ -32,14 +32,6 @@ import type { ReactNode } from "react";
 const NOT_RECORDED = "Nicht angegeben";
 
 /**
- * An empty field in the one grade every empty field here takes: by default one the school did not fill
- * in, or the stored-fact wording where the league holds nothing yet.
- */
-function Leer({ children = NOT_RECORDED }: { children?: string }) {
-  return <span className="text-foreground-muted italic">{children}</span>;
-}
-
-/**
  * Validated before it becomes an `href`: the API serves this value unchecked, so a `javascript:`
  * string is a stored-XSS sink (`fl_frontend/src/shared/schemas.ts :: ExternalUrlSchema`). One that
  * fails stands as text.
@@ -47,7 +39,7 @@ function Leer({ children = NOT_RECORDED }: { children?: string }) {
 function Website({ url }: { url: string | null }) {
   // `FLBewerbungSchuleSchema` reads this field unchecked, so an empty string reaches here as readily
   // as the `null` the write path produces, and both mean the school named no website.
-  if (url === null || url.trim() === "") return <Leer />;
+  if (url === null || url.trim() === "") return <Leer>{NOT_RECORDED}</Leer>;
 
   const safe = ExternalUrlSchema.safeParse(url);
 
@@ -110,7 +102,7 @@ export function BewerbungAngabenPanel({
         <dl className={ANGABEN_GRID_CLASSES}>
           <Angabe label="Team">
             {teamName === null ? (
-              <Leer />
+              <Leer>{NOT_RECORDED}</Leer>
             ) : bewerbung.team_id === null ? (
               teamName
             ) : (
@@ -128,7 +120,9 @@ export function BewerbungAngabenPanel({
           <Angabe label="Eingereicht am">{formatSpielDatum(bewerbung.eingereicht_am)}</Angabe>
           {/* `Leer` where „Voraussichtliche Kadergröße“ takes none: this field is null on every
               application stored before it existed, which is not a school leaving a box empty. */}
-          <Angabe label="Größe der Stufe">{bewerbung.stufengroesse === null ? <Leer /> : String(bewerbung.stufengroesse)}</Angabe>
+          <Angabe label="Größe der Stufe">
+            {bewerbung.stufengroesse === null ? <Leer>{NOT_RECORDED}</Leer> : String(bewerbung.stufengroesse)}
+          </Angabe>
 
           {herkunft === null ? (
             <Angabe label="Angaben zum Team">Die Bewerbung nennt weder eine neue Schule noch ein bestehendes Team.</Angabe>
@@ -140,7 +134,7 @@ export function BewerbungAngabenPanel({
             <>
               <Angabe label="Vollständiger Name">{schule.full_name}</Angabe>
               <Angabe label="Kürzel">{schule.shorthand}</Angabe>
-              <Angabe label="Schulform">{schule.schulform === null ? <Leer /> : schulformLabel(schule.schulform)}</Angabe>
+              <Angabe label="Schulform">{schule.schulform === null ? <Leer>{NOT_RECORDED}</Leer> : schulformLabel(schule.schulform)}</Angabe>
               <Angabe label="Adresse">{formatAddressFull(schule.address)}</Angabe>
               <Angabe label="Website">
                 <Website url={schule.website_url} />
@@ -176,9 +170,7 @@ export function BewerbungAngabenPanel({
                     <Angabe label="Name">{`${person.vorname} ${person.nachname}`}</Angabe>
                     {/* Null until that seat's contact has confirmed and entered it themselves, so an
                         empty one is a step still outstanding rather than a school's omission. */}
-                    <Angabe label="Geburtsdatum">
-                      {person.geburtsdatum === null ? <Leer>{NICHT_HINTERLEGT}</Leer> : formatSpielDatum(person.geburtsdatum)}
-                    </Angabe>
+                    <Angabe label="Geburtsdatum">{person.geburtsdatum === null ? <Leer /> : formatSpielDatum(person.geburtsdatum)}</Angabe>
                     {/* The scheme is a literal prefix here, so neither stored value can steer the href
                         the way `Website`'s can, and neither needs that field's validator. */}
                     {/* Both rows guard the TRIMMED value: `PHONE_REGEX` admits the space character, the read
@@ -186,7 +178,7 @@ export function BewerbungAngabenPanel({
                         accessible name. */}
                     <Angabe label="E-Mail">
                       {person.email.trim() === "" ? (
-                        <Leer />
+                        <Leer>{NOT_RECORDED}</Leer>
                       ) : (
                         <a
                           href={`mailto:${person.email}`}
@@ -199,7 +191,7 @@ export function BewerbungAngabenPanel({
                         compare two seats, and a dialler takes the spaces and punctuation a school typed. */}
                     <Angabe label="Telefon">
                       {person.telefon.trim() === "" ? (
-                        <Leer />
+                        <Leer>{NOT_RECORDED}</Leer>
                       ) : (
                         <a
                           href={`tel:${person.telefon.replace(/\s/g, "")}`}
@@ -270,10 +262,12 @@ export function BewerbungAngabenPanel({
           />
         }>
         <dl className={ANGABEN_GRID_CLASSES}>
-          <Angabe label="Vorhandene Trikotsätze">{trikot.vorhandener_satz === "" ? <Leer /> : trikot.vorhandener_satz}</Angabe>
+          <Angabe label="Vorhandene Trikotsätze">
+            {trikot.vorhandener_satz === "" ? <Leer>{NOT_RECORDED}</Leer> : trikot.vorhandener_satz}
+          </Angabe>
           <Angabe label="Wunschfarbe">
             {trikot.wunschfarbe === null ? (
-              <Leer />
+              <Leer>{NOT_RECORDED}</Leer>
             ) : (
               <span className="flex flex-row items-center gap-x-2">
                 {/* A ring rather than a filled disc, so Weiß reads as a colour instead of as a gap.
@@ -289,12 +283,14 @@ export function BewerbungAngabenPanel({
           </Angabe>
           <Angabe label="Voraussichtliche Kadergröße">{String(kader.voraussichtliche_groesse)}</Angabe>
           <Angabe label="Davon im Verein aktiv (mind. Verbandsliga)">
-            {kader.gute_spieler === null ? <Leer /> : String(kader.gute_spieler)}
+            {kader.gute_spieler === null ? <Leer>{NOT_RECORDED}</Leer> : String(kader.gute_spieler)}
           </Angabe>
           {/* The school's own words, rendered as TEXT and resolved against no club: it may name a
               school the league does not hold, and an applicant-controlled value is never markup. An
               empty string reaches here as readily as the `null` the write path produces. */}
-          <Angabe label="Wunschgegner">{wunschgegner === null || wunschgegner.trim() === "" ? <Leer /> : wunschgegner}</Angabe>
+          <Angabe label="Wunschgegner">
+            {wunschgegner === null || wunschgegner.trim() === "" ? <Leer>{NOT_RECORDED}</Leer> : wunschgegner}
+          </Angabe>
         </dl>
       </Panel>
 

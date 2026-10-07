@@ -92,19 +92,21 @@ describe("a squad row whose name the publication gate withheld", () => {
     assert.ok(screen.getByText("AK"), "the avatar reads the display string rather than the two name fields");
   });
 
-  /* The grade a nameless row wears on the referee list
-     (`fl_frontend/src/features/schiedsrichter/components/collections/AdminSchiedsrichterTable.tsx`):
-     at a name's weight the stand-in word reads as somebody's name rather than as the state it is. */
+  /* The empty-value grade every page gives a word standing where a value would
+     (`fl_frontend/src/shared/components/ui/Angabe.tsx :: Leer`), below a name's weight: at a name's
+     weight the stand-in word reads as somebody's name rather than as the state it is. */
   it("sets the withheld word apart from a name, and leaves a published one at a name's grade", () => {
     shown([VEROEFFENTLICHT, ZURUECKGEHALTEN]);
 
-    const withheld = screen.getByText(SPIELER_ANONYM_LABEL).className.split(/\s+/);
+    const withheldWord = screen.getByText(SPIELER_ANONYM_LABEL);
+    const withheld = withheldWord.className.split(/\s+/);
+    const slot = withheldWord.parentElement?.className.split(/\s+/) ?? [];
     const named = screen.getByText("Alina F.").className.split(/\s+/);
 
-    assert.ok(withheld.includes("italic"), `the withheld word is not set apart: ${withheld.join(" ")}`);
     assert.ok(withheld.includes("text-foreground-muted"), `the withheld word keeps a name's ink: ${withheld.join(" ")}`);
-    assert.ok(!withheld.includes("font-bold"), `the withheld word keeps a name's weight: ${withheld.join(" ")}`);
-    assert.ok(named.includes("font-bold") && !named.includes("italic"), `a stored name lost its own grade: ${named.join(" ")}`);
+    assert.ok(!withheld.includes("italic"), `the withheld word is slanted: ${withheld.join(" ")}`);
+    assert.ok(!slot.includes("font-bold"), `the withheld word keeps a name's weight: ${slot.join(" ")}`);
+    assert.ok(named.includes("font-bold") && !named.includes("text-foreground-muted"), `a stored name lost its own grade: ${named.join(" ")}`);
   });
 
   /* Both rows in one table, which is what a squad holding one of each really serves: a case per row

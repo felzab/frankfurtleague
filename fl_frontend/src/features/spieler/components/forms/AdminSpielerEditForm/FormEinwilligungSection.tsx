@@ -1,6 +1,6 @@
 "use client";
 
-import { Beleg, Fassung, KeinTag } from "@/features/spieler/components/ui/Nachweis";
+import { Beleg, Fassung } from "@/features/spieler/components/ui/Nachweis";
 import {
   EINWILLIGUNG_FASSUNG_FRAGE,
   EINWILLIGUNG_HERKUNFT_LABELS,
@@ -9,7 +9,7 @@ import {
   EINWILLIGUNG_UMFANG_LABELS,
   EINWILLIGUNG_VEROEFFENTLICHUNG_HINWEIS,
 } from "@/features/spieler/constants";
-import { Angabe } from "@/shared/components/ui/Angabe";
+import { Angabe, Leer } from "@/shared/components/ui/Angabe";
 import { FIELD_PAIR_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
@@ -82,12 +82,10 @@ export function FormEinwilligungSection({
               {einwilligung.erteilt_von !== null && <Angabe label="Herkunft">{EINWILLIGUNG_HERKUNFT_LABELS[einwilligung.erteilt_von]}</Angabe>}
               {/* Never `fl_frontend/src/shared/utils/format.ts :: PLACEHOLDER`'s „Termin offen“: it promises a
                   day that is coming, and nobody was asked for this one. */}
-              <Angabe label="Erteilt am">
-                {einwilligung.datum === null ? <KeinTag>Kein Datum</KeinTag> : formatSpielDatum(einwilligung.datum)}
-              </Angabe>
+              <Angabe label="Erteilt am">{einwilligung.datum === null ? <Leer>Kein Datum</Leer> : formatSpielDatum(einwilligung.datum)}</Angabe>
               {/* A state rather than a gap: an unconfirmed record is not one whose day went missing. */}
               <Angabe label="Bestätigt am">
-                {einwilligung.bestaetigt_am === null ? <KeinTag>Nicht bestätigt</KeinTag> : formatSpielDatum(einwilligung.bestaetigt_am)}
+                {einwilligung.bestaetigt_am === null ? <Leer>Nicht bestätigt</Leer> : formatSpielDatum(einwilligung.bestaetigt_am)}
               </Angabe>
               {/* The key rather than a German gloss of it, which would be a second name for one
                   wording. */}

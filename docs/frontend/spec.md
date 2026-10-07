@@ -2019,10 +2019,12 @@ holds whether a conditional block renders or not
   `fl_frontend/src/features/bewerbungen/components/ui/BewerbungInstagramBand.tsx`),
   `bg-brand-solid-foreground` on a brand tile
   (`fl_frontend/src/features/meta/components/views/KontaktView.tsx`).
-- **Empty is muted italic**
-  (`fl_frontend/src/features/bewerbungen/components/views/BewerbungAngabenPanel.tsx :: Leer`): a
-  value nobody recorded, an absent name, a result not yet stored. An outstanding step is a state and
-  never a gap.
+- **Empty is muted and upright, through one component on every page**
+  (`fl_frontend/src/shared/components/ui/Angabe.tsx :: Leer`, my rule, 2026-10-07): every word
+  standing where a value would, a value nobody recorded, an absent or withheld name, a slot or a
+  date still open, a state word in a value's place. The slot keeps its own size and weight, so the
+  hierarchy holds. A sentence saying where a step stands is the value itself, and a message about
+  an empty list is no value; neither takes it.
 - **An admin list row built on `fl_frontend/src/shared/components/ui/adminTable.ts` leads with one
   identity block** — the entity's own token, its name, the row's
   pills and one or two muted lines

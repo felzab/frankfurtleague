@@ -26,6 +26,7 @@ import {
   identityName,
   TABLE_HEADING_CLASSES,
 } from "@/shared/components/ui/adminTable";
+import { Leer } from "@/shared/components/ui/Angabe";
 import { card } from "@/shared/components/ui/card";
 import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
 import { RowActionCopy, RowActionDelete, RowActionLink, RowActionRestore, RowActions } from "@/shared/components/ui/RowActions";
@@ -71,13 +72,16 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
     else appToast.danger("Kontaktdaten nicht kopiert", { description: CLIPBOARD_ERROR_DETAIL });
   };
 
-  // Italic where the row carries no name, so a reader takes the stand-in word for the state it is
-  // rather than for somebody's name. „anonym“ cannot reach this cell: that word is the ghost's.
+  // The empty-value grade where the row carries no name, so a reader takes the stand-in word for
+  // the state it is rather than for somebody's name. „anonym“ cannot reach this cell: that word is
+  // the ghost's.
   /* A nameless row on this list is what a hand-write leaves: the one row an erasure creates is the
      ghost, which `GET /schiedsrichter` excludes by id, so no erased person reaches this cell. */
   const renderName = (schiedsrichter: FLSchiedsrichter) =>
     schiedsrichter.name === null ? (
-      <span className={`${IDENTITY_NAME_BOX_CLASSES} text-foreground-muted italic`}>{SCHIEDSRICHTER_OHNE_NAMEN_LABEL}</span>
+      <span className={IDENTITY_NAME_BOX_CLASSES}>
+        <Leer>{SCHIEDSRICHTER_OHNE_NAMEN_LABEL}</Leer>
+      </span>
     ) : (
       <span className={identityName(schiedsrichter.inactive_since !== null)}>{schiedsrichter.name}</span>
     );
@@ -106,14 +110,14 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
               so a column would be empty on every live row. */}
           {schiedsrichter.inactive_since !== null && <RetiredBadge since={schiedsrichter.inactive_since} />}
         </div>
-        <span className={IDENTITY_LINE_CLASSES}>{schiedsrichter.schule || <span className="italic">Keine Schule</span>}</span>
+        <span className={IDENTITY_LINE_CLASSES}>{schiedsrichter.schule || <Leer>Keine Schule</Leer>}</span>
         <span className={IDENTITY_PAIR_CLASSES}>
           {/* The placeholder a row without an address holds is shown as the gap it is, not as an address. */}
           <span className={IDENTITY_LINE_CLASSES}>
-            {hatAdresse(schiedsrichter.kontakt.email) ? schiedsrichter.kontakt.email : <span className="italic">Keine E-Mail</span>}
+            {hatAdresse(schiedsrichter.kontakt.email) ? schiedsrichter.kontakt.email : <Leer>Keine E-Mail</Leer>}
           </span>
           <span className={`${IDENTITY_LINE_CLASSES} font-numeric tabular-nums`}>
-            {schiedsrichter.kontakt.telefon || <span className="italic">Keine Telefonnummer</span>}
+            {schiedsrichter.kontakt.telefon || <Leer>Keine Telefonnummer</Leer>}
           </span>
         </span>
       </div>

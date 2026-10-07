@@ -2,6 +2,7 @@
 
 import { Card } from "@heroui/react/card";
 
+import { Leer } from "@/shared/components/ui/Angabe";
 import { PILL_TINT_CLASSES } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 
@@ -51,7 +52,7 @@ export function SpielCardUltraCompact({
         />
 
         <div className="flex h-full w-fit flex-col items-start">
-          <span className="fluid-sm font-bold text-foreground">{spielDatum}</span>
+          <span className="fluid-sm font-bold text-foreground">{spielData.datum ? spielDatum : <Leer>{spielDatum}</Leer>}</span>
           <span className="muted-meta">{spielUhrzeit}</span>
         </div>
 

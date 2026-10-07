@@ -90,7 +90,15 @@ describe("a pupil's own page", () => {
     assert.ok(within(laufend).getByText("Nummer 07 · Angriff · Q1 · Kapitän"));
     assert.ok(within(frueher).getByText("Ausgetragen seit 14.03.2026"));
     assert.equal(within(frueher).queryAllByText("Nachnominiert").length, 0, "a squad left mid-season still reads as entered late");
-    assert.ok(within(frueher).getByText("Ohne Nummer · Ohne Position"));
+    // The line as a whole: its empty facts sit in their own grade, so the words span several elements.
+    assert.ok(within(frueher).getByText((_, element) => element?.tagName === "P" && element.textContent === "Ohne Nummer · Ohne Position"));
+    for (const leer of ["Ohne Nummer", "Ohne Position"]) {
+      const grade: readonly string[] = within(frueher).getByText(leer).className.split(" ");
+      assert.ok(
+        grade.includes("text-foreground-muted") && !grade.includes("italic"),
+        `„${leer}“ is not in the empty grade: ${grade.join(" ")}`,
+      );
+    }
   });
 
   /* The stamped wording names the account page as the place a consent is changed, so this page offers

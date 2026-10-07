@@ -8,6 +8,7 @@ import ArrowRightArrowLeft from "@gravity-ui/icons/ArrowRightArrowLeft";
 import { activateSaisonAction } from "@/features/saisons/actions";
 import { SaisonBadge } from "@/features/saisons/components/ui/SaisonBadge";
 import { SPIELTAGE_UNDATED } from "@/features/saisons/constants";
+import { Leer } from "@/shared/components/ui/Angabe";
 import { Callout } from "@/shared/components/ui/Callout";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
@@ -22,7 +23,7 @@ import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { focusAfterWrite, focusSection } from "@/shared/utils/focusAfterWrite";
-import { formatSpielDatum } from "@/shared/utils/format";
+import { formatSpielDatum, PLACEHOLDER } from "@/shared/utils/format";
 
 import { rolloverBlockedReason } from "./blockedReasons";
 
@@ -191,7 +192,9 @@ export function FormRolloverSection({
                       {spiel.spielNr}
                     </span>
                     <span className="min-w-0 flex-1 truncate fluid-xs font-semibold text-foreground">{spiel.paarung}</span>
-                    <span className="shrink-0 fluid-xxs text-foreground-muted">{formatSpielDatum(spiel.datum)}</span>
+                    <span className="shrink-0 fluid-xxs text-foreground-muted">
+                      {spiel.datum ? formatSpielDatum(spiel.datum) : <Leer>{PLACEHOLDER.datum}</Leer>}
+                    </span>
                     <Link
                       href={saisonHref(`/bereich/admin/spiele/${spiel.id}`)}
                       className={`${BRAND_INK_OUTSIDE_PROSE_CLASSES} shrink-0 fluid-xxs font-bold`}>
