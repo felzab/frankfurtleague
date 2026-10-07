@@ -1108,9 +1108,10 @@ lockfile or a stylesheet moves — so it is cut from the widest cold run on reco
 the stamped main runs alone, most of which restored the cache.
 **Raising a budget, a reference or a floor costs a measurement.** In a pull request's `docs` job,
 `scripts/checks/check_gate_budget.py` under `--base` holds the file against the pull request's base and refuses a
-figure that rose on an unchanged stamp, a stamp dated after today or before the one it replaces, a
-new stamp counting fewer runs than the figures beside it need or naming a pull-request run for a job
-whose cache is keyed on the tree, or a
+figure that rose on an unchanged stamp or on one dated before the stamp it replaces, any stamp dated
+after today, a new stamp counting fewer runs than the figures beside it need or naming a pull-request
+run for a job whose cache is keyed on the tree, a total floor that rose beside references not all
+re-stamped from one population, a matrix job's instances on unequal budgets, or a
 budget dropped to `-`; lowering is free, and so is deleting the row of a job the gate no longer
 runs. Every mode reads the table through `--reference`, so a copy is judged before it is committed
 and the checker's suite needs no repository of its own. What the ceiling cannot see is a slowdown that stays under it — a check costing seconds on a
