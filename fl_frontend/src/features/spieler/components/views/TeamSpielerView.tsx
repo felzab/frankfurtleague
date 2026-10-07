@@ -11,7 +11,7 @@ import { card } from "@/shared/components/ui/card";
 import { PAGE_RISE_CLASSES } from "@/shared/components/ui/motion";
 import { withSaisonId } from "@/shared/utils/saisonHref";
 
-import { istNameZurueckgehalten, KADER_LEER, NUMMER_NICHT_HINTERLEGT, spielerAnzeigename, spielerInitialen } from "../../constants";
+import { istNameZurueckgehalten, KADER_LEER, spielerAnzeigename, spielerInitialen } from "../../constants";
 
 import type { FLSpielerPublic } from "../../schemas";
 
@@ -94,10 +94,10 @@ export function TeamSpielerView({
                     </div>
                   </Table.Cell>
 
-                  {/* The column's `#` is a glyph rather than a label, so this cell names the field it holds nothing for;
-                      the Position column's heading names its own. */}
+                  {/* The `#` heading is this cell's label, so an empty one takes the labelled word. `w-1` and
+                      never `whitespace-nowrap` on the cell: the column then widens to „hinterlegt“, two lines at most. */}
                   <Table.Cell className="w-1 px-1 py-4 text-center muted-meta lg:px-4">
-                    {spielerData.nummer ? <span className="font-mono">{spielerData.nummer}</span> : <Leer>{NUMMER_NICHT_HINTERLEGT}</Leer>}
+                    {spielerData.nummer ? <span className="font-mono">{spielerData.nummer}</span> : <Leer />}
                   </Table.Cell>
 
                   <Table.Cell className="w-1 px-1 py-4 whitespace-nowrap lg:px-4">

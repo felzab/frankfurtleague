@@ -8,6 +8,7 @@ import { createElement as h } from "react";
 
 import { render, screen } from "@testing-library/react";
 
+import { assertLeer } from "@/shared/testing/leerGrade.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 
 import { SPIELER_ANONYM_LABEL } from "../../constants.ts";
@@ -120,17 +121,13 @@ describe("a squad row whose name the publication gate withheld", () => {
 });
 
 describe("a squad row holding no number and no position", () => {
-  /* The number column is headed by a glyph, so its cell names the field; the position column's
-     heading names its own, so that cell takes the labelled word. */
-  it("names the empty number and leaves the empty position to its heading", () => {
+  /* Each column's heading is its cell's label, the number's `#` included, so both empty cells take the
+     labelled word. */
+  it("reads both empty cells as „Nicht hinterlegt“ under their headings", () => {
     shown([{ ...VEROEFFENTLICHT, nummer: null, position: null }]);
 
-    for (const leer of ["Nummer nicht hinterlegt", "Nicht hinterlegt"]) {
-      const grade = screen.getByText(leer).className.split(/\s+/);
-      assert.ok(
-        grade.includes("text-foreground-muted") && !grade.includes("italic"),
-        `„${leer}“ is not in the empty grade: ${grade.join(" ")}`,
-      );
-    }
+    const leer = screen.getAllByText("Nicht hinterlegt");
+    assert.equal(leer.length, 2, "the number and the position do not both read the labelled word");
+    for (const cell of leer) assertLeer(cell, "Nicht hinterlegt");
   });
 });

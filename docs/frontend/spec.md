@@ -1456,7 +1456,7 @@ where a comment quotes a rendered string, which tracks it. The wording rules:
   sentence naming both says the club by name.
 - **An empty stored field reads „Nicht hinterlegt“, whatever the field is about** (my rule,
   2026-10-07): `fl_frontend/src/shared/utils/format.ts :: NICHT_HINTERLEGT` where a label stands
-  beside the value, and `:: nichtHinterlegt`'s „<Feld> nicht hinterlegt“ where none does, a chip, a
+  beside the value, a table's column heading included, a glyph such as `#` too, and `:: nichtHinterlegt`'s „<Feld> nicht hinterlegt“ where none does, a chip, a
   line of facts or a screen-reader text („Nummer nicht hinterlegt“). A state or an event that did not happen keeps its
   own words („Nicht bestätigt“, „Termin offen“, „Noch offen“), and so does a record's own name
   („Eintrag ohne Namen“). A picker's „Keine Angabe“ row is a choice that clears the field, not a
