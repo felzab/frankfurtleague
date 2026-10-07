@@ -67,7 +67,8 @@ jobs:
           tarball="${RUNNER_TEMP}/shellcheck-v${version}.linux.x86_64.tar.xz"
           # Fetched to a file rather than piped into tar, so a truncated stream is a digest mismatch
           # rather than a partial write nothing hashed.
-          curl -fsSL -o "$tarball" "https://github.com/koalaman/shellcheck/releases/download/v${version}/shellcheck-v${version}.linux.x86_64.tar.xz"
+          # `--retry` repeats curl's transient answers only: one 500 from the release host failed a job.
+          curl -fsSL --retry 3 -o "$tarball" "https://github.com/koalaman/shellcheck/releases/download/v${version}/shellcheck-v${version}.linux.x86_64.tar.xz"
           # Checked before anything is unpacked: a release asset can be replaced without its tag
           # moving, and this lands as root in a directory on PATH beside a checkout.
           if ! printf '%s  %s\n' "$digest" "$tarball" | sha256sum -c -; then
