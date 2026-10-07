@@ -56,8 +56,9 @@ NONE: Final = "-"
 COLUMNS: Final = ("job", "seconds", "floor", "budget", "measured")
 TOTAL: Final = "total"
 
-# `<runs>@<date>`: how many completed runs a row's figures were taken over, and the newest one's day.
-STAMP: Final = re.compile(r"^([1-9][0-9]*)@([0-9]{4}-[0-9]{2}-[0-9]{2})$")
+# `<runs>@<date>`: how many completed runs a row's figures were taken over, and the newest one's day;
+# `/<run id>` after it where those runs are the attempts of one pull-request run.
+STAMP: Final = re.compile(r"^([1-9][0-9]*)@([0-9]{4}-[0-9]{2}-[0-9]{2})(?:/([1-9][0-9]*))?$")
 
 
 class Malformed(Exception):
@@ -482,15 +483,29 @@ RESAMPLES: Final = 20_000
 PERCENTILE: Final = 95
 SEED: Final = "gate-wall-clock"
 
+# Jobs whose own cache is keyed on the tree: a re-run of one commit hits the key its first attempt
+# wrote, which no fresh push to main does, so only first attempts of main's push runs time them.
+TREE_KEYED: Final[frozenset[str]] = frozenset({"format", "frontend", "images"})
+
 # The header's `format` paragraph: that budget is the cold job's, and a population that happened
 # to restore the cache never lowers it.
 COLD_BUDGET: Final[frozenset[str]] = frozenset({"format"})
 
-# What the coordinator saves per attempt: `gh api .../runs/<id>/attempts/<n>` and the same attempt's
-# `/jobs?per_page=100`. The run object is what says the attempt is a push to main.
+# What the coordinator saves per attempt: `gh api .../runs/<id>/attempts/<n>`, the same attempt's
+# `/jobs?per_page=100`, and `gh run view <id> --attempt <n> --log`.
 RUN_FILE: Final = "run-{}-{}.json"
 ATTEMPT_JOBS_FILE: Final = "jobs-{}-{}.json"
+LOG_FILE: Final = "log-{}-{}.txt"
 ATTEMPT_ID: Final = re.compile(r"^([1-9][0-9]*)/([1-9][0-9]*)$")
+
+# `gh run view --log` prefixes each line with the job's name and the step's, tab-separated, and the
+# runner stamps the line itself. A job log fetched raw carries no job column and is no input here.
+LOG_TEXT: Final = re.compile(r"^\ufeff?[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z ?(.*)$")
+
+# The runner's own retry of an action download, both forms `src/Runner.Worker/ActionManager.cs` in
+# actions/runner writes (read there on 2026-10-07; it moves without us). The wait is GitHub's, not
+# the tree's.
+RUNNER_RETRY: Final = re.compile(r"^(?:##\[warning\])?(?:Retrying in [0-9.]+ seconds|Back off [0-9.]+ seconds before retry\.)$")
 
 
 class Unstampable(Exception):
@@ -499,12 +514,14 @@ class Unstampable(Exception):
 
 @dataclass(frozen=True)
 class Attempt:
-    """One attempt of one push run on main, and its jobs' spans."""
+    """One attempt of one run: its jobs' spans, and the jobs its log shows GitHub retrying."""
 
     run: int
     number: int
+    event: str
     day: date
     spans: tuple[Span, ...]
+    retried: frozenset[str]
 
 
 def attempt_id(text: str) -> tuple[int, int]:
@@ -514,19 +531,40 @@ def attempt_id(text: str) -> tuple[int, int]:
     return int(match.group(1)), int(match.group(2))
 
 
+def logged_jobs(log: str) -> tuple[set[str], set[str]]:
+    """Every job the log carries a line of, and those among them a runner retry slowed."""
+    seen: set[str] = set()
+    retried: set[str] = set()
+    for line in log.splitlines():
+        fields = line.split("\t", 2)
+        if len(fields) < 3:
+            continue
+        seen.add(fields[0])
+        text = LOG_TEXT.match(fields[2])
+        if text is not None and RUNNER_RETRY.match(text.group(1)):
+            retried.add(fields[0])
+    return seen, retried
+
+
 def read_attempt(directory: Path, run: int, number: int) -> Attempt:
     named = f"attempt {run}/{number}"
     try:
         meta = json.loads((directory / RUN_FILE.format(run, number)).read_text(encoding="utf-8"))
         payload = json.loads((directory / ATTEMPT_JOBS_FILE.format(run, number)).read_text(encoding="utf-8"))
+        # Bytes, replaced where undecodable: a log is whatever the scopes printed, and only the
+        # runner's ASCII lines are read out of it.
+        log = (directory / LOG_FILE.format(run, number)).read_bytes().decode("utf-8", errors="replace")
     except (*UNREADABLE, ValueError) as exc:
         raise Unstampable(f"{named} could not be read ({exc})") from None
     if not isinstance(meta, dict) or meta.get("id") != run or meta.get("run_attempt") != number:
         raise Unstampable(f"{RUN_FILE.format(run, number)} is not the run object of {named}")
     if meta.get("status") != "completed":
         raise Unstampable(f"{named} is `{meta.get('status')}`, and only a completed attempt has timed every job")
-    if meta.get("event") != "push" or meta.get("head_branch") != "main":
-        raise Unstampable(f"{named} ran on `{meta.get('event')}` to `{meta.get('head_branch')}`, and a stamp counts pushes to main")
+    event = meta.get("event")
+    if event == "push" and meta.get("head_branch") != "main":
+        raise Unstampable(f"{named} is a push to `{meta.get('head_branch')}`, and a push stamps only from main")
+    if event not in ("push", "pull_request"):
+        raise Unstampable(f"{named} ran on `{event}`, which is neither a push to main nor a pull request")
     try:
         day = datetime.fromisoformat(str(meta.get("run_started_at"))).astimezone(UTC).date()
         spans = tuple(spans_of(payload))
@@ -544,7 +582,27 @@ def read_attempt(directory: Path, run: int, number: int) -> Attempt:
                 f"{named} lists `{job['name']}` from run {job.get('run_id')} attempt {job.get('run_attempt')}: "
                 "re-run all jobs, never the failed ones alone"
             )
-    return Attempt(run, number, day, spans)
+    seen, retried = logged_jobs(log)
+    unlogged = sorted(span.job for span in spans if span.state == "ok" and span.job not in seen)
+    if unlogged:
+        raise Unstampable(f"{named}'s log carries no line of {', '.join(unlogged)}, so whether GitHub retried there is unknown")
+    return Attempt(run, number, event, day, spans, frozenset(retried))
+
+
+def merged_run(attempts: list[Attempt]) -> int | None:
+    """The pull-request run every attempt belongs to, or None where all are pushes to main.
+
+    One run's attempts merge one head onto one base, so they time one tree; two runs merge two.
+    """
+    events = {attempt.event for attempt in attempts}
+    runs = {attempt.run for attempt in attempts}
+    if events == {"push"}:
+        return None
+    if events == {"pull_request"} and len(runs) == 1:
+        return runs.pop()
+    if events == {"pull_request"}:
+        raise Unstampable(f"the attempts belong to {len(runs)} pull-request runs, and only one run's attempts time one tree")
+    raise Unstampable("the attempts mix pushes to main with pull-request runs, which time different trees")
 
 
 @dataclass(frozen=True)
@@ -562,7 +620,11 @@ def counted(attempts: list[Attempt], job: str) -> Counted:
         for span in attempt.spans:
             if span.job != job:
                 continue
-            reason = {"dropped": "did not succeed", "skipped": "skipped", "unmeasured": "untimed"}.get(span.state)
+            reason = (
+                {"dropped": "did not succeed", "skipped": "skipped", "unmeasured": "untimed"}.get(span.state)
+                or ("slowed by GitHub's own retry" if job in attempt.retried else None)
+                or ("a re-run of a tree it cached" if job in TREE_KEYED and attempt.number > 1 else None)
+            )
             if reason is None:
                 spans.append((span.seconds, attempt.day))
             else:
@@ -606,7 +668,9 @@ class Proposal:
     account: str
 
 
-def propose(job: str, current: Row | None, attempts: list[Attempt]) -> Proposal:
+def propose(job: str, current: Row | None, attempts: list[Attempt], pull_request: int | None) -> Proposal:
+    if pull_request is not None and job in TREE_KEYED:
+        return Proposal(None, None, f"{job}: not stamped -- its cache is keyed on the tree, so only main's first attempts time it")
     population = counted(attempts, job)
     left = "".join(f", {count} {reason}" for reason, count in sorted(population.left.items()))
     seconds = [span for span, _ in population.spans]
@@ -625,7 +689,7 @@ def propose(job: str, current: Row | None, attempts: list[Attempt]) -> Proposal:
     else:
         budget = budget_over(widest)
     newest = max(day for _, day in population.spans)
-    measured = f"{len(seconds)}@{newest.isoformat()}"
+    measured = f"{len(seconds)}@{newest.isoformat()}" + ("" if pull_request is None else f"/{pull_request}")
     row = Row(job, reference, floor, budget, measured)
     shown = " ".join(NONE if value is None else str(value) for value in (reference, floor, budget))
     account = f"{job}: {len(seconds)} counted{left}; median {_median(seconds)} s, widest {widest} s -> {shown} {measured}"
@@ -654,7 +718,9 @@ def rewritten(text: str, rows: dict[str, Row]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def stamp(rows: dict[str, Row], attempts: list[Attempt], wanted: list[str] | None) -> tuple[dict[str, Row], list[str], list[str]]:
+def stamp(
+    rows: dict[str, Row], attempts: list[Attempt], pull_request: int | None, wanted: list[str] | None
+) -> tuple[dict[str, Row], list[str], list[str]]:
     """The proposed table, the account of every row, and the rows asked for that could not be stamped."""
     jobs = sorted({span.job for attempt in attempts for span in attempt.spans} | (set(rows) - {TOTAL}))
     if wanted is not None:
@@ -664,7 +730,7 @@ def stamp(rows: dict[str, Row], attempts: list[Attempt], wanted: list[str] | Non
     lines: list[str] = []
     missed: list[str] = sorted(set(wanted or ()) - set(jobs))
     for job in jobs:
-        proposal = propose(job, rows.get(job), attempts)
+        proposal = propose(job, rows.get(job), attempts, pull_request)
         lines.append(proposal.account)
         if proposal.row is None:
             if wanted is not None:
@@ -702,11 +768,15 @@ def stamp_main(reference: Path, directory: Path, ids: list[tuple[int, int]], wan
         return EXIT_REFUSED
     try:
         attempts = [read_attempt(directory, run, number) for run, number in ids]
+        pull_request = merged_run(attempts)
     except Unstampable as exc:
         print(f"      {exc}. Nothing was stamped.", file=sys.stderr)
         return EXIT_REFUSED
-    proposed, lines, missed = stamp(rows, attempts, wanted)
-    print(f"      {len(attempts)} attempts of pushes to main")
+    proposed, lines, missed = stamp(rows, attempts, pull_request, wanted)
+    if pull_request is None:
+        print(f"      {len(attempts)} attempts of pushes to main")
+    else:
+        print(f"      {len(attempts)} attempts of pull-request run {pull_request}, the merge commit it tests")
     for line in lines:
         print(f"      {line}")
     if missed:
@@ -737,7 +807,7 @@ def main() -> int:
         "--stamp",
         metavar="DIR",
         help="propose rows from the attempts --attempts names, each saved in DIR as "
-        + ", ".join(pattern.format("<id>", "<n>") for pattern in (RUN_FILE, ATTEMPT_JOBS_FILE)),
+        + ", ".join(pattern.format("<id>", "<n>") for pattern in (RUN_FILE, ATTEMPT_JOBS_FILE, LOG_FILE)),
     )
     parser.add_argument("--runs", type=int, metavar="N", help="with --window: how many runs make a window, the page size they were listed with")
     parser.add_argument("--summary", metavar="PATH", help="with --window: the file the report is appended to (default: stdout)")

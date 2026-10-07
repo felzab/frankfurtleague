@@ -613,6 +613,17 @@ def test_main_passes_an_unmoved_file(tmp_path: Path):
     assert f"no figure in {reference} rose" in out
 
 
+def test_a_stamp_naming_a_run_parses_and_one_naming_nothing_is_refused():
+    """`/<run id>` is the pull-request form; anything else after the date is a typo."""
+    rows = budget.parse_reference(table(row("backend", "-", "-", "60", "30@2026-09-01/37552113173"), row("total", "0", "5", "-", "-")))
+
+    assert rows["backend"].stamp_date == date(2026, 9, 1)
+    for bad in ("30@2026-09-01/", "30@2026-09-01/0", "30@2026-09-01/run"):
+        with contextlib.suppress(budget.Malformed):
+            budget.parse_reference(table(row("backend", "-", "-", "60", bad), row("total", "0", "5", "-", "-")))
+            raise AssertionError(f"the stamp {bad} parsed")
+
+
 def test_main_refuses_where_no_base_resolves(tmp_path: Path):
     """A single-branch clone has no base, and a file compared against nothing was not compared."""
     reference = written(tmp_path / "ref.tsv", BASELINE)
@@ -629,8 +640,8 @@ def test_main_refuses_where_no_base_resolves(tmp_path: Path):
 DAY = date(2026, 9, 1)
 
 
-def attempt(run: int, number: int, spans: dict[str, int], *, day: date = DAY) -> Any:
-    return budget.Attempt(run, number, day, tuple(ok(name, seconds) for name, seconds in spans.items()))
+def attempt(run: int, number: int, spans: dict[str, int], *, event: str = "push", day: date = DAY, retried: tuple[str, ...] = ()) -> Any:
+    return budget.Attempt(run, number, event, day, tuple(ok(name, seconds) for name, seconds in spans.items()), frozenset(retried))
 
 
 def test_a_budget_is_the_widest_span_and_the_greater_margin_rounded_up_to_five():
@@ -665,7 +676,7 @@ def test_the_draws_are_seeded_per_row():
 def test_a_row_under_ten_runs_is_not_stamped():
     attempts = [attempt(1, n, {"backend": 50}) for n in range(1, 10)]
 
-    proposed, lines, missed = budget.stamp(budget.parse_reference(BASELINE), attempts, ["backend"])
+    proposed, lines, missed = budget.stamp(budget.parse_reference(BASELINE), attempts, None, ["backend"])
 
     assert proposed["backend"] == budget.parse_reference(BASELINE)["backend"]
     assert missed == ["backend"]
@@ -678,25 +689,46 @@ def test_ten_runs_cut_a_budget_and_twenty_four_a_reference_and_floor():
     ten = [attempt(n, 1, {"backend": 40 + n}) for n in range(1, 11)]
     many = [attempt(n, 1, {"backend": 40 + n % 5}) for n in range(1, 25)]
 
-    assert budget.stamp(rows, ten, ["backend"])[0]["backend"] == budget.Row("backend", None, None, 65, "10@2026-09-01")
-    reference = budget.stamp(rows, many, ["backend"])[0]["backend"]
+    assert budget.stamp(rows, ten, None, ["backend"])[0]["backend"] == budget.Row("backend", None, None, 65, "10@2026-09-01")
+    reference = budget.stamp(rows, many, None, ["backend"])[0]["backend"]
     assert (reference.seconds, reference.budget, reference.measured) == (42, 55, "24@2026-09-01")
     assert reference.floor is not None
 
 
-def test_a_failed_job_is_left_out_of_its_row_alone():
-    """A failed job's length is no evidence, and the run's other jobs still count."""
+def test_a_failed_job_and_one_github_retried_are_left_out_of_its_row_alone():
+    """F11's retry put 18 s of GitHub's own wait into one scripts span; the run's other jobs still count."""
     attempts = [attempt(n, 1, {"backend": 50, "scripts": 50}) for n in range(1, 11)]
-    attempts.append(budget.Attempt(12, 1, DAY, (ok("backend", 61), budget.Span("scripts", "dropped", 0))))
+    attempts.append(attempt(11, 1, {"backend": 60, "scripts": 84}, retried=("scripts",)))
+    attempts.append(budget.Attempt(12, 1, "push", DAY, (ok("backend", 61), budget.Span("scripts", "dropped", 0)), frozenset()))
     rows = budget.parse_reference(
         table(row("scripts", "-", "-", "60", STAMP), row("backend", "-", "-", "60", STAMP), row("total", "0", "-", "-", "-"))
     )
 
-    proposed, lines, _ = budget.stamp(rows, attempts, None)
+    proposed, lines, _ = budget.stamp(rows, attempts, None, None)
 
     assert proposed["scripts"].budget == 65 and proposed["scripts"].measured == "10@2026-09-01"
-    assert proposed["backend"].budget == 80 and proposed["backend"].measured == "11@2026-09-01"
-    assert any(line.startswith("scripts: 10 counted, 1 did not succeed;") for line in lines), lines
+    assert proposed["backend"].budget == 80 and proposed["backend"].measured == "12@2026-09-01"
+    assert any(line.startswith("scripts: 10 counted, 1 did not succeed, 1 slowed by GitHub's own retry;") for line in lines), lines
+
+
+def test_a_job_whose_cache_is_keyed_on_the_tree_counts_first_attempts_of_pushes_alone():
+    """A re-run restores the exact key its first attempt wrote, which a fresh push to main never does."""
+    rows = budget.parse_reference(
+        table(row("frontend", "-", "-", "145", STAMP), row("backend", "-", "-", "60", STAMP), row("total", "0", "-", "-", "-"))
+    )
+    reruns = [attempt(1, n, {"frontend": 100, "backend": 50}) for n in range(1, 11)]
+    pushes = [attempt(n, 1, {"frontend": 100, "backend": 50}) for n in range(1, 11)]
+
+    proposed, lines, _ = budget.stamp(rows, reruns, None, None)
+    assert proposed["frontend"] == rows["frontend"] and proposed["backend"].measured == "10@2026-09-01"
+    assert "frontend: not stamped -- 1 counted, 9 a re-run of a tree it cached, and a stamp counts at least 10" in lines
+    assert budget.stamp(rows, pushes, None, None)[0]["frontend"].measured == "10@2026-09-01"
+
+    proposed, lines, _ = budget.stamp(
+        rows, [attempt(7, n, {"frontend": 100, "backend": 50}, event="pull_request") for n in range(1, 11)], 7, None
+    )
+    assert proposed["frontend"] == rows["frontend"] and proposed["backend"].measured == "10@2026-09-01/7"
+    assert lines[1].startswith("frontend: not stamped -- its cache is keyed on the tree")
 
 
 def test_an_unbudgeted_row_stays_unbudgeted_and_the_cold_budget_never_falls():
@@ -706,18 +738,18 @@ def test_an_unbudgeted_row_stays_unbudgeted_and_the_cold_budget_never_falls():
     )
     attempts = [attempt(n, 1, {"format": 30, "images": 90}) for n in range(1, 11)]
 
-    proposed, _, _ = budget.stamp(rows, attempts, None)
+    proposed, _, _ = budget.stamp(rows, attempts, None, None)
 
     assert (proposed["format"].budget, proposed["images"].budget) == (70, None)
-    assert budget.stamp(rows, [attempt(n, 1, {"format": 80}) for n in range(1, 11)], ["format"])[0]["format"].budget == 100
+    assert budget.stamp(rows, [attempt(n, 1, {"format": 80}) for n in range(1, 11)], None, ["format"])[0]["format"].budget == 100
 
 
 def test_the_stamp_is_dated_by_the_newest_attempt_its_row_counts():
     """A row whose newest attempt was left out is dated by the newest it kept, so its stamp names runs it counted."""
     attempts = [attempt(n, 1, {"backend": 50}) for n in range(1, 11)]
-    attempts.append(budget.Attempt(11, 1, date(2026, 9, 2), (budget.Span("backend", "dropped", 0),)))
+    attempts.append(attempt(11, 1, {"backend": 50}, day=date(2026, 9, 2), retried=("backend",)))
 
-    assert budget.stamp(budget.parse_reference(BASELINE), attempts, ["backend"])[0]["backend"].measured == "10@2026-09-01"
+    assert budget.stamp(budget.parse_reference(BASELINE), attempts, None, ["backend"])[0]["backend"].measured == "10@2026-09-01"
 
 
 def test_the_total_takes_a_floor_only_where_every_reference_beside_it_was_cut_here():
@@ -727,23 +759,38 @@ def test_the_total_takes_a_floor_only_where_every_reference_beside_it_was_cut_he
         table(row("backend", "-", "-", "60", STAMP), row("db", "-", "-", "135", STAMP), row("total", "0", "-", "-", "-"))
     )
 
-    proposed, lines, _ = budget.stamp(rows, attempts, None)
+    proposed, lines, _ = budget.stamp(rows, attempts, None, None)
     total = proposed["total"]
     assert total.seconds == proposed["backend"].seconds + proposed["db"].seconds
     assert total.floor is not None and lines[-1].startswith(f"total: {total.seconds} s, floor {total.floor}% over backend, db")
 
-    proposed, lines, _ = budget.stamp(rows, attempts, ["db"])
+    proposed, lines, _ = budget.stamp(rows, attempts, None, ["db"])
     assert proposed["total"].floor is not None
 
-    proposed, lines, _ = budget.stamp(budget.parse_reference(BASELINE), attempts, ["backend"])
+    proposed, lines, _ = budget.stamp(budget.parse_reference(BASELINE), attempts, None, ["backend"])
     assert proposed["total"].floor is None
     assert lines[-1] == f"total: {proposed['total'].seconds} s, floor - -- a reference cut from another population: images"
 
 
+def test_one_pull_request_run_stamps_and_two_or_a_mix_are_refused():
+    """One run's attempts merge one head onto one base; two runs, or a push beside a pull request, time two trees."""
+    one = [attempt(5, n, {}, event="pull_request") for n in (1, 2)]
+
+    assert budget.merged_run(one) == 5
+    assert budget.merged_run([attempt(5, 1, {}), attempt(6, 1, {})]) is None
+    for mixed in ([*one, attempt(6, 1, {}, event="pull_request")], [*one, attempt(6, 1, {})]):
+        with contextlib.suppress(budget.Unstampable):
+            budget.merged_run(mixed)
+            raise AssertionError(f"{[(a.run, a.event) for a in mixed]} made one population")
+
+
+LOG_LINE = "{job}\t{step}\t{mark}2026-09-01T10:00:0{n}.1234567Z {text}\n"
+
+
 def saved(directory: Path, run: int, number: int, spans: dict[str, int], **overrides: Any) -> None:
-    """One attempt as the coordinator saves it: the run object and the attempt's jobs."""
+    """One attempt as the coordinator saves it: the run object, the attempt's jobs and its `gh run view --log`."""
     directory.mkdir(exist_ok=True)
-    meta = {"id": run, "run_attempt": number, "status": "completed", "event": "push", "head_branch": "main"}
+    meta = {"id": run, "run_attempt": number, "status": "completed", "event": "pull_request", "head_branch": "feature"}
     meta |= {"run_started_at": "2026-09-01T10:00:00Z", **overrides.get("meta", {})}
     jobs = [{**job(name, seconds), "run_id": run, "run_attempt": number} for name, seconds in spans.items()]
     jobs += overrides.get("jobs", [])
@@ -751,25 +798,46 @@ def saved(directory: Path, run: int, number: int, spans: dict[str, int], **overr
     written(
         directory / budget.ATTEMPT_JOBS_FILE.format(run, number), json.dumps({"total_count": overrides.get("total", len(jobs)), "jobs": jobs})
     )
+    logged = [name for name in spans if name != overrides.get("unlogged")]
+    # Each job's log opens on a byte-order mark, which `gh run view --log` keeps after the two names it prefixes.
+    log = "".join(LOG_LINE.format(job=name, step="Set up job", mark="\ufeff", n=1, text="Current runner version: '2.337.0'") for name in logged)
+    log += "".join(
+        LOG_LINE.format(job=name, step="Run ./.github/actions/backend-toolchain", mark="", n=2, text=text)
+        for name, text in overrides.get("log", [])
+    )
+    written(directory / budget.LOG_FILE.format(run, number), log)
 
 
-def test_an_attempt_reads_its_spans_and_its_day(tmp_path: Path):
-    saved(tmp_path, 7, 2, {"backend": 50, "db": 90})
+def test_an_attempt_reads_its_spans_and_both_forms_of_the_runner_retry(tmp_path: Path):
+    """The runner's resolve retry, its download retry written as a warning, and a test's own line naming a retry, which is no runner's."""
+    saved(
+        tmp_path,
+        7,
+        2,
+        {"backend": 50, "db": 90, "scripts": 40, "ops": 20},
+        log=[
+            ("backend", "Retrying in 18.261 seconds"),
+            ("db", "##[warning]Back off 12.5 seconds before retry."),
+            ("scripts", "pytest: Retrying in 3 seconds of the fixture"),
+        ],
+    )
 
     read = budget.read_attempt(tmp_path, 7, 2)
 
-    assert (read.run, read.number, read.day) == (7, 2, DAY)
-    assert [(span.job, span.seconds) for span in read.spans] == [("backend", 50), ("db", 90)]
+    assert (read.run, read.number, read.event, read.day) == (7, 2, "pull_request", DAY)
+    assert read.retried == {"backend", "db"}
+    assert [(span.job, span.seconds) for span in read.spans] == [("backend", 50), ("db", 90), ("scripts", 40), ("ops", 20)]
 
 
 def test_an_attempt_that_cannot_stand_in_a_population_is_refused(tmp_path: Path):
-    """Each is a span that would be counted wrongly, so the whole stamp stops."""
+    """Each is a span that would be counted wrongly or a retry that would be missed, so the whole stamp stops."""
     cases: dict[str, tuple[dict[str, Any], str]] = {
         "unfinished": ({"meta": {"status": "in_progress"}}, "only a completed attempt"),
-        "branch": ({"meta": {"head_branch": "feature"}}, "a stamp counts pushes to main"),
-        "event": ({"meta": {"event": "pull_request"}}, "a stamp counts pushes to main"),
+        "branch": ({"meta": {"event": "push", "head_branch": "feature"}}, "a push stamps only from main"),
+        "event": ({"meta": {"event": "workflow_dispatch"}}, "neither a push to main nor a pull request"),
         "paged": ({"total": 20}, "one page of a longer listing"),
         "carried": ({"jobs": [{**job("db", 90), "run_id": 7, "run_attempt": 1}]}, "re-run all jobs, never the failed ones alone"),
+        "unlogged": ({"unlogged": "backend"}, "carries no line of backend"),
         "other run": ({"meta": {"id": 8}}, "is not the run object of attempt 7/2"),
     }
     for name, (overrides, expected) in cases.items():
@@ -790,40 +858,40 @@ def test_an_attempt_that_cannot_stand_in_a_population_is_refused(tmp_path: Path)
 
 
 def test_main_writes_a_proposal_every_mode_reads_and_keeps_the_header(tmp_path: Path):
-    """The exit contract end to end: the proposal parses, and the header above it is untouched."""
+    """The exit contract end to end: the proposal parses, names the run it was cut from, and the header above it is untouched."""
     reference = written(tmp_path / "ref.tsv", "# the header\n" + BASELINE)
     data = tmp_path / "attempts"
     for number in range(1, 25):
-        saved(data, number, 1, {"backend": 40 + number % 6}, meta={"run_started_at": "2026-09-02T10:00:00Z"})
+        saved(data, 9, number, {"backend": 40 + number % 6, "images": 90})
     out = tmp_path / "proposal.tsv"
 
     code, stdout, _ = run_main(
-        "--stamp", str(data), "--attempts", *(f"{n}/1" for n in range(1, 25)), "--out", str(out), "--reference", str(reference)
+        "--stamp", str(data), "--attempts", *(f"9/{n}" for n in range(1, 25)), "--out", str(out), "--reference", str(reference)
     )
 
     assert code == 0, stdout
     text = out.read_bytes().decode("utf-8")
     assert text.startswith("# the header\n# job\tseconds\tfloor\tbudget\tmeasured\n") and "\r" not in text
     rows = budget.parse_reference(text)
-    assert rows["backend"].measured == "24@2026-09-02"
-    assert rows["commits"] == budget.parse_reference(BASELINE)["commits"]
-    assert "24 attempts of pushes to main" in stdout
+    assert rows["backend"].measured == "24@2026-09-01/9"
+    assert rows["images"] == budget.parse_reference(BASELINE)["images"]
+    assert "24 attempts of pull-request run 9, the merge commit it tests" in stdout
 
 
 def test_main_writes_nothing_where_a_row_asked_for_cannot_be_stamped(tmp_path: Path):
     reference = written(tmp_path / "ref.tsv", BASELINE)
     data = tmp_path / "attempts"
     for number in range(1, 11):
-        saved(data, number, 1, {"backend": 40})
+        saved(data, 9, number, {"backend": 40, "images": 90})
     out = tmp_path / "proposal.tsv"
 
     code, _, err = run_main(
         "--stamp",
         str(data),
         "--attempts",
-        *(f"{n}/1" for n in range(1, 11)),
+        *(f"9/{n}" for n in range(1, 11)),
         "--rows",
-        "commits",
+        "images",
         "--out",
         str(out),
         "--reference",
@@ -831,7 +899,7 @@ def test_main_writes_nothing_where_a_row_asked_for_cannot_be_stamped(tmp_path: P
     )
 
     assert code == 2
-    assert "asked for and not stamped: commits" in err
+    assert "asked for and not stamped: images" in err
     assert not out.exists()
 
 
@@ -852,10 +920,10 @@ def test_main_reports_a_proposal_its_own_base_check_would_refuse(tmp_path: Path)
     reference = written(tmp_path / "ref.tsv", table(row("backend", "-", "-", "45", "30@2026-09-05"), row("total", "0", "-", "-", "-")))
     data = tmp_path / "attempts"
     for number in range(1, 11):
-        saved(data, number, 1, {"backend": 50})
+        saved(data, 9, number, {"backend": 50})
 
     code, stdout, _ = run_main(
-        "--stamp", str(data), "--attempts", *(f"{n}/1" for n in range(1, 11)), "--out", str(tmp_path / "out.tsv"), "--reference", str(reference)
+        "--stamp", str(data), "--attempts", *(f"9/{n}" for n in range(1, 11)), "--out", str(tmp_path / "out.tsv"), "--reference", str(reference)
     )
 
     assert code == 1
@@ -1013,3 +1081,17 @@ def test_the_floor_is_cut_for_the_window_the_report_takes():
     workflow = (REPO_ROOT / ".github" / "workflows" / "verify.yml").read_text(encoding="utf-8")
 
     assert re.findall(r"^\s+window=([0-9]+)$", workflow, re.MULTILINE) == [str(budget.WINDOW)]
+
+
+# A cache step of the job's own, or the image builds' layer cache in the Actions cache service. The
+# toolchain actions' caches are keyed on the lockfiles, which a push to main restores as a re-run does.
+OWN_CACHE_RE = re.compile(r"^      - uses: actions/cache@|^          VERIFY_IMAGES_CACHE: gha$", re.MULTILINE)
+
+
+def test_every_job_with_a_cache_of_its_own_is_stamped_from_main_alone():
+    """Read off the workflow rather than off the constant, so a cache added to a job joins the set or fails here."""
+    workflow = (REPO_ROOT / ".github" / "workflows" / "verify.yml").read_text(encoding="utf-8")
+
+    cached = {key for key, body in job_bodies(workflow).items() if OWN_CACHE_RE.search(body)}
+
+    assert cached == budget.TREE_KEYED

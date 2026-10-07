@@ -1085,7 +1085,7 @@ apart from those it measures at `:: report_window`.
 **Every job has a wall-clock budget, and the aggregate job refuses the run that breaks one.** The
 same table carries two more columns: `budget`, the most a single run of the job may span from its
 first step to its last, and `measured`, the completed runs the row was taken over, as
-`<runs>@<date>`. After the scope verdict, whatever the scope jobs concluded, and on every event, `scripts/checks/check_gate_budget.py` under
+`<runs>@<date>`, ending `/<run id>` where they are the attempts of one pull-request run. After the scope verdict, whatever the scope jobs concluded, and on every event, `scripts/checks/check_gate_budget.py` under
 `--jobs` reads this run's own jobs from the runs API and fails the required check on a job over its budget,
 naming the job and both figures; on a job that ran with no row, so a new job arrives with its
 measured cost or goes red, while a check added inside an existing job is held by review and by that
