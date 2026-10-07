@@ -10,6 +10,7 @@ import {
   KONTAKT_ROLLEN,
   KONTAKT_WHATSAPP_FRAGE,
   KONTAKT_WHATSAPP_LABELS,
+  kontaktGeburtsdatumLeer,
   schulformLabel,
   trikotFarbeHex,
   trikotFarbeLabel,
@@ -163,9 +164,15 @@ export function BewerbungAngabenPanel({
                 ) : (
                   <dl className={ANGABEN_GRID_CLASSES}>
                     <Angabe label="Name">{`${person.vorname} ${person.nachname}`}</Angabe>
-                    {/* Null until that seat's contact has confirmed and entered it themselves, so an
-                        empty one is a step still outstanding rather than a school's omission. */}
-                    <Angabe label="Geburtsdatum">{person.geburtsdatum === null ? <Leer /> : formatSpielDatum(person.geburtsdatum)}</Angabe>
+                    {/* The person's own to enter when they confirm, so the contacts editor's words: whose step
+                        it is until then, a field held empty after. */}
+                    <Angabe label="Geburtsdatum">
+                      {person.geburtsdatum === null ? (
+                        <Leer>{kontaktGeburtsdatumLeer(person.einwilligung.bestaetigt_am)}</Leer>
+                      ) : (
+                        formatSpielDatum(person.geburtsdatum)
+                      )}
+                    </Angabe>
                     {/* The scheme is a literal prefix here, so neither stored value can steer the href
                         the way `Website`'s can, and neither needs that field's validator. */}
                     {/* Both rows guard the TRIMMED value: `PHONE_REGEX` admits the space character, the read

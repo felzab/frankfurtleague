@@ -1,4 +1,4 @@
-import { nichtHinterlegt } from "@/shared/utils/format";
+import { NICHT_HINTERLEGT, nichtHinterlegt } from "@/shared/utils/format";
 
 import type { FLAustrittType, FLKontaktKenntnisnahme, FLSchulform, FLTrainerZugleich, FLTrikotFarbe } from "./schemas";
 
@@ -163,6 +163,22 @@ export const EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH = 64;
  * be a second acknowledgement, gathered on its own terms.
  */
 export const EINWILLIGUNG_UMFANG = "kontaktdaten" as const;
+
+/**
+ * Names WHO fills a contact's birthdate rather than reporting that nobody has: before the person confirms,
+ * „Nicht hinterlegt“ would read as a field the administrator is expected to get round to.
+ */
+const TRAEGT_DIE_PERSON_EIN = "Trägt die Person selbst ein";
+
+/**
+ * A contact's empty birthdate, on every page: the person's own step until they confirm, a field held
+ * empty after. `ohneLabel` where no label stands beside it, so the words name the field.
+ */
+export function kontaktGeburtsdatumLeer(bestaetigtAm: string | null, ohneLabel = false): string {
+  if (bestaetigtAm === null) return ohneLabel ? "Geburtsdatum trägt die Person selbst ein" : TRAEGT_DIE_PERSON_EIN;
+
+  return ohneLabel ? nichtHinterlegt("Geburtsdatum") : NICHT_HINTERLEGT;
+}
 
 type EingetragenVonOption = {
   readonly value: NonNullable<FLKontaktKenntnisnahme["eingetragen_von"]>;

@@ -1635,6 +1635,23 @@ describe("whose birthdate a seat holds, and who may put one there", () => {
     assert.ok(box.includes("Trägt die Person selbst ein"), "an undated seat leaves the reader without who fills the field");
   });
 
+  /* Once the person has confirmed, the date was theirs to give and was not: a field held empty, in the
+     application panel's words for the same seat. */
+  it("reads a confirmed seat without a birthdate as a field held empty", () => {
+    const bestaetigt: FLSaisonTeamKontakte = {
+      ...WITHOUT_BIRTHDATE,
+      trainer: WITHOUT_BIRTHDATE.trainer && {
+        ...WITHOUT_BIRTHDATE.trainer,
+        einwilligung: { ...WITHOUT_BIRTHDATE.trainer.einwilligung, bestaetigt_am: "2026-03-14" },
+      },
+    };
+
+    assert.ok(
+      birthdateBox(sectionMarkup(bestaetigt), "trainer").includes('value="Nicht hinterlegt"'),
+      "a confirmed seat still waits on its person",
+    );
+  });
+
   /* A seat whose person has not confirmed holds no date: a payload requiring one refuses a body no
      administrator can repair, taking the Kenntnisnahme, the address and every other field on that
      seat down with it. */

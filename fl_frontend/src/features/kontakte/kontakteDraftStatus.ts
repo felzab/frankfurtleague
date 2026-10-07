@@ -1,4 +1,10 @@
-import { eingetragenVonLabel, KONTAKT_ROLLEN, TRAINER_ZUGLEICH_FRAGE, trainerZugleichLabel } from "@/features/teams/constants";
+import {
+  eingetragenVonLabel,
+  KONTAKT_ROLLEN,
+  kontaktGeburtsdatumLeer,
+  TRAINER_ZUGLEICH_FRAGE,
+  trainerZugleichLabel,
+} from "@/features/teams/constants";
 import { holdsNobody } from "@/features/teams/utils";
 import { deriveDraftStatus, emptyAsNull } from "@/shared/utils/draftStatus";
 import { formatSpielDatum, nichtHinterlegt } from "@/shared/utils/format";
@@ -37,9 +43,11 @@ const readPerson = (rolle: KontaktRolle) => (source: FLKontakteDraftFields) => {
     name === "" ? nichtHinterlegt("Name") : name,
     emptyAsNull(person.email) ?? nichtHinterlegt("E-Mail"),
     emptyAsNull(person.telefon) ?? nichtHinterlegt("Telefon"),
-    // Read out rather than judged: the date is the person's own to enter at their confirmation, so a
-    // seat without one is waiting on them rather than half filled in.
-    person.geburtsdatum ? `geboren am ${formatSpielDatum(person.geburtsdatum)}` : nichtHinterlegt("Geburtsdatum"),
+    // Read out rather than judged: the date is the person's own to enter at their confirmation, so an
+    // unconfirmed seat without one is waiting on them rather than half filled in.
+    person.geburtsdatum
+      ? `geboren am ${formatSpielDatum(person.geburtsdatum)}`
+      : kontaktGeburtsdatumLeer(person.einwilligung.bestaetigt_am, true),
   ].join(", ");
 };
 

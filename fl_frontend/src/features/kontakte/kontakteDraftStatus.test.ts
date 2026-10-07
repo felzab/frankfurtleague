@@ -176,6 +176,20 @@ describe("deriveKontakteDraftStatus", () => {
     assert.equal(status.byPath.get("kontakte.trainer")?.isChanged, true);
   });
 
+  /* The date is the person's to enter when they confirm: until then the line says whose step it is,
+     after it the field is held empty, in the words the application panel gives the same seat. */
+  for (const [bestaetigtAm, worte] of [
+    [null, "Geburtsdatum trägt die Person selbst ein"],
+    ["2025-09-02", "Geburtsdatum nicht hinterlegt"],
+  ] as const) {
+    it(`reads a missing birthdate on a seat confirmed ${bestaetigtAm ?? "never"} as „${worte}“`, () => {
+      const ohneDatum = person({ geburtsdatum: null, einwilligung: { ...person().einwilligung, bestaetigt_am: bestaetigtAm } });
+      const status = deriveKontakteDraftStatus({ stored: EMPTY, draft: block({ trainer: ohneDatum }), fieldErrors: {} });
+
+      assert.equal(status.byPath.get("kontakte.trainer")?.draftText, `Erika Mustermann, erika@beispiel.de, 069 1234567, ${worte}`);
+    });
+  }
+
   /* A seat emptied under a stored name still reads as a removal, which is the state `null` is FOR.
      Both cases in one test: the fallback above may not be bought by losing this one. */
   it("keeps `null` for the seat nobody is recorded in", () => {

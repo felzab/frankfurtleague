@@ -20,6 +20,7 @@ import {
   KONTAKT_ROLLEN,
   KONTAKT_WHATSAPP_FRAGE,
   KONTAKT_WHATSAPP_LABELS,
+  kontaktGeburtsdatumLeer,
   TRAINER_ZUGLEICH_FRAGE,
 } from "@/features/teams/constants";
 import { buildEmptyKontakte } from "@/features/teams/utils";
@@ -65,12 +66,6 @@ import type { KontakteBanner } from "./banners";
 const NOCH_OFFEN = "Noch offen";
 
 const NOCH_NICHT_BESTAETIGT = "Noch nicht bestätigt";
-
-/**
- * Names WHO fills it rather than reporting that nobody has: `NOCH_OFFEN` on a read-only box reads as
- * a field the administrator is expected to get round to.
- */
-const TRAEGT_DIE_PERSON_EIN = "Trägt die Person selbst ein";
 
 /**
  * Any seat whose person has not confirmed takes a re-send. A pair shares one link, so its press
@@ -493,7 +488,7 @@ function KontaktpersonInputs({
             the payload carries no `geburtsdatum` for a message to land on (`docs/backend/spec.md :: I141`). */}
         <TextField
           isReadOnly
-          value={formatSpielDatum(person.geburtsdatum, TRAEGT_DIE_PERSON_EIN)}
+          value={formatSpielDatum(person.geburtsdatum, kontaktGeburtsdatumLeer(person.einwilligung.bestaetigt_am))}
           onChange={() => undefined}>
           <FieldLabel<KontakteFieldPath> path={`kontakte.${rolle}`}>Geburtsdatum</FieldLabel>
           <Input className={FIELD_INPUT_CLASSES} />
