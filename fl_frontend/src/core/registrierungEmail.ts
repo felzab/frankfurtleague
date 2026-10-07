@@ -276,7 +276,7 @@ const ABSAGE_WEITER: Readonly<Record<NonNullable<RegistrierungAbsageGrund> | "ke
 };
 
 const absageSaetze = ({ vorname, teamName, saisonId, grund }: RegistrierungAbsageEmailData): readonly string[] => [
-  `Hallo ${vorname}, ${teamName} hat Deine Registrierung für die Saison ${saisonId} der ${BRAND_NAME} nicht angenommen.`,
+  `Hallo ${vorname}, ${teamName} hat Deine Registrierung für die Saison ${saisonId} der ${BRAND_NAME} abgelehnt.`,
   ABSAGE_WEITER[grund ?? "keiner"],
   "Deine Angaben aus der Registrierung löschen wir einen Monat nach dieser Entscheidung.",
 ];
@@ -294,11 +294,11 @@ export function buildRegistrierungAbsageEmail(data: RegistrierungAbsageEmailData
   return {
     subject: `Deine Registrierung für ${data.teamName}`,
     html: renderKarte({
-      titel: `${BRAND_NAME}: Registrierung nicht angenommen`,
-      ueberschrift: escapeHtml("Registrierung nicht angenommen"),
+      titel: `${BRAND_NAME}: Registrierung abgelehnt`,
+      ueberschrift: escapeHtml("Registrierung abgelehnt"),
       bloecke: [
         paragraph(
-          `Hallo ${strong(escapeHtml(data.vorname))}, ${strong(escapeHtml(data.teamName))} hat Deine Registrierung für die ${brandPhrase(`Saison ${escapeHtml(data.saisonId)}`)} der ${BRAND_NAME} nicht angenommen.`,
+          `Hallo ${strong(escapeHtml(data.vorname))}, ${strong(escapeHtml(data.teamName))} hat Deine Registrierung für die ${brandPhrase(`Saison ${escapeHtml(data.saisonId)}`)} der ${BRAND_NAME} abgelehnt.`,
         ),
         paragraph(escapeHtml(weiter ?? "")),
         paragraph(escapeHtml(loeschung ?? ""), "0", ASIDE_TEXT),
@@ -309,9 +309,7 @@ export function buildRegistrierungAbsageEmail(data: RegistrierungAbsageEmailData
       origin: site,
     }),
     text: [
-      stuffSignatureDelimiter(
-        [`${BRAND_NAME}: Registrierung nicht angenommen`, "", anrede ?? "", "", weiter ?? "", "", loeschung ?? ""].join("\n"),
-      ),
+      stuffSignatureDelimiter([`${BRAND_NAME}: Registrierung abgelehnt`, "", anrede ?? "", "", weiter ?? "", "", loeschung ?? ""].join("\n")),
       ...textFooter(site, [ANTWORT_SATZ_TEXT]),
     ].join("\n"),
   };

@@ -224,7 +224,13 @@ describe("what the decline note says, by the reason the team chose", () => {
   });
 
   it("says the decision has been taken and when the entry goes", () => {
-    assert.match(OHNE_GRUND.text, /nicht angenommen/, "the note never says what was decided");
+    assert.ok(
+      OHNE_GRUND.text.includes("Hallo Mira, Lessing-Kolleg hat Deine Registrierung für die Saison 2026 der Frankfurt League abgelehnt."),
+      "the note never says what was decided",
+    );
+    assert.ok(OHNE_GRUND.text.startsWith("Frankfurt League: Registrierung abgelehnt\n"), "the text branch's heading names another decision");
+    assert.match(OHNE_GRUND.html, /Registrierung abgelehnt/, "the card's heading names another decision");
+    assert.match(OHNE_GRUND.html, /der Frankfurt League abgelehnt\./, "the card says less than the text branch");
     assert.match(OHNE_GRUND.text, /einen Monat nach dieser Entscheidung/, "the note never says when the entry goes");
   });
 });
