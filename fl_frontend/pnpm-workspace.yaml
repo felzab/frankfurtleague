@@ -36,6 +36,22 @@ strictPeerDependencies: true
 # writes it into `minimumReleaseAgeExclude` here.
 minimumReleaseAge: 1440
 minimumReleaseAgeStrict: true
+# Next 16.4.0 and the packages published with it, taken inside the day at my instruction. Each entry
+# names one version, so no later release of these packages is excepted; delete them all once that
+# release is a day old.
+minimumReleaseAgeExclude:
+  - "@next/env@16.4.0"
+  - "@next/eslint-plugin-next@16.4.0"
+  - "@next/swc-darwin-arm64@16.4.0"
+  - "@next/swc-darwin-x64@16.4.0"
+  - "@next/swc-linux-arm64-gnu@16.4.0"
+  - "@next/swc-linux-arm64-musl@16.4.0"
+  - "@next/swc-linux-x64-gnu@16.4.0"
+  - "@next/swc-linux-x64-musl@16.4.0"
+  - "@next/swc-win32-arm64-msvc@16.4.0"
+  - "@next/swc-win32-x64-msvc@16.4.0"
+  - eslint-config-next@16.4.0
+  - next@16.4.0
 patchedDependencies:
   # Aborts on the server a transaction whose commit failed, which no adapter release does, logs an
   # abort that fails, and lets the commit's own error through where the driver's refusal of the
