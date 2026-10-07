@@ -66,7 +66,7 @@ export const canStillBePlayed = (spiel: Pick<FLSpiel, "ergebnis" | "sonderereign
   spiel.ergebnis === null && !isAbgesagt(spiel.sonderereignis) && !isFinishedSaison;
 
 /** A card's unrecorded date: no label stands beside it there, so the words name the field. */
-export const DATUM_NICHT_HINTERLEGT = "Datum nicht hinterlegt";
+const DATUM_NICHT_HINTERLEGT = "Datum nicht hinterlegt";
 
 /** The one derivation the three `SpielCard` variants share; they stay separate themselves. */
 export const formatSpielDisplay = (
