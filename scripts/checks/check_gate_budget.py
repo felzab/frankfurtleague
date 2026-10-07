@@ -683,9 +683,11 @@ def window_moves(spans: list[int], job: str) -> list[int]:
     A stream per row, so a row's floor never moves with which other rows a stamp cuts.
     """
     draw = random.Random(f"{SEED}:{job}")
+    # Sorted, so the draws depend on the population alone and never on the order its attempts were named in.
+    population = sorted(spans)
     moves: list[int] = []
     for _ in range(RESAMPLES):
-        picked = draw.sample(spans, 2 * WINDOW)
+        picked = draw.sample(population, 2 * WINDOW)
         moves.append(_median(picked[:WINDOW]) - _median(picked[WINDOW:]))
     return moves
 
