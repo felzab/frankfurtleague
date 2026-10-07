@@ -680,6 +680,25 @@ def test_a_total_floor_stands_only_beside_references_re_stamped_from_one_populat
         )
 
 
+def test_a_matrix_job_s_instances_on_unequal_budgets_are_a_finding():
+    """The header gives the shards one figure; a hand edit or a partial re-cut that parts them is refused whatever the stamps."""
+
+    def shards(*budgets: str) -> dict[str, Any]:
+        return budget.parse_reference(
+            table(
+                *(row(f"frontend-units ({n})", "-", "-", value, STAMP) for n, value in enumerate(budgets, 1)), row("total", "0", "-", "-", "-")
+            )
+        )
+
+    assert budget.check_raise(shards("190", "190"), shards("190", "190"), TODAY) == []
+    findings = budget.check_raise(shards("190", "190"), shards("190", "175"), TODAY)
+
+    assert details(findings) == [
+        "`frontend-units`'s instances carry 2 budgets (frontend-units (1) 190, frontend-units (2) 175), "
+        "and a matrix job's instances carry one, the widest instance's"
+    ]
+
+
 def test_a_stamp_the_base_already_carries_is_not_judged_again():
     """A row stamped before the minimum held keeps standing while nothing moves it, as `ops`' thirteen-run stamp does."""
     short = budget.parse_reference(table(row("ops", "17", "29", "45", "13@2026-09-01"), row("total", "17", "-", "-", "-")))

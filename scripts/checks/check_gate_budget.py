@@ -290,6 +290,25 @@ def check_total_floor(base: dict[str, Row] | None, head: dict[str, Row]) -> list
     ]
 
 
+def check_matrix_budgets(head: dict[str, Row]) -> list[Finding]:
+    """The header's matrix rule, whoever wrote the rows: a matrix job's instances carry one budget."""
+    budgets: dict[str, dict[str, int | None]] = {}
+    for job, row in head.items():
+        match = INSTANCE.match(job)
+        if match is not None:
+            budgets.setdefault(match.group(1), {})[job] = row.budget
+    return [
+        Finding(
+            "fail",
+            f"`{matrix}`'s instances carry {len(set(members.values()))} budgets "
+            f"({', '.join(f'{job} {NONE if value is None else value}' for job, value in sorted(members.items()))}), "
+            "and a matrix job's instances carry one, the widest instance's",
+        )
+        for matrix, members in sorted(budgets.items())
+        if len(set(members.values())) > 1
+    ]
+
+
 def check_raise(base: dict[str, Row] | None, head: dict[str, Row], today: date) -> list[Finding]:
     """The file against its base: a rise carries a fresh stamp of enough runs, and a ceiling never vanishes.
 
@@ -297,6 +316,7 @@ def check_raise(base: dict[str, Row] | None, head: dict[str, Row], today: date) 
     costs a measurement.
     """
     findings: list[Finding] = []
+    findings += check_matrix_budgets(head)
     for job, row in head.items():
         if job == TOTAL:
             findings += check_total_floor(base, head)

@@ -225,6 +225,7 @@
 # Their four budgets are one figure, cut by the rule above from the widest shard span in the runs
 # their stamp counts: `node --test --test-shard` hands a shard the files at its positions in the
 # sorted list, whatever they cost, so which shard is heaviest moves as files are added.
+# `scripts/checks/check_gate_budget.py :: check_matrix_budgets` refuses the four apart.
 #
 # `scripts` gained two cases: `scripts/tests/test_check_gate_budget.py` holds the `verify` job's
 # `needs` to every other job in the workflow, and drives that reader over a job left out of it. They
