@@ -800,6 +800,23 @@ def test_an_unbudgeted_row_stays_unbudgeted_and_the_cold_budget_never_falls():
     assert budget.stamp(rows, [attempt(n, 1, {"format": 80}) for n in range(1, 11)], None, ["format"])[0]["format"].budget == 100
 
 
+def test_a_matrix_job_s_instances_take_the_widest_one_s_budget():
+    """Which shard is heaviest moves as files are added, so a shard cut alone breaks the day another file lands in it."""
+    rows = budget.parse_reference(
+        table(*(row(f"frontend-units ({n})", "-", "-", "190", STAMP) for n in (1, 2, 3)), row("total", "0", "-", "-", "-"))
+    )
+    attempts = [attempt(n, 1, {"frontend-units (1)": 100, "frontend-units (2)": 150}) for n in range(1, 11)]
+
+    proposed, lines, _ = budget.stamp(rows, attempts, None, None)
+
+    assert [proposed[f"frontend-units ({n})"].budget for n in (1, 2, 3)] == [190, 190, 190]
+    assert proposed["frontend-units (1)"].measured == "10@2026-09-01" and proposed["frontend-units (3)"] == rows["frontend-units (3)"]
+    assert (
+        "frontend-units: one budget of 190 s for frontend-units (1), frontend-units (2); "
+        "not stamped here, so keeping their own: frontend-units (3)"
+    ) in lines
+
+
 def test_the_stamp_is_dated_by_the_newest_attempt_its_row_counts():
     """A row whose newest attempt was left out is dated by the newest it kept, so its stamp names runs it counted."""
     attempts = [attempt(n, 1, {"backend": 50}) for n in range(1, 11)]

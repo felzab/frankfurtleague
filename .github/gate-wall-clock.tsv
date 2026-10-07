@@ -8,20 +8,21 @@
 # zero.
 #
 # Updated by hand, never by the workflow: `scripts/checks/check_gate_budget.py` under `--stamp` cuts
-# a row from the saved runs it is named, by the rules below, and a person commits what it proposes. A
-# report that recomputed its reference from its own recent past would let a slowdown become the new
-# normal one window at a time, and the accumulated growth would never appear in any single report.
+# a row from the saved runs it is named, by the rules below, and a person commits what it proposes.
+# A report that recomputed its reference from its own recent past would let a slowdown become the
+# new normal one window at a time, and the accumulated growth would never appear in any single
+# report.
 #
 # Population: the runs a row's stamp counts, which is the one place it is written -- completed
 # pushes to main, or the attempts of one pull-request run re-run whole. Every attempt of that run
 # tests its merge commit, the tree main carries once it lands if main has not moved since, so a row
 # is cut before the merge from the code being merged rather than after it from code already holding
-# the gate. Left
-# out of a row's population, that row alone: a job that did not succeed; a job whose log carries the
-# runner's own retry of an action download, a wait that is GitHub's rather than the tree's; and for
-# a job whose own cache is keyed on the tree (`scripts/checks/check_gate_budget.py :: TREE_KEYED`),
-# every attempt but the first of a push to main, and any pull-request run, whose re-runs restore the
-# exact cache their first attempt wrote where a push to main restores an older tree's.
+# the gate. Left out of a row's population, that row alone: a job that did not succeed; a job whose
+# log carries the runner's own retry of an action download, a wait that is GitHub's rather than the
+# tree's; and for a job whose own cache is keyed on the tree
+# (`scripts/checks/check_gate_budget.py :: TREE_KEYED`), every attempt but the first of a push to
+# main, and any pull-request run, whose re-runs restore the exact cache their first attempt wrote
+# where a push to main restores an older tree's.
 # A stamp counts at least ten runs. Each job gets a machine of its own, of a fast or a slow class no
 # log names; read off the binding unit's timing, the slow class ran 61-76 percent of the `backend`,
 # `db` and `scripts` jobs of the 33 pull-request runs of 2026-10-06, so ten runs leave it out of at
@@ -90,7 +91,8 @@
 # replacement from it. Over those 24 runs, on the three rows computable both ways, that draw landed
 # within a point of the reshuffle -- once narrower -- and on `images` about half again as wide, so
 # it is the method a short population leaves rather than a systematically looser one. The checker
-# refuses a new stamp under twenty-four runs beside a floor, so this one stands while its stamp does.
+# refuses a new stamp under twenty-four runs beside a floor, so this one stands while its stamp
+# does.
 #
 # `docs` gained two checks: `cell-prose` costs 0.05 s and `echo` 1.01 s over the whole corpus,
 # measured locally on 2026-09-02 with the file listing already warmed, so the figures are the
@@ -639,9 +641,9 @@
 #
 # No row moves and none takes a stamp.
 #
-# `scripts` gained twenty-six cases in `scripts/tests/test_check_gate_budget.py` over the stamp mode
-# and its refusals: 1.49-1.53 s together over five runs of the module, against 0.04 s for its other
-# cases in the same runs, most of it the floor's draws
+# `scripts` gained twenty-seven cases in `scripts/tests/test_check_gate_budget.py` over the stamp
+# mode and its refusals: 1.49-1.50 s together over five runs of the module, against 0.04 s for its
+# other cases in the same runs, most of it the floor's draws
 # (`scripts/checks/check_gate_budget.py :: RESAMPLES`) in the cases that cut a reference. Measured
 # locally on 2026-10-07 on a sixteen-core Windows machine whose other load was not read, so an upper
 # bound. The module is one chunk under `--dist loadfile`, far shorter than the suite's longest; the

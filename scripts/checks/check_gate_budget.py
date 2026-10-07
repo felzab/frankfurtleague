@@ -13,6 +13,7 @@ before it is committed.
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import json
 import math
 import os
@@ -525,6 +526,9 @@ TREE_KEYED: Final[frozenset[str]] = frozenset({"format", "frontend", "images"})
 # to restore the cache never lowers it.
 COLD_BUDGET: Final[frozenset[str]] = frozenset({"format"})
 
+# A matrix job's instance, as its `name:` template spells it in `.github/workflows/verify.yml`.
+INSTANCE: Final = re.compile(r"^(.+) \(([^()]+)\)$")
+
 # What the coordinator saves per attempt: `gh api .../runs/<id>/attempts/<n>`, the same attempt's
 # `/jobs?per_page=100`, and `gh run view <id> --attempt <n> --log`.
 RUN_FILE: Final = "run-{}-{}.json"
@@ -752,6 +756,26 @@ def rewritten(text: str, rows: dict[str, Row]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def one_budget_per_matrix(rows: dict[str, Row], proposed: dict[str, Row], stamped: list[str]) -> list[str]:
+    """The header's `frontend-units` rule: a matrix job's instances take the widest one's budget, since which is heaviest moves."""
+    instances: dict[str, list[str]] = {}
+    for job in stamped:
+        match = INSTANCE.match(job)
+        if match is not None and proposed[job].budget is not None:
+            instances.setdefault(match.group(1), []).append(job)
+    lines: list[str] = []
+    for matrix, members in sorted(instances.items()):
+        ceiling = max(proposed[job].budget or 0 for job in members)
+        for job in members:
+            proposed[job] = dataclasses.replace(proposed[job], budget=ceiling)
+        left = sorted(job for job in rows if job not in members and (match := INSTANCE.match(job)) is not None and match.group(1) == matrix)
+        lines.append(
+            f"{matrix}: one budget of {ceiling} s for {', '.join(members)}"
+            + (f"; not stamped here, so keeping their own: {', '.join(left)}" if left else "")
+        )
+    return lines
+
+
 def stamp(
     rows: dict[str, Row], attempts: list[Attempt], pull_request: int | None, wanted: list[str] | None
 ) -> tuple[dict[str, Row], list[str], list[str]]:
@@ -761,6 +785,7 @@ def stamp(
         jobs = [job for job in jobs if job in wanted]
     proposed = dict(rows)
     draws: dict[str, list[int]] = {}
+    stamped: list[str] = []
     lines: list[str] = []
     missed: list[str] = sorted(set(wanted or ()) - set(jobs))
     for job in jobs:
@@ -771,8 +796,10 @@ def stamp(
                 missed.append(job)
             continue
         proposed[job] = proposal.row
+        stamped.append(job)
         if proposal.moves is not None:
             draws[job] = proposal.moves
+    lines += one_budget_per_matrix(rows, proposed, stamped)
     referenced = sorted(job for job, row in proposed.items() if job != TOTAL and row.seconds is not None and row.floor is not None)
     summed = sum(row.seconds for job, row in proposed.items() if job != TOTAL and row.seconds is not None)
     total_floor = None
