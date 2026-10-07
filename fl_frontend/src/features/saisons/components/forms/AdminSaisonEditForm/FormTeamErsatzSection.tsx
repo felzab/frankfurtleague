@@ -7,6 +7,7 @@ import ArrowRight from "@gravity-ui/icons/ArrowRight";
 
 import { describeAngesetzteSpiele, describeKaderAustragung, describeKaderAustragungDanach } from "@/features/saisons/utils";
 import { replaceSaisonTeamAction } from "@/features/teams/actions";
+import { Leer } from "@/shared/components/ui/Angabe";
 import { Callout } from "@/shared/components/ui/Callout";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
@@ -228,7 +229,7 @@ export function FormTeamErsatzSection({
                   <dl className="flex w-full flex-col gap-y-1">
                     <ConfirmReadoutRow
                       label="Platz in der Saison"
-                      value={outgoing.gruppe === null ? "Nicht bekannt" : `Gruppe ${outgoing.gruppe}`}
+                      value={outgoing.gruppe === null ? <Leer>Nicht bekannt</Leer> : `Gruppe ${outgoing.gruppe}`}
                     />
                     <ConfirmReadoutRow
                       label="Angesetzte Spiele"
@@ -236,7 +237,7 @@ export function FormTeamErsatzSection({
                     />
                     <ConfirmReadoutRow
                       label={`Austritt von ${outgoing.name}`}
-                      value={outgoing.hasAustritt ? "wird aufgehoben" : "keiner eingetragen"}
+                      value={outgoing.hasAustritt ? "wird aufgehoben" : <Leer>keiner eingetragen</Leer>}
                     />
                   </dl>
                 </div>
