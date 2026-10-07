@@ -55,6 +55,10 @@ const nextConfig: NextConfig = {
     // `@heroui/styles` is consumed as CSS and every icon by its own subpath, so neither has a root
     // import to narrow.
     optimizePackageImports: ["@heroui/react"],
+    // Off, or an agent's `next build`, the gate's included, asks the registry for advisories, stops on
+    // any with instructions for that agent, and passes the same build retried. The gate's advisory
+    // check is `pnpm audit:prod`.
+    agentUpgrade: false,
   },
   // Set only by the gate's host build, which follows its own tsc over the same working tree,
   // `.next/types/validator.ts` included. Never set it for an image build: that context is the tree
@@ -64,14 +68,15 @@ const nextConfig: NextConfig = {
   // TypeScript alone: Next's default also serves a `route.js` or a `page.jsx`, which tsc (`allowJs` off),
   // the lint globs and every sweep over handlers and pages never read.
   pageExtensions: ["tsx", "ts"],
-  // No `partialPrefetching`, although Next's ISR guide presents it as `cacheComponents`' partner:
-  // enabling it was measured to change nothing this app needed.
+  cacheComponents: true,
+  // Off, although Next's ISR guide presents it as `cacheComponents`' partner: enabling it was measured
+  // to change nothing this app needed. Written out because Next warns wherever it is left unset.
   // https://nextjs.org/docs/app/guides/incremental-static-regeneration-cache-components
 
   // What it does change is how aggressively a route's payload is prefetched and retained on the
   // client — the subsystem behind an admin opening the match editor on stale values. Turn it on
   // only with a measurement, and re-check the editor's freshness.
-  cacheComponents: true,
+  partialPrefetching: false,
   // No `reactCompiler`: measured at +40 KB gzipped per page load for memoization this app needs in
   // two admin views, both hand-written.
 

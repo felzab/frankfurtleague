@@ -427,7 +427,7 @@ function browserGlobals(answer: Response): Record<string, unknown> {
   return {
     window: globalThis,
     location: new URL(ADMIN_URL),
-    document: { documentElement: { dataset: {} } },
+    document: { documentElement: { dataset: {}, removeAttribute: () => {} } },
     addEventListener: () => {},
     // The development build of Next's vendored Flight client reads this at module scope.
     __webpack_require__: { u: () => "" },
