@@ -5,6 +5,7 @@
 import { Badge } from "@heroui/react/badge";
 import { Table } from "@heroui/react/table";
 
+import { Leer } from "@/shared/components/ui/Angabe";
 import { PILL_SOLID_CLASSES } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 import { DISPLAY_HEADING_CLASSES } from "@/shared/components/ui/displayType";
@@ -19,6 +20,10 @@ import { TeamPopoverMenu } from "../ui/TeamPopoverMenu";
 import { Tordifferenz } from "../ui/Tordifferenz";
 
 import type { FLGruppen } from "../../schemas";
+
+/** A club holding no place: a dash to the eye in the narrow rank column, words to a screen reader. */
+const OHNE_PLATZ = "–";
+const KEIN_PLATZ = "Kein Platz";
 
 /**
  * A sentence per count and per season state. A running season's placing is `aktuell` because a result
@@ -92,7 +97,7 @@ export function SaisontabelleView({
         const qualifying = computeQualifyingTeamIds({ teams: teamsData, qualifiersPerGroup });
 
         /* Numbered as a `Platz` is, not as a row index, so the ordinal is what the bracket's
-           "2. der Gruppe A" names. The map IS the rule: an absent club is the cell's `N/A`, which
+           "2. der Gruppe A" names. The map IS the rule: an absent club is the cell's „Kein Platz“, which
            the cell must never decide for itself. */
         const platzByTeamId = computePlatzByTeamId(teamsData);
 
@@ -158,7 +163,14 @@ export function SaisontabelleView({
                         {/* Colour is never the only carrier: a screen reader gets the same fact the
                             rule and the legend give, in the cell that states the place. */}
                         {qualifying.has(teamData.id) && <span className="sr-only">KO-Runden-Platz: </span>}
-                        {platzByTeamId.get(teamData.id) ?? "N/A"}
+                        {platzByTeamId.get(teamData.id) ?? (
+                          <>
+                            <span aria-hidden="true">
+                              <Leer>{OHNE_PLATZ}</Leer>
+                            </span>
+                            <span className="sr-only">{KEIN_PLATZ}</span>
+                          </>
+                        )}
                       </Table.Cell>
 
                       {/* `overflow-visible` stays — the Austritt badge is translated outside this
