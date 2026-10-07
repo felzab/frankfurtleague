@@ -95,7 +95,7 @@ const STAND_ICON = {
 } as const;
 
 /** The queue's own wording for the same fact, so the two admin surfaces read alike. */
-const KEINE_EMAIL = "Keine E-Mail";
+const EMAIL_NICHT_HINTERLEGT = "E-Mail nicht hinterlegt";
 
 const ADRESSE_BELEGT = "Diese E-Mail-Adresse ist schon bei einer anderen Person eingetragen.";
 
@@ -315,7 +315,9 @@ function SitzZeile({
         {/* The foreground grade rather than the queue's muted one: it is the value the pencil beside
             it edits and the thing the delivery chip is about. */}
         {sitz.name !== null && (
-          <span className="max-w-full min-w-0 truncate fluid-xs font-medium text-foreground">{sitz.email ?? <Leer>{KEINE_EMAIL}</Leer>}</span>
+          <span className="max-w-full min-w-0 truncate fluid-xs font-medium text-foreground">
+            {sitz.email ?? <Leer>{EMAIL_NICHT_HINTERLEGT}</Leer>}
+          </span>
         )}
 
         {/* Beside the address rather than in the right-hand cluster, which is about the link: every

@@ -42,7 +42,7 @@ const UEBERSPRUNGEN_SATZ: Record<FLEinladungVersandGrund, string> = {
   austritt_eingetragen: "Austritt eingetragen",
   erzeugung_fehlgeschlagen: "Registrierungslink nicht angelegt",
   erzeugung_ungewiss: "Unklar, ob ein neuer Registrierungslink angelegt wurde",
-  kein_kontaktblock: "Keine Kontaktdaten hinterlegt",
+  kein_kontaktblock: "Kontaktdaten nicht hinterlegt",
   keine_bestaetigte_kontaktperson: "Niemand hat die Kontaktdaten bisher selbst bestätigt",
   kontakte_gesperrt: "Jede bestätigte Adresse steht auf der Sperrliste",
   bereits_gesendet: "Hat den Link schon bekommen",

@@ -12,7 +12,7 @@ import { spielSchiedsrichterAnzeige } from "@/features/schiedsrichter/constants"
 import { TeamPopoverMenu } from "@/features/teams/components/ui/TeamPopoverMenu";
 import { Leer } from "@/shared/components/ui/Angabe";
 import { textLink } from "@/shared/components/ui/textLink";
-import { buildMapsSearchUrl, formatUhrzeit, PLACEHOLDER } from "@/shared/utils/format";
+import { buildMapsSearchUrl, formatSpielDatum, formatUhrzeit, PLACEHOLDER } from "@/shared/utils/format";
 
 import { canStillBePlayed, computeSpielStatus, ergebnisTone, formatQuelle, formatSpielDisplay } from "../../utils";
 import { SaisonPhaseChip } from "../ui/SaisonPhaseChip";
@@ -79,18 +79,13 @@ export function SpielDetailsModal({
   isFinishedSaison: boolean;
 }) {
   const displaySpiel = spielData ?? { datum: null, uhrzeit: null, ergebnis: null, elfmeterschiessen: null, sonderereignis: null };
-  const {
-    datum: spielDatum,
-    ergebnis: spielErgebnis,
-    elfmeterschiessen: spielElfmeterschiessen,
-  } = formatSpielDisplay(displaySpiel, isFinishedSaison);
-  // In words, as the Ort and Schiedsrichter cells do, never the cards' digit mask: this cell stands
-  // under a heading in a list of facts. The Datum cell's predicate picks which words, so one
+  const { ergebnis: spielErgebnis, elfmeterschiessen: spielElfmeterschiessen } = formatSpielDisplay(displaySpiel, isFinishedSaison);
+  // Words fit for a heading above them, as the Ort and Schiedsrichter cells take: never the cards' mask
+  // nor their unlabelled „Datum nicht hinterlegt“. One predicate picks both cells' words, so one
   // appointment never reads two ways.
-  const spielUhrzeit = formatUhrzeit(
-    displaySpiel.uhrzeit,
-    canStillBePlayed(displaySpiel, isFinishedSaison) ? PLACEHOLDER.datum : PLACEHOLDER.entity,
-  );
+  const leererTermin = canStillBePlayed(displaySpiel, isFinishedSaison) ? PLACEHOLDER.datum : PLACEHOLDER.entity;
+  const spielDatum = formatSpielDatum(displaySpiel.datum, leererTermin);
+  const spielUhrzeit = formatUhrzeit(displaySpiel.uhrzeit, leererTermin);
   // The stored `maps_link`, not an address: the embedded copy carries no `FLAddress`.
   const mapUrl = spielData?.ort ? buildMapsSearchUrl(spielData.ort.maps_link) : "";
 

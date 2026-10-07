@@ -270,13 +270,13 @@ describe("formatSpielDisplay", () => {
   /* A date a card cannot promise: a played fixture's and a finished season's are unrecorded rather
      than still to be settled, and a card promising one sends a reader back to a page that never fills. */
   it("promises no Termin for a played fixture, or for any fixture of a finished season", () => {
-    assert.equal(formatSpielDisplay({ ...undatiert, ergebnis: "4:0" }, false).datum, PLACEHOLDER.entity);
-    assert.equal(formatSpielDisplay(undatiert, true).datum, PLACEHOLDER.entity);
+    assert.equal(formatSpielDisplay({ ...undatiert, ergebnis: "4:0" }, false).datum, "Datum nicht hinterlegt");
+    assert.equal(formatSpielDisplay(undatiert, true).datum, "Datum nicht hinterlegt");
   });
 
   // A fixture that did not take place is never given a date, whereas an abandoned one was played until it stopped.
   it("promises no Termin for a fixture that did not take place", () => {
-    assert.equal(formatSpielDisplay({ ...undatiert, sonderereignis: "ausgefallen" }, false).datum, PLACEHOLDER.entity);
+    assert.equal(formatSpielDisplay({ ...undatiert, sonderereignis: "ausgefallen" }, false).datum, "Datum nicht hinterlegt");
     assert.equal(formatSpielDisplay({ ...undatiert, sonderereignis: "abgebrochen" }, false).datum, PLACEHOLDER.datum);
   });
 

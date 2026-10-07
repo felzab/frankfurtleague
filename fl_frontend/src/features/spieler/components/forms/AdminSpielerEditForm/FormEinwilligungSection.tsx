@@ -82,7 +82,7 @@ export function FormEinwilligungSection({
               {einwilligung.erteilt_von !== null && <Angabe label="Herkunft">{EINWILLIGUNG_HERKUNFT_LABELS[einwilligung.erteilt_von]}</Angabe>}
               {/* Never `fl_frontend/src/shared/utils/format.ts :: PLACEHOLDER`'s „Termin offen“: it promises a
                   day that is coming, and nobody was asked for this one. */}
-              <Angabe label="Erteilt am">{einwilligung.datum === null ? <Leer>Kein Datum</Leer> : formatSpielDatum(einwilligung.datum)}</Angabe>
+              <Angabe label="Erteilt am">{einwilligung.datum === null ? <Leer /> : formatSpielDatum(einwilligung.datum)}</Angabe>
               {/* A state rather than a gap: an unconfirmed record is not one whose day went missing. */}
               <Angabe label="Bestätigt am">
                 {einwilligung.bestaetigt_am === null ? <Leer>Nicht bestätigt</Leer> : formatSpielDatum(einwilligung.bestaetigt_am)}

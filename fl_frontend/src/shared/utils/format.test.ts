@@ -17,8 +17,8 @@ describe("formatAddress", () => {
   });
 
   it("returns the placeholder when no address is given", () => {
-    assert.equal(formatAddress(undefined), "Keine Adresse hinterlegt");
-    assert.equal(formatAddress(), "Keine Adresse hinterlegt");
+    assert.equal(formatAddress(undefined), "Adresse nicht hinterlegt");
+    assert.equal(formatAddress(), "Adresse nicht hinterlegt");
   });
 
   // Stadtteil is optional: an address without one is complete, so nothing may render an empty "()" tail.

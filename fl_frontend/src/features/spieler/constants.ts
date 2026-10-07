@@ -218,8 +218,8 @@ export const KADER_LEER = "Für dieses Team ist noch kein Kader eingetragen.";
  */
 export const NUMMER_DOPPELT = "Nummer doppelt";
 
-/** What every surface says where a squad row or a registration holds no shirt number. */
-export const OHNE_NUMMER = "Ohne Nummer";
+/** An empty shirt number where no label stands beside it: a chip, a screen-reader text, a line of facts. */
+export const NUMMER_NICHT_HINTERLEGT = "Nummer nicht hinterlegt";
 
 /**
  * The day a squad row was taken out, in the one sentence the admin editor's banner, a seat holder's

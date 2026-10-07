@@ -104,7 +104,7 @@ describe("the referee row's copy control", () => {
     ]);
 
     assert.ok(!textOf(html).includes("adresse-fehlt@frankfurtleague.invalid"), "the placeholder is shown as the row's address");
-    assert.ok(textOf(html).includes("Keine E-Mail"), "the row holding the placeholder does not say it holds no address");
+    assert.ok(textOf(html).includes("E-Mail nicht hinterlegt"), "the row holding the placeholder does not say it holds no address");
     assert.deepEqual(
       accessibleNames(html).filter((name) => name.startsWith("Kontaktdaten")),
       [],

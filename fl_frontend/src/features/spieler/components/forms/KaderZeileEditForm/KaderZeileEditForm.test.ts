@@ -115,12 +115,12 @@ describe("saving one squad row", () => {
 });
 
 describe("an ausgetragen row's own page", () => {
-  /* The squad list one click back says „Ohne Nummer“ for the same row: one wording for an empty number. */
-  it("names an empty shirt number in the squad lists' words", () => {
+  /* Every fact of the row is labelled here, so an empty one reads as every labelled empty field does. */
+  it("names an empty shirt number as every labelled empty field reads", () => {
     const { container } = render(
       underNext(h(KaderZeileAusgetragen, { zeile: { ...MIAS_ZEILE, nummer: null, inactive_since: "2026-03-01" }, kaderHref: KADER_HREF })),
     );
 
-    assert.match(container.textContent.replace(/\s+/g, " "), /Nummer\s?Ohne Nummer/);
+    assert.match(container.textContent.replace(/\s+/g, " "), /Nummer\s?Nicht hinterlegt/);
   });
 });

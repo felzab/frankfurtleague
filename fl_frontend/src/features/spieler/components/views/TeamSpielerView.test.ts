@@ -118,3 +118,19 @@ describe("a squad row whose name the publication gate withheld", () => {
     assert.ok(screen.getByText(SPIELER_ANONYM_LABEL), "the withheld row lost its word beside a published one");
   });
 });
+
+describe("a squad row holding no number and no position", () => {
+  /* The number column is headed by a glyph, so its cell names the field; the position column's
+     heading names its own, so that cell takes the labelled word. */
+  it("names the empty number and leaves the empty position to its heading", () => {
+    shown([{ ...VEROEFFENTLICHT, nummer: null, position: null }]);
+
+    for (const leer of ["Nummer nicht hinterlegt", "Nicht hinterlegt"]) {
+      const grade = screen.getByText(leer).className.split(/\s+/);
+      assert.ok(
+        grade.includes("text-foreground-muted") && !grade.includes("italic"),
+        `„${leer}“ is not in the empty grade: ${grade.join(" ")}`,
+      );
+    }
+  });
+});

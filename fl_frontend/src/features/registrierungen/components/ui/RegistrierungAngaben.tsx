@@ -1,4 +1,4 @@
-import { kaderName, OHNE_NUMMER } from "@/features/spieler/constants";
+import { kaderName } from "@/features/spieler/constants";
 import { Angabe, Leer } from "@/shared/components/ui/Angabe";
 import { FIELD_PAIR_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formatSpielDatum } from "@/shared/utils/format";
@@ -21,7 +21,7 @@ export function RegistrierungAngaben({ registrierung }: { registrierung: Angaben
     <dl className={FIELD_PAIR_CLASSES}>
       <Angabe label="Name">{kaderName(registrierung)}</Angabe>
       <Angabe label="Geburtsdatum">{registrierung.geburtsdatum ? formatSpielDatum(registrierung.geburtsdatum) : <Leer />}</Angabe>
-      <Angabe label="Rückennummer">{registrierung.nummer ?? <Leer>{OHNE_NUMMER}</Leer>}</Angabe>
+      <Angabe label="Rückennummer">{registrierung.nummer ?? <Leer />}</Angabe>
       <Angabe label="Position">{registrierung.position ?? <Leer />}</Angabe>
       <Angabe label="Stufe">{registrierung.stufe ?? <Leer />}</Angabe>
     </dl>

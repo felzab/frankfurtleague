@@ -34,20 +34,20 @@ const readPerson = (rolle: KontaktRolle) => (source: FLKontakteDraftFields) => {
   const name = `${person.vorname} ${person.nachname}`.trim();
 
   return [
-    name === "" ? "Ohne Namen" : name,
-    emptyAsNull(person.email) ?? "Keine E-Mail",
-    emptyAsNull(person.telefon) ?? "Keine Telefonnummer",
+    name === "" ? "Name nicht hinterlegt" : name,
+    emptyAsNull(person.email) ?? "E-Mail nicht hinterlegt",
+    emptyAsNull(person.telefon) ?? "Telefon nicht hinterlegt",
     // Read out rather than judged: the date is the person's own to enter at their confirmation, so a
     // seat without one is waiting on them rather than half filled in.
-    person.geburtsdatum ? `geboren am ${formatSpielDatum(person.geburtsdatum)}` : "Kein Geburtsdatum",
+    person.geburtsdatum ? `geboren am ${formatSpielDatum(person.geburtsdatum)}` : "Geburtsdatum nicht hinterlegt",
   ].join(", ");
 };
 
 const readEinwilligung = (rolle: KontaktRolle) => (source: FLKontakteDraftFields) => {
   const record = seatOf(rolle)(source)?.einwilligung ?? null;
   if (record === null) return null;
-  const fassung = record.text_version === "" ? "ohne Fassung" : `Fassung ${record.text_version}`;
-  const datum = record.datum === "" ? "ohne Datum" : `ab ${formatSpielDatum(record.datum)}`;
+  const fassung = record.text_version === "" ? "Fassung nicht hinterlegt" : `Fassung ${record.text_version}`;
+  const datum = record.datum === "" ? "Datum nicht hinterlegt" : `ab ${formatSpielDatum(record.datum)}`;
 
   // Who seated the person, where the record says: a new seat's is the save's to stamp, and a seat
   // seated before the field names nobody, so neither is guessed.

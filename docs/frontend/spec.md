@@ -1454,6 +1454,13 @@ where a comment quotes a rendered string, which tracks it. The wording rules:
   `Mannschaft`. `Team` is neuter, and the word that has to agree often sits in the NEXT sentence,
   which no grep for the noun will find; `sideLabel` also numbers a fixture's two seats `Team`, so a
   sentence naming both says the club by name.
+- **An empty stored field reads „Nicht hinterlegt“, whatever the field is about** (my rule,
+  2026-10-07): `fl_frontend/src/shared/components/ui/Angabe.tsx :: NICHT_HINTERLEGT` where a label
+  stands beside the value, and „<Feld> nicht hinterlegt“ where none does, a chip, a line of facts or
+  a screen-reader text („Nummer nicht hinterlegt“). A state or an event that did not happen keeps its
+  own words („Nicht bestätigt“, „Termin offen“, „Noch offen“), and so does a record's own name
+  („Eintrag ohne Namen“). A picker's „Keine Angabe“ row is a choice that clears the field, not a
+  readout.
 - **The league is „Frankfurt League"; the project is `Frankfurtleague`** (my rule, 2026-09-04):
   every place naming the league — a page, an email, the manifest, a document — spells it as two
   words, and every place naming the repository, the package, the domain, an image or a logger

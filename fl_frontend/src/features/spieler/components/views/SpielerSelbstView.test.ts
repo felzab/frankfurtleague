@@ -91,8 +91,12 @@ describe("a pupil's own page", () => {
     assert.ok(within(frueher).getByText("Ausgetragen seit 14.03.2026"));
     assert.equal(within(frueher).queryAllByText("Nachnominiert").length, 0, "a squad left mid-season still reads as entered late");
     // The line as a whole: its empty facts sit in their own grade, so the words span several elements.
-    assert.ok(within(frueher).getByText((_, element) => element?.tagName === "P" && element.textContent === "Ohne Nummer · Ohne Position"));
-    for (const leer of ["Ohne Nummer", "Ohne Position"]) {
+    assert.ok(
+      within(frueher).getByText(
+        (_, element) => element?.tagName === "P" && element.textContent === "Nummer nicht hinterlegt · Position nicht hinterlegt",
+      ),
+    );
+    for (const leer of ["Nummer nicht hinterlegt", "Position nicht hinterlegt"]) {
       const grade: readonly string[] = within(frueher).getByText(leer).className.split(" ");
       assert.ok(
         grade.includes("text-foreground-muted") && !grade.includes("italic"),

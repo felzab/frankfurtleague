@@ -683,7 +683,7 @@ describe("the account page's consent section", () => {
     answeringKonto({ registrierungen: [{ ...REGISTRIERUNG, nummer: null }] });
 
     const text = await sectionText();
-    assert.ok(text.includes("Rückennummer Ohne Nummer"), text);
+    assert.ok(text.includes("Rückennummer Nicht hinterlegt"), text);
   });
 
   /* Each reason stands beside the record its cause holds and no other: a pending registration's sentence

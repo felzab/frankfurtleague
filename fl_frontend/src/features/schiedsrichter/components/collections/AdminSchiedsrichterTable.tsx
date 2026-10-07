@@ -110,14 +110,14 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
               so a column would be empty on every live row. */}
           {schiedsrichter.inactive_since !== null && <RetiredBadge since={schiedsrichter.inactive_since} />}
         </div>
-        <span className={IDENTITY_LINE_CLASSES}>{schiedsrichter.schule || <Leer>Keine Schule</Leer>}</span>
+        <span className={IDENTITY_LINE_CLASSES}>{schiedsrichter.schule || <Leer>Schule nicht hinterlegt</Leer>}</span>
         <span className={IDENTITY_PAIR_CLASSES}>
           {/* The placeholder a row without an address holds is shown as the gap it is, not as an address. */}
           <span className={IDENTITY_LINE_CLASSES}>
-            {hatAdresse(schiedsrichter.kontakt.email) ? schiedsrichter.kontakt.email : <Leer>Keine E-Mail</Leer>}
+            {hatAdresse(schiedsrichter.kontakt.email) ? schiedsrichter.kontakt.email : <Leer>E-Mail nicht hinterlegt</Leer>}
           </span>
           <span className={`${IDENTITY_LINE_CLASSES} font-numeric tabular-nums`}>
-            {schiedsrichter.kontakt.telefon || <Leer>Keine Telefonnummer</Leer>}
+            {schiedsrichter.kontakt.telefon || <Leer>Telefon nicht hinterlegt</Leer>}
           </span>
         </span>
       </div>

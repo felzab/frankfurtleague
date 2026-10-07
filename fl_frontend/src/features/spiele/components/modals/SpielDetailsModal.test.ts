@@ -147,6 +147,15 @@ describe("the fixture dialog's cells for a fixture nobody dated", () => {
     for (const cell of ["Datum", "Uhrzeit"]) assert.equal(cellValue(dialog, cell), PLACEHOLDER.entity, `the ${cell} cell promises more`);
   });
 
+  /* Each cell stands under its heading, so an empty one takes the labelled word every page gives an
+     empty stored field, where a card's unlabelled date names its field. */
+  it("reads a venue, a referee and an unrecorded date nobody entered as not on file", () => {
+    const { dialog } = openDialog({ ...HALBFINALE, datum: null, uhrzeit: null }, true);
+
+    for (const cell of ["Datum", "Uhrzeit", "Ort", "Schiedsrichter"])
+      assert.equal(cellValue(dialog, cell), "Nicht hinterlegt", `the ${cell} cell reads another word for an empty field`);
+  });
+
   /* Paired with the case above: the two cells describe ONE appointment, so a time reading „Keine
      Angabe“ beside a date reading „Termin offen“ would deny what the cell next to it promises. */
   it("promises the same open appointment in both cells while the fixture can still be played", () => {

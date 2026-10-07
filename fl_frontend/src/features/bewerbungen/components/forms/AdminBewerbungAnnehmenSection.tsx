@@ -28,9 +28,6 @@ import { focusAfterWrite, focusSection } from "@/shared/utils/focusAfterWrite";
 import type { FLGruppenNames, FLTrikotFarbe } from "@/features/teams/schemas";
 import type { GruppeOffer } from "@/features/teams/types";
 
-/** What the readout reads where no colour has been assigned — the season's row accepts that answer. */
-const KEINE_FARBE = "Keine Angabe";
-
 /**
  * The acceptance, on `POST /bewerbungen/{bewerbung_id}/annehmen`. **A confirmation step and no
  * undo**: `saison_teams` has no DELETE, so a club entered in error leaves only through an
@@ -206,9 +203,10 @@ export function AdminBewerbungAnnehmenSection({
                       label="Gruppe"
                       value={`Gruppe ${gruppe} der Saison ${saisonId}`}
                     />
+                    {/* No colour is an answer the season's row accepts, so it reads as an empty field rather than a refusal. */}
                     <ConfirmReadoutRow
                       label="Trikotfarbe"
-                      value={trikotFarbe === null ? <Leer>{KEINE_FARBE}</Leer> : trikotFarbeLabel(trikotFarbe)}
+                      value={trikotFarbe === null ? <Leer /> : trikotFarbeLabel(trikotFarbe)}
                     />
                   </dl>
                 </div>

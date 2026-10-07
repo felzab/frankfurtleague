@@ -356,7 +356,7 @@ export function FormSaisonSection({
                     aria-hidden="true"
                     className="size-3.5 shrink-0 text-foreground-muted"
                   />
-                  {gruppe ? `Gruppe ${gruppe}` : <Leer>Keine Gruppe</Leer>}
+                  {gruppe ? `Gruppe ${gruppe}` : <Leer />}
                 </div>
               </div>
             ) : (

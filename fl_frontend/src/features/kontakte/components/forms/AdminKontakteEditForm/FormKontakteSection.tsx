@@ -23,6 +23,7 @@ import {
   TRAINER_ZUGLEICH_FRAGE,
 } from "@/features/teams/constants";
 import { buildEmptyKontakte } from "@/features/teams/utils";
+import { NICHT_HINTERLEGT } from "@/shared/components/ui/Angabe";
 import { AppDatePicker } from "@/shared/components/ui/DateTimeFields";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import {
@@ -509,8 +510,10 @@ function KontaktpersonInputs({
           <TextField
             isReadOnly
             value={
-              person.einwilligung.eingetragen_von === null && !istGespeichert
-                ? NOCH_OFFEN
+              person.einwilligung.eingetragen_von === null
+                ? istGespeichert
+                  ? NICHT_HINTERLEGT
+                  : NOCH_OFFEN
                 : eingetragenVonLabel(person.einwilligung.eingetragen_von)
             }
             onChange={() => undefined}>

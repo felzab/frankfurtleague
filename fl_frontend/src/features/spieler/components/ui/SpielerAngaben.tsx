@@ -8,7 +8,7 @@ import { textLink } from "@/shared/components/ui/textLink";
 import { formatSpielDatum } from "@/shared/utils/format";
 import { withSaisonId } from "@/shared/utils/saisonHref";
 
-import { ausgetragenSeit, kaderName, OHNE_NUMMER, rolleLabel } from "../../constants";
+import { ausgetragenSeit, kaderName, NUMMER_NICHT_HINTERLEGT, rolleLabel } from "../../constants";
 
 import type { ReactNode } from "react";
 import type { FLSpielerSelbst, FLSpielerSelbstKaderZeile } from "../../schemas";
@@ -16,8 +16,8 @@ import type { FLSpielerSelbst, FLSpielerSelbstKaderZeile } from "../../schemas";
 /** One squad row, linked to the squad where everyone reads it rather than repeated here. */
 function KaderEintrag({ zeile }: { zeile: FLSpielerSelbstKaderZeile }) {
   const fakten: readonly (readonly [string, ReactNode])[] = [
-    ["nummer", zeile.nummer === null ? <Leer>{OHNE_NUMMER}</Leer> : `Nummer ${zeile.nummer}`],
-    ["position", zeile.position ?? <Leer>Ohne Position</Leer>],
+    ["nummer", zeile.nummer === null ? <Leer>{NUMMER_NICHT_HINTERLEGT}</Leer> : `Nummer ${zeile.nummer}`],
+    ["position", zeile.position ?? <Leer>Position nicht hinterlegt</Leer>],
     ...(zeile.stufe === null ? [] : [["stufe", zeile.stufe] as const]),
     ...(zeile.rolle === null ? [] : [["rolle", rolleLabel(zeile.rolle)] as const]),
   ];

@@ -46,7 +46,7 @@ const EMPTY_MESSAGES: Record<CrudEmptiness, string> = {
 };
 
 /** What an application naming no team at all reads as — the one `REQ-BEWERBUNG-002` refuses to accept. */
-const NO_TEAM = "Kein Team benannt";
+const NO_TEAM = "Team nicht hinterlegt";
 
 /** What an application predating the confirmation flow reads as, in the register the admin uses for an absent value. */
 const NO_BESTAETIGUNGEN = "Keine Bestätigungen angefragt";
@@ -191,7 +191,7 @@ export const AdminBewerbungenList = memo(function AdminBewerbungenList({
         )}
         {person === null || person.email === "" ? (
           <span className={IDENTITY_LINE_CLASSES}>
-            <Leer>Keine E-Mail</Leer>
+            <Leer>E-Mail nicht hinterlegt</Leer>
           </span>
         ) : (
           <span className={IDENTITY_LINE_CLASSES}>{person.email}</span>

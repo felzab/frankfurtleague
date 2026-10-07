@@ -65,12 +65,15 @@ export const computeSpielStatus = ({
 export const canStillBePlayed = (spiel: Pick<FLSpiel, "ergebnis" | "sonderereignis">, isFinishedSaison: boolean): boolean =>
   spiel.ergebnis === null && !isAbgesagt(spiel.sonderereignis) && !isFinishedSaison;
 
+/** A card's unrecorded date: no label stands beside it there, so the words name the field. */
+export const DATUM_NICHT_HINTERLEGT = "Datum nicht hinterlegt";
+
 /** The one derivation the three `SpielCard` variants share; they stay separate themselves. */
 export const formatSpielDisplay = (
   spiel: Pick<FLSpiel, "datum" | "uhrzeit" | "ergebnis" | "elfmeterschiessen" | "sonderereignis">,
   isFinishedSaison: boolean,
 ) => ({
-  datum: formatSpielDatum(spiel.datum, canStillBePlayed(spiel, isFinishedSaison) ? PLACEHOLDER.datum : PLACEHOLDER.entity),
+  datum: formatSpielDatum(spiel.datum, canStillBePlayed(spiel, isFinishedSaison) ? PLACEHOLDER.datum : DATUM_NICHT_HINTERLEGT),
   uhrzeit: formatUhrzeit(spiel.uhrzeit),
   ergebnis: spiel.ergebnis ?? PLACEHOLDER.ergebnis,
   elfmeterschiessen: formatElfmeterschiessen(spiel.elfmeterschiessen),
