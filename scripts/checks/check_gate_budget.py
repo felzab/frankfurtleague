@@ -887,6 +887,11 @@ def stamp_main(reference: Path, directory: Path, ids: list[tuple[int, int]], wan
     if missed:
         print(f"      asked for and not stamped: {', '.join(missed)}. Nothing was written.", file=sys.stderr)
         return EXIT_REFUSED
+    stamped_any = any(proposed[job] != row for job, row in rows.items() if job != TOTAL) or set(proposed) != set(rows)
+    # A copy of the reference under a success exit would read as a proposal someone could commit.
+    if not stamped_any:
+        print("      no row could be stamped from these attempts. Nothing was written.", file=sys.stderr)
+        return EXIT_REFUSED
     proposal = rewritten(text, proposed)
     parse_reference(proposal)  # what this writes, every mode reads
     out.write_bytes(proposal.encode("utf-8"))

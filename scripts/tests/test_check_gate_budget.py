@@ -1015,6 +1015,21 @@ def test_main_writes_nothing_where_a_row_asked_for_cannot_be_stamped(tmp_path: P
     assert not out.exists()
 
 
+def test_main_writes_nothing_where_no_row_could_be_stamped(tmp_path: Path):
+    """Exit 0 means a proposal was written, so an unchanged copy of the reference is never one."""
+    reference = written(tmp_path / "ref.tsv", BASELINE)
+    data = tmp_path / "attempts"
+    for number in (1, 2):
+        saved(data, 9, number, {"backend": 40})
+    out = tmp_path / "proposal.tsv"
+
+    code, _, err = run_main("--stamp", str(data), "--attempts", "9/1", "9/2", "--out", str(out), "--reference", str(reference))
+
+    assert code == 2
+    assert "no row could be stamped from these attempts" in err
+    assert not out.exists()
+
+
 def test_main_refuses_an_attempt_named_twice_and_an_unreadable_one(tmp_path: Path):
     reference = written(tmp_path / "ref.tsv", BASELINE)
     data = tmp_path / "attempts"
