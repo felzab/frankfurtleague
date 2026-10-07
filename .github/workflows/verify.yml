@@ -103,9 +103,9 @@ jobs:
       - name: Run the docs scope
         run: ./scripts/gate/verify.sh --docs
       - name: Hold a moved gate budget to its measurement
-        # A budget or a reference raised in .github/gate-wall-clock.tsv carries a new measurement
-        # stamp, or the pull request is refused. Here for the full history the comparison reads; a
-        # push to main has no base.
+        # A figure raised in .github/gate-wall-clock.tsv carries a new stamp of the runs it needs, or
+        # the pull request is refused; docs/ops/spec.md §1.6 lists every refusal. Here for the full
+        # history the comparison reads; a push to main has no base.
         if: github.event_name == 'pull_request'
         env:
           BASE_REF: ${{ github.base_ref }}
