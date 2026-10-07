@@ -643,8 +643,8 @@
 #
 # No row moves and none takes a stamp.
 #
-# `scripts` gained twenty-seven cases in `scripts/tests/test_check_gate_budget.py` over the stamp
-# mode and its refusals: 1.49-1.50 s together over five runs of the module, against 0.04 s for its
+# `scripts` gained thirty-one cases in `scripts/tests/test_check_gate_budget.py` over the stamp
+# mode and its refusals: 2.12-2.22 s together over five runs of the module, against 0.04 s for its
 # other cases in the same runs, most of it the floor's draws
 # (`scripts/checks/check_gate_budget.py :: RESAMPLES`) in the cases that cut a reference. Measured
 # locally on 2026-10-07 on a sixteen-core Windows machine whose other load was not read, so an upper

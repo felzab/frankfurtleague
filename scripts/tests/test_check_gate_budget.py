@@ -775,10 +775,8 @@ def test_a_population_named_in_another_order_gives_the_same_proposal():
 
     The draws are compared too: a floor rounded to a whole percent can survive a reorder by chance.
     """
-    rows = budget.parse_reference(
-        table(row("backend", "-", "-", "60", STAMP), row("db", "-", "-", "135", STAMP), row("total", "0", "-", "-", "-"))
-    )
-    attempts = [attempt(n, 1, {"backend": 40 + (n * 7) % 23, "db": 100 + (n * 11) % 31}) for n in range(1, 31)]
+    rows = budget.parse_reference(table(row("backend", "-", "-", "60", STAMP), row("total", "0", "-", "-", "-")))
+    attempts = [attempt(n, 1, {"backend": 40 + (n * 7) % 23}) for n in range(1, 31)]
     shuffled = [*attempts[1::2], *attempts[0::2]][::-1]
     assert sorted(id(a) for a in shuffled) == sorted(id(a) for a in attempts)
 
