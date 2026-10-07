@@ -18,6 +18,7 @@ import {
   TEAM_WEBSITE_URL_MAX_LENGTH,
   WEBSITE_URL_SCHEME,
 } from "@/features/teams/constants";
+import { Leer } from "@/shared/components/ui/Angabe";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { FIELD_ERROR_CLASSES, FIELD_INPUT_CLASSES, FIELD_TRIGGER_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
@@ -185,7 +186,9 @@ export function FormVereinSection({
             aria-label={benannt("Bearbeiten", "Beschreibung")}
             className="group flex w-full cursor-pointer flex-row items-start justify-between gap-x-3 rounded-lg border border-border bg-surface px-3 py-2.5 text-left transition-colors hover:bg-hover">
             {draft.description.trim() === "" ? (
-              <span className="muted-hint">Noch keine Beschreibung.</span>
+              <span className="min-w-0 fluid-sm leading-relaxed font-medium">
+                <Leer />
+              </span>
             ) : (
               <span className="line-clamp-3 min-w-0 fluid-sm leading-relaxed font-medium text-foreground">{draft.description}</span>
             )}
