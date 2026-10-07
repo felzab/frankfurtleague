@@ -212,9 +212,9 @@ jobs:
         with:
           application: true
       - name: Pull the mongod image the db tier starts
-        # INSTRUMENTATION, not a saving: the pull is inside the job span either way. As its own step
-        # the download is attributed in the log rather than hidden in pytest's span -- a slow tier
-        # told from a slow registry.
+        # In the background, so the download overlaps the frontend's install below; the step before
+        # the scope waits on it and prints its log and duration, still telling a slow tier from a
+        # slow registry.
 
         # No image cache beside this: the **ci** clause in `.claude/rules/ops.md` constrains exactly
         # that, so none is added here.
@@ -248,10 +248,35 @@ jobs:
             echo "::error::no single MONGO_IMAGE binding found in fl_backend/tests/conftest.py -- the binding this step reads has moved or split."
             exit 1
           fi
-          docker pull "$image"
+          # Locked before the pull starts, so the waiting step cannot take the lock first; the
+          # background pull inherits it and holds it until it exits.
+          exec 9> "${RUNNER_TEMP}/mongod-pull.lock"
+          flock 9
+          # Every stream redirected: nothing the pull prints lands in a later step's log, and no
+          # stream it holds outlives this step.
+          (
+            started="$(date +%s)"
+            rc=0
+            docker pull "$image" || rc=$?
+            echo "$rc $(( $(date +%s) - started ))" > "${RUNNER_TEMP}/mongod-pull.result"
+          ) > "${RUNNER_TEMP}/mongod-pull.log" 2>&1 < /dev/null &
+          echo "Pulling ${image} in the background."
       # The db scope runs the frontend's db-tier files too (`pnpm run test:db`), so this job installs
       # the frontend beside the backend's virtualenv.
       - uses: ./.github/actions/frontend-toolchain
+      - name: Wait for the mongod pull
+        # Advisory for the reason the pull step gives. Bounded inside the job's own timeout.
+        continue-on-error: true
+        run: |
+          waited="$(date +%s)"
+          flock -w 600 "${RUNNER_TEMP}/mongod-pull.lock" true
+          cat "${RUNNER_TEMP}/mongod-pull.log" 2>/dev/null || true
+          if ! read -r rc seconds < "${RUNNER_TEMP}/mongod-pull.result"; then
+            echo "::warning::no mongod pull finished -- the pull step above did not start one."
+            exit 1
+          fi
+          echo "docker pull exited ${rc} after ${seconds} s; this step waited $(( $(date +%s) - waited )) s for it."
+          exit "$rc"
       - name: Run the db scope
         run: ./scripts/gate/verify.sh --db
 

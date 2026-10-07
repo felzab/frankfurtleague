@@ -845,35 +845,74 @@ for (const name of names) if (!groups.some((group) => takes(group.matcher || "",
   SUITE_HOOK="${REPO_ROOT}/.claude/hooks/implementer-whole-suite.sh"
   check_hook_matcher "${REPO_ROOT}/.claude/settings.json" PreToolUse implementer-whole-suite.sh Bash Monitor PowerShell
   suite_err="${SELFCHECK_TMP}/suite-hook.err"
-  suite_drive() { # $1 agent type, empty for the main session · $2 tool · $3 command — prints the exit status and stderr
-    local payload rc=0
-    payload="$(node -e '
-const [agent, tool, command] = process.argv.slice(1);
-const input = { session_id: "probe", hook_event_name: "PreToolUse", tool_name: tool, tool_input: { command } };
-if (agent) input.agent_type = agent;
-process.stdout.write(JSON.stringify(input));
-' "$1" "$2" "$3")"
+  suite_drive() { # $1 payload — prints the exit status and stderr
+    local rc=0
     # Bounded as the harness bounds the hook, so a reader that hangs fails its probe instead of the step.
-    printf '%s' "$payload" | timeout 10 bash "$SUITE_HOOK" >/dev/null 2>"$suite_err" || rc=$?
+    printf '%s' "$1" | timeout 10 bash "$SUITE_HOOK" >/dev/null 2>"$suite_err" || rc=$?
     printf '%s %s' "$rc" "$(tr '\n' ' ' < "$suite_err")"
   }
-  expect_refused() { # $1 tool · $2 command
-    local said
-    said="$(suite_drive implementer "$1" "$2")"
-    case "$said" in
-      "2 Refused by .claude/hooks/implementer-whole-suite.sh"*) info "whole-suite hook: ${1} '${2}' — refused" ;;
-      *) note_fail "whole-suite hook: ${1} '${2}' must exit 2 naming the hook, got '${said:0:200}'" ;;
-    esac
+  # Queued, then answered by one node importing the reader's `refusal`: a node pair per arm cost this
+  # step most of its time.
+  SUITE_ROUTES=(); SUITE_EXPECTS=(); SUITE_AGENTS=(); SUITE_TOOLS=(); SUITE_COMMANDS=()
+  suite_queue() { # $1 refused or through · $2 agent type, empty for the main session · $3 tool · $4 command
+    SUITE_ROUTES+=("${suite_route:-reader}"); SUITE_EXPECTS+=("$1")
+    SUITE_AGENTS+=("$2"); SUITE_TOOLS+=("$3"); SUITE_COMMANDS+=("$4")
   }
-  expect_let_through() { # $1 agent type · $2 tool · $3 command
-    local said
-    said="$(suite_drive "$1" "$2" "$3")"
-    if [[ "$said" == "0 " ]]; then info "whole-suite hook: ${1:-the main session} ${2} '${3}' — let through"
-    else note_fail "whole-suite hook: ${1:-the main session} ${2} '${3}' must exit 0 silently, got '${said:0:200}'"; fi
+  expect_refused() { suite_queue refused implementer "$1" "$2"; } # $1 tool · $2 command
+  expect_let_through() { suite_queue through "$1" "$2" "$3"; } # $1 agent type · $2 tool · $3 command
+  # Through the shell script as the harness runs it, for what only the script decides: its word
+  # match, its exit status and its stderr.
+  through_hook() { local suite_route=hook; "$@"; }
+  suite_answer_queued() {
+    local arms="${SELFCHECK_TMP}/suite-arms" answers="${SELFCHECK_TMP}/suite-answers" rc=0 i said unanswered
+    local -a answered=()
+    : > "$arms"
+    for i in "${!SUITE_EXPECTS[@]}"; do
+      printf '%s\0%s\0%s\0%s\0' "${SUITE_ROUTES[i]}" "${SUITE_AGENTS[i]}" "${SUITE_TOOLS[i]}" "${SUITE_COMMANDS[i]}" >> "$arms"
+    done
+    # One record per arm, written as it is judged: a reader hanging on one arm leaves the arms before
+    # it answered, and the rest fail by name below rather than the step failing whole.
+    timeout 10 node -e '
+const fs = require("fs");
+const { pathToFileURL } = require("url");
+const [reader, arms] = process.argv.slice(1);
+import(pathToFileURL(reader).href).then(({ refusal }) => {
+  const fields = fs.readFileSync(arms, "utf8").split("\0");
+  for (let k = 0; k + 3 < fields.length; k += 4) {
+    const [route, agent, tool, command] = fields.slice(k, k + 4);
+    const input = { session_id: "probe", hook_event_name: "PreToolUse", tool_name: tool, tool_input: { command } };
+    if (agent) input.agent_type = agent;
+    const payload = JSON.stringify(input);
+    // An arm through the script gets its payload; any other gets what the script would report.
+    const refused = route === "hook" ? null : refusal(payload);
+    fs.writeSync(1, (route === "hook" ? payload : refused ? "2 " + refused.replace(/\n/g, " ") : "0 ") + "\0");
+  }
+});
+' "${HOOKS_DIR}/implementer-whole-suite.mjs" "$arms" > "$answers" 2>"${SELFCHECK_TMP}/suite-driver.err" || rc=$?
+    mapfile -d '' -t answered < "$answers"
+    # Read now: an arm through the script below rewrites that script's own stderr file.
+    unanswered="no answer, the reader's driver exited ${rc}: $(tr '\n' ' ' < "${SELFCHECK_TMP}/suite-driver.err")"
+    for i in "${!SUITE_EXPECTS[@]}"; do
+      if (( i >= ${#answered[@]} )); then
+        said="$unanswered"
+      elif [[ "${SUITE_ROUTES[i]}" == hook ]]; then
+        said="$(suite_drive "${answered[i]}")"
+      else
+        said="${answered[i]}"
+      fi
+      set -- "${SUITE_AGENTS[i]}" "${SUITE_TOOLS[i]}" "${SUITE_COMMANDS[i]}"
+      if [[ "${SUITE_EXPECTS[i]}" == refused ]]; then
+        case "$said" in
+          "2 Refused by .claude/hooks/implementer-whole-suite.sh"*) info "whole-suite hook: ${2} '${3}' — refused" ;;
+          *) note_fail "whole-suite hook: ${2} '${3}' must exit 2 naming the hook, got '${said:0:200}'" ;;
+        esac
+      elif [[ "$said" == "0 " ]]; then info "whole-suite hook: ${1:-the main session} ${2} '${3}' — let through"
+      else note_fail "whole-suite hook: ${1:-the main session} ${2} '${3}' must exit 0 silently, got '${said:0:200}'"; fi
+    done
   }
   # One probe per arm of the reader, every member of its word lists included: an arm no probe reaches
   # can be deleted with the step green. The runners and the operands that narrow nothing first.
-  expect_refused Bash 'pnpm test'
+  through_hook expect_refused Bash 'pnpm test'
   expect_refused Bash 'npm test'
   expect_refused Bash 'npm run test'
   expect_refused Bash 'pnpm run test -- --test-name-pattern one'
@@ -936,7 +975,7 @@ process.stdout.write(JSON.stringify(input));
   expect_refused PowerShell 'uv run --frozen pytest fl_backend\tests'
   expect_let_through implementer Bash 'pnpm run test:base src/core/apiContract.test.ts'
   expect_let_through implementer Bash 'node --test src/core/apiContract.test.ts'
-  expect_let_through implementer Bash 'uv run --frozen pytest tests/api/test_spiele.py'
+  through_hook expect_let_through implementer Bash 'uv run --frozen pytest tests/api/test_spiele.py'
   expect_let_through implementer Bash 'uv run --frozen pytest tests/api/test_spiele.py::test_one'
   expect_let_through implementer Bash 'uv run --frozen pytest -m db tests/api/test_spiele.py'
   # A substitution's output is the operand, whatever it lists.
@@ -957,8 +996,9 @@ process.stdout.write(JSON.stringify(input));
   expect_let_through implementer Bash "pnpm test 'x"
   expect_let_through driving-reauditor Bash 'pnpm test'
   # Past the shell script's word match, the reader's own agent check.
-  expect_let_through driving-reauditor Bash 'pnpm test # implementer'
-  expect_let_through '' Bash 'pnpm test'
+  through_hook expect_let_through driving-reauditor Bash 'pnpm test # implementer'
+  through_hook expect_let_through '' Bash 'pnpm test'
+  suite_answer_queued
   # Without node the hook cannot read the call, and lets it through rather than refusing blind.
   suite_rc=0
   printf '{"agent_type":"implementer","tool_input":{"command":"pnpm test"}}' |

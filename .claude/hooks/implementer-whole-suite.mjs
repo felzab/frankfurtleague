@@ -1,6 +1,8 @@
 // The reader behind `.claude/hooks/implementer-whole-suite.sh`, which says why it refuses and why it
 // lets through what it cannot read. It knows the common forms only, each probed by
 // `scripts/gate/selfcheck.sh` step 12: a form missing here is let through, never permitted.
+import { pathToFileURL } from "node:url";
+
 const REFUSE = [
   "Targeted forms: pnpm run test:base <files> in fl_frontend; uv run --frozen pytest <paths> in fl_backend,",
   "and uv run --frozen pytest -m db <file>, one database file, where your brief allows database files.",
@@ -275,27 +277,37 @@ function judge(words, depth, escapes) {
   return named.length ? null : "the whole backend suite";
 }
 
-let raw = "";
-process.stdin
-  .on("data", (d) => (raw += d))
-  .on("end", () => {
-    try {
-      const j = JSON.parse(raw);
-      if (j.agent_type !== "implementer") return;
-      const command = j.tool_input && j.tool_input.command;
-      if (typeof command !== "string") return;
-      const escapes = j.tool_name !== "PowerShell";
-      for (const words of segments(command, escapes)) {
-        const what = judge(words, 0, escapes);
-        if (what) {
-          process.stderr.write(
-            'Refused by .claude/hooks/implementer-whole-suite.sh: "' + words.join(" ") + '" runs ' + what + ". " + RULE + "\n" + REFUSE + "\n",
-          );
-          process.exitCode = 2;
-          return;
-        }
+export function refusal(raw) {
+  try {
+    const j = JSON.parse(raw);
+    if (j.agent_type !== "implementer") return null;
+    const command = j.tool_input && j.tool_input.command;
+    if (typeof command !== "string") return null;
+    const escapes = j.tool_name !== "PowerShell";
+    for (const words of segments(command, escapes)) {
+      const what = judge(words, 0, escapes);
+      if (what) {
+        return (
+          'Refused by .claude/hooks/implementer-whole-suite.sh: "' + words.join(" ") + '" runs ' + what + ". " + RULE + "\n" + REFUSE + "\n"
+        );
       }
-    } catch {
-      // Unreadable input is let through, for the reason the shell script's header gives.
     }
-  });
+  } catch {
+    // Unreadable input is let through, for the reason the shell script's header gives.
+  }
+  return null;
+}
+
+// Run as the hook, not imported: step 12 imports `refusal` to judge every arm in one process.
+if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  let raw = "";
+  process.stdin
+    .on("data", (d) => (raw += d))
+    .on("end", () => {
+      const said = refusal(raw);
+      if (said) {
+        process.stderr.write(said);
+        process.exitCode = 2;
+      }
+    });
+}
