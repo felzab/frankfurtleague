@@ -1197,7 +1197,7 @@ def test_the_floor_is_cut_for_the_window_the_report_takes():
 
 # A cache step of the job's own, or the image builds' layer cache in the Actions cache service. The
 # toolchain actions' caches are keyed on the lockfiles, which a push to main restores as a re-run does.
-OWN_CACHE_RE = re.compile(r"^      - uses: actions/cache@|^          VERIFY_IMAGES_CACHE: gha$", re.MULTILINE)
+OWN_CACHE_RE = re.compile(r"^\s+- uses: actions/cache(?:/restore|/save)?@|^\s+VERIFY_IMAGES_CACHE: gha$", re.MULTILINE)
 
 
 def test_every_job_with_a_cache_of_its_own_is_stamped_from_main_alone():
