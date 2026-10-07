@@ -21,6 +21,12 @@ export const PLACEHOLDER = {
   slot: "Noch offen",
 } as const;
 
+/** What a stored field held empty reads where a label stands beside it, on every page: the fixtures' word too. */
+export const NICHT_HINTERLEGT = PLACEHOLDER.entity;
+
+/** The same where no label stands beside the value, so the words name the field (`docs/frontend/spec.md` §1.12). */
+export const nichtHinterlegt = (feld: string): string => `${feld} nicht hinterlegt`;
+
 const EUR = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" });
 
 /** The formatter is module-level, so the admin tables do not build a fresh `Intl.NumberFormat` per row. */
@@ -36,7 +42,7 @@ export function formatUhrzeit(uhrzeit: string | null | undefined, fallback: stri
 const joinPresent = (parts: readonly string[], separator: string): string => parts.filter((part) => part.trim() !== "").join(separator);
 
 export function formatAddress(address?: FLAddress): string {
-  if (!address) return "Adresse nicht hinterlegt";
+  if (!address) return nichtHinterlegt("Adresse");
 
   // Stadtteil is optional; an empty one renders nothing rather than an empty "()" tail.
   const stadtteil = address.stadtteil.trim() === "" ? "" : ` (${address.stadtteil})`;

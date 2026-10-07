@@ -1,9 +1,6 @@
-import { PLACEHOLDER } from "@/shared/utils/format";
+import { NICHT_HINTERLEGT } from "@/shared/utils/format";
 
 import type { ReactNode } from "react";
-
-/** What a stored fact reads where the record holds none, on every page that shows one: the fixtures' word too. */
-export const NICHT_HINTERLEGT = PLACEHOLDER.entity;
 
 /**
  * Every word standing where a value would, an empty fact or a state such as „Nicht bestätigt“ alike, on

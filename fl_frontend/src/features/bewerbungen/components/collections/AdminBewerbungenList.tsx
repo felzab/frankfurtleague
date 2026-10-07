@@ -30,7 +30,7 @@ import { labelBadge } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 import { RowActionLink, RowActions } from "@/shared/components/ui/RowActions";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
-import { formatSpielDatum } from "@/shared/utils/format";
+import { formatSpielDatum, nichtHinterlegt } from "@/shared/utils/format";
 
 import type { BewerbungDublette } from "@/features/bewerbungen/duplicates";
 import type { AdminBewerbungRow } from "@/features/bewerbungen/types";
@@ -46,7 +46,7 @@ const EMPTY_MESSAGES: Record<CrudEmptiness, string> = {
 };
 
 /** What an application naming no team at all reads as — the one `REQ-BEWERBUNG-002` refuses to accept. */
-const NO_TEAM = "Team nicht hinterlegt";
+const NO_TEAM = nichtHinterlegt("Team");
 
 /** What an application predating the confirmation flow reads as, in the register the admin uses for an absent value. */
 const NO_BESTAETIGUNGEN = "Keine Bestätigungen angefragt";
@@ -191,7 +191,7 @@ export const AdminBewerbungenList = memo(function AdminBewerbungenList({
         )}
         {person === null || person.email === "" ? (
           <span className={IDENTITY_LINE_CLASSES}>
-            <Leer>E-Mail nicht hinterlegt</Leer>
+            <Leer>{nichtHinterlegt("E-Mail")}</Leer>
           </span>
         ) : (
           <span className={IDENTITY_LINE_CLASSES}>{person.email}</span>

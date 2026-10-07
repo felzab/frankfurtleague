@@ -23,7 +23,6 @@ import {
   TRAINER_ZUGLEICH_FRAGE,
 } from "@/features/teams/constants";
 import { buildEmptyKontakte } from "@/features/teams/utils";
-import { NICHT_HINTERLEGT } from "@/shared/components/ui/Angabe";
 import { AppDatePicker } from "@/shared/components/ui/DateTimeFields";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import {
@@ -40,7 +39,7 @@ import { Switch } from "@/shared/components/ui/Switch";
 import { TextField } from "@/shared/components/ui/TextField";
 import { textLink } from "@/shared/components/ui/textLink";
 import { focusSection } from "@/shared/utils/focusAfterWrite";
-import { formatSpielDatum } from "@/shared/utils/format";
+import { formatSpielDatum, NICHT_HINTERLEGT } from "@/shared/utils/format";
 import { FASSUNG_UNLESBAR } from "@/shared/utils/refusal";
 
 import { FormKontaktEinladen } from "./FormKontaktEinladen";

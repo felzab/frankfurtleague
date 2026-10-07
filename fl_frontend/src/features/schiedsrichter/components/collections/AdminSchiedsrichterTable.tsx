@@ -35,7 +35,7 @@ import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { appToast } from "@/shared/utils/appToast";
 import { CLIPBOARD_ERROR_DETAIL, copyTextToClipboard } from "@/shared/utils/clipboard";
 import { focusSection } from "@/shared/utils/focusAfterWrite";
-import { formatEuro } from "@/shared/utils/format";
+import { formatEuro, nichtHinterlegt } from "@/shared/utils/format";
 
 import { hatAdresse } from "../../schemas";
 
@@ -110,14 +110,14 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
               so a column would be empty on every live row. */}
           {schiedsrichter.inactive_since !== null && <RetiredBadge since={schiedsrichter.inactive_since} />}
         </div>
-        <span className={IDENTITY_LINE_CLASSES}>{schiedsrichter.schule || <Leer>Schule nicht hinterlegt</Leer>}</span>
+        <span className={IDENTITY_LINE_CLASSES}>{schiedsrichter.schule || <Leer>{nichtHinterlegt("Schule")}</Leer>}</span>
         <span className={IDENTITY_PAIR_CLASSES}>
           {/* The placeholder a row without an address holds is shown as the gap it is, not as an address. */}
           <span className={IDENTITY_LINE_CLASSES}>
-            {hatAdresse(schiedsrichter.kontakt.email) ? schiedsrichter.kontakt.email : <Leer>E-Mail nicht hinterlegt</Leer>}
+            {hatAdresse(schiedsrichter.kontakt.email) ? schiedsrichter.kontakt.email : <Leer>{nichtHinterlegt("E-Mail")}</Leer>}
           </span>
           <span className={`${IDENTITY_LINE_CLASSES} font-numeric tabular-nums`}>
-            {schiedsrichter.kontakt.telefon || <Leer>Telefon nicht hinterlegt</Leer>}
+            {schiedsrichter.kontakt.telefon || <Leer>{nichtHinterlegt("Telefon")}</Leer>}
           </span>
         </span>
       </div>

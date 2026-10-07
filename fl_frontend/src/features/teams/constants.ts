@@ -1,3 +1,5 @@
+import { nichtHinterlegt } from "@/shared/utils/format";
+
 import type { FLAustrittType, FLKontaktKenntnisnahme, FLSchulform, FLTrainerZugleich, FLTrikotFarbe } from "./schemas";
 
 export const TEAMS_CRUD_COPY = {
@@ -181,7 +183,7 @@ export const EINGETRAGEN_VON_OPTIONS: readonly EingetragenVonOption[] = [
  * stored before the field, which says so instead.
  */
 export function eingetragenVonLabel(von: FLKontaktKenntnisnahme["eingetragen_von"]): string {
-  return EINGETRAGEN_VON_OPTIONS.find((option) => option.value === von)?.label ?? "Herkunft nicht hinterlegt";
+  return EINGETRAGEN_VON_OPTIONS.find((option) => option.value === von)?.label ?? nichtHinterlegt("Herkunft");
 }
 
 /**

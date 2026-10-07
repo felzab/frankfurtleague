@@ -1455,9 +1455,9 @@ where a comment quotes a rendered string, which tracks it. The wording rules:
   which no grep for the noun will find; `sideLabel` also numbers a fixture's two seats `Team`, so a
   sentence naming both says the club by name.
 - **An empty stored field reads „Nicht hinterlegt“, whatever the field is about** (my rule,
-  2026-10-07): `fl_frontend/src/shared/components/ui/Angabe.tsx :: NICHT_HINTERLEGT` where a label
-  stands beside the value, and „<Feld> nicht hinterlegt“ where none does, a chip, a line of facts or
-  a screen-reader text („Nummer nicht hinterlegt“). A state or an event that did not happen keeps its
+  2026-10-07): `fl_frontend/src/shared/utils/format.ts :: NICHT_HINTERLEGT` where a label stands
+  beside the value, and `:: nichtHinterlegt`'s „<Feld> nicht hinterlegt“ where none does, a chip, a
+  line of facts or a screen-reader text („Nummer nicht hinterlegt“). A state or an event that did not happen keeps its
   own words („Nicht bestätigt“, „Termin offen“, „Noch offen“), and so does a record's own name
   („Eintrag ohne Namen“). A picker's „Keine Angabe“ row is a choice that clears the field, not a
   readout.
