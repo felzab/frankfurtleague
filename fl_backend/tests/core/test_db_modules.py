@@ -20,6 +20,12 @@ SPELLED_WITHOUT_A_CASE = '"""Names\n@pytest.mark.db\nin prose."""\n\n\ndef test_
 NAMED_IN_PROSE = '"""Mark a case with `@pytest.mark.db`."""\n\n\ndef test_runs():\n    assert True\n'
 
 
+def test_this_suite_runs_under_the_scan(request: pytest.FixtureRequest) -> None:
+    """The cases below drive a copy of the plugin, so they pass with it unregistered, the db tier then quietly importing every module again."""
+
+    assert request.config.pluginmanager.get_plugin("tests.db_modules") is not None
+
+
 def _run(pytester: pytest.Pytester, suite: dict[str, str], *flags: str) -> pytest.RunResult:
     pytester.makeini("[pytest]\nmarkers =\n    db: a database case\n")
     pytester.makepyfile(**suite, db_modules=PLUGIN.read_text(encoding="utf-8"))

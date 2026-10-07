@@ -269,8 +269,14 @@ jobs:
         continue-on-error: true
         run: |
           waited="$(date +%s)"
-          flock -w 600 "${RUNNER_TEMP}/mongod-pull.lock" true
+          # Caught rather than left to `bash -e`, which would end the step before the log prints.
+          timed_out=0
+          flock -w 600 "${RUNNER_TEMP}/mongod-pull.lock" true || timed_out=1
           cat "${RUNNER_TEMP}/mongod-pull.log" 2>/dev/null || true
+          if (( timed_out )); then
+            echo "::warning::the mongod pull was still running after $(( $(date +%s) - waited )) s; its log so far is above."
+            exit 1
+          fi
           if ! read -r rc seconds < "${RUNNER_TEMP}/mongod-pull.result"; then
             echo "::warning::no mongod pull finished -- the pull step above did not start one."
             exit 1
