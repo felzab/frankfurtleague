@@ -573,8 +573,8 @@ RESAMPLES: Final = 20_000
 PERCENTILE: Final = 95
 SEED: Final = "gate-wall-clock"
 
-# Jobs whose own cache is keyed on the tree: a re-run of one commit hits the key its first attempt
-# wrote, which no fresh push to main does, so only first attempts of main's push runs time them.
+# Jobs whose own cache is keyed on the tree: a re-run restores everything its first attempt wrote,
+# a push to main only what earlier trees left unchanged, so only first attempts of pushes time them.
 TREE_KEYED: Final[frozenset[str]] = frozenset({"format", "frontend", "images"})
 
 # The header's `format` paragraph: that budget is the cold job's, and a population that happened

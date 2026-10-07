@@ -21,8 +21,9 @@
 # log carries the runner's own retry of an action download, a wait that is GitHub's rather than the
 # tree's; and for a job whose own cache is keyed on the tree
 # (`scripts/checks/check_gate_budget.py :: TREE_KEYED`), every attempt but the first of a push to
-# main, and any pull-request run, whose re-runs restore the exact cache their first attempt wrote
-# where a push to main restores an older tree's.
+# main, and any pull-request run: a re-run restores everything its first attempt wrote, while a push
+# to main finds warm only what the trees before it left unchanged, so re-runs read at least as warm
+# as the pushes the report compares and never colder.
 # A stamp counts at least ten runs. Each job gets a machine of its own, of a fast or a slow class no
 # log names; read off the binding unit's timing, the slow class ran 61-76 percent of the `backend`,
 # `db` and `scripts` jobs of the 33 pull-request runs of 2026-10-06, so ten runs leave it out of at
