@@ -99,6 +99,14 @@ STUB
   printf '%s\n' '    location = /next-action-relay { proxy_pass http://127.0.0.1:3001; }'
   printf '%s\n' '    location / { return 200 "stub\n"; }' '}'
 } > "${SCRATCH}/zz-upstream-stub.conf"
+# The relay's listener answers only after recording the head's blank line: one answering first, as a
+# piped `nc` does, lets the stub's nginx, which reads an upstream's answer whatever it has sent, close
+# before writing the request.
+cat > "${SCRATCH}/relay-record.sh" <<'RECORD'
+cr="$(printf '\r')"
+while IFS= read -r line; do printf '%s\n' "$line"; [ "$line" = "$cr" ] && break; done > /tmp/relay-seen
+printf 'HTTP/1.1 204 No Content\r\nConnection: close\r\n\r\n'
+RECORD
 # Empty, and written below the redaction cases to drive a reload nginx refuses.
 : > "${SCRATCH}/zz-reload-probe.conf"
 
@@ -180,6 +188,7 @@ MSYS_NO_PATHCONV=1 docker run -d --name "$CONTAINER" \
   -v "/${REPO_ROOT}/nginx/shared:/etc/nginx/shared:ro" \
   -v "/${SCRATCH}/zz-upstream-stub.conf:/etc/nginx/conf.d/zz-upstream-stub.conf:ro" \
   -v "/${SCRATCH}/zz-reload-probe.conf:/etc/nginx/conf.d/zz-reload-probe.conf:ro" \
+  -v "/${SCRATCH}/relay-record.sh:/relay-record.sh:ro" \
   -v "/${SCRATCH}/log:/var/log/frankfurtleague/nginx" \
   "$EDGE_IMAGE" "${EDGE_COMMAND[@]}" >/dev/null \
   || refuse "could not start the pinned nginx for the edge test."
@@ -578,24 +587,19 @@ done
 relay_seen() { # the curl options naming the transfer's headers
   local _k status="" seen=""
   MSYS_NO_PATHCONV=1 docker exec -d "$CONTAINER" sh -c \
-    "rm -f /tmp/relay-seen; printf 'HTTP/1.1 204 No Content\r\nConnection: close\r\n\r\n' | nc -l -p 3001 > /tmp/relay-seen" \
+    "rm -f /tmp/relay-seen; exec nc -l -p 3001 -e sh /relay-record.sh" \
     || return 0
-  # Until the listener takes the connection: before it listens, the relay answers 502.
+  # A 502 alone is retried, the relay's answer before the listener is up: the listener takes one
+  # connection, so a retry after a timeout that reached it reads a 502 and judges nothing.
   for _k in $(seq 1 25); do
     status="$(curl -s -o /dev/null -w '%{http_code}' --max-time 2 -H "Host: localhost" "$@" "${BASE}/next-action-relay" || true)"
-    [[ "$status" == 204 ]] && break
+    [[ "$status" == 502 ]] || break
     sleep 0.2
   done
-  [[ "$status" == 204 ]] || return 0
-  # Until the request's blank line has reached the file, which can trail curl's answer.
-  for _k in $(seq 1 25); do
-    # The `.` keeps the head's closing newline, which the substitution would strip: a bodiless
-    # request ends on its blank line, so without it no whole head ever matches.
-    seen="$(MSYS_NO_PATHCONV=1 docker exec "$CONTAINER" cat /tmp/relay-seen 2>/dev/null || true; printf .)"
-    seen="${seen%.}"
-    [[ "$seen" == *$'\r\n\r\n'* ]] && break
-    sleep 0.2
-  done
+  # The `.` keeps the head's closing newline, which the substitution would strip: a bodiless
+  # request ends on its blank line, so without it no whole head ever matches.
+  seen="$(MSYS_NO_PATHCONV=1 docker exec "$CONTAINER" cat /tmp/relay-seen 2>/dev/null || true; printf .)"
+  seen="${seen%.}"
   # A capture cut before its blank line can lack the very header the empty case looks for, which
   # would read as the edge having dropped it.
   [[ "$seen" == *$'\r\n\r\n'* ]] || return 0
