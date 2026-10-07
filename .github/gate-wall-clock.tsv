@@ -639,6 +639,14 @@
 #
 # No row moves and none takes a stamp.
 #
+# `scripts` gained twenty-six cases in `scripts/tests/test_check_gate_budget.py` over the stamp mode
+# and its refusals: 1.49-1.53 s together over five runs of the module, against 0.04 s for its other
+# cases in the same runs, most of it the floor's draws
+# (`scripts/checks/check_gate_budget.py :: RESAMPLES`) in the cases that cut a reference. Measured
+# locally on 2026-10-07 on a sixteen-core Windows machine whose other load was not read, so an upper
+# bound. The module is one chunk under `--dist loadfile`, far shorter than the suite's longest; the
+# budget does not move and takes no new stamp.
+#
 # The total row is the sum of the seconds above it, compared the same way where it carries a floor.
 # Its floor sums each referenced row's draws, so `--stamp` cuts one only where every row holding a
 # reference was cut from the population it reads; otherwise it is `-`, as while `ops` is the one row
