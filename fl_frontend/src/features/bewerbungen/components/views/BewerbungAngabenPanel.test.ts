@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 
 import { GESPERRTE_ADRESSE } from "@/features/berechtigungen/constants.ts";
 import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
+import { assertLeerMarkup } from "@/shared/testing/leerGrade.ts";
 import { renderMarkup, textOf } from "@/shared/testing/renderTest";
 
 import { FLBewerbungSchema } from "../../schemas.ts";
@@ -99,6 +100,7 @@ describe("the panel a triage decision is taken from", () => {
       });
 
       assert.match(textOf(factLine(html, "Kenntnisnahme")), new RegExp(`^${label}, `));
+      if (von === null) assertLeerMarkup(factLine(html, "Kenntnisnahme"), label);
     });
   }
 
@@ -225,6 +227,7 @@ describe("who the panel says decided", () => {
   /* The read serves a barred administrator as `null` beside the flag (`docs/frontend/spec.md :: I492`). */
   it("names an administrator the ban list holds by that state", () => {
     assert.equal(entschieden(null, true), GESPERRTE_ADRESSE);
+    assertLeerMarkup(markup({ entscheidung: { getroffen_am: "2026-09-10", von: null, von_gesperrt: true, grund: null } }), GESPERRTE_ADRESSE);
   });
 });
 

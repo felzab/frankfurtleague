@@ -10,7 +10,7 @@ import Person from "@gravity-ui/icons/Person";
 
 import { Table } from "@heroui/react/table";
 
-import { vonOderGesperrt } from "@/features/berechtigungen/constants";
+import { VonOderGesperrt } from "@/features/berechtigungen/components/ui/VonOderGesperrt";
 import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/AdminCrudEmpty";
 import {
   CELL_EDGE_CLASSES,
@@ -100,7 +100,14 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
             className="size-4.5 shrink-0 text-foreground-muted"
           />
           <span className="min-w-0 truncate fluid-sm font-semibold text-foreground">
-            {actor.kind === "person_session" ? personAkteurLabel(actor) : vonOderGesperrt(actor.email, actor.email_gesperrt)}
+            {actor.kind === "person_session" ? (
+              personAkteurLabel(actor)
+            ) : (
+              <VonOderGesperrt
+                von={actor.email}
+                gesperrt={actor.email_gesperrt}
+              />
+            )}
           </span>
         </div>
       );

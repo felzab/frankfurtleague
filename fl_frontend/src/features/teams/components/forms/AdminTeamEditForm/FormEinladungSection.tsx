@@ -12,7 +12,7 @@ import { Button } from "@heroui/react/button";
 import { ToggleButton } from "@heroui/react/toggle-button";
 import { ToggleButtonGroup } from "@heroui/react/toggle-button-group";
 
-import { vonOderGesperrt } from "@/features/berechtigungen/constants";
+import { VonOderGesperrt } from "@/features/berechtigungen/components/ui/VonOderGesperrt";
 import { ZUSTELLUNG_CHIP } from "@/features/bewerbungen/zustellung";
 import { deleteEinladungAction, mailEinladungAction, postEinladungAction } from "@/features/einladungen/actions";
 import { useEinladungLink } from "@/features/einladungen/components/EinladungLinkHolder";
@@ -190,7 +190,7 @@ export function FormEinladungSection({
   };
 
   const zustellung = einladung?.versand?.zustellung ?? null;
-  const versandText = zustellung === null ? "Noch nicht gesendet" : (ZUSTELLUNG_CHIP[zustellung.stand]?.label ?? "Gesendet");
+  const versandText = zustellung === null ? <Leer>Noch nicht gesendet</Leer> : (ZUSTELLUNG_CHIP[zustellung.stand]?.label ?? "Gesendet");
 
   const restingLabel = gewaehlt === "zurueckziehen" ? "Link zurückziehen" : "Neuen Link anlegen";
   const armedLabel = gewaehlt === "zurueckziehen" ? "Ja, Link zurückziehen" : "Ja, neuen Link anlegen";
@@ -252,7 +252,12 @@ export function FormEinladungSection({
                 {einladung !== null && (
                   <ConfirmReadoutRow
                     label="Angelegt von"
-                    value={vonOderGesperrt(einladung.erstellt_von, einladung.erstellt_von_gesperrt)}
+                    value={
+                      <VonOderGesperrt
+                        von={einladung.erstellt_von}
+                        gesperrt={einladung.erstellt_von_gesperrt}
+                      />
+                    }
                   />
                 )}
                 {einladung !== null && (

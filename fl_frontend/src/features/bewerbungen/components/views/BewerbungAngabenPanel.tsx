@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { vonOderGesperrt } from "@/features/berechtigungen/constants";
+import { VonOderGesperrt } from "@/features/berechtigungen/components/ui/VonOderGesperrt";
 import { BEWERBUNG_HERKUNFT_LABELS } from "@/features/bewerbungen/constants";
 import { bewerbungHerkunft } from "@/features/bewerbungen/utils";
 import { Beleg } from "@/features/spieler/components/ui/Nachweis";
@@ -199,11 +199,22 @@ export function BewerbungAngabenPanel({
                         these details and when, which on an application from before the workflow is
                         nobody's answer — and a Zusage turns on that answer. */}
                     <Angabe label={stand === null ? "Kenntnisnahme" : "Bestätigung"}>
-                      {/* No `Leer`: an outstanding seat has a state rather than a gap, and a seat
-                          reaching no state has its stored record instead. */}
-                      {stand === null
-                        ? `${eingetragenVonLabel(person.einwilligung.eingetragen_von)}, ${formatSpielDatum(person.einwilligung.datum)}`
-                        : stand.satz}
+                      {/* A step not taken stands where the confirmation's day would, so it takes the empty
+                          grade; a confirmation or a Widerspruch is the fact itself. */}
+                      {stand === null ? (
+                        <>
+                          {person.einwilligung.eingetragen_von === null ? (
+                            <Leer>{eingetragenVonLabel(null)}</Leer>
+                          ) : (
+                            eingetragenVonLabel(person.einwilligung.eingetragen_von)
+                          )}
+                          {`, ${formatSpielDatum(person.einwilligung.datum)}`}
+                        </>
+                      ) : stand.stand.art === "bestaetigt" || stand.stand.art === "abgelehnt" ? (
+                        stand.satz
+                      ) : (
+                        <Leer>{stand.satz}</Leer>
+                      )}
                       {/* Over a confirmation that has been given and no other: the version an
                           outstanding seat stores is the wording the SUBMITTER acknowledged, which
                           naming here would file against the person who has not answered yet. */}
@@ -289,7 +300,16 @@ export function BewerbungAngabenPanel({
         <Panel title="Entscheidung">
           <dl className={ANGABEN_GRID_CLASSES}>
             <Angabe label="Getroffen am">{formatSpielDatum(entscheidung.getroffen_am)}</Angabe>
-            <Angabe label="Von">{entscheidung.von === "" ? "System" : vonOderGesperrt(entscheidung.von, entscheidung.von_gesperrt)}</Angabe>
+            <Angabe label="Von">
+              {entscheidung.von === "" ? (
+                "System"
+              ) : (
+                <VonOderGesperrt
+                  von={entscheidung.von}
+                  gesperrt={entscheidung.von_gesperrt}
+                />
+              )}
+            </Angabe>
             {/* Absent on an acceptance rather than filled in with „angenommen“: what an acceptance
                 did is the club and the season entry it wrote. */}
             {entscheidung.grund !== null && <Angabe label="Grund">{entscheidung.grund}</Angabe>}

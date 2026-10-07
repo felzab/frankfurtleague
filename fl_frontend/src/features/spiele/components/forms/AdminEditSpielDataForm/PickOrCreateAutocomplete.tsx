@@ -10,6 +10,7 @@ import { useFilter } from "@heroui/react/rac";
 import { SearchField } from "@heroui/react/search-field";
 
 import { dismissControl } from "@/core/dismissControl";
+import { Leer } from "@/shared/components/ui/Angabe";
 import { Autocomplete } from "@/shared/components/ui/Autocomplete";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { formButton } from "@/shared/components/ui/formButtons";
@@ -27,7 +28,7 @@ import type { ReactNode } from "react";
  * illegal. **A record created here is selected immediately**: an "angelegt" toast over an empty
  * picker is how a match got saved with no referee.
  */
-export function PickOrCreateAutocomplete<TItem extends { id: string; name: string }>({
+export function PickOrCreateAutocomplete<TItem extends { id: string; name: string; nameIstPlatzhalter?: boolean }>({
   label,
   fieldPath,
   placeholder,
@@ -83,6 +84,7 @@ export function PickOrCreateAutocomplete<TItem extends { id: string; name: strin
   };
 
   const hasMatches = searchQuery.trim() === "" ? options.length > 0 : options.some((item) => contains(item.name, searchQuery));
+  const selected = options.find((item) => item.id === selectedId) ?? null;
 
   return (
     <div className="flex w-full flex-col">
@@ -104,7 +106,15 @@ export function PickOrCreateAutocomplete<TItem extends { id: string; name: strin
           {label}
         </FieldLabel>
         <Autocomplete.Trigger className={FIELD_TRIGGER_CLASSES}>
-          <Autocomplete.Value className="min-w-0 truncate fluid-sm" />
+          {/* A stand-in word from the prop, as `FormTeamPicker`'s open slot: `Autocomplete.Value` replays
+              the row's text without the grade (`docs/frontend/spec.md :: I30`). */}
+          {selected?.nameIstPlatzhalter ? (
+            <span className="min-w-0 flex-1 truncate fluid-sm">
+              <Leer>{selected.name}</Leer>
+            </span>
+          ) : (
+            <Autocomplete.Value className="min-w-0 truncate fluid-sm" />
+          )}
           {/* `ms-2` rather than a gap on the trigger: `.autocomplete__value` is `flex-1`, so a
               truncated name ends against this button (`docs/frontend/spec.md` I61). `hover: "css"`
               because HeroUI renders this as a plain `<button>`. */}
@@ -159,7 +169,7 @@ export function PickOrCreateAutocomplete<TItem extends { id: string; name: strin
                   id={item.id}
                   textValue={item.name}
                   className="cursor-pointer rounded-lg px-3 py-2 fluid-xs data-hovered:bg-hover">
-                  {item.name}
+                  {item.nameIstPlatzhalter ? <Leer>{item.name}</Leer> : item.name}
                   <ListBox.ItemIndicator />
                 </ListBox.Item>
               ))}

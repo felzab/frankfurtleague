@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 import { createElement as h } from "react";
 
 import { GESPERRTE_ADRESSE } from "@/features/berechtigungen/constants.ts";
+import { assertLeerMarkup } from "@/shared/testing/leerGrade.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderMarkup, renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
@@ -239,5 +240,6 @@ describe("who a row names", () => {
     const gesperrt: AdminAktionRow = { ...ROW, actor: { kind: "admin_session", email: null, email_gesperrt: true } };
 
     assert.match(textOf(view({ aktionen: [gesperrt] })), new RegExp(GESPERRTE_ADRESSE));
+    assertLeerMarkup(view({ aktionen: [gesperrt] }), GESPERRTE_ADRESSE);
   });
 });
