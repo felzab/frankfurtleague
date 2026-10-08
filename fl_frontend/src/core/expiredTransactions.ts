@@ -13,20 +13,25 @@ const EXPIRED = (killed: number): string =>
   "(`docs/frontend/spec.md` §1.9).";
 
 const UNREAD =
-  "this file's replica set reported no `metrics.abortExpiredTransactions.successfulKills` in `serverStatus`, so whether a " +
-  "transaction ran to MongoDB's lifetime limit was not judged: find where this server version reports it.";
+  "this file's replica set reported no `metrics.abortExpiredTransactions.successfulKills` or no `timedOutKills` in `serverStatus`, " +
+  "so whether a transaction ran to MongoDB's lifetime limit was not judged: find where this server version reports them.";
 
 const UNWATCHED =
   "this file's replica set was started but its count was never read, so whether a transaction ran to MongoDB's lifetime " +
   "limit was not judged: the container was started past `startJudgedReplicaSet`.";
 
-/** `null` where the status carries no count, which a passing file must never read as none aborted. */
+// Both: mongod's expiry pass, interrupting a transaction's operation in flight and failing to check its session out
+// within `AbortExpiredTransactionsSessionCheckoutTimeout`, counts that transaction under `timedOutKills` alone.
+const EXPIRY_COUNTS = ["successfulKills", "timedOutKills"] as const;
+
+/** `null` where the status lacks either count, which a passing file must never read as none aborted. */
 export function expiredTransactionKills(status: Record<string, unknown>): number | null {
   const metrics = status["metrics"];
   const expired = typeof metrics === "object" && metrics !== null ? (metrics as Record<string, unknown>)["abortExpiredTransactions"] : null;
-  const kills = typeof expired === "object" && expired !== null ? (expired as Record<string, unknown>)["successfulKills"] : null;
+  if (typeof expired !== "object" || expired === null) return null;
 
-  return typeof kills === "number" ? kills : null;
+  const counts = EXPIRY_COUNTS.map((name) => (expired as Record<string, unknown>)[name]);
+  return counts.every((count): count is number => typeof count === "number") ? counts.reduce((sum, count) => sum + count, 0) : null;
 }
 
 export function expiredTransactionsRefusal(atStart: number | null, now: number | null): string | null {

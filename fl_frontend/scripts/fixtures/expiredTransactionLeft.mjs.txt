@@ -8,13 +8,16 @@ import { startJudgedReplicaSet } from "@/core/expiredTransactions.ts";
 const { mongod } = await startJudgedReplicaSet();
 
 // In the container's own shell, so no client of this file holds the transaction: one begun under a
-// one-second lifetime, which the server fixes as the transaction begins, so it is set first.
-// Judged by the server's own counts alone, never by wall time: under load the write itself can
-// outlast the second and be interrupted, and the transaction has expired all the same. The wait
-// ends on the kill, or once the server's periodic pass has run several times past the lifetime.
+// one-second lifetime, which the server fixes as the transaction begins, so it is set first. The
+// collection is created before it begins, so its one write is no DDL and the server finds the
+// transaction idle: a write creating it outlasted the second under load and was interrupted mid-flight.
+// Judged by the counts the helper reads, never by wall time: the wait ends on a count, or once the
+// server's periodic pass has run several times past the lifetime.
 const LEAVE_ONE_TO_EXPIRE = `
 db.adminCommand({ setParameter: 1, transactionLifetimeLimitSeconds: 1 });
+db.getSiblingDB("probe").createCollection("rows");
 const expiry = () => db.serverStatus().metrics.abortExpiredTransactions;
+const killed = () => Number(expiry().successfulKills) + Number(expiry().timedOutKills);
 const passesBefore = Number(expiry().passes);
 const session = db.getMongo().startSession();
 session.startTransaction();
@@ -23,8 +26,8 @@ try {
 } catch (error) {
   print("WRITE " + error.message);
 }
-while (Number(expiry().successfulKills) < 1 && Number(expiry().passes) < passesBefore + 5) sleep(200);
-print("KILLED " + Number(expiry().successfulKills));
+while (killed() < 1 && Number(expiry().passes) < passesBefore + 5) sleep(200);
+print("KILLED " + killed());
 `;
 
 it("leaves a transaction to expire", async () => {

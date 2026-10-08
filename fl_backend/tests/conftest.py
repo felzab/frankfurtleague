@@ -334,9 +334,15 @@ _REPLICA_SET_CONTAINERS: dict[str, Any] = {}
 # Each case's span, its setup's start to its teardown's end, on the clock the worker reports.
 _CASE_SPANS: dict[str, list[float]] = {}
 
-# mongod's log ids: the expired-transaction pass aborting one, and any transaction's record as it ends.
+# mongod's log ids: the expired-transaction pass aborting one, the pass giving up on checking out the
+# session of one whose operation it interrupted, and any transaction's record as it ends.
 _EXPIRED_ABORT_LOG_ID = 20707
+_CHECKOUT_TIMED_OUT_LOG_ID = 11790801
 _TRANSACTION_LOG_ID = 51802
+
+# The expired-transaction pass's thread: other session kills, a step-down's among them, log a timed-out checkout under
+# the same id.
+_EXPIRY_PASS_THREAD = "abortExpiredTransactions"
 
 # The server's clock is the container's, which can sit a moment off the host's.
 _CLOCK_SLACK_S = 2.0
@@ -367,6 +373,10 @@ def _running_at(moment: float) -> list[str]:
     return sorted(case for case, (start, stop) in _CASE_SPANS.items() if start - _CLOCK_SLACK_S <= moment <= stop + _CLOCK_SLACK_S)
 
 
+def _logged_at(entry: Mapping[str, Any]) -> float:
+    return datetime.fromisoformat(entry["t"]["$date"]).timestamp()
+
+
 def _named_aborts(url: str) -> Iterator[str]:
     """Time spent inside an operation means a case waited on it, the deadlock; time spent idle means the case that opened it went on."""
 
@@ -376,17 +386,23 @@ def _named_aborts(url: str) -> Iterator[str]:
     stdout, _ = container.get_logs()
     entries = [json.loads(line) for line in stdout.decode("utf-8", errors="replace").splitlines() if line.startswith("{")]
     # The abort names the session; the transaction's own record, logged by whichever thread unwinds it, carries its times.
-    records = {
-        (entry["attr"]["parameters"]["lsid"]["id"]["$uuid"], entry["attr"]["parameters"]["txnNumber"]): entry["attr"]
+    records = [
+        (entry["attr"]["parameters"]["lsid"]["id"]["$uuid"], entry["attr"]["parameters"]["txnNumber"], _logged_at(entry), entry["attr"])
         for entry in entries
         if entry.get("id") == _TRANSACTION_LOG_ID and "parameters" in entry.get("attr", {})
-    }
+    ]
     for entry in entries:
-        if entry.get("id") != _EXPIRED_ABORT_LOG_ID:
+        if entry.get("id") == _EXPIRED_ABORT_LOG_ID:
+            session, txn_number = entry["attr"]["sessionId"]["uuid"]["$uuid"], entry["attr"]["txnNumberAndRetryCounter"]["txnNumber"]
+        elif entry.get("id") == _CHECKOUT_TIMED_OUT_LOG_ID and entry.get("ctx") == _EXPIRY_PASS_THREAD:
+            # Counted under `timedOutKills`, its line naming the session alone: the record is the one the interrupted
+            # operation logged for that session as it unwound, the nearest in time.
+            session, txn_number = entry["attr"]["lsidToKill"]["id"]["$uuid"], None
+        else:
             continue
-        session = (entry["attr"]["sessionId"]["uuid"]["$uuid"], entry["attr"]["txnNumberAndRetryCounter"]["txnNumber"])
-        record = records.get(session, {})
-        aborted = datetime.fromisoformat(entry["t"]["$date"]).timestamp()
+        aborted = _logged_at(entry)
+        candidates = [(abs(at - aborted), attr) for lsid, number, at, attr in records if lsid == session and txn_number in (None, number)]
+        record = min(candidates, key=lambda candidate: candidate[0])[1] if candidates else {}
         active_s = record.get("timeActiveMicros", 0) / 1e6
         inactive_s = record.get("timeInactiveMicros", 0) / 1e6
         writes = {key: value for key, value in record.items() if key in {"ninserted", "nModified", "ndeleted"}}
