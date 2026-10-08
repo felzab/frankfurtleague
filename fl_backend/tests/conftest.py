@@ -300,6 +300,11 @@ TMPFS_DATA_OPTIONS = "size=1g"
 # is ENOSPC, then `WT_PANIC`, then a dead container.
 REPLICA_SET_OPLOG_MB = 128
 
+# Every client built from these urls polls: a streaming monitor's close leaves no TIME_WAIT on
+# Windows, so its port is reused at once, and under load WSL's mirrored loopback relay stalls a
+# connect on it past the request deadline.
+POLLING_MONITORS = "serverMonitoringMode=poll"
+
 # What `pytest_configure_node` hands each worker, so one pair of containers serves the whole run.
 STANDALONE_KEY = "fl_standalone_mongodb_url"
 REPLICA_SET_KEY = "fl_replica_set_mongodb_url"
@@ -402,7 +407,7 @@ def _standalone_mongod() -> Iterator[str]:
     from testcontainers.community.mongodb import MongoDbContainer
 
     with MongoDbContainer(MONGO_IMAGE).with_tmpfs_mount(TMPFS_DATA_PATH, TMPFS_DATA_OPTIONS) as container:
-        yield str(container.get_connection_url())
+        yield f"{container.get_connection_url()}/?{POLLING_MONITORS}"
 
 
 @contextmanager
@@ -426,7 +431,7 @@ def _replica_set_mongod() -> Iterator[str]:
 
     with container:
         # `directConnection=true`: the set advertises its container-internal address, which topology discovery would follow and find nothing.
-        url = f"mongodb://{container.get_container_host_ip()}:{container.get_exposed_port(27017)}/?directConnection=true"
+        url = f"mongodb://{container.get_container_host_ip()}:{container.get_exposed_port(27017)}/?directConnection=true&{POLLING_MONITORS}"
 
         client = MongoClient(url)
         try:
