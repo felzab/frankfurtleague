@@ -13,6 +13,17 @@ export type SchiedsrichterAnsichtGeoeffnet = FLSchiedsrichterBestaetigungAnsicht
 
 export type SchiedsrichterAnsicht = { zustand: "gueltig"; ansicht: SchiedsrichterAnsichtGeoeffnet } | { zustand: SchiedsrichterLinkZustand };
 
+/**
+ * Every state an address link can be in but open. No `bestaetigt`: an answer removes what the link opens.
+ * `nicht_bestaetigbar` is a change whose replaced address is barred, which the page words without the ban.
+ */
+export type AdresswechselLinkZustand = "abgelaufen" | "ungueltig" | "gesperrt" | "nicht_bestaetigbar";
+
+/** The states whose link the backend still takes the decline through, so the page keeps its token. */
+export type AdresswechselNurAblehnbar = Extract<AdresswechselLinkZustand, "abgelaufen" | "nicht_bestaetigbar">;
+
+export type AdresswechselAnsicht = { zustand: "gueltig"; vorname: string; frist: string } | { zustand: AdresswechselLinkZustand };
+
 // The three admin-only blocks are out: a fixture's held referee and a just-created one are each
 // composed at the call site, where a required block would be written as a null claiming the referee
 // has no link.
@@ -23,6 +34,8 @@ export type SchiedsrichterAnsicht = { zustand: "gueltig"; ansicht: Schiedsrichte
  */
 export type FLSchiedsrichterAngezeigt = Pick<FLSchiedsrichter, "id" | "schule" | "kontakt" | "default_payment" | "inactive_since"> & {
   name: string;
+  /** Where `name` is a stand-in word rather than a stored name, which a control sets in the empty-value grade. */
+  nameIstPlatzhalter?: boolean;
 };
 
 /**

@@ -5,9 +5,10 @@ One contract across the module, so no caller needs a `None` branch to reach a 40
 helper raises `DocumentNotFoundException` on a miss and never returns `None`, and a `*_many_*`
 helper returns the empty result and never raises for absence.
 
-Every write here also appends to the action log (`app/core/recording.py`), which is what makes the
-log complete by construction: a WRITE reaches the driver in this module alone, the log's own row
-aside, which `app/core/recording.py :: record_write` inserts. Reads are a different matter --
+Every write here but an anchor appends to the action log (`app/core/recording.py`), which is what makes the
+log complete by construction: a WRITE reaches the driver in this module alone, beside two that record
+no domain fact: the log's own row, which `app/core/recording.py :: record_write` inserts, and a
+person's count for the day, which `app/core/drosselung.py :: get_drossel` raises. Reads are a different matter --
 several routers call `aggregate`, `count_documents`, `distinct`, `find` and `find_one` directly --
 and a write shaped like one of those would escape the log.
 """
@@ -16,7 +17,7 @@ import re
 from collections.abc import Mapping, Sequence, Set
 from contextvars import ContextVar
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Final
 
 from pydantic import BaseModel
 from pymongo import ReturnDocument
@@ -169,6 +170,28 @@ async def patch_many_in_db(
     )
 
     return result
+
+
+# The one field every anchor advances: one rather than one per rule, so a further rule decided on the
+# same document takes it with no decision, and two writers contending on it is a retry.
+ANCHOR_FIELD: Final = "bounded_writes"
+
+
+async def anchor_in_db(
+    *,
+    collection: AsyncCollection,
+    db_filter: Mapping[str, Any],
+    # REQUIRED: committed on its own, an anchor conflicts with nobody.
+    session: AsyncClientSession,
+) -> None:
+    """Write the documents a judgement inside this transaction is scoped by, so a rival writing them conflicts (`docs/backend/spec.md :: I53`).
+
+    Logs no row: it changes nothing a reader sees, and the transaction's other writes are the action (`docs/backend/spec.md :: I40`).
+    """
+
+    _sending_a_write()
+    # `$inc`, never a `$set` of a constant, which rewrites nothing the second time and joins no write set.
+    await collection.update_many(filter=db_filter, update={"$inc": {ANCHOR_FIELD: 1}}, session=session)
 
 
 async def post_one_to_db(

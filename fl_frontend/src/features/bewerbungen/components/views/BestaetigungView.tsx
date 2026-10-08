@@ -3,39 +3,44 @@
 import { useState } from "react";
 
 import { KONTAKT_EMAIL } from "@/core/brand";
-import { joinUnd } from "@/core/joinUnd";
+import { ABSATZ_CLASSES, Wert } from "@/features/bewerbungen/components/ui/Gefuellt";
 import { SEITE_CLASSES } from "@/features/bewerbungen/components/ui/seite";
-import { BEWERBUNG_BESTAETIGUNG_FRIST_TAGE } from "@/features/bewerbungen/constants";
+import { BEWERBUNG_BESTAETIGUNG_FRIST_TAGE, rollenLangform } from "@/features/bewerbungen/constants";
 import { SaisonChip } from "@/features/saisons/components/ui/SaisonChip";
-import { KONTAKT_ROLLEN } from "@/features/teams/constants";
 import { DISPLAY_HEADING_CLASSES } from "@/shared/components/ui/displayType";
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import { BestaetigungFormPanel } from "./BestaetigungFormPanel";
 import {
-  ABSATZ_CLASSES,
   AdresseGesperrt,
   BestaetigungErgebnis,
   FaktenBanner,
   FrageStellen,
   GespeicherteAngaben,
+  LINK_UNLESBAR_TITEL,
+  LinkUnlesbar,
+  medienZeile,
   useLinkSeite,
-  Wert,
   ZurLiga,
 } from "./BestaetigungPanels";
+import { BestaetigungSaisonVorbei } from "./BestaetigungSaisonVorbei";
 
-import type { EinwilligungGeoeffnet, LinkZustand } from "@/features/bewerbungen/types";
+import type { EinwilligungGeoeffnet, EinwilligungQuelle, LinkZustand } from "@/features/bewerbungen/types";
 import type { BestaetigungAbschluss } from "./BestaetigungFormPanel";
+import type { KontaktFassung } from "./BestaetigungHinweise";
 
 /**
  * What the page opens on. The token rides only with a link a press can still spend: every other
  * state is a panel that names nobody, and a dead link handed onward identifies nobody either.
  */
-export type BestaetigungStart = { zustand: "gueltig"; ansicht: EinwilligungGeoeffnet; token: string } | { zustand: LinkZustand | "unlesbar" };
+export type BestaetigungStart =
+  | { zustand: "gueltig"; ansicht: EinwilligungGeoeffnet; token: string; fassung: KontaktFassung }
+  | { zustand: "saison_vorbei"; ansicht: EinwilligungGeoeffnet; token: string }
+  | { zustand: LinkZustand | "unlesbar"; quelle?: EinwilligungQuelle };
 
 type Stand =
   | BestaetigungStart
-  | { zustand: "erfolg"; ansicht: EinwilligungGeoeffnet; geburtsdatum: string | null; whatsapp: boolean }
+  | { zustand: "erfolg"; ansicht: EinwilligungGeoeffnet; geburtsdatum: string | null; whatsapp: boolean; medien: boolean }
   | { zustand: "widersprochen-neu"; ansicht: EinwilligungGeoeffnet };
 
 /** One heading per state, uppercased by the page rather than typed so, as the application page does it. A barred link's page has none. */
@@ -43,32 +48,36 @@ const TITEL: Record<Exclude<Stand["zustand"], "gesperrt">, string> = {
   gueltig: "Eintrag bestätigen",
   erfolg: "Eintrag bestätigt",
   "widersprochen-neu": "Widerspruch gespeichert",
+  saison_vorbei: "Bestätigen nicht mehr möglich",
   bestaetigt: "Schon erledigt",
   abgelehnt: "Schon erledigt",
   abgelaufen: "Link ungültig",
   ungueltig: "Link ungültig",
-  unlesbar: "Link nicht geprüft",
+  unlesbar: LINK_UNLESBAR_TITEL,
 };
 
-/**
- * Every seat one answer on this link writes, as one phrase: in the table's order and joined as
- * `fl_frontend/src/features/bewerbungen/notifications.ts :: rollenText` joins them, so the page names
- * the reader what the mail that brought them here named them.
- */
-const rollenLangform = ({ rolle, zugleich_rolle }: EinwilligungGeoeffnet): string =>
-  joinUnd(KONTAKT_ROLLEN.filter((eintrag) => eintrag.value === rolle || eintrag.value === zugleich_rolle).map((eintrag) => eintrag.langform));
+/** Every seat one answer on this link writes, so the page names the reader what the mail that brought them here named them. */
+const linkRollen = ({ rolle, zugleich_rolle }: EinwilligungGeoeffnet): string => rollenLangform([rolle, zugleich_rolle]);
 
 /** The press's answer folded into the page's state, carrying the read that the panel still names the person from. */
-function nachAntwort(abschluss: BestaetigungAbschluss, ansicht: EinwilligungGeoeffnet): Stand {
+function nachAntwort(abschluss: BestaetigungAbschluss, ansicht: EinwilligungGeoeffnet, token: string): Stand {
   if (abschluss.zustand === "erfolg") return { ...abschluss, ansicht: ansicht };
   if (abschluss.zustand === "widersprochen-neu") return { zustand: "widersprochen-neu", ansicht: ansicht };
+  // The season closed between the open and the press: the token still takes a Widerspruch.
+  if (abschluss.zustand === "saison_vorbei") return { zustand: "saison_vorbei", ansicht: ansicht, token: token };
 
-  return abschluss;
+  // The read that opened the page knew the record, which the spent link's panel words itself by.
+  return { zustand: abschluss.zustand, quelle: ansicht.quelle };
+}
+
+/** Whether the page is about a seat an administrator typed onto a team's season row, which no application stands behind. */
+function istSaison(stand: Stand): boolean {
+  return "ansicht" in stand ? stand.ansicht.quelle === "saison" : "quelle" in stand && stand.quelle === "saison";
 }
 
 /** Which states know a season, and so may wear the chip the public pages head a season's page with. */
 function saisonVon(stand: Stand): string | null {
-  return stand.zustand === "gueltig" || stand.zustand === "erfolg" || stand.zustand === "widersprochen-neu" ? stand.ansicht.saison_id : null;
+  return "ansicht" in stand ? stand.ansicht.saison_id : null;
 }
 
 /**
@@ -82,6 +91,7 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
   if (stand.zustand === "gesperrt") return <AdresseGesperrt panelRef={ergebnisRef} />;
 
   const saison = saisonVon(stand);
+  const saisonRow = istSaison(stand);
 
   return (
     <section className={SEITE_CLASSES}>
@@ -95,30 +105,48 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
         {stand.zustand === "gueltig" && (
           <FaktenBanner
             zeilen={[
-              { label: "Schule", wert: stand.ansicht.schule, unbegrenzt: true },
+              // A season row's seat is entered for a team, which its stamped words and its mail call it.
+              { label: saisonRow ? "Team" : "Schule", wert: stand.ansicht.schule, unbegrenzt: true },
               { label: "Saison", wert: stand.ansicht.saison_id },
-              { label: "Deine Rolle", wert: rollenLangform(stand.ansicht) },
+              { label: "Deine Rolle", wert: linkRollen(stand.ansicht) },
             ]}
           />
         )}
         {/* Said here because the stamped wording cannot say it: one press confirms both seats, and a
             Widerspruch empties both. */}
         {stand.zustand === "gueltig" && stand.ansicht.zugleich_rolle !== null && (
-          <p className={ABSATZ_CLASSES}>Du bist in dieser Bewerbung zweimal eingetragen, und Deine Antwort gilt für beide Einträge.</p>
+          <p className={ABSATZ_CLASSES}>
+            {saisonRow ? "Du bist für dieses Team zweimal eingetragen" : "Du bist in dieser Bewerbung zweimal eingetragen"}, und Deine Antwort
+            gilt für beide Einträge.
+          </p>
         )}
       </header>
 
       {stand.zustand === "gueltig" && (
         <BestaetigungFormPanel
+          fassung={stand.fassung}
           token={stand.token}
           vorname={stand.ansicht.vorname}
           schule={stand.ansicht.schule}
           saison={stand.ansicht.saison_id}
-          rolle={rollenLangform(stand.ansicht)}
+          rolle={linkRollen(stand.ansicht)}
+          istSaison={saisonRow}
           mindestalter={stand.ansicht.mindestalter}
+          medienMindestalter={stand.ansicht.medien_mindestalter}
           onAbschluss={(abschluss) => {
             beantwortet();
-            setStand(nachAntwort(abschluss, stand.ansicht));
+            setStand(nachAntwort(abschluss, stand.ansicht, stand.token));
+          }}
+        />
+      )}
+
+      {stand.zustand === "saison_vorbei" && (
+        <BestaetigungSaisonVorbei
+          ansicht={stand.ansicht}
+          token={stand.token}
+          onAbschluss={(abschluss) => {
+            beantwortet();
+            setStand(nachAntwort(abschluss, stand.ansicht, stand.token));
           }}
         />
       )}
@@ -131,11 +159,11 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
             Danke, <Wert>{stand.ansicht.vorname}</Wert>.{" "}
             {stand.ansicht.zugleich_rolle === null ? (
               <>
-                Dein Eintrag für die Schule <Wert>{stand.ansicht.schule}</Wert> ist bestätigt.
+                Dein Eintrag für {saisonRow ? "das Team" : "die Schule"} <Wert>{stand.ansicht.schule}</Wert> ist bestätigt.
               </>
             ) : (
               <>
-                Deine beiden Einträge für die Schule <Wert>{stand.ansicht.schule}</Wert> sind bestätigt.
+                Deine beiden Einträge für {saisonRow ? "das Team" : "die Schule"} <Wert>{stand.ansicht.schule}</Wert> sind bestätigt.
               </>
             )}
           </p>
@@ -145,11 +173,13 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
             zeilen={[
               { label: "Geburtsdatum", wert: formatSpielDatum(stand.geburtsdatum) },
               { label: "WhatsApp", wert: stand.whatsapp ? "erlaubt" : "nicht erlaubt" },
+              medienZeile(stand.medien),
             ]}
           />
           <p className={ABSATZ_CLASSES}>
-            Sobald alle Kontaktpersonen bestätigt haben, ist die Bewerbung vollständig, und die Person, die sie eingereicht hat, bekommt eine
-            E-Mail. Du musst nichts weiter tun.
+            {saisonRow
+              ? "Du musst nichts weiter tun."
+              : "Sobald alle Kontaktpersonen bestätigt haben, ist die Bewerbung vollständig, und die Person, die sie eingereicht hat, bekommt eine E-Mail. Du musst nichts weiter tun."}
           </p>
           <p className={ABSATZ_CLASSES}>Fragen, Löschung und Widerspruch jederzeit per E-Mail an {KONTAKT_EMAIL}.</p>
           <ZurLiga />
@@ -161,12 +191,15 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
           panelRef={ergebnisRef}
           tone="erfolg">
           <p className={ABSATZ_CLASSES}>
-            Danke für Deine Antwort, <Wert>{stand.ansicht.vorname}</Wert>. Deine Angaben haben wir aus der Bewerbung entfernt und der Person
-            Bescheid gesagt, die sie eingereicht hat.
+            Danke für Deine Antwort, <Wert>{stand.ansicht.vorname}</Wert>.{" "}
+            {saisonRow
+              ? "Deine Angaben haben wir aus dem Eintrag entfernt."
+              : "Deine Angaben haben wir aus der Bewerbung entfernt und der Person Bescheid gesagt, die sie eingereicht hat."}
           </p>
           <p className={ABSATZ_CLASSES}>
-            Falls Du es Dir anders überlegst, kann Deine Schule Dich in einer neuen Bewerbung wieder eintragen. Du bekommst dann eine neue
-            E-Mail.
+            {saisonRow
+              ? "Falls Du es Dir anders überlegst, kann die Verwaltung der Liga Dich wieder eintragen. Du bekommst dann eine neue E-Mail."
+              : "Falls Du es Dir anders überlegst, kann Deine Schule Dich in einer neuen Bewerbung wieder eintragen. Du bekommst dann eine neue E-Mail."}
           </p>
           <ZurLiga />
         </BestaetigungErgebnis>
@@ -189,7 +222,8 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
           panelRef={ergebnisRef}
           tone="erfolg">
           <p className={ABSATZ_CLASSES}>
-            Über diesen Link wurde dem Eintrag schon widersprochen. Die Angaben sind aus der Bewerbung entfernt, und Du musst nichts weiter tun.
+            Über diesen Link wurde dem Eintrag schon widersprochen. Die Angaben sind aus {saisonRow ? "dem Eintrag" : "der Bewerbung"} entfernt,
+            und Du musst nichts weiter tun.
           </p>
           <ZurLiga />
         </BestaetigungErgebnis>
@@ -201,27 +235,26 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
         <BestaetigungErgebnis
           panelRef={ergebnisRef}
           tone="hinweis">
-          <p className={ABSATZ_CLASSES}>
-            Dieser Link ist ungültig oder abgelaufen. Ein Link gilt {String(BEWERBUNG_BESTAETIGUNG_FRIST_TAGE)} Tage. Eine Bewerbung, die bis
-            dahin nicht alle Bestätigungen hat, löschen wir mit allen Angaben.
-          </p>
-          <p className={ABSATZ_CLASSES}>Wird Deine Schule neu eingetragen, bekommst Du eine neue E-Mail mit einem neuen Link.</p>
+          {/* No application stands behind a season row's seat, so nothing is deleted with one, and only the administration re-sends its link. */}
+          {saisonRow ? (
+            <p className={ABSATZ_CLASSES}>
+              Dieser Link ist ungültig oder abgelaufen. Ein Link gilt {String(BEWERBUNG_BESTAETIGUNG_FRIST_TAGE)} Tage. Einen neuen Link schickt
+              Dir die Verwaltung der Liga auf Wunsch.
+            </p>
+          ) : (
+            <>
+              <p className={ABSATZ_CLASSES}>
+                Dieser Link ist ungültig oder abgelaufen. Ein Link gilt {String(BEWERBUNG_BESTAETIGUNG_FRIST_TAGE)} Tage. Eine Bewerbung, die
+                bis dahin nicht alle Bestätigungen hat, löschen wir mit allen Angaben.
+              </p>
+              <p className={ABSATZ_CLASSES}>Wird Deine Schule neu eingetragen, bekommst Du eine neue E-Mail mit einem neuen Link.</p>
+            </>
+          )}
           <FrageStellen />
         </BestaetigungErgebnis>
       )}
 
-      {/* Says that it does not know, and nothing else: folded into the dead-link panel, this arm
-          would call a live link void on a day the backend was merely unreachable. */}
-      {stand.zustand === "unlesbar" && (
-        <BestaetigungErgebnis
-          panelRef={ergebnisRef}
-          tone="hinweis">
-          <p className={ABSATZ_CLASSES}>
-            Wir können diesen Link gerade nicht prüfen. Lade die Seite in ein paar Minuten neu, oder schreib uns.
-          </p>
-          <FrageStellen />
-        </BestaetigungErgebnis>
-      )}
+      {stand.zustand === "unlesbar" && <LinkUnlesbar panelRef={ergebnisRef} />}
     </section>
   );
 }

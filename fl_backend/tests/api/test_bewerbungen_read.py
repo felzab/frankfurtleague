@@ -16,9 +16,9 @@ from app.api.bewerbungen.schemas import FLBewerbungenFilterParams
 from app.api.bewerbungen.services import dubletten_schluessel_of
 from app.core.collections import Collection
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX
+from tests import documents
 from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import ADDRESS
 from tests.worker import worker_database
 
 SAISON_ID = "2026"
@@ -51,32 +51,20 @@ def bewerbung_document(
     naming both collides on neither.
     """
 
-    return {
-        "_id": ObjectId(BEWERBUNG_ID.format(index)),
-        "saison_id": saison_id,
-        "eingereicht_am": eingereicht_am,
-        "status": status,
-        "team_id": team_id,
-        "schule": None
+    return documents.bewerbung_document(
+        ObjectId(BEWERBUNG_ID.format(index)),
+        saison_id,
+        status,
+        kontakte=documents.kontakte_document(trainer=dict(KONTAKTPERSON)),
+        eingereicht_am=eingereicht_am,
+        team_id=team_id,
+        schule=None
         if team_id is not None
-        else {
-            "team_name": f"Schule {index}",
-            "full_name": f"Schule {index} Gesamtschule",
-            "shorthand": shorthand,
-            "schulform": "gesamtschule",
-            "address": dict(ADDRESS),
-            "website_url": "https://example.de",
-        },
-        "kontakte": {
-            "trainer": dict(KONTAKTPERSON),
-            "ansprechperson": None,
-            "stellvertretung": None,
-            "trainer_ist_zugleich": None,
-        },
-        "trikot": {"vorhandener_satz": "16 rote Trikots", "wunschfarbe": "rot"},
-        "kader": {"voraussichtliche_groesse": 14, "gute_spieler": 3},
-        "entscheidung": None,
-    }
+        else documents.neue_schule_document(
+            f"Schule {index}", shorthand, full_name=f"Schule {index} Gesamtschule", schulform="gesamtschule", website_url="https://example.de"
+        ),
+        trikot={"vorhandener_satz": "16 rote Trikots", "wunschfarbe": "rot"},
+    )
 
 
 def archive_of(count: int) -> list[dict[str, Any]]:

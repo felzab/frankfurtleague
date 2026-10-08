@@ -5,12 +5,13 @@ import { pathToFileURL } from "node:url";
 
 import ts from "typescript";
 
-import { LIGA_KENNTNISNAHME } from "@/core/einwilligung.ts";
+import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { publishedOperations } from "@/core/openapiDocument.ts";
-import { filesUnder } from "@/core/treeWalk.ts";
-import { cacheCalls, doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
+import { serverActionModules } from "@/core/treeWalk.ts";
+import { cacheCalls, doubleActionRequest, doubleActions } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
 import { refusedOn } from "@/shared/testing/publishedRefusals.ts";
+import { saisonRules } from "@/shared/testing/saisonRules.ts";
 import {
   actionReachOf,
   CONDITIONALLY_STEPPED_UP,
@@ -57,9 +58,11 @@ const referee = () => ({
         bestaetigt_am: "2026-01-02",
         text_version: "2026-09-schiedsrichterseite",
         medien: false,
+        nachweis: { umfang: null, medien: null },
       }
     : null,
   bestaetigung: null,
+  adresswechsel: null,
 });
 
 /** Each request answered as the backend answers it where it landed, the ones a case here reaches past its step-up. */
@@ -72,8 +75,8 @@ function landed({ endpoint, method }: ApiCall): Record<string, unknown> {
   }
   if (endpoint.startsWith("/schiedsrichter/")) {
     return method === undefined
-      ? { acknowledged: 1, schiedsrichter: referee() }
-      : { acknowledged: 1, updated_document: referee(), fanned_out_to_spiele: 0, bestaetigung: null };
+      ? { acknowledged: 1, schiedsrichter: referee(), bestaetigung_abgelaufen: false, adresswechsel_abgelaufen: false }
+      : { acknowledged: 1, updated_document: referee(), fanned_out_to_spiele: 0, bestaetigung: null, adresswechsel: null };
   }
   if (endpoint.endsWith("/spielplan")) {
     return {
@@ -86,14 +89,42 @@ function landed({ endpoint, method }: ApiCall): Record<string, unknown> {
       removed_spiele: 0,
     };
   }
-  return { ...key, saison_id: "2526", kontakte: null, kontakte_stand: "a1b2" };
+  // No club on file, so every seat a contacts save names is a person the row does not hold.
+  if (endpoint === "/teams/memberships") return { acknowledged: 1, teams: [] };
+  if (endpoint.endsWith("/bestaetigung/einladen")) {
+    return {
+      ...key,
+      saison_team_id: "c".repeat(24),
+      bestaetigung: {
+        token: "t",
+        rollen: ["ansprechperson"],
+        email: STORED_EMAIL,
+        vorname: "Anna",
+        schule: "Lessing-Kolleg",
+        frist: "2026-10-17",
+        zeile: "offen",
+      },
+    };
+  }
+  return {
+    ...key,
+    saison_id: "2526",
+    saison_team_id: "c".repeat(24),
+    kontakte: null,
+    kontakte_stand: "a1b2",
+    bestaetigungen: [],
+    gesperrt: [],
+  };
 }
+
+/** The label the backend runs on the application form, off the registry it generated. */
+const FORM_LABEL = publishedLaufendeFassung("bewerbung").text_version;
+// The running label's read answered at its module, so a refusal a case hands the client is the write's alone.
+doubleActions({ modules: ["/src/core/einwilligung.ts"], answer: () => Promise.resolve(FORM_LABEL) });
 
 const { calls, answerWith } = doubleApiAnswers((call: ApiCall) => Promise.resolve(landed(call)));
 
 const { stepUpRequired } = await import("./adminMutation.ts");
-
-const SLICES = path.resolve(import.meta.dirname, "..", "..", "features");
 
 /** The two actions that authorize nobody, which `fl_frontend/src/shared/utils/adminActionSpine.test.ts` exempts for their own reasons. */
 const AUTHORIZES_NOBODY: ReadonlySet<string> = new Set(["auth :: handleSignIn", "auth :: signOutAction"]);
@@ -101,13 +132,14 @@ const AUTHORIZES_NOBODY: ReadonlySet<string> = new Set(["auth :: handleSignIn", 
 /** The account page's slices, whose every write its own spine holds to the window (`docs/frontend/spec.md :: I422`). */
 const ACCOUNT_SLICES: ReadonlySet<string> = new Set(["konto", "passkeys"]);
 
-/** The action named, off its slice's real actions module. */
+/** The action named, off the real server action module of its slice that exports it. */
 async function action(name: string): Promise<(payload?: unknown) => Promise<unknown>> {
   const slice = STEP_UP_WRITES[name] ?? assert.fail(`${name} is no step-up write`);
-  const actions = (await import(pathToFileURL(path.join(SLICES, slice, "actions.ts")).href)) as Record<string, unknown>;
-  const found = actions[name];
-  assert.equal(typeof found, "function", `${slice} exports no ${name}`);
-  return found as (payload?: unknown) => Promise<unknown>;
+  for (const file of serverActionModules(20).filter((module) => path.basename(path.dirname(module)) === slice)) {
+    const found = ((await import(pathToFileURL(file).href)) as Record<string, unknown>)[name];
+    if (typeof found === "function") return found as (payload?: unknown) => Promise<unknown>;
+  }
+  return assert.fail(`${slice} exports no ${name}`);
 }
 
 const refused = stepUpRequired();
@@ -143,7 +175,7 @@ describe("an administrator write the server holds to the step-up window", () => 
     setFresh(false);
     const refusedBeforeTheBody: string[] = [];
 
-    for (const file of filesUnder(SLICES, (name) => name === "actions.ts", 10).sort()) {
+    for (const file of serverActionModules(20)) {
       const slice = path.basename(path.dirname(file));
       if (ACCOUNT_SLICES.has(slice)) continue;
       for (const [name, exported] of Object.entries((await import(pathToFileURL(file).href)) as Record<string, unknown>)) {
@@ -279,9 +311,9 @@ describe("an administrator write the server holds to the step-up window", () => 
     }
   });
 
-  /* The cleared block alone is irreversible: an edit of the seats keeps its undo, and asking for the
-     passkey there would ask on every save of the contact editor. */
-  it("refuses clearing a team's contacts, and never an edit of them", async () => {
+  /* Clearing the block voids every link on the row; an edit moving no link keeps its undo, or every
+     save would ask. The row holds nobody here, so an empty block moves nothing. */
+  it("refuses clearing a team's contacts, and never an edit moving no link", async () => {
     const patch = await action("patchSaisonTeamKontakteAction");
     const key = { team_id: TEAM_ID, saison_id: "2526", kontakte_stand: "9f2c" };
     const emptySeats = { trainer: null, ansprechperson: null, stellvertretung: null, trainer_ist_zugleich: null };
@@ -292,8 +324,42 @@ describe("an administrator write the server holds to the step-up window", () => 
     assert.equal(calls.length, sent, "the clearing reached the backend for a session past the window");
 
     // A valid edit, so the answer is past the payload's parse and never the parse's own refusal.
-    assert.notDeepEqual(await patch({ ...key, kontakte: emptySeats }), refused, "a stale session was refused an edit of the contacts");
+    assert.notDeepEqual(await patch({ ...key, kontakte: emptySeats }), refused, "a stale session was refused an edit moving no link");
     assert.ok(calls.length > sent, "the edit stopped short of the backend");
+  });
+
+  /* A save seating a person the row does not hold mints them a bearer link, so it asks; the same save
+     from inside the window does not, and the stored row decides only for a session past it. */
+  it("refuses a contacts save seating somebody new, and never one from inside the window", async () => {
+    const patch = await action("patchSaisonTeamKontakteAction");
+    const seated = {
+      team_id: TEAM_ID,
+      saison_id: "2526",
+      kontakte_stand: "9f2c",
+      kontakte: {
+        trainer: null,
+        ansprechperson: {
+          vorname: "Anna",
+          nachname: "Körner",
+          email: STORED_EMAIL,
+          telefon: "069 1234567",
+          einwilligung: { umfang: "kontaktdaten", text_version: FORM_LABEL, datum: "2026-10-03" },
+        },
+        stellvertretung: null,
+        trainer_ist_zugleich: null,
+      },
+    };
+
+    setFresh(false);
+    const sent = calls.length;
+    assert.deepEqual(await patch(seated), refused, "a stale session seated a new contact person");
+    assert.ok(
+      calls.slice(sent).every(({ method }) => method === undefined),
+      "the minting save reached the backend for a session past the window",
+    );
+
+    setFresh(true);
+    assert.notDeepEqual(await patch(seated), refused, "a fresh session was refused a save seating a new contact person");
   });
 
   /* A mint ends the standing link, which nothing restores; the first mint ends nothing, and a stale
@@ -318,8 +384,8 @@ describe("an administrator write the server holds to the step-up window", () => 
     assert.notDeepEqual(await draw({ id: SAISON_ID }), refused, "a stale session was refused a first draw");
   });
 
-  /* The save mints where it moves an unanswered referee's address, and only there: a fee changed on a
-     stale session asks nothing, nor does an address moved on a referee who has answered. */
+  /* The save mints where it moves a referee's address, a consent link before their answer and an
+     address link after it, and only there: a fee changed on a stale session asks nothing. */
   it("refuses a referee's save only where it mints a new link", async () => {
     const save = await action("patchSchiedsrichterAction");
     const payload = (email: string) => ({
@@ -335,7 +401,8 @@ describe("an administrator write the server holds to the step-up window", () => 
     assert.notDeepEqual(await save(payload(STORED_EMAIL)), refused, "a stale session was refused a save moving no address");
 
     answered = true;
-    assert.notDeepEqual(await save(payload("anna@neu.example")), refused, "a stale session was refused an answered referee's new address");
+    assert.deepEqual(await save(payload("anna@neu.example")), refused, "a stale session moved an answered referee's address");
+    assert.notDeepEqual(await save(payload(STORED_EMAIL)), refused, "a stale session was refused an answered referee's unmoved address");
   });
 
   /* A return asks the referee again only where they never answered, which is the return that mints. */
@@ -352,13 +419,17 @@ describe("an administrator write the server holds to the step-up window", () => 
 
 const ROUTES = path.resolve(import.meta.dirname, "..", "..", "app", "api", "admin");
 
-/** A referee's undo body, the save's payload with its address set to `email`. */
+/**
+ * A referee's undo body as the editor sends it: the save's payload, its address `email`, and the
+ * route's own field, as the kontakte drive carries its route's `kontakte_stand`.
+ */
 const refereeReplay = (email: string) => ({
   id: REFEREE_ID,
   name: "Anna Körner",
   schule: null,
   default_payment: 20,
   kontakt: { telefon: null, email },
+  adresswechsel_gespeichert: false,
 });
 
 /**
@@ -461,17 +532,7 @@ const NEW_SAISON = {
   id: "2027",
   start_date: "2027-03-01",
   end_date: "2027-07-01",
-  rules: {
-    win_points: 3,
-    draw_points: 1,
-    qualifiers_per_group: 2,
-    number_of_groups: 2,
-    teams_per_group: 4,
-    max_kadergroesse: 18,
-    tiebreak_order: "tordifferenz",
-    forfeit_ergebnis: { sieger_tore: 3, verlierer_tore: 0 },
-    erlaubte_stufen: ["E1", "Q1"],
-  },
+  rules: saisonRules(),
   bewerbung: null,
   registrierung: null,
 };
@@ -509,7 +570,7 @@ const CONFIRMED_BY_THE_BACKEND: Record<string, { name: string; payload: unknown 
       nachname: "Beispiel",
       email: "berta@example.de",
       telefon: "069 1234567",
-      text_version: LIGA_KENNTNISNAHME.textVersion,
+      text_version: FORM_LABEL,
     },
   },
   "POST /teams/{team_id}/saisons/{saison_id}/einladung": { name: "postEinladungAction", payload: { team_id: TEAM_ID, saison_id: SAISON_ID } },
@@ -519,10 +580,15 @@ const CONFIRMED_BY_THE_BACKEND: Record<string, { name: string; payload: unknown 
   },
   "POST /saisons/{saison_id}/einladungen/versand": { name: "postEinladungVersandAction", payload: { id: SAISON_ID } },
   "POST /kontakte/erasure": { name: "eraseKontaktpersonAction", payload: { email: "berta@example.de" } },
-  // Clearing the block, the one call of the contacts save the backend steps up.
+  // Clearing the block, one of the two calls of the contacts save the backend steps up, the other
+  // being a save that seats somebody new.
   "PATCH /teams/{team_id}/saisons/{saison_id}/kontakte": {
     name: "patchSaisonTeamKontakteAction",
     payload: { team_id: TEAM_ID, saison_id: "2526", kontakte: null, kontakte_stand: "9f2c" },
+  },
+  "POST /teams/{team_id}/saisons/{saison_id}/kontakte/{seat}/bestaetigung/einladen": {
+    name: "einladeKontaktAction",
+    payload: { team_id: TEAM_ID, saison_id: "2526", rolle: "ansprechperson" },
   },
   "POST /saisons": { name: "postSaisonAction", payload: NEW_SAISON },
   "POST /saisons/{saison_id}/activate": { name: "activateSaisonAction", payload: { id: SAISON_ID } },
@@ -538,6 +604,8 @@ const CONFIRMED_BY_THE_BACKEND: Record<string, { name: string; payload: unknown 
   "POST /schiedsrichter/{schiedsrichter_id}/reactivate": { name: "reactivateSchiedsrichterAction", payload: { id: REFEREE_ID } },
   "POST /schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen": { name: "einladeSchiedsrichterAction", payload: { id: REFEREE_ID } },
   "POST /schiedsrichter/{schiedsrichter_id}/anonymisieren": { name: "anonymiseSchiedsrichterAction", payload: { id: REFEREE_ID } },
+  "POST /schiedsrichter/{schiedsrichter_id}/adresswechsel/einladen": { name: "einladeAdresswechselAction", payload: { id: REFEREE_ID } },
+  "DELETE /schiedsrichter/{schiedsrichter_id}/adresswechsel": { name: "verwirfAdresswechselAction", payload: { id: REFEREE_ID } },
   "DELETE /sperrliste/{sperrliste_id}": { name: "deleteSperreAction", payload: { id: SPERRE_ID } },
   "DELETE /spieler/{spieler_id}/erasure": { name: "eraseSpielerAction", payload: { id: SPIELER_ID } },
   "POST /teams/{team_id}/saisons": { name: "postSaisonTeamAction", payload: { team_id: TEAM_ID, saison_id: SAISON_ID, gruppe: "A" } },

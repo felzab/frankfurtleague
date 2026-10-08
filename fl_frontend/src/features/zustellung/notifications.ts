@@ -1,24 +1,25 @@
 import "server-only";
 
-import { APINetworkError, MailSendError } from "@/core/errors";
+import { MailSendError } from "@/core/errors";
 import { logger } from "@/core/logging";
-import { MailBarredError, MailRecipientError, MailWithheldError, sendMail } from "@/core/mail";
+import { MailRecipientError, sendMail } from "@/core/mail";
 import { mailIdempotencyKey } from "@/core/mailIdempotencyKey";
 import { markOutcomeUnknown } from "@/core/requestScope";
+import { versandAusfallOf } from "@/core/versandAusfall";
 
 import { meldeZielZustellungAbgewiesen, meldeZielZustellungAngenommen } from "./mutations";
 import { FLZustellungAbgewiesenPayloadSchema } from "./schemas";
 
 import type { OutboundMail } from "@/core/mail";
+import type { FLKontaktRolle } from "@/features/bewerbungen/schemas";
 import type { ZustellAnlass } from "@/features/bewerbungen/zustellung";
-import type { FLZustellungZiel } from "./schemas";
+import type { FLZielJeSitz, FLZustellungZiel } from "./schemas";
 
 /**
  * Which record a fan-out's messages are about, so an accepted send is recorded against it. The
  * application's own twin keys on a seat instead, there being three of them behind one document.
  */
 export type ZielAuftrag = {
-  ziel: FLZustellungZiel;
   zielId: string;
   anlass: ZustellAnlass;
   /**
@@ -26,7 +27,13 @@ export type ZielAuftrag = {
    * change inside the provider's window. It also lets the transport retry a broken send.
    */
   idempotenzTag?: string;
-};
+} &
+  // A team's season row holds three seats, so its message names the ones it covers, at least one; every
+  // other kind has one carrier and names none.
+  (
+    | { ziel: FLZielJeSitz; rollen: readonly [FLKontaktRolle, ...FLKontaktRolle[]] }
+    | { ziel: Exclude<FLZustellungZiel, FLZielJeSitz>; rollen?: never }
+  );
 
 /** Every list is in the order the addresses were tried. */
 export type ZielMailOutcome = {
@@ -52,6 +59,21 @@ export type ZielMailOutcome = {
   gesperrt: number;
 };
 
+/**
+ * How a one-recipient link mail ended. `zurueckgehalten` is a deployment that mails nothing filing it
+ * (`fl_frontend/src/core/mail.ts :: MailWithheldError`), `gesperrt` the ban list keeping it from the
+ * address (`:: MailBarredError`): neither is sent, and neither is a failure to warn about.
+ */
+export type LinkVersand = "gesendet" | "zurueckgehalten" | "gesperrt" | "fehlgeschlagen";
+
+/** The one reading of a link mail's fan-out, so every surface reporting a link names one outcome alike. */
+export function linkVersandOf({ delivered, withheld, gesperrt }: Pick<ZielMailOutcome, "delivered" | "withheld" | "gesperrt">): LinkVersand {
+  if (delivered.length > 0) return "gesendet";
+  if (gesperrt > 0) return "gesperrt";
+
+  return withheld.length > 0 ? "zurueckgehalten" : "fehlgeschlagen";
+}
+
 /** One message as its builder composed it, without the envelope the fan-out fills in. */
 export type ZielMail = Pick<OutboundMail, "subject" | "html" | "text">;
 
@@ -60,8 +82,10 @@ export type ZielMail = Pick<OutboundMail, "subject" | "html" | "text">;
  * one to a record: the kind alone names a population, so a report without the row's own id reaches
  * nothing.
  */
-export function zielZustellungTags({ ziel, zielId, anlass }: ZielAuftrag): Record<string, string> {
-  return { ziel: ziel, ziel_id: zielId, anlass: anlass };
+export function zielZustellungTags({ ziel, zielId, anlass, rollen }: ZielAuftrag): Record<string, string> {
+  // Joined as `fl_frontend/src/features/bewerbungen/zustellung.ts :: zustellungTags` joins them, the
+  // provider admitting no list; absent rather than empty for a kind naming none.
+  return { ziel: ziel, ziel_id: zielId, anlass: anlass, ...(rollen === undefined ? {} : { rollen: rollen.join("-") }) };
 }
 
 /**
@@ -69,9 +93,13 @@ export function zielZustellungTags({ ziel, zielId, anlass }: ZielAuftrag): Recor
  * over another body being refused: a token minted again under one record goes keyless, one minted on
  * its own record keys safely.
  */
-export function zielIdempotenzSchluessel({ ziel, zielId, anlass }: ZielAuftrag, tag: string, address: string): string {
-  return mailIdempotencyKey([anlass, ziel, zielId, tag], address);
+export function zielIdempotenzSchluessel({ ziel, zielId, anlass, rollen }: ZielAuftrag, tag: string, address: string): string {
+  // The seats inside the scope: one row's two messages to two people sharing a mailbox are two bodies.
+  return mailIdempotencyKey([anlass, ziel, zielId, ...(rollen === undefined ? [] : [rollen.join("-")]), tag], address);
 }
+
+/** The seats a delivery write names: empty for every kind with one carrier, as the endpoint requires. */
+const rollenDerMeldung = (auftrag: ZielAuftrag): FLKontaktRolle[] => [...(auftrag.rollen ?? [])];
 
 /** The record one accepted message covered, stamped with THIS server's clock. */
 async function meldeAngenommen(auftrag: ZielAuftrag, nachrichtId: string, operation: string): Promise<void> {
@@ -79,6 +107,7 @@ async function meldeAngenommen(auftrag: ZielAuftrag, nachrichtId: string, operat
     const { angewendet } = await meldeZielZustellungAngenommen({
       ziel: auftrag.ziel,
       ziel_id: auftrag.zielId,
+      rollen: rollenDerMeldung(auftrag),
       nachricht_id: nachrichtId,
       // This host's clock, which the backend orders against the record's own last accept and
       // against no provider stamp
@@ -124,6 +153,7 @@ async function meldeAbgewiesen(auftrag: ZielAuftrag, reason: unknown, operation:
     await meldeZielZustellungAbgewiesen({
       ziel: auftrag.ziel,
       ziel_id: auftrag.zielId,
+      rollen: rollenDerMeldung(auftrag),
       grund: gescreent.success ? gescreent.data : null,
       // This host's clock, as the accepted send's is: the backend orders the two against each other
       // (`fl_backend/app/api/bewerbungen/services.py :: zustellung_send_applies`).
@@ -191,19 +221,21 @@ export async function sendZielMail({
       return;
     }
 
+    const ausfall = versandAusfallOf(result.reason);
+
     // Counted and nothing more: no failure line, the gate's own being the record, and no refusal
     // recorded, which would store on the record that its address is barred (`docs/frontend/spec.md :: I542`).
-    if (result.reason instanceof MailBarredError) {
+    if (ausfall === "gesperrt") {
       gesperrt += 1;
       return;
     }
 
-    if (result.reason instanceof APINetworkError) {
+    if (ausfall === "ungewiss") {
       ungewiss.push(address);
       markOutcomeUnknown();
     } else unreachable.push(address);
     // Beside rather than instead: every caller reading `unreachable` alone keeps the answer it had.
-    if (result.reason instanceof MailWithheldError) {
+    if (ausfall === "zurueckgehalten") {
       withheld.push(address);
       // No failure line: the mailer's own records a filed message, and a deployment that mails nothing failed nothing.
       return;

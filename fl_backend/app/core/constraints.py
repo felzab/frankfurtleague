@@ -77,10 +77,13 @@ _TRIKOT_FARBEN = [
 # The second member is the person's own tick on their confirmation page: no payload offers it.
 _KONTAKT_KENNTNISNAHME_UMFANG = ["kontaktdaten", "kontaktdaten_whatsapp"]
 _KONTAKT_KENNTNISNAHME_QUELLEN = ["person", "administrativ"]
+# Mirrors `app/api/teams/schemas.py :: FLKontaktEingetragenVon`.
+_KONTAKT_EINGETRAGEN_VON = ["bewerbung", "liga"]
 _BEWERBUNG_STATUS = ["eingereicht", "angenommen", "abgelehnt"]
 
-# Derived, not spelled: these ARE the collection names, and the log never records itself.
-_LOGGED_COLLECTIONS = [str(name) for name in Collection if name is not Collection.AKTIONEN]
+# Derived, not spelled: these ARE the collection names. The log never records itself, nor the day's
+# write counts, which bypass `app/core/crud.py` (`app/core/drosselung.py`).
+_LOGGED_COLLECTIONS = [str(name) for name in Collection if name not in {Collection.AKTIONEN, Collection.DROSSELUNG}]
 
 # Mirrors `app/core/recording.py :: Operation`, `:: Actor.kind`, `:: PersonActor.kind` and
 # `:: AktorFunktion`, hand-copied. `tests/core/test_constraints.py` pins each against the recording
@@ -100,7 +103,8 @@ def _object(*, required: Sequence[str], properties: Mapping[str, Any], nullable:
     """
     return {
         "bsonType": ["object", "null"] if nullable else "object",
-        "required": list(required),
+        # Left off where nothing is required: MongoDB refuses an empty `required`.
+        **({"required": list(required)} if required else {}),
         "properties": dict(properties),
     }
 
@@ -146,14 +150,37 @@ _AKTION_REQUEST = _object(
     properties={"method": {"bsonType": "string"}, "path": {"bsonType": "string"}},
 )
 
+
+# When a person set one choice and under which wording (`app/shared/schemas/einwilligung.py ::
+# FLEinwilligungBeleg`); every key required, a half-stamped act proving nothing.
+_BELEG = _object(required=("am", "text_version"), properties={"am": {"bsonType": "string"}, "text_version": {"bsonType": "string"}})
+
+# One choice's evidence, null until its person sets the choice; `erteilt_zuvor` only on a withdrawal.
+_NACHWEIS_WAHL = _object(
+    nullable=True,
+    required=("am", "text_version"),
+    properties={
+        "am": {"bsonType": "string"},
+        "text_version": {"bsonType": "string"},
+        "erteilt_zuvor": {**_BELEG, "bsonType": ["object", "null"]},
+    },
+)
+
+# Out of every block's `required` for `saisons.spielplan`'s reason: a record no person has answered
+# carries none. Never null, a dotted `$set` beneath one failing. Shared by both vocabularies, whose
+# choices carry the same two names.
+_NACHWEIS = _object(required=(), properties={"umfang": _NACHWEIS_WAHL, "medien": _NACHWEIS_WAHL})
+
+
 # Required TOGETHER: the required keys are always present, and a null `bestaetigt_am` is what says
-# the consent is UNCONFIRMED rather than absent. Read by `spieler`, `schiedsrichter` and
-# `registrierungen` alike, so widening `umfang` for one widens it for all three.
+# the consent is UNCONFIRMED rather than absent. Spread into the registration's own below, so
+# widening `umfang` here widens it on all three collections.
 _EINWILLIGUNG = _object(
-    required=("umfang", "erteilt_von", "datum", "bestaetigt_am"),
+    required=("umfang", "datum", "bestaetigt_am"),
     properties={
         "umfang": {"bsonType": "string", "enum": _EINWILLIGUNG_UMFANG},
-        "erteilt_von": {"bsonType": "string", "enum": _EINWILLIGUNG_QUELLEN},
+        # Out of `required` and still closed: stored records carry it, and no write sets it.
+        "erteilt_von": {"bsonType": _STRING_OR_NULL, "enum": [*_EINWILLIGUNG_QUELLEN, None]},
         "datum": {"bsonType": _STRING_OR_NULL},
         "bestaetigt_am": {"bsonType": _STRING_OR_NULL},
         # Both out of `required` for `saisons.spielplan`'s reason: every stored consent record
@@ -161,21 +188,41 @@ _EINWILLIGUNG = _object(
         # member, so a record can be withdrawn from one and stand in the other.
         "text_version": {"bsonType": _STRING_OR_NULL},
         "medien": {"bsonType": "bool"},
+        "nachweis": _NACHWEIS,
+    },
+)
+
+# A pending registration's: `bestaetigt_am` alone required and both choices nullable, a returning
+# pupil's page asking none. Never a widened `_EINWILLIGUNG`, which a person's record would then
+# pass without a scope.
+_REGISTRIERUNG_EINWILLIGUNG = _object(
+    nullable=True,
+    required=("bestaetigt_am",),
+    properties={
+        **_EINWILLIGUNG["properties"],
+        "umfang": {"bsonType": _STRING_OR_NULL, "enum": [*_EINWILLIGUNG_UMFANG, None]},
+        "medien": {"bsonType": ["bool", "null"]},
     },
 )
 
 # A CONTACT person's record, and never `_EINWILLIGUNG` above: that one records what may be
 # published about a pupil, and one shared sub-schema would let either enum widen the other.
 _KONTAKT_KENNTNISNAHME = _object(
-    required=("umfang", "erfasst_von", "text_version", "datum"),
+    required=("umfang", "text_version", "datum"),
     properties={
         "umfang": {"bsonType": "string", "enum": _KONTAKT_KENNTNISNAHME_UMFANG},
-        "erfasst_von": {"bsonType": "string", "enum": _KONTAKT_KENNTNISNAHME_QUELLEN},
+        # For `_EINWILLIGUNG`'s `erteilt_von`'s reason.
+        "erfasst_von": {"bsonType": _STRING_OR_NULL, "enum": [*_KONTAKT_KENNTNISNAHME_QUELLEN, None]},
         "text_version": {"bsonType": "string"},
         "datum": {"bsonType": "string"},
         # Out of `required` for `wunschgegner`'s reason: every record stored before the field lacks
         # the key, and a decision re-validates the whole document.
         "bestaetigt_am": {"bsonType": _STRING_OR_NULL},
+        # Out of `required` for `bestaetigt_am`'s reason.
+        "medien": {"bsonType": "bool"},
+        # Out of `required` for `bestaetigt_am`'s reason, and null only as the read model spells an absent key.
+        "eingetragen_von": {"bsonType": _STRING_OR_NULL, "enum": [*_KONTAKT_EINGETRAGEN_VON, None]},
+        "nachweis": _NACHWEIS,
     },
 )
 
@@ -291,6 +338,51 @@ _SCHIEDSRICHTER_BESTAETIGUNG = _object(
     },
 )
 
+# A confirmed referee's address waiting on its own mailbox. Never `_SCHIEDSRICHTER_BESTAETIGUNG`:
+# nothing reminds about this link, and the address it proves is the block's own.
+_SCHIEDSRICHTER_ADRESSWECHSEL = _object(
+    nullable=True,
+    required=("email", "token_hash", "verschickt_am", "frist"),
+    properties={
+        "email": {"bsonType": "string"},
+        "token_hash": {"bsonType": "string"},
+        "verschickt_am": {"bsonType": "string"},
+        # STORED for `_SCHIEDSRICHTER_BESTAETIGUNG`'s reason.
+        "frist": {"bsonType": "string"},
+        # Out of `required` for `_BEWERBUNG_BESTAETIGUNG`'s reason.
+        "zustellung": _ZUSTELLUNG,
+    },
+)
+
+# A seat's link on a team's season row. Never `_BEWERBUNG_BESTAETIGUNG`: no reminder chases these
+# links, so a second hash and a reminder stamp are keys nothing writes, and each link carries its own
+# deadline.
+_SAISON_TEAM_BESTAETIGUNG = _object(
+    nullable=True,
+    required=("token_hash", "verschickt_am", "frist", "abgelehnt_am"),
+    properties={
+        "token_hash": {"bsonType": "string"},
+        "verschickt_am": {"bsonType": "string"},
+        # STORED for `_SCHIEDSRICHTER_BESTAETIGUNG`'s reason: raising the bound moves no link already sent.
+        "frist": {"bsonType": "string"},
+        "abgelehnt_am": {"bsonType": _STRING_OR_NULL},
+        # Out of `required` for `_BEWERBUNG_BESTAETIGUNG`'s reason.
+        "zustellung": _ZUSTELLUNG,
+    },
+)
+
+# Outside `kontakte`, as an application's block is: a Widerspruch empties the slot, and the record of
+# it has to outlive the emptying.
+_SAISON_TEAM_BESTAETIGUNGEN = _object(
+    nullable=True,
+    required=("trainer", "ansprechperson", "stellvertretung"),
+    properties={
+        "trainer": _SAISON_TEAM_BESTAETIGUNG,
+        "ansprechperson": _SAISON_TEAM_BESTAETIGUNG,
+        "stellvertretung": _SAISON_TEAM_BESTAETIGUNG,
+    },
+)
+
 _SAISON_BEWERBUNG = _object(
     nullable=True,
     required=("offen", "von", "bis"),
@@ -384,8 +476,8 @@ _BERECHTIGUNG_STAND = _object(
 )
 
 # The key a public submission is replayed by, and the digest of the payload it first carried
-# (`docs/backend/spec.md :: I346`). Out of `required` in both collections: every row stored
-# before the key carries none.
+# (`docs/backend/spec.md :: I346`), kept on the squad row an admission writes. Out of `required`
+# everywhere: every row stored before the key carries none.
 _IDEMPOTENZ_PROPERTIES: Mapping[str, Any] = {
     "idempotenz_schluessel": {"bsonType": "string"},
     "idempotenz_fingerabdruck": {"bsonType": "string"},
@@ -599,6 +691,8 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 # Both out of `required` for `saisons.spielplan`'s reason.
                 "trikot_farbe": {"bsonType": _STRING_OR_NULL, "enum": [*_TRIKOT_FARBEN, None]},
                 "kontakte": _SAISON_TEAM_KONTAKTE,
+                # Out of `required` for `saisons.spielplan`'s reason: no row carried links before them.
+                "bestaetigungen": _SAISON_TEAM_BESTAETIGUNGEN,
                 # The name this club was PLAYED under, seeded at entry and rewritten by a rename only
                 # while the season is not `past` (`docs/backend/spec.md :: I13`). What makes the copy
                 # embedded in its fixtures true rather than merely old.
@@ -657,6 +751,7 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 # `uniq_spieler_id_saison_id` keeps indexing a retired row, so a second create is a
                 # DUPLICATE KEY answered 409 (`docs/backend/spec.md :: I20`).
                 "inactive_since": _INACTIVE_SINCE,
+                **_IDEMPOTENZ_PROPERTIES,
             },
         )
     },
@@ -751,9 +846,12 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "inactive_since": _INACTIVE_SINCE,
                 # The confirmation bookkeeping a message to this referee is recorded against
                 # (`app/api/zustellung/services.py :: ZIEL_PFADE`). Out of `required`: the ghost and
-                # a row never minted a link carry none, and correcting a retired referee's address
+                # a row never minted a link carry none, and correcting an unconfirmed retired referee's address
                 # removes it (`app/api/schiedsrichter/services.py :: compose_korrektur_update`).
                 "bestaetigung": _SCHIEDSRICHTER_BESTAETIGUNG,
+                # A delivery carrier too. Out of `required`: only a confirmed referee whose address
+                # an administrator moved carries one, until its mailbox answers.
+                "adresswechsel": _SCHIEDSRICHTER_ADRESSWECHSEL,
                 # Out of `required` for the first two of `bestaetigung`'s reasons, and nullable
                 # besides: only the person's own confirmation writes it, so a live row awaiting one
                 # carries null.
@@ -941,7 +1039,7 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 # Required as KEYS and null until the pupil's own confirmation writes both in one
                 # `$set` (`docs/backend/spec.md :: I285`).
                 "geburtsdatum": {"bsonType": _STRING_OR_NULL},
-                "einwilligung": {**_EINWILLIGUNG, "bsonType": ["object", "null"]},
+                "einwilligung": _REGISTRIERUNG_EINWILLIGUNG,
                 # Out of `required` as the other two carriers are (`app/api/zustellung/services.py
                 # :: ZIEL_PFADE`): the accepted send skips a row holding no carrier at all, and a
                 # row seeded without one still stores. Every submission composes it.
@@ -1025,6 +1123,18 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
             },
         )
     },
+    Collection.DROSSELUNG: {
+        "$jsonSchema": _object(
+            # `ablauf` too: the collection held no row before its TTL index, and a row without it is never expired.
+            required=("_id", "n", "ablauf"),
+            properties={
+                # `<Funktion>:<pseudonym>:<YYYY-MM-DD>`, so a new German day is a new row and no reset is written.
+                "_id": {"bsonType": "string"},
+                "n": {"bsonType": "int"},
+                "ablauf": {"bsonType": "date"},
+            },
+        )
+    },
 }
 
 
@@ -1092,6 +1202,25 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
         ("idempotenz_schluessel",),
         "one registration per submission key",
         partial_filter={"idempotenz_schluessel": {"$type": "string"}},
+    ),
+    # The same key after its registration was admitted, so a replay finds it here once the row above
+    # is gone. Filtered for the reason above: a squad row an administrator wrote carries none.
+    UniqueIndex(
+        Collection.SAISON_SPIELER,
+        "uniq_saison_spieler_idempotenz_schluessel",
+        ("idempotenz_schluessel",),
+        "one admitted registration per submission key",
+        partial_filter={"idempotenz_schluessel": {"$type": "string"}},
+    ),
+    # One stored person per address, firing where two admissions for one new address race. Filtered
+    # on `$type`, so persons holding no address are not one null key; an equality reader carries the
+    # term or scans.
+    UniqueIndex(
+        Collection.SPIELER,
+        "uniq_spieler_email",
+        ("email",),
+        "one person per address",
+        partial_filter={"email": {"$type": "string"}},
     ),
     # Partial, because the league keeps every season it ever played: unfiltered, the second `past`
     # row would be refused. Checked at each write rather than at the commit, so a rollover demotes
@@ -1196,14 +1325,12 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         (("bestaetigung.token_hash", ASCENDING),),
         "the referee confirmation page's lookup, driven by strangers",
     ),
-    # A support index and not a unique one: an address is taken for one person without being enforced
-    # (`docs/datenschutz.md :: "One address is one person"`), so this read answers a list rather than
-    # refusing a second.
+    # PLAIN for the index above's reason.
     SupportIndex(
-        Collection.SPIELER,
-        "spieler_email",
-        (("email", ASCENDING),),
-        "the rows a signed-in person may be joined to, matched on the folded address",
+        Collection.SCHIEDSRICHTER,
+        "schiedsrichter_adresswechsel_token_hash",
+        (("adresswechsel.token_hash", ASCENDING),),
+        "the referee address page's lookup, driven by strangers",
     ),
     # Not a unique one, though a hash collides with nothing: a revoked row keeps its hash, so the
     # key holds as many rows as the team has been reissued links.
@@ -1228,6 +1355,27 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         "registrierungen_bestaetigung_token_hash_zuvor",
         (("bestaetigung.token_hash_zuvor", ASCENDING),),
         "the same lookup through the link a reminder replaced, which stays live beside the fresh one",
+    ),
+    # One per clause of each `$or`, for the registration's pair's reason: a contact seat's link is
+    # looked up on whichever seat holds it, an application's on either of its two hashes.
+    *(
+        SupportIndex(
+            Collection.SAISON_TEAMS,
+            f"saison_teams_bestaetigungen_{seat}_token_hash",
+            ((f"bestaetigungen.{seat}.token_hash", ASCENDING),),
+            "a contact seat's confirmation page, through the season row's lookup, driven by strangers",
+        )
+        for seat in _KONTAKTE_REQUIRED[:3]
+    ),
+    *(
+        SupportIndex(
+            Collection.BEWERBUNGEN,
+            f"bewerbungen_bestaetigungen_{seat}_{field}",
+            ((f"bestaetigungen.{seat}.{field}", ASCENDING),),
+            "a contact seat's confirmation page, through the application's lookup, driven by strangers",
+        )
+        for seat in _KONTAKTE_REQUIRED[:3]
+        for field in ("token_hash", "token_hash_zuvor")
     ),
     # `status` sits after the sort keys, the read being free to omit it: an index serves a sort
     # "only when the query includes equality conditions on all prefix keys that precede the sort
@@ -1270,6 +1418,8 @@ TTL_INDEXES: Sequence[TTLIndex] = (
         AKTION_RETENTION_SECONDS,
         "a log row is kept for twelve months after the write it recorded",
     ),
+    # Zero: `ablauf` is already the German midnight ending the day the row counts.
+    TTLIndex(Collection.DROSSELUNG, "drosselung_ablauf", "ablauf", 0, "a day's write count is removed once its German day has ended"),
 )
 
 
@@ -1718,6 +1868,13 @@ async def _run(check: bool) -> int:
     except OperationFailure as failure:
         # Not re-raised: the traceback buries the one line that matters, which this tool hands over.
         print(f"\n{diagnose_failure(failure)}\n")
+        return 2
+
+    except RuntimeError as failure:
+        # The apply wraps a refused build to name the validator or index; anything else is a defect.
+        if not isinstance(failure.__cause__, OperationFailure):
+            raise
+        print(f"\n  {str(failure).removesuffix(f': {failure.__cause__}')}.\n{diagnose_failure(failure.__cause__)}\n")
         return 2
 
     finally:

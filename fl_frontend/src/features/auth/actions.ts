@@ -9,7 +9,10 @@ import { afterTheResponse } from "@/core/afterResponse";
 import { sendSignInCode, signOutHere } from "@/core/auth";
 import { asSignInIdentifier } from "@/core/emailAddress";
 import { logger } from "@/core/logging";
+import { turnstileRefusal } from "@/core/turnstile";
+import { TURNSTILE_FIELD } from "@/core/turnstileToken";
 import { SignInPayloadSchema } from "@/features/auth/schemas";
+import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 import { toFieldErrors } from "@/shared/utils/validation";
 
@@ -38,6 +41,13 @@ export async function handleSignIn(_prevState: FormState | undefined, formData: 
   return runWithIncomingTrace(async () => {
     // The only server action reachable without a session, so its input is parsed and never cast.
     const submittedEmail = String(formData.get("email") ?? "");
+
+    // First, before the address is judged: nothing an unverified sender posted is parsed. The answer is
+    // the same whatever the address, so it says nothing about one.
+    const token = formData.get(TURNSTILE_FIELD);
+    const refusal = await turnstileRefusal(typeof token === "string" ? token : null);
+    if (refusal !== null) return { success: false, error: refusal, submittedEmail };
+
     const validated = SignInPayloadSchema.safeParse({ email: submittedEmail });
     if (!validated.success) {
       // Safe to be specific: a format check on what the user typed leaks no membership.
@@ -99,7 +109,7 @@ export async function signOutAction(): Promise<FormState> {
       // Narrowed rather than caught whole: anything the library did not raise is a defect here,
       // and answering it with a retry sentence is how one goes unseen.
       if (error instanceof APIError) {
-        return { success: false, error: "Versuche es erneut." };
+        return { success: false, error: VERSUCHE_ES_ERNEUT_SATZ };
       }
 
       throw error;

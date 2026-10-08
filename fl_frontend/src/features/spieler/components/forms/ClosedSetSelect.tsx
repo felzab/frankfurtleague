@@ -5,6 +5,7 @@ import { Label } from "@heroui/react/label";
 import { ListBox } from "@heroui/react/list-box";
 import { Separator } from "@heroui/react/separator";
 
+import { Leer } from "@/shared/components/ui/Angabe";
 import { FIELD_ERROR_CLASSES, FIELD_LABEL_CLASSES, FIELD_TRIGGER_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { listboxRow } from "@/shared/components/ui/refusableOption";
@@ -60,7 +61,7 @@ export function ClosedSetSelect<TValue extends string>({
       <Select.Trigger className={`${FIELD_TRIGGER_CLASSES} w-full justify-between`}>
         {/* From the prop, not `Select.Value` — the collection can lag a render behind and would then
             show HeroUI's English placeholder. */}
-        <span className={value ? "" : "text-foreground-muted"}>{value ?? placeholder}</span>
+        <span>{value ?? <Leer>{placeholder}</Leer>}</span>
         <Select.Indicator className="shrink-0 text-foreground-muted opacity-70" />
       </Select.Trigger>
       <FieldError className={FIELD_ERROR_CLASSES} />

@@ -1,11 +1,8 @@
-import { revalidateTag } from "next/cache";
-
-import { SCHIEDSRICHTER_EINWILLIGUNG } from "@/core/einwilligung";
-import { nenntLaufendeFassung } from "@/features/bewerbungen/utils";
 import { postSchiedsrichterBestaetigung } from "@/features/schiedsrichter/mutations";
 import { getSchiedsrichterBestaetigungAnsicht, mapSchiedsrichterBestaetigungRefusal } from "@/features/schiedsrichter/queries";
 import { FLSchiedsrichterBestaetigungPayloadSchema } from "@/features/schiedsrichter/schemas";
 import { refusedDraftAnswer } from "@/shared/utils/actionError";
+import { invalidatesOnWrite } from "@/shared/utils/adminMutation";
 import { handlePublicRequest } from "@/shared/utils/publicRoute";
 import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 
@@ -34,12 +31,10 @@ export async function POST(request: NextRequest) {
   return handlePublicRequest(request, {
     routeName: "postSchiedsrichterBestaetigung",
     run: async () => {
+      // Ahead of the fixture read joining this record, which will serve the referee's name by its scope:
+      // the cached fixture list is dropped wherever the answer may stand, and nowhere a write was not sent.
+      invalidatesOnWrite("spiele");
       const body: unknown = await request.json().catch(() => null);
-
-      // Judged BEFORE the parse, by the check every confirmation handler shares: a page opened
-      // before a deploy moved the label posts the words its reader saw, and only the mail's link
-      // reopens the page on the running ones.
-      if (!nenntLaufendeFassung(body, SCHIEDSRICHTER_EINWILLIGUNG.textVersion)) return { success: false as const, error: ANTWORT_NEU_OEFFNEN };
 
       const parsed = FLSchiedsrichterBestaetigungPayloadSchema.safeParse(body);
 
@@ -55,10 +50,6 @@ export async function POST(request: NextRequest) {
 
         return { success: false as const, ...refusal };
       }
-
-      // `revalidateTag` and never `updateTag`, which throws here (`docs/frontend/spec.md :: I14`);
-      // `{ expire: 0 }` because the recommended profile otherwise serves the withheld name once more.
-      revalidateTag("spiele", { expire: 0 });
 
       // The echo alone: this person is shown what was stored for them and nothing else the write knows.
       return { success: true as const, umfang: antwort.umfang, medien: antwort.medien, bestaetigt_am: antwort.bestaetigt_am };

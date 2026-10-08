@@ -168,3 +168,16 @@ ENROLMENT_WINDOW_MINUTES: Final = 5
 # The frontend's step-up window, which it holds every other step-up write to: the backend refuses
 # those writes from a sign-in older than it, so one the page failed to step up still meets it.
 STEP_UP_WINDOW_HOURS: Final = 2
+
+# The ceilings below assume a person-lane write persists at most 10 KB, its action-log row included:
+# one person at the highest then takes over a year to reach the storage alert
+# (`docs/ops/runbooks.md :: 19-the-databases-storage-alert`). A redesigned log keeps that bound.
+
+# A signed-in person's counted writes per German day, by kind of person, each about three to five
+# times its kind's busiest legitimate day (`docs/backend/spec.md :: I614`). A pupil's is the first
+# visit: two choices, each granted and corrected, 4 grants.
+DROSSELUNG_SPIELER_PRO_TAG: Final = 20
+# A referee's is a season's match work done in one sitting, about 31 writes, beside four consent grants.
+DROSSELUNG_SCHIEDSRICHTER_PRO_TAG: Final = 100
+# A contact seat's is a season start: 25 admissions, 5 declines, two saves per squad row, 4 grants, about 84.
+DROSSELUNG_KONTAKT_PRO_TAG: Final = 300

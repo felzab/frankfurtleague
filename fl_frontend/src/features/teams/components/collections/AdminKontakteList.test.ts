@@ -4,22 +4,24 @@ import { describe, it } from "node:test";
 import { createElement as h } from "react";
 
 import { KONTAKT_ROLLEN } from "@/features/teams/constants.ts";
+import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
+import { assertLeerMarkup } from "@/shared/testing/leerGrade.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
 
+import type { FLKontaktKenntnisnahme } from "@/features/teams/schemas.ts";
 import type { AdminKontakteRow, AdminKontaktSeat } from "@/features/teams/types.ts";
 
 /* Reached with `await import` and never a static import beside the harness, which registers the JSX
    compile step as it evaluates (`docs/frontend/spec.md` §1.9). */
 const { AdminKontakteList } = await import("./AdminKontakteList.tsx");
 
-const KENNTNISNAHME = {
-  umfang: "kontaktdaten",
+const KENNTNISNAHME: FLKontaktKenntnisnahme = kenntnisnahme({
   erfasst_von: "administrativ",
   text_version: "kontakte-1",
   datum: "2026-05-01",
   bestaetigt_am: null,
-} as const;
+});
 
 /**
  * One person per seat, each field distinct from every other seat's, so an assertion reaching a name
@@ -97,6 +99,7 @@ describe("the seats a contacts card carries", () => {
     const nextSeat = at(html, labelOf("trainer"));
 
     assert.ok(at(html, "Niemand hinterlegt") > emptySeat, "the empty seat's cell says nothing about being empty");
+    assertLeerMarkup(html, "Niemand hinterlegt");
     assert.ok(at(html, "Niemand hinterlegt") < nextSeat, "the emptiness stands outside the cell of the seat it is about");
     assert.ok(nextSeat > emptySeat, "the seats no longer stand in the order they arrived");
     assert.ok(at(html, PEOPLE.trainer.email) > nextSeat, "the Trainer's address stands under the emptied seat");

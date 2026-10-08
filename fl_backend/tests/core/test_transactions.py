@@ -1,10 +1,13 @@
 import ast
 import asyncio
+import contextlib
+import dataclasses
 import logging
 import time
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
+from contextlib import asynccontextmanager
 from types import SimpleNamespace
-from typing import Any, cast
+from typing import Any, cast, get_args, get_type_hints
 
 import anyio
 import pytest
@@ -12,15 +15,20 @@ from bson import ObjectId
 from fastapi import FastAPI
 from pymongo import AsyncMongoClient, monitoring
 from pymongo.asynchronous.client_session import AsyncClientSession
+from starlette.requests import Request
 from starlette.types import Message, Scope
 
+from app.core import security
 from app.core.collections import Collection
 from app.core.exception_handlers import DATABASE_FAILED
 from app.core.logging import fl_logger
 from app.core.middlewares import request_deadline_var
-from app.core.transactions import ABORT_GRACE_S, drain, transaction_session
+from app.core.recording import PUBLIC_ACTOR, SYSTEM_ACTOR, Actor, PersonActor, actor_var
+from app.core.security import admin_judge, bind_actor, person_judge
+from app.core.transactions import ABORT_GRACE_S, UNJUDGED_KINDS, actor_judge_var, drain, transaction_session
 from app.main import create_app
-from tests.config import TEST_BASE_URL, UNANSWERED_URI, build_test_config
+from tests.actor_tokens import verified_actor
+from tests.config import TEST_BASE_URL, UNANSWERED_URI, build_test_config, grants_for_the_suite
 from tests.core.app_source import APP_ROOT, BACKEND_ROOT, app_calls, callee, parsed
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
@@ -31,8 +39,14 @@ TRANSACTION_SESSION = "transaction_session"
 
 
 class _Session:
-    def __init__(self) -> None:
+    # No transaction number, as on a session no transaction reached a server through: a failure inside
+    # it is sent no abort.
+    _server_session = object()
+    _transaction_id = 0
+
+    def __init__(self, attempts: int = 1) -> None:
         self.open = False
+        self.attempts = attempts
 
     async def __aenter__(self) -> _Session:
         self.open = True
@@ -41,13 +55,23 @@ class _Session:
     async def __aexit__(self, *_: Any) -> None:
         self.open = False
 
+    async def with_transaction(self, callback: Callable[[Any], Awaitable[Any]]) -> Any:
+        """As the driver runs one: the callback handed the session itself, once per attempt, the last attempt's answer returned."""
+
+        answer = None
+        for _ in range(self.attempts):
+            answer = await callback(self)
+
+        return answer
+
 
 class _Client:
-    def __init__(self) -> None:
+    def __init__(self, attempts: int = 1) -> None:
         self.sessions: list[_Session] = []
+        self.attempts = attempts
 
     def start_session(self) -> _Session:
-        self.sessions.append(_Session())
+        self.sessions.append(_Session(self.attempts))
         return self.sessions[-1]
 
 
@@ -69,16 +93,157 @@ class TestAFullPageIsRunAgain:
         client = _Client()
         handed: list[_Session] = []
 
-        async def page_of(session: Any) -> tuple[int, int, int]:
+        async def erase_a_page(session: Any) -> tuple[int, int, int]:
             assert session.open, "a page ran outside the session it was handed"
             handed.append(session)
             return pages[len(handed) - 1]
 
-        erased, redacted = asyncio.run(drain(db=cast(AsyncMongoClient, client), page_of=page_of, page=PAGE))
+        erased, redacted = asyncio.run(
+            drain(db=cast(AsyncMongoClient, client), page_of=lambda session: session.with_transaction(erase_a_page), page=PAGE)
+        )
 
         assert handed == client.sessions
         assert len(handed) == len(pages)
         assert (erased, redacted) == (sum(page[1] for page in pages), sum(page[2] for page in pages))
+
+
+class _Judged:
+    """A judge recording when the hook enters and leaves it, refusing on entry where `refuses` is set.
+
+    What a production judge does on leaving is its own: `TestTheAdministratorsJudgeOverARealGrant` holds it.
+    """
+
+    def __init__(self, events: list[str], *, refuses: bool = False) -> None:
+        self.events = events
+        self.refuses = refuses
+
+    @asynccontextmanager
+    async def __call__(self, session: Any) -> AsyncIterator[None]:
+        assert session.open, "the judge ran outside the attempt's session"
+        self.events.append("entered")
+        if self.refuses:
+            raise _RefusedByTheJudge
+
+        yield
+
+        self.events.append("left")
+
+
+class _RefusedByTheJudge(Exception):
+    """The judge's refusal, raised before its callback."""
+
+
+class _FailedInTheCallback(Exception):
+    """The callback's own failure."""
+
+
+def _run_judged(actor: Actor | PersonActor, judge: Any, *, attempts: int = 1, fails: bool = False, client: _Client | None = None) -> list[str]:
+    """One transaction run under `actor` and `judge` bound as a binder binds them, and what ran in it, in order."""
+
+    client = _Client(attempts) if client is None else client
+    events: list[str] = [] if judge is None else judge.events
+
+    async def callback(session: Any) -> None:
+        events.append("callback")
+        if fails:
+            raise _FailedInTheCallback
+
+    async def run() -> None:
+        actor_token, judge_token = actor_var.set(actor), actor_judge_var.set(judge)
+        try:
+            async with transaction_session(cast(AsyncMongoClient, client)) as session:
+                await session.with_transaction(callback)
+        finally:
+            actor_var.reset(actor_token)
+            actor_judge_var.reset(judge_token)
+
+    asyncio.run(run())
+
+    return events
+
+
+ADMINISTRATOR = Actor(kind="admin_session", email="admin@example.com")
+PERSON = PersonActor(pseudonym="0" * 64, funktion="spieler")
+
+
+class TestEveryAttemptJudgesItsActorFirst:
+    """`docs/backend/spec.md :: I575`: the judge a binder bound is entered inside every attempt the driver makes, around its callback."""
+
+    def test_the_judge_is_entered_before_the_callback_and_left_after_it_on_every_attempt(self):
+        """Two attempts, as a write conflict makes: a judge entered once per session would let the retry run on the first attempt's read."""
+
+        events = _run_judged(ADMINISTRATOR, _Judged([]), attempts=2)
+
+        assert events == ["entered", "callback", "left", "entered", "callback", "left"]
+
+    def test_a_refusing_judge_runs_no_callback(self):
+        events: list[str] = []
+        with pytest.raises(_RefusedByTheJudge):
+            _run_judged(ADMINISTRATOR, _Judged(events, refuses=True))
+
+        assert events == ["entered"]
+
+    def test_a_failing_callback_reaches_the_judge_as_its_failure(self):
+        """Never as a callback that returned: a judge's last step runs only after one that did."""
+
+        events: list[str] = []
+        with pytest.raises(_FailedInTheCallback):
+            _run_judged(ADMINISTRATOR, _Judged(events), fails=True)
+
+        assert events == ["entered", "callback"]
+
+
+class TestTheSystemAndThePublicAreJudgedByNothing:
+    @pytest.mark.parametrize("actor", [SYSTEM_ACTOR, PUBLIC_ACTOR], ids=["the system", "the public"])
+    def test_their_callback_runs_with_no_judge_bound(self, actor: Actor):
+        events = _run_judged(actor, None)
+
+        assert events == ["callback"]
+
+
+def _actor_kinds() -> frozenset[str]:
+    """Every `kind` an actor can carry, read off the two actor types rather than listed, so a kind added there is found here."""
+
+    return frozenset(kind for actor_type in (Actor, PersonActor) for kind in get_args(get_type_hints(actor_type)["kind"]))
+
+
+# The kinds a binder binds a judge beside, each with the binder: the half of the partition the hook does not name.
+JUDGED_BY: Mapping[str, str] = {
+    "admin_session": "app/core/security.py :: bind_actor",
+    "person_session": "app/core/security.py :: person_actor_binder",
+}
+
+
+def _an_actor_of(kind: str) -> Actor | PersonActor:
+    """An actor carrying `kind`, built off a sample of the type declaring it.
+
+    The dataclasses check no `Literal`, so a kind no binder places yet is built all the same.
+    """
+
+    sample = next(actor for actor in (ADMINISTRATOR, PERSON) if kind in get_args(get_type_hints(type(actor))["kind"]))
+
+    return dataclasses.replace(sample, kind=kind)
+
+
+class TestAnUnjudgedActorIsRefused:
+    @pytest.mark.parametrize("kind", sorted(_actor_kinds() - UNJUDGED_KINDS))
+    def test_a_judged_kind_with_no_judge_bound_opens_no_session(self, kind: str):
+        """Every kind the hook does not name, read off the actor types: a kind added there is driven here unlisted.
+
+        Load-bearing for the administrator: a binder that bound the actor and forgot the judge would otherwise write past a revoke.
+        """
+
+        client = _Client()
+        with pytest.raises(LookupError):
+            _run_judged(_an_actor_of(kind), None, client=client)
+
+        assert client.sessions == []
+
+    def test_every_actor_kind_is_unjudged_by_name_or_judged_by_its_binder(self):
+        """A kind added to either actor type fails here until it is placed: refused by the hook meanwhile, never let through."""
+
+        assert UNJUDGED_KINDS.isdisjoint(JUDGED_BY)
+        assert UNJUDGED_KINDS | JUDGED_BY.keys() == _actor_kinds()
 
 
 class _TransactedSession(_Session):
@@ -390,6 +555,211 @@ class TestAFailureAfterTheCommitRaisesNoAlarm:
         # The control: this helper's abort, answered; a helper sending nothing would also log nothing.
         assert (aborts.answered, stored) == ([TRANSACTION_COMMITTED], 1)
         assert [record for record in caplog.records if getattr(record, "error_code", None) == DATABASE_FAILED] == []
+
+
+JUDGE_DATABASE_NAME = worker_database("fl_transactions_judge_test")
+
+ACTING, OTHER = grants_for_the_suite()[1], grants_for_the_suite()[2]
+
+
+class _GrantUpdates(monitoring.CommandListener):
+    """The `_id` each update the client sends to the grants filters on, in the order sent: a write aborted after it still shows here."""
+
+    def __init__(self) -> None:
+        self.filtered_on: list[Any] = []
+
+    def started(self, event: monitoring.CommandStartedEvent) -> None:
+        if event.command_name == "update" and event.command.get("update") == Collection.BERECHTIGUNGEN:
+            self.filtered_on.extend(update["q"].get("_id") for update in event.command["updates"])
+
+    def succeeded(self, event: monitoring.CommandSucceededEvent) -> None:
+        """Required by the listener interface; a write is judged by what was sent."""
+
+    def failed(self, event: monitoring.CommandFailedEvent) -> None:
+        """Required by the listener interface; a write is judged by what was sent."""
+
+
+def _judged_by_the_administrators_judge(url: str, *, fails: bool) -> tuple[list[Any], int]:
+    """One transaction under `app/core/security.py :: admin_judge`, its callback writing another grant row.
+
+    Answers the rows each grant update named, as sent, and the actor's row's `bounded_writes` once it ends.
+    """
+
+    updates = _GrantUpdates()
+
+    async def body() -> int:
+        async with a_clean_database(url, JUDGE_DATABASE_NAME) as (_, database):
+            await database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
+            # A client of this case's own, so the listener sees this transaction's commands and none of the seeding.
+            watched = AsyncMongoClient(url, event_listeners=[updates])
+            grants = watched[JUDGE_DATABASE_NAME][Collection.BERECHTIGUNGEN]
+
+            async def write(session: AsyncClientSession) -> None:
+                await grants.update_one({"_id": OTHER["_id"]}, {"$set": {"erteilt_von": "PROBE"}}, session=session)
+                if fails:
+                    raise _FailedInTheCallback
+
+            judge = admin_judge(verified_actor(ACTING["adresse"]), build_test_config().model_copy(update={"db_base_name": JUDGE_DATABASE_NAME}))
+            actor_token, judge_token = actor_var.set(Actor(kind="admin_session", email=ACTING["adresse"])), actor_judge_var.set(judge)
+            try:
+                async with transaction_session(watched) as session:
+                    await session.with_transaction(write)
+            except _FailedInTheCallback:
+                pass
+            finally:
+                actor_var.reset(actor_token)
+                actor_judge_var.reset(judge_token)
+                await watched.close()
+
+            stored = await database[Collection.BERECHTIGUNGEN].find_one({"_id": ACTING["_id"]})
+            assert stored is not None
+            return int(stored.get("bounded_writes", 0))
+
+    return updates.filtered_on, on_the_seed_loop(body())
+
+
+@pytest.mark.db
+class TestTheAdministratorsJudgeOverARealGrant:
+    """`app/core/security.py :: admin_judge` itself, against the grants a database holds rather than a stub."""
+
+    def test_a_transaction_that_wrote_anchors_the_actors_own_grant_after_its_write(self, mongo_replica_set_url: str):
+        """The control for the case below: the anchor is sent, last, on the actor's row and no other, and commits with the write."""
+
+        assert _judged_by_the_administrators_judge(mongo_replica_set_url, fails=False) == ([OTHER["_id"], ACTING["_id"]], 1)
+
+    def test_a_failing_callback_sends_no_anchor(self, mongo_replica_set_url: str):
+        """Sent and aborted would leave the grant as it was, so only what reached the server shows an anchor written regardless."""
+
+        assert _judged_by_the_administrators_judge(mongo_replica_set_url, fails=True) == ([OTHER["_id"]], 0)
+
+
+class _RecordedJudge:
+    """What `bind_actor` is handed in place of `app/core/security.py :: admin_judge`, and the judge it answers with."""
+
+    def __init__(self) -> None:
+        self.called_with: list[tuple[Any, Any]] = []
+        self.judge = object()
+
+    def __call__(self, actor: Any, config: Any) -> object:
+        self.called_with.append((actor, config))
+        return self.judge
+
+
+class _RecordedCursor:
+    """Every read's cursor: no row, whichever of the driver's chained calls a helper makes."""
+
+    def __init__(self, rows: list[Mapping[str, Any]]) -> None:
+        self.rows = rows
+
+    def sort(self, *_: Any, **__: Any) -> _RecordedCursor:
+        return self
+
+    def limit(self, *_: Any, **__: Any) -> _RecordedCursor:
+        return self
+
+    async def to_list(self, *_: Any, **__: Any) -> list[Mapping[str, Any]]:
+        return self.rows
+
+
+class _RecordedCollection:
+    """A collection recording, for every call a judge makes on it, the session that call carried."""
+
+    def __init__(self, database: _RecordedDatabase, name: str) -> None:
+        self.database = database
+        self.name = name
+
+    def _carried(self, method: str, kwargs: Mapping[str, Any]) -> None:
+        self.database.carried.append((self.name, method, kwargs.get("session")))
+
+    async def aggregate(self, *_: Any, **kwargs: Any) -> _RecordedCursor:
+        self._carried("aggregate", kwargs)
+        return _RecordedCursor(self.database.grants if self.name == Collection.BERECHTIGUNGEN else [])
+
+    def find(self, *_: Any, **kwargs: Any) -> _RecordedCursor:
+        self._carried("find", kwargs)
+        return _RecordedCursor([])
+
+    async def find_one(self, *_: Any, **kwargs: Any) -> None:
+        self._carried("find_one", kwargs)
+
+    async def update_many(self, *_: Any, **kwargs: Any) -> SimpleNamespace:
+        self._carried("update_many", kwargs)
+        return SimpleNamespace(modified_count=1)
+
+    async def insert_one(self, *_: Any, **kwargs: Any) -> SimpleNamespace:
+        self._carried("insert_one", kwargs)
+        return SimpleNamespace(inserted_id=ObjectId())
+
+
+class _RecordedDatabase:
+    def __init__(self, grants: list[Mapping[str, Any]]) -> None:
+        self.grants = grants
+        self.carried: list[tuple[str, str, Any]] = []
+
+    def __getitem__(self, name: str) -> _RecordedCollection:
+        return _RecordedCollection(self, name)
+
+
+def _sessions_a_judge_carried(judge: Any, grants: list[Mapping[str, Any]]) -> tuple[Any, list[tuple[str, str, Any]]]:
+    """One attempt through `judge` on a session whose client records every call: the session, and each call with the session it carried."""
+
+    database = _RecordedDatabase(grants)
+    session = SimpleNamespace(client={build_test_config().db_base_name: database})
+
+    async def attempt() -> None:
+        async with judge(session):
+            pass
+
+    asyncio.run(attempt())
+
+    return session, database.carried
+
+
+class TestEveryJudgeReadsInTheAttemptsSession:
+    """`docs/backend/spec.md :: I575`, `:: I576`: a judge's read left off the session judges what committed last, not the attempt's snapshot.
+
+    Entered through `JudgedSession`, which no in-session sweep over a callback's source reaches.
+    """
+
+    def test_the_administrators_reads_and_anchor_carry_it(self):
+        claims = verified_actor(ACTING["adresse"])
+        grant = {**ACTING, "angekuendigt": []}
+        session, carried = _sessions_a_judge_carried(admin_judge(claims, build_test_config()), [grant])
+
+        assert {(collection, method) for collection, method, _ in carried} >= {
+            (Collection.BERECHTIGUNGEN, "aggregate"),
+            (Collection.SPERRLISTE, "find"),
+            (Collection.BERECHTIGUNGEN, "update_many"),
+        }
+        assert [call for call in carried if call[2] is not session] == []
+
+    def test_the_persons_ban_read_carries_it(self):
+        session, carried = _sessions_a_judge_carried(person_judge(verified_actor(ACTING["adresse"]), build_test_config()), [])
+
+        assert (Collection.SPERRLISTE, "find") in {(collection, method) for collection, method, _ in carried}
+        assert [call for call in carried if call[2] is not session] == []
+
+
+class TestTheAdministratorsBinderBindsTheirJudge:
+    def test_the_judge_built_off_the_verified_actor_is_bound_for_the_request_alone(self, monkeypatch: pytest.MonkeyPatch):
+        """Read off the variable the hook reads: an end-to-end refusal could be any judge's, or the check before the handler."""
+
+        recorded = _RecordedJudge()
+        monkeypatch.setattr(security, "admin_judge", recorded)
+        claims, config = verified_actor(ACTING["adresse"]), build_test_config()
+        request = Request({"type": "http", "method": "PATCH", "path": "/api/v0/spielorte", "headers": [], "query_string": b""})
+
+        async def bound() -> tuple[object, object]:
+            binder = bind_actor(request, claims, config)
+            await anext(binder)
+            during = actor_judge_var.get()
+            with contextlib.suppress(StopAsyncIteration):
+                await anext(binder)
+
+            return during, actor_judge_var.get()
+
+        assert asyncio.run(bound()) == (recorded.judge, None)
+        assert recorded.called_with == [(claims, config)]
 
 
 def _is_a_snapshot(call: ast.Call) -> bool:

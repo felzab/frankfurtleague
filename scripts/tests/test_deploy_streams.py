@@ -20,6 +20,7 @@ from __future__ import annotations
 import os
 import re
 import shlex
+import shutil
 from pathlib import Path
 from typing import Final
 
@@ -359,28 +360,28 @@ def test_the_snippet_answers_3_naming_the_variables_and_never_a_rejected_value()
 
 
 # A backend environment the settings accept, its public key a pair's of the case's own, and the five
-# secret files, two keys of the class and one carrying a `$`. Fabricated, of `k` alone.
+# secret files, two keys of the class and one carrying a space. Fabricated, of `k` alone.
 KEY_OUTSIDE_THE_CLASS: Final = """node -e "$PAIR_JS" ed25519 fl_backend/key.pem fl_backend/public.env
 printf 'API_TRUSTED_HOSTS=localhost\\nAPI_CORS_ALLOWED_ORIGINS=http://localhost:3000\\n' > fl_backend/.env
 { printf 'DB_BASE_NAME=league\\n'; cat fl_backend/public.env; } >> fl_backend/.env
 mkdir -p fl_backend/run-secrets
 printf 'mongodb://localhost:27017/?directConnection=true' > fl_backend/run-secrets/backend_mongodb_uri
 printf 'k%.0s' {1..64} > fl_backend/run-secrets/sperrliste_schluessel
-printf '%s$%s' "$(printf 'k%.0s' {1..10})" "$(printf 'k%.0s' {1..53})" > fl_backend/run-secrets/internal_api_key_base
+printf '%s %s' "$(printf 'k%.0s' {1..10})" "$(printf 'k%.0s' {1..53})" > fl_backend/run-secrets/internal_api_key_base
 printf 'k%.0s' {1..64} > fl_backend/run-secrets/internal_api_key_system
 printf 'k%.0s' {1..64} > fl_backend/run-secrets/internal_api_key_admin
 export SECRETS_DIR=run-secrets
 """
 
 
-def test_the_snippet_names_a_retired_line_and_passes_the_file_holding_it() -> None:
-    """The image a rollback restores reads the line, so the release reading files says so and deploys."""
-    retired = KEY_OUTSIDE_THE_CLASS.split("mkdir -p", 1)[0] + "printf 'MONGODB_URI=a value no case reads\\n' >> fl_backend/.env\n"
-    code, output, _ = _run(retired + SNIPPET, PYTHONPATH=(REPO_ROOT / "fl_backend").as_posix(), PAIR_JS=PAIR)
+def test_the_snippet_refuses_a_line_a_secret_file_replaced_naming_it_alone() -> None:
+    """The file is otherwise one the settings accept, so the line alone is what refuses, and its name alone what is printed."""
+    left_behind = KEY_OUTSIDE_THE_CLASS.split("mkdir -p", 1)[0] + "printf 'MONGODB_URI=a value no case reads\\n' >> fl_backend/.env\n"
+    code, output, _ = _run(left_behind + SNIPPET, PYTHONPATH=(REPO_ROOT / "fl_backend").as_posix(), PAIR_JS=PAIR)
 
     assert code == 0, output
-    assert "snippet=0" in output, output
-    assert "Retired, and read by nothing: MONGODB_URI" in output, output
+    assert "snippet=3" in output, output
+    assert re.search(r"^Invalid environment variables: MONGODB_URI\r?$", output, re.MULTILINE), output
     assert "a value no case reads" not in output, output
 
 
@@ -393,7 +394,7 @@ def test_the_boot_build_refuses_a_key_file_outside_the_class_naming_that_file_al
     assert "internal_api_key_base" in output, output
     assert "internal_api_key_system" not in output, output
     assert "internal_api_key_admin" not in output, output
-    assert "kkkkkkkkkk$" not in output, output
+    assert "kkkkkkkkkk k" not in output, output
 
 
 def test_a_settings_module_the_snippet_cannot_import_answers_the_advisory_arm() -> None:
@@ -457,16 +458,15 @@ def test_a_spelling_the_readers_disagree_on_refuses_naming_the_line_never_the_va
     assert "judged-clean" not in output, output
 
 
-@pytest.mark.parametrize("script", [DEPLOY, LOCAL], ids=["deploy", "local"])
-def test_every_file_is_judged_before_the_first_compose_call_that_reads_it(script: Path) -> None:
-    """Compose and the dev server read each file their own way, so the spellings are judged before either does."""
-    text = script.read_text(encoding="utf-8")
-    readers = ("\ncheck_compose_config\n", "docker compose build", "\ncheck_actor_key ")
-    first_read = min(text.index(marker) for marker in readers if marker in text)
+@pytest.mark.parametrize("line", ["LOG_FORMAT: json", "  LOG_FORMAT :json", "export LOG_FORMAT: json"], ids=["bare", "spaced", "export"])
+def test_a_line_written_with_a_colon_refuses_naming_the_line_never_the_value(line: str) -> None:
+    """Compose's parser takes each; python-dotenv and `parseEnv` skip each, driven; `@next/env` 16.3.8, driven, takes the bare one alone."""
+    code, output = _env_spellings(f"FIRST=1\n{line}\n")
 
-    for package in ("fl_frontend", "fl_backend"):
-        judged = text.index(f'\ncheck_env_spellings "{package}/.env"')
-        assert text.index(f'\nrequire_file "{package}/.env"') < judged < first_read, (script.name, package)
+    assert code == 2, output
+    assert "line 2: LOG_FORMAT is written with a colon" in output, output
+    assert "json" not in output.replace("LOG_FORMAT", ""), output
+    assert "judged-clean" not in output, output
 
 
 # --- the actor token's key pair ---------------------------------------------------------------------------
@@ -591,36 +591,6 @@ def test_the_key_is_read_where_the_environment_names_it_rather_than_at_the_mount
             "ACTOR_TOKEN_PUBLIC_KEY is missing from fl_backend/.env",
             id="no-public-half",
         ),
-        pytest.param(
-            'node -e "$PAIR_JS" ed25519 other.pem env.txt',
-            "absent.pem",
-            "the signing key could not be read by the frontend user (ENOENT)",
-            id="unreadable-key",
-        ),
-        pytest.param(
-            "node -e \"$PAIR_JS\" ed25519 other.pem env.txt\nprintf 'not a key\\n' > key.pem",
-            "key.pem",
-            "the signing key file holds no private key in PEM",
-            id="no-key-in-the-file",
-        ),
-        pytest.param(
-            'node -e "$PAIR_JS" x25519 key.pem env.txt',
-            "key.pem",
-            "the signing key is x25519, not Ed25519",
-            id="not-a-signing-key",
-        ),
-        pytest.param(
-            'node -e "$PAIR_JS" ed25519 key.pem env.txt\nexport ACTOR_SIGNING_KEY_FILE=../secrets/fl_actor_signing_key',
-            "key.pem",
-            "which ACTOR_SIGNING_KEY_FILE names in its environment, and could not read it there (ENOENT)",
-            id="a-dev-path-the-environment-names-over-a-good-mount",
-        ),
-        pytest.param(
-            'node -e "$PAIR_JS" ed25519 key.pem env.txt\nexport ACTOR_SIGNING_KEY_FILE=',
-            "key.pem",
-            "which ACTOR_SIGNING_KEY_FILE names in its environment, and could not read it there",
-            id="an-empty-path-the-frontend-s-config-refuses",
-        ),
     ],
 )
 def test_a_pair_that_would_not_work_answers_3_naming_what_is_wrong(setup: str, key: str, said: str) -> None:
@@ -629,6 +599,21 @@ def test_a_pair_that_would_not_work_answers_3_naming_what_is_wrong(setup: str, k
 
     assert "check=3" in output, output
     assert said in output, output
+
+
+@pytest.mark.parametrize(
+    ("setup", "key"),
+    [
+        pytest.param('node -e "$PAIR_JS" ed25519 other.pem env.txt', "absent.pem", id="absent"),
+        pytest.param("node -e \"$PAIR_JS\" ed25519 other.pem env.txt\nprintf 'not a key\\n' > key.pem", "key.pem", id="no-key-in-the-file"),
+        pytest.param('node -e "$PAIR_JS" ed25519 key.pem env.txt\nexport ACTOR_SIGNING_KEY_FILE=', "key.pem", id="an-empty-path"),
+    ],
+)
+def test_a_key_the_check_cannot_read_is_no_verdict_on_the_pair(setup: str, key: str) -> None:
+    """The frontend's boot refuses such a key before this check runs (`fl_frontend/src/instrumentation.test.ts`), so here it is the advisory."""
+    output = _judged(setup, key, "env.txt")
+
+    assert "check=4" in output, output
 
 
 KEY_CHECK: Final = 'check_actor_key "NOTHING has been recreated." docker compose -f docker-compose.yml run --rm --no-deps -T frontend'
@@ -732,16 +717,14 @@ def test_the_deploy_reads_the_key_s_mode_once_it_knows_the_key_is_there() -> Non
 
 
 @pytest.mark.parametrize(
-    ("script", "after", "before"),
-    [
-        (DEPLOY, "\ncheck_frontend_env_names\n", 'step "Recreating the application containers"'),
-        (LOCAL, 'ok "images built"', 'section "start"'),
-    ],
+    ("script", "before"),
+    [(DEPLOY, 'step "Recreating the application containers"'), (LOCAL, 'section "start"')],
 )
-def test_the_pair_is_judged_after_the_build_it_runs_in_and_before_anything_starts(script: Path, after: str, before: str) -> None:
+def test_the_pair_is_judged_after_the_frontend_s_boot_and_before_anything_starts(script: Path, before: str) -> None:
+    """The boot has refused a key it cannot read where its environment points it, which the pair check takes as read."""
     text = script.read_text(encoding="utf-8")
 
-    assert text.index(after) < text.index("\ncheck_actor_key ") < text.index(before), script.name
+    assert text.index("\ncheck_frontend_boot_config ") < text.index("\ncheck_actor_key ") < text.index(before), script.name
     assert text.index('\nrequire_file "$SIGNING_KEY_FILE"') < text.index("\ncheck_actor_key "), script.name
 
 
@@ -824,10 +807,10 @@ def test_the_local_stacks_health_read_names_no_file_and_leaves_the_choice_to_com
     assert argv[:3] == ["compose", "ps", "-q"], argv
 
 
-# --- the secret files, read by each service's own container ---------------------------------------------
+# --- each service's settings and secret files, built by its own container ---------------------------------
 
 RUNNER: Final = 'docker compose -f "$COMPOSE" run --rm --no-deps -T'
-FILES_CHECK: Final = f'check_frontend_secret_files "NOTHING has been recreated." production {RUNNER}'
+FRONTEND_BOOT: Final = f'check_frontend_boot_config "NOTHING has been recreated." production {RUNNER}'
 BOOT_CHECK: Final = f'check_backend_boot_config "NOTHING has been recreated." {RUNNER}'
 
 
@@ -835,10 +818,10 @@ def _lib_array(name: str) -> list[str]:
     return lift_assignment(LIB, name).split("=", 1)[1].strip("()").split()
 
 
-def test_a_file_the_container_cannot_use_refuses_with_nothing_recreated() -> None:
-    """Exit 3 is the image's own answer, and the remedy names where each file is written."""
-    said = "Unusable secret files: /run/secrets/auth_secret (ENOENT)"
-    code, output, _ = _run(FILES_CHECK, FL_DEPLOY_RUN_RC="3", FL_DEPLOY_RUN_SAYS=said)
+def test_settings_the_frontend_refuses_stop_the_run_with_nothing_recreated() -> None:
+    """Exit 3 is the boot's own refusal; its CRITICAL line is what names the setting, so it is printed."""
+    said = '{"level":"CRITICAL","error_code":"FE-BOOT-004","files":"auth_secret"}'
+    code, output, _ = _run(FRONTEND_BOOT, FL_DEPLOY_RUN_RC="3", FL_DEPLOY_RUN_SAYS=said)
 
     assert code == 2, output
     assert said in output, output
@@ -846,49 +829,33 @@ def test_a_file_the_container_cannot_use_refuses_with_nothing_recreated() -> Non
     assert "NOTHING has been recreated." in output, output
 
 
-def test_a_file_check_that_could_not_be_made_is_an_advisory() -> None:
-    """An image older than the mode answers here too, so a check that could not run leaves the deploy where it stood."""
-    code, output, _ = _run(FILES_CHECK, FL_DEPLOY_RUN_RC="1", FL_DEPLOY_RUN_SAYS="Error: Cannot find module")
+def test_a_frontend_boot_that_could_not_be_asked_is_an_advisory() -> None:
+    """A fault ends the boot on 1, which is no verdict on the host's files."""
+    code, output, _ = _run(FRONTEND_BOOT, FL_DEPLOY_RUN_RC="1", FL_DEPLOY_RUN_SAYS="Error: Cannot find module")
 
     assert code == 0, output
     assert "(exit 1)" in output, output
+    assert "Error: Cannot find module" in output, output
 
 
-@pytest.mark.parametrize(("deployment", "flags"), [("production", ["--secret-files", "--production"]), ("local", ["--secret-files"])])
-def test_the_file_check_asks_the_image_s_own_list_as_the_service_s_own_user(deployment: str, flags: list[str]) -> None:
-    """The service's user, mounts and groups are what the answer is about, so no `--user` overrides them; local asks no provider key."""
-    code, output, fixture = _run(FILES_CHECK.replace(" production ", f" {deployment} "))
+def test_a_passing_boot_prints_nothing_its_server_said() -> None:
+    """Next's start banner is all a pass writes, and it names a listening address nobody can reach."""
+    code, output, _ = _run(FRONTEND_BOOT, FL_DEPLOY_RUN_SAYS="Next.js banner")
+
+    assert code == 0, output
+    assert "Next.js banner" not in output, output
+
+
+@pytest.mark.parametrize("deployment", ["production", "local"])
+def test_the_boot_runs_the_image_s_own_command_as_the_service_told_which_deployment_it_is(deployment: str) -> None:
+    """No command after the service, so the image's server runs the gates; no `--user`, the files being its user's."""
+    code, output, fixture = _run(FRONTEND_BOOT.replace(" production ", f" {deployment} "))
     argv = fixture.argv.read_text(encoding="utf-8").splitlines()
 
     assert code == 0, output
     run = argv.index("run")
-    assert argv[run:] == ["run", "--rm", "--no-deps", "-T", "frontend", "node", "check-environment-names.mjs", *flags], argv
+    assert argv[run:] == ["run", "--rm", "--no-deps", "-T", "-e", f"BOOT_CHECK={deployment}", "frontend"], argv
     assert "--user" not in argv, argv
-
-
-# The image's checker, handed the flags the function passes; the stand-in drops the service and names
-# the case's own key set, the image's living at a path no checkout has. `omega_file` is production's
-# alone.
-FRONTEND_FILES: Final = """mkdir -p run-secrets
-printf 'a placeholder' > run-secrets/alpha_file
-printf '%s' '{{"secretFiles": ["alpha_file"], "productionSecretFiles": ["omega_file"]}}' > sets.json
-in_the_image() {{ shift; local here="$PWD"; ( cd "{checker}" && SECRETS_DIR="$here/run-secrets" "$@" "$here/sets.json" ); }}
-check_frontend_secret_files "NOTHING has been started." {deployment} in_the_image
-echo files-judged
-"""
-
-
-@pytest.mark.parametrize(("deployment", "code_wanted"), [("local", 0), ("production", 2)])
-def test_the_image_s_checker_takes_the_flags_the_preflight_passes(deployment: str, code_wanted: int) -> None:
-    """Run for real: a stub proves the argv, and only the checker proves it reads those flags as the list it judges."""
-    checker = (REPO_ROOT / "fl_frontend" / "scripts").as_posix()
-    code, output, _ = _run(FRONTEND_FILES.format(checker=checker, deployment=deployment))
-
-    assert code == code_wanted, output
-    assert ("omega_file (ENOENT)" in output) == (deployment == "production"), output
-    # The advisory passes a deployment too, so a mode the checker lost would pass `local` unseen.
-    assert "could not be asked" not in output, output
-    assert "a placeholder" not in output, output
 
 
 def test_settings_the_backend_refuses_stop_the_run_with_nothing_recreated() -> None:
@@ -927,154 +894,250 @@ def test_the_settings_program_answers_3_naming_what_it_refuses_and_never_a_value
 @pytest.mark.parametrize(
     ("script", "after", "before"),
     [
-        (DEPLOY, "\ncheck_actor_key ", 'step "Recreating the application containers"'),
-        (LOCAL, "\ncheck_actor_key ", 'section "start"'),
+        (DEPLOY, "\ncheck_frontend_env_names\n", 'step "Recreating the application containers"'),
+        (LOCAL, 'ok "images built"', 'section "start"'),
     ],
 )
-def test_the_files_are_judged_after_the_key_and_before_anything_starts(script: Path, after: str, before: str) -> None:
+def test_each_boot_is_judged_after_the_build_it_runs_in_and_before_anything_starts(script: Path, after: str, before: str) -> None:
     text = script.read_text(encoding="utf-8")
 
-    for call in ("\ncheck_frontend_secret_files ", "\ncheck_backend_boot_config "):
+    for call in ("\ncheck_frontend_boot_config ", "\ncheck_backend_boot_config "):
         assert text.index(after) < text.index(call) < text.index(before), (script.name, call)
 
 
 @pytest.mark.parametrize(("script", "deployment"), [(DEPLOY, "production"), (LOCAL, "local")])
 def test_each_script_names_the_deployment_its_frontend_is_judged_as(script: Path, deployment: str) -> None:
-    """The local stack sends no mail, so its frontend holds no provider key and is asked for none."""
+    """The boot holds `APP_ENV` to it, so a production host whose file says `local` is not judged as the local stack."""
     text = script.read_text(encoding="utf-8")
 
-    assert re.search(rf'\ncheck_frontend_secret_files "[^"]*" {deployment} ', text), script.name
+    assert re.search(rf'\ncheck_frontend_boot_config "[^"]*" {deployment} ', text), script.name
 
 
-# --- a pin to a build from before the secret files --------------------------------------------------------
+# --- what the rollback tells the operator ---------------------------------------------------------------
 
-PIN_CHECK: Final = "\n".join(
-    (
-        _assignment("SECRET_FILES_READER_CHECK"),
-        _lifted("reads_secret_files"),
-        _lifted("check_pin_reads_secret_files"),
-        'PIN="sha-0123abc"',
-        "check_pin_reads_secret_files",
-        "echo pin-judged",
-    )
-)
+ADVICE: Final = "\n".join((_lifted("rollback_advice"), "rollback_advice"))
 
 
-def test_a_pin_from_before_the_secret_files_is_refused_before_either_tag_moves() -> None:
-    code, output, fixture = _run(PIN_CHECK, FL_DEPLOY_RUN_RC="3")
-    argv = fixture.argv.read_text(encoding="utf-8").splitlines()
+@pytest.mark.parametrize(("pin", "named"), [("sha-0123abc", "./scripts/ops/deploy.sh sha-0123abc"), ("", "./scripts/ops/deploy.sh <tag>")])
+def test_the_rollback_names_the_tag_it_restored_or_asks_for_one(pin: str, named: str) -> None:
+    """The registry's `:latest` still names the failed build, so a bare re-run would fetch it again."""
+    code, output, _ = _run(f'PREV_PIN="{pin}"\n{ADVICE}')
+
+    assert code == 0, output
+    assert named in output, output
+    assert "DO NOT re-run this" in output, output
+
+
+# --- a credential's line in an environment file -------------------------------------------------------------
+
+CREDENTIAL_LINES: Final = """printf 'LOG_FORMAT=json\\nmongodb_uri=a value no case reads\\n' > fl_backend/.env
+mkdir -p fl_frontend
+printf 'INTERNAL_API_KEY_BASE=a value no case reads\\nAUTH_SECRET\\n' > fl_frontend/.env
+refuse_credential_lines fl_backend/.env fl_frontend/.env
+echo credential-lines-passed
+"""
+
+
+def test_every_credential_line_refuses_naming_each_in_any_case_and_no_value() -> None:
+    """Both files, a lower-cased name and compose's bare pass-through form among them, and nothing after the check runs."""
+    code, output, _ = _run(CREDENTIAL_LINES)
 
     assert code == 2, output
-    assert "pin-judged" not in output, output
-    assert "docs/ops/runbooks.md §16" in output, output
-    assert "neither :latest tag has moved" in output, output
-    assert argv[: argv.index("python") - 1] == ["run", "--rm", "--pull", "never", "--network", "none"], argv
-    assert argv[argv.index("python") - 1].endswith("/frankfurtleague-backend:sha-0123abc"), argv
-
-
-@pytest.mark.parametrize(("rc", "advisory"), [("0", False), ("125", True)])
-def test_a_pin_that_reads_them_or_could_not_be_asked_goes_on(rc: str, advisory: bool) -> None:
-    code, output, _ = _run(PIN_CHECK, FL_DEPLOY_RUN_RC=rc, FL_DEPLOY_RUN_SAYS="Error" if advisory else "")
-
-    assert code == 0, output
-    assert "pin-judged" in output, output
-    assert ("could not be asked" in output) == advisory, output
-
-
-def test_the_pin_is_judged_after_the_pair_and_before_the_tags_move() -> None:
-    text = DEPLOY.read_text(encoding="utf-8")
-    pinned = text[text.index('step "Pinning to ${PIN}"') :]
-
-    assert pinned.index("compare_pulled_pair") < pinned.index("\n  check_pin_reads_secret_files\n") < pinned.index("docker tag")
-
-
-# A backend of the case's own: an `app.core.config` without `read_secrets`, as a build from before the files carries.
-READER: Final = """mkdir -p old/app/core empty
-printf 'def get_config():\\n    pass\\n' > old/app/core/config.py
-for where in "{backend}" old empty; do
-  reader_rc=0
-  PYTHONPATH="$where" "$(venv_python)" -c "$SECRET_FILES_READER_CHECK" || reader_rc=$?
-  printf 'reader=%s\\n' "$reader_rc"
-done
-"""
-
-
-def test_the_program_tells_a_backend_from_before_the_files_from_one_it_cannot_ask() -> None:
-    """Run for real: this tree's backend reads them, one without `read_secrets` predates them, and no module is no answer."""
-    body = _assignment("SECRET_FILES_READER_CHECK") + "\n" + READER.format(backend=(REPO_ROOT / "fl_backend").as_posix())
-    code, output, _ = _run(body)
-
-    assert code == 0, output
-    assert re.findall(r"reader=(\d+)", output) == ["0", "3", "4"], output
-
-
-ADVICE: Final = "\n".join(
-    (
-        _assignment("SECRET_FILES_READER_CHECK"),
-        _lifted("reads_secret_files"),
-        _lifted("rollback_advice"),
-        'PREV_PIN="sha-0123abc"',
-        'PREV_BE_IMG="sha256:restored"',
-        "rollback_advice",
-    )
-)
-
-
-@pytest.mark.parametrize(("rc", "by_tag"), [("0", True), ("3", False), ("125", True)])
-def test_the_rollback_names_a_tag_only_for_a_build_this_checkout_deploys_by_one(rc: str, by_tag: bool) -> None:
-    """A tag the restored build cannot be deployed by is no way back to it; an unasked image keeps the tag."""
-    code, output, fixture = _run(ADVICE, FL_DEPLOY_RUN_RC=rc)
-    argv = fixture.argv.read_text(encoding="utf-8").splitlines()
-
-    assert code == 0, output
-    assert ("./scripts/ops/deploy.sh sha-0123abc" in output) == by_tag, output
-    assert ("docs/ops/runbooks.md §16" in output) != by_tag, output
-    assert "sha256:restored" in argv, argv
-
-
-# --- a line the secret files replace, still in an environment file ----------------------------------------
-
-MOVED: Final = """printf 'LOG_FORMAT=json\\nmongodb_uri=a value no case reads\\n' > fl_backend/.env
-mkdir -p fl_frontend
-printf 'INTERNAL_API_KEY_BASE=a value no case reads\\n' > fl_frontend/.env
-check_moved_names {verb} fl_backend/.env fl_frontend/.env
-echo moved-names-passed
-"""
-
-
-def test_the_deploy_warns_naming_every_moved_line_in_any_case_and_goes_on() -> None:
-    """The image a rollback restores reads these lines, so the release running the files keeps them."""
-    code, output, _ = _run(MOVED.format(verb="warn"))
-
-    assert code == 0, output
-    assert "moved-names-passed" in output, output
+    assert "credential-lines-passed" not in output, output
     assert "fl_backend/.env: mongodb_uri" in output, output
-    assert "fl_frontend/.env: INTERNAL_API_KEY_BASE" in output, output
+    assert "fl_frontend/.env: INTERNAL_API_KEY_BASE AUTH_SECRET" in output, output
     assert "LOG_FORMAT" not in output, output
     assert "a value no case reads" not in output, output
-
-
-def test_the_local_stack_refuses_them_restoring_no_older_image() -> None:
-    code, output, _ = _run(MOVED.format(verb="refuse"))
-
-    assert code == 2, output
-    assert "moved-names-passed" not in output, output
     assert "Delete them" in output, output
 
 
-@pytest.mark.parametrize(("script", "verb"), [(DEPLOY, "warn"), (LOCAL, "refuse")], ids=["deploy", "local"])
-def test_each_script_calls_the_check_once_with_the_verb_its_rollback_needs(script: Path, verb: str) -> None:
-    """The deploy's refusal would delete the lines the image its rollback restores boots from; the cases above drive each verb alone."""
-    calls = re.findall(r"^[ \t]*check_moved_names (\S+) ", script.read_text(encoding="utf-8"), flags=re.MULTILINE)
+# Each a form compose's own parser reads a name from (compose-go `dotenv/parser.go :: locateKeyName`,
+# which moves without us; read 2026-10-03): it ends a name at `=` or `:`, and drops a leading `export`.
+@pytest.mark.parametrize(
+    "line",
+    [
+        pytest.param("AUTH_SECRET: a value no case reads", id="colon"),
+        pytest.param("  AUTH_SECRET :a value no case reads", id="colon-spaced"),
+        pytest.param("export AUTH_SECRET: a value no case reads", id="export-colon"),
+        pytest.param("export AUTH_SECRET=a value no case reads", id="export-equals"),
+        pytest.param("export   AUTH_SECRET", id="export-bare"),
+    ],
+)
+def test_a_credential_line_in_any_form_compose_reads_refuses(line: str) -> None:
+    body = f"printf '%s\\n' {shlex.quote(line)} > fl_backend/.env\nrefuse_credential_lines fl_backend/.env\necho credential-lines-passed\n"
+    code, output, _ = _run(body)
 
-    assert calls == [verb], (script.name, calls)
+    assert code == 2, output
+    assert "fl_backend/.env: AUTH_SECRET" in output, output
+    assert "a value no case reads" not in output, output
+    assert "credential-lines-passed" not in output, output
 
 
-def test_a_file_holding_no_moved_line_passes_in_silence() -> None:
-    code, output, _ = _run(MOVED.format(verb="refuse").replace("mongodb_uri=", "DB_BASE_NAME=").replace("INTERNAL_API_KEY_BASE=", "# "))
+def test_a_multi_line_quoted_value_declares_nothing_and_the_line_after_it_is_judged() -> None:
+    """Compose reads the middle line as the value's data; the line after the closing quote is a declaration again."""
+    text = 'NOTE="first\nAUTH_SECRET: data the value carries\nlast"\nAUTH_SECRET=a value no case reads\n'
+    code, output, _ = _run(f"printf '%s' {shlex.quote(text)} > fl_backend/.env\nrefuse_credential_lines fl_backend/.env\n")
+
+    assert code == 2, output
+    assert "fl_backend/.env: AUTH_SECRET\n" in output.replace("\r", ""), output
+    assert "data the value carries" not in output and "a value no case reads" not in output, output
+
+
+def test_a_credential_line_behind_a_byte_order_mark_refuses() -> None:
+    """Compose drops the mark before parsing (compose-go `dotenv/godotenv.go :: parseWithLookup`, read 2026-10-03)."""
+    code, output, _ = _run(
+        "printf '\\xef\\xbb\\xbfAUTH_SECRET=a value no case reads\\n' > fl_backend/.env\nrefuse_credential_lines fl_backend/.env\n"
+    )
+
+    assert code == 2, output
+    assert "fl_backend/.env: AUTH_SECRET" in output, output
+    assert "a value no case reads" not in output, output
+
+
+def test_a_multi_line_quoted_value_every_reader_takes_alike_is_clean() -> None:
+    """Next, `parseEnv` and python-dotenv each read this three-line value alike; its middle line opens `word:`."""
+    code, output = _env_spellings('NOTE="first line\nhttps://example.org/a\nlast"\nLOG_FORMAT=json\n')
 
     assert code == 0, output
-    assert "moved-names-passed" in output, output
+    assert "judged-clean" in output, output
+
+
+@pytest.mark.parametrize(
+    ("text", "said"),
+    [
+        pytest.param('NOTE="first\nsecond $base\nlast"\n', "line 2: NOTE's quoted value holds a $", id="dollar-inside"),
+        pytest.param('NOTE="first\nsecond\n', "line 1: NOTE's quoted value never closes", id="unclosed"),
+        # The credential check reads the colon form's quote as opening a value too, so both read line 2 as data.
+        pytest.param('NOTE: "first\nBASE=$base\nlast"\n', "line 2: NOTE's quoted value holds a $", id="opened-by-a-colon-line"),
+    ],
+)
+def test_a_multi_line_quoted_value_the_readers_disagree_on_refuses(text: str, said: str) -> None:
+    code, output = _env_spellings(text)
+
+    assert code == 2, output
+    assert said in output, output
+
+
+def test_a_byte_order_mark_refuses_as_a_spelling_and_the_line_is_still_judged() -> None:
+    """Compose, python-dotenv 1.2.4 and `@next/env` 16.3.8 drop the mark; `parseEnv`, driven, keeps it in the first name."""
+    code, output = _env_spellings("\ufeffAPI_URL=http://backend:8000/$base\nLOG_FORMAT=json\n")
+
+    assert code == 2, output
+    assert "line 1 opens with a byte-order mark" in output, output
+    assert "line 1: API_URL holds a $" in output, output
+    assert "backend:8000" not in output, output
+
+
+def test_a_byte_order_mark_alone_refuses() -> None:
+    code, output = _env_spellings("\ufeffLOG_FORMAT=json\n")
+
+    assert code == 2, output
+    assert "line 1 opens with a byte-order mark" in output, output
+    assert "json" not in output.replace("LOG_FORMAT", ""), output
+
+
+def test_the_retired_administrator_list_refuses_naming_it_and_no_address() -> None:
+    """No credential, but no service reads it either, and on the local stack no other reader names it before `docker inspect` prints it."""
+    body = (
+        "mkdir -p fl_frontend\n"
+        "printf 'APP_ENV=local\\nALLOWED_ADMIN_EMAILS=vorstand@schule.de\\n' > fl_frontend/.env\n"
+        "refuse_credential_lines fl_frontend/.env\necho credential-lines-passed\n"
+    )
+    code, output, _ = _run(body)
+
+    assert code == 2, output
+    assert "fl_frontend/.env: ALLOWED_ADMIN_EMAILS" in output, output
+    assert "vorstand@schule.de" not in output, output
+    assert "APP_ENV" not in output, output
+    assert "credential-lines-passed" not in output, output
+
+
+# --- each start mode, run whole over an environment file a preflight refuses ------------------------------
+
+# Records each call's arguments, one call a line, and answers every one, `version` included, as a
+# daemon that is up would: what the case asserts is which calls were made before the refusal.
+RECORDING_DOCKER: Final = '#!/usr/bin/env bash\nprintf \'%s\\n\' "$*" >> "${FL_DOCKER_CALLS}"\nexit 0\n'
+
+# `require_platform` reads `uname -s`, so each script runs here as on its own target machine.
+UNAME: Final = "#!/usr/bin/env bash\nprintf '%s\\n' \"${FL_UNAME}\"\n"
+
+# Every mode that goes on to start or recreate containers, each with the platform it requires. The
+# status and stop modes ask compose before the preflight and create no container.
+START_MODES: Final = [
+    pytest.param("deploy.sh", "Linux", (), id="deploy"),
+    pytest.param("deploy.sh", "Linux", ("sha-0123abc",), id="deploy-pinned"),
+    pytest.param("local.sh", "MINGW64_NT-10.0", (), id="local"),
+    pytest.param("local.sh", "MINGW64_NT-10.0", ("--fresh",), id="local-fresh"),
+    pytest.param("local.sh", "MINGW64_NT-10.0", ("--seed",), id="local-seed"),
+]
+
+
+def _start(script: str, uname: str, args: tuple[str, ...], frontend_env: str) -> tuple[int, str, list[str]]:
+    """One start mode, run whole from a checkout of its own.
+
+    Copied, because `_lib.sh` roots every path at its own checkout; the compose files need only
+    exist, the stand-in `docker` reading neither.
+    """
+    assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
+    root = new_root("fl-start-")
+    for rel in ("lib/_lib.sh", "ops/deploy.sh", "ops/local.sh"):
+        (root / "scripts" / rel).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(SCRIPTS / rel, root / "scripts" / rel)
+    for rel, text in (
+        ("docker-compose.yml", "services: {}\n"),
+        ("docker-compose.local.yml", "services: {}\n"),
+        ("fl_frontend/.env", frontend_env),
+        ("fl_backend/.env", "LOG_FORMAT=json\n"),
+    ):
+        (root / rel).parent.mkdir(parents=True, exist_ok=True)
+        (root / rel).write_bytes(text.encode())
+    stubs = root / "stubs"
+    stubs.mkdir()
+    os.chmod(write_shell(stubs / "docker", RECORDING_DOCKER), 0o755)
+    os.chmod(write_shell(stubs / "uname", UNAME), 0o755)
+    calls = root / "docker-calls.txt"
+    environment = base_env() | {
+        "PATH": str(stubs) + os.pathsep + os.environ["PATH"],
+        "FL_DOCKER_CALLS": str(calls),
+        "FL_UNAME": uname,
+    }
+    done = run_shell(BASH, root / "scripts" / "ops" / script, *args, env=environment, cwd=root)
+    recorded = calls.read_text(encoding="utf-8").splitlines() if calls.exists() else []
+    return done.returncode, done.stdout + done.stderr, recorded
+
+
+@pytest.mark.parametrize(("script", "uname", "args"), START_MODES)
+def test_a_credential_line_stops_every_start_before_compose_is_asked_anything(script: str, uname: str, args: tuple[str, ...]) -> None:
+    """Written with a colon, the one form the spelling check also refuses, so its remedy reaching the operator first fails this too."""
+    code, output, calls = _start(script, uname, args, "APP_ENV=local\nAUTH_SECRET: a value no case reads\n")
+
+    assert code == 2, output
+    assert "these lines name a value no service reads from its environment" in output, output
+    assert "fl_frontend/.env: AUTH_SECRET" in output, output
+    assert "a value no case reads" not in output, output
+    # The stand-in answered the daemon check, so a compose call made before the refusal is one it recorded.
+    assert any(call.startswith("version") for call in calls), calls
+    assert [call for call in calls if call.startswith("compose")] == [], calls
+
+
+@pytest.mark.parametrize(("script", "uname", "args"), START_MODES)
+def test_a_spelling_the_readers_disagree_on_stops_every_start_before_compose_is_asked_anything(
+    script: str, uname: str, args: tuple[str, ...]
+) -> None:
+    code, output, calls = _start(script, uname, args, "APP_ENV=local\nAPI_URL=http://backend:8000/$base\n")
+
+    assert code == 2, output
+    assert "line 2: API_URL holds a $" in output, output
+    assert any(call.startswith("version") for call in calls), calls
+    assert [call for call in calls if call.startswith("compose")] == [], calls
+
+
+def test_a_file_holding_no_credential_line_passes_in_silence() -> None:
+    clean = CREDENTIAL_LINES.replace("mongodb_uri=", "DB_BASE_NAME=").replace("INTERNAL_API_KEY_BASE=", "# ")
+    code, output, _ = _run(clean.replace("AUTH_SECRET", "AUTH_URL"))
+
+    assert code == 0, output
+    assert "credential-lines-passed" in output, output
     assert "!!" not in output, output
 
 

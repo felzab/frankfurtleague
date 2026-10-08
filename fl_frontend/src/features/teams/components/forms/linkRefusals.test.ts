@@ -41,15 +41,15 @@ const website = (value: string | null): string => renderTree(h(WebsiteUrlField, 
 describe("an outward link with nowhere to go yet", () => {
   it("names the club's website link by its own label and describes what is missing", () => {
     assert.deepEqual(refusalWrappers(website(null)), [
-      { name: "Website in neuem Tab öffnen", label: "Website in neuem Tab öffnen", reason: "Erst eine gültige Adresse eingeben" },
+      { name: "Link in neuem Tab öffnen: Website", label: "Link in neuem Tab öffnen: Website", reason: "Erst eine gültige Adresse eingeben" },
     ]);
   });
 
   it("names the address's map link by its own label and describes what is missing", () => {
     assert.deepEqual(refusalWrappers(adresse({ ...LEER, strasse: "Feldweg" })), [
       {
-        name: "Eingegebene Adresse auf Google Maps öffnen",
-        label: "Eingegebene Adresse auf Google Maps öffnen",
+        name: "Adresse auf Google Maps öffnen",
+        label: "Adresse auf Google Maps öffnen",
         reason: "Erst Straße und Stadt eingeben",
       },
     ]);

@@ -2,7 +2,7 @@ import z from "zod";
 
 import { ANMELDUNG_CODE, ANMELDUNG_TAG } from "@/core/anmeldeTag";
 import { BERECHTIGUNG_HINWEIS, BERECHTIGUNG_TAG } from "@/core/berechtigungTag";
-import { FLZustellungEreignisPayloadSchema, FLZustellungZielSchema } from "@/features/zustellung/schemas";
+import { FLZustellungEreignisPayloadSchema, FLZustellungZielSchema, zielHatSitze } from "@/features/zustellung/schemas";
 import { CustomObjectIdStringSchema } from "@/shared/schemas";
 
 import {
@@ -15,13 +15,15 @@ import {
 
 import type { FLZustellungEreignisPayload, FLZustellungZiel } from "@/features/zustellung/schemas";
 import type { PillTone } from "@/shared/components/ui/badges";
-import type { FLBewerbung, FLBewerbungZustellstand, FLBewerbungZustellungEreignisPayload, FLKontaktRolle } from "./schemas";
+import type { FLBewerbungZustellstand } from "@/shared/schemas";
+import type { FLBewerbung, FLBewerbungZustellungEreignisPayload, FLKontaktRolle } from "./schemas";
 
 /**
  * Which message a delivery event is about, as it rides the send. Its own vocabulary rather than the
  * operation names the log lines use: a tag value admits ASCII letters, digits, `_` and `-` alone.
  */
-export type ZustellAnlass = "eingang" | "empfang" | "erinnerung" | "erneut" | "vollstaendig" | "widerspruch" | "loeschung" | "einladung";
+export type ZustellAnlass =
+  "eingang" | "empfang" | "erinnerung" | "erneut" | "vollstaendig" | "widerspruch" | "loeschung" | "einladung" | "ablehnung";
 
 /** One message and every seat it answers for. A mirrored pair is one message naming two seats. */
 export type ZustellSendung = {
@@ -116,7 +118,7 @@ type ZustellGemeinsam = {
 };
 
 /** Why a tagged event reached no record. A closed set, because it reaches a log line rather than a reader. */
-type ZustellUnplatzierbarGrund = "ziel_unbekannt" | "ziel_id_unlesbar";
+type ZustellUnplatzierbarGrund = "ziel_unbekannt" | "ziel_id_unlesbar" | "rollen_unlesbar";
 
 /**
  * **`bewerbung` is the fall-through**: no message the application flow sends carries a `ziel`, so an
@@ -135,13 +137,18 @@ export type ZustellMeldung =
   | { ziel: "unplatzierbar"; grund: ZustellUnplatzierbarGrund; art: FLZustellungZiel | null };
 
 /** The generic arm: a kind names a population, so an event carrying one without the row's own id is placed nowhere. */
-function leseZielMeldung(ziel: string, zielId: string | undefined, gemeinsam: ZustellGemeinsam): ZustellMeldung {
-  const art = FLZustellungZielSchema.safeParse(ziel);
+function leseZielMeldung(tags: Record<string, string>, gemeinsam: ZustellGemeinsam): ZustellMeldung {
+  const art = FLZustellungZielSchema.safeParse(tags["ziel"]);
   if (!art.success) return { ziel: "unplatzierbar", grund: "ziel_unbekannt", art: null };
 
-  const zeile = CustomObjectIdStringSchema.safeParse(zielId);
+  // A seat-carrying kind's message names the seats it covered, and every other kind's names none: a
+  // stray `rollen` on those is ignored rather than refused, their one carrier needing no seat.
+  const rollen = zielHatSitze(art.data) ? rollenAus(tags["rollen"]) : [];
+  if (rollen === null) return { ziel: "unplatzierbar", grund: "rollen_unlesbar", art: art.data };
+
+  const zeile = CustomObjectIdStringSchema.safeParse(tags["ziel_id"]);
   const meldung = zeile.success
-    ? FLZustellungEreignisPayloadSchema.safeParse({ ziel: art.data, ziel_id: zeile.data, ...gemeinsam }).data
+    ? FLZustellungEreignisPayloadSchema.safeParse({ ziel: art.data, ziel_id: zeile.data, rollen: rollen, ...gemeinsam }).data
     : undefined;
 
   return meldung === undefined ? { ziel: "unplatzierbar", grund: "ziel_id_unlesbar", art: art.data } : { ziel: art.data, meldung: meldung };
@@ -185,8 +192,7 @@ export function leseZustellEreignis(raw: unknown): ZustellMeldung | null {
     return { ziel: "berechtigung", stand: gemeinsam.stand, nachricht_id: gemeinsam.nachricht_id };
   }
 
-  const ziel = ereignis.data.tags?.["ziel"];
-  if (ziel !== undefined) return leseZielMeldung(ziel, ereignis.data.tags?.["ziel_id"], gemeinsam);
+  if (ereignis.data.tags?.["ziel"] !== undefined) return leseZielMeldung(ereignis.data.tags, gemeinsam);
 
   const bewerbungId = CustomObjectIdStringSchema.safeParse(ereignis.data.tags?.["bewerbung_id"]);
   const rollen = rollenAus(ereignis.data.tags?.["rollen"]);

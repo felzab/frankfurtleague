@@ -2,31 +2,28 @@ import asyncio
 import functools
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
-from typing import Any, get_args
+from typing import Any
 
 import pytest
 from bson import ObjectId
 from fastapi import FastAPI
-from fastapi.testclient import TestClient
 from httpx2 import Response
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.bewerbungen.schemas import FLKontaktRolle
 from app.api.identitaet.router import get_subjekt
 from app.api.identitaet.schemas import FLSubjektPayload, FLSubjektResponse
 from app.api.identitaet.services import build_referee_pipeline, build_seat_pipeline
-from app.api.kontakte.services import KONTAKT_SLOTS
+from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.security import MISSING_TOKEN, WRONG_SYSTEM_KEY
 from app.main import create_app
 from app.shared.folding import league_address, sign_in_identifier
 from tests.app_client import app_client
 from tests.bans import ban_list
-from tests.config import BASE_AUTH, SYSTEM_AUTH
-from tests.core.app_source import application
+from tests.config import SYSTEM_AUTH
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import EINWILLIGUNG, ban_document, rules_document, saison_document, saison_team_document, spieler_document, team_document
+from tests.records import record_collections
 from tests.worker import worker_database
 
 from .conftest import config_for
@@ -104,7 +101,6 @@ DOUBLE_S_ROW_OID = ObjectId("6890a1b2c3d4e5f607820015")
 HAND_EDITED_ROW_OID = ObjectId("6890a1b2c3d4e5f607820016")
 IDN_ROW_OID = ObjectId("6890a1b2c3d4e5f607820017")
 PUPIL_ONE_OID = ObjectId("6890a1b2c3d4e5f607820021")
-PUPIL_TWO_OID = ObjectId("6890a1b2c3d4e5f607820022")
 IDN_PUPIL_OID = ObjectId("6890a1b2c3d4e5f607820023")
 RETIRED_PUPIL_OID = ObjectId("6890a1b2c3d4e5f607820024")
 BYSTANDER_PUPIL_OID = ObjectId("6890a1b2c3d4e5f607820029")
@@ -152,10 +148,10 @@ def _junction(row_id: ObjectId, saison_id: str, team_id: ObjectId, *, name: str,
         name[:2].upper(),
         _id=row_id,
         kontakte={
-            **{slot: None for slot in KONTAKT_SLOTS},
+            **{slot: None for slot in KONTAKT_ROLLEN},
             **{slot: _person(seat) if isinstance(seat, str) else seat for slot, seat in slots.items()},
             # A declaration about two slots rather than a slot of its own, so it names nobody and
-            # no case here turns on it (`app/api/kontakte/services.py :: KONTAKT_SLOTS`).
+            # no case here turns on it (`app/api/teams/schemas.py :: KONTAKT_ROLLEN`).
             "trainer_ist_zugleich": None,
         },
     )
@@ -243,7 +239,6 @@ async def _seed(database: AsyncDatabase) -> None:
     await database[Collection.SPIELER].insert_many(
         [
             _pupil(PUPIL_ONE_OID, PUPIL_STORED),
-            _pupil(PUPIL_TWO_OID, PUPIL_STORED),
             _pupil(IDN_PUPIL_OID, IDN_PUPIL_STORED),
             _pupil(BYSTANDER_PUPIL_OID, BYSTANDER),
             {**_pupil(RETIRED_PUPIL_OID, RETIRED), "inactive_since": "2026-03-01"},
@@ -313,10 +308,7 @@ async def _no_body(_: AsyncDatabase) -> None:
 async def call_subjekt(database: AsyncDatabase, email: str) -> FLSubjektResponse:
     return await get_subjekt(
         subjekt_data=FLSubjektPayload(email=email),
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        saisons_collection=database[Collection.SAISONS],
-        spieler_collection=database[Collection.SPIELER],
-        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        records=record_collections(database),
         sperrliste=ban_list(database),
         berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
     )
@@ -356,10 +348,10 @@ def test_every_seat_the_mailbox_holds_is_answered_once_each(mongo_replica_set_ur
 
 
 @pytest.mark.db
-def test_two_pupils_sharing_an_address_are_both_answered(mongo_replica_set_url: str):
-    """Siblings on one inbox. Kills a lookup that answers the first `spieler` row and stops."""
+def test_the_pupil_the_address_names_is_answered(mongo_replica_set_url: str):
+    """One person per address among pupils (`uniq_spieler_email`), so a mailbox shared by siblings names one pupil."""
 
-    assert [row.spieler_id for row in answered(mongo_replica_set_url).spieler] == [PUPIL_ONE_OID, PUPIL_TWO_OID]
+    assert [row.spieler_id for row in answered(mongo_replica_set_url).spieler] == [PUPIL_ONE_OID]
 
 
 @pytest.mark.db
@@ -467,30 +459,6 @@ def test_a_seat_carries_its_own_season_s_status(mongo_replica_set_url: str):
     assert [seat.saison_status for seat in answered(mongo_replica_set_url).sitze] == ["past", "active", "active"]
 
 
-def test_every_person_slot_the_block_declares_is_a_published_role():
-    """Kills a fourth person slot reaching this answer: `FLSubjektSitz.rolle` would refuse it at run time, as a 500 in a person's own lane."""
-
-    assert set(KONTAKT_SLOTS) == set(get_args(FLKontaktRolle))
-
-
-def test_the_operation_is_unreachable_without_a_bearer_token():
-    """The guard runs ahead of the payload's own validation, so a malformed body still answers the guard's code rather than a 422."""
-
-    response = TestClient(application(), raise_server_exceptions=False).post(PATH, json={"erfundenes_feld": 1})
-
-    assert response.status_code == 401
-    assert response.json()["error_code"] == MISSING_TOKEN
-
-
-def test_the_base_key_draws_the_system_guard_s_own_code():
-    """`WRONG_BASE_KEY` here would mean `verify_access_base` is on this route; each guard answers its own code, whatever key arrives."""
-
-    response = TestClient(application(), raise_server_exceptions=False).post(PATH, headers=BASE_AUTH, json={"email": IDENTIFIER})
-
-    assert response.status_code == 401
-    assert response.json()["error_code"] == WRONG_SYSTEM_KEY
-
-
 @functools.cache
 def _served() -> FastAPI:
     """One app for every case serving through it: building one costs more than the request a case sends through it.
@@ -549,7 +517,7 @@ def test_the_mounted_route_serves_the_three_kinds_the_corpus_holds(mongo_replica
                 "saison_status": "active",
             },
         ],
-        "spieler": [{"spieler_id": str(PUPIL_ONE_OID)}, {"spieler_id": str(PUPIL_TWO_OID)}],
+        "spieler": [{"spieler_id": str(PUPIL_ONE_OID)}],
         "schiedsrichter": [{"schiedsrichter_id": str(REFEREE_ONE_OID)}, {"schiedsrichter_id": str(REFEREE_TWO_OID)}],
         "unbestaetigt": False,
         "gesperrt": False,

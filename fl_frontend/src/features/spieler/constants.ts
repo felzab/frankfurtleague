@@ -1,3 +1,4 @@
+import { formatSpielDatum, nichtHinterlegt } from "@/shared/utils/format";
 import { buildRefusal } from "@/shared/utils/refusal";
 
 import type { FLEinwilligung, FLSpielerPosition, FLSpielerRolle, FLSpielerStufe } from "./schemas";
@@ -52,7 +53,7 @@ export const EINWILLIGUNG_UMFANG_LABELS: Record<FLEinwilligung["umfang"], string
 };
 
 /** `bestandsuebernahme` is named plainly rather than softened: a record nobody was asked for must not read like consent somebody gave. */
-export const EINWILLIGUNG_HERKUNFT_LABELS: Record<FLEinwilligung["erteilt_von"], string> = {
+export const EINWILLIGUNG_HERKUNFT_LABELS: Record<NonNullable<FLEinwilligung["erteilt_von"]>, string> = {
   // Whoever spoke, named without a gender: half the league's squads are girls, and each of these
   // stands in a readout that no sentence beside it can qualify.
   erziehungsberechtigt: "Von einer erziehungsberechtigten Person",
@@ -68,6 +69,14 @@ export const EINWILLIGUNG_MEDIEN_LABELS = {
   erteilt: "Fotos, Videos und Interviews zugesagt",
   nicht_erteilt: "Nicht zugesagt",
 } as const;
+
+// One wording for the one consent and the one stored label on every admin readout, the pupil's, the
+// referee's and a contact seat's: three wordings read as three different answers.
+/** What every admin readout labels the media consent with; its two values are `EINWILLIGUNG_MEDIEN_LABELS`. */
+export const EINWILLIGUNG_MEDIEN_FRAGE = "Medien";
+
+/** What every admin readout labels a consent record's stored wording with. */
+export const EINWILLIGUNG_FASSUNG_FRAGE = "Fassung";
 
 /**
  * The input carries the bound so the browser refuses a further keystroke; the sentence a value
@@ -184,4 +193,49 @@ export function spielerInitialen(name: SpielerName): string {
   if (name.vorname === null) return SPIELER_ANONYM_LABEL.charAt(0).toUpperCase();
 
   return `${name.vorname.charAt(0)}${name.nachname?.charAt(0) ?? ""}`.toUpperCase();
+}
+
+/**
+ * A pupil as everyone but the public reads them: the surname whole, never the public initial, and the
+ * first name alone on a record entered before the surname was asked.
+ */
+export function kaderName({ vorname, nachname }: { vorname: string; nachname: string | null }): string {
+  return nachname === null ? vorname : `${vorname} ${nachname}`;
+}
+
+/**
+ * `REQ-SQUAD-005` in German. The form offers only the season's levels, so a seat holder meets it where
+ * the season was narrowed under the open page, and the picker is where it is repaired.
+ */
+export const STUFE_NICHT_ZUGELASSEN = "Diese Stufe ist in dieser Saison nicht zugelassen.";
+
+/** What a squad nobody has filled yet says, on the public team page and the team panel's squad page alike. */
+export const KADER_LEER = "Für dieses Team ist noch kein Kader eingetragen.";
+
+/**
+ * The shared-shirt marker, in `fl_frontend/src/features/bewerbungen/duplicates.ts`' voice for a pair
+ * that collides. A state rather than a refusal: two pupils may wear one number until somebody repairs it.
+ */
+export const NUMMER_DOPPELT = "Nummer doppelt";
+
+/** An empty shirt number where no label stands beside it: a chip, a screen-reader text, a line of facts. */
+export const NUMMER_NICHT_HINTERLEGT = nichtHinterlegt("Nummer");
+
+/**
+ * The day a squad row was taken out, in the one sentence the admin editor's banner, a seat holder's
+ * squad and the pupil's own page (`SpielerSelbstView`) all state it in.
+ */
+export function ausgetragenSeit(inactiveSince: string): string {
+  return `Ausgetragen seit ${formatSpielDatum(inactiveSince)}`;
+}
+
+/**
+ * The seat holder's austragen, which they cannot undo: the panel says who can before the press, so the
+ * one-way write is never a surprise.
+ */
+export const KADER_AUSTRAGEN_FOLGE = "Der Kadereintrag bleibt gespeichert; zurückholen kann ihn nur die Verwaltung.";
+
+/** The panel's body above the austragen control, naming the season the row leaves. */
+export function kaderAustragenHinweis(saisonId: string): string {
+  return `Der Spieler verschwindet aus dem Kader der Saison ${saisonId}. ${KADER_AUSTRAGEN_FOLGE}`;
 }

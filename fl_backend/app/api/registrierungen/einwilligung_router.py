@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends
@@ -5,6 +6,8 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.bewerbungen.services import hash_token
+from app.api.einwilligung.services import find_fassung_refusal
+from app.api.registrierungen.crud import person_at_the_address
 from app.api.registrierungen.schemas import (
     FLRegistrierungBestaetigungAnsichtPayload,
     FLRegistrierungBestaetigungAnsichtResponse,
@@ -14,8 +17,7 @@ from app.api.registrierungen.schemas import (
 from app.api.registrierungen.services import (
     BESTAETIGUNG_ANSICHT_FIELDS,
     BESTAETIGUNG_ANTWORT_FIELDS,
-    PERSON_IDENTITY_FIELDS,
-    answers_shown_back,
+    SEITE_WIEDERKEHREND,
     build_bestaetigung_filter,
     compose_confirmation_update,
     find_already_confirmed_refusal,
@@ -24,24 +26,26 @@ from app.api.registrierungen.services import (
     find_expired_token_refusal,
     find_medien_refusal,
     find_unknown_token_refusal,
-    persons_named,
-    sole_person,
+    find_wahlen_refusal,
+    seite_of,
     zustand_of,
 )
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
 from app.core.config import API_VERSION
-from app.core.crud import patch_one_in_db, pull_many_from_db, pull_one_from_db, refuse
+from app.core.crud import patch_one_in_db, refuse
 from app.core.dependencies import (
     DBClient,
     RegistrierungenCollection,
     SpielerCollection,
     TeamsCollection,
     get_german_date_str,
+    get_germany_now,
 )
-from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE, stores_nothing
+from app.core.exception_handlers import stores_nothing
+from app.core.recording import log_stamp
 from app.core.security import bind_public_actor, verify_access_base
 from app.core.transactions import transaction_session
-from app.shared.folding import sign_in_identifier
+from app.shared.einwilligung_nachweis import ist_erteilt
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, REGISTRIERUNG_MIN_ALTER_JAHRE
 
 # A router of its own beside the public submission and the administrator's read: the token is the
@@ -52,17 +56,12 @@ router = APIRouter(
     dependencies=[Depends(verify_access_base), Depends(bind_public_actor)],
 )
 
-# Bounded for a mailbox shared anyway, which can stand behind several pupils: a larger set narrows
-# to nothing rather than to a guess.
-_PERSONS_READ = 8
-
 
 @router.post(
     "/ansicht",
     response_model=FLRegistrierungBestaetigungAnsichtResponse,
     summary="What one registration confirmation link opens",
     dependencies=[Depends(stores_nothing)],
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def get_bestaetigung_ansicht(
     ansicht_data: Annotated[FLRegistrierungBestaetigungAnsichtPayload, Body()],
@@ -76,12 +75,12 @@ async def get_bestaetigung_ansicht(
     Answer what the page renders for the registration this token opens, and no part of the registration beyond it.
 
     The link's state, the team and its school, the season, the pupil's own first name, the age floor the press
-    will be judged by, the age from which the media switch is offered, and the wording's version. Beside them the
-    three answers the league already holds for this person -- the birthdate, the publication scope and the media
-    switch -- so a returning pupil confirms what stands rather than entering it again. That person is matched on
-    the registration's folded address AND its folded name: an address is taken for one person but enforced as one nowhere,
-    and matched on the address alone a mailbox shared anyway would show one pupil another's birthdate. All three are null wherever
-    that match is not exactly one person.
+    will be judged by, the age from which the media switch is offered, and which of two pages the link opens.
+    `bestaetigung_spieler_wiederkehrend` is the returning pupil's: a stored person at the registration's folded
+    address under its folded name who confirmed their own record. That page asks no choice, so beside it the view
+    serves the person's stored birthdate, publication scope and media switch, the birthdate null where none is
+    stored. Matched on the address alone, a mailbox shared anyway would show a sibling that person's answers, so on
+    `bestaetigung_spieler`, the new pupil's page, all three are null.
 
     A POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no
     registration holds (`REQ-REGISTRIERUNG-004`): a confirmed or an expired link is SERVED in that state rather
@@ -99,26 +98,15 @@ async def get_bestaetigung_ansicht(
     refuse(find_unknown_token_refusal(found=raw is not None))
     assert raw is not None
 
-    # A 404 rather than an empty slot: the two names are rendered INTO the consent text, and a
-    # paragraph missing its subject reads as finished.
-    team_raw = await pull_one_from_db(collection=teams_collection, db_filter={"_id": raw.get("team_id")}, projection=["name", "full_name"])
+    # `find_one` rather than `pull_one_from_db`: no team is ever deleted, so a miss is a broken
+    # invariant rather than a 404 this view could answer, and never an empty slot in the consent text.
+    team_raw = await teams_collection.find_one({"_id": raw["team_id"]}, projection={"name": 1, "full_name": 1})
+    assert team_raw is not None
 
-    # An equality on the folded form, which is what `spieler.email` stores.
-    persons = await pull_many_from_db(
-        collection=spieler_collection,
-        db_filter={"email": sign_in_identifier(str(raw.get("email") or ""))},
-        # One PAST the bound, so a mailbox shared by more is seen to be: capped at the bound, the read
-        # answers a subset of the people behind it, and a namesake left outside it makes the other look sole.
-        limit=_PERSONS_READ + 1,
-        projection=[*PERSON_IDENTITY_FIELDS, "geburtsdatum", "einwilligung"],
-    )
-    at_the_address = persons if len(persons) <= _PERSONS_READ else []
-
-    # Narrowed by the NAME before anything is shown back: nothing stops a mailbox shared anyway
-    # standing behind more than one pupil.
-    named = persons_named(at_the_address, vorname=raw.get("vorname"), nachname=raw.get("nachname"))
-
-    shown_back = answers_shown_back(registrierung_raw=raw, spieler_raw=sole_person(named))
+    person = await person_at_the_address(spieler_collection=spieler_collection, registrierung_raw=raw, session=None)
+    seite = seite_of(registrierung_raw=raw, person_raw=person)
+    # Nothing of the person past this line unless it is the one the returning page names.
+    shown_back = person if person is not None and seite == SEITE_WIEDERKEHREND else {}
     einwilligung = shown_back.get("einwilligung") or {}
 
     gesperrt = await adressen_gesperrt(sperrliste, [str(raw.get("email") or "")])
@@ -129,12 +117,13 @@ async def get_bestaetigung_ansicht(
         schule=str(team_raw["full_name"]),
         saison_id=str(raw["saison_id"]),
         vorname=str(raw["vorname"]),
-        text_version=einwilligung.get("text_version"),
+        seite=seite,
         mindestalter=REGISTRIERUNG_MIN_ALTER_JAHRE,
         medien_mindestalter=MEDIEN_MIN_AGE_YEARS,
         geburtsdatum=shown_back.get("geburtsdatum"),
         umfang=einwilligung.get("umfang"),
-        medien=einwilligung.get("medien"),
+        # A confirmed record stored before the media question carries no `medien`, which reads as off.
+        medien=ist_erteilt("medien", einwilligung.get("medien")) if shown_back else None,
     )
 
 
@@ -142,27 +131,32 @@ async def get_bestaetigung_ansicht(
     "",
     response_model=FLRegistrierungBestaetigungResponse,
     summary="Confirm one registration and record the pupil's consent",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
 )
 async def post_bestaetigung(
     antwort_data: Annotated[FLRegistrierungBestaetigungPayload, Body()],
     registrierungen_collection: RegistrierungenCollection,
+    spieler_collection: SpielerCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
+    germany_now: datetime = Depends(get_germany_now),
 ) -> FLRegistrierungBestaetigungResponse:
     """
-    Record a pupil's own answer for the registration their link opens: their date of birth and the whole consent record, in one update.
+    Record a pupil's own answer for the registration their link opens: their date of birth and the consent record, in one update.
 
-    The record carries the publication scope they chose, the media answer beside it, the stamp and the wording they
-    were shown. A returning pupil's press writes the record again under the label current that day, so a consent
-    given under older words is renewed under the words this person just read.
+    Which page the link opens is resolved again here, as the view resolves it. On the new pupil's page the record
+    carries the publication scope they chose, the media answer beside it, the stamp and the wording they were shown.
+    On the returning pupil's page, which asks no choice, it carries the stamp and the wording alone: the choices
+    standing on the person's own record are theirs to change on the account page, and nothing here re-grants one.
 
     Refuses, in this order: a token no registration holds (`REQ-REGISTRIERUNG-004`), a link whose deadline has
-    passed or whose registration has been decided (`-005`), a registration already confirmed (`-006`), a link mailed to
-    an address the ban list holds now, whenever the link was minted (`-012`), an age below the floor (`-007`), and a
-    media consent from a pupil below `medien_mindestalter` (`REQ-REGISTRIERUNG-010`) -- the last two judged before
-    anything is written, so a mistyped year spends nothing and the pupil keeps the link.
+    passed or whose registration has been decided (`-005`), a registration already confirmed (`-006`), any label but
+    the running one of the page the link opens now (`REQ-EINWILLIGUNG-001`), choices that are not the ones that page
+    asks -- both on the new pupil's, none on the returning pupil's (`REQ-REGISTRIERUNG-017`) -- a link mailed to an
+    address the ban list holds now, whenever the link was minted (`REQ-REGISTRIERUNG-012`), an age below the floor
+    (`-007`), and a media consent from a pupil below `medien_mindestalter` (`REQ-REGISTRIERUNG-010`). Every one is
+    judged before anything is written, so a reloaded page or a mistyped year spends nothing and the pupil keeps the
+    link.
 
     The registration stays pending after this: an admission is a later decision, and nothing here writes a person
     or a squad row.
@@ -187,6 +181,15 @@ async def post_bestaetigung(
 
         refuse(find_expired_token_refusal(bestaetigung=raw.get("bestaetigung"), status=raw.get("status"), today=today))
         refuse(find_already_confirmed_refusal(einwilligung=raw.get("einwilligung")))
+        # In-session, so a person confirmed or erased since the view was read moves the page this press
+        # is judged against, and the page it showed is told to reload rather than stored under the other.
+        seite = seite_of(
+            registrierung_raw=raw,
+            person_raw=await person_at_the_address(spieler_collection=spieler_collection, registrierung_raw=raw, session=session),
+        )
+        # A new acceptance: the running label alone, so a page loaded before a deploy is told to reload.
+        refuse(find_fassung_refusal(seite=seite, genannt={"einwilligung": antwort_data.text_version}))
+        refuse(find_wahlen_refusal(seite=seite, umfang=antwort_data.umfang, medien=antwort_data.medien))
         # Asked at the press rather than only at the mint: a ban entered after the link went out
         # stops it here, and one lifted while it runs lets it answer again.
         gesperrt = await adressen_gesperrt(
@@ -194,7 +197,7 @@ async def post_bestaetigung(
         )
         refuse(find_bestaetigung_gesperrt_refusal(gesperrt=bool(gesperrt)))
         refuse(find_alter_refusal(geburtsdatum=antwort_data.geburtsdatum, today=today))
-        refuse(find_medien_refusal(geburtsdatum=antwort_data.geburtsdatum, medien=antwort_data.medien, today=today))
+        refuse(find_medien_refusal(geburtsdatum=antwort_data.geburtsdatum, medien=antwort_data.medien is True, today=today))
 
         await patch_one_in_db(
             collection=registrierungen_collection,
@@ -205,6 +208,7 @@ async def post_bestaetigung(
                 medien=antwort_data.medien,
                 text_version=antwort_data.text_version,
                 today=today,
+                am=log_stamp(germany_now),
             ),
             session=session,
             return_document=ReturnDocument.BEFORE,

@@ -139,7 +139,7 @@ describe("the squad row's link into the club list", () => {
       }),
     );
     const table = screen.getByRole("grid", { name: "Tabelle aller Teams" });
-    await userEvent.setup().click(within(table).getByRole("button", { name: `Weitere Aktionen für Team ${TEAM_NAME}` }));
+    await userEvent.setup().click(within(table).getByRole("button", { name: `Weitere Aktionen: Team ${TEAM_NAME}` }));
 
     const back = within(screen.getByRole("menu")).getByRole("menuitem", { name: "Spieler anzeigen" }).getAttribute("href") ?? "";
 

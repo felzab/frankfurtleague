@@ -111,9 +111,9 @@ is corrected in the pull request body. `git config core.hooksPath .githooks` ins
 every other hook in that folder, and it runs `scripts/checks/check_commits.py`. The checker judges
 the whole message and, for the `Closes:` trailer, the staged diff
 (`scripts/checks/check_commits.py :: staged_departures`), which is the new commit's own diff for a
-plain commit, for `git commit -C <sha>` or `-F` after `git cherry-pick -n` — the landing flow, so a
-commit is judged in full when it becomes permanent — and for a commit after
-`git reset --soft HEAD~1`. It refuses on a failure, and prints each finding the list below marks
+plain commit and for a commit after `git reset --soft HEAD~1`. An agent's commits are judged where
+they are made, in its worktree, since the hooks path is shared; a session branch takes a finished
+agent branch in whole with `git merge --no-ff`, whose message is git's own (the last item below). It refuses on a failure, and prints each finding the list below marks
 _reported_ as a notice on a message it lets through, the one moment a notice can still be acted on.
 
 **What the hook never sees:** a committing `git cherry-pick` without `-n` and a non-interactive
@@ -296,8 +296,8 @@ Locally, `git branch -d short-kebab-name` after the pull. The traps attached to 
   inherits.
 - **Secret scanning matches known provider token formats**, so it catches neither an internal API
   key nor `auth_secret`. What protects those is `secrets/`, where each is a file, being gitignored
-  and outside both Docker build contexts, and `.env*`, which may still carry their retired lines,
-  being gitignored and excluded from both.
+  and outside both Docker build contexts, and `.env*`, where a development machine may still hold
+  a credential's old line, being gitignored and excluded from both.
 - **The Dependabot toggles are separate from `.github/dependabot.yml`**, which governs only routine
   scheduled version updates; without them a published advisory produces no notification at all. Version
   updates need no toggle of their own — that file's presence on the default branch enables them.

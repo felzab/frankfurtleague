@@ -7,9 +7,11 @@ import PencilToSquare from "@gravity-ui/icons/PencilToSquare";
 
 import { Button } from "@heroui/react/button";
 
+import { Leer } from "@/shared/components/ui/Angabe";
 import { BRAND_ICON_BUTTON_CLASSES } from "@/shared/components/ui/brandTile";
 import { card } from "@/shared/components/ui/card";
 import { IconTooltip } from "@/shared/components/ui/IconTooltip";
+import { benannt } from "@/shared/utils/benannt";
 
 import { computeSpielStatus, ergebnisTone, formatSpielDisplay } from "../../utils";
 import { SaisonPhaseChip } from "./SaisonPhaseChip";
@@ -64,7 +66,7 @@ export function SpielCard({
         {/* `shrink-0`: beside the `w-full` actions the column shrinks to its longest word, and „Termin
             offen“ splits into two lines the skeleton reserves one for. */}
         <div className="flex shrink-0 flex-col">
-          <span className="fluid-sm font-bold text-foreground">{spielDatum}</span>
+          <span className="fluid-sm font-bold text-foreground">{spielData.datum ? spielDatum : <Leer>{spielDatum}</Leer>}</span>
           <span className="muted-meta">{spielUhrzeit}</span>
         </div>
 
@@ -76,7 +78,7 @@ export function SpielCard({
             <IconTooltip label="Spiel bearbeiten">
               <Link
                 href={adminEditHref}
-                aria-label={`Spiel Nr. ${spielData.spiel_nr} bearbeiten`}
+                aria-label={benannt("Spiel bearbeiten", `Spiel Nr. ${spielData.spiel_nr}`)}
                 /* The brand fill rather than `bg-muted`, and the only difference from the info button
                    beside it: same box, same radius, same position, so no layout moves. */
                 className={BRAND_ICON_BUTTON_CLASSES}>
@@ -90,7 +92,7 @@ export function SpielCard({
           <IconTooltip label="Spielinfo">
             <Button
               isIconOnly
-              aria-label={`Spielinfo Spiel Nr. ${spielData.spiel_nr}`}
+              aria-label={benannt("Spielinfo", `Spiel Nr. ${spielData.spiel_nr}`)}
               onPress={onOpenInfoModal}
               size="md"
               variant="tertiary"

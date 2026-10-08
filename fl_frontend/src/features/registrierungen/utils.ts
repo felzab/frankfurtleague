@@ -2,8 +2,8 @@ import { KONTAKT_EMAIL } from "@/core/brand";
 import { isRecordMissing } from "@/core/errors";
 import { nummerPayload } from "@/features/spieler/utils";
 import { isRefusal, isRuleRefusal, refusedPayloadAnswer } from "@/shared/utils/actionError";
-import { buildRefusal } from "@/shared/utils/refusal";
-import { ANTWORT_NEU_OEFFNEN, REGISTRIERUNG_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
+import { buildRefusal, LADE_DIE_SEITE_NEU } from "@/shared/utils/refusal";
+import { ANTWORT_NEU_OEFFNEN, FASSUNG_NEU_OEFFNEN, REGISTRIERUNG_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 
 import { alterAusserhalb, REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE } from "./constants";
 
@@ -97,6 +97,16 @@ export function mapRegistrierungSubmitRefusal(
           repair: `Soll sich daran etwas ändern, schreib uns an ${KONTAKT_EMAIL}`,
         }),
       };
+    // The same press, replayed after the team admitted it: the key outlives the registration on the
+    // squad row, so the answer is the admission rather than a second registration.
+    case "REQ-REGISTRIERUNG-016":
+      return {
+        schonAngekommen: true,
+        error: buildRefusal({
+          reason: "Deine Registrierung ist schon angekommen, und Dein Team hat Dich aufgenommen",
+          repair: `Soll sich daran etwas ändern, schreib uns an ${KONTAKT_EMAIL}`,
+        }),
+      };
     // Neutral, and under the address it was judged on: a stranger learns nothing about a list, and
     // the person it does concern already knows why.
     case "REQ-REGISTRIERUNG-009":
@@ -117,7 +127,7 @@ export function mapRegistrierungSubmitRefusal(
  * registering again mints a fresh link.
  */
 export const MAIL_ABGEWIESEN =
-  "An diese Adresse konnten wir keine E-Mail schicken. Prüfe sie und registriere Dich über denselben Link noch einmal; " +
+  "An diese Adresse konnten wir keine E-Mail schicken. Prüfe sie und registriere Dich über denselben Link erneut; " +
   `der Eintrag von eben löscht sich nach ${String(REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE)} Tagen von selbst.`;
 
 /** The refused send as the form shows it. */
@@ -148,9 +158,14 @@ export async function mapBestaetigungRefusal(error: unknown, mindestalter: () =>
     // The page offers no media switch below the served age, so only a page older than that rule
     // sends this answer, and its repair is the refused payload's.
     case "REQ-REGISTRIERUNG-010":
+    // Choices the link's page did not ask: no page of ours sends it, the label check refusing a
+    // mismatched page first, so only a drifted client meets this, and the mail's link reopens the page.
+    case "REQ-REGISTRIERUNG-017":
       return { error: ANTWORT_NEU_OEFFNEN };
-    // With the record missing, the registration the link names is gone, which is a link nothing places.
-    case "DB-COMMON-001":
+    // The backend's judgement of the label (`docs/backend/spec.md :: I550`): a page opened before a
+    // deploy moved it posts words other than those the backend runs, and only the mail's link reopens it.
+    case "REQ-EINWILLIGUNG-001":
+      return { error: FASSUNG_NEU_OEFFNEN };
     case "REQ-REGISTRIERUNG-004":
       return { zustand: "ungueltig" };
     case "REQ-REGISTRIERUNG-005":
@@ -174,6 +189,85 @@ export async function mapBestaetigungRefusal(error: unknown, mindestalter: () =>
   }
 }
 
+/** The registrations page with nothing pending: a decided queue and one nobody joined read alike. */
+export const REGISTRIERUNGEN_LEER = "Keine offenen Registrierungen.";
+
+/** Why an unconfirmed row offers no admission: its address is unverified until the pupil's own link is followed. */
+export const NOCH_NICHT_BESTAETIGT = "Aufnehmen kannst Du erst, wenn die Person ihren Link bestätigt hat.";
+
+/**
+ * The same-person question. It names the stored person and never the differing values: the stored
+ * birthdate was promised to the administrators alone.
+ */
+export const ANGABEN_WEICHEN_AB = "Die Angaben weichen von einem früheren Eintrag ab.";
+export const dieselbePerson = (name: string): string => `Ist das dieselbe Person wie ${name}?`;
+
+/** A registration another seat decided since the page was drawn: the press meets no pending row. */
+export const REGISTRIERUNG_SCHON_ENTSCHIEDEN = buildRefusal({
+  reason: "Diese Registrierung ist schon entschieden",
+  repair: LADE_DIE_SEITE_NEU,
+});
+
+/**
+ * A refused admission as the registrations page words it to a seat holder, or `null` for a code the
+ * person spine answers. **The ban's refusal is neutral**: a team is never told that a pupil's address is barred.
+ */
+export function mapAufnahmeRefusal(error: unknown): string | null {
+  if (!isRefusal(error)) return null;
+
+  switch (error.serverErrorCode) {
+    case "DB-COMMON-001":
+      return REGISTRIERUNG_SCHON_ENTSCHIEDEN;
+    // The list marks the row and offers no press, so only a page older than the pupil's state sends this.
+    case "REQ-REGISTRIERUNG-013":
+      return buildRefusal({
+        reason: "Diese Registrierung ist noch nicht bestätigt",
+        repair: "Nimm sie auf, sobald die Person ihren Link bestätigt hat",
+      });
+    case "REQ-REGISTRIERUNG-009":
+      return buildRefusal({ reason: "Diese Registrierung kann nicht aufgenommen werden", repair: "Wende Dich an die Liga" });
+    case "REQ-REGISTRIERUNG-003":
+      return buildRefusal({
+        reason: "Diese Stufe ist in dieser Saison nicht zugelassen",
+        repair: "Lehne die Registrierung ab oder wende Dich an die Liga",
+      });
+    // The page sends exactly the person the read resolved or proposed, so this is a page older than
+    // the stored person it names.
+    case "REQ-REGISTRIERUNG-014":
+      return buildRefusal({
+        reason: "Wen diese Registrierung meint, hat sich seit dem Laden der Seite geändert",
+        repair: "Lade die Seite neu und entscheide erneut",
+      });
+    // The pupil confirmed as a person the league has erased since, and gave no answers a new person
+    // could stand on: only a fresh registration asks them.
+    case "REQ-REGISTRIERUNG-018":
+      return buildRefusal({
+        reason: "Die Person zu dieser Registrierung ist bei uns nicht mehr gespeichert",
+        repair: "Lehne die Registrierung ab; die Person kann sich danach erneut registrieren",
+      });
+    case "REQ-REGISTRIERUNG-015":
+      return buildRefusal({
+        reason: "Diese Person steht in dieser Saison schon in einem Kader",
+        repair: "Lehne die Registrierung ab oder wende Dich an die Liga",
+      });
+    // The administrator's remedy, raising the cap, is no seat holder's: the league is.
+    case "REQ-SQUAD-003":
+      return buildRefusal({
+        reason: "Der Kader Deines Teams ist für diese Saison voll",
+        repair: "Wende Dich an die Liga, wenn noch jemand dazukommen soll",
+      });
+    default:
+      return null;
+  }
+}
+
+/** A refused decline as the registrations page words it, or `null` for a code the person spine answers. */
+export function mapAblehnungRefusal(error: unknown): string | null {
+  if (!isRefusal(error)) return null;
+
+  return error.serverErrorCode === "DB-COMMON-001" ? REGISTRIERUNG_SCHON_ENTSCHIEDEN : null;
+}
+
 /**
  * A refused read as the panel it renders, or `null` where the read failed instead.
  *
@@ -187,7 +281,8 @@ export function mapRegistrierungAnsichtRefusal(error: unknown): "ungueltig" | nu
   // than offering a reload that cannot succeed.
   if (error.serverErrorCode === "REQ-VAL-001") return "ungueltig";
 
-  // The season, club or registration the link names gone, which the writes answer alike.
+  // The season or club an invitation names gone, which the invitation's read answers as the sign-up
+  // does; the confirmation's read and write meet no gone record.
   if (isRecordMissing(error)) return "ungueltig";
 
   return isRuleRefusal(error) ? "ungueltig" : null;

@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { GESPERRTE_ADRESSE } from "@/features/berechtigungen/constants.ts";
+import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
+import { assertLeerMarkup } from "@/shared/testing/leerGrade.ts";
 import { renderMarkup, textOf } from "@/shared/testing/renderTest";
 
 import { FLBewerbungSchema } from "../../schemas.ts";
@@ -41,7 +43,7 @@ const BEWERBUNG: FLBewerbung = FLBewerbungSchema.parse({
       // Spaced the way a school types one, which is the whole of what the two hrefs differ over.
       telefon: "069 12 34 56",
       geburtsdatum: "1990-01-01",
-      einwilligung: { umfang: "kontaktdaten", erfasst_von: "person", text_version: "2026-08", datum: "2026-08-01", bestaetigt_am: null },
+      einwilligung: kenntnisnahme({ erfasst_von: "person", text_version: "2026-08", datum: "2026-08-01", bestaetigt_am: null }),
     },
     stellvertretung: null,
     trainer: null,
@@ -68,6 +70,92 @@ describe("the panel a triage decision is taken from", () => {
   it("renders the club row as a fact under its own label", () => {
     assert.notEqual(factLine(markup(), "Team"), "", "no fact stands under „Team“ at all");
   });
+
+  /* The form never asks a contact's birthdate; it arrives with their confirmation, so until then the
+     step is theirs, and only a confirmed seat without one holds an empty field. */
+  for (const [bestaetigtAm, worte] of [
+    [null, "Trägt die Person selbst ein"],
+    ["2026-08-03", "Nicht hinterlegt"],
+  ] as const) {
+    it(`reads a missing birthdate on a seat confirmed ${bestaetigtAm ?? "never"} as „${worte}“, as the contacts editor does`, () => {
+      const ansprechperson = BEWERBUNG.kontakte.ansprechperson;
+      assert.ok(ansprechperson !== null);
+      const person = { ...ansprechperson, geburtsdatum: null, einwilligung: { ...ansprechperson.einwilligung, bestaetigt_am: bestaetigtAm } };
+      const html = markup({ kontakte: { ...BEWERBUNG.kontakte, ansprechperson: person } });
+
+      assert.equal(textOf(factLine(html, "Geburtsdatum")), worte);
+      assertLeerMarkup(factLine(html, "Geburtsdatum"), worte);
+    });
+  }
+
+  it("reads a field the school left empty as not held", () => {
+    assert.equal(textOf(factLine(markup({ wunschgegner: null }), "Wunschgegner")), "Nicht hinterlegt");
+  });
+
+  /* The Herkunft is who seated the person, `eingetragen_von`: `erfasst_von` is written by nothing new
+     and leaves the stored records at the programme's end, so a label read off it would go blank. */
+  for (const [von, label] of [
+    ["bewerbung", "Mit der Bewerbung eingetragen"],
+    ["liga", "Von der Liga eingetragen"],
+    [null, "Herkunft nicht hinterlegt"],
+  ] as const) {
+    it(`names a seat stored as ${String(von)} by who seated it, „${label}“`, () => {
+      const ansprechperson = BEWERBUNG.kontakte.ansprechperson;
+      assert.ok(ansprechperson !== null);
+      const html = markup({
+        kontakte: {
+          ...BEWERBUNG.kontakte,
+          ansprechperson: { ...ansprechperson, einwilligung: { ...ansprechperson.einwilligung, eingetragen_von: von } },
+        },
+      });
+
+      assert.match(textOf(factLine(html, "Kenntnisnahme")), new RegExp(`^${label}, `));
+      if (von === null) assertLeerMarkup(factLine(html, "Kenntnisnahme"), label);
+    });
+  }
+
+  /* Withdrawable on the account page while the application is pending, so the administrator deciding it
+     reads both as they stand, each with its act; both arms, so „erlaubt“ for every seat fails. */
+  for (const [umfang, medien, whatsappWorte, medienWorte] of [
+    ["kontaktdaten_whatsapp", true, "erlaubt", "Fotos, Videos und Interviews zugesagt"],
+    ["kontaktdaten", false, "nicht erlaubt", "Nicht zugesagt"],
+  ] as const) {
+    it(`reads out a pending seat's WhatsApp scope „${whatsappWorte}“ and media consent „${medienWorte}“, each with its act`, () => {
+      const ansprechperson = BEWERBUNG.kontakte.ansprechperson;
+      assert.ok(ansprechperson !== null);
+      const html = markup({
+        status: "eingereicht",
+        kontakte: {
+          ...BEWERBUNG.kontakte,
+          ansprechperson: {
+            ...ansprechperson,
+            einwilligung: {
+              ...ansprechperson.einwilligung,
+              umfang: umfang,
+              medien: medien,
+              bestaetigt_am: "2026-08-02",
+              nachweis: { umfang: { am: "2026-08-02T08:00:00+00:00", text_version: "2026-08", erteilt_zuvor: null }, medien: null },
+            },
+          },
+        },
+      });
+
+      assert.ok(textOf(factLine(html, "WhatsApp"), " ").startsWith(`${whatsappWorte} `), textOf(factLine(html, "WhatsApp"), " "));
+      assert.ok(textOf(factLine(html, "Medien")).startsWith(medienWorte), textOf(factLine(html, "Medien")));
+      assert.notEqual(textOf(factLine(html, "WhatsApp")), whatsappWorte, "the WhatsApp scope stands on no act");
+    });
+  }
+
+  /* A decided application's copy is frozen: the seats' choices move on the team's row from then on, so
+     the copy read out in the present tense would contradict them for as long as it is kept. */
+  for (const status of ["angenommen", "abgelehnt"] as const) {
+    it(`reads out no choice on an application ${status}`, () => {
+      const html = markup({ status: status });
+
+      assert.equal(factLine(html, "WhatsApp"), "", "a decided application reads out a frozen WhatsApp scope");
+      assert.equal(factLine(html, "Medien"), "", "a decided application reads out a frozen media consent");
+    });
+  }
 
   /* An acceptance writes the created club's id back onto the application, so a decided new-school
      application carries a school AND a club. A guard on the school arm drops the link on exactly
@@ -149,6 +237,7 @@ describe("who the panel says decided", () => {
   /* The read serves a barred administrator as `null` beside the flag (`docs/frontend/spec.md :: I492`). */
   it("names an administrator the ban list holds by that state", () => {
     assert.equal(entschieden(null, true), GESPERRTE_ADRESSE);
+    assertLeerMarkup(markup({ entscheidung: { getroffen_am: "2026-09-10", von: null, von_gesperrt: true, grund: null } }), GESPERRTE_ADRESSE);
   });
 });
 

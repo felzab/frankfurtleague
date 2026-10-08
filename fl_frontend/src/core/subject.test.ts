@@ -16,10 +16,11 @@ import {
   sessionByCode,
 } from "./authDoubles.ts";
 import { beginRenderPass, itOpensAScopeThatMemoizes, serveServerReactTo } from "./cacheScope.ts";
-import { SITZ } from "./subjectFixtures.ts";
+import { answerAt, SITZ } from "./subjectFixtures.ts";
 
 import type { SessionRow } from "./authDoubles.ts";
 import type { RequestActor } from "./requestScope.ts";
+import type { LookupFixture } from "./subjectFixtures.ts";
 
 const STORE = "__flSubjectStore";
 
@@ -58,26 +59,17 @@ registerAuthDoubles({
 
 const store = memoryStore(STORE);
 
-/** One record set the league holds, as the endpoint answers it. */
-type Subjekt = {
-  acknowledged: 0 | 1;
-  sitze: readonly { saison_id: string; team_id: string; rolle: string; team_name: string; saison_status: string }[];
-  spieler: readonly { spieler_id: string }[];
-  schiedsrichter: readonly { schiedsrichter_id: string }[];
-  unbestaetigt: boolean;
-  gesperrt: boolean;
-  verwaltung: "owner" | "administration" | null;
-  berechtigt_seit: string | null;
-};
+/** One record set the league holds, and the gate's `konto` for it, as the backend answers both reads. */
+type Subjekt = Required<LookupFixture>;
 
 const PUPIL = { spieler_id: "b".repeat(24) };
 
 /* Keyed by the FOLDED identifier, as the endpoint's own join is: a guard sending the address as the
    session holds it then asks about a mailbox this holds nothing for. */
 const RECORDS = new Map<string, Subjekt>([
-  [ADMIN_EMAIL, { ...HOLDS_NOTHING, sitze: [SITZ], verwaltung: "administration", berechtigt_seit: "2026-01-01T00:00:00Z" }],
-  [PERSON_EMAIL, { ...HOLDS_NOTHING, spieler: [PUPIL] }],
-  [FOLDED_EMAIL, { ...HOLDS_NOTHING, spieler: [PUPIL] }],
+  [ADMIN_EMAIL, { ...HOLDS_NOTHING, sitze: [SITZ], verwaltung: "administration", berechtigt_seit: "2026-01-01T00:00:00Z", konto: true }],
+  [PERSON_EMAIL, { ...HOLDS_NOTHING, spieler: [PUPIL], konto: true }],
+  [FOLDED_EMAIL, { ...HOLDS_NOTHING, spieler: [PUPIL], konto: true }],
 ]);
 
 /** One call the guard put on the wire. */
@@ -111,7 +103,11 @@ globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) =>
 
   const asked = (JSON.parse(body) as { email?: string }).email ?? "";
 
-  return new Response(JSON.stringify(RECORDS.get(asked) ?? HOLDS_NOTHING), { status: 200, headers: { "content-type": "application/json" } });
+  // The sign-in gate's own read too, which every session a case mints passes.
+  return new Response(JSON.stringify(answerAt(new URL(url).pathname, RECORDS.get(asked) ?? { ...HOLDS_NOTHING, konto: false })), {
+    status: 200,
+    headers: { "content-type": "application/json" },
+  });
 }) as typeof globalThis.fetch;
 after(() => {
   globalThis.fetch = ORIGINAL_FETCH;
@@ -231,7 +227,13 @@ describe("who the seam answers for", () => {
      gated on this mark offers it nothing either; the person's records stand. */
   it("drops that mark from a passkey session made before its grant, and keeps it once the grant is dated before", async (t) => {
     t.after(() =>
-      RECORDS.set(ADMIN_EMAIL, { ...HOLDS_NOTHING, sitze: [SITZ], verwaltung: "administration", berechtigt_seit: "2026-01-01T00:00:00Z" }),
+      RECORDS.set(ADMIN_EMAIL, {
+        ...HOLDS_NOTHING,
+        sitze: [SITZ],
+        verwaltung: "administration",
+        berechtigt_seit: "2026-01-01T00:00:00Z",
+        konto: true,
+      }),
     );
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     madeByPasskey(store, row);
@@ -244,6 +246,7 @@ describe("who the seam answers for", () => {
         sitze: [SITZ],
         verwaltung: "administration",
         berechtigt_seit: new Date(row.createdAt.getTime() + grantedAfterMs).toISOString(),
+        konto: true,
       });
       beginRenderPass();
       const answer = await getSubjectSession();

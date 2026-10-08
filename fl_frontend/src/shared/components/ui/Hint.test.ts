@@ -193,8 +193,8 @@ describe("the shared refusal reader over this overlay's own markup", () => {
         h(Hint, {
           mode: "refusal",
           reason: "Trage zuerst eine Adresse ein.",
-          label: "Link erneut senden an Trainer",
-          children: h(Button, { isDisabled: true, "aria-label": "Link erneut senden an Trainer" }, "Link erneut senden"),
+          label: "Link erneut senden: Trainer",
+          children: h(Button, { isDisabled: true, "aria-label": "Link erneut senden: Trainer" }, "Link erneut senden"),
         }),
         refusedLink("Erst eine gültige Adresse eingeben", "Website in neuem Tab öffnen"),
         refused(null, "Abbrechen"),
@@ -205,7 +205,7 @@ describe("the shared refusal reader over this overlay's own markup", () => {
       { name: LABEL, label: LABEL, reason: REASON },
       { name: "Gruppen tauschen", label: "Gruppen tauschen", reason: "Wähle zuerst ein Team." },
       // The control's own name where it says more than its words, which the overlay then carries whole.
-      { name: "Link erneut senden an Trainer", label: "Link erneut senden an Trainer", reason: "Trage zuerst eine Adresse ein." },
+      { name: "Link erneut senden: Trainer", label: "Link erneut senden: Trainer", reason: "Trage zuerst eine Adresse ein." },
       { name: "Website in neuem Tab öffnen", label: "Website in neuem Tab öffnen", reason: "Erst eine gültige Adresse eingeben" },
     ]);
   });
@@ -223,9 +223,9 @@ describe("the shared refusal reader over this overlay's own markup", () => {
     assert.deepEqual(refusalWrappers(openButton), [], "a button nothing disables is read as closed");
   });
 
-  /* WCAG 2.5.3 on the one tab stop: speech input says the words on screen, so a name holding more than
-     them is found and a name missing them is not. */
-  it("refuses an overlay whose name does not contain the words its control shows", () => {
+  /* WCAG 2.5.3 on the one tab stop: speech input says the words on screen, so a name opening with them is
+     found and a name missing them is not. */
+  it("refuses an overlay whose name does not start with the words its control shows", () => {
     const html = renderTree(refused(REASON));
     const renamed = html.replace(`aria-label="${LABEL}"`, 'aria-label="Sichern"');
 
@@ -235,10 +235,10 @@ describe("the shared refusal reader over this overlay's own markup", () => {
 
   /* Speech input ignores case and most punctuation (WCAG 2.5.3's Understanding document), so a name that
      differs from the words on screen only there is the one a person saying those words reaches. */
-  it("finds an overlay whose name holds its control's words in another case or punctuation", () => {
+  it("finds an overlay whose name starts with its control's words in another case or punctuation", () => {
     const html = renderTree(refused(REASON));
 
-    for (const name of ["Entwurf speichern", "Entwurf „SPEICHERN“", "speichern: Entwurf"]) {
+    for (const name of ["Speichern: Entwurf", "„SPEICHERN“ Entwurf", "speichern"]) {
       const renamed = html.replace(`aria-label="${LABEL}"`, `aria-label="${name}"`);
 
       assert.notEqual(renamed, html, "the overlay's name is not where this case renames it");
@@ -249,16 +249,16 @@ describe("the shared refusal reader over this overlay's own markup", () => {
     }
   });
 
-  /* The words have to stand together and in order: a phrase spoken whole is not matched against its words
-     scattered across a longer name, nor against part of a longer word. */
-  it("refuses an overlay whose name holds its control's words apart, out of order or inside other words", () => {
+  /* The words have to open the name, together and in order: a phrase spoken whole is not matched against its
+     words later in the name, scattered across it, or inside a longer word. */
+  it("refuses an overlay whose name holds its control's words late, apart, out of order or inside other words", () => {
     const html = renderTree(refused(REASON, "Änderung speichern"));
 
-    for (const name of ["Änderung jetzt speichern", "speichern Änderung", "Änderungen speichern"]) {
+    for (const name of ["Entwurf: Änderung speichern", "Änderung jetzt speichern", "speichern Änderung", "Änderungen speichern"]) {
       const renamed = html.replace('aria-label="Änderung speichern"', `aria-label="${name}"`);
 
       assert.notEqual(renamed, html, "the overlay's name is not where this case renames it");
-      assert.throws(() => refusalWrappers(renamed), /does not contain/, `„${name}“ was read as holding „Änderung speichern“`);
+      assert.throws(() => refusalWrappers(renamed), /does not start with/, `„${name}“ was read as opening with „Änderung speichern“`);
     }
   });
 });

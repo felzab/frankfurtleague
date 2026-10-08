@@ -13,8 +13,10 @@ import { bewerbungJudgedPaths, bewerbungPayload, KUERZEL_UNGEPRUEFT, KUERZEL_VER
 import { Form } from "@/shared/components/ui/Form";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
+import { useTurnstile } from "@/shared/hooks/useTurnstile";
 import { appToast } from "@/shared/utils/appToast";
-import { EDGE_RATE_LIMIT_STATUS, postPublicForm } from "@/shared/utils/publicSubmit";
+import { EDGE_RATE_LIMIT_STATUS, postPublicForm, UNKLAR_TITEL } from "@/shared/utils/publicSubmit";
+import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal";
 
 import { FormEinwilligungSection, FormKontaktpersonenSection } from "./FormKontaktpersonenSection";
 import { FormSchuleSection } from "./FormSchuleSection";
@@ -32,19 +34,20 @@ import type { FLTrainerZugleich, FLTrikotFarbe } from "@/features/teams/schemas"
 import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { ReactNode } from "react";
+import type { BewerbungFassung } from "./FormKontaktpersonenSection";
 
 type BewerbungAntwort = PublicEnvelope & { message?: string };
 
 /** The availability check's answer, whose `vergeben` is present only where it could be judged. */
 type KuerzelAntwort = { success: boolean; vergeben?: boolean; rateLimited?: boolean };
 
-const NICHT_ABGESCHICKT = "Deine Bewerbung wurde nicht abgeschickt. Versuche es erneut.";
+const NICHT_ABGESCHICKT = `Deine Bewerbung wurde nicht abgeschickt. ${VERSUCHE_ES_ERNEUT_SATZ}`;
 
 /**
  * A second press is safe from this page alone, which holds the key the first one carried
  * (`docs/frontend/spec.md :: I348`); unchanged, because other details under that key are refused.
  */
-const BEWERBUNG_UNKLAR = "Schick die Bewerbung hier unverändert noch einmal ab: Doppelt ankommen kann sie so nicht.";
+const BEWERBUNG_UNKLAR = "Schick die Bewerbung hier unverändert erneut ab: Doppelt ankommen kann sie so nicht.";
 
 // Composed, never restated: the field is already showing the promise from `utils`, and on a rate-limited blur
 // the two render together — one promise in two wordings reads as two different promises.
@@ -72,15 +75,19 @@ async function fetchKuerzel(shorthand: string): Promise<KuerzelAntwort> {
  */
 export function BewerbungForm({
   saisonId,
+  fassung,
   schulen,
   isSchulenLesbar,
   vergebeneFarben,
+  siteKey,
   hinweisSlot,
 }: {
   saisonId: string;
+  fassung: BewerbungFassung;
   schulen: readonly { id: string; name: string }[];
   isSchulenLesbar: boolean;
   vergebeneFarben: readonly FLTrikotFarbe[];
+  siteKey: string;
   /**
    * The aside standing over the form and again under its receipt, handed in rather than imported:
    * the band's recipe shares a module with a server query, which no client module may reach.
@@ -88,9 +95,10 @@ export function BewerbungForm({
   hinweisSlot?: ReactNode;
 }) {
   const [isPending, startSending] = useTransition();
+  const humanCheck = useTurnstile(siteKey);
 
   const [isEingereicht, setIsEingereicht] = useState(false);
-  const [draft, applyDraft] = useBewerbungDraft(saisonId, isEingereicht);
+  const [draft, applyDraft] = useBewerbungDraft(saisonId, fassung.textVersion, isEingereicht);
   /** One per attempt rather than per press: kept until a box carries a refusal, so the next press replays it (`docs/frontend/spec.md :: I348`). */
   const [schluessel, setSchluessel] = useState(() => crypto.randomUUID());
   /**
@@ -229,12 +237,21 @@ export function BewerbungForm({
     const payload = bewerbungPayload(draft);
 
     startSending(async () => {
-      const gesendet = await postPublicForm<BewerbungAntwort>("/api/bewerbung", payload, { idempotencyKey: schluessel });
+      const anfrage = await humanCheck.takeToken();
+      if ("satz" in anfrage) {
+        appToast.danger("Bewerbung nicht abgeschickt", { description: anfrage.satz });
+        return;
+      }
+
+      const gesendet = await postPublicForm<BewerbungAntwort>("/api/bewerbung", payload, {
+        idempotencyKey: schluessel,
+        turnstileToken: anfrage.token,
+      });
 
       if (!gesendet.answered) {
         // No one title is true across both, the edge refusing the REQUEST ruling the write out where
         // an unread answer does not (`fl_frontend/src/shared/utils/publicSubmit.ts :: PublicAnswer`).
-        appToast.danger(gesendet.wroteNothing ? "Bewerbung nicht abgeschickt" : "Unklar, ob es bei uns angekommen ist", {
+        appToast.danger(gesendet.wroteNothing ? "Bewerbung nicht abgeschickt" : UNKLAR_TITEL, {
           // Every arm that may have landed gives the one step the outcome-unknown answer gives.
           description: gesendet.wroteNothing ? gesendet.error : BEWERBUNG_UNKLAR,
         });
@@ -249,7 +266,7 @@ export function BewerbungForm({
         if (!antwort.success) {
           // Titled as an unread answer is: the envelope's own sentence is an administrator's repair.
           if (antwort.outcome === "unknown") {
-            appToast.danger("Unklar, ob es bei uns angekommen ist", { description: BEWERBUNG_UNKLAR });
+            appToast.danger(UNKLAR_TITEL, { description: BEWERBUNG_UNKLAR });
             return;
           }
 
@@ -368,6 +385,7 @@ export function BewerbungForm({
         ))}
 
         <FormEinwilligungSection
+          fassung={fassung}
           erteilt={draft.kontakte.ansprechperson.einwilligung.erteilt}
           onErteiltPicked={pickEinwilligung}
         />
@@ -392,13 +410,17 @@ export function BewerbungForm({
           }}
         />
 
-        <div className="flex w-full flex-col items-stretch gap-3 sm:flex-row sm:justify-end">
-          <Button
-            type="submit"
-            isPending={isPending}
-            className={formButton({ intent: "submit", fullWidth: true })}>
-            {isPending ? "Schickt ab..." : "Bewerbung abschicken"}
-          </Button>
+        {/* One item of the form's gap with the submit: a widget Cloudflare shows nothing in leaves no gap of its own. */}
+        <div className="flex flex-col">
+          {humanCheck.widget}
+          <div className="flex w-full flex-col items-stretch gap-3 sm:flex-row sm:justify-end">
+            <Button
+              type="submit"
+              isPending={isPending}
+              className={formButton({ intent: "submit", fullWidth: true })}>
+              {isPending ? "Schickt ab..." : "Bewerbung abschicken"}
+            </Button>
+          </div>
         </div>
       </Form>
     </>

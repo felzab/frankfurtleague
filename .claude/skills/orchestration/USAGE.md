@@ -1,81 +1,54 @@
 # Using the orchestration skill
 
-**Addressed to the owner, not to the coordinator.** Every imperative below — open a session, type
-this, wait, paste that — is the owner's to perform; a coordinator reads this page only for the
-mechanics `SKILL.md` cites it for, and can execute none of it.
-
-How the skill reaches a session, read from the Claude Code documentation on 2026-09-02
-(`code.claude.com/docs/en/skills`, `sub-agents`, `sessions`, `desktop`) and not driven — no session
-here has measured a token budget or watched a compaction — and the exact message sequences for the
-three ways a session begins.
+Addressed to the owner: every step below is yours to perform. The coordinator never reads this page.
 
 ## How it loads
 
-- **Only the description is in context by default.** The body loads when Claude judges the
-  description relevant, or when you type `/orchestration`. Nothing documented forces the load at
-  launch — not a settings key, a `CLAUDE.md` line, a hook, or a flag — so relying on relevance alone
-  is relying on a judgement. Type it.
-- **On invocation the `SKILL.md` body enters the conversation as one message and stays there across
-  turns.** The file is not re-read afterwards: an edit to the skill mid-session needs a fresh
-  `/orchestration`. Re-invoking with unchanged content adds a one-line note rather than a second
-  copy, so repeating it is free.
-- **The files beside `SKILL.md` do not load with it.** The coordinator reads one when a section
-  points at it. The brief, register and handoff templates therefore cost nothing until used.
-- **Compaction keeps the first 5,000 tokens of each invoked skill**, within a shared budget of
-  25,000 for all of them, most recently invoked first; the rule that follows for `SKILL.md` is
-  stated at its top. After a long session a repeated `/orchestration` costs nothing and removes the
-  doubt.
-- **Text after `/orchestration` on the same line is passed as arguments**, appended to the skill
-  content as a final `ARGUMENTS: <text>` line. That much is **driven**: an agent in this repository
-  invoked the skill through the harness's skill tool with the argument `resume` and read
-  `ARGUMENTS: resume` back at the end of the body. What is **not established** is that the slash
-  form the owner types takes the same route; the owner typing `/orchestration resume` once, and the
-  coordinator saying whether that line arrived, settles it. Nothing waits on the answer, because
-  `SKILL.md` §1 recognises a resume without the word. Whether a pasted multi-line message is passed
-  whole is not documented at all, which is why a starter still goes as its own message.
-- **A subagent does not inherit it.** A project agent file can preload a skill through its `skills`
-  field, but an implementer or an auditor needs its brief, not this page.
-- **In the desktop app** the `/` menu in the prompt box lists project skills, and clicking a session
-  in the sidebar is the app's `--resume`.
+- Only the skill's description is in context until it is invoked, so type `/orchestration` rather
+  than rely on Claude judging it relevant. Text after it on the same line arrives as
+  `ARGUMENTS: <text>` at the end of the skill.
+- An agent definition's `initialPrompt`, with the session launched by `--agent`, is documented to
+  submit a first turn whose skills are processed, which could invoke the skill at launch. It is
+  untried here, and unknown in the desktop app.
+- The skill stays in the conversation once invoked; an edit to it mid-session needs a fresh
+  `/orchestration`. A compaction after that re-attached the session's first, older copy rather
+  than the latest the documentation names, so the compaction hook tells the coordinator that the
+  file on disk is the current core.
+- Compaction re-attaches the first 5,000 tokens of each invoked skill, within 25,000 shared by all of
+  them and filled from the most recent: the skill's core is held under that size by
+  `scripts/tests/test_orchestration_skill.py`, so it comes back whole, and its other files are read
+  when the core points at them. A session that invoked many other skills since can lose it entirely;
+  invoke it again then.
+- Compact at a wave boundary rather than when the window is full, with a focus instruction, for
+  example `/compact keep the register path, the branch and the live agent ids`.
+- A subagent does not inherit the skill: its agent definition and its brief carry what it needs.
 
 ## Starting a programme session
 
-1. Open a new session in the repository, on `main`, and name it after the session in the plan.
-2. **Message 1:** `/orchestration` — nothing else. Wait for the turn to end.
-3. **Message 2:** paste the session's `START-*.md` verbatim.
+1. Open a new session in the repository, on `main`, named after the session in the plan.
+2. Message 1: `/orchestration`, and nothing else. Wait for the turn to end.
+3. Message 2: the session's `START-*.md`, verbatim. A starter opening with a slash command would be
+   read as that command's argument, so it goes as its own message.
 
-Two messages because the skill's argument mechanics are documented for one line only, and because
-a starter that begins with a slash command reads as an argument to it. The starter's own first lines
-still say to invoke `/orchestration` if it is not in context, which is the fallback for the day
-message 1 is forgotten.
-
-## Resuming after a pause, a kill, or a quota stop
+## Resuming after a pause, a kill or a quota stop
 
 1. Resume the same session — the sidebar in the desktop app, or `claude --continue` /
-   `claude --resume <name>` in a terminal. Pass any launch flags again; a resume restores none of
-   them. Offered a summary or the full session, take the full session.
-2. **One message: `/orchestration resume`**, and nothing else in it. The skill loads — after a long
-   session compaction may have truncated the copy in context, and a repeat costs nothing — and the
-   argument puts the coordinator into [resume-prompt.md](resume-prompt.md)'s protocol, whose first
-   step finds the register on its own. You pass no path.
-3. Send no work instruction until the reply to the seven-step protocol has come back and names the
-   single next action.
+   `claude --resume <name>`. Pass any launch flags again; a resume restores none of them. Offered a
+   summary or the full session, take the full session.
+2. One message: `/orchestration resume`. The coordinator runs the resume protocol, which finds the
+   register on its own.
+3. Send no work instruction until the reply names the single next action.
 
-**The fallback**, for a session that still holds the skill and an owner who would rather paste:
-`/orchestration` as one message, then the block in [resume-prompt.md](resume-prompt.md) verbatim as
-the next. Neither message carries a register path. A coordinator that gets `/orchestration` with no
-instruction, in a transcript already carrying this session's work, treats it as a resume anyway
-(`SKILL.md` §1), so the single-message form failing is a slower resume and never a wrong one.
+A resumed agent's entry in the app can keep showing its transcript up to the pause while it works,
+so a live lane looks hung there; its commits on its own branch, which the coordinator reads for you
+on asking, are where its work shows.
+
+The fallback: `/orchestration` as one message, then the block in `resume.md` verbatim as the next.
+Neither carries a register path.
 
 ## The planning session
 
-1. New session; **message 1:** `/orchestration`.
-2. **Message 2:** the programme brief — the goal, the constraints, the durable plan directory to
-   write into, and the deliverables: the programme plan, the `START-*.md` for session one in the
-   form [handoff-template.md](handoff-template.md) gives, and an independent audit of both followed
-   by the fix round the cycle ends on. The planning session dispatches research agents in parallel
-   like any other, so the skill applies to it in full.
-
-## Precedence
-
-This skill never overrides `.claude/CLAUDE.md` ([SKILL.md](SKILL.md) §7).
+1. A new session; message 1: `/orchestration`.
+2. Message 2: the programme brief — the goal, the constraints, the durable plan directory, and the
+   deliverables: the programme plan, session one's `START-*.md`, and an independent audit of both
+   followed by its fix round.

@@ -1,4 +1,5 @@
 import asyncio
+import re
 from pathlib import Path
 from typing import Final
 
@@ -180,30 +181,37 @@ def test_a_session_s_teardown_is_charged_to_the_test_each_command_belongs_to(
 # --- a transaction the replica set aborted at its lifetime limit ------------------------------------------
 
 
-def _status(kills: object) -> dict[str, object]:
-    """`serverStatus` as the replica set answers it, cut to the one count the check reads."""
-    return {"metrics": {"abortExpiredTransactions": {"passes": 4, "successfulKills": kills, "timedOutKills": 0}}}
+def _status(kills: object, timed_out: object = 0) -> dict[str, object]:
+    """`serverStatus` as the replica set answers it, cut to the counts the check reads."""
+    return {"metrics": {"abortExpiredTransactions": {"passes": 4, "successfulKills": kills, "timedOutKills": timed_out}}}
 
 
 @pytest.mark.parametrize(
     ("status", "kills"),
     [
         pytest.param(_status(3), 3, id="reported"),
+        pytest.param(_status(0, 2), 2, id="timed-out-alone"),
+        pytest.param(_status(1, 2), 3, id="both"),
         pytest.param({"metrics": {}}, None, id="metric-absent"),
         pytest.param({}, None, id="metrics-absent"),
         pytest.param(_status("3"), None, id="not-a-count"),
+        pytest.param(_status(3, "2"), None, id="timed-out-not-a-count"),
+        pytest.param({"metrics": {"abortExpiredTransactions": {"passes": 4, "successfulKills": 3}}}, None, id="timed-out-absent"),
     ],
 )
 def test_the_count_is_read_off_the_status_or_named_unread(status: dict[str, object], kills: int | None) -> None:
-    """An absent count read as zero would pass every run the server stops reporting it on."""
+    """An absent count read as zero would pass every run the server stops reporting it on.
+
+    `timed-out-alone` is load-bearing: an expired transaction whose operation was in flight is counted there and nowhere else.
+    """
     assert expired_transaction_kills(status) == kills
 
 
-def test_a_count_that_rose_during_the_run_fails_it_with_how_many() -> None:
+def test_a_count_that_rose_during_the_run_fails_it_with_how_many_kills() -> None:
     refusal = expired_transactions_refusal(2, 3)
 
     assert refusal is not None
-    assert "aborted 1 transaction(s)" in refusal, refusal
+    assert "counted 1 kill(s)" in refusal, refusal
 
 
 def test_a_count_that_did_not_move_passes() -> None:
@@ -226,12 +234,19 @@ def test_an_unmoved_count_never_reads_the_server_s_log() -> None:
     assert expired_transactions_refusal(2, 2, refuse_to_read) is None
 
 
-@pytest.mark.parametrize(("at_start", "now"), [(None, 0), (0, None), (None, None), (3, 1)], ids=["start", "end", "both", "reset"])
-def test_a_count_not_read_at_either_end_or_reset_between_is_named_unjudged(at_start: int | None, now: int | None) -> None:
+@pytest.mark.parametrize(("at_start", "now"), [(None, 0), (0, None), (None, None)], ids=["start", "end", "both"])
+def test_a_count_not_read_at_either_end_is_named_unjudged(at_start: int | None, now: int | None) -> None:
     refusal = expired_transactions_refusal(at_start, now)
 
     assert refusal is not None
-    assert "was not judged" in refusal, refusal
+    assert "reported no number" in refusal and "was not judged" in refusal, refusal
+
+
+def test_a_count_that_fell_is_named_unjudged_by_the_restart() -> None:
+    refusal = expired_transactions_refusal(3, 1)
+
+    assert refusal is not None
+    assert "fewer expiry kills" in refusal and "mongod restart" in refusal and "was not judged" in refusal, refusal
 
 
 # The controller's own path, its refusal handed a stand-in count: what a reader quotes is the closing line.
@@ -260,7 +275,7 @@ def test_a_run_the_expiry_check_fails_ends_on_the_line_saying_so(pytester: pytes
     lines = [line for line in result.stdout.lines if line.strip()]
 
     assert result.ret == pytest.ExitCode.TESTS_FAILED, result.stdout.str()
-    assert "FAILED" in lines[-1] and "aborted 1 transaction(s)" in lines[-1], result.stdout.str()
+    assert "FAILED" in lines[-1] and "counted 1 kill(s)" in lines[-1], result.stdout.str()
 
 
 # The check itself, end to end through the hooks and the fixture that make it, against a stand-in
@@ -291,27 +306,55 @@ OPEN_S = 60.0
 OPENED: list[float] = []
 
 
-def _entry(log_id, moment, attr):
-    return json.dumps({"t": {"$date": datetime.fromtimestamp(moment, UTC).isoformat()}, "id": log_id, "attr": attr})
+TIMED_OUT = os.environ["FL_EXPIRY_KILL"] == "timed-out"
+OTHER = "6f0c1a52-0000-4000-8000-000000000002"
+
+
+def _entry(log_id, moment, attr, ctx="conn12"):
+    return json.dumps({"t": {"$date": datetime.fromtimestamp(moment, UTC).isoformat()}, "ctx": ctx, "id": log_id, "attr": attr})
+
+
+def _record(session, txn_number, open_s, inside, **writes):
+    return {
+        "parameters": {"lsid": {"id": {"$uuid": session}}, "txnNumber": txn_number},
+        "timeActiveMicros": int(open_s * 1e6) if inside else 0,
+        "timeInactiveMicros": 0 if inside else int(open_s * 1e6),
+        **writes,
+    }
 
 
 class _Container:
     def get_logs(self):
         aborted = OPENED[0] + OPEN_S
-        record = {
-            "parameters": {"lsid": {"id": {"$uuid": SESSION}}, "txnNumber": TXN_NUMBER},
-            "timeActiveMicros": 0,
-            "timeInactiveMicros": int(OPEN_S * 1e6),
-            "ninserted": 1,
-        }
-        abort = {"sessionId": {"uuid": {"$uuid": SESSION}}, "txnNumberAndRetryCounter": {"txnNumber": TXN_NUMBER}}
-        lines = ["not json", _entry(51802, aborted, record), _entry(20707, aborted, abort)]
-        return "\\n".join(lines).encode(), b""
+        pass_thread = "abortExpiredTransactions"
+        # Interrupted in flight, the transaction's time is spent inside its operation; left idle, outside it.
+        record = _record(SESSION, TXN_NUMBER, OPEN_S, TIMED_OUT, ninserted=1)
+        # The session's other transactions name no case if taken: one long before, one long after, and one
+        # logged nearer the kill than this transaction's record wherever the kill names its number.
+        records = [
+            _entry(51802, aborted - 300, _record(SESSION, TXN_NUMBER - 2, 1, False)),
+            _entry(51802, aborted - (0.5 if TIMED_OUT else 0), _record(SESSION, TXN_NUMBER - 1, 1, False)),
+            _entry(51802, aborted + (0 if TIMED_OUT else 0.5), record),
+            _entry(51802, aborted + 300, _record(SESSION, TXN_NUMBER + 1, 1, False)),
+        ]
+        if TIMED_OUT:
+            # As mongod r8.3.11's expiry pass logs one, the session alone; a later pass meets it still running.
+            kill = {"lsidToKill": {"id": {"$uuid": SESSION}}, "durationMillis": 100}
+            kills = [_entry(11790801, aborted, kill, pass_thread), _entry(11790801, aborted + 1, kill, pass_thread)]
+        else:
+            abort = {"sessionId": {"uuid": {"$uuid": SESSION}}, "txnNumberAndRetryCounter": {"txnNumber": TXN_NUMBER}}
+            kills = [_entry(20707, aborted, abort, pass_thread)]
+        # Another session's timed-out checkout on another thread, a step-down's: no expiry, never named.
+        other = [
+            _entry(51802, aborted, _record(OTHER, 1, OPEN_S, True, nModified=7)),
+            _entry(11790801, aborted, {"lsidToKill": {"id": {"$uuid": OTHER}}, "durationMillis": 100}, "conn40"),
+        ]
+        return "\\n".join(["not json", *records, *other, *kills]).encode(), b""
 
 
 def _server_status(url):
     assert url == STAND_IN, url
-    return {"metrics": {"abortExpiredTransactions": {"successfulKills": 1}}}
+    return {"metrics": {"abortExpiredTransactions": {"successfulKills": int(not TIMED_OUT), "timedOutKills": 2 * TIMED_OUT}}}
 
 
 @contextmanager
@@ -343,7 +386,7 @@ EXPIRY_SUITE: Final = {
 LEFT_OPEN: Final = "suite/test_left_open.py::test_left_open"
 
 
-def _expiry_run(pytester: pytest.Pytester, monkeypatch: pytest.MonkeyPatch, mode: str) -> pytest.RunResult:
+def _expiry_run(pytester: pytest.Pytester, monkeypatch: pytest.MonkeyPatch, mode: str, kill: str = "successful") -> pytest.RunResult:
     suite = pytester.path / "suite"
     suite.mkdir()
     (pytester.path / "pytest.ini").write_bytes(b"[pytest]\nmarkers =\n    db: a stand-in\n")
@@ -351,14 +394,23 @@ def _expiry_run(pytester: pytest.Pytester, monkeypatch: pytest.MonkeyPatch, mode
     (suite / "test_left_open.py").write_bytes(EXPIRY_SUITE[mode])
     monkeypatch.setenv("PYTHONPATH", str(Path(__file__).resolve().parents[2]))
     monkeypatch.setenv("FL_EXPIRY_PROBE", mode)
+    monkeypatch.setenv("FL_EXPIRY_KILL", kill)
 
     return pytester.runpytest_subprocess("-p", "no:cacheprovider", "-p", "no:xdist", "-m", "", str(suite))
 
 
 def _names_the_case_that_left_it_open(output: str) -> bool:
-    """Opened and aborted a minute apart: the case is named at the opening alone only where the abort met its transaction's record."""
+    """Opened and aborted a minute apart: the case is named at the opening alone only where the abort met its transaction's record.
 
-    return f"running as it opened: ['{LEFT_OPEN}']" in output and "running as it was aborted: none recorded" in output
+    Named for one kill alone, though the timed-out shape logs two, and never for the other session's.
+    """
+
+    return (
+        f"running as it opened: ['{LEFT_OPEN}']" in output
+        and "running as it was aborted: none recorded" in output
+        and len(set(re.findall(r"aborted at (\S+) after", output))) == 1
+        and "'nModified': 7" not in output
+    )
 
 
 def test_the_controller_fails_a_run_whose_replica_set_aborted_an_expired_transaction(
@@ -371,7 +423,21 @@ def test_the_controller_fails_a_run_whose_replica_set_aborted_an_expired_transac
 
     result.assert_outcomes(passed=1)
     assert result.ret == pytest.ExitCode.TESTS_FAILED, output
-    assert "FAILED the db tier's replica set aborted 1 transaction(s)" in output, output
+    assert "FAILED the db tier's replica set's expiry pass counted 1 kill(s)" in output, output
+    assert _names_the_case_that_left_it_open(output), output
+
+
+def test_a_run_names_the_case_whose_transaction_the_pass_could_not_check_out(
+    pytester: pytest.Pytester, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The kill counted under `timedOutKills`, whose log line names the session and no transaction number."""
+
+    result = _expiry_run(pytester, monkeypatch, "controller", kill="timed-out")
+    output = result.stdout.str()
+
+    result.assert_outcomes(passed=1)
+    assert result.ret == pytest.ExitCode.TESTS_FAILED, output
+    assert "FAILED the db tier's replica set's expiry pass counted 2 kill(s)" in output, output
     assert _names_the_case_that_left_it_open(output), output
 
 
@@ -382,5 +448,5 @@ def test_a_serial_run_fails_the_teardown_of_the_server_that_aborted_one(pytester
     output = result.stdout.str()
 
     result.assert_outcomes(passed=1, errors=1)
-    assert "aborted 1 transaction(s)" in output, output
+    assert "counted 1 kill(s)" in output, output
     assert _names_the_case_that_left_it_open(output), output

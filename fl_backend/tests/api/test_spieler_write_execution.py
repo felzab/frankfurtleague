@@ -181,6 +181,7 @@ class TestTheConsentRecordSurvivesTheOneWriteThatCouldReachIt:
                 spieler_id=spieler_id_for(92),
                 spieler_data=FLPatchSpielerPayload(vorname="Maximilian", nachname="Mustermann", geburtsdatum=None),
                 spieler_collection=database.spieler,
+                db=database.client,
             )
             return await database.spieler.find_one({"_id": spieler_id_for(92)})
 
@@ -203,6 +204,7 @@ class TestThePersonsBirthdate:
                 spieler_id=spieler_id_for(93),
                 spieler_data=FLPatchSpielerPayload(vorname="Maximilian", nachname="Mustermann", geburtsdatum=GEBURTSDATUM),
                 spieler_collection=database.spieler,
+                db=database.client,
             )
             return await database.spieler.find_one({"_id": spieler_id_for(93)})
 
@@ -524,6 +526,7 @@ class TestASquadRowPredatingTheTwoFieldsStillEchoes:
                 saison_id=SAISON_ID,
                 saison_spieler_collection=database.saison_spieler,
                 today=TODAY,
+                db=database.client,
             )
 
         response = on_a_database(mongo_replica_set_url, body)
@@ -557,6 +560,7 @@ class TestASquadRowPredatingTheTwoFieldsStillEchoes:
                 saison_id=SAISON_ID,
                 saison_spieler_collection=database.saison_spieler,
                 today=TODAY,
+                db=database.client,
             )
 
         assert on_a_database(mongo_replica_set_url, body).ist_nachnominiert is True

@@ -9,6 +9,7 @@ import { KONTAKTE_CRUD_COPY } from "@/features/teams/constants";
 import { KONTAKTE_BESETZUNG_OPTIONS, kontakteBesetzung } from "@/features/teams/facets";
 import { AdminCrudEmptyCard } from "@/shared/components/ui/AdminCrudEmpty";
 import { IDENTITY_HEAD_CLASSES, IDENTITY_NAME_CLASSES, IDENTITY_ROW_CLASSES } from "@/shared/components/ui/adminTable";
+import { Leer } from "@/shared/components/ui/Angabe";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { SHORTHAND_CHIP_CLASSES } from "@/shared/components/ui/brandTile";
 import { card } from "@/shared/components/ui/card";
@@ -39,8 +40,8 @@ const BESETZUNG_TINT: Record<Besetzung, PillTone> = {
 
 /**
  * What a seat holding nobody says. A PERSON is absent rather than a value, so it is not
- * `fl_frontend/src/shared/utils/format.ts :: PLACEHOLDER`'s „Keine Angabe“, which reads as a field
- * somebody left blank.
+ * `fl_frontend/src/shared/utils/format.ts :: NICHT_HINTERLEGT`, which reads as a field somebody left
+ * blank.
  */
 const EMPTY_SEAT = "Niemand hinterlegt";
 
@@ -85,7 +86,9 @@ export const AdminKontakteList = memo(function AdminKontakteList({
       </div>
 
       {seat.person === null ? (
-        <span className="fluid-sm text-foreground-muted">{EMPTY_SEAT}</span>
+        <span className="fluid-sm">
+          <Leer>{EMPTY_SEAT}</Leer>
+        </span>
       ) : (
         <div className="flex min-w-0 flex-col gap-0.5">
           <span className="truncate fluid-sm font-semibold text-foreground">{`${seat.person.vorname} ${seat.person.nachname}`}</span>
@@ -121,7 +124,7 @@ export const AdminKontakteList = memo(function AdminKontakteList({
           holds somebody to copy. */}
       <RowActionCopy
         label="Kontaktdaten kopieren"
-        ariaLabel={`Kontaktdaten von ${row.teamName} kopieren`}
+        subject={row.teamName}
         onPress={() => void handleCopyKontakte(row)}
       />
       {/* A link and not a press: all three seats are edited together on the club's own contacts page,
@@ -129,7 +132,7 @@ export const AdminKontakteList = memo(function AdminKontakteList({
       <RowActionLink
         href={withSaisonId(`/bereich/admin/kontakte/${row.teamId}`, selectedSaisonId)}
         label="Kontakte bearbeiten"
-        ariaLabel={`Kontakte von ${row.teamName} bearbeiten`}>
+        subject={row.teamName}>
         <Pencil
           className="size-4.5"
           aria-hidden="true"

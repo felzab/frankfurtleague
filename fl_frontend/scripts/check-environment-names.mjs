@@ -1,22 +1,10 @@
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
 const ASSIGNMENT = /^[ \t]*([A-Za-z_][A-Za-z0-9_]*)[ \t]*=/;
 
 // Compose's pass-through form, which declares the name and carries no value of its own.
 const PASSTHROUGH = /^[ \t]*([A-Za-z_][A-Za-z0-9_]*)[ \t]*$/;
-
-// The secret-files mode's alone, passed by the caller rather than read off the host: `APP_ENV` lives in
-// an environment file, so a typo there would decide which files the host is held to.
-const PRODUCTION_FLAG = "--production";
-
-// The container-side reader's mode: run in the frontend's own container, as its own user, it judges the
-// secret files the boot would read rather than an environment file.
-const SECRET_FILES_FLAG = "--secret-files";
-
-// Where Compose mounts a file secret, as `fl_frontend/src/core/config.ts` reads it with nothing set.
-const DEFAULT_SECRETS_DIR = "/run/secrets";
 
 // Where `fl_frontend/Dockerfile` puts the key sets the builder emitted from the schema. The file to
 // judge has no default: the deploy hands the package's own `.env`, mounted read-only
@@ -103,39 +91,8 @@ function missingNames(valued, required) {
   return required.filter((name) => !present.has(name));
 }
 
-/**
- * Each file the image's own user finds missing, unreadable or empty, named with the errno saying which and
- * never with what it holds. Whether a value is one the schema accepts stays the boot gate's.
- */
-function unusableSecretFiles(directory, files) {
-  const unusable = [];
-  for (const file of files) {
-    const path = join(directory, file);
-    try {
-      if (readFileSync(path, "utf8").trim() === "") unusable.push(`${path} (empty)`);
-    } catch (failure) {
-      unusable.push(`${path} (${typeof failure?.code === "string" ? failure.code : "unreadable"})`);
-    }
-  }
-  return unusable;
-}
-
-/** The files the frontend reads its secrets from, judged in the directory the container reads them in. */
-function reportSecretFiles(declaredFile, production) {
-  const sets = JSON.parse(readFileSync(declaredFile, "utf8"));
-  const files = production ? [...sets.secretFiles, ...sets.productionSecretFiles] : sets.secretFiles;
-  const unusable = unusableSecretFiles(process.env.SECRETS_DIR ?? DEFAULT_SECRETS_DIR, files);
-  if (unusable.length === 0) return 0;
-
-  process.stderr.write(`Unusable secret files: ${unusable.join(", ")}\n`);
-  return 3;
-}
-
 function report(argv) {
-  const positional = argv.filter((argument) => argument !== PRODUCTION_FLAG && argument !== SECRET_FILES_FLAG);
-  if (argv.includes(SECRET_FILES_FLAG)) return reportSecretFiles(positional[0] ?? DECLARED_NAMES_FILE, argv.includes(PRODUCTION_FLAG));
-
-  const [file, declaredFile = DECLARED_NAMES_FILE] = positional;
+  const [file, declaredFile = DECLARED_NAMES_FILE] = argv;
   // 4, not a pass: a reader handed nothing to read has judged nothing.
   if (file === undefined) {
     process.stderr.write("no environment file named\n");
@@ -150,10 +107,6 @@ function report(argv) {
     process.stderr.write(`line(s) this reader cannot parse: ${unreadable.join(", ")}\n`);
     return 4;
   }
-
-  // Said and never refused: the image a rollback returns to reads these lines (`docs/frontend/spec.md` §1.7).
-  const retired = names.filter((name) => sets.retired.includes(name));
-  if (retired.length > 0) process.stderr.write(`Retired environment variables still set: ${retired.join(", ")}\n`);
 
   const undeclared = undeclaredNames(names, sets.declared);
   const missing = missingNames(assigned, sets.required);

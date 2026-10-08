@@ -17,6 +17,7 @@ import { BewerbungBestaetigungStrip } from "./BewerbungBestaetigungStrip";
 
 import type { FLBewerbung } from "@/features/bewerbungen/schemas";
 import type { GruppeOffer } from "@/features/teams/types";
+import type { Neubesetzung } from "./BewerbungBestaetigungStrip";
 
 /**
  * One application, with the two decisions it is still open to. **Nothing on this page is a draft
@@ -25,16 +26,22 @@ import type { GruppeOffer } from "@/features/teams/types";
  */
 export function AdminBewerbungView({
   bewerbung,
+  fristAbgelaufen,
   teamName,
   saisonStatus,
   gruppeOffer,
+  neubesetzung,
 }: {
   bewerbung: FLBewerbung;
+  /** Whether its confirmation deadline has passed, as the read judged it on the server's day. */
+  fristAbgelaufen: boolean;
   /** The club the application names, resolved by the page — `null` where it names none. */
   teamName: string | null;
   /** The state of the season this application is for, or `null` where no season carries its id. */
   saisonStatus: "past" | "active" | "future" | null;
   gruppeOffer: readonly GruppeOffer[];
+  /** `null` where the registry could not be read, which closes the reseat. */
+  neubesetzung: Neubesetzung | null;
 }) {
   const saisonHref = useSaisonHref();
 
@@ -73,8 +80,10 @@ export function AdminBewerbungView({
           {staende !== null && (
             <BewerbungBestaetigungStrip
               bewerbungId={bewerbung.id}
+              neubesetzung={neubesetzung}
               staende={staende}
               frist={bewerbung.bestaetigungsfrist}
+              fristAbgelaufen={fristAbgelaufen}
               isOpen={isOpen}
               isDirty={grundGetippt}
               onGetipptChange={setBoxGetippt}

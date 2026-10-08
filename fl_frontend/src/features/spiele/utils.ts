@@ -1,7 +1,7 @@
 import { SAISON_PHASE_OPTIONS } from "@/features/saisons/constants";
 import { GHOST_SCHIEDSRICHTER_ID } from "@/features/schiedsrichter/constants";
 import { austrittZustand } from "@/features/teams/constants";
-import { formatSpielDatum, formatUhrzeit, PLACEHOLDER } from "@/shared/utils/format";
+import { formatSpielDatum, formatUhrzeit, nichtHinterlegt, PLACEHOLDER } from "@/shared/utils/format";
 import { withSaisonId } from "@/shared/utils/saisonHref";
 
 import type { FLSaisonPhase } from "@/features/saisons/schemas";
@@ -70,7 +70,7 @@ export const formatSpielDisplay = (
   spiel: Pick<FLSpiel, "datum" | "uhrzeit" | "ergebnis" | "elfmeterschiessen" | "sonderereignis">,
   isFinishedSaison: boolean,
 ) => ({
-  datum: formatSpielDatum(spiel.datum, canStillBePlayed(spiel, isFinishedSaison) ? PLACEHOLDER.datum : PLACEHOLDER.entity),
+  datum: formatSpielDatum(spiel.datum, canStillBePlayed(spiel, isFinishedSaison) ? PLACEHOLDER.datum : nichtHinterlegt("Datum")),
   uhrzeit: formatUhrzeit(spiel.uhrzeit),
   ergebnis: spiel.ergebnis ?? PLACEHOLDER.ergebnis,
   elfmeterschiessen: formatElfmeterschiessen(spiel.elfmeterschiessen),

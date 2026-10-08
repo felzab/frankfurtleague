@@ -8,15 +8,28 @@ import { parseDate } from "@internationalized/date";
 import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
 
+import { LinkStandAngaben } from "@/features/bewerbungen/components/ui/LinkStandAngaben";
 import { ALL_SEAT_PATHS } from "@/features/kontakte/kontakteDraftStatus";
 import { applySeatPresence, applySharedSeat, mirroredJudgedPaths } from "@/features/kontakte/utils";
+import { Beleg } from "@/features/spieler/components/ui/Nachweis";
+import { EINWILLIGUNG_FASSUNG_FRAGE, EINWILLIGUNG_MEDIEN_FRAGE, EINWILLIGUNG_MEDIEN_LABELS } from "@/features/spieler/constants";
 import { TrainerZugleichPicker } from "@/features/teams/components/forms/TrainerZugleichPicker";
-import { einwilligungHerkunftLabel, KONTAKT_NAME_MAX_LENGTH, KONTAKT_ROLLEN, TRAINER_ZUGLEICH_FRAGE } from "@/features/teams/constants";
+import {
+  eingetragenVonLabel,
+  KONTAKT_NAME_MAX_LENGTH,
+  KONTAKT_ROLLEN,
+  KONTAKT_WHATSAPP_FRAGE,
+  KONTAKT_WHATSAPP_LABELS,
+  kontaktGeburtsdatumLeer,
+  TRAINER_ZUGLEICH_FRAGE,
+} from "@/features/teams/constants";
 import { buildEmptyKontakte } from "@/features/teams/utils";
+import { LEER_CLASSES } from "@/shared/components/ui/Angabe";
 import { AppDatePicker } from "@/shared/components/ui/DateTimeFields";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import {
   FIELD_ERROR_CLASSES,
+  FIELD_INPUT_BOX_CLASSES,
   FIELD_INPUT_CLASSES,
   FIELD_PAIR_CLASSES,
   FORM_SECTION_HEADING_CLASSES,
@@ -29,13 +42,20 @@ import { Switch } from "@/shared/components/ui/Switch";
 import { TextField } from "@/shared/components/ui/TextField";
 import { textLink } from "@/shared/components/ui/textLink";
 import { focusSection } from "@/shared/utils/focusAfterWrite";
-import { formatSpielDatum } from "@/shared/utils/format";
+import { formatSpielDatum, NICHT_HINTERLEGT } from "@/shared/utils/format";
+import { FASSUNG_UNLESBAR } from "@/shared/utils/refusal";
 
+import { FormKontaktEinladen } from "./FormKontaktEinladen";
 import { FormKontaktErasure } from "./FormKontaktErasure";
 
 import type { KontakteFieldPath } from "@/features/kontakte/kontakteDraftStatus";
 import type { KontaktRolle } from "@/features/teams/constants";
-import type { FLTrainerZugleich } from "@/features/teams/schemas";
+import type {
+  FLSaisonTeamBestaetigungAnsicht,
+  FLSaisonTeamBestaetigungenAnsicht,
+  FLSaisonTeamKontakte,
+  FLTrainerZugleich,
+} from "@/features/teams/schemas";
 import type { KontaktpersonDraft, SaisonTeamKontakteDraft } from "@/features/teams/types";
 import type { CalendarDate } from "@internationalized/date";
 import type { ReactNode } from "react";
@@ -46,13 +66,26 @@ import type { KontakteBanner } from "./banners";
  * rather than left blank: an empty box on a read-only field reads as a value that failed to load.
  */
 const NOCH_OFFEN = "Noch offen";
+
 const NOCH_NICHT_BESTAETIGT = "Noch nicht bestätigt";
 
 /**
- * Names WHO fills it rather than reporting that nobody has: `NOCH_OFFEN` on a read-only box reads as
- * a field the administrator is expected to get round to.
+ * Any seat whose person has not confirmed takes a re-send. A pair shares one link, so its press
+ * stands on the named seat while that is open and on the Trainer once the named seat alone is confirmed.
  */
-const TRAEGT_DIE_PERSON_EIN = "Trägt die Person selbst ein";
+function istEinladbar(stored: FLSaisonTeamKontakte | null, rolle: KontaktRolle): boolean {
+  const unbestaetigt = (sitz: KontaktRolle) => {
+    const person = stored?.[sitz] ?? null;
+    return person !== null && person.einwilligung.bestaetigt_am === null;
+  };
+  if (!unbestaetigt(rolle)) return false;
+
+  const gepaart = stored?.trainer_ist_zugleich ?? null;
+  return !(rolle === "trainer" && gepaart !== null && unbestaetigt(gepaart));
+}
+
+/** A read-only box's value, in the empty-value grade where it is a stand-in word rather than a value. */
+const readoutClasses = (isStandIn: boolean): string => (isStandIn ? `${FIELD_INPUT_BOX_CLASSES} ${LEER_CLASSES}` : FIELD_INPUT_CLASSES);
 
 /** The empty string is a date nobody has entered yet, which the picker has to show as empty rather than refuse. */
 function toCalendarDate(stored: string): CalendarDate | null {
@@ -64,7 +97,13 @@ function toCalendarDate(stored: string): CalendarDate | null {
  * accepts and an erasure leaves.
  */
 export function FormKontakteSection({
+  laufendesLabel,
   value,
+  stored,
+  bestaetigungen,
+  teamId,
+  saisonId,
+  nimmtLinks,
   isMember,
   teamHref,
   banners,
@@ -73,7 +112,17 @@ export function FormKontakteSection({
   isDirty,
   onValidateSelection,
 }: {
+  /** The label the application form runs, read by the page per request: a seat opened blank stamps it. `null` where the read failed. */
+  laufendesLabel: string | null;
   value: SaisonTeamKontakteDraft | null;
+  /** The block as the row holds it: a link goes to the person stored on a seat, never to one only typed. */
+  stored: FLSaisonTeamKontakte | null;
+  /** Each seat's link as the row stores it, read beside the block, as the referee editor reads its own. */
+  bestaetigungen: FLSaisonTeamBestaetigungenAnsicht | null;
+  teamId: string;
+  saisonId: string;
+  /** The row still takes confirmation links: its season is not over and its team has not left it. */
+  nimmtLinks: boolean;
   /** The club holds a junction row for this season. Without one there is nothing here to write to. */
   isMember: boolean;
   /** The club's own page, where the season membership these seats hang off is entered. */
@@ -97,25 +146,27 @@ export function FormKontakteSection({
 
   /* A block to work against whether one is stored yet or not: entering somebody is what creates
      it, and only the editor's deletion section takes it away again. */
-  const basis = value ?? buildEmptyKontakte();
+  const basis = value ?? (laufendesLabel === null ? null : buildEmptyKontakte(laufendesLabel));
 
   /** The seat the TRAINER tracks: it is the source, and the Trainer's boxes read whatever it holds. */
-  const mirroredSeat = basis.trainer_ist_zugleich;
+  const mirroredSeat = basis?.trainer_ist_zugleich ?? null;
 
   const judgeFieldsLeft = (paths: readonly string[]) => onFieldLeft(mirroredJudgedPaths(paths, mirroredSeat));
 
   const applyPerson = (rolle: KontaktRolle, person: KontaktpersonDraft) => {
-    onChange({ ...basis, [rolle]: person });
+    if (basis !== null) onChange({ ...basis, [rolle]: person });
   };
 
   /** Whether the seat holds anybody. A pick, so it is judged on the press rather than on a blur. */
   const setPresence = (rolle: KontaktRolle, present: boolean) => {
+    if (basis === null) return;
+
     // Kept out of the draft, which spells an empty seat as `null` and so has nowhere to hold this:
     // switching a seat off and on again returns the person rather than three empty boxes.
     const seat = basis[rolle];
     if (!present && seat !== null) abgelegt.current[rolle] = seat;
 
-    const { next, revalidate } = applySeatPresence(basis, rolle, present, present ? abgelegt.current[rolle] : undefined);
+    const { next, revalidate } = applySeatPresence(basis, rolle, present, laufendesLabel, present ? abgelegt.current[rolle] : undefined);
 
     onChange(next);
     if (revalidate) revalidateSeats(next);
@@ -130,6 +181,8 @@ export function FormKontakteSection({
 
   /** A pick, so it is judged on the press. One closed set, so no press can claim two seats at once. */
   const pickSharedSeat = (seat: FLTrainerZugleich | null) => {
+    if (basis === null) return;
+
     const { next, revalidate } = applySharedSeat(basis, seat);
 
     onChange(next);
@@ -155,16 +208,23 @@ export function FormKontakteSection({
         </Link>
       )}
 
+      {/* Nothing to enter people into: no block is stored and none can be built without the label. */}
+      {isMember && basis === null && <p className="muted-hint">{FASSUNG_UNLESBAR}</p>}
+
       {/* A PANEL per person, never a rule inside one: drawn the same way, the division between two
         people and the one inside a person read alike, so neither read as a boundary. The public
         form seats its three the same way. */}
       {isMember &&
+        basis !== null &&
         KONTAKT_ROLLEN.map(({ value: rolle, label }) => (
           <KontaktpersonFields
             key={rolle}
             rolle={rolle}
             label={label}
             person={basis[rolle]}
+            istGespeichert={stored?.[rolle] != null}
+            link={bestaetigungen?.[rolle] ?? null}
+            kannLeerOeffnen={laufendesLabel !== null}
             isMirrored={isMirrored(rolle)}
             /* The question belongs to the Trainer seat: it asks who the Trainer IS, and the answer is
              what that seat's boxes then read. */
@@ -174,6 +234,17 @@ export function FormKontakteSection({
                   value={basis.trainer_ist_zugleich}
                   onPick={pickSharedSeat}
                   labelSlot={<FieldLabel<KontakteFieldPath> path="kontakte.trainer_ist_zugleich">{TRAINER_ZUGLEICH_FRAGE}</FieldLabel>}
+                />
+              ) : null
+            }
+            einladen={
+              nimmtLinks && istEinladbar(stored, rolle) ? (
+                <FormKontaktEinladen
+                  teamId={teamId}
+                  saisonId={saisonId}
+                  rolle={rolle}
+                  label={label}
+                  isDirty={isDirty}
                 />
               ) : null
             }
@@ -226,8 +297,12 @@ function KontaktpersonFields({
   rolle,
   label,
   person,
+  istGespeichert,
+  link,
+  kannLeerOeffnen,
   isMirrored,
   zugleich,
+  einladen,
   isDirty,
   onPresenceChange,
   onChange,
@@ -237,10 +312,18 @@ function KontaktpersonFields({
   label: string;
   /** Null where the seat holds nobody, which is a saveable state rather than a half-finished one. */
   person: KontaktpersonDraft | null;
+  /** The row stores a person on this seat, so a record naming no one who seated them predates the field. */
+  istGespeichert: boolean;
+  /** The seat's link where one went out, read out above its re-send as the referee editor reads out its own. */
+  link: FLSaisonTeamBestaetigungAnsicht | null;
+  /** A blank seat can be stamped with the running label, which the page could not read where this is false. */
+  kannLeerOeffnen: boolean;
   /** This seat IS another seat's person, so its boxes read out rather than take input. */
   isMirrored: boolean;
   /** The claim's picker, on the Trainer seat alone. `null` on the two seats the claim can name. */
   zugleich: ReactNode;
+  /** The re-send, on a stored seat whose person has not confirmed; `null` everywhere else. */
+  einladen: ReactNode;
   isDirty: boolean;
   onPresenceChange: (present: boolean) => void;
   onChange: (next: KontaktpersonDraft) => void;
@@ -265,28 +348,49 @@ function KontaktpersonFields({
 
         {/* The block's own control one seat down, and the same control on purpose: what it answers here
           is the same question, so a second shape for it would read as a different one. */}
-        <Switch
-          isSelected={person !== null}
-          isDisabled={isMirrored}
-          onChange={onPresenceChange}>
-          <Switch.Content className={panel.switchContent()}>
-            {`${label} hinterlegt`}
-            <Switch.Control className={panel.switchControl()}>
-              <Switch.Thumb />
-            </Switch.Control>
-          </Switch.Content>
-        </Switch>
+        {/* Closed rather than withheld on an empty seat the label could not be read for: a blank seat
+            stamps that label, and the reason says how to get it back. */}
+        <Hint
+          mode="refusal"
+          reason={person === null && !kannLeerOeffnen ? FASSUNG_UNLESBAR : null}
+          label={`${label} hinterlegt`}>
+          <Switch
+            isSelected={person !== null}
+            isDisabled={isMirrored || (person === null && !kannLeerOeffnen)}
+            onChange={onPresenceChange}>
+            <Switch.Content className={panel.switchContent()}>
+              {`${label} hinterlegt`}
+              <Switch.Control className={panel.switchControl()}>
+                <Switch.Thumb />
+              </Switch.Control>
+            </Switch.Content>
+          </Switch>
+        </Hint>
 
         {person !== null && (
           <KontaktpersonInputs
             rolle={rolle}
             label={label}
             person={person}
+            istGespeichert={istGespeichert}
             isMirrored={isMirrored}
             onChange={onChange}
             onFieldLeft={onFieldLeft}
           />
         )}
+
+        {link !== null && (
+          <dl className={FIELD_PAIR_CLASSES}>
+            <LinkStandAngaben
+              verschicktAm={link.verschickt_am}
+              frist={link.frist}
+              istAbgelaufen={link.abgelaufen}
+              zustellung={link.zustellung}
+            />
+          </dl>
+        )}
+
+        {einladen}
 
         {/* On the seat that HOLDS the person, never the mirrored copy: the claim points two seats at
             one record, and offering the erasure twice would read as two people. */}
@@ -307,6 +411,7 @@ function KontaktpersonInputs({
   rolle,
   label,
   person,
+  istGespeichert,
   isMirrored,
   onChange,
   onFieldLeft,
@@ -314,6 +419,7 @@ function KontaktpersonInputs({
   rolle: KontaktRolle;
   label: string;
   person: KontaktpersonDraft;
+  istGespeichert: boolean;
   isMirrored: boolean;
   onChange: (next: KontaktpersonDraft) => void;
   onFieldLeft: (paths: readonly string[]) => void;
@@ -387,10 +493,10 @@ function KontaktpersonInputs({
             the payload carries no `geburtsdatum` for a message to land on (`docs/backend/spec.md :: I141`). */}
         <TextField
           isReadOnly
-          value={formatSpielDatum(person.geburtsdatum, TRAEGT_DIE_PERSON_EIN)}
+          value={formatSpielDatum(person.geburtsdatum, kontaktGeburtsdatumLeer(person.einwilligung.bestaetigt_am))}
           onChange={() => undefined}>
           <FieldLabel<KontakteFieldPath> path={`kontakte.${rolle}`}>Geburtsdatum</FieldLabel>
-          <Input className={FIELD_INPUT_CLASSES} />
+          <Input className={readoutClasses(person.geburtsdatum === null)} />
         </TextField>
       </div>
 
@@ -398,14 +504,20 @@ function KontaktpersonInputs({
         <h4 className={FORM_SECTION_HEADING_CLASSES}>Kenntnisnahme</h4>
 
         <div className={FIELD_PAIR_CLASSES}>
-          {/* Read out and never picked: an administrator may not record a Kenntnisnahme as the person's
-              own, and the server preserves whatever the seat's own Bestätigung wrote here. */}
+          {/* Read out and never picked: the save that seats the person stamps who did, and nothing moves it
+              afterwards. A stored seat without it was seated before the field, which no reading here guesses. */}
           <TextField
             isReadOnly
-            value={person.einwilligung.erfasst_von === null ? NOCH_OFFEN : einwilligungHerkunftLabel(person.einwilligung.erfasst_von)}
+            value={
+              person.einwilligung.eingetragen_von === null
+                ? istGespeichert
+                  ? NICHT_HINTERLEGT
+                  : NOCH_OFFEN
+                : eingetragenVonLabel(person.einwilligung.eingetragen_von)
+            }
             onChange={() => undefined}>
-            <FieldLabel<KontakteFieldPath> path={`kontakte.${rolle}.einwilligung`}>Erfasst</FieldLabel>
-            <Input className={FIELD_INPUT_CLASSES} />
+            <FieldLabel<KontakteFieldPath> path={`kontakte.${rolle}.einwilligung`}>Eingetragen</FieldLabel>
+            <Input className={readoutClasses(person.einwilligung.eingetragen_von === null)} />
           </TextField>
 
           <TextField
@@ -413,7 +525,7 @@ function KontaktpersonInputs({
             value={formatSpielDatum(person.einwilligung.bestaetigt_am, NOCH_NICHT_BESTAETIGT)}
             onChange={() => undefined}>
             <FieldLabel<KontakteFieldPath> path={`kontakte.${rolle}.einwilligung`}>Bestätigt am</FieldLabel>
-            <Input className={FIELD_INPUT_CLASSES} />
+            <Input className={readoutClasses(person.einwilligung.bestaetigt_am === null)} />
           </TextField>
         </div>
 
@@ -423,7 +535,7 @@ function KontaktpersonInputs({
             name={`kontakte.${rolle}.einwilligung.text_version`}
             value={person.einwilligung.text_version}
             onChange={() => undefined}>
-            <FieldLabel<KontakteFieldPath> path={`kontakte.${rolle}.einwilligung`}>Fassung</FieldLabel>
+            <FieldLabel<KontakteFieldPath> path={`kontakte.${rolle}.einwilligung`}>{EINWILLIGUNG_FASSUNG_FRAGE}</FieldLabel>
             {/* Read-only in BOTH directions: a new record is stamped with the current wording's version,
                 and a stored one keeps the version it was given, or the record would cite a text this
                 person never saw. */}
@@ -443,6 +555,41 @@ function KontaktpersonInputs({
             onChange={(next) => setEinwilligung({ datum: next?.toString() ?? "" })}
             onBlur={() => onFieldLeft([`kontakte.${rolle}.einwilligung.datum`])}
           />
+        </div>
+
+        {/* The person's own two choices, read out with the act each stands on: the league publishes the
+            photographs, and only the person may answer either. */}
+        <div className={FIELD_PAIR_CLASSES}>
+          {/* The act under the box rather than as its description: a described box is this form's refused one. */}
+          <div className="flex flex-col gap-y-1">
+            <TextField
+              isReadOnly
+              value={KONTAKT_WHATSAPP_LABELS[person.einwilligung.umfang]}
+              onChange={() => undefined}>
+              <FieldLabel<KontakteFieldPath> path={`kontakte.${rolle}.einwilligung`}>{KONTAKT_WHATSAPP_FRAGE}</FieldLabel>
+              <Input className={FIELD_INPUT_CLASSES} />
+            </TextField>
+            <Beleg
+              nachweis={person.einwilligung.nachweis.umfang}
+              bestaetigtAm={person.einwilligung.bestaetigt_am}
+              textVersion={person.einwilligung.text_version}
+            />
+          </div>
+
+          <div className="flex flex-col gap-y-1">
+            <TextField
+              isReadOnly
+              value={person.einwilligung.medien ? EINWILLIGUNG_MEDIEN_LABELS.erteilt : EINWILLIGUNG_MEDIEN_LABELS.nicht_erteilt}
+              onChange={() => undefined}>
+              <FieldLabel<KontakteFieldPath> path={`kontakte.${rolle}.einwilligung`}>{EINWILLIGUNG_MEDIEN_FRAGE}</FieldLabel>
+              <Input className={FIELD_INPUT_CLASSES} />
+            </TextField>
+            <Beleg
+              nachweis={person.einwilligung.nachweis.medien}
+              bestaetigtAm={person.einwilligung.bestaetigt_am}
+              textVersion={person.einwilligung.text_version}
+            />
+          </div>
         </div>
       </div>
     </>

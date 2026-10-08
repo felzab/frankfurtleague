@@ -7,6 +7,7 @@ import { withoutPythonComments } from "@/core/pythonComments.ts";
 import { cacheCalls, doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 import { answerShown, assertEachAnswered, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
+import { saisonRules } from "@/shared/testing/saisonRules.ts";
 
 import { GRUPPEN_OFF_RULES, RECORDED_FACTS_NONE, SPIELTAGE_UNDATED } from "./constants.ts";
 import { mapActivateRefusal, mapRulesRefusal, mapSaisonIdRefusal, mapSpielplanRefusal, mapSwapRefusal, mapUndrawRefusal } from "./refusals.ts";
@@ -29,17 +30,7 @@ const SWAP_OPERATION = "POST /saisons/{saison_id}/gruppen/swap";
 
 const SAISON_ID = "2026";
 
-const RULES: FLSaisonRules = {
-  win_points: 3,
-  draw_points: 1,
-  qualifiers_per_group: 2,
-  number_of_groups: 2,
-  teams_per_group: 4,
-  max_kadergroesse: 18,
-  tiebreak_order: "tordifferenz",
-  forfeit_ergebnis: { sieger_tore: 3, verlierer_tore: 0 },
-  erlaubte_stufen: ["E1", "Q1"],
-};
+const RULES: FLSaisonRules = saisonRules();
 
 /** A season both schemas take as it stands, so each write reaches the doubled request rather than the parse. */
 const SAISON = { id: SAISON_ID, start_date: "2026-03-01", end_date: "2026-07-01", rules: RULES, bewerbung: null, registrierung: null };
@@ -161,26 +152,23 @@ describe("the saison actions against the codes their endpoints publish", () => {
   /* The same mapper serves the edit, so a code missing from it is rethrown as the generic conflict
      message rather than reaching the panel that still holds the wrong value. */
   it("answers every refusal the edit publishes", async () => {
-    assert.deepEqual(
-      publishedRefusals(EDIT_OPERATION).filter((code) => code !== DUPLICATE_KEY),
-      [
-        "REQ-DATE-004",
-        "REQ-DATE-005",
-        "REQ-RULES-001",
-        "REQ-RULES-002",
-        "REQ-RULES-003",
-        "REQ-RULES-004",
-        "REQ-RULES-005",
-        "REQ-RULES-006",
-        "REQ-RULES-007",
-        "REQ-RULES-008",
-        "REQ-RULES-009",
-        "REQ-RULES-010",
-        "REQ-RULES-011",
-        "REQ-RULES-012",
-        "REQ-RULES-013",
-      ],
-    );
+    assert.deepEqual(publishedRefusals(EDIT_OPERATION), [
+      "REQ-DATE-004",
+      "REQ-DATE-005",
+      "REQ-RULES-001",
+      "REQ-RULES-002",
+      "REQ-RULES-003",
+      "REQ-RULES-004",
+      "REQ-RULES-005",
+      "REQ-RULES-006",
+      "REQ-RULES-007",
+      "REQ-RULES-008",
+      "REQ-RULES-009",
+      "REQ-RULES-010",
+      "REQ-RULES-011",
+      "REQ-RULES-012",
+      "REQ-RULES-013",
+    ]);
     for (const code of publishedRefusals(EDIT_OPERATION)) {
       assert.notEqual(answerShown(EDIT_OPERATION, code, mapRulesRefusal), null, `${code} reaches the admin as a generic conflict`);
     }
@@ -280,10 +268,7 @@ describe("the saison actions against the codes their endpoints publish", () => {
   /* One code, and none of the draw's: the two share a path and a summary word, so a document read
      that leaked either way would leave a real refusal answered by the generic failure message. */
   it("answers every refusal the undraw publishes", async () => {
-    assert.deepEqual(
-      publishedRefusals(UNDRAW_OPERATION).filter((code) => code !== DUPLICATE_KEY),
-      ["REQ-SPIELPLAN-006"],
-    );
+    assert.deepEqual(publishedRefusals(UNDRAW_OPERATION), ["REQ-SPIELPLAN-006"]);
     for (const code of publishedRefusals(UNDRAW_OPERATION)) {
       assert.notEqual(answerShown(UNDRAW_OPERATION, code, mapUndrawRefusal), null, `${code} reaches the admin as a generic failure`);
     }

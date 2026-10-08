@@ -1,4 +1,7 @@
 import "@/shared/testing/dom.ts";
+
+import { FASSUNG_UNLESBAR } from "@/shared/utils/refusal.ts";
+
 import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
@@ -9,11 +12,13 @@ import { act, createElement as h } from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
-import { LIGA_KENNTNISNAHME } from "@/core/einwilligung.ts";
+import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { bestaetigungsStand } from "@/features/bewerbungen/bestaetigungStand.ts";
 import { FLBewerbungKontaktEmailPayloadSchema } from "@/features/bewerbungen/schemas.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { closedControl, isInTheFlow } from "@/shared/testing/closedControl.ts";
+import { laufendeNeubesetzung } from "@/shared/testing/einwilligungAnswers.ts";
+import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { toFieldErrors } from "@/shared/utils/validation.ts";
 
@@ -54,13 +59,12 @@ const person = (vorname: string, email: string, bestaetigtAm: string | null = nu
   email: email,
   telefon: "069 1234567",
   geburtsdatum: bestaetigtAm === null ? null : "1988-04-02",
-  einwilligung: {
-    umfang: "kontaktdaten",
+  einwilligung: kenntnisnahme({
     erfasst_von: bestaetigtAm === null ? "administrativ" : "person",
     text_version: "2026-09-bestaetigungsseite",
     datum: "2026-09-01",
     bestaetigt_am: bestaetigtAm,
-  },
+  }),
 });
 
 const OFFEN = { verschickt_am: "2026-09-01", erinnert_am: null, abgelehnt_am: null, zustellung: null };
@@ -100,14 +104,24 @@ const claraStieAus = { kontakte: { trainer: null }, bestaetigungen: { trainer: W
 function renderStrip({
   stands = standsOf(),
   frist = "2099-12-31",
+  fristAbgelaufen = false,
   isOpen = true,
-}: { stands?: SitzBestaetigung[]; frist?: string; isOpen?: boolean } = {}) {
+  neubesetzung = laufendeNeubesetzung(),
+}: {
+  stands?: SitzBestaetigung[];
+  frist?: string;
+  fristAbgelaufen?: boolean;
+  isOpen?: boolean;
+  neubesetzung?: ReturnType<typeof laufendeNeubesetzung> | null;
+} = {}) {
   return render(
     underNext(
       h(BewerbungBestaetigungStrip, {
         bewerbungId: "68d0f2a4c1e2b3a4d5e6f708",
+        neubesetzung,
         staende: stands,
         frist,
+        fristAbgelaufen,
         isOpen,
         isDirty: false,
         onGetipptChange: () => undefined,
@@ -117,9 +131,9 @@ function renderStrip({
   );
 }
 
-const pencil = (name: string) => screen.queryByRole("button", { name: `E-Mail-Adresse von ${name} korrigieren` });
-const send = (rolle: string) => screen.queryByRole("button", { name: `Link erneut senden an ${rolle}` });
-const reseat = (rolle: string) => screen.queryByRole("button", { name: `${rolle} neu besetzen` });
+const pencil = (name: string) => screen.queryByRole("button", { name: `Adresse korrigieren: ${name}` });
+const send = (rolle: string) => screen.queryByRole("button", { name: `Link erneut senden: ${rolle}` });
+const reseat = (rolle: string) => screen.queryByRole("button", { name: `Neu besetzen: ${rolle}` });
 const addressBox = () => screen.getByRole<HTMLInputElement>("textbox", { name: "Neue E-Mail-Adresse" });
 
 /** Fills the reseat box with a whole person, the address last so a case can press Enter in it. */
@@ -195,9 +209,23 @@ describe("the re-send on a seat with no address", () => {
     renderStrip({ stands: standsOf({ kontakte: { trainer: person("Clara", "") } }) });
     const withoutAddress = "Zu dieser Rolle steht keine E-Mail-Adresse in der Bewerbung. Trage zuerst eine über „Adresse korrigieren“ ein.";
 
-    closedControl("Link erneut senden an Trainer", withoutAddress);
+    closedControl("Link erneut senden: Trainer", withoutAddress);
     assert.equal(isInTheFlow(withoutAddress), false, "the reason stands in the flow, which this row takes away with its controls");
     assert.equal(pencil("Clara Meier")?.hasAttribute("disabled"), false, "the pencil that would give the seat an address is closed");
+  });
+});
+
+describe("the reseat over a registry the page could not read", () => {
+  /* The new person is asked the administration's page, whose words the box shows: without them the
+     reseat closes and says why, while the rest of the strip stands. */
+  it("closes the reseat with the reason, and leaves the re-sends standing", () => {
+    const { unmount } = renderStrip({ stands: standsOf(claraStieAus), neubesetzung: null });
+
+    closedControl("Neu besetzen: Trainer", FASSUNG_UNLESBAR);
+    const sendStands = send("Stellvertretung") !== null;
+    unmount();
+
+    assert.ok(sendStands, "a failed registry read took the re-sends with it");
   });
 });
 
@@ -205,13 +233,31 @@ describe("the deadline sentence", () => {
   /* The sweep's clock reads `eingereicht` alone: a promise of deletion over a decided application is one
      nothing will keep, and a deadline behind today worded as ahead promises a deletion already owed. */
   it("says a passed deadline has passed while the application is open, and nothing once it is decided", () => {
-    const { unmount } = renderStrip({ frist: "2020-01-01" });
+    const { unmount } = renderStrip({ frist: "2020-01-01", fristAbgelaufen: true });
 
     assert.ok(screen.queryByText(/^Die Frist für die Bestätigungen ist am 01\.01\.2020 abgelaufen\./), "a passed deadline is worded as ahead");
     unmount();
 
     renderStrip({ stands: standsOf({ status: "abgelehnt" }), isOpen: false });
     assert.ok(screen.queryByText(/gelöscht|Frist/) === null, "a decided application is promised a deletion");
+  });
+});
+
+/* The read judges the deadline on the server's day, so this browser's date decides nothing about the sentence. */
+describe("the deadline sentence against the read's judgement", () => {
+  it("follows the read, never the date it shows", () => {
+    const { unmount } = renderStrip({ frist: "2020-01-01", fristAbgelaufen: false });
+    assert.ok(
+      screen.queryByText(/^Bleibt eine Bestätigung bis zum 01\.01\.2020 aus/),
+      "a deadline the read judges running is worded as passed",
+    );
+    unmount();
+
+    renderStrip({ frist: "2099-12-31", fristAbgelaufen: true });
+    assert.ok(
+      screen.queryByText(/^Die Frist für die Bestätigungen ist am 31\.12\.2099 abgelaufen\./),
+      "a deadline the read judges passed is worded as ahead",
+    );
   });
 });
 
@@ -414,8 +460,12 @@ describe("a write whose answer never arrives", () => {
       assert.equal(seen.refresh, readAgain[arm], "a rejection left the row as it was, or an answer read it twice");
       assert.deepEqual(unknowns(), [
         [
-          "Unklar, ob es gespeichert wurde",
-          repairOn(arm, "Prüfe die Verbindung und sende den Link noch einmal. Ein neuer Link ersetzt einen, der schon rausging."),
+          // A send saves nothing, so its title says what is unknown of it.
+          "Unklar, ob der Link verschickt wurde",
+          repairOn(
+            arm,
+            "Prüfe die Verbindung, lade die Seite neu und sende den Link erneut. Ein neuer Link ersetzt einen, der schon rausging.",
+          ),
         ],
       ]);
       assert.equal(raised.length, 1, "one press raised more than one toast");
@@ -460,7 +510,7 @@ describe("a write whose answer never arrives", () => {
       assert.deepEqual(unknowns(), [
         [
           "Unklar, ob es gespeichert wurde",
-          repairOn(arm, "Prüfe die Verbindung und lade die Seite neu. Steht in der Zeile noch die alte Adresse, korrigiere sie noch einmal."),
+          repairOn(arm, "Prüfe die Verbindung und lade die Seite neu. Steht in der Zeile noch die alte Adresse, korrigiere sie erneut."),
         ],
       ]);
       assert.equal(raised.length, 1, "one press raised more than one toast");
@@ -485,7 +535,7 @@ describe("a write whose answer never arrives", () => {
       assert.deepEqual(unknowns(), [
         [
           "Unklar, ob es gespeichert wurde",
-          repairOn(arm, "Prüfe die Verbindung und lade die Seite neu. Steht in der Zeile noch niemand, besetze die Rolle noch einmal."),
+          repairOn(arm, "Prüfe die Verbindung und lade die Seite neu. Steht in der Zeile noch niemand, besetze die Rolle erneut."),
         ],
       ]);
       assert.equal(raised.length, 1, "one press raised more than one toast");
@@ -522,15 +572,25 @@ describe("seating another person where one stepped out", () => {
     assert.ok(!reseat("Ansprechperson"), "one person's two seats each carry their own control");
   });
 
-  /* The person reads the confirmation page and never the form, whose words address the submitter. */
+  /* The person reads the administration's confirmation page and never the form, whose words address the submitter. */
   it("shows the confirmation page's opening words every person reads alike, in its order, and none of the form's", async () => {
     // Read off the page itself, rendered with a marker in every slot, so a paragraph the page adds,
     // drops or moves fails here rather than drifting from the box.
     const markiert = "MARKIERT-SLOT";
     const seite = render(
-      underNext(h(BestaetigungHinweise, { schule: markiert, saison: markiert, rolle: markiert, mindestalter: 987, ablehnenLabel: markiert }), {
-        router,
-      }),
+      underNext(
+        h(BestaetigungHinweise, {
+          absaetze: laufendeNeubesetzung().absaetze,
+          schule: markiert,
+          saison: markiert,
+          rolle: markiert,
+          mindestalter: 987,
+          ablehnenLabel: markiert,
+        }),
+        {
+          router,
+        },
+      ),
     );
     const seitenAbsaetze = [...seite.container.querySelectorAll("p, li")].map((absatz) => absatz.textContent ?? "");
     seite.unmount();
@@ -551,7 +611,7 @@ describe("seating another person where one stepped out", () => {
       seitenAbsaetze.filter((absatz) => !absatz.includes(markiert) && !absatz.includes("987")),
       "the box shows other words than the page opens with, or in another order",
     );
-    for (const absatz of LIGA_KENNTNISNAHME.absaetze) {
+    for (const absatz of publishedLaufendeFassung("bewerbung").absaetze) {
       assert.ok(
         !(box.textContent ?? "").includes(absatz),
         `the box shows the form's words to a person who never sees the form: ${absatz.slice(0, 40)}`,
@@ -589,9 +649,9 @@ describe("seating another person where one stepped out", () => {
     assert.equal(ran("besetzeKontaktSitzAction"), 0, "an address another person holds reaches the write");
   });
 
-  /* The label is the registry's rather than anything typed, and it is what the new person's own
-     confirmation page will then overwrite with the wording they were shown. */
-  it("sends the typed person and the current Kenntnisnahme label, once however often Enter is pressed", async () => {
+  /* The label is the one the backend runs, read by the page, rather than anything typed, and it is what
+     the new person's own confirmation page will then overwrite with the wording they were shown. */
+  it("sends the typed person and the running Kenntnisnahme label, once however often Enter is pressed", async () => {
     const user = userEvent.setup();
     renderStrip({ stands: standsOf(claraStieAus) });
 
@@ -606,7 +666,7 @@ describe("seating another person where one stepped out", () => {
       nachname: "Ostwald",
       email: "doreen@schule.example",
       telefon: "069 7654321",
-      text_version: LIGA_KENNTNISNAHME.textVersion,
+      text_version: publishedLaufendeFassung("bewerbung").text_version,
     });
     await act(async () => answerPending({ success: true, verschickt: true, message: "Der Link ging an doreen@schule.example." }));
   });

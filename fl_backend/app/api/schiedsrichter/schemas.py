@@ -2,10 +2,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter
 
-# The delivery state has ONE shape at every home `app/api/zustellung/services.py :: ZIEL_PFADE`
-# names, so the referee's carrier declares the application's model rather than a twin of it.
-from app.api.bewerbungen.schemas import FLBewerbungZustellung
-from app.api.spieler.schemas import FLEinwilligung
+from app.api.spieler.schemas import FLEinwilligung, SelbstEinwilligungPayload
 from app.shared.schemas.bounds import (
     BEWERBUNG_TOKEN_MAX_LENGTH,
     EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH,
@@ -19,8 +16,13 @@ from app.shared.schemas.custom import (
     CustomOptionalDateString,
     CustomOptionalString,
 )
+from app.shared.schemas.einwilligung import FLEinwilligungStand
 from app.shared.schemas.kontakt import CustomKontaktName, FLKontakt, FLKontaktPayload
 from app.shared.schemas.responses import BaseAPIResponse
+
+# The delivery state has ONE shape at every home `app/api/zustellung/services.py :: ZIEL_PFADE`
+# names, so the referee's carrier declares the application's model rather than a twin of it.
+from app.shared.schemas.zustellung import FLBewerbungZustellung
 
 # A SECOND spelling of `app/api/spieler/schemas.py :: FLEinwilligung`'s own, which is inline and so
 # cannot be imported. Widened alone it would take a scope mongod refuses, and the press would 500:
@@ -31,6 +33,13 @@ FLSchiedsrichterUmfang = Literal["kader_oeffentlich", "intern"]
 # confirmed on the last valid day still sees that they did. `gesperrt` ranks first
 # (`docs/backend/spec.md :: I515`).
 FLSchiedsrichterBestaetigungZustand = Literal["gueltig", "bestaetigt", "abgelaufen", "gesperrt"]
+
+# What an address link shows. No `bestaetigt`: an answer removes the block the link opens.
+# `nicht_bestaetigbar`, a barred REPLACED address, is named apart from `gesperrt` so the new mailbox
+# learns nothing of the ban.
+FLSchiedsrichterAdresswechselZustand = Literal["gueltig", "abgelaufen", "gesperrt", "nicht_bestaetigbar"]
+
+FLSchiedsrichterAdresswechselAntwort = Literal["bestaetigt", "abgelehnt"]
 
 # The raw token as it arrives on the two base-tier endpoints. `BEWERBUNG_TOKEN_MAX_LENGTH` and not a
 # referee's own: one `mint_token` spells every confirmation link this application hands out.
@@ -97,6 +106,30 @@ class FLSchiedsrichterMint(BaseModel):
     email: CustomNonEmptyString
 
 
+class FLSchiedsrichterAdresswechsel(BaseModel):
+    """A confirmed referee's address waiting on its own mailbox, as the editor reads it -- and NO `token_hash`.
+
+    Kept off the wire for `FLSchiedsrichterBestaetigung`'s reason.
+    """
+
+    email: str
+    verschickt_am: CustomDateString
+    # Stored for `FLSchiedsrichterBestaetigung.frist`'s reason.
+    frist: CustomDateString
+    zustellung: FLBewerbungZustellung | None = None
+
+
+class FLSchiedsrichterAdresswechselMint(FLSchiedsrichterMint):
+    """A freshly minted address link, answered once, with the address the change was asked from.
+
+    The caller tells the stored address that a change was asked, so a change nobody wanted is
+    noticed by the person still holding the record.
+    """
+
+    # Null only where the row holds no address to tell.
+    bisherige_email: str | None
+
+
 class FLSchiedsrichter(_SchiedsrichterWritable):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     # Nullable where the payload is not, for the one row that stands behind nobody
@@ -113,6 +146,9 @@ class FLSchiedsrichter(_SchiedsrichterWritable):
     bestaetigung: FLSchiedsrichterBestaetigung | None = None
     einwilligung: FLEinwilligung | None = None
     geburtsdatum: CustomOptionalDateString = None
+    # Defaulted and on no payload, for the three above's reasons: only a confirmed referee whose
+    # address an administrator moved carries one.
+    adresswechsel: FLSchiedsrichterAdresswechsel | None = None
 
 
 FLSchiedsrichterListAdapter = TypeAdapter(list[FLSchiedsrichter])
@@ -143,8 +179,11 @@ class FLPatchSchiedsrichterResponse(BaseAPIResponse):
     # Reported rather than assumed: this fan-out is the half of the endpoint that fails silently (`docs/backend/spec.md :: I13`).
     fanned_out_to_spiele: int
     # Null unless the save moved an UNCONFIRMED referee's address, which retires the link posted to
-    # the mailbox nobody reads. A confirmed referee's address change mints nothing.
+    # the mailbox nobody reads.
     bestaetigung: FLSchiedsrichterMint | None = None
+    # Null unless the save moved a CONFIRMED referee's address, which waits on the new mailbox.
+    # Never both: a referee is confirmed or not.
+    adresswechsel: FLSchiedsrichterAdresswechselMint | None = None
 
 
 class FLSchiedsrichterReactivateResponse(BaseAPIResponse):
@@ -159,6 +198,44 @@ class FLSchiedsrichterMintResponse(BaseAPIResponse):
     """The re-send's answer. Never null: where no link may be minted a refusal answers instead."""
 
     bestaetigung: FLSchiedsrichterMint
+
+
+class FLSchiedsrichterAdresswechselMintResponse(BaseAPIResponse):
+    """The address link's re-send answer. Never null: where no change is pending a 404 answers instead."""
+
+    adresswechsel: FLSchiedsrichterAdresswechselMint
+
+
+class FLSchiedsrichterAdresswechselAnsichtPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    token: CustomSchiedsrichterToken
+
+
+class FLSchiedsrichterAdresswechselAnsichtResponse(BaseAPIResponse):
+    """What one address link opens, and nothing a leaked one should not learn (`READ-REFEREE-003`).
+
+    A first name and a deadline: never either address, the school, the fee or the id.
+    """
+
+    zustand: FLSchiedsrichterAdresswechselZustand
+    vorname: CustomNonEmptyString | None
+    frist: CustomDateString
+
+
+class FLSchiedsrichterAdresswechselPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    token: CustomSchiedsrichterToken
+    # Required rather than defaulted: a page that omitted it would have the model answer for the
+    # person whether a mailbox is theirs.
+    antwort: FLSchiedsrichterAdresswechselAntwort
+
+
+class FLSchiedsrichterAdresswechselResponse(BaseAPIResponse):
+    """The answer recorded, and nothing of the row: a leaked link learns only what it posted."""
+
+    antwort: FLSchiedsrichterAdresswechselAntwort
 
 
 class FLSchiedsrichterBestaetigungAnsichtPayload(BaseModel):
@@ -197,8 +274,8 @@ class FLSchiedsrichterBestaetigungPayload(BaseModel):
     # Required rather than defaulted: a page that omitted it would store the model's answer in place
     # of the person's, and an off switch is an answer.
     medien: bool
-    # The label of the text the running build renders: the route handler refuses any other
-    # (`docs/frontend/spec.md :: I148`).
+    # The label of the words the page showed: the write refuses any but the running one
+    # (`docs/backend/spec.md :: I550`).
     text_version: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)]
 
 
@@ -227,3 +304,47 @@ class FLSchiedsrichterWriteResponse(BaseAPIResponse):
 
 class FLSchiedsrichterSingleResponse(BaseAPIResponse):
     schiedsrichter: FLSchiedsrichter
+    # Whether each link's deadline has passed today, judged by the rule its press refuses on, so the
+    # editor reads no day of its own; false where the row holds no such link.
+    bestaetigung_abgelaufen: bool
+    adresswechsel_abgelaufen: bool
+
+
+class FLSchiedsrichterKontext(BaseModel):
+    """What the referee confirmation page's slots name for this record today: the one stored name's first part."""
+
+    vorname: str | None
+
+
+class FLSchiedsrichterSelbst(BaseModel):
+    """One referee record's stored data as its own person reads it: contact details and fee, never the link's bookkeeping.
+
+    For `app/api/spieler/schemas.py :: FLSpielerSelbst`'s reason, the account page's entry extends it.
+    """
+
+    schiedsrichter_id: CustomObjectId
+    name: CustomNonEmptyString
+    schule: str | None
+    kontakt: FLKontakt
+    # `default_payment`, named as the screen names it: the confirmation page lists it among what is stored.
+    honorar: int
+    geburtsdatum: CustomOptionalDateString = None
+
+
+class FLSchiedsrichterSelbstResponse(BaseAPIResponse):
+    """Every confirmed referee record the signed-in address holds, the ghost never among them."""
+
+    schiedsrichter: list[FLSchiedsrichterSelbst]
+
+
+class FLSchiedsrichterSelbstEinwilligungPayload(SelbstEinwilligungPayload):
+    pass
+
+
+class FLSchiedsrichterSelbstEinwilligungResponse(BaseAPIResponse):
+    """The record as it stands after the write, everything the person did not move unchanged."""
+
+    schiedsrichter_id: CustomObjectId
+    einwilligung: FLEinwilligung
+    # For `app/api/spieler/schemas.py :: FLSpielerSelbstEinwilligungResponse`'s reason.
+    nachweis_stand: FLEinwilligungStand

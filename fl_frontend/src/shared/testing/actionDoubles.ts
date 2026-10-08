@@ -7,7 +7,9 @@ import { fileURLToPath } from "node:url";
 
 import { blankComments } from "@/core/blankComments.ts";
 import { exportedNames, exportingModule, registerDoubles, replacingPackage } from "@/core/exportingModule.ts";
+import { serverActionModules } from "@/core/treeWalk.ts";
 import { judging } from "@/core/verdicts.ts";
+import { srcPathOf } from "@/shared/testing/actionLanes.ts";
 import { untilAnswered } from "@/shared/testing/answersInFlight.ts";
 import { failureToastTitle } from "@/shared/utils/failureToastTitle.ts";
 
@@ -31,11 +33,14 @@ const WRITE_MODULE = /\/(?:mutations|notifications)\.ts$|\/core\/mail\.ts$/;
 export function doubleActions({
   modules,
   answer = () => Promise.resolve({ success: true, message: "Gespeichert." }),
+  payloadOf = (args) => args[0],
 }: {
   /** Each module to replace, matched against the RESOLVED url: a path tail, or a pattern over one. */
   modules: readonly (string | RegExp)[];
   /** What every replaced write answers, until `answerWith` names another for the rest of that case. */
   answer?: () => Promise<unknown>;
+  /** The argument recorded as a call's payload: a form action under `useActionState` is handed the previous state first. */
+  payloadOf?: (args: readonly unknown[]) => unknown;
 }): {
   calls: ActionCall[];
   answerWith: (next: () => Promise<unknown>) => void;
@@ -80,8 +85,8 @@ export function doubleActions({
   };
   const act =
     (action: string) =>
-    async (payload: unknown): Promise<unknown> => {
-      calls.push({ action, payload });
+    async (...args: unknown[]): Promise<unknown> => {
+      calls.push({ action, payload: payloadOf(args) });
       return answerOf(action);
     };
 
@@ -121,11 +126,13 @@ export function doubleActions({
 }
 
 /**
- * Every slice's actions module, for a suite in which no case saves: a real write module loads the
+ * Every server action module, for a suite in which no case saves: a real write module loads the
  * sign-in store and its database driver into the render, which is most of such a suite's time.
  */
-export function doubleEveryAction(): ReturnType<typeof doubleActions> {
-  return doubleActions({ modules: [/\/src\/features\/\w+\/actions\.ts$/] });
+export function doubleEveryAction({ payloadOf }: Pick<Parameters<typeof doubleActions>[0], "payloadOf"> = {}): ReturnType<
+  typeof doubleActions
+> {
+  return doubleActions({ modules: serverActionModules(20).map((file) => `/src/${srcPathOf(file)}`), payloadOf: payloadOf });
 }
 
 /** One invalidation a write made through `next/cache`: the export it called, and what it handed it. */
@@ -189,9 +196,22 @@ export const REQUEST_PACKAGES: Readonly<Record<string, string>> = {
   "next/headers": NEXT_HEADERS_DOUBLE,
 };
 
-/** Every refusal an action logs would otherwise reach the run's output as an error line. */
-const inert = (): undefined => undefined;
-const SILENT_LOGGER = { logger: { debug: inert, info: inert, warn: inert, error: inert } };
+/** One line an action logged: its level, its message, and the fields beside them. */
+export type LoggedLine = { level: "debug" | "info" | "warn" | "error"; message: string; meta: unknown };
+
+/**
+ * Every line logged since the case began, `doubleActionRequest` emptying it before each case. Recorded
+ * rather than written: every refusal an action logs would otherwise reach the run's output as an error line.
+ */
+export const loggedLines: LoggedLine[] = [];
+
+const logAt =
+  (level: LoggedLine["level"]) =>
+  (message: string, ...rest: unknown[]): void => {
+    // `error` takes the thrown value before its fields, the other three their fields alone.
+    loggedLines.push({ level, message, meta: level === "error" ? rest[1] : rest[0] });
+  };
+const SILENT_LOGGER = { logger: { debug: logAt("debug"), info: logAt("info"), warn: logAt("warn"), error: logAt("error") } };
 
 /** What the doubled sign-in store's `getAdminSession` answers: an administrator, nobody signed in, or a store that threw this. */
 type AdminSessionDouble = { user: { email: string } } | null | Error;
@@ -230,7 +250,6 @@ const destinationOf = (session: AdminSessionDouble): string => (session === null
 
 const answering = (answer: unknown): Promise<unknown> => (answer instanceof Error ? Promise.reject(answer) : Promise.resolve(answer));
 
-// Served in the real guard's shape: the admin shell reads the step-up window off the row.
 /**
  * The session, recorded as the request's actor where it is an administrator's, as the real
  * `getAdminSession` records it. Imported at the call, so the scope is the one the code under test loaded.
@@ -244,6 +263,7 @@ async function administratorOf({ session, served }: SignInAnswers): Promise<unkn
     setRequestActor({ email: asSignInIdentifier(session.user.email), lane: "admin", token: "doubled-actor-token-not-a-credential" });
   }
 
+  // Served in the real guard's shape: the admin shell reads the step-up window off the row.
   return answering(served);
 }
 
@@ -293,8 +313,15 @@ const signInStore = (answers: SignInAnswers) => ({
  * calls the sign-in store this file replaces, and reads the doubled `auth` it cannot build.
  */
 const subjectLookup = (answers: Pick<SignInAnswers, "subject" | "subjectReads">) => ({
-  getSubjectSession: () => {
+  getSubjectSession: async () => {
     answers.subjectReads += 1;
+    // Recorded as the real lookup records it, so a person's admin-tier call goes out named rather than
+    // refused by the client; imported at the call, for `administratorOf`'s reason.
+    if (answers.subject !== null && !(answers.subject instanceof Error)) {
+      const { setRequestActor } = await import("@/core/requestScope.ts");
+      setRequestActor({ email: answers.subject.email, lane: "person", token: "doubled-person-token-not-a-credential" });
+    }
+
     return answering(answers.subject);
   },
 });
@@ -350,6 +377,7 @@ export function doubleActionRequest({
   // invalidations, and one after a case that signed out would run its write with no session.
   beforeEach(() => {
     cacheCalls.length = 0;
+    loggedLines.length = 0;
     setSession(session);
     setSubject(subject);
     answers.subjectReads = 0;
@@ -438,8 +466,8 @@ export function doubleToasts(): { raised: RaisedToast[] } {
     };
   // Titled as the real module titles it, so a press marked partly saved or of unknown outcome reads so
   // in every suite rather than under the raising site's title.
-  const fail = (title: string, failure?: Pick<ActionFailure, "error" | "unplacedError" | "outcome">): string =>
-    raise("danger")(failureToastTitle(title, failure?.outcome), {
+  const fail = (title: string, failure?: Pick<ActionFailure, "error" | "unplacedError" | "outcome">, unklarTitle?: string): string =>
+    raise("danger")(failureToastTitle(title, failure?.outcome, unklarTitle), {
       description: failure?.unplacedError ?? failure?.error,
       outcome: failure?.outcome,
     });

@@ -16,7 +16,7 @@ DATABASE_UNREACHABLE = "DB-CONN-002"
 
 @dataclass(frozen=True, kw_only=True)
 class WriteRefusal:
-    """Why a write path refuses: the code, the status its check chose, and the English detail.
+    """Why an endpoint refuses: the code, the status its check chose, and the English detail.
 
     Named fields, not a tuple: the two strings type-check reversed. Keyword-only, so every check spells
     its `status` where `fl_backend/tests/core/test_domain.py` reads it.
@@ -138,6 +138,21 @@ class DatabaseUnavailableException(BaseAPIException):
         )
 
 
+class DrosselungException(BaseAPIException):
+    """A signed-in person's write past the ceiling of the kind of person it was made as, for the German day: RFC 6585's 429.
+
+    `Retry-After` names the seconds to the next German midnight, where the count starts again.
+    """
+
+    def __init__(self, error_code: str, retry_after_s: int):
+        super().__init__(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            error_code=error_code,
+            message="the person's counted writes reached the ceiling of the kind of person they write as, for the German day",
+            headers={"Retry-After": str(retry_after_s)},
+        )
+
+
 class DocumentNotFoundException(BaseAPIException):
     def __init__(
         self,
@@ -154,7 +169,7 @@ class DocumentNotFoundException(BaseAPIException):
 
 
 class WriteRefusalException(BaseAPIException):
-    """The one route from a refused write to its response, at the status its check chose."""
+    """The one route from a refused write or person's read to its response, at the status its check chose."""
 
     def __init__(self, refusal: WriteRefusal):
         super().__init__(status_code=refusal.status, error_code=refusal.error_code, message=refusal.message)

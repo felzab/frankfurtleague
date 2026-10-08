@@ -67,7 +67,8 @@ jobs:
           tarball="${RUNNER_TEMP}/shellcheck-v${version}.linux.x86_64.tar.xz"
           # Fetched to a file rather than piped into tar, so a truncated stream is a digest mismatch
           # rather than a partial write nothing hashed.
-          curl -fsSL -o "$tarball" "https://github.com/koalaman/shellcheck/releases/download/v${version}/shellcheck-v${version}.linux.x86_64.tar.xz"
+          # `--retry` repeats curl's transient answers only: one 500 from the release host failed a job.
+          curl -fsSL --retry 3 -o "$tarball" "https://github.com/koalaman/shellcheck/releases/download/v${version}/shellcheck-v${version}.linux.x86_64.tar.xz"
           # Checked before anything is unpacked: a release asset can be replaced without its tag
           # moving, and this lands as root in a directory on PATH beside a checkout.
           if ! printf '%s  %s\n' "$digest" "$tarball" | sha256sum -c -; then
@@ -103,9 +104,9 @@ jobs:
       - name: Run the docs scope
         run: ./scripts/gate/verify.sh --docs
       - name: Hold a moved gate budget to its measurement
-        # A budget or a reference raised in .github/gate-wall-clock.tsv carries a new measurement
-        # stamp, or the pull request is refused. Here for the full history the comparison reads; a
-        # push to main has no base.
+        # A figure raised in .github/gate-wall-clock.tsv carries a new stamp of the runs it needs, or
+        # the pull request is refused; docs/ops/spec.md §1.6 lists every refusal. Here for the full
+        # history the comparison reads; a push to main has no base.
         if: github.event_name == 'pull_request'
         env:
           BASE_REF: ${{ github.base_ref }}
@@ -127,7 +128,7 @@ jobs:
             $1 == "-" { next }
             {
               b = "product code"
-              if ($3 == "fl_backend/openapi.json" || $3 ~ /(^|\/)(pnpm-lock\.yaml|uv\.lock)$/) b = "generated"
+              if ($3 == "fl_backend/openapi.json" || $3 == "fl_backend/einwilligung.json" || $3 ~ /(^|\/)(pnpm-lock\.yaml|uv\.lock)$/) b = "generated"
               else if ($3 ~ /^(fl_backend|scripts)\/tests\// || $3 ~ /\.test\.(ts|tsx)$/) b = "tests"
               else if ($3 ~ /\.md$/ || $3 ~ /^docs\//) b = "documentation"
               else if ($3 ~ /^(scripts|nginx|certs)\/|^\.|^docker-compose|(^|\/)(Dockerfile|\.[^\/]+)$/) b = "tooling"
@@ -212,9 +213,9 @@ jobs:
         with:
           application: true
       - name: Pull the mongod image the db tier starts
-        # INSTRUMENTATION, not a saving: the pull is inside the job span either way. As its own step
-        # the download is attributed in the log rather than hidden in pytest's span -- a slow tier
-        # told from a slow registry.
+        # In the background, so the download overlaps the frontend's install below; the step before
+        # the scope waits on it and prints its log and duration, still telling a slow tier from a
+        # slow registry.
 
         # No image cache beside this: the **ci** clause in `.claude/rules/ops.md` constrains exactly
         # that, so none is added here.
@@ -248,10 +249,41 @@ jobs:
             echo "::error::no single MONGO_IMAGE binding found in fl_backend/tests/conftest.py -- the binding this step reads has moved or split."
             exit 1
           fi
-          docker pull "$image"
+          # Locked before the pull starts, so the waiting step cannot take the lock first; the
+          # background pull inherits it and holds it until it exits.
+          exec 9> "${RUNNER_TEMP}/mongod-pull.lock"
+          flock 9
+          # Every stream redirected: nothing the pull prints lands in a later step's log, and no
+          # stream it holds outlives this step.
+          (
+            started="$(date +%s)"
+            rc=0
+            docker pull "$image" || rc=$?
+            echo "$rc $(( $(date +%s) - started ))" > "${RUNNER_TEMP}/mongod-pull.result"
+          ) > "${RUNNER_TEMP}/mongod-pull.log" 2>&1 < /dev/null &
+          echo "Pulling ${image} in the background."
       # The db scope runs the frontend's db-tier files too (`pnpm run test:db`), so this job installs
       # the frontend beside the backend's virtualenv.
       - uses: ./.github/actions/frontend-toolchain
+      - name: Wait for the mongod pull
+        # Advisory for the reason the pull step gives. Bounded inside the job's own timeout.
+        continue-on-error: true
+        run: |
+          waited="$(date +%s)"
+          # Caught rather than left to `bash -e`, which would end the step before the log prints.
+          timed_out=0
+          flock -w 600 "${RUNNER_TEMP}/mongod-pull.lock" true || timed_out=1
+          cat "${RUNNER_TEMP}/mongod-pull.log" 2>/dev/null || true
+          if (( timed_out )); then
+            echo "::warning::the mongod pull was still running after $(( $(date +%s) - waited )) s; its log so far is above."
+            exit 1
+          fi
+          if ! read -r rc seconds < "${RUNNER_TEMP}/mongod-pull.result"; then
+            echo "::warning::no mongod pull finished -- the pull step above did not start one."
+            exit 1
+          fi
+          echo "docker pull exited ${rc} after ${seconds} s; this step waited $(( $(date +%s) - waited )) s for it."
+          exit "$rc"
       - name: Run the db scope
         run: ./scripts/gate/verify.sh --db
 

@@ -31,7 +31,7 @@ const { APIBadStatusError } = await import("@/core/errors.ts");
 const { bodyField } = await import("@/shared/testing/refusedPayload.ts");
 const { ApiUnsentError } = await import("@/core/errors.ts");
 const { boundCall, markOutcomeUnknown, recordWriteSent, REQUEST_DEADLINE_MS } = await import("@/core/requestScope");
-const { DUPLICATE_KEY, refusedOn } = await import("@/shared/testing/publishedRefusals.ts");
+const { DUPLICATE_KEY, refusedOn, unpublishedOn } = await import("@/shared/testing/publishedRefusals.ts");
 
 /** Every value a browser sends in `Sec-Fetch-Site`, and the browser too old to send any. */
 const ORIGINS: readonly (string | null)[] = ["same-origin", "same-site", "cross-site", "none", null];
@@ -50,7 +50,7 @@ function request(origin: string | null, read: { body: number }, method = "POST")
 
 /**
  * The spine driven: what it answered, and whether anything past its guard ran — a trace opened, a body
- * read, the handler itself. Every route carrying the guard is `fl_frontend/src/core/requestSpines.test.ts`'s population.
+ * read, the handler itself. Every route carrying the guard is `fl_frontend/src/app/requestSpines.test.ts`'s population.
  */
 async function answerFor(origin: string | null): Promise<{ status: number; body: { success: boolean; error?: string }; didWork: boolean }> {
   spineTraces = 0;
@@ -107,19 +107,20 @@ describe("a refusal the route itself leaves unmapped", () => {
         },
       })) as unknown as { body: unknown }
     ).body;
-  const refusedWith = (serverErrorCode: string, statusCode = 409) => answering(refusedOn("POST /registrierungen", serverErrorCode, statusCode));
+  /** A rule's code the sign-up does not word, as one a release adds before the form learns it. */
+  const unclaimed = (statusCode = 409) => answering(unpublishedOn("POST /registrierungen", "REQ-UNCLAIMED-000", statusCode));
 
   /* The shared reader's sentence for it is an administrator's, about an entry they can open; a visitor
      on a public form has none, and reads that their details are already on file. */
   it("answers the unique index's refusal in the visitor's own words", async () => {
-    assert.deepEqual(await refusedWith(DUPLICATE_KEY), { success: false, error: SCHON_VORLIEGEND });
+    assert.deepEqual(await answering(refusedOn("POST /registrierungen", DUPLICATE_KEY)), { success: false, error: SCHON_VORLIEGEND });
     assert.notEqual(SCHON_VORLIEGEND, toActionErrorResult(refusedOn("POST /registrierungen", DUPLICATE_KEY)).error);
   });
 
   /* The shared reader answers any other conflict with a reload, which discards what a visitor typed; the
      form's own fallback promises those entries are intact and asks for nothing that loses them. */
   it("answers every other conflict with the form's fallback, never the shared reader's reload", async () => {
-    assert.deepEqual(await refusedWith("REQ-UNCLAIMED-000"), { success: false, error: UNHANDLED_FIELD_REFUSAL });
+    assert.deepEqual(await unclaimed(), { success: false, error: UNHANDLED_FIELD_REFUSAL });
     assert.doesNotMatch(UNHANDLED_FIELD_REFUSAL, /lade die seite/i);
   });
 
@@ -127,13 +128,13 @@ describe("a refusal the route itself leaves unmapped", () => {
      and the shared reader's answer to that status would be the reload again. */
   it("answers a rule's refusal alike at whatever status its rule answers with", async () => {
     for (const status of [422, 404, 410, 403]) {
-      assert.deepEqual(await refusedWith("REQ-UNCLAIMED-000", status), { success: false, error: UNHANDLED_FIELD_REFUSAL }, String(status));
+      assert.deepEqual(await unclaimed(status), { success: false, error: UNHANDLED_FIELD_REFUSAL }, String(status));
     }
   });
 
   it("marks the box a rule's refusal names, and says the form's fallback for the rest", async () => {
     const refusal = new APIBadStatusError({
-      ...refusedOn("POST /registrierungen", "REQ-UNCLAIMED-000", 422),
+      ...unpublishedOn("POST /registrierungen", "REQ-UNCLAIMED-000", 422),
       message: "refused",
       refusedFields: [bodyField(["geburtsdatum"], "REQ-UNCLAIMED-000")],
     });
@@ -147,12 +148,12 @@ describe("a refusal the route itself leaves unmapped", () => {
   });
 
   it("leaves a vanished record, a refused credential and a server error to the shared reader", async () => {
-    for (const [code, status] of [
-      ["DB-COMMON-001", 404],
-      ["REQ-AUTH-002", 401],
-      ["REQ-UNCLAIMED-000", 500],
-    ] as const) {
-      const refusal = refusedOn("POST /registrierungen", code, status);
+    for (const refusal of [
+      refusedOn("POST /registrierungen", "DB-COMMON-001"),
+      refusedOn("POST /registrierungen", "REQ-AUTH-002"),
+      unpublishedOn("POST /registrierungen", "REQ-UNCLAIMED-000", 500),
+    ]) {
+      const code = String(refusal.serverErrorCode);
       assert.deepEqual(await answering(refusal), toActionErrorResult(refusal, { method: "POST", readOnly: false }), code);
     }
   });

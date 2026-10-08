@@ -9,8 +9,12 @@ import { act, createElement as h } from "react";
 import { cleanup, render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
+import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import { laufendeBewerbungFassung } from "@/shared/testing/einwilligungAnswers.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
+import { TEST_SITE_KEY } from "@/shared/testing/siteverifyDouble.ts";
+import { doubleTurnstile } from "@/shared/testing/turnstileDouble.ts";
 
 import type { BewerbungFormDraft } from "./types.ts";
 
@@ -18,6 +22,7 @@ type User = ReturnType<typeof userEvent.setup>;
 
 // The browser's own `fetch`, so the key is read off the request the form actually makes.
 const fetchMock = doubleFetch();
+doubleTurnstile();
 
 const { raised } = doubleToasts();
 
@@ -30,6 +35,9 @@ const { BEWERBUNG_SEATS } = await import("./constants.ts");
 const { buildEmptyBewerbungDraft } = await import("./utils.ts");
 const { TRIKOT_FARBE_OPTIONS } = await import("@/features/teams/constants.ts");
 
+/** The label the application form runs, off the registry the backend generated. */
+const FORM_LABEL = publishedLaufendeFassung("bewerbung").text_version;
+
 const SCHOOLS = [{ id: "68d0f2a4c1e2b3a4d5e6f708", name: "Lessing-Kolleg" }];
 
 const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -39,12 +47,12 @@ const person = (vorname: string, email: string, telefon: string) => ({
   nachname: "Muster",
   email: email,
   telefon: telefon,
-  einwilligung: { ...buildEmptyBewerbungDraft("2026").kontakte.trainer.einwilligung, erteilt: true },
+  einwilligung: { ...buildEmptyBewerbungDraft("2026", FORM_LABEL).kontakte.trainer.einwilligung, erteilt: true },
 });
 
 /** An application the payload schema takes whole, for a school the league already holds. */
 const COMPLETE_DRAFT: BewerbungFormDraft = {
-  ...buildEmptyBewerbungDraft("2026"),
+  ...buildEmptyBewerbungDraft("2026", FORM_LABEL),
   auswahl: SCHOOLS[0]!.id,
   stufengroesse: 90,
   kontakte: {
@@ -85,7 +93,16 @@ async function fillIn(user: User, container: HTMLElement, draft: BewerbungFormDr
 /** The form, filled in whole and pressed once. */
 async function pressFilledIn(): Promise<User> {
   const user = userEvent.setup({ delay: null });
-  const { container } = render(h(BewerbungForm, { saisonId: "2026", schulen: SCHOOLS, isSchulenLesbar: true, vergebeneFarben: [] }));
+  const { container } = render(
+    h(BewerbungForm, {
+      saisonId: "2026",
+      fassung: laufendeBewerbungFassung(),
+      schulen: SCHOOLS,
+      isSchulenLesbar: true,
+      vergebeneFarben: [],
+      siteKey: TEST_SITE_KEY,
+    }),
+  );
 
   await fillIn(user, container, COMPLETE_DRAFT);
   await user.click(screen.getByRole("button", { name: "Bewerbung abschicken" }));

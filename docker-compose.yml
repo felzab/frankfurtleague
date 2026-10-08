@@ -48,6 +48,7 @@ services:
       - internal_api_key_base
       - internal_api_key_system
       - internal_api_key_admin
+      - turnstile_secret_key
     # The group owning the three internal keys, which the backend's user reads too: compose hands a
     # file secret over with the host file's owner and mode and ignores `uid`, `gid` and `mode`
     # (`docs/ops/spec.md` §1.2).
@@ -259,6 +260,8 @@ secrets:
     file: ./secrets/internal_api_key_system
   internal_api_key_admin:
     file: ./secrets/internal_api_key_admin
+  turnstile_secret_key:
+    file: ./secrets/turnstile_secret_key
 
 # Two user-defined bridges, joined by nginx alone (`docs/ops/spec.md :: I471`). Containers resolve each
 # other by service name on a network they share -- `http://backend:8000` and `http://frontend:3000` in

@@ -1,3 +1,4 @@
+import type { GekeyteFassung, SpielerAbsatzSchluessel, SpielerWiederkehrendAbsatzSchluessel } from "@/core/einwilligungSeiten";
 import type { FLSpielerPosition, FLSpielerStufe } from "@/features/spieler/schemas";
 import type { FLEinladungAnsichtResponse, FLEinwilligungUmfang, FLRegistrierungBestaetigungAnsichtResponse } from "./schemas";
 
@@ -44,45 +45,27 @@ export type SpielerBestaetigungAnsicht = { zustand: "gueltig"; ansicht: SpielerB
 export type SpielerBestaetigungStart =
   { zustand: "gueltig"; ansicht: SpielerBestaetigungGeoeffnet; token: string } | { zustand: SpielerLinkZustand | "unlesbar" };
 
-/** The confirmation's three answers mid-entry, the date a string because `""` is the empty picker. */
-export type SpielerBestaetigungDraft = {
-  geburtsdatum: string;
-  umfang: FLEinwilligungUmfang;
-  medien: boolean;
-};
-
 /**
- * The keys the pupil's ruled copy is written under.
- *
- * Declared rather than inferred from the consent registry's own copy object: a dropped paragraph
- * then fails at the page rather than rendering as a gap nobody sees.
+ * What a confirmed pupil's answer panel states: the date they sent, and the two choices that stand —
+ * the ones they gave on the new pupil's page, or the stored ones the returning pupil's page showed.
  */
-export type SpielerAbsatzSchluessel =
-  | "worum"
-  | "gespeichert"
-  | "geburtsdatum"
-  | "wer"
-  | "veroeffentlichung"
-  | "medien"
-  | "rechtsgrundlage"
-  | "frist"
-  | "widerruf"
-  | "art21"
-  | "klickIdentitaet"
-  | "klickAlter"
-  | "klickEinwilligung"
-  | "klickHinweise";
+export type SpielerBestaetigungGespeichert = {
+  geburtsdatum: string;
+  umfang: FLEinwilligungUmfang | null;
+  medien: boolean | null;
+};
 
 /**
  * The stamped words this page renders, handed in by the page rather than imported by the view: the
  * label freezes what a reader saw, and a component reaching for the current one would render words
  * no record cites.
  */
-export type SpielerFassung = {
-  readonly textVersion: string;
-  readonly absaetze: Readonly<Record<SpielerAbsatzSchluessel, string>>;
-  readonly schalter: string;
-  // TOTAL over the enum, so a scope the registry has no words for fails at the page that binds the
-  // label rather than rendering as a chip with no text and a readout with an empty row.
-  readonly bedienelemente: Readonly<Record<FLEinwilligungUmfang, string>>;
+// TOTAL over the enum, so a scope the label has no words for fails at the page that reads it rather
+// than rendering as a chip with no text and a readout with an empty row.
+export type SpielerFassung = GekeyteFassung<SpielerAbsatzSchluessel, FLEinwilligungUmfang> & { readonly seite: "bestaetigung_spieler" };
+
+export type SpielerWiederkehrendFassung = GekeyteFassung<SpielerWiederkehrendAbsatzSchluessel, FLEinwilligungUmfang> & {
+  readonly seite: "bestaetigung_spieler_wiederkehrend";
 };
+
+export type SpielerSeitenFassung = SpielerFassung | SpielerWiederkehrendFassung;

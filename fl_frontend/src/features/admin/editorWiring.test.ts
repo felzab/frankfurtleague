@@ -11,11 +11,14 @@ import { act, createElement as h } from "react";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
+import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { APIBadStatusError } from "@/core/errors.ts";
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { bodyField, refusedPayload } from "@/shared/testing/refusedPayload.ts";
+import { saisonRules } from "@/shared/testing/saisonRules.ts";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
 import { toActionErrorResult } from "@/shared/utils/actionError.ts";
 
@@ -121,13 +124,14 @@ async function saveThrough(user: UserEvent): Promise<void> {
 
 const ADDRESS = { strasse: "Am Sportpark", hausnummer: "1", plz: "60435", stadtteil: "Nordend", stadt: "Frankfurt am Main" };
 
-const PERSON = (vorname: string, email: string): FLKontaktperson => ({
+// A number per person: two seats sharing one are refused as one person entered twice.
+const PERSON = (vorname: string, email: string, telefon: string): FLKontaktperson => ({
   vorname,
   nachname: "Meier",
   email,
-  telefon: "069 111",
+  telefon,
   geburtsdatum: "1990-12-10",
-  einwilligung: { umfang: "kontaktdaten", erfasst_von: "person", text_version: "1", datum: "2026-03-12", bestaetigt_am: "2026-03-14" },
+  einwilligung: kenntnisnahme({ erfasst_von: "person", text_version: "1", datum: "2026-03-12", bestaetigt_am: "2026-03-14" }),
 });
 
 const TEAM_A = { teamId: "68c1f0a2b3c4d5e6f7a8b9c1", name: "SG Alpha", shorthand: "SA" };
@@ -145,6 +149,8 @@ const SCHIEDSRICHTER = {
   geburtsdatum: null,
   einwilligung: null,
   bestaetigung: null,
+  adresswechsel: null,
+  abgelaufen: { bestaetigung: false, adresswechsel: false },
 };
 
 const SPIELER = { id: "68c1f0a2b3c4d5e6f7a8b9c0", vorname: "Lena", nachname: "Meier", inactive_since: null, geburtsdatum: null };
@@ -163,6 +169,7 @@ const SPIELER_MEMBERSHIP = {
 const spielerProps = (over: { inactiveSince?: string; rowInactiveSince?: string } = {}) => ({
   spieler: { ...SPIELER, inactive_since: over.inactiveSince ?? null },
   einwilligung: null,
+  istFassungBekannt: true,
   saison: {
     saisonId: "2026",
     saisonStatus: "active" as const,
@@ -203,7 +210,9 @@ const teamProps = (over: { inactiveSince?: string; isMember?: boolean; locked?: 
     saisonId: "2026",
     saisonStatus: "future" as const,
     membership:
-      over.isMember === false ? null : { gruppe: "A" as const, austritt: null, trikot_farbe: null, kontakte: null, kontakte_stand: "stand" },
+      over.isMember === false
+        ? null
+        : { gruppe: "A" as const, austritt: null, trikot_farbe: null, kontakte: null, bestaetigungen: null, kontakte_stand: "stand" },
   },
   today: "2026-09-14",
   gruppeLocked: over.locked ?? false,
@@ -243,17 +252,7 @@ const saisonProps = (over: { drawn?: boolean } = {}) => ({
     status: "future" as const,
     start_date: "2026-08-01",
     end_date: "2027-06-30",
-    rules: {
-      win_points: 3,
-      draw_points: 1,
-      qualifiers_per_group: 2,
-      number_of_groups: 2,
-      teams_per_group: 4,
-      max_kadergroesse: 18,
-      tiebreak_order: "tordifferenz" as const,
-      forfeit_ergebnis: { sieger_tore: 3, verlierer_tore: 0 },
-      erlaubte_stufen: ["E1" as const, "Q1" as const],
-    },
+    rules: saisonRules(),
     bewerbung: null,
     registrierung: null,
   },
@@ -299,6 +298,7 @@ const EDITORS: Record<string, Editor> = {
 
       return renderEditor(
         h(AdminSchiedsrichterEditForm, {
+          istFassungBekannt: true,
           schiedsrichter: SCHIEDSRICHTER,
           isRetired: false,
           pageHeader: { title: "Pia Kraft" },
@@ -348,6 +348,7 @@ const EDITORS: Record<string, Editor> = {
 
       return renderEditor(
         h(AdminKontakteEditForm, {
+          laufendesLabel: publishedLaufendeFassung("bewerbung").text_version,
           teamId: TEAM_A.teamId,
           saison: {
             saisonId: "2026",
@@ -357,11 +358,12 @@ const EDITORS: Record<string, Editor> = {
               austritt: null,
               trikot_farbe: null,
               kontakte: {
-                ansprechperson: PERSON("Grace", "grace@example.org"),
-                stellvertretung: PERSON("Alan", "alan@example.org"),
-                trainer: PERSON("Ada", "ada@example.org"),
+                ansprechperson: PERSON("Grace", "grace@example.org", "069 111"),
+                stellvertretung: PERSON("Alan", "alan@example.org", "069 222"),
+                trainer: PERSON("Ada", "ada@example.org", "069 333"),
                 trainer_ist_zugleich: null,
               },
+              bestaetigungen: null,
               kontakte_stand: "stand",
             },
           },
@@ -892,7 +894,9 @@ const RECORD_MOVES: Record<string, RecordMove> = {
     render: async () => {
       const { AdminSchiedsrichterEditView } = await import("@/features/schiedsrichter/components/views/AdminSchiedsrichterEditView.tsx");
 
-      return renderEditor(h(AdminSchiedsrichterEditView, { schiedsrichter: SCHIEDSRICHTER, inactiveSince: RETIRED_ON }));
+      return renderEditor(
+        h(AdminSchiedsrichterEditView, { istFassungBekannt: true, schiedsrichter: SCHIEDSRICHTER, inactiveSince: RETIRED_ON }),
+      );
     },
     type: (user) => typeInto(user, box("Name"), "Pia Kraft-Meier"),
     press: "Reaktivieren",
@@ -902,7 +906,7 @@ const RECORD_MOVES: Record<string, RecordMove> = {
     render: async () => {
       const { AdminSchiedsrichterEditView } = await import("@/features/schiedsrichter/components/views/AdminSchiedsrichterEditView.tsx");
 
-      return renderEditor(h(AdminSchiedsrichterEditView, { schiedsrichter: SCHIEDSRICHTER, inactiveSince: null }));
+      return renderEditor(h(AdminSchiedsrichterEditView, { istFassungBekannt: true, schiedsrichter: SCHIEDSRICHTER, inactiveSince: null }));
     },
     type: (user) => typeInto(user, box("Name"), "Pia Kraft-Meier"),
     press: "Bestätigungslink senden",

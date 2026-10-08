@@ -43,7 +43,8 @@ model holds; read this for the shape those tables are stating.
   to play it (`registrierungen`), one minted registration link (`einladungen`), one barred address
   (`sperrliste`), one address's access to the administration (`berechtigungen`), what the
   administrators have been told of it (`berechtigungen_angekuendigt`) and what they are still to be
-  told (`berechtigungen_postausgang`), and one recorded write (`aktionen`).
+  told (`berechtigungen_postausgang`), one recorded write (`aktionen`), and one person's count of
+  writes on one day (`drosselung`), operational state rather than a fact about the league.
 
 A school's kind survives the year and its Trainer does not, which is what puts those two on different
 documents.

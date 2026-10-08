@@ -15,17 +15,8 @@ import type * as ConfigModule from "./config.ts";
 
 registerDoubles();
 
-const {
-  DECLARED_ENVIRONMENT_NAMES,
-  failingVariableNames,
-  INTERNAL_API_KEY,
-  PRODUCTION_REQUIRED_SECRET_FILES,
-  refuseInvalidEnvironment,
-  REQUIRED_ENVIRONMENT_NAMES,
-  REQUIRED_SECRET_FILES,
-  RETIRED_ENVIRONMENT_NAMES,
-  retiredVariablesSet,
-} = await import("./config.ts");
+const { DECLARED_ENVIRONMENT_NAMES, failingVariableNames, INTERNAL_API_KEY, refuseInvalidEnvironment, REQUIRED_ENVIRONMENT_NAMES } =
+  await import("./config.ts");
 
 const LENGTH = 64;
 const pad = (head: string): string => head + "k".repeat(LENGTH - [...head].length);
@@ -49,16 +40,19 @@ const SECRETS_ROOT = mkdtempSync(path.join(tmpdir(), "fl-config-secrets-"));
 after(() => rmSync(SECRETS_ROOT, { recursive: true, force: true }));
 
 describe("the schema the three internal API keys share", () => {
-  it("takes a key of every class character no env-file reader alters, the three generators' alphabets among them", () => {
-    // `openssl rand -hex`, base64 with its padding, and `secrets.token_urlsafe`, then each range edge.
+  it("takes a key of every class character, the three generators' alphabets among them", () => {
+    // `openssl rand -hex`, base64 with its padding, and `secrets.token_urlsafe`, then punctuation
+    // reaching both ends of the range, `!` and `~`.
     for (const key of [pad("0123456789abcdef"), pad("AZaz09+/=="), pad("-_"), pad("!%&(["), pad("]^_a{|}~")]) {
       assert.equal(INTERNAL_API_KEY.safeParse(key).success, true, `refused ${String([...key].length)} class characters`);
     }
   });
 
-  it("refuses a key carrying a character Compose, python-dotenv, @next/env or Node reads as syntax", () => {
-    for (const altered of ['"', "#", "$", "'", "\\", "`"]) {
-      assert.equal(INTERNAL_API_KEY.safeParse(pad(altered)).success, false, `accepted ${altered}`);
+  /* A key is read from its file alone, which no env-file reader parses, so the class need not refuse
+     their syntax. */
+  it("takes a key carrying a character Compose, python-dotenv, @next/env or Node reads as syntax", () => {
+    for (const syntax of ['"', "#", "$", "'", "\\", "`"]) {
+      assert.equal(INTERNAL_API_KEY.safeParse(pad(syntax)).success, true, `refused ${syntax}`);
     }
   });
 
@@ -70,6 +64,11 @@ describe("the schema the three internal API keys share", () => {
 
   it("refuses a key a space would let through a bearer header", () => {
     assert.equal(INTERNAL_API_KEY.safeParse(pad("a b")).success, false);
+  });
+
+  // The class's upper edge, past which a header carries no character as written.
+  it("refuses a key carrying DEL", () => {
+    assert.equal(INTERNAL_API_KEY.safeParse(pad("a\x7f")).success, false);
   });
 
   it("refuses any other length", () => {
@@ -147,6 +146,8 @@ const COMPLETE_ENV: Record<string, string> = {
   // json, so the refusal below reaches `documentsWrittenByAsync` as a document rather than a
   // colourised line it passes through to the runner's own reporter.
   LOG_FORMAT: "json",
+  // Of no published test key's shape, which production refuses.
+  TURNSTILE_SITE_KEY: "fabricated-site-key",
 };
 
 /** Every secret file a production frontend is handed, by the file's own name, each holding a value the schema accepts. */
@@ -158,6 +159,7 @@ const COMPLETE_FILES: Record<string, string> = {
   internal_api_key_base: "b".repeat(LENGTH),
   internal_api_key_system: "s".repeat(LENGTH),
   internal_api_key_admin: "a".repeat(LENGTH),
+  turnstile_secret_key: "fabricated-turnstile-secret",
 };
 
 /** A file's place taken by a directory. */
@@ -290,6 +292,50 @@ describe("the key a deployment the provider sends its events to must hold", () =
   it("refuses a key without the provider's prefix wherever one is held", async () => {
     assert.equal(await refusedFiles({ resend_webhook_secret: "probe" }, { APP_ENV: "local" }), "resend_webhook_secret");
   });
+
+  /* A file holding nothing is a key nobody wrote, never a file left out: refused on either deployment. */
+  it("refuses a blank key file wherever one is held, and names its file", async () => {
+    for (const APP_ENV of ["production", "local"]) {
+      assert.equal(await refusedFiles({ resend_webhook_secret: " \n" }, { APP_ENV }), "resend_webhook_secret", `accepted under ${APP_ENV}`);
+    }
+  });
+});
+
+describe("the bot check's two keys", () => {
+  /* Cloudflare's published test keys, from https://developers.cloudflare.com/turnstile/troubleshooting/testing/,
+     read 2026-10-04: each passes every visitor, so production on one would run with no check at all. */
+  const TEST_SITE_KEYS = [
+    "1x00000000000000000000AA",
+    "2x00000000000000000000AB",
+    "1x00000000000000000000BB",
+    "2x00000000000000000000BB",
+    "3x00000000000000000000FF",
+  ];
+  const TEST_SECRETS = ["1x0000000000000000000000000000000AA", "2x0000000000000000000000000000000AA", "3x0000000000000000000000000000000AA"];
+
+  it("refuses production a published test site key, naming the variable", async () => {
+    for (const key of TEST_SITE_KEYS) assert.equal(await refusedNames({ TURNSTILE_SITE_KEY: key }), "TURNSTILE_SITE_KEY", `accepted ${key}`);
+  });
+
+  it("refuses production a published test secret, naming its file", async () => {
+    for (const key of TEST_SECRETS) assert.equal(await refusedFiles({ turnstile_secret_key: key }), "turnstile_secret_key", `accepted ${key}`);
+  });
+
+  it("boots any other deployment on the test keys", async () => {
+    const booted = await bootWith({ APP_ENV: "local", TURNSTILE_SITE_KEY: TEST_SITE_KEYS[0] }, { turnstile_secret_key: TEST_SECRETS[0] });
+
+    assert.equal(booted.frontend_config.TURNSTILE_SITE_KEY, TEST_SITE_KEYS[0]);
+  });
+
+  /* The local stack and a development machine are handed no secret: what verifies there is the published
+     one, which passes the test site key's token alone. */
+  it("verifies with the published passing secret where no deployment but production hands one over", async () => {
+    assert.equal((await bootWith({ APP_ENV: "local" }, { turnstile_secret_key: undefined })).turnstileSecretKey(), TEST_SECRETS[0]);
+  });
+
+  it("refuses production with no secret, and names its file", async () => {
+    assert.equal(await refusedFiles({ turnstile_secret_key: undefined }), "turnstile_secret_key");
+  });
 });
 
 describe("the names the preflight demands a host's file carry", () => {
@@ -309,6 +355,12 @@ describe("the names the preflight demands a host's file carry", () => {
     assert.deepEqual(refused, [...REQUIRED_ENVIRONMENT_NAMES]);
   });
 
+  /* Named, where the case above reads both of its listings off the schema: a required variable made
+     optional moves both together, and only a case naming it refuses the change. */
+  it("refuses a boot handed no backend address, naming the variable", async () => {
+    assert.equal(await refusedNames({ API_URL: undefined }), "API_URL");
+  });
+
   /* The deploy asks production for its own files and for no variable beyond the set above, so a
      variable demanded on a VALUE of `APP_ENV` would pass the preflight and refuse the boot. */
   it("demands no variable of production beyond what every deployment is held to", async () => {
@@ -323,44 +375,21 @@ describe("the names the preflight demands a host's file carry", () => {
 
     assert.deepEqual(refused, []);
   });
-
-  /* The files' two sets, derived by booting without each file in turn: the preflight's container-side
-     reader checks exactly these, and a set the schema disagrees with passes a host the boot refuses. */
-  it("names every secret file each deployment may not go without, and no other", async () => {
-    const refused: Record<string, string[]> = { local: [], production: [] };
-
-    await documentsWrittenByAsync(async () => {
-      for (const deployment of ["local", "production"]) {
-        for (const file of Object.keys(COMPLETE_FILES)) {
-          await bootWith({ APP_ENV: deployment }, { [file]: undefined }).catch(() => refused[deployment]?.push(file));
-        }
-      }
-    });
-
-    assert.deepEqual(Object.fromEntries(Object.entries(refused).map(([deployment, files]) => [deployment, files.sort()])), {
-      local: [...REQUIRED_SECRET_FILES].sort(),
-      production: [...REQUIRED_SECRET_FILES, ...PRODUCTION_REQUIRED_SECRET_FILES].sort(),
-    });
-    assert.ok(REQUIRED_SECRET_FILES.length > 0 && PRODUCTION_REQUIRED_SECRET_FILES.length > 0, "a set the schema derived is empty");
-  });
-
-  /* A moved name demanded of the environment would refuse every host that did the move; one not
-     declared would refuse every host that has not done it yet, the rollback's own file included. */
-  it("demands none of the names the secret files replaced, and declares each of them as retired", () => {
-    for (const name of RETIRED_ENVIRONMENT_NAMES) {
-      assert.ok(DECLARED_ENVIRONMENT_NAMES.includes(name), `${name} is not declared`);
-      assert.ok(!REQUIRED_ENVIRONMENT_NAMES.includes(name), `${name} is demanded`);
-    }
-    assert.ok(RETIRED_ENVIRONMENT_NAMES.includes("MONGODB_URI") && RETIRED_ENVIRONMENT_NAMES.includes("ALLOWED_ADMIN_EMAILS"));
-  });
 });
 
 type SecretReader =
-  "mongodbUri" | "authSecret" | "authResendKey" | "resendWebhookSecret" | "internalApiKeyBase" | "internalApiKeySystem" | "internalApiKeyAdmin";
+  | "mongodbUri"
+  | "authSecret"
+  | "authResendKey"
+  | "resendWebhookSecret"
+  | "internalApiKeyBase"
+  | "internalApiKeySystem"
+  | "internalApiKeyAdmin"
+  | "turnstileSecretKey";
 
 /**
- * Each secret's retired variable, its file, a value the schema takes, so a boot reading the variable is
- * not mistaken for one refusing it, and the reader handing the secret out.
+ * Each secret's key, the variable a host's file held before the secret was a file, then its file, a value
+ * the schema takes, so a boot reading the variable is not mistaken for one refusing it, and its reader.
  */
 const LEFT_BEHIND: readonly (readonly [variable: string, file: string, value: string, reader: SecretReader])[] = [
   ["MONGODB_URI", "frontend_mongodb_uri", "mongodb://left-behind:27017/?directConnection=true", "mongodbUri"],
@@ -370,15 +399,31 @@ const LEFT_BEHIND: readonly (readonly [variable: string, file: string, value: st
   ["INTERNAL_API_KEY_BASE", "internal_api_key_base", "l".repeat(LENGTH), "internalApiKeyBase"],
   ["INTERNAL_API_KEY_SYSTEM", "internal_api_key_system", "m".repeat(LENGTH), "internalApiKeySystem"],
   ["INTERNAL_API_KEY_ADMIN", "internal_api_key_admin", "n".repeat(LENGTH), "internalApiKeyAdmin"],
+  ["TURNSTILE_SECRET_KEY", "turnstile_secret_key", "turnstile-left-behind", "turnstileSecretKey"],
 ];
 
 describe("the secret files the frontend reads", () => {
-  it("names every secret file once, by the variable it retired", () => {
+  /* Paired through the refusal, which names a key's file by the schema's own map: a variable here the
+     schema does not read as that file would leave each case below passing over a name nothing reads. */
+  it("names every secret file once, by the key the schema reads it as", () => {
     assert.deepEqual(LEFT_BEHIND.map(([, file]) => file).sort(), Object.keys(COMPLETE_FILES).sort());
-    assert.deepEqual(
-      LEFT_BEHIND.map(([variable]) => variable).sort(),
-      RETIRED_ENVIRONMENT_NAMES.filter((name) => name !== "ALLOWED_ADMIN_EMAILS"),
-    );
+
+    process.env.LOG_FORMAT = "json";
+    for (const [variable, file] of LEFT_BEHIND) {
+      const documents = documentsWrittenBy(() => {
+        assert.throws(() => refuseInvalidEnvironment([variable]));
+      });
+
+      assert.equal(documents[0]?.files, file, variable);
+    }
+  });
+
+  /* Declared, a credential's line in a host's file would pass the deploy's name check and reach the
+     container's environment, which `docker inspect` prints. */
+  it("declares none of the variables a secret is read from instead, nor the administrator list the grants replaced", () => {
+    for (const name of [...LEFT_BEHIND.map(([variable]) => variable), "ALLOWED_ADMIN_EMAILS"]) {
+      assert.ok(!DECLARED_ENVIRONMENT_NAMES.includes(name), `${name} is declared`);
+    }
   });
 
   /* The variable a release before this one read, left behind in a host's file: standing in for a
@@ -396,10 +441,7 @@ describe("the secret files the frontend reads", () => {
   it("hands each secret out through its reader alone, never among the settings", async () => {
     const booted = await bootWith({});
 
-    assert.deepEqual(
-      Object.keys(booted.frontend_config).sort(),
-      DECLARED_ENVIRONMENT_NAMES.filter((name) => !RETIRED_ENVIRONMENT_NAMES.includes(name)),
-    );
+    assert.deepEqual(Object.keys(booted.frontend_config).sort(), DECLARED_ENVIRONMENT_NAMES);
     for (const [, file, , reader] of LEFT_BEHIND) assert.equal(booted[reader](), COMPLETE_FILES[file], reader);
   });
 
@@ -495,37 +537,6 @@ const ADDRESS_TABLE: [clause: string, address: string][] = [
   ["a doubled dot in the host", "vorstand@schule..de"],
   ["nothing at all", ""],
 ];
-
-describe("the retired variables", () => {
-  /* Declared for this release so a file carrying one passes the preflight for this image and for the one
-     a rollback returns to: refused here, the new image would not boot on the file the old one needs. */
-  it("boots whatever one holds, a value the retired rule refused included", async () => {
-    for (const value of ["vorstand@schule.de", "a@b.de;c@d.de", ""]) {
-      for (const name of ["ALLOWED_ADMIN_EMAILS", "MONGODB_URI"]) {
-        assert.equal((await bootWith({ [name]: value })).frontend_config.APP_ENV, "production", `refused ${name}=${JSON.stringify(value)}`);
-      }
-    }
-  });
-
-  it("is declared and demanded of no host, so a file may carry it or drop it", () => {
-    assert.ok(DECLARED_ENVIRONMENT_NAMES.includes("ALLOWED_ADMIN_EMAILS"));
-    assert.ok(!REQUIRED_ENVIRONMENT_NAMES.includes("ALLOWED_ADMIN_EMAILS"));
-  });
-
-  /* The boot's warning reads this, and it answers names alone: an empty line is a line still to delete. */
-  it("names each one the environment carries, an empty one included, and nothing else", () => {
-    const before = { ...process.env };
-    try {
-      for (const name of RETIRED_ENVIRONMENT_NAMES) delete process.env[name];
-      Object.assign(process.env, { AUTH_SECRET: "", INTERNAL_API_KEY_BASE: "a value nothing reads" });
-
-      assert.deepEqual(retiredVariablesSet(), ["AUTH_SECRET", "INTERNAL_API_KEY_BASE"]);
-    } finally {
-      for (const name of Object.keys(process.env)) delete process.env[name];
-      Object.assign(process.env, before);
-    }
-  });
-});
 
 describe("the sign-in library's own rule", () => {
   /* The send endpoint's own check, driven rather than copied: what it refuses is what a request for a

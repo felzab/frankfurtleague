@@ -27,7 +27,7 @@ from typing import Any
 
 from fastapi import FastAPI
 from fastapi.routing import APIRoute, iter_route_contexts
-from starlette.routing import BaseRoute
+from starlette.routing import BaseRoute, Host, Mount
 
 from app.core.collections import Collection
 from app.main import create_app
@@ -46,7 +46,9 @@ REMOVAL_HELPERS = frozenset({"delete_many_from_db", "erase_many_from_db"})
 BOUNDED_COMPARISONS = frozenset({"$lt", "$lte", "$gt", "$gte", "$in", "$eq"})
 
 # `app/core/crud.py`'s writing half: a call to one of these is where a document changes.
-WRITE_HELPERS = frozenset({"insert_live", "patch_many_in_db", "patch_one_in_db", "post_many_to_db", "post_one_to_db", "set_inactive_since"})
+WRITE_HELPERS = frozenset(
+    {"anchor_in_db", "insert_live", "patch_many_in_db", "patch_one_in_db", "post_many_to_db", "post_one_to_db", "set_inactive_since"}
+)
 
 # The driver's own writes, on a collection a module holds rather than through `app/core/crud.py`.
 DRIVER_WRITES = frozenset(
@@ -345,6 +347,9 @@ def removals() -> tuple[Removal, ...]:
 # application is opened this way, and the writes sit in the callback rather than under it.
 TRANSACTION_RUNNER = "with_transaction"
 
+# Where `app/core/transactions.py :: JudgedSession` hands the driver its wrapper of each callback.
+FORWARDING_RUNNER = ("app/core/transactions.py", "with_transaction")
+
 # What a callback's docstring says of the reads its judgement rests on. The promise a reader is
 # given, so it is the promise a sweep has to be able to reach.
 IN_SESSION_PROMISE = "in-session"
@@ -367,7 +372,7 @@ class TransactionalCallback:
 
 @functools.cache
 def _callbacks() -> tuple[tuple[Path, str, tuple[Declaration, ...], Declaration], ...]:
-    """One finder for both sweeps below, so neither can quietly stop seeing a callback the other still reads."""
+    """One finder for every sweep reading a transaction's callbacks, so none can quietly stop seeing a callback another still reads."""
 
     found: list[tuple[Path, str, tuple[Declaration, ...], Declaration]] = []
     for path in sorted(APP_ROOT.rglob("*.py")):
@@ -376,6 +381,11 @@ def _callbacks() -> tuple[tuple[Path, str, tuple[Declaration, ...], Declaration]
 
         for outer, call in scoped_calls(tree, ()):
             if callee(call) != TRANSACTION_RUNNER:
+                continue
+
+            # The helper's own run of every caller's callback inside the actor's judge: each callback
+            # it is handed is found where its caller hands it, and this one writes nothing of its own.
+            if module == FORWARDING_RUNNER[0] and outer and outer[-1].name == FORWARDING_RUNNER[1]:
                 continue
 
             handed = call.args[0].id if call.args and isinstance(call.args[0], ast.Name) else ""
@@ -390,6 +400,13 @@ def _callbacks() -> tuple[tuple[Path, str, tuple[Declaration, ...], Declaration]
             found.append((path, module, outer, found_names[0]))
 
     return tuple(found)
+
+
+@functools.cache
+def handed_callbacks() -> tuple[tuple[Declaration | None, Declaration], ...]:
+    """Each callback `_callbacks` finds beside the function handing it over, `None` at module level, both nodes of `parsed`'s trees."""
+
+    return tuple((outer[-1] if outer else None, callback) for _, _, outer, callback in _callbacks())
 
 
 @functools.cache
@@ -677,7 +694,14 @@ def session_carriers() -> tuple[SessionCarrier, ...]:
     away answers nowhere in it.
     """
 
-    frontier = [(handoff.declaration, handoff.declared_in, handoff.parameter) for handoff in session_handoffs() if handoff.in_session]
+    return _carriers_from(
+        [(handoff.declaration, handoff.declared_in, handoff.parameter) for handoff in session_handoffs() if handoff.in_session]
+    )
+
+
+def _carriers_from(frontier: list[tuple[Declaration, Path, str]]) -> tuple[SessionCarrier, ...]:
+    """Each declaration a session is handed to from `frontier`, followed on through every further hand-off."""
+
     seen: set[tuple[Path, str, str]] = set()
     found: list[SessionCarrier] = []
 
@@ -715,6 +739,91 @@ def session_carriers() -> tuple[SessionCarrier, ...]:
         )
 
     return tuple(sorted(found, key=lambda carrier: carrier.where))
+
+
+# What opens a session reading one point in time with no transaction: nothing hands it to
+# `with_transaction`, so every sweep above passes over the reads inside it.
+SNAPSHOT_OPENER = "start_session"
+
+
+def _opens_a_snapshot(call: ast.Call) -> bool:
+    return callee(call) == SNAPSHOT_OPENER and any(
+        keyword.arg == "snapshot" and isinstance(keyword.value, ast.Constant) and keyword.value.value is True for keyword in call.keywords
+    )
+
+
+@dataclass(frozen=True)
+class SnapshotBlock:
+    """One `async with ... start_session(snapshot=True) as <name>:` block, and what its own body reads and hands on."""
+
+    where: str
+    #: Every read the body makes, with whether it carries the block's session.
+    reads: tuple[tuple[str, bool], ...]
+    #: Every session parameter of an application function the body calls, with whether the block's session is what it binds.
+    handoffs: tuple[tuple[str, bool], ...]
+    #: Where `snapshot_carriers` follows the session on from.
+    seeds: tuple[tuple[Declaration, Path, str], ...]
+
+
+def _scoped_async_withs(node: ast.AST, chain: tuple[Declaration, ...]) -> Iterator[tuple[tuple[Declaration, ...], ast.AsyncWith]]:
+    for child in ast.iter_child_nodes(node):
+        if isinstance(child, ast.AsyncWith):
+            yield chain, child
+
+        inner = (*chain, child) if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)) else chain
+        yield from _scoped_async_withs(child, inner)
+
+
+@functools.cache
+def snapshot_blocks() -> tuple[SnapshotBlock, ...]:
+    """Every snapshot session the application opens, read as `transactional_callbacks` reads a transaction's callback."""
+
+    found: list[SnapshotBlock] = []
+    for path in sorted(APP_ROOT.rglob("*.py")):
+        module = path.relative_to(BACKEND_ROOT).as_posix()
+        for chain, block in _scoped_async_withs(parsed(path), ()):
+            for item in block.items:
+                opener = item.context_expr
+                if not (isinstance(opener, ast.Call) and _opens_a_snapshot(opener) and isinstance(item.optional_vars, ast.Name)):
+                    continue
+
+                name = item.optional_vars.id
+                reads: list[tuple[str, bool]] = []
+                handoffs: list[tuple[str, bool]] = []
+                seeds: list[tuple[Declaration, Path, str]] = []
+                for statement in block.body:
+                    for inner_chain, call in scoped_calls(statement, chain):
+                        if reads_the_database(call):
+                            reads.append((callee(call), bound_at(call, "session", None).argument == name))
+
+                        resolved = resolve_callee(call, inner_chain, path)
+                        if resolved is None:
+                            continue
+
+                        declaration, declared_in = resolved
+                        for parameter, position in session_parameters(declaration):
+                            bound = bound_at(call, parameter, position).argument == name
+                            handoffs.append((declaration.name, bound))
+                            if bound:
+                                seeds.append((declaration, declared_in, parameter))
+
+                found.append(
+                    SnapshotBlock(
+                        where=f"{module} :: {chain[-1].name if chain else '<module>'}",
+                        reads=tuple(reads),
+                        handoffs=tuple(handoffs),
+                        seeds=tuple(seeds),
+                    )
+                )
+
+    return tuple(found)
+
+
+@functools.cache
+def snapshot_carriers() -> tuple[SessionCarrier, ...]:
+    """Every declaration a snapshot session reaches by being handed on, followed as `session_carriers` follows a transaction's."""
+
+    return _carriers_from([seed for block in snapshot_blocks() for seed in block.seeds])
 
 
 # What `application()` built, each surface a caller can edit held apart so an edit is told from it.
@@ -937,5 +1046,9 @@ def api_routes(app: FastAPI) -> Iterator[APIRoute]:
     """
 
     for context in iter_route_contexts(app.routes):
+        # A mounted application's routes are opened by nothing here, so every sweep reading this would
+        # pass over them: refused rather than skipped.
+        if isinstance(context.original_route, (Mount, Host)):
+            raise AssertionError(f"{context.original_route!r} mounts routes no sweep reading `api_routes` sees")
         if isinstance(context.original_route, APIRoute):
             yield context.original_route

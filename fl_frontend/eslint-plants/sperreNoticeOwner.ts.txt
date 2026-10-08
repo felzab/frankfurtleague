@@ -1,7 +1,7 @@
 // Linted as src/features/sperrliste/actions.ts.
 // The ban action may import the notice's sender, and every other import ban still reaches it.
 import { sendSperreNotice } from "@/core/mail";
-import { authResendKey, authSecret, internalApiKeySystem, mongodbUri, resendWebhookSecret } from "@/core/config"; // expect: secret-store expect: secret-session expect: secret-mail expect: secret-webhook expect: secret-backend
+import { authResendKey, authSecret, internalApiKeySystem, mongodbUri, resendWebhookSecret, turnstileSecretKey } from "@/core/config"; // expect: secret-store expect: secret-session expect: secret-mail expect: secret-webhook expect: secret-backend expect: secret-turnstile
 import { I18nProvider as PinnedLocale } from "@heroui/react/rac"; // expect: locale-provider
 import { Button } from "@heroui/react"; // expect: vendor-root
 import { Form } from "@heroui/react/form"; // expect: heroui-form
@@ -19,7 +19,7 @@ import { auth } from "@/core/auth"; // expect: auth-instance
 import { signInStore } from "@/core/db?probe"; // expect: sign-in-store
 
 export const HOLDERS_USED = [auth, signInStore];
-export const USED = [after, sendSperreNotice, authResendKey, authSecret, internalApiKeySystem, mongodbUri, resendWebhookSecret, PinnedLocale, Button];
+export const USED = [after, sendSperreNotice, authResendKey, authSecret, internalApiKeySystem, mongodbUri, turnstileSecretKey, resendWebhookSecret, PinnedLocale, Button];
 export const MORE_USED = [Form, AppRouterContext, DateField, NumberField, HintPopover, captureStdout, loadVia, SITE_URL, HeroTextField, mintRequestActor];
 // Static import alone: a load would hand the module over as every other module's would.
 export const MAILER_LOADED = import("@/core/mail"); // expect: sperre-notice-load

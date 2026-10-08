@@ -10,6 +10,7 @@ import { render, screen, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
+import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { applyFacets, readFacetSelection } from "@/shared/utils/facets";
 
@@ -32,7 +33,7 @@ const person = (vorname: string): FLKontaktperson => ({
   email: `${vorname.toLowerCase()}@beispiel.de`,
   telefon: "069 1234567",
   geburtsdatum: "1990-01-01",
-  einwilligung: { umfang: "kontaktdaten", erfasst_von: "person", text_version: "2026-08", datum: "2026-08-01", bestaetigt_am: "2026-08-02" },
+  einwilligung: kenntnisnahme({ erfasst_von: "person", text_version: "2026-08", datum: "2026-08-01", bestaetigt_am: "2026-08-02" }),
 });
 
 const MEMBERSHIP: FLTeamMembership = {
@@ -41,6 +42,7 @@ const MEMBERSHIP: FLTeamMembership = {
   austritt: null,
   trikot_farbe: null,
   kontakte: null,
+  bestaetigungen: null,
   kontakte_stand: "",
 };
 
@@ -97,7 +99,7 @@ async function contactsLink(): Promise<string> {
     }),
   );
   const table = screen.getByRole("grid", { name: "Tabelle aller Teams" });
-  await userEvent.setup().click(within(table).getByRole("button", { name: `Weitere Aktionen für Team ${ROW.name}` }));
+  await userEvent.setup().click(within(table).getByRole("button", { name: `Weitere Aktionen: Team ${ROW.name}` }));
 
   const href = within(screen.getByRole("menu")).getByRole("menuitem", { name: "Kontakte anzeigen" }).getAttribute("href") ?? "";
   unmount();

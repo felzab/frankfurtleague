@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useActionState, useEffect, useRef, useState } from "react";
+import { startTransition, useEffect, useRef, useState, useTransition } from "react";
 import { catchError } from "next/error";
 
 import { Button } from "@heroui/react/button";
@@ -9,14 +9,18 @@ import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
 import { Separator } from "@heroui/react/separator";
 
+import { KONTAKT_EMAIL } from "@/core/brand";
+import { TURNSTILE_FIELD } from "@/core/turnstileToken";
 import { SignInPayloadSchema } from "@/features/auth/schemas";
 import { Form } from "@/shared/components/ui/Form";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { FIELD_ERROR_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { SignInCard } from "@/shared/components/ui/SignInCard";
 import { TextField } from "@/shared/components/ui/TextField";
+import { useAnsweredActionState } from "@/shared/hooks/useAnsweredActionState";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
+import { useTurnstile } from "@/shared/hooks/useTurnstile";
 import { appToast } from "@/shared/utils/appToast";
 import { leaveDocumentFor } from "@/shared/utils/documentNavigation";
 
@@ -26,7 +30,6 @@ import { CodeStep, LABEL_CLASSES } from "./CodeStep";
 import { PasskeySignIn } from "./PasskeySignIn";
 
 import type { FormState } from "@/shared/types/types";
-import type { ErrorInfo } from "next/error";
 
 /**
  * The spam folder alone: whether an address is sent a code at all is the gate's, and a line naming one
@@ -36,40 +39,42 @@ const KEIN_CODE = "Kein Code angekommen? Schau im Spam-Ordner nach.";
 
 const ANMELDEN = { rest: "Anmelden", pending: "Meldet an..." };
 
+/** A check that did not load, naming the passkey, which signs in without it, beside the league's address. */
+const PRUEFUNG_NICHT_GELADEN = `Die Prüfung, ob Du ein Mensch bist, ließ sich nicht laden. Erlaube challenges.cloudflare.com in Deinem Browser oder Werbeblocker und lade die Seite neu, melde Dich mit einem Passkey an oder schreib uns an ${KONTAKT_EMAIL}.`;
+
 /**
  * Next's own boundary rather than a hand-written class: a class catches every throw, a framework
  * navigation included, so this card's retry panel would answer one — and would go on standing after
  * the route had changed under it.
  */
-const SignInActionBoundary = catchError((_props, { reset }: ErrorInfo) => (
-  // `reset` rather than `retry`, which refetches this route's payload: the POST is what failed, and
-  // the address the visitor typed is held outside this boundary.
-  <SignInActionFallback onRetry={reset} />
-));
+const SignInActionBoundary = catchError(() => <SignInActionFallback />);
 
-/** `next` is the landing every finished sign-in leaves for, handed down by the page, which may read it. */
-export function SignInForm({ next }: { next: string }) {
-  // Outside the boundary on purpose: everything within it is unmounted by a catch and mounted again
-  // by the reset, so an address held in there would be gone from the box the visitor comes back to.
-  const [email, setEmail] = useState("");
-
+/**
+ * `next` is the landing every finished sign-in leaves for, handed down by the page, which may read it, as it
+ * reads `siteKey`, the bot check's public key.
+ */
+export function SignInForm({ next, siteKey }: { next: string; siteKey: string }) {
   return (
     <SignInCard title="Anmelden">
       {/* The card's heading stays standing through a catch: the boundary is around the region the
           send can fail in, and a route-segment `error.tsx` would replace the page instead. */}
       <SignInActionBoundary>
         <SignInPanel
-          email={email}
-          onEmailChange={setEmail}
           next={next}
+          siteKey={siteKey}
         />
       </SignInActionBoundary>
     </SignInCard>
   );
 }
 
-function SignInPanel({ email, onEmailChange, next }: { email: string; onEmailChange: (value: string) => void; next: string }) {
-  const [state, formAction, isPending] = useActionState(handleSignIn, undefined);
+function SignInPanel({ next, siteKey }: { next: string; siteKey: string }) {
+  const [email, setEmail] = useState("");
+  const [state, formAction, isDispatching] = useAnsweredActionState(handleSignIn, undefined);
+  const humanCheck = useTurnstile(siteKey, PRUEFUNG_NICHT_GELADEN);
+  // The press waits for the bot check's token before the send is dispatched, and is a send all along.
+  const [isAwaitingToken, startAwaitingToken] = useTransition();
+  const isPending = isDispatching || isAwaitingToken;
 
   const { setSubmitFieldErrors, guardSubmit, useForgiveFixed, formWiring } = useDraftFieldErrors({
     schemas: { signIn: SignInPayloadSchema },
@@ -80,7 +85,9 @@ function SignInPanel({ email, onEmailChange, next }: { email: string; onEmailCha
   // `useActionState` has no reset, so the panel is keyed on a pair: `dismissedAt` is what lets
   // "Andere E-Mail-Adresse verwenden" return the form.
   const [dismissedAt, setDismissedAt] = useState<FormState | undefined>(undefined);
-  const isSubmitted = state?.success === true && state !== dismissedAt;
+  // The last send that mailed a code: a refused resend leaves the code it mailed standing, and its step with it.
+  const [sent, setSent] = useState<Extract<FormState, { success: true }> | undefined>(undefined);
+  if (state?.success === true && state !== sent) setSent(state);
 
   // The code step unmounts from under the pressed way back, so focus would fall to `<body>`; the box
   // it returns to takes it. Never on the first mount, where nothing was pressed.
@@ -112,12 +119,22 @@ function SignInPanel({ email, onEmailChange, next }: { email: string; onEmailCha
 
   /** The same send for the first code and every resend, so the two cannot come to differ. */
   const send = (address: string) => {
-    setSends((count) => count + 1);
-    const submitted = new FormData();
-    submitted.set("email", address);
-    // Inside a transition, as a dispatch from a handler must be: outside one `isPending` never turns true.
-    startTransition(() => {
-      formAction(submitted);
+    startAwaitingToken(async () => {
+      const anfrage = await humanCheck.takeToken();
+      if ("satz" in anfrage) {
+        appToast.danger("Code nicht gesendet", { description: anfrage.satz });
+        return;
+      }
+
+      const submitted = new FormData();
+      submitted.set("email", address);
+      submitted.set(TURNSTILE_FIELD, anfrage.token);
+      // A transition of its own: React leaves an update after an `await` outside the transition that awaited,
+      // and outside one the action's pending state never turns true.
+      startTransition(() => {
+        setSends((count) => count + 1);
+        formAction(submitted);
+      });
     });
   };
 
@@ -130,18 +147,19 @@ function SignInPanel({ email, onEmailChange, next }: { email: string; onEmailCha
     guardSubmit({ signIn: { email } }, () => send(email));
   };
 
-  if (isSubmitted) {
-    const address = state.submittedEmail ?? "";
+  if (sent !== undefined && sent !== dismissedAt) {
+    const address = sent.submittedEmail ?? "";
     return (
       <CodeStep
         key={sends}
         address={address}
-        message={state.message ?? null}
+        message={sent.message ?? null}
         hint={KEIN_CODE}
         submitLabel={ANMELDEN}
         isSending={isPending}
         onResend={() => send(address)}
-        onBack={() => setDismissedAt(state)}
+        resendCheck={humanCheck.widget}
+        onBack={() => setDismissedAt(sent)}
         // A full document load and never a soft navigation: the session has just changed, so every
         // payload the router holds was rendered for somebody signed out.
         onSignedIn={() => leaveDocumentFor(next)}
@@ -162,7 +180,7 @@ function SignInPanel({ email, onEmailChange, next }: { email: string; onEmailCha
           name="email"
           type="email"
           value={email}
-          onChange={onEmailChange}
+          onChange={setEmail}
           // Read-only rather than disabled while the code sends: a disabled field drops the focus of
           // the visitor who pressed `Enter` in it to the page.
           isReadOnly={isPending}>
@@ -180,13 +198,17 @@ function SignInPanel({ email, onEmailChange, next }: { email: string; onEmailCha
           <FieldError className={FIELD_ERROR_CLASSES} />
         </TextField>
 
-        <Button
-          type="submit"
-          variant="primary"
-          isPending={isPending}
-          className={formButton({ intent: "submit", fullWidth: true })}>
-          {isPending ? "Sendet..." : "Code senden"}
-        </Button>
+        {/* One item of the form's gap with the submit: a widget Cloudflare shows nothing in leaves no gap of its own. */}
+        <div className="flex flex-col">
+          {humanCheck.widget}
+          <Button
+            type="submit"
+            variant="primary"
+            isPending={isPending}
+            className={formButton({ intent: "submit", fullWidth: true })}>
+            {isPending ? "Sendet..." : "Code senden"}
+          </Button>
+        </div>
       </Form>
 
       {/* Decoration: the passkey button carries its own name. */}

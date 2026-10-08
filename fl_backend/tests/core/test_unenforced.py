@@ -56,7 +56,7 @@ from app.api.spiele.services import (
 )
 from app.api.spieler.admin_router import delete_saison_spieler, delete_spieler
 from app.api.spieler.schemas import FLSpieler
-from app.api.spieler.services import find_squad_refusal
+from app.api.spieler.services import find_squad_refusal, mark_shared_nummern
 from app.api.spieltage.admin_router import _refuse_an_out_of_order_beginn, patch_spieltag
 from app.api.spieltage.services import DatedNeighbour, find_spieltag_order_refusal, with_expected_matches
 from app.api.teams.services import find_gruppe_swap_refusal
@@ -309,7 +309,7 @@ class TestAMatchdayOffItsImpliedCount:
 
 
 class TestASharedSquadNumber:
-    """That nothing compares one squad row's number against another's, at either end."""
+    """That no write refuses a number another row wears, and that the one read reporting it compares what is stored."""
 
     def test_no_unique_index_reaches_a_squad_number(self):
         # The floor: the squad junction IS uniquely indexed, so the empty result below is `nummer`
@@ -322,6 +322,23 @@ class TestASharedSquadNumber:
 
     def test_the_squad_refusal_is_about_the_club_and_never_the_number(self):
         assert set(inspect.signature(find_squad_refusal).parameters) == {"team_in_saison"}
+
+    def test_the_marker_compares_the_stored_string_between_live_rows_alone(self):
+        """`07` beside `7` is two shirts; an ausgetragen row wearing `9` marks neither itself nor the live `9`."""
+
+        live = {"inactive_since": None}
+        rows = [
+            {"nummer": "1", **live},
+            {"nummer": "1", **live},
+            {"nummer": "07", **live},
+            {"nummer": "7", **live},
+            {"nummer": "9", **live},
+            {"nummer": "9", "inactive_since": "2026-03-01"},
+            {"nummer": None, **live},
+            {"nummer": None, **live},
+        ]
+
+        assert [row["nummer_doppelt"] for row in mark_shared_nummern(rows)] == [True, True, False, False, False, False, False, False]
 
 
 class TestABracketSlotHeldByADisqualifiedClub:
@@ -803,12 +820,12 @@ class TestAPhaseDatedAgainstTheOrderItIsPlayedIn:
 
 
 def _stamped_by(endpoint: Callable[..., Any]) -> set[str]:
-    """The collections one endpoint hands `set_inactive_since`, read off its own call site."""
+    """The collections one endpoint hands `set_inactive_since`, read off its own call site or the callback it runs as a transaction."""
 
     return {
         keyword.value.id
-        for scope, call in calls_in(declared(endpoint), endpoint.__name__)
-        if scope == endpoint.__name__ and callee(call) == "set_inactive_since"
+        for _, call in calls_in(declared(endpoint), endpoint.__name__)
+        if callee(call) == "set_inactive_since"
         for keyword in call.keywords
         if keyword.arg == "collection" and isinstance(keyword.value, ast.Name)
     }

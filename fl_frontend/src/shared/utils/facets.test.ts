@@ -550,7 +550,7 @@ describe("the counts a server-narrowed facet is told", () => {
 
   it("reach a pill's panel through every hop from the view", async () => {
     renderRegion("stand=aktiv");
-    await userEvent.setup().click(screen.getByRole("button", { name: "Stand: Aktiv ändern" }));
+    await userEvent.setup().click(screen.getByRole("button", { name: "Aktiv: Stand ändern" }));
 
     assertPanelOptions([
       ["Aktiv", "4"],
@@ -578,7 +578,7 @@ describe("the counts a server-narrowed facet is told", () => {
         const first = facet.options[0] ?? assert.fail(`${name}'s „${facet.label}“ offers nothing`);
 
         render(underNext(h(await view.load(), view.props(told)), { search: `saison_id=2627&${facet.param}=${first.value}` }));
-        await userEvent.setup().click(screen.getByRole("button", { name: `${facet.label}: ${first.label} ändern` }));
+        await userEvent.setup().click(screen.getByRole("button", { name: `${first.label}: ${facet.label} ändern` }));
 
         assertPanelOptions(facet.options.map((option, at) => [option.label, String(11 + at)]));
       });

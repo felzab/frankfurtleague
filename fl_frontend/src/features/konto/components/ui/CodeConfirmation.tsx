@@ -1,22 +1,33 @@
 "use client";
 
-import { startTransition, useActionState, useEffect, useRef, useState } from "react";
+import { startTransition, useEffect, useRef, useState } from "react";
 
 import { Button } from "@heroui/react/button";
 
-import { handleSignIn } from "@/features/auth/actions";
 import { CodeStep } from "@/features/auth/components/forms/CodeStep";
+import { sendeBestaetigungscodeAction } from "@/features/konto/actions";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { StepUpRefused } from "@/shared/components/ui/StepUpRefused";
+import { useAnsweredActionState } from "@/shared/hooks/useAnsweredActionState";
+import { edgeRefusedSend, unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 
-import type { FormState } from "@/shared/types/types";
+import type { ActionResult } from "@/shared/types/types";
 
 /** Nothing about registering: the reader is signed in already and asks for a code to their own address. */
 const KEIN_CODE = "Kein Code angekommen? Schau im Spam-Ordner nach.";
 
 /** What a right code does here: it confirms the reader, who is already signed in. */
 const BESTAETIGEN = { rest: "Bestätigen", pending: "Bestätigt..." };
+
+/**
+ * A send whose answer never arrived: a second is safe whether a code left or not, a new one replacing
+ * it, and the reload comes first (`docs/frontend/spec.md` §1.12). The title says what is unknown, a
+ * send saving nothing.
+ */
+const CODE_ERNEUT_OHNE_ANTWORT =
+  "Prüfe die Verbindung, lade die Seite neu und fordere den Code erneut an. Ein neuer Code ersetzt einen, der schon rausging.";
+const CODE_UNKLAR = "Unklar, ob der Code verschickt wurde";
 
 /** The code half's own refusal: a code that signed in an account other than the page's. */
 const CODE_STEP_UP_REFUSED = "Wir konnten Dich nicht mit dem Code bestätigen.";
@@ -35,16 +46,27 @@ export function CodeConfirmation({
   istInhaber: () => Promise<boolean>;
   onConfirmed: () => void;
 }) {
-  const [state, formAction, isSending] = useActionState(handleSignIn, undefined);
+  // Wrapped, the action taking no argument: the address is the session's, never one the page posts. Every
+  // rejection is answered here: one reaching the route's boundary would replace the whole account page.
+  const [state, formAction, isSending] = useAnsweredActionState(
+    async (): Promise<ActionResult | undefined> =>
+      sendeBestaetigungscodeAction().catch(
+        (rejection: unknown) => edgeRefusedSend(rejection) ?? unansweredAction(rejection, CODE_ERNEUT_OHNE_ANTWORT),
+      ),
+    undefined,
+  );
   // Counted at the press, so a resend starts the code step over, as the sign-in's own form does.
   const [sends, setSends] = useState(0);
+  // The last send that mailed a code: a refused resend leaves the code it mailed standing, and its step with it.
+  const [sent, setSent] = useState<ActionResult | undefined>(undefined);
+  if (state?.success === true && state !== sent) setSent(state);
   // The send whose code step a refused sign-in closed: `useActionState` has no reset.
-  const [dismissedAt, setDismissedAt] = useState<FormState | undefined>(undefined);
+  const [dismissedAt, setDismissedAt] = useState<ActionResult | undefined>(undefined);
   const [refused, setRefused] = useState(false);
 
   useEffect(() => {
     if (!state || state.success) return;
-    appToast.failure("Code nicht gesendet", state);
+    appToast.failure("Code nicht gesendet", state, CODE_UNKLAR);
   }, [state]);
 
   // The refusal unmounts the code step from under its focused field, so focus would fall to `<body>`;
@@ -57,10 +79,8 @@ export function CodeConfirmation({
   const send = () => {
     setSends((count) => count + 1);
     setRefused(false);
-    const submitted = new FormData();
-    submitted.set("email", address);
     startTransition(() => {
-      formAction(submitted);
+      formAction();
     });
   };
 
@@ -71,16 +91,16 @@ export function CodeConfirmation({
       return;
     }
     // The step stays pending after its sign-in, so it is closed rather than left spinning.
-    setDismissedAt(state);
+    setDismissedAt(sent);
     setRefused(true);
   };
 
-  if (state?.success === true && state !== dismissedAt) {
+  if (sent?.success === true && sent !== dismissedAt) {
     return (
       <CodeStep
         key={sends}
         address={address}
-        message={state.message ?? null}
+        message={sent.message ?? null}
         hint={KEIN_CODE}
         submitLabel={BESTAETIGEN}
         isSending={isSending}

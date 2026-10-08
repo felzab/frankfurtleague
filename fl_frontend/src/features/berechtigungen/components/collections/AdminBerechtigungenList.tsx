@@ -4,6 +4,7 @@ import { memo } from "react";
 
 import Key from "@gravity-ui/icons/Key";
 
+import { VonOderGesperrt } from "@/features/berechtigungen/components/ui/VonOderGesperrt";
 import {
   BERECHTIGUNGEN_CRUD_COPY,
   DIREKT_IN_DER_DATENBANK,
@@ -16,6 +17,7 @@ import {
 } from "@/features/berechtigungen/constants";
 import { AdminCrudEmptyCard } from "@/shared/components/ui/AdminCrudEmpty";
 import { IDENTITY_HEAD_CLASSES, IDENTITY_NAME_CLASSES, IDENTITY_ROW_CLASSES, IDENTITY_STACK_CLASSES } from "@/shared/components/ui/adminTable";
+import { Leer } from "@/shared/components/ui/Angabe";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 import { focusRow, focusSection } from "@/shared/utils/focusAfterWrite";
@@ -46,10 +48,16 @@ function erteiltTag(stamp: string): string {
 }
 
 /** Who granted it, as every admin card names an actor, and a paste naming nobody by its origin. */
-function erteiltVon({ erteilt_von, erteilt_von_gesperrt }: FLBerechtigungZeile): string {
+function ErteiltVon({ erteilt_von, erteilt_von_gesperrt }: FLBerechtigungZeile) {
   const von = vonOderGesperrt(erteilt_von, erteilt_von_gesperrt);
+  if (von === PLAYGROUND_MARKER || von === "") return DIREKT_IN_DER_DATENBANK;
 
-  return von === PLAYGROUND_MARKER || von === "" ? DIREKT_IN_DER_DATENBANK : von;
+  return (
+    <VonOderGesperrt
+      von={erteilt_von}
+      gesperrt={erteilt_von_gesperrt}
+    />
+  );
 }
 
 /** The eyebrow naming the fact at the fact, as the ban list's cards carry it. */
@@ -93,7 +101,7 @@ export const AdminBerechtigungenList = memo(function AdminBerechtigungenList({
             <div className={IDENTITY_STACK_CLASSES}>
               <div className={IDENTITY_HEAD_CLASSES}>
                 {/* A barred address is withheld on every route, so the row names the state instead. */}
-                <span className={IDENTITY_NAME_CLASSES}>{berechtigung.adresse ?? GESPERRTE_ADRESSE}</span>
+                <span className={IDENTITY_NAME_CLASSES}>{berechtigung.adresse ?? <Leer>{GESPERRTE_ADRESSE}</Leer>}</span>
                 {berechtigung.verwaltung === "owner" && <span className={labelBadge("info")}>{INHABER_LABEL}</span>}
               </div>
             </div>
@@ -102,7 +110,9 @@ export const AdminBerechtigungenList = memo(function AdminBerechtigungenList({
           <div className="grid w-full grid-cols-1 gap-3 border-t border-border/50 pt-3 sm:grid-cols-2">
             <div className="flex min-w-0 flex-col gap-1">
               <span className={FACT_LABEL_CLASSES}>{ERTEILT_VON_LABEL}</span>
-              <p className="fluid-sm font-medium break-words text-foreground">{erteiltVon(berechtigung)}</p>
+              <p className="fluid-sm font-medium break-words text-foreground">
+                <ErteiltVon {...berechtigung} />
+              </p>
             </div>
             <div className="flex min-w-0 flex-col gap-1">
               <span className={FACT_LABEL_CLASSES}>{ERTEILT_AM_LABEL}</span>

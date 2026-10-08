@@ -15,6 +15,8 @@ import { bestaetigungsStand, zusageHindernis } from "@/features/bewerbungen/best
 import { FLBewerbungSchema } from "@/features/bewerbungen/schemas.ts";
 import { doubleEveryAction, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { closedControl } from "@/shared/testing/closedControl.ts";
+import { laufendeNeubesetzung } from "@/shared/testing/einwilligungAnswers.ts";
+import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
 
@@ -42,13 +44,12 @@ const person = (vorname: string, bestaetigtAm: string | null): NonNullable<FLBew
   email: `${vorname.toLowerCase()}@schule.example`,
   telefon: "069 1234567",
   geburtsdatum: bestaetigtAm === null ? null : "1988-04-02",
-  einwilligung: {
-    umfang: "kontaktdaten",
+  einwilligung: kenntnisnahme({
     erfasst_von: bestaetigtAm === null ? "administrativ" : "person",
     text_version: "2026-09-bestaetigungsseite",
     datum: "2026-09-01",
     bestaetigt_am: bestaetigtAm,
-  },
+  }),
 });
 
 const SITZ = { verschickt_am: "2026-09-01", erinnert_am: null, abgelehnt_am: null, zustellung: null };
@@ -82,7 +83,14 @@ const OFFEN: FLBewerbung = FLBewerbungSchema.parse({
 function renderPage(bewerbung: FLBewerbung, teamName: string | null = TEAM_NAME) {
   return render(
     underNext(
-      h(AdminBewerbungView, { bewerbung, teamName, saisonStatus: "future", gruppeOffer: [{ gruppe: "A", occupied: 1, capacity: 4 }] }),
+      h(AdminBewerbungView, {
+        neubesetzung: laufendeNeubesetzung(),
+        bewerbung,
+        fristAbgelaufen: false,
+        teamName,
+        saisonStatus: "future",
+        gruppeOffer: [{ gruppe: "A", occupied: 1, capacity: 4 }],
+      }),
       { search: "saison_id=2027" },
     ),
   );
@@ -197,13 +205,13 @@ const MIT_OFFENEN_SITZEN: FLBewerbung = FLBewerbungSchema.parse({
 const typeReason = (user: UserEvent) => user.type(screen.getByRole("textbox", { name: "Grund für die Absage" }), "Kein Platz.");
 
 const typeCorrection = async (user: UserEvent) => {
-  await user.click(screen.getByRole("button", { name: "E-Mail-Adresse von Bernd Meier korrigieren" }));
+  await user.click(screen.getByRole("button", { name: "Adresse korrigieren: Bernd Meier" }));
   await user.clear(screen.getByRole("textbox", { name: "Neue E-Mail-Adresse" }));
   await user.type(screen.getByRole("textbox", { name: "Neue E-Mail-Adresse" }), "bernd.meier@schule.example");
 };
 
 const typeReseat = async (user: UserEvent) => {
-  await user.click(screen.getByRole("button", { name: "Trainer neu besetzen" }));
+  await user.click(screen.getByRole("button", { name: "Neu besetzen: Trainer" }));
   await user.type(screen.getByRole("textbox", { name: "Vorname" }), "Doreen");
   await user.type(screen.getByRole("textbox", { name: "Nachname" }), "Ostwald");
   await user.type(screen.getByRole("textbox", { name: "E-Mail" }), "doreen@schule.example");
@@ -229,12 +237,12 @@ const PAGE_PRESSES: Record<string, PagePress> = {
   },
   "the re-send, beside a typed reason": {
     other: typeReason,
-    press: "Link erneut senden an Stellvertretung",
+    press: "Link erneut senden: Stellvertretung",
     write: "einwilligungErneutSendenAction",
   },
   "the re-send, beside another seat's box holding typing": {
     other: typeReseat,
-    press: "Link erneut senden an Stellvertretung",
+    press: "Link erneut senden: Stellvertretung",
     write: "einwilligungErneutSendenAction",
   },
   "the correction, beside a typed reason": {

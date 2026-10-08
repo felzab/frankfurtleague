@@ -38,6 +38,8 @@ interface RequestScope {
   // Set when a call that may write is dispatched, answered or not: the admin spine judges by it what its
   // answer leaves standing, where an action declaring it would repeat what each call already says.
   writeSent: boolean;
+  // The cache tags this request's writes feed, declared before each write so a lost answer still drops them.
+  writeTags: Set<string>;
   // `oncePerRequest`'s reads, by the function each wraps. Held by reference, so the scope
   // `runAnsweringOwnCut` derives shares it.
   memo: Map<() => Promise<unknown>, Promise<unknown>>;
@@ -61,6 +63,7 @@ export function runWithRequestScope<T>(scope: Pick<RequestScope, "traceId" | "sp
     deadlineAt: performance.now() + REQUEST_DEADLINE_MS,
     outcomeUnknown: false,
     writeSent: false,
+    writeTags: new Set(),
     memo: new Map(),
   };
 
@@ -96,6 +99,7 @@ export function runBehindTheResponse(traceId: string, work: () => Promise<void>)
     deadlineAt: performance.now() + AFTER_RESPONSE_DEADLINE_MS,
     outcomeUnknown: false,
     writeSent: false,
+    writeTags: new Set(),
     memo: new Map(),
   };
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -180,6 +184,17 @@ export function recordWriteSent(): void {
 /** Whether this request has dispatched a call that may write. `false` outside a scope. */
 export function requestWriteSent(): boolean {
   return storage.getStore()?.writeSent === true;
+}
+
+/** Adds cache tags a write of this request feeds, for the spine to drop. A no-op outside a scope. */
+export function declareWriteTags(tags: readonly string[]): void {
+  const store = storage.getStore();
+  for (const tag of tags) store?.writeTags.add(tag);
+}
+
+/** The cache tags this request's writes declared, in declaration order. Empty outside a scope. */
+export function requestWriteTags(): readonly string[] {
+  return [...(storage.getStore()?.writeTags ?? [])];
 }
 
 export function getRequestTraceId(): string | undefined {

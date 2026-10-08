@@ -26,6 +26,7 @@ from app.api.einladungen.services import compose_einladung
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.core.collections import Collection
 from app.core.exception_handlers import STORES_NOTHING_WHEN, stores_nothing
+from app.core.recording import log_stamp
 from app.core.security import verify_access_admin
 from app.main import create_app
 from tests.actor_tokens import SignedActor
@@ -92,6 +93,7 @@ _PERSON_RECORDS = "a person's own record, whose address a ban withholds nowhere:
 # Each read no answer of which names an administrator, and what it serves instead.
 NAMES_NO_ADMINISTRATOR: dict[str, str] = {
     "/api/v0/kontakte/erasure/ansicht": "the seats an erasure would clear, by name and season and with no address",
+    "/api/v0/registrierungen/kader/{team_id:objectid}/{saison_id}": "a team's pending registrations, no decision among them",
     "/api/v0/saisons/list/admin": "seasons and their rules",
     "/api/v0/saisons/{saison_id}/einladungen/versand/vorschau": f"the teams a mailing would reach, their seats being {_PERSON_RECORDS}",
     "/api/v0/schiedsrichter": f"referees, {_PERSON_RECORDS}",
@@ -100,7 +102,11 @@ NAMES_NO_ADMINISTRATOR: dict[str, str] = {
     "/api/v0/spiele/list/admin": "fixtures",
     "/api/v0/spiele/{spiel_id:objectid}": "a save's dry run, which reports the fixtures it would move",
     "/api/v0/spiele/{spiel_id:objectid}/admin": "one fixture",
+    "/api/v0/spieler/kader/{team_id:objectid}/{saison_id}": "one team's squad as its seat holders read it, which carries nobody's address",
     "/api/v0/spieler/memberships": f"players and their squad rows, {_PERSON_RECORDS}",
+    "/api/v0/spieler/selbst": "the signed-in pupil's own record, which carries no address",
+    "/api/v0/schiedsrichter/selbst": "the signed-in referee's own records, served to that person alone",
+    "/api/v0/konto/einwilligungen": "the signed-in person's own consent records, served to that person alone",
     "/api/v0/spieler/nachnominierung/{saison_id}": "a season's late-entry window",
     "/api/v0/spieltage/list/admin": "matchdays",
     "/api/v0/spieltage/{spieltag_id:objectid}/admin": "one matchday",
@@ -108,6 +114,7 @@ NAMES_NO_ADMINISTRATOR: dict[str, str] = {
     "/api/v0/spielorte/{spielort_id:objectid}": "one venue",
     "/api/v0/teams/list/admin": f"clubs and their contact seats, {_PERSON_RECORDS}",
     "/api/v0/teams/memberships": "clubs and their seasons",
+    "/api/v0/teams/{team_id:objectid}/saisons/{saison_id}/person/sitze": "one team's seat holders by name, as the seat holders read them",
 }
 
 
@@ -154,11 +161,14 @@ def _seed(url: str, *, ban_until: str | None) -> None:
                 "entscheidung": {"getroffen_am": "2026-04-03", "von": BARRED, "grund": None},
             }
         )
+        # The real clock, never a date: the retention index removes a row a year past `at_date`, so a
+        # fixed one would leave the `/aktionen` reads nothing to answer once that year had run.
+        recorded = datetime.now(UTC)
         database[Collection.AKTIONEN].insert_one(
             {
                 "_id": AKTION_OID,
-                "at": "2026-04-01T09:30:00+00:00",
-                "at_date": datetime(2026, 4, 1, 9, 30, tzinfo=UTC),
+                "at": log_stamp(recorded),
+                "at_date": recorded,
                 "actor": {"kind": "admin_session", "email": BARRED},
                 "trace_id": "0123456789abcdef",
                 "request": {"method": "POST", "path": "/api/v0/sperrliste"},

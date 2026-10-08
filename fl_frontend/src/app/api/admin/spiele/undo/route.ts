@@ -1,5 +1,3 @@
-import { revalidateTag } from "next/cache";
-
 import { patchAdminSpielePaarungen } from "@/features/spiele/mutations";
 import { PAARUNGEN_REPLAY_REFUSALS } from "@/features/spiele/refusals";
 import { FLPatchSpielePaarungenPayloadSchema, FLSpielSchema } from "@/features/spiele/schemas";
@@ -41,10 +39,6 @@ export async function POST(request: NextRequest) {
       // its result for good.
       return { cost: describeMovedSpiele(operation.advanced_to, operation.bracket_faults, operation.released_sides) };
     },
-    invalidate: ({ saison_id }) => {
-      for (const tag of ["spiele", "teams", `spiele:saison_id:${saison_id}`, `teams:saison_id:${saison_id}`]) {
-        revalidateTag(tag, { expire: 0 });
-      }
-    },
+    tags: ({ saison_id }) => ["spiele", "teams", `spiele:saison_id:${saison_id}`, `teams:saison_id:${saison_id}`],
   });
 }

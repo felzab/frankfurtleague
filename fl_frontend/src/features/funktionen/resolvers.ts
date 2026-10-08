@@ -1,11 +1,15 @@
+import { createElement } from "react";
 import { redirect } from "next/navigation";
 
 import { funktionenOf } from "@/core/funktionen";
 import { getSubjectSession } from "@/core/subject";
+import { isFunktionLost } from "@/shared/utils/actionError";
 
+import { TeamForbiddenPanel } from "./components/ui/TeamForbiddenPanel";
 import { seatsAt } from "./teamSeats";
 
 import type { SubjectSession } from "@/core/subject";
+import type { ReactElement } from "react";
 import type { TeamSeat } from "./teamSeats";
 
 /**
@@ -32,4 +36,19 @@ export async function requireTeamSeats(
   const [erster, ...weitere] = seatsAt(funktionenOf(await requireSubjectSession()).funktionen, team_id, saison_id);
 
   return erster === undefined ? null : [erster, ...weitere];
+}
+
+/**
+ * The forbidden panel where the backend finds the seat gone after the page's own check
+ * (`docs/frontend/spec.md :: I554`), as the shell answers a seat not held; every other failure
+ * reaches the area's boundary.
+ */
+export async function readAsSeatHolder<T>(read: () => Promise<T>): Promise<{ data: T } | { forbidden: ReactElement }> {
+  try {
+    return { data: await read() };
+  } catch (error) {
+    if (!isFunktionLost(error)) throw error;
+    // Built without JSX, the module keeping the name `docs/frontend/spec.md` sanctions for a slice's resolvers.
+    return { forbidden: createElement(TeamForbiddenPanel, { funktionen: funktionenOf(await requireSubjectSession()).funktionen }) };
+  }
 }

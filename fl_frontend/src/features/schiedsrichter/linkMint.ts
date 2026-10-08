@@ -9,12 +9,12 @@ type Stored = Pick<FLSchiedsrichter, "einwilligung" | "kontakt">;
 const unanswered = (stored: Stored): boolean => (stored.einwilligung?.bestaetigt_am ?? null) === null;
 
 /**
- * A save moving an unanswered referee's address, over
- * `fl_backend/app/api/schiedsrichter/services.py :: compose_korrektur_update`. The raw strings are
- * compared where the backend compares mailboxes: an address differing in case alone asks, harmlessly.
+ * A save moving any referee's address, a consent link or an address link alike, over
+ * `fl_backend/app/api/schiedsrichter/services.py :: compose_korrektur_update`. Raw strings where the
+ * backend compares mailboxes: a case-only difference asks, harmlessly.
  */
 export function saveMayMint(stored: Stored, email: string | null): boolean {
-  return unanswered(stored) && email !== stored.kontakt.email;
+  return email !== stored.kontakt.email;
 }
 
 /** A return from retirement of an unanswered referee, over `fl_backend/app/api/schiedsrichter/services.py :: owes_reactivation_mint`. */

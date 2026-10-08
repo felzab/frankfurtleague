@@ -9,6 +9,7 @@ import { act, createElement as h } from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
+import { ContractBreakError } from "@/core/errors.ts";
 import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleActions } from "@/shared/testing/actionDoubles.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
@@ -55,7 +56,19 @@ const { AdminSpielerTable } = await import("./components/collections/AdminSpiele
 const { TeamSelect } = await import("./components/forms/TeamSelect.tsx");
 
 /** What the editor page's doubled reads answer, set by the case that renders it. */
-let pageAnswers: { memberships?: unknown; saisons?: unknown; teams?: unknown; asked?: string[]; nachnominierung?: boolean } = {};
+let pageAnswers: {
+  memberships?: unknown;
+  saisons?: unknown;
+  teams?: unknown;
+  asked?: string[];
+  nachnominierung?: boolean;
+  /** The registry's read failing, where a case asks it to: with a failure, or with a contract break. */
+  registerFehlt?: boolean | "vertragsbruch";
+} = {};
+
+/** Every error line the page wrote: what it says, and the error it carries. */
+const errorLines: { message: string; error: unknown; meta: unknown }[] = [];
+const inertLog = (): undefined => undefined;
 
 const getSaisons = () => Promise.resolve(pageAnswers.saisons);
 
@@ -70,6 +83,23 @@ const PAGE_DOUBLES = {
   },
   "features/saisons/queries.ts": { getAdminSaisons: getSaisons, getSaisons },
   "features/teams/queries.ts": { getTeamMemberships: () => Promise.resolve(pageAnswers.teams) },
+  "core/einwilligung.ts": {
+    istFassungBekannt: async () => {
+      if (pageAnswers.registerFehlt === true) throw new Error("backend unreachable");
+      if (pageAnswers.registerFehlt === "vertragsbruch") {
+        throw new ContractBreakError("the backend's words for 2026-09-spielerseite break their schema (trace 0)");
+      }
+      return true;
+    },
+  },
+  "core/logging.ts": {
+    logger: {
+      debug: inertLog,
+      info: inertLog,
+      warn: inertLog,
+      error: (message: string, error?: unknown, meta?: unknown) => void errorLines.push({ message, error, meta }),
+    },
+  },
 };
 
 registerDoubles({ modules: PAGE_DOUBLES });
@@ -105,6 +135,7 @@ function renderEditor({
   render(
     underSaison(
       h(AdminSpielerEditForm, {
+        istFassungBekannt: true,
         spieler: { id: SPIELER_ID, vorname: "Lena", nachname: "Meier", inactive_since: null, geburtsdatum: null },
         einwilligung: null,
         saison: {
@@ -144,7 +175,6 @@ const ERASURE_OPERATION = "DELETE /spieler/{spieler_id}/erasure";
 const ENTRY_OPERATION = "POST /spieler/{spieler_id}/saisons";
 const SQUAD_PATCH_OPERATION = "PATCH /spieler/{spieler_id}/saisons/{saison_id}";
 const REACTIVATE_ROW_OPERATION = "POST /spieler/{spieler_id}/saisons/{saison_id}/reactivate";
-const RETIRE_ROW_OPERATION = "DELETE /spieler/{spieler_id}/saisons/{saison_id}";
 
 /** What the squad mapper answers one code with, on the write the editor saves. */
 const squadAnswer = (code: string) => mapSquadRefusal(refusedOn(SQUAD_PATCH_OPERATION, code));
@@ -155,10 +185,7 @@ describe("the player actions against the codes their endpoints publish", () => {
   it("maps every refusal the erasure endpoint publishes", () => {
     const published = publishedRefusals(ERASURE_OPERATION);
 
-    assert.deepEqual(
-      published.filter((code) => code !== DUPLICATE_KEY),
-      ["REQ-PURGE-001"],
-    );
+    assert.deepEqual(published, ["REQ-PURGE-001"]);
     for (const code of published) {
       assert.notEqual(answerShown(ERASURE_OPERATION, code, mapErasureRefusal), null, `${code} reaches the admin as an unhandled conflict`);
     }
@@ -181,18 +208,6 @@ describe("the player actions against the codes their endpoints publish", () => {
   it("maps every refusal the row's reactivation publishes", () => {
     for (const code of publishedRefusals(REACTIVATE_ROW_OPERATION)) {
       assert.notEqual(answerShown(REACTIVATE_ROW_OPERATION, code, mapSquadRefusal), null, `${code} reaches the admin as an unhandled conflict`);
-    }
-  });
-
-  /* Asks no mapper: the one code it publishes is the unique index's, whose sentence is the shared
-     reader's own. A rule published on it later fails here until a mapper words it. */
-  it("leaves every refusal the row's retirement publishes to the shared reader", () => {
-    for (const code of publishedRefusals(RETIRE_ROW_OPERATION)) {
-      assert.notEqual(
-        answerShown(RETIRE_ROW_OPERATION, code, () => null),
-        null,
-        `${code} reaches the admin as an unhandled conflict`,
-      );
     }
   });
 });
@@ -405,6 +420,61 @@ const teamsOf = (body: ReactElement): SpielerTeamOption[] => (body.props as { te
 const heldBy = (body: ReactElement) => Object.fromEntries(teamsOf(body).map((team) => [team.teamId, team.heldRollen]));
 const fullIn = (body: ReactElement) => Object.fromEntries(teamsOf(body).map((team) => [team.teamId, team.isSquadFull]));
 
+describe("the player editor over a registry it cannot read", () => {
+  /* The registry tells a known label from an unknown one, which the consent panel says beside it; its
+     failure leaves that unchecked rather than taking the editor down. */
+  it("hands the editor an unchecked label, and renders, where the registry read failed", async () => {
+    answerPages([person(SPIELER_ID, "Lena", [{ saison_id: SAISON_ID, team_id: STORED_TEAM.teamId }])]);
+    pageAnswers.registerFehlt = true;
+
+    const body = await editorPageBody();
+
+    assert.equal(
+      (body.props as { istFassungBekannt: unknown }).istFassungBekannt,
+      null,
+      "a failed registry read reached the editor as a verdict",
+    );
+  });
+
+  /* The editor is the operator's tool for repairing the record, so a broken contract leaves it
+     standing too; logged under the error boundary's own code, so the broken deploy is still seen. */
+  it("hands the editor an unchecked label where the registry broke its contract, and logs it", async () => {
+    answerPages([person(SPIELER_ID, "Lena", [{ saison_id: SAISON_ID, team_id: STORED_TEAM.teamId }])]);
+    pageAnswers.registerFehlt = "vertragsbruch";
+    errorLines.length = 0;
+
+    const body = await editorPageBody();
+
+    assert.equal((body.props as { istFassungBekannt: unknown }).istFassungBekannt, null, "a contract break took the editor down");
+    assert.deepEqual(
+      errorLines.map(({ error, meta }) => [(error as Error).name, (meta as { error_code?: string }).error_code]),
+      [["ContractBreakError", "FE-RSC-001"]],
+      "the contract break went unlogged",
+    );
+  });
+});
+
+describe("a player holding no surname", () => {
+  /* The squad's one full-name rule names such a player by the first name alone; a page joining the two
+     fields itself prints the missing surname as „null". */
+  it("is named by the first name alone on the list and over the editor", async () => {
+    answerPages([person(SPIELER_ID, "Lena", [{ saison_id: SAISON_ID, team_id: STORED_TEAM.teamId }])]);
+    const list = await pageBody(AdminSpielerPage, { params: Promise.resolve({}), searchParams: Promise.resolve({ saison_id: SAISON_ID }) });
+
+    assert.deepEqual(
+      (list.props as { spieler: { fullName: string }[] }).spieler.map(({ fullName }) => fullName),
+      ["Lena"],
+      "the list names the player otherwise",
+    );
+
+    render(underSaison(await editorPageBody()));
+    const headings = screen.getAllByRole("heading").map((heading) => heading.textContent);
+
+    assert.ok(headings.includes("Lena"), `the editor is headed otherwise: ${JSON.stringify(headings)}`);
+    assert.ok(!document.body.textContent.includes("null"), "the editor prints a missing surname");
+  });
+});
+
 describe("REQ-SQUAD-001 where no form is on screen", () => {
   /* Two of the four writes that raise it are row buttons: a reactivate names the row's STORED club,
      which a replacement can take out of the season. A refusal carrying only a field message reaches
@@ -587,8 +657,8 @@ const listed = (row: AdminSpielerRow, saisonTeams: SpielerTeamOption[]): string 
     ),
   );
 
-const ROW_RESTORE = "Kadereintrag von Lena Meier reaktivieren";
-const PERSON_RESTORE = "Spieler Lena Meier reaktivieren";
+const ROW_RESTORE = "Kadereintrag reaktivieren: Lena Meier";
+const PERSON_RESTORE = "Spieler reaktivieren: Lena Meier";
 
 describe("the reactivate's gate on the list", () => {
   /* The same endpoint is reached from a row, and the list holds what decides the refusal already: the
@@ -765,10 +835,7 @@ describe("the squad edit's refusals", () => {
   /* `PATCH /spieler/{spieler_id}` is a prefix of it and refuses on no rule, which is why the undo
      route catches nothing around the person half. */
   it("reads the squad patch's own rules", () => {
-    assert.deepEqual(
-      publishedRefusals(SQUAD_PATCH_OPERATION).filter((code) => code !== DUPLICATE_KEY),
-      ["REQ-SQUAD-001", "REQ-SQUAD-003", "REQ-SQUAD-004"],
-    );
+    assert.deepEqual(publishedRefusals(SQUAD_PATCH_OPERATION), ["REQ-SQUAD-001", "REQ-SQUAD-003", "REQ-SQUAD-004"]);
   });
 
   for (const code of publishedRefusals(SQUAD_PATCH_OPERATION)) {
@@ -791,6 +858,7 @@ describe("the late-entry marker, which the backend derives", () => {
     render(
       underSaison(
         h(AdminSpielerEditForm, {
+          istFassungBekannt: true,
           spieler: { id: SPIELER_ID, vorname: "Lena", nachname: "Meier", inactive_since: null, geburtsdatum: null },
           einwilligung: null,
           saison: { saisonId: SAISON_ID, saisonStatus: "active", erlaubteStufen: ["Q1"], nachnominierungLaeuft, membership: null },

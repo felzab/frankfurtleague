@@ -7,6 +7,7 @@ import { Table } from "@heroui/react/table";
 import { PHASE_TINTS } from "@/features/saisons/constants";
 import { adminSpielEditHref, deriveSlotHerkunft, formatQuelle, sideLabel } from "@/features/spiele/utils";
 import { spieltagLabels } from "@/features/spieltage/utils";
+import { Leer } from "@/shared/components/ui/Angabe";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { BRAND_ICON_BUTTON_CLASSES } from "@/shared/components/ui/brandTile";
 import { card } from "@/shared/components/ui/card";
@@ -14,6 +15,7 @@ import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { IconTooltip } from "@/shared/components/ui/IconTooltip";
 import { CARDS_CASCADE_CLASSES } from "@/shared/components/ui/motion";
 import { SeasonEmptyState } from "@/shared/components/ui/SeasonEmptyState";
+import { benannt } from "@/shared/utils/benannt";
 import { PLACEHOLDER } from "@/shared/utils/format";
 
 import type { FLSaisonPhase } from "@/features/saisons/schemas";
@@ -87,7 +89,9 @@ function SlotWiring({
       {/* `break-words` and not `truncate`: a review surface that hides half a club's name cannot be
           finished, and the row is free to grow. */}
       {team === null ? (
-        <span className="text-foreground-muted italic">{PLACEHOLDER.slot}</span>
+        <span className="max-w-full font-bold break-words">
+          <Leer>{PLACEHOLDER.slot}</Leer>
+        </span>
       ) : (
         <strong className="max-w-full font-bold break-words text-foreground">{team.name}</strong>
       )}
@@ -223,7 +227,7 @@ export function AdminBracketWiringView({
                               <IconTooltip label="Spiel bearbeiten">
                                 <Link
                                   href={adminSpielEditHref(spiel.id, saisonId)}
-                                  aria-label={`Spiel Nr. ${spiel.spiel_nr} bearbeiten`}
+                                  aria-label={benannt("Spiel bearbeiten", `Spiel Nr. ${spiel.spiel_nr}`)}
                                   className={BRAND_ICON_BUTTON_CLASSES}>
                                   <PencilToSquare
                                     aria-hidden="true"

@@ -79,9 +79,9 @@ describe("a link naming a value no fixture of the season holds", () => {
      nothing: the page still has to say whose fixtures it was asked for, and that none match. */
   it("keeps the club, venue or referee as a pill under its own name, and says nothing matches", () => {
     for (const [query, pill] of [
-      [`schiedsrichter=${BEISPIEL}`, "Schiedsrichter: Rafael Beispiel"],
-      [`team=${GAMMA}`, "Team: TSV Gamma"],
-      [`ort=${SUED}`, "Ort: Sportplatz Süd"],
+      [`schiedsrichter=${BEISPIEL}`, "Rafael Beispiel: Schiedsrichter"],
+      [`team=${GAMMA}`, "TSV Gamma: Team"],
+      [`ort=${SUED}`, "Sportplatz Süd: Ort"],
     ] as const) {
       const { unmount } = renderView(query);
 
@@ -93,11 +93,11 @@ describe("a link naming a value no fixture of the season holds", () => {
 
   it("keeps a club on the public route, and drops a venue its tier reads no list of", () => {
     const { unmount } = renderView(`team=${GAMMA}`, OEFFENTLICH);
-    screen.getByRole("button", { name: "Team: TSV Gamma ändern" });
+    screen.getByRole("button", { name: "TSV Gamma: Team ändern" });
     unmount();
 
     renderView(`ort=${SUED}`, OEFFENTLICH);
-    assert.ok(screen.queryByRole("button", { name: /^Ort: / }) === null, "a venue no list labels is kept as a pill");
+    assert.ok(screen.queryByRole("button", { name: /: Ort ändern$/ }) === null, "a venue no list labels is kept as a pill");
     screen.getByText(PROMPT);
   });
 
@@ -114,7 +114,7 @@ describe("the sentence under the bar", () => {
   it("draws none where a filter finds a fixture", () => {
     renderView(`team=${ALPHA}`);
 
-    screen.getByRole("button", { name: "Team: FC Alpha ändern" });
+    screen.getByRole("button", { name: "FC Alpha: Team ändern" });
     assert.ok(screen.queryByText(/^Keine Spiele|^Suche nach/) === null, "a list with rows still shows an empty state");
   });
 

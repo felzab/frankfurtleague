@@ -5,10 +5,12 @@ import { useRouter } from "next/navigation";
 
 import { patchSaisonTeamKontakteAction } from "@/features/kontakte/actions";
 import { deriveKontakteDraftStatus } from "@/features/kontakte/kontakteDraftStatus";
+import { kontakteMayMoveLinks } from "@/features/kontakte/linkMint";
 import { FLPatchSaisonTeamKontaktePayloadSchema } from "@/features/kontakte/schemas";
 import {
   describeUnrestorableKontakte,
   emptiedSeatLabels,
+  kontaktZeile,
   mirrorKontakte,
   renamedConfirmedSeatLabels,
   teamPageHref,
@@ -58,10 +60,13 @@ const OHNE_NACHSTAND = buildRefusal({
  * editor's two-endpoint save does.
  */
 export function AdminKontakteEditForm({
+  laufendesLabel,
   teamId,
   saison,
   pageHeader,
 }: {
+  /** The label the application form runs, read by the page per request: a seat opened blank stamps it. */
+  laufendesLabel: string | null;
   teamId: string;
   /** The sidemenu selector's season and its junction row, resolved by the page. */
   saison: TeamSaisonMembership;
@@ -70,7 +75,7 @@ export function AdminKontakteEditForm({
   const router = useRouter();
   const saisonHref = useSaisonHref();
   const [isPending, startSaving] = useTransition();
-  const { page: stepUp } = useStepUp();
+  const stepUp = useStepUp();
 
   const storedMembership = saison.membership;
   // Read ONCE, so the seed, the change list's stored half and the undo body cannot disagree about
@@ -160,54 +165,67 @@ export function AdminKontakteEditForm({
   };
 
   const writeAfterBlock = () => {
-    startSaving(async () => {
-      // Read before the write: `saison` is this render's prop and still holds the pre-save block, and
-      // the toast that replays it outlives this component.
-      const wiederherstellbar = { team_id: teamId, saison_id: saison.saisonId, kontakte: toKontaktePayload(storedKontakte) };
+    // A save seating, removing or replacing a person mints or voids a link, a step-up write
+    // (`docs/frontend/spec.md :: I432`).
+    stepUp.confirmThen(kontakteMayMoveLinks(storedKontakte, buildPayload().kontakte), () =>
+      startSaving(async () => {
+        // Read before the write: `saison` is this render's prop and still holds the pre-save block, and
+        // the toast that replays it outlives this component.
+        const wiederherstellbar = { team_id: teamId, saison_id: saison.saisonId, kontakte: toKontaktePayload(storedKontakte) };
 
-      const payload = buildPayload();
-      // A rejected action may still have saved, and uncaught here it takes the editor down with it.
-      const res = await patchSaisonTeamKontakteAction(payload).catch(unansweredAction);
+        const payload = buildPayload();
+        // A rejected action may still have saved, and uncaught here it takes the editor down with it.
+        const res = await patchSaisonTeamKontakteAction(payload).catch(unansweredAction);
 
-      // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
-      // so bare it commits before the pending state lifts.
-      startSaving(() => {
-        if (!res.success) {
-          reportSubmitFailure(res, { kontakte: payload });
-          return;
-        }
+        // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
+        // so bare it commits before the pending state lifts.
+        startSaving(() => {
+          if (!res.success) {
+            reportSubmitFailure(res, { kontakte: payload });
+            return;
+          }
 
-        setSubmitFieldErrors({}, {});
-        setHasSaved(true);
+          setSubmitFieldErrors({}, {});
+          setHasSaved(true);
 
-        // The write's own answer, never `kontakteStand`: this save has moved the row past the block the
-        // page read, so the replay carrying that token would be refused (`REQ-KONTAKT-001`).
-        const nachStand = res.saison_team?.kontakte_stand;
-        // The same value seen as the endpoint's own payload, so what the toast replays is held to the
-        // shape the undo route parses.
-        const undoPayload: FLPatchSaisonTeamKontaktePayload = { ...wiederherstellbar, kontakte_stand: nachStand ?? "" };
-        // Judged here and not left to the undo route: backend I36 (`docs/backend/spec.md`) admits a
-        // malformed address on read, that row is no legal write, and the shared spine can only
-        // answer such a body with a reload nothing would change.
-        const unrestorable = nachStand === undefined ? OHNE_NACHSTAND : describeUnrestorableKontakte(undoPayload);
+          // The write's own answer, never `kontakteStand`: this save has moved the row past the block the
+          // page read, so the replay carrying that token would be refused (`REQ-KONTAKT-001`).
+          const nachStand = res.saison_team?.kontakte_stand;
+          // The same value seen as the endpoint's own payload, so what the toast replays is held to the
+          // shape the undo route parses.
+          const undoPayload: FLPatchSaisonTeamKontaktePayload = { ...wiederherstellbar, kontakte_stand: nachStand ?? "" };
+          // Judged here and not left to the undo route: backend I36 (`docs/backend/spec.md`) admits a
+          // malformed address on read, that row is no legal write, and the shared spine can only
+          // answer such a body with a reload nothing would change.
+          const unrestorable = nachStand === undefined ? OHNE_NACHSTAND : describeUnrestorableKontakte(undoPayload);
 
-        offerUndo({
-          endpoint: "/api/admin/kontakte/undo",
-          body: undoPayload,
-          message: res.message,
-          fallback: "Die Kontakte wurden aktualisiert.",
-          unrestorable,
-          // Undoing a first entry clears the block, which the undo route refuses a session past the window.
-          stepUp: undoPayload.kontakte === null ? stepUp : undefined,
-          router,
+          offerUndo({
+            endpoint: "/api/admin/kontakte/undo",
+            body: undoPayload,
+            // The link's own sentence in place of the save's: where the save mailed somebody, dropping
+            // it leaves an administrator with no record that a message was sent at all.
+            message: res.versandSatz ?? res.message,
+            // One whose link did not leave is graded a warning: the seat holds no working link and
+            // nobody else is told.
+            warn: res.versandFehlgeschlagen === true,
+            fallback: "Die Kontakte wurden aktualisiert.",
+            unrestorable,
+            // Clearing the block, or putting back a person this save replaced or removed, is a step-up write the undo
+            // route refuses a session past the window, so the press asks first.
+            stepUp:
+              undoPayload.kontakte === null || kontakteMayMoveLinks(res.saison_team?.kontakte ?? null, undoPayload.kontakte)
+                ? stepUp.page
+                : undefined,
+            router,
+          });
+
+          // AFTER the undo payload is built: leaving with typed values still in state lets a
+          // save-then-undo reopen the editor on values the season does not hold.
+          resetDraftToStored();
+          leavePage();
         });
-
-        // AFTER the undo payload is built: leaving with typed values still in state lets a
-        // save-then-undo reopen the editor on values the season does not hold.
-        resetDraftToStored();
-        leavePage();
-      });
-    });
+      }),
+    );
   };
 
   return (
@@ -228,7 +246,13 @@ export function AdminKontakteEditForm({
             />
           }>
           <FormKontakteSection
+            laufendesLabel={laufendesLabel}
             value={kontakte}
+            stored={storedKontakte}
+            bestaetigungen={storedMembership?.bestaetigungen ?? null}
+            teamId={teamId}
+            saisonId={saison.saisonId}
+            nimmtLinks={kontaktZeile(saison.saisonStatus, storedMembership?.austritt ?? null) === "offen"}
             isMember={storedMembership !== null}
             teamHref={teamPageHref(teamId, saison.saisonId)}
             banners={banners}
@@ -252,9 +276,10 @@ export function AdminKontakteEditForm({
         </EditFormLayout>
 
         <FormActionBar
-          isPending={isPending}
+          isPending={isPending || stepUp.isPrompting}
           isLeaving={isLeaving}
           onCancel={requestLeave}
+          stepUp={stepUp}
         />
       </Form>
 

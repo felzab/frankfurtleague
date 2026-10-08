@@ -13,6 +13,7 @@ import {
 } from "@/features/bewerbungen/constants";
 import { MEDIEN_MIN_ALTER, REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE, REGISTRIERUNG_MIN_ALTER } from "@/features/registrierungen/constants";
 import { SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE } from "@/features/schiedsrichter/constants";
+import { Angabe } from "@/shared/components/ui/Angabe";
 import { card } from "@/shared/components/ui/card";
 import { DISPLAY_HEADING_CLASSES } from "@/shared/components/ui/displayType";
 import { PAGE_RISE_CLASSES } from "@/shared/components/ui/motion";
@@ -20,8 +21,6 @@ import { textLink } from "@/shared/components/ui/textLink";
 
 import { DATENSCHUTZ_STAND } from "../../constants";
 import { LegalSection } from "../ui/LegalSection";
-
-import type { ReactNode } from "react";
 
 /** One legal paragraph. Spelled once because the page is nothing but paragraphs, and a copy per section drifts. */
 const ABSATZ_CLASSES = "fluid-sm leading-relaxed font-medium text-pretty text-foreground";
@@ -56,7 +55,7 @@ const EMPFAENGER = [
   },
   {
     name: "Cloudflare, Inc.",
-    rolle: "Auftragsverarbeiter",
+    rolle: "Auftragsverarbeiter; für die Verbesserung seiner Erkennung automatisierter Zugriffe selbst verantwortlich (Abschnitt 11)",
     inhalt: "Jede Anfrage im Klartext: Adresse, aufgerufene Seite, Kopfzeilen, Formularinhalte",
     ort: "Weltweit, am nächsten Rand des Netzes; Sitz in den Vereinigten Staaten",
     vereinbarung: "Standardvereinbarung, in die Nutzungsbedingungen einbezogen; Übermittlung nach dem EU-US Data Privacy Framework",
@@ -135,7 +134,7 @@ const VEROEFFENTLICHT = [
     grundlage: "Art. 6 Abs. 1 lit. a DSGVO, mit ausdrücklichem Einverständnis",
   },
   {
-    was: `Fotos und Videos von Spielerinnen, Spielern, Schiedsrichterinnen und Schiedsrichtern ab ${String(MEDIEN_MIN_ALTER)} Jahren, auf denen die Person zu erkennen ist, und Interviews mit ihr, nur wenn sie den Schalter dafür eingeschaltet hat; veröffentlicht auf dieser Website und auf dem Instagram-Kanal der Liga`,
+    was: `Fotos und Videos von Spielerinnen, Spielern, Schiedsrichterinnen, Schiedsrichtern und Kontaktpersonen eines Teams ab ${String(MEDIEN_MIN_ALTER)} Jahren, auf denen die Person zu erkennen ist, und Interviews mit ihr, nur wenn sie den Schalter dafür eingeschaltet hat; veröffentlicht auf dieser Website und auf dem Instagram-Kanal der Liga`,
     grundlage: "Art. 6 Abs. 1 lit. a DSGVO, mit ausdrücklicher Einwilligung; Zweck ist, über die Liga zu berichten",
   },
   {
@@ -162,7 +161,7 @@ const FRISTEN = [
   },
   {
     daten: "Registrierung eines Spielers oder einer Spielerin",
-    frist: `${amSatzanfang(ZAHLWORT[REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE])} Tage ab dem Versand des Bestätigungslinks, wenn die Registrierung nicht bestätigt wird, dann Löschung; eine Erinnerung verschiebt diese Frist nicht. Bestätigte Registrierungen behalten wir, bis in der nächsten Saison die Registrierung geschlossen ist, und löschen sie dann, sofern nicht dieselbe E-Mail-Adresse sich dort wieder registriert hat. Eine abgelehnte Registrierung löschen wir einen Monat nach der Entscheidung`,
+    frist: `${amSatzanfang(ZAHLWORT[REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE])} Tage ab dem Versand des Bestätigungslinks, wenn die Registrierung nicht bestätigt wird, dann Löschung; eine Erinnerung verschiebt diese Frist nicht. Eine bestätigte Registrierung behalten wir, bis das Team über sie entscheidet: Nimmt es die Person auf, löschen wir die Registrierung, und ihre Angaben stehen von da an im Kadereintrag; lehnt es sie ab, löschen wir sie einen Monat nach der Entscheidung, und mit ihr Datum, Grund und E-Mail-Adresse der Person aus dem Team, die abgelehnt hat. Ist bis zum Ende der Saison nicht entschieden, löschen wir sie dann`,
   },
   { daten: "Kontaktdaten der Kontaktpersonen einer Saison", frist: "Dieselbe Frist wie die angenommene Bewerbung" },
   {
@@ -175,6 +174,12 @@ const FRISTEN = [
     daten:
       "Bestätigung einer Schiedsrichterin oder eines Schiedsrichters: Geburtsdatum, die beiden Antworten (Veröffentlichung, Medien) und die Fassung des Textes; dazu der Bestätigungslink als unlesbarer Schlüssel mit Versanddatum und Frist",
     frist: `Solange der Eintrag besteht: Die Angaben gehen mit dem Eintrag. Der Link gilt ${ZAHLWORT[SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE]} Tage ab dem Versand, wird durch jeden neuen Link ersetzt und mit dem Eintrag gelöscht`,
+  },
+  {
+    daten:
+      "Neue E-Mail-Adresse einer Schiedsrichterin oder eines Schiedsrichters, solange sie nicht bestätigt ist, dazu ihr Link als unlesbarer Schlüssel mit Versanddatum und Frist",
+    frist:
+      "Bis die Adresse über ihren Link bestätigt oder abgelehnt wird oder die Verwaltung die Änderung verwirft; mit dem Eintrag wird sie gelöscht. Ihr Link gilt so lange wie der Bestätigungslink des Eintrags und wird durch jeden neuen ersetzt. Ist er abgelaufen, löschen wir die Adresse bei der jährlichen Löschung nach dem Ende der Registrierungsfrist",
   },
   {
     daten: "Gesperrte E-Mail-Adresse, als unlesbarer Schlüssel, dazu der Grund, das Datum und die eintragende Person aus der Verwaltung",
@@ -192,8 +197,13 @@ const FRISTEN = [
     frist: `Ein Anmeldecode gilt ${ZAHLWORT[CODE_VALIDITY_MINUTES]} Minuten und wird danach gelöscht; das gilt auch für eine Adresse, die jemand ohne Konto in das Anmeldeformular einträgt. Falsch eingegebene Codes zählen wir ${String(CODE_FAILURE_WINDOW_HOURS)} Stunden lang, angeforderte Codes ${EINE_STUNDE[CODE_MAIL_WINDOW_HOURS]} lang, beides unter einem unlesbaren Schlüssel statt unter der Adresse; eine erfolgreiche Anmeldung löscht die gezählten Fehlversuche. Eine Sitzung endet, wenn sie ${String(PERSON_LEERLAUF_TAGE)} Tage lang nicht genutzt wurde, spätestens aber ${String(PERSON_WINDOW_DAYS)} Tage nach der Anmeldung; für die Verwaltung gilt sie höchstens ${String(ADMIN_WINDOW_HOURS)} Stunden. Zu einer Sitzung, die mit einem Passkey begonnen hat, speichern wir, welcher Passkey das war. Zu jedem Passkey speichern wir, wann er zuletzt benutzt wurde, und den Namen, den Du ihm gibst. Adresse und Passkeys bleiben, solange das Konto besteht, und werden auf Wunsch gelöscht`,
   },
   {
-    daten: "Änderungsprotokoll der Verwaltung",
+    daten: "Änderungsprotokoll: Änderungen der Verwaltung und Änderungen angemeldeter Personen",
     frist: "Zwölf Monate ab dem Eintrag; am Ende dieser Saison wird das Protokoll einmalig vollständig gelöscht",
+  },
+  {
+    daten: "Tageszähler einer angemeldeten Person, je Personengruppe",
+    frist:
+      "Bis kurz nach Mitternacht des Tages, den er zählt. Er enthält nur, als was Du angemeldet bist (Kontaktperson eines Teams, Spielerin oder Spieler, Schiedsrichterin oder Schiedsrichter), und wie oft Du in dieser Personengruppe an dem Tag etwas ändern wolltest, darunter auch Änderungen, die danach noch abgewiesen wurden, unter einem unlesbaren Schlüssel statt Deiner Adresse. Er begrenzt, wie viel Du in jeder dieser Personengruppen an einem Tag ändern kannst, damit ein missbrauchtes Konto nicht unbegrenzt schreibt; eine zurückgezogene Einwilligung zählt er nicht",
   },
   {
     daten: "Zugriffsprotokoll des Servers",
@@ -210,16 +220,6 @@ const FRISTEN = [
       "Bei Spielerinnen und Spielern: solange die Teilnahme läuft, und darüber hinaus bis zu einer Löschung auf Wunsch; am Ende dieser Saison löschen wir einmalig die Daten aller Spielerinnen und Spieler. Bei Schiedsrichterinnen und Schiedsrichtern: bis die Verwaltung den Eintrag endgültig löscht, von sich aus oder weil Du es verlangst",
   },
 ];
-
-/** A `<dl>` is this pair's only valid parent: the pairing is what makes the value a fact about the label. */
-function Angabe({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="flex flex-col gap-y-0.5">
-      <dt className="fluid-xxs font-bold text-foreground-muted">{label}</dt>
-      <dd className="min-w-0 fluid-sm font-medium break-words text-foreground">{children}</dd>
-    </div>
-  );
-}
 
 function MailLink() {
   return (
@@ -405,12 +405,15 @@ export function DatenschutzView() {
             eine Erinnerung verschiebt sie nicht.
           </p>
           <p className={ABSATZ_CLASSES}>
-            Auf derselben Seite steht ein freiwilliger Schalter: Die Liga darf Dich auch über WhatsApp erreichen. Das ist die einzige
-            Einwilligung, die wir an dieser Stelle einholen (Art. 6 Abs. 1 lit. a und Art. 7 DSGVO). Sie ist von der Bestätigung getrennt und
-            keine Bedingung der Bewerbung; lässt Du den Schalter aus, erreichen wir Dich per E-Mail und, wenn es eilt, telefonisch, und es
-            entsteht Dir kein Nachteil. Schaltest Du ihn ein, gelangen Deine Telefonnummer und die Nachrichten, die wir Dir schreiben, zu
-            WhatsApp; wir nutzen dort die gewöhnliche App, für die kein Auftragsverarbeitungsvertrag besteht. Du kannst diese Einwilligung
-            jederzeit mit Wirkung für die Zukunft widerrufen, formlos an <MailLink />. Was bis dahin geschah, bleibt rechtmäßig.
+            Auf derselben Seite stehen zwei freiwillige Schalter. Das sind die einzigen Einwilligungen, die wir an dieser Stelle einholen (Art.
+            6 Abs. 1 lit. a und Art. 7 DSGVO). Beide sind von der Bestätigung getrennt und keine Bedingung der Bewerbung; lässt Du sie aus,
+            entsteht Dir kein Nachteil. Mit dem ersten darf die Liga Dich auch über WhatsApp erreichen; ohne ihn erreichen wir Dich per E-Mail
+            und, wenn es eilt, telefonisch. Schaltest Du ihn ein, gelangen Deine Telefonnummer und die Nachrichten, die wir Dir schreiben, zu
+            WhatsApp; wir nutzen dort die gewöhnliche App, für die kein Auftragsverarbeitungsvertrag besteht. Mit dem zweiten erlaubst Du ab{" "}
+            {MEDIEN_MIN_ALTER} Jahren, dass Fotos, Videos und Interviews, auf denen Du zu erkennen bist, auf dieser Website und dem
+            Instagram-Kanal der Liga veröffentlicht werden (Abschnitt 9); bist Du jünger, fragen wir Dich das nicht. Beide Einwilligungen kannst
+            Du jederzeit mit Wirkung für die Zukunft widerrufen, formlos an <MailLink />; beide nimmst Du außerdem selbst in Deinem Konto
+            zurück. Was bis dahin geschah, bleibt rechtmäßig.
           </p>
           <p className={ABSATZ_CLASSES}>
             Rechtsgrundlage für alle Angaben der Bewerbung, zur Schule, zum Team und zu den drei eingetragenen Personen, ist Art. 6 Abs. 1 lit.
@@ -419,6 +422,11 @@ export function DatenschutzView() {
             Die Angaben zu den beiden weiteren Personen erhalten wir von der Person, die die Bewerbung einreicht. Wer eingetragen wird, muss
             damit rechnen, in dieser Rolle benannt zu werden, erfährt davon sofort durch die Bestätigungsmail, wird nie veröffentlicht und kann
             jederzeit die Löschung verlangen oder widersprechen (Abschnitt 14).
+          </p>
+          <p className={ABSATZ_CLASSES}>
+            Trägt die Verwaltung Dich als Kontaktperson eines Teams ein, schicken wir Dir einen Link, über den Du den Eintrag bestätigst oder
+            ihm widersprichst. Wer als Kontaktperson eines Teams bestätigt hat, sieht in seinem Bereich, wer die drei Rollen des Teams hat und
+            wer davon schon bestätigt hat, aber keine Kontaktdaten und kein Geburtsdatum.
           </p>
           <p className={ABSATZ_CLASSES}>
             Wer die Bewerbung sieht: Nur die Administratorinnen und Administratoren der Liga, die dafür angemeldet sein müssen. Eine Bewerbung
@@ -526,6 +534,23 @@ export function DatenschutzView() {
             sind.
           </p>
           <p className={ABSATZ_CLASSES}>
+            Bei der Registrierung trägst Du Vornamen, Nachnamen und E-Mail-Adresse ein und, wenn Du willst, Rückennummer, Position und Stufe;
+            mit der Bestätigung kommt Dein Geburtsdatum dazu, wenn wir es noch nicht kennen, und, haben wir unter dieser Adresse und diesem
+            Namen noch keine Antworten von Dir, Deine Antworten zu Veröffentlichung und Medien. Über die Aufnahme in den Kader entscheidet Dein
+            Team: Trainerin oder Trainer, Ansprechperson und Stellvertretung des Teams sehen Deinen Namen, Deine Rückennummer, Deine Position
+            und Deine Stufe; sie sehen auch, ob Du die Registrierung schon bestätigt hast und ob Du schon früher in der Liga eingetragen warst.
+            Deine E-Mail-Adresse, Dein Geburtsdatum und Deine Antworten sehen sie nicht; die sehen nur die Administratorinnen und
+            Administratoren der Liga. Lehnt Dein Team eine bestätigte Registrierung ab, schreiben wir Dir das per E-Mail. Zur Ablehnung halten
+            wir das Datum, den Grund und die E-Mail-Adresse der Person aus dem Team fest, die abgelehnt hat; diese Angaben sehen die
+            Administratorinnen und Administratoren der Liga.
+          </p>
+          <p className={ABSATZ_CLASSES}>
+            Eine E-Mail-Adresse gehört bei uns zu einer Person. Registriert sich jemand mit einer Adresse, unter der schon eine Person
+            eingetragen ist, und weichen Name oder Geburtsdatum von diesem Eintrag ab, fragen wir das Team, ob es dieselbe Person ist, und
+            nennen ihm dafür den eingetragenen Namen, nie das Geburtsdatum. Ist sie es nicht, lehnt das Team die Registrierung ab, und wir
+            bitten die Person, sich mit einer eigenen E-Mail-Adresse erneut zu registrieren.
+          </p>
+          <p className={ABSATZ_CLASSES}>
             Rechtsgrundlage für die Daten, die wir für Deine Teilnahme brauchen, ist Art. 6 Abs. 1 lit. f DSGVO. Unser berechtigtes Interesse
             ist, den Spielbetrieb der Liga durchzuführen: Kader und Schiedsrichtereinsätze zu führen, das Mindestalter zu prüfen und Dich zu
             erreichen. Weil viele, die mitspielen oder pfeifen, noch minderjährig sind, veröffentlichen wir von Spielerinnen und Spielern auf
@@ -552,6 +577,11 @@ export function DatenschutzView() {
             geht Dein üblicher Betrag mit ihm; verlangst Du die Löschung, bleibt an einem Spiel, das schon angesetzt oder gespielt ist, der
             Betrag für dieses Spiel ohne Deinen Namen stehen. Setzt die Verwaltung Dich nur nicht mehr ein, bleibt Dein Eintrag mit dem Betrag
             bestehen.
+          </p>
+          <p className={ABSATZ_CLASSES}>
+            Ändert die Verwaltung Deine E-Mail-Adresse, nachdem Du Deinen Eintrag bestätigt hast, gilt die neue erst, wenn Du sie über den Link
+            bestätigt hast, den wir an sie schicken; bis dahin bleibt die bisherige in Kraft, und an die bisherige schicken wir einen Hinweis
+            auf die Änderung.
           </p>
           <p className={ABSATZ_CLASSES}>
             Du kannst jederzeit verlangen, dass Dein Name von dieser Website verschwindet, formlos an <MailLink />. Danach nehmen wir ihn
@@ -582,7 +612,18 @@ export function DatenschutzView() {
             <li className={ABSATZ_CLASSES}>
               Eine Freigabe von Cloudflare, wenn Du die Anmeldeseite oder das Bewerbungsformular aufrufst. Cloudflare prüft dort mit einer
               kurzen automatischen Abfrage Deines Browsers, ob ein Mensch die Seite aufruft, und legt danach einen Nachweis in Deinem Browser
-              ab, damit das Formular abgeschickt werden kann. Der Nachweis gilt höchstens 30 Minuten.
+              ab, damit Du beim nächsten Aufruf nicht erneut geprüft wirst. Der Nachweis gilt höchstens 30 Minuten.
+            </li>
+            <li className={ABSATZ_CLASSES}>
+              Eine zweite Prüfung von Cloudflare, Turnstile, auf der Anmeldeseite, im Bewerbungsformular und im Registrierungsformular. Sie
+              läuft in einem eingebetteten Fenster von Cloudflare und fragt dabei Merkmale Deines Browsers und Deiner Verbindung ab, darunter
+              Deine IP-Adresse und die Kennung Deines Browsers. Meist merkst Du davon nichts; nur wenn Cloudflare sich nicht sicher ist, bittet
+              es Dich um einen Klick. Das Ergebnis ist ein Nachweis, den das Formular beim Abschicken mitschickt und den wir bei Cloudflare
+              bestätigen lassen, bevor wir über die Anmeldeseite einen Anmeldecode verschicken oder eine Bewerbung oder Registrierung speichern;
+              antwortet Cloudflare dabei nicht, nehmen wir das Formular ungeprüft an. Der Nachweis gilt fünf Minuten und nur für ein Abschicken.
+              Cloudflare verwendet diese Merkmale außerdem in eigener Verantwortung, um seine Erkennung automatisierter Zugriffe zu verbessern.
+              Lässt Dein Browser oder ein Werbeblocker diese Prüfung nicht zu, nehmen wir über diese drei Formulare nichts an; dann erreichst Du
+              uns unter <MailLink />, und anmelden kannst Du Dich auch mit einem Passkey.
             </li>
             <li className={ABSATZ_CLASSES}>
               Die von Dir gewählte Darstellung, hell oder dunkel. Sie wird im lokalen Speicher Deines Browsers abgelegt, damit die Seite beim
@@ -591,8 +632,8 @@ export function DatenschutzView() {
           </ul>
           <p className={ABSATZ_CLASSES}>
             Was wir selbst ablegen, ist unbedingt erforderlich, um den von Dir gewünschten Dienst bereitzustellen, und deshalb nach § 25 Abs. 2
-            Nr. 2 TDDDG einwilligungsfrei. Die Abfrage und die Freigabe von Cloudflare setzen wir ohne Einwilligung ein, weil sie die Anmeldung
-            und das Formular vor automatisiertem Missbrauch schützen (§ 25 Abs. 2 Nr. 2 TDDDG). Darüber hinaus wird nichts in Deinem Browser
+            Nr. 2 TDDDG einwilligungsfrei. Die Abfragen und die Freigabe von Cloudflare setzen wir ohne Einwilligung ein, weil sie die Anmeldung
+            und die Formulare vor automatisiertem Missbrauch schützen (§ 25 Abs. 2 Nr. 2 TDDDG). Darüber hinaus wird nichts in Deinem Browser
             abgelegt, und es gibt keinen Cookie-Banner, weil wir für nichts davon eine Einwilligung einholen.
           </p>
           <p className={ABSATZ_CLASSES}>
@@ -608,16 +649,22 @@ export function DatenschutzView() {
             wiedererkennen. Wir erstellen keine Profile und verkaufen keine Daten.
           </p>
           <p className={ABSATZ_CLASSES}>
-            Über eine Bewerbung entscheidet ein Mensch. Von dem, was Du auf dieser Website eintragen kannst, weist sie ohne einen Menschen nur
+            Über eine Bewerbung entscheidet ein Mensch. Von dem, was Du auf dieser Website eintragen kannst, weist sie ohne einen Menschen
             zweierlei zurück: ein Geburtsdatum, das Du auf Deiner Bestätigungsseite als Spielerin oder Spieler, als Schiedsrichterin oder
-            Schiedsrichter oder als Kontaktperson einer Bewerbung einträgst, wenn es unter dem Mindestalter Deiner Rolle liegt oder ein Alter
-            über {BEWERBUNG_MAX_ALTER} Jahren ergibt, und eine E-Mail-Adresse, die gesperrt ist. Beide Zurückweisungen prüft auf Deinen Wunsch
-            ein Mensch: Schreib an <MailLink />, dann sieht sich jemand aus der Verwaltung Deinen Fall an und antwortet Dir. Ein
+            Schiedsrichter oder als Kontaktperson einer Bewerbung oder eines Teams einträgst, wenn es unter dem Mindestalter Deiner Rolle liegt
+            oder ein Alter über {BEWERBUNG_MAX_ALTER} Jahren ergibt, und eine E-Mail-Adresse, die gesperrt ist. Beide Zurückweisungen prüft auf
+            Deinen Wunsch ein Mensch: Schreib an <MailLink />, dann sieht sich jemand aus der Verwaltung Deinen Fall an und antwortet Dir. Ein
             zurückgewiesenes Geburtsdatum wird nicht gespeichert; war es ein Tippfehler, trägst Du über denselben Link das richtige Datum ein,
             solange er gilt. Liegt Dein Geburtsdatum tatsächlich unter dem Mindestalter, bleibt es auch nach der Prüfung bei der Zurückweisung,
             weil die Liga jede Rolle erst ab ihrem Mindestalter vergibt. Eine Sperre kann die Verwaltung nach der Prüfung aufheben. Ist der
             Kader eines Teams voll, nimmt er keine weitere Registrierung an; das ist eine Grenze des Kaders und keine Entscheidung über Dich.
-            Profiling findet nicht statt.
+            Zwei weitere Grenzen setzt die Website ebenso ohne einen Menschen. Einen Anmeldecode über die Anmeldeseite verschickt sie, eine
+            Bewerbung und eine Registrierung nimmt sie erst an, wenn Cloudflare bestätigt hat, dass ein Mensch das Formular abschickt, oder wenn
+            Cloudflare nicht antwortet (Abschnitt 11); bittet Cloudflare Dich um einen Klick, genügt der. Lässt Dich die Prüfung nicht durch,
+            schreib an <MailLink />, dann sieht sich jemand aus der Verwaltung Deinen Fall an. Und wer angemeldet ist, kann je Personengruppe an
+            einem Tag nur eine begrenzte Zahl von Änderungen abschicken; danach weist die Website weitere Änderungen bis Mitternacht zurück. Das
+            Zurückziehen einer Einwilligung weist sie dabei nie zurück, und auch diese Grenze prüft auf Deinen Wunsch ein Mensch, wenn Du an{" "}
+            <MailLink /> schreibst. Profiling findet nicht statt.
           </p>
         </LegalSection>
 
@@ -672,8 +719,11 @@ export function DatenschutzView() {
             </li>
           </ul>
           <p className={ABSATZ_CLASSES}>
-            Wie Du sie ausübst: eine formlose E-Mail an <MailLink />. Begründen musst Du nur einen Widerspruch, mit Deiner besonderen Situation.
-            Wir antworten so schnell wir können und in jedem Fall innerhalb der Frist des Art. 12 Abs. 3 DSGVO.
+            Wie Du sie ausübst: eine formlose E-Mail an <MailLink />. Eine Einwilligung, auf die sich bei uns noch etwas stützt, kannst Du
+            außerdem selbst in Deinem Konto zurücknehmen: Melde Dich mit der Adresse an, unter der wir Dich heute erreichen; dort steht jede
+            solche Einwilligung. Eine abgelehnte Bewerbung oder Registrierung steht dort nicht; wir löschen sie einen Monat nach der
+            Entscheidung. Begründen musst Du nur einen Widerspruch, mit Deiner besonderen Situation. Wir antworten so schnell wir können und in
+            jedem Fall innerhalb der Frist des Art. 12 Abs. 3 DSGVO.
           </p>
           <p className={ABSATZ_CLASSES}>
             Was eine Löschung erreicht und was nicht: Aus der laufenden Datenbank sind Deine Daten sofort verschwunden. In den Sicherungskopien

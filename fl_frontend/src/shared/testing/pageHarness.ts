@@ -5,13 +5,14 @@ import { text } from "node:stream/consumers";
 
 import { JSDOM } from "jsdom";
 import { prerenderToNodeStream } from "react-dom/static";
-import ts from "typescript";
 import z from "zod";
 
 import { APIBadStatusError, APIMalformedDataError } from "@/core/errors.ts";
 import { exportingModule, registerDoubles } from "@/core/exportingModule.ts";
+import { hasDirective } from "@/core/treeWalk.ts";
 import { REQUEST_PACKAGES } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
+import { saisonRules } from "@/shared/testing/saisonRules.ts";
 
 import type { ReactElement, ReactNode } from "react";
 
@@ -68,25 +69,9 @@ const REGISTER_MODULE = asModule(
   }),
 );
 
-/**
- * Whether a module's directive prologue, the string statements before any other, holds `"use client"`.
- * Read with TypeScript's scanner, which steps over comments without backtracking.
- */
+/** Whether a module's directive prologue holds `"use client"`, by the one prologue reader the server actions' sweep reads too. */
 export function isClientModule(source: string): boolean {
-  if (!source.includes("use client")) return false;
-
-  const scanner = ts.createScanner(ts.ScriptTarget.Latest, true, ts.LanguageVariant.Standard, source);
-  let token = scanner.scan();
-  while (token === ts.SyntaxKind.StringLiteral) {
-    const directive = scanner.getTokenValue();
-    token = scanner.scan();
-    // A string the next token continues, `"use client" + x`, is an expression rather than a directive.
-    if (token !== ts.SyntaxKind.SemicolonToken && token !== ts.SyntaxKind.EndOfFileToken && !scanner.hasPrecedingLineBreak()) return false;
-    if (directive === "use client") return true;
-    if (token === ts.SyntaxKind.SemicolonToken) token = scanner.scan();
-  }
-
-  return false;
+  return hasDirective(source, "use client");
 }
 
 /**
@@ -141,17 +126,7 @@ export function saisonFields(id: string, status: "past" | "active" | "future"): 
   return {
     id: id,
     status: status,
-    rules: {
-      win_points: 3,
-      draw_points: 1,
-      qualifiers_per_group: 2,
-      number_of_groups: 2,
-      teams_per_group: 4,
-      max_kadergroesse: 18,
-      tiebreak_order: "tordifferenz",
-      forfeit_ergebnis: { sieger_tore: 3, verlierer_tore: 0 },
-      erlaubte_stufen: ["E1", "Q1"],
-    },
+    rules: saisonRules(),
   };
 }
 

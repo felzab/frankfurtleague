@@ -2,11 +2,15 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter
 
-# The delivery state is the application slice's declaration, stored at every home the register names
-# (`app/api/zustellung/services.py :: ZIEL_PFADE`).
-from app.api.bewerbungen.schemas import FLBewerbungZustellung
 from app.api.saisons.schemas import FLSaisonStatus
-from app.api.spieler.schemas import SQUAD_NUMMER_PATTERN, FLEinwilligung, FLSpielerPosition, FLSpielerStufe
+from app.api.spieler.schemas import (
+    SQUAD_NUMMER_PATTERN,
+    FLEinwilligung,
+    FLEinwilligungUmfang,
+    FLSpielerPosition,
+    FLSpielerStufe,
+    SelbstEinwilligungPayload,
+)
 from app.shared.schemas.bounds import (
     BEWERBUNG_TOKEN_MAX_LENGTH,
     EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH,
@@ -19,10 +23,13 @@ from app.shared.schemas.custom import (
     CustomNonEmptyString,
     CustomObjectId,
     CustomOptionalDateString,
-    CustomOptionalString,
 )
+from app.shared.schemas.einwilligung import FLEinwilligungStand
 from app.shared.schemas.kontakt import CustomEmail, CustomKontaktName
 from app.shared.schemas.responses import BaseAPIResponse
+
+# Shared by every home the register names (`app/api/zustellung/services.py :: ZIEL_PFADE`).
+from app.shared.schemas.zustellung import FLBewerbungZustellung
 
 # --- The INVITE's read, the SUBMISSION and the administrator's read of what it stored. Every
 # payload below is reached from a request body alone, so each forbids an undeclared key; the read
@@ -79,11 +86,23 @@ class FLRegistrierungEntscheidungZeile(FLRegistrierungEntscheidung):
     von_gesperrt: bool
 
 
+class FLRegistrierungEinwilligung(FLEinwilligung):
+    """A pending registration's consent record, each choice and `datum` optional here alone.
+
+    A returning pupil's page asks no choice (`docs/backend/spec.md :: I557`).
+    """
+
+    umfang: FLEinwilligungUmfang | None = None
+    datum: CustomOptionalDateString = None
+    # Null where nobody was asked, never `False`: a returning pupil's media answer stands on their own record.
+    medien: bool | None = None
+
+
 class FLRegistrierung(BaseModel):
     """One pupil's registration for one team's season, as stored, its decision as served.
 
-    The submission is never rewritten: the pupil's own confirmation fills `geburtsdatum` and
-    `einwilligung`, and a decline writes `status` and `entscheidung`.
+    The submission is never rewritten: its pupil fills and withdraws `einwilligung` and fills
+    `geburtsdatum`, and a decline writes `status` and `entscheidung`.
     """
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
@@ -106,7 +125,7 @@ class FLRegistrierung(BaseModel):
     stufe: FLSpielerStufe | None
     # Null until the pupil confirms, which is the pairing `docs/backend/spec.md :: I141` rests on.
     geburtsdatum: CustomOptionalDateString
-    einwilligung: FLEinwilligung | None
+    einwilligung: FLRegistrierungEinwilligung | None
     bestaetigung: FLRegistrierungBestaetigung | None
     # As served, so a row reaches the wire only through
     # `app/api/registrierungen/services.py :: mit_vorenthaltener_entscheidung`.
@@ -231,6 +250,10 @@ FLRegistrierungUmfang = Literal["kader_oeffentlich", "intern"]
 # `gesperrt` ranks first (`docs/backend/spec.md :: I515`).
 FLRegistrierungBestaetigungZustand = Literal["gueltig", "bestaetigt", "abgelaufen", "gesperrt"]
 
+# The two pages one link may open, members of `app/shared/einwilligung.py :: Seite`: the returning
+# pupil's asks no choice, so the press is judged against whichever its own transaction resolves.
+FLRegistrierungSeite = Literal["bestaetigung_spieler", "bestaetigung_spieler_wiederkehrend"]
+
 
 class FLRegistrierungBestaetigungAnsichtPayload(BaseModel):
     """A POST that reads: the token travels in a body, never in a second URL."""
@@ -250,26 +273,26 @@ class FLRegistrierungBestaetigungAnsichtResponse(BaseAPIResponse):
     schule: CustomNonEmptyString
     saison_id: str
     vorname: CustomNonEmptyString
-    # The wording the stored record cites, so a reopened link names the version answered under
-    # rather than the one the page would stamp today.
-    text_version: CustomOptionalString
+    # Served rather than left to the page to infer from the three below: a stored person with no
+    # birthdate is a returning pupil all the same, and the press refuses the other page's label.
+    seite: FLRegistrierungSeite
     # Served rather than read from a constant of the page's own: the floor the write judges by is
     # the one the paragraph a pupil reads before consenting has to state.
     mindestalter: int
     # The age the media answer is judged by, served for `mindestalter`'s reason: the page offers the
     # switch only from it, and a copy of its own would offer it where the write refuses.
     medien_mindestalter: int
-    # All three null where the league holds no record for this person, and null where one address
-    # stands behind several, whom this read cannot tell apart.
+    # The returning pupil's stored answers, all three null on the new pupil's page; the birthdate is
+    # null on the returning one too where the stored person has none.
     geburtsdatum: CustomOptionalDateString
     umfang: FLRegistrierungUmfang | None
-    # Null is "nobody has answered" and never "off", which the page paints either way: a stored
-    # `True` re-presented as off would re-ask a consent already given.
+    # Null is "not shown back" and never "off": a stored `True` re-presented as off misstates a
+    # consent the page says still stands.
     medien: bool | None
 
 
 class FLRegistrierungBestaetigungPayload(BaseModel):
-    """One pupil's own answer: their date of birth, and the two consents that stand under one record."""
+    """One pupil's own answer: their date of birth, and on the new pupil's page the two consents that stand under one record."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -277,12 +300,13 @@ class FLRegistrierungBestaetigungPayload(BaseModel):
     # Unbounded here -- the age is a 422 carrying its own code, never a `REQ-VAL-001`, so the page
     # marks its one field and keeps the date the pupil typed.
     geburtsdatum: CustomDateString
-    umfang: FLRegistrierungUmfang
-    # Required rather than defaulted: a page omitting it would store this model's answer in place of
-    # the person's, and an off switch is an answer.
-    medien: bool
-    # The label of the text the running build renders: the route handler refuses any other
-    # (`docs/frontend/spec.md :: I148`).
+    # Both set on the new pupil's page and both null on the returning pupil's (`REQ-REGISTRIERUNG-017`).
+    # Required rather than defaulted: a page omitting one would store this model's answer in place of
+    # the person's.
+    umfang: FLRegistrierungUmfang | None
+    medien: bool | None
+    # The label of the words the page showed: the write refuses any but the running one
+    # (`docs/backend/spec.md :: I550`).
     text_version: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)]
 
 
@@ -293,8 +317,25 @@ class FLRegistrierungBestaetigungResponse(BaseAPIResponse):
     # the link expire, and the sweep takes the row.
     ergebnis: Literal["bestaetigt"]
     geburtsdatum: CustomDateString
-    umfang: FLRegistrierungUmfang
-    medien: bool
+    # Null on a returning pupil's press, which posted none: the panel states the view's stored pair.
+    umfang: FLRegistrierungUmfang | None
+    medien: bool | None
+
+
+# --- The pupil's own WITHDRAWAL on the account page, between the confirmation and the admission.
+
+
+class FLRegistrierungSelbstEinwilligungPayload(SelbstEinwilligungPayload):
+    """The pupil's own two choices on one pending registration, the pupil's account control's shape: a grant is refused."""
+
+
+class FLRegistrierungSelbstEinwilligungResponse(BaseAPIResponse):
+    """The registration's consent record as it stands after the write, everything the pupil did not move unchanged."""
+
+    registrierung_id: CustomObjectId
+    einwilligung: FLRegistrierungEinwilligung
+    # For `app/api/spieler/schemas.py :: FLSpielerSelbstEinwilligungResponse`'s reason.
+    nachweis_stand: FLEinwilligungStand
 
 
 # --- The retention SWEEP, system tier. The backend decides and erases, the frontend mails: what
@@ -348,3 +389,125 @@ class FLRegistrierungSweepResponse(BaseAPIResponse):
     geloescht_ohne_entscheidung: int
     geloescht_abgelehnt: int
     redigierte_aktionen: int
+
+
+# --- The TEAM's decision, person tier. No model below declares `email`, `telefon`, `geburtsdatum` or
+# `einwilligung`: a seat holder reads who registered and decides, and a pupil's address and birthdate
+# are the league administrators' alone (`fl_backend/app/shared/einwilligung.py :: FASSUNGEN`).
+
+
+class FLOffeneRegistrierungenParams(BaseModel):
+    """The pending list's direction and page, so a flooded queue's oldest rows stay reachable."""
+
+    limit: int = Field(default=LIST_LIMIT_DEFAULT, ge=1, le=LIST_LIMIT_MAX)
+    order: Literal["asc", "desc"] = Field(default="desc")
+
+
+class FLRegistrierungPerson(BaseModel):
+    """The stored person a confirmed registration's address resolves to, named so the team can be asked whether it is the same one."""
+
+    spieler_id: CustomObjectId
+    vorname: CustomNonEmptyString
+    nachname: str | None
+    # A flag and never the two values: the stored birthdate is shown to administrators alone, and
+    # the question needs only that something differs.
+    weicht_ab: bool
+
+
+class FLRegistrierungVorschlag(BaseModel):
+    """The one stored person holding no address whose name is the registration's: proposed, never resolved.
+
+    "A typed name is a weaker key than a shorthand", so a name only ever proposes.
+    """
+
+    spieler_id: CustomObjectId
+    vorname: CustomNonEmptyString
+    nachname: str | None
+
+
+class FLOffeneRegistrierung(BaseModel):
+    """One pending registration as the team deciding it reads it."""
+
+    registrierung_id: CustomObjectId
+    eingereicht_am: CustomDateString
+    vorname: CustomNonEmptyString
+    nachname: CustomNonEmptyString
+    nummer: str | None
+    position: FLSpielerPosition | None
+    stufe: FLSpielerStufe | None
+    # Whether the pupil answered their own link, which is what makes the row one the team may admit.
+    aufnehmbar: bool
+    nummer_doppelt: bool
+    # Both empty on an unconfirmed row: its address is unproven, and resolving it would show the team
+    # whoever stands behind an address anybody typed into the form.
+    person: FLRegistrierungPerson | None
+    # One or none, never a list: no birthdate is served, so two namesakes read identically and the
+    # team would be guessing between them.
+    vorschlag: FLRegistrierungVorschlag | None
+
+
+class FLOffeneRegistrierungenResponse(BaseAPIResponse):
+    """One team's pending registrations for one season, and whether that is the whole of them."""
+
+    team_id: CustomObjectId
+    saison_id: str
+    registrierungen: list[FLOffeneRegistrierung]
+    vollstaendig: bool
+
+
+class FLRegistrierungAufnehmenPayload(BaseModel):
+    """The team's answer to the question the read asked: the person this registration is admitted into, or none."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    # REQUIRED with no default: a client that omitted it would be read as answering "a new person",
+    # which is the one answer that can put a returning pupil into the league twice.
+    spieler_id: CustomObjectId | None
+
+
+class FLRegistrierungAufnahmeResponse(BaseAPIResponse):
+    """The squad entry the admission wrote, and the person it belongs to."""
+
+    # The admitted registration's id, deleted with it, so a caller can drop the row it pressed.
+    registrierung_id: CustomObjectId
+    spieler_id: CustomObjectId
+    team_id: CustomObjectId
+    saison_id: str
+    vorname: CustomNonEmptyString
+    nachname: CustomNonEmptyString
+    nummer: str | None
+    position: FLSpielerPosition | None
+    stufe: FLSpielerStufe | None
+    ist_nachnominiert: bool
+
+
+# One member, and never free text: the reason reaches the pupil's mail, and a team's own words about
+# a pupil would be personal data the league then holds about them.
+FLRegistrierungAblehnungsgrund = Literal["andere_person"]
+
+
+class FLRegistrierungAblehnenPayload(BaseModel):
+    """Why the team declines, from a closed set or not at all."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    # Required, for `FLRegistrierungAufnehmenPayload.spieler_id`'s reason: the reason picks the
+    # sentence the pupil is mailed.
+    grund: FLRegistrierungAblehnungsgrund | None
+
+
+class FLRegistrierungAblehnungResponse(BaseAPIResponse):
+    """What the decline mail needs, answered to the frontend's server and never further."""
+
+    registrierung_id: CustomObjectId
+    team_id: CustomObjectId
+    saison_id: str
+    # The junction row's name, which the mail addresses the pupil by.
+    team: CustomNonEmptyString
+    vorname: CustomNonEmptyString
+    # As typed, the address the confirmation link was sent to: the one recipient this decline has.
+    email: CustomNonEmptyString
+    # Whether that address was ever proven. An unproven one is anybody's typing, and a mail to it
+    # tells a stranger about a team's decision.
+    bestaetigt: bool
+    grund: FLRegistrierungAblehnungsgrund | None

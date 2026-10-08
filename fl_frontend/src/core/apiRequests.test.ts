@@ -183,10 +183,7 @@ const expectedCallerFiles = featureSlices
  * A read module whose slice reaches the client through its sibling. **Each entry is a decision, not
  * a backlog row**: the run still compares every request the slice composes.
  */
-const DELEGATING_CALLERS: Record<string, string> = {
-  "features/registrierungen/queries.ts":
-    "both reads of this slice are POSTs, the token riding in the body rather than the query string, so their calls are in mutations.ts",
-};
+const DELEGATING_CALLERS: Record<string, string> = {};
 
 const configFile = ts.readConfigFile(path.join(FRONTEND_DIR, "tsconfig.json"), ts.sys.readFile);
 const parsedConfig = ts.parseJsonConfigFileContent(configFile.config, ts.sys, FRONTEND_DIR);

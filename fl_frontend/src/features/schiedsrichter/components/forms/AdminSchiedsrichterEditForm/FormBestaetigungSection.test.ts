@@ -11,8 +11,10 @@ import { userEvent } from "@testing-library/user-event";
 
 import { ZUSTELLUNG_CHIP } from "@/features/bewerbungen/zustellung.ts";
 import { SCHIEDSRICHTER_KORREKTUR_HINWEIS } from "@/features/schiedsrichter/constants.ts";
+import { EINWILLIGUNG_FASSUNG_FRAGE, EINWILLIGUNG_MEDIEN_FRAGE, EINWILLIGUNG_MEDIEN_LABELS } from "@/features/spieler/constants.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { closedControl } from "@/shared/testing/closedControl.ts";
+import { assertLeerMarkup } from "@/shared/testing/leerGrade.ts";
 import { nextRouter, recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
@@ -29,7 +31,7 @@ const { calls, answerWith, answered } = doubleActions({
 const { raised: toasts } = doubleToasts();
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
-const { FormBestaetigungSection } = await import("./FormBestaetigungSection.tsx");
+const { BESTAETIGUNG_ERNEUT, FormBestaetigungSection } = await import("./FormBestaetigungSection.tsx");
 
 const SCHIEDSRICHTER_ID = "6890a1b2c3d4e5f607800001";
 
@@ -47,6 +49,7 @@ const BESTAETIGT: FLEinwilligung = {
   bestaetigt_am: "2026-09-22",
   text_version: "2026-09-schiedsrichterseite",
   medien: false,
+  nachweis: { umfang: null, medien: null },
 };
 
 type Props = Parameters<typeof FormBestaetigungSection>[0];
@@ -56,7 +59,9 @@ const PROPS: Props = {
   hatAdresse: true,
   isRetired: false,
   bestaetigung: null,
+  istAbgelaufen: false,
   einwilligung: null,
+  istFassungBekannt: true,
   geburtsdatum: null,
   isDirty: false,
 };
@@ -75,8 +80,86 @@ afterEach(() => {
 });
 
 describe("what the editor shows about a referee's own confirmation", () => {
+  /* The pupil's, the referee's and a contact seat's readouts give the one consent one wording. */
+  it("names the media consent in the admin readouts' one wording", () => {
+    const overrides = { einwilligung: { ...BESTAETIGT, medien: true } };
+    // The rows' own names, read off the markup: the act under each choice names a label too.
+    const rows = [...renderTree(panel(overrides)).matchAll(/<dt\b[^>]*>([^<]*)<\/dt>/g)].map((found) => found[1]);
+
+    assert.ok(rows.includes(EINWILLIGUNG_MEDIEN_FRAGE), "the media consent's row reads under a name of its own");
+    assert.ok(rows.includes(EINWILLIGUNG_FASSUNG_FRAGE), "the stored label's row reads under a name of its own");
+    assert.ok(words(overrides).includes(EINWILLIGUNG_MEDIEN_LABELS.erteilt), "the media consent reads in a wording of its own");
+  });
+
+  /** The stored label's row alone, read off the markup: each choice's act names the label too. */
+  const fassungRow = (overrides: Partial<Props>): string => {
+    const zeile = new RegExp(`<dt\\b[^>]*>${EINWILLIGUNG_FASSUNG_FRAGE}</dt>\\s*<dd\\b[^>]*>([\\s\\S]*?)</dd>`).exec(
+      renderTree(panel(overrides)),
+    );
+    assert.ok(zeile, "the panel renders no stored label's row");
+
+    return textOf(zeile[1] ?? "", " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  };
+
+  /* A key the registry holds nothing for is a record citing words nobody can produce, and a bare key
+     renders it alike a known one; the key stands beside the mark, for whoever repairs it. */
+  it("marks a stored label the registry does not hold, beside the key", () => {
+    assert.equal(fassungRow({ einwilligung: BESTAETIGT, istFassungBekannt: false }), `${String(BESTAETIGT.text_version)} Unbekannte Fassung`);
+  });
+
+  /* The registry's read failed: the panel says the check was not made rather than calling the label known or unknown. */
+  it("says the stored label went unchecked where the registry could not be read", () => {
+    assert.equal(fassungRow({ einwilligung: BESTAETIGT, istFassungBekannt: null }), `${String(BESTAETIGT.text_version)} Nicht geprüft`);
+  });
+
+  it("says in words where the record cites no label, and shows a known one as its key", () => {
+    assert.equal(fassungRow({ einwilligung: { ...BESTAETIGT, text_version: null } }), "Nicht hinterlegt");
+    assertLeerMarkup(renderTree(panel({ einwilligung: { ...BESTAETIGT, text_version: null } })), "Nicht hinterlegt");
+    assert.equal(fassungRow({ einwilligung: BESTAETIGT }), String(BESTAETIGT.text_version));
+  });
+
+  /* The account page moves one choice and leaves the confirmation's day and label standing, so a
+     choice read beside those alone would claim the referee decided it on the confirmation day. */
+  it("reads each choice with the act it stands on, a withdrawal naming the grant it ended", () => {
+    const text = words({
+      einwilligung: {
+        ...BESTAETIGT,
+        umfang: "intern",
+        nachweis: {
+          umfang: {
+            am: "2026-10-04T08:00:00Z",
+            text_version: "2026-10-konto-schiedsrichter",
+            erteilt_zuvor: { am: "2026-09-22T09:00:00Z", text_version: "2026-09-schiedsrichterseite" },
+          },
+          medien: null,
+        },
+      },
+    });
+
+    assert.ok(
+      text.includes("seit 04.10.2026, 10:00 Uhr, Fassung 2026-10-konto-schiedsrichter"),
+      "the publication choice reads without its own act",
+    );
+    assert.ok(text.includes("zuvor erteilt am 22.09.2026, 11:00 Uhr"), "the withdrawal hides the grant it ended");
+    assert.ok(
+      text.includes("seit der Bestätigung am 22.09.2026, Fassung 2026-09-schiedsrichterseite"),
+      "a choice never moved does not stand on its confirmation",
+    );
+  });
+
   /* The record is the person's own answer, so a control here would offer an administrator a write
      that is not theirs. */
+  /* The address change's panel on the same page holds a „Link erneut senden“ of its own, so this one is named for its link. */
+  it("names its re-send for its own link, the visible words staying the same", () => {
+    render(panel({ bestaetigung: BLOCK, einwilligung: null }));
+
+    const erneut = screen.getByRole("button", { name: BESTAETIGUNG_ERNEUT });
+    assert.equal(BESTAETIGUNG_ERNEUT, "Link erneut senden: Bestätigung");
+    assert.equal(erneut.textContent.trim(), "Link erneut senden");
+  });
+
   it("renders a confirmed record as facts with no control that could change it", () => {
     const { container } = render(panel({ bestaetigung: BLOCK, einwilligung: BESTAETIGT, geburtsdatum: "1990-01-01" }));
 
@@ -85,7 +168,7 @@ describe("what the editor shows about a referee's own confirmation", () => {
       // The one press this panel carries mails a link, and on a confirmed referee it is closed, so
       // the refusal overlay names it a second time; nothing here writes the record.
       screen.getAllByRole("button").map((control) => control.getAttribute("aria-label") ?? control.textContent),
-      ["Hinweis zur Bestätigung", "Link erneut senden", "Link erneut senden"],
+      ["Hinweis zur Bestätigung", BESTAETIGUNG_ERNEUT, BESTAETIGUNG_ERNEUT],
     );
   });
 
@@ -96,6 +179,10 @@ describe("what the editor shows about a referee's own confirmation", () => {
     assert.match(shown, /Nicht zugesagt/, "the media answer is not shown");
     assert.match(shown, /2026-09-schiedsrichterseite/, "the stamped wording is not named");
     assert.match(shown, /01\.01\.1990/, "the birthdate the same press wrote is not shown");
+  });
+
+  it("says in words where the record holds no birthdate", () => {
+    assert.match(words({ bestaetigung: BLOCK, einwilligung: BESTAETIGT, geburtsdatum: null }), /Geburtsdatum Nicht hinterlegt/);
   });
 
   /* A live row with no confirmed record is withheld, which is the fact an administrator reading an empty
@@ -148,19 +235,25 @@ describe("what the panel says about a link nobody answered", () => {
   /* A date an administrator reads as a deadline says nothing once it is past, and the one thing to
      do about it is the control in this same panel. */
   it("marks a deadline that has gone by", () => {
-    const shown = words({ bestaetigung: { ...BLOCK, frist: "2020-01-01" } });
+    const shown = words({ bestaetigung: { ...BLOCK, frist: "2020-01-01" }, istAbgelaufen: true });
 
     assert.match(shown, /abgelaufen/);
   });
 
   it("marks nothing while the link still works", () => {
-    assert.doesNotMatch(words({ bestaetigung: { ...BLOCK, frist: "2999-01-01" } }), /abgelaufen/);
+    assert.doesNotMatch(words({ bestaetigung: { ...BLOCK, frist: "2999-01-01" }, istAbgelaufen: false }), /abgelaufen/);
+  });
+
+  /* The read judges the deadline by the backend's own rule, so this browser's day decides nothing. */
+  it("marks the lapse by the read's judgement alone, never by the date it shows", () => {
+    assert.doesNotMatch(words({ bestaetigung: { ...BLOCK, frist: "2020-01-01" }, istAbgelaufen: false }), /abgelaufen/);
+    assert.match(words({ bestaetigung: { ...BLOCK, frist: "2999-01-01" }, istAbgelaufen: true }), /abgelaufen/);
   });
 
   /* A confirmed referee needs no live link, so a lapsed deadline beside their answer would report a
      state that costs them nothing. */
   it("marks no lapse on a referee who already answered", () => {
-    const shown = words({ bestaetigung: { ...BLOCK, frist: "2020-01-01" }, einwilligung: BESTAETIGT });
+    const shown = words({ bestaetigung: { ...BLOCK, frist: "2020-01-01" }, istAbgelaufen: true, einwilligung: BESTAETIGT });
 
     assert.doesNotMatch(shown, /abgelaufen/);
   });
@@ -192,7 +285,7 @@ describe("the control that sends the link", () => {
   it("keeps the retired row's press closed", () => {
     render(panel({ isRetired: true, bestaetigung: BLOCK }));
 
-    closedControl("Link erneut senden", /Reaktiviere den Eintrag/);
+    closedControl(BESTAETIGUNG_ERNEUT, /Reaktiviere den Eintrag/);
   });
 
   /* The endpoint refuses a second link for a person who has confirmed, there being no page left for
@@ -200,14 +293,14 @@ describe("the control that sends the link", () => {
   it("closes on a referee who already answered", () => {
     render(panel({ bestaetigung: BLOCK, einwilligung: BESTAETIGT }));
 
-    closedControl("Link erneut senden", /schon bestätigt/);
+    closedControl(BESTAETIGUNG_ERNEUT, /schon bestätigt/);
   });
 
   it("sends the referee's id and nothing else", async () => {
     answerWith(() => Promise.resolve({ success: true, message: "gesendet" }));
     render(panel({ bestaetigung: BLOCK }));
 
-    await userEvent.setup().click(screen.getByRole("button", { name: "Link erneut senden" }));
+    await userEvent.setup().click(screen.getByRole("button", { name: BESTAETIGUNG_ERNEUT }));
 
     assert.deepEqual(calls, [{ action: "einladeSchiedsrichterAction", payload: { id: SCHIEDSRICHTER_ID } }]);
     // Its answer lands inside this case, or its toast is the next case's first.
@@ -219,7 +312,7 @@ describe("the control that sends the link", () => {
     answerWith(() => Promise.resolve({ success: false, error: "Diese Person ist stillgelegt" }));
     render(panel({ bestaetigung: BLOCK }));
 
-    await userEvent.setup().click(screen.getByRole("button", { name: "Link erneut senden" }));
+    await userEvent.setup().click(screen.getByRole("button", { name: BESTAETIGUNG_ERNEUT }));
     await act(answered);
 
     await waitFor(() =>
@@ -237,7 +330,7 @@ describe("the control that sends the link", () => {
     // No answer came back, so the control's own repair names the connection.
     thrown: {
       answer: () => Promise.reject(new TypeError("Failed to fetch")),
-      repair: "Prüfe die Verbindung und sende den Link noch einmal. Ein neuer Link ersetzt einen, der schon rausging.",
+      repair: "Prüfe die Verbindung, lade die Seite neu und sende den Link erneut. Ein neuer Link ersetzt einen, der schon rausging.",
     },
     answered: { answer: () => Promise.resolve({ success: false, error: ANSWERED, outcome: "unknown" }), repair: ANSWERED },
   };
@@ -246,13 +339,13 @@ describe("the control that sends the link", () => {
       answerWith(answer);
       render(panel({ bestaetigung: BLOCK }));
 
-      await userEvent.setup().click(screen.getByRole("button", { name: "Link erneut senden" }));
+      await userEvent.setup().click(screen.getByRole("button", { name: BESTAETIGUNG_ERNEUT }));
       await act(answered);
 
       await waitFor(() =>
         assert.deepEqual(
           toasts.map((raised) => [raised.title, raised.description, raised.options?.outcome]),
-          [["Unklar, ob es gespeichert wurde", repair, "unknown"]],
+          [["Unklar, ob der Link verschickt wurde", repair, "unknown"]],
         ),
       );
     });
@@ -275,7 +368,7 @@ describe("the control that sends the link", () => {
       const { unmount } = render(underNext(h(FormBestaetigungSection, { ...PROPS, bestaetigung: BLOCK }), { router }));
       const before = toasts.length;
 
-      await userEvent.setup().click(screen.getByRole("button", { name: "Link erneut senden" }));
+      await userEvent.setup().click(screen.getByRole("button", { name: BESTAETIGUNG_ERNEUT }));
       // Read once every arm's answer has landed, each raising its one toast.
       await act(answered);
       await waitFor(() => assert.equal(toasts.length, before + 1, `the ${arm} send was answered nowhere`));

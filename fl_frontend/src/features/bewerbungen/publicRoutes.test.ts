@@ -13,31 +13,47 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { INSTAGRAM_HANDLE, INSTAGRAM_URL, KONTAKT_EMAIL } from "@/core/brand.ts";
-import { BESTAETIGUNG_ABSAETZE, BESTAETIGUNG_KENNTNISNAHME } from "@/core/einwilligung.ts";
+import { einwilligungAnswer, publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
+import { kontaktBestaetigungsLink } from "@/core/kontaktLink.ts";
 import { filesUnder } from "@/core/treeWalk.ts";
+import { MEDIEN_MIN_ALTER } from "@/features/registrierungen/constants.ts";
 import { FIELD_LABEL_CLASSES } from "@/shared/components/ui/formFieldStyles.ts";
 import { NAME_WRAP_CLASSES } from "@/shared/components/ui/nameWrap.ts";
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import {
+  laufendeBewerbungFassung,
+  laufendeKontaktFassung,
+  laufendeKontaktSaisonFassung,
+  laufendeKontaktVerwaltungFassung,
+} from "@/shared/testing/einwilligungAnswers.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
-import { answerReadsWith, backendNotFound, EMPTIEST_ANSWER, renderPage } from "@/shared/testing/pageHarness.ts";
+import { answerReadsWith, backendNotFound, EMPTIEST_ANSWER, pageBody, renderPage } from "@/shared/testing/pageHarness.ts";
 import { renderMarkup, renderTree, textOf } from "@/shared/testing/renderTest";
+import { assertOwnPanel, resultPanels } from "@/shared/testing/resultPanels.ts";
+import { TEST_SITE_KEY } from "@/shared/testing/siteverifyDouble.ts";
 import { filledSlots } from "@/shared/testing/stampedText.ts";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
 import { getGermanTodayStr } from "@/shared/utils/date";
 import { ANTWORT_UNKLAR } from "@/shared/utils/publicSubmit.ts";
 import { LINK_ADRESSE_GESPERRT } from "@/shared/utils/reopenLink.ts";
 
-import { bestaetigungsLink } from "./bestaetigungLink.ts";
-import { BEWERBUNG_MIN_ALTER, VERTRETUNG_MIN_ALTER } from "./constants.ts";
+import { ABLEHNEN_LABEL, BEWERBUNG_MIN_ALTER, VERTRETUNG_MIN_ALTER } from "./constants.ts";
 
+import type { KontaktAbsatzSchluessel } from "@/core/einwilligungSeiten.ts";
 import type { ReactElement, ReactNode } from "react";
+import type { BestaetigungStart } from "./components/views/BestaetigungView.tsx";
 import type { FLBewerbungFensterResponse, FLKontaktRolle } from "./schemas.ts";
 import type { LinkZustand } from "./types.ts";
 
 // The browser's own `fetch` rather than the transport's module, so the panel's answer arrives through
 // the one reader that decides which answers are this application's.
 const fetchMock = doubleFetch();
+
+/** The contact page's running words and the form's, off the registry the backend generated, as each page hands them in. */
+const KONTAKT = laufendeKontaktFassung();
+const KONTAKT_LABEL = KONTAKT.textVersion;
+const BEWERBUNG = laufendeBewerbungFassung();
 
 /** The toasts, replaced at the module boundary: the real module raises into HeroUI's queue. */
 const { raised } = doubleToasts();
@@ -59,6 +75,7 @@ const { default: BewerbungLoading } = await import("@/app/(public)/bewerbung/[sa
 const { default: BewerbungPage } = await import("@/app/(public)/bewerbung/[saison_id]/page.tsx");
 const { default: LandingPage } = await import("@/app/(public)/page.tsx");
 const { default: KontaktPage } = await import("@/app/(public)/(meta)/kontakt/page.tsx");
+const { default: BestaetigungPage } = await import("@/app/(public)/bestaetigung/kontakt/page.tsx");
 const { BewerbungBandSkeleton } = await import("./components/ui/BewerbungBandSkeleton.tsx");
 const { BewerbungInstagramBand } = await import("./components/ui/BewerbungInstagramBand.tsx");
 const { band } = await import("./components/ui/band.ts");
@@ -70,11 +87,10 @@ const { fensterZustand } = await import("./utils.ts");
 const { FLBewerbungEinwilligungAntwortPayloadSchema } = await import("./schemas.ts");
 const { BestaetigungFormPanel } = await import("./components/views/BestaetigungFormPanel.tsx");
 
-/** The words a reader presses to object, which the stamped version names in a paragraph of its own. */
-const ABLEHNEN_LABEL = "Ich möchte nicht eingetragen sein";
-const { BestaetigungHinweise, KlickBestaetigung, WhatsappHinweis, WiderspruchFolge } =
+const { BestaetigungHinweise, KlickBestaetigung, WhatsappHinweis, MedienHinweis, WiderspruchFolge } =
   await import("./components/views/BestaetigungHinweise.tsx");
-const { AdresseGesperrt, FaktenBanner, GespeicherteAngaben, Wert } = await import("./components/views/BestaetigungPanels.tsx");
+const { AdresseGesperrt, FaktenBanner, GespeicherteAngaben, LinkUnlesbar } = await import("./components/views/BestaetigungPanels.tsx");
+const { Wert } = await import("./components/ui/Gefuellt.tsx");
 const { BestaetigungView } = await import("./components/views/BestaetigungView.tsx");
 
 const FRONTEND_DIR = path.resolve(import.meta.dirname, "..", "..", "..");
@@ -106,6 +122,8 @@ const FENSTER: FLBewerbungFensterResponse = {
 /** A public page resolved whole, its window read answering `fenster` and no season running. */
 async function publicMarkup(Page: () => ReactNode, fenster: FLBewerbungFensterResponse | null): Promise<string> {
   answerReadsWith((endpoint, schema, params) => {
+    const einwilligung = einwilligungAnswer(endpoint);
+    if (einwilligung !== undefined) return einwilligung;
     if (endpoint === "/saisons/current" || (endpoint === "/bewerbungen/fenster" && fenster === null)) throw backendNotFound(endpoint);
     if (endpoint === "/bewerbungen/fenster") return fenster;
     return EMPTIEST_ANSWER(endpoint, schema, params);
@@ -114,7 +132,16 @@ async function publicMarkup(Page: () => ReactNode, fenster: FLBewerbungFensterRe
   return renderPage(underNext(h(Page)));
 }
 
-const BASE_PROPS = { saisonId: "2026", isUnlesbar: false, today: TODAY, schulen: SCHOOLS, isSchulenLesbar: true, vergebeneFarben: [] };
+const BASE_PROPS = {
+  saisonId: "2026",
+  fassung: BEWERBUNG,
+  isUnlesbar: false,
+  today: TODAY,
+  schulen: SCHOOLS,
+  isSchulenLesbar: true,
+  vergebeneFarben: [],
+  siteKey: TEST_SITE_KEY,
+};
 
 /** One prop set per window state, named by `fensterZustand` itself rather than by a label typed here. */
 const WINDOW_STATES = [
@@ -189,12 +216,14 @@ function renderBestaetigung(mindestalter = VERTRETUNG_MIN_ALTER) {
   const user = userEvent.setup();
   const view = render(
     h(BestaetigungFormPanel, {
+      fassung: KONTAKT,
       token: "kein-echtes-token",
       vorname: "Mira",
       schule: "Lessing-Kolleg",
       saison: "2026",
       rolle: "Ansprechperson",
       mindestalter: mindestalter,
+      medienMindestalter: MEDIEN_MIN_ALTER,
       onAbschluss: () => undefined,
     }),
   );
@@ -208,16 +237,21 @@ const pageFor = (rolle: FLKontaktRolle, zugleich_rolle: FLKontaktRolle | null, m
     start: {
       zustand: "gueltig",
       token: "kein-echtes-token",
+      fassung: KONTAKT,
       ansicht: {
         acknowledged: 1,
         zustand: "gueltig",
+        quelle: "bewerbung",
+        zeile: null,
         saison_id: "2026",
         schule: "Lessing-Kolleg",
         rolle: rolle,
         zugleich_rolle: zugleich_rolle,
         vorname: "Mira",
-        text_version: BESTAETIGUNG_KENNTNISNAHME.textVersion,
+        text_version: KONTAKT_LABEL,
+        laufende_fassung: KONTAKT_LABEL,
         mindestalter: mindestalter,
+        medien_mindestalter: MEDIEN_MIN_ALTER,
       },
     },
   });
@@ -574,7 +608,7 @@ describe("how the workflow's links are spelled", () => {
   /* The token rides in a parameter spelled `token`, which is what the edge's redaction maps strip.
      One module spells it, so a rename cannot leave a second spelling the maps do not cover. */
   it("spells every link the one way the edge redacts", () => {
-    const parameter = /\?(\w+)=/.exec(bestaetigungsLink("http://localhost:3000", "kein-echtes-token"))?.[1];
+    const parameter = /\?(\w+)=/.exec(kontaktBestaetigungsLink("http://localhost:3000", "kein-echtes-token"))?.[1];
 
     assert.equal(parameter, "token", "the shared helper names a parameter the edge's maps do not strip");
   });
@@ -768,14 +802,15 @@ describe("which of the confirmation page's words its stamped version covers", ()
     // The Ansprechperson's own floor, because `SLOTS.rolle` is that seat: a stamped paragraph is
     // compared against what THIS reader was shown, and the two seats are shown different numbers.
     minAlter: String(VERTRETUNG_MIN_ALTER),
+    medienMinAlter: String(MEDIEN_MIN_ALTER),
     kontakt: KONTAKT_EMAIL,
     // The slot renders as a link, whose own words are what a reader sees in the sentence.
     datenschutz: "Datenschutzerklärung",
   };
 
-  type Absatz = keyof typeof BESTAETIGUNG_ABSAETZE;
+  type Absatz = KontaktAbsatzSchluessel;
 
-  const stamped = (key: Absatz): string => filledSlots(BESTAETIGUNG_ABSAETZE[key], SLOTS);
+  const stamped = (key: Absatz): string => filledSlots(KONTAKT.absaetze[key], SLOTS);
 
   /** Every paragraph and list item a render puts on the page, as a reader reads it. */
   const paragraphsOf = (html: string): string[] =>
@@ -785,37 +820,42 @@ describe("which of the confirmation page's words its stamped version covers", ()
      nothing else: the panel around them words its own prose, which the version never covers. */
   const STANDING_TEXT = [
     renderMarkup(BestaetigungHinweise, {
+      absaetze: KONTAKT.absaetze,
       schule: SLOTS.schule,
       saison: SLOTS.saison,
       rolle: SLOTS.rolle,
       mindestalter: VERTRETUNG_MIN_ALTER,
       ablehnenLabel: ABLEHNEN_LABEL,
     }),
-    renderMarkup(WhatsappHinweis, {}),
+    renderMarkup(WhatsappHinweis, { absaetze: KONTAKT.absaetze }),
+    renderMarkup(MedienHinweis, { absaetze: KONTAKT.absaetze, medienMindestalter: MEDIEN_MIN_ALTER }),
     renderMarkup(KlickBestaetigung, {
+      absaetze: KONTAKT.absaetze,
       id: "klick-punkte",
       vorname: SLOTS.vorname,
       schule: SLOTS.schule,
       rolle: SLOTS.rolle,
       mindestalter: VERTRETUNG_MIN_ALTER,
     }),
-    renderMarkup(WiderspruchFolge, {}),
+    renderMarkup(WiderspruchFolge, { absaetze: KONTAKT.absaetze }),
   ].join("");
 
   const FORM_PANEL = renderMarkup(BestaetigungFormPanel, {
+    fassung: KONTAKT,
     token: "kein-echtes-token",
     vorname: SLOTS.vorname,
     schule: SLOTS.schule,
     saison: SLOTS.saison,
     rolle: SLOTS.rolle,
     mindestalter: VERTRETUNG_MIN_ALTER,
+    medienMindestalter: MEDIEN_MIN_ALTER,
     onAbschluss: () => undefined,
   });
 
   /* A record cites its label alone, so a paragraph the page spells for itself leaves that record
      claiming words its reader was never shown -- which is the whole of what the label is for. */
   it("renders no paragraph of its own beside the ones the version holds", () => {
-    const version = new Set((Object.keys(BESTAETIGUNG_ABSAETZE) as Absatz[]).map(stamped));
+    const version = new Set((Object.keys(KONTAKT.absaetze) as Absatz[]).map(stamped));
     const renderedProps = paragraphsOf(STANDING_TEXT);
 
     assert.ok(renderedProps.length > 0, "the information text rendered nothing, so this case compares nothing");
@@ -828,7 +868,7 @@ describe("which of the confirmation page's words its stamped version covers", ()
   it("renders every paragraph the version holds", () => {
     const renderedProps = new Set(paragraphsOf(STANDING_TEXT));
 
-    for (const key of Object.keys(BESTAETIGUNG_ABSAETZE) as Absatz[]) {
+    for (const key of Object.keys(KONTAKT.absaetze) as Absatz[]) {
       assert.ok(renderedProps.has(stamped(key)), `the version holds ${key}, which the page renders nowhere`);
     }
   });
@@ -839,7 +879,7 @@ describe("which of the confirmation page's words its stamped version covers", ()
     const text = textOf(FORM_PANEL);
     const describedBy = [...FORM_PANEL.matchAll(/aria-describedby="([^"]*)"/g)].flatMap((hit) => (hit[1] ?? "").split(" "));
 
-    assert.ok(text.includes(BESTAETIGUNG_KENNTNISNAHME.schalter), "the switch says something the stamped version does not hold");
+    assert.ok(text.includes(KONTAKT.schalter), "the switch says something the stamped version does not hold");
     assert.ok(describedBy.length > 0, "no control on the form describes itself by anything at all");
     assert.ok(
       // Cut at the first close, which is this block's: the points stand in a list, and no
@@ -862,7 +902,7 @@ describe("which of the confirmation page's words its stamped version covers", ()
     const { user, container } = renderBestaetigung();
     await user.click(screen.getByRole("button", { name: ABLEHNEN_LABEL }));
 
-    const version = new Map((Object.keys(BESTAETIGUNG_ABSAETZE) as Absatz[]).map((key) => [stamped(key), key]));
+    const version = new Map((Object.keys(KONTAKT.absaetze) as Absatz[]).map((key) => [stamped(key), key]));
     const counted = new Map<Absatz, number>();
 
     for (const paragraph of paragraphsOf(container.innerHTML)) {
@@ -872,7 +912,7 @@ describe("which of the confirmation page's words its stamped version covers", ()
 
     assert.deepEqual(
       [...counted.keys()].sort(),
-      (Object.keys(BESTAETIGUNG_ABSAETZE) as Absatz[]).sort(),
+      (Object.keys(KONTAKT.absaetze) as Absatz[]).sort(),
       "the armed form renders a stamped paragraph twice over, or drops one",
     );
     for (const [key, howOften] of counted) assert.equal(howOften, 1, `${key} stands on the page ${String(howOften)} times`);
@@ -883,13 +923,17 @@ describe("how wide the confirmation page stands, and how many boxes it draws", (
   const OPENED_LINK = {
     acknowledged: 1,
     zustand: "gueltig",
+    quelle: "bewerbung",
+    zeile: null,
     saison_id: "2026",
     schule: "Lessing-Kolleg",
     rolle: "ansprechperson",
     zugleich_rolle: null,
     vorname: "Mira",
-    text_version: BESTAETIGUNG_KENNTNISNAHME.textVersion,
+    text_version: KONTAKT_LABEL,
+    laufende_fassung: KONTAKT_LABEL,
     mindestalter: VERTRETUNG_MIN_ALTER,
+    medien_mindestalter: MEDIEN_MIN_ALTER,
   } as const;
 
   /** The reader's own facts, each distinctive enough that finding one in the markup means this reader. */
@@ -902,12 +946,15 @@ describe("how wide the confirmation page stands, and how many boxes it draws", (
     vorname: OPENED_LINK.vorname,
     ablehnen: ABLEHNEN_LABEL,
     minAlter: String(OPENED_LINK.mindestalter),
+    medienMinAlter: String(OPENED_LINK.medien_mindestalter),
     kontakt: KONTAKT_EMAIL,
     datenschutz: "Datenschutzerklärung",
   };
-  const STAMPED = new Set(Object.values(BESTAETIGUNG_ABSAETZE).map((text) => filledSlots(text, SLOTS)));
+  const STAMPED = new Set(Object.values(KONTAKT.absaetze).map((text) => filledSlots(text, SLOTS)));
 
-  const VALID_PAGE = renderMarkup(BestaetigungView, { start: { zustand: "gueltig", ansicht: OPENED_LINK, token: "kein-echtes-token" } });
+  const VALID_PAGE = renderMarkup(BestaetigungView, {
+    start: { zustand: "gueltig", ansicht: OPENED_LINK, token: "kein-echtes-token", fassung: KONTAKT },
+  });
   const STATE_PAGES = (["bestaetigt", "abgelehnt", "abgelaufen", "ungueltig", "unlesbar", "gesperrt"] as const).map((zustand) => ({
     zustand: zustand,
     html: renderMarkup(BestaetigungView, { start: { zustand: zustand } }),
@@ -954,6 +1001,19 @@ describe("how wide the confirmation page stands, and how many boxes it draws", (
   const withoutEmphasis = (passage: string): string =>
     passage.replace(/<strong class="([^"]*)">[\s\S]*?<\/strong>/g, (whole, classes) => (classes === WERT_CLASS ? "" : whole));
 
+  const BUCHSTABE = /[\p{L}\p{N}]/u;
+
+  /**
+   * Whether `value` stands in `text` as a word of its own: the media paragraph's „Ansprechpersonen“
+   * are the people at a matchday, never this reader's seat.
+   */
+  function standsAsWord(text: string, value: string): boolean {
+    for (let at = text.indexOf(value); at !== -1; at = text.indexOf(value, at + 1)) {
+      if (!BUCHSTABE.test(text.charAt(at - 1)) && !BUCHSTABE.test(text.charAt(at + value.length))) return true;
+    }
+    return false;
+  }
+
   /* The application form's page, not a card of its own: one column measures the same on both ends of
      the workflow, and a cap typed here is one nobody moves when that page's moves. */
   it("stands in the column the application page stands in", () => {
@@ -990,7 +1050,7 @@ describe("how wide the confirmation page stands, and how many boxes it draws", (
       const bare = textOf(withoutEmphasis(passage));
 
       for (const value of OWN_VALUES) {
-        assert.ok(!bare.includes(value), `„${value}“ stands in the page's prose with nothing making it stand out: ${textOf(passage)}`);
+        assert.ok(!standsAsWord(bare, value), `„${value}“ stands in the page's prose with nothing making it stand out: ${textOf(passage)}`);
       }
     }
   });
@@ -1329,7 +1389,8 @@ describe("what a decline may carry", () => {
       token: "kein-echtes-token",
       antwort: "abgelehnt",
       geburtsdatum: null,
-      text_version: BESTAETIGUNG_KENNTNISNAHME.textVersion,
+      medien: false,
+      text_version: KONTAKT_LABEL,
     };
     const refused = FLBewerbungEinwilligungAntwortPayloadSchema.safeParse({ ...abgelehnt, whatsapp: true });
 
@@ -1343,19 +1404,24 @@ describe("what a decline may carry", () => {
   });
 });
 
-describe("what a link to a barred address opens on", () => {
-  const OFFEN = {
-    acknowledged: 1,
-    zustand: "gueltig",
-    saison_id: "2026",
-    schule: "Lessing-Kolleg",
-    rolle: "ansprechperson",
-    zugleich_rolle: null,
-    vorname: "Mira",
-    text_version: BESTAETIGUNG_KENNTNISNAHME.textVersion,
-    mindestalter: BEWERBUNG_MIN_ALTER,
-  } as const;
+/** A live link's answer, as the read that opened it serves one. */
+const OFFEN = {
+  acknowledged: 1,
+  zustand: "gueltig",
+  quelle: "bewerbung",
+  zeile: null,
+  saison_id: "2026",
+  schule: "Lessing-Kolleg",
+  rolle: "ansprechperson",
+  zugleich_rolle: null,
+  vorname: "Mira",
+  text_version: KONTAKT_LABEL,
+  laufende_fassung: KONTAKT_LABEL,
+  mindestalter: BEWERBUNG_MIN_ALTER,
+  medien_mindestalter: MEDIEN_MIN_ALTER,
+} as const;
 
+describe("what a link to a barred address opens on", () => {
   it("is the shared barred page and nothing beside it", () => {
     assert.equal(
       renderMarkup(BestaetigungView, { start: { zustand: "gesperrt" } }),
@@ -1370,7 +1436,9 @@ describe("what a link to a barred address opens on", () => {
     raised.length = 0;
     fetchMock.mock.mockImplementationOnce(() => Promise.resolve(new Response(JSON.stringify({ success: false, zustand: "gesperrt" }))));
     const user = userEvent.setup();
-    const { unmount } = render(h(BestaetigungView, { start: { zustand: "gueltig", ansicht: OFFEN, token: "kein-echtes-token" } }));
+    const { unmount } = render(
+      h(BestaetigungView, { start: { zustand: "gueltig", ansicht: OFFEN, token: "kein-echtes-token", fassung: KONTAKT } }),
+    );
 
     const [jahr = "", monat = "", tag = ""] = parseDate(getGermanTodayStr()).subtract({ years: 30 }).toString().split("-");
     await user.click(within(screen.getByRole("group", { name: "Dein Geburtsdatum" })).getAllByRole("spinbutton")[0]!);
@@ -1386,6 +1454,48 @@ describe("what a link to a barred address opens on", () => {
     assert.ok(shown, "the page kept the form the press cannot use again");
     assert.equal(buttons, 0, "a press — a Widerspruch among them — stands beside the barred sentence");
     assert.equal(toasts, 0, "the ban was raised as a toast over the form");
+  });
+});
+
+/* Each state answers with one panel: a second beside it tells the contact two outcomes. */
+describe("the result panel each state of the contact's confirmation page shows", () => {
+  it("shows the page's own panel for each state the link opens on and no other", () => {
+    const [unlesbar = ""] = resultPanels(renderMarkup(LinkUnlesbar, {}));
+    assert.match(unlesbar, /gerade nicht prüfen/, "the shared panel no longer says the link went unchecked");
+    const dead = "Dieser Link ist ungültig oder abgelaufen.";
+
+    for (const [start, eigenes] of [
+      [{ zustand: "gueltig", ansicht: OFFEN, token: "kein-echtes-token", fassung: KONTAKT }, null],
+      [{ zustand: "saison_vorbei", ansicht: OFFEN, token: "kein-echtes-token" }, null],
+      [{ zustand: "bestaetigt" }, "Dieser Eintrag ist schon bestätigt."],
+      [{ zustand: "abgelehnt" }, "Über diesen Link wurde dem Eintrag schon widersprochen."],
+      [{ zustand: "abgelaufen" }, dead],
+      [{ zustand: "ungueltig" }, dead],
+      [{ zustand: "gesperrt" }, LINK_ADRESSE_GESPERRT],
+      [{ zustand: "unlesbar" }, unlesbar],
+    ] satisfies [BestaetigungStart, string | null][]) {
+      assertOwnPanel(renderMarkup(BestaetigungView, { start }), eigenes, start.zustand);
+    }
+  });
+
+  it("shows the saved objection's own panel and no other once the objection is answered", async () => {
+    fetchMock.mock.mockImplementationOnce(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({ success: true, ergebnis: "abgelehnt", geburtsdatum: null, whatsapp: false, medien: false })),
+      ),
+    );
+    const user = userEvent.setup();
+    const { unmount } = render(
+      h(BestaetigungView, { start: { zustand: "gueltig", ansicht: OFFEN, token: "kein-echtes-token", fassung: KONTAKT } }),
+    );
+
+    await pressTwice(user, { resting: ABLEHNEN_LABEL, armed: /Widerspruch/ });
+    await act(fetchMock.answered);
+    await screen.findByRole("heading", { name: "Widerspruch gespeichert" });
+    const html = document.body.innerHTML;
+    unmount();
+
+    assertOwnPanel(html, "Deine Angaben haben wir aus der Bewerbung entfernt", "widersprochen-neu");
   });
 });
 
@@ -1406,5 +1516,164 @@ describe("the address the confirmation page opened under", () => {
     unmount();
 
     assert.equal(adresse, "/bestaetigung/kontakt?token=kein-echtes-token", "the page stripped the token a reload needs");
+  });
+});
+
+describe("the words the two contact pages are handed", () => {
+  const GEOEFFNET = {
+    acknowledged: 1,
+    quelle: "bewerbung",
+    zeile: null,
+    zustand: "gueltig",
+    saison_id: "2026",
+    schule: "Lessing-Kolleg",
+    rolle: "ansprechperson",
+    zugleich_rolle: null,
+    vorname: "Mira",
+    text_version: KONTAKT_LABEL,
+    laufende_fassung: KONTAKT_LABEL,
+    mindestalter: VERTRETUNG_MIN_ALTER,
+    medien_mindestalter: MEDIEN_MIN_ALTER,
+  } as const;
+
+  /**
+   * Every read answered as the backend would: `laufend` overriding what it runs on each page,
+   * `ansichtNennt` and `zustand` the link view's label and state, `scheitert` failing one endpoint,
+   * `worte` every words read, and `seiten` the registry whole.
+   */
+  function backend({
+    laufend,
+    ansichtNennt,
+    zustand,
+    scheitert,
+    worte,
+    seiten,
+  }: {
+    laufend?: Record<string, string>;
+    ansichtNennt?: string;
+    zustand?: string;
+    scheitert?: string;
+    worte?: unknown;
+    seiten?: unknown;
+  } = {}): void {
+    answerReadsWith((endpoint, schema, params) => {
+      if (endpoint === scheitert) throw new Error(`the backend failed ${endpoint}`);
+      if (worte !== undefined && endpoint.startsWith("/einwilligung/fassungen/")) return worte;
+      if (endpoint === "/einwilligung/seiten" && seiten !== undefined) return seiten;
+      if (endpoint === "/einwilligung/seiten" && laufend !== undefined) return { acknowledged: 1, laufende_fassungen: laufend };
+      if (endpoint === "/bewerbungen/einwilligung/ansicht")
+        return { ...GEOEFFNET, zustand: zustand ?? GEOEFFNET.zustand, laufende_fassung: ansichtNennt ?? GEOEFFNET.laufende_fassung };
+      if (endpoint === "/bewerbungen/fenster/2026") return FENSTER;
+      return einwilligungAnswer(endpoint) ?? EMPTIEST_ANSWER(endpoint, schema, params);
+    });
+  }
+
+  const bestaetigungStart = async (): Promise<BestaetigungStart> => {
+    const body = (await pageBody(BestaetigungPage, {
+      params: Promise.resolve({}),
+      searchParams: Promise.resolve({ token: "kein-echtes-token" }),
+    })) as ReactElement<{ start: BestaetigungStart }>;
+    return body.props.start;
+  };
+
+  const formFassung = async (): Promise<unknown> => {
+    const body = (await pageBody(BewerbungPage, {
+      params: Promise.resolve({ saison_id: "2026" }),
+      searchParams: Promise.resolve({}),
+    })) as ReactElement<{ fassung: unknown }>;
+    return body.props.fassung;
+  };
+
+  /* The backend picks the seat's page by how it was filled and where it sits, and the answer must
+     name that page's label: words of this page's own choosing are judged against a label the seat
+     does not run. */
+  it("hands an open link the words of the label its view names, on every contact page", async () => {
+    for (const fassung of [KONTAKT, laufendeKontaktVerwaltungFassung(), laufendeKontaktSaisonFassung()]) {
+      backend({ ansichtNennt: fassung.textVersion });
+      const start = await bestaetigungStart();
+
+      assert.equal(start.zustand, "gueltig", `an open link naming ${fassung.textVersion} did not open`);
+      assert.deepEqual(
+        start.zustand === "gueltig" ? start.fassung : null,
+        fassung,
+        `the page renders words other than ${fassung.textVersion}'s`,
+      );
+    }
+  });
+
+  /* The view names the label, so a page running list without the contact pages opens the link all the same. */
+  it("takes the label from the link's view rather than the running list", async () => {
+    backend({ laufend: {} });
+
+    assert.equal((await bestaetigungStart()).zustand, "gueltig", "the page asked the running list for the label its view names");
+  });
+
+  /* A label whose sections were never kept by key, or another page's, is a broken contract rather than
+     a failed read: it reaches the error boundary, which logs it, never the panel asking for a reload. */
+  it("lets a label its view names and the page cannot place reach the error boundary", async () => {
+    for (const label of ["2026-09-bestaetigungsseite-5", publishedLaufendeFassung("bestaetigung_spieler").text_version]) {
+      backend({ ansichtNennt: label });
+
+      await assert.rejects(bestaetigungStart(), { name: "ZodError" }, `${label} was absorbed into a panel`);
+    }
+  });
+
+  /* The read failing is a state of its own, which a reload may clear. */
+  it("opens a link on the failed read's panel where the words read fails", async () => {
+    backend({ scheitert: `/einwilligung/fassungen/${KONTAKT_LABEL}` });
+
+    assert.deepEqual(await bestaetigungStart(), { zustand: "unlesbar" });
+  });
+
+  /* A closed season row's link takes a Widerspruch alone, which shows no stamped words. */
+  it("opens a season row's link past its season on the Widerspruch alone, reading no words", async () => {
+    backend({ zustand: "saison_vorbei", scheitert: `/einwilligung/fassungen/${KONTAKT_LABEL}` });
+    const start = await bestaetigungStart();
+
+    assert.equal(start.zustand, "saison_vorbei", "a closed season row's link opened on another page");
+    assert.equal(
+      start.zustand === "saison_vorbei" ? start.token : null,
+      "kein-echtes-token",
+      "the page dropped the token the Widerspruch needs",
+    );
+  });
+
+  /* The backend naming a label its own registry does not hold, or words off their schema, is a broken
+     contract: only a deploy repairs it, so it reaches the error boundary, never the panel asking for a
+     reload. */
+  it("lets a view naming words the registry cannot serve reach the error boundary", async () => {
+    backend({ ansichtNennt: "eine-unbekannte-fassung" });
+    await assert.rejects(bestaetigungStart(), { name: "ContractBreakError" }, "a label the registry does not hold was absorbed into a panel");
+
+    backend({ worte: { acknowledged: 1 } });
+    await assert.rejects(bestaetigungStart(), { name: "ContractBreakError" }, "words off their schema were absorbed into a panel");
+  });
+
+  it("hands the application form the words and label the backend runs on the form", async () => {
+    backend();
+
+    assert.deepEqual(await formFassung(), BEWERBUNG, "the form renders words other than the backend serves");
+  });
+
+  /* A form without its words would stamp a label nobody was shown, so a running window whose words
+     could not be read offers no form and says why. */
+  it("offers no form where the form's words could not be read, and says so", async () => {
+    backend({ scheitert: `/einwilligung/fassungen/${BEWERBUNG.textVersion}` });
+    const fassung = await formFassung();
+    const html = renderMarkup(BewerbungView, { ...BASE_PROPS, fenster: FENSTER, fassung: null });
+
+    assert.equal(fassung, null, "a failed words read reached the form as words");
+    assert.ok(!html.includes('name="team_id"'), "the page offers a form it holds no words for");
+    assert.ok(textOf(html).includes("Wir können das Formular gerade nicht laden"), "the page does not say why no form stands");
+  });
+
+  /* A registry answering against what the form was built for is no failed read: only a deploy repairs
+     it, so it reaches the error boundary, which logs it, never the panel asking for a reload. */
+  it("lets a registry breaking its contract on the form reach the error boundary", async () => {
+    backend({ laufend: {} });
+    await assert.rejects(formFassung(), { name: "ContractBreakError" }, "no label for the form was absorbed into a panel");
+
+    backend({ seiten: { acknowledged: 1 } });
+    await assert.rejects(formFassung(), { name: "APIMalformedDataError" }, "a registry answer off its schema was absorbed into a panel");
   });
 });

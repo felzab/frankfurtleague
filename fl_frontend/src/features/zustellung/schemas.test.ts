@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 
 import { FLBewerbungZustellungEreignisPayloadSchema } from "@/features/bewerbungen/schemas";
 
-import { FLZustellungAbgewiesenPayloadSchema, FLZustellungEreignisPayloadSchema } from "./schemas";
+import { FLZustellungAbgewiesenPayloadSchema, FLZustellungAngenommenPayloadSchema, FLZustellungEreignisPayloadSchema } from "./schemas";
 
 const ZIEL_ID = `${"c".repeat(23)}3`;
 const BEWERBUNG_ID = `${"a".repeat(23)}1`;
@@ -15,7 +15,12 @@ const MIRRORS = [
   [
     "features/zustellung/schemas.ts :: FLZustellungEreignisPayloadSchema",
     FLZustellungEreignisPayloadSchema,
-    { ziel: "schiedsrichter", ziel_id: ZIEL_ID, nachricht_id: MESSAGE_ID, stand: "unzustellbar", am: EVENT_AT },
+    { ziel: "schiedsrichter", ziel_id: ZIEL_ID, rollen: [], nachricht_id: MESSAGE_ID, stand: "unzustellbar", am: EVENT_AT },
+  ],
+  [
+    "features/zustellung/schemas.ts :: FLZustellungEreignisPayloadSchema, a season row's seat",
+    FLZustellungEreignisPayloadSchema,
+    { ziel: "kontakt", ziel_id: ZIEL_ID, rollen: ["trainer"], nachricht_id: MESSAGE_ID, stand: "unzustellbar", am: EVENT_AT },
   ],
   [
     "features/bewerbungen/schemas.ts :: FLBewerbungZustellungEreignisPayloadSchema",
@@ -25,7 +30,7 @@ const MIRRORS = [
   [
     "features/zustellung/schemas.ts :: FLZustellungAbgewiesenPayloadSchema",
     FLZustellungAbgewiesenPayloadSchema,
-    { ziel: "schiedsrichter", ziel_id: ZIEL_ID, am: EVENT_AT },
+    { ziel: "schiedsrichter", ziel_id: ZIEL_ID, rollen: [], am: EVENT_AT },
   ],
 ] as const;
 
@@ -55,6 +60,39 @@ describe("the provider's own token, as both mirrors screen it", () => {
        mailbox, and a floor here would drop the whole state with the missing word. */
     it(`${name} takes an empty token`, () => {
       assert.equal(schema.safeParse(bodyFor(keys, "")).success, true);
+    });
+  }
+});
+
+describe("the seats a delivery write names", () => {
+  const WRITES = [
+    ["angenommen", FLZustellungAngenommenPayloadSchema, { nachricht_id: MESSAGE_ID }],
+    ["abgewiesen", FLZustellungAbgewiesenPayloadSchema, { grund: null }],
+    ["ereignis", FLZustellungEreignisPayloadSchema, { nachricht_id: MESSAGE_ID, stand: "zugestellt", grund: null }],
+  ] as const;
+
+  /* The endpoint pairs the kind with its seats and answers 422 otherwise, which the delivery route
+     turns into a 200: a body it refuses is a record lost with nothing to say so. */
+  for (const [name, schema, rest] of WRITES) {
+    it(`${name} takes a season row's seats and refuses a season row naming none`, () => {
+      const body = (rollen: string[]) => ({ ziel: "kontakt", ziel_id: ZIEL_ID, rollen: rollen, am: EVENT_AT, ...rest });
+
+      assert.equal(schema.safeParse(body(["ansprechperson", "trainer"])).success, true);
+      assert.deepEqual(
+        schema.safeParse(body([])).error?.issues.map((issue) => issue.path.join(".")),
+        ["rollen"],
+      );
+    });
+
+    it(`${name} refuses a seat on a kind with one carrier, and a body naming no seats at all`, () => {
+      const body = { ziel: "schiedsrichter", ziel_id: ZIEL_ID, am: EVENT_AT, ...rest };
+
+      assert.equal(schema.safeParse({ ...body, rollen: [] }).success, true);
+      assert.deepEqual(
+        schema.safeParse({ ...body, rollen: ["trainer"] }).error?.issues.map((issue) => issue.path.join(".")),
+        ["rollen"],
+      );
+      assert.equal(schema.safeParse(body).success, false, "the required key was left out and the body still parsed");
     });
   }
 });

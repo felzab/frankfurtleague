@@ -1,6 +1,7 @@
 import House from "@gravity-ui/icons/House";
 import Person from "@gravity-ui/icons/Person";
 import PersonPencil from "@gravity-ui/icons/PersonPencil";
+import Tray from "@gravity-ui/icons/Tray";
 
 import type { SidemenuHint, SidemenuStructure, SidemenuStructureSubOption } from "@/shared/types/types";
 import type React from "react";
@@ -86,6 +87,10 @@ export function personStructureFor(eintraege: ReadonlySet<PersonEintrag>): Sidem
 /** `TeamIconName` is derived from this, so an `iconName` typo below is a compile error. */
 export const TEAM_SIDEMENU_ICONS = {
   House,
+  // The squad is the pupil's record, so it wears that record's glyph here as on the two „Spieler“ entries.
+  PersonPencil,
+  // The admin's glyph for its applications queue, so a queue awaiting a decision wears one glyph on both sides.
+  Tray,
 } as const satisfies Record<string, React.ElementType>;
 
 export type TeamIconName = keyof typeof TEAM_SIDEMENU_ICONS;
@@ -120,7 +125,23 @@ export const TEAM_SIDEMENU_ENTRIES = [
     label: "Übersicht",
     iconName: "House",
     hint: {
-      lead: "Dein Team in dieser Saison und Deine Funktion darin.",
+      lead: "Dein Team in dieser Saison, Deine Funktion darin und wer die anderen Funktionen hat.",
+    },
+  },
+  {
+    id: "kader",
+    label: "Kader",
+    iconName: "PersonPencil",
+    hint: {
+      lead: "Der Kader Deines Teams in dieser Saison.",
+    },
+  },
+  {
+    id: "registrierungen",
+    label: "Registrierungen",
+    iconName: "Tray",
+    hint: {
+      lead: "Wer sich über den Link Deines Teams registriert hat, und Deine Entscheidung darüber.",
     },
   },
 ] as const satisfies readonly SidemenuStructureSubOption<TeamIconName>[];

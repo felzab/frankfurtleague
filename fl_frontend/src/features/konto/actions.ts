@@ -2,9 +2,12 @@
 
 import { headers } from "next/headers";
 
-import { endSessionOf, revokeOtherSessions } from "@/core/auth";
+import { endSessionOf, revokeOtherSessions, sendSignInCode } from "@/core/auth";
+import { asSignInIdentifier } from "@/core/emailAddress";
+import { logger } from "@/core/logging";
 import { recordWriteSent } from "@/core/requestScope";
-import { isHeldBy, runKontoMutation } from "@/shared/utils/kontoMutation";
+import { isHeldBy, runKontoMutation, runKontoStepUp } from "@/shared/utils/kontoMutation";
+import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal";
 import { VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import type { ActionResult, QueryResult } from "@/shared/types/types";
@@ -53,4 +56,26 @@ export async function endAndereAnmeldungenAction(): Promise<ActionResult> {
  */
 export async function pruefeInhaberAction(inhaberId: string): Promise<QueryResult<{ gleich: boolean }>> {
   return runKontoMutation("pruefeInhaberAction", async (served) => ({ success: true, gleich: isHeldBy(served, inhaberId) }));
+}
+
+/** What the step-up's send answers: the address is the holder's own, so nothing here is withheld from them. */
+const CODE_UNTERWEGS = "Ein Anmeldecode ist an Deine Adresse unterwegs.";
+
+/**
+ * Mails the holder a code to confirm themselves with. The address is the session's and never a posted one,
+ * so the press mails nobody but the holder and needs no bot check (`docs/frontend/spec.md :: I624`).
+ */
+export async function sendeBestaetigungscodeAction(): Promise<ActionResult> {
+  return runKontoStepUp("sendeBestaetigungscodeAction", async (served) => {
+    try {
+      // Folded as the sign-in's own send folds it, so the code row is the one the code step checks.
+      await sendSignInCode(asSignInIdentifier(served.user.email), await headers());
+    } catch (failed) {
+      // The NAME alone: an error on this path routinely carries the address.
+      logger.error("auth.sign_in_failed", undefined, { error_code: "FE-AUTH-002", name: failed instanceof Error ? failed.name : "unknown" });
+      return { success: false, error: VERSUCHE_ES_ERNEUT_SATZ };
+    }
+
+    return { success: true, message: CODE_UNTERWEGS };
+  });
 }

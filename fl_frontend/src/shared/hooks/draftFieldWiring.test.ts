@@ -15,7 +15,10 @@ import { z } from "zod";
 
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import { laufendeKontaktFassung, laufendeNeubesetzung } from "@/shared/testing/einwilligungAnswers.ts";
+import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
+import { TEST_SITE_KEY } from "@/shared/testing/siteverifyDouble.ts";
 
 import type { ActionResult } from "@/shared/types/types.ts";
 
@@ -98,13 +101,12 @@ const kontakt = (vorname: string, email: string) => ({
   email,
   telefon: "069 1234567",
   geburtsdatum: null,
-  einwilligung: {
-    umfang: "kontaktdaten" as const,
+  einwilligung: kenntnisnahme({
     erfasst_von: "administrativ" as const,
     text_version: "2026-09-bestaetigungsseite",
     datum: "2026-09-01",
     bestaetigt_am: null,
-  },
+  }),
 });
 
 /* `aria` sets `noValidate` and drops every `required`, so the browser stops nothing: a form whose press
@@ -114,7 +116,7 @@ describe("a public or single-purpose form's press over a draft its schema refuse
   it("the sign-in card sends no code for an empty address", async () => {
     const user = userEvent.setup();
     const { SignInForm } = await import("@/features/auth/components/forms/SignInForm.tsx");
-    render(h(SignInForm, { next: "/signin/weiter" }));
+    render(h(SignInForm, { next: "/signin/weiter", siteKey: TEST_SITE_KEY }));
     calls.length = 0;
 
     await user.click(screen.getByRole("button", { name: "Code senden" }));
@@ -152,7 +154,7 @@ describe("a public or single-purpose form's press over a draft its schema refuse
       ),
     );
 
-    await user.click(screen.getByRole("button", { name: "Passkey vom 1. September 2026 umbenennen" }));
+    await user.click(screen.getByRole("button", { name: "Umbenennen: Passkey vom 1. September 2026" }));
     await user.clear(screen.getByRole("textbox", { name: "Name" }));
     await user.click(screen.getByRole("button", { name: "Speichern" }));
     await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
@@ -165,12 +167,14 @@ describe("a public or single-purpose form's press over a draft its schema refuse
     const { BestaetigungFormPanel } = await import("@/features/bewerbungen/components/views/BestaetigungFormPanel.tsx");
     render(
       h(BestaetigungFormPanel, {
+        fassung: laufendeKontaktFassung(),
         token: "kein-echtes-token",
         vorname: "Mira",
         schule: "Lessing-Kolleg",
         saison: "2026",
         rolle: "Ansprechperson",
         mindestalter: 18,
+        medienMindestalter: 18,
         onAbschluss: () => undefined,
       }),
     );
@@ -198,6 +202,7 @@ describe("a public or single-purpose form's press over a draft its schema refuse
           team_eingetragen: true,
           nachnominierung: false,
         },
+        siteKey: TEST_SITE_KEY,
         onLinkTot: () => undefined,
       }),
     );
@@ -227,9 +232,11 @@ describe("a public or single-purpose form's press over a draft its schema refuse
     render(
       underNext(
         h(BewerbungBestaetigungStrip, {
+          neubesetzung: laufendeNeubesetzung(),
           bewerbungId: "68d0f2a4c1e2b3a4d5e6f708",
           staende,
           frist: "2099-12-31",
+          fristAbgelaufen: false,
           isOpen: true,
           isDirty: false,
           onGetipptChange: () => undefined,
@@ -238,7 +245,7 @@ describe("a public or single-purpose form's press over a draft its schema refuse
     );
     calls.length = 0;
 
-    await user.click(screen.getByRole("button", { name: "Trainer neu besetzen" }));
+    await user.click(screen.getByRole("button", { name: "Neu besetzen: Trainer" }));
     await user.type(screen.getByRole("textbox", { name: "Vorname" }), "Doreen");
     await user.type(screen.getByRole("textbox", { name: "Nachname" }), "Ostwald");
     await user.type(screen.getByRole("textbox", { name: "Telefon" }), "069 7654321");
@@ -286,6 +293,7 @@ const OTHER_FORMS = [
   "features/registrierungen/components/views/RegistrierungFormPanel.tsx",
   "features/registrierungen/components/views/SpielerBestaetigungView.tsx",
   "features/schiedsrichter/components/views/SchiedsrichterBestaetigungView.tsx",
+  "features/spieler/components/forms/KaderZeileEditForm/KaderZeileEditForm.tsx",
   "shared/components/ui/EntityForm.tsx",
 ];
 

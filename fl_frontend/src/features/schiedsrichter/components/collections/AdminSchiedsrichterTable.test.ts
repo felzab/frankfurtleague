@@ -5,6 +5,7 @@ import { createElement as h } from "react";
 
 import { SCHIEDSRICHTER_ANONYM_LABEL, SCHIEDSRICHTER_OHNE_NAMEN_LABEL } from "@/features/schiedsrichter/constants.ts";
 import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
+import { assertLeerMarkup } from "@/shared/testing/leerGrade.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
@@ -26,6 +27,7 @@ const LIVE: FLSchiedsrichter = {
   geburtsdatum: null,
   einwilligung: null,
   bestaetigung: null,
+  adresswechsel: null,
 };
 
 /**
@@ -78,7 +80,7 @@ describe("the referee row's copy control", () => {
       "a row carrying only a name still offers to copy its contact details",
     );
     assert.ok(
-      accessibleNames(html).some((name) => name === `Schiedsrichter ${LIVE.name ?? ""} bearbeiten`),
+      accessibleNames(html).some((name) => name === `Bearbeiten: Schiedsrichter ${LIVE.name ?? ""}`),
       "the named row lost the link to its editor, so the case above passes for the wrong reason",
     );
   });
@@ -103,7 +105,8 @@ describe("the referee row's copy control", () => {
     ]);
 
     assert.ok(!textOf(html).includes("adresse-fehlt@frankfurtleague.invalid"), "the placeholder is shown as the row's address");
-    assert.ok(textOf(html).includes("Keine E-Mail"), "the row holding the placeholder does not say it holds no address");
+    assert.ok(textOf(html).includes("E-Mail nicht hinterlegt"), "the row holding the placeholder does not say it holds no address");
+    assertLeerMarkup(html, "E-Mail nicht hinterlegt");
     assert.deepEqual(
       accessibleNames(html).filter((name) => name.startsWith("Kontaktdaten")),
       [],
@@ -117,15 +120,15 @@ describe("the referee row's copy control", () => {
     const nameless = accessibleNames(table([NAMENLOS]));
 
     assert.ok(
-      nameless.some((name) => name.includes("bearbeiten")),
+      nameless.some((name) => name.startsWith("Bearbeiten: ")),
       "the nameless row lost the link to its editor",
     );
   });
 });
 
 describe("what a screen reader is told a row is about", () => {
-  /* The word is rendered in italics precisely so a reader takes it for a state, and italics reach a
-     screen reader as nothing: a label carrying it announces the state as this person's name. */
+  /* The word is rendered in the empty-value grade precisely so a reader takes it for a state, and the
+     grade reaches a screen reader as nothing: a label carrying it announces the state as this person's name. */
   it("names the state on a nameless row and the referee on a named one", () => {
     // Both nameless rows, because a control withheld for want of a value is a control the assertion
     // never reaches: the copy is the one this row's empty twin does not render.

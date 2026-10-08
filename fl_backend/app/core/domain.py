@@ -106,7 +106,7 @@ OPERATION_SEPARATOR = " · "
 
 @dataclass(frozen=True)
 class Rule:
-    """One refusal a write path performs."""
+    """One refusal an endpoint performs, on a write path or on a person's read refused a seat it does not hold."""
 
     code: str
     #: What it answers, with no default, so no rule takes a status by omission; the status its check
@@ -157,7 +157,7 @@ AGGREGATES: tuple[Aggregate, ...] = (
             "side. The root's `status` bounds them too: a junction row's `name` tracks the club it names "
             "only while the season is not `past`, which is why the rename fan-out reads `saisons` before "
             "it writes. `saison_spieler` joins for its identity being (player, season) and for `stufe` "
-            "being offered by the root."
+            "being offered by the root, which the admission judges a pupil's Stufe against."
         ),
     ),
     Aggregate(
@@ -274,10 +274,11 @@ AGGREGATES: tuple[Aggregate, ...] = (
             "nothing, as an application is: the document states what somebody registered, which stays true however the "
             "season, the club and the invite it names change afterwards. The season's own rules bound what this write may "
             "STORE -- the window, the squad cap and `erlaubte_stufen` are all read at the submission -- and bound the stored "
-            "row nowhere afterwards, so narrowing any of them strands no registration and refuses the next one instead. "
-            "Nothing of it reaches `spieler` or `saison_spieler`: the person and the squad row are written by the admission, "
-            "in the transaction that deletes this document, which is what keeps the squad cap and the junction's uniqueness "
-            "judged once, inside the Saison boundary, by the path that writes them."
+            "row nowhere afterwards, so narrowing any of them strands no registration; the admission reads the cap and "
+            "`erlaubte_stufen` again and refuses it instead. Nothing of it reaches `spieler` or `saison_spieler` before then: "
+            "the person and the squad row are written by the admission, in the transaction that deletes this document, which "
+            "is what keeps the squad cap and the junction's uniqueness judged once, inside the Saison boundary, by the path "
+            "that writes them."
         ),
     ),
     Aggregate(
@@ -296,6 +297,20 @@ AGGREGATES: tuple[Aggregate, ...] = (
             "`administration`: an owner's tier change is the one route that makes or unmakes an `owner`, so the first "
             "owner is written in the database. Anonymous it is not: `adresse` and `erteilt_von` are administrators' addresses in plain, "
             "served to every administrator, and the outbox holds them until a pass has mailed them."
+        ),
+    ),
+    Aggregate(
+        name="Drosselung",
+        root=Collection.DROSSELUNG,
+        members=(),
+        boundary=(
+            "One person's counted writes in one Funktion on one German day. Held true against nothing: it counts requests "
+            "rather than documents, so it is in no boundary with what those writes changed, and it is raised outside their "
+            "transaction, a write refused after it was counted spending its unit as surely as one that commits, and a retried "
+            "attempt none more. Its key names the "
+            "day, so a new day is a new row rather than a reset, and nothing but the TTL index removes one. It names the "
+            "person by the action log's pseudonym and never an address, and no erasure reaches it: it outlives one at most "
+            "until the German midnight ending its day plus the TTL monitor's lag (`docs/backend/spec.md :: I619`)."
         ),
     ),
 )
@@ -463,7 +478,9 @@ REFERENCES: tuple[Reference, ...] = (
             "`REQ-SQUAD-001` wants a junction row for this season, and a season nothing holds has none. "
             "`erlaubte_stufen` bounds what the administrator's squad FORM offers and not what a row holds, so narrowing it "
             "strands nothing; a stranger's registration is refused at it outright (`REQ-REGISTRIERUNG-003`), a row nobody "
-            "has stored having nothing for the narrowing to protect. No season delete exists."
+            "has stored having nothing for the narrowing to protect, and a representative's edit is held to it or to the "
+            "row's own stored level (`REQ-SQUAD-005`), so a narrowed list never forces a stored row off its level. No season "
+            "delete exists."
         ),
     ),
     Reference(
@@ -632,9 +649,13 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "kontakte",
         Editability.CONDITIONAL,
         "written whole at submission, and afterwards by the seat's own person through "
-        "`POST /bewerbungen/einwilligung`: a consent fills `geburtsdatum` and the consent record's stamp, source, "
-        "wording and scope on every seat that person holds, a decline nulls those slots, and both are refused once "
-        "the seat is answered or the link is over (`REQ-BEWERBUNG-010`, `REQ-BEWERBUNG-011`). Two administrative "
+        "`POST /bewerbungen/einwilligung`: a consent fills `geburtsdatum` and the consent record's stamp, "
+        "wording, scope and media answer on every seat that person holds, each answer with its evidence, a decline nulls those "
+        "slots, and both are refused once "
+        "the seat is answered or the link is over (`REQ-BEWERBUNG-010`, `REQ-BEWERBUNG-011`). Once answered, the same "
+        "person withdraws the WhatsApp scope and the media answer, each with its evidence, on every seat they hold while the "
+        "application is pending, "
+        "through `PATCH /bewerbungen/{bewerbung_id}/person/einwilligung`. Two administrative "
         "repairs reach it besides, each refused on a seat in any other state (`REQ-BEWERBUNG-011`): "
         "`POST /bewerbungen/{bewerbung_id}/kontakte/{seat}/email` moves one address, and "
         "`POST /bewerbungen/{bewerbung_id}/kontakte/{seat}` seats another person where one stepped out. An erasure "
@@ -775,8 +796,10 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "rules.erlaubte_stufen",
         Editability.EDITABLE,
         "narrowing is safe at any time, a finished season included: it bounds what the administrator's squad FORM offers and "
-        "never what a stored squad row holds. A pupil's own registration is REFUSED at it (`REQ-REGISTRIERUNG-003`), so "
-        "narrowing mid-window closes the season to a Stufe from that moment while every row already stored stays valid",
+        "never what a stored squad row holds. A pupil not yet admitted is REFUSED at it (`REQ-REGISTRIERUNG-003`), at the "
+        "submission and again at the admission, and so is a representative's edit moving a row to a Stufe outside it "
+        "(`REQ-SQUAD-005`), so narrowing mid-window closes the season to a Stufe from that moment while every row already "
+        "stored stays valid and editable",
     ),
     FieldPolicy(
         Collection.SPIELTAGE,
@@ -855,11 +878,28 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         # EDITABLE, not CONDITIONAL, and the same as `trikot_farbe`: what a replacement does to both is a
         # clearing rather than a refusal, and what `REQ-KONTAKT-001` refuses is a request.
         Editability.EDITABLE,
+        "brought onto the row by the acceptance, which copies the application's block with every seat held to its own "
+        "stamp (`app.api.teams.services.compose_kontakte_at_entry`); "
         "required on the payload with no default, so an omitted block is a 422 rather than three people's records silently "
         "dropped; and cleared by a REPLACEMENT for `trikot_farbe`'s reason, holding the outgoing school's contact details "
         "against another club being personal data nobody there gave. No state of the row refuses it; a save composed "
-        "against a block the row has since moved past is refused whole (`REQ-KONTAKT-001`)",
+        "against a block the row has since moved past is refused whole (`REQ-KONTAKT-001`). A seat's own person "
+        "writes it besides, through the link `POST /bewerbungen/einwilligung` answers: a consent fills `geburtsdatum` "
+        "and the consent record's stamp, wording, scope and media answer on every seat that person holds, each answer "
+        "with its evidence, and a Widerspruch nulls those slots; and the "
+        "seat's own person moves "
+        "`umfang` and `medien`, each with its evidence, on every seat they hold on the row, and nothing else, through "
+        "`PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung`",
         "app.api.teams.schemas.FLPatchSaisonTeamKontaktePayload",
+    ),
+    FieldPolicy(
+        Collection.SAISON_TEAMS,
+        "bestaetigungen",
+        Editability.CONTROL_ONLY,
+        "no payload carries the block: the contacts save mints an entry for each person it newly seats and voids the "
+        "entry of a seat it empties or hands on, the per-seat re-send replaces one person's entries, a Widerspruch "
+        "stamps `abgelehnt_am`, and the clearing, the replacement, an erasure and the retention sweep null it with the "
+        "people. A client able to name a `token_hash` is a client able to mint its own link",
     ),
     FieldPolicy(
         Collection.SAISON_TEAMS,
@@ -880,31 +920,42 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
     FieldPolicy(
         Collection.SPIELER,
         "einwilligung",
-        Editability.IMMUTABLE,
-        "written once at the person's creation, by no route this tree holds: the writer is the admission that copies a "
-        "confirmed registration's record, and until it exists a manual database edit is the only writer. No payload carries "
-        "the field either way, so an administrator can neither state a consent nor overwrite one",
+        Editability.COMPOSED,
+        "on no administrative payload: the admission writes the registration's freshly confirmed record whole onto a person "
+        "it creates, and onto one it matches renews it, each choice only where the registration set it later, and not at "
+        "all where the returning pupil's page asked none "
+        "(`app/api/registrierungen/services.py :: compose_person_update`). Its two choices, `umfang` and `medien`, are "
+        "granted and their evidence stamped by the person's own writes alone: the confirmation of their registration and "
+        "a withdrawal they made on it through `PATCH /registrierungen/selbst/{registrierung_id}/einwilligung`, which an "
+        "admission carries or renews from, and `PATCH /spieler/selbst/einwilligung`, which moves the two and "
+        "leaves every other member standing: `bestaetigt_am` is what the panel and the publication mask read, and "
+        "`text_version` names the wording the person confirmed. No administrative write grants a choice or stamps its "
+        "evidence (`docs/backend/spec.md :: I613`)",
+        "app.api.konto.services.compose_person_move",
     ),
     FieldPolicy(
         Collection.SPIELER,
         "email",
-        Editability.IMMUTABLE,
-        "written by no route, at create or after: no payload carries the field, so whatever a row holds here is what it keeps, "
-        "a correction is a fresh registration rather than an edit, and a manual database edit is the only writer there is. "
-        "`POST /identitaet/subjekt` joins on the field by equality against `sign_in_identifier`'s output, so a value stored in "
-        "any other form is matched by nothing",
+        Editability.CONTROL_ONLY,
+        "written by the admission alone, as `sign_in_identifier` folds the registration's address: at the person's creation, or "
+        "onto a proposed person holding none. No payload carries it, a person holding one never takes another, and "
+        "`uniq_spieler_email` keeps one person per address. `POST /identitaet/subjekt` joins on the field by equality, so a value "
+        "stored in any other form is matched by nothing",
+        "app.api.registrierungen.services.compose_person_update",
     ),
     FieldPolicy(
         Collection.SPIELER,
         "inactive_since",
         Editability.CONTROL_ONLY,
-        "`DELETE` stamps it and `POST /spieler/{spieler_id}/reactivate` clears it; this is the PERSON leaving the league",
+        "`DELETE` stamps it, and `POST /spieler/{spieler_id}/reactivate` and an admission of the person clear it; this is the "
+        "PERSON leaving the league",
     ),
     FieldPolicy(
         Collection.SAISON_SPIELER,
         "inactive_since",
         Editability.CONTROL_ONLY,
-        "the SQUAD ROW's own retirement, independent of the person's; creating never revives one, which is why 409 is the right answer",
+        "the SQUAD ROW's own retirement, independent of the person's; an administrator's create never revives one, which is why "
+        "409 is the right answer there, and an admission rewrites the person's retired row of the season rather than writing a second",
     ),
     FieldPolicy(
         Collection.SAISON_SPIELER,
@@ -919,14 +970,17 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "stufe",
         Editability.CONDITIONAL,
         "held to the league's closed set by the validator, to the season's `erlaubte_stufen` by what the administrator's form "
-        "offers, and to that same list by a refusal where a pupil registers themselves (`REQ-REGISTRIERUNG-003`)",
+        "offers, and to that same list by a refusal where a pupil registers themselves and again where the team admits them "
+        "(`REQ-REGISTRIERUNG-003`), and where a team's representative edits the row (`REQ-SQUAD-005`), which lets through "
+        "the value the row already holds",
     ),
     FieldPolicy(
         Collection.SAISON_SPIELER,
         "ist_nachnominiert",
         Editability.COMPOSED,
-        "composed at create from matchday 1 of the season's first phase, on neither squad payload, and moved by no later "
-        "write: a PATCH and a reactivation keep it, so the row says whether the player joined after the season began",
+        "composed at create and at an admission from matchday 1 of the season's first phase, on no squad payload: a PATCH and "
+        "a reactivation keep it, so the row says whether the player joined after the season began, and an admission reviving "
+        "a retired row composes it afresh, the player joining on that day",
         "app.api.spieltage.crud.nachnominierung_laeuft_in",
     ),
     FieldPolicy(
@@ -1084,11 +1138,24 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
     FieldPolicy(
         Collection.SCHIEDSRICHTER,
         "kontakt.email",
-        Editability.EDITABLE,
-        "required on both payloads with no default, so a create or a save without an address is a 422: an administrator "
-        "enters a referee, and the address is the one route by which that person learns of it. Nullable on the stored row "
-        "all the same, for the ghost, which stands behind nobody",
-        "app.shared.schemas.kontakt.FLKontaktPayload",
+        Editability.CONDITIONAL,
+        "written by a save only until the referee has confirmed; afterwards it moves only when the new mailbox confirms it "
+        "through `POST /schiedsrichter/adresswechsel`, the save keeping the stored address meanwhile, because the address is "
+        "what the person's own sign-in and records are keyed on. Required on both payloads with no default, so a create or a "
+        "save without an address is a 422: an administrator enters a referee, and the address is the one route by which that "
+        "person learns of it. Nullable on the stored row all the same, for the ghost, which stands behind nobody",
+        "app.api.schiedsrichter.services.save_asks_an_address_change",
+    ),
+    FieldPolicy(
+        Collection.SCHIEDSRICHTER,
+        "adresswechsel",
+        Editability.CONTROL_ONLY,
+        "no payload carries the block. The save that moves a confirmed referee's address writes it WHOLE, replacing a pending "
+        "one, and `POST /schiedsrichter/{schiedsrichter_id}/adresswechsel/einladen` replaces it whole for the same address, "
+        "each answering the raw token once; `DELETE /schiedsrichter/{schiedsrichter_id}/adresswechsel` removes it, and so does "
+        "either answer its person gives through `POST /schiedsrichter/adresswechsel`. The three delivery endpoints write its "
+        "delivery state as they write `bestaetigung`'s, on the system key alone",
+        "app.api.schiedsrichter.services.compose_korrektur_update",
     ),
     FieldPolicy(
         Collection.SCHIEDSRICHTER,
@@ -1096,9 +1163,11 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Editability.CONTROL_ONLY,
         "no payload carries the block. Four controls replace it WHOLE, each answering the raw token once -- every "
         "create, the save that corrects an unconfirmed live referee's address, the reactivation of an unconfirmed referee, and "
-        "`POST /schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen` -- and the save correcting a RETIRED referee's address "
-        "removes it and mints nothing, so the link a replaced block held stops working at once "
-        "and the delivery state of the message it went out in goes with it. `POST /zustellung`, `POST /zustellung/angenommen` "
+        "`POST /schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen` -- and the save correcting an unconfirmed RETIRED "
+        "referee's address removes it and mints nothing, so the link a replaced block held stops working at once "
+        "and the delivery state of the message it went out in goes with it. A confirmed referee's address moves through "
+        "`POST /schiedsrichter/adresswechsel` instead, whose confirmation removes that delivery state alone. "
+        "`POST /zustellung`, `POST /zustellung/angenommen` "
         "and `POST /zustellung/abgewiesen` write that delivery state under it on the system key alone, each applying only where "
         "the report is about the message the record still holds and answering `angewendet: false` where it is not. A client able "
         "to state a delivery state is a "
@@ -1108,10 +1177,13 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Collection.SCHIEDSRICHTER,
         "einwilligung",
         Editability.COMPOSED,
-        "on no payload and written by `POST /schiedsrichter/bestaetigung` alone, from the scope and the media answer the person "
-        "chose: the server stamps `bestaetigt_am` and `datum` with the day it lands and fills `erteilt_von` with `volljaehrig`, "
-        "nobody else being permitted to answer for a referee. It is written once -- a second press is refused "
-        "(`REQ-SCHIEDSRICHTER-004`) -- and an erasure deletes the document rather than nulling it",
+        "on no administrative payload and written whole by `POST /schiedsrichter/bestaetigung` alone, from the scope and the "
+        "media answer the person chose: the server stamps `bestaetigt_am` and `datum` with the day it lands, nobody else "
+        "being permitted to answer for a referee, and names no speaker (`erteilt_von` is a stored record's alone). It is "
+        "written whole once -- a "
+        "second press is refused (`REQ-SCHIEDSRICHTER-004`) -- and afterwards only the person moves its two choices through "
+        "`PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung`, every other member standing, `text_version` "
+        "included. An erasure deletes the document rather than nulling it",
         "app.api.schiedsrichter.services.find_already_confirmed_refusal",
     ),
     FieldPolicy(
@@ -1138,8 +1210,8 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "status",
         Editability.CONTROL_ONLY,
         "written `eingereicht` at create by `POST /registrierungen`, which takes it from no payload, and moved to `abgelehnt` "
-        "by the decline a later programme builds; the admission writes no third member, deleting the row in the transaction "
-        "that writes the person and the squad row instead",
+        "by the team's decline (`POST /registrierungen/{registrierung_id}/ablehnen`); the admission writes no third member, "
+        "deleting the row in the transaction that writes the person and the squad row instead",
         "app.api.registrierungen.services.compose_registrierung",
     ),
     FieldPolicy(
@@ -1156,19 +1228,24 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Collection.REGISTRIERUNGEN,
         "einwilligung",
         Editability.COMPOSED,
-        "on no payload beyond the scope and the media answer the pupil chose: the server stamps `bestaetigt_am` and `datum` "
-        "with the day the confirmation lands and fills `erteilt_von` with `volljaehrig`, nobody else being permitted to "
-        "answer for a pupil. `text_version` arrives on the payload, and the route handler "
-        "`fl_frontend/src/app/api/bestaetigung/spieler/route.ts` refuses any label but the running one, before the parse",
+        "on no payload beyond the scope and the media answer the pupil chose on the new pupil's page: the server stamps "
+        "`bestaetigt_am` and `datum` with the day the confirmation lands, nobody else being permitted to answer for a pupil, "
+        "names no speaker (`erteilt_von` is a stored record's alone) and writes the record born with each choice's evidence. "
+        "The returning pupil's page asks no choice, so its record is `bestaetigt_am` and `text_version` alone "
+        "(`REQ-REGISTRIERUNG-017`). `text_version` arrives on the payload, and anything but the running label of the page "
+        "the press resolves is refused (`REQ-EINWILLIGUNG-001`). Until the admission, only the pupil moves a choice the "
+        "new pupil's record holds, withdrawing it on the account page with its evidence and granting nothing there "
+        "(`app.api.konto.services.compose_person_move`)",
         "app.api.registrierungen.services.find_already_confirmed_refusal",
     ),
     FieldPolicy(
         Collection.REGISTRIERUNGEN,
         "geburtsdatum",
         Editability.COMPOSED,
-        "on no admin payload: the pupil answers on the confirmation page, which shows the date back where the league already "
-        "holds that person -- matched on the folded address AND the folded name, a shared mailbox standing behind more than one "
-        "pupil -- and the write lands in the same `$set` as the consent record it is checked for (`REQ-REGISTRIERUNG-007`). No "
+        "on no admin payload: the pupil answers on the confirmation page, whose returning pupil's variant shows the stored date "
+        "back -- matched on the folded address AND the folded name, so a sibling registering from a mailbox shared "
+        "anyway is not shown the stored person's date -- and the write lands in the same `$set` as the consent record it is "
+        "checked for (`REQ-REGISTRIERUNG-007`). No "
         "control puts it back, so a mistyped date is corrected by registering again",
         "app.api.registrierungen.services.find_alter_refusal",
     ),
@@ -1617,6 +1694,54 @@ RULES: tuple[Rule, ...] = (
         tested_by="tests/api/test_saison_team_kontakte.py::TestAnErasureLandingMidSaveIsNotUndone",
     ),
     Rule(
+        code="REQ-KONTAKT-002",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /teams/{team_id}/saisons/{saison_id}/kontakte/{seat}/bestaetigung/einladen",
+        aggregate="Saison",
+        summary="a contact seat is sent a fresh confirmation link only while it holds a person who has not confirmed it",
+        implemented_by="app.api.teams.services.find_kontakt_sitz_refusal",
+        tested_by="tests/api/test_kontakt_bestaetigung.py::TestTheResend",
+    ),
+    Rule(
+        code="REQ-KONTAKT-003",
+        status=HTTPStatus.CONFLICT,
+        operation=(
+            "PATCH /teams/{team_id}/saisons/{saison_id}/kontakte"
+            " · POST /teams/{team_id}/saisons/{saison_id}/kontakte/{seat}/bestaetigung/einladen"
+        ),
+        aggregate="Saison",
+        summary="no contact address the ban list holds is newly seated on a season row or re-sent its confirmation link",
+        implemented_by="app.api.teams.services.find_kontakt_sitz_gesperrt_refusal",
+        tested_by="tests/api/test_kontakt_bestaetigung.py::TestABarredAddressIsRefused",
+    ),
+    Rule(
+        code="REQ-KONTAKT-004",
+        status=HTTPStatus.GONE,
+        operation="POST /bewerbungen/einwilligung",
+        aggregate="Saison",
+        summary="a season row's link takes no answer once its own deadline has passed; a re-send mints a new one",
+        implemented_by="app.api.bewerbungen.services.find_saison_frist_refusal",
+        tested_by="tests/api/test_kontakt_bestaetigung.py::TestTheDeadline",
+    ),
+    Rule(
+        code="REQ-KONTAKT-005",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /teams/{team_id}/saisons/{saison_id}/kontakte/{seat}/bestaetigung/einladen",
+        aggregate="Saison",
+        summary="no confirmation link is sent for a season that has ended or a team that has left it",
+        implemented_by="app.api.teams.services.find_kontakt_zeile_refusal",
+        tested_by="tests/api/test_kontakt_bestaetigung.py::TestARowNoLongerInTheSeason",
+    ),
+    Rule(
+        code="REQ-KONTAKT-006",
+        status=HTTPStatus.GONE,
+        operation="POST /bewerbungen/einwilligung",
+        aggregate="Saison",
+        summary="a season row's link takes no consent once its season has ended or its team has left it; a Widerspruch is still taken",
+        implemented_by="app.api.bewerbungen.services.find_saison_vorbei_einwilligung_refusal",
+        tested_by="tests/api/test_kontakt_bestaetigung.py::TestALinkOutlivingItsSeason",
+    ),
+    Rule(
         code="REQ-RETIRE-001",
         status=HTTPStatus.CONFLICT,
         operation="DELETE /teams/{team_id}",
@@ -1828,18 +1953,24 @@ RULES: tuple[Rule, ...] = (
     Rule(
         code="REQ-SCHIEDSRICHTER-002",
         status=HTTPStatus.NOT_FOUND,
-        operation="POST /schiedsrichter/bestaetigung/ansicht · POST /schiedsrichter/bestaetigung",
+        operation=(
+            "POST /schiedsrichter/bestaetigung/ansicht · POST /schiedsrichter/bestaetigung · POST /schiedsrichter/adresswechsel/ansicht"
+            " · POST /schiedsrichter/adresswechsel"
+        ),
         aggregate="Schiedsrichter",
-        summary="a confirmation link opens no referee's entry -- unknown, replaced by a later mint, or deleted with the referee",
+        summary=(
+            "a referee's link opens no entry -- unknown, replaced by a later mint, an address change already answered or "
+            "discarded, or deleted with the referee"
+        ),
         implemented_by="app.api.schiedsrichter.services.find_unknown_token_refusal",
         tested_by="tests/api/test_schiedsrichter_bestaetigung_refusal.py::TestATokenNoRefereeHolds",
     ),
     Rule(
         code="REQ-SCHIEDSRICHTER-003",
         status=HTTPStatus.GONE,
-        operation="POST /schiedsrichter/bestaetigung",
+        operation="POST /schiedsrichter/bestaetigung · POST /schiedsrichter/adresswechsel",
         aggregate="Schiedsrichter",
-        summary="a link whose deadline has passed records no consent",
+        summary="a link whose deadline has passed records no consent and confirms no address",
         implemented_by="app.api.schiedsrichter.services.find_expired_token_refusal",
         tested_by="tests/api/test_schiedsrichter_bestaetigung_refusal.py::TestALinkWhoseDeadlineHasPassed",
     ),
@@ -1875,10 +2006,10 @@ RULES: tuple[Rule, ...] = (
         status=HTTPStatus.CONFLICT,
         operation=(
             "POST /schiedsrichter · PATCH /schiedsrichter/{schiedsrichter_id} · POST /schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen"
-            " · POST /schiedsrichter/{schiedsrichter_id}/reactivate"
+            " · POST /schiedsrichter/{schiedsrichter_id}/reactivate · POST /schiedsrichter/{schiedsrichter_id}/adresswechsel/einladen"
         ),
         aggregate="Schiedsrichter",
-        summary="no confirmation link is minted for an address the ban list still holds",
+        summary="no confirmation or address link is minted for an address the ban list still holds",
         implemented_by="app.api.schiedsrichter.services.find_gesperrt_refusal",
         tested_by="tests/api/test_schiedsrichter_bestaetigung_refusal.py::TestAnAddressOnTheBanList",
     ),
@@ -1894,11 +2025,20 @@ RULES: tuple[Rule, ...] = (
     Rule(
         code="REQ-SCHIEDSRICHTER-009",
         status=HTTPStatus.FORBIDDEN,
-        operation="POST /schiedsrichter/bestaetigung",
+        operation="POST /schiedsrichter/bestaetigung · POST /schiedsrichter/adresswechsel",
         aggregate="Schiedsrichter",
-        summary="a link mailed to an address the ban list now holds records no consent, whenever it was minted",
+        summary="a link mailed to an address the ban list now holds records no consent and confirms no address, whenever it was minted",
         implemented_by="app.api.schiedsrichter.services.find_bestaetigung_gesperrt_refusal",
         tested_by="tests/api/test_schiedsrichter_bestaetigung_execution.py::TestALinkToABarredAddress",
+    ),
+    Rule(
+        code="REQ-SCHIEDSRICHTER-010",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /schiedsrichter/adresswechsel",
+        aggregate="Schiedsrichter",
+        summary="an address change whose replaced address the ban list now holds confirms nothing, the address on file staying",
+        implemented_by="app.api.schiedsrichter.services.find_ersetzte_adresse_gesperrt_refusal",
+        tested_by="tests/api/test_schiedsrichter_adresswechsel_execution.py::TestAChangeReplacingABarredAddress",
     ),
     Rule(
         code="REQ-SQUAD-001",
@@ -1917,7 +2057,7 @@ RULES: tuple[Rule, ...] = (
         status=HTTPStatus.CONFLICT,
         operation=(
             "POST /spieler/{spieler_id}/saisons · PATCH /spieler/{spieler_id}/saisons/{saison_id} · "
-            "POST /spieler/{spieler_id}/saisons/{saison_id}/reactivate"
+            "POST /spieler/{spieler_id}/saisons/{saison_id}/reactivate · POST /registrierungen/{registrierung_id}/aufnehmen"
         ),
         aggregate="Saison",
         summary="a squad may not exceed the season's `max_kadergroesse`",
@@ -1929,7 +2069,8 @@ RULES: tuple[Rule, ...] = (
         status=HTTPStatus.CONFLICT,
         operation=(
             "POST /spieler/{spieler_id}/saisons · PATCH /spieler/{spieler_id}/saisons/{saison_id} · "
-            "POST /spieler/{spieler_id}/saisons/{saison_id}/reactivate"
+            "POST /spieler/{spieler_id}/saisons/{saison_id}/reactivate · "
+            "PATCH /spieler/kader/{team_id}/{saison_id}/{spieler_id}"
         ),
         aggregate="Saison",
         summary="a squad holds each `rolle` at most once among its live rows",
@@ -2018,7 +2159,10 @@ RULES: tuple[Rule, ...] = (
         status=HTTPStatus.NOT_FOUND,
         operation="POST /bewerbungen/einwilligung/ansicht · POST /bewerbungen/einwilligung",
         aggregate="Bewerbung",
-        summary="a token no seat of any application holds opens nothing, whether unknown, replaced or deleted with its application",
+        summary=(
+            "a token no seat of any application or team's season row holds opens nothing, whether unknown, replaced, "
+            "deleted with its application or cleared with the row's contacts"
+        ),
         implemented_by="app.api.bewerbungen.services.find_unknown_token_refusal",
         tested_by="tests/api/test_bewerbung_einwilligung_refusal.py::TestATokenNoSeatHolds",
     ),
@@ -2091,15 +2235,6 @@ RULES: tuple[Rule, ...] = (
         summary="a submission key already stored is replayed only over the details it was first sent with",
         implemented_by="app.api.bewerbungen.services.find_abweichender_fingerabdruck_refusal",
         tested_by="tests/api/test_bewerbung_submission_execution.py::TestTheSubmissionKey",
-    ),
-    Rule(
-        code="REQ-BEWERBUNG-016",
-        status=HTTPStatus.CONFLICT,
-        operation="POST /bewerbungen",
-        aggregate="Bewerbung",
-        summary="a new submission names on every seat the consent wording the form now shows, a stored key being replayed whatever it names",
-        implemented_by="app.api.bewerbungen.services.find_veraltete_fassung_refusal",
-        tested_by="tests/api/test_bewerbung_submission_refusal.py::TestTheWordingTheFormShows",
     ),
     Rule(
         code="REQ-BEWERBUNG-018",
@@ -2207,15 +2342,6 @@ RULES: tuple[Rule, ...] = (
         tested_by="tests/api/test_berechtigungen_execution.py::TestOnlyAnOwnerRevokes",
     ),
     Rule(
-        code="REQ-BERECHTIGUNG-006",
-        status=HTTPStatus.FORBIDDEN,
-        operation="POST /berechtigungen · POST /sperrliste",
-        aggregate="Berechtigung",
-        summary="a grant or a ban is made only by an actor whose own live grant still stands inside the transaction",
-        implemented_by="app.api.berechtigungen.services.find_ohne_zugang_refusal",
-        tested_by="tests/api/test_berechtigungen_execution.py::TestAnActorRevokedMidRequest",
-    ),
-    Rule(
         code="REQ-BERECHTIGUNG-004",
         status=HTTPStatus.CONFLICT,
         operation="DELETE /berechtigungen/{berechtigung_id}",
@@ -2281,7 +2407,7 @@ RULES: tuple[Rule, ...] = (
     Rule(
         code="REQ-REGISTRIERUNG-003",
         status=HTTPStatus.CONFLICT,
-        operation="POST /registrierungen",
+        operation="POST /registrierungen · POST /registrierungen/{registrierung_id}/aufnehmen",
         aggregate="Registrierung",
         summary="a registration names a Stufe the season's `erlaubte_stufen` offers, or none at all",
         implemented_by="app.api.registrierungen.services.find_stufe_refusal",
@@ -2335,7 +2461,7 @@ RULES: tuple[Rule, ...] = (
     Rule(
         code="REQ-REGISTRIERUNG-009",
         status=HTTPStatus.FORBIDDEN,
-        operation="POST /registrierungen",
+        operation="POST /registrierungen · POST /registrierungen/{registrierung_id}/aufnehmen",
         aggregate="Registrierung",
         summary="an address the ban list holds registers nobody",
         implemented_by="app.api.registrierungen.services.find_gesperrt_refusal",
@@ -2368,6 +2494,147 @@ RULES: tuple[Rule, ...] = (
         implemented_by="app.api.registrierungen.services.find_bestaetigung_gesperrt_refusal",
         tested_by="tests/api/test_registrierung_einwilligung_execution.py::TestALinkToABarredAddress",
     ),
+    Rule(
+        code="REQ-REGISTRIERUNG-017",
+        status=HTTPStatus.UNPROCESSABLE_CONTENT,
+        operation="POST /registrierungen/bestaetigung",
+        aggregate="Registrierung",
+        summary="a confirmation answers both choices on the new pupil's page and neither on the returning pupil's",
+        implemented_by="app.api.registrierungen.services.find_wahlen_refusal",
+        tested_by="tests/api/test_registrierung_einwilligung_refusal.py::TestTheChoicesThePageAsks",
+    ),
+    Rule(
+        code="REQ-EINWILLIGUNG-001",
+        status=HTTPStatus.CONFLICT,
+        operation=(
+            "POST /bewerbungen · POST /bewerbungen/einwilligung · POST /bewerbungen/{bewerbung_id}/kontakte/{seat} · "
+            "POST /registrierungen/bestaetigung · "
+            "POST /schiedsrichter/bestaetigung · PATCH /teams/{team_id}/saisons/{saison_id}/kontakte · "
+            "PATCH /spieler/selbst/einwilligung · PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung · "
+            "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung · PATCH /bewerbungen/{bewerbung_id}/person/einwilligung · "
+            "PATCH /registrierungen/selbst/{registrierung_id}/einwilligung"
+        ),
+        aggregate="Bewerbung",
+        summary="a consent label a write stamps names a version of that write's page, and a new acceptance the running one",
+        implemented_by="app.api.einwilligung.services.find_fassung_refusal",
+        tested_by="tests/api/test_einwilligung_fassung.py::TestTheLabelAWriteStamps",
+    ),
+    Rule(
+        code="REQ-FUNKTION-001",
+        status=HTTPStatus.FORBIDDEN,
+        operation=(
+            "GET /spieler/kader/{team_id}/{saison_id} · PATCH /spieler/kader/{team_id}/{saison_id}/{spieler_id} · "
+            "DELETE /spieler/kader/{team_id}/{saison_id}/{spieler_id} · GET /registrierungen/kader/{team_id}/{saison_id} · "
+            "POST /registrierungen/{registrierung_id}/aufnehmen · POST /registrierungen/{registrierung_id}/ablehnen · "
+            "GET /teams/{team_id}/saisons/{saison_id}/person/sitze · GET /spieler/selbst · PATCH /spieler/selbst/einwilligung · "
+            "GET /schiedsrichter/selbst · PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung · "
+            "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung · PATCH /bewerbungen/{bewerbung_id}/person/einwilligung · "
+            "PATCH /registrierungen/selbst/{registrierung_id}/einwilligung"
+        ),
+        aggregate="Saison",
+        summary=(
+            "a team's panel is read and changed only by a person holding a contact seat on that team in an `active` or `future` "
+            "season, and a person's own consent record only from the address it was confirmed under"
+        ),
+        implemented_by="app.api.identitaet.services.find_funktion_refusal",
+        tested_by="tests/api/test_kader_person.py::TestASeatNotHeld",
+    ),
+    Rule(
+        code="REQ-SQUAD-005",
+        status=HTTPStatus.CONFLICT,
+        operation="PATCH /spieler/kader/{team_id}/{saison_id}/{spieler_id}",
+        aggregate="Saison",
+        summary="a representative's edit writes a `stufe` the season's `erlaubte_stufen` offers, none, or the one the row already holds",
+        implemented_by="app.api.spieler.services.find_kader_stufe_refusal",
+        tested_by="tests/api/test_kader_person.py::TestAStufeTheSeasonDoesNotOffer",
+    ),
+    Rule(
+        code="REQ-REGISTRIERUNG-013",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /registrierungen/{registrierung_id}/aufnehmen",
+        aggregate="Registrierung",
+        summary="a registration the pupil has not confirmed is admitted by nobody",
+        implemented_by="app.api.registrierungen.services.find_unbestaetigt_refusal",
+        tested_by="tests/api/test_registrierung_aufnahme.py::TestAnUnconfirmedRegistration",
+    ),
+    Rule(
+        code="REQ-REGISTRIERUNG-014",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /registrierungen/{registrierung_id}/aufnehmen",
+        aggregate="Registrierung",
+        summary="an admission names the person its address resolves to, confirmed where name or birthdate differ, or else a proposal",
+        implemented_by="app.api.registrierungen.services.find_person_refusal",
+        tested_by="tests/api/test_registrierung_aufnahme.py::TestThePersonAnAdmissionNames",
+    ),
+    Rule(
+        code="REQ-REGISTRIERUNG-015",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /registrierungen/{registrierung_id}/aufnehmen",
+        aggregate="Saison",
+        summary="a person already in a live squad row of the season is admitted into no second squad",
+        implemented_by="app.api.registrierungen.services.find_schon_im_kader_refusal",
+        tested_by="tests/api/test_registrierung_aufnahme.py::TestAPersonAlreadyInASquad",
+    ),
+    Rule(
+        code="REQ-REGISTRIERUNG-016",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /registrierungen",
+        aggregate="Registrierung",
+        summary="a submission replayed after its registration was admitted stores nothing",
+        implemented_by="app.api.registrierungen.services.find_schon_aufgenommen_refusal",
+        tested_by="tests/api/test_registrierung_submission_execution.py::TestTheSubmissionKey",
+    ),
+    Rule(
+        code="REQ-REGISTRIERUNG-018",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /registrierungen/{registrierung_id}/aufnehmen",
+        aggregate="Registrierung",
+        summary="a registration confirmed on the returning pupil's page admits nobody where its address holds no stored person",
+        implemented_by="app.api.registrierungen.services.find_person_fehlt_refusal",
+        tested_by="tests/api/test_registrierung_aufnahme.py::TestAReturningRegistration",
+    ),
+    Rule(
+        code="REQ-EINWILLIGUNG-002",
+        status=HTTPStatus.UNPROCESSABLE_CONTENT,
+        operation=(
+            "POST /bewerbungen/einwilligung · PATCH /spieler/selbst/einwilligung · "
+            "PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung · "
+            "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung"
+        ),
+        aggregate="Spieler",
+        summary="a person's own media consent is switched on only where their stored birthdate reaches the media age",
+        implemented_by="app.api.einwilligung.services.find_selbst_medien_refusal",
+        tested_by="tests/api/test_spieler_selbst.py::TestTheMediaAge",
+    ),
+    Rule(
+        code="REQ-EINWILLIGUNG-003",
+        status=HTTPStatus.CONFLICT,
+        operation=(
+            "PATCH /spieler/selbst/einwilligung · PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung · "
+            "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung · PATCH /bewerbungen/{bewerbung_id}/person/einwilligung · "
+            "PATCH /registrierungen/selbst/{registrierung_id}/einwilligung"
+        ),
+        aggregate="Spieler",
+        summary="a press on the account page answers the consent evidence its page was served, never evidence moved since",
+        implemented_by="app.api.konto.services.find_nachweis_stand_refusal",
+        tested_by="tests/api/test_spieler_selbst.py::TestAStalePage",
+    ),
+    Rule(
+        code="REQ-EINWILLIGUNG-004",
+        status=HTTPStatus.FORBIDDEN,
+        operation=(
+            "PATCH /spieler/selbst/einwilligung · PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung · "
+            "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung · PATCH /bewerbungen/{bewerbung_id}/person/einwilligung · "
+            "PATCH /registrierungen/selbst/{registrierung_id}/einwilligung"
+        ),
+        aggregate="Spieler",
+        summary=(
+            "a press grants a choice only on a record of its person granting a panel; a retired record, a past season's or a "
+            "withdrawn team's seat, a pending application's seat and a pending registration take a withdrawal alone"
+        ),
+        implemented_by="app.api.konto.services.find_erteilung_refusal",
+        tested_by="tests/api/test_konto_einwilligung.py::TestARecordNotHeld",
+    ),
 )
 
 
@@ -2393,17 +2660,21 @@ UNENFORCED: tuple[Unenforced, ...] = (
             "A shirt number is worn rather than assigned, and the league already fields four goalkeepers "
             "in one squad all wearing 1 -- so refusing the state would make live rows uneditable and, once "
             "one was retired, unreactivatable. Refusing it on the create and the patch while the reactivate "
-            "consulted no rule at all was the same rule answering three ways (decided 2026-08-13). NOTHING REPORTS "
-            "IT EITHER: no read compares one squad row's number against another's, and the create form and the "
-            "editor's squad section judge `nummer` on its format alone. A comparison built later reads the stored "
-            "string as typed: `07` is a shirt somebody had printed and is not `7`, so a numeric reading that merges "
-            "the two makes a judgement this rule declines. Every squad list prints the figures, so a "
-            "person can read two of them as equal, but no surface names that as a state -- and whether one should "
-            "is open rather than settled, the same state covering a squad's keepers and a late entry colliding "
-            "with a shirt somebody already wears."
+            "consulted no rule at all was the same rule answering three ways (decided 2026-08-13). It is REPORTED "
+            "rather than refused, on the two reads a team's own representative is served: `nummer_doppelt` on "
+            "every live row whose number another live row of the squad wears (`app.api.spieler.services.shared_nummern`), "
+            "an ausgetragen row wearing nothing, and on every pending registration whose number a live row already wears "
+            "(`app.api.registrierungen.services.nummern_im_kader`), shown beside the squad row and the registration "
+            "(`fl_frontend/src/features/registrierungen/components/collections/RegistrierungenList.tsx`). The comparison "
+            "reads the stored string as typed: `07` is a shirt "
+            "somebody had printed and is not `7`, so a numeric reading that merges the two makes a judgement this "
+            "rule declines. The administrator's create form and squad section judge `nummer` on its format alone, "
+            "and the public squad list names no state either -- whether either should is open rather than settled, "
+            "the same state covering a squad's keepers and a late entry colliding with a shirt somebody already wears."
         ),
         near=("REQ-SQUAD-001",),
         proven_by="tests/core/test_unenforced.py::TestASharedSquadNumber",
+        surfaced_by="fl_frontend/src/features/spieler/components/collections/KaderList.tsx",
     ),
     Unenforced(
         subject="a bracket slot the resolution filled with a team that later left the season",
@@ -2520,8 +2791,8 @@ UNENFORCED: tuple[Unenforced, ...] = (
             "which is what lets those rows go on validating. "
             "The league's thresholds are `app/api/bewerbungen/services.py :: SEAT_MIN_AGE_YEARS`, one per seat and judged "
             "for a contact person answering their own confirmation link (`REQ-BEWERBUNG-012`), and the registration's own "
-            "floor, judged for the pupil answering theirs (`REQ-REGISTRIERUNG-007`); `FLEinwilligung.erteilt_von`'s "
-            "`volljaehrig` names who spoke rather than an age. What still carries no date is the person: a registration "
+            "floor, judged for the pupil answering theirs (`REQ-REGISTRIERUNG-007`); a stored `FLEinwilligung.erteilt_von` "
+            "of `volljaehrig` names who spoke rather than an age. What still carries no date is the person: a registration "
             "holds its own until the admission writes `spieler` from it, and every pupil row standing today is dropped once "
             "at the end of this season (`docs/datenschutz.md`), so the field stays unrequired here until that admission "
             "exists to fill it."

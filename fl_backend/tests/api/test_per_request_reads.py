@@ -16,9 +16,11 @@ from app.api.bewerbungen import router as bewerbungen_router
 from app.api.bewerbungen.schemas import FLBewerbungenFilterParams, FLBewerbungSaisonbezug, FLBewerbungStatus
 from app.api.identitaet import crud as identitaet_crud
 from app.api.identitaet import router as identitaet_router
-from app.api.identitaet.schemas import FLSubjekt, FLSubjektPayload
+from app.api.identitaet.schemas import FLAnmeldung, FLSubjekt, FLSubjektPayload
+from app.api.konto import router as konto_router
 from app.core.collections import Collection
 from tests.bans import ban_list
+from tests.records import record_collections
 
 IDENTIFIER = "ortrud.zwiebelmayer@schule.de"
 
@@ -26,6 +28,19 @@ ACTIVE_SAISON = "2526"
 
 # Stand-ins for the collections, each read naming the one it was asked of.
 SAISON_TEAMS, SAISONS, SPIELER, SCHIEDSRICHTER, BERECHTIGUNGEN = "saison_teams", "saisons", "spieler", "schiedsrichter", "berechtigungen"
+BEWERBUNGEN, REGISTRIERUNGEN = "bewerbungen", "registrierungen"
+
+# The lookup a request holds, each handle the name its reads are recorded under.
+RECORDS = record_collections(
+    {
+        Collection.SAISON_TEAMS: SAISON_TEAMS,
+        Collection.SAISONS: SAISONS,
+        Collection.SPIELER: SPIELER,
+        Collection.SCHIEDSRICHTER: SCHIEDSRICHTER,
+        Collection.BEWERBUNGEN: BEWERBUNGEN,
+        Collection.REGISTRIERUNGEN: REGISTRIERUNGEN,
+    }
+)
 
 SEAT_ROW = {
     "saison_id": ACTIVE_SAISON,
@@ -93,16 +108,12 @@ class _Stalled:
 
 
 def _find_subjekt(reads: _Reads, session: object = None) -> FLSubjekt:
-    return asyncio.run(
-        identitaet_crud.find_subjekt(
-            IDENTIFIER,
-            saison_teams_collection=cast(Any, SAISON_TEAMS),
-            saisons_collection=cast(Any, SAISONS),
-            spieler_collection=cast(Any, SPIELER),
-            schiedsrichter_collection=cast(Any, SCHIEDSRICHTER),
-            session=cast(AsyncClientSession | None, session),
-        )
-    )
+    """The system route's lookup with no session, the one a transaction reaches with one."""
+
+    if session is None:
+        return asyncio.run(identitaet_crud.find_subjekt(IDENTIFIER, RECORDS))
+
+    return asyncio.run(identitaet_crud.find_subjekt_in_session(IDENTIFIER, RECORDS, session=cast(AsyncClientSession, session)))
 
 
 class TestTheSubjectLookupsReads:
@@ -111,7 +122,7 @@ class TestTheSubjectLookupsReads:
     def test_the_records_the_ban_and_the_grant_are_read_at_once(self, monkeypatch: pytest.MonkeyPatch):
         reads = _Reads()
 
-        async def find_subjekt(_identifier: str, **_: Any) -> FLSubjekt:
+        async def find_subjekt(_identifier: str, _records: Any) -> FLSubjekt:
             return await reads.answer("records", FLSubjekt(sitze=[], spieler=[], schiedsrichter=[], unbestaetigt=False))
 
         async def hash_gesperrt(*_: Any, **__: Any) -> bool:
@@ -128,10 +139,7 @@ class TestTheSubjectLookupsReads:
         asyncio.run(
             identitaet_router.get_subjekt(
                 subjekt_data=FLSubjektPayload(email=IDENTIFIER),
-                saison_teams_collection=stand_in,
-                saisons_collection=stand_in,
-                spieler_collection=stand_in,
-                schiedsrichter_collection=stand_in,
+                records=stand_in,
                 sperrliste=ban_list({Collection.SPERRLISTE: stand_in, Collection.SAISONS: stand_in}),
                 berechtigungen_collection=stand_in,
             )
@@ -143,7 +151,7 @@ class TestTheSubjectLookupsReads:
     def test_a_failed_read_cancels_the_two_still_running_and_reaches_the_caller_as_itself(self, monkeypatch: pytest.MonkeyPatch):
         stalled = _Stalled()
 
-        async def find_subjekt(_identifier: str, **_: Any) -> FLSubjekt:
+        async def find_subjekt(_identifier: str, _records: Any) -> FLSubjekt:
             await asyncio.sleep(0)
             raise ConnectionError("the records read failed")
 
@@ -161,10 +169,7 @@ class TestTheSubjectLookupsReads:
         failed, cancelled = stalled.failure_and_cancelled_by_then(
             identitaet_router.get_subjekt(
                 subjekt_data=FLSubjektPayload(email=IDENTIFIER),
-                saison_teams_collection=stand_in,
-                saisons_collection=stand_in,
-                spieler_collection=stand_in,
-                schiedsrichter_collection=stand_in,
+                records=stand_in,
                 sperrliste=ban_list({Collection.SPERRLISTE: stand_in, Collection.SAISONS: stand_in}),
                 berechtigungen_collection=stand_in,
             )
@@ -226,19 +231,64 @@ class TestTheSubjectLookupsReads:
 
         monkeypatch.setattr(identitaet_crud, "aggregate_many_from_db", aggregate_many_from_db)
 
-        failed, cancelled = stalled.failure_and_cancelled_by_then(
-            identitaet_crud.find_subjekt(
-                IDENTIFIER,
-                saison_teams_collection=cast(Any, SAISON_TEAMS),
-                saisons_collection=cast(Any, SAISONS),
-                spieler_collection=cast(Any, SPIELER),
-                schiedsrichter_collection=cast(Any, SCHIEDSRICHTER),
-                session=None,
-            )
-        )
+        failed, cancelled = stalled.failure_and_cancelled_by_then(identitaet_crud.find_subjekt(IDENTIFIER, RECORDS))
 
         assert (type(failed), str(failed)) == (ConnectionError, "the seat read failed")
         assert sorted(cancelled) == [SCHIEDSRICHTER, SPIELER], "a record read was left running past the lookup's answer"
+
+    def test_a_person_endpoint_reads_the_three_funktion_records_in_its_session(self, monkeypatch: pytest.MonkeyPatch):
+        """No application or registration: neither grants a panel, so a person endpoint authorising against them pays for nothing."""
+
+        reads = _Reads()
+        monkeypatch.setattr(identitaet_crud, "aggregate_many_from_db", reads.aggregate)
+        transaction = object()
+
+        asyncio.run(identitaet_crud.funktionen_of(IDENTIFIER, RECORDS, session=cast(AsyncClientSession, transaction)))
+
+        assert sorted(reads.issued) == [SAISON_TEAMS, SCHIEDSRICHTER, SPIELER]
+        assert reads.sessions == [transaction] * 3
+
+
+class TestTheSignInGatesReads:
+    """`POST /identitaet/anmeldung` answers a sign-in rather than a render, and is the one read paying for the two kinds granting no panel."""
+
+    def test_the_five_record_reads_are_in_flight_together(self, monkeypatch: pytest.MonkeyPatch):
+        reads = _Reads()
+        monkeypatch.setattr(identitaet_crud, "aggregate_many_from_db", reads.aggregate)
+
+        asyncio.run(identitaet_crud.find_anmeldung(IDENTIFIER, RECORDS))
+
+        assert sorted(reads.issued) == [BEWERBUNGEN, REGISTRIERUNGEN, SAISON_TEAMS, SCHIEDSRICHTER, SPIELER]
+        assert reads.peak == 5, "the gate awaited one record read before sending the next"
+
+    def test_the_records_the_ban_and_the_grant_are_read_at_once(self, monkeypatch: pytest.MonkeyPatch):
+        reads = _Reads()
+
+        async def find_anmeldung(_identifier: str, _records: Any) -> FLAnmeldung:
+            return await reads.answer("records", FLAnmeldung(unbestaetigt=False, konto=False))
+
+        async def hash_gesperrt(*_: Any, **__: Any) -> bool:
+            return await reads.answer("ban", False)
+
+        async def verwaltung_of(**_: Any) -> None:
+            return await reads.answer("grant", None)
+
+        monkeypatch.setattr(identitaet_router, "find_anmeldung", find_anmeldung)
+        monkeypatch.setattr(identitaet_router, "hash_gesperrt", hash_gesperrt)
+        monkeypatch.setattr(identitaet_router, "verwaltung_of", verwaltung_of)
+
+        stand_in = cast(Any, None)
+        asyncio.run(
+            identitaet_router.get_anmeldung(
+                anmeldung_data=FLSubjektPayload(email=IDENTIFIER),
+                records=stand_in,
+                sperrliste=ban_list({Collection.SPERRLISTE: stand_in, Collection.SAISONS: stand_in}),
+                berechtigungen_collection=stand_in,
+            )
+        )
+
+        assert sorted(reads.issued) == ["ban", "grant", "records"]
+        assert reads.peak == 3, "the endpoint awaited one read before sending the next"
 
 
 class TestTheActorChecksTwoReads:
@@ -351,3 +401,30 @@ class TestTheListsGatheredReads:
         every_read = {*get_args(FLBewerbungStatus), *get_args(FLBewerbungSaisonbezug), "dubletten"}
         assert (type(failed), str(failed)) == (ConnectionError, f"the {failing} read failed")
         assert sorted(cancelled) == sorted(every_read - {failing}), "a read was left running past the queue's answer"
+
+
+class TestTheAccountReadsReads:
+    def test_each_record_collection_is_read_once(self, monkeypatch: pytest.MonkeyPatch):
+        """The Funktionen the page judges a grant by come from the rows the read already holds, never a second read of them."""
+
+        reads = _Reads()
+        monkeypatch.setattr(konto_router, "aggregate_many_from_db", reads.aggregate)
+        monkeypatch.setattr(identitaet_crud, "aggregate_many_from_db", reads.aggregate)
+        snapshot = object()
+
+        asyncio.run(
+            konto_router.get_einwilligungen(
+                identifier=IDENTIFIER,
+                spieler_collection=cast(Any, SPIELER),
+                schiedsrichter_collection=cast(Any, SCHIEDSRICHTER),
+                saison_teams_collection=cast(Any, SAISON_TEAMS),
+                teams_collection=cast(Any, "teams"),
+                bewerbungen_collection=cast(Any, BEWERBUNGEN),
+                registrierungen_collection=cast(Any, REGISTRIERUNGEN),
+                records=RECORDS,
+                db=cast(Any, SimpleNamespace(start_session=lambda **_: nullcontext(snapshot))),
+                today="2026-10-03",
+            )
+        )
+
+        assert [reads.issued.count(name) for name in (SPIELER, SCHIEDSRICHTER, SAISON_TEAMS)] == [1, 1, 1]

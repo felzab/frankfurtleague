@@ -38,7 +38,7 @@ const rulesFaultMessage = (fault: string): string => `${fault} Ändere die Zahle
  * The same fault where the DRAW carried the numbers itself. `REQ-RULES-011` freezes them everywhere
  * else, so sending an admin to the rules panel would name a field they cannot type in.
  */
-const shapeFaultMessage = (fault: string): string => `${fault} Ändere die Zahlen im Abschnitt Spielplan und lege ihn noch einmal neu an.`;
+const shapeFaultMessage = (fault: string): string => `${fault} Ändere die Zahlen im Abschnitt Spielplan und lege ihn erneut an.`;
 
 /** A rules refusal as the message it should render, or `null` when the code is none of these. */
 export function mapRulesRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
@@ -254,3 +254,25 @@ export function mapUndrawRefusal(error: unknown): string | null {
     "Diese Saison erfüllt das inzwischen nicht mehr. Lade die Seite neu."
   );
 }
+
+/** The refusals a replay can meet, in German written for the undo — the save's own words name a field this toast has not got. */
+export const SAISON_REPLAY_REFUSALS: Readonly<Record<string, string>> = {
+  "REQ-DATE-004": "Mindestens ein Spieltag liegt außerhalb des ursprünglichen Zeitraums.",
+  "REQ-DATE-005": "Der ursprüngliche Zeitraum ist zu kurz für die Spieltage, die diese Saison nach ihren Regeln braucht.",
+  "REQ-RULES-001": "Die ursprünglichen Zahlen für Gruppen und Qualifikanten pro Gruppe ergeben keine KO-Runde, die diese Saison spielen kann.",
+  "REQ-RULES-002": "Die ursprüngliche Zahl der Gruppen lässt eine Gruppe wegfallen, die inzwischen Teams hält.",
+  "REQ-RULES-003": "Mindestens eine Gruppe hält inzwischen mehr Teams, als die ursprüngliche Zahl der Teams pro Gruppe zulässt.",
+  "REQ-RULES-004":
+    "Ein Platz im KO-Baum verweist auf eine Platzierung, die es bei der ursprünglichen Zahl der Qualifikanten pro Gruppe nicht gibt.",
+  "REQ-RULES-005": "Diese Saison ist inzwischen abgeschlossen, deshalb sind Punkte, Tiebreak und Qualifikanten pro Gruppe festgeschrieben.",
+  "REQ-RULES-006": "Mindestens ein Spieltag enthält mehr Spiele, als die ursprünglichen Regeln vorsehen.",
+  "REQ-RULES-007": "Die ursprünglichen Regeln qualifizieren mehr Teams aus einer Gruppe, als die Gruppe fasst.",
+  "REQ-RULES-008": "Bei den ursprünglichen Punkten bringt ein Unentschieden mehr als ein Sieg.",
+  "REQ-RULES-009": "Mindestens ein Kader hat inzwischen mehr Spieler, als die ursprüngliche maximale Kadergröße zulässt.",
+  "REQ-RULES-010": "Diese Saison spielt eine KO-Runde, und das ursprüngliche Ergebnis für ein Nichtantreten bringt niemanden weiter.",
+  "REQ-RULES-011":
+    "Für diese Saison sind inzwischen Spiele angesetzt, deshalb stehen Gruppen, Teams pro Gruppe und Qualifikanten pro Gruppe fest.",
+  "REQ-RULES-012": "Die KO-Runde dieser Saison hat inzwischen begonnen, deshalb ist der Tiebreak festgeschrieben.",
+  "REQ-RULES-013":
+    "Aus den ursprünglichen Zahlen für Gruppen und Teams pro Gruppe entstehen mehr Spiele, als eine Saison auf einmal fassen kann.",
+};

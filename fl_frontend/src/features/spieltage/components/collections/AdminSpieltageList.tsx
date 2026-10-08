@@ -10,6 +10,7 @@ import Pencil from "@gravity-ui/icons/Pencil";
 import { PHASE_LABELS, SAISON_PHASE_OPTIONS } from "@/features/saisons/constants";
 import { describeSpieltageCount } from "@/features/saisons/utils";
 import { SaisonPhaseChip } from "@/features/spiele/components/ui/SaisonPhaseChip";
+import { Leer } from "@/shared/components/ui/Angabe";
 import { BRAND_TILE_CLASSES } from "@/shared/components/ui/brandTile";
 import { card } from "@/shared/components/ui/card";
 import { RowActionLink, RowActions } from "@/shared/components/ui/RowActions";
@@ -112,7 +113,7 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
       <RowActionLink
         href={`/bereich/admin/spielsuche?spieltag=${spieltag.id}&saison_id=${encodeURIComponent(spieltag.saison_id)}`}
         label="Spiele anzeigen"
-        ariaLabel={`${spieltag.label}: Spiele anzeigen`}>
+        subject={spieltag.label}>
         <Magnifier
           className="size-4.5"
           aria-hidden="true"
@@ -122,7 +123,7 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
       <RowActionLink
         href={saisonHref(`/bereich/admin/spieltage/${spieltag.id}`)}
         label="Bearbeiten"
-        ariaLabel={`${spieltag.label} bearbeiten`}>
+        subject={spieltag.label}>
         <Pencil
           className="size-4.5"
           aria-hidden="true"
@@ -173,11 +174,13 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
                         and reading "1" before every name is noise. The name is the row's accessible
                         identity, which is what the action labels name too. */}
                     <span className="truncate fluid-sm font-semibold text-foreground">{spieltag.label}</span>
-                    {/* The undated matchday comes FIRST: its two nulls are equal, so the one-day
-                        branch below would render its absence as a single placeholder date. A range
-                        repeating one date twice reads as two facts. */}
-                    {spieltag.beginn === null && spieltag.ende === null ? (
-                      <span className="fluid-xs text-foreground-muted">Noch kein Zeitraum</span>
+                    {/* A matchday missing either date comes FIRST: two nulls are equal, so the one-day
+                        branch would render them as one placeholder date, and the en dash joins two dates
+                        alone. One date repeated as a range reads as two facts. */}
+                    {spieltag.beginn === null || spieltag.ende === null ? (
+                      <span className="fluid-xs">
+                        <Leer>Noch kein Zeitraum</Leer>
+                      </span>
                     ) : (
                       <span className="font-numeric fluid-xs text-foreground-muted tabular-nums">
                         {spieltag.beginn === spieltag.ende

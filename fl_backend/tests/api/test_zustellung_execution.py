@@ -10,19 +10,22 @@ from pymongo.errors import WriteError
 from app.api.bewerbungen.services import days_after
 from app.api.registrierungen.services import build_erinnerung_filter
 from app.api.registrierungen.services import compose_bestaetigung as compose_registrierung_bestaetigung
-from app.api.schiedsrichter.services import compose_bestaetigung
+from app.api.schiedsrichter.services import compose_adresswechsel, compose_bestaetigung
+from app.api.teams.services import compose_kontakt_bestaetigung
 from app.api.zustellung.router import abgewiesen_zustellung, angenommen_zustellung, post_zustellung
 from app.api.zustellung.schemas import (
+    ZIELE_JE_SITZ,
     FLZustellungAbgewiesenPayload,
     FLZustellungAngenommenPayload,
     FLZustellungEreignisPayload,
     FLZustellungZiel,
 )
-from app.api.zustellung.services import ZIEL_PFADE, zustellung_pfad
+from app.api.zustellung.services import ZIEL_PFADE, traeger_halter, traeger_pfade, zustellung_pfad
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundException
 from app.shared.schemas.bounds import REGISTRIERUNG_ERINNERUNG_TAGE
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.documents import saison_team_document
 from tests.worker import worker_database
 
 DATABASE_NAME = worker_database("fl_zustellung_test")
@@ -77,6 +80,16 @@ ZIEL_FIXTURES: Mapping[FLZustellungZiel, Mapping[str, Any]] = {
         "einwilligung": None,
         "entscheidung": None,
     },
+    "kontakt": {"_id": ZIEL_OID, **saison_team_document("2026", ObjectId("6890a1b2c3d4e5f607970002"), "Adler", "AD")},
+    # The referee row again: the address link's carrier sits beside the confirmation's on it.
+    "schiedsrichter_adresswechsel": {
+        "_id": ZIEL_OID,
+        "name": "Bramblewick Quillon",
+        "schule": "Zorbanax-Gesamtschule",
+        "default_payment": 25,
+        "kontakt": {"telefon": "+49 170 1234567", "email": "bramblewick@example.com"},
+        "inactive_since": None,
+    },
 }
 
 ZIELE = sorted(ZIEL_PFADE)
@@ -92,7 +105,16 @@ CARRIER_SEEDS: Mapping[FLZustellungZiel, Mapping[str, Any]] = {
     # compose_einladung`): an invitation's carrier holds the delivery record and nothing beside it.
     "einladung": {},
     "registrierung": compose_registrierung_bestaetigung(token_hash=SEEDED_TOKEN_HASH, today=MINTED_ON, frist="2026-04-04"),
+    # The Trainer's seat, the one every case below reports on; the seat axis's own cases reach the others.
+    "kontakt": compose_kontakt_bestaetigung(token_hash=SEEDED_TOKEN_HASH, today=MINTED_ON),
+    "schiedsrichter_adresswechsel": compose_adresswechsel(email="quillon@example.com", token_hash=SEEDED_TOKEN_HASH, today=MINTED_ON),
 }
+
+# The seats each kind's report names: the Trainer's for a seat kind, none for every other.
+ROLLEN: Mapping[FLZustellungZiel, list[str]] = {ziel: ["trainer"] if ziel in ZIELE_JE_SITZ else [] for ziel in ZIEL_PFADE}
+
+# The one carrier each kind's cases write, as the endpoint resolves it.
+TRAEGER: Mapping[FLZustellungZiel, str] = {ziel: traeger_pfade(ziel, ROLLEN[ziel])[0] for ziel in ZIEL_PFADE}
 
 
 def target(ziel: FLZustellungZiel, *, carrier: bool = True) -> dict[str, Any]:
@@ -102,8 +124,15 @@ def target(ziel: FLZustellungZiel, *, carrier: bool = True) -> dict[str, Any]:
     """
 
     row = dict(ZIEL_FIXTURES[ziel])
+    if not carrier:
+        return row
 
-    return {**row, ZIEL_PFADE[ziel].traeger: dict(CARRIER_SEEDS[ziel])} if carrier else row
+    if ziel in ZIELE_JE_SITZ:
+        # A whole block, the validator requiring every seat: the reported seat's entry, the others empty.
+        block = {seat: dict(CARRIER_SEEDS[ziel]) if seat in ROLLEN[ziel] else None for seat in ("trainer", "ansprechperson", "stellvertretung")}
+        return {**row, ZIEL_PFADE[ziel].traeger: block}
+
+    return {**row, ZIEL_PFADE[ziel].traeger: dict(CARRIER_SEEDS[ziel])}
 
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
@@ -129,10 +158,17 @@ async def accept(
     nachricht_id: str = FIRST_MESSAGE,
     am: str = ACCEPTED_AT,
     ziel_id: ObjectId = ZIEL_OID,
+    rollen: list[str] | None = None,
 ) -> Any:
     return await angenommen_zustellung(
         angenommen_data=FLZustellungAngenommenPayload.model_validate(
-            {"ziel": ziel, "ziel_id": str(ziel_id), "nachricht_id": nachricht_id, "am": am}
+            {
+                "ziel": ziel,
+                "ziel_id": str(ziel_id),
+                "rollen": rollen if rollen is not None else ROLLEN[ziel],
+                "nachricht_id": nachricht_id,
+                "am": am,
+            }
         ),
         db=database,
         db_client=client,
@@ -149,10 +185,19 @@ async def report(
     grund: str | None = None,
     am: str = BOUNCED_AT,
     ziel_id: ObjectId = ZIEL_OID,
+    rollen: list[str] | None = None,
 ) -> Any:
     return await post_zustellung(
         ereignis_data=FLZustellungEreignisPayload.model_validate(
-            {"ziel": ziel, "ziel_id": str(ziel_id), "nachricht_id": nachricht_id, "stand": stand, "grund": grund, "am": am}
+            {
+                "ziel": ziel,
+                "ziel_id": str(ziel_id),
+                "rollen": rollen if rollen is not None else ROLLEN[ziel],
+                "nachricht_id": nachricht_id,
+                "stand": stand,
+                "grund": grund,
+                "am": am,
+            }
         ),
         db=database,
         db_client=client,
@@ -169,15 +214,23 @@ async def refuse(
     ziel_id: ObjectId = ZIEL_OID,
 ) -> Any:
     return await abgewiesen_zustellung(
-        abgewiesen_data=FLZustellungAbgewiesenPayload.model_validate({"ziel": ziel, "ziel_id": str(ziel_id), "grund": grund, "am": am}),
+        abgewiesen_data=FLZustellungAbgewiesenPayload.model_validate(
+            {"ziel": ziel, "ziel_id": str(ziel_id), "rollen": ROLLEN[ziel], "grund": grund, "am": am}
+        ),
         db=database,
         db_client=client,
     )
 
 
-async def state_of(database: AsyncDatabase, ziel: FLZustellungZiel) -> Any:
+def carrier_in(document: Any, traeger: str) -> Any:
+    halter, schluessel = traeger_halter(document or {}, traeger)
+
+    return halter.get(schluessel) if isinstance(halter, Mapping) else None
+
+
+async def state_of(database: AsyncDatabase, ziel: FLZustellungZiel, traeger: str | None = None) -> Any:
     document = await database[ZIEL_PFADE[ziel].collection].find_one({"_id": ZIEL_OID})
-    carrier = (document or {}).get(ZIEL_PFADE[ziel].traeger) or {}
+    carrier = carrier_in(document, TRAEGER[ziel] if traeger is None else traeger) or {}
 
     return carrier.get("zustellung")
 
@@ -202,7 +255,7 @@ class TestTheCarrierIsValidated:
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             with pytest.raises(WriteError):
                 await database[ZIEL_PFADE[ziel].collection].update_one(
-                    {"_id": ZIEL_OID}, {"$set": {zustellung_pfad(ZIEL_PFADE[ziel]): {"nachricht_id": FIRST_MESSAGE}}}
+                    {"_id": ZIEL_OID}, {"$set": {zustellung_pfad(TRAEGER[ziel]): {"nachricht_id": FIRST_MESSAGE}}}
                 )
 
             return None
@@ -215,7 +268,7 @@ class TestTheCarrierIsValidated:
             record = {"nachricht_id": FIRST_MESSAGE, "stand": "erfunden", "grund": None, "am": ACCEPTED_AT}
 
             with pytest.raises(WriteError):
-                await database[ZIEL_PFADE[ziel].collection].update_one({"_id": ZIEL_OID}, {"$set": {zustellung_pfad(ZIEL_PFADE[ziel]): record}})
+                await database[ZIEL_PFADE[ziel].collection].update_one({"_id": ZIEL_OID}, {"$set": {zustellung_pfad(TRAEGER[ziel]): record}})
 
             return None
 
@@ -372,13 +425,12 @@ class TestADeliveryEvent:
             return response, await database[ZIEL_PFADE[ziel].collection].find_one({"_id": ZIEL_OID})
 
         response, document = on_a_league(mongo_replica_set_url, ziel, body)
-        carrier, _, feld = zustellung_pfad(ZIEL_PFADE[ziel]).partition(".")
 
         assert response.angewendet is True
         # The seed beside it, compared whole: the write touches the record's own path alone, and a
         # key of the person's bookkeeping it overwrote would be a link this call silently voided.
-        expected = {feld: {"nachricht_id": FIRST_MESSAGE, "stand": "unzustellbar", "grund": "NoEmail", "am": BOUNCED_AT}}
-        assert document[carrier] == {**CARRIER_SEEDS[ziel], **expected}
+        expected = {"zustellung": {"nachricht_id": FIRST_MESSAGE, "stand": "unzustellbar", "grund": "NoEmail", "am": BOUNCED_AT}}
+        assert carrier_in(document, TRAEGER[ziel]) == {**CARRIER_SEEDS[ziel], **expected}
 
     @pytest.mark.parametrize("ziel", ZIELE, ids=lambda ziel: ziel)
     def test_an_event_naming_a_superseded_message_writes_nothing(self, ziel: FLZustellungZiel, mongo_replica_set_url: str):
@@ -438,3 +490,53 @@ class TestADeliveryEvent:
             return None
 
         on_a_league(mongo_replica_set_url, ziel, body)
+
+
+@pytest.mark.db
+class TestTheSeatAxis:
+    """A contact seat's record: one message reaching every seat its person holds, and no seat it did not name."""
+
+    def test_one_message_to_a_person_holding_two_seats_is_recorded_on_both(self, mongo_replica_set_url: str):
+        """The re-send writes one entry to both seats, so a state written to one alone would leave the other stale."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            entry = compose_kontakt_bestaetigung(token_hash=SEEDED_TOKEN_HASH, today=MINTED_ON)
+            await database[Collection.SAISON_TEAMS].update_one({"_id": ZIEL_OID}, {"$set": {"bestaetigungen.stellvertretung": entry}})
+            response = await accept(database, client, ziel="kontakt", rollen=["trainer", "stellvertretung"])
+
+            return response, [
+                await state_of(database, "kontakt", f"bestaetigungen.{seat}") for seat in ("trainer", "ansprechperson", "stellvertretung")
+            ]
+
+        response, states = on_a_league(mongo_replica_set_url, "kontakt", body)
+
+        accepted = {"nachricht_id": FIRST_MESSAGE, "stand": "angenommen", "grund": None, "am": ACCEPTED_AT}
+        assert response.angewendet is True
+        assert states == [accepted, None, accepted]
+
+    def test_a_named_seat_holding_no_link_is_skipped_and_the_others_written(self, mongo_replica_set_url: str):
+        """A seat emptied between the send and the report: refusing the whole report would drop the record of the seat still standing."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            response = await accept(database, client, ziel="kontakt", rollen=["trainer", "ansprechperson"])
+            document = await database[Collection.SAISON_TEAMS].find_one({"_id": ZIEL_OID})
+
+            return response, document
+
+        response, document = on_a_league(mongo_replica_set_url, "kontakt", body)
+
+        assert response.angewendet is True
+        assert document["bestaetigungen"]["ansprechperson"] is None
+        assert document["bestaetigungen"]["trainer"]["zustellung"]["nachricht_id"] == FIRST_MESSAGE
+
+    def test_another_seat_s_message_is_not_written_to_this_one(self, mongo_replica_set_url: str):
+        """Two people on one row are two records: a report naming the Trainer leaves a seat it did not name as it was."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            entry = compose_kontakt_bestaetigung(token_hash=SEEDED_TOKEN_HASH, today=MINTED_ON)
+            await database[Collection.SAISON_TEAMS].update_one({"_id": ZIEL_OID}, {"$set": {"bestaetigungen.stellvertretung": entry}})
+            await accept(database, client, ziel="kontakt")
+
+            return await state_of(database, "kontakt", "bestaetigungen.stellvertretung")
+
+        assert on_a_league(mongo_replica_set_url, "kontakt", body) is None

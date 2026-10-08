@@ -229,12 +229,17 @@ GATE_WIDTH_BACKEND_PYTEST=6
 # runs one as a process and `--serial` calls the same body in place, so the serial run is an oracle.
 
 do_selfcheck() { bash scripts/gate/selfcheck.sh; }
+# The orchestration skill's tools are python no other scope reads; `scripts/pyrightconfig.json`
+# includes the same folder.
+SCRIPTS_PYTHON=(scripts .claude/skills/orchestration/tools)
+# Joined on a space for the advice lines: `_lib.sh`'s IFS would join it on a newline.
+SCRIPTS_PYTHON_SAID="$(IFS=' '; printf '%s' "${SCRIPTS_PYTHON[*]}")"
 # Only a failing invocation speaks. Both share one capture, so a passing banner would print
 # directly above the other's finding and read as a verdict on it.
 do_ruff() {
   local lint
-  lint="$("$PY" -m ruff check scripts 2>&1)" || { printf '%s\n' "$lint"; return 1; }
-  "$PY" -m ruff format --check scripts
+  lint="$("$PY" -m ruff check "${SCRIPTS_PYTHON[@]}" 2>&1)" || { printf '%s\n' "$lint"; return 1; }
+  "$PY" -m ruff format --check "${SCRIPTS_PYTHON[@]}"
 }
 # From inside scripts/, where pyright finds its config; the absolute `$PY` survives the `cd`.
 do_pyright() { ( cd "${REPO_ROOT}/scripts" && PYRIGHT_PYTHON_IGNORE_WARNINGS=1 "$PY" -m pyright ); } # no PyPI release lookup: uv.lock pins what runs
@@ -468,7 +473,9 @@ run_checker() {
   fi
   case "$rc" in
     0) return 0 ;;
-    1) if [[ "$mode" == "collect" || "$mode" == "annotate" ]]; then fail "$message"; return 1; fi
+    # An annotating checker has marked each finding itself, so its pointer to them marks none.
+    1) if [[ "$mode" == "annotate" ]]; then fail --summary "$message"; return 1; fi
+       if [[ "$mode" == "collect" ]]; then fail "$message"; return 1; fi
        die "$message" ;;
     # A refusal ends the run in `collect` too: collecting exists so that findings reach the reader
     # together, and a check that could not judge its input has none.
@@ -803,12 +810,12 @@ if (( RUN_SCRIPTS )); then
   step "scripts · ruff  (lint, and format in check mode)"
   unit_join ruff
   unit_verdict ruff "${LINENO}" \
-    "ruff failed in scripts/. Fix with:  fl_backend/.venv/Scripts/python -m ruff format scripts"
+    "ruff failed in ${SCRIPTS_PYTHON_SAID}. Fix with:  fl_backend/.venv/Scripts/python -m ruff format ${SCRIPTS_PYTHON_SAID}"
   ok "the gate's own python is clean"
 
   step "scripts · pyright"
   unit_join pyright
-  unit_verdict pyright "${LINENO}" "pyright found type errors in scripts/.
+  unit_verdict pyright "${LINENO}" "pyright found type errors in ${SCRIPTS_PYTHON_SAID}.
 These are the same errors Pylance shows in the editor."
   ok "the gate's own types are clean"
 

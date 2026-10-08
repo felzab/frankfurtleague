@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 
 import { cacheCalls, doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
-import { answerShown, assertEachAnswered, DUPLICATE_KEY, publishedRefusals } from "@/shared/testing/publishedRefusals.ts";
+import { answerShown, assertEachAnswered, publishedRefusals } from "@/shared/testing/publishedRefusals.ts";
 
 import { mapSpielRefusal } from "./refusals.ts";
 
@@ -78,10 +78,7 @@ describe("the match's writes", () => {
 
 describe("the match editor's refusals against the codes its endpoint publishes", () => {
   it("finds every rule the match endpoint publishes", () => {
-    assert.deepEqual(
-      publishedRefusals(PATCH_OPERATION).filter((code) => code !== DUPLICATE_KEY),
-      PATCH_CODES,
-    );
+    assert.deepEqual(publishedRefusals(PATCH_OPERATION), PATCH_CODES);
   });
 
   /* Two sites answer them: the slice's own mapper, and the shared reader behind it. A code neither

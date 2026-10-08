@@ -2,7 +2,8 @@ import asyncio
 import contextvars
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable
-from contextlib import asynccontextmanager
+from contextlib import AbstractAsyncContextManager, asynccontextmanager, nullcontext
+from contextvars import ContextVar
 from typing import Final
 
 import anyio
@@ -15,6 +16,7 @@ from pymongo.errors import OperationFailure, PyMongoError
 from app.core.exception_handlers import DATABASE_FAILED
 from app.core.logging import fl_logger
 from app.core.middlewares import request_deadline_var
+from app.core.recording import actor_var
 
 # Shared by every abort a request sends past its deadline, or a loop of cut transactions waits out
 # one apiece; far above a round trip, and inside the page's margin (`docs/backend/spec.md :: I320`).
@@ -78,13 +80,56 @@ async def _abort_on_the_server(session: AsyncClientSession) -> None:
             _log_left_open(f"its abort failed ({type(failure).__name__}, code {code})")
 
 
+# What a request's actor is judged by inside each attempt of every transaction it opens: entered in
+# the attempt's session before its callback, and left once the callback has returned.
+ActorJudge = Callable[[AsyncClientSession], AbstractAsyncContextManager[object]]
+
+# Bound beside `app/core/recording.py :: actor_var` by the binder that bound the actor, and reset with it.
+actor_judge_var: ContextVar[ActorJudge | None] = ContextVar("actor_judge", default=None)
+
+# The actor kinds no grant and no ban can judge. Named rather than the judged ones, so a kind added
+# later is refused until its binder binds a judge, never let through unjudged.
+UNJUDGED_KINDS: Final = frozenset({"system", "public"})
+
+
+def _unjudged(_session: AsyncClientSession) -> AbstractAsyncContextManager[object]:
+    return nullcontext()
+
+
+class JudgedSession:
+    """What `transaction_session` yields: the driver's session, every transaction run on it judging the request's actor first.
+
+    Never handed to the driver as `session=`, which refuses it: each callback is handed the driver's own.
+    """
+
+    def __init__(self, session: AsyncClientSession, judge: ActorJudge) -> None:
+        self._session = session
+        self._judge = judge
+
+    async def with_transaction[T](self, callback: Callable[[AsyncClientSession], Awaitable[T]]) -> T:
+        """`callback` in one transaction, the actor judged again in each attempt the driver retries (`docs/backend/spec.md :: I575`)."""
+
+        async def judged(session: AsyncClientSession) -> T:
+            async with self._judge(session):
+                return await callback(session)
+
+        return await self._session.with_transaction(judged)
+
+
 @asynccontextmanager
-async def transaction_session(client: AsyncMongoClient) -> AsyncIterator[AsyncClientSession]:
+async def transaction_session(client: AsyncMongoClient) -> AsyncIterator[JudgedSession]:
     """The session every transaction runs on: work failing inside it leaves the server no transaction (`docs/backend/spec.md :: I539`)."""
+
+    actor = actor_var.get()
+    judge = actor_judge_var.get()
+    # Refused rather than run unjudged: a binder that bound such an actor and no judge would let a
+    # revoked administrator or a barred person write.
+    if judge is None and actor.kind not in UNJUDGED_KINDS:
+        raise LookupError(f"a transaction of a `{actor.kind}` actor has no judge bound")
 
     async with client.start_session() as session:
         try:
-            yield session
+            yield JudgedSession(session, judge or _unjudged)
         # `BaseException`, as the driver's own abort catches it: a cancelled request leaves a
         # transaction open as surely as a failed one.
         except BaseException:
@@ -100,7 +145,7 @@ async def drain(
     # The caller's `session.with_transaction(<callback>)`, never the callback itself:
     # `tests/core/app_source.py :: _callbacks` reads a callback where `with_transaction` is handed
     # it, and would find none here.
-    page_of: Callable[[AsyncClientSession], Awaitable[tuple[int, int, int]]],
+    page_of: Callable[[JudgedSession], Awaitable[tuple[int, int, int]]],
     # The callback reads one row past it, or a full page reads as the last one.
     page: int,
 ) -> tuple[int, int]:

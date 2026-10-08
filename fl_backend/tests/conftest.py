@@ -24,9 +24,9 @@ from tests.worker import guard_every_database, release_every_database, worker_da
 # a passing run. Not `raiseExceptions = False`: that would hide real handler failures too.
 logging.getLogger("urllib3").setLevel(logging.INFO)
 
-# pytest's own, so `tests/core/test_tier.py` can run a session through the guard's registration; and
-# the refusal of a test module that collects nothing.
-pytest_plugins = ("pytester", "tests.collection")
+# pytest's own, so `tests/core/test_tier.py` can run a session through the guard's registration; the
+# refusal of a test module that collects nothing; and the db tier's choice of modules.
+pytest_plugins = ("pytester", "tests.collection", "tests.db_modules")
 
 
 # Fixed rather than generated: a failing test points at the same value every run.
@@ -286,7 +286,7 @@ def saison() -> PayloadFactory:
 
 # Both containers' image, by tag and digest (`docs/ops/spec.md` §1.1): the local stack's server, with
 # its full version, which `scripts/tests/test_image_pins.py` holds to that form.
-MONGO_IMAGE = "mongo:8.3.11@sha256:5d7043a4ffe02b9ed1b6e0bab057546981af5ca0a79107e9c461e49bc44c0a7b"
+MONGO_IMAGE = "mongo:8.3.11@sha256:d731d77bfd7afd66bd487bdf627b5bf7ce4c3602ec461d635977021db529ebbc"
 
 # A majority write's acknowledgement waits on the oplog entry reaching the journal, and this
 # container's data is discarded at session end, so the disk buys nothing the tier needs.
@@ -299,6 +299,11 @@ TMPFS_DATA_OPTIONS = "size=1g"
 # over the ~820 MiB the mount leaves free. It truncates on that, not the filesystem: a full mount
 # is ENOSPC, then `WT_PANIC`, then a dead container.
 REPLICA_SET_OPLOG_MB = 128
+
+# In both `_standalone_mongod`'s and `_replica_set_mongod`'s url: a streaming monitor's close leaves
+# no TIME_WAIT on Windows, so its port is reused at once, and under load WSL's mirrored loopback
+# relay stalls a connect on it past the request deadline.
+POLLING_MONITORS = "serverMonitoringMode=poll"
 
 # What `pytest_configure_node` hands each worker, so one pair of containers serves the whole run.
 STANDALONE_KEY = "fl_standalone_mongodb_url"
@@ -329,9 +334,15 @@ _REPLICA_SET_CONTAINERS: dict[str, Any] = {}
 # Each case's span, its setup's start to its teardown's end, on the clock the worker reports.
 _CASE_SPANS: dict[str, list[float]] = {}
 
-# mongod's log ids: the expired-transaction pass aborting one, and any transaction's record as it ends.
+# mongod's log ids: the expired-transaction pass aborting one, the pass giving up on checking out the
+# session of one whose operation it interrupted, and any transaction's record as it ends.
 _EXPIRED_ABORT_LOG_ID = 20707
+_CHECKOUT_TIMED_OUT_LOG_ID = 11790801
 _TRANSACTION_LOG_ID = 51802
+
+# The expired-transaction pass's thread: other session kills, a step-down's among them, log a
+# timed-out checkout under the same id.
+_EXPIRY_PASS_THREAD = "abortExpiredTransactions"
 
 # The server's clock is the container's, which can sit a moment off the host's.
 _CLOCK_SLACK_S = 2.0
@@ -362,6 +373,10 @@ def _running_at(moment: float) -> list[str]:
     return sorted(case for case, (start, stop) in _CASE_SPANS.items() if start - _CLOCK_SLACK_S <= moment <= stop + _CLOCK_SLACK_S)
 
 
+def _logged_at(entry: Mapping[str, Any]) -> float:
+    return datetime.fromisoformat(entry["t"]["$date"]).timestamp()
+
+
 def _named_aborts(url: str) -> Iterator[str]:
     """Time spent inside an operation means a case waited on it, the deadlock; time spent idle means the case that opened it went on."""
 
@@ -371,17 +386,30 @@ def _named_aborts(url: str) -> Iterator[str]:
     stdout, _ = container.get_logs()
     entries = [json.loads(line) for line in stdout.decode("utf-8", errors="replace").splitlines() if line.startswith("{")]
     # The abort names the session; the transaction's own record, logged by whichever thread unwinds it, carries its times.
-    records = {
-        (entry["attr"]["parameters"]["lsid"]["id"]["$uuid"], entry["attr"]["parameters"]["txnNumber"]): entry["attr"]
+    records = [
+        (entry["attr"]["parameters"]["lsid"]["id"]["$uuid"], entry["attr"]["parameters"]["txnNumber"], _logged_at(entry), entry["attr"])
         for entry in entries
         if entry.get("id") == _TRANSACTION_LOG_ID and "parameters" in entry.get("attr", {})
-    }
+    ]
+    named: set[tuple[str, object]] = set()
     for entry in entries:
-        if entry.get("id") != _EXPIRED_ABORT_LOG_ID:
+        if entry.get("id") == _EXPIRED_ABORT_LOG_ID:
+            session, txn_number = entry["attr"]["sessionId"]["uuid"]["$uuid"], entry["attr"]["txnNumberAndRetryCounter"]["txnNumber"]
+        elif entry.get("id") == _CHECKOUT_TIMED_OUT_LOG_ID and entry.get("ctx") == _EXPIRY_PASS_THREAD:
+            # Counted under `timedOutKills`, its line naming the session alone: the record is the one the interrupted
+            # operation logged for that session as it unwound, the nearest in time.
+            session, txn_number = entry["attr"]["lsidToKill"]["id"]["$uuid"], None
+        else:
             continue
-        session = (entry["attr"]["sessionId"]["uuid"]["$uuid"], entry["attr"]["txnNumberAndRetryCounter"]["txnNumber"])
-        record = records.get(session, {})
-        aborted = datetime.fromisoformat(entry["t"]["$date"]).timestamp()
+        aborted = _logged_at(entry)
+        candidates = [
+            (abs(at - aborted), number, attr) for lsid, number, at, attr in records if lsid == session and txn_number in (None, number)
+        ]
+        _, txn_number, record = min(candidates, key=lambda candidate: candidate[0]) if candidates else (0.0, txn_number, {})
+        # Once each: a later pass meeting the transaction still running after a timed-out kill counts it again.
+        if (session, txn_number) in named:
+            continue
+        named.add((session, txn_number))
         active_s = record.get("timeActiveMicros", 0) / 1e6
         inactive_s = record.get("timeInactiveMicros", 0) / 1e6
         writes = {key: value for key, value in record.items() if key in {"ninserted", "nModified", "ndeleted"}}
@@ -402,7 +430,7 @@ def _standalone_mongod() -> Iterator[str]:
     from testcontainers.community.mongodb import MongoDbContainer
 
     with MongoDbContainer(MONGO_IMAGE).with_tmpfs_mount(TMPFS_DATA_PATH, TMPFS_DATA_OPTIONS) as container:
-        yield str(container.get_connection_url())
+        yield f"{container.get_connection_url()}/?{POLLING_MONITORS}"
 
 
 @contextmanager
@@ -426,7 +454,7 @@ def _replica_set_mongod() -> Iterator[str]:
 
     with container:
         # `directConnection=true`: the set advertises its container-internal address, which topology discovery would follow and find nothing.
-        url = f"mongodb://{container.get_container_host_ip()}:{container.get_exposed_port(27017)}/?directConnection=true"
+        url = f"mongodb://{container.get_container_host_ip()}:{container.get_exposed_port(27017)}/?directConnection=true&{POLLING_MONITORS}"
 
         client = MongoClient(url)
         try:

@@ -21,6 +21,7 @@ import { Switch } from "@/shared/components/ui/Switch";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { rejectedWrite, unansweredRead } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
+import { nichtHinterlegt } from "@/shared/utils/format";
 
 import type { FLEinladungVersandGrund, FLEinladungVersandVorschauZeile } from "@/features/einladungen/schemas";
 import type { EinladungVersandErgebnis } from "@/features/einladungen/types";
@@ -42,7 +43,7 @@ const UEBERSPRUNGEN_SATZ: Record<FLEinladungVersandGrund, string> = {
   austritt_eingetragen: "Austritt eingetragen",
   erzeugung_fehlgeschlagen: "Registrierungslink nicht angelegt",
   erzeugung_ungewiss: "Unklar, ob ein neuer Registrierungslink angelegt wurde",
-  kein_kontaktblock: "Keine Kontaktdaten hinterlegt",
+  kein_kontaktblock: nichtHinterlegt("Kontaktdaten"),
   keine_bestaetigte_kontaktperson: "Niemand hat die Kontaktdaten bisher selbst bestätigt",
   kontakte_gesperrt: "Jede bestätigte Adresse steht auf der Sperrliste",
   bereits_gesendet: "Hat den Link schon bekommen",

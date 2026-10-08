@@ -18,11 +18,9 @@ from pymongo.errors import ConfigurationError, InvalidURI, OperationFailure, Ser
 from app.core.config import (
     INTERNAL_API_KEY_LENGTH,
     MONGODB_URI_FILE,
-    RETIRED_PREFIX,
     SECRET_FILES,
     SPERRLISTE_KEY_MIN_LENGTH,
     BackendConfig,
-    BackendEnvironment,  # noqa: TID251
     BackendSecrets,  # noqa: TID251
     EnvironmentValidationError,
     get_app_config,
@@ -30,7 +28,7 @@ from app.core.config import (
     read_environment,  # noqa: TID251
 )
 from app.core.constraints import COLLECTION_VALIDATORS
-from app.core.db import NO_SERVER, REJECTED, RETIRED_VARIABLES, UNREACHABLE, DatabaseUnreachableError, _refusal_for, lifespan
+from app.core.db import NO_SERVER, REJECTED, UNREACHABLE, DatabaseUnreachableError, _refusal_for, lifespan
 from app.main import KEY_TIERS, create_app
 from tests.actor_tokens import ACTOR_TOKEN_PUBLIC_KEY
 from tests.core.app_source import api_routes
@@ -68,22 +66,12 @@ FILES = {
     "sperrliste_schluessel": BAN_LIST_KEY,
 }
 
-# Each file's variable before it became a file, which a machine's own shell may still carry: read off
-# the environment half's retired twin of each secret field, so a file whose twin is gone fails loudly.
-RETIRED_VARIABLE_OF = {
-    str(field.validation_alias or name): str(BackendEnvironment.model_fields[f"{RETIRED_PREFIX}{name}"].validation_alias)
-    for name, field in BackendSecrets.model_fields.items()
-}
+# Each file's credential under its field's own name, the variable a machine's own shell may still
+# carry from before the credentials were files.
+VARIABLE_OF = {str(field.validation_alias or name): name.upper() for name, field in BackendSecrets.model_fields.items()}
 
-# Every name the environment half declares as retired, which a machine's own shell may carry.
-RETIRED = (
-    "ALLOWED_ADMIN_EMAILS",
-    "MONGODB_URI",
-    "INTERNAL_API_KEY_BASE",
-    "INTERNAL_API_KEY_SYSTEM",
-    "INTERNAL_API_KEY_ADMIN",
-    "SPERRLISTE_SCHLUESSEL",
-)
+# Every line a host's `fl_backend/.env` held before the secret files, the administrator list among them.
+LEFT_BEHIND = ("ALLOWED_ADMIN_EMAILS", *VARIABLE_OF.values())
 
 
 @pytest.fixture(autouse=True)
@@ -128,8 +116,6 @@ def an_environment(
         if content is not None:
             (directory / name).write_bytes(content)
     monkeypatch.setenv("SECRETS_DIR", str(directory))
-    for name in RETIRED:
-        monkeypatch.delenv(name, raising=False)
     for name, value in {**REQUIRED, **overrides}.items():
         monkeypatch.setenv(name, value)
     return directory
@@ -261,9 +247,12 @@ class TestTheInternalKeys:
             build(**{field: SecretStr("k" * length)})
 
     @pytest.mark.parametrize("field", ["internal_api_key_base", "internal_api_key_system", "internal_api_key_admin"])
-    @pytest.mark.parametrize("odd_character", ["ü", "\U0001f600", " "], ids=["non-ascii", "astral", "space"])
+    @pytest.mark.parametrize("odd_character", ["ü", "\U0001f600", " ", "\x7f"], ids=["non-ascii", "astral", "space", "delete"])
     def test_a_key_of_the_right_length_carrying_a_non_ascii_character_or_a_space_fails_the_boot(self, field, odd_character):
-        """The three the length alone admits: `compare_digest` RAISES on the first two, and the astral one is also 65 units to the frontend."""
+        """What the length alone admits: `compare_digest` RAISES on the first two, and the astral one is also 65 units to the frontend.
+
+        The space and DEL sit either side of the class's range.
+        """
         key = odd_character + "k" * (INTERNAL_API_KEY_LENGTH - 1)
 
         assert len(key) == INTERNAL_API_KEY_LENGTH
@@ -273,14 +262,13 @@ class TestTheInternalKeys:
 
     @pytest.mark.parametrize("field", ["internal_api_key_base", "internal_api_key_system", "internal_api_key_admin"])
     @pytest.mark.parametrize(
-        "altered", ['"', "#", "$", "'", "\\", "`"], ids=["double-quote", "hash", "dollar", "single-quote", "backslash", "backtick"]
+        "syntax", ['"', "#", "$", "'", "\\", "`"], ids=["double-quote", "hash", "dollar", "single-quote", "backslash", "backtick"]
     )
-    def test_a_key_carrying_a_character_an_env_file_reader_alters_fails_the_boot(self, field, altered):
-        """Compose, python-dotenv, `@next/env` or Node reads each of these as syntax somewhere, so the two sides could hold different keys."""
-        key = "k" * 10 + altered + "k" * (INTERNAL_API_KEY_LENGTH - 11)
+    def test_a_key_carrying_a_character_an_env_file_reader_alters_boots(self, field, syntax):
+        """A key is read from its file alone, which no env-file reader parses, so the class need not refuse their syntax."""
+        key = "k" * 10 + syntax + "k" * (INTERNAL_API_KEY_LENGTH - 11)
 
-        with pytest.raises(ValidationError):
-            build(**{field: SecretStr(key)})
+        assert getattr(build(**{field: SecretStr(key)}), field).get_secret_value() == key
 
     @pytest.mark.parametrize("field", ["internal_api_key_base", "internal_api_key_system", "internal_api_key_admin"])
     @pytest.mark.parametrize(
@@ -338,9 +326,9 @@ class TestTheSecretFiles:
     def test_a_directory_missing_one_file_refuses_the_boot_naming_it_whatever_the_environment_carries(self, monkeypatch, tmp_path, file):
         """Over every file the class reads: a credential given a default boots without its file, on a value nobody chose.
 
-        The variable the release before read stands beside the missing file, and stands in for nothing.
+        The variable of the credential's own name stands beside the missing file, and stands in for nothing.
         """
-        refused = refusal(monkeypatch, tmp_path, {file: None}, **{RETIRED_VARIABLE_OF[file]: FILES[file]})
+        refused = refusal(monkeypatch, tmp_path, {file: None}, **{VARIABLE_OF[file]: FILES[file]})
 
         assert refused == f"Invalid secret files: {file}"
 
@@ -351,7 +339,6 @@ class TestTheSecretFiles:
         config = get_config()
 
         assert config.internal_api_key_base.get_secret_value() == FILES["internal_api_key_base"]
-        assert config.retired_variables == {"INTERNAL_API_KEY_BASE"}
 
     def test_a_file_ending_in_a_line_break_reads_without_it(self, monkeypatch, tmp_path):
         """A file written by an editor or `echo` ends in one, and a key carrying it would match nothing the frontend sends."""
@@ -530,43 +517,21 @@ class TestTheSecretFiles:
         assert get_config().sperrliste_schluessel.get_secret_value() == lent
 
 
-class TestTheRetiredVariables:
-    """The names the secrets were read from before they became files, accepted for one release (`docs/backend/spec.md` §1.5)."""
+class TestALineASecretFileReplaced:
+    """A host's `fl_backend/.env` may still hold the lines the secret files replaced (`docs/backend/spec.md` §1.5)."""
 
-    def test_each_moved_name_in_the_environment_file_boots_and_no_field_holds_its_value(self, monkeypatch, tmp_path):
-        """The file a rollback's image reads still carries them, so refusing one here would refuse the release that rollback needs."""
-        marker = a_key_the_boot_accepts("retired-marker")
-        lines = [f"{name}={marker}" for name in RETIRED]
-        (tmp_path / ".env").write_bytes(("\n".join(lines) + "\n").encode())
-        an_environment(monkeypatch, tmp_path)
+    def test_each_one_in_the_environment_file_refuses_the_boot_naming_it_and_no_value(self, monkeypatch, tmp_path):
+        """Every such name at once, so a credential's line taking a declaration back reads as one name missing from the refusal."""
+        marker = a_key_the_boot_accepts("left-behind-marker")
+        (tmp_path / ".env").write_bytes("".join(f"{name}={marker}\n" for name in LEFT_BEHIND).encode())
 
-        config = get_config()
-        held = [value.get_secret_value() if isinstance(value, SecretStr) else str(value) for value in config.model_dump().values()]
+        refused = refusal(monkeypatch, tmp_path)
 
-        assert config.retired_variables == set(RETIRED)
-        assert all(marker not in value for value in held)
+        assert refused == f"Invalid environment variables: {', '.join(sorted(LEFT_BEHIND))}"
+        assert marker not in refused
 
-    def test_the_boot_names_each_one_it_finds_and_prints_no_value(self, monkeypatch, tmp_path, caplog):
-        """End to end, from the environment to the boot's line, as an operator reading the log after a deploy meets it."""
-        marker = "vorstand@schule.de"
-        an_environment(
-            monkeypatch,
-            tmp_path,
-            {MONGODB_URI_FILE: UNROUTABLE_URI.encode()},
-            ALLOWED_ADMIN_EMAILS=marker,
-            SPERRLISTE_SCHLUESSEL=marker,
-            DB_SERVER_SELECTION_TIMEOUT="200",
-        )
-
-        with caplog.at_level(logging.WARNING), pytest.raises(DatabaseUnreachableError):
-            boot()
-
-        warned = [record.getMessage() for record in caplog.records if getattr(record, "error_code", "") == RETIRED_VARIABLES.error_code]
-        assert warned == [RETIRED_VARIABLES.sentence.format(names="ALLOWED_ADMIN_EMAILS, SPERRLISTE_SCHLUESSEL")]
-        assert marker not in caplog.text
-
-    def test_a_misspelling_of_a_retired_name_is_still_refused(self, monkeypatch, tmp_path):
-        """Declared for their exact spelling alone, so `forbid` still catches the typo it exists for."""
+    def test_a_misspelling_of_one_is_refused_alike(self, monkeypatch, tmp_path):
+        """A hand-typed line nearest a credential's name: no spelling of one is read, the exact one included."""
         (tmp_path / ".env").write_bytes(b"MONGODB_URL=mongodb://typo.example\n")
 
         assert refusal(monkeypatch, tmp_path) == "Invalid environment variables: MONGODB_URL"

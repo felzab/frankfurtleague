@@ -8,18 +8,22 @@ import { doubleActionRequest, doubleEveryAction } from "@/shared/testing/actionD
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { callPage, pageBody, redirectTarget } from "@/shared/testing/pageHarness.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
+import { schiedsrichterKonto, spielerKonto } from "@/shared/testing/selbstFixtures.ts";
 
 import type { SubjectSession } from "@/core/subject.ts";
+import type { EinwilligungEintrag } from "./components/forms/EinwilligungForm/EinwilligungPanel.tsx";
 import type { Anmeldung, Sicherheit } from "./types.ts";
 
 const { setSubject } = doubleActionRequest();
-// The shells hand a sign-out action to the bar, and the section's actions are called nowhere here.
-doubleEveryAction();
+// The shells hand a sign-out action to the bar. Every argument recorded, so a case reads what a control's
+// action was bound to as well as what it sends.
+const { calls: actionCalls } = doubleEveryAction({ payloadOf: (args) => args });
 
 /* Reached with `await import` and never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { default: KontoPage } = await import("@/app/bereich/(persoenlich)/konto/page.tsx");
 const { KontoPanel } = await import("@/shared/components/ui/KontoPanel.tsx");
 const { SicherheitSection } = await import("./components/views/SicherheitSection.tsx");
+const { EinwilligungSection } = await import("./components/views/EinwilligungSection.tsx");
 const { SicherheitPanel } = await import("./components/views/SicherheitPanel.tsx");
 const { AdminShell } = await import("@/features/admin/components/ui/AdminShell.tsx");
 const { PersonShell } = await import("@/features/funktionen/components/ui/PersonShell.tsx");
@@ -50,15 +54,16 @@ const kontoLinks = (html: string): string[] => [...html.matchAll(/<a [^>]*href="
 describe("the account page", () => {
   /* One page per person, reached whatever they hold: a person whose every record is unconfirmed still
      has a sign-in, and so passkeys and devices to manage. */
-  it("hands the panel the person's address and the security section, a Funktion held or none", async () => {
+  it("hands the panel the person's address, the security section and the consent section, a Funktion held or none", async () => {
     setSubject(OHNE_FUNKTION);
 
     const body = await pageBody(KontoPage, NO_PROPS);
 
     assert.equal(body.type, KontoPanel);
-    const props = body.props as { email: string; sicherheit: { type: unknown } };
+    const props = body.props as { email: string; sicherheit: { type: unknown }; einwilligung: { type: unknown } };
     assert.equal(props.email, "pia@example.org");
     assert.equal(props.sicherheit.type, SicherheitSection);
+    assert.equal(props.einwilligung.type, EinwilligungSection);
   });
 
   /* The section is the administrator's lane's to fill, so a lapsed administrator verdict is sent on to
@@ -77,7 +82,7 @@ describe("the account page", () => {
   });
 
   it("draws the address under a panel heading and carries no second h1", () => {
-    const html = renderTree(h(KontoPanel, { email: "pia@example.org", sicherheit: null }));
+    const html = renderTree(h(KontoPanel, { email: "pia@example.org", sicherheit: null, einwilligung: null }));
 
     assert.equal([...html.matchAll(/<h1/g)].length, 0, "the panel carries an h1 beside the bar's");
     // Headed „Anmeldung“: „Zugang“ names the administration grant alone.
@@ -222,7 +227,7 @@ describe("what the security section tells its reader", () => {
   });
 
   /* A screen reader meets „Abmelden“, „Löschen“ and „Umbenennen“ once per row, so each is named by its
-     row, the visible label inside the name (WCAG 2.4.6, 2.5.3), from the facts a row holds. */
+     row after the visible label the name opens with (WCAG 2.4.6, 2.5.3), from the facts a row holds. */
   it("names each row's controls by the row they act on", () => {
     const andere: Anmeldung = {
       id: "andere",
@@ -244,11 +249,11 @@ describe("what the security section tells its reader", () => {
     );
 
     for (const name of [
-      "Anmeldung per Code vom 25. September 2026, 10:00 abmelden",
-      "Passkey vom 1. September 2026 löschen",
-      "Passkey vom 1. September 2026 umbenennen",
-      "Passkey „Mein iPhone“ löschen",
-      "Passkey „Mein iPhone“ umbenennen",
+      "Abmelden: Anmeldung per Code vom 25. September 2026, 10:00",
+      "Löschen: Passkey vom 1. September 2026",
+      "Umbenennen: Passkey vom 1. September 2026",
+      "Löschen: Passkey „Mein iPhone“",
+      "Umbenennen: Passkey „Mein iPhone“",
     ]) {
       assert.ok(html.includes(`aria-label="${name}"`), `no control is named „${name}“`);
     }
@@ -282,5 +287,470 @@ describe("what the security section tells its reader", () => {
     };
     const both = renderTree(underNext(h(SicherheitPanel, { sicherheit: sicherheit({ anmeldungen: [...sicherheit().anmeldungen, andere] }) })));
     assert.match(both, ABMELDEN_BUTTON);
+  });
+});
+
+const { answerReadsWith, EMPTIEST_ANSWER, renderPage } = await import("@/shared/testing/pageHarness.ts");
+const { einwilligungAnswer, publishedFassung, publishedLaufendeFassung } = await import("@/core/einwilligungDocument.ts");
+const { FESTE_WERTE } = await import("@/features/bewerbungen/components/ui/Gefuellt.tsx");
+const { bestaetigteWorte } = await import("./components/forms/EinwilligungForm/kontoWorte.tsx");
+const { FLKontoEinwilligungenResponseSchema } = await import("./schemas.ts");
+
+/** One withdraw-only reason as the account page's running wording for `seite` serves it. */
+const reason = (seite: "konto_spieler" | "konto_schiedsrichter" | "konto_kontakt", schluessel: string): string =>
+  publishedLaufendeFassung(seite).absaetze_nach_schluessel?.[schluessel] ?? assert.fail(`${seite} serves no ${schluessel}`);
+
+const SITZ_TEAM_ID = "6890a1b2c3d4e5f607250011";
+
+/** The contact page's running label, which names the media floor. */
+const SITZ_LAUFEND = publishedLaufendeFassung("bestaetigung_kontakt").text_version;
+
+/**
+ * A Trainer who is also the Stellvertretung, confirmed on the contact page. The floor is the read's, 18
+ * over both seats, where a floor taken from the Trainer's seat alone would say 16.
+ */
+const SITZ = {
+  team_id: SITZ_TEAM_ID,
+  team_name: "Lessing Lions",
+  saison_id: "2526",
+  rollen: ["stellvertretung", "trainer"],
+  umfang: "kontaktdaten_whatsapp",
+  nachweis_stand: { umfang: null, medien: null },
+  bestaetigt: [
+    {
+      rollen: ["stellvertretung", "trainer"],
+      text_version: "2026-09-bestaetigungsseite-6",
+      bestaetigt_am: "2026-09-01",
+      mindestalter: 18,
+      kontext: { vorname: "Jonas", team: "Lessing Lions", schule: "Lessing-Gymnasium", saison: "2526" },
+    },
+  ],
+  medien: false,
+  medien_angeboten: true,
+  erteilbar: true,
+  medien_mindestalter: 18,
+};
+
+/** A contact person confirmed on a school's application still awaiting its decision. */
+const BEWERBUNG_SITZ = {
+  bewerbung_id: "6890a1b2c3d4e5f607181001",
+  schule: "Goethe-Gymnasium",
+  saison_id: "2627",
+  rollen: ["ansprechperson"],
+  umfang: "kontaktdaten",
+  medien: true,
+  nachweis_stand: { umfang: null, medien: "a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90" },
+  medien_mindestalter: 18,
+  bestaetigt: [
+    {
+      rollen: ["ansprechperson"],
+      text_version: "2026-09-bestaetigungsseite-6",
+      bestaetigt_am: "2026-09-02",
+      mindestalter: 18,
+      kontext: { vorname: "Erika", team: "Goethe", schule: "Goethe-Gymnasium", saison: "2627" },
+    },
+  ],
+};
+
+const SPIELER = spielerKonto();
+
+const SCHIEDSRICHTER = schiedsrichterKonto();
+
+/** A pupil's pending registration, confirmed with both choices on the new pupil's page. */
+const REGISTRIERUNG = {
+  registrierung_id: "6890a1b2c3d4e5f607390051",
+  team_id: SITZ_TEAM_ID,
+  team_name: "Lessing Lions",
+  saison_id: "2627",
+  bestaetigt_text_version: "2026-09-spielerseite-3",
+  umfang: "kader_oeffentlich",
+  medien: true,
+  nachweis_stand: { umfang: null, medien: null },
+  mindestalter: 16,
+  medien_mindestalter: 18,
+  kontext: { vorname: "Nele", team: "Lessing Lions", schule: "Lessing-Gymnasium", saison: "2627" },
+  vorname: "Nele",
+  nachname: "Brandt",
+  geburtsdatum: "2008-02-14",
+  nummer: "7",
+  position: "Mittelfeld",
+  stufe: "Q1",
+};
+
+/** The section's reads answered: the consent words off the backend's generated registry, the person's records as given. */
+function answeringKonto(konto: Record<string, unknown>): void {
+  answerReadsWith((endpoint, schema, params) => {
+    if (endpoint === "/konto/einwilligungen")
+      return { acknowledged: 1, spieler: null, schiedsrichter: [], sitze: [], bewerbungen: [], registrierungen: [], ...konto };
+    return einwilligungAnswer(endpoint) ?? EMPTIEST_ANSWER(endpoint, schema, params);
+  });
+}
+
+const sectionText = async (): Promise<string> => textOf(await renderPage(underNext(h(EinwilligungSection))), " ").replace(/\s+/g, " ");
+
+/** Every disclosure the section offers, one per record whose confirmed words it shows. */
+const disclosures = async (): Promise<number> =>
+  [...(await renderPage(underNext(h(EinwilligungSection)))).matchAll(/Was Du bestätigt hast/g)].length;
+
+describe("the account page's consent section", () => {
+  it("renders nothing for a person holding no consent record", async () => {
+    setSubject(OHNE_FUNKTION);
+    answeringKonto({});
+
+    assert.equal(await renderPage(underNext(h(EinwilligungSection))), "");
+  });
+
+  /* The control's words are the account page's own running wording; the words beside it are the ones
+     the seat's person confirmed, a different label of a different page. */
+  it("draws a seat's control in the account page's words and the confirmed words beside it", async () => {
+    setSubject(OHNE_FUNKTION);
+    answeringKonto({ sitze: [SITZ] });
+
+    const text = await sectionText();
+    const konto = publishedLaufendeFassung("konto_kontakt");
+
+    assert.ok(text.includes("Deine Einträge"));
+    assert.ok(text.includes("Als Stellvertretung und Trainerin oder Trainer: Lessing Lions, Saison 2526"), text);
+    assert.ok(text.includes(konto.schalter), "the seat's media switch is not named by the account page's words");
+    assert.ok(
+      text.includes(konto.bedienelemente.kontaktdaten_whatsapp ?? assert.fail("no WhatsApp control")),
+      "the seat offers no WhatsApp switch",
+    );
+    assert.equal(await disclosures(), 1);
+  });
+
+  /* Every slot of each kind's confirmation page filled from the record: every seat held named as the
+     contact page names it, the objection control's own label. A literal slot left standing fails. */
+  for (const [art, konto, erwartet] of [
+    [
+      "a seat holder",
+      { sitze: [SITZ] },
+      ["Lessing-Gymnasium", "Stellvertretung und Trainerin oder Trainer", "mindestens 18 Jahre", "Ich möchte nicht eingetragen sein"],
+    ],
+    ["a pupil", { spieler: SPIELER }, ["Lessing Lions", "Lessing-Gymnasium", "Alina"]],
+    ["a referee", { schiedsrichter: [SCHIEDSRICHTER] }, ["Mara", FESTE_WERTE.loeschung, FESTE_WERTE.kontakt]],
+    ["a registering pupil", { registrierungen: [REGISTRIERUNG] }, ["Lessing Lions", "Lessing-Gymnasium", "Nele"]],
+  ] as const) {
+    it(`fills every slot of ${art}'s confirmed words from the record`, async () => {
+      setSubject(OHNE_FUNKTION);
+      answeringKonto(konto);
+
+      const text = await sectionText();
+
+      assert.equal(await disclosures(), 1, `${art}'s confirmed words are not shown`);
+      assert.doesNotMatch(text, /\{\w+\}/, `${art}'s confirmed words spell a slot`);
+      for (const wort of erwartet) assert.ok(text.includes(wort), `${art}'s confirmed words lack „${wort}“`);
+    });
+  }
+
+  /* A slot served empty, a pupil holding no squad row: a sentence with its subject blanked misstates the
+     agreement as a literal slot does, so the words stay out and the control stands. */
+  it("leaves the confirmed words out where a slot they need is served empty, and keeps the control", async () => {
+    setSubject(OHNE_FUNKTION);
+    answeringKonto({ spieler: { ...SPIELER, kontext: { vorname: "Alina", team: null, schule: null, saison: null } } });
+
+    assert.equal(await disclosures(), 0);
+    assert.ok((await sectionText()).includes(publishedLaufendeFassung("konto_spieler").schalter));
+  });
+
+  /* A pending application's seat takes a withdrawal alone, the grant being its confirmation page's: the
+     switch stands while the consent is on, says why it only withdraws, and presses the application's write. */
+  it("lists a pending application's seat as a withdrawal alone, saying why", async () => {
+    setSubject(OHNE_FUNKTION);
+    answeringKonto({ bewerbungen: [BEWERBUNG_SITZ] });
+
+    const text = await sectionText();
+    assert.ok(text.includes("Als Ansprechperson: Bewerbung für Goethe-Gymnasium, Saison 2627"), text);
+    assert.ok(text.includes(reason("konto_kontakt", "nurWiderrufBisZusage")), "the seat does not say why it only withdraws");
+    assert.equal(await disclosures(), 1);
+
+    const panel = (await EinwilligungSection()) as { props: { eintraege: readonly EinwilligungEintrag[] } };
+    const [eintrag] = panel.props.eintraege;
+    const control = eintrag?.control?.props;
+    assert.deepEqual([control?.erteilbar, control?.medienAngeboten, control?.nachweisStand], [false, false, BEWERBUNG_SITZ.nachweis_stand]);
+  });
+
+  /* Each control shows and presses from its own record's values: a choice shown inverted is sent as a
+     grant on the next press. Run twice, every value flipped, so a constant at any call site fails one. */
+  for (const gekippt of [false, true]) {
+    it(`hands each control its own record's choices, verdicts and stand${gekippt ? ", every value flipped" : ""}`, async () => {
+      setSubject(OHNE_FUNKTION);
+      const stand = (tag: string) => ({ umfang: null, medien: tag.repeat(64) });
+      // Within one run each kind differs from the next, so a value taken from another record shows too.
+      const ja = (wert: boolean): boolean => wert !== gekippt;
+      const person = ja(true) ? "intern" : "kader_oeffentlich";
+      const sitz = ja(true) ? "kontaktdaten" : "kontaktdaten_whatsapp";
+      answeringKonto({
+        spieler: {
+          ...SPIELER,
+          einwilligung: { ...SPIELER.einwilligung, umfang: person, medien: ja(true) },
+          erteilbar: ja(false),
+          medien_angeboten: ja(true),
+          nachweis_stand: stand("1"),
+        },
+        schiedsrichter: [
+          {
+            ...SCHIEDSRICHTER,
+            einwilligung: { ...SCHIEDSRICHTER.einwilligung, umfang: ja(false) ? "intern" : "kader_oeffentlich", medien: ja(false) },
+            erteilbar: ja(true),
+            medien_angeboten: ja(false),
+            nachweis_stand: stand("2"),
+          },
+        ],
+        registrierungen: [{ ...REGISTRIERUNG, umfang: person, medien: ja(false), nachweis_stand: stand("4") }],
+        sitze: [{ ...SITZ, umfang: sitz, medien: ja(true), erteilbar: ja(false), medien_angeboten: ja(false), nachweis_stand: stand("3") }],
+        bewerbungen: [
+          { ...BEWERBUNG_SITZ, umfang: ja(false) ? "kontaktdaten" : "kontaktdaten_whatsapp", medien: ja(false), nachweis_stand: stand("5") },
+        ],
+      });
+
+      const panel = (await EinwilligungSection()) as { props: { eintraege: readonly EinwilligungEintrag[] } };
+
+      assert.deepEqual(
+        panel.props.eintraege.map(({ id, control }) => [
+          id.split("-")[0],
+          control?.props.gespeichert,
+          control?.props.erteilbar,
+          control?.props.medienAngeboten,
+          control?.props.nachweisStand,
+        ]),
+        [
+          ["spieler", { umfang: person, medien: ja(true) }, ja(false), ja(true), stand("1")],
+          ["schiedsrichter", { umfang: ja(false) ? "intern" : "kader_oeffentlich", medien: ja(false) }, ja(true), ja(false), stand("2")],
+          // A pending registration and an application's seat take a withdrawal alone, whatever is served.
+          ["registrierung", { umfang: person, medien: ja(false) }, false, false, stand("4")],
+          ["sitz", { umfang: sitz, medien: ja(true) }, ja(false), ja(false), stand("3")],
+          ["bewerbung", { umfang: ja(false) ? "kontaktdaten" : "kontaktdaten_whatsapp", medien: ja(false) }, false, false, stand("5")],
+        ],
+      );
+    });
+  }
+
+  /* Each record's ids are strings and its payload the same shape, so a control bound to another record's
+     id, or to another kind's action, type-checks and sends its press to a record that refuses it. */
+  it("binds each control to its own record's action and ids", async () => {
+    setSubject(OHNE_FUNKTION);
+    answeringKonto({
+      spieler: SPIELER,
+      schiedsrichter: [SCHIEDSRICHTER],
+      registrierungen: [REGISTRIERUNG],
+      sitze: [SITZ],
+      bewerbungen: [BEWERBUNG_SITZ],
+    });
+    const panel = (await EinwilligungSection()) as { props: { eintraege: readonly EinwilligungEintrag[] } };
+    const antwort = { umfang: "intern" as const, medien: false, text_version: "2026-10-konto", nachweis_stand: { umfang: null, medien: null } };
+    actionCalls.length = 0;
+
+    // One press for every kind, which no single scope types: the doubles record it whatever its scope.
+    for (const { control } of panel.props.eintraege)
+      await (control?.props.speichereAction as ((sent: unknown) => Promise<unknown>) | undefined)?.(antwort);
+
+    assert.deepEqual(
+      actionCalls.map(({ action, payload }) => [action, ...(payload as unknown[]).slice(0, -1)]),
+      [
+        ["patchSpielerEinwilligungAction"],
+        ["patchSchiedsrichterEinwilligungAction", SCHIEDSRICHTER.schiedsrichter_id],
+        ["patchRegistrierungEinwilligungAction", REGISTRIERUNG.registrierung_id],
+        ["patchSitzEinwilligungAction", SITZ.team_id, SITZ.saison_id],
+        ["patchBewerbungEinwilligungAction", BEWERBUNG_SITZ.bewerbung_id],
+      ],
+    );
+    assert.ok(
+      actionCalls.every(({ payload }) => (payload as unknown[]).at(-1) === antwort),
+      "a control sent other than its press",
+    );
+  });
+
+  /* The floor is the read's, over every seat held on the row: a page reckoning it from the roles itself
+     would name another age the day the backend's rule moves. */
+  for (const [art, konto] of [
+    ["a pupil", { spieler: { ...SPIELER, mindestalter: 21 } }],
+    ["a referee", { schiedsrichter: [{ ...SCHIEDSRICHTER, mindestalter: 21 }] }],
+    ["a pending registration", { registrierungen: [{ ...REGISTRIERUNG, mindestalter: 21 }] }],
+    ["a seat", { sitze: [{ ...SITZ, bestaetigt: [{ ...SITZ.bestaetigt[0], mindestalter: 21 }] }] }],
+  ] as const) {
+    it(`names the floor the read serves for ${art} in the words its person confirmed`, async () => {
+      setSubject(OHNE_FUNKTION);
+      answeringKonto(konto);
+
+      assert.ok((await sectionText()).includes("mindestens 21 Jahre"), "the confirmed words name a floor of the page's own");
+    });
+  }
+
+  /* One media floor per entry, served: the control's paragraph and every confirmation's words name it,
+     a floor of the page's own in either reading as a second rule. 21 is no floor served today. */
+  for (const [art, konto] of [
+    ["a pupil", { spieler: { ...SPIELER, medien_mindestalter: 21 } }],
+    ["a referee", { schiedsrichter: [{ ...SCHIEDSRICHTER, medien_mindestalter: 21 }] }],
+    ["a pending registration", { registrierungen: [{ ...REGISTRIERUNG, medien_mindestalter: 21 }] }],
+    // Each seat confirmed under the running label, whose words name the media floor; the fixture's label names none.
+    ["a seat", { sitze: [{ ...SITZ, medien_mindestalter: 21, bestaetigt: [{ ...SITZ.bestaetigt[0], text_version: SITZ_LAUFEND }] }] }],
+    [
+      "a pending application's seat",
+      {
+        bewerbungen: [
+          { ...BEWERBUNG_SITZ, medien_mindestalter: 21, bestaetigt: [{ ...BEWERBUNG_SITZ.bestaetigt[0], text_version: SITZ_LAUFEND }] },
+        ],
+      },
+    ],
+  ] as const) {
+    it(`names the media floor the read serves for ${art} in its control's words and its confirmed words`, async () => {
+      setSubject(OHNE_FUNKTION);
+      answeringKonto(konto);
+      const text = await sectionText();
+
+      assert.ok(text.includes("21 Jahren"), "no words name the served media floor");
+      assert.ok(!text.includes("18 Jahren"), "words name a media floor of the page's own");
+    });
+  }
+
+  /* A Trainer who took the Ansprechperson seat later confirmed twice, each seat under its own words and
+     floor: one block per confirmation, each headed by its own roles, never one block naming both seats
+     at the higher floor. */
+  it("shows one block of confirmed words per confirmation on a row, each with its own roles and floor", async () => {
+    setSubject(OHNE_FUNKTION);
+    const [erste] = SITZ.bestaetigt;
+    answeringKonto({
+      sitze: [
+        {
+          ...SITZ,
+          rollen: ["ansprechperson", "trainer"],
+          bestaetigt: [
+            { ...erste, rollen: ["trainer"], bestaetigt_am: "2026-08-20", mindestalter: 16 },
+            { ...erste, rollen: ["ansprechperson"], bestaetigt_am: "2026-09-01", mindestalter: 18 },
+          ],
+        },
+      ],
+    });
+
+    const text = await sectionText();
+    assert.ok(text.includes("Als Trainerin oder Trainer, bestätigt am 20.08.2026"), text);
+    assert.ok(text.includes("Als Ansprechperson, bestätigt am 01.09.2026"), text);
+    assert.equal(await disclosures(), 1, "the row's confirmations stand under more than one disclosure");
+    // Each block from its heading to the next: its words fill `{rolle}` and `{minAlter}` with its own.
+    const [, trainer = "", ansprechperson = ""] = text.split(/Als (?:Trainerin oder Trainer|Ansprechperson), bestätigt am /);
+    assert.ok(trainer.includes("mindestens 16 Jahre") && !trainer.includes("mindestens 18 Jahre"), trainer);
+    assert.ok(trainer.includes("Trainerin oder Trainer") && !trainer.includes("Ansprechperson"), trainer);
+    assert.ok(ansprechperson.includes("mindestens 18 Jahre") && !ansprechperson.includes("mindestens 16 Jahre"), ansprechperson);
+    assert.ok(ansprechperson.includes("Ansprechperson") && !ansprechperson.includes("Trainer"), ansprechperson);
+  });
+
+  /* A pending registration takes a withdrawal alone until its team admits it, and says so; its press is
+     the registration's own write. */
+  it("lists a pending registration as a withdrawal alone, saying why, with its stored data", async () => {
+    setSubject(OHNE_FUNKTION);
+    answeringKonto({ registrierungen: [REGISTRIERUNG] });
+
+    const text = await sectionText();
+    assert.ok(text.includes("Als Spielerin oder Spieler: Registrierung für Lessing Lions, Saison 2627"), text);
+    assert.ok(text.includes(reason("konto_spieler", "nurWiderrufBisAufnahme")), "the registration does not say why it only withdraws");
+    for (const wert of ["Nele Brandt", "14.02.2008", "Mittelfeld", "Q1"])
+      assert.ok(text.includes(wert), `the registration's stored „${wert}“ is not shown`);
+
+    const panel = (await EinwilligungSection()) as { props: { eintraege: readonly EinwilligungEintrag[] } };
+    const control = panel.props.eintraege[0]?.control?.props;
+    assert.deepEqual(
+      [control?.erteilbar, control?.medienAngeboten, control?.gespeichert],
+      [false, false, { umfang: "kader_oeffentlich", medien: true }],
+    );
+  });
+
+  /* A returning pupil's registration asks no choice: their own record holds the choices, so the entry
+     shows what the registration stores and offers no control a press there would be refused at. */
+  it("lists a returning pupil's registration with its stored data and no control", async () => {
+    setSubject(OHNE_FUNKTION);
+    answeringKonto({ registrierungen: [{ ...REGISTRIERUNG, umfang: null, medien: null }] });
+
+    const text = await sectionText();
+    assert.ok(text.includes("Als Spielerin oder Spieler: Registrierung für Lessing Lions, Saison 2627"), text);
+    for (const wert of ["Nele Brandt", "14.02.2008"]) assert.ok(text.includes(wert), `the registration's stored „${wert}“ is not shown`);
+
+    const panel = (await EinwilligungSection()) as { props: { eintraege: readonly EinwilligungEintrag[] } };
+    assert.equal(panel.props.eintraege[0]?.control, undefined, "a choiceless registration is offered a control");
+  });
+
+  it("titles a registration whose team is gone by its season alone", async () => {
+    setSubject(OHNE_FUNKTION);
+    answeringKonto({ registrierungen: [{ ...REGISTRIERUNG, team_name: null }] });
+
+    const text = await sectionText();
+    assert.ok(text.includes("Als Spielerin oder Spieler: Registrierung für die Saison 2627"), text);
+  });
+
+  /* An empty shirt number reads as the squad lists word it: one wording for it on every page. */
+  it("names a registration's empty shirt number in the squad lists' words", async () => {
+    setSubject(OHNE_FUNKTION);
+    answeringKonto({ registrierungen: [{ ...REGISTRIERUNG, nummer: null }] });
+
+    const text = await sectionText();
+    assert.ok(text.includes("Rückennummer Nicht hinterlegt"), text);
+  });
+
+  /* Each reason stands beside the record its cause holds and no other: a pending registration's sentence
+     beside an active pupil's record, or a past season's beside a live seat, misstates the record. */
+  it("shows a withdraw-only reason beside its own record alone", async () => {
+    setSubject(OHNE_FUNKTION);
+    answeringKonto({ spieler: SPIELER, schiedsrichter: [SCHIEDSRICHTER], sitze: [SITZ] });
+    const aktiv = await sectionText();
+    for (const [seite, schluessel] of [
+      ["konto_spieler", "nurWiderrufNichtAktiv"],
+      ["konto_spieler", "nurWiderrufBisAufnahme"],
+      ["konto_schiedsrichter", "nurWiderrufNichtAktiv"],
+      ["konto_kontakt", "nurWiderrufVorbei"],
+      ["konto_kontakt", "nurWiderrufBisZusage"],
+    ] as const) {
+      assert.ok(!aktiv.includes(reason(seite, schluessel)), `an active record carries ${schluessel}`);
+    }
+
+    answeringKonto({
+      spieler: { ...SPIELER, erteilbar: false },
+      schiedsrichter: [{ ...SCHIEDSRICHTER, erteilbar: false }],
+      sitze: [{ ...SITZ, erteilbar: false }],
+    });
+    const vorbei = await sectionText();
+    assert.ok(vorbei.includes(reason("konto_spieler", "nurWiderrufNichtAktiv")), "a retired pupil's record does not say why it only withdraws");
+    assert.ok(
+      vorbei.includes(reason("konto_schiedsrichter", "nurWiderrufNichtAktiv")),
+      "a retired referee's record does not say why it only withdraws",
+    );
+    assert.ok(vorbei.includes(reason("konto_kontakt", "nurWiderrufVorbei")), "a past season's seat does not say why it only withdraws");
+    assert.ok(!vorbei.includes(reason("konto_spieler", "nurWiderrufBisAufnahme")), "a retired pupil is told about a registration");
+  });
+
+  /* The stamped words promise the person sees what is stored: the pupil's and the referee's records show
+     their data, the referee's fee among it. */
+  it("shows the stored data of a pupil's and a referee's record", async () => {
+    setSubject(OHNE_FUNKTION);
+    answeringKonto({ spieler: SPIELER, schiedsrichter: [SCHIEDSRICHTER] });
+
+    const text = await sectionText();
+    // The server's markup spells the fee's no-break space as an entity, which the text helper leaves standing.
+    for (const wert of ["Alina Fischer", "02.05.2008", "Mara Okafor", "mara@example.org", "25,00&nbsp;€"]) {
+      assert.ok(text.includes(wert), `the stored „${wert}“ is not shown`);
+    }
+  });
+
+  /* Read off the mirror rather than listed here: a list the read gains with no renderer would otherwise
+     be served and silently dropped (`docs/frontend/spec.md :: I645`). */
+  it("renders every served list, one labelled group per record", async () => {
+    setSubject(OHNE_FUNKTION);
+    const FIXTURES: Record<string, unknown> = {
+      spieler: SPIELER,
+      schiedsrichter: [SCHIEDSRICHTER],
+      sitze: [SITZ],
+      bewerbungen: [BEWERBUNG_SITZ],
+      registrierungen: [REGISTRIERUNG],
+    };
+    const listen = Object.keys(FLKontoEinwilligungenResponseSchema.shape).filter((key) => key !== "acknowledged");
+    assert.deepEqual(listen.toSorted(), Object.keys(FIXTURES).toSorted(), "the read serves a list this case holds no record for");
+    answeringKonto(FIXTURES);
+
+    const html = await renderPage(underNext(h(EinwilligungSection)));
+    assert.equal([...html.matchAll(/aria-labelledby="einwilligung-/g)].length, listen.length, "a served list renders no group of its own");
+  });
+
+  /* A slot nothing maps, a page naming one the section never fills, fails the render loudly. */
+  it("fails the render for a slot nothing maps", () => {
+    assert.throws(() => bestaetigteWorte(publishedFassung("2026-09-spielerseite-3"), {}), /has no value for/);
   });
 });

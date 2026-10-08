@@ -3,7 +3,14 @@ import { describe, it } from "node:test";
 
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
-import { answerShown, assertEachAnswered, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
+import {
+  answerShown,
+  assertEachAnswered,
+  DUPLICATE_KEY,
+  publishedRefusals,
+  refusedOn,
+  unpublishedOn,
+} from "@/shared/testing/publishedRefusals.ts";
 
 import { mapNameRefusal, mapRetireRefusal } from "./refusals.ts";
 
@@ -17,7 +24,6 @@ const { deleteSpielortAction, patchSpielortAction, postSpielortAction, reactivat
 const RETIRE_OPERATION = "DELETE /spielorte/{spielort_id}";
 const CREATE_OPERATION = "POST /spielorte";
 const EDIT_OPERATION = "PATCH /spielorte/{spielort_id}";
-const REACTIVATE_OPERATION = "POST /spielorte/{spielort_id}/reactivate";
 
 const SPIELORT_ID = "6890a1b2c3d4e5f607182934";
 
@@ -59,10 +65,7 @@ describe("the venue retirement against the codes its endpoint publishes", () => 
   /* A missed code reaches the shared reader's sentence about an existing entry, false for fixtures
      awaiting a result. Restated, so a code the endpoint retires fails here rather than leaving a dead arm. */
   it("answers every refusal the retirement publishes", async () => {
-    assert.deepEqual(
-      publishedRefusals(RETIRE_OPERATION).filter((code) => code !== DUPLICATE_KEY),
-      ["REQ-RETIRE-003"],
-    );
+    assert.deepEqual(publishedRefusals(RETIRE_OPERATION), ["REQ-RETIRE-003"]);
     for (const code of publishedRefusals(RETIRE_OPERATION)) {
       assert.notEqual(answerShown(RETIRE_OPERATION, code, mapRetireRefusal), null, `${code} reaches the admin as an unhandled conflict`);
     }
@@ -80,37 +83,14 @@ describe("the venue retirement against the codes its endpoint publishes", () => 
     assert.match(String(mapRetireRefusal(refusedOn(RETIRE_OPERATION, "REQ-RETIRE-003"))), /^[^.]+\. [^.]+\.$/);
   });
 
-  it("leaves a conflict it does not know to the shared reader, and words its own code at any status", () => {
-    assert.equal(mapRetireRefusal(refusedOn(RETIRE_OPERATION, DUPLICATE_KEY)), null);
+  it("leaves a code it does not know to the shared reader, and words its own code at any status", () => {
+    assert.equal(mapRetireRefusal(refusedOn(RETIRE_OPERATION, "DB-COMMON-001")), null);
     // Codes are unique across the API, so a rule moved to another status keeps its answer.
     assert.equal(
       mapRetireRefusal(refusedOn(RETIRE_OPERATION, "REQ-RETIRE-003", 422)),
       mapRetireRefusal(refusedOn(RETIRE_OPERATION, "REQ-RETIRE-003")),
     );
     assert.equal(mapRetireRefusal(refusedOn(RETIRE_OPERATION, "REQ-RETIRE-003", 500)), null, "a server error was worded as a refusal");
-  });
-
-  /* Asks no mapper: the one code it publishes is the unique index's, whose sentence is the shared
-     reader's own. A rule published on it later fails here until a mapper words it. */
-  it("leaves every refusal the reactivation publishes to the shared reader", async () => {
-    assert.deepEqual(
-      publishedRefusals(REACTIVATE_OPERATION).filter((code) => code !== DUPLICATE_KEY),
-      [],
-      "the reactivation now publishes a rule no mapper words",
-    );
-    for (const code of publishedRefusals(REACTIVATE_OPERATION)) {
-      assert.notEqual(
-        answerShown(REACTIVATE_OPERATION, code, () => null),
-        null,
-        `${code} reaches the admin as an unhandled conflict`,
-      );
-    }
-    await assertEachAnswered({
-      operation: REACTIVATE_OPERATION,
-      refuseWith: answerWith,
-      act: () => reactivateSpielortAction({ id: SPIELORT_ID }),
-      mapped: () => null,
-    });
   });
 });
 
@@ -146,7 +126,7 @@ describe("the venue name a unique index already holds", () => {
       mapNameRefusal(refusedOn(CREATE_OPERATION, DUPLICATE_KEY, 422)),
       mapNameRefusal(refusedOn(CREATE_OPERATION, DUPLICATE_KEY)),
     );
-    assert.equal(mapNameRefusal(refusedOn(CREATE_OPERATION, "DB-COMMON-001", 404)), null);
+    assert.equal(mapNameRefusal(unpublishedOn(CREATE_OPERATION, "DB-COMMON-001", 404)), null);
   });
 
   it("answers the create's and the edit's refusals on the name box, the two writes that send a name", async () => {

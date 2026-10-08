@@ -23,7 +23,7 @@ import { BRAND_NAME } from "./emailShell";
 import { RolledBackError } from "./errors";
 import { KONTO_HREF } from "./kontoHref";
 import { logger } from "./logging";
-import { MailBarredError, MailWithheldError, sendMail } from "./mail";
+import { sendMail } from "./mail";
 import { declaredCredentialId, PASSKEY_ASSERTION_PATH } from "./passkeyCeremony";
 import { buildPasskeyGeloeschtEmail, buildPasskeyHinzugefuegtEmail } from "./passkeyEmail";
 import { passkeyLastUse } from "./passkeyLastUse";
@@ -38,7 +38,8 @@ import {
   STEP_UP_WINDOW_MS,
 } from "./sessionLifetimes";
 import { CODE_FAILURE_LIMIT, CODE_FAILURE_WINDOW_HOURS, CODE_MAIL_LIMIT, CODE_MAIL_WINDOW_HOURS, SIGN_IN_CODE_LENGTH } from "./signInCode";
-import { lookUpSubjekt, mayReceiveSignIn, signInVerdictOf } from "./signInGate";
+import { lookUpAnmeldung, lookUpSubjekt, mayReceiveSignIn, signInVerdictOf } from "./signInGate";
+import { versandAusfallOf } from "./versandAusfall";
 import { madeSince, verwaltungOf } from "./verwaltung";
 
 import type { Passkey } from "@better-auth/passkey";
@@ -47,11 +48,9 @@ import type { MongoClient } from "mongodb";
 import type { PasskeyEmail } from "./passkeyEmail";
 import type { RequestActor } from "./requestScope";
 import type { Lifetime } from "./sessionLifetimes";
+import type { AnmeldungRecords } from "./signInGate";
 import type { SubjectSession } from "./subject";
 import type { Verwaltung } from "./verwaltung";
-
-/** One mailbox's records, ban and grant, as the gate reads them. */
-type SubjectRecords = SubjectSession["subjekt"];
 
 // A ceiling nothing else supplies: one session that passed the assertion can enrol without limit
 // (`docs/frontend/spec.md :: I311`).
@@ -215,13 +214,13 @@ function logUnreadVerwaltung(failed: unknown): void {
 }
 
 /**
- * The records an enrolment is judged by, where an unread read must refuse rather than admit: an
+ * The gate's answer an enrolment is judged by, where an unread read must refuse rather than admit: an
  * enrolment held to the passkey for an administrator would otherwise relax to a person's, by mailed
  * code, while the backend is down.
  */
-async function enrolmentSubjekt(email: string): Promise<SubjectRecords> {
+async function enrolmentAnmeldung(email: string): Promise<AnmeldungRecords> {
   try {
-    return await lookUpSubjekt(asSignInIdentifier(email));
+    return await lookUpAnmeldung(asSignInIdentifier(email));
   } catch (failed) {
     logUnreadVerwaltung(failed);
     throw APIError.fromStatus("SERVICE_UNAVAILABLE");
@@ -232,16 +231,16 @@ async function enrolmentSubjekt(email: string): Promise<SubjectRecords> {
  * The grant an enrolment is judged by. A barred address enrols nothing, whatever it holds: its session
  * is one a ban's ending missed or a mint raced, and a passkey would outlive both (`docs/frontend/spec.md :: I406`).
  */
-function enrolmentGrant(subjekt: SubjectRecords): boolean {
-  if (subjekt.gesperrt) throw APIError.fromStatus("NOT_FOUND");
-  return subjekt.verwaltung !== null;
+function enrolmentGrant(anmeldung: AnmeldungRecords): boolean {
+  if (anmeldung.gesperrt) throw APIError.fromStatus("NOT_FOUND");
+  return anmeldung.verwaltung !== null;
 }
 
 /**
- * The caller's records, read in the registration's before hook and carried on the endpoint's context
- * into its transaction, whose checks then decide without a backend round trip holding it open.
+ * The gate's answer for the caller, read in the registration's before hook and carried on the
+ * endpoint's context into its transaction, whose checks then decide without a backend round trip holding it open.
  */
-type EnrolmentRead = { readonly userId: string; readonly subjekt: SubjectRecords; readonly sentAt: Date };
+type EnrolmentRead = { readonly userId: string; readonly anmeldung: AnmeldungRecords; readonly sentAt: Date };
 
 /** The context key the carried read travels under; a string, the library merging no symbol key. */
 const ENROLMENT_READ = "flEnrolmentRead";
@@ -255,14 +254,14 @@ function carriedEnrolmentRead(ctx: object | undefined, userId: string): Enrolmen
 }
 
 /** The carried read, or the default-deny net's refusal where the hook carried none for this caller. */
-function carriedOrRefuse(ctx: object, userId: string): SubjectRecords {
+function carriedOrRefuse(ctx: object, userId: string): AnmeldungRecords {
   const read = carriedEnrolmentRead(ctx, userId);
   if (read === undefined) throw APIError.fromStatus("NOT_FOUND");
-  return read.subjekt;
+  return read.anmeldung;
 }
 
 /** The records where an unread read offers nothing: `null` where the backend could not say. */
-async function subjektOrNull(email: string): Promise<SubjectRecords | null> {
+async function subjektOrNull(email: string): Promise<SubjectSession["subjekt"] | null> {
   try {
     return await lookUpSubjekt(asSignInIdentifier(email));
   } catch (failed) {
@@ -500,11 +499,7 @@ async function refuseUnadmitted(ctx: GenericEndpointContext, userId: string): Pr
   // Answered to date the session it admits: taken before the read is sent, so a ban the read missed ends it.
   const sentAt = carried?.sentAt ?? new Date();
   const verdict =
-    account === null
-      ? "failed"
-      : carried === undefined
-        ? await mayReceiveSignIn(account.email)
-        : signInVerdictOf(asSignInIdentifier(account.email), carried.subjekt);
+    account === null ? "failed" : carried === undefined ? await mayReceiveSignIn(account.email) : signInVerdictOf(carried.anmeldung);
   if (verdict === "admitted") return sentAt;
 
   // Worded where the ceremony starts (`fl_frontend/src/features/auth/passkeyAnswers.ts`); a failed
@@ -709,7 +704,8 @@ async function notify(message: PasskeyEmail, email: string): Promise<void> {
   } catch (failed) {
     // Filed by a deployment that mails nothing, or kept from a barred address, each recorded by the
     // mailer's own line (`docs/frontend/spec.md :: I542`).
-    if (failed instanceof MailWithheldError || failed instanceof MailBarredError) return;
+    const ausfall = versandAusfallOf(failed);
+    if (ausfall === "zurueckgehalten" || ausfall === "gesperrt") return;
 
     // Name only, as the code's own send writes one: a failure here routinely carries the address.
     logger.error("auth.passkey_notice_failed", undefined, {
@@ -969,7 +965,9 @@ const authOptions = (origin: URL, client: MongoClient) =>
         // Taken before the read is sent: the session a set-up mints is dated by it.
         const sentAt = new Date();
         const enrolmentRead: EnrolmentRead | undefined =
-          enrolling === null ? undefined : { userId: enrolling.user.id, subjekt: await enrolmentSubjekt(enrolling.user.email), sentAt: sentAt };
+          enrolling === null
+            ? undefined
+            : { userId: enrolling.user.id, anmeldung: await enrolmentAnmeldung(enrolling.user.email), sentAt: sentAt };
         const carried = enrolmentRead === undefined ? undefined : { context: { [ENROLMENT_READ]: enrolmentRead } };
 
         // An absent `ctx.request` is the library's own test for a call that did not arrive over HTTP,
@@ -1005,7 +1003,7 @@ const authOptions = (origin: URL, client: MongoClient) =>
         await refuseEnrolment(
           ctx.context.adapter,
           caller.user.id,
-          asStepUpCaller(caller, enrolmentGrant(enrolmentRead?.subjekt ?? (await enrolmentSubjekt(caller.user.email)))),
+          asStepUpCaller(caller, enrolmentGrant(enrolmentRead?.anmeldung ?? (await enrolmentAnmeldung(caller.user.email)))),
         );
 
         return carried;
@@ -1098,7 +1096,8 @@ const authOptions = (origin: URL, client: MongoClient) =>
           } catch (failed) {
             // Filed by a deployment that mails nothing, or kept from an address barred since the gate
             // above read it, each recorded by the mailer's own line (`docs/frontend/spec.md :: I542`).
-            if (failed instanceof MailWithheldError || failed instanceof MailBarredError) return;
+            const ausfall = versandAusfallOf(failed);
+            if (ausfall === "zurueckgehalten" || ausfall === "gesperrt") return;
 
             // Name only: a failure on this path routinely carries the submitted address, and
             // `fl_frontend/src/core/logFormat.ts :: serializeError` writes a message and stack in full.

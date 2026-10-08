@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 
+import { frontend_config } from "@/core/config";
 import { RegistrierungView } from "@/features/registrierungen/components/views/RegistrierungView";
 import { getEinladungAnsicht } from "@/features/registrierungen/queries";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
@@ -49,5 +50,11 @@ async function RegistrierungContent(props: NextPageProps) {
         )
       : { zustand: "ungueltig" };
 
-  return <RegistrierungView start={start} />;
+  return (
+    <RegistrierungView
+      start={start}
+      // Off the request's settings, past `connection()`: a prerendered shell would carry the build's, which is none.
+      siteKey={frontend_config.TURNSTILE_SITE_KEY}
+    />
+  );
 }

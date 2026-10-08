@@ -4,6 +4,7 @@ import { beforeEach, describe, it } from "node:test";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
 import { doublePublicRouteRequest } from "@/shared/testing/publicRoutes.ts";
+import { doubleSiteverify, TEST_SECRET, TEST_TOKEN } from "@/shared/testing/siteverifyDouble.ts";
 
 /* Replaced at the module boundary rather than the handler being reshaped to admit a seam: the real
    client reaches a backend no test process runs, and the real mailer a provider. */
@@ -13,7 +14,7 @@ const LOGGING = { logger: { info: inert, warn: inert, error: inert } };
    one rather than composing a message whose every link is a bare path. */
 /** The serving origin this run is configured with, which the link the mail carries has to be built on. */
 const ORIGIN = "http://localhost:3000";
-const CONFIG = { frontend_config: { AUTH_URL: ORIGIN, APP_ENV: "test" } };
+const CONFIG = { frontend_config: { AUTH_URL: ORIGIN, APP_ENV: "test" }, turnstileSecretKey: () => TEST_SECRET };
 /** The row's write, apart from the delivery reports the real fan-out files after a send. */
 const WRITE = "/registrierungen";
 const calls = doubleApiClient(({ endpoint }, schema) => {
@@ -28,16 +29,18 @@ const mail = doubleSendMail();
 const mails = mail.sent;
 
 doublePublicRouteRequest({ modules: { "core/logging.ts": LOGGING, "core/config.ts": CONFIG } });
+const siteverify = doubleSiteverify();
 
 const { POST } = await import("./route.ts");
-const { APIBadStatusError } = await import("@/core/errors.ts");
+const { refusedOn } = await import("@/shared/testing/publishedRefusals.ts");
 const { MAIL_ABGEWIESEN, mapRegistrierungSubmitRefusal } = await import("@/features/registrierungen/utils.ts");
 const { REGISTRIERUNG_NEU_OEFFNEN } = await import("@/shared/utils/reopenLink.ts");
 const { FELD_ABGELEHNT } = await import("@/shared/utils/actionError.ts");
 const { bodyField, refusedPayload } = await import("@/shared/testing/refusedPayload.ts");
+const { TURNSTILE_HEADER } = await import("@/core/turnstileToken.ts");
 
 const TOKEN = "abc123";
-const ADRESSE = "mira@beispiel.test";
+const ADRESSE = "mira@beispiel.example";
 
 const GESCHRIEBEN = {
   acknowledged: 1,
@@ -49,25 +52,16 @@ const GESCHRIEBEN = {
   saison_id: "2026",
 };
 
-/** One refused answer as the client raises it; only the status and the code are read past this file. */
-const aRefusal = (statusCode: number, serverErrorCode: string) =>
-  new APIBadStatusError({
-    message: "refused",
-    url: "http://localhost/registrierungen",
-    statusCode,
-    serverErrorCode,
-    endpoint: "/registrierungen",
-    method: "POST",
-    readOnly: false,
-    traceId: "0",
-  });
+/** One refused write as the client raises it, at the status the document publishes its code under. */
+const aRefusal = (serverErrorCode: string) => refusedOn("POST /registrierungen", serverErrorCode);
 
 /** The body a browser sends, with nothing added. */
 const gueltigerKoerper = { token: TOKEN, vorname: "Mira", nachname: "Kern", email: ADRESSE, position: null, nummer: null, stufe: "Q1" };
 
+/** A submission as the form sends it, the bot check's token in its header unless `headers` replaces it. */
 function aRequest(body: unknown, headers: Record<string, string> = {}) {
   return {
-    headers: new Headers(headers),
+    headers: new Headers({ [TURNSTILE_HEADER]: TEST_TOKEN, ...headers }),
     json: async () => {
       if (body === undefined) throw new Error("no body");
       return body;
@@ -83,6 +77,24 @@ const bodyOf = async (request: Parameters<typeof POST>[0]): Promise<Record<strin
 beforeEach(() => {
   calls.length = 0;
   schreibAntwort = () => GESCHRIEBEN;
+});
+
+describe("the registration handler's bot check", () => {
+  const writes = () => calls.filter((call) => call.endpoint === WRITE);
+
+  /* The check's verdicts, and the secret it sends under the real config, are `fl_frontend/src/core/turnstile.test.ts`'s;
+     this handler asking it first is `fl_frontend/src/app/botCheckCoverage.test.ts`'s. Here: the header
+     the token is read from. */
+  it("writes past the test key's token, read from the header the form sends it in", async () => {
+    const answer = await bodyOf(aRequest(gueltigerKoerper));
+
+    assert.deepEqual(answer.body, { success: true });
+    assert.equal(writes().length, 1);
+    assert.deepEqual(
+      siteverify.asked().map(({ response }) => response),
+      [TEST_TOKEN],
+    );
+  });
 });
 
 describe("the registration handler", () => {
@@ -102,7 +114,7 @@ describe("the registration handler", () => {
   });
 
   it("mails nothing where the write was refused", async () => {
-    schreibAntwort = () => aRefusal(409, "REQ-REGISTRIERUNG-008");
+    schreibAntwort = () => aRefusal("REQ-REGISTRIERUNG-008");
 
     await bodyOf(aRequest(gueltigerKoerper));
 
@@ -112,18 +124,18 @@ describe("the registration handler", () => {
   /* The squad filled between the page loading and the press: the pupil is told so in the slice's
      own banner, never the generic failure. */
   it("answers a 409 with the refusal its slice maps", async () => {
-    schreibAntwort = () => aRefusal(409, "REQ-REGISTRIERUNG-008");
+    schreibAntwort = () => aRefusal("REQ-REGISTRIERUNG-008");
 
     const answer = await bodyOf(aRequest(gueltigerKoerper));
 
-    assert.deepEqual(answer.body, { success: false, ...mapRegistrierungSubmitRefusal(aRefusal(409, "REQ-REGISTRIERUNG-008")) });
+    assert.deepEqual(answer.body, { success: false, ...mapRegistrierungSubmitRefusal(aRefusal("REQ-REGISTRIERUNG-008")) });
     assert.ok((answer.body as { error?: string }).error, "the mapped refusal carries no sentence");
   });
 
   /* The unique index's refusal, which no mapper here words: the shared reader's sentence is written
      for an administrator about an entry they can open, which a visitor has none of. */
   it("tells the visitor their details are on file where the unique index refuses them", async () => {
-    schreibAntwort = () => aRefusal(409, "DB-COMMON-002");
+    schreibAntwort = () => aRefusal("DB-COMMON-002");
 
     const answer = await bodyOf(aRequest(gueltigerKoerper));
 
@@ -134,7 +146,7 @@ describe("the registration handler", () => {
   /* The same key over other details: the mark titles the press as the first one having arrived, and
      no box rides with it, so the panel keeps the key that first press is stored under. */
   it("carries the mark that the first press stands, and no box, on the changed replay's refusal", async () => {
-    schreibAntwort = () => aRefusal(409, "REQ-REGISTRIERUNG-011");
+    schreibAntwort = () => aRefusal("REQ-REGISTRIERUNG-011");
 
     const answer = await bodyOf(aRequest(gueltigerKoerper));
     const body = answer.body as { success: boolean; schonAngekommen?: boolean; fieldErrors?: unknown; unplacedError?: unknown };

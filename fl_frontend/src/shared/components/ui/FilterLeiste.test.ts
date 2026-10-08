@@ -85,12 +85,12 @@ describe("the bar without a read order", () => {
 });
 
 describe("the bar with a read order", () => {
-  /* The field's name rides on the control, the bar having no room for a `<Label>`, and the tooltip
-     carries the verb — react-aria lands the tooltip's `aria-describedby` on this same trigger. */
-  it("carries the field's name and paints only the value", () => {
+  /* No room for a `<Label>`, so the control is named by the words it shows, the painted value first (WCAG 2.5.3)
+     and then the tooltip's; react-aria lands the tooltip's `aria-describedby` on this same trigger. */
+  it("is named by the value it paints and the tooltip's words, and paints only the value", () => {
     const html = bar("", "desc");
 
-    assert.match(html, /aria-label="Ladereihenfolge"/, "the picker carries no name for the field it changes");
+    assert.match(html, /aria-label="Neueste zuerst: Ladereihenfolge ändern"/, "the picker is not named by the words it shows");
     assert.match(html, / aria-describedby="/, "the tooltip's hint reaches no assistive technology");
     assert.match(html, />Neueste zuerst</, "the trigger paints no read order");
   });
@@ -110,6 +110,7 @@ describe("the bar with a read order", () => {
       { value: "asc", label: "Älteste zuerst", isSelected: true },
     ]);
     assert.match(bar("order=asc", "asc"), />Älteste zuerst</);
+    assert.match(bar("order=asc", "asc"), /aria-label="Älteste zuerst: Ladereihenfolge ändern"/, "the name still says the end no longer shown");
   });
 
   /* Filter left, read order right, and a pill appends between them: the control sits last so adding a
@@ -123,8 +124,8 @@ describe("the bar with a read order", () => {
       return stelle;
     };
 
-    assert.ok(at('aria-label="Filter hinzufügen"') < at('aria-label="Ladereihenfolge"'), "the read order is drawn before the add control");
-    assert.ok(at("Status: Aktiv ändern") < at('aria-label="Ladereihenfolge"'), "the read order is drawn before the pills");
+    assert.ok(at('aria-label="Filter hinzufügen"') < at("Ladereihenfolge ändern"), "the read order is drawn before the add control");
+    assert.ok(at("Aktiv: Status ändern") < at("Ladereihenfolge ändern"), "the read order is drawn before the pills");
   });
 
   /* The order removes no row, so it is in no active count: a reader who reverses the read and then
@@ -133,6 +134,19 @@ describe("the bar with a read order", () => {
     assert.doesNotMatch(bar("", "desc"), /Alle Filter zurücksetzen/);
     assert.doesNotMatch(bar("status=aktiv", "desc"), /Alle Filter zurücksetzen/);
     assert.match(bar("status=aktiv&gruppe=A", "desc"), /Alle Filter zurücksetzen/);
+  });
+});
+
+describe("a pill's name", () => {
+  /* Speech input says what a pill paints, its first value and the badge's count, so the name opens with them
+     (WCAG 2.5.3); that value alone tells a screen reader neither what it filters nor what the badge counts. */
+  it("starts with the words it paints, then names the dimension and every value picked", () => {
+    assert.match(bar("status=aktiv"), /aria-label="Aktiv: Status ändern"/, "a one-value pill is not named by its value first");
+    assert.match(
+      bar("status=aktiv,stillgelegt"),
+      /aria-label="Aktiv \+1: Status ändern \(Aktiv, Stillgelegt\)"/,
+      "a pill whose badge counts more is not named by its painted words first, or drops a value",
+    );
   });
 });
 
@@ -168,7 +182,7 @@ describe("where removing a filter leaves the focus", () => {
   /* A pick in the add panel moves the address as a removal does, and draws a pill where none was. */
   it("leaves the focus where it stands once a pill is added", () => {
     const { renderAgain } = liveBar("status=aktiv");
-    const pill = screen.getByRole("button", { name: "Status: Aktiv ändern" });
+    const pill = screen.getByRole("button", { name: "Aktiv: Status ändern" });
     pill.focus();
 
     window.history.replaceState(null, "", "/liste?status=aktiv&gruppe=A");

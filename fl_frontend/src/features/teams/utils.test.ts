@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { LIGA_KENNTNISNAHME } from "@/core/einwilligung";
+import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { side, spielFields } from "@/shared/testing/fixtures.ts";
+import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 
 import { FLSpielSchema } from "../spiele/schemas.ts";
-import { GRUPPEN_OPTIONS, KONTAKT_ROLLEN, TRIKOT_FARBE_OPTIONS } from "./constants.ts";
+import { EINGETRAGEN_VON_OPTIONS, GRUPPEN_OPTIONS, KONTAKT_ROLLEN, TRIKOT_FARBE_OPTIONS } from "./constants.ts";
 import { buildKontakteFacets, buildTeamFacets, KONTAKTE_BESETZUNG_OPTIONS, kontakteBesetzung, TEAM_FACETS } from "./facets.ts";
 import { FLGruppenTeamSchema } from "./schemas.ts";
 // Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
@@ -117,7 +118,7 @@ describe("computePlatzByTeamId", () => {
     assert.equal(platz.get(TEAM_ID(3)), 2);
   });
 
-  // The `N/A` the cell still has to reach: nothing earned and nothing left to earn it with.
+  // The „Kein Platz“ the cell still has to reach: nothing earned and nothing left to earn it with.
   it("gives a row with nothing played and nothing left no ordinal", () => {
     const platz = computePlatzByTeamId([row(1), row(2, { gespielt: 0 })]);
 
@@ -125,7 +126,7 @@ describe("computePlatzByTeamId", () => {
     assert.equal(platz.size, 1);
   });
 
-  // The backend numbers a club yet to play, so a cell that skips it prints `N/A` on that row and 2
+  // The backend numbers a club yet to play, so a cell that skips it reads „Kein Platz“ on that row and 2
   // on the row the bracket calls 3.
   it("numbers a row whose first fixture is still to come, and moves the row below it down", () => {
     const platz = computePlatzByTeamId([row(1), row(2, { gespielt: 0, ausstehend: 2 }), row(3)]);
@@ -531,7 +532,7 @@ const kontaktperson = (vorname: string): FLKontaktperson => ({
   email: `${vorname.toLowerCase()}@beispiel.de`,
   telefon: "069 1234567",
   geburtsdatum: "1990-01-01",
-  einwilligung: { umfang: "kontaktdaten", erfasst_von: "person", text_version: "2025-08", datum: "2025-09-01", bestaetigt_am: "2025-09-02" },
+  einwilligung: kenntnisnahme({ erfasst_von: "person", text_version: "2025-08", datum: "2025-09-01", bestaetigt_am: "2025-09-02" }),
 });
 
 const club = (kontakte: FLSaisonTeamKontakte | null): FLTeamWithMemberships => ({
@@ -544,7 +545,7 @@ const club = (kontakte: FLSaisonTeamKontakte | null): FLTeamWithMemberships => (
   address: { strasse: "Habsburgerallee", hausnummer: "57", plz: "60385", stadtteil: "Ostend", stadt: "Frankfurt am Main" },
   schulform: "gymnasium_g9",
   inactive_since: null,
-  memberships: [{ saison_id: SAISON, gruppe: "A", austritt: null, trikot_farbe: null, kontakte, kontakte_stand: "9f2c" }],
+  memberships: [{ saison_id: SAISON, gruppe: "A", austritt: null, trikot_farbe: null, kontakte, bestaetigungen: null, kontakte_stand: "9f2c" }],
 });
 
 describe("buildKontaktRows", () => {
@@ -686,6 +687,27 @@ describe("the club filter a link into the contacts list preselects", () => {
     );
   });
 
+  /* Who seated a person is the one origin a seat keeps from now on; a seat seated before the field
+     names nobody, so it answers no origin rather than a guessed one. */
+  it("reads who seated each person, across the club's seats", () => {
+    const geseated = (eingetragen_von: FLKontaktperson["einwilligung"]["eingetragen_von"]) => ({
+      ...kontaktperson("Tim"),
+      einwilligung: { ...kontaktperson("Tim").einwilligung, eingetragen_von },
+    });
+    const [row] = buildKontaktRows(
+      [club({ trainer: geseated("bewerbung"), ansprechperson: geseated("liga"), stellvertretung: geseated(null), trainer_ist_zugleich: null })],
+      SAISON,
+    );
+    const facet = buildKontakteFacets([]).find((each) => each.param === "einwilligung");
+
+    assert.ok(facet !== undefined && row !== undefined, "the contacts list offers no origin filter, or no row");
+    assert.deepEqual([...facet.read(row)].sort(), ["bewerbung", "liga"], "the facet reads an origin other than who seated each person");
+    assert.deepEqual(
+      facet.options.map((option) => option.value),
+      EINGETRAGEN_VON_OPTIONS.map((option) => option.value),
+    );
+  });
+
   /* Two arms that partition the list: every row answers exactly one, so the facet cannot leave a club
      out of both. A club with nobody on file has no row to grade (`buildKontaktRows`). */
   it("grades every club's completeness as exactly one of the two", () => {
@@ -759,13 +781,14 @@ describe("what a website box reports upward", () => {
 });
 
 describe("what a new Kenntnisnahme cites", () => {
-  /* Stamped from the one constant, never typed and never left blank: the version NAMES the wording,
-     so a record citing nothing, or citing a value somebody keyed in, claims acknowledgement of a text the
-     league cannot identify. */
-  it("stamps the league's current wording version", () => {
-    const frisch = buildEmptyKontaktperson().einwilligung;
+  /* Stamped from the label the backend runs, never typed and never left blank: the version NAMES the
+     wording, so a record citing nothing, or citing a value somebody keyed in, claims acknowledgement of a
+     text the league cannot identify. */
+  it("stamps the label it is handed, the one the backend runs", () => {
+    const laufend = publishedLaufendeFassung("bewerbung").text_version;
+    const frisch = buildEmptyKontaktperson(laufend).einwilligung;
 
-    assert.equal(frisch.text_version, LIGA_KENNTNISNAHME.textVersion, "a new Kenntnisnahme cites a version the league did not stamp");
+    assert.equal(frisch.text_version, laufend, "a new Kenntnisnahme cites a version the league did not stamp");
     assert.notEqual(frisch.text_version, "", "a new Kenntnisnahme cites no wording at all");
   });
 });

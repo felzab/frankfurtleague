@@ -1,30 +1,30 @@
-import { KONTAKT_EMAIL } from "@/core/brand";
-import { BESTAETIGUNG_ABSAETZE } from "@/core/einwilligung";
+import { ABSATZ_CLASSES, FESTE_WERTE, Gefuellt } from "@/features/bewerbungen/components/ui/Gefuellt";
 import { FORM_SECTION_HEADING_CLASSES } from "@/shared/components/ui/formFieldStyles";
 
-import { ABSATZ_CLASSES, BestaetigungAbschnitt, Gefuellt } from "./BestaetigungPanels";
+import { BestaetigungAbschnitt } from "./BestaetigungPanels";
 
+import type { GekeyteFassung, KontaktAbsatzSchluessel, KontaktBedienSchluessel } from "@/core/einwilligungSeiten";
 import type { Slots } from "@/shared/utils/stampedSlots";
+
+/** The contact page's words, keyed as the page places them, under the label its answer stamps. */
+export type KontaktFassung = GekeyteFassung<KontaktAbsatzSchluessel, KontaktBedienSchluessel>;
+
+type KontaktAbsaetze = KontaktFassung["absaetze"];
 
 const LISTE_CLASSES = `${ABSATZ_CLASSES} flex list-disc flex-col gap-y-1 pl-5`;
 const ABSCHNITT_CLASSES = "flex flex-col gap-y-2";
 
-// No `{minAlter}` here: two of the three seats answer it differently, so a constant would put a
-// number on the page that the press is not judged by.
-/** What fills a slot for every reader alike; the rest come off the record the page was opened with. */
-const KONSTANTEN = { kontakt: KONTAKT_EMAIL } as const;
-
 /**
  * The slots a record fills from the person who opened the link
- * (`fl_frontend/src/features/bewerbungen/components/views/BestaetigungPanels.tsx :: Gefuellt`).
+ * (`fl_frontend/src/features/bewerbungen/components/ui/Gefuellt.tsx :: Gefuellt`).
  */
 const EIGENE_SLOTS = new Set(["vorname", "schule", "saison", "rolle"]);
 
 /** A stamped paragraph, whichever key it stands under, filled as this page fills it wherever else it is quoted. */
-export function Absatz({ schluessel, werte }: { schluessel: keyof typeof BESTAETIGUNG_ABSAETZE; werte: Slots }) {
+export function Absatz({ text, werte }: { text: string; werte: Slots }) {
   return (
     <Gefuellt
-      text={BESTAETIGUNG_ABSAETZE[schluessel]}
+      text={text}
       werte={werte}
       eigene={EIGENE_SLOTS}
     />
@@ -37,6 +37,7 @@ export function Absatz({ schluessel, werte }: { schluessel: keyof typeof BESTAET
  * places to have stopped in.
  */
 export function BestaetigungHinweise({
+  absaetze,
   schule,
   saison,
   rolle,
@@ -45,13 +46,14 @@ export function BestaetigungHinweise({
   /** The objection control's own label, named in the text so a reader finds the control it describes. */
   ablehnenLabel,
 }: {
+  absaetze: KontaktAbsaetze;
   schule: string;
   saison: string;
   rolle: string;
   mindestalter: number;
   ablehnenLabel: string;
 }) {
-  const werte = { ...KONSTANTEN, minAlter: String(mindestalter), schule: schule, saison: saison, rolle: rolle, ablehnen: ablehnenLabel };
+  const werte = { ...FESTE_WERTE, minAlter: String(mindestalter), schule: schule, saison: saison, rolle: rolle, ablehnen: ablehnenLabel };
 
   return (
     <BestaetigungAbschnitt titel="Was das bedeutet">
@@ -59,7 +61,7 @@ export function BestaetigungHinweise({
         <h3 className={FORM_SECTION_HEADING_CLASSES}>Worum es geht</h3>
         <p className={ABSATZ_CLASSES}>
           <Absatz
-            schluessel="worum"
+            text={absaetze.worum}
             werte={werte}
           />
         </p>
@@ -69,19 +71,19 @@ export function BestaetigungHinweise({
         <h3 className={FORM_SECTION_HEADING_CLASSES}>Was gespeichert ist und wozu</h3>
         <p className={ABSATZ_CLASSES}>
           <Absatz
-            schluessel="gespeichert"
+            text={absaetze.gespeichert}
             werte={werte}
           />
         </p>
         <p className={ABSATZ_CLASSES}>
           <Absatz
-            schluessel="geburtsdatum"
+            text={absaetze.geburtsdatum}
             werte={werte}
           />
         </p>
         <p className={ABSATZ_CLASSES}>
           <Absatz
-            schluessel="rechtsgrundlage"
+            text={absaetze.rechtsgrundlage}
             werte={werte}
           />
         </p>
@@ -91,7 +93,7 @@ export function BestaetigungHinweise({
         <h3 className={FORM_SECTION_HEADING_CLASSES}>Was nicht passiert</h3>
         <p className={ABSATZ_CLASSES}>
           <Absatz
-            schluessel="nichtOeffentlich"
+            text={absaetze.nichtOeffentlich}
             werte={werte}
           />
         </p>
@@ -102,25 +104,25 @@ export function BestaetigungHinweise({
         <ul className={LISTE_CLASSES}>
           <li>
             <Absatz
-              schluessel="fristAbgelehnt"
+              text={absaetze.fristAbgelehnt}
               werte={werte}
             />
           </li>
           <li>
             <Absatz
-              schluessel="fristAngenommen"
+              text={absaetze.fristAngenommen}
               werte={werte}
             />
           </li>
           <li>
             <Absatz
-              schluessel="fristUnvollstaendig"
+              text={absaetze.fristUnvollstaendig}
               werte={werte}
             />
           </li>
           <li>
             <Absatz
-              schluessel="fristOhneEntscheidung"
+              text={absaetze.fristOhneEntscheidung}
               werte={werte}
             />
           </li>
@@ -131,19 +133,19 @@ export function BestaetigungHinweise({
         <h3 className={FORM_SECTION_HEADING_CLASSES}>Wenn Du nicht einverstanden bist</h3>
         <p className={ABSATZ_CLASSES}>
           <Absatz
-            schluessel="ablehnen"
+            text={absaetze.ablehnen}
             werte={werte}
           />
         </p>
         <p className={ABSATZ_CLASSES}>
           <Absatz
-            schluessel="widerruf"
+            text={absaetze.widerruf}
             werte={werte}
           />
         </p>
         <p className={ABSATZ_CLASSES}>
           <Absatz
-            schluessel="art21"
+            text={absaetze.art21}
             werte={werte}
           />
         </p>
@@ -156,26 +158,41 @@ export function BestaetigungHinweise({
  * What an objection does, inside the armed control's own reveal. Its own component rather than a
  * paragraph in the form, so the stamped text is rendered from one place whichever screen shows it.
  */
-export function WiderspruchFolge() {
+export function WiderspruchFolge({ absaetze }: { absaetze: KontaktAbsaetze }) {
   // The reveal's body scale rather than `ABSATZ_CLASSES`: this paragraph is read inside an escalation panel
   // and beside the rest of that panel's copy.
   return (
     <p className="fluid-xxs leading-normal font-medium text-foreground">
       <Absatz
-        schluessel="ablehnenFolge"
-        werte={KONSTANTEN}
+        text={absaetze.ablehnenFolge}
+        werte={FESTE_WERTE}
       />
     </p>
   );
 }
 
 /** Rendered whole under the switch it belongs to: the withdrawal sentence has to stand beside the consent it withdraws. */
-export function WhatsappHinweis() {
+export function WhatsappHinweis({ absaetze }: { absaetze: KontaktAbsaetze }) {
   return (
     <p className={ABSATZ_CLASSES}>
       <Absatz
-        schluessel="whatsapp"
-        werte={KONSTANTEN}
+        text={absaetze.whatsapp}
+        werte={FESTE_WERTE}
+      />
+    </p>
+  );
+}
+
+/**
+ * Rendered whole under the media switch, and for every age: the switch alone goes below the served
+ * age, so a record's label reproduces the screen whichever of the two its person was shown.
+ */
+export function MedienHinweis({ absaetze, medienMindestalter }: { absaetze: KontaktAbsaetze; medienMindestalter: number }) {
+  return (
+    <p className={ABSATZ_CLASSES}>
+      <Absatz
+        text={absaetze.medien}
+        werte={{ ...FESTE_WERTE, medienMinAlter: String(medienMindestalter) }}
       />
     </p>
   );
@@ -186,12 +203,14 @@ export function WhatsappHinweis() {
  * than by a summary sentence beside it, which is how a reader met the same promise twice.
  */
 export function KlickBestaetigung({
+  absaetze,
   id,
   vorname,
   schule,
   rolle,
   mindestalter,
 }: {
+  absaetze: KontaktAbsaetze;
   /** Published for the submit button's `aria-describedby`, so the points reach a reader who cannot see them. */
   id: string;
   vorname: string;
@@ -199,7 +218,7 @@ export function KlickBestaetigung({
   rolle: string;
   mindestalter: number;
 }) {
-  const werte = { ...KONSTANTEN, minAlter: String(mindestalter), vorname: vorname, schule: schule, rolle: rolle };
+  const werte = { ...FESTE_WERTE, minAlter: String(mindestalter), vorname: vorname, schule: schule, rolle: rolle };
 
   return (
     <div
@@ -209,32 +228,32 @@ export function KlickBestaetigung({
       <ul className={LISTE_CLASSES}>
         <li>
           <Absatz
-            schluessel="klickIdentitaet"
+            text={absaetze.klickIdentitaet}
             werte={werte}
           />
         </li>
         <li>
           <Absatz
-            schluessel="klickEintrag"
+            text={absaetze.klickEintrag}
             werte={werte}
           />
         </li>
         <li>
           <Absatz
-            schluessel="klickAlter"
+            text={absaetze.klickAlter}
             werte={werte}
           />
         </li>
         <li>
           <Absatz
-            schluessel="klickHinweise"
+            text={absaetze.klickHinweise}
             werte={werte}
           />
         </li>
       </ul>
       <p className={ABSATZ_CLASSES}>
         <Absatz
-          schluessel="keineEinwilligung"
+          text={absaetze.keineEinwilligung}
           werte={werte}
         />
       </p>

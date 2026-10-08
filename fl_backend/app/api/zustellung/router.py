@@ -1,4 +1,4 @@
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from typing import Annotated
 
 from bson import ObjectId
@@ -16,11 +16,18 @@ from app.api.zustellung.schemas import (
     FLZustellungResponse,
     FLZustellungZiel,
 )
-from app.api.zustellung.services import ABGEWIESENER_VERSAND_STAND, ZIEL_PFADE, compose_ziel_zustellung_update, zustellung_projektion
+from app.api.zustellung.services import (
+    ABGEWIESENER_VERSAND_STAND,
+    ZIEL_PFADE,
+    compose_ziel_zustellung_update,
+    traeger_halter,
+    traeger_pfade,
+    zustellung_projektion,
+)
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, pull_one_from_db
 from app.core.dependencies import DB, DBClient
-from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
+from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE
 from app.core.security import bind_system_actor, verify_access_system
 from app.core.transactions import transaction_session
 
@@ -39,32 +46,36 @@ async def _apply(
     db_client: DBClient,
     ziel: FLZustellungZiel,
     ziel_id: ObjectId,
+    rollen: Sequence[str],
     judge: Callable[..., bool],
     stand: str,
     nachricht_id: str,
     grund: str | None,
     am: str,
 ) -> FLZustellungResponse:
-    """Judge this record and write it where it qualifies, in one transaction.
+    """Judge every carrier this record names and write the ones that qualify, in one transaction.
 
     Judged in-session because a re-send landing between the read and the write mints the very
     `nachricht_id` the comparison exists to reject.
     """
 
-    pfad = ZIEL_PFADE[ziel]
-    collection = db[pfad.collection]
+    collection = db[ZIEL_PFADE[ziel].collection]
+    traeger = traeger_pfade(ziel, rollen)
 
     async def write_the_state(session: AsyncClientSession) -> bool:
-        raw = await pull_one_from_db(collection=collection, db_filter={"_id": ziel_id}, projection=zustellung_projektion(pfad), session=session)
-        # The carrier is what the judges read a seat's entry off, so the projected document stands in
-        # for the application's seat block and the carrier's key for the seat.
-        if not judge(bestaetigungen=raw, seat=pfad.traeger):
+        projection = zustellung_projektion(traeger)
+        raw = await pull_one_from_db(collection=collection, db_filter={"_id": ziel_id}, projection=projection, session=session)
+        # The mapping a carrier sits in stands in for the application's seat block and the carrier's
+        # key for the seat, which is what the judges read an entry off.
+        held = {pfad: traeger_halter(raw, pfad) for pfad in traeger}
+        applying = [pfad for pfad, (halter, sitz) in held.items() if judge(bestaetigungen=halter, seat=sitz)]
+        if not applying:
             return False
 
         await patch_one_in_db(
             collection=collection,
             db_filter={"_id": ziel_id},
-            update=compose_ziel_zustellung_update(pfad=pfad, nachricht_id=nachricht_id, stand=stand, grund=grund, am=am),
+            update=compose_ziel_zustellung_update(traeger=applying, nachricht_id=nachricht_id, stand=stand, grund=grund, am=am),
             session=session,
             return_document=ReturnDocument.BEFORE,
         )
@@ -79,7 +90,7 @@ async def _apply(
     "/angenommen",
     response_model=FLZustellungResponse,
     summary="Record the message the provider accepted for this record",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def angenommen_zustellung(
     angenommen_data: Annotated[FLZustellungAngenommenPayload, Body()],
@@ -97,6 +108,9 @@ async def angenommen_zustellung(
     writes nothing, and the answer says whether anything was written; a delivery state the provider stamped never blocks it, that
     stamp being the provider's clock rather than this sender's. A record whose document carries no delivery bookkeeping at all --
     never mailed, or emptied by an erasure -- is skipped rather than refused. 404 where no document of that kind has the id.
+
+    A `kontakt` record sits under each contact seat, so its report names in `rollen` every seat the one message reached, each judged and
+    written on its own, and `angewendet` is true where any was; every other kind names none, a mismatch being a 422.
     """
 
     return await _apply(
@@ -104,6 +118,7 @@ async def angenommen_zustellung(
         db_client=db_client,
         ziel=angenommen_data.ziel,
         ziel_id=angenommen_data.ziel_id,
+        rollen=angenommen_data.rollen,
         judge=lambda *, bestaetigungen, seat: zustellung_send_applies(bestaetigungen=bestaetigungen, seat=seat, am=angenommen_data.am),
         stand="angenommen",
         nachricht_id=angenommen_data.nachricht_id,
@@ -118,7 +133,7 @@ async def angenommen_zustellung(
     "/abgewiesen",
     response_model=FLZustellungResponse,
     summary="Record the send the provider refused for this record",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def abgewiesen_zustellung(
     abgewiesen_data: Annotated[FLZustellungAbgewiesenPayload, Body()],
@@ -135,6 +150,9 @@ async def abgewiesen_zustellung(
     already holds, so a call retried after the re-send that repaired the address writes nothing, and a delivery state the provider
     stamped never blocks it. A record whose document carries no delivery bookkeeping at all is skipped rather than refused. 404 where no
     document of that kind has the id.
+
+    A `kontakt` record sits under each contact seat, so its report names in `rollen` every seat the one message reached, each judged and
+    written on its own, and `angewendet` is true where any was; every other kind names none, a mismatch being a 422.
     """
 
     return await _apply(
@@ -142,6 +160,7 @@ async def abgewiesen_zustellung(
         db_client=db_client,
         ziel=abgewiesen_data.ziel,
         ziel_id=abgewiesen_data.ziel_id,
+        rollen=abgewiesen_data.rollen,
         judge=lambda *, bestaetigungen, seat: zustellung_send_applies(bestaetigungen=bestaetigungen, seat=seat, am=abgewiesen_data.am),
         stand=ABGEWIESENER_VERSAND_STAND,
         # Empty by construction: no message was minted, so a synthetic id would let a real event
@@ -156,7 +175,7 @@ async def abgewiesen_zustellung(
     "",
     response_model=FLZustellungResponse,
     summary="Apply one delivery event to the record its message was sent about",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def post_zustellung(
     ereignis_data: Annotated[FLZustellungEreignisPayload, Body()],
@@ -173,6 +192,9 @@ async def post_zustellung(
 
     404 where no document of that kind has the id, which a record erased between the send and the event is: a caller that must not
     retry maps it rather than repeating the call.
+
+    A `kontakt` record sits under each contact seat, so its report names in `rollen` every seat the one message reached, each judged and
+    written on its own, and `angewendet` is true where any was; every other kind names none, a mismatch being a 422.
     """
 
     return await _apply(
@@ -180,6 +202,7 @@ async def post_zustellung(
         db_client=db_client,
         ziel=ereignis_data.ziel,
         ziel_id=ereignis_data.ziel_id,
+        rollen=ereignis_data.rollen,
         judge=lambda *, bestaetigungen, seat: zustellung_event_applies(
             bestaetigungen=bestaetigungen, seat=seat, nachricht_id=ereignis_data.nachricht_id, am=ereignis_data.am
         ),

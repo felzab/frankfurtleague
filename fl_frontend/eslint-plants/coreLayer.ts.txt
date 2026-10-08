@@ -28,6 +28,8 @@ import { DOCUMENT_PATH } from "./openapiDocument"; // expect: test-only
 import { DOCUMENT_PATH as DOCUMENT_PATHTyped } from "./openapiDocument.ts"; // expect: test-only
 import { publishedCeilings } from "./publishedCeilings"; // expect: test-only
 import { publishedCeilings as publishedCeilingsTyped } from "./publishedCeilings.ts"; // expect: test-only
+import { readEinwilligungDocument } from "./einwilligungDocument"; // expect: test-only
+import { readEinwilligungDocument as readEinwilligungDocumentTyped } from "./einwilligungDocument.ts"; // expect: test-only
 import { blankComments } from "./blankComments"; // expect: test-only
 import { blankComments as blankCommentsTyped } from "./blankComments.ts"; // expect: test-only
 import { openingTagAt } from "./openingTag"; // expect: test-only
@@ -58,7 +60,7 @@ import { registerHooks as hookVia } from "module"; // expect: node-module
 import { SITE_URL } from "./brand"; // expect: site-origin
 import { SITE_URL as SITE_URL_TYPED } from "./brand.ts"; // expect: site-origin
 import { mintRequestActor } from "./actorToken"; // expect: actor-signing
-import { authResendKey, authSecret, internalApiKeySystem, mongodbUri, resendWebhookSecret } from "./config"; // expect: secret-store expect: secret-session expect: secret-mail expect: secret-webhook expect: secret-backend
+import { authResendKey, authSecret, internalApiKeySystem, mongodbUri, resendWebhookSecret, turnstileSecretKey } from "./config"; // expect: secret-store expect: secret-session expect: secret-mail expect: secret-webhook expect: secret-backend expect: secret-turnstile
 import { auth } from "./auth"; // expect: auth-instance
 import { signInStore } from "./db?probe"; // expect: sign-in-store
 export { sendSperreNotice } from "./mail?probe"; // expect: sperre-notice
@@ -67,7 +69,7 @@ import { after } from "next/server"; // expect: next-after
 
 export const USED = [TEAM_FACETS, FIELD_LABEL_CLASSES, captureStdout, HeroForm, DatePicker, Button, AppRouterContext, HintPanel];
 export const SPELLINGS = [captureTyped, installAuthDoubles, installTyped, doubleSendMail, doubleSendMailTyped, readScheme, readTyped, redact, redactTyped, TEAMS_RELATIVE, LABEL_RELATIVE, TEAMS_FROM_ROOT];
-export const MORE_SPELLINGS = [walkFiles, walkFilesTyped, schemaModules, schemaModulesTyped, DOCUMENT_PATH, DOCUMENT_PATHTyped, publishedCeilings, publishedCeilingsTyped, blankComments, blankCommentsTyped, openingTagAt, openingTagAtTyped, withoutPythonComments, withoutPythonCommentsTyped, KEY_TIERS, KEY_TIERSTyped, beginRenderPass, beginRenderPassTyped, exportingModule, exportingModuleTyped, assertionFor, assertionForTyped, person, personTyped, recordVerdict, recordVerdictTyped, expiredTransactionKills, expiredTransactionKillsTyped, runAsTestFile, runAsTestFileTyped];
+export const MORE_SPELLINGS = [walkFiles, walkFilesTyped, schemaModules, schemaModulesTyped, DOCUMENT_PATH, DOCUMENT_PATHTyped, publishedCeilings, publishedCeilingsTyped, readEinwilligungDocument, readEinwilligungDocumentTyped, blankComments, blankCommentsTyped, openingTagAt, openingTagAtTyped, withoutPythonComments, withoutPythonCommentsTyped, KEY_TIERS, KEY_TIERSTyped, beginRenderPass, beginRenderPassTyped, exportingModule, exportingModuleTyped, assertionFor, assertionForTyped, person, personTyped, recordVerdict, recordVerdictTyped, expiredTransactionKills, expiredTransactionKillsTyped, runAsTestFile, runAsTestFileTyped];
 // A package's own path crosses no layer, however its directories are named.
 export const NEXT_SHARED_LOADED = import("next/dist/shared/lib/utils.js");
 export const LOADED_SLICE = await import("@/features/teams/facets"); // expect: layer-core-load
@@ -81,7 +83,7 @@ export const LOCALE_USED = PinnedLocale;
 export const TEXT_FIELD_USED = HeroTextField;
 export const SIGNING_USED = [mintRequestActor, mintTyped];
 export const SIGNING_LOADED = import("./actorToken.ts"); // expect: actor-signing-load
-export const SECRETS_USED = [authResendKey, authSecret, internalApiKeySystem, mongodbUri, resendWebhookSecret];
+export const SECRETS_USED = [authResendKey, authSecret, internalApiKeySystem, mongodbUri, turnstileSecretKey, resendWebhookSecret];
 export const AFTER_USED = after;
 export const HOLDERS_USED = [auth, signInStore];
 // A layer boundary through a query suffix, which the bundler resolves to the module itself.

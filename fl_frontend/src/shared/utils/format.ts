@@ -13,13 +13,19 @@ export const PLACEHOLDER = {
   uhrzeit: "--:--",
   ergebnis: "-:-",
   /**
-   * Nothing recorded where nothing is still to come: a venue or a referee nobody assigned, a played fixture's date.
-   * Named in words, `docs/frontend/spec.md` §1.12 ruling out a lone glyph, and generic: every site names the entity.
+   * A stored field held empty where nothing is still to come: a venue or a referee nobody assigned, a played
+   * fixture's date. The labelled form: a site with no label beside it names the field (`docs/frontend/spec.md` §1.12).
    */
-  entity: "Keine Angabe",
+  entity: "Nicht hinterlegt",
   /** A fixture side with no occupant and no provenance label. A bracket slot that knows where its team comes from shows that. */
   slot: "Noch offen",
 } as const;
+
+/** What a stored field held empty reads where a label stands beside it, on every page: the fixtures' word too. */
+export const NICHT_HINTERLEGT = PLACEHOLDER.entity;
+
+/** The same where no label stands beside the value, so the words name the field (`docs/frontend/spec.md` §1.12). */
+export const nichtHinterlegt = (feld: string): string => `${feld} nicht hinterlegt`;
 
 const EUR = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" });
 
@@ -36,7 +42,7 @@ export function formatUhrzeit(uhrzeit: string | null | undefined, fallback: stri
 const joinPresent = (parts: readonly string[], separator: string): string => parts.filter((part) => part.trim() !== "").join(separator);
 
 export function formatAddress(address?: FLAddress): string {
-  if (!address) return "Keine Adresse hinterlegt";
+  if (!address) return nichtHinterlegt("Adresse");
 
   // Stadtteil is optional; an empty one renders nothing rather than an empty "()" tail.
   const stadtteil = address.stadtteil.trim() === "" ? "" : ` (${address.stadtteil})`;

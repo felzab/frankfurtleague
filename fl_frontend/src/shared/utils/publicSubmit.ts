@@ -1,6 +1,9 @@
 import "client-only";
 
 import { IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
+import { TURNSTILE_HEADER } from "@/core/turnstileToken";
+
+import { ZU_VIELE_VERSUCHE } from "./actionError";
 
 import type { FieldErrors } from "./validation";
 
@@ -26,12 +29,15 @@ export type PublicEnvelope = {
   schonAngekommen?: true;
 };
 
+/** The title every public form gives an answer whose outcome is unknown, whichever form sent it. */
+export const UNKLAR_TITEL = "Unklar, ob es bei uns angekommen ist";
+
 /**
  * What each link confirmation tells a visitor whose answer may have landed: reopened, a
  * spent link says so, and a live one takes the answer again.
  */
 export const ANTWORT_UNKLAR =
-  "Öffne den Link aus Deiner E-Mail noch einmal: Ist Deine Antwort angekommen, steht das dort, sonst antwortest Du dort noch einmal.";
+  "Öffne den Link aus Deiner E-Mail noch einmal: Ist Deine Antwort angekommen, steht das dort, sonst antwortest Du dort erneut.";
 
 /**
  * Whether this application answered at all. Nothing standing in front of it produces a field error,
@@ -47,22 +53,19 @@ export type PublicAnswer<T> =
     };
 
 /**
- * The edge's rate limit, generated before any route handler runs: the body is nginx's own HTML
+ * The edge's rate limit, generated before any route handler runs: the body is nginx's own sentence
  * rather than the envelope, so the status is the whole of what arrived.
  */
 export const EDGE_RATE_LIMIT_STATUS = 429;
 
-/** The one cause the visitor can act on, which is why it keeps a sentence of its own. */
-const ZU_VIELE_VERSUCHE = "Zu viele Versuche in kurzer Zeit. Warte einen Moment und versuche es dann noch einmal.";
-
 /** The request reached no judgement, so nothing of what was typed may be named here. */
-const KEINE_VERBINDUNG = "Prüfe Deine Verbindung und versuche es erneut.";
+const KEINE_VERBINDUNG = "Prüfe die Verbindung und versuche es erneut.";
 
 /**
  * Every other answer that was not this application's, an edge challenge among them. It claims
  * nothing about the request: a challenge can answer a POST this application has already written.
  */
-const KEINE_ANTWORT_VON_UNS = "Die Website ist gerade nicht erreichbar. Warte einen Moment und versuche es dann noch einmal.";
+const KEINE_ANTWORT_VON_UNS = "Die Website ist gerade nicht erreichbar. Warte einen Moment und versuche es dann erneut.";
 
 /**
  * The client half of `fl_frontend/src/shared/utils/publicRoute.ts :: handlePublicRequest`'s flow, and
@@ -72,14 +75,18 @@ const KEINE_ANTWORT_VON_UNS = "Die Website ist gerade nicht erreichbar. Warte ei
 export async function postPublicForm<T extends PublicEnvelope>(
   endpoint: string,
   payload: unknown,
-  { idempotencyKey }: { idempotencyKey?: string } = {},
+  { idempotencyKey, turnstileToken }: { idempotencyKey?: string; turnstileToken?: string } = {},
 ): Promise<PublicAnswer<T>> {
   let response: Response;
 
   try {
     response = await fetch(endpoint, {
       method: "POST",
-      headers: { "Content-Type": "application/json", ...(idempotencyKey === undefined ? {} : { [IDEMPOTENCY_KEY_HEADER]: idempotencyKey }) },
+      headers: {
+        "Content-Type": "application/json",
+        ...(idempotencyKey === undefined ? {} : { [IDEMPOTENCY_KEY_HEADER]: idempotencyKey }),
+        ...(turnstileToken === undefined ? {} : { [TURNSTILE_HEADER]: turnstileToken }),
+      },
       body: JSON.stringify(payload),
     });
   } catch {

@@ -1,6 +1,8 @@
 import { frontend_config } from "@/core/config";
 import { IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
 import { buildRegistrierungBestaetigungEmail } from "@/core/registrierungEmail";
+import { turnstileRefusal } from "@/core/turnstile";
+import { TURNSTILE_HEADER } from "@/core/turnstileToken";
 import { REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE } from "@/features/registrierungen/constants";
 import { postRegistrierung } from "@/features/registrierungen/mutations";
 import { FLPostRegistrierungPayloadSchema } from "@/features/registrierungen/schemas";
@@ -22,6 +24,11 @@ export async function POST(request: NextRequest) {
   return handlePublicRequest(request, {
     routeName: "postRegistrierung",
     run: async () => {
+      // First, before the body is read: nothing an unverified sender posted is parsed, and the write, which
+      // mails the address the visitor typed, is never reached past a refusal.
+      const refusal = await turnstileRefusal(request.headers.get(TURNSTILE_HEADER));
+      if (refusal !== null) return { success: false as const, error: refusal };
+
       const body: unknown = await request.json().catch(() => null);
       const parsed = FLPostRegistrierungPayloadSchema.safeParse(body);
 

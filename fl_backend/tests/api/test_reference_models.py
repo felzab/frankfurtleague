@@ -262,7 +262,7 @@ class TestEinwilligung:
 
         assert FLSpieler.model_validate(spieler(einwilligung=collected)).einwilligung.umfang == "kader_oeffentlich"
 
-    @pytest.mark.parametrize("field", ["umfang", "erteilt_von", "datum", "bestaetigt_am"])
+    @pytest.mark.parametrize("field", ["umfang", "datum", "bestaetigt_am"])
     def test_requires_every_key(self, einwilligung, field, assert_rejects):
         """The keys in the validator's `required` tuple, so a model accepting one fewer would read back a row the database refuses to store."""
 
@@ -287,6 +287,14 @@ class TestEinwilligung:
         assert parsed.text_version == "liga-2026-03"
         assert parsed.medien is True
         assert parsed.umfang == "kader_oeffentlich"
+
+    def test_a_record_naming_no_speaker_reads_back(self, einwilligung):
+        """No write names who answered any longer, so every record written from now on reads without one."""
+
+        record = einwilligung()
+        del record["erteilt_von"]
+
+        assert FLEinwilligung.model_validate(record).erteilt_von is None
 
     def test_a_carried_over_record_says_so_and_carries_no_dates(self, einwilligung):
         """`bestandsuebernahme` is the point of the third member: nobody was asked, so there is no day and no confirmation."""

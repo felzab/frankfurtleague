@@ -8,6 +8,7 @@ import { createElement as h } from "react";
 
 import { render, screen } from "@testing-library/react";
 
+import { assertLeer } from "@/shared/testing/leerGrade.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 
 import { SPIELER_ANONYM_LABEL } from "../../constants.ts";
@@ -92,19 +93,19 @@ describe("a squad row whose name the publication gate withheld", () => {
     assert.ok(screen.getByText("AK"), "the avatar reads the display string rather than the two name fields");
   });
 
-  /* The grade a nameless row wears on the referee list
-     (`fl_frontend/src/features/schiedsrichter/components/collections/AdminSchiedsrichterTable.tsx`):
-     at a name's weight the stand-in word reads as somebody's name rather than as the state it is. */
-  it("sets the withheld word apart from a name, and leaves a published one at a name's grade", () => {
+  /* The empty-value grade every page gives a word standing where a value would
+     (`fl_frontend/src/shared/components/ui/Angabe.tsx :: Leer`), at the slot's own size and weight:
+     the grade alone tells the stand-in word from a name, so the hierarchy holds. */
+  it("sets the withheld word apart from a name by the grade alone, at a name's weight", () => {
     shown([VEROEFFENTLICHT, ZURUECKGEHALTEN]);
 
-    const withheld = screen.getByText(SPIELER_ANONYM_LABEL).className.split(/\s+/);
+    const withheldWord = screen.getByText(SPIELER_ANONYM_LABEL);
+    const slot = withheldWord.parentElement?.className.split(/\s+/) ?? [];
     const named = screen.getByText("Alina F.").className.split(/\s+/);
 
-    assert.ok(withheld.includes("italic"), `the withheld word is not set apart: ${withheld.join(" ")}`);
-    assert.ok(withheld.includes("text-foreground-muted"), `the withheld word keeps a name's ink: ${withheld.join(" ")}`);
-    assert.ok(!withheld.includes("font-bold"), `the withheld word keeps a name's weight: ${withheld.join(" ")}`);
-    assert.ok(named.includes("font-bold") && !named.includes("italic"), `a stored name lost its own grade: ${named.join(" ")}`);
+    assertLeer(withheldWord, SPIELER_ANONYM_LABEL);
+    assert.ok(slot.includes("font-bold") && slot.includes("fluid-xs"), `the withheld word lost a name's size or weight: ${slot.join(" ")}`);
+    assert.ok(named.includes("font-bold") && !named.includes("text-foreground-muted"), `a stored name lost its own grade: ${named.join(" ")}`);
   });
 
   /* Both rows in one table, which is what a squad holding one of each really serves: a case per row
@@ -114,5 +115,17 @@ describe("a squad row whose name the publication gate withheld", () => {
 
     assert.ok(screen.getByText("Alina F."), "the published row lost its name beside a withheld one");
     assert.ok(screen.getByText(SPIELER_ANONYM_LABEL), "the withheld row lost its word beside a published one");
+  });
+});
+
+describe("a squad row holding no number and no position", () => {
+  /* Each column's heading is its cell's label, the number's `#` included, so both empty cells take the
+     labelled word. */
+  it("reads both empty cells as „Nicht hinterlegt“ under their headings", () => {
+    shown([{ ...VEROEFFENTLICHT, nummer: null, position: null }]);
+
+    const leer = screen.getAllByText("Nicht hinterlegt");
+    assert.equal(leer.length, 2, "the number and the position do not both read the labelled word");
+    for (const cell of leer) assertLeer(cell, "Nicht hinterlegt");
   });
 });

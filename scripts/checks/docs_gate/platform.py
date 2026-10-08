@@ -24,8 +24,9 @@ PLATFORM_CHECK: Final = "platform-branch"
 CRLF_CHECK: Final = "crlf-write"
 
 # The backend is in: the write clause's trap is not the gate's alone, and a test there writes
-# fixtures a shell reads.
-PYTHON_SCOPES: Final[tuple[str, ...]] = ("scripts/", "fl_backend/app/", "fl_backend/tests/")
+# fixtures a shell reads. So are the orchestration tools, which rewrite a register on a Windows
+# coordinator's machine.
+PYTHON_SCOPES: Final[tuple[str, ...]] = ("scripts/", "fl_backend/app/", "fl_backend/tests/", ".claude/skills/orchestration/tools/")
 TEST_SCOPES: Final[tuple[str, ...]] = ("scripts/tests/", "fl_backend/tests/")
 # `.githooks/` holds shell under `.sh` as the other scopes do, and under no suffix, git naming a
 # hook by its event; a module a hook runs there carries its language's own.

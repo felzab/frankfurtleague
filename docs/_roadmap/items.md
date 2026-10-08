@@ -284,28 +284,23 @@ pickers, table and overlays and taken from index pages for the rest; whether Man
 theme variables without the runtime `<style>` element was not established, and it is the one open
 question that could move Mantine's rank.
 
-### `8wd7-ff49` · The consent field has a schema and a ruled writer, and no flow that writes it
+### `8wd7-ff49` · A guardian's provenance stays in the consent vocabulary, and a pupil's birthdate is not yet required
 
-| Status  | Depends on  |
-| ------- | ----------- |
-| Blocked | `f3ar-m4qf` |
+| Status | Depends on |
+| ------ | ---------- |
+| Open   | —          |
 
-**The flow it waits on is an admission, which is not built.** The `Depends on` beside it names
-`f3ar-m4qf`, whose part "Admitting a confirmed registration into its squad" is the writer this entry
-asks for. The block stands while that entry is on the page and that part is still in it, and an admission
-landing lifts it whatever else `f3ar-m4qf` still holds.
+**The admission writes the pupil's own record.** A confirmed registration's record reaches the person
+the admission creates whole; onto a person the league already holds, it renews the record, and each
+choice only where the registration set it later, so a choice the person moved since stands
+(`fl_backend/app/api/registrierungen/services.py :: compose_person_update`,
+`docs/backend/spec.md :: I611`). The publication gate reads this field
+(`docs/backend/spec.md :: READ-PUPIL-003`).
 
-**`spieler.einwilligung` has a schema and a gate reading it, and no route writes it.**
-`fl_backend/app/core/domain.py :: FIELD_POLICIES` says so of the field, a manual database edit being
-its only writer today, so every record stored there is one an earlier write left; the rows carrying
-`erteilt_von` as `erziehungsberechtigt` are those, and nothing distinguishes them from a record a
-guardian actually filed. A pupil's own consent is collected — the registration's confirmation
-composes it, the birthdate beside it, on the registration
-(`fl_backend/app/api/registrierungen/services.py :: compose_confirmation_update`) — and nothing copies
-it onto this field yet. The publication gate reads this field (`docs/backend/spec.md :: READ-PUPIL-003`),
-so it publishes the rows standing today on the records they carry, and nobody a registration
-collected. `fl_backend/tests/core/test_consent_writers.py` holds the guardian's provenance to having no
-writer while the vocabulary still admits it.
+**What is left is a value no route writes.** The rows carrying `erteilt_von` as `erziehungsberechtigt`
+are ones an earlier manual write left, and nothing distinguishes them from a record a guardian
+actually filed. `fl_backend/tests/core/test_consent_writers.py` holds the guardian's provenance to
+having no writer while the vocabulary still admits it.
 
 **The writer is ruled.** `docs/datenschutz.md` §2 settles it: everyone signs up for themselves
 through the website and gives their own consent there, from 16, and an administrator may neither
@@ -314,17 +309,10 @@ a person's own consent and a carried-over record to express and nothing else —
 already marks the second, and `erziehungsberechtigt` stays in the enum for the rows that carry it,
 which the once-only reset of this season's pupil rows removes (`docs/datenschutz.md` §3).
 
-**Undecided, and the admission needs it: where a returning pupil's renewed consent lands.** A pupil
-the league already holds who registers again confirms a fresh record on the new registration, under
-the text version current that day. `FIELD_POLICIES` marks `spieler.einwilligung` immutable, written
-once at the person's creation, so an admission matching an existing person cannot copy that record
-onto them as the field stands; whether the person keeps the record they gave first, takes the fresh
-one, or keeps both is the ruling.
-
-**Done when** an admission writes a confirmed registration's own record onto the person it creates,
-the enum has lost `erziehungsberechtigt` once the reset removed every row carrying it, and a pupil's
-birthdate is required on the person from then on, `fl_backend/app/core/domain.py :: UNENFORCED`
-carrying the state that ends there. The notice's referee publication row is `pw5c-zps5`'s.
+**Done when** the enum has lost `erziehungsberechtigt` once the reset removed every row carrying it,
+and a pupil's birthdate is required on the person from then on, `fl_backend/app/core/domain.py ::
+UNENFORCED` carrying the state that ends there. The notice's referee publication row is
+`pw5c-zps5`'s.
 
 ### `dgdv-27yw` · No rule engine reads this repository's sources, and two spellings its own readers refuse wait on a parse across the language boundary
 
@@ -368,99 +356,7 @@ written at the reader's line. Every property asserted today is still asserted an
 afterwards, and an answer resting on practice outside this repository cites a public repository a
 reader can open.
 
-### `eq3t-4e3f` · Which wording a person agreed to is defined only in the frontend, and the record of it is overwritten rather than kept
-
-| Status | Depends on |
-| ------ | ---------- |
-| Open   | —          |
-
-**My question of 2026-09-24, in my words:** "What would be the absolute mature best practice approach
-that a major company would implement for this WHOLE system of keeping track to which version somebody
-agreed?" This entry is that design, sized for this site. The one race that could not wait, an
-application retried across a deploy that moved its label, is already held by the application's own
-check (`fl_backend/app/api/bewerbungen/services.py :: find_veraltete_fassung_refusal`).
-
-**The registry of wordings and the running label of each page live in the frontend.** Every label's
-words are in `fl_frontend/src/core/einwilligung.ts :: LIGA_KENNTNISNAHMEN`, the label each of the four
-pages stamps is read off it (`:: LIGA_KENNTNISNAHME`, `:: BESTAETIGUNG_KENNTNISNAHME`,
-`:: SPIELER_EINWILLIGUNG`, `:: SCHIEDSRICHTER_EINWILLIGUNG`), and the words are pinned only by a
-frontend test (`fl_frontend/src/core/einwilligung.test.ts :: FASSUNG_DIGESTS`). The backend, which
-stores the record, holds a copy of the application form's running label alone
-(`fl_backend/app/api/bewerbungen/services.py :: BEWERBUNG_LAUFENDE_FASSUNG`, held equal by
-`fl_backend/tests/shared/test_frontend_mirrors.py`) and accepts any non-empty `text_version` on every
-other write (the confirmation payloads beside
-`fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbungEinwilligungPayload`). So
-`docs/frontend/spec.md :: I148` is held for those writes by route handlers and server actions ahead of
-the backend call (`fl_frontend/src/features/bewerbungen/utils.ts :: nenntLaufendeFassung`,
-`fl_frontend/src/features/kontakte/actions.ts :: nenntZugelasseneFassungen`). The system of record
-cannot say which labels exist, which one a page runs, or what words a stored label names.
-
-**The record is one embedded block, rewritten in place.** A contact seat's confirmation replaces the
-applicant's label and provenance with its own
-(`fl_backend/app/api/bewerbungen/services.py :: compose_confirmation_update`), so once a seat
-confirms, the application-form label the applicant ticked for that person is in the database
-nowhere. A seat an admin gives to a different person keeps its stored label: the provenance is
-composed again for the new person (`fl_backend/app/api/teams/services.py :: compose_kontakte_herkunft`)
-but the label is not, so the new person's record names the wording the previous one was given.
-`datum` and `bestaetigt_am` hold a day rather than a time. The action log keeps the replaced
-image (`fl_backend/app/core/recording.py`) until its retention or an erasure takes it. No route
-changes a consent yet; the withdrawal control is ruled to come with the account tiers
-([`docs/datenschutz.md` §11](../datenschutz.md#11-open-and-owed-a-decision)), and an overwrite would
-then lose whether and when a consent was withdrawn.
-
-**Why it matters.** Art. 7 (1) DSGVO puts the proof of a consent on the controller, and the EDPB's
-Guidelines 05/2020 (paragraph 108) name "a copy of the information that was presented to the data
-subject at that time"; the DSK's Kurzpapier Nr. 20 asks that the wording itself be documented. A
-contact seat's record rests on Art. 6 (1) (f) rather than consent, and Art. 5 (2) asks the same
-demonstrability of what that person was told. Today the proof of a label's words is frontend source
-and its history, reached only through a build or a checkout.
-
-**The design is what the regulators' guidance and the established consent systems share, and no
-more:**
-
-- **The backend holds the registry.** Each version is immutable, identified by its label, tied to the
-  page it belongs to and to its effective date, its words pinned by a backend test; the running
-  version of each page is backend state. The frontend renders the words the backend serves and posts
-  the label back. Words stay in code rather than a collection: a pull request reviews them and a test
-  pins them, while a collection would need seeding, which here is a one-off migration.
-- **The backend judges every label it stores.** A label must name a version of that write's page,
-  and a new acceptance must name the running one, judged after any replay's key lookup as the
-  application's is (`fl_backend/app/api/bewerbungen/public_router.py :: post_bewerbung`). The
-  frontend's pre-checks go, and I148 moves to the backend's sheet.
-- **An acceptance records its time**, in UTC, beside the day the record already carries.
-- **Acceptances are appended rather than overwritten** — given, confirmed, declined, withdrawn — the
-  embedded block becoming the current state they add up to, and an applicant's acknowledgement for a
-  seat surviving that seat's own confirmation. Built with the withdrawal control, never before it.
-
-**Refused as more than this site needs:** a content hash inside every record, the registry's digest
-test already pinning the words a label names; the requester's IP address and user agent, which the
-DSK holds proves nothing alone and the EDPB (paragraph 106) warns against collecting beyond need; a
-receipt sent to the person, the Kantara and ISO/IEC TS 27560 receipt; a hosted consent-management
-product; major and minor versions, since any change of words is a new label here.
-
-**Traps:**
-
-- A page places its sections by key (`fl_frontend/src/core/einwilligung.ts :: SPIELER_EINWILLIGUNG`'s
-  `absaetzeNachSchluessel`) while a label freezes them by position, and a reader's own facts fill
-  `{slots}` (`fl_frontend/src/features/bewerbungen/components/views/BestaetigungPanels.tsx :: Gefuellt`).
-  What the backend serves carries both, or the keyed words stay in a second place.
-- The administrative contact edit admits a seat's own stored label beside the running one
-  (`fl_frontend/src/features/kontakte/actions.ts :: nenntZugelasseneFassungen`); the backend's check
-  keeps that admission.
-- A new refusal code meets the previous frontend for the moment between the two containers'
-  recreation and falls to the shared fallback there.
-- How long an erased person's acceptance events may stand is EDPB paragraph 107's question (legal
-  claims), for `scfh-f6gw`'s brief; where a returning pupil's renewed consent lands is `8wd7-ff49`'s
-  ruling, and an appended history is one of its answers.
-
-**No data migration.** Every stored label is one the registry already holds, so existing records stay
-their own evidence; nothing is backfilled into a history.
-
-**Done when** the backend is the one place a label's words and each page's running label are defined;
-every write stamping a label is judged there, after the replay; the frontend holds no label check;
-a record carries its time; and a withdrawal is appended rather than overwriting what it withdraws.
-
-### `f3ar-m4qf` · Setting up a season is a hand-run sequence, and only an admin can enter a squad
+### `f3ar-m4qf` · Setting up a season is a hand-run sequence, and a squad-number clash is stored once raised
 
 | Status | Depends on |
 | ------ | ---------- |
@@ -475,15 +371,16 @@ where the players of that team enter themselves with their position, squad numbe
 returning player recognised rather than duplicated, a number clash raised rather than stored. The
 Saison page and its editor change with it.
 
-**The representatives' page, the link and the page it opens are built; nothing admits what that page
-collects.** `/bereich/admin/kontakte` lists the representatives a season holds. An accepted application tells
+**The representatives' page, the link, the page it opens and the team's admission are built.** `/bereich/admin/kontakte` lists the representatives a season holds. An accepted application tells
 its own contacts (`fl_frontend/src/features/bewerbungen/notifications.ts :: sendBewerbungMail`); what
 is still owed is that message for a team entered by hand. How a link is minted, mailed, replaced and
 shut is the contract of [`docs/backend/spec.md`](../backend/spec.md) I277 to I282 and I336. A link names the team
 and the season and nobody in them. A registration a pupil submits through it and confirms at their
-own link then waits in `registrierungen` as `eingereicht`: `fl_backend/app/api/registrierungen/router.py` lists
-the rows and no route admits or declines one, so every `saison_spieler` row is still one an
-administrator wrote, and a registered pupil is on no squad list. **The wait is bounded**: an
+own link then waits in `registrierungen` as `eingereicht` until a seat holder of the team admits or
+declines it (`fl_backend/app/api/registrierungen/person_router.py`). The admission writes the pupil
+into the person their address resolves to, or the one addressless namesake the team confirms, rather
+than a second one ([`docs/backend/spec.md`](../backend/spec.md) I580, I581). The team's pending read
+marks a squad number the live squad already wears, and the admission stores it all the same. **The wait is bounded**: an
 unconfirmed registration is erased the day after its link's deadline, and one still `eingereicht` when
 its season turns `past` is erased whatever the pupil answered
 ([`docs/backend/spec.md`](../backend/spec.md) I290, I292), so an admission has until its season ends
@@ -496,20 +393,19 @@ to take one.
 | The guided creation flow, as a page over the create payload | —                            | Yes              |
 | Drawing the season from that flow rather than by hand       | the flow                     | No               |
 | Telling a representative entered by hand their team is in   | —                            | Yes              |
-| Admitting a confirmed registration into its squad           | —                            | Yes              |
-| Recognising a returning player                              | the admission                | No               |
-| Raising a squad-number clash                                | the admission                | No               |
+| Keeping a raised squad-number clash from being stored       | —                            | Yes              |
 | Rework of the Saison page and its editor                    | whichever of the above lands | Yes              |
 
-**The invite's mail is not the message a team entered by hand is owed.** Both presses mail a link only to a
-seat whose own person confirmed it, a link being a credential — the club panel's through
+**The message a team entered by hand is owed carries no link.** Both invite presses mail a link only
+to a seat whose own person confirmed it, a link being a credential — the club panel's through
 `fl_frontend/src/features/einladungen/empfaenger.ts :: bestaetigteEmpfaenger`, the season's through
-`fl_backend/app/api/einladungen/services.py :: bestaetigte_empfaenger`. A seat entered on the junction is stored unconfirmed
-(`fl_backend/app/api/teams/services.py :: UNCONFIRMED_HERKUNFT`) and only an application's own link confirms
-one, so a team entered by hand is mailed its link by neither press, and its administrator hands the link over
-by other means. The message this part adds cannot carry the link to an address nobody confirmed. What a
-failed notification does is fixed already — no failure to deliver a decision's message retracts the decision
-([`docs/frontend/spec.md`](../frontend/spec.md) I39).
+`fl_backend/app/api/einladungen/services.py :: bestaetigte_empfaenger`. A seat an administrator enters
+on a team's season row is stored unconfirmed and confirms through a link of its own, which the
+contacts save mints and `fl_backend/app/api/teams/admin_router.py :: einladen_kontakt` mints again, so
+the invite reaches such a team once one of its people has answered and not before. Whatever the
+message this part adds is sent to, it cannot carry the invite to an address nobody confirmed. What a
+failed notification does is fixed already — no failure to deliver a decision's
+message retracts the decision ([`docs/frontend/spec.md`](../frontend/spec.md) I39).
 
 **The season's structure is not this entry's to build.**
 `fl_backend/app/api/saisons/schedule.py :: schedule_for` takes a season's rules and returns, per phase the
@@ -560,15 +456,6 @@ structural half is therefore the flow that collects the rules, not a second writ
 operations that remove a season's matchdays, a confirmed replace and the undraw, remove its fixtures
 in the same transaction, so the reference cannot dangle (`fl_backend/app/core/domain.py :: REFERENCES`).
 
-**No public write inserts a person into the league, and the admission will be the first write that
-does.** The application form's `POST /bewerbungen` stores what a school submitted, decided by nobody
-until the triage reaches it ([`docs/backend/spec.md`](../backend/spec.md) §1.1), and
-`POST /registrierungen` stores what a pupil submitted through a team's link, decided by nobody yet; each
-confirmation page writes one person's own answer into the record that named them, authorised by an emailed
-token rather than by a session. **An admission would be the decision standing between a stranger's
-submission and a public squad list**, and the first write to put a squad row and the person behind it
-from text nobody in the league typed.
-
 **Recognising a returning player has a shape already, and the tempting version of it is refused.**
 `spieler` holds the person and the `saison_spieler` junction holds everything a squad list shows;
 `uniq_spieler_id_saison_id` gives a person one row per season, so bringing back somebody who already
@@ -579,23 +466,22 @@ getting it wrong repoints history silently. **A typed name is a weaker key than 
 same argument binds harder here: matching on a name has to propose a candidate rather than resolve
 one, and the resolution belongs to somebody who can be wrong out loud. The confirmation page shows a
 returning pupil their stored birthdate and consent only where its bounded read at their address finds exactly
-one row carrying their name (`fl_backend/app/api/registrierungen/services.py :: sole_person`), which presents
-a match and resolves none. `ist_nachnominiert` is the field that already records a squad entry arriving after the season
+one row carrying their name and a record they confirmed (`fl_backend/app/api/registrierungen/services.py :: seite_of`),
+which presents a match and resolves none. `ist_nachnominiert` is the field that already records a squad entry arriving after the season
 began, derived at the squad row's create from whether the first matchday's `beginn` has come rather than asked
 (`fl_backend/app/api/spieltage/crud.py :: nachnominierung_laeuft_in`), and a registration admitted
-into a running season is precisely that case: the marker belongs to the squad row an admission would
-write.
+into a running season is precisely that case: the admission derives the marker on the squad row it
+writes.
 
-**Nothing refuses a shared squad number and nothing reports one, so an admission inherits a question
-rather than a pattern.** A shared shirt is a permitted state on every write path
+**A shared squad number is reported and never refused, so the admission inherits a question rather
+than a pattern.** A shared shirt is a permitted state on every write path, the admission's included
 (`fl_backend/app/core/domain.py :: UNENFORCED`), and a registration judges `nummer` on its format
-alone. The squad editor's rail raises no banner about a number
-(`fl_frontend/src/features/spieler/components/forms/AdminSpielerEditForm/banners.ts :: buildSpielerBanners`);
-the editor's save routes through a confirmation for any banner above `info`
-(`fl_frontend/src/shared/components/ui/railBanner.ts :: resolveBlockingBanners`), and the only one it
-raises is `spieler.team-changed` — a transfer rather than a shirt. A whole team registering itself
-multiplies those writes, so whether a player admitted from a registration may take a shirt somebody in
-the squad already wears — and who is told — is a product call this entry owns, and no admin surface answers it first.
+alone. Only the team's own reads mark the clash; the administrator's squad editor raises no banner
+about a number
+(`fl_frontend/src/features/spieler/components/forms/AdminSpielerEditForm/banners.ts :: buildSpielerBanners`).
+A whole team registering itself multiplies those writes, so whether a player admitted from a
+registration may take a shirt somebody in the squad already wears — and who is told — is a product
+call this entry owns, and no surface answers it first.
 
 **What the Saison page and its editor inherit.** The create form is a dialog today
 (`fl_frontend/src/features/saisons/components/modals/AdminCreateSaisonModal.tsx` over
@@ -727,6 +613,34 @@ because a case is cut only where a surviving one still fails for the same regres
   to remove before `style-src 'self'` can ship, and that entry's swatches and `ScrollShadow` are
   surfaces this pass restyles anyway.
 
+**What I saw in the team area on the local stack on 2026-10-04, each the redesign's to answer:**
+
+- **The team area reads as another site beside the admin area.** A team's landing,
+  `fl_frontend/src/features/funktionen/components/views/TeamStartView.tsx`, is lines of plain text
+  where the admin area sets the same kind of content in cards and tables.
+- **A team's lists have no search and no filter.** The squad,
+  `fl_frontend/src/features/spieler/components/collections/KaderList.tsx`, and the pending
+  registrations,
+  `fl_frontend/src/features/registrierungen/components/collections/RegistrierungenList.tsx`, carry
+  neither, where every admin list has `fl_frontend/src/shared/components/ui/AdminCrudSearch.tsx`.
+- **The team's side menu shows its season as a chip where the admin area offers a selector**:
+  `fl_frontend/src/features/funktionen/components/ui/SaisonChipSlot.tsx` against
+  `fl_frontend/src/features/saisons/components/ui/SaisonSelector.tsx`. My proposal is the same
+  selector in both, offering a seat holder only the seasons they hold a seat in.
+- **The season is a path segment in the team area and a query parameter in the admin area.** The
+  path holds today for two reasons. One team can hold seats in two seasons and a seat holder sees
+  only their own seat's season, so the season is part of which place an address names. And the
+  team area's layout checks the seat once for every page beneath it
+  (`fl_frontend/src/app/bereich/team/[team_id]/[saison_id]/layout.tsx`), which a query parameter
+  cannot feed: a Next.js layout does not rerender on navigation and so cannot read search params
+  (`fl_frontend/node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/layout.md`).
+  The redesign chooses one convention for both areas knowingly, with both reasons in front of it.
+- **A lone pupil or referee record lands on a chooser of one card, where a lone team seat goes
+  straight on.** `fl_frontend/src/app/bereich/(persoenlich)/page.tsx :: PersoenlichStartPage`
+  skips the chooser for one team alone, because every person lands on a page named „Übersicht“ and
+  only a team's own landing is one (`docs/frontend/spec.md :: I466`). I lean towards showing the
+  chooser only where there are several places, which moves I466 with it; that is not yet decided.
+
 **Undecided, and it needs a ruling before the redesign starts: whether `6m3r-xpcu`'s replacement of
 the component library lands in the same pass.** Its leading candidate replaces HeroUI's styled layer
 and moves the HeroUI half of `fl_frontend/src/app/globals.css` into owned component files, which is
@@ -739,12 +653,13 @@ lands second is built on the other's shell.
 
 **Done when** the site stands on one new grammar recorded in
 [`docs/frontend/spec.md`](../frontend/spec.md), every page on it; each finding above is merged,
-deleted or ruled kept, a kept one at the line or the rule that says why; and I have judged the whole
-site over the local stack.
+deleted or ruled kept, a kept one at the line or the rule that says why; each team-area observation
+is answered on the surface it names; and I have judged the whole site over the local stack.
 
 **Not verified.** The pairs are jscpd's matches over a snapshot of this working tree taken
-2026-09-23 and were not re-read against later edits; nothing above is prototyped, and none of it has
-been seen in a browser. The spans of every pair, the knip run and the whole of what the sweep kept
+2026-09-23 and were not re-read against later edits; nothing above is prototyped, and none of the
+sweep's findings has been seen in a browser. The team-area observations were seen there, and each
+was checked against the source named beside it. The spans of every pair, the knip run and the whole of what the sweep kept
 are in the body of the commit that filed this entry.
 
 ### `gzn4-secx` · A page is tested through a hand-built copy of React's server renderer, where Next recommends end-to-end tests
@@ -1161,6 +1076,8 @@ still carries them:
 - the date WhatsApp Ireland's privacy policy was last read for
   [section 7](../datenschutz.md#7-processors-and-third-parties);
 - whether pupils whose records were erased are owed a message saying so;
+- how long an erased person's consent acts may stand as proof, EDPB Guidelines 05/2020 paragraph
+  107's question of legal claims;
 - MongoDB's support access to the hosted database, and which Google company provides Gmail in the
   EEA;
 - the pending appeal in Latombe (C-703/25 P) and what it would mean for the transfers section 7
@@ -1168,6 +1085,158 @@ still carries them:
 
 **Done when** the brief exists and each of its questions carries the Datenschutzexperte's answer or
 a ruling of mine.
+
+### `u6v9-zgt3` · Of two administrators editing one record, the later save wins and neither is told
+
+| Status | Depends on |
+| ------ | ---------- |
+| Open   | —          |
+
+**Every admin editor but the contacts editor writes over whatever the record holds now.** Nothing
+compares what the editor was served with what the record holds when the save lands: of two
+administrators with one record open, the earlier save is lost and the later one reports success. The
+population is every `@router.patch` in `fl_backend/app/api/*/admin_router.py`, no admin router
+declaring a PUT, and the one admin POST writing a typed value over a stored one, an application
+seat's address correction; the POST seating another person runs on an empty seat alone, so a second
+press is already refused.
+
+**A stand**, as this entry uses the word, is the opaque token a read serves beside the values an
+editor shows, which the save sends back unchanged and is judged against. It is neither a delivery's
+`Zustellstand` nor `fl_backend/app/api/berechtigungen/schemas.py :: FLBerechtigungStand`, and its
+glossary entry is filed with the build.
+
+| Endpoint                                                                     | Editor                                                                                                                                 | Guarded against a stale copy today                                                                      |
+| ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `fl_backend/app/api/spielorte/admin_router.py :: patch_spielort`             | `fl_frontend/src/features/spielorte/components/forms/AdminSpielortEditForm/AdminSpielortEditForm.tsx`                                  | Nothing                                                                                                 |
+| `fl_backend/app/api/teams/admin_router.py :: patch_team`                     | `fl_frontend/src/features/teams/components/forms/AdminTeamEditForm/AdminTeamEditForm.tsx`                                              | Nothing                                                                                                 |
+| `fl_backend/app/api/teams/admin_router.py :: patch_saison_team`              | The same form, the club's season row                                                                                                   | Nothing                                                                                                 |
+| `fl_backend/app/api/teams/admin_router.py :: patch_saison_team_kontakte`     | `fl_frontend/src/features/kontakte/components/forms/AdminKontakteEditForm/AdminKontakteEditForm.tsx`                                   | `kontakte_stand`, refused `REQ-KONTAKT-001`                                                             |
+| `fl_backend/app/api/saisons/admin_router.py :: patch_saison`                 | `fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/AdminSaisonEditForm.tsx`                                        | Nothing                                                                                                 |
+| `fl_backend/app/api/schiedsrichter/admin_router.py :: patch_schiedsrichter`  | `fl_frontend/src/features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/AdminSchiedsrichterEditForm.tsx`                 | Nothing; the address is judged against the row, below                                                   |
+| `fl_backend/app/api/spieler/admin_router.py :: patch_spieler`                | `fl_frontend/src/features/spieler/components/forms/AdminSpielerEditForm/AdminSpielerEditForm.tsx`                                      | Nothing                                                                                                 |
+| `fl_backend/app/api/spieler/admin_router.py :: patch_saison_spieler`         | The same form, the player's squad row                                                                                                  | Nothing                                                                                                 |
+| `fl_backend/app/api/spieltage/admin_router.py :: patch_spieltag`             | `fl_frontend/src/features/spieltage/components/forms/AdminSpieltagEditForm/AdminSpieltagEditForm.tsx`                                  | Nothing                                                                                                 |
+| `fl_backend/app/api/spiele/admin_router.py :: patch_spiel_data`              | `fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/AdminEditSpielDataForm.tsx`, its save and its dry-run preview | Nothing                                                                                                 |
+| `fl_backend/app/api/spiele/admin_router.py :: patch_spiele_paarungen`        | That editor's undo, `fl_frontend/src/app/api/admin/spiele/undo/route.ts`                                                               | Fields the save left standing read off the document; the Paarung and the fields it replaced overwritten |
+| `fl_backend/app/api/bewerbungen/admin_router.py :: korrigiere_kontakt_email` | `fl_frontend/src/features/bewerbungen/components/views/BewerbungBestaetigungStrip.tsx`                                                 | Nothing on a waiting seat; a confirmed or answered seat is refused                                      |
+| `fl_backend/app/api/berechtigungen/admin_router.py :: patch_berechtigung`    | `fl_frontend/src/features/berechtigungen/components/forms/AdminBerechtigungStufePanel.tsx`                                             | Outside this entry's scope, below                                                                       |
+
+**The referee's address is judged against the stored record, which is no guard against a stale
+copy.** A confirmed referee's typed address becomes a pending change their new mailbox confirms, and
+an unconfirmed referee's corrected address retires their link and, unless they are retired, mints
+another, each behind the step-up confirmation
+(`fl_backend/app/api/schiedsrichter/services.py :: compose_korrektur_update`). Both compare the
+payload with the row, so an editor still showing an address a rival has since corrected reads as a
+change back to it. An editor typing a third address for a confirmed referee replaces the pending
+change a rival opened, its link dying and its address leaving the log, while the address the row
+reads has not moved. Every other field of that save lands whole.
+
+**Every undo but the contacts editor's is a second stale write.** Each other undo under
+`fl_frontend/src/app/api/admin/` replays the save's earlier image through a PATCH, so an undo
+pressed after a rival's save reverts the rival's too; the contacts undo sends the token of the image
+its save left and is refused where a rival has moved the block since
+(`fl_frontend/src/app/api/admin/kontakte/undo/route.ts`). The fixture undo reads off the document
+only the fields its save left standing
+(`fl_backend/app/api/spiele/schemas.py :: FLPatchSpielPaarungPayload`) and writes back the Paarung
+and every field the save replaced, so a result a rival entered on one of its fixtures is reverted,
+and so is a rival's date, venue, referee or note wherever the undone save had changed that field
+too.
+
+**The tier change is outside this entry's scope.** `verwaltung` holds one of two values, the panel
+offers only the one the row does not show, and naming the tier a grant already holds writes nothing,
+so a stale page can repeat a change and never revert one.
+
+**Two stands already refuse a stale copy, and both answer 409.** The contacts save carries
+`fl_backend/app/api/teams/schemas.py :: kontakte_stand_of`, a digest of the block as the read serves
+it — every field the read model answers on each seat, the consent's `nachweis` apart — derived on
+every read and stored nowhere, and judges it inside the save's transaction
+(`fl_backend/app/api/teams/services.py :: find_kontakte_precondition_refusal`). A person's consent
+press on their account page carries `nachweis_stand`, refused `REQ-EINWILLIGUNG-003` under one code
+across every consent PATCH (`fl_backend/app/api/konto/services.py :: find_nachweis_stand_refusal`).
+Those presses are a person's own and not an editor of this entry's.
+
+**The standard is the conditional write, and these sources state it, each read on 2026-10-06 and
+each moving without us:**
+
+- RFC 9110, https://www.rfc-editor.org/rfc/rfc9110.html — §13.1.1 puts `If-Match` on state-changing
+  methods "to prevent the 'lost update' problem", and §15.5.13 answers 412 Precondition Failed where
+  a condition in the request header fields is false.
+- RFC 6585 §3, https://www.rfc-editor.org/rfc/rfc6585.html — 428 Precondition Required, whose
+  "typical use is to avoid the 'lost update' problem".
+- MDN, https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/If-Match — `If-Match`
+  checks that an upload "will not override another change", answering 412 where it does not match.
+- MongoDB, "Atomicity and Transactions",
+  https://www.mongodb.com/docs/manual/core/write-operations-atomicity/ — "include the expected
+  current value in the update filter".
+
+Ordered on 2026-10-06 as one stand per record. The scope below narrows each stand to the values its
+own save writes or decides on, because a stand over the whole record refuses a save whenever a
+fan-out or another editor's save moves a part this editor neither shows nor writes; that refinement
+waits on my confirmation when the build starts.
+
+**Done when** every editor in the table but the tier change is served a stand on its read, sends it
+back on its save, on its undo and on the fixture editor's preview, and is refused where the record
+has moved, judged inside the save's transaction; each editor words that refusal as someone else
+having changed this record since it was opened, to be reloaded, and keeps the typed input on screen;
+and one way of taking a digest and one comparison serve them all, the contacts stand keeping its
+present scope.
+
+**What the design holds, each a constraint on whoever builds it:**
+
+- **A stand digests the values of its own record that the save writes or decides on, as the
+  editor's read served them, and is stored nowhere**, as `kontakte_stand_of` digests each seat as
+  the read model answers it. It leaves out a value the server composes from another record — a club,
+  venue or referee name fanned into season rows and fixtures — and takes in what the save judges as
+  well as what it writes: the referee's stand covers the pending address change and the confirmation
+  state, which the save decides on while the address the row reads stays put. A version stored on
+  the record has to be moved by every writer of it and costs a migration, and a digest of the whole
+  document refuses an editor for a fan-out it never showed. So the season row keeps two stands, its
+  own save's and the contacts save's.
+- **One opaque token travels back, never the expected values for MongoDB's update filter.** Echoing
+  the read's values would put a read model on a request body
+  (`fl_backend/app/api/teams/schemas.py :: FLPatchSaisonTeamKontaktePayload`), and a derived digest
+  cannot sit in a filter, so the comparison reads the record in the save's own session instead.
+  Read outside it, a rival committing between the judgement and the write lands unrefused; read
+  inside it, the rival conflicts on the document and `with_transaction`'s retry judges again on what
+  the winner left, as `patch_saison_team_kontakte` does. `patch_spielort`, `patch_team`,
+  `patch_spieler` and `patch_saison_spieler` read nothing of the record they write today.
+- **The stand travels in the read's body whatever carries it back.** An editor is drawn from a read
+  that is not the resource its save names — the contacts editor from the club's memberships read
+  (`fl_frontend/src/app/bereich/admin/teams/[team_id]/page.tsx`) — so a response `ETag` could carry
+  no stand per row.
+- **An undo replays with the stand of the image its save left**, as the contacts undo does, so an
+  undo after a rival's save is refused rather than reverting it.
+- **Three places the stand reaches that no one save shows.** The fixture save's report names every
+  fixture its bracket resolution moved (`prior_paarungen`) and the undo replays each, so the report
+  carries a stand for each moved fixture's image after the save. The player undo restores the
+  person half with no catch (`fl_frontend/src/app/api/admin/spieler/undo/route.ts`), so a refusal
+  new to `patch_spieler` needs one there, a refusal being worded at three sites by
+  `.claude/rules/cross-surface.md`'s trap. The club and player forms save their two endpoints one
+  after the other, so a refusal on the second lands after the first has saved, and the form says
+  which half stands, as both undo routes already do.
+
+**Open, each settled by the building session and put to me:**
+
+- **The carrier and the status are one choice.** A body field is this repository's precedent, and a
+  precondition in the body is a 409, RFC 9110 defining 412 for conditions in the header fields. The
+  `If-Match` header is HTTP's own carrier, answering 412, and 428 where a save omits it; a body
+  field is required with no default and its omission is the payload's 422, as `kontakte_stand`'s is.
+- **The refusal code's family**: one code across every editor, as `REQ-EINWILLIGUNG-003` spans the
+  consent presses, or one per area as `REQ-KONTAKT-001` is — and, with one shared code, whether
+  `REQ-KONTAKT-001` retires into it. Whichever it is, each is a rule
+  `fl_backend/app/core/domain.py :: RULES` declares, as both stands' codes are.
+- **Whether a seat holder's squad edit takes the stand.**
+  `fl_backend/app/api/spieler/person_router.py :: patch_kader_zeile` rewrites `nummer`, `position`,
+  `stufe` and `rolle` on the row `patch_saison_spieler` writes, so the admin save's stand refuses a
+  copy a seat holder has moved, while the seat holder's own save still overwrites an
+  administrator's.
+
+**Cost, estimated and not measured:** one programme session with a backend lane and a frontend lane.
+Per endpoint, a computed field on the read model, a payload field, the in-session comparison, and
+tests for the refusal and for a rival committing mid-save; per editor, the schema field, the refusal
+sentence, and the stand on its undo. The fixture editor costs most, its save, preview and undo
+sharing one implementation, `fl_backend/app/api/spiele/admin_router.py :: _write_spiel_data`.
+Nothing on this page waits on this entry.
 
 ### `v9tn-3hce` · The log answers what broke and hardly what happened
 

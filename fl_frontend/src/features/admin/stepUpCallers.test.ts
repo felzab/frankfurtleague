@@ -13,10 +13,13 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import ts from "typescript";
 
+import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { registerDoubles } from "@/core/exportingModule.ts";
-import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
+import { filesUnder, isTestFile, serverActionModules } from "@/core/treeWalk.ts";
 import { doubleEveryAction, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { declaredStatus } from "@/shared/testing/declaredStatus.ts";
+import { laufendeNeubesetzung } from "@/shared/testing/einwilligungAnswers.ts";
+import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 import { nextRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { CONDITIONALLY_STEPPED_UP, STEP_UP_CALLERS, STEP_UP_WRITES } from "@/shared/testing/stepUpWrites.ts";
 
@@ -69,6 +72,8 @@ const { bestaetigungsStand } = await import("@/features/bewerbungen/bestaetigung
 const { BewerbungBestaetigungStrip } = await import("@/features/bewerbungen/components/views/BewerbungBestaetigungStrip.tsx");
 const { FormBestaetigungSection } =
   await import("@/features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormBestaetigungSection.tsx");
+const { FormAdresswechselSection } =
+  await import("@/features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormAdresswechselSection.tsx");
 const { AdminSchiedsrichterEditForm } =
   await import("@/features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/AdminSchiedsrichterEditForm.tsx");
 const { AdminSchiedsrichterTable } = await import("@/features/schiedsrichter/components/collections/AdminSchiedsrichterTable.tsx");
@@ -77,6 +82,8 @@ const { EinladungLinkHolder } = await import("@/features/einladungen/components/
 const { FormEinladungSection } = await import("@/features/teams/components/forms/AdminTeamEditForm/FormEinladungSection.tsx");
 const { FormSaisonSection } = await import("@/features/teams/components/forms/AdminTeamEditForm/FormSaisonSection.tsx");
 const { DraftStatusProvider } = await import("@/shared/components/ui/DraftStatusContext.tsx");
+const { AdminKontakteEditForm } = await import("@/features/kontakte/components/forms/AdminKontakteEditForm/AdminKontakteEditForm.tsx");
+const { FormKontaktEinladen } = await import("@/features/kontakte/components/forms/AdminKontakteEditForm/FormKontaktEinladen.tsx");
 
 /** Every step-up write a module imports from any slice's actions module, read off its syntax tree. */
 function importedStepUpWrites(file: string): string[] {
@@ -100,8 +107,11 @@ function importedStepUpWrites(file: string): string[] {
   return found;
 }
 
-/** Every module importing a step-up write, and the writes it imports. */
-const CALLERS = filesUnder(SRC, (name) => /\.tsx?$/.test(name) && !isTestFile(name) && name !== "actions.ts", 200)
+const ACTION_MODULES: ReadonlySet<string> = new Set(serverActionModules(20));
+
+/** Every module importing a step-up write, and the writes it imports: a server action module is the write, never its caller. */
+const CALLERS = filesUnder(SRC, (name) => /\.tsx?$/.test(name) && !isTestFile(name), 200)
+  .filter((file) => !ACTION_MODULES.has(file))
   .map((file) => [path.relative(SRC, file).split(path.sep).join("/"), importedStepUpWrites(file).sort()] as const)
   .filter(([, writes]) => writes.length > 0);
 
@@ -135,6 +145,7 @@ const BESTAETIGT = {
   bestaetigt_am: "2026-09-22",
   text_version: "2026-09-schiedsrichterseite",
   medien: false,
+  nachweis: { umfang: null, medien: null },
 };
 const retiredReferee = (answered: boolean) => ({
   id: REFEREE_ID,
@@ -146,6 +157,7 @@ const retiredReferee = (answered: boolean) => ({
   geburtsdatum: answered ? "1990-01-01" : null,
   einwilligung: answered ? BESTAETIGT : null,
   bestaetigung: null,
+  adresswechsel: null,
 });
 
 const seat = (vorname: string, email: string, bestaetigtAm: string | null = null) => ({
@@ -154,19 +166,20 @@ const seat = (vorname: string, email: string, bestaetigtAm: string | null = null
   email,
   telefon: "069 1234567",
   geburtsdatum: bestaetigtAm === null ? null : "1988-04-02",
-  einwilligung: {
-    umfang: "kontaktdaten" as const,
+  einwilligung: kenntnisnahme({
     erfasst_von: bestaetigtAm === null ? ("administrativ" as const) : ("person" as const),
     text_version: "2026-09-bestaetigungsseite",
     datum: "2026-09-01",
     bestaetigt_am: bestaetigtAm,
-  },
+  }),
 });
 const OFFEN = { verschickt_am: "2026-09-01", erinnert_am: null, abgelehnt_am: null, zustellung: null };
 const strip = (trainerStieAus: boolean) =>
   underNext(
     h(BewerbungBestaetigungStrip, {
+      neubesetzung: laufendeNeubesetzung(),
       bewerbungId: "68d0f2a4c1e2b3a4d5e6f708",
+      fristAbgelaufen: false,
       staende:
         bestaetigungsStand({
           kontakte: {
@@ -193,11 +206,24 @@ const strip = (trainerStieAus: boolean) =>
 const refereeEditor = (answered: boolean) =>
   underNext(
     h(AdminSchiedsrichterEditForm, {
-      schiedsrichter: { ...retiredReferee(answered), inactive_since: undefined },
+      istFassungBekannt: true,
+      schiedsrichter: { ...retiredReferee(answered), inactive_since: undefined, abgelaufen: { bestaetigung: false, adresswechsel: false } },
       isRetired: false,
       pageHeader: { title: "Anna Körner" },
     } as never),
     { router: nextRouter(), search: "saison_id=2526" },
+  );
+
+/** A confirmed referee's new address waiting on its mailbox, the panel's two controls each minting or voiding its link. */
+const adresswechselPanel = () =>
+  underNext(
+    h(FormAdresswechselSection, {
+      schiedsrichterId: REFEREE_ID,
+      adresswechsel: { email: "anna@neu.example", verschickt_am: "2026-09-01", frist: "2099-12-31", zustellung: null },
+      istAbgelaufen: false,
+      isDirty: false,
+    }),
+    { router: nextRouter() },
   );
 
 const moveAddress = async (user: User) => {
@@ -209,16 +235,47 @@ const moveAddress = async (user: User) => {
 const TEAM_ID = "a".repeat(24);
 const SWAP = { teams: [], playedKnockoutSpiele: 0 };
 
+/** One unconfirmed Ansprechperson and two empty seats, so the editor draws one address box and one re-send. */
+const kontakteEditor = () =>
+  underNext(
+    h(AdminKontakteEditForm, {
+      laufendesLabel: publishedLaufendeFassung("bewerbung").text_version,
+      teamId: TEAM_ID,
+      saison: {
+        saisonId: "2627",
+        saisonStatus: "future",
+        membership: {
+          gruppe: "A",
+          austritt: null,
+          trikot_farbe: null,
+          kontakte: { ansprechperson: seat("Anna", "anna@schule.example"), stellvertretung: null, trainer: null, trainer_ist_zugleich: null },
+          bestaetigungen: null,
+          kontakte_stand: "9f2c",
+        },
+      },
+      pageHeader: { title: "SG Alpha" },
+    }),
+    { router: nextRouter(), search: "saison_id=2627" },
+  );
+
+/** Typed over what the box held and left, as the editor judges a typed field. */
+const retype = (label: string, value: string) => async (user: User) => {
+  const box = screen.getByRole<HTMLInputElement>("textbox", { name: label });
+  await user.clear(box);
+  await user.paste(value);
+  await act(async () => box.blur());
+};
+
 /** Every one-press caller of the registry, and a case of the conditional ones on a call that asks nothing. */
 const DRIVES: Record<string, Drive[]> = {
   "features/bewerbungen/components/views/BewerbungBestaetigungStrip.tsx :: einwilligungErneutSendenAction": [
-    { render: () => strip(false), press: "Link erneut senden an Trainer", asks: true },
+    { render: () => strip(false), press: "Link erneut senden: Trainer", asks: true },
   ],
   "features/bewerbungen/components/views/BewerbungBestaetigungStrip.tsx :: kontaktEmailKorrigierenAction": [
     {
       render: () => strip(false),
       reach: async (user) => {
-        await user.click(screen.getByRole("button", { name: "E-Mail-Adresse von Clara Meier korrigieren" }));
+        await user.click(screen.getByRole("button", { name: "Adresse korrigieren: Clara Meier" }));
         const box = screen.getByRole<HTMLInputElement>("textbox", { name: "Neue E-Mail-Adresse" });
         await user.clear(box);
         await user.type(box, "clara@neu.example");
@@ -231,7 +288,7 @@ const DRIVES: Record<string, Drive[]> = {
     {
       render: () => strip(true),
       reach: async (user) => {
-        await user.click(screen.getByRole("button", { name: "Trainer neu besetzen" }));
+        await user.click(screen.getByRole("button", { name: "Neu besetzen: Trainer" }));
         await user.type(screen.getByRole("textbox", { name: "Vorname" }), "Doreen");
         await user.type(screen.getByRole("textbox", { name: "Nachname" }), "Ostwald");
         await user.type(screen.getByRole("textbox", { name: "Telefon" }), "069 7654321");
@@ -246,10 +303,12 @@ const DRIVES: Record<string, Drive[]> = {
       render: () =>
         underNext(
           h(FormBestaetigungSection, {
+            istFassungBekannt: true,
             schiedsrichterId: REFEREE_ID,
             hatAdresse: true,
             isRetired: false,
             bestaetigung: null,
+            istAbgelaufen: false,
             einwilligung: null,
             geburtsdatum: null,
             isDirty: false,
@@ -257,6 +316,26 @@ const DRIVES: Record<string, Drive[]> = {
           { router: nextRouter() },
         ),
       press: "Bestätigungslink senden",
+      asks: true,
+    },
+    // The re-send, by the name it carries beside the address change's own.
+    {
+      render: () =>
+        underNext(
+          h(FormBestaetigungSection, {
+            istFassungBekannt: true,
+            schiedsrichterId: REFEREE_ID,
+            hatAdresse: true,
+            isRetired: false,
+            bestaetigung: { verschickt_am: "2026-09-21", erinnert_am: null, frist: "2099-12-31", zustellung: null },
+            istAbgelaufen: false,
+            einwilligung: null,
+            geburtsdatum: null,
+            isDirty: false,
+          }),
+          { router: nextRouter() },
+        ),
+      press: "Link erneut senden: Bestätigung",
       asks: true,
     },
   ],
@@ -271,7 +350,7 @@ const DRIVES: Record<string, Drive[]> = {
           } as never),
           { search: "saison_id=2026" },
         ),
-      press: "Schiedsrichter Anna Körner reaktivieren",
+      press: "Reaktivieren: Schiedsrichter Anna Körner",
       asks: unanswered,
     })),
   ],
@@ -280,7 +359,12 @@ const DRIVES: Record<string, Drive[]> = {
       render: () =>
         underNext(
           h(AdminSchiedsrichterEditView, {
-            schiedsrichter: { ...retiredReferee(!unanswered), inactive_since: undefined },
+            istFassungBekannt: true,
+            schiedsrichter: {
+              ...retiredReferee(!unanswered),
+              inactive_since: undefined,
+              abgelaufen: { bestaetigung: false, adresswechsel: false },
+            },
             inactiveSince: "2026-01-10",
           } as never),
           { search: "saison_id=2526" },
@@ -289,9 +373,35 @@ const DRIVES: Record<string, Drive[]> = {
       asks: unanswered,
     })),
   ],
+  // A save seating somebody new mints them a link; one correcting a telephone mints nothing and asks nothing.
+  "features/kontakte/components/forms/AdminKontakteEditForm/AdminKontakteEditForm.tsx :: patchSaisonTeamKontakteAction": [
+    { render: kontakteEditor, reach: retype("E-Mail", "anna@neu.example"), press: "Speichern", asks: true },
+    { render: kontakteEditor, reach: retype("Telefon", "069 7654321"), press: "Speichern", asks: false },
+  ],
+  "features/kontakte/components/forms/AdminKontakteEditForm/FormKontaktEinladen.tsx :: einladeKontaktAction": [
+    {
+      render: () =>
+        underNext(
+          h(FormKontaktEinladen, { teamId: TEAM_ID, saisonId: "2627", rolle: "ansprechperson", label: "Ansprechperson", isDirty: false }),
+          {
+            router: nextRouter(),
+          },
+        ),
+      press: "Bestätigungslink senden: Ansprechperson",
+      asks: true,
+    },
+  ],
   "features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/AdminSchiedsrichterEditForm.tsx :: patchSchiedsrichterAction": [
+    // A moved address mints on either side of the referee's answer: a consent link before it, an address link after.
     { render: () => refereeEditor(false), reach: moveAddress, press: "Speichern", asks: true },
-    { render: () => refereeEditor(true), reach: moveAddress, press: "Speichern", asks: false },
+    { render: () => refereeEditor(true), reach: moveAddress, press: "Speichern", asks: true },
+    { render: () => refereeEditor(true), reach: retype("Telefon", "069 7654321"), press: "Speichern", asks: false },
+  ],
+  "features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormAdresswechselSection.tsx :: einladeAdresswechselAction": [
+    { render: () => adresswechselPanel(), press: "Link erneut senden: Neue E-Mail-Adresse", asks: true },
+  ],
+  "features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormAdresswechselSection.tsx :: verwirfAdresswechselAction": [
+    { render: () => adresswechselPanel(), press: "Änderung verwerfen", asks: true },
   ],
   "features/teams/components/forms/AdminTeamEditForm/FormEinladungSection.tsx :: mailEinladungAction": [
     {

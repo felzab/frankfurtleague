@@ -50,10 +50,11 @@ import { frontend_config, mongodbUri } from "@/core/config"; // expect: secret-s
 import { authSecret } from "@/core/config.ts"; // expect: secret-session
 import { authResendKey as heldKey } from "@/core/config"; // expect: secret-mail
 import { resendWebhookSecret } from "../../core/config"; // expect: secret-webhook
+import { turnstileSecretKey } from "@/core/config"; // expect: secret-turnstile
 import { internalApiKeyAdmin, internalApiKeyBase, internalApiKeySystem } from "@/core/config"; // expect: secret-backend expect: secret-backend expect: secret-backend
 // The whole namespace, and a re-export, hand every reader on.
-import * as wholeConfig from "@/core/config"; // expect: secret-store expect: secret-session expect: secret-mail expect: secret-webhook expect: secret-backend
-export * from "@/core/config"; // expect: secret-store expect: secret-session expect: secret-mail expect: secret-webhook expect: secret-backend
+import * as wholeConfig from "@/core/config"; // expect: secret-store expect: secret-session expect: secret-mail expect: secret-webhook expect: secret-backend expect: secret-turnstile
+export * from "@/core/config"; // expect: secret-store expect: secret-session expect: secret-mail expect: secret-webhook expect: secret-backend expect: secret-turnstile
 export { authResendKey } from "@/core/config"; // expect: secret-mail
 import { after } from "next/server"; // expect: next-after
 // The bundler resolves a query suffix to the module itself, so each confined module is read through one.
@@ -85,16 +86,16 @@ export const FIGURES = "fluid-xs tabular-nums"; // expect: numeric-pair
 export const TALL = "min-h-[100vh]"; // expect: vh
 export const ENDPOINT = "https://api.resend.com/emails"; // expect: resend
 export const SETTINGS_READ = frontend_config.APP_ENV;
-export const SECRETS_USED = [mongodbUri, authSecret, heldKey, resendWebhookSecret, internalApiKeyAdmin, internalApiKeyBase, internalApiKeySystem, wholeConfig];
+export const SECRETS_USED = [mongodbUri, authSecret, heldKey, resendWebhookSecret, turnstileSecretKey, internalApiKeyAdmin, internalApiKeyBase, internalApiKeySystem, wholeConfig];
 export const CONFIG_LOADED = import("@/core/config"); // expect: config-load expect: config-taken
 export const CONFIG_LOADED_TEMPLATE = import(`../../core/config.ts`); // expect: config-load expect: config-taken
 export const SIGNING_VIA_QUERY = import("@/core/actorToken?probe"); // expect: actor-signing-load
 export const QUERY_USED = [viaQuery, signViaQuery];
-// A secret's retired variable, in every spelling that reaches the value.
-export const RETIRED_READ = process.env.AUTH_RESEND_KEY; // expect: secret-name
-export const RETIRED_INDEXED = process.env["INTERNAL_API_KEY_SYSTEM"]; // expect: secret-name
-export const { MONGODB_URI: RETIRED_TAKEN } = process.env; // expect: secret-name
-export const RETIRED_TEMPLATE = Reflect.get(process.env, `AUTH_SECRET`); // expect: secret-name
+// A variable of a secret's name, in every spelling that reaches the value.
+export const VARIABLE_READ = process.env.AUTH_RESEND_KEY; // expect: secret-name
+export const VARIABLE_INDEXED = process.env["INTERNAL_API_KEY_SYSTEM"]; // expect: secret-name
+export const { MONGODB_URI: VARIABLE_TAKEN } = process.env; // expect: secret-name
+export const VARIABLE_TEMPLATE = Reflect.get(process.env, `AUTH_SECRET`); // expect: secret-name
 // A secret's file by its name, bare or ending a path, skips the reader its holder alone may import.
 export const SECRET_FILE = "/run/secrets/auth_resend_key"; // expect: secret-file
 export const SECRET_FILE_BARE = `internal_api_key_system`; // expect: secret-file
@@ -262,3 +263,23 @@ import { sendSperreNotice as queriedNotice } from "@/core/mail?probe"; // expect
 const { sendSperreNotice: loadedQueriedNotice } = await import("@/core/mail.ts?probe"); // expect: sperre-notice-load
 export const NOTICE_USED = [queriedNotice, loadedQueriedNotice];
 export const POPOVER_USED = queriedPopover;
+import { useActionState as reactActionState } from "react"; // expect: action-state
+declare const React: { useActionState: unknown };
+export const ACTION_STATE_TAKEN = [reactActionState, React.useActionState]; // expect: action-state
+export const ACTION_STATE_NAMED = "useActionState"; // expect: action-state
+export const ACTION_STATE_TEMPLATE = `useActionState`; // expect: action-state
+import { useFormState as domFormState } from "react-dom"; // expect: action-state
+declare const ReactDOM: { useFormState: unknown };
+export const FORM_STATE_TAKEN = [domFormState, ReactDOM.useFormState]; // expect: action-state
+export const FORM_STATE_NAMED = "useFormState"; // expect: action-state
+declare const ReactDom: { useFormState: unknown; useActionState: unknown };
+const { useFormState: destructuredFormState } = ReactDom; // expect: action-state
+const { useActionState } = React; // expect: action-state
+export const STATE_DESTRUCTURED = [destructuredFormState, useActionState];
+declare const unansweredAction: (error: unknown, repair?: string) => unknown;
+declare const actionError: { unansweredAction: typeof unansweredAction };
+declare const rejection: unknown;
+export const UNANSWERED_EMPTY = unansweredAction(undefined, "Versuche es erneut."); // expect: unanswered-rejection
+export const UNANSWERED_NULL = actionError.unansweredAction(null); // expect: unanswered-rejection
+export const UNANSWERED_VOID = unansweredAction(void 0); // expect: unanswered-rejection
+export const UNANSWERED_READ = [unansweredAction(rejection), unansweredAction(rejection, undefined)];

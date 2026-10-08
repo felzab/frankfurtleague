@@ -603,6 +603,22 @@ def test_a_comment_below_a_regex_literal_holding_a_tick_is_read() -> None:
     _assert_corpus_restored()
 
 
+# A shell script whose function opens on a line ending in a comment.
+TRAILING_SHELL: Final = "scripts/trailing.sh"
+
+
+def test_a_shell_line_ending_in_a_comment_keeps_its_code_where_the_comment_is_blanked() -> None:
+    """`code_body` blanks the columns the comment reader hands back, so a comment moved left blanks the code."""
+    root = _gate().root
+    write(root, TRAILING_SHELL, _page("probe_step() { " + HASH + " a trailing note", "}"))
+    try:
+        lines = _module("docs_gate.kernel").code_body(root / TRAILING_SHELL).split(NEWLINE)
+    finally:
+        _reset()
+    assert lines[0].rstrip() == "probe_step() {", repr(lines[0])
+    _assert_corpus_restored()
+
+
 def test_code_after_a_regex_literal_ending_in_an_escaped_slash_is_not_read_as_a_comment() -> None:
     """The regex's escaped slash and its closing one read as a line comment's opener, and the code after them as prose."""
     _reset()

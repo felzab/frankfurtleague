@@ -4,9 +4,9 @@ TESTS · the refusals a dependency answers before any handler, probed on every o
 `app/main.py :: DEPENDENCY_REFUSALS` publishes each dependency's code on the operations running it,
 so the table is held against what a request actually meets: every operation is asked without a key,
 with a wrong one, with its own and no actor, with its own and an administrator, with its own and an
-actor who is none, with its own and a forged actor, and with its own and an administrator signed in
-past the step-up window, against an application holding no database, where each dependency
-answers before the handler runs.
+actor who is none, with its own and a forged actor, with its own and an administrator signed in
+past the step-up window, and with its own and a signed-in person, barred and not, against an
+application holding no database, where each dependency answers before the handler runs.
 """
 
 import ast
@@ -23,21 +23,48 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any
 
+from fastapi import FastAPI
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
 from app.core.exception_handlers import refused_codes
 from app.core.exceptions import BaseAPIException, DocumentNotFoundException, WriteRefusalException
-from app.core.security import ACTOR_HEADER, STEP_UP_WINDOW_S, verify_access_admin, verify_access_base, verify_access_system
-from app.main import DEPENDENCY_REFUSALS, HANDLER_JUDGED_REFUSALS, create_app, dependency_refusals
+from app.core.security import (
+    ACTOR_HEADER,
+    STEP_UP_WINDOW_S,
+    BanLookup,
+    get_ban_lookup,
+    verify_access_admin,
+    verify_access_base,
+    verify_access_system,
+)
+from app.main import DEPENDENCY_REFUSALS, RefusalDriver, create_app, dependency_refusals
 from tests.actor_tokens import FOREIGN_SIGNING_KEY, SignedActor, actor_claims, sign
 from tests.config import ADMIN_KEY, BASE_AUTH, SYSTEM_AUTH, build_test_config
 from tests.core.app_source import APP_ROOT, BACKEND_ROOT, api_routes, declared, module_of, parsed
 from tests.grants import admit
 
-# Its actor check answered without a database, so a request naming a non-administrator meets its
-# refusal there rather than the missing database behind it.
-APP = admit(create_app(build_test_config()))
+# Barred on the list `APP` answers a person's ban check from.
+BARRED_PERSON = "gesperrt@beispielschule.de"
+
+
+def _ban_answered_from_the_set(app: FastAPI) -> FastAPI:
+    """`app`, a person route's ban read answered from `BARRED_PERSON` alone, as `tests/grants.py :: admit` answers the grants."""
+
+    def answered_from_the_set() -> BanLookup:
+        async def is_gesperrt(identifier: str) -> bool:
+            return identifier == BARRED_PERSON
+
+        return is_gesperrt
+
+    app.dependency_overrides[get_ban_lookup] = answered_from_the_set
+
+    return app
+
+
+# Its actor check and a person's ban check answered without a database, so a request naming a
+# non-administrator or a barred person meets its refusal there rather than the missing database behind it.
+APP = _ban_answered_from_the_set(admit(create_app(build_test_config())))
 
 TIER_KEYS: Mapping[Any, Mapping[str, str]] = {verify_access_base: BASE_AUTH, verify_access_admin: ADMIN_KEY, verify_access_system: SYSTEM_AUTH}
 WRONG_KEY = {"Authorization": "Bearer wrong"}
@@ -46,6 +73,9 @@ ACTOR = SignedActor("admin@example.com")
 NOT_AN_ADMINISTRATOR = SignedActor("schueler@example.com")
 # Shaped like a token and signed under a key nobody configured, so it fails verification.
 FORGED_ACTOR = {ACTOR_HEADER: sign(actor_claims("admin@example.com"), private_key=FOREIGN_SIGNING_KEY)}
+# The person lane's two: one the ban list holds, and one it does not, who passes to the missing database.
+A_PERSON = SignedActor("schueler@example.com", lane="person")
+A_BARRED_PERSON = SignedActor(BARRED_PERSON, lane="person")
 
 
 class _StaleActor(Mapping[str, str]):
@@ -95,7 +125,7 @@ UNREAD_RAISES: Mapping[tuple[str, str, str], str] = {
         "app/core/crud.py",
         "post_many_to_db",
         "refusal",
-    ): "the driver's `DuplicateKeyError`, published by collection (`tests/core/test_duplicate_key_publication.py`)",
+    ): "the driver's `DuplicateKeyError`, published where a write can meet a unique index (`tests/core/test_duplicate_key_publication.py`)",
     (
         "app/core/concurrency.py",
         "gather_cancelling",
@@ -279,7 +309,7 @@ def _observed() -> dict[tuple[str, str], set[tuple[HTTPStatus, str]]]:
         own = _guard_key(route)
         for method in sorted(route.methods or ()):
             answers = found.setdefault((route.path_format, method.lower()), set())
-            actors = (ACTOR, NOT_AN_ADMINISTRATOR, FORGED_ACTOR, STALE_ACTOR)
+            actors = (ACTOR, NOT_AN_ADMINISTRATOR, FORGED_ACTOR, STALE_ACTOR, A_PERSON, A_BARRED_PERSON)
             for headers in ({}, WRONG_KEY, own, *({**own, **actor} for actor in actors)):
                 response = client.request(method, _url(route), headers=headers)
                 if response.status_code in PROBED_STATUSES:
@@ -288,10 +318,10 @@ def _observed() -> dict[tuple[str, str], set[tuple[HTTPStatus, str]]]:
     return found
 
 
-def _derived(*tables: Any) -> dict[tuple[str, str], set[tuple[HTTPStatus, str]]]:
+def _derived(*drivers: RefusalDriver) -> dict[tuple[str, str], set[tuple[HTTPStatus, str]]]:
     return {
         operation: {(status, code) for status, codes in refusals.items() for code in codes}
-        for operation, refusals in (dependency_refusals(APP, tables) if tables else dependency_refusals(APP)).items()
+        for operation, refusals in (dependency_refusals(APP, frozenset(drivers)) if drivers else dependency_refusals(APP)).items()
     }
 
 
@@ -307,12 +337,11 @@ def test_every_refusal_a_request_meets_is_one_the_table_publishes_on_its_operati
 def test_every_refusal_the_table_publishes_is_met_by_a_request():
     """The other way: a code published on an operation no request meets is a response that cannot occur.
 
-    A handler-judged refusal is met only past the database these probes are refused at, and
-    `tests/api/test_step_up_execution.py` drives it.
+    The probed entries alone: every other driver's refusal is met past the database these probes are refused at.
     """
 
     observed = _observed()
-    derived = _derived(DEPENDENCY_REFUSALS)
+    derived = _derived(RefusalDriver.PROBE)
 
     assert {
         operation: codes - observed.get(operation, set()) for operation, codes in derived.items() if codes - observed.get(operation, set())
@@ -460,7 +489,7 @@ def test_the_execution_suite_drives_exactly_the_operations_a_handler_judged_refu
     `test_every_refusal_the_table_publishes_is_met_by_a_request` leaves these operations to that suite.
     """
 
-    published = set(dependency_refusals(APP, (HANDLER_JUDGED_REFUSALS,)))
+    published = set(dependency_refusals(APP, {RefusalDriver.STEP_UP}))
 
     assert published, "no operation publishes a handler-judged refusal, so the comparison below is vacuous"
     assert _driven_past_the_step_up_window() == published
@@ -484,7 +513,7 @@ def _raised_in(function: Any) -> set[type[BaseException]]:
 def test_the_derived_refusal_classes_hold_every_class_the_tables_dependencies_raise():
     """Read off the dependencies' own raises, a second route to the set: a derivation that went empty would sweep nothing, green."""
 
-    raised = set().union(*(_raised_in(dependency) for dependency in (*DEPENDENCY_REFUSALS, *HANDLER_JUDGED_REFUSALS)))
+    raised = set().union(*(_raised_in(dependency) for dependency in DEPENDENCY_REFUSALS))
 
     assert raised, "no raise is read off the table's dependencies, so the clause below is vacuous"
     assert all(_is_protocol_refusal(cls) for cls in raised), raised
@@ -493,7 +522,7 @@ def test_the_derived_refusal_classes_hold_every_class_the_tables_dependencies_ra
 def test_every_raise_of_a_protocol_refusal_sits_in_a_dependency_the_table_names_or_in_a_handler_declaring_it():
     """Read off every raise under `app/`, a population the table never feeds."""
 
-    answering = {(module_of(dependency), declared(dependency).name) for dependency in (*DEPENDENCY_REFUSALS, *HANDLER_JUDGED_REFUSALS)} | {
+    answering = {(module_of(dependency), declared(dependency).name) for dependency in DEPENDENCY_REFUSALS} | {
         (module_of(route.endpoint), route.endpoint.__name__) for route in api_routes(APP) if route.responses
     }
 

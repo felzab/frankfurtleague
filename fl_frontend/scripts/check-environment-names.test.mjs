@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { registerHooks } from "node:module";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -26,24 +26,16 @@ const SCRATCH = mkdtempSync(path.join(tmpdir(), "fl-environment-names-"));
 
 // Dummy names throughout, and files this suite writes itself: nothing here reads, mounts or names a
 // real environment file.
-const DECLARED = ["ALPHA_NAME", "BETA_NAME", "OMEGA_NAME", "RETIRED_NAME"];
-// One member per set rather than none: a default demanding nothing would let a case that forgets
-// either half of the files read as a pass on it.
-const SETS = {
-  declared: DECLARED,
-  required: ["ALPHA_NAME"],
-  retired: ["RETIRED_NAME"],
-  secretFiles: ["alpha_file"],
-  productionSecretFiles: ["omega_file"],
-};
+const DECLARED = ["ALPHA_NAME", "BETA_NAME", "OMEGA_NAME"];
+const SETS = { declared: DECLARED, required: ["ALPHA_NAME"] };
 
 /** One run of the checker over files written for the case, answering the code the deploy grades. */
-function check(contents, { sets = SETS, flags = [] } = {}) {
+function check(contents, { sets = SETS } = {}) {
   const stem = path.join(SCRATCH, `case-${String(process.hrtime.bigint())}`);
   writeFileSync(`${stem}.environment`, contents);
   if (sets !== null) writeFileSync(`${stem}.json`, JSON.stringify(sets));
 
-  return spawnSync(process.execPath, [CHECKER, `${stem}.environment`, `${stem}.json`, ...flags], { encoding: "utf8" });
+  return spawnSync(process.execPath, [CHECKER, `${stem}.environment`, `${stem}.json`], { encoding: "utf8" });
 }
 
 describe("the names read out of an environment file", () => {
@@ -102,7 +94,7 @@ describe("the names outside the schema", () => {
 
 describe("what the deploy grades the checker's answer as", () => {
   it("answers 4 when named no file at all, having judged nothing", () => {
-    const done = spawnSync(process.execPath, [CHECKER, "--production"], { encoding: "utf8" });
+    const done = spawnSync(process.execPath, [CHECKER], { encoding: "utf8" });
 
     assert.equal(done.status, 4, done.stderr);
     assert.match(done.stderr, /no environment file named/);
@@ -183,70 +175,6 @@ describe("what the deploy grades the checker's answer as", () => {
   });
 });
 
-describe("the names a host's file carries from before the secrets were files", () => {
-  /* The rollback's image still reads them, so the line is said and never refused: an operator deletes
-     it once this image is healthy. */
-  it("says each retired name the file still carries, answers 0 for it, and carries no value", () => {
-    const done = check("ALPHA_NAME=one\nRETIRED_NAME=a value no line may echo\n");
-
-    assert.equal(done.status, 0, done.stderr);
-    assert.match(done.stderr, /Retired environment variables still set: RETIRED_NAME/);
-    assert.doesNotMatch(done.stderr, /a value no line may echo/);
-  });
-});
-
-describe("the secret files, judged in the container that reads them", () => {
-  /** One run of the reader's container-side mode over a directory holding `files`, a name mapped to `null` being a directory. */
-  function checkFiles(files, flags = []) {
-    const directory = mkdtempSync(path.join(SCRATCH, "secrets-"));
-    for (const [name, content] of Object.entries(files)) {
-      if (content === null) mkdirSync(path.join(directory, name));
-      else writeFileSync(path.join(directory, name), content);
-    }
-    const sets = path.join(directory, "..", `${path.basename(directory)}.json`);
-    writeFileSync(sets, JSON.stringify(SETS));
-
-    return {
-      directory,
-      done: spawnSync(process.execPath, [CHECKER, "--secret-files", sets, ...flags], {
-        encoding: "utf8",
-        env: { ...process.env, SECRETS_DIR: directory },
-      }),
-    };
-  }
-
-  it("answers 0 where every file the set names is there, readable and holds something", () => {
-    const { done } = checkFiles({ alpha_file: "a value" });
-
-    assert.equal(done.status, 0, done.stderr);
-    assert.equal(done.stderr, "");
-  });
-
-  /* 3 is the refusal the deploy stops at, before anything is recreated: the boot would refuse the
-     same file after the recreate, behind an edge already answering 502. */
-  it("answers 3 naming a missing, an empty and a shadowed file by path and errno, and never a value", () => {
-    for (const [files, reason] of [
-      [{}, "ENOENT"],
-      [{ alpha_file: " \r\n" }, "empty"],
-      [{ alpha_file: null }, "EISDIR"],
-    ]) {
-      const { directory, done } = checkFiles(files);
-
-      assert.equal(done.status, 3, done.stderr);
-      assert.equal(done.stderr, `Unusable secret files: ${path.join(directory, "alpha_file")} (${reason})\n`);
-    }
-  });
-
-  it("demands production's own files under the flag the deploy passes, and of nobody else", () => {
-    assert.equal(checkFiles({ alpha_file: "a value" }).done.status, 0);
-
-    const { directory, done } = checkFiles({ alpha_file: "a value no line may echo" }, ["--production"]);
-
-    assert.equal(done.status, 3, done.stderr);
-    assert.equal(done.stderr, `Unusable secret files: ${path.join(directory, "omega_file")} (ENOENT)\n`);
-  });
-});
-
 describe("the key set the image carries", () => {
   it("is emitted by the flags package.json holds, so a deploy reads what this build declared", async () => {
     const [command, ...flags] = MANIFEST.scripts["environment-names"].split(" ");
@@ -269,15 +197,12 @@ describe("the key set the image carries", () => {
     const emitted = JSON.parse(readFileSync(destination, "utf8"));
 
     assert.ok(wired.length >= 8, `expected the schema to wire at least 8 settings, read ${String(wired.length)}`);
-    // Every key wired is a variable, and the file declares those and the retired names, each a key now
-    // read from its file, and nothing else.
-    assert.deepEqual(emitted.declared, [...new Set([...wired, ...emitted.retired])].sort());
-    // Which names and files are required is derived by booting, in `fl_frontend/src/core/config.test.ts`;
-    // what this asks is that the file carry each set at all, an empty one reading as a schema demanding
-    // nothing.
+    // Every key wired is a variable, and the file declares those and nothing else: a secret's key,
+    // read from its file, is no name a host's file may carry.
+    assert.deepEqual(emitted.declared, wired);
+    // Which names are required is derived by booting, in `fl_frontend/src/core/config.test.ts`; what
+    // this asks is that the file carry the set at all, an empty one reading as a schema demanding nothing.
     assert.ok(emitted.required.length > 0, "the emitted file demands no name of a host at all");
-    assert.ok(emitted.secretFiles.length > 0, "the emitted file demands no secret file of a host at all");
-    assert.ok(emitted.productionSecretFiles.length > 0, "the emitted file demands no secret file of a production host in particular");
     assert.deepEqual(
       emitted.required.filter((name) => !wired.includes(name)),
       [],

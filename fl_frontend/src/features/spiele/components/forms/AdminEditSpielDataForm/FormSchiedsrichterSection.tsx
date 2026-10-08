@@ -36,6 +36,7 @@ export function FormSchiedsrichterSection({
   const offered: FLSchiedsrichterAngezeigt[] = schiedsrichter.map((candidate) => ({
     ...candidate,
     name: candidate.name ?? SCHIEDSRICHTER_OHNE_NAMEN_LABEL,
+    nameIstPlatzhalter: candidate.name === null,
   }));
 
   // The referee this fixture ALREADY holds, where the list offers nobody: it drops every retired row
@@ -47,6 +48,7 @@ export function FormSchiedsrichterSection({
           {
             id: schiedsrichterPayload.schiedsrichter_id,
             name: bookedSchiedsrichterName(schiedsrichterPayload),
+            nameIstPlatzhalter: schiedsrichterPayload.name === null,
             // Fills the type alone, never a draft: react-stately drops a re-pick of the selected key, and
             // this entry leaves the list once the pick moves, so no pick ever reads it.
             default_payment: schiedsrichterPayload.payment ?? 0,

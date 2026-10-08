@@ -6,6 +6,7 @@ import TrashBin from "@gravity-ui/icons/TrashBin";
 
 import { anonymiseSchiedsrichterAction } from "@/features/schiedsrichter/actions";
 import { SCHIEDSRICHTER_ANONYM_LABEL } from "@/features/schiedsrichter/constants";
+import { Leer } from "@/shared/components/ui/Angabe";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReadoutRow } from "@/shared/components/ui/ConfirmReadoutRow";
@@ -20,9 +21,6 @@ import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 
 import type { FLKontakt } from "@/shared/schemas";
-
-/** What an empty field reads as in the armed readout — absent here, and possibly still in the log. */
-const NOT_RECORDED = "Nicht hinterlegt";
 
 /**
  * The referee's erasure, on `POST /schiedsrichter/{schiedsrichter_id}/anonymisieren`. **A
@@ -114,21 +112,21 @@ export function FormAnonymisierenSection({
                     outlive the person, and the word standing on them is what somebody will meet. */}
                 <ConfirmReadoutRow
                   label="Name"
-                  value={name === null ? NOT_RECORDED : `${name}, danach nur „${SCHIEDSRICHTER_ANONYM_LABEL}“`}
+                  value={name === null ? <Leer /> : `${name}, danach nur „${SCHIEDSRICHTER_ANONYM_LABEL}“`}
                 />
                 {/* The school goes with the name: beside a fixture list that never expires it narrows the
                     person to the few referees one school ever sent. */}
                 <ConfirmReadoutRow
                   label="Schule / Verein"
-                  value={schule ?? NOT_RECORDED}
+                  value={schule ?? <Leer />}
                 />
                 <ConfirmReadoutRow
                   label="E-Mail"
-                  value={kontakt.email ?? NOT_RECORDED}
+                  value={kontakt.email ?? <Leer />}
                 />
                 <ConfirmReadoutRow
                   label="Telefon"
-                  value={kontakt.telefon ?? NOT_RECORDED}
+                  value={kontakt.telefon ?? <Leer />}
                 />
                 {/* The log's own words for the pre-image it stores, so the readout names what the row
                     loses rather than a subset of it: the redaction clears the WHOLE stand. */}

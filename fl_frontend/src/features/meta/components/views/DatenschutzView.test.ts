@@ -48,7 +48,7 @@ const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
  * The „Stand“ and the words it dates, frozen together: a reader told nothing changed since that day
  * has been misled by any edit that left the date standing.
  */
-const FASSUNG = { stand: "28. September 2026", digest: "2784bca1be01df33b0053b28c3520778311c9c9b1d818cf94fcf2cf6c21dd0a1" } as const;
+const FASSUNG = { stand: "8. Oktober 2026", digest: "a5fe22b42bb815843e002dd223b774dc1e6f6efa97f1c978e0813012be4cbdf5" } as const;
 
 /** Every word the page renders but its date, so moving the date alone never passes for moving the words. */
 const wortlautDigest = (): string =>
@@ -171,14 +171,17 @@ describe("the privacy notice's retention table", () => {
     );
   });
 
-  it("gives a pupil's registration three fates, one per decision", () => {
+  /* One fate per clock the registration sweep and the admission run: the admission erases the row, a
+     decline starts a month, and a season ending undecided takes the rest. */
+  it("gives a pupil's registration three fates, one per decision, and keeps who declined it as long as the decline", () => {
     assert.equal(
       ANGABEN.get("Registrierung eines Spielers oder einer Spielerin"),
       `${amAnfang(inWorten(REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE))} Tage ab dem Versand des Bestätigungslinks, wenn die Registrierung nicht ` +
-        "bestätigt wird, dann Löschung; eine Erinnerung " +
-        "verschiebt diese Frist nicht. Bestätigte Registrierungen behalten wir, bis in der nächsten Saison die Registrierung geschlossen " +
-        "ist, und löschen sie dann, sofern nicht dieselbe E-Mail-Adresse sich dort wieder registriert hat. Eine abgelehnte Registrierung " +
-        "löschen wir einen Monat nach der Entscheidung",
+        "bestätigt wird, dann Löschung; eine Erinnerung verschiebt diese Frist nicht. Eine bestätigte Registrierung behalten wir, bis " +
+        "das Team über sie entscheidet: Nimmt es die Person auf, löschen wir die Registrierung, und ihre Angaben stehen von da an " +
+        "im Kadereintrag; lehnt es sie ab, löschen wir sie einen Monat nach der Entscheidung, und mit ihr Datum, Grund und " +
+        "E-Mail-Adresse der Person aus dem Team, die abgelehnt hat. Ist bis zum Ende der Saison nicht " +
+        "entschieden, löschen wir sie dann",
     );
   });
 
@@ -194,9 +197,35 @@ describe("the privacy notice's retention table", () => {
     );
   });
 
+  /* The address may be a stranger's, so its retention is stated with the clock that ends it once its link has lapsed. */
+  it("gives a referee's unconfirmed new address its retention and the removal once its link has lapsed", () => {
+    assert.equal(
+      ANGABEN.get(
+        "Neue E-Mail-Adresse einer Schiedsrichterin oder eines Schiedsrichters, solange sie nicht bestätigt ist, dazu ihr " +
+          "Link als unlesbarer Schlüssel mit Versanddatum und Frist",
+      ),
+      "Bis die Adresse über ihren Link bestätigt oder abgelehnt wird oder die Verwaltung die Änderung verwirft; mit dem Eintrag " +
+        "wird sie gelöscht. Ihr Link gilt so lange wie der Bestätigungslink des Eintrags und wird durch jeden neuen ersetzt. Ist er abgelaufen," +
+        " löschen wir die Adresse bei der jährlichen Löschung nach dem Ende der Registrierungsfrist",
+    );
+  });
+
+  /* Two addresses are in play, so the sentence names the one the notice of the change goes to rather than a „sie“ fitting both. */
+  it("says the address on file stays in force and is the one told of a confirmed referee's address change", () => {
+    rendert(
+      "Ändert die Verwaltung Deine E-Mail-Adresse, nachdem Du Deinen Eintrag bestätigt hast, gilt die neue erst, wenn Du sie über den " +
+        "Link bestätigt hast, den wir an sie schicken; bis dahin bleibt die bisherige in Kraft, und an die bisherige schicken wir einen " +
+        "Hinweis auf die Änderung.",
+    );
+  });
+
   it("gives a rejected application, the action log and the backups their clocks in words", () => {
     assert.equal(ANGABEN.get("Abgelehnte Bewerbung samt den Daten der drei Kontaktpersonen"), "Ein Monat nach der Entscheidung");
-    assert.ok(ANGABEN.get("Änderungsprotokoll der Verwaltung")?.startsWith("Zwölf Monate ab dem Eintrag;"));
+    assert.ok(
+      ANGABEN.get("Änderungsprotokoll: Änderungen der Verwaltung und Änderungen angemeldeter Personen")?.startsWith(
+        "Zwölf Monate ab dem Eintrag;",
+      ),
+    );
     assert.equal(ANGABEN.get("Sicherungskopien der Datenbank"), "Etwa acht Tage");
   });
 
@@ -326,6 +355,18 @@ const ERSETZT: readonly { weg: string; statt?: string }[] = [
   { weg: "Es findet keine automatisierte Entscheidungsfindung" },
   // The media-consent and Stufe refusals exist too, reachable only by a request no page sends.
   { weg: "Ohne einen Menschen weist die Website nur zweierlei zurück" },
+  // The bot check and the day ceiling refuse without a human too, and the notice names every such refusal.
+  { weg: "weist sie ohne einen Menschen nur zweierlei zurück" },
+  // The account page's step-up mails a code with no bot check, and an unanswered check lets a form through.
+  {
+    weg: "bevor wir einen Anmeldecode verschicken",
+    statt:
+      "bevor wir über die Anmeldeseite einen Anmeldecode verschicken oder eine Bewerbung oder Registrierung speichern; antwortet Cloudflare dabei nicht, nehmen wir das Formular ungeprüft an.",
+  },
+  { weg: "Einen Anmeldecode verschickt sie" },
+  { weg: "an ihren eigenen Angaben", statt: "Änderungen der Verwaltung und Änderungen angemeldeter Personen" },
+  { weg: "Trainerinnen, Trainern und Ansprechpersonen ab", statt: "Schiedsrichtern und Kontaktpersonen eines Teams ab" },
+  { weg: "Er enthält nur die Zahl der Änderungen und Deine Rolle" },
   { weg: "Hältst Du eine solche" },
   { weg: "Unter dem Mindestalter kann Dich auch ein Mensch nicht zulassen" },
   { weg: "den Wettbewerb durchzuführen" },
@@ -354,20 +395,72 @@ const ERSETZT: readonly { weg: string; statt?: string }[] = [
   {
     weg: "Die Freigabe von Cloudflare setzen wir",
     statt:
-      "Die Abfrage und die Freigabe von Cloudflare setzen wir ohne Einwilligung ein, weil sie die Anmeldung und das Formular vor " +
+      "Die Abfragen und die Freigabe von Cloudflare setzen wir ohne Einwilligung ein, weil sie die Anmeldung und die Formulare vor " +
       "automatisiertem Missbrauch schützen (§ 25 Abs. 2 Nr. 2 TDDDG).",
   },
   {
     weg: "weil es nichts einzuwilligen gibt",
     statt: "und es gibt keinen Cookie-Banner, weil wir für nichts davon eine Einwilligung einholen.",
   },
+  // No rule checks a form's submission, so the clearance a navigation's challenge leaves spares a second challenge and nothing more.
+  { weg: "damit das Formular abgeschickt werden kann", statt: "damit Du beim nächsten Aufruf nicht erneut geprüft wirst" },
+  // Self-service withdrawal on the account page stands beside the e-mail route.
+  {
+    weg: "Du kannst diese Einwilligung jederzeit mit Wirkung für die Zukunft widerrufen, formlos an",
+    statt: "beide nimmst Du außerdem selbst in Deinem Konto zurück",
+  },
+  {
+    weg: "Das ist die einzige Einwilligung, die wir an dieser Stelle einholen",
+    statt: "Auf derselben Seite stehen zwei freiwillige Schalter.",
+  },
   // Standing between the decision and the clause, the citation made the decision what Cloudflare is certified under.
   { weg: "Art. 45 DSGVO), nach dem Cloudflare zertifiziert ist", statt: "Nach diesem Framework ist Cloudflare zertifiziert" },
+  // The admission erases a registration it takes, so no confirmed one waits for the next season.
+  { weg: "bis in der nächsten Saison die Registrierung geschlossen ist" },
   {
     weg: "Das betrifft die Zugriffsprotokolle",
     statt: "Das betrifft jede Verarbeitung, für die diese Erklärung Art. 6 Abs. 1 lit. f DSGVO als Rechtsgrundlage nennt",
   },
 ];
+
+describe("the privacy notice's account of the site's own protection", () => {
+  /* Three pages load the check, and a page left out of the notice is processing nobody was told of. */
+  it("names Cloudflare's bot check on all three pages that load it, and Cloudflare's own use of what it reads", () => {
+    const absatz = ABSAETZE.find((text) => text.startsWith("Eine zweite Prüfung von Cloudflare, Turnstile,")) ?? "";
+
+    assert.ok(absatz.includes("auf der Anmeldeseite, im Bewerbungsformular und im Registrierungsformular"), absatz);
+    assert.ok(absatz.includes("Cloudflare verwendet diese Merkmale außerdem in eigener Verantwortung"), absatz);
+  });
+
+  /* A browser that blocks the check stays refused, so the notice says so and names the way in that remains. */
+  it("says a blocked check takes nothing in, and names the league's address and the passkey as the ways in", () => {
+    const absatz = ABSAETZE.find((text) => text.startsWith("Eine zweite Prüfung von Cloudflare, Turnstile,")) ?? "";
+
+    assert.ok(
+      absatz.includes(
+        `Lässt Dein Browser oder ein Werbeblocker diese Prüfung nicht zu, nehmen wir über diese drei Formulare nichts an; dann erreichst Du uns unter ${KONTAKT_EMAIL}`,
+      ),
+      absatz,
+    );
+    assert.ok(absatz.endsWith("und anmelden kannst Du Dich auch mit einem Passkey."), absatz);
+  });
+
+  it("gives a person's daily count its clock, and says it holds no address", () => {
+    const frist = ANGABEN.get("Tageszähler einer angemeldeten Person, je Personengruppe") ?? "";
+
+    // Past midnight by the TTL monitor's lag (`docs/backend/spec.md :: I619`), and per kind of person a write is made as, never per mailbox.
+    assert.ok(frist.startsWith("Bis kurz nach Mitternacht des Tages, den er zählt."), frist);
+    assert.ok(
+      frist.includes(
+        "wie oft Du in dieser Personengruppe an dem Tag etwas ändern wolltest, darunter auch Änderungen, die danach noch abgewiesen wurden",
+      ),
+      frist,
+    );
+    assert.ok(frist.includes("unter einem unlesbaren Schlüssel statt Deiner Adresse"), frist);
+    // A Funktion is one record, and a person holding two seats holds one counter for them.
+    assert.ok(!frist.includes("Funktion"), frist);
+  });
+});
 
 describe("the privacy notice keeps no sentence the tree made untrue", () => {
   for (const { weg, statt } of ERSETZT) {
@@ -438,7 +531,7 @@ describe("the privacy notice's publication and retention rows keep their ruled b
   it("publishes media only from the floor the confirmations judge, on its own consent", () => {
     assert.equal(
       ANGABEN.get(
-        `Fotos und Videos von Spielerinnen, Spielern, Schiedsrichterinnen und Schiedsrichtern ab ${String(MEDIEN_MIN_ALTER)} Jahren, ` +
+        `Fotos und Videos von Spielerinnen, Spielern, Schiedsrichterinnen, Schiedsrichtern und Kontaktpersonen eines Teams ab ${String(MEDIEN_MIN_ALTER)} Jahren, ` +
           "auf denen die Person zu erkennen ist, und Interviews mit ihr, nur wenn sie den Schalter dafür eingeschaltet hat; veröffentlicht auf dieser " +
           "Website und auf dem Instagram-Kanal der Liga",
       ),
@@ -511,18 +604,26 @@ describe("the privacy notice's publication and retention rows keep their ruled b
   });
 
   // The space before the comma is `textOf`'s separator where the mail link's tag closes.
-  it("offers a human review of both automatic refusals and says what it can change", () => {
+  it("offers a human review of every refusal taken without one, and says what it can change", () => {
     rendert(
       "Über eine Bewerbung entscheidet ein Mensch. Von dem, was Du auf dieser Website eintragen kannst, weist sie ohne einen " +
-        "Menschen nur zweierlei zurück: ein Geburtsdatum, das Du auf Deiner Bestätigungsseite als Spielerin oder Spieler, als Schiedsrichterin oder Schiedsrichter oder als " +
-        "Kontaktperson einer Bewerbung einträgst, wenn es unter dem Mindestalter Deiner Rolle liegt oder ein Alter über " +
+        "Menschen zweierlei zurück: ein Geburtsdatum, das Du auf Deiner Bestätigungsseite als Spielerin oder Spieler, als Schiedsrichterin oder Schiedsrichter oder als " +
+        "Kontaktperson einer Bewerbung oder eines Teams einträgst, wenn es unter dem Mindestalter Deiner Rolle liegt oder ein Alter über " +
         `${String(BEWERBUNG_MAX_ALTER)} Jahren ergibt, und eine E-Mail-Adresse, die gesperrt ist. Beide Zurückweisungen prüft auf ` +
         `Deinen Wunsch ein Mensch: Schreib an ${KONTAKT_EMAIL} , dann sieht sich jemand aus der Verwaltung Deinen Fall an und ` +
         "antwortet Dir. Ein zurückgewiesenes Geburtsdatum wird nicht gespeichert; war es ein Tippfehler, trägst Du über denselben " +
         "Link das richtige Datum ein, solange er gilt. Liegt Dein Geburtsdatum tatsächlich unter dem Mindestalter, bleibt es auch " +
         "nach der Prüfung bei der Zurückweisung, weil die Liga jede Rolle erst ab ihrem Mindestalter vergibt. Eine Sperre kann die " +
         "Verwaltung nach der Prüfung aufheben. Ist der Kader eines Teams voll, nimmt er keine weitere Registrierung an; das ist " +
-        "eine Grenze des Kaders und keine Entscheidung über Dich. Profiling findet nicht statt.",
+        "eine Grenze des Kaders und keine Entscheidung über Dich. Zwei weitere Grenzen setzt die Website ebenso ohne einen " +
+        "Menschen. Einen Anmeldecode über die Anmeldeseite verschickt sie, eine Bewerbung und eine Registrierung nimmt sie erst " +
+        "an, wenn Cloudflare bestätigt hat, dass ein Mensch das Formular abschickt, oder wenn Cloudflare nicht antwortet " +
+        "(Abschnitt 11); bittet Cloudflare Dich um einen Klick, genügt der. " +
+        `Lässt Dich die Prüfung nicht durch, schreib an ${KONTAKT_EMAIL} , dann sieht sich jemand aus der Verwaltung Deinen Fall an. ` +
+        "Und wer angemeldet ist, kann je Personengruppe an einem Tag nur eine begrenzte Zahl von Änderungen abschicken; danach " +
+        "weist die Website weitere Änderungen bis Mitternacht zurück. Das Zurückziehen einer Einwilligung weist sie dabei nie " +
+        `zurück, und auch diese Grenze prüft auf Deinen Wunsch ein Mensch, wenn Du an ${KONTAKT_EMAIL} schreibst. Profiling ` +
+        "findet nicht statt.",
     );
   });
 
@@ -540,10 +641,60 @@ describe("the privacy notice's publication and retention rows keep their ruled b
     );
   });
 
-  /* No write enforces it (`docs/datenschutz.md :: "One address is one person"`), so this sentence and
-     the forms' hints are all that make the assumption known to the person it binds. */
+  /* The account page lists every consent something still rests on, under today's address, so the notice
+     says where to take one back (Art. 7(3)) and which decided records it leaves out. */
+  it("names the account as the place to take back a consent something still rests on, signed in with today's address", () => {
+    assert.equal(
+      vorkommen(
+        "Eine Einwilligung, auf die sich bei uns noch etwas stützt, kannst Du außerdem selbst in Deinem Konto zurücknehmen: Melde " +
+          "Dich mit der Adresse an, unter der wir Dich heute erreichen; dort steht jede solche Einwilligung. Eine abgelehnte Bewerbung " +
+          "oder Registrierung steht dort nicht; wir löschen sie einen Monat nach der Entscheidung.",
+      ),
+      1,
+    );
+  });
+
+  /* Only the admission enforces it (`docs/datenschutz.md :: "One address is one person"`); every other
+     writer assumes it, so this sentence and the forms' hints are what make it known to the person it binds. */
   it("tells a person that their address stands for them alone and everything under it is their account's", () => {
     rendert("Deine E-Mail-Adresse steht bei uns für Dich allein: Alles, was unter ihr eingetragen ist, gehört zu Deinem Konto.");
+  });
+
+  /* Art. 13(1)(e) asks for the recipients: the team's three seats read a pending registration, so the
+     notice names them and what they do not see, which the pupil's confirmation page promises as well. */
+  it("names the team's three seats as who sees a registration, and what stays with the administrators", () => {
+    rendert(
+      "Bei der Registrierung trägst Du Vornamen, Nachnamen und E-Mail-Adresse ein und, wenn Du willst, Rückennummer, Position und " +
+        "Stufe; mit der Bestätigung kommt Dein Geburtsdatum dazu, wenn wir es noch nicht kennen, und, haben wir unter dieser " +
+        "Adresse und diesem Namen noch keine Antworten von Dir, Deine Antworten zu Veröffentlichung und Medien. Über die " +
+        "Aufnahme in den Kader entscheidet Dein Team: Trainerin oder Trainer, Ansprechperson und Stellvertretung des Teams sehen " +
+        "Deinen Namen, Deine Rückennummer, Deine Position und Deine Stufe; sie sehen auch, ob Du die Registrierung schon bestätigt hast und ob Du schon früher in der Liga eingetragen warst. Deine " +
+        "E-Mail-Adresse, Dein Geburtsdatum und Deine Antworten sehen sie nicht; die sehen nur die Administratorinnen und " +
+        "Administratoren der Liga. Lehnt Dein Team eine bestätigte Registrierung ab, schreiben wir Dir das per E-Mail. Zur " +
+        "Ablehnung halten wir das Datum, den Grund und die E-Mail-Adresse der Person aus dem Team fest, die abgelehnt hat; diese " +
+        "Angaben sehen die Administratorinnen und Administratoren der Liga.",
+    );
+  });
+
+  /* The same-person question shows the team a stored person's name, so the notice says so, and that it
+     never shows the birthdate the stored person was promised only administrators see. */
+  it("says an address already holding a person makes the team confirm it is the same one, by name alone", () => {
+    rendert(
+      "Eine E-Mail-Adresse gehört bei uns zu einer Person. Registriert sich jemand mit einer Adresse, unter der schon eine Person " +
+        "eingetragen ist, und weichen Name oder Geburtsdatum von diesem Eintrag ab, fragen wir das Team, ob es dieselbe Person ist, " +
+        "und nennen ihm dafür den eingetragenen Namen, nie das Geburtsdatum. Ist sie es nicht, lehnt das Team die Registrierung ab, " +
+        "und wir bitten die Person, sich mit einer eigenen E-Mail-Adresse erneut zu registrieren.",
+    );
+  });
+
+  /* Art. 14(3)(a): a contact person the administration typed in learns of it from the link, and a seat
+     holder's landing shows the other seats' names and confirmations, never their contact details. */
+  it("tells a contact person the administration entered that a link reaches them, and what the other seats see", () => {
+    rendert(
+      "Trägt die Verwaltung Dich als Kontaktperson eines Teams ein, schicken wir Dir einen Link, über den Du den Eintrag bestätigst " +
+        "oder ihm widersprichst. Wer als Kontaktperson eines Teams bestätigt hat, sieht in seinem Bereich, wer die drei Rollen des " +
+        "Teams hat und wer davon schon bestätigt hat, aber keine Kontaktdaten und kein Geburtsdatum.",
+    );
   });
 
   it("promises every erasure asked for an emptied action log", () => {

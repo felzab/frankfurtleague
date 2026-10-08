@@ -9,10 +9,14 @@ import { Fragment, createElement as h, useState } from "react";
 import { act, screen, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
+import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleEveryAction, doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import { laufendeNeubesetzung } from "@/shared/testing/einwilligungAnswers.ts";
+import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderUnderWrite } from "@/shared/testing/postWrite.ts";
+import { saisonRules } from "@/shared/testing/saisonRules.ts";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
 
 import type { UserEvent } from "@testing-library/user-event";
@@ -44,12 +48,19 @@ const { FormEinladungSection } = await import("@/features/teams/components/forms
 const { AdminBewerbungView } = await import("@/features/bewerbungen/components/views/AdminBewerbungView.tsx");
 const { FormRolloverSection } = await import("@/features/saisons/components/forms/AdminSaisonEditForm/FormRolloverSection.tsx");
 const { FormAustragenSection } = await import("@/features/spieler/components/forms/AdminSpielerEditForm/FormAustragenSection.tsx");
+const { KaderZeileEditForm } = await import("@/features/spieler/components/forms/KaderZeileEditForm/KaderZeileEditForm.tsx");
+const { KaderZeileAusgetragen } = await import("@/features/spieler/components/forms/KaderZeileEditForm/KaderZeileAusgetragen.tsx");
 const { AdminKontakteEditView } = await import("@/features/kontakte/components/views/AdminKontakteEditView.tsx");
 const { deriveKontakteDraftStatus } = await import("@/features/kontakte/kontakteDraftStatus.ts");
 const { DraftStatusProvider } = await import("@/shared/components/ui/DraftStatusContext.tsx");
 const { FormGruppenSwapSection } = await import("@/features/saisons/components/forms/AdminSaisonEditForm/FormGruppenSwapSection.tsx");
 const { FormTeamErsatzSection } = await import("@/features/saisons/components/forms/AdminSaisonEditForm/FormTeamErsatzSection.tsx");
 const { FormSpielplanSection } = await import("@/features/saisons/components/forms/AdminSaisonEditForm/FormSpielplanSection.tsx");
+const { RegistrierungenView } = await import("@/features/registrierungen/components/views/RegistrierungenView.tsx");
+const { EinwilligungPanel } = await import("@/features/konto/components/forms/EinwilligungForm/EinwilligungPanel.tsx");
+const { EinwilligungForm } = await import("@/features/konto/components/forms/EinwilligungForm/EinwilligungForm.tsx");
+const { patchBewerbungEinwilligungAction } = await import("@/features/kontakte/personActions.ts");
+const { patchRegistrierungEinwilligungAction } = await import("@/features/registrierungen/personActions.ts");
 
 /** One write whose control leaves the page, from the page before it to the page its refresh draws. */
 type Landing = {
@@ -84,7 +95,7 @@ const heading = (name: string | RegExp): HTMLElement => screen.getByRole("headin
 
 /** The retirement a list's dialog confirms, from the row's own control. */
 const retireThroughDialog = (key: string, row: string) => async (user: UserEvent) => {
-  await user.click(buttonIn(key, `${row} stilllegen`));
+  await user.click(buttonIn(key, `Stilllegen: ${row}`));
   await pressTwice(user, { resting: "Stilllegen", armed: "Ja, stilllegen" });
 };
 
@@ -110,7 +121,7 @@ const pressVirtually = async (user: UserEvent, key: string, name: string | RegEx
 
 /** The retirement a table's dialog confirms, opened by a screen reader's activation of the row's own control. */
 const retireVirtually = (key: string, row: string) => async (user: UserEvent) => {
-  await pressVirtually(user, key, `${row} stilllegen`);
+  await pressVirtually(user, key, `Stilllegen: ${row}`);
   await pressTwice(user, { resting: "Stilllegen", armed: "Ja, stilllegen" });
 };
 
@@ -151,6 +162,8 @@ const schiedsrichter = (id: string, name: string, inactive_since: string | null)
   geburtsdatum: null,
   einwilligung: null,
   bestaetigung: null,
+  adresswechsel: null,
+  abgelaufen: { bestaetigung: false, adresswechsel: false },
 });
 const SR_A = "68c1f0a2b3c4d5e6f7a8b921";
 const SR_B = "68c1f0a2b3c4d5e6f7a8b922";
@@ -184,6 +197,7 @@ const spielerList = (rows: ReturnType<typeof spieler>[]) =>
 /** The player's editor in the season its squad row stands in, retired as the case says. */
 const spielerEditor = (inactiveSince: string | null, inKader = true) =>
   h(AdminSpielerEditView, {
+    istFassungBekannt: true,
     spieler: { id: SP_A, vorname: "Lena", nachname: "Meier", inactive_since: inactiveSince, geburtsdatum: null },
     einwilligung: null,
     saison: {
@@ -225,7 +239,8 @@ const teamEditor = (inactiveSince: string | null, { gruppe = "A" as "A" | "B" | 
     saison: {
       saisonId: "2026",
       saisonStatus: "future" as const,
-      membership: gruppe === null ? null : { gruppe, austritt: null, trikot_farbe: null, kontakte: null, kontakte_stand: "stand" },
+      membership:
+        gruppe === null ? null : { gruppe, austritt: null, trikot_farbe: null, kontakte: null, bestaetigungen: null, kontakte_stand: "stand" },
     },
     today: "2026-09-14",
     gruppeLocked: locked,
@@ -277,17 +292,7 @@ const SCHEDULE = [
 const SPIELPLAN_UNDRAWN = {
   saisonId: "2026",
   saisonStatus: "future",
-  rules: {
-    win_points: 3,
-    draw_points: 1,
-    qualifiers_per_group: 2,
-    number_of_groups: 2,
-    teams_per_group: 4,
-    max_kadergroesse: 18,
-    tiebreak_order: "tordifferenz",
-    forfeit_ergebnis: { sieger_tore: 3, verlierer_tore: 0 },
-    erlaubte_stufen: ["E1", "Q1"],
-  },
+  rules: saisonRules(),
   startDate: "2026-08-01",
   endDate: "2027-06-30",
   spielplan: null,
@@ -356,13 +361,12 @@ const kontaktperson = (vorname: string, email: string | null, bestaetigtAm: stri
   email: email ?? `${vorname.toLowerCase()}@schule.example`,
   telefon: "069 1234567",
   geburtsdatum: bestaetigtAm === null ? null : "1988-04-02",
-  einwilligung: {
-    umfang: "kontaktdaten",
+  einwilligung: kenntnisnahme({
     erfasst_von: bestaetigtAm === null ? "administrativ" : "person",
     text_version: "2026-09-bestaetigungsseite",
     datum: "2026-09-01",
     bestaetigt_am: bestaetigtAm,
-  },
+  }),
 });
 const SITZ = { verschickt_am: "2026-09-01", erinnert_am: null, abgelehnt_am: null, zustellung: null };
 const OFFENE_BESTAETIGUNGEN = { ansprechperson: SITZ, stellvertretung: SITZ, trainer: { ...SITZ, abgelehnt_am: "2026-09-03" } };
@@ -398,7 +402,14 @@ const MIT_OFFENEN_SITZEN: Bewerbung = {
   bestaetigungen: OFFENE_BESTAETIGUNGEN,
 };
 const bewerbungPage = (bewerbung: Bewerbung) =>
-  h(AdminBewerbungView, { bewerbung, teamName: "SG Alpha", saisonStatus: "future", gruppeOffer: [{ gruppe: "A", occupied: 1, capacity: 4 }] });
+  h(AdminBewerbungView, {
+    neubesetzung: laufendeNeubesetzung(),
+    bewerbung,
+    fristAbgelaufen: false,
+    teamName: "SG Alpha",
+    saisonStatus: "future",
+    gruppeOffer: [{ gruppe: "A", occupied: 1, capacity: 4 }],
+  });
 
 const rollover = (saisonStatus: "future" | "active") =>
   h(FormRolloverSection, {
@@ -413,17 +424,43 @@ const rollover = (saisonStatus: "future" | "active") =>
 const austragen = (rowInactiveSince: string | null) =>
   h(FormAustragenSection, { spielerId: SP_A, saisonId: "2026", rowInactiveSince, rowReturn: "open", banners: [], isDirty: false });
 
+/** One squad row as its seat holder's page draws it: the editor while live, read-only once ausgetragen. */
+const KADER_ZEILE = {
+  spieler_id: SP_A,
+  vorname: "Lena",
+  nachname: "Meier",
+  nummer: "10",
+  position: null,
+  stufe: null,
+  rolle: null,
+  ist_nachnominiert: false,
+  inactive_since: null,
+  nummer_doppelt: false,
+};
+const KADER_HREF = `/bereich/team/${TEAM_A}/2026/kader`;
+const kaderZeileEditor = () =>
+  h(KaderZeileEditForm, {
+    teamId: TEAM_A,
+    saisonId: "2026",
+    zeile: KADER_ZEILE,
+    erlaubteStufen: ["Q1"],
+    heldRollen: {},
+    kaderHref: KADER_HREF,
+  });
+const kaderZeileAusgetragen = () => h(KaderZeileAusgetragen, { zeile: { ...KADER_ZEILE, inactive_since: RETIRED_ON }, kaderHref: KADER_HREF });
+
 const GRACE = kontaktperson("Grace", "grace@example.org", "2026-03-14");
 /** The club's contacts editor, its draft status as the page derives it, one seat holding a person with an address. */
 const kontakteEditor = (kontakte: Kontakte | null) =>
   h(DraftStatusProvider, {
     status: deriveKontakteDraftStatus({ stored: { kontakte }, draft: { kontakte }, fieldErrors: {} }),
     children: h(AdminKontakteEditView, {
+      laufendesLabel: publishedLaufendeFassung("bewerbung").text_version,
       team: { id: TEAM_A, name: "SG Alpha", shorthand: "ALP", inactive_since: null },
       saison: {
         saisonId: "2026",
         saisonStatus: "active",
-        membership: { gruppe: "A", austritt: null, trikot_farbe: null, kontakte, kontakte_stand: "9f2c" },
+        membership: { gruppe: "A", austritt: null, trikot_farbe: null, kontakte, bestaetigungen: null, kontakte_stand: "9f2c" },
       },
     }),
   });
@@ -533,14 +570,114 @@ const panel = (stand: Sicherheit) => h(SicherheitPanel, { sicherheit: stand });
 const STEP_UP_DUE = sicherheit({ passkeys: [passkey("laptop", "Laptop")], enrolmentUntil: null });
 
 /** A sign-in's control, named by the minute it began, which is what tells two rows apart. */
-const abmelden = (minute: string) => new RegExp(`vom 25\\. September 2026, ${minute} abmelden$`);
+const abmelden = (minute: string) => new RegExp(`^Abmelden: .* vom 25\\. September 2026, ${minute}$`);
+
+/** One confirmed pending registration on team A, as the seat holder's read serves it. */
+const registrierung = (registrierung_id: string, vorname: string, nachname: string) => ({
+  registrierung_id,
+  eingereicht_am: "2026-09-20",
+  vorname,
+  nachname,
+  nummer: null,
+  position: null,
+  stufe: null,
+  aufnehmbar: true,
+  nummer_doppelt: false,
+  person: null,
+  vorschlag: null,
+});
+const REG_LENA = registrierung("68c1f0a2b3c4d5e6f7a8b941", "Lena", "Meier");
+const REG_MIA = registrierung("68c1f0a2b3c4d5e6f7a8b942", "Mia", "Schmidt");
+
+/** Team A's registrations page holding `rows`, whatever the refresh after a decision left. */
+const registrierungen = (rows: readonly ReturnType<typeof registrierung>[]) =>
+  h(RegistrierungenView, { registrierungen: rows, adresse: { team_id: TEAM_A, saison_id: "2026" }, unvollstaendig: null });
+
+const BEWERBUNG_ID = "68c1f0a2b3c4d5e6f7a8b951";
+const KONTO_TITEL = "Als Ansprechperson: Bewerbung für Goethe-Gymnasium, Saison 2026";
+
+/**
+ * A pending application's seat on the account page, as the read serves it: withdraw-only, so a
+ * withdrawal closes the switch it was pressed on once the page is read again.
+ */
+const kontoBewerbung = (medien: boolean, whatsapp = false) =>
+  h(EinwilligungPanel, {
+    eintraege: [
+      {
+        id: `bewerbung-${BEWERBUNG_ID}`,
+        titel: KONTO_TITEL,
+        bestaetigt: null,
+        // Instantiated at the seat's scope: `h` infers no component's type parameter.
+        control: h(EinwilligungForm<Parameters<typeof patchBewerbungEinwilligungAction>[1]["umfang"]>, {
+          worte: {
+            textVersion: "konto-test-1",
+            whatsapp: {
+              schalter: "Die Liga darf mich auch über WhatsApp erreichen.",
+              an: "kontaktdaten_whatsapp",
+              aus: "kontaktdaten",
+              absatz: "WhatsApp nur mit Deiner Erlaubnis.",
+            },
+            medien: {
+              schalter: "Die Liga darf Fotos, Videos und Interviews von mir veröffentlichen.",
+              absatz: "Fotos nur mit Deiner Erlaubnis.",
+            },
+            nurWiderruf: "Hier kannst Du nur zurücknehmen.",
+            widerruf: "Jede Änderung gilt ab dem Speichern.",
+          },
+          gespeichert: { umfang: whatsapp ? ("kontaktdaten_whatsapp" as const) : ("kontaktdaten" as const), medien: medien },
+          nachweisStand: { umfang: null, medien: null },
+          medienAngeboten: false,
+          erteilbar: false,
+          // Through the doubled export, bound as the page binds it.
+          speichereAction: patchBewerbungEinwilligungAction.bind(null, BEWERBUNG_ID),
+        }),
+      },
+    ],
+  });
+
+const REGISTRIERUNG_ID = "68c1f0a2b3c4d5e6f7a8b952";
+const REGISTRIERUNG_TITEL = "Als Spielerin oder Spieler: Registrierung für SG Alpha, Saison 2026";
+
+/** A pending registration on the account page: withdraw-only, its scope chips beside its media switch. */
+const kontoRegistrierung = (medien: boolean) =>
+  h(EinwilligungPanel, {
+    eintraege: [
+      {
+        id: `registrierung-${REGISTRIERUNG_ID}`,
+        titel: REGISTRIERUNG_TITEL,
+        bestaetigt: null,
+        // For `kontoBewerbung`'s reason, at the registration's scope.
+        control: h(EinwilligungForm<Parameters<typeof patchRegistrierungEinwilligungAction>[1]["umfang"]>, {
+          worte: {
+            textVersion: "konto-test-1",
+            umfang: {
+              frage: "Was darf von Deinem Namen auf der Website stehen?",
+              optionen: { kader_oeffentlich: "Vorname und Initiale", intern: "Nur Nummer und Position" },
+              absatz: "Was auf der Website steht.",
+            },
+            medien: {
+              schalter: "Die Liga darf Fotos, Videos und Interviews von mir veröffentlichen.",
+              absatz: "Fotos nur mit Deiner Erlaubnis.",
+            },
+            nurWiderruf: "Hier kannst Du nur zurücknehmen.",
+            widerruf: "Jede Änderung gilt ab dem Speichern.",
+          },
+          gespeichert: { umfang: "intern" as const, medien: medien },
+          nachweisStand: { umfang: null, medien: null },
+          medienAngeboten: false,
+          erteilbar: false,
+          speichereAction: patchRegistrierungEinwilligungAction.bind(null, REGISTRIERUNG_ID),
+        }),
+      },
+    ],
+  });
 
 const LANDINGS: Record<string, Landing> = {
   "a venue row's reactivation, on the retirement replacing it": {
     before: () => h(AdminSpielorteView, { spielorte: [ort(ORT_A, "Halle A", null), ort(ORT_B, "Halle B", RETIRED_ON)] }),
-    press: (user) => user.click(buttonIn("spielorte-karten", "Spielort Halle B reaktivieren")),
+    press: (user) => user.click(buttonIn("spielorte-karten", "Reaktivieren: Spielort Halle B")),
     after: () => h(AdminSpielorteView, { spielorte: [ort(ORT_A, "Halle A", null), ort(ORT_B, "Halle B", null)] }),
-    lands: () => buttonIn("spielorte-karten", "Spielort Halle B stilllegen"),
+    lands: () => buttonIn("spielorte-karten", "Stilllegen: Spielort Halle B"),
   },
   "a venue row's reactivation the filter then hides, on the next row's": {
     search: "status=stillgelegt",
@@ -548,10 +685,10 @@ const LANDINGS: Record<string, Landing> = {
       h(AdminSpielorteView, {
         spielorte: [ort(ORT_A, "Halle A", RETIRED_ON), ort(ORT_B, "Halle B", RETIRED_ON), ort(ORT_C, "Halle C", RETIRED_ON)],
       }),
-    press: (user) => user.click(buttonIn("spielorte-tabelle", "Spielort Halle B reaktivieren")),
+    press: (user) => user.click(buttonIn("spielorte-tabelle", "Reaktivieren: Spielort Halle B")),
     after: () =>
       h(AdminSpielorteView, { spielorte: [ort(ORT_A, "Halle A", RETIRED_ON), ort(ORT_B, "Halle B", null), ort(ORT_C, "Halle C", RETIRED_ON)] }),
-    lands: () => buttonIn("spielorte-tabelle", "Spielort Halle C reaktivieren"),
+    lands: () => buttonIn("spielorte-tabelle", "Reaktivieren: Spielort Halle C"),
   },
   "a venue row's reactivation the filter then hides from the table's first row, on the next row's": {
     search: "status=stillgelegt",
@@ -559,131 +696,131 @@ const LANDINGS: Record<string, Landing> = {
       h(AdminSpielorteView, {
         spielorte: [ort(ORT_A, "Halle A", RETIRED_ON), ort(ORT_B, "Halle B", RETIRED_ON), ort(ORT_C, "Halle C", RETIRED_ON)],
       }),
-    press: (user) => user.click(buttonIn("spielorte-tabelle", "Spielort Halle A reaktivieren")),
+    press: (user) => user.click(buttonIn("spielorte-tabelle", "Reaktivieren: Spielort Halle A")),
     after: () =>
       h(AdminSpielorteView, { spielorte: [ort(ORT_A, "Halle A", null), ort(ORT_B, "Halle B", RETIRED_ON), ort(ORT_C, "Halle C", RETIRED_ON)] }),
-    lands: () => buttonIn("spielorte-tabelle", "Spielort Halle B reaktivieren"),
+    lands: () => buttonIn("spielorte-tabelle", "Reaktivieren: Spielort Halle B"),
   },
   "a venue's retirement in the dialog, on the reactivation replacing its row's control": {
     before: () => h(AdminSpielorteView, { spielorte: [ort(ORT_A, "Halle A", null), ort(ORT_B, "Halle B", null)] }),
     press: retireThroughDialog("spielorte-karten", "Spielort Halle A"),
     after: () => h(AdminSpielorteView, { spielorte: [ort(ORT_A, "Halle A", RETIRED_ON), ort(ORT_B, "Halle B", null)] }),
-    lands: () => buttonIn("spielorte-karten", "Spielort Halle A reaktivieren"),
+    lands: () => buttonIn("spielorte-karten", "Reaktivieren: Spielort Halle A"),
   },
   "a club row's reactivation, on the retirement replacing it": {
     before: () => h(AdminTeamsView, { teams: [team(TEAM_A, "SG Alpha", null), team(TEAM_B, "SG Beta", RETIRED_ON)], numberOfGroups: 2 }),
-    press: (user) => user.click(buttonIn("teams-karten", "Team SG Beta reaktivieren")),
+    press: (user) => user.click(buttonIn("teams-karten", "Reaktivieren: Team SG Beta")),
     after: () => h(AdminTeamsView, { teams: [team(TEAM_A, "SG Alpha", null), team(TEAM_B, "SG Beta", null)], numberOfGroups: 2 }),
-    lands: () => buttonIn("teams-karten", "Team SG Beta stilllegen"),
+    lands: () => buttonIn("teams-karten", "Stilllegen: Team SG Beta"),
   },
   "a club's retirement in the dialog, on the reactivation replacing its row's control": {
     before: () => h(AdminTeamsView, { teams: [team(TEAM_A, "SG Alpha", null), team(TEAM_B, "SG Beta", null)], numberOfGroups: 2 }),
     press: retireThroughDialog("teams-tabelle", "Team SG Alpha"),
     after: () => h(AdminTeamsView, { teams: [team(TEAM_A, "SG Alpha", RETIRED_ON), team(TEAM_B, "SG Beta", null)], numberOfGroups: 2 }),
-    lands: () => buttonIn("teams-tabelle", "Team SG Alpha reaktivieren"),
+    lands: () => buttonIn("teams-tabelle", "Reaktivieren: Team SG Alpha"),
   },
   "a referee row's reactivation, on the retirement replacing it": {
     before: () =>
       h(AdminSchiedsrichterView, { schiedsrichter: [schiedsrichter(SR_A, "Pia Kraft", null), schiedsrichter(SR_B, "Ole Berg", RETIRED_ON)] }),
-    press: (user) => user.click(buttonIn("schiedsrichter-karten", /Ole Berg reaktivieren$/)),
+    press: (user) => user.click(buttonIn("schiedsrichter-karten", /^Reaktivieren: .*Ole Berg$/)),
     after: () =>
       h(AdminSchiedsrichterView, { schiedsrichter: [schiedsrichter(SR_A, "Pia Kraft", null), schiedsrichter(SR_B, "Ole Berg", null)] }),
-    lands: () => buttonIn("schiedsrichter-karten", /Ole Berg stilllegen$/),
+    lands: () => buttonIn("schiedsrichter-karten", /^Stilllegen: .*Ole Berg$/),
   },
   "a referee's retirement in the dialog, on the reactivation replacing its row's control": {
     before: () =>
       h(AdminSchiedsrichterView, { schiedsrichter: [schiedsrichter(SR_A, "Pia Kraft", null), schiedsrichter(SR_B, "Ole Berg", null)] }),
     press: async (user) => {
-      await user.click(buttonIn("schiedsrichter-tabelle", /Pia Kraft stilllegen$/));
+      await user.click(buttonIn("schiedsrichter-tabelle", /^Stilllegen: .*Pia Kraft$/));
       await pressTwice(user, { resting: "Stilllegen", armed: "Ja, stilllegen" });
     },
     after: () =>
       h(AdminSchiedsrichterView, { schiedsrichter: [schiedsrichter(SR_A, "Pia Kraft", RETIRED_ON), schiedsrichter(SR_B, "Ole Berg", null)] }),
-    lands: () => buttonIn("schiedsrichter-tabelle", /Pia Kraft reaktivieren$/),
+    lands: () => buttonIn("schiedsrichter-tabelle", /^Reaktivieren: .*Pia Kraft$/),
   },
   "a player row's reactivation, on the retirement replacing it": {
     before: () => spielerList([spieler(SP_A, "Lena", RETIRED_ON), spieler(SP_B, "Mia", null)]),
-    press: (user) => user.click(buttonIn("spieler-karten", "Spieler Lena Meier reaktivieren")),
+    press: (user) => user.click(buttonIn("spieler-karten", "Spieler reaktivieren: Lena Meier")),
     after: () => spielerList([spieler(SP_A, "Lena", null), spieler(SP_B, "Mia", null)]),
-    lands: () => buttonIn("spieler-karten", "Spieler Lena Meier stilllegen"),
+    lands: () => buttonIn("spieler-karten", "Stilllegen: Spieler Lena Meier"),
   },
   "a player's retirement in the dialog, on the reactivation replacing its row's control": {
     before: () => spielerList([spieler(SP_A, "Lena", null), spieler(SP_B, "Mia", null)]),
     press: retireThroughDialog("spieler-tabelle", "Spieler Lena Meier"),
     after: () => spielerList([spieler(SP_A, "Lena", RETIRED_ON), spieler(SP_B, "Mia", null)]),
-    lands: () => buttonIn("spieler-tabelle", "Spieler Lena Meier reaktivieren"),
+    lands: () => buttonIn("spieler-tabelle", "Spieler reaktivieren: Lena Meier"),
   },
   "a venue table row's reactivation a screen reader activates, on the retirement replacing it": {
     before: () => h(AdminSpielorteView, { spielorte: [ort(ORT_A, "Halle A", null), ort(ORT_B, "Halle B", RETIRED_ON)] }),
-    press: (user) => pressVirtually(user, "spielorte-tabelle", "Spielort Halle B reaktivieren"),
+    press: (user) => pressVirtually(user, "spielorte-tabelle", "Reaktivieren: Spielort Halle B"),
     after: () => h(AdminSpielorteView, { spielorte: [ort(ORT_A, "Halle A", null), ort(ORT_B, "Halle B", null)] }),
-    lands: () => buttonIn("spielorte-tabelle", "Spielort Halle B stilllegen"),
+    lands: () => buttonIn("spielorte-tabelle", "Stilllegen: Spielort Halle B"),
   },
   "a venue table row's retirement a screen reader activates, on the reactivation replacing it": {
     before: () => h(AdminSpielorteView, { spielorte: [ort(ORT_A, "Halle A", null), ort(ORT_B, "Halle B", null)] }),
     press: retireVirtually("spielorte-tabelle", "Spielort Halle B"),
     after: () => h(AdminSpielorteView, { spielorte: [ort(ORT_A, "Halle A", null), ort(ORT_B, "Halle B", RETIRED_ON)] }),
-    lands: () => buttonIn("spielorte-tabelle", "Spielort Halle B reaktivieren"),
+    lands: () => buttonIn("spielorte-tabelle", "Reaktivieren: Spielort Halle B"),
   },
   "a club table row's reactivation a screen reader activates, on the retirement replacing it": {
     before: () => h(AdminTeamsView, { teams: [team(TEAM_A, "SG Alpha", null), team(TEAM_B, "SG Beta", RETIRED_ON)], numberOfGroups: 2 }),
-    press: (user) => pressVirtually(user, "teams-tabelle", "Team SG Beta reaktivieren"),
+    press: (user) => pressVirtually(user, "teams-tabelle", "Reaktivieren: Team SG Beta"),
     after: () => h(AdminTeamsView, { teams: [team(TEAM_A, "SG Alpha", null), team(TEAM_B, "SG Beta", null)], numberOfGroups: 2 }),
-    lands: () => buttonIn("teams-tabelle", "Team SG Beta stilllegen"),
+    lands: () => buttonIn("teams-tabelle", "Stilllegen: Team SG Beta"),
   },
   "a club table row's retirement a screen reader activates, on the reactivation replacing it": {
     before: () => h(AdminTeamsView, { teams: [team(TEAM_A, "SG Alpha", null), team(TEAM_B, "SG Beta", null)], numberOfGroups: 2 }),
     press: retireVirtually("teams-tabelle", "Team SG Beta"),
     after: () => h(AdminTeamsView, { teams: [team(TEAM_A, "SG Alpha", null), team(TEAM_B, "SG Beta", RETIRED_ON)], numberOfGroups: 2 }),
-    lands: () => buttonIn("teams-tabelle", "Team SG Beta reaktivieren"),
+    lands: () => buttonIn("teams-tabelle", "Reaktivieren: Team SG Beta"),
   },
   "a referee table row's reactivation a screen reader activates, on the retirement replacing it": {
     before: () =>
       h(AdminSchiedsrichterView, { schiedsrichter: [schiedsrichter(SR_A, "Pia Kraft", null), schiedsrichter(SR_B, "Ole Berg", RETIRED_ON)] }),
-    press: (user) => pressVirtually(user, "schiedsrichter-tabelle", /Ole Berg reaktivieren$/),
+    press: (user) => pressVirtually(user, "schiedsrichter-tabelle", /^Reaktivieren: .*Ole Berg$/),
     after: () =>
       h(AdminSchiedsrichterView, { schiedsrichter: [schiedsrichter(SR_A, "Pia Kraft", null), schiedsrichter(SR_B, "Ole Berg", null)] }),
-    lands: () => buttonIn("schiedsrichter-tabelle", /Ole Berg stilllegen$/),
+    lands: () => buttonIn("schiedsrichter-tabelle", /^Stilllegen: .*Ole Berg$/),
   },
   "a referee table row's retirement a screen reader activates, on the reactivation replacing it": {
     before: () =>
       h(AdminSchiedsrichterView, { schiedsrichter: [schiedsrichter(SR_A, "Pia Kraft", null), schiedsrichter(SR_B, "Ole Berg", null)] }),
     press: async (user) => {
-      await pressVirtually(user, "schiedsrichter-tabelle", /Ole Berg stilllegen$/);
+      await pressVirtually(user, "schiedsrichter-tabelle", /^Stilllegen: .*Ole Berg$/);
       await pressTwice(user, { resting: "Stilllegen", armed: "Ja, stilllegen" });
     },
     after: () =>
       h(AdminSchiedsrichterView, { schiedsrichter: [schiedsrichter(SR_A, "Pia Kraft", null), schiedsrichter(SR_B, "Ole Berg", RETIRED_ON)] }),
-    lands: () => buttonIn("schiedsrichter-tabelle", /Ole Berg reaktivieren$/),
+    lands: () => buttonIn("schiedsrichter-tabelle", /^Reaktivieren: .*Ole Berg$/),
   },
   "a player table row's reactivation a screen reader activates, on the retirement replacing it": {
     before: () => spielerList([spieler(SP_A, "Lena", null), spieler(SP_B, "Mia", RETIRED_ON)]),
-    press: (user) => pressVirtually(user, "spieler-tabelle", "Spieler Mia Meier reaktivieren"),
+    press: (user) => pressVirtually(user, "spieler-tabelle", "Spieler reaktivieren: Mia Meier"),
     after: () => spielerList([spieler(SP_A, "Lena", null), spieler(SP_B, "Mia", null)]),
-    lands: () => buttonIn("spieler-tabelle", "Spieler Mia Meier stilllegen"),
+    lands: () => buttonIn("spieler-tabelle", "Stilllegen: Spieler Mia Meier"),
   },
   "a player table row's retirement a screen reader activates, on the reactivation replacing it": {
     before: () => spielerList([spieler(SP_A, "Lena", null), spieler(SP_B, "Mia", null)]),
     press: retireVirtually("spieler-tabelle", "Spieler Mia Meier"),
     after: () => spielerList([spieler(SP_A, "Lena", null), spieler(SP_B, "Mia", RETIRED_ON)]),
-    lands: () => buttonIn("spieler-tabelle", "Spieler Mia Meier reaktivieren"),
+    lands: () => buttonIn("spieler-tabelle", "Spieler reaktivieren: Mia Meier"),
   },
   /* The list narrowed to retired squad rows drops the row its return revived, as working through them does. */
   "a squad row's return from the list, on the next row's": {
     search: "kader=ausgetragen&saison_id=2026",
     before: () =>
       spielerList([spieler(SP_A, "Lena", null, RETIRED_ON), spieler(SP_B, "Mia", null, RETIRED_ON), spieler(SP_C, "Nora", null, RETIRED_ON)]),
-    press: (user) => user.click(buttonIn("spieler-karten", "Kadereintrag von Mia Meier reaktivieren")),
+    press: (user) => user.click(buttonIn("spieler-karten", "Kadereintrag reaktivieren: Mia Meier")),
     after: () => spielerList([spieler(SP_A, "Lena", null, RETIRED_ON), spieler(SP_B, "Mia", null), spieler(SP_C, "Nora", null, RETIRED_ON)]),
-    lands: () => buttonIn("spieler-karten", "Kadereintrag von Nora Meier reaktivieren"),
+    lands: () => buttonIn("spieler-karten", "Kadereintrag reaktivieren: Nora Meier"),
   },
   "a squad row's return from the table's first row, on the next row's": {
     search: "kader=ausgetragen&saison_id=2026",
     before: () =>
       spielerList([spieler(SP_A, "Lena", null, RETIRED_ON), spieler(SP_B, "Mia", null, RETIRED_ON), spieler(SP_C, "Nora", null, RETIRED_ON)]),
-    press: (user) => user.click(buttonIn("spieler-tabelle", "Kadereintrag von Lena Meier reaktivieren")),
+    press: (user) => user.click(buttonIn("spieler-tabelle", "Kadereintrag reaktivieren: Lena Meier")),
     after: () => spielerList([spieler(SP_A, "Lena", null), spieler(SP_B, "Mia", null, RETIRED_ON), spieler(SP_C, "Nora", null, RETIRED_ON)]),
-    lands: () => buttonIn("spieler-tabelle", "Kadereintrag von Mia Meier reaktivieren"),
+    lands: () => buttonIn("spieler-tabelle", "Kadereintrag reaktivieren: Mia Meier"),
   },
   "a ban's removal, on the next ban's": {
     before: () => sperrliste(SPERREN),
@@ -731,9 +868,9 @@ const LANDINGS: Record<string, Landing> = {
     lands: () => heading("Halle A"),
   },
   "a referee editor's reactivation, on the editor's heading": {
-    before: () => h(AdminSchiedsrichterEditView, { schiedsrichter: SR_RECORD, inactiveSince: RETIRED_ON }),
+    before: () => h(AdminSchiedsrichterEditView, { istFassungBekannt: true, schiedsrichter: SR_RECORD, inactiveSince: RETIRED_ON }),
     press: (user) => user.click(screen.getByRole("button", { name: "Reaktivieren" })),
-    after: () => h(AdminSchiedsrichterEditView, { schiedsrichter: SR_RECORD, inactiveSince: null }),
+    after: () => h(AdminSchiedsrichterEditView, { istFassungBekannt: true, schiedsrichter: SR_RECORD, inactiveSince: null }),
     remount: true,
     lands: () => heading("Pia Kraft"),
   },
@@ -746,13 +883,13 @@ const LANDINGS: Record<string, Landing> = {
   },
   "a passkey's deletion, on the next card's": {
     before: () => panel(sicherheit()),
-    press: (user) => pressTwice(user, { resting: "Passkey „Laptop“ löschen", armed: "Ja, Passkey löschen" }),
+    press: (user) => pressTwice(user, { resting: "Löschen: Passkey „Laptop“", armed: "Ja, Passkey löschen" }),
     after: () => panel(sicherheit({ passkeys: [passkey("handy", "Handy")] })),
-    lands: () => screen.getByRole("button", { name: "Passkey „Handy“ löschen" }),
+    lands: () => screen.getByRole("button", { name: "Löschen: Passkey „Handy“" }),
   },
   "the last passkey's deletion, on the panel's heading once the list has gone": {
     before: () => panel(sicherheit({ passkeys: [passkey("laptop", "Laptop")] })),
-    press: (user) => pressTwice(user, { resting: "Passkey „Laptop“ löschen", armed: "Ja, Passkey löschen" }),
+    press: (user) => pressTwice(user, { resting: "Löschen: Passkey „Laptop“", armed: "Ja, Passkey löschen" }),
     after: () => panel(sicherheit({ passkeys: [] })),
     lands: () => heading("Sicherheit"),
   },
@@ -791,12 +928,12 @@ const LANDINGS: Record<string, Landing> = {
   "a passkey's saved name, on the rename control the form gives way to": {
     before: () => panel(sicherheit()),
     press: async (user) => {
-      await user.click(screen.getByRole("button", { name: "Passkey „Laptop“ umbenennen" }));
+      await user.click(screen.getByRole("button", { name: "Umbenennen: Passkey „Laptop“" }));
       await user.type(screen.getByRole("textbox", { name: "Name" }), " alt");
       await user.click(screen.getByRole("button", { name: "Speichern" }));
     },
     after: () => panel(sicherheit({ passkeys: [passkey("laptop", "Laptop alt"), passkey("handy", "Handy")] })),
-    lands: () => screen.getByRole("button", { name: "Passkey „Laptop alt“ umbenennen" }),
+    lands: () => screen.getByRole("button", { name: "Umbenennen: Passkey „Laptop alt“" }),
   },
   "a first registration link, on the new link's copy control": {
     answers: { postEinladungAction: MINTED },
@@ -838,20 +975,20 @@ const LANDINGS: Record<string, Landing> = {
   },
   "a seat's re-sent link, on the seat's re-send drawn anew": {
     before: () => bewerbungPage(MIT_OFFENEN_SITZEN),
-    press: (user) => user.click(screen.getByRole("button", { name: "Link erneut senden an Stellvertretung" })),
+    press: (user) => user.click(screen.getByRole("button", { name: "Link erneut senden: Stellvertretung" })),
     after: () =>
       bewerbungPage({
         ...MIT_OFFENEN_SITZEN,
         bestaetigungen: { ...OFFENE_BESTAETIGUNGEN, stellvertretung: { ...SITZ, erinnert_am: "2026-09-05" } },
       }),
     remount: true,
-    lands: () => screen.getByRole("button", { name: "Link erneut senden an Stellvertretung" }),
+    lands: () => screen.getByRole("button", { name: "Link erneut senden: Stellvertretung" }),
   },
   "a seat's corrected address, on the pencil that opened the box": {
     answers: { kontaktEmailKorrigierenAction: { success: true, verschickt: true, message: "Korrigiert." } },
     before: () => bewerbungPage(MIT_OFFENEN_SITZEN),
     press: async (user) => {
-      await user.click(screen.getByRole("button", { name: "E-Mail-Adresse von Bernd Meier korrigieren" }));
+      await user.click(screen.getByRole("button", { name: "Adresse korrigieren: Bernd Meier" }));
       await user.clear(screen.getByRole("textbox", { name: "Neue E-Mail-Adresse" }));
       await user.type(screen.getByRole("textbox", { name: "Neue E-Mail-Adresse" }), "bernd.meier@schule.example");
       await user.click(screen.getByRole("button", { name: "Korrigieren und Link senden" }));
@@ -862,32 +999,32 @@ const LANDINGS: Record<string, Landing> = {
         kontakte: { ...MIT_OFFENEN_SITZEN.kontakte, stellvertretung: kontaktperson("Bernd", "bernd.meier@schule.example", null) },
       }),
     remount: true,
-    lands: () => screen.getByRole("button", { name: "E-Mail-Adresse von Bernd Meier korrigieren" }),
+    lands: () => screen.getByRole("button", { name: "Adresse korrigieren: Bernd Meier" }),
   },
   "a correction's cancel, on the pencil that opened the box": {
     before: () => bewerbungPage(MIT_OFFENEN_SITZEN),
     press: async (user) => {
-      await user.click(screen.getByRole("button", { name: "E-Mail-Adresse von Bernd Meier korrigieren" }));
+      await user.click(screen.getByRole("button", { name: "Adresse korrigieren: Bernd Meier" }));
       await user.click(screen.getByRole("button", { name: "Abbrechen" }));
     },
     after: () => bewerbungPage(MIT_OFFENEN_SITZEN),
-    lands: () => screen.getByRole("button", { name: "E-Mail-Adresse von Bernd Meier korrigieren" }),
+    lands: () => screen.getByRole("button", { name: "Adresse korrigieren: Bernd Meier" }),
   },
   "a reseating's cancel, on the control that opened the box": {
     before: () => bewerbungPage(MIT_OFFENEN_SITZEN),
     press: async (user) => {
-      await user.click(screen.getByRole("button", { name: "Trainer neu besetzen" }));
+      await user.click(screen.getByRole("button", { name: "Neu besetzen: Trainer" }));
       await user.click(screen.getByRole("button", { name: "Abbrechen" }));
     },
     after: () => bewerbungPage(MIT_OFFENEN_SITZEN),
-    lands: () => screen.getByRole("button", { name: "Trainer neu besetzen" }),
+    lands: () => screen.getByRole("button", { name: "Neu besetzen: Trainer" }),
   },
   /* No other seat can be reseated, so the strip's heading takes the focus once the declined seat is filled. */
   "a reseated seat, on the strip's heading": {
     answers: { besetzeKontaktSitzAction: { success: true, verschickt: true, message: "Besetzt." } },
     before: () => bewerbungPage(MIT_OFFENEN_SITZEN),
     press: async (user) => {
-      await user.click(screen.getByRole("button", { name: "Trainer neu besetzen" }));
+      await user.click(screen.getByRole("button", { name: "Neu besetzen: Trainer" }));
       await user.type(screen.getByRole("textbox", { name: "Vorname" }), "Doreen");
       await user.type(screen.getByRole("textbox", { name: "Nachname" }), "Ostwald");
       await user.type(screen.getByRole("textbox", { name: "E-Mail" }), "doreen@schule.example");
@@ -926,6 +1063,14 @@ const LANDINGS: Record<string, Landing> = {
     after: () => austragen(null),
     remount: true,
     lands: () => screen.getByRole("button", { name: "Aus Kader 2026 austragen" }),
+  },
+  /* The seat holder's austragen has no return to draw in its stead: the row turns read-only, its panel the landing. */
+  "a seat holder's austragen of a squad row, on the read-only row's heading": {
+    before: kaderZeileEditor,
+    press: (user) => user.click(screen.getByRole("button", { name: "Aus Kader 2026 austragen" })),
+    after: kaderZeileAusgetragen,
+    remount: true,
+    lands: () => heading("Kadereintrag"),
   },
   /* The editor is drawn anew with nobody stored, the control standing again closed: its overlay is the stop. */
   "a season's cleared contacts, on the closed control drawn anew": {
@@ -1018,10 +1163,11 @@ const LANDINGS: Record<string, Landing> = {
     lands: () => heading("Kader 2026"),
   },
   "a referee's confirmation link, on its control drawn anew to send another": {
-    before: () => h(AdminSchiedsrichterEditView, { schiedsrichter: SR_RECORD, inactiveSince: null }),
+    before: () => h(AdminSchiedsrichterEditView, { istFassungBekannt: true, schiedsrichter: SR_RECORD, inactiveSince: null }),
     press: (user) => user.click(screen.getByRole("button", { name: "Bestätigungslink senden" })),
     after: () =>
       h(AdminSchiedsrichterEditView, {
+        istFassungBekannt: true,
         schiedsrichter: {
           ...SR_RECORD,
           bestaetigung: { verschickt_am: "2026-09-21", erinnert_am: null, frist: "2026-10-05", zustellung: null },
@@ -1029,7 +1175,23 @@ const LANDINGS: Record<string, Landing> = {
         inactiveSince: null,
       }),
     remount: true,
-    lands: () => screen.getByRole("button", { name: "Link erneut senden" }),
+    lands: () => screen.getByRole("button", { name: "Link erneut senden: Bestätigung" }),
+  },
+  /* The discard takes its own panel away, so the focus lands on the contact panel beside it, which stays. */
+  "a referee's waiting address discarded, on the contact panel's heading": {
+    before: () =>
+      h(AdminSchiedsrichterEditView, {
+        istFassungBekannt: true,
+        schiedsrichter: {
+          ...SR_RECORD,
+          adresswechsel: { email: "pia@neu.example", verschickt_am: "2026-09-21", frist: "2026-10-05", zustellung: null },
+        },
+        inactiveSince: null,
+      }),
+    press: (user) => user.click(screen.getByRole("button", { name: "Änderung verwerfen" })),
+    after: () => h(AdminSchiedsrichterEditView, { istFassungBekannt: true, schiedsrichter: SR_RECORD, inactiveSince: null }),
+    remount: true,
+    lands: () => heading(/^Kontakt/),
   },
   "a club editor's reactivation, on the editor's heading": {
     before: () => teamEditor(RETIRED_ON),
@@ -1037,6 +1199,49 @@ const LANDINGS: Record<string, Landing> = {
     after: () => teamEditor(null),
     remount: true,
     lands: () => heading("SG Alpha"),
+  },
+  "a registration's admission, on the next row's admission": {
+    before: () => registrierungen([REG_LENA, REG_MIA]),
+    press: (user) => pressTwice(user, { resting: "Aufnehmen: Lena Meier", armed: "Ja, aufnehmen" }),
+    after: () => registrierungen([REG_MIA]),
+    lands: () => screen.getByRole("button", { name: "Aufnehmen: Mia Schmidt" }),
+  },
+  "an application seat's media withdrawal on the account page, closing its switch, on the record's heading": {
+    answers: {
+      patchBewerbungEinwilligungAction: { success: true, message: "Gespeichert.", nachweis_stand: { umfang: null, medien: "x".repeat(64) } },
+    },
+    before: () => kontoBewerbung(true),
+    press: (user) => user.click(screen.getByRole("switch", { name: "Die Liga darf Fotos, Videos und Interviews von mir veröffentlichen." })),
+    after: () => kontoBewerbung(false),
+    lands: () => heading(KONTO_TITEL),
+  },
+  "an application seat's WhatsApp withdrawal on the account page, closing its switch, on the record's heading": {
+    answers: {
+      patchBewerbungEinwilligungAction: { success: true, message: "Gespeichert.", nachweis_stand: { umfang: "x".repeat(64), medien: null } },
+    },
+    before: () => kontoBewerbung(false, true),
+    press: (user) => user.click(screen.getByRole("switch", { name: "Die Liga darf mich auch über WhatsApp erreichen." })),
+    after: () => kontoBewerbung(false, false),
+    lands: () => heading(KONTO_TITEL),
+  },
+  "a pending registration's media withdrawal on the account page, closing its switch, on the record's heading": {
+    answers: {
+      patchRegistrierungEinwilligungAction: {
+        success: true,
+        message: "Gespeichert.",
+        nachweis_stand: { umfang: null, medien: "x".repeat(64) },
+      },
+    },
+    before: () => kontoRegistrierung(true),
+    press: (user) => user.click(screen.getByRole("switch", { name: "Die Liga darf Fotos, Videos und Interviews von mir veröffentlichen." })),
+    after: () => kontoRegistrierung(false),
+    lands: () => heading(REGISTRIERUNG_TITEL),
+  },
+  "a registration's decline, the last row, on the queue's heading": {
+    before: () => registrierungen([REG_LENA]),
+    press: (user) => pressTwice(user, { resting: "Ablehnen: Registrierung von Lena Meier", armed: "Ja, ablehnen" }),
+    after: () => registrierungen([]),
+    lands: () => heading("Offene Registrierungen"),
   },
 };
 

@@ -1,5 +1,5 @@
 import { deriveDraftStatus, emptyAsNull } from "@/shared/utils/draftStatus";
-import { formatSpielDatum } from "@/shared/utils/format";
+import { formatSpielDatum, nichtHinterlegt } from "@/shared/utils/format";
 
 import { AUSTRITT_OPTIONS, schulformLabel, trikotFarbeLabel } from "./constants";
 
@@ -74,10 +74,10 @@ const FIELD_DESCRIPTORS = [
       if (record === null) return null;
       // The route is IN the rendered value: switching a stored Disqualifikation to a Rückzug changes
       // nothing else, and a line that ignored it would leave the save button disabled on a real edit.
-      const art = AUSTRITT_OPTIONS.find((option) => option.value === record.type)?.label ?? "Art offen";
+      const art = AUSTRITT_OPTIONS.find((option) => option.value === record.type)?.label ?? nichtHinterlegt("Art");
       // Both fallbacks render a row rather than hiding one: they are the mid-edit states the schema
       // rejects on save, and the change list is where the admin sees what is still missing.
-      return `${art}: ${record.grund || "Kein Grund"} (ab ${formatSpielDatum(record.datum)})`;
+      return `${art}: ${record.grund || nichtHinterlegt("Grund")} (ab ${formatSpielDatum(record.datum)})`;
     },
     errorPaths: ["austritt", "austritt.type", "austritt.grund", "austritt.datum"],
   },

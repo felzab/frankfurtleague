@@ -2,6 +2,8 @@ import "@/shared/testing/dom.ts";
 import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { afterEach, describe, it } from "node:test";
 
 import { act, createElement as h } from "react";
@@ -9,35 +11,55 @@ import { act, createElement as h } from "react";
 import { parseDate } from "@internationalized/date";
 import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
+import ts from "typescript";
 
-import { SCHIEDSRICHTER_EINWILLIGUNG, SPIELER_EINWILLIGUNG } from "@/core/einwilligung.ts";
+import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
+import { TURNSTILE_HEADER } from "@/core/turnstileToken.ts";
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import {
+  laufendeBewerbungFassung,
+  laufendeKontaktFassung,
+  laufendeSchiedsrichterFassung,
+  laufendeSpielerFassung,
+} from "@/shared/testing/einwilligungAnswers.ts";
+import { TEST_SITE_KEY } from "@/shared/testing/siteverifyDouble.ts";
+import { doubleTurnstile } from "@/shared/testing/turnstileDouble.ts";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
+import { EDGE_REFUSAL_BODY } from "@/shared/utils/actionError.ts";
 import { getGermanTodayStr } from "@/shared/utils/date.ts";
 
-import { EDGE_RATE_LIMIT_STATUS, postPublicForm } from "./publicSubmit.ts";
+import { EDGE_RATE_LIMIT_STATUS, postPublicForm, UNKLAR_TITEL } from "./publicSubmit.ts";
 
 import type { ReactNode } from "react";
 
 /* The real module hands its raising to HeroUI's queue rather than back to the form that raised. */
 const { raised } = doubleToasts();
+/* Cloudflare's script, which jsdom never loads: without it the two forms holding the bot check wait for a token and post nothing. */
+doubleTurnstile();
 
 /* Reached with `await import` and never a static import beside the harness: the JSX compile step is
    registered as `renderTest` evaluates, and a static import resolves before that. */
 const { BewerbungForm } = await import("@/features/bewerbungen/components/forms/BewerbungForm/BewerbungForm.tsx");
 const { BestaetigungFormPanel } = await import("@/features/bewerbungen/components/views/BestaetigungFormPanel.tsx");
+const { BestaetigungSaisonVorbei } = await import("@/features/bewerbungen/components/views/BestaetigungSaisonVorbei.tsx");
 const { SchiedsrichterBestaetigungView } = await import("@/features/schiedsrichter/components/views/SchiedsrichterBestaetigungView.tsx");
+const { JA_MEINE_ADRESSE, SchiedsrichterAdresswechselView } =
+  await import("@/features/schiedsrichter/components/views/SchiedsrichterAdresswechselView.tsx");
+const { CodeStep } = await import("@/features/auth/components/forms/CodeStep.tsx");
 const { RegistrierungFormPanel } = await import("@/features/registrierungen/components/views/RegistrierungFormPanel.tsx");
 const { SpielerBestaetigungView } = await import("@/features/registrierungen/components/views/SpielerBestaetigungView.tsx");
 const { BEWERBUNG_SEATS } = await import("@/features/bewerbungen/constants.ts");
-const { SCHIEDSRICHTER_UMFANG_OPTIONS } = await import("@/features/schiedsrichter/constants.ts");
 const { TRIKOT_FARBE_OPTIONS } = await import("@/features/teams/constants.ts");
+
+/** Each public page's running words, off the registry the backend generated, as its page hands them in. */
+const SCHIEDSRICHTER = laufendeSchiedsrichterFassung();
+const SPIELER = laufendeSpielerFassung();
 
 // The three sentences a visitor can be shown, spelled here rather than imported: what this file
 // holds is the wording, and a test reading the module's own constant would agree with any rewording.
-const ZU_VIELE_VERSUCHE = "Zu viele Versuche in kurzer Zeit. Warte einen Moment und versuche es dann noch einmal.";
-const KEINE_ANTWORT_VON_UNS = "Die Website ist gerade nicht erreichbar. Warte einen Moment und versuche es dann noch einmal.";
-const KEINE_VERBINDUNG = "Prüfe Deine Verbindung und versuche es erneut.";
+const ZU_VIELE_VERSUCHE = "Zu viele Versuche in kurzer Zeit. Warte einen Moment und versuche es dann erneut.";
+const KEINE_ANTWORT_VON_UNS = "Die Website ist gerade nicht erreichbar. Warte einen Moment und versuche es dann erneut.";
+const KEINE_VERBINDUNG = "Prüfe die Verbindung und versuche es erneut.";
 
 const ENVELOPE = { "content-type": "application/json" };
 
@@ -57,10 +79,10 @@ afterEach(() => {
 });
 
 describe("what a public form is told when the answer was not this application's", () => {
-  /* nginx generates the limit before any route handler runs, so the body is its own HTML and the
+  /* nginx generates the limit before any route handler runs, so the body is its own sentence and the
      status is the whole of what arrived. The wait is a repair, which is why it is said out loud. */
   it("names the wait on the edge's rate limit", async () => {
-    antwortet("<html>429</html>", { status: EDGE_RATE_LIMIT_STATUS, headers: { "content-type": "text/html" } });
+    antwortet(EDGE_REFUSAL_BODY, { status: EDGE_RATE_LIMIT_STATUS, headers: { "content-type": "text/plain" } });
 
     const answered = await postPublicForm("/api/bewerbung", {});
 
@@ -119,7 +141,7 @@ describe("what a public form is told when the answer was not this application's"
     for (const [name, arrange, wroteNothing] of [
       [
         "the rate limit",
-        () => antwortet("<html>429</html>", { status: EDGE_RATE_LIMIT_STATUS, headers: { "content-type": "text/html" } }),
+        () => antwortet(EDGE_REFUSAL_BODY, { status: EDGE_RATE_LIMIT_STATUS, headers: { "content-type": "text/plain" } }),
         true,
       ],
       ["the challenge", () => antwortet("<html>challenge</html>", { status: 403, headers: { "cf-mitigated": "challenge" } }), false],
@@ -178,6 +200,24 @@ describe("what a public form is told when the application did answer", () => {
     assert.deepEqual(new Headers(sent[0]?.init.headers).get("content-type"), "application/json");
     assert.equal(sent[0]?.init.body, JSON.stringify({ token: "abc" }));
   });
+
+  /* Beside the body and never in it: the body is the backend's payload, whose schema holds no token. */
+  it("carries a bot check's token in its own header, and sends none where the form gave none", async () => {
+    const sent: RequestInit[] = [];
+    transportiert((_url, init) => {
+      sent.push(init);
+      return Promise.resolve(new Response(JSON.stringify({ success: true }), { status: 200, headers: ENVELOPE }));
+    });
+
+    await postPublicForm("/api/bewerbung", { schule: "x" }, { turnstileToken: "XXXX.DUMMY.TOKEN.XXXX" });
+    await postPublicForm("/api/bewerbung", { schule: "x" });
+
+    assert.deepEqual(
+      sent.map((init) => new Headers(init.headers).get(TURNSTILE_HEADER)),
+      ["XXXX.DUMMY.TOKEN.XXXX", null],
+    );
+    assert.equal(sent[0]?.body, JSON.stringify({ schule: "x" }));
+  });
 });
 
 /** A date as a picker's segments take it typed, day then month then year: `years` whole years before the German today. */
@@ -198,6 +238,8 @@ async function typeInto(user: User, box: HTMLElement, value: string): Promise<vo
 }
 
 type PublicForm = {
+  /** The module calling `postPublicForm`, below `src/`, which the caller reader below matches against. */
+  module: string;
   /** The route the form's write is addressed to. */
   route: string;
   render: () => ReactNode;
@@ -210,9 +252,17 @@ const SCHOOL_ID = "68d0f2a4c1e2b3a4d5e6f708";
 /** Every public form a visitor can submit, each named as this file reports it. */
 const FORMS: Record<string, PublicForm> = {
   "the application form": {
+    module: "features/bewerbungen/components/forms/BewerbungForm/BewerbungForm.tsx",
     route: "/api/bewerbung",
     render: () =>
-      h(BewerbungForm, { saisonId: "2026", schulen: [{ id: SCHOOL_ID, name: "Lessing-Kolleg" }], isSchulenLesbar: true, vergebeneFarben: [] }),
+      h(BewerbungForm, {
+        saisonId: "2026",
+        fassung: laufendeBewerbungFassung(),
+        schulen: [{ id: SCHOOL_ID, name: "Lessing-Kolleg" }],
+        isSchulenLesbar: true,
+        vergebeneFarben: [],
+        siteKey: TEST_SITE_KEY,
+      }),
     submit: async (user) => {
       await user.selectOptions(control("team_id"), SCHOOL_ID);
       await typeInto(user, screen.getByRole("textbox", { name: "Größe der Stufe" }), "90");
@@ -236,20 +286,50 @@ const FORMS: Record<string, PublicForm> = {
   },
   // The objection, which the panel sends with no field filled in.
   "the confirmation panel": {
+    module: "features/bewerbungen/components/views/BestaetigungFormPanel.tsx",
     route: "/api/bestaetigung/kontakt",
     render: () =>
       h(BestaetigungFormPanel, {
+        fassung: laufendeKontaktFassung(),
         token: "kein-echtes-token",
         vorname: "Mira",
         schule: "Lessing-Kolleg",
         saison: "2026",
         rolle: "Ansprechperson",
         mindestalter: 18,
+        medienMindestalter: 18,
+        onAbschluss: () => undefined,
+      }),
+    submit: (user) => pressTwice(user, { resting: "Ich möchte nicht eingetragen sein", armed: /Widerspruch/ }),
+  },
+  // A link whose season ended, which takes the Widerspruch alone.
+  "the season-over confirmation page": {
+    module: "features/bewerbungen/components/views/BestaetigungSaisonVorbei.tsx",
+    route: "/api/bestaetigung/kontakt",
+    render: () =>
+      h(BestaetigungSaisonVorbei, {
+        ansicht: {
+          acknowledged: 1,
+          zustand: "saison_vorbei",
+          quelle: "saison",
+          zeile: "saison_vorbei",
+          saison_id: "2026",
+          schule: "Lessing-Kolleg",
+          rolle: "ansprechperson",
+          zugleich_rolle: null,
+          vorname: "Mira",
+          text_version: laufendeKontaktFassung().textVersion,
+          laufende_fassung: laufendeKontaktFassung().textVersion,
+          mindestalter: 18,
+          medien_mindestalter: 18,
+        },
+        token: "kein-echtes-token",
         onAbschluss: () => undefined,
       }),
     submit: (user) => pressTwice(user, { resting: "Ich möchte nicht eingetragen sein", armed: /Widerspruch/ }),
   },
   "the referee's confirmation page": {
+    module: "features/schiedsrichter/components/views/SchiedsrichterBestaetigungView.tsx",
     route: "/api/bestaetigung/schiedsrichter",
     render: () =>
       h(SchiedsrichterBestaetigungView, {
@@ -260,21 +340,46 @@ const FORMS: Record<string, PublicForm> = {
             acknowledged: 1,
             zustand: "gueltig",
             vorname: "Anna",
-            text_version: SCHIEDSRICHTER_EINWILLIGUNG.textVersion,
+            text_version: SCHIEDSRICHTER.textVersion,
             mindestalter: 16,
             medien_mindestalter: 18,
             frist: "2026-10-05",
           },
+          fassung: SCHIEDSRICHTER,
         },
       }),
     submit: async (user) => {
       await user.click(screen.getByRole("spinbutton", { name: /Tag/ }));
       await user.keyboard(typedBirthdate(40));
-      await user.click(screen.getByRole("radio", { name: SCHIEDSRICHTER_UMFANG_OPTIONS[1]?.label ?? "" }));
+      await user.click(screen.getByRole("radio", { name: SCHIEDSRICHTER.bedienelemente.intern }));
       await user.click(screen.getByRole("button", { name: "Eintrag bestätigen" }));
     },
   },
+  "the referee's address page": {
+    module: "features/schiedsrichter/components/views/SchiedsrichterAdresswechselView.tsx",
+    route: "/api/bestaetigung/schiedsrichter/adresse",
+    render: () =>
+      h(SchiedsrichterAdresswechselView, { start: { zustand: "gueltig", vorname: "Anna", frist: "2026-10-05", token: "kein-echtes-token" } }),
+    submit: (user) => user.click(screen.getByRole("button", { name: JA_MEINE_ADRESSE })),
+  },
+  // The sixth digit sends the check by itself.
+  "the sign-in code step": {
+    module: "features/auth/components/forms/CodeStep.tsx",
+    route: "/api/signin/code",
+    render: () =>
+      h(CodeStep, {
+        address: "vorstand@example.org",
+        message: "Falls zu dieser Adresse ein Konto gehört, ist ein Anmeldecode unterwegs.",
+        hint: "Ein Hinweis dieser Seite.",
+        submitLabel: { rest: "Weiter", pending: "Läuft..." },
+        isSending: false,
+        onResend: () => undefined,
+        onSignedIn: () => undefined,
+      }),
+    submit: (user) => user.type(screen.getByLabelText("Code aus der E-Mail"), "048213"),
+  },
   "the registration form": {
+    module: "features/registrierungen/components/views/RegistrierungFormPanel.tsx",
     route: "/api/registrierung",
     render: () =>
       h(RegistrierungFormPanel, {
@@ -291,16 +396,18 @@ const FORMS: Record<string, PublicForm> = {
           team_eingetragen: true,
           nachnominierung: false,
         },
+        siteKey: TEST_SITE_KEY,
         onLinkTot: () => undefined,
       }),
     submit: async (user) => {
       await user.type(screen.getByRole("textbox", { name: /Vorname/ }), "Mira");
       await user.type(screen.getByRole("textbox", { name: /Nachname/ }), "Kern");
-      await user.type(screen.getByRole("textbox", { name: /E-Mail/ }), "mira.kern@beispiel.test");
+      await user.type(screen.getByRole("textbox", { name: /E-Mail/ }), "mira.kern@beispiel.example");
       await user.click(screen.getByRole("button", { name: /Registrierung abschicken/ }));
     },
   },
   "the pupil's confirmation page": {
+    module: "features/registrierungen/components/views/SpielerBestaetigungView.tsx",
     route: "/api/bestaetigung/spieler",
     render: () =>
       h(SpielerBestaetigungView, {
@@ -314,7 +421,7 @@ const FORMS: Record<string, PublicForm> = {
             schule: "Lessing-Kolleg Oberstufengymnasium",
             saison_id: "2026",
             vorname: "Mira",
-            text_version: SPIELER_EINWILLIGUNG.textVersion,
+            seite: SPIELER.seite,
             mindestalter: 16,
             medien_mindestalter: 18,
             geburtsdatum: null,
@@ -322,15 +429,10 @@ const FORMS: Record<string, PublicForm> = {
             medien: null,
           },
         },
-        fassung: {
-          textVersion: SPIELER_EINWILLIGUNG.textVersion,
-          absaetze: SPIELER_EINWILLIGUNG.absaetzeNachSchluessel,
-          schalter: SPIELER_EINWILLIGUNG.schalter,
-          bedienelemente: SPIELER_EINWILLIGUNG.bedienelemente,
-        },
+        fassung: SPIELER,
       }),
     submit: async (user) => {
-      await user.click(screen.getByRole("radio", { name: SPIELER_EINWILLIGUNG.bedienelemente.intern }));
+      await user.click(screen.getByRole("radio", { name: SPIELER.bedienelemente.intern }));
       const [tag] = screen.getAllByRole("spinbutton");
       await user.click(tag ?? assert.fail("the page renders no date to type"));
       await user.keyboard(typedBirthdate(17));
@@ -339,30 +441,93 @@ const FORMS: Record<string, PublicForm> = {
   },
 };
 
+const SRC = path.resolve(import.meta.dirname, "..", "..");
+const PUBLIC_SUBMIT = path.join(SRC, "shared", "utils", "publicSubmit");
+
+/** Whether `file` imports `postPublicForm`, or the module whole, read off its syntax tree. */
+function importsPostPublicForm(file: string): boolean {
+  const source = ts.createSourceFile(file, readFileSync(file, "utf8"), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+
+  return source.statements.some((statement) => {
+    if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) return false;
+    const specifier = statement.moduleSpecifier.text;
+    const resolved = specifier.startsWith("@/") ? path.join(SRC, specifier.slice(2)) : path.resolve(path.dirname(file), specifier);
+    if (resolved.replace(/\.ts$/, "") !== PUBLIC_SUBMIT) return false;
+
+    const bindings = statement.importClause?.namedBindings;
+    if (bindings !== undefined && ts.isNamespaceImport(bindings)) return true;
+    return bindings?.elements.some((element) => (element.propertyName ?? element.name).text === "postPublicForm") ?? false;
+  });
+}
+
+/** Every production module calling `postPublicForm`, below `src/`, read off the tree. */
+const CALLERS = filesUnder(SRC, (name) => /\.tsx?$/.test(name) && !isTestFile(name), 200)
+  .filter((file) => importsPostPublicForm(file))
+  .map((file) => path.relative(SRC, file).split(path.sep).join("/"))
+  .sort();
+
 describe("where each public form's write is transported", () => {
-  /* Only `postPublicForm` reads the edge's rate limit, answered in nginx's own HTML, as a refusal
+  /* The sweep below drives what `FORMS` names, so a caller left out of it answers the edge's refusal
+     however it likes with nothing failing. */
+  it("drives every module that calls the shared helper", () => {
+    assert.deepEqual(
+      CALLERS,
+      Object.values(FORMS)
+        .map(({ module }) => module)
+        .sort(),
+    );
+  });
+
+  /* Only `postPublicForm` reads the edge's rate limit, answered in nginx's own sentence, as a refusal
      that ruled the write out: a form writing on its own tells the visitor something else. */
   for (const [name, form] of Object.entries(FORMS)) {
     it(`${name} posts once to its own route, and passes on the shared helper's reading of the edge's refusal`, async () => {
-      const posted: string[] = [];
-      transportiert((url, init) => {
-        if (init.method !== "POST") return Promise.resolve(new Response(JSON.stringify({ success: true }), { status: 200, headers: ENVELOPE }));
-
-        posted.push(url);
-        return Promise.resolve(new Response("<html>429</html>", { status: EDGE_RATE_LIMIT_STATUS, headers: { "content-type": "text/html" } }));
-      });
-      raised.length = 0;
-
-      render(form.render());
-      await form.submit(userEvent.setup());
-      await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+      const { posted, shown } = await unanswered(form, () =>
+        Promise.resolve(new Response(EDGE_REFUSAL_BODY, { status: EDGE_RATE_LIMIT_STATUS, headers: { "content-type": "text/plain" } })),
+      );
 
       assert.deepEqual(posted, [form.route], `${name} posted somewhere other than once to its own route`);
       assert.deepEqual(
-        raised.filter((toast) => toast.variant === "danger").map((toast) => toast.description),
+        shown.map(({ description }) => description),
         [ZU_VIELE_VERSUCHE],
         `${name} told the visitor something other than the shared helper's sentence for the edge's rate limit`,
+      );
+      // The refusal ruled the write out, so its title is the form's own failure, never the unclear one.
+      assert.notEqual(shown[0]?.title, UNKLAR_TITEL, `${name} titles a write the edge refused as one of unknown outcome`);
+    });
+
+    /* A lost answer may have written, so its title is the one every public form gives an unknown
+       outcome: a form titling both arms alike tells one of them something false. */
+    it(`${name} titles an answer lost in transport as of unknown outcome`, async () => {
+      const { shown } = await unanswered(form, () => Promise.reject(new TypeError("Failed to fetch")));
+
+      // The title alone: a form whose resend cannot land twice says so in its own sentence.
+      assert.deepEqual(
+        shown.map(({ title }) => title),
+        [UNKLAR_TITEL],
+        `${name} titles a press nobody can tell landed as something other than of unknown outcome`,
       );
     });
   }
 });
+
+/** One submit of `form` whose POST `post` answers, every other request answered as a success. */
+async function unanswered(
+  form: PublicForm,
+  post: () => Promise<Response>,
+): Promise<{ posted: string[]; shown: { title: unknown; description: unknown }[] }> {
+  const posted: string[] = [];
+  transportiert((url, init) => {
+    if (init.method !== "POST") return Promise.resolve(new Response(JSON.stringify({ success: true }), { status: 200, headers: ENVELOPE }));
+
+    posted.push(url);
+    return post();
+  });
+  raised.length = 0;
+
+  render(form.render());
+  await form.submit(userEvent.setup());
+  await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+
+  return { posted, shown: raised.filter((toast) => toast.variant === "danger").map(({ title, description }) => ({ title, description })) };
+}

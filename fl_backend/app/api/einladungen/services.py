@@ -9,8 +9,9 @@ from collections.abc import Collection, Mapping
 from http import HTTPStatus
 from typing import Any, NamedTuple
 
-from app.api.bewerbungen.services import KONTAKT_SEATS, seat_named
+from app.api.bewerbungen.services import seat_named
 from app.api.einladungen.schemas import FLEinladungEmpfaenger, FLEinladungVersandGrund
+from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import is_confirmed
 from app.shared.folding import mailbox_key
@@ -100,10 +101,16 @@ def registrierungsfenster_laeuft(*, registrierung: Any, today: str) -> bool:
     return bool(registrierung.get("offen")) and von <= today <= bis
 
 
+# The partial filter `uniq_einladung_live` is built on, spelled as it is: the equality with `None`
+# does not imply it, so a read spelled that way scans every invite. The validator requires the key,
+# so the two select the same rows.
+LIVE_EINLADUNG: Mapping[str, Any] = {"widerrufen_am": {"$type": "null"}}
+
+
 def build_live_team_filter(*, saison_id: str, team_id: Any) -> Mapping[str, Any]:
     """The live invite of one team and season, which `uniq_einladung_live` makes at most one row."""
 
-    return {"saison_id": saison_id, "team_id": team_id, "widerrufen_am": None}
+    return {"saison_id": saison_id, "team_id": team_id, **LIVE_EINLADUNG}
 
 
 def find_live_einladung_filter(*, token_hash: str) -> Mapping[str, Any]:
@@ -113,7 +120,7 @@ def find_live_einladung_filter(*, token_hash: str) -> Mapping[str, Any]:
     link is spent.
     """
 
-    return {"token_hash": token_hash, "widerrufen_am": None}
+    return {"token_hash": token_hash, **LIVE_EINLADUNG}
 
 
 def compose_einladung(*, saison_id: str, team_id: Any, token_hash: str, erstellt_von: str, today: str) -> dict[str, Any]:
@@ -180,7 +187,7 @@ def bestaetigte_empfaenger(*, kontakte: Any) -> list[FLEinladungEmpfaenger]:
     empfaenger: list[FLEinladungEmpfaenger] = []
     seen: set[str] = set()
 
-    for seat in KONTAKT_SEATS:
+    for seat in KONTAKT_ROLLEN:
         entry = _confirmed_seat(kontakte, seat)
         rolle = seat_named(seat)
         if entry is None or rolle is None:

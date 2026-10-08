@@ -1,0 +1,7 @@
+// Linted as src/shared/hooks/useAnsweredActionState.ts.
+// The one module taking React's `useActionState`, and every other ban still reaches it, shared's own included.
+import { useActionState } from "react";
+
+export const TAKEN = useActionState;
+export const GAP = "flex gap-5"; // expect: gap
+export const SLICE = import("@/features/teams/facets"); // expect: layer-shared-load

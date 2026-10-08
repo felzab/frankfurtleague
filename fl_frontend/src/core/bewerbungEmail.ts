@@ -4,13 +4,17 @@ import { KONTAKT_EMAIL } from "./brand";
 import {
   ANTWORT_SATZ_HTML,
   ANTWORT_SATZ_TEXT,
+  art21Satz,
   ASIDE_TEXT,
   BRAND_COLOR,
   BRAND_MAIL_CLASS,
   BRAND_NAME,
   brandPhrase,
+  einzeilig,
   escapeHtml,
   escapeHtmlLines,
+  FALLBACK_SATZ,
+  fallbackBloecke,
   HEAD_MAIL_CLASS,
   HEADING_COLOR,
   LABEL_TEXT,
@@ -30,7 +34,7 @@ import {
 } from "./emailShell";
 import { joinUnd } from "./joinUnd";
 
-import type { Aktion } from "./emailShell";
+import type { Aktion, Fallback } from "./emailShell";
 
 /**
  * Future tense because it has to be: a club is entered only while its season is `future`
@@ -123,9 +127,6 @@ function neuBewerbenAktion(origin: string, saisonId: string): Aktion {
   return { href: `${origin}/bewerbung/${encodeURIComponent(saisonId)}`, label: "Neu bewerben", ton: "primary" };
 }
 
-// Spelled here as well as in `fl_frontend/src/core/schiedsrichterEmail.ts :: FALLBACK_SATZ`: one situation
-// reads as one sentence to the person meeting it, so the two move together.
-const FALLBACK_SATZ = "Falls der Button nicht funktioniert, kopiere diese Adresse in Deinen Browser:";
 /** The singular sentence standing over two addresses tells its reader that one of them is theirs. */
 const FALLBACK_SATZ_MEHRERE = "Falls die Buttons nicht funktionieren, kopiert diese Adressen in Euren Browser:";
 
@@ -164,15 +165,6 @@ export interface BewerbungAbsageData {
 
 /** The indent a stacked value's own lines carry, so none of them begins where a label does. */
 const FORTSETZUNG = "  ";
-
-/**
- * One line, whatever was typed. The text branch is line-oriented and `escapeHtml` guards the other
- * one, so a break here is the text half's injection: a value carrying one would render a line the
- * reader cannot tell from the facts around it.
- */
-function einzeilig(value: string): string {
-  return value.replace(/[\r\n]+/g, " ");
-}
 
 /**
  * A stacked value keeps its breaks -- a stated reason is a paragraph -- and gives up column 0, which
@@ -475,29 +467,9 @@ function seatAktionen(seats: readonly BewerbungLinkSeat[]): Aktion[] {
   }));
 }
 
-/** One address a reader can copy. `label` is empty where the message carries a single one and there is nothing to tell apart. */
-type Fallback = { readonly label: string; readonly url: string };
-
 /** Named only in the plural: an unlabelled second URL is a link nobody can place. */
 function seatFallbacks(seats: readonly BewerbungLinkSeat[]): Fallback[] {
   return seats.map((seat) => ({ label: seats.length < 2 ? "" : seatName(seat), url: einzeilig(seat.link) }));
-}
-
-/** The route for a reader whose client drew no button. */
-function fallbackBloecke(adressen: readonly Fallback[], satz: string): string[] {
-  const adresse = ({ label, url }: Fallback, index: number): string => {
-    /* Breaking inside a word, as `fl_frontend/src/core/authEmail.ts` does with its signed URL: a
-       token URL is longer than the card is wide and would otherwise push the card open. */
-    const stil = `${ASIDE_TEXT}word-break:break-all;`;
-
-    return paragraph(
-      `${label === "" ? "" : `${escapeHtml(label)}: `}${link(url, url)}`,
-      index === adressen.length - 1 ? "0 0 16px" : "0 0 8px",
-      stil,
-    );
-  };
-
-  return [paragraph(satz, "0 0 8px", ASIDE_TEXT), ...adressen.map(adresse)];
 }
 
 /** The same addresses as lines. A label shares no line with its URL: that is what stops a client linkifying both as one. */
@@ -519,14 +491,6 @@ function eingereichtSatz(schuleText: string, saisonId: string, markup: boolean):
 
   return `Für die Schule ${schule} wurde eine Bewerbung zur ${saison} der ${BRAND_NAME} eingereicht.`;
 }
-
-// A paragraph and a line group of its own, never beside the sentence offering to contradict the
-// entry: Art. 21(4) DSGVO asks the objection apart from every other piece of information, and the
-// entry's own `Widerspruch` is a different door.
-const art21Satz = (mehrere: boolean, adresse: string): string =>
-  mehrere
-    ? `Der Verarbeitung Eurer Angaben kann jede und jeder von Euch jederzeit aus Gründen widersprechen, die sich aus der eigenen besonderen Situation ergeben (Art. 21 DSGVO); eine formlose E-Mail an ${adresse} genügt.`
-    : `Der Verarbeitung Deiner Angaben kannst Du jederzeit aus Gründen widersprechen, die sich aus Deiner besonderen Situation ergeben (Art. 21 DSGVO); eine formlose E-Mail an ${adresse} genügt.`;
 
 /** **The two parts state the same facts**, as in the messages above. */
 export function buildBewerbungBestaetigungEmail({ saisonId, origin, schule, seats, fristText }: BewerbungBestaetigungData): BewerbungEmail {
@@ -574,7 +538,8 @@ export function buildBewerbungBestaetigungEmail({ saisonId, origin, schule, seat
         : "Ohne Deine Bestätigung bleibt die Bewerbung unvollständig. Nach drei Tagen erinnern wir Dich einmal; ist die Bewerbung vierzehn Tage nach dem Versand dieses Links noch unvollständig, löschen wir sie mit allen Angaben. Ersetzen wir später einen Link durch einen neuen, beginnt diese Frist für die ganze Bewerbung von vorn; eine Erinnerung verschiebt sie nicht.",
     ),
     // The address as a marked link, as every address standing in this card's prose is.
-    paragraph(art21Satz(mehrere, link(`mailto:${KONTAKT_EMAIL}`, KONTAKT_EMAIL))),
+    // Its own paragraph, never beside the sentence offering to contradict the entry: that `Widerspruch` is a different door.
+    paragraph(art21Satz(link(`mailto:${KONTAKT_EMAIL}`, KONTAKT_EMAIL), { mehrere })),
     ...fallbackBloecke(seatFallbacks(seats), mehrere ? FALLBACK_SATZ_MEHRERE : FALLBACK_SATZ),
   ]);
 
@@ -602,7 +567,7 @@ export function buildBewerbungBestaetigungEmail({ saisonId, origin, schule, seat
       : "ist die Bewerbung vierzehn Tage nach dem Versand dieses Links noch unvollständig, löschen wir sie mit allen Angaben.",
     "Ersetzen wir später einen Link durch einen neuen, beginnt diese Frist für die ganze Bewerbung von vorn; eine Erinnerung verschiebt sie nicht.",
     "",
-    art21Satz(mehrere, KONTAKT_EMAIL),
+    art21Satz(KONTAKT_EMAIL, { mehrere }),
   ]);
 
   return { subject: `Bitte bestätigen: ${BRAND_NAME}, Saison ${saisonId}`, html: html, text: text };

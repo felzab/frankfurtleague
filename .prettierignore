@@ -23,6 +23,7 @@ next-env.d.ts
 # Generated: formatting one only guarantees it drifts again on the next regeneration, and the
 # reformat would bury the change its diff carries.
 fl_backend/openapi.json
+fl_backend/einwilligung.json
 pnpm-lock.yaml
 
 # Each nested worktree is another branch's whole tree, with its own installs; the fixtures are what

@@ -3,7 +3,42 @@
 
 // Named clear of `test-*`, `*.test.*`, `*-test.*` and `*_test.*`: `node --test` collects a file so
 // named as a test and runs it a second time.
+import { existsSync, globSync } from "node:fs";
 import path from "node:path";
+
+/** The exit of a run refused before any file ran, apart from a run that failed. */
+export const REFUSED = 2;
+
+/**
+ * A pattern's wildcard. Brackets and parentheses are left out: Next's route folders spell them in
+ * named paths, which are matched literally and as the runner's glob alike below.
+ */
+const WILDCARD = /[*?{]/;
+
+/**
+ * Why a run over `named` is refused, or `null` (`docs/frontend/spec.md` §1.9). A wildcard matching
+ * nothing stays free: the `test` script's own patterns hold several.
+ */
+export function refusalOf(named) {
+  if (named.length === 0) {
+    return "test:base was named no path: it would run every test file, the database tier among them. Name the files, or run a tier's script.";
+  }
+
+  return (
+    named
+      .filter((argument) => !WILDCARD.test(argument) && !existsSync(path.resolve(argument)) && globSync(argument).length === 0)
+      .map((argument) => `${argument} matched no file: the run named it and would run nothing for it.`)
+      .join("\n") || null
+  );
+}
+
+// At load, before the runner starts a file: `--import` reaches only the files it starts, and this
+// process's `process.argv` past the executable is the named list, never the runner's options.
+const refusal = refusalOf(process.argv.slice(1));
+if (refusal !== null) {
+  process.stderr.write(`✖ ${refusal.replaceAll("\n", "\n✖ ")}\n`);
+  process.exit(REFUSED);
+}
 
 /**
  * A file that never summarises its run ended early or declared nothing. One whose tests are all

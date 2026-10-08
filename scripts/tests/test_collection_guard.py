@@ -78,6 +78,24 @@ def test_a_module_whose_classes_collect_nothing_fails_the_run_by_name(pytester: 
     assert "test_beside_a_helper.py collects no test" not in output, output
 
 
+SELECTED = {"test_runs": SUITE["test_runs"], "test_in_a_class": "class TestIt:\n    def test_runs(self):\n        assert True\n"}
+
+
+@pytest.mark.parametrize("flags", [pytest.param(("-p", "no:xdist"), id="one-process"), pytest.param(("-n", "2"), id="workers")])
+@pytest.mark.parametrize(
+    "node_id",
+    ["test_runs.py::test_runs", "test_in_a_class.py::TestIt", "test_in_a_class.py::TestIt::test_runs"],
+    ids=["a function", "a class", "a method"],
+)
+def test_a_test_selected_by_its_node_id_runs(pytester: pytest.Pytester, flags: tuple[str, ...], node_id: str) -> None:
+    """The session's own report names the selected node, whose parent is its module, before the module's tests are collected."""
+    result = _run(pytester, *flags, node_id, suite=SELECTED)
+    output = result.stdout.str()
+
+    assert result.ret == pytest.ExitCode.OK, output
+    assert "1 passed" in output, output
+
+
 def test_a_module_the_last_failed_run_skips_stands(pytester: pytest.Pytester) -> None:
     """`--lf` answers every module holding no last failure collected with nothing, never collecting it."""
     suite = {"test_fails": "def test_fails():\n    assert False\n", "test_runs": SUITE["test_runs"]}

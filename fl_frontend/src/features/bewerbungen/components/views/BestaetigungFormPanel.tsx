@@ -8,7 +8,7 @@ import { parseDate } from "@internationalized/date";
 import { Button } from "@heroui/react/button";
 import { Label } from "@heroui/react/label";
 
-import { BESTAETIGUNG_KENNTNISNAHME } from "@/core/einwilligung";
+import { ABLEHNEN_LABEL } from "@/features/bewerbungen/constants";
 import { buildEinwilligungAntwortPayloadSchema } from "@/features/bewerbungen/schemas";
 import { geburtsdatumSpanne } from "@/features/bewerbungen/utils";
 import { Callout } from "@/shared/components/ui/Callout";
@@ -25,27 +25,28 @@ import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
 import { getGermanTodayStr } from "@/shared/utils/date";
-import { ANTWORT_UNKLAR, postPublicForm } from "@/shared/utils/publicSubmit";
+import { reportRefusedConfirmation } from "@/shared/utils/linkConfirmation";
+import { postPublicForm, UNKLAR_TITEL } from "@/shared/utils/publicSubmit";
 
-import { BestaetigungHinweise, KlickBestaetigung, WhatsappHinweis, WiderspruchFolge } from "./BestaetigungHinweise";
-import { BestaetigungAbschnitt } from "./BestaetigungPanels";
+import { BestaetigungHinweise, KlickBestaetigung, MedienHinweis, WhatsappHinweis, WiderspruchFolge } from "./BestaetigungHinweise";
+import { ANTWORT_NICHT_GESPEICHERT, ANTWORT_NICHT_GESPEICHERT_SATZ, BestaetigungAbschnitt } from "./BestaetigungPanels";
 
 import type { FLBewerbungEinwilligungAntwortPayload } from "@/features/bewerbungen/schemas";
 import type { LinkZustand } from "@/features/bewerbungen/types";
 import type { TwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
 import type { CalendarDate } from "@internationalized/date";
+import type { KontaktFassung } from "./BestaetigungHinweise";
 
 /** What one press ends in, handed up to the page that swaps the form for the panel. */
 export type BestaetigungAbschluss =
-  { zustand: "erfolg"; geburtsdatum: string | null; whatsapp: boolean } | { zustand: "widersprochen-neu" } | { zustand: LinkZustand };
+  | { zustand: "erfolg"; geburtsdatum: string | null; whatsapp: boolean; medien: boolean }
+  | { zustand: "widersprochen-neu" }
+  | { zustand: LinkZustand | "saison_vorbei" };
 
 type EinwilligungAntwort =
-  | { success: true; ergebnis: "bestaetigt" | "abgelehnt"; geburtsdatum: string | null; whatsapp: boolean }
-  | (PublicEnvelope & { success: false; zustand?: LinkZustand });
-
-/** A control, not a link: it arms the objection and navigates nowhere. Named in the information text too. */
-const ABLEHNEN_LABEL = "Ich möchte nicht eingetragen sein";
+  | { success: true; ergebnis: "bestaetigt" | "abgelehnt"; geburtsdatum: string | null; whatsapp: boolean; medien: boolean }
+  | (PublicEnvelope & { success: false; zustand?: LinkZustand | "saison_vorbei" });
 
 /**
  * What the armed press sends. A constant rather than a literal in the branch: it is where
@@ -53,20 +54,28 @@ const ABLEHNEN_LABEL = "Ich möchte nicht eingetragen sein";
  */
 const WIDERSPRUCH_SENDEN = "Widerspruch senden";
 
-const NICHT_GESPEICHERT = "Deine Antwort wurde nicht gespeichert. Versuche es erneut.";
-
 // The floor is the person's rather than a seat's — one press answers for both seats of a mirrored
 // pair, and the link's read hands over the higher of the two.
 const geburtsdatumHinweis = (mindestalter: number): string =>
   `Für Deine Bestätigung musst Du mindestens ${String(mindestalter)} Jahre alt sein. Das Datum wird mit Deinem Eintrag gespeichert.`;
 
 /** The date mid-entry is a string, `""` being the empty picker; the judged shape is the payload's. */
-type Entwurf = { geburtsdatum: string; whatsapp: boolean };
+type Entwurf = { geburtsdatum: string; whatsapp: boolean; medien: boolean };
 
-const beurteilt = (entwurf: Entwurf) => ({
+const beurteilt = (entwurf: Entwurf, medienAngeboten: boolean) => ({
   geburtsdatum: entwurf.geburtsdatum === "" ? null : entwurf.geburtsdatum,
   whatsapp: entwurf.whatsapp,
+  // Never the draft's own `true` where no switch stands: one given before the date moved below the
+  // media age would send a consent this page withheld.
+  medien: medienAngeboten && entwurf.medien,
 });
+
+/**
+ * Off the date the age check reads, at the served media age: with no date yet the age is unknown,
+ * and a switch offered then would be one the write refuses for anybody under it.
+ */
+const bietetMedien = (geburtsdatum: string, medienMindestalter: number): boolean =>
+  geburtsdatum !== "" && geburtsdatum <= geburtsdatumSpanne(getGermanTodayStr(), medienMindestalter).spaeteste;
 
 /** The empty string is a date nobody has entered yet, which the picker shows as empty rather than refuses. */
 function toCalendarDate(stored: string): CalendarDate | null {
@@ -77,14 +86,20 @@ function toCalendarDate(stored: string): CalendarDate | null {
  * An objection sends no date and no consent, whatever the draft holds: an objection carrying a
  * consent switched on is a contradiction the page must not be able to send.
  */
-function antwortPayload(token: string, entwurf: Entwurf, ablehnen: boolean): FLBewerbungEinwilligungAntwortPayload {
+function antwortPayload(
+  token: string,
+  textVersion: string,
+  entwurf: Entwurf,
+  ablehnen: boolean,
+  medienAngeboten: boolean,
+): FLBewerbungEinwilligungAntwortPayload {
   // Stamped on an objection as well: the record has to name the words that were on screen when the
   // seat was refused, and a null there would leave the refusal citing nothing.
-  const fassung = { token: token, text_version: BESTAETIGUNG_KENNTNISNAHME.textVersion };
+  const fassung = { token: token, text_version: textVersion };
 
-  if (ablehnen) return { ...fassung, antwort: "abgelehnt", geburtsdatum: null, whatsapp: false };
+  if (ablehnen) return { ...fassung, antwort: "abgelehnt", geburtsdatum: null, whatsapp: false, medien: false };
 
-  return { ...fassung, antwort: "erteilt", ...beurteilt(entwurf) };
+  return { ...fassung, antwort: "erteilt", ...beurteilt(entwurf, medienAngeboten) };
 }
 
 /**
@@ -93,17 +108,24 @@ function antwortPayload(token: string, entwurf: Entwurf, ablehnen: boolean): FLB
  * them.
  */
 function BestaetigungAngaben({
+  fassung,
   entwurf,
   onEntwurf,
   onGeburtsdatumVerlassen,
   isDisabled,
   mindestalter,
+  medienMindestalter,
+  medienAngeboten,
 }: {
+  fassung: KontaktFassung;
   entwurf: Entwurf;
   onEntwurf: (entwurf: Entwurf) => void;
   onGeburtsdatumVerlassen: () => void;
   isDisabled: boolean;
   mindestalter: number;
+  medienMindestalter: number;
+  /** Whether the date entered reaches `medienMindestalter`, which the switch stands from. */
+  medienAngeboten: boolean;
 }) {
   const panel = formPanel();
   const { frueheste, spaeteste } = geburtsdatumSpanne(getGermanTodayStr(), mindestalter);
@@ -146,13 +168,35 @@ function BestaetigungAngaben({
           isSelected={entwurf.whatsapp}
           onChange={(whatsapp) => onEntwurf({ ...entwurf, whatsapp: whatsapp })}>
           <Switch.Content className={panel.switchContent()}>
-            {BESTAETIGUNG_KENNTNISNAHME.schalter}
+            {fassung.schalter}
             <Switch.Control className={panel.switchControl()}>
               <Switch.Thumb />
             </Switch.Control>
           </Switch.Content>
         </Switch>
-        <WhatsappHinweis />
+        <WhatsappHinweis absaetze={fassung.absaetze} />
+
+        {/* The pupil's and the referee's pages ask it so: the switch from the served age, the paragraph for every age. */}
+        {medienAngeboten && (
+          // Off on first paint and switched by nothing but a press: a pre-ticked consent records nothing.
+          <Switch
+            className="flex w-full flex-col gap-y-1"
+            name="medien"
+            isDisabled={isDisabled}
+            isSelected={entwurf.medien}
+            onChange={(medien) => onEntwurf({ ...entwurf, medien: medien })}>
+            <Switch.Content className={panel.switchContent()}>
+              {fassung.bedienelemente.medien}
+              <Switch.Control className={panel.switchControl()}>
+                <Switch.Thumb />
+              </Switch.Control>
+            </Switch.Content>
+          </Switch>
+        )}
+        <MedienHinweis
+          absaetze={fassung.absaetze}
+          medienMindestalter={medienMindestalter}
+        />
       </section>
     </>
   );
@@ -163,11 +207,16 @@ function BestaetigungAngaben({
  * objection stood in, so no new control lands under a finger already on the first.
  */
 function BestaetigungEntscheidung({
+  absaetze,
+  istSaison,
   widerspruch,
   isPending,
   beschreibtId,
   onWiderspruch,
 }: {
+  absaetze: KontaktFassung["absaetze"];
+  /** The seat sits on a team's season row, which no application stands behind. */
+  istSaison: boolean;
   /** The objection's two presses, which the confirmation's own flight is graded apart from. */
   widerspruch: TwoPressConfirm;
   /** The confirmation's own flight. */
@@ -221,9 +270,12 @@ function BestaetigungEntscheidung({
       {isConfirming && (
         <ConfirmReveal>
           <p className="fluid-xxs leading-normal font-medium text-foreground">
-            Ohne Deine Bestätigung kann die Bewerbung nicht vollständig werden. Deine Angaben oben brauchen wir für einen Widerspruch nicht.
+            {istSaison
+              ? "Ohne Deine Bestätigung bleibt Dein Eintrag unbestätigt."
+              : "Ohne Deine Bestätigung kann die Bewerbung nicht vollständig werden."}{" "}
+            Deine Angaben oben brauchen wir für einen Widerspruch nicht.
           </p>
-          <WiderspruchFolge />
+          <WiderspruchFolge absaetze={absaetze} />
         </ConfirmReveal>
       )}
     </div>
@@ -235,26 +287,35 @@ function BestaetigungEntscheidung({
  * press records, and a required „gelesen“ switch would be a second act recording the same thing.
  */
 export function BestaetigungFormPanel({
+  fassung,
   token,
   vorname,
   schule,
   saison,
   rolle,
+  istSaison = false,
   mindestalter,
+  medienMindestalter,
   onAbschluss,
 }: {
+  /** The words the page shows, under the label its answer stamps. */
+  fassung: KontaktFassung;
   token: string;
   vorname: string;
   schule: string;
   saison: string;
   /** The seat's long label, resolved by the caller so this form renders no role table of its own. */
   rolle: string;
+  /** The seat sits on a team's season row, which no application stands behind and nobody submitted. */
+  istSaison?: boolean;
   /** The floor the answer will be judged by, answered by the link's own read for the seats it covers. */
   mindestalter: number;
+  /** The age the media switch is offered from, answered by the link's own read for `mindestalter`'s reason. */
+  medienMindestalter: number;
   onAbschluss: (abschluss: BestaetigungAbschluss) => void;
 }) {
   const [isPending, startSending] = useTransition();
-  const [entwurf, setEntwurf] = useState<Entwurf>({ geburtsdatum: "", whatsapp: false });
+  const [entwurf, setEntwurf] = useState<Entwurf>({ geburtsdatum: "", whatsapp: false, medien: false });
   const widerspruch = useTwoPressConfirm();
   const { isConfirming, press } = widerspruch;
 
@@ -271,10 +332,12 @@ export function BestaetigungFormPanel({
       schemas: { einwilligung: antwortSchema },
       // This page's own word for the failure: the admin editors' „Änderung nicht gespeichert“ names a
       // change nobody here made, and two titles for one failure read as two failures.
-      failureTitle: "Antwort nicht gespeichert",
+      failureTitle: ANTWORT_NICHT_GESPEICHERT,
     });
 
-  useForgiveFixed({ einwilligung: antwortPayload(token, entwurf, isConfirming) });
+  const medienAngeboten = bietetMedien(entwurf.geburtsdatum, medienMindestalter);
+
+  useForgiveFixed({ einwilligung: antwortPayload(token, fassung.textVersion, entwurf, isConfirming, medienAngeboten) });
 
   const { spaeteste } = geburtsdatumSpanne(getGermanTodayStr(), mindestalter);
 
@@ -288,7 +351,7 @@ export function BestaetigungFormPanel({
     if (!gesendet.answered) {
       // No one title is true across both, the edge refusing the REQUEST ruling the write out where an
       // unread answer does not (`fl_frontend/src/shared/utils/publicSubmit.ts :: PublicAnswer`).
-      appToast.danger(gesendet.wroteNothing ? "Antwort nicht gespeichert" : "Unklar, ob es bei uns angekommen ist", {
+      appToast.danger(gesendet.wroteNothing ? ANTWORT_NICHT_GESPEICHERT : UNKLAR_TITEL, {
         description: gesendet.error,
       });
       return;
@@ -300,32 +363,28 @@ export function BestaetigungFormPanel({
     // `await` outside it.
     startTransition(() => {
       if (!antwort.success) {
-        // Titled as an unread answer is, the answer having perhaps landed: the envelope's own sentence
-        // is an administrator's repair, and a reload of this page has lost its token.
-        if (antwort.outcome === "unknown") {
-          appToast.danger("Unklar, ob es bei uns angekommen ist", { description: ANTWORT_UNKLAR });
-          return;
-        }
-
-        // The link died between the open and the press: the answer is the panel, never a toast.
-        if (antwort.zustand !== undefined) {
-          onAbschluss({ zustand: antwort.zustand });
-          return;
-        }
-
-        // The hook owns the press's one toast: none where a field shows the refusal.
-        reportSubmitFailure(
-          { success: false, error: antwort.error ?? NICHT_GESPEICHERT, fieldErrors: antwort.fieldErrors, unplacedError: antwort.unplacedError },
-          { einwilligung: payload },
-          { raise: (shown) => appToast.failure("Antwort nicht gespeichert", shown) },
-        );
+        reportRefusedConfirmation(antwort, {
+          onZustand: (zustand) => onAbschluss({ zustand }),
+          // The hook owns the press's one toast: none where a field shows the refusal.
+          onRefusal: () =>
+            reportSubmitFailure(
+              {
+                success: false,
+                error: antwort.error ?? ANTWORT_NICHT_GESPEICHERT_SATZ,
+                fieldErrors: antwort.fieldErrors,
+                unplacedError: antwort.unplacedError,
+              },
+              { einwilligung: payload },
+              { raise: (shown) => appToast.failure(ANTWORT_NICHT_GESPEICHERT, shown) },
+            ),
+        });
         return;
       }
 
       setSubmitFieldErrors({}, {});
       onAbschluss(
         antwort.ergebnis === "bestaetigt"
-          ? { zustand: "erfolg", geburtsdatum: antwort.geburtsdatum, whatsapp: antwort.whatsapp }
+          ? { zustand: "erfolg", geburtsdatum: antwort.geburtsdatum, whatsapp: antwort.whatsapp, medien: antwort.medien }
           : { zustand: "widersprochen-neu" },
       );
     });
@@ -333,7 +392,7 @@ export function BestaetigungFormPanel({
 
   /* Both presses of the objection hand the shared control the same write: the arming one drops it,
      and the second runs it, so the two cannot arm and send different payloads. */
-  const sendeWiderspruch = () => sende(antwortPayload(token, entwurf, true));
+  const sendeWiderspruch = () => sende(antwortPayload(token, fassung.textVersion, entwurf, true, medienAngeboten));
 
   const handleSubmit = () => {
     // Armed, this press is the shared control's second one and is graded there — including the
@@ -343,7 +402,7 @@ export function BestaetigungFormPanel({
       return;
     }
 
-    const payload = antwortPayload(token, entwurf, false);
+    const payload = antwortPayload(token, fassung.textVersion, entwurf, false, medienAngeboten);
     guardSubmit({ einwilligung: payload }, () => {
       startSending(async () => {
         await sende(payload);
@@ -358,6 +417,7 @@ export function BestaetigungFormPanel({
       className="flex w-full flex-col gap-6"
       onSubmit={handleSubmit}>
       <BestaetigungHinweise
+        absaetze={fassung.absaetze}
         schule={schule}
         saison={saison}
         rolle={rolle}
@@ -367,6 +427,7 @@ export function BestaetigungFormPanel({
 
       <BestaetigungAbschnitt titel="Deine Antwort">
         <KlickBestaetigung
+          absaetze={fassung.absaetze}
           id={klickPunkteId}
           vorname={vorname}
           schule={schule}
@@ -375,11 +436,16 @@ export function BestaetigungFormPanel({
         />
 
         <BestaetigungAngaben
+          fassung={fassung}
           entwurf={entwurf}
           onEntwurf={setEntwurf}
-          onGeburtsdatumVerlassen={() => validatePaths("einwilligung", antwortPayload(token, entwurf, false), ["geburtsdatum"])}
+          onGeburtsdatumVerlassen={() =>
+            validatePaths("einwilligung", antwortPayload(token, fassung.textVersion, entwurf, false, medienAngeboten), ["geburtsdatum"])
+          }
           isDisabled={isConfirming}
           mindestalter={mindestalter}
+          medienMindestalter={medienMindestalter}
+          medienAngeboten={medienAngeboten}
         />
 
         {istZuJung && (
@@ -387,13 +453,17 @@ export function BestaetigungFormPanel({
             severity="warning"
             isAnnounced
             title="Mit diesem Geburtsdatum kannst Du keine Kontaktperson sein.">
-            Hast Du Dich vertippt? Dann korrigiere das Datum. Stimmt es, sag der Person Bescheid, die die Bewerbung eingereicht hat: Diese
-            Person braucht an Deiner Stelle jemanden ab {String(mindestalter)}. Du kannst dem Eintrag auch widersprechen, dann entfernen wir
-            Deine Angaben.
+            Hast Du Dich vertippt? Dann korrigiere das Datum. Stimmt es,{" "}
+            {istSaison
+              ? "sag der Verwaltung der Liga Bescheid: Sie braucht"
+              : "sag der Person Bescheid, die die Bewerbung eingereicht hat: Diese Person braucht"}{" "}
+            an Deiner Stelle jemanden ab {String(mindestalter)}. Du kannst dem Eintrag auch widersprechen, dann entfernen wir Deine Angaben.
           </Callout>
         )}
 
         <BestaetigungEntscheidung
+          absaetze={fassung.absaetze}
+          istSaison={istSaison}
           widerspruch={widerspruch}
           isPending={isPending}
           beschreibtId={klickPunkteId}

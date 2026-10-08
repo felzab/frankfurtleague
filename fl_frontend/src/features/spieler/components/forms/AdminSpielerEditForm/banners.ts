@@ -1,5 +1,4 @@
-import { REACTIVATION_NEEDS_A_TEAM_IN_SAISON, RETIREMENT_KEEPS_SQUAD_ROWS } from "@/features/spieler/constants";
-import { formatSpielDatum } from "@/shared/utils/format";
+import { ausgetragenSeit, REACTIVATION_NEEDS_A_TEAM_IN_SAISON, RETIREMENT_KEEPS_SQUAD_ROWS } from "@/features/spieler/constants";
 
 import type { SpielerSaisonMembership } from "@/features/spieler/types";
 import type { RailBanner } from "@/shared/components/ui/railBanner";
@@ -91,7 +90,7 @@ export function buildSpielerBanners({
       id: "spieler.row-retired-since",
       severity: "info",
       raisedBy: "state",
-      title: `Ausgetragen seit ${formatSpielDatum(rowInactiveSince)}`,
+      title: ausgetragenSeit(rowInactiveSince),
       // The promise splits where the reactivate does: it names the row's STORED club, and a
       // replacement can have taken that club out of the season since the row was written.
       body: isRowTeamInSaison
@@ -130,7 +129,7 @@ export function buildSpielerBanners({
   }
 
   // Above the role, the order all three write paths ask the two questions in
-  // (`fl_backend/app/api/spieler/admin_router.py :: _refuse_a_full_squad`).
+  // (`fl_backend/app/api/spieler/admin_router.py :: add_the_player`).
   if (isSquadFull) {
     banners.push({
       id: "spieler.kader-voll",

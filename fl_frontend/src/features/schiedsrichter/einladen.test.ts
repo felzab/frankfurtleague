@@ -42,23 +42,15 @@ const { einladeSchiedsrichterAction, patchSchiedsrichterAction, postSchiedsricht
   await import("./actions.ts");
 const { describeLinkMail } = await import("./notifications.ts");
 const { ZURUECKGEHALTEN } = await import("@/features/einladungen/meldungen.ts");
-const { APIBadStatusError } = await import("@/core/errors.ts");
-const { FELD_ABGELEHNT, unansweredAction } = await import("@/shared/utils/actionError.ts");
+const { refusedOn } = await import("@/shared/testing/publishedRefusals.ts");
+const { FELD_ABGELEHNT, outcomeUnknown } = await import("@/shared/utils/actionError.ts");
 const { bodyField, refusedPayload } = await import("@/shared/testing/refusedPayload.ts");
 
 const SCHIEDSRICHTER_ID = "6890a1b2c3d4e5f607800001";
 
-const aRefusal = (serverErrorCode: string, statusCode = 409) =>
-  new APIBadStatusError({
-    message: "refused",
-    url: "http://localhost/schiedsrichter",
-    statusCode,
-    serverErrorCode,
-    endpoint: "/schiedsrichter",
-    method: "POST",
-    readOnly: false,
-    traceId: "0",
-  });
+const ROW_OPERATION = "GET /schiedsrichter/{schiedsrichter_id}";
+const MINT_OPERATION = "POST /schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen";
+const REACTIVATE_OPERATION = "POST /schiedsrichter/{schiedsrichter_id}/reactivate";
 
 /** The referee as the backend stores it, holding `email`. */
 const stored = (email: string | null, name: string | null = "Anna Meier") => ({
@@ -71,9 +63,15 @@ const stored = (email: string | null, name: string | null = "Anna Meier") => ({
   geburtsdatum: null,
   einwilligung: null,
   bestaetigung: null,
+  adresswechsel: null,
 });
 
-const withRow = (email: string | null, name?: string | null) => () => ({ acknowledged: 1, schiedsrichter: stored(email, name) });
+const withRow = (email: string | null, name?: string | null) => () => ({
+  acknowledged: 1,
+  schiedsrichter: stored(email, name),
+  bestaetigung_abgelaufen: false,
+  adresswechsel_abgelaufen: false,
+});
 
 /** A link minted for `email`, as each minting write answers it. */
 const minted = (email: string) => ({ token: "abc", frist: "2026-10-05", email });
@@ -95,6 +93,7 @@ beforeEach(() => {
     updated_document: stored("korrigiert@example.de"),
     fanned_out_to_spiele: 0,
     bestaetigung: minted("korrigiert@example.de"),
+    adresswechsel: null,
   });
   reactivate = () => ({ acknowledged: 1, updated_document: stored("anna@example.de"), bestaetigung: minted("anna@example.de") });
 });
@@ -147,7 +146,7 @@ describe("the re-send the editor's panel presses", () => {
 
     const res = await einladeSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });
 
-    assert.deepEqual(res, unansweredAction());
+    assert.deepEqual(res, outcomeUnknown());
   });
 
   /* Judged before the mint: a round trip to be told what the panel can already see is one nobody
@@ -164,7 +163,7 @@ describe("the re-send the editor's panel presses", () => {
   });
 
   it("refuses a row the read no longer finds", async () => {
-    row = () => aRefusal("DB-COMMON-001", 404);
+    row = () => refusedOn(ROW_OPERATION, "DB-COMMON-001");
 
     const res = await einladeSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });
 
@@ -183,7 +182,7 @@ describe("the re-send the editor's panel presses", () => {
   ] as const) {
     it(`words ${code} at the panel, and mails nothing`, async () => {
       mint = () => {
-        throw aRefusal(code);
+        throw refusedOn(MINT_OPERATION, code);
       };
 
       const res = await einladeSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });
@@ -228,7 +227,7 @@ describe("what the create tells the administrator", () => {
 
     const res = await postSchiedsrichterAction(ENTWURF);
 
-    assert.deepEqual(res, unansweredAction());
+    assert.deepEqual(res, outcomeUnknown());
   });
 
   /* The cleared box submits `null`: refused on that box in German, before the endpoint is reached,
@@ -245,14 +244,14 @@ describe("what the create tells the administrator", () => {
     assert.deepEqual(mail.sent, []);
   });
 
-  /* A reserved domain passes the form's rule and only the API refuses it: its 422 names the box, and
-     the create answers there rather than in a toast naming no field. */
+  /* A label RFC 5890 reserves passes the form's rule and only the API refuses it: its 422 names the box,
+     and the create answers there rather than in a toast naming no field. */
   it("puts an address only the API refuses on the address box, mailing nothing", async () => {
     create = () => {
       throw refusedPayload([bodyField(["kontakt", "email"])], "/schiedsrichter");
     };
 
-    const res = await postSchiedsrichterAction({ ...ENTWURF, kontakt: { email: "anna@beispiel.test", telefon: null } });
+    const res = await postSchiedsrichterAction({ ...ENTWURF, kontakt: { email: "anna@ab--cd.de", telefon: null } });
 
     assert.equal(res.success, false);
     assert.deepEqual(res.success ? undefined : res.fieldErrors, { "kontakt.email": FELD_ABGELEHNT });
@@ -336,11 +335,17 @@ describe("what the save hands the editor about the message it sent", () => {
 
     const res = await patchSchiedsrichterAction({ ...ENTWURF, id: SCHIEDSRICHTER_ID });
 
-    assert.deepEqual(res, unansweredAction());
+    assert.deepEqual(res, outcomeUnknown());
   });
 
   it("hands over no sentence where the save minted nothing", async () => {
-    save = () => ({ acknowledged: 1, updated_document: stored("anna@example.de"), fanned_out_to_spiele: 0, bestaetigung: null });
+    save = () => ({
+      acknowledged: 1,
+      updated_document: stored("anna@example.de"),
+      fanned_out_to_spiele: 0,
+      bestaetigung: null,
+      adresswechsel: null,
+    });
 
     const res = await patchSchiedsrichterAction({ ...ENTWURF, id: SCHIEDSRICHTER_ID });
 
@@ -377,7 +382,7 @@ describe("the reactivation of an unanswered referee", () => {
 
     const res = await reactivateSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });
 
-    assert.deepEqual(res, unansweredAction());
+    assert.deepEqual(res, outcomeUnknown());
   });
 
   it("mails nothing where the row came back unasked", async () => {
@@ -391,7 +396,7 @@ describe("the reactivation of an unanswered referee", () => {
 
   it("words the ban the mint on return is refused on", async () => {
     reactivate = () => {
-      throw aRefusal("REQ-SCHIEDSRICHTER-007");
+      throw refusedOn(REACTIVATE_OPERATION, "REQ-SCHIEDSRICHTER-007");
     };
 
     const res = await reactivateSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });

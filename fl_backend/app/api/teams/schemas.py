@@ -1,7 +1,8 @@
 import hashlib
 import json
+import re
 from collections.abc import Mapping
-from typing import Annotated, Any, Final, Literal, get_args
+from typing import Annotated, Any, Final, Literal, Self, get_args
 
 from pydantic import (
     AfterValidator,
@@ -13,8 +14,10 @@ from pydantic import (
     StringConstraints,
     TypeAdapter,
     computed_field,
+    model_validator,
 )
 
+from app.shared.folding import sign_in_identifier
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
 from app.shared.schemas.bounds import (
     EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH,
@@ -37,8 +40,10 @@ from app.shared.schemas.custom import (
     parse_empty_string_to_none,
     validate_external_url,
 )
+from app.shared.schemas.einwilligung import FLEinwilligungNachweise, FLEinwilligungStand, FLEinwilligungStandPayload
 from app.shared.schemas.kontakt import CustomEmail, CustomKontaktName
 from app.shared.schemas.responses import BaseAPIResponse
+from app.shared.schemas.zustellung import FLBewerbungZustellung
 
 # Spelled rather than derived: a `Literal`'s members must be literal expressions for a type checker
 # to read them. `tests/api/test_reference_models.py` holds the spelling to one naming rule, so
@@ -90,6 +95,42 @@ FLTrikotFarbe = Literal[
 # seat: the two are alternatives, and nothing can mean holding both.
 FLTrainerZugleich = Literal["ansprechperson", "stellvertretung"]
 
+# The three seats as a closed set, for the wire, in the order `FLSaisonTeamKontakte` declares them;
+# `tests/api/test_kontakt_erasure_execution.py :: test_every_slot_the_model_declares_is_covered` holds
+# the two equal, order included.
+FLKontaktRolle = Literal["trainer", "ansprechperson", "stellvertretung"]
+
+# The one spelling of the seat set every module iterates, so a fourth seat is added in one place.
+KONTAKT_ROLLEN: tuple[FLKontaktRolle, ...] = get_args(FLKontaktRolle)
+
+# A season row as a link minted on it sees it: open, or closed by its season ending, which outranks
+# its team having left it.
+FLKontaktZeile = Literal["offen", "saison_vorbei", "ausgetreten"]
+
+
+# Both spellings of the country code. Neither arm can take the other's value -- `0049…` does not
+# start with `49` -- so the order carries nothing.
+_TELEFON_COUNTRY_CODES = ("0049", "49")
+
+
+def normalise_telefon(value: str) -> str:
+    """One spelling per telephone number, so `+49 170 …` and `0170 …` compare equal.
+
+    Digits alone, `PHONE_REGEX` admitting spaces, brackets, hyphens and dots. No German area code
+    starts with the trunk `0`, so a leading country code folds back to it.
+    """
+
+    digits = re.sub(r"[^0-9]", "", value)
+
+    for country_code in _TELEFON_COUNTRY_CODES:
+        if digits.startswith(country_code):
+            # The second `removeprefix` takes the trunk zero written as `(0)`, which is the standard
+            # German notation and the commonest spelling of all. An international-format number
+            # carries no real leading zero, so dropping one can only be right.
+            return f"0{digits.removeprefix(country_code).removeprefix('0')}"
+
+    return digits
+
 
 class FLAustritt(BaseModel):
     """How a team came to be out of one season, why, and from when.
@@ -128,6 +169,20 @@ class _KontaktKenntnisnahmeWritable(BaseModel):
     datum: CustomDateString
 
 
+# Wider than the administrative payload's: the WhatsApp scope is the person's own, set on their
+# confirmation page and moved by their account page's seat PATCH; an administrator's payload offering it
+# would transcribe one.
+FLKontaktKenntnisnahmeUmfang = Literal["kontaktdaten", "kontaktdaten_whatsapp"]
+
+# What stored seats name as who answered; no write sets it (`app/shared/einwilligung_nachweis.py ::
+# SPRECHER`). Whether the person answered is `bestaetigt_am`, and who seated them `eingetragen_von`.
+FLKontaktKenntnisnahmeQuelle = Literal["person", "administrativ"]
+
+# Who put this person in the seat: the applicant on the form, or the league's administration (a reseat,
+# the contacts editor). Not `verwaltung`, the access tier's word (`docs/glossary.md :: verwaltung`).
+FLKontaktEingetragenVon = Literal["bewerbung", "liga"]
+
+
 class FLKontaktKenntnisnahme(_KontaktKenntnisnahmeWritable):
     """Which wording this person was shown, and how the record came to be held.
 
@@ -136,15 +191,20 @@ class FLKontaktKenntnisnahme(_KontaktKenntnisnahmeWritable):
     (`docs/glossary.md :: Einwilligung`).
     """
 
-    # Widened on the READ model alone: the WhatsApp scope is what a person ticks on their own
-    # confirmation page, and a payload offering it would let an administrator transcribe one.
-    umfang: Literal["kontaktdaten", "kontaktdaten_whatsapp"]
-    # Distinguishing the two is what stops an admin's transcription reading as the person's own
-    # answer. `person` is the confirmation link's to write and nobody else's.
-    erfasst_von: Literal["person", "administrativ"]
+    umfang: FLKontaktKenntnisnahmeUmfang
+    # For `app/api/spieler/schemas.py :: FLEinwilligung.erteilt_von`'s reason.
+    erfasst_von: FLKontaktKenntnisnahmeQuelle | None = None
     # The day this person confirmed the seat themselves; null until they do. Defaulted for
     # `FLTeam.schulform`'s reason: a record stored before the field carries no key.
     bestaetigt_am: CustomOptionalDateString = None
+    # The one consent on this record, to photographs, video and interviews, and on the READ model
+    # alone for `umfang`'s reason. Defaulted for `bestaetigt_am`'s.
+    medien: bool = False
+    # Written once, by the write that seats the person, and moved by nothing else: which confirmation
+    # page the seat's link opens. Defaulted for `bestaetigt_am`'s reason.
+    eingetragen_von: FLKontaktEingetragenVon | None = None
+    # Each choice's evidence, empty until the seat's person answers, for `FLEinwilligung.nachweis`'s reasons.
+    nachweis: FLEinwilligungNachweise = Field(default_factory=FLEinwilligungNachweise)
 
 
 class FLKontaktperson(BaseModel):
@@ -181,11 +241,46 @@ class FLSaisonTeamKontakte(BaseModel):
     trainer_ist_zugleich: FLTrainerZugleich | None
 
 
+class FLSaisonTeamBestaetigung(BaseModel):
+    """One seat's confirmation link as the season row stores it -- and NO `token_hash`, the raw document key the link's lookup alone reads."""
+
+    verschickt_am: CustomDateString
+    # STORED rather than derived from `verschickt_am` and the bound: raising the bound would otherwise
+    # move the deadline of every link already in somebody's inbox.
+    frist: CustomDateString
+    # Beside the slot rather than inside it: a Widerspruch EMPTIES the slot, and a marker in there would go with it.
+    abgelehnt_am: CustomOptionalDateString
+    # Defaulted: a fresh link knows nothing yet about its message.
+    zustellung: FLBewerbungZustellung | None = None
+
+
+class FLSaisonTeamBestaetigungen(BaseModel):
+    """The three seats' links, outside `kontakte` and mirroring its slots; nullable per seat, as the slot beside each is."""
+
+    trainer: FLSaisonTeamBestaetigung | None
+    ansprechperson: FLSaisonTeamBestaetigung | None
+    stellvertretung: FLSaisonTeamBestaetigung | None
+
+
+class FLSaisonTeamBestaetigungAnsicht(FLSaisonTeamBestaetigung):
+    """One seat's link as the contacts editor reads it: the stored link and whether it has lapsed."""
+
+    # Judged on the read by the rule the seat's press refuses on, at the server's date, so no client
+    # compares `frist` to a clock of its own; a read model, since nothing stores it.
+    abgelaufen: bool
+
+
+class FLSaisonTeamBestaetigungenAnsicht(BaseModel):
+    trainer: FLSaisonTeamBestaetigungAnsicht | None
+    ansprechperson: FLSaisonTeamBestaetigungAnsicht | None
+    stellvertretung: FLSaisonTeamBestaetigungAnsicht | None
+
+
 def _project_seat(value: Any) -> Any:
     """One seat with every READ field spelled, absent or not.
 
-    `geburtsdatum` and `bestaetigt_am` arrived after rows existed, so a row missing either key has to
-    answer the same token as one storing it null.
+    Every defaulted field arrived after rows existed, so a row missing its key has to answer the same
+    token as one storing what the read model reads there.
     """
 
     # `parse_empty_string_to_none` at every leaf, the coercion the read model makes on the way in: a
@@ -196,18 +291,35 @@ def _project_seat(value: Any) -> Any:
         # seat alike.
         return parse_empty_string_to_none(value)
 
-    projected: dict[str, Any] = {field: parse_empty_string_to_none(value.get(field)) for field in FLKontaktperson.model_fields}
+    projected: dict[str, Any] = {field: _projected_leaf(FLKontaktperson, value, field) for field in FLKontaktperson.model_fields}
     einwilligung = projected.get("einwilligung")
     if isinstance(einwilligung, Mapping):
+        # Never `nachweis`: it moves only with a choice or a stamp the token already holds, and its
+        # nested defaults would part a stored block's token from its read's.
         projected["einwilligung"] = {
-            field: parse_empty_string_to_none(einwilligung.get(field)) for field in FLKontaktKenntnisnahme.model_fields
+            field: _projected_leaf(FLKontaktKenntnisnahme, einwilligung, field)
+            for field in FLKontaktKenntnisnahme.model_fields
+            if field != "nachweis"
         }
 
     return projected
 
 
-# DERIVED and stored nowhere: a version the row carried would have to be bumped by all four writers
-# of `kontakte`, and a club rename would then refuse a contacts save.
+def _projected_leaf(model: type[BaseModel], stored: Mapping[str, Any], field: str) -> Any:
+    """One field as the read model answers it, an absent key reading as the field's default.
+
+    Never `None` there: `medien` reads `false`, and null would answer a token no read mints.
+    """
+
+    info = model.model_fields[field]
+    if field not in stored and not info.is_required():
+        return info.get_default(call_default_factory=True)
+
+    return parse_empty_string_to_none(stored.get(field))
+
+
+# DERIVED and stored nowhere: a version the row carried would have to be bumped by every writer of
+# `kontakte`, and a club rename would then refuse a contacts save.
 def kontakte_stand_of(block: Any) -> str:
     """The token naming which contact block a save was composed against. A precondition, never a secret."""
 
@@ -269,6 +381,48 @@ class FLSaisonTeamKontaktePayload(FLSaisonTeamKontakte):
     trainer: FLKontaktpersonPayload | None
     ansprechperson: FLKontaktpersonPayload | None
     stellvertretung: FLKontaktpersonPayload | None
+
+    @model_validator(mode="after")
+    def the_trainer_equals_the_seat_they_also_hold(self) -> Self:
+        """Where one person holds two seats, the two blocks agree field for field.
+
+        A mismatch is a drifted client, and stored it leaves two records of one person, unpaired by the
+        erasure and mailed two links.
+        """
+
+        if self.trainer_ist_zugleich is None:
+            return self
+
+        seat = getattr(self, self.trainer_ist_zugleich)
+
+        # An empty side is a seat an erasure or a Widerspruch emptied, which names nobody to compare.
+        if seat is not None and self.trainer is not None and seat != self.trainer:
+            raise ValueError(f"Die Angaben unter '{self.trainer_ist_zugleich}' müssen denen des Trainers entsprechen.")
+
+        return self
+
+    @model_validator(mode="after")
+    def the_distinct_people_share_no_email_or_telephone(self) -> Self:
+        """Two DIFFERENT people may not be reachable at one address or one number.
+
+        The seat the Trainer also holds is left out of the comparison: it is the same person, and
+        the rule above has already held the two blocks equal.
+        """
+
+        seats = [seat for seat in KONTAKT_ROLLEN if seat != self.trainer_ist_zugleich]
+        people: list[_KontaktpersonWritablePayload] = [person for seat in seats if (person := getattr(self, seat)) is not None]
+
+        # On the sign-in fold: two seats one sign-in reaches are one identity, and `casefold` would
+        # refuse „strasse“ beside „straße“, two domains to IDNA 2008.
+        emails = [sign_in_identifier(person.email) for person in people]
+        if len(set(emails)) != len(emails):
+            raise ValueError("Die Kontaktpersonen müssen unterschiedliche E-Mail-Adressen haben.")
+
+        telefone = [normalise_telefon(person.telefon) for person in people]
+        if len(set(telefone)) != len(telefone):
+            raise ValueError("Die Kontaktpersonen müssen unterschiedliche Telefonnummern haben.")
+
+        return self
 
 
 class FLTeamStatistik(BaseModel):
@@ -379,6 +533,8 @@ class FLTeamMembership(BaseModel):
     # either field existed would otherwise 500 the whole admin club list.
     trikot_farbe: FLTrikotFarbe | None = None
     kontakte: FLSaisonTeamKontakte | None = None
+    # Each seat's link as the editor shows it, the referee editor's twin; defaulted for `kontakte`'s reason.
+    bestaetigungen: FLSaisonTeamBestaetigungenAnsicht | None = None
 
     @computed_field
     @property
@@ -486,6 +642,26 @@ class FLPatchSaisonTeamKontaktePayload(BaseModel):
     # One opaque token rather than the read block echoed back, which would put a read model on a
     # request body. Required with no default: an omitted precondition judges nothing.
     kontakte_stand: str
+
+
+class SitzEinwilligungPayload(BaseModel):
+    """A seat holder's own two choices for every seat they hold on one row, under the name each seat control publishes.
+
+    Both choices on every press: a page that sent one alone would leave the other judged by nothing.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    umfang: FLKontaktKenntnisnahmeUmfang
+    medien: bool
+    # The label of the account page's seat control the press was given under, recorded on its evidence.
+    text_version: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)]
+    # The row's `nachweis_stand` as the page was served it (`docs/backend/spec.md :: I591`).
+    nachweis_stand: FLEinwilligungStandPayload
+
+
+class FLSaisonTeamPersonEinwilligungPayload(SitzEinwilligungPayload):
+    pass
 
 
 class FLReplaceSaisonTeamPayload(BaseModel):
@@ -613,16 +789,38 @@ class FLSaisonTeamResponse(BaseAPIResponse):
     shorthand: str = Field(min_length=TEAM_SHORTHAND_LENGTH, max_length=TEAM_SHORTHAND_LENGTH)
 
 
-class FLPatchSaisonTeamKontakteResponse(BaseAPIResponse):
-    """The block as STORED after the write, and the row it was written to.
+class FLKontaktMint(BaseModel):
+    """One person's fresh confirmation link, RAW, for the admin action to mail; it is answered here and in no other response, ever."""
 
-    No other field off that row: the caller sent none of them, and echoing one would invite a client
-    to believe this endpoint owns it.
+    token: str
+    # Every seat the one link answers for, two where the Trainer holds a second: one link per person.
+    rollen: list[FLKontaktRolle]
+    # As this transaction stored it, never a caller's earlier read: the link has to reach the person it seats.
+    email: str
+    frist: CustomDateString
+    # What the mail names, read in the same transaction as the address: the person's first name as
+    # seated, and the club under the name it carries in that season, the link's own page saying the same.
+    vorname: str
+    schule: str
+    # The row's state in the same transaction, so the mail asks what the link's page takes: a closed
+    # row's link takes the Widerspruch alone (`docs/backend/spec.md :: I570`).
+    zeile: FLKontaktZeile
+
+
+class FLPatchSaisonTeamKontakteResponse(BaseAPIResponse):
+    """The block as STORED after the write, its row, and the links it minted.
+
+    No other field off that row: the caller sent none, and echoing one would invite a client to
+    believe this endpoint owns it.
     """
 
     saison_id: str
     team_id: CustomObjectId
+    # The row's own id, which the delivery record of a mailed link is filed against.
+    saison_team_id: CustomObjectId
     kontakte: FLSaisonTeamKontakte | None
+    # Empty where the save seated nobody new: a seat keeping its person keeps their link.
+    bestaetigungen: list[FLKontaktMint]
 
     @computed_field
     @property
@@ -630,6 +828,15 @@ class FLPatchSaisonTeamKontakteResponse(BaseAPIResponse):
         """The AFTER image's token: this save has moved the row past what its caller read, so an undo of it can replay against no other."""
 
         return kontakte_stand_of(None if self.kontakte is None else self.kontakte.model_dump(mode="json"))
+
+
+class FLKontaktEinladenResponse(BaseAPIResponse):
+    """A fresh link for one seat, and its pair where the Trainer holds both; the old link then opens nothing."""
+
+    saison_id: str
+    team_id: CustomObjectId
+    saison_team_id: CustomObjectId
+    bestaetigung: FLKontaktMint
 
 
 class FLReplaceSaisonTeamResponse(BaseAPIResponse):
@@ -657,6 +864,41 @@ class FLReplaceSaisonTeamResponse(BaseAPIResponse):
     # Reported for the same reason, and separately: the outgoing club's squad leaves the season with
     # it, and zero is a real answer -- a club can hold a junction row and no squad at all.
     ausgetragene_squad_rows: int
+
+
+class FLTeamSitz(BaseModel):
+    """One seat as the people beside it see it: who holds it and whether they answered their link.
+
+    No address, telephone number or birthdate: the contact page promises that only administrators
+    see those (`fl_backend/app/shared/einwilligung.py :: FASSUNGEN`).
+    """
+
+    rolle: FLKontaktRolle
+    # Null for an empty slot, which is answered rather than omitted: a missing line reads as a team
+    # with two seats rather than one with a seat unfilled.
+    name: str | None
+    # Composed from the stamp and never the stamp itself, so no date about another person crosses.
+    bestaetigt: bool
+
+
+class FLTeamSitzeResponse(BaseAPIResponse):
+    """A team's three seats in one season, in the order `KONTAKT_ROLLEN` names them."""
+
+    team_id: CustomObjectId
+    saison_id: str
+    sitze: list[FLTeamSitz]
+
+
+class FLSaisonTeamPersonEinwilligungResponse(BaseAPIResponse):
+    """Which of the row's seats the press reached, and the two answers they now all hold."""
+
+    team_id: CustomObjectId
+    saison_id: str
+    rollen: list[FLKontaktRolle]
+    umfang: FLKontaktKenntnisnahmeUmfang
+    medien: bool
+    # The precondition a next press on this row echoes.
+    nachweis_stand: FLEinwilligungStand
 
 
 FLTeamsResponse = Annotated[

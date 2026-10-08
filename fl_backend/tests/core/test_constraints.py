@@ -6,7 +6,7 @@ from typing import Annotated, Any, Literal, Union, get_args, get_origin
 
 import pytest
 from bson import ObjectId
-from pydantic import BaseModel
+from pydantic import BaseModel, SecretStr
 from pydantic.fields import FieldInfo
 from pymongo.errors import OperationFailure
 
@@ -30,13 +30,12 @@ from app.api.bewerbungen.schemas import (
     FLBewerbungSchule,
     FLBewerbungStatus,
     FLBewerbungTrikot,
-    FLBewerbungZustellstand,
-    FLBewerbungZustellung,
 )
 from app.api.einladungen.schemas import FLEinladung, FLEinladungVersand
 from app.api.registrierungen.schemas import (
     FLRegistrierung,
     FLRegistrierungBestaetigung,
+    FLRegistrierungEinwilligung,
     FLRegistrierungEntscheidung,
     FLRegistrierungStatus,
 )
@@ -49,7 +48,7 @@ from app.api.saisons.schemas import (
     FLSaisonSpielplan,
     FLSaisonStatus,
 )
-from app.api.schiedsrichter.schemas import FLSchiedsrichter, FLSchiedsrichterBestaetigung
+from app.api.schiedsrichter.schemas import FLSchiedsrichter, FLSchiedsrichterAdresswechsel, FLSchiedsrichterBestaetigung
 from app.api.sperrliste.schemas import FLSperrlisteEintrag
 from app.api.spiele.schemas import (
     FLSaisonPhase,
@@ -64,6 +63,7 @@ from app.api.spiele.schemas import (
 )
 from app.api.spieler.schemas import (
     FLEinwilligung,
+    FLEinwilligungQuelle,
     FLSaisonSpielerRow,
     FLSpieler,
     FLSpielerPosition,
@@ -75,8 +75,12 @@ from app.api.spieltage.schemas import FLSpieltag
 from app.api.teams.schemas import (
     FLAustritt,
     FLGruppenNames,
+    FLKontaktEingetragenVon,
     FLKontaktKenntnisnahme,
+    FLKontaktKenntnisnahmeQuelle,
     FLKontaktperson,
+    FLSaisonTeamBestaetigung,
+    FLSaisonTeamBestaetigungen,
     FLSaisonTeamKontakte,
     FLSchulform,
     FLTeam,
@@ -84,6 +88,7 @@ from app.api.teams.schemas import (
     FLTrainerZugleich,
     FLTrikotFarbe,
 )
+from app.core import constraints
 from app.core.collections import Collection
 from app.core.constraints import (
     _AKTION_OPERATIONS,
@@ -98,14 +103,19 @@ from app.core.constraints import (
     diagnose_failure,
 )
 from app.core.recording import Actor, AktorFunktion, Operation, PersonActor
+from app.shared.einwilligung_nachweis import WAHLEN
 from app.shared.schemas.addresses import FLAddress
+from app.shared.schemas.einwilligung import FLEinwilligungBeleg, FLEinwilligungNachweis, FLEinwilligungNachweise
 from app.shared.schemas.kontakt import FLKontakt
+from app.shared.schemas.zustellung import FLBewerbungZustellstand, FLBewerbungZustellung
+from tests.config import UNANSWERED_URI, build_test_config
 
 # Not derived from `db.py`'s providers: the junctions are reached by `$lookup` and have none.
 EXPECTED_COLLECTIONS = {collection.value for collection in Collection}
 
 # Named here so giving one a model later fails this file rather than leaving its validator unmirrored.
-MODELLESS_COLLECTIONS = {Collection.SAISON_TEAMS}
+# A day's write count has none because no read serves it (`app/core/drosselung.py`).
+MODELLESS_COLLECTIONS = {Collection.SAISON_TEAMS, Collection.DROSSELUNG}
 
 # Ranges, formats and lengths stay Pydantic's: reaching for one of these widens the scope.
 OUT_OF_SCOPE_KEYWORDS = {
@@ -123,6 +133,18 @@ OUT_OF_SCOPE_KEYWORDS = {
     # Its own reason: forbidding unknown keys makes every field addition a deploy-ordering problem.
     "additionalProperties",
 }
+
+# Where a person's own consent record sits, and where a contact seat's does: one sub-schema each in
+# Python, and a separate path to the drift walk at every home.
+PERSON_RECORD_HOMES: tuple[tuple[Collection, tuple[str, ...]], ...] = tuple(
+    (collection, ("einwilligung",)) for collection in (Collection.SPIELER, Collection.SCHIEDSRICHTER, Collection.REGISTRIERUNGEN)
+)
+SEAT_RECORD_HOMES: tuple[tuple[Collection, tuple[str, ...]], ...] = tuple(
+    (collection, ("kontakte", seat, "einwilligung"))
+    for collection in (Collection.SAISON_TEAMS, Collection.BEWERBUNGEN)
+    for seat in ("trainer", "ansprechperson", "stellvertretung")
+)
+RECORD_HOMES: tuple[tuple[Collection, tuple[str, ...]], ...] = PERSON_RECORD_HOMES + SEAT_RECORD_HOMES
 
 # (collection, path to the sub-schema, model, fields the model has that the document does not). The
 # fourth keeps this an equality check: `FLTeam` and `FLSpieler` are assembled from several collections.
@@ -164,6 +186,8 @@ MIRRORED_MODELS: list[tuple[Collection, tuple[str, ...], type[BaseModel] | tuple
     # The delivery state at the register's other home: one shared sub-schema in Python, and the
     # drift walk reaching each path separately (`app/api/zustellung/services.py :: ZIEL_PFADE`).
     (Collection.SCHIEDSRICHTER, ("bestaetigung", "zustellung"), FLBewerbungZustellung, frozenset()),
+    (Collection.SCHIEDSRICHTER, ("adresswechsel",), FLSchiedsrichterAdresswechsel, frozenset()),
+    (Collection.SCHIEDSRICHTER, ("adresswechsel", "zustellung"), FLBewerbungZustellung, frozenset()),
     # `gruppe` and `austritt` join from `saison_teams`, `statistik` derives from `spiele`.
     (Collection.TEAMS, (), FLTeam, frozenset({"gruppe", "austritt", "statistik"})),
     # Twice on purpose: `FLTeam` is the read shape; `FLTeamRecord` is the write echo and must match exactly.
@@ -181,6 +205,15 @@ MIRRORED_MODELS: list[tuple[Collection, tuple[str, ...], type[BaseModel] | tuple
     (Collection.SAISON_TEAMS, ("kontakte", "trainer", "einwilligung"), FLKontaktKenntnisnahme, frozenset()),
     (Collection.SAISON_TEAMS, ("kontakte", "ansprechperson", "einwilligung"), FLKontaktKenntnisnahme, frozenset()),
     (Collection.SAISON_TEAMS, ("kontakte", "stellvertretung", "einwilligung"), FLKontaktKenntnisnahme, frozenset()),
+    # A seat's link, one row per seat because the validator declares the entry three times over, and
+    # the delivery record at its home under each.
+    (Collection.SAISON_TEAMS, ("bestaetigungen",), FLSaisonTeamBestaetigungen, frozenset()),
+    (Collection.SAISON_TEAMS, ("bestaetigungen", "trainer"), FLSaisonTeamBestaetigung, frozenset()),
+    (Collection.SAISON_TEAMS, ("bestaetigungen", "ansprechperson"), FLSaisonTeamBestaetigung, frozenset()),
+    (Collection.SAISON_TEAMS, ("bestaetigungen", "stellvertretung"), FLSaisonTeamBestaetigung, frozenset()),
+    (Collection.SAISON_TEAMS, ("bestaetigungen", "trainer", "zustellung"), FLBewerbungZustellung, frozenset()),
+    (Collection.SAISON_TEAMS, ("bestaetigungen", "ansprechperson", "zustellung"), FLBewerbungZustellung, frozenset()),
+    (Collection.SAISON_TEAMS, ("bestaetigungen", "stellvertretung", "zustellung"), FLBewerbungZustellung, frozenset()),
     (Collection.BEWERBUNGEN, (), FLBewerbung, frozenset()),
     (Collection.BEWERBUNGEN, ("schule",), FLBewerbungSchule, frozenset()),
     (Collection.BEWERBUNGEN, ("schule", "address"), FLAddress, frozenset()),
@@ -215,9 +248,9 @@ MIRRORED_MODELS: list[tuple[Collection, tuple[str, ...], type[BaseModel] | tuple
     (Collection.EINLADUNGEN, ("versand", "zustellung"), FLBewerbungZustellung, frozenset()),
     # `bestaetigt` is composed by the read from the consent record's own stamp and stored nowhere.
     (Collection.REGISTRIERUNGEN, (), FLRegistrierung, frozenset({"bestaetigt"})),
-    # The pupil's consent record on a third collection: widening `_EINWILLIGUNG` for any of them
-    # widens it for all three, and this row is where that shows.
-    (Collection.REGISTRIERUNGEN, ("einwilligung",), FLEinwilligung, frozenset()),
+    # The pupil's consent record on a third collection, its choices optional where a returning
+    # pupil's page asked none: a key added to `_EINWILLIGUNG` reaches it, and this row is where that shows.
+    (Collection.REGISTRIERUNGEN, ("einwilligung",), FLRegistrierungEinwilligung, frozenset()),
     (Collection.REGISTRIERUNGEN, ("bestaetigung",), FLRegistrierungBestaetigung, frozenset()),
     (Collection.REGISTRIERUNGEN, ("bestaetigung", "zustellung"), FLBewerbungZustellung, frozenset()),
     (Collection.REGISTRIERUNGEN, ("entscheidung",), FLRegistrierungEntscheidung, frozenset()),
@@ -226,6 +259,15 @@ MIRRORED_MODELS: list[tuple[Collection, tuple[str, ...], type[BaseModel] | tuple
     (Collection.BERECHTIGUNGEN_POSTAUSGANG, (), FLBerechtigungPostausgangZeile, frozenset()),
     (Collection.BERECHTIGUNGEN_POSTAUSGANG, ("jetzt",), FLBerechtigungStand, frozenset()),
     (Collection.BERECHTIGUNGEN_POSTAUSGANG, ("vorher",), FLBerechtigungStand, frozenset()),
+    # A consent record's evidence at every home, both vocabularies sharing its shape: one sub-schema
+    # in Python is still a path per home to the drift walk.
+    *((collection, (*block, "nachweis"), FLEinwilligungNachweise, frozenset()) for collection, block in RECORD_HOMES),
+    *((collection, (*block, "nachweis", wahl), FLEinwilligungNachweis, frozenset()) for collection, block in RECORD_HOMES for wahl in WAHLEN),
+    *(
+        (collection, (*block, "nachweis", wahl, "erteilt_zuvor"), FLEinwilligungBeleg, frozenset())
+        for collection, block in RECORD_HOMES
+        for wahl in WAHLEN
+    ),
 ]
 
 # (collection, path to the sub-schema, field, the Literal it must equal, whether null is a member).
@@ -242,7 +284,14 @@ MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...],
     (Collection.AKTIONEN, ("actor",), "funktion", get_args(FLAktorPerson.model_fields["funktion"].annotation), False),
     # Derived from the roster rather than spelled out, so adding a collection widens this enum and
     # forgetting to widen the validator fails here rather than at the first write to the new one.
-    (Collection.AKTIONEN, (), "collection", tuple(c.value for c in Collection if c is not Collection.AKTIONEN), False),
+    (
+        Collection.AKTIONEN,
+        (),
+        "collection",
+        # A day's write count is never logged (`app/core/drosselung.py`).
+        tuple(c.value for c in Collection if c not in {Collection.AKTIONEN, Collection.DROSSELUNG}),
+        False,
+    ),
     (Collection.SAISONS, (), "status", get_args(FLSaisonStatus), False),
     # An array: not itself a `Literal`, but its members are, which is what this row compares.
     (Collection.SAISONS, ("rules",), "erlaubte_stufen", get_args(FLSpielerStufe), False),
@@ -275,8 +324,8 @@ MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...],
         Collection.SAISON_TEAMS,
         ("kontakte", "trainer", "einwilligung"),
         "erfasst_von",
-        get_args(FLKontaktKenntnisnahme.model_fields["erfasst_von"].annotation),
-        False,
+        get_args(FLKontaktKenntnisnahmeQuelle),
+        True,
     ),
     (
         Collection.SAISON_TEAMS,
@@ -289,8 +338,8 @@ MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...],
         Collection.SAISON_TEAMS,
         ("kontakte", "ansprechperson", "einwilligung"),
         "erfasst_von",
-        get_args(FLKontaktKenntnisnahme.model_fields["erfasst_von"].annotation),
-        False,
+        get_args(FLKontaktKenntnisnahmeQuelle),
+        True,
     ),
     (
         Collection.SAISON_TEAMS,
@@ -303,8 +352,8 @@ MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...],
         Collection.SAISON_TEAMS,
         ("kontakte", "stellvertretung", "einwilligung"),
         "erfasst_von",
-        get_args(FLKontaktKenntnisnahme.model_fields["erfasst_von"].annotation),
-        False,
+        get_args(FLKontaktKenntnisnahmeQuelle),
+        True,
     ),
     (
         Collection.BEWERBUNGEN,
@@ -317,8 +366,8 @@ MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...],
         Collection.BEWERBUNGEN,
         ("kontakte", "trainer", "einwilligung"),
         "erfasst_von",
-        get_args(FLKontaktKenntnisnahme.model_fields["erfasst_von"].annotation),
-        False,
+        get_args(FLKontaktKenntnisnahmeQuelle),
+        True,
     ),
     (
         Collection.BEWERBUNGEN,
@@ -331,8 +380,8 @@ MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...],
         Collection.BEWERBUNGEN,
         ("kontakte", "ansprechperson", "einwilligung"),
         "erfasst_von",
-        get_args(FLKontaktKenntnisnahme.model_fields["erfasst_von"].annotation),
-        False,
+        get_args(FLKontaktKenntnisnahmeQuelle),
+        True,
     ),
     (
         Collection.BEWERBUNGEN,
@@ -345,15 +394,15 @@ MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...],
         Collection.BEWERBUNGEN,
         ("kontakte", "stellvertretung", "einwilligung"),
         "erfasst_von",
-        get_args(FLKontaktKenntnisnahme.model_fields["erfasst_von"].annotation),
-        False,
+        get_args(FLKontaktKenntnisnahmeQuelle),
+        True,
     ),
     (Collection.SPIELER, ("einwilligung",), "umfang", get_args(FLEinwilligung.model_fields["umfang"].annotation), False),
-    (Collection.SPIELER, ("einwilligung",), "erteilt_von", get_args(FLEinwilligung.model_fields["erteilt_von"].annotation), False),
+    (Collection.SPIELER, ("einwilligung",), "erteilt_von", get_args(FLEinwilligungQuelle), True),
     # The same sub-schema on another collection, and its own rows: `app/core/constraints.py ::
     # _EINWILLIGUNG` is shared, so a widening meant for one carrier reaches every carrier.
     (Collection.SCHIEDSRICHTER, ("einwilligung",), "umfang", get_args(FLEinwilligung.model_fields["umfang"].annotation), False),
-    (Collection.SCHIEDSRICHTER, ("einwilligung",), "erteilt_von", get_args(FLEinwilligung.model_fields["erteilt_von"].annotation), False),
+    (Collection.SCHIEDSRICHTER, ("einwilligung",), "erteilt_von", get_args(FLEinwilligungQuelle), True),
     (Collection.SPIELE, (), "saison_phase", get_args(FLSaisonPhase), False),
     (Collection.SPIELE, (), "sonderereignis", get_args(FLSonderereignis), True),
     (Collection.SPIELTAGE, (), "saison_phase", get_args(FLSaisonPhase), False),
@@ -390,12 +439,16 @@ MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...],
     # The same Literal at the register's other home: one shared sub-schema in Python, and the drift
     # walk still reaches each path on its own (`app/api/zustellung/services.py :: ZIEL_PFADE`).
     (Collection.SCHIEDSRICHTER, ("bestaetigung", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
+    (Collection.SCHIEDSRICHTER, ("adresswechsel", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
     (Collection.EINLADUNGEN, ("versand", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
     (Collection.REGISTRIERUNGEN, ("bestaetigung", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
+    (Collection.SAISON_TEAMS, ("bestaetigungen", "trainer", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
+    (Collection.SAISON_TEAMS, ("bestaetigungen", "ansprechperson", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
+    (Collection.SAISON_TEAMS, ("bestaetigungen", "stellvertretung", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
     # The consent vocabulary at its third home: one sub-schema in Python, and the drift walk still
     # reaches each collection's path on its own.
-    (Collection.REGISTRIERUNGEN, ("einwilligung",), "umfang", get_args(FLEinwilligung.model_fields["umfang"].annotation), False),
-    (Collection.REGISTRIERUNGEN, ("einwilligung",), "erteilt_von", get_args(FLEinwilligung.model_fields["erteilt_von"].annotation), False),
+    (Collection.REGISTRIERUNGEN, ("einwilligung",), "umfang", get_args(FLEinwilligung.model_fields["umfang"].annotation), True),
+    (Collection.REGISTRIERUNGEN, ("einwilligung",), "erteilt_von", get_args(FLEinwilligungQuelle), True),
     (Collection.REGISTRIERUNGEN, (), "status", get_args(FLRegistrierungStatus), False),
     # Closed on the stored row as well as the wire: the Playground writes a grant by hand.
     (Collection.BERECHTIGUNGEN, (), "verwaltung", get_args(FLVerwaltung), False),
@@ -409,6 +462,8 @@ MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...],
     # pupil may answer neither.
     (Collection.REGISTRIERUNGEN, (), "position", get_args(FLSpielerPosition), True),
     (Collection.REGISTRIERUNGEN, (), "stufe", get_args(FLSpielerStufe), True),
+    # Who seated the person, at every seat's home: the page its link opens is read off it.
+    *((collection, block, "eingetragen_von", get_args(FLKontaktEingetragenVon), True) for collection, block in SEAT_RECORD_HOMES),
 ]
 
 
@@ -436,37 +491,47 @@ def stored_fields(models: type[BaseModel] | tuple[type[BaseModel], ...]) -> dict
     return fields
 
 
-def properties_at(collection: Collection, path: tuple[str, ...]) -> Mapping[str, Any]:
+def schema_at(collection: Collection, path: tuple[str, ...]) -> Mapping[str, Any]:
+    """The sub-schema a path names, an array's step landing on its `items`.
+
+    One path for an array and its members, as `test_every_declared_enum_is_checked` records an
+    array's enum: the members are what a model row mirrors.
+    """
     schema: Mapping[str, Any] = COLLECTION_VALIDATORS[collection]["$jsonSchema"]
 
     for step in path:
         schema = schema["properties"][step]
+        schema = schema.get("items", schema)
 
-    return schema["properties"]
+    return schema
+
+
+def properties_at(collection: Collection, path: tuple[str, ...]) -> Mapping[str, Any]:
+    return schema_at(collection, path)["properties"]
 
 
 def required_at(collection: Collection, path: tuple[str, ...]) -> list[str]:
     """`properties_at`'s sibling: `required` is a key beside `properties` rather than one inside it."""
-    schema: Mapping[str, Any] = COLLECTION_VALIDATORS[collection]["$jsonSchema"]
 
-    for step in path:
-        schema = schema["properties"][step]
-
-    return list(schema.get("required", []))
+    return list(schema_at(collection, path).get("required", []))
 
 
 def walk_schemas(schema: Mapping[str, Any]):
+    """Every sub-schema, an array's `items` among them: a member's `required` and its keywords bind as a property's do."""
     yield schema
 
     for child in schema.get("properties", {}).values():
         yield from walk_schemas(child)
+
+    if "items" in schema:
+        yield from walk_schemas(schema["items"])
 
 
 def test_every_collection_has_a_validator():
     assert set(COLLECTION_VALIDATORS) == EXPECTED_COLLECTIONS
 
 
-def test_only_the_saison_teams_junction_is_unmirrored():
+def test_only_the_named_collections_are_unmirrored():
     """Root entries only: `saison_teams` has a mirrored sub-document and its row is still modelless."""
     mirrored_rows = {collection for collection, path, _, _ in MIRRORED_MODELS if not path}
     assert set(COLLECTION_VALIDATORS) - mirrored_rows == MODELLESS_COLLECTIONS
@@ -505,6 +570,8 @@ STORED_BUT_NOT_SERVED: Mapping[tuple[Collection, tuple[str, ...]], frozenset[str
     # The raw token's hash is the whole credential and no model declares it, so the link cannot be
     # recovered from the editor's read of the block beside it.
     (Collection.SCHIEDSRICHTER, ("bestaetigung",)): frozenset({"token_hash"}),
+    # The address link's hash, for the confirmation link's reason.
+    (Collection.SCHIEDSRICHTER, ("adresswechsel",)): frozenset({"token_hash"}),
     # Served on a read, every live link of the season would be recoverable from an admin page. The
     # action log's pre-image of a REVOKED row serves one, safely: the hash rebuilds nothing, and
     # that operation revoked the row it imaged.
@@ -514,6 +581,12 @@ STORED_BUT_NOT_SERVED: Mapping[tuple[Collection, tuple[str, ...]], frozenset[str
     (Collection.REGISTRIERUNGEN, ("bestaetigung",)): frozenset({"token_hash", "token_hash_zuvor"}),
     # The application's pair, for the application's reason.
     (Collection.REGISTRIERUNGEN, ()): frozenset({"idempotenz_schluessel", "idempotenz_fingerabdruck"}),
+    # A contact seat's link on a team's season row, for the application's reason.
+    (Collection.SAISON_TEAMS, ("bestaetigungen", "trainer")): frozenset({"token_hash"}),
+    (Collection.SAISON_TEAMS, ("bestaetigungen", "ansprechperson")): frozenset({"token_hash"}),
+    (Collection.SAISON_TEAMS, ("bestaetigungen", "stellvertretung")): frozenset({"token_hash"}),
+    # The registration's pair after its admission, read by the submission's replay lookup alone.
+    (Collection.SAISON_SPIELER, ()): frozenset({"idempotenz_schluessel", "idempotenz_fingerabdruck"}),
 }
 
 
@@ -805,6 +878,66 @@ def test_a_driver_failure_is_diagnosed_rather_than_traced(code: int, errmsg: str
     assert "mongodb://" not in diagnosis and "mongodb+srv://" not in diagnosis and "@" not in diagnosis
 
 
+DUPLICATE_KEY_ERRMSG = "E11000 duplicate key error collection: fl_main.teams index: uniq_shorthand"
+
+REFUSED_BUILD = "Could not build unique index 'teams.uniq_shorthand' (shorthand)"
+
+
+def _duplicate_key() -> OperationFailure:
+    return OperationFailure(DUPLICATE_KEY_ERRMSG, 11000, {"errmsg": DUPLICATE_KEY_ERRMSG, "code": 11000})
+
+
+def _a_refused_build() -> RuntimeError:
+    """As `app/core/constraints.py :: apply_constraints` raises one: the build named, the driver's refusal its cause."""
+
+    cause = _duplicate_key()
+    wrapped = RuntimeError(f"{REFUSED_BUILD}: {cause}")
+    wrapped.__cause__ = cause
+
+    return wrapped
+
+
+def _applied(failure: BaseException, monkeypatch: pytest.MonkeyPatch) -> int:
+    """`python -m app.core.constraints --apply`'s own run, its apply raising `failure`; no server is reached."""
+
+    async def raising(_database: Any) -> Any:
+        raise failure
+
+    monkeypatch.setattr(constraints, "apply_constraints", raising)
+    monkeypatch.setattr(constraints, "get_config", lambda: build_test_config().model_copy(update={"mongodb_uri": SecretStr(UNANSWERED_URI)}))
+
+    return asyncio.run(constraints._run(check=False))
+
+
+@pytest.mark.parametrize(
+    ("failure", "named"),
+    [
+        pytest.param(_duplicate_key(), None, id="the driver's refusal"),
+        pytest.param(_a_refused_build(), REFUSED_BUILD, id="a build the apply names"),
+    ],
+)
+def test_a_refused_apply_is_diagnosed_and_exits_two(
+    failure: BaseException, named: str | None, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+):
+    """The apply names a refused build in a `RuntimeError` around the driver's refusal.
+
+    Both reach the operator as a diagnosis and exit 2, never a traceback.
+    """
+
+    assert _applied(failure, monkeypatch) == 2
+
+    printed = capsys.readouterr().out
+    assert "refused the command (11000)" in printed
+    assert named is None or named in printed
+
+
+def test_a_runtime_error_no_refusal_caused_keeps_its_traceback(monkeypatch: pytest.MonkeyPatch):
+    """Only a refused build is the operator's to read; any other failure is a defect."""
+
+    with pytest.raises(RuntimeError, match="a defect"):
+        _applied(RuntimeError("a defect"), monkeypatch)
+
+
 def test_no_two_declared_indexes_share_a_name():
     """Two indexes sharing a name is the second one silently never being built.
 
@@ -827,14 +960,25 @@ def test_every_ttl_index_expires_on_a_date_field_the_validator_declares(ttl):
     assert declared.get("bsonType") == "date", f"{ttl.name} expires on {ttl.key!r}, declared as {declared.get('bsonType')!r}"
 
 
-@pytest.mark.parametrize("ttl", TTL_INDEXES, ids=lambda ttl: ttl.name)
-def test_no_ttl_index_key_is_required_of_a_row(ttl):
-    """Required, the key invalidates every row the collection already held, and strict validation validates an UPDATE of one too.
+# The TTL indexes built over a collection already holding rows without the key, each by name. Its
+# rows stand unexpired (`fl_backend/tests/core/test_aktionen_validator_execution.py ::
+# test_a_row_stored_before_the_retention_stamp_is_still_redactable`).
+RETROFITTED_TTL_INDEXES = frozenset({"aktionen_retention"})
 
-    What the retention costs instead is that those rows are never expired
-    (`fl_backend/tests/core/test_aktionen_validator_execution.py :: test_a_row_stored_before_the_retention_stamp_is_still_redactable`).
+
+@pytest.mark.parametrize("ttl", TTL_INDEXES, ids=lambda ttl: ttl.name)
+def test_a_ttl_key_is_required_exactly_where_no_row_predates_it(ttl):
+    """Retrofitted, a required key invalidates every row standing, strict validation refusing an UPDATE of one.
+
+    Anywhere else, an unrequired key admits a row never expired.
     """
-    assert ttl.key not in required_at(ttl.collection, ())
+    assert (ttl.key in required_at(ttl.collection, ())) is (ttl.name not in RETROFITTED_TTL_INDEXES)
+
+
+def test_every_retrofitted_ttl_index_is_one_declared():
+    """A stale name would excuse nothing while reading as a decision."""
+
+    assert RETROFITTED_TTL_INDEXES <= {ttl.name for ttl in TTL_INDEXES}
 
 
 @pytest.mark.parametrize("index", UNIQUE_INDEXES, ids=lambda index: index.name)

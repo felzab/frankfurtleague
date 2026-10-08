@@ -2,6 +2,7 @@
 
 import { reactivateSpielerAction } from "@/features/spieler/actions";
 import { AdminSpielerEditForm } from "@/features/spieler/components/forms/AdminSpielerEditForm/AdminSpielerEditForm";
+import { kaderName } from "@/features/spieler/constants";
 import { PAGE_RISE_CLASSES } from "@/shared/components/ui/motion";
 import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
 /**
@@ -18,12 +19,15 @@ import type { SpielerSaisonMembership, SpielerTeamOption } from "@/features/spie
 export function AdminSpielerEditView({
   spieler,
   einwilligung,
+  istFassungBekannt,
   saison,
   teams,
   membershipCount,
 }: {
   spieler: { id: string; vorname: string; nachname: string | null; inactive_since: string | null; geburtsdatum: string | null };
   einwilligung: FLEinwilligung | null;
+  /** Whether the registry holds the stored label. */
+  istFassungBekannt: boolean | null;
   saison: SpielerSaisonMembership;
   /** The selected season's teams, for the picker and for reading a `team_id` as a name. */
   teams: SpielerTeamOption[];
@@ -33,13 +37,14 @@ export function AdminSpielerEditView({
   const { isReactivating, reactivate } = useReactivation({ action: reactivateSpielerAction, noun: "Spieler" });
 
   const isRetired = spieler.inactive_since !== null;
-  const fullName = spieler.nachname === null ? spieler.vorname : `${spieler.vorname} ${spieler.nachname}`;
+  const fullName = kaderName(spieler);
 
   return (
     <div className={`${PAGE_RISE_CLASSES} flex min-h-0 w-full flex-1 flex-col`}>
       <AdminSpielerEditForm
         spieler={spieler}
         einwilligung={einwilligung}
+        istFassungBekannt={istFassungBekannt}
         saison={saison}
         teams={teams}
         membershipCount={membershipCount}

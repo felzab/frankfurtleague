@@ -26,6 +26,7 @@ from tests.database import a_clean_database_sync
 from tests.worker import worker_database
 
 from .conftest import config_for
+from .test_admin_guard import PERSON_OPERATIONS, strip_convertors
 
 DATABASE_NAME = worker_database("fl_actor_grants_test")
 
@@ -46,6 +47,8 @@ ADMIN_TIER = sorted(
     if isinstance(route, APIRoute) and route.include_in_schema
     for method in sorted(route.methods or ())
     if verify_access_admin in {dependency.call for dependency in route.dependant.dependencies}
+    # A person's operation runs no grants check: its binder refuses an administrator's token first.
+    and (strip_convertors(route.path), method.lower()) not in PERSON_OPERATIONS
 )
 
 # The floor: an empty sweep would pass every case below.

@@ -2,12 +2,15 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
+import { getLaufendesLabel } from "@/core/einwilligung";
+import { nullUnlessContractBreak } from "@/core/errors";
 import { AdminKontakteEditView } from "@/features/kontakte/components/views/AdminKontakteEditView";
 import { resolveTeamSaisonMembership } from "@/features/kontakte/utils";
 import { resolveAdminSaison } from "@/features/saisons/resolvers";
 import { getTeamMemberships } from "@/features/teams/queries";
 import { resolveTeamId } from "@/features/teams/resolvers";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
+import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import type { TeamSaisonMembership } from "@/features/teams/types";
 import type { NextPageProps } from "@/shared/types/types";
@@ -37,7 +40,13 @@ async function AdminKontakteEditContent({
   await connection();
   const teamId = await resolveTeamId(params);
 
-  const [membershipsRes, selectedSaison] = await Promise.all([getTeamMemberships(), resolveAdminSaison(searchParams)]);
+  const [membershipsRes, selectedSaison, laufendesLabel] = await Promise.all([
+    getTeamMemberships(),
+    resolveAdminSaison(searchParams),
+    // Per request, as every stamper reads the running label: a deploy moves it. `null` where the read
+    // failed, which closes opening a seat blank and leaves every stored one editable.
+    runWithIncomingTrace(() => getLaufendesLabel("bewerbung")).catch(nullUnlessContractBreak),
+  ]);
   if (!selectedSaison) {
     notFound();
   }
@@ -55,6 +64,7 @@ async function AdminKontakteEditContent({
     // Keyed by the state the draft mirrors (`docs/frontend/spec.md :: The editor's subtree is keyed by the fixture's stored state`).
     <AdminKontakteEditView
       key={JSON.stringify({ team, saison })}
+      laufendesLabel={laufendesLabel}
       team={{ id: team.id, name: team.name, shorthand: team.shorthand, inactive_since: team.inactive_since }}
       saison={saison}
     />

@@ -11,7 +11,7 @@ import { HintPopover } from "@/shared/components/ui/InfoHint"; // expect: hint-i
 import { captureStdout } from "./stdoutCapture"; // expect: test-only
 import { createRequire as loadVia } from "node:module"; // expect: node-module
 import { SITE_URL } from "./brand"; // expect: site-origin
-import { authResendKey, authSecret, internalApiKeySystem, mongodbUri, resendWebhookSecret } from "./config"; // expect: secret-store expect: secret-session expect: secret-mail expect: secret-webhook expect: secret-backend
+import { authResendKey, authSecret, internalApiKeySystem, mongodbUri, resendWebhookSecret, turnstileSecretKey } from "./config"; // expect: secret-store expect: secret-session expect: secret-mail expect: secret-webhook expect: secret-backend expect: secret-turnstile
 import { auth } from "./auth"; // expect: auth-instance
 import { signInStore } from "./db?probe"; // expect: sign-in-store
 export { sendSperreNotice } from "./mail?probe"; // expect: sperre-notice
@@ -20,7 +20,7 @@ import { after } from "next/server"; // expect: next-after
 
 export const USED = [mintRequestActor, PinnedLocale, Button, Form, AppRouterContext, DateField, NumberField, HintPopover, captureStdout, loadVia, SITE_URL];
 export const TEXT_FIELD_USED = HeroTextField;
-export const SECRETS_USED = [authResendKey, authSecret, internalApiKeySystem, mongodbUri, resendWebhookSecret];
+export const SECRETS_USED = [authResendKey, authSecret, internalApiKeySystem, mongodbUri, turnstileSecretKey, resendWebhookSecret];
 // The guards import it statically; a load at run time stays the boot's alone.
 export const SIGNING_LOADED = import("./actorToken"); // expect: actor-signing-load
 export const AFTER_USED = after;

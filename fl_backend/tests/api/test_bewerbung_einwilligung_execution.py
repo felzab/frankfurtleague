@@ -20,19 +20,22 @@ from app.api.bewerbungen.services import (
     BEWERBUNG_TOKEN_DECIDED,
     BEWERBUNG_TOKEN_PAST_DEADLINE,
     BEWERBUNG_TOKEN_UNKNOWN,
-    KONTAKT_SEATS,
     SEAT_MIN_AGE_YEARS,
     TOKEN_HASH_FIELDS,
-    compose_bestaetigungen,
     hash_token,
 )
+from app.api.einwilligung.services import FASSUNG_UNZULAESSIG, SELBST_MEDIEN_ALTER
 from app.api.saisons.cache import invalidate_saison_cache
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
+from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
+from app.shared.einwilligung import LAUFENDE_FASSUNGEN
+from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS
+from tests import documents
 from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import ADDRESS, ban_document, kontaktperson_document, saison_document, team_document
+from tests.documents import ban_document, kontaktperson_document, saison_document, team_document
 from tests.worker import worker_database
 
 # Module level, as the submission suite marks its own: every test below reaches a real mongod.
@@ -55,8 +58,13 @@ CLUB_NAME = "Adler"
 SCHOOL_NAME = "Zorbanax"
 
 # The raw tokens the seeded links carry, and what the database holds for each.
-RAW: Mapping[str, str] = {seat: f"raw-token-for-{seat}" for seat in KONTAKT_SEATS}
+RAW_PREFIX = "raw-token-for"
+RAW: Mapping[str, str] = {seat: f"{RAW_PREFIX}-{seat}" for seat in KONTAKT_ROLLEN}
 HASHES: Mapping[str, str] = {seat: hash_token(raw) for seat, raw in RAW.items()}
+
+# What each of the two contact pages stamps today; an answer names the one its view answered.
+BEWERBER_SEITE = LAUFENDE_FASSUNGEN["bestaetigung_kontakt"]
+VERWALTUNG_SEITE = LAUFENDE_FASSUNGEN["bestaetigung_kontakt_verwaltung"]
 
 A_CHILDS_BIRTHDATE = "2018-01-01"
 AN_ADULTS_BIRTHDATE = "1984-05-09"
@@ -65,7 +73,7 @@ A_SEVENTEEN_YEAR_OLDS_BIRTHDATE = "2008-04-02"
 
 
 def _seat_paths(block: str, *leaves: str) -> set[str]:
-    return {f"{block}.{seat}.{leaf}" for seat in KONTAKT_SEATS for leaf in leaves}
+    return {f"{block}.{seat}.{leaf}" for seat in KONTAKT_ROLLEN for leaf in leaves}
 
 
 # What each handler resolves off the document its token filter found. Reached from the HANDLERS
@@ -74,15 +82,17 @@ def _seat_paths(block: str, *leaves: str) -> set[str]:
 ANSICHT_RESOLVES = frozenset(
     _seat_paths("bestaetigungen", *TOKEN_HASH_FIELDS, "abgelehnt_am")
     | _seat_paths("kontakte", "vorname", "email", "einwilligung.bestaetigt_am", "einwilligung.text_version")
-    | {"kontakte.trainer_ist_zugleich", "saison_id", "status", "bestaetigungsfrist", "schule.team_name", "team_id"}
+    | _seat_paths("kontakte", "einwilligung.eingetragen_von", "einwilligung.datum")
+    | {"kontakte.trainer_ist_zugleich", "saison_id", "status", "bestaetigungsfrist", "schule.team_name", "team_id", "eingereicht_am"}
 )
 
 # `_id` is here and not in the view's, whose own line says why
 # (`app/api/bewerbungen/services.py :: EINWILLIGUNG_ANSICHT_FIELDS`).
 ANTWORT_RESOLVES = frozenset(
     _seat_paths("bestaetigungen", *TOKEN_HASH_FIELDS, "abgelehnt_am")
-    | _seat_paths("kontakte", "vorname", "email", "einwilligung.bestaetigt_am")
-    | {"_id", "kontakte.trainer_ist_zugleich", "saison_id", "status", "bestaetigungsfrist"}
+    | _seat_paths("kontakte", "vorname", "email", "einwilligung.bestaetigt_am", "einwilligung.umfang", "einwilligung.medien")
+    | _seat_paths("kontakte", "einwilligung.nachweis", "einwilligung.eingetragen_von", "einwilligung.datum")
+    | {"_id", "kontakte.trainer_ist_zugleich", "saison_id", "status", "bestaetigungsfrist", "eingereicht_am"}
 )
 
 
@@ -110,29 +120,18 @@ def kontakte(*, trainer_ist_zugleich: str | None = None) -> dict[str, Any]:
 def bewerbung_document(bewerbung_id: ObjectId = BEWERBUNG_OID, **overrides: Any) -> dict[str, Any]:
     """One submitted application with its three live links, inside its deadline, that each case moves one thing of."""
 
-    return {
-        "_id": bewerbung_id,
-        "saison_id": SAISON_ID,
-        "eingereicht_am": "2026-03-20",
-        "status": "eingereicht",
-        "team_id": None,
-        "schule": {
-            "team_name": SCHOOL_NAME,
-            "full_name": f"{SCHOOL_NAME}-Gesamtschule",
-            "shorthand": "ZX",
-            "schulform": "gesamtschule",
-            "address": dict(ADDRESS),
-            "website_url": None,
-        },
-        "kontakte": kontakte(),
-        "trikot": {"vorhandener_satz": "keiner", "wunschfarbe": "rot"},
-        "kader": {"voraussichtliche_groesse": 14, "gute_spieler": 3},
-        "wunschgegner": None,
-        "entscheidung": None,
-        "bestaetigungsfrist": "2026-04-03",
-        "bestaetigungen": compose_bestaetigungen(hashes=HASHES, today="2026-03-20"),
-        **overrides,
-    }
+    stored = documents.bewerbung_document(
+        bewerbung_id,
+        SAISON_ID,
+        "eingereicht",
+        kontakte=kontakte(),
+        eingereicht_am="2026-03-20",
+        bestaetigungsfrist="2026-04-03",
+        schule=documents.neue_schule_document(SCHOOL_NAME, "ZX", full_name=f"{SCHOOL_NAME}-Gesamtschule", schulform="gesamtschule"),
+        link_prefix=RAW_PREFIX,
+    )
+
+    return {**stored, **overrides}
 
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
@@ -155,6 +154,8 @@ async def ansicht(database: AsyncDatabase, token: str, *, bewerbungen: Any = Non
     return await get_einwilligung_ansicht(
         ansicht_data=FLBewerbungEinwilligungAnsichtPayload(token=token),
         bewerbungen_collection=database[Collection.BEWERBUNGEN] if bewerbungen is None else bewerbungen,
+        saison_teams_collection=database[Collection.SAISON_TEAMS],
+        saisons_collection=database[Collection.SAISONS],
         teams_collection=database[Collection.TEAMS],
         sperrliste=ban_list(database),
         today=TODAY,
@@ -162,11 +163,21 @@ async def ansicht(database: AsyncDatabase, token: str, *, bewerbungen: Any = Non
 
 
 async def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str, *, bewerbungen: Any = None, **overrides: Any) -> Any:
-    body = {"token": token, "antwort": "erteilt", "geburtsdatum": AN_ADULTS_BIRTHDATE, "whatsapp": True, "text_version": "v4", **overrides}
+    body = {
+        "token": token,
+        "antwort": "erteilt",
+        "geburtsdatum": AN_ADULTS_BIRTHDATE,
+        "whatsapp": True,
+        "medien": False,
+        "text_version": BEWERBER_SEITE,
+        **overrides,
+    }
 
     return await post_einwilligung(
         antwort_data=FLBewerbungEinwilligungAntwortPayload.model_validate(body),
         bewerbungen_collection=database[Collection.BEWERBUNGEN] if bewerbungen is None else bewerbungen,
+        saison_teams_collection=database[Collection.SAISON_TEAMS],
+        saisons_collection=database[Collection.SAISONS],
         aktionen_collection=database[Collection.AKTIONEN],
         sperrliste=ban_list(database),
         db=client,
@@ -300,7 +311,7 @@ class TestWhatALinkOpens:
 
         view, document = on_a_league(mongo_replica_set_url, body, documents=[paired])
 
-        stamped = {seat for seat in KONTAKT_SEATS if document["kontakte"][seat]["einwilligung"]["bestaetigt_am"] == TODAY}
+        stamped = {seat for seat in KONTAKT_ROLLEN if document["kontakte"][seat]["einwilligung"]["bestaetigt_am"] == TODAY}
         assert stamped == {view.rolle, view.zugleich_rolle}
 
     def test_a_picked_clubs_application_names_the_club(self, mongo_replica_set_url: str):
@@ -371,13 +382,20 @@ class TestWhatAConfirmationWrites:
 
         trainer = document["kontakte"]["trainer"]
         assert trainer["geburtsdatum"] == AN_ADULTS_BIRTHDATE
-        # The wording the CONFIRMING person saw, not the one the applicant ticked for them.
+        # The wording the CONFIRMING person saw, not the one the applicant ticked for them, and the
+        # stored speaker gone: whether the person answered is the stamp's to say.
         assert trainer["einwilligung"] == {
             "umfang": "kontaktdaten_whatsapp",
-            "erfasst_von": "person",
-            "text_version": "v4",
+            "text_version": BEWERBER_SEITE,
             "datum": "2026-03-20",
             "bestaetigt_am": TODAY,
+            "medien": False,
+            # Each choice's evidence under the page the person answered: the WhatsApp grant, and the
+            # media answer withholding.
+            "nachweis": {
+                "umfang": {"am": "2026-04-01T10:30:00+00:00", "text_version": BEWERBER_SEITE},
+                "medien": {"am": "2026-04-01T10:30:00+00:00", "text_version": BEWERBER_SEITE},
+            },
         }
         # NOT nulled on use: single use is the stamp's doing, so the reopened link can show its state.
         assert document["bestaetigungen"]["trainer"]["token_hash"] == HASHES["trainer"]
@@ -427,6 +445,171 @@ class TestWhatAConfirmationWrites:
             assert document["kontakte"][seat]["geburtsdatum"] == AN_ADULTS_BIRTHDATE
             assert document["kontakte"][seat]["einwilligung"]["bestaetigt_am"] == TODAY
         assert document["kontakte"]["trainer"] == document["kontakte"]["ansprechperson"]
+
+
+def eingetragen(von: str, *, datum: str = "2026-03-20") -> dict[str, Any]:
+    """An application whose Trainer seat names who seated its person, its record dated `datum`."""
+
+    seeded = bewerbung_document()
+    einwilligung = seeded["kontakte"]["trainer"]["einwilligung"]
+    seeded["kontakte"]["trainer"]["einwilligung"] = {**einwilligung, "datum": datum, "eingetragen_von": von}
+
+    return seeded
+
+
+class TestThePageALinkOpens:
+    """The view answers the label of the page true for the person, and the answer is judged against that page."""
+
+    @pytest.mark.parametrize(
+        ("seeded", "fassung"),
+        [
+            pytest.param(eingetragen("bewerbung"), BEWERBER_SEITE, id="named by the applicant"),
+            pytest.param(eingetragen("liga", datum="2026-03-27"), VERWALTUNG_SEITE, id="reseated by an administrator"),
+            pytest.param(bewerbung_document(), BEWERBER_SEITE, id="stored before the field, dated the submission's day"),
+        ],
+    )
+    def test_the_view_answers_the_label_of_the_page_the_seat_opens(self, mongo_replica_set_url: str, seeded: dict[str, Any], fassung: str):
+        """The wiring alone, by the field and by the day; which outranks which is the unit table's.
+
+        That table is `tests/api/test_bewerbung_einwilligung_refusal.py :: TestWhichPageASeatOpens`.
+        """
+
+        response = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW["trainer"]), documents=[seeded])
+
+        assert response.laufende_fassung == fassung
+
+    @pytest.mark.parametrize(
+        ("seeded", "genannt"),
+        [
+            pytest.param(eingetragen("bewerbung"), VERWALTUNG_SEITE, id="the administration's page on an applicant-named seat"),
+            pytest.param(eingetragen("liga", datum="2026-03-27"), BEWERBER_SEITE, id="the applicant's page on a reseated seat"),
+            pytest.param(eingetragen("bewerbung"), "2026-09-bestaetigungsseite-5", id="a superseded label of the right page"),
+            pytest.param(eingetragen("bewerbung"), LAUFENDE_FASSUNGEN["bestaetigung_spieler"], id="another page's running label"),
+        ],
+    )
+    def test_an_answer_naming_any_other_label_is_refused_and_spends_nothing(
+        self, mongo_replica_set_url: str, seeded: dict[str, Any], genannt: str
+    ):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            with pytest.raises(WriteRefusalException) as conflict:
+                await answer(database, client, RAW["trainer"], text_version=genannt)
+
+            return conflict.value, await stored(database), await log_rows(database)
+
+        refusal, document, rows = on_a_league(mongo_replica_set_url, body, documents=[seeded])
+
+        assert (refusal.error_code, refusal.status_code) == (FASSUNG_UNZULAESSIG, 409)
+        assert document == seeded
+        assert rows == []
+
+    def test_a_reseated_seat_is_confirmed_under_the_administrations_page_and_keeps_who_seated_them(self, mongo_replica_set_url: str):
+        """`eingetragen_von` is what decides the page, so a confirmation rewriting it would move the page under the person."""
+
+        seeded = eingetragen("liga", datum="2026-03-27")
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await answer(database, client, RAW["trainer"], text_version=VERWALTUNG_SEITE)
+
+            return await stored(database), await ansicht(database, RAW["trainer"])
+
+        document, view = on_a_league(mongo_replica_set_url, body, documents=[seeded])
+
+        einwilligung = document["kontakte"]["trainer"]["einwilligung"]
+        assert (einwilligung["text_version"], einwilligung["eingetragen_von"], einwilligung["datum"]) == (
+            VERWALTUNG_SEITE,
+            "liga",
+            "2026-03-27",
+        )
+        assert einwilligung["nachweis"]["umfang"]["text_version"] == VERWALTUNG_SEITE
+        assert (view.zustand, view.laufende_fassung) == ("bestaetigt", VERWALTUNG_SEITE)
+
+    def test_a_link_answering_a_mixed_pair_shows_and_takes_one_page(self, mongo_replica_set_url: str):
+        """A Trainer the applicant named, holding a seat the league filled: one page for both.
+
+        Stored directly: no route makes this pair on an application today, and the judge must not rely on that.
+        """
+
+        seeded = bewerbung_document(kontakte=kontakte(trainer_ist_zugleich="ansprechperson"))
+        for slot, von in (("trainer", "bewerbung"), ("ansprechperson", "liga")):
+            seeded["kontakte"][slot]["einwilligung"] = {**seeded["kontakte"][slot]["einwilligung"], "eingetragen_von": von}
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            view = await ansicht(database, RAW["trainer"])
+            with pytest.raises(WriteRefusalException) as conflict:
+                await answer(database, client, RAW["trainer"], text_version=BEWERBER_SEITE)
+            await answer(database, client, RAW["trainer"], text_version=view.laufende_fassung)
+
+            return view, conflict.value, await stored(database)
+
+        view, refusal, document = on_a_league(mongo_replica_set_url, body, documents=[seeded])
+
+        assert view.laufende_fassung == VERWALTUNG_SEITE
+        assert (refusal.error_code, refusal.status_code) == (FASSUNG_UNZULAESSIG, 409)
+        for slot in ("trainer", "ansprechperson"):
+            einwilligung = document["kontakte"][slot]["einwilligung"]
+            assert (einwilligung["bestaetigt_am"], einwilligung["text_version"]) == (TODAY, VERWALTUNG_SEITE)
+
+    def test_a_decline_names_no_label_and_is_judged_against_none(self, mongo_replica_set_url: str):
+        """A Widerspruch stores no record, so the label it carries is never stored and never refused."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await answer(
+                database, client, RAW["trainer"], antwort="abgelehnt", geburtsdatum=None, whatsapp=False, text_version="nicht-registriert"
+            )
+
+            return await stored(database)
+
+        assert on_a_league(mongo_replica_set_url, body)["kontakte"]["trainer"] is None
+
+
+class TestTheMediaConsent:
+    """A seat's own media consent, asked on its confirmation page as on a pupil's and a referee's (`REQ-EINWILLIGUNG-002`)."""
+
+    def test_the_view_answers_the_age_the_switch_is_offered_from(self, mongo_replica_set_url: str):
+        response = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW["trainer"]))
+
+        assert response.medien_mindestalter == MEDIEN_MIN_AGE_YEARS
+
+    def test_a_confirmation_giving_medien_from_a_person_of_age_stores_it_on_the_seat_with_its_evidence(self, mongo_replica_set_url: str):
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            response = await answer(database, client, RAW["trainer"], medien=True)
+
+            return response, await stored(database)
+
+        response, document = on_a_league(mongo_replica_set_url, body)
+        einwilligung = document["kontakte"]["trainer"]["einwilligung"]
+
+        # The answer carries what it stored, as the referee's answer does.
+        assert response.medien is einwilligung["medien"] is True
+        assert einwilligung["nachweis"]["medien"] == {"am": "2026-04-01T10:30:00+00:00", "text_version": BEWERBER_SEITE}
+
+    def test_a_trainer_below_the_media_age_giving_medien_is_refused_and_spends_nothing(self, mongo_replica_set_url: str):
+        """Seventeen clears the Trainer's own floor and not the media one, so the age refusal stays silent and this one speaks."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            with pytest.raises(WriteRefusalException) as refused:
+                await answer(database, client, RAW["trainer"], geburtsdatum=A_SEVENTEEN_YEAR_OLDS_BIRTHDATE, medien=True)
+
+            return refused.value, await stored(database), await log_rows(database)
+
+        refusal, document, rows = on_a_league(mongo_replica_set_url, body)
+
+        assert (refusal.error_code, refusal.status_code) == (SELBST_MEDIEN_ALTER, 422)
+        assert document == bewerbung_document()
+        assert rows == []
+
+    def test_the_same_trainer_confirming_without_it_is_taken(self, mongo_replica_set_url: str):
+        """The control: the refusal above is the media switch's alone."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await answer(database, client, RAW["trainer"], geburtsdatum=A_SEVENTEEN_YEAR_OLDS_BIRTHDATE, medien=False)
+
+            return await stored(database)
+
+        einwilligung = on_a_league(mongo_replica_set_url, body)["kontakte"]["trainer"]["einwilligung"]
+
+        assert (einwilligung["bestaetigt_am"], einwilligung["medien"]) == (TODAY, False)
 
 
 class TestTheLinkIsSpentByTheStamp:
@@ -548,8 +731,8 @@ class TestADecline:
 
         assert document["kontakte"]["stellvertretung"] is None
         assert document["bestaetigungen"]["stellvertretung"]["abgelehnt_am"] == TODAY
-        assert (response.ergebnis, response.geburtsdatum) == ("abgelehnt", None)
-        assert response.ausstehend == list(KONTAKT_SEATS)
+        assert (response.ergebnis, response.geburtsdatum, response.medien) == ("abgelehnt", None, False)
+        assert response.ausstehend == list(KONTAKT_ROLLEN)
         assert (view.zustand, view.vorname, view.text_version) == ("abgelehnt", None, None)
 
     def test_every_log_image_holding_the_person_is_emptied_and_stamped(self, mongo_replica_set_url: str):
@@ -639,9 +822,7 @@ class TestNoHashReachesAnAdminRead:
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             one = await get_bewerbung_by_id(
-                bewerbung_id=BEWERBUNG_OID,
-                bewerbungen_collection=database[Collection.BEWERBUNGEN],
-                sperrliste=ban_list(database),
+                bewerbung_id=BEWERBUNG_OID, bewerbungen_collection=database[Collection.BEWERBUNGEN], sperrliste=ban_list(database), today=TODAY
             )
             many = await get_bewerbungen(
                 bewerbungen_collection=database[Collection.BEWERBUNGEN],
@@ -653,13 +834,28 @@ class TestNoHashReachesAnAdminRead:
 
         one, many, document = on_a_league(mongo_replica_set_url, body, documents=[reminded])
 
-        assert all(document["bestaetigungen"][seat]["token_hash"] == HASHES[seat] for seat in KONTAKT_SEATS)
+        assert all(document["bestaetigungen"][seat]["token_hash"] == HASHES[seat] for seat in KONTAKT_ROLLEN)
         assert document["bestaetigungen"]["trainer"]["token_hash_zuvor"] == erinnert_hash
         for rendered in (one, many):
             assert "token_hash" not in rendered
             assert not any(token_hash in rendered for token_hash in (*HASHES.values(), erinnert_hash))
             # The rest of the block still reaches the triage, which renders the per-seat facts off it.
             assert "verschickt_am" in rendered
+
+
+class TestTheEditorsRead:
+    """The application editor words the deletion by the server's judgement of the deadline, never by a day the browser reads."""
+
+    @pytest.mark.parametrize(("frist", "abgelaufen"), [(TODAY, False), (YESTERDAY, True)], ids=["due-today", "due-yesterday"])
+    def test_it_answers_whether_the_confirmation_deadline_has_passed(self, mongo_replica_set_url: str, frist: str, abgelaufen: bool):
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
+            return await get_bewerbung_by_id(
+                bewerbung_id=BEWERBUNG_OID, bewerbungen_collection=database[Collection.BEWERBUNGEN], sperrliste=ban_list(database), today=TODAY
+            )
+
+        read = on_a_league(mongo_replica_set_url, body, documents=[bewerbung_document(bestaetigungsfrist=frist)])
+
+        assert read.bestaetigungsfrist_abgelaufen is abgelaufen
 
 
 class TestAResend:

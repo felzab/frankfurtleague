@@ -1,19 +1,26 @@
+import { BootRefusal } from "./core/bootRefusal";
+
+// The code `scripts/lib/_lib.sh :: check_frontend_boot_config` reads as a refusal, apart from a fault's 1:
+// collapsed into one, a host's bad file would read as a check the deploy could not make, and go on.
+const REFUSED = 3;
+
 export async function registerOnNode() {
-  const { frontend_config, retiredVariablesSet } = await passBootGates().catch((refusal: unknown) => {
+  // Set by the deploy's and the local stack's preflight alone, to the deployment it is about to start:
+  // the boot judges what it was handed and ends instead of serving. Read here and nowhere else.
+  const checkedAs = process.env.BOOT_CHECK;
+
+  const { frontend_config } = await passBootGates(checkedAs).catch((refusal: unknown) => {
     // Next logs a throwing hook and serves on, every page a 500; a dead container is what a restart
     // policy and the deploy's rollback read (`docs/frontend/spec.md :: I476`). The empty write's
     // callback runs once the CRITICAL line has left.
-    process.exitCode = 1;
+    process.exitCode = refusal instanceof BootRefusal ? REFUSED : 1;
     process.stdout.write("", () => process.exit());
     throw refusal;
   });
 
-  // The names alone, never a value: one of them held administrators' addresses, the rest credentials.
-  const retired = retiredVariablesSet();
-  if (retired.length > 0) {
-    const { logger } = await import("./core/logging");
-    logger.warn("config.retired_variable", { error_code: "FE-BOOT-002", variables: retired.join(", ") });
-  }
+  // Before anything below is armed: a one-off container would otherwise sweep and announce beside the
+  // service it is judging for.
+  if (checkedAs !== undefined) process.exit(0);
 
   // `next dev` never sets NODE_ENV to production, and a developer's machine holds a real transport
   // and the league's real people. Compared to "on" rather than "off": a skipped validation leaves it
@@ -38,12 +45,16 @@ export async function registerOnNode() {
   }
 }
 
-/** The two boot gates, each writing its own CRITICAL line before it throws: the environment and the secret files, then the signing key. */
-async function passBootGates() {
+/** The boot gates, each writing its own CRITICAL line before it throws: the environment and the secret files, the deployment a preflight names, then the signing key. */
+async function passBootGates(checkedAs: string | undefined) {
   // Importing it *is* the gate — validation runs during this module load, before anything is served.
   // Taken apart where it loads, as lint holds every load of it to: the whole namespace would carry
   // every secret's reader.
-  const { frontend_config, retiredVariablesSet } = await import("./core/config");
+  const { frontend_config, refuseInvalidEnvironment } = await import("./core/config");
+
+  // The schema demands production's files and keys on `APP_ENV`'s word alone, so a production host whose
+  // file says `local` passes every gate holding none of them: the preflight names the deployment instead.
+  if (checkedAs !== undefined && frontend_config.APP_ENV !== checkedAs) refuseInvalidEnvironment(["APP_ENV"]);
 
   // Installed before the first request can error, so Next's own multi-line console dumps still
   // reach the log as one JSON document per line; the shim itself stands down under the console
@@ -56,5 +67,5 @@ async function passBootGates() {
   const { loadActorSigningKeyAtBoot } = await import("./core/actorToken");
   await loadActorSigningKeyAtBoot();
 
-  return { frontend_config, retiredVariablesSet };
+  return { frontend_config };
 }

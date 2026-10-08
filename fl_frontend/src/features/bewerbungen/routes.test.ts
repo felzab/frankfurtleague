@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
+import { einwilligungAnswer, publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { ADMIN_SIDEMENU_STRUCTURE } from "@/features/admin/constants.ts";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import {
@@ -71,7 +72,7 @@ const built =
 let answers = new Map<string, unknown>();
 
 answerReadsWith((endpoint, schema, params) => {
-  if (!answers.has(endpoint)) return EMPTIEST_ANSWER(endpoint, schema, params);
+  if (!answers.has(endpoint)) return einwilligungAnswer(endpoint) ?? EMPTIEST_ANSWER(endpoint, schema, params);
   const answered = answers.get(endpoint);
   if (answered instanceof Error) throw answered;
   return typeof answered === "function" ? (answered as ReturnType<typeof built>)(schema) : answered;
@@ -291,8 +292,15 @@ describe("what the public application page reads while its window runs", () => {
     await publicBody({ fenster: ABGELAUFEN });
     assert.deepEqual(endpointsRead(), ["/bewerbungen/fenster/2026"], "a closed page reads what only a picker needs");
 
+    // The form's words too, which a closed page shows no form for: the label the backend runs, then its words.
     await publicBody({ fenster: LAEUFT });
-    assert.deepEqual(endpointsRead(), ["/bewerbungen/fenster/2026", "/bewerbungen/schulen", "/bewerbungen/trikotfarben/2026"]);
+    assert.deepEqual(endpointsRead(), [
+      "/bewerbungen/fenster/2026",
+      "/bewerbungen/schulen",
+      "/bewerbungen/trikotfarben/2026",
+      "/einwilligung/seiten",
+      `/einwilligung/fassungen/${publishedLaufendeFassung("bewerbung").text_version}`,
+    ]);
   });
 
   /* Uncaught, one unreachable list would take the whole form down with it. */
@@ -318,5 +326,63 @@ describe("what the public application page reads while its window runs", () => {
 
     assert.deepEqual(props.vergebeneFarben, []);
     assert.equal(props.isSchulenLesbar, true, "the colours' failure took the club list with it");
+  });
+});
+
+describe("the admin application page over a registry it cannot read", () => {
+  const ADMIN_PROPS = { params: Promise.resolve({ bewerbung_id: "6890a1b2c3d4e5f607181001" }), searchParams: Promise.resolve({}) };
+  /** The page's props with the registry answering `seiten`, an `Error` failing its read. */
+  const adminBody = async (seiten?: unknown) => {
+    answers = new Map<string, unknown>(seiten === undefined ? [] : [["/einwilligung/seiten", seiten]]);
+
+    return ((await pageBody(AdminBewerbungPage, ADMIN_PROPS)) as ReactElement<{ neubesetzung: unknown }>).props;
+  };
+
+  /** The registry as the backend runs it, with `laufend` over its labels. */
+  const registryWith = (laufend: Record<string, string>): unknown => {
+    const registry = einwilligungAnswer("/einwilligung/seiten") as { laufende_fassungen: Record<string, string> };
+
+    return { acknowledged: 1, laufende_fassungen: { ...registry.laufende_fassungen, ...laufend } };
+  };
+
+  /* The reseat alone needs the registry's words, so its failure closes the reseat and leaves the
+     decision on the application standing. */
+  it("hands the view no reseat, and renders, where the registry read failed", async () => {
+    assert.equal((await adminBody(new Error("backend unreachable"))).neubesetzung, null, "a failed registry read reached the view as words");
+  });
+
+  it("hands the view the reseat's label and words where the registry answers", async () => {
+    assert.notEqual((await adminBody()).neubesetzung, null, "a readable registry closed the reseat");
+  });
+
+  /* Words whose keys are not the reseat's own are a broken contract, never a failed read: keyed
+     inside the read's settling, the reseat would close in silence on a page nobody can repair. */
+  it("lets words the reseat cannot key reach the error boundary", async () => {
+    const fremd = publishedLaufendeFassung("bestaetigung_spieler").text_version;
+
+    await assert.rejects(
+      adminBody(registryWith({ bestaetigung_kontakt_verwaltung: fremd })),
+      { name: "ZodError" },
+      "the page absorbed words it holds no keys for",
+    );
+  });
+
+  /* A registry answering against what this page was built for: only a deploy repairs it, so it reaches
+     the error boundary, which logs it, never a closed reseat. */
+  it("lets a registry breaking its contract reach the error boundary", async () => {
+    const registry = einwilligungAnswer("/einwilligung/seiten") as { laufende_fassungen: Record<string, string> };
+    const ohneFormular = Object.fromEntries(Object.entries(registry.laufende_fassungen).filter(([seite]) => seite !== "bewerbung"));
+
+    await assert.rejects(
+      adminBody({ acknowledged: 1, laufende_fassungen: ohneFormular }),
+      { name: "ContractBreakError" },
+      "no label for the form",
+    );
+    await assert.rejects(
+      adminBody(registryWith({ bestaetigung_kontakt_verwaltung: "2026-01-nirgends" })),
+      { name: "ContractBreakError" },
+      "a label serving no words",
+    );
+    await assert.rejects(adminBody({ acknowledged: 1 }), { name: "APIMalformedDataError" }, "an answer off its schema");
   });
 });

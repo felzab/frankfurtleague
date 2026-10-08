@@ -1,21 +1,20 @@
 "use server";
 
-import { refresh, updateTag } from "next/cache";
+import { refresh } from "next/cache";
 
 import { buildBewerbungAbsageEmail, buildBewerbungBestaetigungEmail, buildBewerbungZusageEmail } from "@/core/bewerbungEmail";
 import { frontend_config } from "@/core/config";
-import { LIGA_KENNTNISNAHME } from "@/core/einwilligung";
 import { APIBadStatusError } from "@/core/errors";
+import { kontaktBestaetigungsLink } from "@/core/kontaktLink";
 import { logger } from "@/core/logging";
 import { ZURUECKGEHALTEN } from "@/features/einladungen/meldungen";
 import { trikotFarbeLabel } from "@/features/teams/constants";
 import { getTeamMemberships } from "@/features/teams/queries";
-import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
+import { invalidatesOnWrite, refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
 import { formatSpielDatum } from "@/shared/utils/format";
-import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
+import { buildRefusal, LADE_DIE_SEITE_NEU, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
-import { bestaetigungsLink } from "./bestaetigungLink";
 import { gepaarteSitze } from "./bestaetigungStand";
 import { ERNEUT_OHNE_ADRESSE } from "./constants";
 import { ablehnenBewerbung, annehmenBewerbung, besetzenKontaktSitz, erneutSendenEinwilligung, korrigierenKontaktEmail } from "./mutations";
@@ -29,7 +28,7 @@ import {
   FLBewerbungKontaktSitzPayloadSchema,
   FLEinwilligungErneutPayloadSchema,
 } from "./schemas";
-import { BEWERBUNG_VERALTET, bewerbungHerkunft, bewerbungTeamName, describeAufnahme, nenntLaufendeFassung } from "./utils";
+import { bewerbungHerkunft, bewerbungTeamName, describeAufnahme } from "./utils";
 
 import type { BewerbungEmail } from "@/core/bewerbungEmail";
 import type { KontaktRolle } from "@/features/teams/constants";
@@ -142,6 +141,10 @@ export async function annehmenBewerbungAction(
       };
     }
 
+    // A club is created or entered. The base tag ahead of the write, every team read carrying it, so a
+    // lost answer leaves none stale; the season's tag once the answer names it (`docs/frontend/spec.md` §1.4).
+    invalidatesOnWrite("teams");
+
     // The refusal belongs in the panel that asked, not on the error page.
     let annahmeOperation;
     try {
@@ -153,14 +156,10 @@ export async function annehmenBewerbungAction(
     }
 
     if (!annahmeOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Die Bewerbung wurde nicht angenommen", repair: "Versuche es erneut" }) };
+      return { success: false, error: buildRefusal({ reason: "Die Bewerbung wurde nicht angenommen", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
-    // A club was created or entered, which is what the cached team reads answer. The granular tag
-    // beside the base one: a junction write holds only the season it wrote into
-    // (`docs/frontend/spec.md` §1.4).
-    updateTag("teams");
-    updateTag(`teams:saison_id:${annahmeOperation.saison_id}`);
+    invalidatesOnWrite(`teams:saison_id:${annahmeOperation.saison_id}`);
 
     const zustellung = await notifyBewerbung({
       operation: "annehmenBewerbungAction",
@@ -228,7 +227,7 @@ export async function ablehnenBewerbungAction(
     }
 
     if (!absageOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Die Bewerbung wurde nicht abgelehnt", repair: "Versuche es erneut" }) };
+      return { success: false, error: buildRefusal({ reason: "Die Bewerbung wurde nicht abgelehnt", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
     // No tag moves, unlike the acceptance: this moves the application's own `status` and
@@ -259,10 +258,10 @@ export async function ablehnenBewerbungAction(
 }
 
 /** The queue holds an application the retention sweep can have taken since the page was drawn. */
-const BEWERBUNG_WEG = buildRefusal({ reason: "Diese Bewerbung gibt es nicht mehr", repair: "Lade die Seite neu" });
+const BEWERBUNG_WEG = buildRefusal({ reason: "Diese Bewerbung gibt es nicht mehr", repair: LADE_DIE_SEITE_NEU });
 
 /** A seat with nobody in it shows no control at all, so a press reaching this came off a page whose state has moved. */
-const SITZ_LEER = buildRefusal({ reason: "Für diese Rolle steht niemand mehr in der Bewerbung", repair: "Lade die Seite neu" });
+const SITZ_LEER = buildRefusal({ reason: "Für diese Rolle steht niemand mehr in der Bewerbung", repair: LADE_DIE_SEITE_NEU });
 
 /** A confirmation asks somebody to confirm for a named school, and `REQ-BEWERBUNG-002` refuses to accept this row anyway. */
 const KEIN_TEAM = buildRefusal({ reason: "Diese Bewerbung nennt kein Team", repair: "Lehne die Bewerbung ab" });
@@ -336,7 +335,7 @@ async function sendeBestaetigungErneut({
         schule: benanntesTeam,
         // One link whatever it answers for: a person holding two seats reads one control, and the
         // role text beside it is what tells them the answer covers both.
-        seats: [{ vorname: person.vorname, rolleText: sitzeText, link: bestaetigungsLink(origin, token) }],
+        seats: [{ vorname: person.vorname, rolleText: sitzeText, link: kontaktBestaetigungsLink(origin, token) }],
         fristText: fristText,
       }),
   });
@@ -389,7 +388,7 @@ export async function einwilligungErneutSendenAction(rawPayload: FLEinwilligungE
     }
 
     if (!erneutOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Der Link wurde nicht neu verschickt", repair: "Versuche es erneut" }) };
+      return { success: false, error: buildRefusal({ reason: "Der Link wurde nicht neu verschickt", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
     // No tag moves, as on the decline: this moves the application's own confirmation block
@@ -458,7 +457,7 @@ export async function kontaktEmailKorrigierenAction(
     }
 
     if (!korrekturOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Die Adresse wurde nicht geändert", repair: "Versuche es erneut" }) };
+      return { success: false, error: buildRefusal({ reason: "Die Adresse wurde nicht geändert", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
     // No tag moves, as on the decline: this moves the application's own contact block and
@@ -501,10 +500,6 @@ export async function kontaktEmailKorrigierenAction(
  */
 export async function besetzeKontaktSitzAction(rawPayload: FLBewerbungKontaktSitzPayload): Promise<ActionResult<{ verschickt?: boolean }>> {
   return runAdminMutation("besetzeKontaktSitzAction", { stepUp: true }, async () => {
-    // Judged before the parse, as the confirmation handlers judge theirs: a page opened before a deploy
-    // moved the label would seat a person under words the build does not serve, and no key replays a reseat.
-    if (!nenntLaufendeFassung(rawPayload, LIGA_KENNTNISNAHME.textVersion)) return { success: false, error: BEWERBUNG_VERALTET };
-
     const validated = FLBewerbungKontaktSitzPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -531,7 +526,7 @@ export async function besetzeKontaktSitzAction(rawPayload: FLBewerbungKontaktSit
     }
 
     if (!sitzOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Die Rolle wurde nicht neu besetzt", repair: "Versuche es erneut" }) };
+      return { success: false, error: buildRefusal({ reason: "Die Rolle wurde nicht neu besetzt", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
     // No tag moves, for the correction's reason: this writes the application's own contact block and

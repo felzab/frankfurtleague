@@ -1,5 +1,7 @@
+import { joinUnd } from "@/core/joinUnd";
 import { KONTAKT_ROLLEN } from "@/features/teams/constants";
 
+import type { KontaktRolle } from "@/features/teams/constants";
 import type { PillTone } from "@/shared/components/ui/badges";
 import type { FLBewerbungStatus } from "./schemas";
 
@@ -91,6 +93,20 @@ export const BEWERBUNG_STUFENGROESSE_MAX = 999;
  */
 export const BEWERBUNG_MIN_ALTER = 16;
 export const BEWERBUNG_MAX_ALTER = 120;
+
+/**
+ * The contact page's objection control, which the stamped wording names in a paragraph of its own
+ * (its `{ablehnen}` slot): the label and that sentence say the same words wherever either renders.
+ */
+export const ABLEHNEN_LABEL = "Ich möchte nicht eingetragen sein";
+
+/**
+ * Every seat a contact person holds on one row, as the one phrase the contact page and the account page
+ * name them by, in the table's order and joined as
+ * `fl_frontend/src/features/bewerbungen/notifications.ts :: rollenText` joins them.
+ */
+export const rollenLangform = (rollen: readonly (KontaktRolle | null)[]): string =>
+  joinUnd(KONTAKT_ROLLEN.filter((eintrag) => rollen.includes(eintrag.value)).map((eintrag) => eintrag.langform));
 
 /**
  * The floor the Ansprechperson and the Stellvertretung clear, mirrored from

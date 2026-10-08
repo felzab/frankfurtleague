@@ -6,6 +6,7 @@ from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.errors import PyMongoError
+from pymongo.results import InsertOneResult
 
 from app.api.bewerbungen.services import mint_token
 from app.api.einladungen.schemas import (
@@ -16,6 +17,7 @@ from app.api.einladungen.schemas import (
     FLEinladungVersandZeile,
 )
 from app.api.einladungen.services import (
+    LIVE_EINLADUNG,
     WITHOUT_TOKEN_HASH,
     bestaetigte_empfaenger,
     build_live_team_filter,
@@ -249,6 +251,7 @@ async def get_saisons_for_admin(saisons_collection: SaisonsCollection, filters: 
 async def post_saison(
     saison_data: Annotated[FLPostSaisonPayload, Body()],
     saisons_collection: SaisonsCollection,
+    db: DBClient,
 ) -> FLPostSaisonResponse:
     """
     Create a season, always `future`.
@@ -277,13 +280,18 @@ async def post_saison(
         )
     )
 
-    # Nothing cached is wrong yet; dropped anyway, so the rule stays "every season write drops it".
-    with dropping_the_saison_cache():
-        post_operation = await post_one_to_db(
+    async def enter_the_season(session: AsyncClientSession) -> InsertOneResult:
+        return await post_one_to_db(
             collection=saisons_collection,
             # `_id` rather than `id`: this payload's `id` IS the document key.
             document={**saison_data.model_dump(mode="json", exclude={"id"}), "_id": saison_data.id, "status": "future"},
+            session=session,
         )
+
+    # Nothing cached is wrong yet; dropped anyway, so the rule stays "every season write drops it".
+    with dropping_the_saison_cache():
+        async with transaction_session(db) as session:
+            post_operation = await session.with_transaction(enter_the_season)
 
     return FLPostSaisonResponse(
         acknowledged=1 if post_operation.acknowledged else 0,
@@ -303,7 +311,7 @@ class MovableFigures(NamedTuple):
     "/{saison_id}",
     response_model=FLPatchSaisonResponse,
     summary="Update a Saison's dates and rules",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def patch_saison(
     saison_id: str,
@@ -628,7 +636,7 @@ async def activate_saison(
     "/{saison_id}/gruppen/swap",
     response_model=FLSwapGruppenResponse,
     summary="Exchange two teams' groups",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def swap_gruppen(
     saison_id: str,
@@ -993,7 +1001,7 @@ async def generate_spielplan(
     "/{saison_id}/spielplan",
     response_model=FLUndrawSpielplanResponse,
     summary="Undraw this Saison's Spielplan",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
     dependencies=[Depends(verify_step_up)],
 )
 async def undraw_spielplan(
@@ -1274,7 +1282,7 @@ async def preview_einladungen_versand(
     # at most one row per team, so this read cannot truncate and report a mailed team as unmailed.
     live = await pull_many_from_db(
         collection=einladungen_collection,
-        db_filter={"saison_id": saison_id, "team_id": {"$in": team_ids}, "widerrufen_am": None},
+        db_filter={"saison_id": saison_id, "team_id": {"$in": team_ids}, **LIVE_EINLADUNG},
         limit=len(team_ids) or 1,
         projection=dict(WITHOUT_TOKEN_HASH),
     )
@@ -1339,6 +1347,11 @@ async def post_einladungen_versand(
 
     The answer carries the raw link per team and is the only place each appears. Refused where the season has ended (`REQ-EINLADUNG-002`);
     404 where no season holds that id; a season holding no team answers an empty list.
+
+    **An administrator whose access is revoked while the mailing runs is refused `REQ-AUTH-006` at the next team**, and the answer
+    carries no link at all: every team minted for before that point has lost the link it held and holds one nobody was sent. Running the
+    mailing again, as an administrator who still holds access, mints and answers those teams' links anew, none of them carrying a
+    delivery record yet.
     """
 
     saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["status"])

@@ -6,6 +6,7 @@ import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 
 import type { MailOutcome } from "@/core/mailDouble.ts";
+import type { ZustellAnlass } from "@/features/bewerbungen/zustellung.ts";
 import type { ZielAuftrag } from "./notifications.ts";
 
 /** The WHOLE call, the error argument included: that argument is the channel an address travels on. */
@@ -69,6 +70,13 @@ const ADDRESS = "bramblewick@example.com";
 const SECOND_ADDRESS = "quillon@example.com";
 
 const auftrag: ZielAuftrag = { ziel: "schiedsrichter", zielId: ZIEL_ID, anlass: "eingang" };
+/** One link covering a paired Trainer, as a season row's mint answers one. */
+const sitzAuftrag = {
+  ziel: "kontakt",
+  zielId: ZIEL_ID,
+  anlass: "empfang",
+  rollen: ["ansprechperson", "trainer"],
+} as const satisfies ZielAuftrag;
 
 const buildMail = (address: string) => ({
   art: "schiedsrichter_bestaetigung" as const,
@@ -98,6 +106,26 @@ describe("the tags one message rides out with", () => {
     }
   });
 
+  /* Every occasion rides as a tag value: one spelled outside the alphabet is refused 422 and its message
+     never sent. The list is held whole by the type below it, so a new member fails `tsc` until listed. */
+  it("keeps every occasion's spelling inside that alphabet", () => {
+    const ANLAESSE = [
+      "eingang",
+      "empfang",
+      "erinnerung",
+      "erneut",
+      "vollstaendig",
+      "widerspruch",
+      "loeschung",
+      "einladung",
+      "ablehnung",
+    ] as const satisfies readonly ZustellAnlass[];
+    const vollstaendig: [Exclude<ZustellAnlass, (typeof ANLAESSE)[number]>] extends [never] ? true : false = true;
+
+    assert.ok(vollstaendig);
+    for (const anlass of ANLAESSE) assert.match(anlass, /^[A-Za-z0-9_-]+$/, `the occasion ${anlass} is outside the provider's alphabet`);
+  });
+
   /* Every member has to survive the round trip, and a kind whose spelling carried a character the
      provider refuses would be the one target whose bounces never came back. */
   it("keeps every member of the closed set inside that alphabet too", () => {
@@ -124,6 +152,47 @@ describe("the tags one message rides out with", () => {
     const other = { ...auftrag, zielId: `${"d".repeat(23)}4` };
 
     assert.notEqual(zielIdempotenzSchluessel(auftrag, "2026-09-08", ADDRESS), zielIdempotenzSchluessel(other, "2026-09-08", ADDRESS));
+  });
+
+  /* One season row holds three seats: an event routed back without them lands on every seat or on
+     none, and the seat a message did not cover keeps its own record. */
+  it("carries a season row's seats on the tags, in the alphabet the provider admits", () => {
+    const tags = zielZustellungTags(sitzAuftrag);
+
+    assert.deepEqual(tags, { ziel: "kontakt", ziel_id: ZIEL_ID, anlass: "empfang", rollen: "ansprechperson-trainer" });
+    for (const value of Object.values(tags)) assert.match(value, /^[A-Za-z0-9_-]+$/);
+  });
+
+  /* Two people sharing a school inbox each hold a seat on one row: one key over both bodies would
+     have the provider refuse the second message. */
+  it("keys two seats of one row apart, and a kind without seats as before", () => {
+    const anderer = { ...sitzAuftrag, rollen: ["stellvertretung"] as const };
+
+    assert.notEqual(zielIdempotenzSchluessel(sitzAuftrag, "2026-09-08", ADDRESS), zielIdempotenzSchluessel(anderer, "2026-09-08", ADDRESS));
+    assert.ok(zielIdempotenzSchluessel(auftrag, "2026-09-08", ADDRESS).startsWith(`eingang_schiedsrichter_${ZIEL_ID}_2026-09-08_`));
+  });
+});
+
+describe("the seats a season row's message records against", () => {
+  it("names the message's seats on the accepted send's record, and none for a kind without seats", async () => {
+    await sendZielMail({ operation: "patchSaisonTeamKontakteAction", auftrag: sitzAuftrag, recipients: [ADDRESS], buildMail });
+    await sendZielMail({ operation: "schiedsrichter.einladung", auftrag: auftrag, recipients: [ADDRESS], buildMail });
+
+    assert.deepEqual(
+      gemeldet.map((meldung) => [meldung["ziel"], meldung["rollen"]]),
+      [
+        ["kontakt", ["ansprechperson", "trainer"]],
+        ["schiedsrichter", []],
+      ],
+    );
+  });
+
+  it("names the message's seats on a refusal's record too", async () => {
+    outcomes.set(ADDRESS, { refused: 422, providerErrorName: "invalid_parameter" });
+
+    await sendZielMail({ operation: "patchSaisonTeamKontakteAction", auftrag: sitzAuftrag, recipients: [ADDRESS], buildMail });
+
+    assert.deepEqual(abgewiesen[0]?.["rollen"], ["ansprechperson", "trainer"]);
   });
 });
 

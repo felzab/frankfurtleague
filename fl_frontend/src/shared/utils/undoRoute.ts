@@ -1,3 +1,4 @@
+import { revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
 
 import { isFreshlySignedIn } from "@/core/auth";
@@ -5,7 +6,7 @@ import { logger } from "@/core/logging";
 
 import { AENDERUNG_STEHT_WEITERHIN, isRefusal, RUECKNAHME_UNKLAR } from "./actionError";
 import { FORBIDDEN_BY_REFUSAL, runAdminRouteWrite, stepUpRequired } from "./adminMutation";
-import { buildRefusal } from "./refusal";
+import { buildRefusal, LADE_DIE_SEITE_NEU } from "./refusal";
 
 import type { AdminRefusal } from "@/core/auth";
 import type { NextRequest } from "next/server";
@@ -20,7 +21,7 @@ const FREMDE_HERKUNFT = `Diese Anfrage kam nicht von dieser Seite. Lade die Seit
 
 const UNDO_RESTORED = "Die Änderung wurde zurückgenommen.";
 
-const UNDO_UNREADABLE = buildRefusal({ reason: "Die Rücknahme wurde nicht ausgeführt", repair: "Lade die Seite neu" });
+const UNDO_UNREADABLE = buildRefusal({ reason: "Die Rücknahme wurde nicht ausgeführt", repair: LADE_DIE_SEITE_NEU });
 
 /**
  * The sentence an action turned away for the same reason is answered, and that the change stands: one
@@ -54,11 +55,10 @@ type UndoRoute<TPayload> = {
   schema: ZodType<TPayload>;
   restore: (payload: TPayload) => Promise<UndoReport>;
   /**
-   * Reached wherever the restore ran, and guarded: a failed invalidation must not turn a landed write
-   * into a reported failure. The call stays in the route, where `revalidateTag` and its
-   * `{ expire: 0 }` belong (`docs/frontend/spec.md` I14 and I55).
+   * The cache tags the replay moves, which the spine drops wherever the restore ran: a refusal and a
+   * throw each leave rows written behind them (`docs/frontend/spec.md` I14 and I55).
    */
-  invalidate: (payload: TPayload) => void;
+  tags: (payload: TPayload) => readonly string[];
   /**
    * Whether this replay is a step-up write (`docs/frontend/spec.md :: I432`), per replay so a route's
    * other replays stay unasked. Asked of a stale session alone, so it may read the stored row.
@@ -114,8 +114,9 @@ export async function handleUndoRequest<TPayload>(request: NextRequest, route: U
     try {
       report = await route.restore(parsed.data);
     } finally {
+      // Guarded: a failed invalidation must not turn a landed write into a reported failure.
       try {
-        route.invalidate(parsed.data);
+        for (const tag of route.tags(parsed.data)) revalidateTag(tag, { expire: 0 });
       } catch (invalidationError) {
         logger.warn("Undo cache invalidation failed", { error_code: "FE-ACT-002", error: String(invalidationError) });
       }

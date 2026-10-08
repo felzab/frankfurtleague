@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 
 import CircleCheck from "@gravity-ui/icons/CircleCheck";
@@ -6,23 +6,25 @@ import TriangleExclamation from "@gravity-ui/icons/TriangleExclamation";
 import { tv } from "tailwind-variants";
 
 import { KONTAKT_EMAIL } from "@/core/brand";
+import { ABSATZ_CLASSES, Wert } from "@/features/bewerbungen/components/ui/Gefuellt";
 import { SEITE_CLASSES } from "@/features/bewerbungen/components/ui/seite";
 import { ctaButton } from "@/shared/components/ui/formButtons";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { NAME_WRAP_CLASSES } from "@/shared/components/ui/nameWrap";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
-import { textLink } from "@/shared/components/ui/textLink";
+import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal";
 import { LINK_ADRESSE_GESPERRT } from "@/shared/utils/reopenLink";
-import { DATENSCHUTZ_SLOT, stueckeVon } from "@/shared/utils/stampedSlots";
 
-import type { Slots, Stueck } from "@/shared/utils/stampedSlots";
 import type { ReactNode, RefObject } from "react";
 
-/**
- * The one body step, stamped text and the page's own sentences alike: these are legal words a
- * reader has to get through, so they take the paragraph grade rather than a caption's meta grade.
- */
-export const ABSATZ_CLASSES = "max-w-2xl fluid-sm leading-relaxed font-medium text-pretty text-foreground";
+/** The heading of a page whose link could not be checked, on every page a token link opens. */
+export const LINK_UNLESBAR_TITEL = "Link nicht geprüft";
+
+/** The failure's title on every page a token link opens: „Änderung nicht gespeichert“ names a change nobody here made. */
+export const ANTWORT_NICHT_GESPEICHERT = "Antwort nicht gespeichert";
+
+/** What a press that wrote nothing and named no reason tells its person, on every page a token link opens. */
+export const ANTWORT_NICHT_GESPEICHERT_SATZ = `Deine Antwort wurde nicht gespeichert. ${VERSUCHE_ES_ERNEUT_SATZ}`;
 
 /** Shared by every page a token link opens, so none of them alone keeps its token in the address or drops the answer's focus. */
 export function useLinkSeite(zustand: string): { ergebnisRef: RefObject<HTMLElement | null>; beantwortet: () => void } {
@@ -43,47 +45,6 @@ export function useLinkSeite(zustand: string): { ergebnisRef: RefObject<HTMLElem
   }, [hatGeantwortet]);
 
   return { ergebnisRef: ergebnisRef, beantwortet: () => setHatGeantwortet(true) };
-}
-
-/**
- * The one emphasis a reader's own value wears here: a second spelling is how the name in one
- * sentence stops matching the name in the next. `fl_frontend/src/core/emailShell.ts :: strong` is
- * the mail's end of the same rule.
- */
-export function Wert({ children }: { children: ReactNode }) {
-  return <strong className="font-bold text-foreground">{children}</strong>;
-}
-
-/** One filled piece in whatever its kind earns: the privacy link, a reader's own value, or the words as they stand. */
-function stueckInhalt({ worte, slot }: Stueck, eigene: ReadonlySet<string>): ReactNode {
-  if (slot === DATENSCHUTZ_SLOT) {
-    return (
-      <Link
-        href="/datenschutz"
-        prefetch={false}
-        className={textLink()}>
-        {worte}
-      </Link>
-    );
-  }
-
-  // Emphasis is presentation, so each page decides it here rather than in the stored sentence,
-  // whose words and digest do not move for it.
-  return slot !== undefined && eigene.has(slot) ? <Wert>{worte}</Wert> : worte;
-}
-
-/**
- * A stamped sentence with its slots filled as elements rather than into one string: a string cannot
- * carry the mark a reader's own name has to wear, nor the privacy link.
- */
-export function Gefuellt({ text, werte, eigene }: { text: string; werte: Slots; eigene: ReadonlySet<string> }) {
-  return (
-    <>
-      {stueckeVon(text, werte).map((stueck, index) => (
-        <Fragment key={`${String(index)}-${stueck.worte}`}>{stueckInhalt(stueck, eigene)}</Fragment>
-      ))}
-    </>
-  );
 }
 
 /**
@@ -109,7 +70,7 @@ export function BestaetigungAbschnitt({ titel, children }: { titel: string; chil
 
 /**
  * The label-over-value pair the admin application page sets its stored facts in
- * (`fl_frontend/src/features/bewerbungen/components/views/BewerbungAngabenPanel.tsx :: Angabe`),
+ * (`fl_frontend/src/shared/components/ui/Angabe.tsx :: Angabe`),
  * spelled once so the banner and the receipt cannot drift into two type scales.
  */
 const ANGABE_LABEL_CLASSES = "fluid-xxs font-bold text-foreground-muted";
@@ -165,6 +126,15 @@ export function FaktenBanner({ zeilen }: { zeilen: readonly Fakt[] }) {
     </dl>
   );
 }
+
+/**
+ * The media consent's row on every confirmation page's receipt, in the words each page asks it in, so the
+ * three pages cannot read the one consent three ways.
+ */
+export const medienZeile = (medien: boolean): { label: string; wert: string } => ({
+  label: "Fotos, Videos und Interviews",
+  wert: medien ? "erlaubt" : "nicht erlaubt",
+});
 
 /**
  * **Sized to its content and never to the width**: two cells spread across a panel put the second
@@ -251,6 +221,21 @@ export function AdresseGesperrt({ panelRef }: { panelRef: RefObject<HTMLElement 
         <p className={ABSATZ_CLASSES}>{LINK_ADRESSE_GESPERRT}</p>
       </BestaetigungErgebnis>
     </section>
+  );
+}
+
+/**
+ * **The whole of what a page whose link could not be checked says**: that it does not know. Folded into
+ * the dead-link panel, it would call a live link void on a day the backend was merely unreachable.
+ */
+export function LinkUnlesbar({ panelRef }: { panelRef?: RefObject<HTMLElement | null> }) {
+  return (
+    <BestaetigungErgebnis
+      panelRef={panelRef}
+      tone="hinweis">
+      <p className={ABSATZ_CLASSES}>Wir können diesen Link gerade nicht prüfen. Lade die Seite in ein paar Minuten neu, oder schreib uns.</p>
+      <FrageStellen />
+    </BestaetigungErgebnis>
   );
 }
 

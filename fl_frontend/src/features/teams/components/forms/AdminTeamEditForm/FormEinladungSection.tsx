@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useState, useTransition } from "react";
+import { startTransition, useId, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import Ban from "@gravity-ui/icons/Ban";
@@ -12,11 +12,12 @@ import { Button } from "@heroui/react/button";
 import { ToggleButton } from "@heroui/react/toggle-button";
 import { ToggleButtonGroup } from "@heroui/react/toggle-button-group";
 
-import { vonOderGesperrt } from "@/features/berechtigungen/constants";
+import { VonOderGesperrt } from "@/features/berechtigungen/components/ui/VonOderGesperrt";
 import { ZUSTELLUNG_CHIP } from "@/features/bewerbungen/zustellung";
 import { deleteEinladungAction, mailEinladungAction, postEinladungAction } from "@/features/einladungen/actions";
 import { useEinladungLink } from "@/features/einladungen/components/EinladungLinkHolder";
 import { STUFE_CHIP_CLASSES } from "@/features/saisons/components/forms/StufenPicker";
+import { Leer } from "@/shared/components/ui/Angabe";
 import { Callout } from "@/shared/components/ui/Callout";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
@@ -88,6 +89,7 @@ export function FormEinladungSection({
   // Held outside this panel's own subtree, which the editor re-keys on every stored value a save
   // moves (`fl_frontend/src/features/einladungen/components/EinladungLinkHolder.tsx`).
   const { frisch, setFrisch } = useEinladungLink();
+  const linkHeadingId = useId();
   const [gewaehlt, setGewaehlt] = useState<Operation | null>(null);
   // Its own transition beside the shared hook, for the FIRST mint alone: that press destroys
   // nothing, so escalating it would grade a create as a loss.
@@ -188,7 +190,7 @@ export function FormEinladungSection({
   };
 
   const zustellung = einladung?.versand?.zustellung ?? null;
-  const versandText = zustellung === null ? "Noch nicht gesendet" : (ZUSTELLUNG_CHIP[zustellung.stand]?.label ?? "Gesendet");
+  const versandText = zustellung === null ? <Leer>Noch nicht gesendet</Leer> : (ZUSTELLUNG_CHIP[zustellung.stand]?.label ?? "Gesendet");
 
   const restingLabel = gewaehlt === "zurueckziehen" ? "Link zurückziehen" : "Neuen Link anlegen";
   const armedLabel = gewaehlt === "zurueckziehen" ? "Ja, Link zurückziehen" : "Ja, neuen Link anlegen";
@@ -245,12 +247,17 @@ export function FormEinladungSection({
               <dl className="flex w-full flex-col gap-y-1">
                 <ConfirmReadoutRow
                   label="Offener Link"
-                  value={einladung === null ? "Keiner" : `seit ${formatSpielDatum(einladung.erstellt_am)}`}
+                  value={einladung === null ? <Leer>Keiner</Leer> : `seit ${formatSpielDatum(einladung.erstellt_am)}`}
                 />
                 {einladung !== null && (
                   <ConfirmReadoutRow
                     label="Angelegt von"
-                    value={vonOderGesperrt(einladung.erstellt_von, einladung.erstellt_von_gesperrt)}
+                    value={
+                      <VonOderGesperrt
+                        von={einladung.erstellt_von}
+                        gesperrt={einladung.erstellt_von_gesperrt}
+                      />
+                    }
                   />
                 )}
                 {einladung !== null && (
@@ -264,12 +271,16 @@ export function FormEinladungSection({
 
             {frisch !== null && (
               <div className="flex w-full flex-col gap-y-2">
-                <h3 className={FORM_SECTION_HEADING_CLASSES}>Der Link</h3>
+                <h3
+                  id={linkHeadingId}
+                  className={FORM_SECTION_HEADING_CLASSES}>
+                  Der Link
+                </h3>
                 {/* Read-only rather than a paragraph: the value is long and is meant to be selected,
                     and a textarea is the one field that wraps it without a scroll bar. */}
                 <textarea
                   readOnly
-                  aria-label="Registrierungslink"
+                  aria-labelledby={linkHeadingId}
                   rows={2}
                   value={frisch.link}
                   className={`${FIELD_TEXTAREA_CLASSES} w-full break-all`}

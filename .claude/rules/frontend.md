@@ -46,5 +46,5 @@ own config files included, on §7's terms.
   [the checklist](../../docs/frontend/spec.md#111-adding-a-heroui-component) before writing the code.
 - Grep for render props before deleting a `"use client"`. A Server Component may not pass a function
   to a Client Component, and neither `tsc` nor the build catches it on a dynamic route.
-- Add the matching `updateTag` in the same change as any granular cache tag; a tag nothing
-  invalidates is decoration.
+- Declare a granular cache tag with `invalidatesOnWrite` in every action writing its resource, in the
+  same change as the tag (`docs/frontend/spec.md :: I1`); a tag nothing invalidates is decoration.

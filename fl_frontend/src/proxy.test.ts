@@ -55,6 +55,7 @@ const { getSubjectSession } = await import("./core/subject.ts");
 const { unstable_doesMiddlewareMatch } = await import("next/experimental/testing/server.js");
 const { adapter } = await import("next/dist/server/web/adapter.js");
 const { config, proxy } = await import("./proxy.ts");
+const { EDGE_REFUSAL_BODY } = await import("./shared/utils/actionError.ts");
 
 /** What the landing reads, for the cases that put its answer and this proxy's side by side. */
 function arriveAs(cookie: string | null): void {
@@ -426,7 +427,7 @@ function browserGlobals(answer: Response): Record<string, unknown> {
   return {
     window: globalThis,
     location: new URL(ADMIN_URL),
-    document: { documentElement: { dataset: {} } },
+    document: { documentElement: { dataset: {}, removeAttribute: () => {} } },
     addEventListener: () => {},
     // The development build of Next's vendored Flight client reads this at module scope.
     __webpack_require__: { u: () => "" },
@@ -495,6 +496,26 @@ describe("what Next's own action client does with the proxy's answer to a signed
     const outcome = await dispatchAgainst(await arriveAtAdmin({ method: "HEAD", action: true }));
 
     assert.equal(outcome.documentNavigation, false);
+    assert.match(String((outcome.rejection as Error | null)?.message), /unexpected response/);
+  });
+});
+
+describe("what Next's own action client does with the edge's own 429", () => {
+  // The frontend's answer to a press the edge refused rests on this reading
+  // (`fl_frontend/src/shared/utils/actionError.ts :: EDGE_REFUSAL_BODY`): an upgrade dropping it fails here.
+  it("rejects the awaiting action with the body as its message, under exactly `text/plain`", async () => {
+    const outcome = await dispatchAgainst(new Response(EDGE_REFUSAL_BODY, { status: 429, headers: { "content-type": "text/plain" } }));
+
+    assert.equal(outcome.documentNavigation, false);
+    assert.equal((outcome.rejection as Error | null)?.message, EDGE_REFUSAL_BODY);
+  });
+
+  // Proves the case above can fail, and why the edge sends no charset: Next compares the type whole.
+  it("reads the same body as its generic failure once a charset rides on the type", async () => {
+    const outcome = await dispatchAgainst(
+      new Response(EDGE_REFUSAL_BODY, { status: 429, headers: { "content-type": "text/plain; charset=utf-8" } }),
+    );
+
     assert.match(String((outcome.rejection as Error | null)?.message), /unexpected response/);
   });
 });

@@ -3,18 +3,13 @@ from typing import Annotated
 from fastapi import APIRouter, Body, Depends
 
 from app.api.berechtigungen.crud import verwaltung_of
-from app.api.identitaet.crud import find_subjekt
-from app.api.identitaet.schemas import FLGesperrtPayload, FLGesperrtResponse, FLSubjektPayload, FLSubjektResponse
+from app.api.identitaet.crud import find_anmeldung, find_subjekt
+from app.api.identitaet.lookup import SubjektLookup
+from app.api.identitaet.schemas import FLAnmeldungResponse, FLGesperrtPayload, FLGesperrtResponse, FLSubjektPayload, FLSubjektResponse
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, hash_gesperrt
 from app.core.concurrency import gather_cancelling
 from app.core.config import API_VERSION
-from app.core.dependencies import (
-    BerechtigungenCollection,
-    SaisonsCollection,
-    SaisonTeamsCollection,
-    SchiedsrichterCollection,
-    SpielerCollection,
-)
+from app.core.dependencies import BerechtigungenCollection
 from app.core.exception_handlers import stores_nothing
 from app.core.security import bind_system_actor, verify_access_system
 from app.shared.folding import sign_in_identifier
@@ -36,10 +31,7 @@ router = APIRouter(
 )
 async def get_subjekt(
     subjekt_data: Annotated[FLSubjektPayload, Body()],
-    saison_teams_collection: SaisonTeamsCollection,
-    saisons_collection: SaisonsCollection,
-    spieler_collection: SpielerCollection,
-    schiedsrichter_collection: SchiedsrichterCollection,
+    records: SubjektLookup,
     sperrliste: SperrlisteLookup,
     berechtigungen_collection: BerechtigungenCollection,
 ) -> FLSubjektResponse:
@@ -107,16 +99,7 @@ async def get_subjekt(
     # Concurrently, every page a signed-in person or an administrator renders waiting on this answer:
     # the records, the ban and the grant cost the longest of the three rather than their sum.
     subjekt, gesperrt, grant = await gather_cancelling(
-        find_subjekt(
-            identifier,
-            saison_teams_collection=saison_teams_collection,
-            saisons_collection=saisons_collection,
-            spieler_collection=spieler_collection,
-            schiedsrichter_collection=schiedsrichter_collection,
-            # No transaction, which is also what lets the three run at once: one session runs one
-            # operation at a time. The parameter exists for the caller that judges a Funktion inside its own.
-            session=None,
-        ),
+        find_subjekt(identifier, records),
         hash_gesperrt(sperrliste, ban_key),
         verwaltung_of(berechtigungen_collection=berechtigungen_collection, adresse=identifier),
     )
@@ -125,6 +108,49 @@ async def get_subjekt(
     return FLSubjektResponse(
         **subjekt.model_dump(), gesperrt=gesperrt, verwaltung=verwaltung, berechtigt_seit=berechtigt_seit, inhaber_seit=inhaber_seit
     )
+
+
+@router.post(
+    "/anmeldung",
+    response_model=FLAnmeldungResponse,
+    summary="Say whether one mailbox may be offered a sign-in",
+    dependencies=[Depends(stores_nothing)],
+)
+async def get_anmeldung(
+    anmeldung_data: Annotated[FLSubjektPayload, Body()],
+    records: SubjektLookup,
+    sperrliste: SperrlisteLookup,
+    berechtigungen_collection: BerechtigungenCollection,
+) -> FLAnmeldungResponse:
+    """
+    Answer what the sign-in gate decides on for one mailbox: its own records, its pending confirmation, its ban and its grant.
+
+    No record, name or id is answered, only flags and the grant's tier. Stores nothing, and a POST for `POST /identitaet/subjekt`'s
+    reason. The address is folded on arrival and compared as that endpoint compares it, and `unbestaetigt`, `gesperrt` and
+    `verwaltung` are that endpoint's own answers.
+
+    `konto` is true exactly where the mailbox holds a record its own person confirmed: a contact seat on any season row, a past
+    season's and a withdrawn team's included; a contact seat on a pending application; a pupil or referee record, a retired one
+    included, never the placeholder every erased referee's fixtures name; and a pending registration whose pupil confirmed it with
+    a choice. A decided application, a declined registration and every unconfirmed record count for nothing. It holds wherever
+    `POST /identitaet/subjekt` answers a record, and also where the only records are ones granting no panel.
+
+    The ban narrows neither flag: a barred address holding records is answered `gesperrt` and `konto` both, and refusing it is the
+    caller's. A mailbox the league holds nothing for is answered both flags false rather than a 404.
+    """
+
+    # Folded and keyed as `get_subjekt` folds and keys, for its reasons.
+    identifier = sign_in_identifier(str(anmeldung_data.email))
+    ban_key = sperrliste.hash_of(str(anmeldung_data.email))
+
+    # Concurrently, for `get_subjekt`'s reason: a sign-in waits on this answer.
+    anmeldung, gesperrt, grant = await gather_cancelling(
+        find_anmeldung(identifier, records),
+        hash_gesperrt(sperrliste, ban_key),
+        verwaltung_of(berechtigungen_collection=berechtigungen_collection, adresse=identifier),
+    )
+
+    return FLAnmeldungResponse(**anmeldung.model_dump(), gesperrt=gesperrt, verwaltung=None if grant is None else grant[0])
 
 
 @router.post(

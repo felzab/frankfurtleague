@@ -1,3 +1,5 @@
+import { NICHT_HINTERLEGT, nichtHinterlegt } from "@/shared/utils/format";
+
 import type { FLAustrittType, FLKontaktKenntnisnahme, FLSchulform, FLTrainerZugleich, FLTrikotFarbe } from "./schemas";
 
 export const TEAMS_CRUD_COPY = {
@@ -162,22 +164,42 @@ export const EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH = 64;
  */
 export const EINWILLIGUNG_UMFANG = "kontaktdaten" as const;
 
-type EinwilligungHerkunftOption = {
-  readonly value: FLKontaktKenntnisnahme["erfasst_von"];
+/**
+ * Names WHO fills a contact's birthdate rather than reporting that nobody has: before the person confirms,
+ * „Nicht hinterlegt“ would read as a field the administrator is expected to get round to.
+ */
+const TRAEGT_DIE_PERSON_EIN = "Trägt die Person selbst ein";
+
+/**
+ * A contact's empty birthdate, on every page: the person's own step until they confirm, a field held
+ * empty after. `ohneLabel` where no label stands beside it, so the words name the field.
+ */
+export function kontaktGeburtsdatumLeer(bestaetigtAm: string | null, ohneLabel = false): string {
+  if (bestaetigtAm === null) return ohneLabel ? "Geburtsdatum trägt die Person selbst ein" : TRAEGT_DIE_PERSON_EIN;
+
+  return ohneLabel ? nichtHinterlegt("Geburtsdatum") : NICHT_HINTERLEGT;
+}
+
+type EingetragenVonOption = {
+  readonly value: NonNullable<FLKontaktKenntnisnahme["eingetragen_von"]>;
   readonly label: string;
 };
 
-/** In the order the contacts facet offers them as filters — no form picks between the two. */
-export const EINWILLIGUNG_HERKUNFT_OPTIONS: readonly EinwilligungHerkunftOption[] = [
-  // Neither label may name a source other than the person: the second is a transcription, and a label
-  // naming the school would record the school as having acknowledged for somebody.
-  { value: "person", label: "Von der Person selbst" },
-  { value: "administrativ", label: "Von der Verwaltung übertragen" },
+/**
+ * Who seated a contact person, in the order the contacts facet offers them: the applicant on the form,
+ * or the league. The person's own answer is the confirmation stamp's to say, never this one's.
+ */
+export const EINGETRAGEN_VON_OPTIONS: readonly EingetragenVonOption[] = [
+  { value: "bewerbung", label: "Mit der Bewerbung eingetragen" },
+  { value: "liga", label: "Von der Liga eingetragen" },
 ];
 
-/** What every surface renders for a stored Kenntnisnahme. */
-export function einwilligungHerkunftLabel(herkunft: FLKontaktKenntnisnahme["erfasst_von"]): string {
-  return EINWILLIGUNG_HERKUNFT_OPTIONS.find((option) => option.value === herkunft)?.label ?? "";
+/**
+ * The Herkunft every surface renders for a contact seat: who seated the person. Never guessed for a seat
+ * stored before the field, which says so instead.
+ */
+export function eingetragenVonLabel(von: FLKontaktKenntnisnahme["eingetragen_von"]): string {
+  return EINGETRAGEN_VON_OPTIONS.find((option) => option.value === von)?.label ?? nichtHinterlegt("Herkunft");
 }
 
 /**
@@ -186,6 +208,13 @@ export function einwilligungHerkunftLabel(herkunft: FLKontaktKenntnisnahme["erfa
  * admin cannot spend on a prefix the form supplies.
  */
 export const WEBSITE_URL_SCHEME = "https://";
+
+/** What an administrator's readout labels a seat's contact scope with, and its two values keyed by the scope. */
+export const KONTAKT_WHATSAPP_FRAGE = "WhatsApp";
+export const KONTAKT_WHATSAPP_LABELS: Readonly<Record<FLKontaktKenntnisnahme["umfang"], string>> = {
+  kontaktdaten_whatsapp: "erlaubt",
+  kontaktdaten: "nicht erlaubt",
+};
 
 /**
  * The three seats a season holds per club, in both surfaces' order.

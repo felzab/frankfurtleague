@@ -97,6 +97,26 @@ class FLSubjektResponse(FLSubjekt, BaseAPIResponse):
     inhaber_seit: FLUtcInstant | None
 
 
+class FLAnmeldung(BaseModel):
+    """What the records one mailbox holds say about its sign-in."""
+
+    # `FLSubjekt`'s own flag, from the same judgement.
+    unbestaetigt: bool
+    # Whether the account page serves the mailbox anything, a Funktion or not: a person holding only
+    # a retired record or a pending application still has a consent there to take back.
+    konto: bool
+
+
+class FLAnmeldungResponse(FLAnmeldung, BaseAPIResponse):
+    """The sign-in gate's whole answer: the records' two flags, the ban and the grant, and no record itself.
+
+    The ban narrows neither flag: whether a barred person signs in is the gate's to decide.
+    """
+
+    gesperrt: bool
+    verwaltung: FLVerwaltung | None
+
+
 class FLGesperrtPayload(BaseModel):
     """The one address a message is about to go to."""
 

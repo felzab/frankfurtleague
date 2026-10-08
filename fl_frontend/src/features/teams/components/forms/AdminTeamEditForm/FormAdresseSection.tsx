@@ -34,7 +34,7 @@ export function FormAdresseSection({
       {...(isSearchable
         ? { href: buildMapsSearchUrl(formatAddressFull(address)), target: "_blank", rel: "noopener noreferrer" }
         : { "aria-disabled": true })}
-      aria-label="Eingegebene Adresse auf Google Maps öffnen"
+      aria-label="Adresse auf Google Maps öffnen"
       className={`flex size-10 shrink-0 items-center justify-center rounded-xl transition-colors ${
         isSearchable ? "cursor-pointer text-foreground-muted hover:bg-hover hover:text-brand" : "cursor-not-allowed text-foreground-muted/40"
       }`}>
@@ -58,7 +58,7 @@ export function FormAdresseSection({
             <Hint
               mode="refusal"
               reason="Erst Straße und Stadt eingeben"
-              label="Eingegebene Adresse auf Google Maps öffnen">
+              label="Adresse auf Google Maps öffnen">
               {mapsLink}
             </Hint>
           )}

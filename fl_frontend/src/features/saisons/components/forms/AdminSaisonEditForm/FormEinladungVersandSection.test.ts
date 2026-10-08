@@ -29,7 +29,7 @@ const { raised } = doubleToasts();
 
 const { FormEinladungVersandSection } = await import("./FormEinladungVersandSection.tsx");
 const { UNKNOWN_REFUSAL } = await import("@/shared/utils/refusal.ts");
-const { unansweredAction } = await import("@/shared/utils/actionError.ts");
+const { outcomeUnknown } = await import("@/shared/utils/actionError.ts");
 const { NAME_WRAP_CLASSES } = await import("@/shared/components/ui/nameWrap.ts");
 
 /** Four characters, the width every schema in the tree holds a season id to. */
@@ -184,7 +184,7 @@ describe("the season's bulk invite send", () => {
     await act(answered);
     await screen.findByRole("button", { name: RESTING });
 
-    const { error, outcome } = unansweredAction();
+    const { error, outcome } = outcomeUnknown();
     assert.deepEqual(
       raised.map((toast) => [toast.variant, toast.title, toast.description, toast.options?.outcome]),
       [["danger", "Unklar, ob es gespeichert wurde", error, outcome]],
@@ -269,7 +269,7 @@ describe("the season's bulk invite send", () => {
     await user.click(screen.getByRole("button", { name: RESTING }));
     await armedStep();
 
-    assert.ok(isInTheFlow("Keine Kontaktdaten hinterlegt"), "the team with no contact block is not told apart");
+    assert.ok(isInTheFlow("Kontaktdaten nicht hinterlegt"), "the team with no contact block is not told apart");
     assert.ok(isInTheFlow("Niemand hat die Kontaktdaten bisher selbst bestätigt"), "the team with no confirmed seat is not told apart");
     assert.ok(isInTheFlow("Hat den Link schon bekommen"), "the team already mailed is not told apart");
     assert.ok(isInTheFlow("Austritt eingetragen"), "the club that has left is not told apart");
@@ -519,7 +519,7 @@ describe("the season's bulk invite send", () => {
     assert.ok(isInTheFlow(ZURUECKGEHALTEN), "a row the deployment withheld reads as a team the league failed to reach");
     assert.equal(isInTheFlow("Nicht erreicht: holger@beispiel.de"), false, "a withheld address is offered for writing to by hand");
     assert.ok(isInTheFlow("Der bisherige Link dieses Teams funktioniert nicht mehr"), "the team that lost a link is not told apart afterwards");
-    assert.ok(isInTheFlow("Keine Kontaktdaten hinterlegt"), "the skipped team lost its reason in the result");
+    assert.ok(isInTheFlow("Kontaktdaten nicht hinterlegt"), "the skipped team lost its reason in the result");
     assert.ok(isInTheFlow("Registrierungslink nicht angelegt"), "the team whose mint failed is not told apart from one passed over on purpose");
     assert.ok(
       isInTheFlow("Der bisherige Link dieses Teams gilt weiter. Ein neuer Versand versucht es noch einmal."),

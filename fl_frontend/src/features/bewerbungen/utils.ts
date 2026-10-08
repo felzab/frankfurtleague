@@ -1,11 +1,9 @@
 import { parseDate } from "@internationalized/date";
 
 import { KONTAKT_EMAIL } from "@/core/brand";
-import { LIGA_KENNTNISNAHME } from "@/core/einwilligung";
-import { isRecordMissing } from "@/core/errors";
 import { isRefusal, isRuleRefusal, refusedPayloadAnswer } from "@/shared/utils/actionError";
-import { buildRefusal, LADE_NEU_UND_VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
-import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
+import { buildRefusal, LADE_DIE_SEITE_NEU, LADE_NEU_UND_VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
+import { ANTWORT_NEU_OEFFNEN, FASSUNG_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 import { mirrorTrainerSeat } from "@/shared/utils/trainerSeat";
 
 import { alterAusserhalb, BEWERBUNG_MAX_ALTER, KUERZEL_LAENGE, SCHULE_NICHT_IN_LISTE } from "./constants";
@@ -149,7 +147,7 @@ export function mapBewerbungSubmitRefusal(
       return {
         error: buildRefusal({
           reason: "Für diese Saison werden gerade keine Bewerbungen angenommen",
-          repair: "Lade die Seite neu",
+          repair: LADE_DIE_SEITE_NEU,
         }),
       };
     case "REQ-BEWERBUNG-005":
@@ -193,29 +191,25 @@ export function mapBewerbungSubmitRefusal(
     // page from before a data reset, or a crafted body, sends it, and the reload fetches the window open now.
     case "DB-COMMON-001":
     // A seat names words other than the form's, which only a page loaded before a deploy sends.
-    case "REQ-BEWERBUNG-016":
+    case "REQ-EINWILLIGUNG-001":
       return { error: BEWERBUNG_VERALTET };
     default:
       return null;
   }
 }
 
-// Takes an unjudged body: judged first, an older page's answer is the one sentence rather than marks
-// on boxes whose values may be right, and a stale label the newer schema accepts never reaches the write.
-/**
- * Whether a confirmation names the label the running build renders, the only one a stored answer may
- * cite: a page opened before a deploy posts the label of words the running build does not serve.
- */
-export function nenntLaufendeFassung(body: unknown, textVersion: string): boolean {
-  return typeof body === "object" && body !== null && "text_version" in body && body.text_version === textVersion;
-}
+// Names the switch rather than the date: the page offers it from the served age, so only a browser
+// clock disagreeing with the backend's day shows it below that age, and switching it off repairs that.
+/** What the contact page says where the backend refuses the media consent for the date entered. */
+export const MEDIEN_NOCH_NICHT =
+  "Fotos, Videos und Interviews kannst Du mit diesem Geburtsdatum noch nicht erlauben. Schalte die Erlaubnis aus und bestätige erneut.";
 
 /** What one refused confirmation asks its caller to do. `nachlesen` is answered by a read, never by this mapper. */
 export type EinwilligungRefusal = {
   error?: string;
   fieldErrors?: FieldErrors;
   unplacedError?: string;
-  zustand?: LinkZustand;
+  zustand?: LinkZustand | "saison_vorbei";
   nachlesen?: true;
 };
 
@@ -234,15 +228,24 @@ export function mapEinwilligungRefusal(error: unknown, mindestalter: number): Ei
     case "REQ-VAL-002":
     case "REQ-VAL-001":
       return refusedPayloadAnswer(error, ANTWORT_NEU_OEFFNEN);
-    // With the record missing, the application the link names is gone, which is a link nothing places.
-    case "DB-COMMON-001":
+    // The backend's judgement of the label (`docs/backend/spec.md :: I550`): a page opened before a
+    // deploy moved it posts words other than those the backend runs, and only the mail's link reopens it.
+    case "REQ-EINWILLIGUNG-001":
+      return { error: FASSUNG_NEU_OEFFNEN };
     case "REQ-BEWERBUNG-009":
       return { zustand: "ungueltig" };
     // A decided application, or a deadline passed that only a re-sent link restarts: one panel names
     // both, the link being spent either way for this person.
     case "REQ-BEWERBUNG-010":
     case "REQ-BEWERBUNG-017":
+    // A season row's seat past its own deadline, spent for good: only a fresh link from the
+    // administration opens the seat again, so the same panel serves it.
+    case "REQ-KONTAKT-004":
       return { zustand: "abgelaufen" };
+    // A season row's link whose season ended or whose team left, which still takes a Widerspruch: the
+    // page its view answers on a reload, offering that alone.
+    case "REQ-KONTAKT-006":
+      return { zustand: "saison_vorbei" };
     // One code covers both answers, so „bestätigt“ here would tell a seat declined in another window
     // that it confirmed. Which way it went is the read's to say.
     case "REQ-BEWERBUNG-011":
@@ -251,6 +254,9 @@ export function mapEinwilligungRefusal(error: unknown, mindestalter: number): Ei
     // a `zustand` here would swap a live form for a dead-link panel.
     case "REQ-BEWERBUNG-012":
       return { fieldErrors: { geburtsdatum: alterAusserhalb(mindestalter) } };
+    // Spends nothing either, and the typed date survives it; a toast, the switch rendering no error of its own.
+    case "REQ-EINWILLIGUNG-002":
+      return { error: MEDIEN_NOCH_NICHT };
     // The panel the view opens a barred link on, so a ban entered while the form stood open leaves no
     // form either: the page offers no Widerspruch to a barred address (`docs/frontend/spec.md :: I516`).
     case "REQ-BEWERBUNG-020":
@@ -268,9 +274,6 @@ export function mapEinwilligungAnsichtRefusal(error: unknown): LinkZustand | nul
   // than offering a reload that cannot succeed. `docs/frontend/spec.md` §4 accepts that the two
   // tiers bound its length apart.
   if (error.serverErrorCode === "REQ-VAL-001") return "ungueltig";
-
-  // The record the link names gone, which the confirmation answers alike.
-  if (isRecordMissing(error)) return "ungueltig";
 
   // Every rule's refusal alike: a spent link answers its own `zustand` in a 200, so a refusal is a
   // token nothing could place, and a code nobody planned reads the same way.
@@ -308,13 +311,13 @@ export function abiJahrgang(saisonId: string): string {
   return String(Number(saisonId) + 1);
 }
 
-export const buildEmptyBewerbungKontaktperson = (): BewerbungKontaktpersonDraft => ({
+export const buildEmptyBewerbungKontaktperson = (textVersion: string): BewerbungKontaktpersonDraft => ({
   vorname: "",
   nachname: "",
   email: "",
   telefon: "",
   // Stamped as the form opens, so what a record cites is the wording its reader was shown.
-  einwilligung: { text_version: LIGA_KENNTNISNAHME.textVersion, erteilt: false },
+  einwilligung: { text_version: textVersion, erteilt: false },
 });
 
 /** A blank new school, held from the moment the form opens so nothing typed into it can be dropped. */
@@ -329,14 +332,14 @@ export const buildEmptyBewerbungSchule = (): BewerbungSchuleDraft => ({
   website_url: null,
 });
 
-export const buildEmptyBewerbungDraft = (saisonId: string): BewerbungFormDraft => ({
+export const buildEmptyBewerbungDraft = (saisonId: string, textVersion: string): BewerbungFormDraft => ({
   saison_id: saisonId,
   auswahl: null,
   schule: buildEmptyBewerbungSchule(),
   kontakte: {
-    trainer: buildEmptyBewerbungKontaktperson(),
-    ansprechperson: buildEmptyBewerbungKontaktperson(),
-    stellvertretung: buildEmptyBewerbungKontaktperson(),
+    trainer: buildEmptyBewerbungKontaktperson(textVersion),
+    ansprechperson: buildEmptyBewerbungKontaktperson(textVersion),
+    stellvertretung: buildEmptyBewerbungKontaktperson(textVersion),
     trainer_ist_zugleich: null,
   },
   trikot: { vorhandener_satz: "", wunschfarbe: null },

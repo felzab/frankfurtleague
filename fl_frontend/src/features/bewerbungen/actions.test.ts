@@ -1,19 +1,20 @@
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
-import { LIGA_KENNTNISNAHME } from "@/core/einwilligung.ts";
+import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { registerDoubles } from "@/core/exportingModule.ts";
+import { kontaktBestaetigungsLink } from "@/core/kontaktLink.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { cacheCalls, doubleActionRequest, doubleActions } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
+import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 import { answerShown, assertEachAnswered, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
-import { toActionErrorResult, unansweredAction } from "@/shared/utils/actionError.ts";
+import { outcomeUnknown, toActionErrorResult } from "@/shared/utils/actionError.ts";
 import { formatSpielDatum } from "@/shared/utils/format.ts";
 
 import { labelBadge } from "../../shared/components/ui/badges.ts";
 import { buildTeamBanners } from "../teams/components/forms/AdminTeamEditForm/banners.ts";
 import { mapAlreadyEnteredRefusal, mapCreatedClubEntryRefusal, mapEntryRefusal, mapReplacementRefusal } from "../teams/refusals.ts";
-import { bestaetigungsLink } from "./bestaetigungLink.ts";
 import { BEWERBUNG_GRUND_MAX_LENGTH, ERNEUT_OHNE_ADRESSE } from "./constants.ts";
 import { mapEinwilligungErneutRefusal, mapKontaktEmailRefusal, mapKontaktSitzRefusal, mapTriageRefusal } from "./refusals.ts";
 import { FLAblehnenBewerbungPayloadSchema, FLBewerbungSchema } from "./schemas.ts";
@@ -72,6 +73,11 @@ const writes = client.calls;
 /** Answers the write a case presses with `next`, the delivery report after it as the endpoint does. */
 const answerWith = (next: () => Promise<unknown>): void =>
   client.answerWith((call) => (reportsDelivery(call) ? Promise.resolve(deliveryApplied(call)) : next()));
+/** The label the backend runs on the application form, off the registry it generated. */
+const FORM_LABEL = publishedLaufendeFassung("bewerbung").text_version;
+// The running label's read answered at its module, so the writes below are the client's whole record:
+// `fl_frontend/src/core/einwilligung.test.ts` drives the read itself.
+doubleActions({ modules: ["/src/core/einwilligung.ts"], answer: () => Promise.resolve(FORM_LABEL) });
 const { answerWith: readWith } = doubleActions({ modules: ["/src/features/bewerbungen/queries.ts"], answer: () => Promise.resolve(GELESEN) });
 const { answerWith: clubsWith } = doubleActions({
   modules: ["/src/features/teams/queries.ts"],
@@ -134,10 +140,7 @@ describe("the triage's refusals against the codes its endpoints publish", () => 
   it("answers every code the decline publishes through the triage's mapper", async () => {
     const published = publishedRefusals(ABLEHNEN_OPERATION);
 
-    assert.deepEqual(
-      published.filter((code) => code !== DUPLICATE_KEY),
-      ["REQ-BEWERBUNG-001"],
-    );
+    assert.deepEqual(published, ["REQ-BEWERBUNG-001"]);
     for (const code of published) {
       assert.notEqual(
         answerShown(ABLEHNEN_OPERATION, code, declineMapped),
@@ -252,13 +255,7 @@ const ENTSCHIEDEN = FLBewerbungSchema.parse({
       nachname: "Meier",
       telefon: "069 1234567",
       geburtsdatum: null,
-      einwilligung: {
-        umfang: "kontaktdaten",
-        erfasst_von: "person",
-        text_version: LIGA_KENNTNISNAHME.textVersion,
-        datum: "2026-09-01",
-        bestaetigt_am: null,
-      },
+      einwilligung: kenntnisnahme({ erfasst_von: "person", text_version: FORM_LABEL, datum: "2026-09-01", bestaetigt_am: null }),
     },
     stellvertretung: null,
     trainer_ist_zugleich: null,
@@ -308,7 +305,7 @@ const SITZ = {
   nachname: "Beispiel",
   email: "berta@example.de",
   telefon: "069 1234567",
-  text_version: LIGA_KENNTNISNAHME.textVersion,
+  text_version: FORM_LABEL,
 } as const;
 
 /** The paths of the three repairs above, each a write that mints the seat's link and so spends the one it held. */
@@ -904,7 +901,7 @@ describe("the re-sent confirmation link", () => {
     readWith(() => Promise.resolve(VOR_DER_REPARATUR));
     answerWith(() => Promise.resolve(erneutGeschrieben()));
 
-    assert.deepEqual(await einwilligungErneutSendenAction(ERNEUT), unansweredAction());
+    assert.deepEqual(await einwilligungErneutSendenAction(ERNEUT), outcomeUnknown());
   });
 
   /* Outside production every send is withheld, and a refusal there offers a retry no repeat of the
@@ -998,7 +995,7 @@ describe("the re-sent confirmation link", () => {
     answerWith(() => Promise.resolve(erneutGeschrieben({ token })));
     results.push(await einwilligungErneutSendenAction(ERNEUT));
     assert.ok(
-      mailed.some(({ text }) => text.includes(bestaetigungsLink(ORIGIN, token))),
+      mailed.some(({ text }) => text.includes(kontaktBestaetigungsLink(ORIGIN, token))),
       "the landed send mailed no link, so the token is judged on nothing",
     );
 
@@ -1155,7 +1152,7 @@ describe("the person seated where one stepped out", () => {
           nachname: "Beispiel",
           email: "berta@example.de",
           telefon: "069 1234567",
-          text_version: LIGA_KENNTNISNAHME.textVersion,
+          text_version: FORM_LABEL,
         }),
       mapped: mapKontaktSitzRefusal,
     });

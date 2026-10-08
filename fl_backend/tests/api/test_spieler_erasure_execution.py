@@ -23,6 +23,7 @@ from app.core.collections import Collection
 from app.core.exceptions import WriteRefusalException
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.documents import saison_document, saison_team_document, spieler_document
+from tests.whole_database import where_held
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -141,16 +142,21 @@ async def a_pupil_with_a_history(database: AsyncDatabase, *, vorname: str, team_
     # The earlier squad is LEFT, which is a shape the erasure has to reach as well: a row recording
     # what somebody wore stays about them after they stop wearing it.
     await delete_saison_spieler(
-        spieler_id=spieler_id, saison_id=FORMER_SAISON_ID, saison_spieler_collection=database[Collection.SAISON_SPIELER], today=TODAY
+        spieler_id=spieler_id,
+        saison_id=FORMER_SAISON_ID,
+        saison_spieler_collection=database[Collection.SAISON_SPIELER],
+        today=TODAY,
+        db=database.client,
     )
     await patch_spieler(
         spieler_id=spieler_id,
         spieler_data=FLPatchSpielerPayload(vorname=vorname, nachname=f"{vorname}-Musterfrau", geburtsdatum=None),
         spieler_collection=database[Collection.SPIELER],
+        db=database.client,
     )
 
     if retired:
-        await delete_spieler(spieler_id=spieler_id, spieler_collection=database[Collection.SPIELER], today=TODAY)
+        await delete_spieler(spieler_id=spieler_id, spieler_collection=database[Collection.SPIELER], today=TODAY, db=database.client)
 
     return spieler_id
 
@@ -166,8 +172,9 @@ async def a_pupil_who_never_joined_a_squad(database: AsyncDatabase) -> ObjectId:
         spieler_id=spieler_id,
         spieler_data=FLPatchSpielerPayload(vorname=LONE_VORNAME, nachname=f"{LONE_VORNAME}-Musterfrau", geburtsdatum=None),
         spieler_collection=database[Collection.SPIELER],
+        db=database.client,
     )
-    await delete_spieler(spieler_id=spieler_id, spieler_collection=database[Collection.SPIELER], today=TODAY)
+    await delete_spieler(spieler_id=spieler_id, spieler_collection=database[Collection.SPIELER], today=TODAY, db=database.client)
 
     return spieler_id
 
@@ -223,12 +230,6 @@ def images_naming(images: list[dict[str, Any]], spieler_id: ObjectId) -> list[di
     """The images that ARE this person or point at them, from whichever collection they were recorded."""
 
     return [image for image in images if spieler_id in (image.get("_id"), image.get("spieler_id"))]
-
-
-async def every_collection_as_text(database: AsyncDatabase) -> str:
-    """The whole database rendered, so a value can be looked for where nobody thought to put it."""
-
-    return str([await database[name].find().to_list(length=None) for name in await database.list_collection_names()])
 
 
 class TestARetiredPupilIsErasedWhole:
@@ -386,14 +387,14 @@ class TestNothingOfTheirsIsLeftAnywhere:
             await a_pupil_with_a_history(database, vorname=OTHER_VORNAME, team_id=AWAY_TEAM_OID, retired=False)
             await call_erasure(database, client, spieler_id)
 
-            return await every_collection_as_text(database)
+            return await where_held(database, ERASED_VORNAME, f"{OTHER_VORNAME}-Mustermann")
 
-        rendered = on_a_league(mongo_replica_set_url, body)
+        held = on_a_league(mongo_replica_set_url, body)
 
         # Both surnames carry the given name, so one substring answers for all three of their values.
-        assert ERASED_VORNAME not in rendered
+        assert held[ERASED_VORNAME] == []
         # Their REPLACED surname, not their live one: only what an edit replaced is ever in the log.
-        assert f"{OTHER_VORNAME}-Mustermann" in rendered
+        assert held[f"{OTHER_VORNAME}-Mustermann"]
 
 
 class TestAPupilWhoNeverJoinedASquad:
@@ -420,12 +421,12 @@ class TestAPupilWhoNeverJoinedASquad:
             spieler_id = await a_pupil_who_never_joined_a_squad(database)
             await call_erasure(database, client, spieler_id)
 
-            return await database[Collection.SPIELER].count_documents({"_id": spieler_id}), await every_collection_as_text(database)
+            return await database[Collection.SPIELER].count_documents({"_id": spieler_id}), await where_held(database, LONE_VORNAME)
 
-        remaining, rendered = on_a_league(mongo_replica_set_url, body)
+        remaining, held = on_a_league(mongo_replica_set_url, body)
 
         assert remaining == 0
-        assert LONE_VORNAME not in rendered
+        assert held == {LONE_VORNAME: []}
 
 
 class TestTheErasureIsRefusedUntilTheyAreRetired:
@@ -466,7 +467,7 @@ class TestTheErasureIsRefusedUntilTheyAreRetired:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             spieler_id = await a_pupil_with_a_history(database, vorname="Max", team_id=HOME_TEAM_OID, retired=False)
-            await delete_spieler(spieler_id=spieler_id, spieler_collection=database[Collection.SPIELER], today=TODAY)
+            await delete_spieler(spieler_id=spieler_id, spieler_collection=database[Collection.SPIELER], today=TODAY, db=database.client)
 
             return await call_erasure(database, client, spieler_id)
 

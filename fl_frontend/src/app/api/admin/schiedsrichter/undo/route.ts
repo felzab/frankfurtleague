@@ -1,37 +1,64 @@
-import { revalidateTag } from "next/cache";
+import { z } from "zod";
 
 import { saveMayMint } from "@/features/schiedsrichter/linkMint";
 import { patchSchiedsrichter } from "@/features/schiedsrichter/mutations";
-import { describeLinkMail, mailSchiedsrichterLink } from "@/features/schiedsrichter/notifications";
+import {
+  describeAdresswechselMail,
+  describeLinkMail,
+  mailSchiedsrichterAdresswechsel,
+  mailSchiedsrichterLink,
+} from "@/features/schiedsrichter/notifications";
 import { getSchiedsrichterById } from "@/features/schiedsrichter/queries";
+import { SCHIEDSRICHTER_REPLAY_REFUSALS } from "@/features/schiedsrichter/refusals";
 import { FLPatchSchiedsrichterPayloadSchema } from "@/features/schiedsrichter/schemas";
-import { KONFLIKT_MIT_BESTEHENDEM } from "@/shared/utils/actionError";
 import { handleUndoRequest, refusedReplay } from "@/shared/utils/undoRoute";
 
 import type { NextRequest } from "next/server";
 
-/** Worded for the undo: the save's own sentences send an admin to a form this toast has not got. */
-const REPLAY_REFUSALS: Record<string, string> = {
-  "REQ-SCHIEDSRICHTER-007":
-    "Die frühere E-Mail-Adresse steht auf der Sperrliste, und zurückschreiben würde ihr einen neuen Bestätigungslink schicken.",
-  "DB-COMMON-002": KONFLIKT_MIT_BESTEHENDEM,
-};
+const ADRESSWECHSEL_WARTET_WEITER =
+  "Die neue E-Mail-Adresse wartet weiter auf Bestätigung. Soll sie nicht gelten, verwirf die Änderung im Eintrag.";
+
+/**
+ * The stored values, and the save's own report of whether it left the waiting address: no read after
+ * the replay tells that save from one that moved only the fee while an earlier change waited.
+ */
+const UndoRequestSchema = FLPatchSchiedsrichterPayloadSchema.extend({ adresswechsel_gespeichert: z.boolean() });
 
 export async function POST(request: NextRequest) {
   return handleUndoRequest(request, {
     mutationName: "undoAdminSchiedsrichterEdit",
-    schema: FLPatchSchiedsrichterPayloadSchema,
-    restore: async (payload) => {
+    schema: UndoRequestSchema,
+    restore: async ({ adresswechsel_gespeichert, ...payload }) => {
       let operation;
       try {
         operation = await patchSchiedsrichter(payload);
       } catch (error) {
-        return refusedReplay(error, REPLAY_REFUSALS);
+        return refusedReplay(error, SCHIEDSRICHTER_REPLAY_REFUSALS);
       }
 
       if (!operation.acknowledged) {
         return { unclear: "Die Rücknahme wurde abgebrochen. Prüfe die Schiedsrichterdaten." };
       }
+
+      // A confirmed referee's address never moved on the save, so the replay asks the earlier address
+      // again only where that change was confirmed since; unmailed, that link reaches nobody.
+      const wechsel = operation.adresswechsel;
+      if (wechsel !== null) {
+        const wechselVersand = await mailSchiedsrichterAdresswechsel({
+          operation: "undoAdminSchiedsrichterEdit",
+          schiedsrichterId: payload.id,
+          name: payload.name,
+          mint: wechsel,
+          anlass: "erneut",
+        });
+
+        return { cost: describeAdresswechselMail(wechsel.email, wechselVersand) };
+      }
+
+      // The replay leaves a pending address standing, its link already in that mailbox, the discard
+      // being the editor's control. Said only after undoing the save that left it: an undone fee edit
+      // has nothing to do with it.
+      if (adresswechsel_gespeichert && operation.updated_document.adresswechsel !== null) return { cost: ADRESSWECHSEL_WARTET_WEITER };
 
       // The replay puts the earlier address back, which the endpoint reads as a correction and mints
       // for: unmailed, that token exists in the database alone and the referee's own link is dead.
@@ -53,9 +80,7 @@ export async function POST(request: NextRequest) {
       return { cost: describeLinkMail(mint.email, versand) };
     },
     // `spiele` alone: the rename fans out into cached fixtures embedding this row (`docs/frontend/spec.md` §1.4).
-    invalidate: () => {
-      revalidateTag("spiele", { expire: 0 });
-    },
+    tags: () => ["spiele"],
     // The replay is a save, its mint judged as the save's own action judges one: without this the route
     // is a second door to that save with no step-up (`docs/frontend/spec.md :: I432`).
     stepUp: async (payload) => {

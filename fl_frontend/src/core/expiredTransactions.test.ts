@@ -12,9 +12,9 @@ import {
 } from "./expiredTransactions.ts";
 import { filesUnder } from "./treeWalk.ts";
 
-/** `serverStatus` as a replica set answers it, cut to the one count the check reads. */
-const status = (kills: unknown): Record<string, unknown> => ({
-  metrics: { abortExpiredTransactions: { passes: 4, successfulKills: kills, timedOutKills: 0 } },
+/** `serverStatus` as a replica set answers it, cut to the counts the check reads. */
+const status = (kills: unknown, timedOut: unknown = 0): Record<string, unknown> => ({
+  metrics: { abortExpiredTransactions: { passes: 4, successfulKills: kills, timedOutKills: timedOut } },
 });
 
 describe("the count a db suite's server reports", () => {
@@ -22,32 +22,51 @@ describe("the count a db suite's server reports", () => {
     assert.equal(expiredTransactionKills(status(3)), 3);
   });
 
+  // A transaction whose operation was in flight as it expired can be counted under `timedOutKills` alone.
+  it("counts a kill the server timed out checking the session out for, beside every successful one", () => {
+    assert.deepEqual([expiredTransactionKills(status(0, 2)), expiredTransactionKills(status(1, 2))], [2, 3]);
+  });
+
   // An absent count read as zero would pass every file the server stops reporting it on.
-  it("is named unread where the status carries none or carries something else", () => {
+  it("is named unread where the status carries none, carries something else or lacks either count", () => {
+    const successfulAlone = { metrics: { abortExpiredTransactions: { passes: 4, successfulKills: 3 } } };
     assert.deepEqual(
-      [expiredTransactionKills({ metrics: {} }), expiredTransactionKills({}), expiredTransactionKills(status("3"))],
-      [null, null, null],
+      [
+        expiredTransactionKills({ metrics: {} }),
+        expiredTransactionKills({}),
+        expiredTransactionKills(status("3")),
+        expiredTransactionKills(status(3, "2")),
+        expiredTransactionKills(successfulAlone),
+      ],
+      [null, null, null, null, null],
     );
   });
 });
 
 describe("what a db suite's file is answered once its cases are done", () => {
-  it("fails where the count rose during it, naming how many", () => {
-    assert.match(String(expiredTransactionsRefusal(2, 3)), /aborted 1 transaction\(s\)/);
+  it("fails where the count rose during it, naming how many kills", () => {
+    assert.match(String(expiredTransactionsRefusal(2, 3)), /counted 1 kill\(s\)/);
   });
 
   it("passes where the count did not move", () => {
     assert.equal(expiredTransactionsRefusal(2, 2), null);
   });
 
-  it("fails as unjudged where either end went unread, or the count fell with a restart between", () => {
+  it("fails as unjudged where either end went unread", () => {
     for (const [atStart, now] of [
       [null, 0],
       [0, null],
-      [3, 1],
     ] as const) {
-      assert.match(String(expiredTransactionsRefusal(atStart, now)), /was not judged/, `${String(atStart)} → ${String(now)}`);
+      assert.match(
+        String(expiredTransactionsRefusal(atStart, now)),
+        /reported no number .* was not judged/,
+        `${String(atStart)} → ${String(now)}`,
+      );
     }
+  });
+
+  it("fails as unjudged where the count fell, naming the restart", () => {
+    assert.match(String(expiredTransactionsRefusal(3, 1)), /fewer expiry kills .* mongod restart .* was not judged/);
   });
 });
 

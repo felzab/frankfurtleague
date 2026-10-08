@@ -52,3 +52,6 @@ class Collection(StrEnum):
     #: The grant changes still to be mailed, each written in the transaction of the change it
     #: announces, and removed only by the stamp of the pass that claimed it.
     BERECHTIGUNGEN_POSTAUSGANG = "berechtigungen_postausgang"
+    #: One signed-in person's counted writes in one Funktion on one German day. Operational state the
+    #: action log never records (`fl_backend/app/core/drosselung.py`), expired by the day it names.
+    DROSSELUNG = "drosselung"

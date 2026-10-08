@@ -1,4 +1,4 @@
-import { isRefusal, ZUGANG_WEG } from "@/shared/utils/actionError";
+import { isRefusal } from "@/shared/utils/actionError";
 
 import { ADRESSE_GESPERRT, INHABER_GESPERRT, NUR_INHABER_ENTZIEHT } from "./constants";
 
@@ -17,9 +17,6 @@ export function mapErteilenRefusal(error: unknown): { error?: string; fieldError
   }
 
   if (error.serverErrorCode === "REQ-BERECHTIGUNG-003") return { fieldErrors: { email: ADRESSE_GESPERRT } };
-
-  // The acting administrator's own grant went while the page stood; no box repairs that.
-  if (error.serverErrorCode === "REQ-BERECHTIGUNG-006") return { error: ZUGANG_WEG };
 
   return null;
 }

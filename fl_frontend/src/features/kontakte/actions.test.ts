@@ -3,13 +3,15 @@ import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
+import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { FLSaisonSchema } from "@/features/saisons/schemas.ts";
 import { FLTeamWithMembershipsSchema } from "@/features/teams/schemas.ts";
 import { submitDecision } from "@/shared/hooks/useDraftFieldErrors";
 import { doubleActionRequest, doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
+import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
+import { membershipAnswer } from "@/shared/testing/membershipFixtures.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { answer, answerReadsWith, EMPTIEST_ANSWER, OBJECT_ID, renderPage, saisonFields } from "@/shared/testing/pageHarness.ts";
-import { answerShown, publishedRefusals } from "@/shared/testing/publishedRefusals.ts";
 import { renderTree } from "@/shared/testing/renderTest";
 
 import { deriveKontakteDraftStatus } from "./kontakteDraftStatus.ts";
@@ -31,13 +33,16 @@ const { FormKontakteSection } = await import("./components/forms/AdminKontakteEd
 const { DraftStatusProvider } = await import("@/shared/components/ui/DraftStatusContext.tsx");
 const { default: AdminKontaktePage } = await import("@/app/bereich/admin/kontakte/page.tsx");
 
+/** A number per person: two seats sharing one are refused as one person entered twice. */
+const TELEFON: Record<string, string> = { Ada: "069 111", Grace: "069 222", Alan: "069 333" };
+
 const person = (vorname: string, nachname: string, email: string): FLKontaktperson => ({
   vorname,
   nachname,
   email,
-  telefon: "069 111",
+  telefon: TELEFON[vorname] ?? "069 444",
   geburtsdatum: "1990-12-10",
-  einwilligung: { umfang: "kontaktdaten", erfasst_von: "person", text_version: "1", datum: "2026-03-12", bestaetigt_am: "2026-03-14" },
+  einwilligung: kenntnisnahme({ erfasst_von: "person", text_version: "1", datum: "2026-03-12", bestaetigt_am: "2026-03-14" }),
 });
 
 /** Three seats, each holding a different person, so an offer on the wrong one names the wrong name. */
@@ -63,7 +68,13 @@ const sectionMarkup = (kontakte: FLSaisonTeamKontakte): string =>
       h(DraftStatusProvider, {
         status: deriveKontakteDraftStatus({ stored: { kontakte }, draft: { kontakte }, fieldErrors: {} }),
         children: h(FormKontakteSection, {
+          laufendesLabel: publishedLaufendeFassung("bewerbung").text_version,
           value: kontakte,
+          stored: kontakte,
+          bestaetigungen: null,
+          teamId: "507f1f77bcf86cd799439011",
+          saisonId: "2526",
+          nimmtLinks: true,
           isMember: true,
           teamHref: "/bereich/admin/teams/t1?saison_id=2526",
           banners: [],
@@ -100,7 +111,7 @@ answerReadsWith((endpoint, schema, params) => {
       shorthand: "SA",
       full_name: "Sportgemeinschaft Alpha",
       address: { strasse: "Am Sportpark", hausnummer: "1", plz: "60435", stadtteil: "Nordend", stadt: "Frankfurt am Main" },
-      memberships: [{ saison_id: "2526", gruppe: "A", austritt: null, trikot_farbe: null, kontakte: BLOCK, kontakte_stand: "9f2c" }],
+      memberships: [membershipAnswer({ kontakte: BLOCK, kontakte_stand: "9f2c" })],
     });
     return answer(schema, endpoint, { teams: [club] });
   }
@@ -109,8 +120,6 @@ answerReadsWith((endpoint, schema, params) => {
 
 /** The list page resolved whole, its table and every row in it. */
 const LIST_MARKUP = await renderPage(listPage());
-
-const ERASURE_OPERATION = "POST /kontakte/erasure";
 
 /** One response, spelled once so a report case names only the figures it is about. */
 function erasure(counts: Partial<Omit<FLKontaktErasureResponse, "acknowledged">>): FLKontaktErasureResponse {
@@ -123,20 +132,6 @@ function erasure(counts: Partial<Omit<FLKontaktErasureResponse, "acknowledged">>
     ...counts,
   };
 }
-
-describe("the erasure's refusals", () => {
-  /* The endpoint refuses on no rule: a person may want their details gone while the club they were
-     reached for still plays. A rule published against it later fails here until a mapper words it. */
-  it("maps no refusal of its own", () => {
-    for (const code of publishedRefusals(ERASURE_OPERATION)) {
-      assert.notEqual(
-        answerShown(ERASURE_OPERATION, code, () => null),
-        null,
-        `${code} is published on the erasure and reaches the admin unmapped`,
-      );
-    }
-  });
-});
 
 describe("the report the toast carries", () => {
   /* An address naming nobody is an ordinary outcome rather than a failure: it is what the admin

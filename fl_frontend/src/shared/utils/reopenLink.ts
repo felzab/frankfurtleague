@@ -11,6 +11,12 @@ import { buildRefusal } from "./refusal";
 export const ANTWORT_NEU_OEFFNEN =
   "Deine Antwort konnten wir so nicht übernehmen. Öffne den Link aus Deiner E-Mail noch einmal und antworte dort erneut.";
 
+// Its own sentence beside `ANTWORT_NEU_OEFFNEN`, whose drifted body is another fault with the same repair:
+// a reader told the words moved knows the page they read is not the one they would answer now.
+/** What each link confirmation tells a visitor whose page shows words other than those the backend runs. */
+export const FASSUNG_NEU_OEFFNEN =
+  "Die Hinweise auf dieser Seite sind inzwischen geändert worden. Öffne den Link aus Deiner E-Mail noch einmal und antworte auf die aktuellen Hinweise.";
+
 /** The registration page's twin of `ANTWORT_NEU_OEFFNEN`, whose link is the team's rather than a mail's. */
 export const REGISTRIERUNG_NEU_OEFFNEN =
   "Deine Registrierung konnten wir so nicht übernehmen. Öffne den Link Deines Teams noch einmal und registriere Dich dort erneut.";

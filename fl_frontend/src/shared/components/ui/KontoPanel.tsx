@@ -1,3 +1,4 @@
+import { Angabe } from "./Angabe";
 import { formPanel } from "./formPanel";
 import { PanelHeading } from "./PanelHeading";
 
@@ -8,7 +9,7 @@ import type { ReactNode } from "react";
  * (`fl_frontend/eslint.config.mjs :: LAYER_BOUNDARY`), so the page reads the holder and hands the
  * feature sections in.
  */
-export function KontoPanel({ email, sicherheit }: { email: string; sicherheit: ReactNode }) {
+export function KontoPanel({ email, sicherheit, einwilligung }: { email: string; sicherheit: ReactNode; einwilligung: ReactNode }) {
   const panel = formPanel();
 
   return (
@@ -24,14 +25,16 @@ export function KontoPanel({ email, sicherheit }: { email: string; sicherheit: R
             />
           </div>
           <dl className={panel.body()}>
-            <div className="flex flex-col gap-y-0.5">
-              <dt className="fluid-xxs font-bold text-foreground-muted">E-Mail-Adresse</dt>
-              <dd className="min-w-0 fluid-sm font-medium break-all text-foreground">{email}</dd>
-            </div>
+            <Angabe label="E-Mail-Adresse">
+              {/* Broken anywhere, as every page showing the sign-in address breaks it. */}
+              <span className="break-all">{email}</span>
+            </Angabe>
           </dl>
         </section>
 
         {sicherheit}
+
+        {einwilligung}
       </div>
     </div>
   );

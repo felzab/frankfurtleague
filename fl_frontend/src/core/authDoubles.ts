@@ -10,11 +10,12 @@ import { ObjectId } from "mongodb";
 
 import { registerDoubles } from "./exportingModule.ts";
 import { doubleSendMail } from "./mailDouble.ts";
-import { deepFrozen, NO_RECORDS, SITZ } from "./subjectFixtures.ts";
+import { answerAt, deepFrozen, NO_RECORDS, SITZ } from "./subjectFixtures.ts";
 
 import type { MemoryDB } from "better-auth/adapters/memory";
 import type { auth as AuthInstance } from "./auth.ts";
 import type { DoubledExports } from "./exportingModule.ts";
+import type { LookupFixture } from "./subjectFixtures.ts";
 
 export { asDataUrl } from "./exportingModule.ts";
 
@@ -254,22 +255,28 @@ export const GATE_BACKEND_CONFIG = {
 export const HOLDS_NOTHING = deepFrozen({ acknowledged: 1 as const, ...NO_RECORDS });
 
 /** `ADMIN_EMAIL`'s answer: a grant and no league record, which is what makes it an administrator, dated before any session a case makes. */
-const GRANTED = deepFrozen({ ...HOLDS_NOTHING, verwaltung: "administration", berechtigt_seit: "2026-01-01T00:00:00Z" });
+const GRANTED = deepFrozen({ ...HOLDS_NOTHING, verwaltung: "administration" as const, berechtigt_seit: "2026-01-01T00:00:00Z", konto: false });
 
 /** Whether a suite's lookup answer is installed, which `registerAuthDoubles`' default must not replace. */
 let lookupAnswered = false;
 
-/** Answers the lookup by the address it posts; `null` fails the read as an unreachable backend does. */
-function answerTheLookup(answerFor: (email: string) => Record<string, unknown> | null): void {
+/**
+ * Answers the lookup and the sign-in gate by the address each posts, in the shape each reads; `null`
+ * fails the read as an unreachable backend does.
+ */
+function answerTheLookup(answerFor: (email: string) => LookupFixture | null): void {
   lookupAnswered = true;
   const original = globalThis.fetch;
 
-  globalThis.fetch = ((_input: string | URL | Request, init?: RequestInit) => {
+  globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
     const { email } = JSON.parse(String(init?.body ?? "{}")) as { email?: string };
     const answer = answerFor(email ?? "");
     if (answer === null) return Promise.reject(new TypeError("fetch failed"));
 
-    return Promise.resolve(new Response(JSON.stringify(answer), { status: 200, headers: { "content-type": "application/json" } }));
+    const path = new URL(input instanceof Request ? input.url : String(input)).pathname;
+    return Promise.resolve(
+      new Response(JSON.stringify(answerAt(path, answer)), { status: 200, headers: { "content-type": "application/json" } }),
+    );
   }) as typeof globalThis.fetch;
   after(() => {
     globalThis.fetch = original;
@@ -282,7 +289,7 @@ function answerTheLookup(answerFor: (email: string) => Record<string, unknown> |
  * (`docs/frontend/spec.md :: I403`).
  */
 export function seatEveryAddress(granted: readonly string[] = [ADMIN_EMAIL]): void {
-  answerTheLookup((email) => ({ ...(granted.includes(email) ? GRANTED : HOLDS_NOTHING), sitze: [SITZ] }));
+  answerTheLookup((email) => ({ ...(granted.includes(email) ? GRANTED : HOLDS_NOTHING), sitze: [SITZ], konto: true }));
 }
 
 /**

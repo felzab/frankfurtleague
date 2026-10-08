@@ -182,34 +182,49 @@ class TierGuard:
 TIER_GUARD = TierGuard()
 
 
+# Kills, not transactions: a later pass meeting a transaction still running after a timed-out kill counts it again.
 _EXPIRED = (
-    "the db tier's replica set aborted {killed} transaction(s) that outlived MongoDB's transaction lifetime limit. A case deadlocked"
-    " on its own transaction passes once that abort frees it, a minute or more later, so every test can pass while one waited it out"
-    " (`docs/backend/spec.md` §1.6).{named}"
+    "the db tier's replica set's expiry pass counted {killed} kill(s) of transactions past MongoDB's transaction lifetime limit. A"
+    " case deadlocked on its own transaction passes once that abort frees it, a minute or more later, so every test can pass while"
+    " one waited it out (`docs/backend/spec.md` §1.6).{named}"
 )
 
 _KILLS_UNREAD = (
-    "the db tier's replica set reported no `metrics.abortExpiredTransactions.successfulKills` in `serverStatus`, so whether a"
-    " transaction ran to MongoDB's lifetime limit during this run was not judged: find where this server version reports it"
+    "the db tier's replica set reported no number for `metrics.abortExpiredTransactions.successfulKills` or for `timedOutKills` in"
+    " `serverStatus` at the run's start or its end, so whether a transaction ran to MongoDB's lifetime limit during this run was"
+    " not judged: find where this server version reports them (`docs/backend/spec.md` §1.6)."
+)
+
+_KILLS_RESTARTED = (
+    "the db tier's replica set reported fewer expiry kills at the run's end than at its start, which a mongod restart does, so"
+    " whether a transaction ran to MongoDB's lifetime limit before it was not judged: find why the replica set's mongod restarted"
     " (`docs/backend/spec.md` §1.6)."
 )
 
+# Both: mongod's expiry pass, interrupting a transaction's operation in flight and failing to check its session out
+# within `AbortExpiredTransactionsSessionCheckoutTimeout`, counts that transaction under `timedOutKills` alone.
+_EXPIRY_COUNTS = ("successfulKills", "timedOutKills")
+
 
 def expired_transaction_kills(status: Mapping[str, Any]) -> int | None:
-    """`None` where `serverStatus` carries no count, which a passing run must never read as none aborted."""
+    """`None` where `serverStatus` lacks either count, which a passing run must never read as none aborted."""
 
     metrics = status.get("metrics")
     expired = metrics.get("abortExpiredTransactions") if isinstance(metrics, Mapping) else None
-    kills = expired.get("successfulKills") if isinstance(expired, Mapping) else None
-    return kills if isinstance(kills, int) else None
+    if not isinstance(expired, Mapping):
+        return None
+    counts = [count for name in _EXPIRY_COUNTS if isinstance(count := expired.get(name), int)]
+    return sum(counts) if len(counts) == len(_EXPIRY_COUNTS) else None
 
 
 def expired_transactions_refusal(at_start: int | None, now: int | None, named: Callable[[], Iterable[str]] = tuple) -> str | None:
     """`named` lines each abort's cases, asked only once the count rose: it reads the server's whole log."""
 
-    # A count lower than at the start is a server that restarted mid-run, whose aborts before it nobody can count.
-    if at_start is None or now is None or now < at_start:
+    if at_start is None or now is None:
         return _KILLS_UNREAD
+    # A count lower than at the start is a server that restarted mid-run, whose aborts before it nobody can count.
+    if now < at_start:
+        return _KILLS_RESTARTED
 
     killed = now - at_start
     return _EXPIRED.format(killed=killed, named="".join(named())) if killed else None

@@ -3,6 +3,8 @@ import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
+import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
+import { assertLeerMarkup } from "@/shared/testing/leerGrade.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
@@ -23,13 +25,7 @@ function person(vorname: string, nachname: string, email: string, bestaetigtAm: 
     email: email,
     telefon: "069 1234567",
     geburtsdatum: null,
-    einwilligung: {
-      umfang: "kontaktdaten",
-      erfasst_von: "administrativ",
-      text_version: "kontakte-1",
-      datum: "2026-05-01",
-      bestaetigt_am: bestaetigtAm,
-    },
+    einwilligung: kenntnisnahme({ erfasst_von: "administrativ", text_version: "kontakte-1", datum: "2026-05-01", bestaetigt_am: bestaetigtAm }),
   };
 }
 
@@ -150,7 +146,7 @@ describe("what the queue's card carries", () => {
     // Twice: the queue's standing wears it as a pill, and the date's own cell is headed with it.
     assert.equal(times(read, "Eingereicht"), 2, `the status pill and the date's eyebrow no longer both read „Eingereicht“: ${read}`);
 
-    assert.match(list([FULL]), /aria-label="Bewerbung von Goethe öffnen"/, "the card offers no way into the application");
+    assert.match(list([FULL]), /aria-label="Bewerbung öffnen: Goethe"/, "the card offers no way into the application");
   });
 
   /* A fixed heading names one seat for every row, so the row whose Ansprechperson was erased files
@@ -186,7 +182,8 @@ describe("which of the two the card says an application is", () => {
     const read = text(list([NOTHING_NAMED]));
 
     // First, so the absences below are read off a card that rendered at all.
-    assert.ok(read.includes("Kein Team benannt"), `the card does not render the row nothing names: ${read}`);
+    assert.ok(read.includes("Team nicht hinterlegt"), `the card does not render the row nothing names: ${read}`);
+    assertLeerMarkup(list([NOTHING_NAMED]), "Team nicht hinterlegt");
     assert.ok(!read.includes("Bestehendes Team"), "a row naming nothing is badged as a club already in the league");
     assert.ok(!read.includes("Neue Schule"), "a row naming nothing is badged as a new school");
   });
@@ -201,6 +198,8 @@ describe("a card whose cells have nothing to hold", () => {
     assert.ok(read.includes("Keine Bestätigungen angefragt"), `the cell is empty rather than answered: ${read}`);
     assert.ok(!read.includes("bestätigt"), "a count stands over an application with no per-seat state");
     assert.ok(read.includes("Keine Kontaktperson"), "the emptied seat reads as a name that failed to load");
-    assert.ok(read.includes("Keine E-Mail"), "the emptied seat's address reads as a value that failed to load");
+    assert.ok(read.includes("E-Mail nicht hinterlegt"), "the emptied seat's address reads as a value that failed to load");
+    for (const leer of ["Keine Bestätigungen angefragt", "Keine Kontaktperson", "E-Mail nicht hinterlegt"])
+      assertLeerMarkup(list([EMPTY]), leer);
   });
 });

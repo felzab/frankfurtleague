@@ -270,13 +270,13 @@ describe("formatSpielDisplay", () => {
   /* A date a card cannot promise: a played fixture's and a finished season's are unrecorded rather
      than still to be settled, and a card promising one sends a reader back to a page that never fills. */
   it("promises no Termin for a played fixture, or for any fixture of a finished season", () => {
-    assert.equal(formatSpielDisplay({ ...undatiert, ergebnis: "4:0" }, false).datum, PLACEHOLDER.entity);
-    assert.equal(formatSpielDisplay(undatiert, true).datum, PLACEHOLDER.entity);
+    assert.equal(formatSpielDisplay({ ...undatiert, ergebnis: "4:0" }, false).datum, "Datum nicht hinterlegt");
+    assert.equal(formatSpielDisplay(undatiert, true).datum, "Datum nicht hinterlegt");
   });
 
   // A fixture that did not take place is never given a date, whereas an abandoned one was played until it stopped.
   it("promises no Termin for a fixture that did not take place", () => {
-    assert.equal(formatSpielDisplay({ ...undatiert, sonderereignis: "ausgefallen" }, false).datum, PLACEHOLDER.entity);
+    assert.equal(formatSpielDisplay({ ...undatiert, sonderereignis: "ausgefallen" }, false).datum, "Datum nicht hinterlegt");
     assert.equal(formatSpielDisplay({ ...undatiert, sonderereignis: "abgebrochen" }, false).datum, PLACEHOLDER.datum);
   });
 
@@ -1420,6 +1420,14 @@ function classesNaming(markup: string, text: string): string {
   return found[1] ?? "";
 }
 
+/** The classes of the slot around the empty-value grade holding `text`, and of that grade itself. */
+function classesAroundLeer(markup: string, text: string): { slot: string; grade: string } {
+  const found = new RegExp(`<span class="([^"]*)"><span class="([^"]*)">${text}</span></span>`).exec(markup);
+
+  assert.ok(found, `nothing renders „${text}“ as a slot holding one empty value`);
+  return { slot: found[1] ?? "", grade: found[2] ?? "" };
+}
+
 describe("the names a score surface sets", () => {
   const CLUB: FLSpielTeamFieldJoined = {
     team_id: "6890a1b2c3d4e5f607182936",
@@ -1435,14 +1443,34 @@ describe("the names a score surface sets", () => {
   for (const { name, markup, club } of SCORE_SURFACES) {
     it(`${name} dresses a club and a slot label with the shared wrap recipes`, () => {
       const html = markup(SPIEL_MIT_SEITEN);
+      const label = classesAroundLeer(html, "Verlierer von Spiel 29");
 
       for (const [classes, recipe] of [
         [classesNaming(html, club(CLUB)), TEAM_NAME_WRAP_CLASSES],
-        [classesNaming(html, "Verlierer von Spiel 29"), SLOT_LABEL_WRAP_CLASSES],
+        [label.slot, SLOT_LABEL_WRAP_CLASSES],
       ] as const) {
         const rendered = classes.split(" ");
         for (const token of recipe.split(" ")) assert.ok(rendered.includes(token), `${name} drops ${token}: ${classes}`);
       }
+      // The label stands where a club's name would, so every surface sets it in the one empty grade.
+      const grade = label.grade.split(" ");
+      assert.ok(grade.includes("text-foreground-muted") && !grade.includes("italic"), `${name} sets the slot label apart: ${label.grade}`);
+    });
+  }
+});
+
+describe("a card's info control", () => {
+  /* „Spielinfo“ is the only word the icon shows, in its tooltip, so speech input says it: the name opens with it
+     (WCAG 2.5.3) and the fixture follows. */
+  const open = () => undefined;
+  const CARDS: readonly [string, string][] = [
+    ["SpielCard", renderMarkup(SpielCard, { spielData: CARD_SPIEL, onOpenInfoModal: open, today: TODAY, isFinishedSaison: false })],
+    ["SpielCardCompact", renderMarkup(SpielCardCompact, { spielData: CARD_SPIEL, onOpenInfoModal: open, isFinishedSaison: false })],
+  ];
+
+  for (const [name, html] of CARDS) {
+    it(`${name} is named by its tooltip's word, then the fixture`, () => {
+      assert.match(html, new RegExp(`aria-label="Spielinfo: Spiel Nr\\. ${String(CARD_SPIEL.spiel_nr)}"`));
     });
   }
 });

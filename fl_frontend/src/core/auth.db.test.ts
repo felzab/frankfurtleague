@@ -17,8 +17,10 @@ import {
 } from "./authDoubles.ts";
 import { startJudgedReplicaSet } from "./expiredTransactions.ts";
 import { overridingModule } from "./exportingModule.ts";
-import { SITZ } from "./subjectFixtures.ts";
+import { answerAt, SITZ } from "./subjectFixtures.ts";
 import { registrationFor } from "./testAuthenticator.ts";
+
+import type { LookupFixture } from "./subjectFixtures.ts";
 
 // A replica set: why this file needs one is `docs/frontend/spec.md` §1.9's.
 const { mongod, closing } = await startJudgedReplicaSet();
@@ -114,7 +116,7 @@ const { sent } = registerAuthDoubles({
 });
 
 /** What the sign-in gate's backend read answers every address; a case sets it and `beforeEach` resets it. */
-let gateAnswer: { sitze: unknown[]; gesperrt: boolean } = { sitze: [], gesperrt: false };
+let gateAnswer: Pick<LookupFixture, "sitze" | "gesperrt" | "konto"> = { sitze: [], gesperrt: false, konto: false };
 
 // The backend's origin alone: every other request, the container runtime's among them, goes out as it came.
 const ORIGINAL_FETCH = globalThis.fetch;
@@ -125,13 +127,13 @@ globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
   // The grant is what makes `ADMIN_EMAIL` an administrator's; every other address holds none.
   const { email } = JSON.parse(String(init?.body ?? "{}")) as { email?: string };
   const granted = email === ADMIN_EMAIL;
-  const body = {
+  const body = answerAt(new URL(url).pathname, {
     ...HOLDS_NOTHING,
     verwaltung: granted ? "administration" : null,
     // Before every session a case makes.
     berechtigt_seit: granted ? "2026-01-01T00:00:00Z" : null,
     ...gateAnswer,
-  };
+  });
   return Promise.resolve(new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } }));
 }) as typeof globalThis.fetch;
 
@@ -205,7 +207,7 @@ after(() => {
 });
 
 beforeEach(async () => {
-  gateAnswer = { sitze: [], gesperrt: false };
+  gateAnswer = { sitze: [], gesperrt: false, konto: false };
   barrier.disarm();
   counting.disarm();
   warnings.length = 0;
@@ -456,7 +458,7 @@ describe("an address's failures after a code signs in, against a real database (
      the real store as on the memory one. */
   it("counts no refusal at the mint, and still counts a wrong code", async () => {
     const email = "gesperrt-mit-code@example.org";
-    gateAnswer = { sitze: [SITZ], gesperrt: true };
+    gateAnswer = { sitze: [SITZ], gesperrt: true, konto: true };
     const otp = await auth.api.createVerificationOTP({ body: { email, type: "sign-in" } });
 
     await assert.rejects(
@@ -532,12 +534,12 @@ describe("a set-up the gate refuses, against a real database", () => {
   it("writes no passkey for a person holding nothing by the set-up, and leaves them signed in by code", async () => {
     const email = "ohne-sitz-spaeter@example.org";
 
-    gateAnswer = { sitze: [SITZ], gesperrt: false };
+    gateAnswer = { sitze: [SITZ], gesperrt: false, konto: true };
     const cookie = cookieHeader(await signInByCode(auth, email));
     assert.equal((await sessionRows()).length, 1, "the seated person was not signed in, so the case below proves nothing");
 
     const offered = await offer(cookie);
-    gateAnswer = { sitze: [], gesperrt: false };
+    gateAnswer = { sitze: [], gesperrt: false, konto: false };
     const refused = await verify(offered, AUTHENTICATOR_A, { createSession: true });
 
     assert.equal(refused.status, 403, await refused.clone().text());
@@ -556,7 +558,7 @@ describe("a code sign-in through the mint, against a real database", () => {
   const PERSON = "spielerin-mit-code@example.org";
 
   it("stamps the session it mints `code`, and ends the one the browser held", async () => {
-    gateAnswer = { sitze: [SITZ], gesperrt: false };
+    gateAnswer = { sitze: [SITZ], gesperrt: false, konto: true };
     const held = await signIn(PERSON);
     const [before] = await sessionRows();
     assert.ok(before !== undefined, "the first code sign-in minted nothing, so nothing below is replaced");
@@ -575,7 +577,7 @@ describe("a code sign-in through the mint, against a real database", () => {
   /* The sibling read and delete run on the real adapter's id and reference types, which the memory
      store's plain strings never test (`docs/frontend/spec.md :: I485`). */
   it("leaves only the later of two sessions minted to replace one cookie", async () => {
-    gateAnswer = { sitze: [SITZ], gesperrt: false };
+    gateAnswer = { sitze: [SITZ], gesperrt: false, konto: true };
     const held = await signIn(PERSON);
 
     const earlier = cookieHeader(await signInByCode(auth, PERSON, { ...ORIGIN, cookie: held }));
@@ -590,11 +592,11 @@ describe("a code sign-in through the mint, against a real database", () => {
   });
 
   it("mints nothing for a barred address and ends nothing the browser held", async () => {
-    gateAnswer = { sitze: [SITZ], gesperrt: false };
+    gateAnswer = { sitze: [SITZ], gesperrt: false, konto: true };
     const held = await signIn(PERSON);
     const before = await sessionRows();
 
-    gateAnswer = { sitze: [SITZ], gesperrt: true };
+    gateAnswer = { sitze: [SITZ], gesperrt: true, konto: true };
     await assert.rejects(signInByCode(auth, PERSON, { ...ORIGIN, cookie: held }), (error: { body?: { code?: unknown } }) => {
       return error.body?.code === "SIGN_IN_BARRED";
     });
@@ -611,7 +613,7 @@ describe("a session only read, against a real database (`docs/frontend/spec.md :
     const { proxy } = await import("../proxy.ts");
     const { NextRequest } = await import("next/server");
 
-    gateAnswer = { sitze: [SITZ], gesperrt: false };
+    gateAnswer = { sitze: [SITZ], gesperrt: false, konto: true };
     const cookie = await signIn("leserin-mit-code@example.org");
     const expiresIn = (auth.options.session?.expiresIn ?? Number.NaN) * 1000;
     const updatedAt = new Date(Date.now() - (auth.options.session?.updateAge ?? Number.NaN) * 1000 - 60_000);

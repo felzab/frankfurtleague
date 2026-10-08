@@ -1,7 +1,7 @@
 import { isRefusal } from "@/shared/utils/actionError";
 import { buildRefusal } from "@/shared/utils/refusal";
 
-import { ALREADY_IN_SAISON, ERASURE_NEEDS_RETIREMENT } from "./constants";
+import { ALREADY_IN_SAISON, ERASURE_NEEDS_RETIREMENT, STUFE_NICHT_ZUGELASSEN } from "./constants";
 
 import type { FieldErrors } from "@/shared/utils/validation";
 
@@ -44,6 +44,20 @@ export function mapSquadRefusal(error: unknown): { error?: string; fieldErrors?:
 }
 
 /**
+ * A seat holder's squad edit, worded for a repair they can make. The cap is absent: a live row moved
+ * inside its own squad never crosses it. A lost seat and a ban are the shared reader's.
+ */
+export function mapKaderZeileRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
+  if (!isRefusal(error)) return null;
+
+  if (error.serverErrorCode === "REQ-SQUAD-004") return { error: SQUAD_ROLLE_TAKEN };
+  // On the picker as well as in the sentence: the form offers the season's levels, so only a season
+  // narrowed under the open page reaches this, and the picker is where it is repaired.
+  if (error.serverErrorCode === "REQ-SQUAD-005") return { error: STUFE_NICHT_ZUGELASSEN, fieldErrors: { stufe: STUFE_NICHT_ZUGELASSEN } };
+  return null;
+}
+
+/**
  * The erasure's precondition, or `null` when the refusal is something else. It lands on no field: the
  * control is a panel with nothing to fill in, and the repair it names is on another page.
  */
@@ -63,3 +77,13 @@ export function mapAlreadyInSaisonRefusal(error: unknown): string | null {
 
   return ALREADY_IN_SAISON;
 }
+
+/**
+ * The refusals the squad half of a replay can meet, in German written for the undo — the save's own
+ * words send an admin to the team picker, which this toast has not got.
+ */
+export const SQUAD_REPLAY_REFUSALS: Readonly<Record<string, string>> = {
+  "REQ-SQUAD-001": "Das ursprüngliche Team dieses Kadereintrags nimmt nicht mehr an dieser Saison teil.",
+  "REQ-SQUAD-003": "Der Kader des ursprünglichen Teams ist für diese Saison inzwischen voll.",
+  "REQ-SQUAD-004": "Die ursprüngliche Rolle ist in diesem Team inzwischen an einen anderen Spieler vergeben.",
+};

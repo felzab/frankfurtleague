@@ -4,8 +4,9 @@ import { buildBerechtigungEmail } from "@/core/berechtigungEmail";
 import { BERECHTIGUNG_HINWEIS, BERECHTIGUNG_TAG } from "@/core/berechtigungTag";
 import { frontend_config } from "@/core/config";
 import { logger } from "@/core/logging";
-import { MailBarredError, MailRecipientError, MailWithheldError, sendMail } from "@/core/mail";
+import { MailRecipientError, sendMail } from "@/core/mail";
 import { mailIdempotencyKey } from "@/core/mailIdempotencyKey";
+import { versandAusfallOf } from "@/core/versandAusfall";
 
 import { postBerechtigungenAbgleich, postBerechtigungenAngekuendigt } from "./mutations";
 
@@ -145,7 +146,8 @@ async function ankuendigen(aenderung: FLBerechtigungAenderung, empfaenger: reado
     } catch (error) {
       // Logged by the mailer itself, and as told: a stack that mails nothing would claim the same rows
       // forever, and a barred address would hold its change unstamped for as long as the ban stands.
-      if (error instanceof MailWithheldError || error instanceof MailBarredError) continue;
+      const ausfall = versandAusfallOf(error);
+      if (ausfall === "zurueckgehalten" || ausfall === "gesperrt") continue;
 
       if (!(error instanceof MailRecipientError)) alleErledigt = false;
       // The name alone: a failure on this path routinely carries the address.

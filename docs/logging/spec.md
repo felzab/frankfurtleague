@@ -201,7 +201,10 @@ A client component cannot reach the server-only logger, so a browser-side crash 
 nowhere. Every error boundary posts crashes **without a digest**, through
 `fl_frontend/src/shared/hooks/useReportClientCrash.ts`, to
 `POST /api/client-error`, which validates a strictly bounded payload and writes the one
-`FE-CLIENT-001` line (`fl_frontend/src/app/api/client-error/route.ts`). The route is public and
+`FE-CLIENT-001` line (`fl_frontend/src/app/api/client-error/route.ts`). **The bot check's widget
+reports through it too** (`fl_frontend/src/shared/hooks/useTurnstile.tsx :: fail`), once per form,
+because a visitor whose browser blocks Cloudflare otherwise shows only as a submission that never
+arrives. The route is public and
 unauthenticated by design, which is why nginx gives it a pair of `limit_req` zones of its own
 (`nginx/shared/http.conf :: zone=clienterr`, `:: zone=clienterr48`; [`docs/ops/spec.md`](../ops/spec.md)
 §1.3 argues the pairing) and why every field is length-capped. Its log line carries the ingest
@@ -314,6 +317,6 @@ On Windows, redirecting the backend command's output needs `PYTHONUTF8=1` —
 | uvicorn's own line for a crash carries `SYSTEM`                                        | Accepted — uvicorn writes it after the application returned and unbound the ids; the crash line beside it carries them and the same stack                                    |
 | A container's own output carries a credential with no URI around it                    | Accepted — L9 binds application code; the filter reaches a `mongodb://` URI's userinfo ([`docs/ops/spec.md`](../ops/spec.md) §1.7), and no pattern is trusted past it        |
 | A host redacted out of a URI that carried no credential                                | Accepted — a diagnostic loss on a line that hid nothing; bounding the match to spare it lets a real credential through ([`docs/ops/spec.md`](../ops/spec.md) §1.7)           |
-| A URI spelling `token=` or `email=` loses its whole logged query                       | Accepted — losing that query is the point, and `fl_frontend/src/core/edgeRedaction.ts :: redactedParameterNames` is swept against every minter's own link (L11)              |
+| A URI spelling `token=` or `email=` loses its whole logged query                       | Accepted — losing that query is the point, and `fl_frontend/src/core/edgeRedaction.ts :: assertRedactedAtTheEdge` is asked of every minter's own link (L11)                  |
 | A percent-encoded parameter name defeats both request-line arms                        | Accepted — `$request_uri` is never decoded, and a case per minter holds its parameter to the edge's map (`fl_frontend/src/core/edgeRedaction.ts`), so none is encoded (L11)  |
 | Cloudflare logs the request line at its own edge                                       | Accepted — TLS terminates there, so the URL reaches Cloudflare unredacted (L11); below the Enterprise plan no setting bounds what it retains                                 |

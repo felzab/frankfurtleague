@@ -8,13 +8,13 @@ from itertools import product
 from pathlib import Path
 from typing import Annotated, Any, Final, NamedTuple, get_args
 
+import email_validator
 import pytest
 from bson import ObjectId
 from pydantic import BaseModel, StringConstraints, TypeAdapter, ValidationError
 
 from app.api.aktionen.schemas import HERKUNFT_JE_KIND
 from app.api.bewerbungen import schemas as bewerbungen_schemas
-from app.api.bewerbungen.services import BEWERBUNG_LAUFENDE_FASSUNG
 from app.api.identitaet.services import grants_a_panel
 from app.api.saisons.schemas import FLSaisonStatus, TeamsPerGroup
 from app.api.spiele.schemas import MAX_QUALIFIERS
@@ -38,6 +38,7 @@ from app.core.logging import NEEDS_QUOTING
 from app.core.middlewares import TRACEPARENT
 from app.core.routing import OBJECT_ID_REGEX
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
+from app.shared.folding import league_address
 from app.shared.schemas import bounds
 from app.shared.schemas.addresses import HAUSNUMMER_PATTERN, FLAddress, FLAddressPayload
 from app.shared.schemas.custom import (
@@ -107,8 +108,7 @@ MIRRORED_BOUNDS: Final = (
     Mirror("features/schiedsrichter/constants.ts", "SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE", "SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE"),
     Mirror("features/registrierungen/constants.ts", "REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE", "REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE"),
     # These three mirror the published notice's sentences and never a payload schema: each confirmation
-    # view states its floors off the answer it was served, and neither
-    # `buildRegistrierungBestaetigungPayloadSchema` nor its referee twin carries a bound of its own.
+    # view and each account entry states its floors as it was served them.
     Mirror("features/registrierungen/constants.ts", "REGISTRIERUNG_MIN_ALTER", "REGISTRIERUNG_MIN_ALTER_JAHRE"),
     Mirror("features/schiedsrichter/constants.ts", "SCHIEDSRICHTER_MIN_ALTER", "SCHIEDSRICHTER_MIN_AGE_YEARS"),
     Mirror("features/registrierungen/constants.ts", "MEDIEN_MIN_ALTER", "MEDIEN_MIN_AGE_YEARS"),
@@ -136,6 +136,9 @@ UNMIRRORED_BOUNDS: Final[dict[str, str]] = {
     ),
     "REGISTRIERUNG_ERINNERUNG_TAGE": "the day the sweep reminds a pupil, which no frontend page or mail states",
     "AKTEUR_PSEUDONYM_SHOWN": "the log read serves the pseudonym already cut to it, and the page shows what it is served",
+    "DROSSELUNG_SPIELER_PRO_TAG": "a person's daily ceiling, which the frontend meets only as a refusal",
+    "DROSSELUNG_SCHIEDSRICHTER_PRO_TAG": "a person's daily ceiling, which the frontend meets only as a refusal",
+    "DROSSELUNG_KONTAKT_PRO_TAG": "a person's daily ceiling, which the frontend meets only as a refusal",
 }
 
 MIRRORED_MODULES: Final = tuple(dict.fromkeys(mirror.module for mirror in MIRRORED_BOUNDS))
@@ -469,28 +472,6 @@ def test_every_mirrored_sentinel_agrees_on_the_value(module: str, name: str, dec
     assert found[1] == declared, f"{name} disagrees with the backend's sentinel"
 
 
-# The record the public form reads the label it stamps on every seat from.
-RUNNING_LABEL: Final = ("core/einwilligung.ts", "LIGA_KENNTNISNAHME")
-
-
-def test_the_form_stamps_the_label_the_submission_admits():
-    """A label the form stamps and the endpoint does not hold refuses every application; the reverse admits a page older than the deploy.
-
-    Read through the record's own `textVersion`, so a record pointed at another constant is still compared.
-    """
-
-    module, record = RUNNING_LABEL
-    source = _source(module)
-    pointer = re.search(rf"^export const {record} = \{{\n  textVersion: (?P<name>[A-Z][A-Z0-9_]*),$", source, re.MULTILINE)
-
-    assert pointer is not None, f"{module} no longer spells {record}'s textVersion as one constant"
-
-    label = re.search(rf'^const {pointer["name"]} = "(?P<label>[^"]+)";$', source, re.MULTILINE)
-
-    assert label is not None, f"{module} no longer declares {pointer['name']} as one string"
-    assert label["label"] == BEWERBUNG_LAUFENDE_FASSUNG, f"{record} stamps a label `find_veraltete_fassung_refusal` refuses"
-
-
 class ModelBound(NamedTuple):
     module: str
     typescript: str
@@ -678,6 +659,43 @@ def test_the_bracket_ceiling_the_offer_opens_is_the_one_this_package_caps_a_seas
     assert 2 ** (len(phases) - 1) == MAX_QUALIFIERS, (
         f"{name} opens a bracket of {2 ** (len(phases) - 1)}, where this package caps one at {MAX_QUALIFIERS}"
     )
+
+
+# The frontend's copy of the kinds whose delivery reports name seats. A kind added on one end alone has
+# the webhook send an empty `rollen` the validator here refuses, or a seat the frontend's own refuses.
+SEAT_KINDS: Final = ("features/zustellung/schemas.ts", "ZIELE_JE_SITZ")
+
+
+def test_the_frontend_names_seats_on_exactly_the_kinds_this_package_does():
+    module, name = SEAT_KINDS
+    named = _declared_members(module, name)
+
+    assert set(named) == zustellung_schemas.ZIELE_JE_SITZ, (
+        f"{name} names seats on {sorted(named)}, where this package names them on {sorted(zustellung_schemas.ZIELE_JE_SITZ)}"
+    )
+
+
+# The frontend's copy of the special-use names the address rule refuses through `email_validator`. A
+# name missing there passes the form and is refused at the save with no reason its box can word.
+SPECIAL_USE_NAMES: Final = ("core/emailAddress.ts", "SPECIAL_USE_DOMAINS")
+
+
+def test_the_frontend_refuses_the_special_use_names_the_installed_library_lists():
+    module, name = SPECIAL_USE_NAMES
+    copied = _declared_members(module, name)
+
+    assert copied, f"{module} no longer spells {name} as one list literal, so this case compares nothing"
+    assert sorted(copied) == sorted(email_validator.SPECIAL_USE_DOMAIN_NAMES), (
+        f"{name} lists {sorted(copied)}, where the installed email_validator lists {sorted(email_validator.SPECIAL_USE_DOMAIN_NAMES)}"
+    )
+
+
+@pytest.mark.parametrize("special", email_validator.SPECIAL_USE_DOMAIN_NAMES)
+def test_the_address_rule_refuses_a_domain_under_each_special_use_name(special: str):
+    """The library's list is what the rule consults: its test-environment switch, which spares `.test`, stays off."""
+
+    with pytest.raises(ValueError):
+        league_address(f"anna@schule.{special}")
 
 
 # The frontend's copy of the kind-to-origin mapping. `Record<FLAktor["kind"], AktionHerkunft>` refuses
@@ -1385,8 +1403,9 @@ def test_the_two_ends_pin_an_internal_key_to_the_same_alphabet():
     assert found is not None, f"{record.module} no longer states {record.typescript}'s alphabet as one regular-expression literal"
     assert found["flags"] == "", f"{record.typescript} carries the flags '{found['flags']}', which this comparison does not model"
 
-    # Legal keys, one at each edge of the class's ranges; then a space, a tab, DEL, an umlaut, the
-    # empty string the `+` refuses, and each character an env-file reader alters.
+    # Keys the class takes, its two ends `!` and `~` among them; then a space, a tab, DEL, an umlaut
+    # and the empty string the `+` refuses; then each character an env-file reader alters, which the
+    # class takes.
     legal = ["Kf7", "!%&(", "[]^_", "a{|}~", "+/=-."]
     probes = [*legal, "Kf 7", "Kf\t7", "Kf\x7f7", "Kfö7", "", *(f"Kf{c}7" for c in "\"#$'\\`")]
     taken = {probe for probe in probes if INTERNAL_API_KEY_CHARACTERS.fullmatch(probe) is not None}

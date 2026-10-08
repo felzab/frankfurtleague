@@ -15,15 +15,18 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.services import build_schluessel_filter, hash_token
 from app.api.einladungen.services import EINLADUNG_UNBEKANNT
+from app.api.registrierungen.person_router import aufnehmen
 from app.api.registrierungen.public_router import post_einladung_ansicht, post_registrierung
-from app.api.registrierungen.schemas import FLEinladungAnsichtPayload, FLPostRegistrierungPayload
+from app.api.registrierungen.schemas import FLEinladungAnsichtPayload, FLPostRegistrierungPayload, FLRegistrierungAufnehmenPayload
 from app.api.registrierungen.services import (
     REGISTRIERUNG_ADRESSE_GESPERRT,
     REGISTRIERUNG_FENSTER_GESCHLOSSEN,
     REGISTRIERUNG_KADER_VOLL,
     REGISTRIERUNG_SCHLUESSEL_ABWEICHEND,
+    REGISTRIERUNG_SCHON_AUFGENOMMEN,
     REGISTRIERUNG_STUFE_NICHT_ERLAUBT,
     REGISTRIERUNG_TEAM_NICHT_EINGETRAGEN,
+    compose_confirmation_update,
 )
 from app.api.saisons.cache import invalidate_saison_cache
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
@@ -39,6 +42,7 @@ from tests.bans import ban_list
 from tests.config import BASE_AUTH, build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.holds import HoldsAfterItsLookup
+from tests.records import record_collections
 from tests.worker import worker_database
 
 # Module level: every case below reaches a real mongod, the write being one transaction.
@@ -278,6 +282,37 @@ async def ansicht(database: AsyncDatabase, *, token: str = TOKEN) -> Any:
     )
 
 
+async def admit_as_the_team(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: Any) -> None:
+    """The pupil's confirmation and a confirmed seat beside it, then the team's own admission through its handler."""
+
+    confirmation = compose_confirmation_update(
+        geburtsdatum="2009-05-04", umfang="intern", medien=False, text_version="2026-09", today=TODAY, am="2026-03-31T08:00:00+00:00"
+    )
+    await database[Collection.REGISTRIERUNGEN].update_one({"_id": registrierung_id}, dict(confirmation))
+    seat = documents.kontaktperson_document("Anna", bestaetigt_am=TODAY)
+    await database[Collection.SAISON_TEAMS].update_one(
+        {"saison_id": SAISON_ID, "team_id": TEAM_OID},
+        {"$set": {"kontakte": {"trainer": None, "ansprechperson": seat, "stellvertretung": None, "trainer_ist_zugleich": None}}},
+    )
+
+    await aufnehmen(
+        registrierung_id=registrierung_id,
+        aufnahme_data=FLRegistrierungAufnehmenPayload(spieler_id=None),
+        identifier=seat["email"],
+        registrierungen_collection=database[Collection.REGISTRIERUNGEN],
+        saison_spieler_collection=database[Collection.SAISON_SPIELER],
+        saisons_collection=database[Collection.SAISONS],
+        spieler_collection=database[Collection.SPIELER],
+        records=record_collections(database),
+        spieltage_collection=database[Collection.SPIELTAGE],
+        aktionen_collection=database[Collection.AKTIONEN],
+        sperrliste=ban_list(database),
+        db=client,
+        today=TODAY,
+        germany_now=NOW,
+    )
+
+
 async def rows_of(database: AsyncDatabase) -> list[Mapping[str, Any]]:
     return [row async for row in database[Collection.REGISTRIERUNGEN].find().sort("_id", 1)]
 
@@ -415,6 +450,20 @@ NEVER_ARRIVED = [
 ]
 
 
+def replayed_after_the_admission(url: str, **overrides: Any) -> tuple[str, int, int]:
+    """The first press, the team's admission of it, and the same key pressed again: the refusal and what each collection then holds."""
+
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+        first = await register(database, client, schluessel=SCHLUESSEL)
+        await admit_as_the_team(database, client, first.registrierung_id)
+        with pytest.raises(WriteRefusalException) as refused:
+            await register(database, client, schluessel=SCHLUESSEL, **overrides)
+
+        return refused.value.error_code, len(await rows_of(database)), await database[Collection.SAISON_SPIELER].count_documents({})
+
+    return on_a_league(url, body)
+
+
 class TestTheSubmissionKey:
     """`docs/backend/spec.md :: I346` and `:: I347`, over the shipped unique index and the submission's transaction."""
 
@@ -534,19 +583,16 @@ class TestTheSubmissionKey:
         assert second.bestaetigung_token is not None and second.bestaetigung_token != first.bestaetigung_token
         assert stored["bestaetigung"]["token_hash"] == hash_token(second.bestaetigung_token)
 
-    def test_the_key_ends_with_its_row(self, mongo_replica_set_url: str):
-        """An admission deletes the row, and a press after it is judged afresh (`docs/backend/spec.md :: I349`)."""
+    def test_a_replay_after_the_admission_is_refused_and_stores_nothing(self, mongo_replica_set_url: str):
+        """The admission deletes the row and carries the key onto the squad row it writes (`docs/backend/spec.md :: I349`).
 
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            first = await register(database, client, schluessel=SCHLUESSEL)
-            await database[Collection.REGISTRIERUNGEN].delete_one({"_id": first.registrierung_id})
-            second = await register(database, client, schluessel=SCHLUESSEL)
+        Without the carry, the replay would store the admitted pupil's second registration.
+        """
 
-            return first.registrierung_id, second.registrierung_id, len(await rows_of(database))
+        assert replayed_after_the_admission(mongo_replica_set_url) == (REGISTRIERUNG_SCHON_AUFGENOMMEN, 0, 1)
 
-        first, second, stored = on_a_league(mongo_replica_set_url, body)
-
-        assert second != first and stored == 1
+    def test_a_replay_after_the_admission_over_other_details_is_refused_as_one(self, mongo_replica_set_url: str):
+        assert replayed_after_the_admission(mongo_replica_set_url, nummer="18") == (REGISTRIERUNG_SCHLUESSEL_ABWEICHEND, 0, 1)
 
     def test_registrations_stored_before_the_key_neither_collide_nor_move(self, mongo_replica_set_url: str):
         """The partial filter: two rows carrying no key would otherwise both index as null and collide."""

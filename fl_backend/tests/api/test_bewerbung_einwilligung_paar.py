@@ -10,12 +10,15 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.einwilligung_router import post_einwilligung
 from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAntwortPayload
-from app.api.bewerbungen.services import BEWERBUNG_KONTAKT_ALTER, KONTAKT_SEATS, compose_bestaetigungen, hash_token
+from app.api.bewerbungen.services import BEWERBUNG_KONTAKT_ALTER, compose_bestaetigungen, hash_token
+from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.collections import Collection
 from app.core.exceptions import WriteRefusalException
+from app.shared.einwilligung import LAUFENDE_FASSUNGEN
+from tests import documents
 from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import ADDRESS, kontaktperson_document
+from tests.documents import kontaktperson_document
 from tests.worker import worker_database
 
 # Module level, as the execution suite marks its own: every test below reaches a real mongod.
@@ -31,7 +34,8 @@ BEWERBUNG_OID = ObjectId("6890a1b2c3d4e5f607960001")
 
 SCHOOL_NAME = "Zorbanax"
 
-RAW: Mapping[str, str] = {seat: f"raw-token-for-{seat}" for seat in KONTAKT_SEATS}
+RAW_PREFIX = "raw-token-for"
+RAW: Mapping[str, str] = {seat: f"{RAW_PREFIX}-{seat}" for seat in KONTAKT_ROLLEN}
 HASHES: Mapping[str, str] = {seat: hash_token(raw) for seat, raw in RAW.items()}
 
 AN_ADULTS_BIRTHDATE = "1984-05-09"
@@ -52,29 +56,18 @@ def paired_kontakte(**overrides: Any) -> dict[str, Any]:
 
 
 def bewerbung_document(**overrides: Any) -> dict[str, Any]:
-    return {
-        "_id": BEWERBUNG_OID,
-        "saison_id": SAISON_ID,
-        "eingereicht_am": "2026-03-20",
-        "status": "eingereicht",
-        "team_id": None,
-        "schule": {
-            "team_name": SCHOOL_NAME,
-            "full_name": f"{SCHOOL_NAME}-Gesamtschule",
-            "shorthand": "ZX",
-            "schulform": "gesamtschule",
-            "address": dict(ADDRESS),
-            "website_url": None,
-        },
-        "kontakte": paired_kontakte(),
-        "trikot": {"vorhandener_satz": "keiner", "wunschfarbe": "rot"},
-        "kader": {"voraussichtliche_groesse": 14, "gute_spieler": 3},
-        "wunschgegner": None,
-        "entscheidung": None,
-        "bestaetigungsfrist": "2026-04-03",
-        "bestaetigungen": compose_bestaetigungen(hashes=HASHES, today="2026-03-20"),
-        **overrides,
-    }
+    stored = documents.bewerbung_document(
+        BEWERBUNG_OID,
+        SAISON_ID,
+        "eingereicht",
+        kontakte=paired_kontakte(),
+        eingereicht_am="2026-03-20",
+        bestaetigungsfrist="2026-04-03",
+        schule=documents.neue_schule_document(SCHOOL_NAME, "ZX", full_name=f"{SCHOOL_NAME}-Gesamtschule", schulform="gesamtschule"),
+        link_prefix=RAW_PREFIX,
+    )
+
+    return {**stored, **overrides}
 
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
@@ -92,12 +85,26 @@ def on_a_league(url: str, body: Body, *, documents: list[dict[str, Any]]) -> Any
     return on_the_seed_loop(_run())
 
 
+# The applicant's page: every seat here is the applicant's, dated the submission's day.
+BEWERBER_SEITE = LAUFENDE_FASSUNGEN["bestaetigung_kontakt"]
+
+
 async def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str, **overrides: Any) -> Any:
-    body = {"token": token, "antwort": "erteilt", "geburtsdatum": AN_ADULTS_BIRTHDATE, "whatsapp": False, "text_version": "v4", **overrides}
+    body = {
+        "token": token,
+        "antwort": "erteilt",
+        "geburtsdatum": AN_ADULTS_BIRTHDATE,
+        "whatsapp": False,
+        "medien": False,
+        "text_version": BEWERBER_SEITE,
+        **overrides,
+    }
 
     return await post_einwilligung(
         antwort_data=FLBewerbungEinwilligungAntwortPayload.model_validate(body),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
+        saison_teams_collection=database[Collection.SAISON_TEAMS],
+        saisons_collection=database[Collection.SAISONS],
         aktionen_collection=database[Collection.AKTIONEN],
         sperrliste=ban_list(database),
         db=client,
@@ -133,7 +140,7 @@ class TestAPairedDecline:
         assert document["bestaetigungen"]["ansprechperson"]["abgelehnt_am"] == TODAY
         # The third seat keeps its person, and no seat carries a stamp, so all three stay outstanding.
         assert document["kontakte"]["stellvertretung"] is not None
-        assert (response.ergebnis, response.ausstehend) == ("abgelehnt", list(KONTAKT_SEATS))
+        assert (response.ergebnis, response.ausstehend) == ("abgelehnt", list(KONTAKT_ROLLEN))
         assert len(rows) == 1
         assert (rows[0]["before"], rows[0]["redacted_at"]) == (None, "2026-04-01T10:30:00+00:00")
 

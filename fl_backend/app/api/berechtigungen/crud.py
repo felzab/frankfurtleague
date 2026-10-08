@@ -9,6 +9,7 @@ from collections.abc import Mapping
 from datetime import datetime
 from typing import Any
 
+from bson import ObjectId
 from pymongo import ASCENDING
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
@@ -18,7 +19,7 @@ from app.api.berechtigungen.services import berechtigt_seit, inhaber_seit, leben
 from app.api.sperrliste.lookup import BanList, adressen_gesperrt
 from app.core.collections import Collection
 from app.core.concurrency import gather_cancelling
-from app.core.crud import aggregate_many_from_db, patch_many_in_db, pull_many_from_db
+from app.core.crud import aggregate_many_from_db, anchor_in_db, patch_many_in_db, pull_many_from_db
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 
 
@@ -46,49 +47,56 @@ async def pull_the_list_to_judge(
     grants = await read_berechtigungen(berechtigungen_collection=berechtigungen_collection, session=session)
 
     # Exactly the rows the read returned, each named: the rows judged are the rows a rival must meet.
-    await patch_many_in_db(
+    await anchor_in_db(
         collection=berechtigungen_collection,
         db_filter={"_id": {"$in": [grant["_id"] for grant in grants]}},
-        update={"$inc": {"bounded_writes": 1}},
         session=session,
     )
 
     return grants
 
 
-async def _grant_and_its_record(
-    *, berechtigungen_collection: AsyncCollection, adresse: str, fields: list[str]
+async def _grant_and_its_record_in(
+    *, berechtigungen_collection: AsyncCollection, adresse: str, fields: list[str], session: AsyncClientSession
 ) -> tuple[Mapping[str, Any], Mapping[str, Any] | None] | None:
     """The row this folded address holds and its record in `berechtigungen_angekuendigt`, joined in one read.
 
     Every admin-tier request makes it, and a second read by the row's id would cost each a round trip.
     """
 
-    # A snapshot, or a commit landing between the row's read and the join pairs the row before it
-    # with the record after (`docs/backend/spec.md :: I530`).
-    async with berechtigungen_collection.database.client.start_session(snapshot=True) as session:
-        found = await aggregate_many_from_db(
-            collection=berechtigungen_collection,
-            pipeline=[
-                {"$match": {"adresse": adresse}},
-                {"$limit": 1},
-                {"$project": {field: 1 for field in [*fields, "adresse", "erteilt_am", "gefunden_am", "gesehen_am"]}},
-                {
-                    "$lookup": {
-                        "from": Collection.BERECHTIGUNGEN_ANGEKUENDIGT,
-                        "localField": "_id",
-                        "foreignField": "_id",
-                        "pipeline": [{"$project": {"adresse": 1, "verwaltung": 1}}],
-                        "as": "angekuendigt",
-                    }
-                },
-            ],
-            session=session,
-        )
+    found = await aggregate_many_from_db(
+        collection=berechtigungen_collection,
+        pipeline=[
+            {"$match": {"adresse": adresse}},
+            {"$limit": 1},
+            {"$project": {field: 1 for field in [*fields, "adresse", "erteilt_am", "gefunden_am", "gesehen_am"]}},
+            {
+                "$lookup": {
+                    "from": Collection.BERECHTIGUNGEN_ANGEKUENDIGT,
+                    "localField": "_id",
+                    "foreignField": "_id",
+                    "pipeline": [{"$project": {"adresse": 1, "verwaltung": 1}}],
+                    "as": "angekuendigt",
+                }
+            },
+        ],
+        session=session,
+    )
     if not found:
         return None
 
     return found[0], next(iter(found[0]["angekuendigt"]), None)
+
+
+async def _grant_and_its_record(
+    *, berechtigungen_collection: AsyncCollection, adresse: str, fields: list[str]
+) -> tuple[Mapping[str, Any], Mapping[str, Any] | None] | None:
+    # A snapshot, or a commit landing between the row's read and the join pairs the row before it
+    # with the record after (`docs/backend/spec.md :: I530`).
+    async with berechtigungen_collection.database.client.start_session(snapshot=True) as session:
+        return await _grant_and_its_record_in(
+            berechtigungen_collection=berechtigungen_collection, adresse=adresse, fields=fields, session=session
+        )
 
 
 async def verwaltung_of(*, berechtigungen_collection: AsyncCollection, adresse: str) -> tuple[FLVerwaltung, datetime, datetime | None] | None:
@@ -137,6 +145,45 @@ async def live_unbarred_grant_since(
         return None
 
     return berechtigt_seit(*grant)
+
+
+async def live_unbarred_grant_in(
+    identifier: str,
+    *,
+    berechtigungen_collection: AsyncCollection,
+    sperrliste: BanList,
+    session: AsyncClientSession,
+) -> tuple[ObjectId, datetime] | None:
+    """`live_unbarred_grant_since`'s question asked in a transaction's session, with the row that answered it for the anchor.
+
+    `None` where that question answers `None`, a row admitting nobody included.
+    """
+
+    # One after the other: a session carries one operation at a time.
+    grant = await _grant_and_its_record_in(berechtigungen_collection=berechtigungen_collection, adresse=identifier, fields=[], session=session)
+    barred = await adressen_gesperrt(sperrliste, [identifier], session=session)
+    if grant is None or lebendige_adresse(grant[0]) is None or barred:
+        return None
+
+    seit = berechtigt_seit(*grant)
+
+    return None if seit is None else (grant[0]["_id"], seit)
+
+
+async def anchor_the_actors_grant(
+    *,
+    berechtigungen_collection: AsyncCollection,
+    berechtigung_id: ObjectId,
+    # REQUIRED, as every anchor's session is: committed on its own it closes nothing.
+    session: AsyncClientSession,
+) -> None:
+    """Write the acting administrator's own grant row, so a revoke committing after the judgement's read conflicts with this transaction."""
+
+    await anchor_in_db(
+        collection=berechtigungen_collection,
+        db_filter={"_id": berechtigung_id},
+        session=session,
+    )
 
 
 async def withhold_in_the_outbox(*, berechtigungen_postausgang_collection: AsyncCollection, adresse: str, session: AsyncClientSession) -> None:

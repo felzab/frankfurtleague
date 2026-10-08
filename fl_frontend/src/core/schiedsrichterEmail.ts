@@ -4,9 +4,13 @@ import { KONTAKT_EMAIL } from "./brand";
 import {
   ANTWORT_SATZ_HTML,
   ANTWORT_SATZ_TEXT,
+  art21Satz,
   ASIDE_TEXT,
   BRAND_NAME,
+  einzeilig,
   escapeHtml,
+  FALLBACK_SATZ,
+  fallbackBloecke,
   link,
   mailOrigin,
   paragraph,
@@ -40,17 +44,8 @@ const UEBERSCHRIFT = "Dein Eintrag als Schiedsrichterin oder Schiedsrichter";
 const ignorierSatz = (kontakt: string): string =>
   `Du weißt nichts von einem Eintrag bei der ${BRAND_NAME}? Dann ignoriere diese E-Mail einfach: Ohne Deine Bestätigung erscheint Dein Name nirgends auf der Website. Sollen wir den Eintrag löschen, schreib uns an ${kontakt}.`;
 
-// Spelled here as well as in `fl_frontend/src/core/bewerbungEmail.ts :: FALLBACK_SATZ`: one situation
-// reads as one sentence to the person meeting it, so the two move together.
-const FALLBACK_SATZ = "Falls der Button nicht funktioniert, kopiere diese Adresse in Deinen Browser:";
-
 /** Named per message, as every application close is: a sentence saying who else read this has to be true of it. */
 const EMPFAENGER_SATZ = "Diese E-Mail geht nur an Dich.";
-
-// A paragraph and a line group of its own: Art. 21(4) DSGVO asks the objection to reach a person at
-// the first contact, apart from every other piece of information.
-const art21Satz = (adresse: string): string =>
-  `Der Verarbeitung Deiner Angaben für den Spielbetrieb kannst Du jederzeit aus Gründen widersprechen, die sich aus Deiner besonderen Situation ergeben (Art. 21 DSGVO); eine formlose E-Mail an ${adresse} genügt.`;
 
 export type SchiedsrichterEmail = { subject: string; html: string; text: string };
 
@@ -67,14 +62,6 @@ export interface SchiedsrichterBestaetigungData {
    * `fl_frontend/src/shared/utils/format.ts :: formatSpielDatum` sits in a layer `core` may not reach.
    */
   fristText: string;
-}
-
-/**
- * One line, whatever was typed. The text branch is line-oriented, so a break here is its injection:
- * the value would render a line the reader cannot tell from the facts around it.
- */
-function einzeilig(value: string): string {
-  return value.replace(/[\r\n]+/g, " ");
 }
 
 /**
@@ -99,11 +86,8 @@ function renderHtml(vorname: string, url: string, frist: string, origin: string)
         `Auf der Seite trägst Du Dein Geburtsdatum ein und entscheidest, was im Spielplan von Deinem Namen zu sehen ist. Der Link ist bis zum ${strong(escapeHtml(frist))} gültig und funktioniert nur einmal. Ist er abgelaufen, schickt die Verwaltung Dir auf Wunsch einen neuen.`,
       ),
       // The address as a marked link: one a reader has to select and paste is not a route.
-      paragraph(art21Satz(link(`mailto:${KONTAKT_EMAIL}`, KONTAKT_EMAIL))),
-      paragraph(FALLBACK_SATZ, "0 0 8px", ASIDE_TEXT),
-      /* The link runs past the card's width, so this one paragraph breaks inside a word. Marked as a
-         link as well: an address a reader has to select and paste is not a route. */
-      paragraph(link(url, url), "0 0 16px", `${ASIDE_TEXT}word-break:break-all;`),
+      paragraph(art21Satz(link(`mailto:${KONTAKT_EMAIL}`, KONTAKT_EMAIL), { zweck: "für den Spielbetrieb" })),
+      ...fallbackBloecke([{ label: "", url: url }], FALLBACK_SATZ),
       // The address as a marked link here too: the escape route is one a reader has to select and paste otherwise.
       paragraph(ignorierSatz(link(`mailto:${KONTAKT_EMAIL}`, KONTAKT_EMAIL)), "0", ASIDE_TEXT),
     ],
@@ -124,7 +108,7 @@ function renderText(vorname: string, url: string, frist: string, origin: string)
     `Der Link ist bis zum ${frist} gültig und funktioniert nur einmal.`,
     "Ist er abgelaufen, schickt die Verwaltung Dir auf Wunsch einen neuen.",
     "",
-    art21Satz(KONTAKT_EMAIL),
+    art21Satz(KONTAKT_EMAIL, { zweck: "für den Spielbetrieb" }),
     "",
     url,
     "",
@@ -155,5 +139,119 @@ export function buildSchiedsrichterBestaetigungEmail({
     subject: `Bitte bestätigen: Dein Eintrag bei der ${BRAND_NAME}`,
     html: renderHtml(name, url, frist, site),
     text: renderText(name, url, frist, site),
+  };
+}
+
+/** The address page's own segment, under the one `robots.ts` already turns crawlers back from. */
+export const SCHIEDSRICHTER_ADRESSWECHSEL_PATH = "/bestaetigung/schiedsrichter/adresse";
+
+/** The one place the address link is spelled, its parameter named `token` for `schiedsrichterBestaetigungsLink`'s reason. */
+export function schiedsrichterAdresswechselLink(origin: string, token: string): string {
+  return `${origin}${SCHIEDSRICHTER_ADRESSWECHSEL_PATH}?token=${encodeURIComponent(token)}`;
+}
+
+const ADRESSE_UEBERSCHRIFT = "Neue E-Mail-Adresse bestätigen";
+
+/** What an address link mail is built from; `fristText` is rendered by the caller for `SchiedsrichterBestaetigungData`'s reason. */
+export interface SchiedsrichterAdresswechselData {
+  /** The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL` (`docs/frontend/spec.md :: I186`). */
+  origin: string;
+  vorname: string;
+  /** The raw token. It is a bearer credential and is never taken apart here. */
+  token: string;
+  fristText: string;
+}
+
+// For the holder of a mailbox an administrator mistyped. No „ignoriere“: ignoring leaves the address
+// stored, and the page takes the decline past the link's deadline too.
+const adresseIgnorierSatz =
+  "Ist das nicht Deine Adresse? Dann wähle auf der Seite „Das ist nicht meine Adresse“, auch wenn der Link schon abgelaufen ist; wir entfernen sie dann sofort.";
+
+/**
+ * The link to a confirmed referee's new address. It asks nothing but whether the mailbox is theirs:
+ * their consent stands, and a page asking it again would record an answer nobody owed.
+ */
+export function buildSchiedsrichterAdresswechselEmail({
+  origin,
+  vorname,
+  token,
+  fristText,
+}: SchiedsrichterAdresswechselData): SchiedsrichterEmail {
+  const site = mailOrigin(origin);
+  // Folded before either branch, for `buildSchiedsrichterBestaetigungEmail`'s reason.
+  const name = einzeilig(vorname);
+  const frist = einzeilig(fristText);
+  const url = schiedsrichterAdresswechselLink(site, token);
+
+  const eintrag = `die Verwaltung der ${BRAND_NAME} hat für Deinen Eintrag als Schiedsrichterin oder Schiedsrichter diese E-Mail-Adresse eingetragen.`;
+  const gilt = "Sie gilt erst, wenn Du sie bestätigst; bis dahin schreiben wir an Deine bisherige Adresse.";
+
+  const html = renderKarte({
+    titel: `${BRAND_NAME}: ${ADRESSE_UEBERSCHRIFT}`,
+    ueberschrift: escapeHtml(ADRESSE_UEBERSCHRIFT),
+    bloecke: [
+      paragraph(`Hallo ${strong(escapeHtml(name))}, ${eintrag} ${strong(escapeHtml(gilt))}`),
+      paragraph(`Bestätige sie bis zum ${strong(escapeHtml(frist))} über diesen Link. Er funktioniert nur einmal.`),
+      ...fallbackBloecke([{ label: "", url: url }], FALLBACK_SATZ),
+      paragraph(escapeHtml(adresseIgnorierSatz), "0", ASIDE_TEXT),
+    ],
+    aktionen: [{ href: url, label: "Adresse bestätigen", ton: "primary" }],
+    fuss: `${EMPFAENGER_SATZ} ${ANTWORT_SATZ_HTML}`,
+    origin: site,
+  });
+
+  const oben = [
+    `${BRAND_NAME}: ${ADRESSE_UEBERSCHRIFT}`,
+    "",
+    `Hallo ${name}, ${eintrag}`,
+    gilt,
+    "",
+    `Bestätige sie bis zum ${frist} über diesen Link. Er funktioniert nur einmal.`,
+    "",
+    url,
+    "",
+    adresseIgnorierSatz,
+  ];
+
+  return {
+    subject: ADRESSE_UEBERSCHRIFT,
+    html: html,
+    text: [stuffSignatureDelimiter(oben.join("\n")), ...textFooter(site, [EMPFAENGER_SATZ, ANTWORT_SATZ_TEXT])].join("\n"),
+  };
+}
+
+const HINWEIS_BETREFF = `Deine E-Mail-Adresse bei der ${BRAND_NAME} soll sich ändern`;
+
+/**
+ * The notice to the address still holding the record. It names no new address: the change may be
+ * somebody else's mistake, and this mailbox is the one owed the word, never the other mailbox's name.
+ */
+export function buildSchiedsrichterAdresswechselHinweisEmail({ origin, vorname }: { origin: string; vorname: string }): SchiedsrichterEmail {
+  const site = mailOrigin(origin);
+  const name = einzeilig(vorname);
+
+  const eingetragen = "die Verwaltung hat für Deinen Eintrag als Schiedsrichterin oder Schiedsrichter eine neue E-Mail-Adresse eingetragen.";
+  const gilt = "Sie gilt erst, wenn sie über den Link bestätigt ist, den wir an sie geschickt haben; bis dahin bleibt diese Adresse in Kraft.";
+  const nichtVeranlasst = (kontakt: string): string => `Hast Du das nicht veranlasst, schreib uns an ${kontakt}.`;
+
+  const html = renderKarte({
+    titel: `${BRAND_NAME}: ${HINWEIS_BETREFF}`,
+    ueberschrift: escapeHtml(HINWEIS_BETREFF),
+    bloecke: [
+      paragraph(`Hallo ${strong(escapeHtml(name))}, ${eingetragen} ${gilt}`),
+      // The address as a marked link, for the consent mail's reason.
+      paragraph(nichtVeranlasst(link(`mailto:${KONTAKT_EMAIL}`, KONTAKT_EMAIL))),
+    ],
+    aktionen: [],
+    fuss: `${EMPFAENGER_SATZ} ${ANTWORT_SATZ_HTML}`,
+    origin: site,
+  });
+
+  const oben = [`${BRAND_NAME}: ${HINWEIS_BETREFF}`, "", `Hallo ${name}, ${eingetragen}`, gilt, "", nichtVeranlasst(KONTAKT_EMAIL)];
+
+  return {
+    subject: HINWEIS_BETREFF,
+    html: html,
+    text: [stuffSignatureDelimiter(oben.join("\n")), ...textFooter(site, [EMPFAENGER_SATZ, ANTWORT_SATZ_TEXT])].join("\n"),
   };
 }

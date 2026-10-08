@@ -1,9 +1,12 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { FLEinwilligungStandSchema } from "@/features/spieler/schemas";
+
 import {
   FLAustrittSchema,
   FLKontaktKenntnisnahmePayloadSchema,
+  FLKontaktKenntnisnahmeSchema,
   FLPatchSaisonTeamPayloadSchema,
   FLPatchTeamResponseSchema,
   FLPostTeamPayloadSchema,
@@ -170,8 +173,9 @@ const kontaktpersonPayload = (overrides: Record<string, unknown> = {}) => ({
 
 const kontaktePayload = (overrides: Record<string, unknown> = {}) => ({
   trainer: kontaktpersonPayload(),
-  ansprechperson: kontaktpersonPayload({ vorname: "Max" }),
-  stellvertretung: kontaktpersonPayload({ vorname: "Lena" }),
+  // Each seat its own person: two seats sharing an address or a number are refused as one person twice.
+  ansprechperson: kontaktpersonPayload({ vorname: "Max", email: "max@beispiel.de", telefon: "069 7654321" }),
+  stellvertretung: kontaktpersonPayload({ vorname: "Lena", email: "lena@beispiel.de", telefon: "069 2345678" }),
   trainer_ist_zugleich: null,
   ...overrides,
 });
@@ -211,6 +215,44 @@ describe("FLSaisonTeamKontaktePayloadSchema", () => {
     assert.deepEqual(
       pathsRefused(FLSaisonTeamKontaktePayloadSchema, kontaktePayload({ trainer: kontaktpersonPayload({ email: "erika@ab-.de" }) })),
       ["trainer.email"],
+    );
+  });
+
+  /* The application's two rules, which the API applies to this block too: refused there they arrive as
+     a 422 naming the block, so they are judged here, each on the box of the later seat. */
+  it("refuses two seats sharing an address or a number, on the later seat's box", () => {
+    assert.deepEqual(
+      pathsRefused(
+        FLSaisonTeamKontaktePayloadSchema,
+        kontaktePayload({ stellvertretung: kontaktpersonPayload({ vorname: "Lena", email: "MAX@beispiel.de", telefon: "069 2345678" }) }),
+      ),
+      ["stellvertretung.email"],
+    );
+    assert.deepEqual(
+      pathsRefused(FLSaisonTeamKontaktePayloadSchema, kontaktePayload({ trainer: kontaktpersonPayload({ telefon: "+49 69 7654321" }) })),
+      ["trainer.telefon"],
+    );
+  });
+
+  /* An empty seat holds nobody to compare, so a row an erasure emptied never fails on the person gone. */
+  it("compares no seat an erasure emptied", () => {
+    assert.deepEqual(pathsRefused(FLSaisonTeamKontaktePayloadSchema, kontaktePayload({ ansprechperson: null, stellvertretung: null })), []);
+  });
+
+  /* The paired Trainer IS the named seat's person: sharing everything is the point, and a difference is a drift. */
+  it("compares a paired Trainer as one person with the seat it holds", () => {
+    const max = kontaktpersonPayload({ vorname: "Max", email: "max@beispiel.de", telefon: "069 7654321" });
+
+    assert.deepEqual(
+      pathsRefused(FLSaisonTeamKontaktePayloadSchema, kontaktePayload({ trainer: max, trainer_ist_zugleich: "ansprechperson" })),
+      [],
+    );
+    assert.deepEqual(
+      pathsRefused(
+        FLSaisonTeamKontaktePayloadSchema,
+        kontaktePayload({ trainer: { ...max, vorname: "Maximilian" }, trainer_ist_zugleich: "ansprechperson" }),
+      ),
+      ["ansprechperson.vorname"],
     );
   });
 });
@@ -335,5 +377,34 @@ describe("the write payloads' floors, against the stripped floors at the API", (
      club whose stored reason is blank fails the list it appears in (`docs/backend/spec.md :: I36`). */
   it("leaves the read schema taking a stored reason of spaces alone", () => {
     assert.equal(FLAustrittSchema.safeParse({ type: "rueckzug", grund: SPACES, datum: "2026-03-12" }).success, true);
+  });
+});
+
+/* Composed by the backend's own writers and serialised by its read model: an administrator reseats the
+   person, who answers the seat's own page with WhatsApp and media granted. */
+const SERVED_KENNTNISNAHME = {
+  umfang: "kontaktdaten_whatsapp",
+  text_version: "2026-10-bestaetigungsseite-verwaltung",
+  datum: "2026-10-02",
+  erfasst_von: "person",
+  bestaetigt_am: "2026-10-02",
+  medien: true,
+  eingetragen_von: "liga",
+  nachweis: {
+    umfang: { am: "2026-10-02T18:03:57+00:00", text_version: "2026-10-bestaetigungsseite-verwaltung", erteilt_zuvor: null },
+    medien: { am: "2026-10-02T18:03:57+00:00", text_version: "2026-10-bestaetigungsseite-verwaltung", erteilt_zuvor: null },
+  },
+};
+
+describe("a contact seat's record whose evidence is filled, as a read serves it", () => {
+  // Equal rather than merely parsed, for the reason `fl_frontend/src/features/spieler/schemas.test.ts` gives.
+  it("keeps who seated the person and each choice's act", () => {
+    assert.deepEqual(FLKontaktKenntnisnahmeSchema.parse(SERVED_KENNTNISNAHME), SERVED_KENNTNISNAHME);
+  });
+
+  it("keeps both choices' stand a read serves as the press's precondition", () => {
+    const stand = { umfang: null, medien: "9f2c1e7a4b5d6e8f0a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f6071" };
+
+    assert.deepEqual(FLEinwilligungStandSchema.parse(stand), stand);
   });
 });

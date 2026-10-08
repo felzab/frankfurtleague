@@ -17,7 +17,9 @@ import { overridingModule, registerDoubles } from "@/core/exportingModule.ts";
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 import { doubleEveryAction, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { declaredStatus } from "@/shared/testing/declaredStatus.ts";
+import { laufendeKontaktFassung } from "@/shared/testing/einwilligungAnswers.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
+import { saisonRules } from "@/shared/testing/saisonRules.ts";
 import { CONDITIONALLY_STEPPED_UP, STEP_UP_CALLERS, STEP_UP_WRITES } from "@/shared/testing/stepUpWrites.ts";
 
 import type { ReactNode } from "react";
@@ -76,17 +78,7 @@ const swapTeam = (id: string, name: string, gruppe: "A" | "B") => ({
 });
 const SWAP = { teams: [swapTeam("t1", "SG Alpha", "A"), swapTeam("t2", "TSV Beta", "B")], playedKnockoutSpiele: 0 };
 
-const RULES = {
-  win_points: 3,
-  draw_points: 1,
-  qualifiers_per_group: 2,
-  number_of_groups: 2,
-  teams_per_group: 4,
-  max_kadergroesse: 18,
-  tiebreak_order: "tordifferenz",
-  forfeit_ergebnis: { sieger_tore: 3, verlierer_tore: 0 },
-  erlaubte_stufen: ["E1", "Q1"],
-};
+const RULES = saisonRules();
 const UNDRAWN = {
   saisonId: "2026-27",
   saisonStatus: "future",
@@ -136,6 +128,7 @@ const M = {
   ablehnen: "features/bewerbungen/components/forms/AdminBewerbungAblehnenSection.tsx",
   annehmen: "features/bewerbungen/components/forms/AdminBewerbungAnnehmenSection.tsx",
   bestaetigung: "features/bewerbungen/components/views/BestaetigungFormPanel.tsx",
+  saisonVorbei: "features/bewerbungen/components/views/BestaetigungSaisonVorbei.tsx",
   kontakteLoeschen: "features/kontakte/components/forms/AdminKontakteEditForm/FormKontakteLoeschenSection.tsx",
   kontaktErasure: "features/kontakte/components/forms/AdminKontakteEditForm/FormKontaktErasure.tsx",
   passkey: "features/passkeys/components/ui/PasskeyKarteView.tsx",
@@ -152,12 +145,14 @@ const M = {
   spielerLoeschen: "features/spieler/components/forms/AdminSpielerEditForm/FormLoeschenSection.tsx",
   einladung: "features/teams/components/forms/AdminTeamEditForm/FormEinladungSection.tsx",
   saison: "features/teams/components/forms/AdminTeamEditForm/FormSaisonSection.tsx",
+  registrierungen: "features/registrierungen/components/collections/RegistrierungenList.tsx",
 };
 
 const C = {
   ablehnen: await component(M.ablehnen, "AdminBewerbungAblehnenSection"),
   annehmen: await component(M.annehmen, "AdminBewerbungAnnehmenSection"),
   bestaetigung: await component(M.bestaetigung, "BestaetigungFormPanel"),
+  saisonVorbei: await component(M.saisonVorbei, "BestaetigungSaisonVorbei"),
   kontakteLoeschen: await component(M.kontakteLoeschen, "FormKontakteLoeschenSection"),
   kontaktErasure: await component(M.kontaktErasure, "FormKontaktErasure"),
   passkey: await component(M.passkey, "PasskeyKarteView"),
@@ -174,6 +169,7 @@ const C = {
   spielerLoeschen: await component(M.spielerLoeschen, "FormLoeschenSection"),
   einladung: await component(M.einladung, "FormEinladungSection"),
   saison: await component(M.saison, "FormSaisonSection"),
+  registrierungen: await component(M.registrierungen, "RegistrierungenList"),
 };
 
 const einladungPanel = () =>
@@ -188,6 +184,29 @@ const einladungPanel = () =>
         einladung: LIVE_EINLADUNG,
         laeuft: true,
       }),
+    }),
+  );
+
+/** One confirmed registration on its team's list, each card holding both decisions. */
+const registrierungenList = () =>
+  underNext(
+    el(C.registrierungen, {
+      registrierungen: [
+        {
+          registrierung_id: "c".repeat(24),
+          eingereicht_am: "2026-09-20",
+          vorname: "Lena",
+          nachname: "Meier",
+          nummer: null,
+          position: null,
+          stufe: null,
+          aufnehmbar: true,
+          nummer_doppelt: false,
+          person: null,
+          vorschlag: null,
+        },
+      ],
+      adresse: { team_id: TEAM_ID, saison_id: "2627" },
     }),
   );
 
@@ -234,12 +253,38 @@ const PANELS: Record<string, Arming[]> = {
     {
       render: () =>
         el(C.bestaetigung, {
+          fassung: laufendeKontaktFassung(),
           token: "kein-echtes-token",
           vorname: "Mira",
           schule: "Lessing-Kolleg",
           saison: "2026",
           rolle: "Ansprechperson",
           mindestalter: 16,
+          onAbschluss: () => undefined,
+        }),
+      resting: "Ich möchte nicht eingetragen sein",
+    },
+  ],
+  [M.saisonVorbei]: [
+    {
+      render: () =>
+        el(C.saisonVorbei, {
+          ansicht: {
+            acknowledged: 1,
+            zustand: "saison_vorbei",
+            quelle: "saison",
+            zeile: "saison_vorbei",
+            saison_id: "2026",
+            schule: "Lessing-Kolleg",
+            rolle: "ansprechperson",
+            zugleich_rolle: null,
+            vorname: "Mira",
+            text_version: laufendeKontaktFassung().textVersion,
+            laufende_fassung: laufendeKontaktFassung().textVersion,
+            mindestalter: 18,
+            medien_mindestalter: 18,
+          },
+          token: "kein-echtes-token",
           onAbschluss: () => undefined,
         }),
       resting: "Ich möchte nicht eingetragen sein",
@@ -281,7 +326,7 @@ const PANELS: Record<string, Arming[]> = {
           }),
         ),
       // Its name, which carries the visible „Löschen“ and names the card.
-      resting: "Passkey „YubiKey 5“ löschen",
+      resting: "Löschen: Passkey „YubiKey 5“",
     },
   ],
   [M.andereAbmelden]: [
@@ -487,6 +532,10 @@ const PANELS: Record<string, Arming[]> = {
       stepUp: false,
     },
   ],
+  [M.registrierungen]: [
+    { render: registrierungenList, resting: "Aufnehmen: Lena Meier" },
+    { render: registrierungenList, resting: "Ablehnen: Registrierung von Lena Meier" },
+  ],
 };
 
 /** Every module rendering the shared row or reveal, read off its syntax tree. */
@@ -611,8 +660,10 @@ describe("where arming and cancelling leave the focus, on every panel", () => {
 /** The panels whose armed press is not an administrator's write, and why each is not. */
 const NOT_ADMINISTRATORS: Readonly<Record<string, string>> = {
   [M.bestaetigung]: "the public confirmation page, a person's own answer to their own link",
+  [M.saisonVorbei]: "the public confirmation page's Widerspruch on a closed season row, a person's own answer",
   [M.passkey]: "the passkey list, which asks through the account page's own confirmation",
   [M.andereAbmelden]: "the account page's sign-out of other devices, which asks through that page's own confirmation",
+  [M.registrierungen]: "a seat holder's decision on the person lane, which holds no administrator's step-up window",
 };
 
 /** Every step-up write each administrator panel's armed presses have sent, filled by the cases below. */

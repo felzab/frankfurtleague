@@ -1,17 +1,26 @@
+import { cache } from "react";
+
 import { apiClient } from "@/core/api";
 import { isRecordMissing } from "@/core/errors";
 import { isRefusal, isRuleRefusal, refusedPayloadAnswer } from "@/shared/utils/actionError";
 import { runAdminRead } from "@/shared/utils/adminRead";
-import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
+import { runPersonRead } from "@/shared/utils/personRead";
+import { ANTWORT_NEU_OEFFNEN, FASSUNG_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import { alterAusserhalb } from "./constants";
-import { postSchiedsrichterBestaetigungAnsicht } from "./mutations";
-import { FLSchiedsrichterListResponseSchema, FLSchiedsrichterSingleResponseSchema } from "./schemas";
+import { postSchiedsrichterAdresswechselAnsicht, postSchiedsrichterBestaetigungAnsicht } from "./mutations";
+import { FLSchiedsrichterListResponseSchema, FLSchiedsrichterSelbstResponseSchema, FLSchiedsrichterSingleResponseSchema } from "./schemas";
 
 import type { FieldErrors } from "@/shared/utils/validation";
-import type { FLSchiedsrichterListResponse, FLSchiedsrichterSingleResponse } from "./schemas";
-import type { FLSchiedsrichterFilterParams, SchiedsrichterAnsicht, SchiedsrichterLinkZustand } from "./types";
+import type { FLSchiedsrichterListResponse, FLSchiedsrichterSelbstResponse, FLSchiedsrichterSingleResponse } from "./schemas";
+import type {
+  AdresswechselAnsicht,
+  AdresswechselLinkZustand,
+  FLSchiedsrichterFilterParams,
+  SchiedsrichterAnsicht,
+  SchiedsrichterLinkZustand,
+} from "./types";
 
 /**
  * Every referee, with their contact details, school and fee. Admin-tier: a referee is a pupil
@@ -93,8 +102,10 @@ export async function mapSchiedsrichterBestaetigungRefusal(
     // sends this answer, and its repair is the refused payload's.
     case "REQ-SCHIEDSRICHTER-008":
       return { error: ANTWORT_NEU_OEFFNEN };
-    // With the record missing, the referee the link names is gone, which is a link nothing places.
-    case "DB-COMMON-001":
+    // The backend's judgement of the label (`docs/backend/spec.md :: I550`): a page opened before a
+    // deploy moved it posts words other than those the backend runs, and only the mail's link reopens it.
+    case "REQ-EINWILLIGUNG-001":
+      return { error: FASSUNG_NEU_OEFFNEN };
     case "REQ-SCHIEDSRICHTER-002":
       return { zustand: "ungueltig" };
     case "REQ-SCHIEDSRICHTER-003":
@@ -142,3 +153,67 @@ export async function getSchiedsrichterBestaetigungAnsicht(token: string): Promi
     ),
   );
 }
+
+/**
+ * What one address link opens, narrowed here for the consent link's reason: a dead link's panel
+ * names nobody, and an open one with no name left has nobody to name.
+ */
+export async function getSchiedsrichterAdresswechselAnsicht(token: string): Promise<AdresswechselAnsicht> {
+  return runWithIncomingTrace(() =>
+    postSchiedsrichterAdresswechselAnsicht({ token: token }).then(
+      (ansicht): AdresswechselAnsicht =>
+        ansicht.zustand !== "gueltig"
+          ? { zustand: ansicht.zustand }
+          : ansicht.vorname === null
+            ? { zustand: "ungueltig" }
+            : { zustand: "gueltig", vorname: ansicht.vorname, frist: ansicht.frist },
+      (error: unknown): AdresswechselAnsicht => {
+        // The consent link's reading of a refused read: a token nothing could place.
+        const zustand = mapSchiedsrichterAnsichtRefusal(error);
+        if (zustand !== null) return { zustand: zustand };
+        throw error;
+      },
+    ),
+  );
+}
+
+export type SchiedsrichterAdresswechselRefusal = {
+  error?: string;
+  fieldErrors?: FieldErrors;
+  unplacedError?: string;
+  zustand?: AdresswechselLinkZustand;
+};
+
+/** A refused answer as the panel or the sentence the address page shows, or `null` where the code is none of these. */
+export function mapSchiedsrichterAdresswechselRefusal(error: unknown): SchiedsrichterAdresswechselRefusal | null {
+  if (!isRefusal(error)) return null;
+
+  switch (error.serverErrorCode) {
+    // The body shape is mirrored, so a refused one is a drifted page, which the mail's link replaces.
+    case "REQ-VAL-002":
+    case "REQ-VAL-001":
+      return refusedPayloadAnswer(error, ANTWORT_NEU_OEFFNEN);
+    case "REQ-SCHIEDSRICHTER-002":
+      return { zustand: "ungueltig" };
+    case "REQ-SCHIEDSRICHTER-003":
+      return { zustand: "abgelaufen" };
+    case "REQ-SCHIEDSRICHTER-009":
+      return { zustand: "gesperrt" };
+    // A ban entered on the replaced address after the page opened: the panel the view opens on then.
+    case "REQ-SCHIEDSRICHTER-010":
+      return { zustand: "nicht_bestaetigbar" };
+    default:
+      return null;
+  }
+}
+
+/**
+ * The signed-in referee's own records, refused `REQ-FUNKTION-001` where the backend holds no confirmed
+ * referee row for the address the page's own check passed.
+ */
+// Never `"use cache"`, which keys on the arguments rather than the caller (`docs/frontend/spec.md` §1.2).
+export const getSchiedsrichterSelbst = cache(async (): Promise<FLSchiedsrichterSelbstResponse> =>
+  runPersonRead(() =>
+    apiClient<FLSchiedsrichterSelbstResponse>("/schiedsrichter/selbst", FLSchiedsrichterSelbstResponseSchema, { authType: "admin" }),
+  ),
+);

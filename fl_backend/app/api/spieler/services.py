@@ -1,3 +1,4 @@
+from collections import Counter
 from collections.abc import Mapping, Sequence
 from http import HTTPStatus
 from typing import Any, NamedTuple
@@ -335,3 +336,156 @@ def find_erasure_refusal(*, inactive_since: str | None) -> WriteRefusal | None:
         )
 
     return None
+
+
+def build_kader_pipeline(*, saison_id: str, team_id: CustomObjectId) -> list[Mapping[str, Any]]:
+    """Every squad row of one team in one season, live and ausgetragen alike, joined to its person's two names.
+
+    The person tier's read (`READ-KADER-001`): the surname whole, and no e-mail address, telephone
+    number, birthdate or consent record at any depth.
+    """
+
+    return [
+        {"$match": {"saison_id": saison_id, "team_id": team_id}},
+        {
+            "$lookup": {
+                "from": Collection.SPIELER,
+                "localField": "spieler_id",
+                "foreignField": "_id",
+                # An allow-list inside the join as well as after it: what the join carries is one
+                # `$project` edit from the wire, and the person row holds an address.
+                "pipeline": [{"$project": {"_id": 0, "vorname": 1, "nachname": 1}}],
+                "as": "person",
+            }
+        },
+        # Strict: the erasure removes a person's squad rows before the person, in one transaction,
+        # so a row with no person is a hand edit, left off the squad and answered 404 to a write naming it.
+        {"$unwind": "$person"},
+        {
+            "$project": {
+                "_id": 0,
+                "spieler_id": 1,
+                "vorname": "$person.vorname",
+                # `$ifNull` on every optional key: `$project` omits a missing one rather than nulling
+                # it, and the response model requires each key, null or not.
+                "nachname": {"$ifNull": ["$person.nachname", None]},
+                "nummer": {"$ifNull": ["$nummer", None]},
+                "position": {"$ifNull": ["$position", None]},
+                "stufe": {"$ifNull": ["$stufe", None]},
+                "rolle": {"$ifNull": ["$rolle", None]},
+                # Either stored spelling, for `build_spieler_memberships_pipeline`'s reason
+                # (`docs/backend/spec.md :: I302`).
+                "ist_nachnominiert": {"$ifNull": ["$ist_nachnominiert", {"$ifNull": ["$is_nachgetragen", False]}]},
+                "inactive_since": {"$ifNull": ["$inactive_since", None]},
+            }
+        },
+        # The id last, so two pupils of one name keep one order between two reads.
+        {"$sort": {"vorname": 1, "nachname": 1, "spieler_id": 1}},
+    ]
+
+
+def shared_nummern(rows: Sequence[Mapping[str, Any]]) -> frozenset[str]:
+    """Each `nummer` two or more LIVE rows of one squad wear, an ausgetragen row wearing none.
+
+    Compared as stored, never as a number: `07` is a printed shirt and not `7` (`fl_backend/app/core/domain.py :: UNENFORCED`).
+    """
+
+    worn = Counter(row["nummer"] for row in rows if row.get("inactive_since") is None and row.get("nummer") is not None)
+
+    return frozenset(nummer for nummer, wearers in worn.items() if wearers > 1)
+
+
+def mark_shared_nummern(rows: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """Each row with `nummer_doppelt`, judged against the whole squad the rows are."""
+
+    shared = shared_nummern(rows)
+
+    # `shared` holds no null, so a row without a number is never marked.
+    return [{**row, "nummer_doppelt": row.get("inactive_since") is None and row.get("nummer") in shared} for row in rows]
+
+
+# A representative's edit is held to the season's list, where the administrator's form is trusted to
+# offer it (`docs/backend/spec.md :: I158`).
+KADER_STUFE_NICHT_ERLAUBT = "REQ-SQUAD-005"
+
+
+def find_kader_stufe_refusal(*, stufe: str | None, stored_stufe: str | None, erlaubte_stufen: Sequence[str]) -> WriteRefusal | None:
+    """`REQ-SQUAD-005`: the edit writes a Stufe the season's rules do not offer.
+
+    The stored value passes: a season narrowed after the row was written leaves it valid
+    (`docs/backend/spec.md :: I158`), and refusing it would lock the row's other fields too.
+    """
+
+    if stufe is None or stufe == stored_stufe or stufe in erlaubte_stufen:
+        return None
+
+    return WriteRefusal(
+        error_code=KADER_STUFE_NICHT_ERLAUBT,
+        status=HTTPStatus.CONFLICT,
+        message="this season's rules do not offer that Stufe; pick one of the season's erlaubte_stufen",
+    )
+
+
+# --- The pupil's OWN record. What its consent PATCH shares with the referee's and a seat's is
+# `app/api/konto/services.py`'s.
+
+
+def build_selbst_pupil_filter(identifier: str) -> Mapping[str, Any]:
+    """The one pupil row this address holds, retired or not, a withdrawal reaching it either way.
+
+    The `$type` term is the unique index's partial filter, which an equality alone does not imply.
+    """
+
+    return {"email": {"$eq": identifier, "$type": "string"}}
+
+
+def build_selbst_pupil_pipeline(identifier: str) -> list[Mapping[str, Any]]:
+    """This address's pupil row with every squad row it holds and the name each club played that season under.
+
+    An allow-list: the sign-in address is the caller's own and still not served back.
+    """
+
+    return [
+        {"$match": build_selbst_pupil_filter(identifier)},
+        {"$project": {"vorname": 1, "nachname": 1, "geburtsdatum": 1, "inactive_since": 1, "einwilligung": 1}},
+        {
+            "$lookup": {
+                "from": Collection.SAISON_SPIELER,
+                "localField": "_id",
+                "foreignField": "spieler_id",
+                "pipeline": [
+                    {
+                        "$lookup": {
+                            "from": Collection.SAISON_TEAMS,
+                            "let": {"team_id": "$team_id", "saison_id": "$saison_id"},
+                            "pipeline": [
+                                {"$match": {"$expr": {"$and": [{"$eq": ["$team_id", "$$team_id"]}, {"$eq": ["$saison_id", "$$saison_id"]}]}}},
+                                {"$project": {"_id": 0, "name": 1}},
+                            ],
+                            "as": "saison_team",
+                        }
+                    },
+                    {
+                        "$project": {
+                            "_id": 0,
+                            "team_id": 1,
+                            "team_name": {"$first": "$saison_team.name"},
+                            "saison_id": 1,
+                            "nummer": 1,
+                            "position": 1,
+                            "stufe": 1,
+                            "rolle": 1,
+                            # Either stored spelling, as `build_spieler_memberships_pipeline` reads it
+                            # (`docs/backend/spec.md :: I302`).
+                            "ist_nachnominiert": {"$ifNull": ["$ist_nachnominiert", {"$ifNull": ["$is_nachgetragen", "$$REMOVE"]}]},
+                            "inactive_since": 1,
+                        }
+                    },
+                    # The season a person is playing first: the list is read for what they hold now.
+                    {"$sort": {"saison_id": -1, "team_name": 1}},
+                ],
+                "as": "kader",
+            }
+        },
+        {"$sort": {"_id": 1}},
+    ]

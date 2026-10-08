@@ -16,9 +16,12 @@ import ts from "typescript";
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { side, spielFields } from "@/shared/testing/fixtures.ts";
+import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
+import { saisonRules } from "@/shared/testing/saisonRules.ts";
 import { getGermanTodayStr } from "@/shared/utils/date.ts";
 
+import type { FLSaisonTeamKontakte } from "@/features/teams/schemas";
 import type { ReactNode } from "react";
 
 /* Nothing here is saved: every write is held unanswered, and every read of the page stands still. */
@@ -121,13 +124,7 @@ const PERSON = (vorname: string, email: string) => ({
   email,
   telefon: "069 111",
   geburtsdatum: "1990-12-10",
-  einwilligung: {
-    umfang: "kontaktdaten" as const,
-    erfasst_von: "person" as const,
-    text_version: "1",
-    datum: "2026-03-12",
-    bestaetigt_am: "2026-03-14",
-  },
+  einwilligung: kenntnisnahme({ erfasst_von: "person", text_version: "1", datum: "2026-03-12", bestaetigt_am: "2026-03-14" }),
 });
 const TEAM_A = { teamId: "68c1f0a2b3c4d5e6f7a8b9c1", name: "SG Alpha", shorthand: "SA" };
 const TEAM_B = { teamId: "68c1f0a2b3c4d5e6f7a8b9c2", name: "SG Beta", shorthand: "SB" };
@@ -151,17 +148,7 @@ const OFFER = [
   { gruppe: "A" as const, occupied: 1, capacity: 4 },
   { gruppe: "B" as const, occupied: 0, capacity: 4 },
 ];
-const SAISON_RULES = {
-  win_points: 3,
-  draw_points: 1,
-  qualifiers_per_group: 2,
-  number_of_groups: 2,
-  teams_per_group: 4,
-  max_kadergroesse: 18,
-  tiebreak_order: "tordifferenz",
-  forfeit_ergebnis: { sieger_tore: 3, verlierer_tore: 0 },
-  erlaubte_stufen: ["E1", "Q1"],
-};
+const SAISON_RULES = saisonRules();
 const LEVEL_KNOCKOUT = spielFields({
   id: "6890a1b2c3d4e5f607182901",
   saison_id: "2026",
@@ -181,13 +168,7 @@ const staende = async () => {
     email,
     telefon: "069 1234567",
     geburtsdatum: null,
-    einwilligung: {
-      umfang: "kontaktdaten" as const,
-      erfasst_von: "administrativ" as const,
-      text_version: "1",
-      datum: "2026-09-01",
-      bestaetigt_am: null,
-    },
+    einwilligung: kenntnisnahme({ erfasst_von: "administrativ", text_version: "1", datum: "2026-09-01", bestaetigt_am: null }),
   });
   const offen = { verschickt_am: "2026-09-01", erinnert_am: null, abgelehnt_am: null, zustellung: null };
 
@@ -246,6 +227,8 @@ const FORMS: Record<string, FormCase> = {
             geburtsdatum: null,
             einwilligung: null,
             bestaetigung: null,
+            adresswechsel: null,
+            abgelaufen: { bestaetigung: false, adresswechsel: false },
           },
           isRetired: false,
           pageHeader: { title: REFEREE.name },
@@ -291,6 +274,34 @@ const FORMS: Record<string, FormCase> = {
     },
     expected: ["rostered name vorname", "unrostered name vorname", "unrostered star Team suppressed"],
   },
+  "a seat holder's squad row editor": {
+    module: "features/spieler/components/forms/KaderZeileEditForm/KaderZeileEditForm.tsx",
+    marks: async () => {
+      const { KaderZeileEditForm } = await import("@/features/spieler/components/forms/KaderZeileEditForm/KaderZeileEditForm.tsx");
+      return marksOf(
+        h(KaderZeileEditForm, {
+          teamId: TEAM_A.teamId,
+          saisonId: "2026",
+          zeile: {
+            spieler_id: "68c1f0a2b3c4d5e6f7a8b9c0",
+            vorname: "Lena",
+            nachname: "Meier",
+            nummer: "10",
+            position: null,
+            stufe: null,
+            rolle: null,
+            ist_nachnominiert: false,
+            inactive_since: null,
+            nummer_doppelt: false,
+          },
+          erlaubteStufen: ["Q1"],
+          heldRollen: {},
+          kaderHref: `/bereich/team/${TEAM_A.teamId}/2026/kader`,
+        } as never),
+      );
+    },
+    expected: [],
+  },
   "the club editor": {
     module: "features/teams/components/forms/AdminTeamEditForm/AdminTeamEditForm.tsx",
     marks: async () => {
@@ -311,7 +322,7 @@ const FORMS: Record<string, FormCase> = {
           saison: {
             saisonId: "2026",
             saisonStatus: "future",
-            membership: { gruppe: "A", austritt: null, trikot_farbe: null, kontakte: null, kontakte_stand: "stand" },
+            membership: { gruppe: "A", austritt: null, trikot_farbe: null, kontakte: null, bestaetigungen: null, kontakte_stand: "stand" },
           },
           today: "2026-09-14",
           gruppeLocked: false,
@@ -319,7 +330,7 @@ const FORMS: Record<string, FormCase> = {
           swap: { teams: [], playedKnockoutSpiele: 0 },
           einladung: null,
           pageHeader: { title: TEAM_A.name },
-        } as never),
+        }),
       );
     },
     expected: [
@@ -338,16 +349,18 @@ const FORMS: Record<string, FormCase> = {
     module: "features/kontakte/components/forms/AdminKontakteEditForm/AdminKontakteEditForm.tsx",
     marks: async () => {
       const { AdminKontakteEditForm } = await import("@/features/kontakte/components/forms/AdminKontakteEditForm/AdminKontakteEditForm.tsx");
-      const editor = (kontakte: unknown) =>
+      const { publishedLaufendeFassung } = await import("@/core/einwilligungDocument.ts");
+      const editor = (kontakte: FLSaisonTeamKontakte | null) =>
         h(AdminKontakteEditForm, {
+          laufendesLabel: publishedLaufendeFassung("bewerbung").text_version,
           teamId: TEAM_A.teamId,
           saison: {
             saisonId: "2026",
             saisonStatus: "future",
-            membership: { gruppe: "A", austritt: null, trikot_farbe: null, kontakte, kontakte_stand: "stand" },
+            membership: { gruppe: "A", austritt: null, trikot_farbe: null, kontakte, bestaetigungen: null, kontakte_stand: "stand" },
           },
           pageHeader: { title: TEAM_A.name },
-        } as never);
+        });
       const seated = await marksOf(
         editor({
           ansprechperson: PERSON("Grace", "grace@example.org"),
@@ -526,7 +539,7 @@ const FORMS: Record<string, FormCase> = {
           }),
         ),
         async (into) => {
-          await userEvent.setup().click(screen.getByRole("button", { name: "Passkey vom 1. September 2026 umbenennen" }));
+          await userEvent.setup().click(screen.getByRole("button", { name: "Umbenennen: Passkey vom 1. September 2026" }));
           await settle();
           marksOn(into);
         },
@@ -553,9 +566,11 @@ const FORMS: Record<string, FormCase> = {
     marks: async () => {
       const { BewerbungForm } = await import("@/features/bewerbungen/components/forms/BewerbungForm/BewerbungForm.tsx");
       const { SCHULE_NICHT_IN_LISTE } = await import("@/features/bewerbungen/constants.ts");
+      const { laufendeBewerbungFassung } = await import("@/shared/testing/einwilligungAnswers.ts");
       return marksOf(
         h(BewerbungForm, {
           saisonId: "2026",
+          fassung: laufendeBewerbungFassung(),
           schulen: [{ id: "68d0f2a4c1e2b3a4d5e6f708", name: "Lessing-Kolleg" }],
           isSchulenLesbar: true,
           vergebeneFarben: [],
@@ -618,8 +633,10 @@ const FORMS: Record<string, FormCase> = {
     module: "features/bewerbungen/components/views/BestaetigungFormPanel.tsx",
     marks: async () => {
       const { BestaetigungFormPanel } = await import("@/features/bewerbungen/components/views/BestaetigungFormPanel.tsx");
+      const { laufendeKontaktFassung } = await import("@/shared/testing/einwilligungAnswers.ts");
       return marksOf(
         h(BestaetigungFormPanel, {
+          fassung: laufendeKontaktFassung(),
           token: "kein-echtes-token",
           vorname: "Mira",
           schule: "Lessing-Kolleg",
@@ -666,9 +683,11 @@ const FORMS: Record<string, FormCase> = {
     module: "features/bewerbungen/components/views/BewerbungBestaetigungStrip.tsx",
     marks: async () => {
       const { BewerbungBestaetigungStrip } = await import("@/features/bewerbungen/components/views/BewerbungBestaetigungStrip.tsx");
+      const { laufendeNeubesetzung } = await import("@/shared/testing/einwilligungAnswers.ts");
       return marksOf(
         h(BewerbungBestaetigungStrip, {
           bewerbungId: "68d0f2a4c1e2b3a4d5e6f708",
+          neubesetzung: laufendeNeubesetzung(),
           staende: await staende(),
           frist: "2099-12-31",
           isOpen: true,
@@ -677,7 +696,7 @@ const FORMS: Record<string, FormCase> = {
         } as never),
         async (into) => {
           const user = userEvent.setup();
-          const reseat = screen.queryByRole("button", { name: "Trainer neu besetzen" });
+          const reseat = screen.queryByRole("button", { name: "Neu besetzen: Trainer" });
           assert.ok(reseat !== null, "the strip offers no reseat, so its form goes unread");
           await user.click(reseat);
           await settle();
@@ -705,14 +724,9 @@ const FORMS: Record<string, FormCase> = {
   "the player's confirmation": {
     module: "features/registrierungen/components/views/SpielerBestaetigungView.tsx",
     marks: async () => {
-      const { SPIELER_EINWILLIGUNG } = await import("@/core/einwilligung.ts");
+      const { laufendeSpielerFassung } = await import("@/shared/testing/einwilligungAnswers.ts");
       const { SpielerBestaetigungView } = await import("@/features/registrierungen/components/views/SpielerBestaetigungView.tsx");
-      const fassung = {
-        textVersion: SPIELER_EINWILLIGUNG.textVersion,
-        absaetze: SPIELER_EINWILLIGUNG.absaetzeNachSchluessel,
-        schalter: SPIELER_EINWILLIGUNG.schalter,
-        bedienelemente: SPIELER_EINWILLIGUNG.bedienelemente,
-      };
+      const fassung = laufendeSpielerFassung();
       const ansicht = {
         acknowledged: 1,
         zustand: "gueltig",
@@ -720,7 +734,7 @@ const FORMS: Record<string, FormCase> = {
         schule: "Lessing-Kolleg Oberstufengymnasium",
         saison_id: "2026",
         vorname: "Mira",
-        text_version: fassung.textVersion,
+        seite: fassung.seite,
         mindestalter: 16,
         medien_mindestalter: 18,
         geburtsdatum: null,
@@ -746,7 +760,8 @@ const FORMS: Record<string, FormCase> = {
   "the referee's confirmation": {
     module: "features/schiedsrichter/components/views/SchiedsrichterBestaetigungView.tsx",
     marks: async () => {
-      const { SCHIEDSRICHTER_EINWILLIGUNG } = await import("@/core/einwilligung.ts");
+      const { laufendeSchiedsrichterFassung } = await import("@/shared/testing/einwilligungAnswers.ts");
+      const fassung = laufendeSchiedsrichterFassung();
       const { SchiedsrichterBestaetigungView } = await import("@/features/schiedsrichter/components/views/SchiedsrichterBestaetigungView.tsx");
       return marksOf(
         h(SchiedsrichterBestaetigungView, {
@@ -757,11 +772,12 @@ const FORMS: Record<string, FormCase> = {
               acknowledged: 1,
               zustand: "gueltig",
               vorname: "Anna",
-              text_version: SCHIEDSRICHTER_EINWILLIGUNG.textVersion,
+              text_version: fassung.textVersion,
               mindestalter: 16,
               medien_mindestalter: 18,
               frist: "2026-10-05",
             },
+            fassung,
           },
         } as never),
         async (into) => {

@@ -1,11 +1,12 @@
 """
 API · the static sweep behind `docs/backend/spec.md :: I52`
 
-The source under `app/` is read as text, never imported: every function's write-helper call sites
+The source under `app/` is read as syntax, never run: every function's write-helper call sites
 are recorded, and an endpoint's count is the transitive sum over its callees without descending
 into a callback handed to `with_transaction`. `app/core/crud.py` is the chokepoint the helpers
-live in, and `app/core/recording.py` is the log's companion insert -- the pairing gap
-`docs/backend/spec.md` section 4 names -- so neither module is swept.
+live in, `app/core/recording.py` is the log's companion insert -- the pairing gap
+`docs/backend/spec.md` section 4 names -- and `app/core/drosselung.py` counts a person's write
+outside its transaction by design (`docs/backend/spec.md :: I617`), so none of the three is swept.
 
 What the sweep proves is exactly that no endpoint composes a second write outside a transaction.
 Whether a write inside a callback carries `session=` is beyond a lexical read, and stays with the
@@ -18,38 +19,14 @@ from pathlib import Path
 
 import pytest
 
+from tests.core.app_source import DRIVER_WRITES, REMOVAL_HELPERS, WRITE_HELPERS, handed_callbacks, parsed
+
 APP_ROOT = Path(__file__).resolve().parents[2] / "app"
 
-# The crud helpers AND the driver methods they wrap, so a later write taken straight to the driver
-# is counted the same as one through the chokepoint.
-WRITE_HELPERS = frozenset(
-    {
-        "patch_one_in_db",
-        "patch_many_in_db",
-        "post_one_to_db",
-        "post_many_to_db",
-        "delete_many_from_db",
-        "erase_many_from_db",
-        "set_inactive_since",
-        "insert_live",
-    }
-)
-DRIVER_WRITE_METHODS = frozenset(
-    {
-        "insert_one",
-        "insert_many",
-        "update_one",
-        "update_many",
-        "replace_one",
-        "delete_one",
-        "delete_many",
-        "find_one_and_update",
-        "find_one_and_replace",
-        "find_one_and_delete",
-        "bulk_write",
-    }
-)
-UNSWEPT_MODULES = frozenset({"app/core/crud.py", "app/core/recording.py"})
+# The crud helpers, their removals included, AND the driver methods they wrap, so a later write
+# taken straight to the driver is counted the same as one through the chokepoint.
+WRITE_SITES = WRITE_HELPERS | REMOVAL_HELPERS | DRIVER_WRITES
+UNSWEPT_MODULES = frozenset({"app/core/crud.py", "app/core/recording.py", "app/core/drosselung.py"})
 HTTP_METHODS = frozenset({"get", "post", "patch", "put", "delete"})
 
 
@@ -83,14 +60,18 @@ def _is_route_decorator(node: ast.expr) -> bool:
 class _ModuleCollector(ast.NodeVisitor):
     """One record per function def; a write inside a nested def lands on the nested record."""
 
-    def __init__(self, module: str, records: dict[str, list[_FunctionRecord]]) -> None:
+    def __init__(self, module: str, records: dict[str, list[_FunctionRecord]], handed: dict[int, set[str]]) -> None:
         self.module = module
         self.records = records
+        self.handed = handed
         self.stack: list[_FunctionRecord] = []
 
     def _enter(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
         record = _FunctionRecord(name=node.name, module=self.module)
         record.is_endpoint = any(_is_route_decorator(decorator) for decorator in node.decorator_list)
+        # The callbacks it hands to a transaction, by the one finder every sweep shares
+        # (`tests/core/app_source.py :: handed_callbacks`): their writes are the transaction's.
+        record.transaction_callbacks = self.handed.get(id(node), set())
         self.records.setdefault(node.name, []).append(record)
         self.stack.append(record)
         for child in node.body:
@@ -108,10 +89,8 @@ class _ModuleCollector(ast.NodeVisitor):
         if self.stack and name is not None:
             record = self.stack[-1]
             if name == "with_transaction":
-                # The callback is an argument, not a call: its writes are the transaction's.
                 record.opens_transaction = True
-                record.transaction_callbacks.update(argument.id for argument in node.args if isinstance(argument, ast.Name))
-            elif name in WRITE_HELPERS or name in DRIVER_WRITE_METHODS:
+            elif name in WRITE_SITES:
                 record.write_sites.append((name, node.lineno))
             else:
                 record.callees.add(name)
@@ -120,11 +99,15 @@ class _ModuleCollector(ast.NodeVisitor):
 
 def _collect() -> dict[str, list[_FunctionRecord]]:
     records: dict[str, list[_FunctionRecord]] = {}
+    handed: dict[int, set[str]] = {}
+    for holder, callback in handed_callbacks():
+        if holder is not None:
+            handed.setdefault(id(holder), set()).add(callback.name)
     for source in sorted(APP_ROOT.rglob("*.py")):
         module = source.relative_to(APP_ROOT.parent).as_posix()
         if module in UNSWEPT_MODULES:
             continue
-        _ModuleCollector(module, records).visit(ast.parse(source.read_text(encoding="utf-8")))
+        _ModuleCollector(module, records, handed).visit(parsed(source))
     return records
 
 
@@ -169,8 +152,8 @@ def _opens_transaction(record: _FunctionRecord, seen: set[int]) -> bool:
 # Three ways the sweep could go blind, each asserted PRESENT so a silent regression of the detector
 # fails here rather than passing over an empty or writeless parameter set.
 assert ENDPOINTS, "no route-decorated function found under app/ -- the endpoint detector, not the routers, is the likely cause"
-assert any(len(_bare_write_sites(record, set())) == 1 for record in ENDPOINTS), (
-    "no endpoint reaches a single bare write -- the write detector, not the handlers, is the likely cause"
+assert any(record.write_sites for named in FUNCTIONS.values() for record in named), (
+    "no function under app/ makes a write -- the write detector, not the handlers, is the likely cause"
 )
 _ERASURE_CALLBACK = next(
     record for record in FUNCTIONS.get("erase_the_person_and_their_record", []) if record.module.startswith("app/api/spieler/")

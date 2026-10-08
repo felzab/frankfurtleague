@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
+import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
 import { doublePublicRouteRequest } from "@/shared/testing/publicRoutes.ts";
@@ -23,10 +24,10 @@ const { calls } = doubleApiAnswers(async (call) => antwortFuer(call));
 doublePublicRouteRequest({ modules: { "core/logging.ts": LOGGING, "core/config.ts": CONFIG } });
 
 const { POST } = await import("./route.ts");
-const { BESTAETIGUNG_KENNTNISNAHME } = await import("@/core/einwilligung.ts");
-const { ANTWORT_NEU_OEFFNEN } = await import("@/shared/utils/reopenLink.ts");
+const { ANTWORT_NEU_OEFFNEN, FASSUNG_NEU_OEFFNEN } = await import("@/shared/utils/reopenLink.ts");
 const { refusedOn } = await import("@/shared/testing/publishedRefusals.ts");
 const { alterAusserhalb } = await import("@/features/bewerbungen/constants.ts");
+const { MEDIEN_NOCH_NICHT } = await import("@/features/bewerbungen/utils.ts");
 const { FELD_ABGELEHNT } = await import("@/shared/utils/actionError.ts");
 const { bodyField, refusedPayload } = await import("@/shared/testing/refusedPayload.ts");
 const route = await import("./route.ts");
@@ -35,19 +36,27 @@ const { rollenText, rolleText } = await import("@/features/bewerbungen/notificat
 const { formatSpielDatum } = await import("@/shared/utils/format.ts");
 
 const WRITE = "/bewerbungen/einwilligung";
+
+/** The label the backend runs on the contact page, off the registry it generated. */
+const LAUFEND = publishedLaufendeFassung("bestaetigung_kontakt").text_version;
+
 const ANSICHT_ENDPOINT = "/bewerbungen/einwilligung/ansicht";
 
 /** The link's own view, open, at a floor above the league's own so a case can tell whose it states. */
 const ANSICHT = {
   acknowledged: 1,
   zustand: "gueltig" as const,
+  quelle: "bewerbung",
+  zeile: null,
   saison_id: "2026",
   schule: "Lessing-Kolleg",
   rolle: "ansprechperson",
   zugleich_rolle: null,
   vorname: "Käthe",
-  text_version: BESTAETIGUNG_KENNTNISNAHME.textVersion,
+  text_version: LAUFEND,
+  laufende_fassung: LAUFEND,
   mindestalter: 18,
+  medien_mindestalter: 18,
 };
 
 /** One refused write as the client raises it, at the status the document publishes for its code. */
@@ -57,16 +66,18 @@ const aRefusal = (serverErrorCode: string) => refusedOn(`POST ${WRITE}`, serverE
 // so the case reaches no mail provider.
 const GESCHRIEBEN = {
   acknowledged: 1,
+  quelle: "bewerbung",
   ergebnis: "bestaetigt" as const,
   ausstehend: ["trainer", "stellvertretung"],
   geburtsdatum: "1984-05-09",
   whatsapp: false,
+  medien: true,
   bewerbung_id: "0123456789abcdef01234567",
   saison_id: "2026",
   rolle: "ansprechperson",
   vorname: "Käthe",
   bestaetigungsfrist: "2026-10-05",
-  ansprechperson_email: "kaethe@beispiel.test",
+  ansprechperson_email: "kaethe@beispiel.example",
   ansprechperson_rollen: ["ansprechperson"],
 };
 
@@ -76,7 +87,8 @@ const gueltigerKoerper = {
   antwort: "erteilt",
   geburtsdatum: "1984-05-09",
   whatsapp: false,
-  text_version: BESTAETIGUNG_KENNTNISNAHME.textVersion,
+  medien: true,
+  text_version: LAUFEND,
 };
 
 function aRequest(body: unknown) {
@@ -106,25 +118,27 @@ beforeEach(() => {
 });
 
 describe("the contact seat's confirmation handler", () => {
-  /* A page opened before a deploy moved the label shows words the running build does not serve, and
-     filing the answer under the new label would record a Kenntnisnahme of a text nobody was shown. */
-  it("refuses a label other than the one this server renders, before the endpoint", async () => {
+  /* The backend judges the label (`docs/backend/spec.md :: I550`): a page opened before a deploy moved
+     it posts words other than those the backend runs, and only the mail's link reopens the page on them. */
+  it("answers the backend's refusal of the label with the sentence that reopens the link", async () => {
+    schreibAntwort = () => aRefusal("REQ-EINWILLIGUNG-001");
+
     const answer = await bodyOf(aRequest({ ...gueltigerKoerper, text_version: "eine-fremde-fassung" }));
 
-    assert.deepEqual(answer.body, { success: false, error: ANTWORT_NEU_OEFFNEN });
-    assert.deepEqual(calls, []);
+    assert.deepEqual(answer.body, { success: false, error: FASSUNG_NEU_OEFFNEN });
+    assert.equal(
+      JSON.parse(calls.find((call) => call.endpoint === "/bewerbungen/einwilligung")?.body ?? "{}").text_version,
+      "eine-fremde-fassung",
+    );
   });
 
-  /* Judged before the parse, so an older page gets the one sentence as its whole answer rather than
-     marks on boxes whose values may be right. */
-  it("answers a body carrying no label, or an empty one, with that same sentence", async () => {
+  /* No box carries the label, so a body naming none comes from an older page, and the mail's link is its repair. */
+  it("answers a body carrying no label with that same sentence beside the boxes, reaching nothing", async () => {
     const { text_version: _fassung, ...ohneFassung } = gueltigerKoerper;
+    const answer = await bodyOf(aRequest(ohneFassung));
 
-    for (const fassung of [undefined, "", "   "]) {
-      const answer = await bodyOf(aRequest(fassung === undefined ? ohneFassung : { ...ohneFassung, text_version: fassung }));
-
-      assert.deepEqual(answer.body, { success: false, error: ANTWORT_NEU_OEFFNEN }, JSON.stringify(fassung));
-    }
+    assert.equal((answer.body as { success: boolean }).success, false);
+    assert.equal((answer.body as { unplacedError?: string }).unplacedError, ANTWORT_NEU_OEFFNEN);
     assert.deepEqual(calls, []);
   });
 
@@ -136,6 +150,15 @@ describe("the contact seat's confirmation handler", () => {
     const answer = await bodyOf(aRequest(gueltigerKoerper));
 
     assert.deepEqual(answer.body, { success: false, fieldErrors: { geburtsdatum: alterAusserhalb(18) } });
+  });
+
+  /* Spends nothing, as the age refusal does: the form stays, and the sentence names the switch that repairs it. */
+  it("answers the media refusal with its own sentence, keeping the form", async () => {
+    schreibAntwort = () => aRefusal("REQ-EINWILLIGUNG-002");
+
+    const answer = await bodyOf(aRequest(gueltigerKoerper));
+
+    assert.deepEqual(answer.body, { success: false, error: MEDIEN_NOCH_NICHT });
   });
 
   /* The panel the view opens a barred link on, so a ban entered while the form stood open leaves no
@@ -173,8 +196,9 @@ describe("the contact seat's confirmation handler", () => {
     const answer = await bodyOf(aRequest(gueltigerKoerper));
     const geschrieben = calls.find((call) => call.endpoint === WRITE);
 
-    assert.equal(JSON.parse(geschrieben?.body ?? "{}").text_version, BESTAETIGUNG_KENNTNISNAHME.textVersion);
-    assert.deepEqual(answer.body, { success: true, ergebnis: "bestaetigt", geburtsdatum: "1984-05-09", whatsapp: false });
+    assert.equal(JSON.parse(geschrieben?.body ?? "{}").text_version, LAUFEND);
+    assert.equal(JSON.parse(geschrieben?.body ?? "{}").medien, true);
+    assert.deepEqual(answer.body, { success: true, ergebnis: "bestaetigt", geburtsdatum: "1984-05-09", whatsapp: false, medien: true });
   });
 });
 
@@ -242,6 +266,74 @@ describe("what one answered seat sets the confirmation handler sending", () => {
       mails.map((mail) => [mail.tags?.bewerbung_id, mail.idempotencyKey]),
       [[GESCHRIEBEN.bewerbung_id, undefined]],
     );
+  });
+});
+
+describe("a seat an administrator typed onto a team's season row", () => {
+  /* The answer as the endpoint gives it for a season row: the echo alone, no application behind it. */
+  const SAISON_GESCHRIEBEN = {
+    acknowledged: 1,
+    quelle: "saison",
+    ergebnis: "bestaetigt",
+    geburtsdatum: "1984-05-09",
+    whatsapp: true,
+    medien: false,
+  };
+
+  /* No application stands behind the seat, so neither „vollständig“ nor a Widerspruch notice is true
+     of it, and the person who would be told is nobody's Ansprechperson. */
+  it("sends neither of the application's messages, for a confirmation or a Widerspruch", async () => {
+    schreibAntwort = () => SAISON_GESCHRIEBEN;
+    await bodyOf(aRequest(gueltigerKoerper));
+
+    schreibAntwort = () => ({ ...SAISON_GESCHRIEBEN, ergebnis: "abgelehnt", geburtsdatum: null, whatsapp: false, medien: false });
+    await bodyOf(aRequest({ ...gueltigerKoerper, antwort: "abgelehnt", geburtsdatum: null }));
+
+    assert.deepEqual(mails, []);
+    assert.deepEqual(
+      calls.map((call) => call.endpoint),
+      [WRITE, WRITE],
+      "the handler reached past the write it was asked for",
+    );
+  });
+
+  /* Spent for good past its own deadline, which only the administration's fresh link reopens: the
+     dead-link panel, which the page words for a season row by the source its read answered. */
+  it("answers a season row's link past its own deadline with the dead-link panel", async () => {
+    schreibAntwort = () => aRefusal("REQ-KONTAKT-004");
+
+    const answer = await bodyOf(aRequest(gueltigerKoerper));
+
+    assert.deepEqual(answer.body, { success: false, zustand: "abgelaufen" });
+    assert.deepEqual(mails, []);
+  });
+
+  /* The page the link's view answers once the season has ended or the team has left, which still takes a Widerspruch. */
+  it("answers a season row's link past its season with the page offering the Widerspruch alone", async () => {
+    schreibAntwort = () => aRefusal("REQ-KONTAKT-006");
+
+    const answer = await bodyOf(aRequest(gueltigerKoerper));
+
+    assert.deepEqual(answer.body, { success: false, zustand: "saison_vorbei" });
+    assert.deepEqual(mails, []);
+  });
+
+  it("answers the browser the same echo an application's seat is answered", async () => {
+    schreibAntwort = () => SAISON_GESCHRIEBEN;
+
+    const answer = await bodyOf(aRequest(gueltigerKoerper));
+
+    assert.deepEqual(answer.body, { success: true, ergebnis: "bestaetigt", geburtsdatum: "1984-05-09", whatsapp: true, medien: false });
+  });
+
+  /* The control: the same write answered as an application's last seat does send, so the absence
+     above is the discriminator's and not a fan-out that never runs. */
+  it("still tells an application's Ansprechperson, the same answer read as the application's", async () => {
+    schreibAntwort = () => ({ ...GESCHRIEBEN, ausstehend: [] });
+
+    await bodyOf(aRequest(gueltigerKoerper));
+
+    assert.equal(mails.length, 1);
   });
 });
 

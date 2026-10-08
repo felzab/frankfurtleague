@@ -25,13 +25,6 @@ describe("the grant's refusals", () => {
     });
   });
 
-  /* The acting administrator's own grant went while the page stood: no box repairs that. */
-  it("answers a grant from an administrator whose own access went with a banner and no box", () => {
-    assert.deepEqual(mapErteilenRefusal(refusedOn(GRANT, "REQ-BERECHTIGUNG-006", 403)), {
-      error: "Dein Zugang zur Verwaltung besteht nicht mehr.",
-    });
-  });
-
   it("answers every refusal the grant publishes", () => {
     for (const code of publishedRefusals(GRANT)) {
       assert.notEqual(answerShown(GRANT, code, mapErteilenRefusal), null, `${code} reaches the admin as an unhandled refusal`);

@@ -11,6 +11,7 @@ import { Button } from "@heroui/react/button";
 import { Dropdown } from "@heroui/react/dropdown";
 import { Label } from "@heroui/react/label";
 
+import { benannt } from "@/shared/utils/benannt";
 import { focusRow } from "@/shared/utils/focusAfterWrite";
 
 import { FocusSlot } from "./FocusSlot";
@@ -22,7 +23,7 @@ import type { ReactNode } from "react";
 
 /**
  * The shape every row action shares, so a link's hit area and a button's cannot drift; only the hover arm splits. The
- * tooltip is wired as `aria-describedby`, which never names the control, so every action takes an `ariaLabel` too.
+ * tooltip only describes the control, so each is named by its `label` and then the row's `subject`.
  */
 const ACTION_SHAPE_CLASSES = `flex text-foreground-muted ${ROW_ACTION_SIZE_CLASSES} shrink-0 items-center justify-center rounded-xl transition-colors`;
 
@@ -32,12 +33,12 @@ const ACTION_BUTTON_CLASSES = `${ACTION_SHAPE_CLASSES} data-hovered:bg-hover dat
 
 const DANGER_CLASSES = `${ACTION_SHAPE_CLASSES} data-hovered:bg-hover-danger data-hovered:text-danger-strong`;
 
-export function RowActionLink({ href, label, ariaLabel, children }: { href: string; label: string; ariaLabel: string; children: ReactNode }) {
+export function RowActionLink({ href, label, subject, children }: { href: string; label: string; subject: string; children: ReactNode }) {
   return (
     <IconTooltip label={label}>
       <Link
         href={href}
-        aria-label={ariaLabel}
+        aria-label={benannt(label, subject)}
         className={ACTION_LINK_CLASSES}>
         {children}
       </Link>
@@ -45,12 +46,12 @@ export function RowActionLink({ href, label, ariaLabel, children }: { href: stri
   );
 }
 
-export function RowActionCopy({ label, ariaLabel, onPress }: { label: string; ariaLabel: string; onPress: () => void }) {
+export function RowActionCopy({ label, subject, onPress }: { label: string; subject: string; onPress: () => void }) {
   return (
     <IconTooltip label={label}>
       <Button
         isIconOnly
-        aria-label={ariaLabel}
+        aria-label={benannt(label, subject)}
         variant="ghost"
         className={ACTION_BUTTON_CLASSES}
         onPress={onPress}>
@@ -69,14 +70,15 @@ const RETIREMENT_PLACE = "stilllegung";
 /** Shown in `RowActionDelete`'s place on a retired row. No confirmation step: one press of the delete reverses it. */
 export function RowActionRestore({
   label,
-  ariaLabel,
+  subject,
   onPress,
   disabledReason,
   isPending = false,
   place = RETIREMENT_PLACE,
 }: {
   label: string;
-  ariaLabel: string;
+  /** What the row is, which the name carries after `label`: one name per row, where `label` repeats down the list. */
+  subject: string;
   /** Handed the pressed control, which a landing anchors on: a grid row takes the focus off a control pressed without a pointer. */
   onPress: (pressed: Element) => void;
   /** A restore no delete stands in for, as the squad row's beside the person's, names a place of its own. */
@@ -89,10 +91,11 @@ export function RowActionRestore({
   /** While the write runs, so a second press cannot send it twice. Never a `disabledReason`: nothing refuses the row. */
   isPending?: boolean;
 }) {
+  const name = benannt(label, subject);
   const button = (
     <Button
       isIconOnly
-      aria-label={ariaLabel}
+      aria-label={name}
       variant="ghost"
       isDisabled={disabledReason != null}
       // `isPending` and never `isDisabled`: a disabled button leaves the tab order, dropping the keyboard's focus to the
@@ -113,7 +116,7 @@ export function RowActionRestore({
         <Hint
           mode="refusal"
           reason={disabledReason}
-          label={ariaLabel}>
+          label={name}>
           {button}
         </Hint>
       ) : (
@@ -126,20 +129,21 @@ export function RowActionRestore({
 /** `disabledReason` is what disables the control, rather than a boolean beside a reason, so the two cannot drift apart. */
 export function RowActionDelete({
   label,
-  ariaLabel,
+  subject,
   onPress,
   disabledReason,
 }: {
   label: string;
-  ariaLabel: string;
+  subject: string;
   onPress: (pressed: Element) => void;
   /** The refusal this row can already see, or null while the retirement is offered. */
   disabledReason?: string | null;
 }) {
+  const name = benannt(label, subject);
   const button = (
     <Button
       isIconOnly
-      aria-label={ariaLabel}
+      aria-label={name}
       variant="ghost"
       isDisabled={disabledReason != null}
       className={DANGER_CLASSES}
@@ -159,7 +163,7 @@ export function RowActionDelete({
         <Hint
           mode="refusal"
           reason={disabledReason}
-          label={ariaLabel}>
+          label={name}>
           {button}
         </Hint>
       ) : (
@@ -173,12 +177,16 @@ export function RowActionDelete({
   );
 }
 
+const MENU_LABEL = "Weitere Aktionen";
+
 /**
  * The row's ways ELSEWHERE, where it has two or more: six inline icons take 336px of a row that has
  * 631px for everything. One navigation stays inline, a menu of one item costing a press and buying
  * nothing.
  */
-export function RowActionMenu({ ariaLabel, children }: { ariaLabel: string; children: ReactNode }) {
+export function RowActionMenu({ subject, children }: { subject: string; children: ReactNode }) {
+  const name = benannt(MENU_LABEL, subject);
+
   return (
     /* Uncontrolled: `useNavigationClosedOverlay` cannot reach an overlay inside a page — the router
        hides the departed page, Effects and all
@@ -186,10 +194,10 @@ export function RowActionMenu({ ariaLabel, children }: { ariaLabel: string; chil
        `shouldCloseOnSelect` closes this before the route it opens changes. */
     <Dropdown>
       {/* One label for every row and every list, so the trigger names the same control everywhere;
-          `ariaLabel` is what says whose row it belongs to. */}
-      <IconTooltip label="Weitere Aktionen">
+          `subject` is what says whose row it belongs to. */}
+      <IconTooltip label={MENU_LABEL}>
         <Dropdown.Trigger
-          aria-label={ariaLabel}
+          aria-label={name}
           className={ACTION_BUTTON_CLASSES}>
           <Ellipsis
             className="size-4.5"
@@ -203,7 +211,7 @@ export function RowActionMenu({ ariaLabel, children }: { ariaLabel: string; chil
         placement="bottom end"
         offset={8}
         className="w-64 rounded-xl">
-        <Dropdown.Menu aria-label={ariaLabel}>{children}</Dropdown.Menu>
+        <Dropdown.Menu aria-label={name}>{children}</Dropdown.Menu>
       </Dropdown.Popover>
     </Dropdown>
   );

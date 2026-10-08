@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { KONTAKT_ROLLEN, TRAINER_ZUGLEICH_FRAGE, trainerZugleichLabel } from "@/features/teams/constants";
+import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 
 import { deriveKontakteDraftStatus, kontaktSeatPaths } from "./kontakteDraftStatus";
 
@@ -15,7 +16,7 @@ const person = (overrides: Partial<KontaktpersonDraft> = {}): KontaktpersonDraft
   email: "erika@beispiel.de",
   telefon: "069 1234567",
   geburtsdatum: "1990-01-01",
-  einwilligung: { umfang: "kontaktdaten", erfasst_von: "person", text_version: "2025-08", datum: "2025-09-01", bestaetigt_am: "2025-09-02" },
+  einwilligung: kenntnisnahme({ erfasst_von: "person", text_version: "2025-08", datum: "2025-09-01", bestaetigt_am: "2025-09-02" }),
   ...overrides,
 });
 
@@ -40,7 +41,8 @@ describe("deriveKontakteDraftStatus", () => {
     assert.equal(status.isDirty, false);
     assert.equal(status.fields.length, 7);
     assert.equal(status.byPath.get("kontakte.trainer")?.draftText, "Erika Mustermann, erika@beispiel.de, 069 1234567, geboren am 01.01.1990");
-    assert.equal(status.byPath.get("kontakte.trainer.einwilligung")?.draftText, "Von der Person selbst, Fassung 2025-08 (ab 01.09.2025)");
+    // No origin: the fixture's seat was seated before the field, and nothing guesses one for it.
+    assert.equal(status.byPath.get("kontakte.trainer.einwilligung")?.draftText, "Fassung 2025-08 (ab 01.09.2025)");
     // Read from the table rather than quoted: the wording is the product's, and pinning it here
     // makes rewording the question read as a regression.
     assert.equal(status.byPath.get("kontakte.trainer_ist_zugleich")?.draftText, trainerZugleichLabel(null));
@@ -132,20 +134,32 @@ describe("deriveKontakteDraftStatus", () => {
     );
   });
 
+  it("names who seated the person where the record says", () => {
+    const stored = block({ trainer: person({ einwilligung: { ...person().einwilligung, eingetragen_von: "bewerbung" } }) });
+    const status = deriveKontakteDraftStatus({ stored, draft: stored, fieldErrors: {} });
+
+    assert.equal(
+      status.byPath.get("kontakte.trainer.einwilligung")?.draftText,
+      "Mit der Bewerbung eingetragen, Fassung 2025-08 (ab 01.09.2025)",
+    );
+  });
+
   it("finds an unpicked Kenntnisnahme under the Kenntnisnahme's row, and renders it as still open", () => {
     const status = deriveKontakteDraftStatus({
       stored: EMPTY,
       draft: block({
-        trainer: person({ einwilligung: { umfang: "kontaktdaten", erfasst_von: null, text_version: "", datum: "", bestaetigt_am: null } }),
+        trainer: person({
+          einwilligung: kenntnisnahme({ erfasst_von: null, text_version: "", datum: "", bestaetigt_am: null }),
+        }),
       }),
       fieldErrors: { "kontakte.trainer.einwilligung.datum": "Bitte gib an, wann die Kenntnisnahme erfasst wurde." },
     });
 
     const row = status.byPath.get("kontakte.trainer.einwilligung");
     assert.equal(row?.error, "Bitte gib an, wann die Kenntnisnahme erfasst wurde.");
-    // All three fallbacks render rather than hiding: they are the mid-edit states the schema rejects
-    // on save, and the change list is where the admin sees what is still missing.
-    assert.equal(row?.draftText, "Noch offen, ohne Fassung (ohne Datum)");
+    // Both fallbacks render rather than hiding: they are the mid-edit states the schema rejects on
+    // save, and the change list is where the admin sees what is still missing.
+    assert.equal(row?.draftText, "Fassung nicht hinterlegt (Datum nicht hinterlegt)");
   });
 
   /* A seat holds a person once anybody is recorded in it, and a name is one of the fields that
@@ -155,9 +169,26 @@ describe("deriveKontakteDraftStatus", () => {
     const nameless = person({ vorname: "", nachname: "" });
     const status = deriveKontakteDraftStatus({ stored: EMPTY, draft: block({ trainer: nameless }), fieldErrors: {} });
 
-    assert.equal(status.byPath.get("kontakte.trainer")?.draftText, "Ohne Namen, erika@beispiel.de, 069 1234567, geboren am 01.01.1990");
+    assert.equal(
+      status.byPath.get("kontakte.trainer")?.draftText,
+      "Name nicht hinterlegt, erika@beispiel.de, 069 1234567, geboren am 01.01.1990",
+    );
     assert.equal(status.byPath.get("kontakte.trainer")?.isChanged, true);
   });
+
+  /* The date is the person's to enter when they confirm: until then the line says whose step it is,
+     after it the field is held empty, in the words the application panel gives the same seat. */
+  for (const [bestaetigtAm, worte] of [
+    [null, "Geburtsdatum trägt die Person selbst ein"],
+    ["2025-09-02", "Geburtsdatum nicht hinterlegt"],
+  ] as const) {
+    it(`reads a missing birthdate on a seat confirmed ${bestaetigtAm ?? "never"} as „${worte}“`, () => {
+      const ohneDatum = person({ geburtsdatum: null, einwilligung: { ...person().einwilligung, bestaetigt_am: bestaetigtAm } });
+      const status = deriveKontakteDraftStatus({ stored: EMPTY, draft: block({ trainer: ohneDatum }), fieldErrors: {} });
+
+      assert.equal(status.byPath.get("kontakte.trainer")?.draftText, `Erika Mustermann, erika@beispiel.de, 069 1234567, ${worte}`);
+    });
+  }
 
   /* A seat emptied under a stored name still reads as a removal, which is the state `null` is FOR.
      Both cases in one test: the fallback above may not be bought by losing this one. */

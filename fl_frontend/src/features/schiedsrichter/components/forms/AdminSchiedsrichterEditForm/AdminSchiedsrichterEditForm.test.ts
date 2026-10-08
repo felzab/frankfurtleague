@@ -12,6 +12,7 @@ import { userEvent } from "@testing-library/user-event";
 import { SCHIEDSRICHTER_EINLADEN_OHNE_ADRESSE } from "@/features/schiedsrichter/constants.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { closedControl } from "@/shared/testing/closedControl.ts";
+import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 import { nextRouter, underNext } from "@/shared/testing/nextContexts.ts";
 
 import type { ReactNode } from "react";
@@ -24,6 +25,12 @@ const { calls, answerWith, answered } = doubleActions({
 
 /* The real module hands its raising to HeroUI's queue rather than back to the case that caused it. */
 const { raised: toasts } = doubleToasts();
+
+/* The undo's dispatch reaches its route handler through `fetch`, which each case dispatching one answers. */
+const fetchMock = doubleFetch();
+const answerTheUndo = (): void => {
+  fetchMock.mock.mockImplementation(() => Promise.resolve(Response.json({ success: true, message: "Zurückgenommen.", warn: false })));
+};
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { AdminSchiedsrichterEditForm } = await import("./AdminSchiedsrichterEditForm.tsx");
@@ -56,11 +63,14 @@ const RECORD = {
   geburtsdatum: null,
   einwilligung: null,
   bestaetigung: null,
+  adresswechsel: null,
+  abgelaufen: { bestaetigung: false, adresswechsel: false },
 };
 
 const editor = (email: string | null) =>
   underNext(
     h(AdminSchiedsrichterEditForm, {
+      istFassungBekannt: true,
       schiedsrichter: { ...RECORD, kontakt: { telefon: null, email } },
       isRetired: false,
       pageHeader: { title: RECORD.name },
@@ -94,9 +104,13 @@ describe("the confirmation panel inside the referee's editor", () => {
 /* The undo replays the STORED record, and a placeholder written back is an address the payload refuses: the offer
    names that before any round trip rather than dispatching a restore the route can only turn away. */
 describe("the undo a referee's save offers", () => {
-  async function saveAddressOver(stored: string, around: (tree: ReactNode) => ReactNode = (tree) => tree): Promise<void> {
+  async function saveAddressOver(
+    stored: string,
+    around: (tree: ReactNode) => ReactNode = (tree) => tree,
+    answer: Record<string, unknown> = { success: true, message: "Gespeichert." },
+  ): Promise<void> {
     const user = userEvent.setup({ delay: null });
-    answerWith(() => Promise.resolve({ success: true, message: "Gespeichert." }));
+    answerWith(() => Promise.resolve(answer));
     render(around(editor(stored)));
     const box = screen.getByRole<HTMLInputElement>("textbox", { name: "E-Mail" });
 
@@ -133,20 +147,43 @@ describe("the undo a referee's save offers", () => {
 
   // Without it an offer refusing every undo passes the case above.
   it("dispatches the undo over a row whose address was a real one", async () => {
+    answerTheUndo();
     await saveAddressOver("anna.alt@schule.de");
     pressUndo();
 
     // Read at the press itself: the dispatch raises its pending toast before any round trip.
     assert.equal(toasts.at(-1)?.title, "Nimmt Änderung zurück...", "an undo with an address to restore was not dispatched");
+    await act(fetchMock.answered);
   });
+
+  /* The route says the new address still waits only for the save that left it, which no read after
+     the replay can tell from a save that moved only the fee. */
+  for (const gespeichert of [true, false]) {
+    it(`tells the undo whether the save left a new address waiting (${String(gespeichert)})`, async () => {
+      answerTheUndo();
+      await saveAddressOver("anna.alt@schule.de", undefined, { success: true, message: "Gespeichert.", adresswechselGespeichert: gespeichert });
+      pressUndo();
+      await act(fetchMock.answered);
+
+      const gesendet = fetchMock.mock.calls.map(
+        (call) => JSON.parse(String(call.arguments[1]?.body)) as { adresswechsel_gespeichert?: unknown },
+      );
+      assert.deepEqual(
+        gesendet.map((body) => body.adresswechsel_gespeichert),
+        [gespeichert],
+      );
+    });
+  }
 
   /* The undo moves an unanswered referee's address back, which mints as the save did: past the window
      the route refuses it, so the press asks first rather than dispatching a refusal. */
   it("asks for the passkey before an undo moving an unanswered referee's address back", async () => {
+    answerTheUndo();
     await saveAddressOver("anna.alt@schule.de", staleWindow);
     const beforeTheUndo = prompts.length;
     pressUndo();
 
     assert.equal(prompts.length, beforeTheUndo + 1, "the undo was offered without the prompt its replay needs");
+    await act(fetchMock.answered);
   });
 });

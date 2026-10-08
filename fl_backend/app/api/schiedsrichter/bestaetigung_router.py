@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends
@@ -5,6 +6,7 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.bewerbungen.services import hash_token
+from app.api.einwilligung.services import find_fassung_refusal
 from app.api.schiedsrichter.schemas import (
     FLSchiedsrichterBestaetigungAnsichtPayload,
     FLSchiedsrichterBestaetigungAnsichtResponse,
@@ -31,8 +33,9 @@ from app.api.schiedsrichter.services import (
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, refuse
-from app.core.dependencies import DBClient, SchiedsrichterCollection, get_german_date_str
-from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE, stores_nothing
+from app.core.dependencies import DBClient, SchiedsrichterCollection, get_german_date_str, get_germany_now
+from app.core.exception_handlers import stores_nothing
+from app.core.recording import log_stamp
 from app.core.security import bind_public_actor, verify_access_base
 from app.core.transactions import transaction_session
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, SCHIEDSRICHTER_MIN_AGE_YEARS
@@ -103,7 +106,6 @@ async def get_bestaetigung_ansicht(
     "",
     response_model=FLSchiedsrichterBestaetigungResponse,
     summary="Confirm one Schiedsrichter's entry and consent",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
 )
 async def post_bestaetigung(
     antwort_data: Annotated[FLSchiedsrichterBestaetigungPayload, Body()],
@@ -111,22 +113,24 @@ async def post_bestaetigung(
     sperrliste: SperrlisteLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
+    germany_now: datetime = Depends(get_germany_now),
 ) -> FLSchiedsrichterBestaetigungResponse:
     """
     Record a referee's own answer for the entry their link opens: their date of birth and the consent, in one update.
 
     The consent carries the publication scope they chose, the media answer beside it, the stamp and the wording they were
     shown. It reaches this one collection and writes nothing on any fixture: a referee's publication scope has one home,
-    and the fixture list reads it there.
+    which the fixture list does not read yet, serving the name each fixture stores.
 
     Refuses, in this order: a token no referee holds (`REQ-SCHIEDSRICHTER-002`), an entry already confirmed
-    (`REQ-SCHIEDSRICHTER-004`), a link whose deadline has passed (`REQ-SCHIEDSRICHTER-003`), a link mailed to an address
-    the ban list holds now, whenever the link was minted (`REQ-SCHIEDSRICHTER-009`), an age outside what this
-    consent asks (`REQ-SCHIEDSRICHTER-005`), and a media consent from a referee below `medien_mindestalter`
-    (`REQ-SCHIEDSRICHTER-008`) -- the last two judged before anything is written, so a mistyped year spends nothing.
+    (`REQ-SCHIEDSRICHTER-004`), a link whose deadline has passed (`REQ-SCHIEDSRICHTER-003`), any label but the referee
+    page's running one (`REQ-EINWILLIGUNG-001`), a link mailed to an address the ban list holds now, whenever the link
+    was minted (`REQ-SCHIEDSRICHTER-009`), an age outside what this consent asks (`REQ-SCHIEDSRICHTER-005`), and a media
+    consent from a referee below `medien_mindestalter` (`REQ-SCHIEDSRICHTER-008`) -- the label and the last two judged
+    before anything is written, so a reloaded page or a mistyped year spends nothing.
 
-    **The caller drops the cached fixture list after a successful answer.** Nothing here can: a withheld
-    name goes on being served for as long as that entry lives.
+    **The caller drops the cached fixture list after a successful answer**, ahead of the fixture read joining this
+    record. Nothing here can: a withheld name would go on being served for as long as that entry lives.
     """
 
     token_hash = hash_token(antwort_data.token)
@@ -151,6 +155,8 @@ async def post_bestaetigung(
         # to ask for another.
         refuse(find_already_confirmed_refusal(einwilligung=raw.get(EINWILLIGUNG_FELD)))
         refuse(find_expired_token_refusal(frist=frist_of(raw.get(BESTAETIGUNG_FELD)), today=today))
+        # A new acceptance: the running label alone, so a page loaded before a deploy is told to reload.
+        refuse(find_fassung_refusal(seite="bestaetigung_schiedsrichter", genannt={EINWILLIGUNG_FELD: antwort_data.text_version}))
         # Asked at the press rather than only at the mint: a ban entered after the link went out
         # stops it here, and one lifted while it runs lets it answer again.
         gesperrt = await adressen_gesperrt(
@@ -169,6 +175,7 @@ async def post_bestaetigung(
                 medien=antwort_data.medien,
                 text_version=antwort_data.text_version,
                 today=today,
+                am=log_stamp(germany_now),
             ),
             session=session,
             return_document=ReturnDocument.BEFORE,

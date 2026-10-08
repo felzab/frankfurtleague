@@ -42,7 +42,15 @@ let blockAnswer: Record<string, unknown> = {};
 const CLEARED: FLPatchSaisonTeamKontaktePayload = { team_id: TEAM_ID, saison_id: SAISON_ID, kontakte: null, kontakte_stand: "9f2c" };
 
 beforeEach(() => {
-  blockAnswer = { acknowledged: 1, saison_id: SAISON_ID, team_id: TEAM_ID, kontakte: null, kontakte_stand: "a1b2" };
+  blockAnswer = {
+    acknowledged: 1,
+    saison_id: SAISON_ID,
+    team_id: TEAM_ID,
+    saison_team_id: "c".repeat(24),
+    kontakte: null,
+    kontakte_stand: "a1b2",
+    bestaetigungen: [],
+  };
 });
 
 describe("the contacts' writes", () => {

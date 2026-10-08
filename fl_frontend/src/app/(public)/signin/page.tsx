@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 
 import { getSignedInAddress } from "@/core/auth";
+import { frontend_config } from "@/core/config";
 import { SIGN_IN_LANDING } from "@/core/signInLanding";
 import { SignInForm } from "@/features/auth/components/forms/SignInForm";
 import { SignedInCard } from "@/features/auth/components/ui/SignedInCard";
@@ -35,5 +36,13 @@ async function AnmeldenInhalt() {
   await connection();
 
   const address = await getSignedInAddress();
-  return address === null ? <SignInForm next={SIGN_IN_LANDING} /> : <SignedInCard address={address} />;
+  // The key off the request's settings, past `connection()`: a prerendered shell would carry the build's, which is none.
+  return address === null ? (
+    <SignInForm
+      next={SIGN_IN_LANDING}
+      siteKey={frontend_config.TURNSTILE_SITE_KEY}
+    />
+  ) : (
+    <SignedInCard address={address} />
+  );
 }

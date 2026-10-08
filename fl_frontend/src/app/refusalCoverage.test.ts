@@ -1,15 +1,22 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, it } from "node:test";
+import { pathToFileURL } from "node:url";
+
+import ts from "typescript";
 
 import { isRefusalCode } from "@/core/errors.ts";
 import { keyTierOf } from "@/core/keyTiers.ts";
 import { publishedOperations } from "@/core/openapiDocument.ts";
+import { routeHandlerFiles } from "@/core/treeWalk.ts";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 
 /* The request the public mappers' reads and the undo spine load in, doubled before the `await import`s below. */
 doubleActionRequest();
 
-const { answerSettled } = await import("@/shared/testing/publishedRefusals.ts");
+const { answerSettled, publishedRefusals } = await import("@/shared/testing/publishedRefusals.ts");
+const { isFunktionLost } = await import("@/shared/utils/actionError.ts");
 const { replayRefusal } = await import("@/shared/utils/undoRoute.ts");
 const berechtigungen = await import("@/features/berechtigungen/refusals.ts");
 const bewerbungen = await import("@/features/bewerbungen/refusals.ts");
@@ -17,6 +24,7 @@ const { BEWERBUNG_MIN_ALTER } = await import("@/features/bewerbungen/constants.t
 const bewerbungUtils = await import("@/features/bewerbungen/utils.ts");
 const einladungen = await import("@/features/einladungen/refusals.ts");
 const kontakte = await import("@/features/kontakte/refusals.ts");
+const konto = await import("@/features/konto/einwilligung.ts");
 const registrierungen = await import("@/features/registrierungen/utils.ts");
 const { REGISTRIERUNG_MIN_ALTER } = await import("@/features/registrierungen/constants.ts");
 const saisons = await import("@/features/saisons/refusals.ts");
@@ -32,8 +40,17 @@ const teams = await import("@/features/teams/refusals.ts");
 
 type Mapper = (error: unknown) => unknown;
 
-/** The operation's refusals go to the shared reader alone, which words the unique index's and no other. */
+/**
+ * The operation's refusals go to the shared reader alone, which words the unique index's and a lost
+ * seat's among the few codes its own arms name.
+ */
 const SHARED_READER: Mapper = () => null;
+
+/**
+ * A team page's read refused for a seat the reader does not hold: its refusal reaches no action, the
+ * page rendering the forbidden panel by the one predicate the shared reader words it by for a write.
+ */
+const TEAM_FORBIDDEN_PANEL: Mapper = (error) => (isFunktionLost(error) ? "the forbidden panel, in the page's stead" : null);
 
 /**
  * The mapper each write consults for an operation's refusals, a read's context fixed where the mapper
@@ -53,14 +70,16 @@ const ANSWERED_BY: Readonly<Record<string, Mapper>> = {
   "POST /bewerbungen/{bewerbung_id}/kontakte/{seat}/email": bewerbungen.mapKontaktEmailRefusal,
   "POST /bewerbungen/{bewerbung_id}/kontakte/{seat}": bewerbungen.mapKontaktSitzRefusal,
   "POST /teams/{team_id}/saisons/{saison_id}/einladung": einladungen.mapEinladungRefusal,
-  "DELETE /teams/{team_id}/saisons/{saison_id}/einladung": SHARED_READER,
   "POST /saisons/{saison_id}/einladungen/versand": einladungen.mapEinladungRefusal,
-  "PATCH /teams/{team_id}/saisons/{saison_id}/kontakte": kontakte.mapStaleBlockRefusal,
-  "POST /kontakte/erasure": SHARED_READER,
+  "PATCH /teams/{team_id}/saisons/{saison_id}/kontakte": kontakte.mapKontakteRefusal,
+  "POST /teams/{team_id}/saisons/{saison_id}/kontakte/{seat}/bestaetigung/einladen": kontakte.mapEinladenRefusal,
   "POST /registrierungen": registrierungen.mapRegistrierungSubmitRefusal,
   "POST /registrierungen/bestaetigung": (error) => registrierungen.mapBestaetigungRefusal(error, async () => REGISTRIERUNG_MIN_ALTER),
   "POST /registrierungen/einladung/ansicht": registrierungen.mapRegistrierungAnsichtRefusal,
   "POST /registrierungen/bestaetigung/ansicht": registrierungen.mapRegistrierungAnsichtRefusal,
+  "GET /registrierungen/kader/{team_id}/{saison_id}": TEAM_FORBIDDEN_PANEL,
+  "POST /registrierungen/{registrierung_id}/aufnehmen": registrierungen.mapAufnahmeRefusal,
+  "POST /registrierungen/{registrierung_id}/ablehnen": registrierungen.mapAblehnungRefusal,
   "POST /saisons": (error) => saisons.mapRulesRefusal(error) ?? saisons.mapSaisonIdRefusal(error),
   "PATCH /saisons/{saison_id}": saisons.mapRulesRefusal,
   "POST /saisons/{saison_id}/activate": saisons.mapActivateRefusal,
@@ -77,24 +96,37 @@ const ANSWERED_BY: Readonly<Record<string, Mapper>> = {
   "POST /schiedsrichter/bestaetigung": (error) =>
     schiedsrichterQueries.mapSchiedsrichterBestaetigungRefusal(error, async () => SCHIEDSRICHTER_MIN_ALTER),
   "POST /schiedsrichter/bestaetigung/ansicht": schiedsrichterQueries.mapSchiedsrichterAnsichtRefusal,
+  "POST /schiedsrichter/{schiedsrichter_id}/adresswechsel/einladen": schiedsrichter.mapAdresswechselRefusal,
+  "POST /schiedsrichter/adresswechsel": schiedsrichterQueries.mapSchiedsrichterAdresswechselRefusal,
+  "POST /schiedsrichter/adresswechsel/ansicht": schiedsrichterQueries.mapSchiedsrichterAnsichtRefusal,
   "POST /sperrliste": sperrliste.mapAdresseRefusal,
   "PATCH /spiele/{spiel_id}": spiele.mapSpielRefusal,
   // Written by the undo route's replay alone.
   "PATCH /spiele/paarungen": (error) => replayRefusal(error, spiele.PAARUNGEN_REPLAY_REFUSALS) ?? null,
   "DELETE /spieler/{spieler_id}/erasure": spieler.mapErasureRefusal,
+  "GET /spieler/kader/{team_id}/{saison_id}": TEAM_FORBIDDEN_PANEL,
+  "PATCH /spieler/kader/{team_id}/{saison_id}/{spieler_id}": spieler.mapKaderZeileRefusal,
+  "DELETE /spieler/kader/{team_id}/{saison_id}/{spieler_id}": SHARED_READER,
+  // The player's and the referee's pages send a person the backend finds no confirmed row for to the
+  // landing, as each page's own check sends a person holding none.
+  "GET /spieler/selbst": (error) => (isFunktionLost(error) ? "the landing, in the page's stead" : null),
+  "GET /schiedsrichter/selbst": (error) => (isFunktionLost(error) ? "the landing, in the page's stead" : null),
+  "PATCH /spieler/selbst/einwilligung": konto.mapEigeneEinwilligungRefusal,
+  "PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung": konto.mapEigeneEinwilligungRefusal,
+  "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung": konto.mapEigeneEinwilligungRefusal,
+  "PATCH /bewerbungen/{bewerbung_id}/person/einwilligung": konto.mapBewerbungEinwilligungRefusal,
+  "PATCH /registrierungen/selbst/{registrierung_id}/einwilligung": konto.mapRegistrierungEinwilligungRefusal,
+  "GET /teams/{team_id}/saisons/{saison_id}/person/sitze": TEAM_FORBIDDEN_PANEL,
   "POST /spieler/{spieler_id}/saisons": (error) => spieler.mapSquadRefusal(error) ?? spieler.mapAlreadyInSaisonRefusal(error),
   "PATCH /spieler/{spieler_id}/saisons/{saison_id}": spieler.mapSquadRefusal,
-  "DELETE /spieler/{spieler_id}/saisons/{saison_id}": SHARED_READER,
   "POST /spieler/{spieler_id}/saisons/{saison_id}/reactivate": spieler.mapSquadRefusal,
   "POST /spielorte": spielorte.mapNameRefusal,
   "PATCH /spielorte/{spielort_id}": spielorte.mapNameRefusal,
   "DELETE /spielorte/{spielort_id}": spielorte.mapRetireRefusal,
-  "POST /spielorte/{spielort_id}/reactivate": SHARED_READER,
   "PATCH /spieltage/{spieltag_id}": spieltage.mapSpieltagRefusal,
   "POST /teams": (error) => teams.mapShorthandRefusal(error, teams.SHORTHAND_TAKEN_ON_CREATE),
   "PATCH /teams/{team_id}": (error) => teams.mapShorthandRefusal(error, teams.SHORTHAND_TAKEN_ON_EDIT),
   "DELETE /teams/{team_id}": teams.mapRetireRefusal,
-  "POST /teams/{team_id}/reactivate": SHARED_READER,
   "POST /teams/{team_id}/saisons": (error) => teams.mapEntryRefusal(error) ?? teams.mapAlreadyEnteredRefusal(error),
   "PATCH /teams/{team_id}/saisons/{saison_id}": teams.mapEntryRefusal,
   "POST /teams/{team_id}/saisons/{saison_id}/replace": teams.mapReplacementRefusal,
@@ -144,5 +176,94 @@ describe("every published refusal against the mapper answering it", () => {
     }
 
     assert.deepEqual(unworded, []);
+  });
+});
+
+/** Each undo route's replay table, with the operations its replay sends. */
+const REPLAYED: readonly (readonly [table: Readonly<Record<string, string>>, ...operations: string[]])[] = [
+  [kontakte.KONTAKTE_REPLAY_REFUSALS, "PATCH /teams/{team_id}/saisons/{saison_id}/kontakte"],
+  [kontakte.STALE_BLOCK_REFUSAL, "PATCH /teams/{team_id}/saisons/{saison_id}/kontakte"],
+  [saisons.SAISON_REPLAY_REFUSALS, "PATCH /saisons/{saison_id}"],
+  [schiedsrichter.SCHIEDSRICHTER_REPLAY_REFUSALS, "PATCH /schiedsrichter/{schiedsrichter_id}"],
+  [spiele.PAARUNGEN_REPLAY_REFUSALS, "PATCH /spiele/paarungen"],
+  [spieler.SQUAD_REPLAY_REFUSALS, "PATCH /spieler/{spieler_id}/saisons/{saison_id}"],
+  [spielorte.SPIELORT_REPLAY_REFUSALS, "PATCH /spielorte/{spielort_id}"],
+  [spieltage.SPIELTAG_REPLAY_REFUSALS, "PATCH /spieltage/{spieltag_id}"],
+  [teams.TEAM_REPLAY_REFUSALS, "PATCH /teams/{team_id}", "PATCH /teams/{team_id}/saisons/{saison_id}"],
+];
+
+const SRC = path.resolve(import.meta.dirname, "..");
+
+/** Every undo route Next serves: a route handler under `api/admin/<slice>/undo`. */
+const UNDO_ROUTES = routeHandlerFiles(15).filter((file) => /^api\/admin\/[^/]+\/undo\/route\.tsx?$/.test(relativeTo(file)));
+
+function relativeTo(file: string, root = path.join(SRC, "app")): string {
+  return path.relative(root, file).split(path.sep).join("/");
+}
+
+/**
+ * Each table `file` hands `refusedReplay` or `replayRefusal`, read off its syntax tree, as the module
+ * it imports the table from exports it: `undefined` for one no import reaches, a table of the route's own.
+ */
+async function replayTablesOf(file: string): Promise<{ name: string; table: unknown }[]> {
+  const source = ts.createSourceFile(file, readFileSync(file, "utf8"), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const imported = new Map<string, { module: string; name: string }>();
+  for (const statement of source.statements) {
+    if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) continue;
+    const specifier = statement.moduleSpecifier.text;
+    const resolved = specifier.startsWith("@/") ? path.join(SRC, specifier.slice(2)) : path.resolve(path.dirname(file), specifier);
+    const bindings = statement.importClause?.namedBindings;
+    if (bindings === undefined || !ts.isNamedImports(bindings)) continue;
+    for (const element of bindings.elements)
+      imported.set(element.name.text, { module: resolved, name: (element.propertyName ?? element.name).text });
+  }
+
+  const passed: string[] = [];
+  const visit = (node: ts.Node): void => {
+    if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && /^(?:refusedReplay|replayRefusal)$/.test(node.expression.text)) {
+      passed.push(node.arguments[1]?.getText(source) ?? "");
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
+
+  return Promise.all(
+    passed.map(async (name) => {
+      const from = imported.get(name);
+      if (from === undefined) return { name, table: undefined };
+      const exports = (await import(pathToFileURL(`${from.module}.ts`).href)) as Record<string, unknown>;
+      return { name, table: exports[from.name] };
+    }),
+  );
+}
+
+describe("every undo route's replay table", () => {
+  /* Read off the undo routes rather than this table, so a table a route replays through and this file
+     leaves out, or one the route keeps to itself, fails here instead of going unjudged. */
+  it("is judged here, each one an undo route replays through", async () => {
+    const replayed = (await Promise.all(UNDO_ROUTES.map(async (file) => ({ file, tables: await replayTablesOf(file) })))).flatMap(
+      ({ file, tables }) => tables.map(({ name, table }) => ({ route: relativeTo(file), name, table })),
+    );
+
+    assert.ok(UNDO_ROUTES.length >= 8, `${String(UNDO_ROUTES.length)} undo routes, under this sweep's floor of 8`);
+    assert.ok(replayed.length >= UNDO_ROUTES.length, "the reader found fewer replay tables than undo routes");
+    assert.deepEqual(
+      replayed.filter(({ table }) => !REPLAYED.some(([judged]) => judged === table)).map(({ route, name }) => `${route}: ${name}`),
+      [],
+      "a replay table this file does not judge",
+    );
+  });
+
+  /* `fl_frontend/src/shared/testing/undoRoutes.ts :: assertEachRefusalCloses` holds the other direction:
+     a row for a code nothing sends is German nobody meets. */
+  it("words only codes one of its replayed operations publishes", () => {
+    const stray = REPLAYED.flatMap(([table, ...operations]) => {
+      const published = new Set(operations.flatMap((operation) => publishedRefusals(operation)));
+      return Object.keys(table)
+        .filter((code) => !published.has(code))
+        .map((code) => `${code} beside ${operations.join(" and ")}`);
+    });
+
+    assert.deepEqual(stray, [], "a replay table words a code its replayed operations no longer publish");
   });
 });

@@ -10,8 +10,9 @@ import { Separator } from "@heroui/react/separator";
 import { dismissControl } from "@/core/dismissControl";
 import { spielSchiedsrichterAnzeige } from "@/features/schiedsrichter/constants";
 import { TeamPopoverMenu } from "@/features/teams/components/ui/TeamPopoverMenu";
+import { Leer } from "@/shared/components/ui/Angabe";
 import { textLink } from "@/shared/components/ui/textLink";
-import { buildMapsSearchUrl, formatUhrzeit, PLACEHOLDER } from "@/shared/utils/format";
+import { buildMapsSearchUrl, formatSpielDatum, formatUhrzeit, PLACEHOLDER } from "@/shared/utils/format";
 
 import { canStillBePlayed, computeSpielStatus, ergebnisTone, formatQuelle, formatSpielDisplay } from "../../utils";
 import { SaisonPhaseChip } from "../ui/SaisonPhaseChip";
@@ -38,8 +39,8 @@ function TeamNameLine({
 }) {
   if (team === null) {
     return (
-      <span className={`fluid-xl text-foreground-muted ${SLOT_LABEL_WRAP_CLASSES} font-bold italic`}>
-        {formatQuelle(quelle) ?? PLACEHOLDER.slot}
+      <span className={`fluid-xl ${SLOT_LABEL_WRAP_CLASSES} font-bold`}>
+        <Leer>{formatQuelle(quelle) ?? PLACEHOLDER.slot}</Leer>
       </span>
     );
   }
@@ -78,18 +79,13 @@ export function SpielDetailsModal({
   isFinishedSaison: boolean;
 }) {
   const displaySpiel = spielData ?? { datum: null, uhrzeit: null, ergebnis: null, elfmeterschiessen: null, sonderereignis: null };
-  const {
-    datum: spielDatum,
-    ergebnis: spielErgebnis,
-    elfmeterschiessen: spielElfmeterschiessen,
-  } = formatSpielDisplay(displaySpiel, isFinishedSaison);
-  // In words, as the Ort and Schiedsrichter cells do, never the cards' digit mask: this cell stands
-  // under a heading in a list of facts. The Datum cell's predicate picks which words, so one
+  const { ergebnis: spielErgebnis, elfmeterschiessen: spielElfmeterschiessen } = formatSpielDisplay(displaySpiel, isFinishedSaison);
+  // Words fit for a heading above them, as the Ort and Schiedsrichter cells take: never the cards' mask
+  // nor their unlabelled „Datum nicht hinterlegt“. One predicate picks both cells' words, so one
   // appointment never reads two ways.
-  const spielUhrzeit = formatUhrzeit(
-    displaySpiel.uhrzeit,
-    canStillBePlayed(displaySpiel, isFinishedSaison) ? PLACEHOLDER.datum : PLACEHOLDER.entity,
-  );
+  const leererTermin = canStillBePlayed(displaySpiel, isFinishedSaison) ? PLACEHOLDER.datum : PLACEHOLDER.entity;
+  const spielDatum = formatSpielDatum(displaySpiel.datum, leererTermin);
+  const spielUhrzeit = formatUhrzeit(displaySpiel.uhrzeit, leererTermin);
   // The stored `maps_link`, not an address: the embedded copy carries no `FLAddress`.
   const mapUrl = spielData?.ort ? buildMapsSearchUrl(spielData.ort.maps_link) : "";
 
@@ -171,11 +167,11 @@ export function SpielDetailsModal({
                 <div className="grid grid-cols-2 gap-4 fluid-sm whitespace-normal">
                   <div>
                     <h4 className="font-semibold text-foreground-muted">Datum</h4>
-                    <p className="font-bold text-foreground">{spielDatum}</p>
+                    <p className="font-bold text-foreground">{displaySpiel.datum ? spielDatum : <Leer>{spielDatum}</Leer>}</p>
                   </div>
                   <div>
                     <h4 className="font-semibold text-foreground-muted">Uhrzeit</h4>
-                    <p className="font-bold text-foreground">{spielUhrzeit}</p>
+                    <p className="font-bold text-foreground">{displaySpiel.uhrzeit ? spielUhrzeit : <Leer>{spielUhrzeit}</Leer>}</p>
                   </div>
                   <div>
                     <h4 className="font-semibold text-foreground-muted">Ort</h4>
@@ -188,12 +184,16 @@ export function SpielDetailsModal({
                         {spielData.ort.name}
                       </Link>
                     ) : (
-                      <p className="font-bold text-foreground">{PLACEHOLDER.entity}</p>
+                      <p className="font-bold text-foreground">
+                        <Leer>{PLACEHOLDER.entity}</Leer>
+                      </p>
                     )}
                   </div>
                   <div>
                     <h4 className="font-semibold text-foreground-muted">Schiedsrichter</h4>
-                    <p className="font-bold text-foreground">{spielSchiedsrichterAnzeige(spielData.schiedsrichter)}</p>
+                    <p className="font-bold text-foreground">
+                      {spielData.schiedsrichter?.name ?? <Leer>{spielSchiedsrichterAnzeige(spielData.schiedsrichter)}</Leer>}
+                    </p>
                   </div>
                 </div>
 

@@ -1,9 +1,7 @@
 "use server";
 
-import { updateTag } from "next/cache";
-
-import { runAdminMutation } from "@/shared/utils/adminMutation";
-import { buildRefusal } from "@/shared/utils/refusal";
+import { invalidatesOnWrite, runAdminMutation } from "@/shared/utils/adminMutation";
+import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { patchAdminSpielData, previewAdminSpielData } from "./mutations";
@@ -43,6 +41,15 @@ export async function patchAdminSpielDataAction(rawPayload: unknown, rawSaisonId
       };
     }
 
+    // Not redundant with the granular tags below: the default read path sends no `saison_id`, so
+    // the commonest entries carry only these and a season-only invalidation leaves them stale.
+    invalidatesOnWrite("spiele", "teams");
+
+    // From the loaded spiel, never the patch body — the backend's payload does not declare
+    // `saison_id` and Pydantic drops it. A failed parse costs a stale cache, never the edit.
+    const saisonId = FLSpielSchema.shape.saison_id.safeParse(rawSaisonId);
+    if (saisonId.success) invalidatesOnWrite(`spiele:saison_id:${saisonId.data}`, `teams:saison_id:${saisonId.data}`);
+
     // A refusal reaches the form rather than the error page: it is about what was submitted, and
     // the editor is where the wrong value still sits.
     let patch_operation;
@@ -55,20 +62,7 @@ export async function patchAdminSpielDataAction(rawPayload: unknown, rawSaisonId
     }
 
     if (!patch_operation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Die Spieldaten wurden nicht gespeichert", repair: "Versuche es erneut" }) };
-    }
-
-    // Not redundant with the granular tags below: the default read path sends no `saison_id`, so
-    // the commonest entries carry only these and a season-only invalidation leaves them stale.
-    updateTag("spiele");
-    updateTag("teams");
-
-    // From the loaded spiel, never the patch body — the backend's payload does not declare
-    // `saison_id` and Pydantic drops it. A failed parse costs a stale cache, never the edit.
-    const saisonId = FLSpielSchema.shape.saison_id.safeParse(rawSaisonId);
-    if (saisonId.success) {
-      updateTag(`spiele:saison_id:${saisonId.data}`);
-      updateTag(`teams:saison_id:${saisonId.data}`);
+      return { success: false, error: buildRefusal({ reason: "Die Spieldaten wurden nicht gespeichert", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
     // The faults the resolution walked past ride along: the save that introduces one is when its
@@ -89,7 +83,7 @@ export async function patchAdminSpielDataAction(rawPayload: unknown, rawSaisonId
 
 /**
  * The save's own answer without the write: `dry_run=true` applies the payload in memory through the
- * same code the save uses. **No `updateTag` here, ever** — nothing changed, so it would evict every
+ * same code the save uses. **No `invalidatesOnWrite` here, ever** — nothing changed, so it would evict every
  * cached match list on every keystroke.
  */
 export async function previewAdminSpielDataAction(rawPayload: unknown): Promise<QueryResult<MovedFixtures>> {

@@ -8,10 +8,12 @@ import { pathToFileURL } from "node:url";
 
 import { render } from "@testing-library/react";
 
+import { einwilligungAnswer } from "@/core/einwilligungDocument.ts";
 import { overridingModule, registerDoubles } from "@/core/exportingModule.ts";
 import { readPublishedDocument } from "@/core/openapiDocument.ts";
 import { filesUnder } from "@/core/treeWalk.ts";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
+import { membershipAnswer } from "@/shared/testing/membershipFixtures.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import {
   answer,
@@ -106,14 +108,7 @@ const club = (saisons: FLSaison[]) => ({
   address: { strasse: "Hauptstraße", hausnummer: "1", plz: "60311", stadtteil: "", stadt: "Frankfurt am Main" },
   schulform: null,
   inactive_since: null,
-  memberships: saisons.map((entry) => ({
-    saison_id: entry.id,
-    gruppe: "A",
-    austritt: null,
-    trikot_farbe: null,
-    kontakte: null,
-    kontakte_stand: "",
-  })),
+  memberships: saisons.map((entry) => membershipAnswer({ saison_id: entry.id })),
 });
 const spieler = (saisons: FLSaison[]) => ({
   id: OBJECT_ID,
@@ -172,6 +167,7 @@ answerReadsWith((endpoint, schema, params) => {
   if (endpoint === "/saisons/list/admin") return answer(schema, endpoint, { saisons: league });
   if (endpoint === "/teams/memberships") return answer(schema, endpoint, { teams: [club(league)] });
   if (endpoint === "/spieler/memberships") return answer(schema, endpoint, { spieler: [spieler(league)] });
+  if (endpoint.startsWith("/einwilligung/")) return einwilligungAnswer(endpoint);
 
   return EMPTIEST_ANSWER(endpoint, schema, params);
 }, withTrackedRows);

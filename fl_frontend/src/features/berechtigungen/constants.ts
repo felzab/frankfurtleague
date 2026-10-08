@@ -1,3 +1,5 @@
+import { benannt } from "@/shared/utils/benannt";
+
 import type { FLVerwaltung } from "./schemas";
 
 /**
@@ -48,16 +50,13 @@ export const ZUGANG_ERTEILT = "Zugang erteilt";
 /** Why the revoke is closed to an administrator holding no `owner` grant, and the backend's `-005` in the same words. */
 export const NUR_INHABER_ENTZIEHT = "Den Zugang entziehen kann nur der Inhaber.";
 
-/**
- * A row control's name: the words on it first, which speech input says, then the row a screen reader tells it
- * apart by — the address, or the grant's day where the address is withheld.
- */
-const benannt = (worte: string, adresse: string | null, erteiltAm: string): string => `${worte}: ${adresse ?? `Zugang vom ${erteiltAm}`}`;
+/** The row a control's name tells apart after its words: the address, or the grant's day where the address is withheld. */
+const zugang = (adresse: string | null, erteiltAm: string): string => adresse ?? `Zugang vom ${erteiltAm}`;
 
 /** Each row's revoke: short words on the control, which an address would run past on a phone. */
 export function entziehenLabels(adresse: string | null, erteiltAm: string): { resting: string; name: string; armed: string } {
   const resting = "Zugang entziehen";
-  return { resting, name: benannt(resting, adresse, erteiltAm), armed: "Ja, Zugang endgültig entziehen" };
+  return { resting, name: benannt(resting, zugang(adresse, erteiltAm)), armed: "Ja, Zugang endgültig entziehen" };
 }
 
 /** What the revoke costs, in its armed state: the person is out at once, and everybody is told. */
@@ -112,7 +111,7 @@ export function stufeWorte({
   return ziel === "owner"
     ? {
         resting: "Zum Inhaber ernennen",
-        name: benannt("Zum Inhaber ernennen", adresse, erteiltAm),
+        name: benannt("Zum Inhaber ernennen", zugang(adresse, erteiltAm)),
         armed: "Ja, zum Inhaber ernennen",
         running: "Ernennt...",
         // What an owner can do that an administrator cannot, the acting owner's own tier included.
@@ -120,7 +119,7 @@ export function stufeWorte({
       }
     : {
         resting: "Zur Verwaltung herabstufen",
-        name: benannt("Zur Verwaltung herabstufen", adresse, erteiltAm),
+        name: benannt("Zur Verwaltung herabstufen", zugang(adresse, erteiltAm)),
         armed: "Ja, zur Verwaltung herabstufen",
         running: "Stuft herab...",
         folge: `${wer} ist dann nicht mehr Inhaber der Verwaltung und behält den Zugang. ${mail}`,

@@ -6,7 +6,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.results import InsertOneResult
 
 from app.api.berechtigungen.crud import pull_the_list_to_judge, withhold_in_the_outbox
-from app.api.berechtigungen.services import find_ohne_zugang_refusal, lebendige
+from app.api.berechtigungen.services import lebendige
 from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.saisons.crud import pull_massgebliche_saison_id
 from app.api.sperrliste.crud import read_sperrliste_page
@@ -29,7 +29,7 @@ from app.api.sperrliste.services import (
     withheld_actor,
 )
 from app.core.config import API_VERSION, BackendConfig, get_app_config
-from app.core.crud import delete_many_from_db, patch_many_in_db, post_one_to_db, pull_one_from_db, refuse
+from app.core.crud import anchor_in_db, delete_many_from_db, post_one_to_db, pull_one_from_db, refuse
 from app.core.dependencies import (
     BerechtigungenCollection,
     BerechtigungenPostausgangCollection,
@@ -70,10 +70,9 @@ async def _pull_the_season_a_ban_counts_from(
     # The rollover demotes this season, and its sweep cannot see a row inserted after its snapshot:
     # without this write both commit, and a bound the sweep never judged stands past its season
     # (`docs/backend/spec.md :: I274`).
-    await patch_many_in_db(
+    await anchor_in_db(
         collection=saisons_collection,
         db_filter={"_id": massgebliche_saison_id},
-        update={"$inc": {"bounded_writes": 1}},
         session=session,
     )
 
@@ -128,8 +127,7 @@ async def post_sperrliste_eintrag(
 
     Refused where the list already holds the address (`REQ-SPERRLISTE-001`), while no season is
     running, there being nothing to count the ban's five seasons from (`REQ-SPERRLISTE-002`), and
-    where the address is an administrator's (`REQ-SPERRLISTE-003`), and where the administrator
-    entering it holds no grant by the time it is judged (`REQ-BERECHTIGUNG-006`). The ban covers the
+    where the address is an administrator's (`REQ-SPERRLISTE-003`). The ban covers the
     fifth season after the one running now — the last one it covers is answered as
     `gesperrt_bis_saison_id` — and it survives that person's erasure. Every grant notice still queued
     for the address loses the address in the same transaction.
@@ -143,9 +141,6 @@ async def post_sperrliste_eintrag(
         # Through the grants' anchor: a grant of this address committing beside this ban writes the
         # same rows, so one of the two retries and meets the other's refusal (`docs/backend/spec.md :: I53`).
         grants = await pull_the_list_to_judge(berechtigungen_collection=berechtigungen_collection, session=session)
-        # Re-judged inside the anchor: the actor check ran before this transaction, and an
-        # administrator revoked since has no ban left to enter (`docs/backend/spec.md :: I450`).
-        refuse(find_ohne_zugang_refusal(akteur=sign_in_identifier(erstellt_von), grants=grants))
         refuse(
             find_verwaltung_refusal(
                 gehasht=gehasht,

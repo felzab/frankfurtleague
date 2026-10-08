@@ -17,7 +17,6 @@ import { getAdminSpiele } from "@/features/spiele/queries";
 import { getAdminSpieltage } from "@/features/spieltage/queries";
 import { getAdminTeams, getTeamMemberships } from "@/features/teams/queries";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
-import { PLACEHOLDER } from "@/shared/utils/format";
 
 import type { SaisonGruppenSwapContext, SaisonOffeneSpiel, SaisonRolloverContext, SaisonSpielplanContext } from "@/features/saisons/types";
 import type { NextPageProps } from "@/shared/types/types";
@@ -80,9 +79,9 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
       id: spiel.id,
       spielNr: spiel.spiel_nr,
       datum: spiel.datum,
-      // An unfilled knockout slot is a normal state, so the shared placeholder stands in. The
+      // An unfilled knockout slot is a normal state, so the panel's placeholder stands in. The
       // provenance label belongs on the fixture's own page.
-      paarung: `${spiel.team1?.name ?? PLACEHOLDER.slot} gegen ${spiel.team2?.name ?? PLACEHOLDER.slot}`,
+      paarung: { team1: spiel.team1?.name ?? null, team2: spiel.team2?.name ?? null },
     }))
     .sort((left, right) => left.spielNr - right.spielNr);
 

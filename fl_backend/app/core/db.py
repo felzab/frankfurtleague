@@ -75,10 +75,6 @@ DEAD_GRANT = BootWarning(
     "berechtigungen holds {count} grant(s) whose address is empty, unfolded or refused by the address rule, which admit nobody.",
     "SRV-BOOT-007",
 )
-# The names alone, never a value: one of them held addresses, and the rest credentials.
-RETIRED_VARIABLES = BootWarning(
-    "These variables are retired and read by nothing: {names}. Delete them from this service's environment.", "SRV-BOOT-008"
-)
 
 
 async def warn_about_the_grants(berechtigungen_collection: AsyncCollection) -> None:
@@ -108,10 +104,6 @@ async def lifespan(app: FastAPI):
     # The settings the application was built with (`app/main.py :: create_app`), which its requests read too.
     config: BackendConfig = app.state.config
     client: AsyncMongoClient | None = None
-
-    if config.retired_variables:
-        names = ", ".join(sorted(config.retired_variables))
-        fl_logger.warning(RETIRED_VARIABLES.sentence.format(names=names), extra={"error_code": RETIRED_VARIABLES.error_code})
 
     try:
         try:
@@ -281,3 +273,9 @@ async def get_berechtigungen_postausgang_collection(
     db: AsyncDatabase = Depends(get_database),
 ) -> AsyncCollection:
     return db[Collection.BERECHTIGUNGEN_POSTAUSGANG]
+
+
+async def get_drosselung_collection(
+    db: AsyncDatabase = Depends(get_database),
+) -> AsyncCollection:
+    return db[Collection.DROSSELUNG]

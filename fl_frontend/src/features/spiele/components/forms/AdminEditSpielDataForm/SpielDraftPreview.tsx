@@ -1,6 +1,7 @@
 "use client";
 
 import { spielSchiedsrichterAnzeige } from "@/features/schiedsrichter/constants";
+import { Leer } from "@/shared/components/ui/Angabe";
 import { PLACEHOLDER } from "@/shared/utils/format";
 
 import { computeSpielStatus, ergebnisTone, formatQuelle, formatSpielDisplay } from "../../../utils";
@@ -41,7 +42,9 @@ export function SpielDraftPreview({
       {team?.name ? (
         <span className={`${align} ${TEAM_NAME_WRAP_CLASSES}`}>{team.name}</span>
       ) : (
-        <span className={`${align} ${SLOT_LABEL_WRAP_CLASSES}`}>{formatQuelle(quelle) ?? PLACEHOLDER.slot}</span>
+        <span className={`${align} ${SLOT_LABEL_WRAP_CLASSES}`}>
+          <Leer>{formatQuelle(quelle) ?? PLACEHOLDER.slot}</Leer>
+        </span>
       )}
     </span>
   );
@@ -53,7 +56,7 @@ export function SpielDraftPreview({
           next — and a layout that is sometimes one row and sometimes two reads as two designs. */}
       <div className="flex w-full flex-col gap-y-1">
         <div className="flex w-full flex-row items-baseline gap-x-2">
-          <span className="fluid-xs font-bold text-foreground">{datum}</span>
+          <span className="fluid-xs font-bold text-foreground">{previewSpiel.datum ? datum : <Leer>{datum}</Leer>}</span>
           <span className="muted-meta">{uhrzeit}</span>
         </div>
         <div className="flex w-full flex-row flex-wrap items-center gap-2">
@@ -79,11 +82,15 @@ export function SpielDraftPreview({
       <dl className="flex w-full flex-col gap-y-1">
         <div className="flex flex-row items-baseline justify-between gap-x-3">
           <dt className="fluid-xxs font-bold text-foreground-muted">Ort</dt>
-          <dd className="min-w-0 truncate fluid-xs font-semibold text-foreground">{previewSpiel.ort?.name ?? PLACEHOLDER.entity}</dd>
+          <dd className="min-w-0 truncate fluid-xs font-semibold text-foreground">
+            {previewSpiel.ort?.name ?? <Leer>{PLACEHOLDER.entity}</Leer>}
+          </dd>
         </div>
         <div className="flex flex-row items-baseline justify-between gap-x-3">
           <dt className="fluid-xxs font-bold text-foreground-muted">Schiedsrichter</dt>
-          <dd className="min-w-0 truncate fluid-xs font-semibold text-foreground">{spielSchiedsrichterAnzeige(previewSpiel.schiedsrichter)}</dd>
+          <dd className="min-w-0 truncate fluid-xs font-semibold text-foreground">
+            {previewSpiel.schiedsrichter?.name ?? <Leer>{spielSchiedsrichterAnzeige(previewSpiel.schiedsrichter)}</Leer>}
+          </dd>
         </div>
       </dl>
     </div>

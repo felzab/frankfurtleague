@@ -1,9 +1,7 @@
 "use server";
 
-import { updateTag } from "next/cache";
-
-import { refusalResult, refuseUnconfirmed, runAdminMutation } from "@/shared/utils/adminMutation";
-import { buildRefusal } from "@/shared/utils/refusal";
+import { invalidatesOnWrite, refusalResult, refuseUnconfirmed, runAdminMutation } from "@/shared/utils/adminMutation";
+import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { activateSaison, generateSpielplan, patchSaison, postSaison, swapGruppen, undrawSpielplan } from "./mutations";
@@ -35,8 +33,7 @@ import type {
 
 /** `teams` too: the league table is scored from `rules` on read, so an edit moves every standing. */
 function invalidateSaisonAndTable(): void {
-  updateTag("saisons");
-  updateTag("teams");
+  invalidatesOnWrite("saisons", "teams");
 }
 
 /**
@@ -44,12 +41,8 @@ function invalidateSaisonAndTable(): void {
  * season id to invalidate more narrowly by.
  */
 function invalidateRollover(): void {
-  updateTag("saisons");
-  updateTag("spiele");
-  updateTag("spieltage");
-  updateTag("teams");
-  // A squad read naming a club and no season answers for the running one (`docs/backend/spec.md :: I4`).
-  updateTag("spieler");
+  // `spieler`: a squad read naming a club and no season answers for the running one (`docs/backend/spec.md :: I4`).
+  invalidatesOnWrite("saisons", "spiele", "spieltage", "teams", "spieler");
 }
 
 /**
@@ -58,15 +51,8 @@ function invalidateRollover(): void {
  * group order moves without a single result being entered.
  */
 function invalidateSpielplan(saisonId: string): void {
-  updateTag("saisons");
-  // Base tag alone, `getSpieltage` declaring no granular one.
-  updateTag("spieltage");
-
-  updateTag("spiele");
-  updateTag(`spiele:saison_id:${saisonId}`);
-
-  updateTag("teams");
-  updateTag(`teams:saison_id:${saisonId}`);
+  // `spieltage` as its base tag alone, `getSpieltage` declaring no granular one.
+  invalidatesOnWrite("saisons", "spieltage", "spiele", `spiele:saison_id:${saisonId}`, "teams", `teams:saison_id:${saisonId}`);
 }
 
 export async function postSaisonAction(
@@ -81,6 +67,8 @@ export async function postSaisonAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
+    // A create lands `future`, so nothing resolving the current season moves. Only the list does.
+    invalidatesOnWrite("saisons");
     let postOperation;
     try {
       postOperation = await postSaison(validated.data);
@@ -93,11 +81,8 @@ export async function postSaisonAction(
     }
 
     if (!postOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Die Saison wurde nicht angelegt", repair: "Versuche es erneut" }) };
+      return { success: false, error: buildRefusal({ reason: "Die Saison wurde nicht angelegt", repair: VERSUCHE_ES_ERNEUT }) };
     }
-
-    // A create lands `future`, so nothing resolving the current season moves. Only the list does.
-    updateTag("saisons");
 
     return {
       success: true,
@@ -119,6 +104,7 @@ export async function patchSaisonAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
+    invalidateSaisonAndTable();
     // Every rules refusal has to reach the editor rather than the error page: the panel the admin is
     // looking at is where the wrong value still sits.
     let patchOperation;
@@ -131,10 +117,8 @@ export async function patchSaisonAction(
     }
 
     if (!patchOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Die Saison wurde nicht gespeichert", repair: "Versuche es erneut" }) };
+      return { success: false, error: buildRefusal({ reason: "Die Saison wurde nicht gespeichert", repair: VERSUCHE_ES_ERNEUT }) };
     }
-
-    invalidateSaisonAndTable();
 
     return {
       success: true,
@@ -160,6 +144,7 @@ export async function activateSaisonAction(rawPayload: FLActivateSaisonPayload):
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
+    invalidateRollover();
     let activateOperation;
     try {
       activateOperation = await activateSaison(validated.data);
@@ -170,10 +155,8 @@ export async function activateSaisonAction(rawPayload: FLActivateSaisonPayload):
     }
 
     if (!activateOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Die Saison wurde nicht umgestellt", repair: "Versuche es erneut" }) };
+      return { success: false, error: buildRefusal({ reason: "Die Saison wurde nicht umgestellt", repair: VERSUCHE_ES_ERNEUT }) };
     }
-
-    invalidateRollover();
 
     // Any count but 1 is worth naming: 0 is a no-op, and more than one means the database had drifted
     // into a state nothing can express and this call repaired it.
@@ -202,6 +185,9 @@ export async function swapGruppenAction(rawPayload: FLSwapGruppenPayload): Promi
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
+    // Both layers (`docs/frontend/spec.md` §1.4).
+    const saisonId = validated.data.saison_id;
+    invalidatesOnWrite("teams", `teams:saison_id:${saisonId}`, "spiele", `spiele:saison_id:${saisonId}`);
     let swapOperation;
     try {
       swapOperation = await swapGruppen(validated.data);
@@ -212,15 +198,8 @@ export async function swapGruppenAction(rawPayload: FLSwapGruppenPayload): Promi
     }
 
     if (!swapOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Die Gruppen wurden nicht getauscht", repair: "Versuche es erneut" }) };
+      return { success: false, error: buildRefusal({ reason: "Die Gruppen wurden nicht getauscht", repair: VERSUCHE_ES_ERNEUT }) };
     }
-
-    // Both layers (`docs/frontend/spec.md` §1.4).
-    updateTag("teams");
-    updateTag(`teams:saison_id:${validated.data.saison_id}`);
-
-    updateTag("spiele");
-    updateTag(`spiele:saison_id:${validated.data.saison_id}`);
 
     const umgeschrieben =
       swapOperation.rewritten_spiele === 0
@@ -252,6 +231,7 @@ export async function generateSpielplanAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
+    invalidateSpielplan(validated.data.id);
     // The replacing draw alone is a step-up write: a first draw the undraw removes whole
     // (`docs/frontend/spec.md :: I432`).
     const unconfirmed = validated.data.replace === true ? refuseUnconfirmed(session) : null;
@@ -269,10 +249,8 @@ export async function generateSpielplanAction(
     }
 
     if (!generateOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Der Spielplan wurde nicht angelegt", repair: "Versuche es erneut" }) };
+      return { success: false, error: buildRefusal({ reason: "Der Spielplan wurde nicht angelegt", repair: VERSUCHE_ES_ERNEUT }) };
     }
-
-    invalidateSpielplan(validated.data.id);
 
     // `stehen` and not `hat`, so the shared phrase can stay nominative for the panel's readout too.
     const umfang = describeSpielplanUmfang(generateOperation.spieltage, generateOperation.spiele);
@@ -307,6 +285,8 @@ export async function undrawSpielplanAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
+    // The draw's tag set, this removing exactly what that write created.
+    invalidateSpielplan(validated.data.id);
     let undrawOperation;
     try {
       undrawOperation = await undrawSpielplan(validated.data);
@@ -317,11 +297,8 @@ export async function undrawSpielplanAction(
     }
 
     if (!undrawOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Der Spielplan wurde nicht zurückgenommen", repair: "Versuche es erneut" }) };
+      return { success: false, error: buildRefusal({ reason: "Der Spielplan wurde nicht zurückgenommen", repair: VERSUCHE_ES_ERNEUT }) };
     }
-
-    // The draw's tag set, this removing exactly what that write created.
-    invalidateSpielplan(validated.data.id);
 
     // A season can carry the watermark with neither collection behind it, so a zero pair does not by
     // itself mean nothing was removed. Hence three messages rather than one sentence over the counts.

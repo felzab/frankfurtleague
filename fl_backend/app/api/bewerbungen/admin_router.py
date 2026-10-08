@@ -40,6 +40,7 @@ from app.api.bewerbungen.services import (
     parse_new_club,
     seat_named,
 )
+from app.api.einwilligung.services import find_fassung_refusal
 from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, hash_gesperrt, sperrliste_saison
@@ -205,12 +206,14 @@ async def annehmen_bewerbung(
 
         updated_raw = await patch_one_in_db(
             collection=bewerbungen_collection,
-            # The status is in the FILTER. The 404 a miss answers -- not the decline's 409 -- is unreachable
-            # while this patch is the last write here, and wrong the moment it is not; the repair then is a
-            # re-read off no session, which sees `eingereicht` anyway.
-            db_filter={"_id": bewerbung_id, "status": "eingereicht"},
+            # By `_id` alone: a decision landing after the read above conflicts with this write, and the
+            # retry's read refuses it, so no status term is reached. Held by
+            # `TestADeclineLandingInsideAnAcceptance` and, the read being in-session,
+            # `TestTheAcceptanceJudgesWhatItReadsInsideTheTransaction`.
+            db_filter={"_id": bewerbung_id},
             # `team_id` too: a new school's application named none until this write, and without it
-            # nothing joins the accepted application to the club it produced.
+            # nothing joins the accepted application to the club it produced. `kontakte` stays as answered:
+            # only the season row's copy moves after.
             update={"$set": {"status": "angenommen", "team_id": team_id, "entscheidung": _entscheidung(today=today, von=von, grund=None)}},
             session=session,
             return_document=ReturnDocument.AFTER,
@@ -240,13 +243,14 @@ async def annehmen_bewerbung(
     f"{by_id('bewerbung_id')}/ablehnen",
     response_model=FLAblehnenBewerbungResponse,
     summary="Decline a Bewerbung",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
     dependencies=[Depends(verify_step_up)],
 )
 async def ablehnen_bewerbung(
     bewerbung_id: CustomRouteObjectId,
     ablehnung_data: Annotated[FLAblehnenBewerbungPayload, Body()],
     bewerbungen_collection: BewerbungenCollection,
+    db: DBClient,
     today: str = Depends(get_german_date_str),
     von: str = Depends(get_actor_email),
 ) -> FLAblehnenBewerbungResponse:
@@ -257,27 +261,24 @@ async def ablehnen_bewerbung(
     so what the school wrote stays the record the decision was taken against.
     """
 
-    stored_raw = await pull_one_from_db(collection=bewerbungen_collection, db_filter={"_id": bewerbung_id}, projection=["status"])
-    refuse(find_triage_refusal(status=str(stored_raw["status"])))
+    async def decline_the_application(session: AsyncClientSession) -> Mapping[str, Any]:
+        stored_raw = await pull_one_from_db(
+            collection=bewerbungen_collection, db_filter={"_id": bewerbung_id}, projection=["status"], session=session
+        )
+        refuse(find_triage_refusal(status=str(stored_raw["status"])))
 
-    # The status is in the FILTER, so the write is the guard: two administrators declining at once
-    # would both mail the applicants, and one `grund` would survive. `post_saison_team` keeps its
-    # race, which costs a planning bound and mails nobody.
-    try:
-        updated_raw = await patch_one_in_db(
+        # By `_id` alone: a decision landing after the read conflicts with this write, and the retry's
+        # read refuses it (`TestTwoDeclinesAtOnce`), so no status term is reached.
+        return await patch_one_in_db(
             collection=bewerbungen_collection,
-            db_filter={"_id": bewerbung_id, "status": "eingereicht"},
+            db_filter={"_id": bewerbung_id},
             update={"$set": {"status": "abgelehnt", "entscheidung": _entscheidung(today=today, von=von, grund=ablehnung_data.grund)}},
+            session=session,
             return_document=ReturnDocument.AFTER,
         )
-    except DocumentNotFoundException:
-        # Three ways here: a decision landed between the read and the write, the row is gone, or the
-        # write landed and the row went before `patch_one_in_db` re-read its echo. The re-read tells
-        # them apart, so only an application no document names keeps the 404.
-        raced_raw = await pull_one_from_db(collection=bewerbungen_collection, db_filter={"_id": bewerbung_id}, projection=["status"])
-        refuse(find_triage_refusal(status=str(raced_raw["status"])))
 
-        raise
+    async with transaction_session(db) as session:
+        updated_raw = await session.with_transaction(decline_the_application)
 
     return FLAblehnenBewerbungResponse(updated_document=FLBewerbung(**mit_vorenthaltener_entscheidung(updated_raw, _KEIN_ENTSCHEIDER_GESPERRT)))
 
@@ -286,7 +287,7 @@ async def ablehnen_bewerbung(
     f"{by_id('bewerbung_id')}/einwilligung/{{seat}}/erneut",
     response_model=FLBewerbungEinwilligungErneutResponse,
     summary="Re-send one seat's confirmation link",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
     dependencies=[Depends(verify_step_up)],
 )
 async def erneut_einwilligung(
@@ -380,9 +381,9 @@ async def erneut_einwilligung(
     try:
         matched = await mint_on(seats)
     except DocumentNotFoundException:
-        # Judged again rather than answered as a miss, as the decline answers its race
-        # (`app/api/bewerbungen/admin_router.py :: ablehnen_bewerbung`), so a link is refused for the
-        # reason it is refused.
+        # The judgement above was read outside the write's transaction, so a decision or an answer
+        # landing between them leaves the filter matching nothing. Judged again rather than answered as
+        # a miss, so the refusal names what moved.
         reread = await pull_one_from_db(collection=bewerbungen_collection, db_filter=db_filter, projection=judged)
         seats = seats_judged_on(reread)
         # A re-read that passes is a row that moved back between the two, a decline and then a reseat:
@@ -398,7 +399,7 @@ async def erneut_einwilligung(
     f"{by_id('bewerbung_id')}/kontakte/{{seat}}/email",
     response_model=FLBewerbungKontaktEmailResponse,
     summary="Correct one contact person's email address and re-send their link",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
     dependencies=[Depends(verify_step_up)],
 )
 async def korrigiere_kontakt_email(
@@ -487,7 +488,7 @@ async def korrigiere_kontakt_email(
     f"{by_id('bewerbung_id')}/kontakte/{{seat}}",
     response_model=FLBewerbungKontaktSitzResponse,
     summary="Seat another person where a contact person stepped out",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
     dependencies=[Depends(verify_step_up)],
 )
 async def besetze_kontakt_sitz(
@@ -515,7 +516,8 @@ async def besetze_kontakt_sitz(
     stepped out of — confirmed, still waiting, erased at its person's request, or held by an application stored
     before the confirmation flow, the claimed mirror included (`REQ-BEWERBUNG-011`); and on an address another
     contact person on this application already holds (`REQ-BEWERBUNG-014`), or that the ban list holds
-    (`REQ-BEWERBUNG-019`). A path naming no seat is a 404.
+    (`REQ-BEWERBUNG-019`); and on any label but the application form's running one (`REQ-EINWILLIGUNG-001`), the person
+    seated being a new acceptance. A path naming no seat is a 404.
     """
 
     # Outside the transaction, as the correction reads both.
@@ -550,6 +552,8 @@ async def besetze_kontakt_sitz(
         refuse(find_kontakt_email_refusal(kontakte=kontakte, seats=seats, email=sitz_data.email))
         gesperrt = await hash_gesperrt(sperrliste, gehasht, massgebliche_saison_id=massgebliche_saison_id, session=session)
         refuse(find_kontakt_gesperrt_refusal(gesperrt=gesperrt))
+        # A new acceptance on every seat it fills: the person seated holds no label of their own to keep.
+        refuse(find_fassung_refusal(seite="bewerbung", genannt=dict.fromkeys(seats, sitz_data.text_version)))
 
         raw, token_hash = mint_token()
         bestaetigungsfrist = bestaetigungsfrist_from(today=today)

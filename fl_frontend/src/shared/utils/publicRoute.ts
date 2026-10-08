@@ -1,9 +1,11 @@
+import { revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
 
 import { APIBadStatusError, APIMalformedDataError, APINetworkError, ApiUnsentError } from "@/core/errors";
 import { logger } from "@/core/logging";
+import { requestWriteSent, requestWriteTags } from "@/core/requestScope";
 
-import { isRuleRefusal, refusedFailure, unansweredAction } from "./actionError";
+import { isRuleRefusal, outcomeUnknown, refusedFailure } from "./actionError";
 import { UNHANDLED_FIELD_REFUSAL, UNKNOWN_REFUSAL } from "./refusal";
 import { runWithIncomingTrace } from "./traceScope";
 import { answerThrow, writeOutcomeUnknown } from "./writeOutcome";
@@ -74,8 +76,13 @@ export async function handlePublicRequest<T extends { success: boolean }>(
 
     if (writeOutcomeUnknown()) {
       logger.error(`Public route of unknown outcome: ${routeName}`, undefined, { error_code: "FE-NET-001" });
+      answer = outcomeUnknown();
+    }
 
-      return unansweredAction();
+    // Wherever the write may stand, a lost answer included, as the action spine drops them. `{ expire: 0 }`:
+    // `updateTag` throws here (`docs/frontend/spec.md :: I14`), and the default profile serves the old entry once more.
+    if (requestWriteSent() && (answer.success || ("outcome" in answer && answer.outcome !== undefined))) {
+      for (const tag of requestWriteTags()) revalidateTag(tag, { expire: 0 });
     }
 
     return answer;

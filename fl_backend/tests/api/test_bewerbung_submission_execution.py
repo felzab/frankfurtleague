@@ -15,15 +15,12 @@ from pymongo import MongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
-from app.api.bewerbungen import services
 from app.api.bewerbungen.public_router import post_bewerbung
 from app.api.bewerbungen.router import get_bewerbung_by_id
 from app.api.bewerbungen.schemas import FLBewerbung, FLPostBewerbungPayload
 from app.api.bewerbungen.services import (
     BEWERBUNG_ADRESSE_GESPERRT,
-    BEWERBUNG_FASSUNG_VERALTET,
     BEWERBUNG_FENSTER_GESCHLOSSEN,
-    BEWERBUNG_LAUFENDE_FASSUNG,
     BEWERBUNG_PICKED_CLUB_ALREADY_ENTERED,
     BEWERBUNG_PICKED_CLUB_UNUSABLE,
     BEWERBUNG_SCHLUESSEL_ABWEICHEND,
@@ -34,6 +31,8 @@ from app.api.bewerbungen.services import (
     compose_kontakte,
     hash_token,
 )
+from app.api.einwilligung import services as einwilligung_services
+from app.api.einwilligung.services import FASSUNG_UNZULAESSIG
 from app.api.kontakte.services import build_clearing_update
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.core.collections import Collection
@@ -43,6 +42,7 @@ from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from app.core.recording import PUBLIC_ACTOR_EMAIL
 from app.core.security import ACTOR_HEADER
 from app.main import create_app
+from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.schemas.bounds import BEWERBUNG_BESTAETIGUNG_FRIST_TAGE
 from tests.app_client import app_client
 from tests.bans import ban_list
@@ -88,7 +88,7 @@ def person(vorname: str, *, telefon: str, email: str | None = None) -> dict[str,
         "nachname": f"{vorname}-Mustermann",
         "email": email or f"{vorname.lower()}@example.com",
         "telefon": telefon,
-        "einwilligung": {"text_version": BEWERBUNG_LAUFENDE_FASSUNG, "erteilt": True},
+        "einwilligung": {"text_version": LAUFENDE_FASSUNGEN["bewerbung"], "erteilt": True},
     }
 
 
@@ -250,12 +250,15 @@ class TestWhatASubmissionStores:
         stored = on_a_league(mongo_replica_set_url, body)
 
         for seat in ("trainer", "ansprechperson", "stellvertretung"):
+            # Born with the applicant's acknowledgement, naming the application as who seated the
+            # person, and no evidence: no person has set a choice yet.
             assert stored["kontakte"][seat]["einwilligung"] == {
                 "umfang": "kontaktdaten",
-                "erfasst_von": "administrativ",
-                "text_version": BEWERBUNG_LAUFENDE_FASSUNG,
+                "text_version": LAUFENDE_FASSUNGEN["bewerbung"],
                 "datum": TODAY,
                 "bestaetigt_am": None,
+                "medien": False,
+                "eingetragen_von": "bewerbung",
             }
             # The key is present and null, as `wunschgegner`'s is: the confirmation fills it.
             assert "geburtsdatum" in stored["kontakte"][seat] and stored["kontakte"][seat]["geburtsdatum"] is None
@@ -491,7 +494,7 @@ class TestTheSubmissionKey:
 
         async def body(database: AsyncDatabase) -> Any:
             with monkeypatch.context() as earlier_build:
-                earlier_build.setattr(services, "BEWERBUNG_LAUFENDE_FASSUNG", EARLIER_FASSUNG)
+                earlier_build.setattr(einwilligung_services, "LAUFENDE_FASSUNGEN", {**LAUFENDE_FASSUNGEN, "bewerbung": EARLIER_FASSUNG})
                 first = await submit(database, schluessel=SCHLUESSEL, kontakte=kontakte_labelled(EARLIER_FASSUNG))
             second = await submit(database, schluessel=SCHLUESSEL, kontakte=kontakte_labelled(EARLIER_FASSUNG))
 
@@ -731,7 +734,7 @@ class TestTheRefusalsTheWritePathAnswers:
     def test_a_first_press_naming_an_earlier_wording_refuses(self, mongo_replica_set_url: str):
         """The replay case's control: the same body under a key nothing stores is judged, and stores nothing."""
 
-        assert refused(mongo_replica_set_url, kontakte=kontakte_labelled(EARLIER_FASSUNG)).error_code == BEWERBUNG_FASSUNG_VERALTET
+        assert refused(mongo_replica_set_url, kontakte=kontakte_labelled(EARLIER_FASSUNG)).error_code == FASSUNG_UNZULAESSIG
 
     def test_a_new_school_proposing_a_taken_kuerzel_refuses(self, mongo_replica_set_url: str):
         """Asked of a NEW school alone; `uniq_shorthand` is what would otherwise fail at acceptance."""
@@ -829,6 +832,8 @@ class TestASubmissionMadeOverTheWire:
         assert submitted.response.status_code == 201
         assert submitted.response.json()["eingereicht_am"] == TODAY
         assert submitted.stored == 1
+        # The floor under the keyless press's count of none: a count reading no key would answer none here too.
+        assert submitted.keyed == 1
 
     def test_no_key_reaches_none_of_it(self, mongo_replica_set_url: str):
         """Public here means no SESSION, never no key: a bearer token is checked before the body is parsed."""
@@ -1206,6 +1211,7 @@ class TestTheDatabaseStillHoldsAnApplicationStoredBeforeTheConfirmationFields:
                 bewerbung_id=created.inserted_id,
                 bewerbungen_collection=database[Collection.BEWERBUNGEN],
                 sperrliste=ban_list(database),
+                today=TODAY,
             )
 
             return response.bewerbung.kontakte.trainer

@@ -23,7 +23,7 @@ import { STEP_UP_LABEL, STEP_UP_RUNNING } from "@/shared/components/ui/stepUp";
 import { StepUpRefused } from "@/shared/components/ui/StepUpRefused";
 import { useConfirmationWindows } from "@/shared/hooks/useConfirmationWindows";
 import { usePasskeyStepUp } from "@/shared/hooks/usePasskeyStepUp";
-import { unansweredAction } from "@/shared/utils/actionError";
+import { SPEICHERUNG_UNKLAR, unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { FOCUS_HEADING, focusAfterWrite, focusSection, focusSlot } from "@/shared/utils/focusAfterWrite";
 import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal";
@@ -377,7 +377,7 @@ async function enrolmentHeld(): Promise<EnrolmentHeld | null> {
 
     // A verification that never came back arrives as a 500 and an edge's answer as its own 5xx, and
     // either may follow a stored passkey (`docs/frontend/spec.md :: I326`); the browser's refusals are 400s.
-    if (error.status >= 500) return { error: unansweredAction().error, outcome: "unknown" };
+    if (error.status >= 500) return { error: SPEICHERUNG_UNKLAR, outcome: "unknown" };
 
     return { error: VERSUCHE_ES_ERNEUT_SATZ };
   } catch {

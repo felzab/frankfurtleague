@@ -59,7 +59,7 @@ const { raised } = doubleToasts();
 const fetchMock = doubleFetch();
 
 const { SicherheitPanel } = await import("./SicherheitPanel.tsx");
-const { unansweredAction } = await import("@/shared/utils/actionError.ts");
+const { outcomeUnknown } = await import("@/shared/utils/actionError.ts");
 const { LETZTER_PASSKEY } = await import("@/features/passkeys/components/ui/PasskeyKarteView.tsx");
 const { refusalWrappers } = await import("@/shared/testing/renderTest.ts");
 
@@ -70,15 +70,15 @@ const STEP_UP_REFUSED = "Wir konnten Dich nicht mit einem Passkey bestätigen.";
 const CODE_STEP_UP_REFUSED = "Wir konnten Dich nicht mit dem Code bestätigen.";
 
 /** The other device's sign-out and the card's two controls, as a screen reader names them. */
-const ANDERE_ABMELDEN = "Anmeldung per Passkey „Laptop“ vom 25. September 2026, 10:00 abmelden";
-const LAPTOP_LOESCHEN = "Passkey „Laptop“ löschen";
-const LAPTOP_UMBENENNEN = "Passkey „Laptop“ umbenennen";
+const ANDERE_ABMELDEN = "Abmelden: Anmeldung per Passkey „Laptop“ vom 25. September 2026, 10:00";
+const LAPTOP_LOESCHEN = "Löschen: Passkey „Laptop“";
+const LAPTOP_UMBENENNEN = "Umbenennen: Passkey „Laptop“";
 
 /** The holder's own address, where the code half mails its code. */
 const ADDRESS = "spielerin@example.org";
 
 /** The send's answer, as the sign-in's own action gives it. */
-const SENT = { success: true, message: "Falls zu dieser Adresse ein Konto gehört, ist ein Anmeldecode unterwegs.", submittedEmail: ADDRESS };
+const SENT = { success: true, message: "Ein Anmeldecode ist an Deine Adresse unterwegs." };
 
 /** The code route's answer to one typed code, as `postPublicForm` reads it. */
 const answered = (body: unknown): Response =>
@@ -86,7 +86,7 @@ const answered = (body: unknown): Response =>
 
 /** Sends the code from the control in `scope` and types it; the route answers that it signed in. */
 async function confirmByCode(user: ReturnType<typeof userEvent.setup>, scope: { getByRole: typeof screen.getByRole }): Promise<void> {
-  answers.handleSignIn = SENT;
+  answers.sendeBestaetigungscodeAction = SENT;
   await user.click(scope.getByRole("button", { name: "Code per E-Mail senden" }));
   await act(actionsAnswered);
   const field = await screen.findByLabelText<HTMLInputElement>("Code aus der E-Mail");
@@ -291,7 +291,7 @@ describe("where renaming a passkey leaves the focus", () => {
     await act(actionsAnswered);
     await waitFor(() => assert.ok(screen.queryByRole("textbox", { name: "Name" }) === null));
 
-    assert.ok(document.activeElement === screen.getByRole("button", { name: /umbenennen$/ }), "the saved form left the focus on the page");
+    assert.ok(document.activeElement === screen.getByRole("button", { name: /^Umbenennen: / }), "the saved form left the focus on the page");
   });
 });
 
@@ -470,7 +470,7 @@ describe("adding a passkey", () => {
     await waitFor(() => assert.equal(raised.length, 1));
     assert.deepEqual(
       [raised[0]?.title, raised[0]?.description, raised[0]?.options?.outcome],
-      ["Unklar, ob es gespeichert wurde", unansweredAction().error, "unknown"],
+      ["Unklar, ob es gespeichert wurde", outcomeUnknown().error, "unknown"],
     );
   });
 });
@@ -489,7 +489,7 @@ describe("confirming by a code mailed to the holder", () => {
     await waitFor(() => assert.deepEqual(sent().at(-1), ["endAnmeldungAction", "andere"]));
     assert.deepEqual(
       sent().map(([action]) => action),
-      ["handleSignIn", "pruefeInhaberAction", "endAnmeldungAction"],
+      ["sendeBestaetigungscodeAction", "pruefeInhaberAction", "endAnmeldungAction"],
     );
     const [, init] = fetchMock.mock.calls[0]?.arguments ?? [];
     assert.deepEqual(JSON.parse(String(init?.body)), { email: ADDRESS, code: "048213" });
@@ -512,7 +512,7 @@ describe("confirming by a code mailed to the holder", () => {
     await waitFor(() => assert.ok(panel.getByRole("alert").textContent?.includes(CODE_STEP_UP_REFUSED)));
     assert.deepEqual(
       sent().map(([action]) => action),
-      ["handleSignIn", "pruefeInhaberAction"],
+      ["sendeBestaetigungscodeAction", "pruefeInhaberAction"],
     );
     assert.ok(panel.getByRole("button", { name: "Code per E-Mail senden" }), "the refused step left no way to try again");
   });
@@ -522,7 +522,7 @@ describe("confirming by a code mailed to the holder", () => {
   it("runs nothing when the route answers that another tab already signed in", async () => {
     const user = userEvent.setup();
     answers.pruefeInhaberAction = { success: true, gleich: true };
-    answers.handleSignIn = SENT;
+    answers.sendeBestaetigungscodeAction = SENT;
     open({ freshUntil: null, enrolmentUntil: null });
 
     await user.click(screen.getByRole("button", { name: ANDERE_ABMELDEN }));
@@ -537,7 +537,7 @@ describe("confirming by a code mailed to the holder", () => {
     await waitFor(() => assert.ok(panel.getByRole("alert").textContent?.includes(CODE_STEP_UP_REFUSED)));
     assert.deepEqual(
       sent().map(([action]) => action),
-      ["handleSignIn"],
+      ["sendeBestaetigungscodeAction"],
     );
   });
 

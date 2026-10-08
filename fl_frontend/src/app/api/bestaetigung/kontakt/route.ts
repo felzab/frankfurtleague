@@ -1,13 +1,12 @@
 import { buildBewerbungVollstaendigEmail, buildBewerbungWiderspruchEmail } from "@/core/bewerbungEmail";
 import { frontend_config } from "@/core/config";
-import { BESTAETIGUNG_KENNTNISNAHME } from "@/core/einwilligung";
 import { logger } from "@/core/logging";
 import { BEWERBUNG_MIN_ALTER } from "@/features/bewerbungen/constants";
 import { postEinwilligung } from "@/features/bewerbungen/mutations";
 import { rollenText, rolleText, sendBewerbungMail } from "@/features/bewerbungen/notifications";
 import { getEinwilligungAnsicht } from "@/features/bewerbungen/queries";
 import { FLBewerbungEinwilligungAntwortPayloadSchema } from "@/features/bewerbungen/schemas";
-import { mapEinwilligungRefusal, nenntLaufendeFassung } from "@/features/bewerbungen/utils";
+import { mapEinwilligungRefusal } from "@/features/bewerbungen/utils";
 import { refusedDraftAnswer } from "@/shared/utils/actionError";
 import { formatSpielDatum } from "@/shared/utils/format";
 import { handlePublicRequest } from "@/shared/utils/publicRoute";
@@ -21,9 +20,9 @@ import type { NextRequest } from "next/server";
 async function beantworteterZustand(token: string): Promise<LinkZustand> {
   const { zustand } = await getEinwilligungAnsicht(token);
 
-  // `gueltig` is the write's refusal and this read disagreeing, and the panel naming nobody is the
+  // An open link is the write's refusal and this read disagreeing, and the panel naming nobody is the
   // one answer that claims nothing about a record.
-  return zustand === "gueltig" ? "ungueltig" : zustand;
+  return zustand === "gueltig" || zustand === "saison_vorbei" ? "ungueltig" : zustand;
 }
 
 /**
@@ -82,11 +81,6 @@ export async function POST(request: NextRequest) {
     run: async () => {
       const body: unknown = await request.json().catch(() => null);
 
-      // Judged BEFORE the parse, by the check every confirmation handler shares: a page opened
-      // before a deploy moved the label posts the words its reader saw, and only the mail's link
-      // reopens the page on the running ones.
-      if (!nenntLaufendeFassung(body, BESTAETIGUNG_KENNTNISNAHME.textVersion)) return { success: false as const, error: ANTWORT_NEU_OEFFNEN };
-
       const parsed = FLBewerbungEinwilligungAntwortPayloadSchema.safeParse(body);
 
       if (!parsed.success) return { success: false as const, ...refusedDraftAnswer(parsed.error, ANTWORT_NEU_OEFFNEN) };
@@ -115,11 +109,19 @@ export async function POST(request: NextRequest) {
         return { success: false as const, ...panel };
       }
 
-      await notifyAnsprechperson(antwort);
+      // A season row's seat was typed in by an administrator: no application stands behind it, so no
+      // Ansprechperson waits on the answer and neither of the application's messages is true of it.
+      if (antwort.quelle === "bewerbung") await notifyAnsprechperson(antwort);
 
       // The echo alone, never `ausstehend` and never an address: which other seats are open is the
       // submitter's business, and this person is shown what was stored for them and nothing more.
-      return { success: true as const, ergebnis: antwort.ergebnis, geburtsdatum: antwort.geburtsdatum, whatsapp: antwort.whatsapp };
+      return {
+        success: true as const,
+        ergebnis: antwort.ergebnis,
+        geburtsdatum: antwort.geburtsdatum,
+        whatsapp: antwort.whatsapp,
+        medien: antwort.medien,
+      };
     },
   });
 }

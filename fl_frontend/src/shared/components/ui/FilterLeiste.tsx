@@ -14,6 +14,7 @@ import { ScrollShadow } from "@heroui/react/scroll-shadow";
 
 import { Select } from "@/shared/components/ui/Select";
 import { useUrlFilters } from "@/shared/hooks/useUrlFilters";
+import { benannt } from "@/shared/utils/benannt";
 import { offeredOptions } from "@/shared/utils/facets";
 import { focusAfterWrite, focusSection } from "@/shared/utils/focusAfterWrite";
 import { leserichtungHref } from "@/shared/utils/leserichtung";
@@ -66,7 +67,7 @@ const ADD_HINT = "Filter hinzufügen";
 
 // Never „Sortierung“: on a list the cap cut short, the other end is a different set of rows rather
 // than the rows on hand reordered, and both truncation notices word it as loading.
-/** The field's name, carried on the control itself: the bar is a row of controls and has no room for a `<Label>`. */
+/** The list's name. The control is named by the words it shows, its readout and `ORDER_HINT`: the bar has no room for a `<Label>`. */
 const ORDER_LABEL = "Ladereihenfolge";
 
 /** The verb the painted readout drops, as `ADD_HINT` carries the add control's. */
@@ -91,9 +92,18 @@ function pickedOptions<TItem>(facet: Facet<TItem>, picked: readonly string[]): F
 }
 
 /**
- * One filtered dimension: the label is the first picked value alone and the badge carries how many more. The accessible
- * name carries the dimension too, a reader hearing one value alone learning nothing about what it filters.
+ * A pill's name: the words it paints first, the first value and the badge's count, then the dimension, a reader hearing
+ * one value alone learning nothing about what it filters, and every value where the badge stands in for some.
  */
+function pillName(facet: { label: string }, chosen: readonly FacetOption[]): string {
+  const [erste = "", ...weitere] = chosen.map((option) => option.label);
+
+  return weitere.length === 0
+    ? benannt(erste, `${facet.label} ändern`)
+    : benannt(`${erste} +${String(weitere.length)}`, `${facet.label} ändern (${[erste, ...weitere].join(", ")})`);
+}
+
+/** One filtered dimension: the label is the first picked value alone and the badge carries how many more. */
 function FilterPill<TItem>({
   facet,
   facets,
@@ -122,7 +132,7 @@ function FilterPill<TItem>({
         {/* The negative offset for `CLEAR_FACE_CLASSES`'s reason: this stop is flush with the pill's leading edge, and
             `globals.css`'s base outline for a `[tabindex]` draws two pixels outside the clip. */}
         <Popover.Trigger
-          aria-label={`${facet.label}: ${chosen.map((option) => option.label).join(", ")} ändern`}
+          aria-label={pillName(facet, chosen)}
           className="flex h-full cursor-pointer flex-row items-center gap-x-2 pr-0.5 pl-3 whitespace-nowrap -outline-offset-3 transition-colors duration-(--motion-fast) hover:bg-hover">
           <span className={`truncate text-brand ${VALUE_CAP_CLASSES}`}>{chosen[0]?.label ?? ""}</span>
           {chosen.length > 1 && <span className={`${countBadge("brandSolid")} shrink-0`}>+{chosen.length - 1}</span>}
@@ -171,6 +181,7 @@ function LeserichtungSelect({ richtung }: { richtung: Leserichtung }) {
   const pathname = usePathname();
   // In a transition for `useUrlFilters`'s reason: the rows stay on screen while the reversed read lands.
   const [, startReversing] = useTransition();
+  const readout = ORDER_OPTIONS.find((option) => option.value === richtung)?.label ?? "";
 
   const handleChange = (key: Key | null) => {
     const ziel = ORDER_OPTIONS.find((option) => option.value === key)?.value;
@@ -192,7 +203,7 @@ function LeserichtungSelect({ richtung }: { richtung: Leserichtung }) {
     <div className="ml-auto shrink-0">
       <IconTooltip label={ORDER_HINT}>
         <Select
-          aria-label={ORDER_LABEL}
+          aria-label={benannt(readout, ORDER_HINT)}
           value={richtung}
           onChange={handleChange}>
           <Select.Trigger
@@ -206,7 +217,7 @@ function LeserichtungSelect({ richtung }: { richtung: Leserichtung }) {
             />
             {/* From the prop, never `Select.Value`, which resolves its label out of the react-aria collection
                 and paints HeroUI's English placeholder on a render where that has not committed. */}
-            <span className="max-md:hidden">{ORDER_OPTIONS.find((option) => option.value === richtung)?.label}</span>
+            <span className="max-md:hidden">{readout}</span>
           </Select.Trigger>
           {/* `bottom end` because this control is the row's right edge. No `w-(--trigger-width)`: below `md`
               the trigger is a forty-pixel square, and the vendored `min-w-(--trigger-width)` already floors it. */}

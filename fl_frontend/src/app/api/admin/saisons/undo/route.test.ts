@@ -3,7 +3,8 @@ import { describe, it } from "node:test";
 
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 import { publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
-import { assertEachRefusalCloses, doubleRouteRequest, unacknowledged, undo } from "@/shared/testing/undoRoutes.ts";
+import { saisonRules } from "@/shared/testing/saisonRules.ts";
+import { assertEachRefusalCloses, doubleRouteRequest, revalidatedTags, unacknowledged, undo } from "@/shared/testing/undoRoutes.ts";
 
 /* The real route and the mutation it replays through, called: the request it runs in and the backend client are the doubles. */
 doubleRouteRequest();
@@ -13,17 +14,7 @@ const { POST } = await import("./route.ts");
 /** What `fl_frontend/src/features/saisons/mutations.ts :: patchSaison` sends, as the backend's own routes spell it. */
 const REPLAY_OPERATION = "PATCH /saisons/{saison_id}";
 
-const RULES = {
-  win_points: 3,
-  draw_points: 1,
-  qualifiers_per_group: 2,
-  number_of_groups: 2,
-  teams_per_group: 4,
-  max_kadergroesse: 18,
-  tiebreak_order: "tordifferenz",
-  forfeit_ergebnis: { sieger_tore: 3, verlierer_tore: 0 },
-  erlaubte_stufen: ["E1", "Q1"],
-};
+const RULES = saisonRules();
 
 /** The pre-save season the press replays, as the editor builds it. */
 const BODY = { id: "2026", start_date: "2026-03-01", end_date: "2026-07-01", rules: RULES, bewerbung: null, registrierung: null };
@@ -41,6 +32,11 @@ describe("the season save's undo", () => {
     assert.equal(answer.success, true, String(answer.error));
     const { id, ...season } = BODY;
     assert.deepEqual(requestsOf(calls), [{ endpoint: `/saisons/${id}`, method: "PATCH", body: season }]);
+    // The caches the replay moves, which the undo spine drops with no staleness tolerated.
+    assert.deepEqual(revalidatedTags(), [
+      ["saisons", { expire: 0 }],
+      ["teams", { expire: 0 }],
+    ]);
   });
 
   it("words every refusal the replayed endpoint publishes, closing on the change standing once", async () => {

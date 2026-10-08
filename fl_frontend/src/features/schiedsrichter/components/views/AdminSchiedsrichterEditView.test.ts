@@ -5,6 +5,7 @@ import { createElement as h } from "react";
 
 import { SCHIEDSRICHTER_OHNE_NAMEN_LABEL } from "@/features/schiedsrichter/constants.ts";
 import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
+import { assertLeerMarkup } from "@/shared/testing/leerGrade.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
@@ -23,12 +24,15 @@ const RECORD = {
   geburtsdatum: null,
   einwilligung: null,
   bestaetigung: null,
+  adresswechsel: null,
+  abgelaufen: { bestaetigung: false, adresswechsel: false },
 };
 
 const view = (props: { name: string | null; inactiveSince: string | null }): string =>
   renderTree(
     underNext(
       h(AdminSchiedsrichterEditView, {
+        istFassungBekannt: true,
         schiedsrichter: { ...RECORD, name: props.name },
         inactiveSince: props.inactiveSince,
       }),
@@ -49,9 +53,10 @@ describe("which page a referee's editor route answers with", () => {
     assert.doesNotMatch(textOf(html, " "), /Daten gelöscht/, "a deletion is claimed over a row nothing deleted");
   });
 
-  /* Italic „anonym“ names a deletion, and a screen reader hears neither the italics nor the
+  /* „anonym“ names a deletion, and a screen reader hears neither the empty-value grade nor the
      difference: the heading has to say this row is merely unfinished. */
   it("heads the nameless row with the word the list uses for it", () => {
     assert.match(textOf(view({ name: null, inactiveSince: null }), " "), new RegExp(SCHIEDSRICHTER_OHNE_NAMEN_LABEL));
+    assertLeerMarkup(view({ name: null, inactiveSince: null }), SCHIEDSRICHTER_OHNE_NAMEN_LABEL);
   });
 });

@@ -4,14 +4,15 @@ import { useState } from "react";
 import Link from "next/link";
 
 import { KONTAKT_EMAIL } from "@/core/brand";
+import { ABSATZ_CLASSES, Wert } from "@/features/bewerbungen/components/ui/Gefuellt";
 import { SEITE_CLASSES } from "@/features/bewerbungen/components/ui/seite";
 import {
-  ABSATZ_CLASSES,
   BestaetigungErgebnis,
   FaktenBanner,
   FrageStellen,
+  LINK_UNLESBAR_TITEL,
+  LinkUnlesbar,
   useLinkSeite,
-  Wert,
 } from "@/features/bewerbungen/components/views/BestaetigungPanels";
 import { SaisonChip } from "@/features/saisons/components/ui/SaisonChip";
 import { DISPLAY_HEADING_CLASSES } from "@/shared/components/ui/displayType";
@@ -38,7 +39,7 @@ const TITEL: Record<Stand, string> = {
   "team-fehlt": "Team nicht eingetragen",
   geschlossen: "Registrierung geschlossen",
   ungueltig: "Link ungültig",
-  unlesbar: "Link nicht geprüft",
+  unlesbar: LINK_UNLESBAR_TITEL,
 };
 
 /** What the page knows about the team, or `null` where it may name nobody. */
@@ -58,7 +59,7 @@ function standVon(start: RegistrierungStart, istTot: boolean): Geoeffnet {
  * One page for every state an invite can be in, framed by the site's own navbar and footer: a pupil
  * opening the link on a phone lands on the site their team's message named.
  */
-export function RegistrierungView({ start }: { start: RegistrierungStart }) {
+export function RegistrierungView({ start, siteKey }: { start: RegistrierungStart; siteKey: string }) {
   const [istTot, setIstTot] = useState(false);
   const { stand, ansicht } = standVon(start, istTot);
 
@@ -123,6 +124,7 @@ export function RegistrierungView({ start }: { start: RegistrierungStart }) {
         <RegistrierungFormPanel
           token={start.token}
           ansicht={start.ansicht}
+          siteKey={siteKey}
           onLinkTot={() => {
             setIstTot(true);
             beantwortet();
@@ -135,7 +137,9 @@ export function RegistrierungView({ start }: { start: RegistrierungStart }) {
           <p className={ABSATZ_CLASSES}>
             Der Kader dieses Teams ist für diese Saison voll, deshalb können wir gerade keine weitere Registrierung annehmen.
           </p>
-          <p className={ABSATZ_CLASSES}>Sag Deinem Team Bescheid. Wird im Kader wieder ein Platz frei, kannst Du den Link erneut öffnen.</p>
+          <p className={ABSATZ_CLASSES}>
+            Sag Deinem Team Bescheid. Wird im Kader wieder ein Platz frei, kannst Du den Link noch einmal öffnen.
+          </p>
           <FrageStellen />
         </BestaetigungErgebnis>
       )}
@@ -176,16 +180,7 @@ export function RegistrierungView({ start }: { start: RegistrierungStart }) {
         </BestaetigungErgebnis>
       )}
 
-      {/* Says that it does not know, and nothing else: folded into the dead-link panel, this arm would
-          call a live link void on a day the backend was merely unreachable. */}
-      {stand === "unlesbar" && (
-        <BestaetigungErgebnis tone="hinweis">
-          <p className={ABSATZ_CLASSES}>
-            Wir können diesen Link gerade nicht prüfen. Lade die Seite in ein paar Minuten neu, oder schreib uns.
-          </p>
-          <FrageStellen />
-        </BestaetigungErgebnis>
-      )}
+      {stand === "unlesbar" && <LinkUnlesbar />}
     </section>
   );
 }

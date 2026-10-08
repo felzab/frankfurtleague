@@ -152,12 +152,13 @@ export async function getEinwilligungAnsicht(token: string): Promise<Einwilligun
     postEinwilligungAnsicht({ token: token }).then(
       // Narrowed here and never at the page, which would carry the name in its payload regardless:
       // a dead link's panel names nobody, and an open link with no name left has nobody to name.
-      (ansicht) =>
-        ansicht.zustand === "gueltig"
-          ? ansicht.vorname === null
-            ? { zustand: "ungueltig" as const }
-            : { zustand: "gueltig" as const, ansicht: { ...ansicht, vorname: ansicht.vorname } }
-          : { zustand: ansicht.zustand },
+      (ansicht): EinwilligungAnsicht => {
+        const { zustand } = ansicht;
+        // A closed season row's link still takes a Widerspruch, so it names its person as an open one does.
+        if (zustand !== "gueltig" && zustand !== "saison_vorbei") return { zustand: zustand, quelle: ansicht.quelle };
+
+        return ansicht.vorname === null ? { zustand: "ungueltig" } : { zustand: zustand, ansicht: { ...ansicht, vorname: ansicht.vorname } };
+      },
       (error: unknown) => {
         // Anything but a refusal is a failed read, which is the page's own state rather than a panel
         // calling a live link void.

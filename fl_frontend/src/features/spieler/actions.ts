@@ -1,9 +1,7 @@
 "use server";
 
-import { updateTag } from "next/cache";
-
-import { runAdminMutation } from "@/shared/utils/adminMutation";
-import { buildRefusal } from "@/shared/utils/refusal";
+import { invalidatesOnWrite, runAdminMutation } from "@/shared/utils/adminMutation";
+import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { RETIREMENT_KEEPS_SQUAD_ROWS } from "./constants";
@@ -44,7 +42,7 @@ import type { SaisonSpielerEnterDraft, SaisonSpielerMembershipDraft } from "./ty
 
 /** Base tag only, for the reason `fl_frontend/src/features/spieler/queries.ts :: getSpieler` gives. */
 function invalidateSpieler(): void {
-  updateTag("spieler");
+  invalidatesOnWrite("spieler");
 }
 
 export async function patchSpielerAction(rawPayload: FLPatchSpielerPayload): Promise<ActionResult<{ spieler?: FLSpielerAdminSingleResponse }>> {
@@ -55,12 +53,11 @@ export async function patchSpielerAction(rawPayload: FLPatchSpielerPayload): Pro
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
+    invalidateSpieler();
     const patchOperation = await patchSpieler(validated.data);
     if (!patchOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Die Spielerdaten wurden nicht gespeichert", repair: "Versuche es erneut" }) };
+      return { success: false, error: buildRefusal({ reason: "Die Spielerdaten wurden nicht gespeichert", repair: VERSUCHE_ES_ERNEUT }) };
     }
-
-    invalidateSpieler();
 
     return {
       success: true,
@@ -80,12 +77,11 @@ export async function deleteSpielerAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
+    invalidateSpieler();
     const deleteOperation = await deleteSpieler(validated.data);
     if (!deleteOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Der Spieler wurde nicht stillgelegt", repair: "Versuche es erneut" }) };
+      return { success: false, error: buildRefusal({ reason: "Der Spieler wurde nicht stillgelegt", repair: VERSUCHE_ES_ERNEUT }) };
     }
-
-    invalidateSpieler();
 
     return {
       success: true,
@@ -105,12 +101,11 @@ export async function reactivateSpielerAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
+    invalidateSpieler();
     const reactivateOperation = await reactivateSpieler(validated.data);
     if (!reactivateOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Der Spieler wurde nicht reaktiviert", repair: "Versuche es erneut" }) };
+      return { success: false, error: buildRefusal({ reason: "Der Spieler wurde nicht reaktiviert", repair: VERSUCHE_ES_ERNEUT }) };
     }
-
-    invalidateSpieler();
 
     return {
       success: true,
@@ -133,6 +128,10 @@ export async function eraseSpielerAction(rawPayload: FLEraseSpielerPayload): Pro
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
+    // The base `spieler` tag alone: this removed the person and their squad rows, which is what the
+    // cached public squad read joins. A club's read joins no pupil, a Spiel embeds none, and the log
+    // is admin-tier and uncached.
+    invalidateSpieler();
     let erasure;
     try {
       erasure = await eraseSpieler(validated.data);
@@ -141,11 +140,6 @@ export async function eraseSpielerAction(rawPayload: FLEraseSpielerPayload): Pro
       if (refusal !== null) return { success: false, error: refusal };
       throw error;
     }
-
-    // The base `spieler` tag alone: this removed the person and their squad rows, which is what the
-    // cached public squad read joins. A club's read joins no pupil, a Spiel embeds none, and the log
-    // is admin-tier and uncached.
-    invalidateSpieler();
 
     return {
       success: true,
@@ -166,6 +160,7 @@ export async function postSaisonSpielerAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
+    invalidateSpieler();
     let saisonSpieler;
     try {
       saisonSpieler = await postSaisonSpieler(validated.data);
@@ -176,8 +171,6 @@ export async function postSaisonSpielerAction(
       if (entered !== null) return { success: false, error: entered };
       throw error;
     }
-
-    invalidateSpieler();
 
     return {
       success: true,
@@ -199,6 +192,7 @@ export async function patchSaisonSpielerAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
+    invalidateSpieler();
     let saisonSpieler;
     try {
       saisonSpieler = await patchSaisonSpieler(validated.data);
@@ -207,8 +201,6 @@ export async function patchSaisonSpielerAction(
       if (refusal) return { success: false, error: refusal.error ?? VALIDATION_FAILED, fieldErrors: refusal.fieldErrors };
       throw error;
     }
-
-    invalidateSpieler();
 
     return {
       success: true,
@@ -229,9 +221,8 @@ export async function deleteSaisonSpielerAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    const deleteOperation = await deleteSaisonSpieler(validated.data);
-
     invalidateSpieler();
+    const deleteOperation = await deleteSaisonSpieler(validated.data);
 
     return {
       success: true,
@@ -253,6 +244,7 @@ export async function reactivateSaisonSpielerAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
+    invalidateSpieler();
     // Reviving a row takes a squad slot like any other write, so the cap refuses it too
     // (`REQ-SQUAD-003`) — and the shared fallback would name no reason.
     let reactivateOperation;
@@ -263,8 +255,6 @@ export async function reactivateSaisonSpielerAction(
       if (refusal) return { success: false, error: refusal.error ?? VALIDATION_FAILED, fieldErrors: refusal.fieldErrors };
       throw error;
     }
-
-    invalidateSpieler();
 
     return {
       success: true,

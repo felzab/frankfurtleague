@@ -60,8 +60,8 @@ type HintProps =
       mode: "refusal";
       reason: string | null;
       /**
-       * **The wrapped control's accessible name at rest, containing its visible words.** It names the one tab stop, found
-       * by speech input through those words (WCAG 2.5.3); an `aria-label` saying more is passed whole, or closing the
+       * **The wrapped control's accessible name at rest, starting with its visible words.** It names the one tab stop,
+       * which speech input finds by them (WCAG 2.5.3); an `aria-label` saying more is passed whole, or closing the
        * control loses the rest.
        */
       label: string;

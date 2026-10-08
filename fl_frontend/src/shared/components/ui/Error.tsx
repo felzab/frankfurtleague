@@ -31,8 +31,8 @@ export function Error({
   useReportClientCrash(error);
 
   /**
-   * `reset()` alone re-renders the failed segment from the router's cache, replaying the same broken payload for a
-   * server-side failure. `router.refresh()` first is what makes the retry a real second attempt.
+   * `reset()` alone replays the router's cached payload of a server-side failure. `router.refresh()` first makes the
+   * retry a real attempt, and Next answers a refresh meeting another build with a whole new document.
    */
   const handleRetry = () => {
     startRetrying(() => {

@@ -20,7 +20,7 @@ type SubjectRecords = {
   // lists alone cannot tell a person awaiting confirmation from one the league holds nothing for.
   readonly unbestaetigt: boolean;
   // The backend's own verdict, never recomputed here; `getSubjectSession` serves no subject that
-  // carries it set, so only the sign-in gate ever reads it `true`.
+  // carries it set, so only a caller of the lookup itself ever reads it `true`.
   readonly gesperrt: boolean;
   // The grant the address holds, stored and never derived: whether it may act as an administrator is
   // `SubjectSession["admin"]`, which the session's factor and window narrow further.

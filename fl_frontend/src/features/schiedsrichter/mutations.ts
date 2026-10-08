@@ -3,10 +3,14 @@ import { apiClient } from "@/core/api";
 import {
   FLPatchSchiedsrichterResponseSchema,
   FLPostSchiedsrichterResponseSchema,
+  FLSchiedsrichterAdresswechselAnsichtResponseSchema,
+  FLSchiedsrichterAdresswechselMintResponseSchema,
+  FLSchiedsrichterAdresswechselResponseSchema,
   FLSchiedsrichterBestaetigungAnsichtResponseSchema,
   FLSchiedsrichterBestaetigungResponseSchema,
   FLSchiedsrichterMintResponseSchema,
   FLSchiedsrichterReactivateResponseSchema,
+  FLSchiedsrichterSelbstEinwilligungResponseSchema,
   FLSchiedsrichterWriteResponseSchema,
 } from "./schemas";
 
@@ -16,6 +20,13 @@ import type {
   FLPatchSchiedsrichterResponse,
   FLPostSchiedsrichterPayload,
   FLPostSchiedsrichterResponse,
+  FLSchiedsrichterAdresswechselAnsichtPayload,
+  FLSchiedsrichterAdresswechselAnsichtResponse,
+  FLSchiedsrichterAdresswechselEinladenPayload,
+  FLSchiedsrichterAdresswechselMintResponse,
+  FLSchiedsrichterAdresswechselPayload,
+  FLSchiedsrichterAdresswechselResponse,
+  FLSchiedsrichterAdresswechselVerwerfenPayload,
   FLSchiedsrichterBestaetigungAnsichtPayload,
   FLSchiedsrichterBestaetigungAnsichtResponse,
   FLSchiedsrichterBestaetigungPayload,
@@ -24,6 +35,8 @@ import type {
   FLSchiedsrichterKeyPayload,
   FLSchiedsrichterMintResponse,
   FLSchiedsrichterReactivateResponse,
+  FLSchiedsrichterSelbstEinwilligungPayload,
+  FLSchiedsrichterSelbstEinwilligungResponse,
   FLSchiedsrichterWriteResponse,
 } from "./schemas";
 
@@ -79,6 +92,47 @@ export async function einladeSchiedsrichter({ id }: FLSchiedsrichterEinladenPayl
   });
 }
 
+// Replaces the pending block but its address, so the previous address link stops working at once.
+export async function einladeAdresswechsel({
+  id,
+}: FLSchiedsrichterAdresswechselEinladenPayload): Promise<FLSchiedsrichterAdresswechselMintResponse> {
+  return apiClient<FLSchiedsrichterAdresswechselMintResponse>(
+    `/schiedsrichter/${id}/adresswechsel/einladen`,
+    FLSchiedsrichterAdresswechselMintResponseSchema,
+    { method: "POST", authType: "admin" },
+  );
+}
+
+// The stored address stays; the pending one and its link go.
+export async function verwirfAdresswechsel({ id }: FLSchiedsrichterAdresswechselVerwerfenPayload): Promise<FLSchiedsrichterWriteResponse> {
+  return apiClient<FLSchiedsrichterWriteResponse>(`/schiedsrichter/${id}/adresswechsel`, FLSchiedsrichterWriteResponseSchema, {
+    method: "DELETE",
+    authType: "admin",
+  });
+}
+
+/** A POST that reads, for `postSchiedsrichterBestaetigungAnsicht`'s reason. */
+export async function postSchiedsrichterAdresswechselAnsicht(
+  payload: FLSchiedsrichterAdresswechselAnsichtPayload,
+): Promise<FLSchiedsrichterAdresswechselAnsichtResponse> {
+  return apiClient<FLSchiedsrichterAdresswechselAnsichtResponse>(
+    "/schiedsrichter/adresswechsel/ansicht",
+    FLSchiedsrichterAdresswechselAnsichtResponseSchema,
+    { method: "POST", readOnly: true, authType: "base", body: JSON.stringify(payload) },
+  );
+}
+
+/** The mailbox's own answer, `base` for `postSchiedsrichterBestaetigung`'s reason. */
+export async function postSchiedsrichterAdresswechsel(
+  payload: FLSchiedsrichterAdresswechselPayload,
+): Promise<FLSchiedsrichterAdresswechselResponse> {
+  return apiClient<FLSchiedsrichterAdresswechselResponse>("/schiedsrichter/adresswechsel", FLSchiedsrichterAdresswechselResponseSchema, {
+    method: "POST",
+    authType: "base",
+    body: JSON.stringify(payload),
+  });
+}
+
 /**
  * A POST that reads. The token is the credential, and a GET would put it in a query string the
  * backend's own route template does not redact.
@@ -105,4 +159,21 @@ export async function postSchiedsrichterBestaetigung(
     authType: "base",
     body: JSON.stringify(payload),
   });
+}
+
+// The referee's own press on the account page, under the person lane's actor; the record is named in
+// the path because one address may hold several referee rows.
+export async function patchSchiedsrichterSelbstEinwilligung(
+  schiedsrichterId: string,
+  payload: FLSchiedsrichterSelbstEinwilligungPayload,
+): Promise<FLSchiedsrichterSelbstEinwilligungResponse> {
+  return apiClient<FLSchiedsrichterSelbstEinwilligungResponse>(
+    `/schiedsrichter/selbst/${schiedsrichterId}/einwilligung`,
+    FLSchiedsrichterSelbstEinwilligungResponseSchema,
+    {
+      method: "PATCH",
+      authType: "admin",
+      body: JSON.stringify(payload),
+    },
+  );
 }

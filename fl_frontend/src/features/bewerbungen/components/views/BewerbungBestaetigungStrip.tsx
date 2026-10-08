@@ -15,10 +15,9 @@ import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
 
-import { KONTAKT_EMAIL } from "@/core/brand";
-import { LIGA_KENNTNISNAHME } from "@/core/einwilligung";
 import { besetzeKontaktSitzAction, einwilligungErneutSendenAction, kontaktEmailKorrigierenAction } from "@/features/bewerbungen/actions";
 import { adressenAndererPersonen, istOffen, linkAngebot, loeschungsSatz, sitzAngebot } from "@/features/bewerbungen/bestaetigungStand";
+import { FESTE_WERTE } from "@/features/bewerbungen/components/ui/Gefuellt";
 import { ERNEUT_OHNE_ADRESSE } from "@/features/bewerbungen/constants";
 import {
   FLBewerbungKontaktEmailPayloadSchema,
@@ -27,6 +26,7 @@ import {
   gleichesPostfach,
 } from "@/features/bewerbungen/schemas";
 import { ZUSTELLUNG_CHIP } from "@/features/bewerbungen/zustellung";
+import { Leer } from "@/shared/components/ui/Angabe";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { FocusSlot } from "@/shared/components/ui/FocusSlot";
 import { Form } from "@/shared/components/ui/Form";
@@ -42,19 +42,23 @@ import { TextField } from "@/shared/components/ui/TextField";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { useStepUp } from "@/shared/hooks/useStepUp";
-import { rejectedWrite, unansweredAction } from "@/shared/utils/actionError";
+import { LINK_ERNEUT_OHNE_ANTWORT, LINK_UNKLAR, unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
-import { getGermanTodayStr } from "@/shared/utils/date";
+import { benannt } from "@/shared/utils/benannt";
 import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
 import { focusAfterWrite, focusRow, focusSection, focusSlot } from "@/shared/utils/focusAfterWrite";
+import { nichtHinterlegt } from "@/shared/utils/format";
+import { pressLinkWrite } from "@/shared/utils/linkWrite";
+import { FASSUNG_UNLESBAR } from "@/shared/utils/refusal";
 
 import { Absatz } from "./BestaetigungHinweise";
 
-import type { BESTAETIGUNG_ABSAETZE } from "@/core/einwilligung";
+import type { KontaktAbsatzSchluessel } from "@/core/einwilligungSeiten";
 import type { SitzBestaetigung } from "@/features/bewerbungen/bestaetigungStand";
 import type { KontaktRolle } from "@/features/teams/constants";
 import type { PillTone } from "@/shared/components/ui/badges";
 import type { RaiseFailure } from "@/shared/hooks/useServerFieldErrors";
+import type { KontaktFassung } from "./BestaetigungHinweise";
 
 /**
  * One height for every chip on this readout and for the control beside them, so a row carrying a
@@ -91,26 +95,23 @@ const STAND_ICON = {
   unbeantwortet: CircleXmark,
 } as const;
 
-/** The queue's own wording for the same fact, so the two admin surfaces read alike. */
-const KEINE_EMAIL = "Keine E-Mail";
-
 const ADRESSE_BELEGT = "Diese E-Mail-Adresse ist schon bei einer anderen Person eingetragen.";
 
-/**
- * A rejected action carries no status and no body, so it says nothing of whether the write
- * committed. A second re-send is safe either way, which is why this one invites it.
- */
-const ERNEUT_OHNE_ANTWORT = "Prüfe die Verbindung und sende den Link noch einmal. Ein neuer Link ersetzt einen, der schon rausging.";
-
 /** Unlike a re-send, a second correction to an address already stored is refused, so the row decides. */
-const KORREKTUR_OHNE_ANTWORT =
-  "Prüfe die Verbindung und lade die Seite neu. Steht in der Zeile noch die alte Adresse, korrigiere sie noch einmal.";
+const KORREKTUR_OHNE_ANTWORT = "Prüfe die Verbindung und lade die Seite neu. Steht in der Zeile noch die alte Adresse, korrigiere sie erneut.";
 
 /** Unlike a re-send, a second reseat over a seat already filled is refused, so the row, reloaded, decides. */
-const BESETZUNG_OHNE_ANTWORT = "Prüfe die Verbindung und lade die Seite neu. Steht in der Zeile noch niemand, besetze die Rolle noch einmal.";
+const BESETZUNG_OHNE_ANTWORT = "Prüfe die Verbindung und lade die Seite neu. Steht in der Zeile noch niemand, besetze die Rolle erneut.";
 
 /** Which of the two editors one row has open. One at a time for the whole strip (`docs/frontend/spec.md :: I66`). */
 type Bearbeitung = "korrektur" | "neubesetzung";
+
+/**
+ * What a reseat writes and shows, read by the page per request: the label the application form runs,
+ * which the new person's record stamps, and the words of the administration's confirmation page, which
+ * that person will be asked on.
+ */
+export type Neubesetzung = { textVersion: string; absaetze: KontaktFassung["absaetze"] };
 
 /**
  * A readout above the fact panels rather than a section inside them, so the question deciding
@@ -118,16 +119,22 @@ type Bearbeitung = "korrektur" | "neubesetzung";
  */
 export function BewerbungBestaetigungStrip({
   bewerbungId,
+  neubesetzung,
   staende,
   frist,
+  fristAbgelaufen,
   isOpen,
   isDirty,
   onGetipptChange,
 }: {
   bewerbungId: string;
+  /** `null` where the registry could not be read, which closes the reseat with the reason. */
+  neubesetzung: Neubesetzung | null;
   staende: readonly SitzBestaetigung[];
   /** The day an incomplete application is deleted after, or `null` where none is recorded. */
   frist: string | null;
+  /** The read's judgement of the deadline on the server's day, never this browser's. */
+  fristAbgelaufen: boolean;
   /** Whether the application is still `eingereicht` — the one state a re-sent link can be answered in. */
   isOpen: boolean;
   /** Whether the decline holds a typed reason, which every write here re-keys the page over. */
@@ -156,32 +163,28 @@ export function BewerbungBestaetigungStrip({
   const bestaetigt = staende.filter((sitz) => !istOffen(sitz)).length;
   const angebot = linkAngebot(staende);
   const neubesetzbar = sitzAngebot(staende);
-  const loeschung = loeschungsSatz({ staende, frist, eingereicht: isOpen, heute: getGermanTodayStr() });
+  const loeschung = loeschungsSatz({ staende, frist, eingereicht: isOpen, istAbgelaufen: fristAbgelaufen });
 
   const sendeErneut = async (rolle: KontaktRolle) => {
-    if (!guardAgainstDraft(isDirty || boxGetippt, DRAFT_DISCARDED)) return;
-
     // The page re-keys on the sent link's record, drawing this seat's control anew.
     const landing = focusAfterWrite();
-    setSendendeRollen((vorher) => new Set(vorher).add(rolle));
-
-    // A new link voids the one the seat holds (`docs/frontend/spec.md :: I432`).
-    if (!(await stepUp.confirm(true))) {
-      setSendendeRollen((vorher) => new Set([...vorher].filter((sendend) => sendend !== rolle)));
-      return;
-    }
-
-    // Awaited outside a transition, so a rejected action reaches no error boundary: uncaught, it leaves
-    // „Sendet...“ standing for good and reports nothing.
-    const res = await einwilligungErneutSendenAction({ id: bewerbungId, rolle: rolle }).catch(rejectedWrite(router, ERNEUT_OHNE_ANTWORT));
-
-    // This seat alone, through the updater, so two writes settling never clear each other.
-    setSendendeRollen((vorher) => new Set([...vorher].filter((sendend) => sendend !== rolle)));
+    // A new link voids the one the seat holds.
+    const res = await pressLinkWrite({
+      isDirty: isDirty || boxGetippt,
+      stepUp,
+      router,
+      // This seat alone, through the updater, so two writes settling never clear each other.
+      pending: (running) =>
+        setSendendeRollen((vorher) => (running ? new Set(vorher).add(rolle) : new Set([...vorher].filter((sendend) => sendend !== rolle)))),
+      write: () => einwilligungErneutSendenAction({ id: bewerbungId, rolle: rolle }),
+      repair: LINK_ERNEUT_OHNE_ANTWORT,
+    });
+    if (res === null) return;
 
     // A rejection, which no answer came back from, carries this control's repair naming the connection; an
     // answer, an unknown outcome among them, carries its own sentence.
     if (!res.success) {
-      appToast.failure("Link nicht erneut gesendet", res);
+      appToast.failure("Link nicht erneut gesendet", res, LINK_UNKLAR);
       return;
     }
 
@@ -216,6 +219,7 @@ export function BewerbungBestaetigungStrip({
             <SitzZeile
               key={sitz.rolle}
               bewerbungId={bewerbungId}
+              neubesetzung={neubesetzung}
               sitz={sitz}
               belegteAdressen={adressenAndererPersonen(staende, sitz)}
               hatAngebot={isOpen && angebot.has(sitz.rolle)}
@@ -254,6 +258,7 @@ export function BewerbungBestaetigungStrip({
  */
 function SitzZeile({
   bewerbungId,
+  neubesetzung,
   sitz,
   belegteAdressen,
   hatAngebot,
@@ -268,6 +273,8 @@ function SitzZeile({
   onSchliessen,
 }: {
   bewerbungId: string;
+  /** `null` where the registry could not be read, which closes the reseat with the reason. */
+  neubesetzung: Neubesetzung | null;
   sitz: SitzBestaetigung;
   belegteAdressen: readonly string[];
   /** Whether a link can still be sent to this seat, which is the one condition the pencil and the re-send stand under. */
@@ -286,8 +293,8 @@ function SitzZeile({
 }) {
   const Glyph = STAND_ICON[sitz.stand.art];
   const zustellung = sitz.zustellung === null ? null : ZUSTELLUNG_CHIP[sitz.zustellung.stand];
-  const erneutLabel = `Link erneut senden an ${sitz.label}`;
-  const besetzenLabel = `${sitz.label} neu besetzen`;
+  const erneutLabel = benannt("Link erneut senden", sitz.label);
+  const besetzenLabel = benannt("Neu besetzen", sitz.label);
 
   return (
     // Each editor stands in the place of the control that opened it, so its close lands there, or on the
@@ -300,14 +307,14 @@ function SitzZeile({
         {sitz.zugleichTrainer && <span className={`${labelBadge("info")} ${STRIP_CHIP_CLASSES}`}>Zugleich Trainer</span>}
 
         <span className="min-w-0 fluid-sm font-medium text-foreground">
-          {sitz.name === null ? <span className="text-foreground-muted italic">{sitz.nameSatz}</span> : sitz.nameSatz}
+          {sitz.name === null ? <Leer>{sitz.nameSatz}</Leer> : sitz.nameSatz}
         </span>
 
         {/* The foreground grade rather than the queue's muted one: it is the value the pencil beside
             it edits and the thing the delivery chip is about. */}
         {sitz.name !== null && (
           <span className="max-w-full min-w-0 truncate fluid-xs font-medium text-foreground">
-            {sitz.email ?? <span className="text-foreground-muted italic">{KEINE_EMAIL}</span>}
+            {sitz.email ?? <Leer>{nichtHinterlegt("E-Mail")}</Leer>}
           </span>
         )}
 
@@ -319,7 +326,7 @@ function SitzZeile({
               <Button
                 type="button"
                 isPending={sendet}
-                aria-label={`E-Mail-Adresse von ${sitz.nameSatz} korrigieren`}
+                aria-label={benannt("Adresse korrigieren", sitz.nameSatz)}
                 onPress={() => {
                   onOeffne("korrektur");
                 }}
@@ -348,20 +355,29 @@ function SitzZeile({
         {/* In the right-hand cluster where the re-send stands, never beside the name: what it offers
             is a fresh link for this seat, and the two are never offered at once. */}
         {istNeubesetzbar && bearbeitet === null && (
-          <Button
-            {...focusSlot("neubesetzung")}
-            type="button"
-            aria-label={besetzenLabel}
-            onPress={() => {
-              onOeffne("neubesetzung");
-            }}
-            className={`${formButton({ intent: "nav", size: "xs" })} shrink-0 gap-x-2`}>
-            <PersonPlus
-              className="size-3.5"
-              aria-hidden="true"
-            />
-            <span>Neu besetzen</span>
-          </Button>
+          // Closed rather than withheld where the registry could not be read: the new person is asked
+          // the administration's page, whose words the box shows, and the reason says what to do.
+          <Hint
+            mode="refusal"
+            reason={neubesetzung === null ? FASSUNG_UNLESBAR : null}
+            label={besetzenLabel}
+            className="shrink-0">
+            <Button
+              {...focusSlot("neubesetzung")}
+              type="button"
+              isDisabled={neubesetzung === null}
+              aria-label={besetzenLabel}
+              onPress={() => {
+                onOeffne("neubesetzung");
+              }}
+              className={`${formButton({ intent: "nav", size: "xs" })} shrink-0 gap-x-2`}>
+              <PersonPlus
+                className="size-3.5"
+                aria-hidden="true"
+              />
+              <span>Neu besetzen</span>
+            </Button>
+          </Hint>
         )}
 
         {hatAngebot && bearbeitet === null && (
@@ -405,10 +421,11 @@ function SitzZeile({
         </FocusSlot>
       )}
 
-      {bearbeitet === "neubesetzung" && (
+      {bearbeitet === "neubesetzung" && neubesetzung !== null && (
         <FocusSlot name="neubesetzung">
           <SitzNeuBesetzen
             bewerbungId={bewerbungId}
+            neubesetzung={neubesetzung}
             rolle={sitz.rolle}
             label={sitz.label}
             belegteAdressen={belegteAdressen}
@@ -494,7 +511,7 @@ function AdresseKorrigieren({
 
     // Caught for the re-send's reason: awaited outside a transition, a rejection would leave „Sendet...“ standing.
     // And never reading the page again: that re-keys the strip over the box's typed entry (`docs/frontend/spec.md` §1.3).
-    const res = await kontaktEmailKorrigierenAction(payload).catch(() => ({ ...unansweredAction(), error: KORREKTUR_OHNE_ANTWORT }));
+    const res = await kontaktEmailKorrigierenAction(payload).catch((error: unknown) => unansweredAction(error, KORREKTUR_OHNE_ANTWORT));
     setSendet(false);
 
     // One raise for every arm below, so the title has one site.
@@ -611,11 +628,12 @@ const SEITENANFANG = [
   "fristUnvollstaendig",
   "widerruf",
   "art21",
-] as const satisfies readonly (keyof typeof BESTAETIGUNG_ABSAETZE)[];
+] as const satisfies readonly KontaktAbsatzSchluessel[];
 
 /** The box `AdresseKorrigieren` opens in, carrying four fields rather than one: this writes a whole person. */
 function SitzNeuBesetzen({
   bewerbungId,
+  neubesetzung,
   rolle,
   label,
   belegteAdressen,
@@ -624,6 +642,7 @@ function SitzNeuBesetzen({
   onFertig,
 }: {
   bewerbungId: string;
+  neubesetzung: Neubesetzung;
   rolle: KontaktRolle;
   /** The seat's own German, so the heading names the role the strip's chip beside it named. */
   label: string;
@@ -649,9 +668,9 @@ function SitzNeuBesetzen({
     schemas: { neubesetzung: FLBewerbungKontaktSitzPayloadSchema },
   });
 
-  // The label the new person will be shown, written from the registry rather than typed, as the
+  // The label the new person will be shown, read from the registry rather than typed, as the
   // application form writes it: a later rewording never changes what a stored record claims.
-  const payload = { id: bewerbungId, rolle: rolle, ...person, text_version: LIGA_KENNTNISNAHME.textVersion };
+  const payload = { id: bewerbungId, rolle: rolle, ...person, text_version: neubesetzung.textVersion };
 
   useForgiveFixed({ neubesetzung: payload });
 
@@ -686,7 +705,7 @@ function SitzNeuBesetzen({
 
     // Caught for the re-send's reason: awaited outside a transition, a rejection would leave „Sendet...“ standing.
     // And never reading the page again: that re-keys the strip over the box's typed entry (`docs/frontend/spec.md` §1.3).
-    const res = await besetzeKontaktSitzAction(payload).catch(() => ({ ...unansweredAction(), error: BESETZUNG_OHNE_ANTWORT }));
+    const res = await besetzeKontaktSitzAction(payload).catch((error: unknown) => unansweredAction(error, BESETZUNG_OHNE_ANTWORT));
     setSendet(false);
 
     // One raise for every arm below, so the title has one site.
@@ -751,8 +770,8 @@ function SitzNeuBesetzen({
             key={schluessel}
             className="muted-meta">
             <Absatz
-              schluessel={schluessel}
-              werte={{ kontakt: KONTAKT_EMAIL }}
+              text={neubesetzung.absaetze[schluessel]}
+              werte={FESTE_WERTE}
             />
           </p>
         ))}

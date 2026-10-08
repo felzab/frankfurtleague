@@ -6,12 +6,14 @@ import { BaseAPIResponseSchema } from "@/core/schemas";
 // that one declaration with the backend's, so a literal beside it is compared by nothing.
 import { KUERZEL_LAENGE } from "@/features/bewerbungen/constants";
 import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
+import { FLEinwilligungNachweiseSchema } from "@/features/spieler/schemas";
 import {
   CustomDateStringSchema,
   CustomObjectIdStringSchema,
   ExternalUrlSchema,
   FLAddressPayloadSchema,
   FLAddressSchema,
+  FLBewerbungZustellungSchema,
   KontaktEmailSchema,
   PersonNameSchema,
   PHONE_REGEX,
@@ -27,6 +29,7 @@ import {
   TEAM_NAME_MAX_LENGTH,
   TEAM_WEBSITE_URL_MAX_LENGTH,
 } from "./constants";
+import { kontaktePersonenRegeln } from "./kontaktePersonen";
 
 /**
  * A club's website, or none. **`null` is the one spelling of absence and `""` is not admitted** —
@@ -117,13 +120,13 @@ export type FLTrikotFarbe = z.infer<typeof FLTrikotFarbeSchema>;
 
 /**
  * Mirrors `FLKontaktKenntnisnahme` — which wording a contact person was shown, and on whose word the
- * record is held.
- * The wider `umfang` is written by the person's own confirmation alone, so the payload below keeps
- * the one-member literal.
+ * record is held. The wider `umfang` is its person's alone to write, so the administrator's payload
+ * below keeps the one-member literal.
  */
 export const FLKontaktKenntnisnahmeSchema = z.object({
   umfang: z.enum(["kontaktdaten", "kontaktdaten_whatsapp"], { error: "Die Kenntnisnahme gilt für Kontaktdaten, mit oder ohne WhatsApp." }),
-  erfasst_von: z.enum(["person", "administrativ"]),
+  // As `FLEinwilligungSchema.erteilt_von`: a stored seat's value alone, null on every seat written since.
+  erfasst_von: z.enum(["person", "administrativ"]).nullable(),
   // Unbounded on the read side, as every ceiling in this file is: a stored value over one of them
   // must still parse, or a single row fails a whole list.
   text_version: z.string(),
@@ -131,6 +134,12 @@ export const FLKontaktKenntnisnahmeSchema = z.object({
   // Null until the person has answered their own confirmation link. It is the one field separating
   // a record the person answered themselves from one the league entered on their behalf.
   bestaetigt_am: CustomDateStringSchema.nullable(),
+  // The seat's consent to photographs, video and interviews, answered apart from `umfang`.
+  medien: z.boolean(),
+  // Who seated the person, which decides the page the seat's link opens: the applicant on the form or
+  // the league. Null on a seat stored before the field, never a guess here.
+  eingetragen_von: z.enum(["bewerbung", "liga"]).nullable(),
+  nachweis: FLEinwilligungNachweiseSchema,
 });
 export type FLKontaktKenntnisnahme = z.infer<typeof FLKontaktKenntnisnahmeSchema>;
 
@@ -205,17 +214,34 @@ export const FLSaisonTeamKontakteSchema = z.object({
 });
 export type FLSaisonTeamKontakte = z.infer<typeof FLSaisonTeamKontakteSchema>;
 
+const SITZE_LESBAR_ODER_LEER = z.object({
+  ansprechperson: z.object({}).nullable(),
+  stellvertretung: z.object({}).nullable(),
+  trainer: z.object({}).nullable(),
+});
+
 /**
  * Mirrors `FLSaisonTeamKontaktePayload` — the write side of the three, with the editor's German and
  * the empty slot an erasure leaves. Three whole people in a NEW block is the form's guarantee.
  */
-export const FLSaisonTeamKontaktePayloadSchema = z.object({
-  // Empty is what an erasure leaves; accepting it here is what keeps such a row editable at all.
-  trainer: FLKontaktpersonPayloadSchema.nullable(),
-  ansprechperson: FLKontaktpersonPayloadSchema.nullable(),
-  stellvertretung: FLKontaktpersonPayloadSchema.nullable(),
-  trainer_ist_zugleich: FLTrainerZugleichSchema.nullable(),
-});
+export const FLSaisonTeamKontaktePayloadSchema = z
+  .object({
+    // Empty is what an erasure leaves; accepting it here is what keeps such a row editable at all.
+    trainer: FLKontaktpersonPayloadSchema.nullable(),
+    ansprechperson: FLKontaktpersonPayloadSchema.nullable(),
+    stellvertretung: FLKontaktpersonPayloadSchema.nullable(),
+    trainer_ist_zugleich: FLTrainerZugleichSchema.nullable(),
+  })
+  // The application's two rules, so a refusal lands on the box rather than on a 422 naming the block.
+  .superRefine(
+    kontaktePersonenRegeln({
+      email: FLKontaktpersonPayloadSchema.shape.email,
+      telefon: FLKontaktpersonPayloadSchema.shape.telefon,
+      zugleich: FLTrainerZugleichSchema,
+    }),
+    // Asked rather than zod's default, which skips a refinement once any check in the block aborts.
+    { when: ({ value }) => SITZE_LESBAR_ODER_LEER.safeParse(value).success },
+  );
 export type FLSaisonTeamKontaktePayload = z.infer<typeof FLSaisonTeamKontaktePayloadSchema>;
 
 export const FLTeamStatistikSchema = z.object({
@@ -397,6 +423,26 @@ export const FLTeamRecordSchema = z.object({
 });
 export type FLTeamRecord = z.infer<typeof FLTeamRecordSchema>;
 
+/** Mirrors `FLSaisonTeamBestaetigungAnsicht` — one seat's link as the editor reads it, its hash never served. */
+export const FLSaisonTeamBestaetigungAnsichtSchema = z.object({
+  verschickt_am: CustomDateStringSchema,
+  frist: CustomDateStringSchema,
+  // A Widerspruch's day, kept beside the slot the Widerspruch emptied.
+  abgelehnt_am: CustomDateStringSchema.nullable(),
+  zustellung: FLBewerbungZustellungSchema.nullable(),
+  // The backend's judgement of the deadline today, so the editor reads no day of its own.
+  abgelaufen: z.boolean(),
+});
+export type FLSaisonTeamBestaetigungAnsicht = z.infer<typeof FLSaisonTeamBestaetigungAnsichtSchema>;
+
+/** Mirrors `FLSaisonTeamBestaetigungenAnsicht` — one link per seat, `null` where the seat holds none. */
+export const FLSaisonTeamBestaetigungenAnsichtSchema = z.object({
+  trainer: FLSaisonTeamBestaetigungAnsichtSchema.nullable(),
+  ansprechperson: FLSaisonTeamBestaetigungAnsichtSchema.nullable(),
+  stellvertretung: FLSaisonTeamBestaetigungAnsichtSchema.nullable(),
+});
+export type FLSaisonTeamBestaetigungenAnsicht = z.infer<typeof FLSaisonTeamBestaetigungenAnsichtSchema>;
+
 /** Mirrors `FLTeamMembership` — one junction row as seen from its club. */
 export const FLTeamMembershipSchema = z.object({
   saison_id: z.string(),
@@ -406,6 +452,8 @@ export const FLTeamMembershipSchema = z.object({
   // season's kit is not evidence of this season's.
   trikot_farbe: FLTrikotFarbeSchema.nullable(),
   kontakte: FLSaisonTeamKontakteSchema.nullable(),
+  // Each seat's link as the contacts editor shows it, `null` where the row stores no block.
+  bestaetigungen: FLSaisonTeamBestaetigungenAnsichtSchema.nullable(),
   // Opaque here: the server derives it from the block beside it, and a save echoes it back so a row
   // that moved under an open editor is refused rather than overwritten (`REQ-KONTAKT-001`).
   kontakte_stand: z.string(),

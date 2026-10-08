@@ -1,0 +1,25 @@
+// Linted as src/app/api/admin/spieler/undo/route.ts.
+import { revalidatePath, revalidateTag } from "next/cache"; // expect: route-tag-drop expect: route-tag-drop
+import * as nextCache from "next/cache";
+
+export async function plantedAfterAnswer(write: () => Promise<void>): Promise<void> {
+  await write();
+  revalidateTag("spieler", { expire: 0 });
+  revalidatePath("/");
+  nextCache.revalidateTag("spieler", { expire: 0 }); // expect: route-tag-drop
+  nextCache.revalidatePath("/"); // expect: route-tag-drop
+  nextCache["revalidateTag"]("spieler", { expire: 0 }); // expect: route-tag-drop
+  nextCache["revalidatePath"]("/"); // expect: route-tag-drop
+  nextCache[`revalidateTag`]("spieler", { expire: 0 }); // expect: route-tag-drop
+  const { revalidatePath: dropPath, updateTag } = nextCache; // expect: route-tag-drop expect: tag-drop
+  const { "revalidateTag": dropQuoted } = nextCache; // expect: route-tag-drop
+  const { [`revalidatePath`]: dropTemplated } = nextCache; // expect: route-tag-drop
+  dropPath("/");
+  updateTag("spieler");
+  dropQuoted("spieler", { expire: 0 });
+  dropTemplated("/");
+}
+
+// The route's own tags, handed to its spine; a name merely holding the word is no call.
+export const tags = (): readonly string[] => ["spieler"];
+export const revalidateTagName = "revalidateTag";

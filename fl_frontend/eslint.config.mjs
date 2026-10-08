@@ -180,6 +180,11 @@ const TEST_ONLY = [
     message: "childTestRun spawns a child test run of a fixture: a *.test.ts(x) file may import it, production code may not.",
   },
   {
+    // In core for `mailDouble.ts`'s reason: the core mail suites read each message through it.
+    group: ["**/mailText.ts", "**/mailText"],
+    message: "mailText reduces a message to the words its reader reads: a *.test.ts(x) file may import it, production code may not.",
+  },
+  {
     // Any `testing` directory, so a relative path from inside `shared`, which names no `shared`, is read too.
     group: ["**/testing/**"],
     message: "src/shared/testing is the suite's harness: a *.test.ts(x) file may import it, production code may not.",
@@ -198,9 +203,16 @@ const TEST_ONLY = [
     message: "This module reads the source tree off disk: a *.test.ts(x) file may import it, production code may not.",
   },
   {
-    group: ["**/openapiDocument.ts", "**/openapiDocument", "**/publishedCeilings.ts", "**/publishedCeilings"],
+    group: [
+      "**/openapiDocument.ts",
+      "**/openapiDocument",
+      "**/publishedCeilings.ts",
+      "**/publishedCeilings",
+      "**/einwilligungDocument.ts",
+      "**/einwilligungDocument",
+    ],
     message:
-      "This module locates or reads fl_backend/openapi.json, which no production image holds: a *.test.ts(x) file may import it, production code may not.",
+      "This module locates or reads a document fl_backend generates (openapi.json, einwilligung.json), which no production image holds: a *.test.ts(x) file may import it, production code may not.",
   },
   {
     group: [
@@ -258,6 +270,7 @@ const SECRET_READERS = Object.fromEntries(
     ["src/app/api/mail/zustellung/route.ts", ["resendWebhookSecret"], "the key the provider's delivery reports are verified with"],
     // The system's key calls the backend as the system, past every guard on an admin's session.
     ["src/core/api.ts", ["internalApiKeyBase", "internalApiKeySystem", "internalApiKeyAdmin"], "the backend's keys"],
+    ["src/core/turnstile.ts", ["turnstileSecretKey"], "the key the bot check's tokens are verified with"],
   ].map(([owner, importNames, secret]) => [
     owner,
     {
@@ -308,7 +321,7 @@ const SECRET_FILE_ENTRIES = (() => {
   return entries;
 })();
 
-/** Each secret's own name: a host may still carry the retired variable of one, a live value no file check judges. */
+/** Each secret's own name: a process may carry a variable of one, a live value no file check judges. */
 const SECRET_NAMES = SECRET_FILE_ENTRIES.map(([name]) => name);
 
 /** Each secret's file: read off disk by its name, a secret skips the one reader its holder may import. */
@@ -522,6 +535,26 @@ const PASSKEY_DELETION = {
   selector: 'Identifier[name="deletePasskey"], Literal[value="deletePasskey"], TemplateElement[value.cooked="deletePasskey"]',
   message:
     "The passkey plugin's own deletion writes outside the transaction a removal holds. Remove through `removePasskey` in src/core/auth.ts (docs/frontend/spec.md :: I312).",
+};
+
+/**
+ * React's `useActionState`, and react-dom's `useFormState` it renamed, hand an action's rejection to the nearest
+ * error boundary, which reads nothing of it, the edge's own 429 included. The hook the codebase takes it through
+ * answers that one.
+ */
+const ACTION_STATE_HOOKS = "/^(?:useActionState|useFormState)$/";
+const ACTION_STATE_BAN = {
+  selector: [
+    `ImportSpecifier[imported.name=${ACTION_STATE_HOOKS}]`,
+    `MemberExpression[property.name=${ACTION_STATE_HOOKS}]`,
+    // A destructured key: the two below hold every quoted spelling, a computed key's among them.
+    `ObjectPattern > Property[key.name=${ACTION_STATE_HOOKS}]`,
+    `Literal[value=${ACTION_STATE_HOOKS}]`,
+    `TemplateElement[value.cooked=${ACTION_STATE_HOOKS}]`,
+  ].join(", "),
+  message:
+    "Take `useActionState`, or react-dom's `useFormState`, through `useAnsweredActionState` in src/shared/hooks/useAnsweredActionState.ts, which answers the edge's own refusal of the action (docs/frontend/spec.md :: I656).",
+  exempt: ["src/shared/hooks/useAnsweredActionState.ts"],
 };
 
 /** A failure's own sentence handed to a danger's description: an `error` read off a name, bare or behind a `??`. */
@@ -850,6 +883,23 @@ function takenFromLoad(pattern, names) {
  * Bans no dedicated rule states, each one syntax selector: `exempt` names the file whose job is to
  * spell it, `tests` puts test files in the population, and `production: false` takes production out.
  */
+/** A call declaring a write's cache tags: `invalidatesOnWrite`, or a slice's helper over it (`invalidateSpieler`). */
+const DECLARES_TAGS = "CallExpression[callee.name=/^invalidates?[A-Z]/]";
+
+/**
+ * Every read of `name` off a module's namespace: a member, keyed by a string or a template, or a
+ * destructured key in either spelling. A ban naming fewer is escaped by the next one.
+ */
+const readsOff = (name) =>
+  [
+    `MemberExpression[property.name=${name}]`,
+    `MemberExpression[computed=true][property.value=${name}]`,
+    `MemberExpression[computed=true] > TemplateLiteral.property > TemplateElement[value.cooked=${name}]`,
+    `ObjectPattern > Property[key.name=${name}]`,
+    `ObjectPattern > Property[key.value=${name}]`,
+    `ObjectPattern > Property > TemplateLiteral.key > TemplateElement[value.cooked=${name}]`,
+  ].join(", ");
+
 const SOURCE_BANS = [
   {
     // A test's router double counts `seen.back` and destructures `back` off itself, which the
@@ -861,6 +911,7 @@ const SOURCE_BANS = [
   },
   // `src/core/auth.test.ts` calls the plugin's deletion to hold it closed, so tests stay outside.
   PASSKEY_DELETION,
+  ACTION_STATE_BAN,
   ...DYNAMIC_LOADS.map((ban) => ({ ...ban, tests: true })),
   {
     // A module double's source text, or a specifier held in a name for a later load. A path assembled
@@ -903,7 +954,7 @@ const SOURCE_BANS = [
       "A loaded fl_frontend/src/core/mail.ts is taken apart where it is loaded, and never into `sendSperreNotice`, which sends past the ban list's gate.",
   },
   {
-    // `process.env.<name>` and every other spelling of one: the retired variable is a host's live value.
+    // `process.env.<name>` and every other spelling of one: a variable of a secret's name is a live value.
     selector: [
       "MemberExpression[property.name=NAMES]",
       "ObjectPattern > Property[key.name=NAMES]",
@@ -913,7 +964,7 @@ const SOURCE_BANS = [
       .map((site) => site.replace("NAMES", `/^(?:${SECRET_NAMES.join("|")})$/`))
       .join(", "),
     message:
-      "A secret is read through its reader in fl_frontend/src/core/config.ts alone: a host may still carry its retired variable, a live value no file check judges (docs/frontend/spec.md :: I545).",
+      "A secret is read through its reader in fl_frontend/src/core/config.ts alone: a process may carry a variable of its name, a live value no file check judges (docs/frontend/spec.md :: I545).",
     exempt: ["src/core/config.ts"],
   },
   {
@@ -1098,6 +1149,45 @@ const SOURCE_BANS = [
       "src/features/spiele/components/forms/AdminEditSpielDataForm/PickOrCreateAutocomplete.tsx",
     ],
   },
+  {
+    // The spine alone drops a tag, wherever a write may stand: one dropped after an awaited write is
+    // never reached by a write whose answer was lost.
+    selector: `:matches(ImportDeclaration[source.value="next/cache"] > ImportSpecifier[imported.name="updateTag"], ${readsOff('"updateTag"')})`,
+    message:
+      "Declare a write's cache tags with `invalidatesOnWrite` before the write: fl_frontend/src/shared/utils/adminMutation.ts drops them, a lost answer included (docs/frontend/spec.md :: I640).",
+    exempt: ["src/shared/utils/adminMutation.ts"],
+  },
+  {
+    // The FIRST declaration in a block, after an awaited statement of that block: a write awaited before
+    // it never has its tags dropped. A later one stays free, a tag known only from the answer.
+    selector: `BlockStatement > :has(AwaitExpression) ~ :has(${DECLARES_TAGS}):not(BlockStatement > :has(${DECLARES_TAGS}) ~ *)`,
+    message:
+      "Declare a write's first cache tags before the body's first `await`: a write awaited ahead of the declaration whose answer is lost drops nothing.",
+  },
+  {
+    // A route handler's half of the same rule: its spine drops the tags it was handed wherever its
+    // write may stand, where a drop of its own after the answer misses a lost one.
+    selector: `:matches(ImportDeclaration[source.value="next/cache"] > ImportSpecifier[imported.name=/^revalidate(?:Tag|Path)$/], ${readsOff("/^revalidate(?:Tag|Path)$/")})`,
+    message:
+      "Hand a route's cache tags to its spine: `invalidatesOnWrite` under fl_frontend/src/shared/utils/publicRoute.ts, an undo route's `tags` under fl_frontend/src/shared/utils/undoRoute.ts.",
+    exempt: ["src/shared/utils/publicRoute.ts", "src/shared/utils/undoRoute.ts"],
+  },
+  {
+    // Per function, so a module caching a public read beside a caller's own is held too, which the
+    // module list below cannot do.
+    // Anchored on the directive: esquery's `:has` takes no chained child combinator.
+    selector:
+      ':function:has(CallExpression[callee.name="runPersonRead"], Property[key.name="authType"][value.value="admin"]) > BlockStatement > ExpressionStatement[directive=/^use cache/]',
+    message:
+      "A function reading for its caller directly, through runPersonRead or with the admin key, is never cached: `\"use cache\"` keys on the arguments, not the caller, so a person's or an administrator's read would become a slot every caller shares (docs/frontend/spec.md §1.2).",
+  },
+  {
+    // `error` is `unknown`, so the type checker passes an empty one, which reads an edge's 429 as an unclear save.
+    selector:
+      ':matches(CallExpression[callee.name="unansweredAction"], CallExpression[callee.property.name="unansweredAction"]) > :matches(Identifier[name="undefined"], Literal[raw="null"], UnaryExpression[operator="void"]).arguments:nth-child(1)',
+    message:
+      "Hand `unansweredAction` the rejection it answers: without it, the edge's own refusal of the press reads as an unclear save rather than as one that wrote nothing.",
+  },
 ];
 
 /**
@@ -1124,7 +1214,7 @@ const SCOPED_BANS = [
       message: "A facet carries a `read` function, which a Server Component cannot hand across to a client.",
     },
     {
-      files: ["src/app/**/route.ts"],
+      files: ["src/app/**/route.{ts,tsx}"],
       selector: inLiteral("REQ-EINLADUNG"),
       message: "No undo route replays an invite endpoint, so its refusals are worded in fl_frontend/src/features/einladungen/actions.ts alone.",
     },
@@ -1170,13 +1260,22 @@ const SCOPED_BANS = [
   // takes the directive per function, which a module-wide ban would refuse.
   [
     {
-      files: ["admin", "aktionen", "bewerbungen", "einladungen", "schiedsrichter", "sperrliste", "spielorte"].map(
-        (slice) => `src/features/${slice}/queries.ts`,
-      ),
+      files: [
+        "admin",
+        "aktionen",
+        "bewerbungen",
+        "einladungen",
+        "funktionen",
+        "konto",
+        "registrierungen",
+        "schiedsrichter",
+        "sperrliste",
+        "spielorte",
+      ].map((slice) => `src/features/${slice}/queries.ts`),
       selector:
         "ExpressionStatement[directive=/^use cache/], :matches(CallExpression > Identifier.callee, CallExpression > MemberExpression.callee > Identifier.property, ImportSpecifier > Identifier.imported)[name=/^(?:cacheTag|cacheLife)$/], CallExpression > MemberExpression.callee[computed=true] > Literal.property[value=/^(?:cacheTag|cacheLife)$/]",
       message:
-        'This module caches no read: `"use cache"` keys on the arguments, not the caller, so an admin read would become a shared slot (docs/frontend/spec.md §1.2).',
+        'This module caches no read: `"use cache"` keys on the arguments, not the caller, so a read made for one signed-in administrator or seat holder would become a slot every caller shares (docs/frontend/spec.md §1.2).',
     },
   ],
   [
@@ -1387,7 +1486,27 @@ const eslintConfig = defineConfig([
           detectComponentClasses: false,
         },
       ],
+
+      // A word in a value's place takes the one upright empty grade (`docs/frontend/spec.md` §1.19), and
+      // the slant was the grade it replaced: one coming back is the old style, wherever it lands.
+      "better-tailwindcss/no-restricted-classes": [
+        "error",
+        {
+          restrict: [
+            {
+              pattern: "^(?:.*:)?italic$",
+              message: "An empty value renders through `Leer` from `@/shared/components/ui/Angabe`, upright (`docs/frontend/spec.md` §1.19).",
+            },
+          ],
+        },
+      ],
     },
+  },
+
+  // A message about an empty list is no value and keeps its own style, the slant included (§1.19).
+  {
+    files: ["src/features/spiele/components/views/SpielsucheView.tsx", "src/shared/components/ui/FilterPanel.tsx"],
+    rules: { "better-tailwindcss/no-restricted-classes": "off" },
   },
 
   // The a11y rule set. Only the rules are taken from the plugin: `eslint-config-next` already

@@ -4,8 +4,10 @@ import { describe, it } from "node:test";
 import { APIError } from "better-auth/api";
 
 import { registerDoubles } from "@/core/exportingModule.ts";
+import { TURNSTILE_FIELD } from "@/core/turnstileToken.ts";
 import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 import { renderMarkup, textOf } from "@/shared/testing/renderTest.ts";
+import { doubleSiteverify, TEST_SECRET, TEST_TOKEN } from "@/shared/testing/siteverifyDouble.ts";
 
 import type { FormState } from "@/shared/types/types.ts";
 
@@ -35,7 +37,20 @@ registerDoubles({
   specifiers: PACKAGE_DOUBLES,
 });
 
+const siteverify = doubleSiteverify();
+
 const { handleSignIn } = await import("./actions.ts");
+
+const ADDRESS = "vorstand@example.org";
+
+/** One press as a form posts it, the bot check's token in its field where `token` names one. */
+function aPress(token: string | null, email = ADDRESS): FormData {
+  const submitted = new FormData();
+  submitted.set("email", email);
+  if (token !== null) submitted.set(TURNSTILE_FIELD, token);
+
+  return submitted;
+}
 
 /**
  * The answer to one press, with the work scheduled behind the response run once it is in hand, and
@@ -46,11 +61,8 @@ async function signInAnswering(outcome: () => Promise<void>): Promise<{ answer: 
     signIns += 1;
     return outcome();
   };
-  const submitted = new FormData();
-  submitted.set("email", "vorstand@example.org");
-
   const before = signIns;
-  const answer = await handleSignIn(undefined, submitted);
+  const answer = await handleSignIn(undefined, aPress(TEST_TOKEN));
   // Read before the deferred work runs, which is the order a caller timing the answer sees.
   const reachedWhileAnswering = signIns - before;
   for (const task of deferred.splice(0)) await task();
@@ -95,11 +107,51 @@ describe("handleSignIn's answer", () => {
   });
 });
 
+describe("the bot check on a code request", () => {
+  const MENSCH = "Bitte bestätige kurz, dass Du ein Mensch bist.";
+
+  /** The answer to `submitted`, and whether a code was asked of the library for it at all. */
+  async function pressed(submitted: FormData): Promise<{ answer: FormState; sent: boolean }> {
+    const before = signIns;
+    const answer = await handleSignIn(undefined, submitted);
+    for (const task of deferred.splice(0)) await task();
+
+    return { answer: answer, sent: signIns > before };
+  }
+
+  /* Beside `fl_frontend/src/app/botCheckCoverage.test.ts`, which holds the check asked first, this is the
+     one case reading the address the refusal echoes back. */
+  it("refuses a press carrying no token, sends nothing and asks Cloudflare nothing", async () => {
+    const { answer, sent } = await pressed(aPress(null));
+
+    assert.deepEqual(answer, { success: false, error: MENSCH, submittedEmail: ADDRESS });
+    assert.equal(sent, false, "a code was asked for past a refused check");
+    assert.deepEqual(siteverify.asked(), []);
+  });
+
+  it("sends past the test key's token, asked of Cloudflare with the test secret", async () => {
+    const { answer, sent } = await pressed(aPress(TEST_TOKEN));
+
+    assert.deepEqual(answer, { success: true, message: NEUTRAL_ANSWER, submittedEmail: ADDRESS });
+    assert.equal(sent, true);
+    assert.deepEqual(siteverify.asked(), [{ secret: TEST_SECRET, response: TEST_TOKEN }]);
+  });
+
+  /* The refusal is the check's, never the address's: one varying with the address would be the
+     membership oracle the neutral sentence withholds. */
+  it("refuses every address with one sentence, its own echo apart", async () => {
+    const one = await pressed(aPress(null, "vorstand@example.org"));
+    const other = await pressed(aPress(null, "niemand@example.org"));
+
+    assert.deepEqual({ ...one.answer, submittedEmail: null }, { ...other.answer, submittedEmail: null });
+  });
+});
+
 describe("the sign-in boundary's panel", () => {
   it("says the website cannot be reached, and offers the way back", async () => {
     const { SignInActionFallback } = await import("./components/ui/SignInActionFallback.tsx");
 
-    const text = textOf(renderMarkup(SignInActionFallback, { onRetry: () => undefined }));
+    const text = textOf(renderMarkup(SignInActionFallback, {}));
 
     assert.ok(text.includes("Die Website ist gerade nicht erreichbar."), text);
     assert.match(text, /Erneut versuchen/);
@@ -108,6 +160,6 @@ describe("the sign-in boundary's panel", () => {
   it("is announced, because it arrives on a press rather than standing there from first paint", async () => {
     const { SignInActionFallback } = await import("./components/ui/SignInActionFallback.tsx");
 
-    assert.match(renderMarkup(SignInActionFallback, { onRetry: () => undefined }), /role="alert"/);
+    assert.match(renderMarkup(SignInActionFallback, {}), /role="alert"/);
   });
 });

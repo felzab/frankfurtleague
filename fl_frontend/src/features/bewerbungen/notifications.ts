@@ -1,12 +1,12 @@
 import "server-only";
 
 import { mailboxKey } from "@/core/emailAddress";
-import { APINetworkError } from "@/core/errors";
 import { joinUnd } from "@/core/joinUnd";
 import { logger } from "@/core/logging";
-import { MailBarredError, MailWithheldError, sendMail } from "@/core/mail";
+import { sendMail } from "@/core/mail";
 import { mailIdempotencyKey } from "@/core/mailIdempotencyKey";
 import { markOutcomeUnknown } from "@/core/requestScope";
+import { versandAusfallOf } from "@/core/versandAusfall";
 import { gesperrtSatz, ZURUECKGEHALTEN } from "@/features/einladungen/meldungen";
 
 import { BEWERBUNG_SEATS } from "./constants";
@@ -358,18 +358,20 @@ async function settleFanOut<T extends { address: string; rollen: readonly Bewerb
       return;
     }
 
+    const ausfall = versandAusfallOf(result.reason);
+
     // Counted and nothing more: no failure line, the gate's own being the record, and no delivery
     // state, which would store on the seat that its address is barred (`docs/frontend/spec.md :: I542`).
-    if (result.reason instanceof MailBarredError) {
+    if (ausfall === "gesperrt") {
       gesperrt += 1;
       return;
     }
 
-    if (result.reason instanceof APINetworkError) {
+    if (ausfall === "ungewiss") {
       ungewiss.push(address);
       markOutcomeUnknown();
     } else unreachable.push(address);
-    if (result.reason instanceof MailWithheldError) {
+    if (ausfall === "zurueckgehalten") {
       withheld.push(address);
       // No failure line: the mailer's own records a filed message, and a deployment that mails nothing failed nothing.
       return;

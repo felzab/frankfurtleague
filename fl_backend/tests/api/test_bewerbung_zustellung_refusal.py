@@ -7,13 +7,11 @@ from pydantic import ValidationError
 
 from app.api.bewerbungen.schemas import (
     FLBewerbungZustellEreignis,
-    FLBewerbungZustellstand,
     FLBewerbungZustellungAngenommenPayload,
     FLBewerbungZustellungEreignisPayload,
     normalise_zustellzeitpunkt,
 )
 from app.api.bewerbungen.services import (
-    KONTAKT_SEATS,
     ZUSTELLUNG_ABGEWIESEN,
     compose_bestaetigungen,
     compose_zustellung_update,
@@ -24,6 +22,8 @@ from app.api.bewerbungen.services import (
     zustellung_send_applies,
 )
 from app.api.bewerbungen.zustellung_router import ZUSTELLUNG_FIELDS
+from app.api.teams.schemas import KONTAKT_ROLLEN
+from app.shared.schemas.zustellung import FLBewerbungZustellstand
 
 BEWERBUNG_ID = "6890a1b2c3d4e5f607970001"
 
@@ -38,7 +38,7 @@ LATER = "2026-03-29T11:00:00.000000+00:00"
 FIRST_MESSAGE = "49a3999c-0ce1-4ea6-ab68-afcd6dc2e794"
 SECOND_MESSAGE = "7c1f2b5e-3d44-4a91-9f0b-1e2d3c4b5a60"
 
-HASHES: Mapping[str, str] = {seat: hash_token(f"first-{seat}") for seat in KONTAKT_SEATS}
+HASHES: Mapping[str, str] = {seat: hash_token(f"first-{seat}") for seat in KONTAKT_ROLLEN}
 
 
 def zustellung(*, nachricht_id: str = FIRST_MESSAGE, stand: str = "angenommen", grund: str | None = None, am: str = STAMP) -> dict[str, Any]:
@@ -296,7 +296,7 @@ class TestTheProjectionResolvesEverySeat:
     """
 
     def test_it_names_one_delivery_path_per_seat_and_nothing_else(self):
-        assert set(ZUSTELLUNG_FIELDS) == {f"bestaetigungen.{seat}.zustellung" for seat in KONTAKT_SEATS}
+        assert set(ZUSTELLUNG_FIELDS) == {f"bestaetigungen.{seat}.zustellung" for seat in KONTAKT_ROLLEN}
 
     def test_every_path_it_names_is_an_inclusion(self):
         """`0` would widen it to everything else, an inclusion projection answering the whole document."""

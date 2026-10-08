@@ -83,7 +83,8 @@ authorization check. Application data goes through FastAPI without exception.
 **Admin is a stored grant, read on every request.** A row of `berechtigungen` (the glossary's
 `Berechtigung`) makes an address an administrator: the frontend reads it on the subject lookup,
 through `fl_frontend/src/core/verwaltung.ts :: verwaltungOf`, and the backend reads it on every
-admin-tier request and refuses one naming an actor who holds none
+admin-tier request and refuses one naming an actor who holds none, but a signed-in person's, whose
+router judges a ban and the seat or record the call names instead
 ([`../backend/spec.md`](../backend/spec.md) I383). A backend that cannot answer admits nobody
 ([`spec.md`](spec.md) I121). Grants are made on `/bereich/admin/administratoren`, and every change to
 them, one made in the database included, is mailed to every holder by a pass this process runs

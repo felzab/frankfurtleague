@@ -3,14 +3,13 @@ import { describe, it } from "node:test";
 
 import { parseDate } from "@internationalized/date";
 
-import { BESTAETIGUNG_KENNTNISNAHME } from "@/core/einwilligung";
-import { APIBadStatusError } from "@/core/errors";
+import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { TEAM_FACETS } from "@/features/teams/facets";
-import { answerShown, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
+import { answerShown, publishedRefusals, refusedOn, unpublishedOn } from "@/shared/testing/publishedRefusals.ts";
 import { bodyField, refusedPayload } from "@/shared/testing/refusedPayload.ts";
 import { FELD_ABGELEHNT } from "@/shared/utils/actionError";
 import { getGermanTodayStr } from "@/shared/utils/date";
-import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
+import { ANTWORT_NEU_OEFFNEN, FASSUNG_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 
 import { alterAusserhalb, BEWERBUNG_MAX_ALTER, BEWERBUNG_MIN_ALTER, VERTRETUNG_MIN_ALTER } from "./constants.ts";
 import { buildEinwilligungAntwortPayloadSchema } from "./schemas.ts";
@@ -33,11 +32,13 @@ import {
   mapEinwilligungAnsichtRefusal,
   mapEinwilligungRefusal,
   mirrorBewerbungTrainer,
-  nenntLaufendeFassung,
 } from "./utils.ts";
 
 import type { FLBewerbung, FLBewerbungFensterResponse } from "./schemas.ts";
 import type { BewerbungKontakteDraft, BewerbungKontaktpersonDraft } from "./types.ts";
+
+/** The label the backend runs on the contact page, off the registry it generated. */
+const KONTAKT_LABEL = publishedLaufendeFassung("bestaetigung_kontakt").text_version;
 
 /** The proposed school, of which only `team_name` decides the answer. */
 const SCHOOL: FLBewerbung["schule"] = {
@@ -298,7 +299,7 @@ describe("the birthdate window a contact person's date has to fall in", () => {
     for (const mindestalter of [BEWERBUNG_MIN_ALTER, VERTRETUNG_MIN_ALTER]) {
       const { spaeteste } = geburtsdatumSpanne(getGermanTodayStr(), mindestalter);
       const schema = buildEinwilligungAntwortPayloadSchema(mindestalter);
-      const antwort = { token: "kein-echtes-token", antwort: "erteilt", whatsapp: false, text_version: BESTAETIGUNG_KENNTNISNAHME.textVersion };
+      const antwort = { token: "kein-echtes-token", antwort: "erteilt", whatsapp: false, medien: false, text_version: KONTAKT_LABEL };
 
       assert.equal(schema.safeParse({ ...antwort, geburtsdatum: spaeteste }).success, true, `${String(mindestalter)}: the offer is refused`);
       assert.equal(
@@ -389,19 +390,6 @@ const SUBMIT_OPERATION = "POST /bewerbungen";
 const CONFIRM_OPERATION = "POST /bewerbungen/einwilligung";
 const ANSICHT_OPERATION = "POST /bewerbungen/einwilligung/ansicht";
 
-/** One refusal as the client sees it: a 409 carrying the code, which is the whole of what it maps on. */
-const badStatus = (statusCode: number, serverErrorCode: string) =>
-  new APIBadStatusError({
-    message: "refused",
-    url: "http://backend/api/v0/bewerbungen",
-    statusCode: statusCode,
-    serverErrorCode: serverErrorCode,
-    endpoint: "/bewerbungen",
-    method: "POST",
-    readOnly: false,
-    traceId: "0123456789abcdef",
-  });
-
 /**
  * `code` as `operation` refuses with it, asserted published there first: an arm kept for a code the
  * backend stopped publishing fails here rather than passing on a refusal nothing sends.
@@ -455,16 +443,16 @@ describe("what a submission's refusal is shown as", () => {
   });
 
   it("maps nothing it does not recognise, so an unknown code falls through to the shared handler", () => {
-    assert.equal(mapBewerbungSubmitRefusal(refusedOn(SUBMIT_OPERATION, "REQ-BEWERBUNG-999", 409)), null);
+    assert.equal(mapBewerbungSubmitRefusal(unpublishedOn(SUBMIT_OPERATION, "REQ-BEWERBUNG-999", 409)), null);
     assert.equal(mapBewerbungSubmitRefusal(new Error("boom")), null);
     // A write answered with a 5xx may have landed, which no refusal's words may deny.
-    assert.equal(mapBewerbungSubmitRefusal(badStatus(500, "REQ-BEWERBUNG-005")), null);
+    assert.equal(mapBewerbungSubmitRefusal(refusedOn(SUBMIT_OPERATION, "REQ-BEWERBUNG-005", 500)), null);
   });
 
   /* Codes are unique across the API, so a rule moved to another status keeps its answer. */
   it("answers a code alike at whatever status its rule answers with", () => {
     for (const code of ["REQ-BEWERBUNG-005", "REQ-BEWERBUNG-015"]) {
-      assert.deepEqual(mapBewerbungSubmitRefusal(badStatus(422, code)), refusal(code), code);
+      assert.deepEqual(mapBewerbungSubmitRefusal(refusedOn(SUBMIT_OPERATION, code)), refusal(code), code);
     }
   });
 });
@@ -517,7 +505,7 @@ describe("the submission's refusals against the codes its endpoint publishes", (
 
     // An earlier wording on a seat is a page older than the deploy, which a reload replaces: the
     // sentence the form's own parse gives such a page, and no box, none of them being at fault.
-    assert.deepEqual(mapBewerbungSubmitRefusal(publishedOn(SUBMIT_OPERATION, "REQ-BEWERBUNG-016")), { error: BEWERBUNG_VERALTET });
+    assert.deepEqual(mapBewerbungSubmitRefusal(publishedOn(SUBMIT_OPERATION, "REQ-EINWILLIGUNG-001")), { error: BEWERBUNG_VERALTET });
   });
 
   /* The record missing is a season the running API does not hold, which only a page from before a
@@ -625,12 +613,6 @@ describe("the confirmation's refusals against the codes its endpoint publishes",
     }
   });
 
-  /* The record missing is an application the link named and nothing holds now: the dead-link panel,
-     never the admin's „nicht gefunden“ with a reload. */
-  it("answers the link's record gone as the link void", () => {
-    assert.deepEqual(mapEinwilligungRefusal(refusedOn(CONFIRM_OPERATION, "DB-COMMON-001"), VERTRETUNG_MIN_ALTER), { zustand: "ungueltig" });
-  });
-
   /* The link's own read answers every refusal alike: a spent link answers its state in a 200, so a
      refusal is a token nothing could place. */
   it("calls the link void on every refusal its read publishes", () => {
@@ -639,10 +621,10 @@ describe("the confirmation's refusals against the codes its endpoint publishes",
     }
   });
 
-  /* Two codes sharing an answer leave the reader no way to tell which one happened. The exempt pair
-     both spend this person's link: a decided application, and a deadline only the league's re-send
-     restarts. */
-  it("gives each code its own answer, the two spent links one panel", () => {
+  /* Three codes, one panel, each spending this person's link: a decided application, an application's
+     passed deadline, and a season row's passed deadline, which no application's link meets and whose
+     wording the view takes from the link's source. */
+  it("gives each code its own answer, the spent links one panel", () => {
     const answers = new Map(
       publishedRefusals(CONFIRM_OPERATION).map((code) => [
         code,
@@ -650,8 +632,10 @@ describe("the confirmation's refusals against the codes its endpoint publishes",
       ]),
     );
 
-    assert.equal(answers.get("REQ-BEWERBUNG-017"), answers.get("REQ-BEWERBUNG-010"), "the passed deadline leaves the spent-link panel");
-    answers.delete("REQ-BEWERBUNG-017");
+    for (const code of ["REQ-BEWERBUNG-017", "REQ-KONTAKT-004"]) {
+      assert.equal(answers.get(code), answers.get("REQ-BEWERBUNG-010"), `${code}'s passed deadline leaves the spent-link panel`);
+      answers.delete(code);
+    }
     assert.equal(new Set(answers.values()).size, answers.size, "two codes are answered with the same panel or sentence");
   });
 
@@ -715,18 +699,12 @@ describe("the confirmation's refusals against the codes its endpoint publishes",
 });
 
 describe("which wording an answer may be stored under", () => {
-  const GESENDET = { token: "kein-echtes-token", antwort: "erteilt", geburtsdatum: "1984-05-09", whatsapp: false };
-
-  /* The label names which words were on screen, and only this server knows which it renders now: a
-     body's own label is a claim, admitted only where it is that one. */
-  it("admits the label this server renders and no other", () => {
-    assert.equal(
-      nenntLaufendeFassung({ ...GESENDET, text_version: BESTAETIGUNG_KENNTNISNAHME.textVersion }, BESTAETIGUNG_KENNTNISNAHME.textVersion),
-      true,
-    );
-    assert.equal(nenntLaufendeFassung({ ...GESENDET, text_version: "2019-01-erfunden" }, BESTAETIGUNG_KENNTNISNAHME.textVersion), false);
-    assert.equal(nenntLaufendeFassung(GESENDET, BESTAETIGUNG_KENNTNISNAHME.textVersion), false, "a body naming no label is admitted");
-    assert.equal(nenntLaufendeFassung(null, BESTAETIGUNG_KENNTNISNAHME.textVersion), false);
+  /* The backend judges the label (`docs/backend/spec.md :: I550`): a page opened before a deploy moved
+     it shows words other than those the backend runs, and only the mail's link reopens the page on them. */
+  it("answers the backend's refusal of the label with the mail's link, saying the words moved", () => {
+    assert.deepEqual(mapEinwilligungRefusal(refusedOn(CONFIRM_OPERATION, "REQ-EINWILLIGUNG-001"), VERTRETUNG_MIN_ALTER), {
+      error: FASSUNG_NEU_OEFFNEN,
+    });
   });
 });
 
@@ -736,7 +714,7 @@ describe("mapEinwilligungAnsichtRefusal", () => {
   it("reads every refusal as the panel that names nobody", () => {
     assert.equal(mapEinwilligungAnsichtRefusal(publishedOn(ANSICHT_OPERATION, "REQ-BEWERBUNG-009")), "ungueltig");
     for (const status of [409, 404, 410]) {
-      assert.equal(mapEinwilligungAnsichtRefusal(refusedOn(ANSICHT_OPERATION, "REQ-SOMETHING-NEW", status)), "ungueltig", String(status));
+      assert.equal(mapEinwilligungAnsichtRefusal(unpublishedOn(ANSICHT_OPERATION, "REQ-SOMETHING-NEW", status)), "ungueltig", String(status));
     }
   });
 
@@ -746,15 +724,10 @@ describe("mapEinwilligungAnsichtRefusal", () => {
     assert.equal(mapEinwilligungAnsichtRefusal(refusedPayload([], "/bewerbungen")), "ungueltig");
   });
 
-  /* The record the link names gone is as dead a link, as the confirmation answers it. */
-  it("calls the link void where the record it names is gone", () => {
-    assert.equal(mapEinwilligungAnsichtRefusal(refusedOn(ANSICHT_OPERATION, "DB-COMMON-001")), "ungueltig");
-  });
-
   /* A failed read is the page's own state: answering „ungueltig“ on a 500 would call a live link
      void on a day the backend was unreachable. */
   it("leaves anything that is not a refusal to the caller", () => {
-    assert.equal(mapEinwilligungAnsichtRefusal(badStatus(500, "")), null);
+    assert.equal(mapEinwilligungAnsichtRefusal(unpublishedOn(ANSICHT_OPERATION, "", 500)), null);
     assert.equal(mapEinwilligungAnsichtRefusal(new Error("socket hang up")), null);
   });
 
@@ -765,7 +738,7 @@ describe("mapEinwilligungAnsichtRefusal", () => {
       [404, "REQ-ROUTE-001"],
       [405, "REQ-ROUTE-002"],
     ] as const) {
-      assert.equal(mapEinwilligungAnsichtRefusal(badStatus(status, code)), null, code);
+      assert.equal(mapEinwilligungAnsichtRefusal(unpublishedOn(ANSICHT_OPERATION, code, status)), null, code);
     }
     assert.equal(mapEinwilligungAnsichtRefusal(refusedOn(ANSICHT_OPERATION, "REQ-VAL-002")), null);
   });

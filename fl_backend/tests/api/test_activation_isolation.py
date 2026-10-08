@@ -263,11 +263,12 @@ class TestAnUndrawLandingMidRolloverIsJudgedAgain:
                 # of a rollover is by definition.
                 await call_undraw(database, client, TARGET)
 
+            drawn = await fixtures_now(database, TARGET)
             outcome, season_reads = await rollover_under(database, client, undraw_the_target)
 
-            return outcome, season_reads, await statuses_now(database), await fixtures_now(database, TARGET)
+            return outcome, season_reads, await statuses_now(database), drawn, await fixtures_now(database, TARGET)
 
-        outcome, season_reads, statuses, fixtures = on_a_league(
+        outcome, season_reads, statuses, drawn, fixtures = on_a_league(
             mongo_replica_set_url,
             body,
             # Nothing holds `active`, so no incumbent can be the reason for the refusal below.
@@ -280,6 +281,8 @@ class TestAnUndrawLandingMidRolloverIsJudgedAgain:
         assert (outcome, statuses) == (ACTIVATE_TARGET_UNDRAWN, {TARGET: "future"})
         assert season_reads == 2, f"{season_reads} judgements: {MISCOUNTED_JUDGEMENTS}"
 
+        # The count's own floor: one reading no fixture would answer none below whatever the undraw did.
+        assert drawn > 0
         assert fixtures == 0, "the interfering undraw left the target its fixtures, so the rule above had nothing to refuse"
 
 

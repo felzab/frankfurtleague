@@ -23,22 +23,47 @@ const MEMBERS = new Map(
 );
 
 /**
- * The one member the log never records, read off the derivation itself. A second exclusion, or any other
- * shape, leaves this `undefined` and the case below says the derivation moved.
+ * The members the log never records, each with why. A member the derivation starts leaving out fails the
+ * first case below until it is named here, so a collection never reaches the log's blind spot unread.
  */
-const EXCLUDED = /^_LOGGED_COLLECTIONS = \[str\(name\) for name in Collection if name is not Collection\.([A-Z_]+)\]$/m.exec(CONSTRAINTS)?.[1];
+const LEFT_OUT: Readonly<Record<string, string>> = {
+  AKTIONEN: "the log never records itself",
+  DROSSELUNG: "a day's write count is operational state, written past the helpers that record (`fl_backend/app/core/drosselung.py`)",
+};
+
+/**
+ * The members the derivation excludes, read off it. Any other shape leaves this `undefined`, and the case
+ * below says the derivation moved.
+ */
+function excludedByTheDerivation(): string[] | undefined {
+  const set = /^_LOGGED_COLLECTIONS = \[str\(name\) for name in Collection if name not in \{([^}]*)\}\]$/m.exec(CONSTRAINTS)?.[1];
+  const members = set?.split(",").map((entry) => /^\s*Collection\.([A-Z_]+)\s*$/.exec(entry)?.[1]);
+
+  return members?.every((member) => member !== undefined) ? members : undefined;
+}
+
+const EXCLUDED = excludedByTheDerivation();
 
 /** What `fl_backend/app/core/constraints.py :: _LOGGED_COLLECTIONS` evaluates to, which the log's validator enumerates. */
-const LOGGED = [...MEMBERS].filter(([member]) => member !== EXCLUDED).map(([, stored]) => stored);
+const LOGGED = [...MEMBERS].filter(([member]) => !EXCLUDED?.includes(member)).map(([, stored]) => stored);
 
 describe("the areas the change log names against the collections the backend records", () => {
   /* First, so a boundary or a derivation that stopped matching fails here rather than leaving every
      comparison below over an empty or an unexcluded set. */
-  it("reads the enum and the one member the derivation leaves out", () => {
+  it("reads the enum and exactly the members the derivation leaves out, each named with why", () => {
     assert.ok(MEMBERS.size > 1, `the enum parsed to ${String(MEMBERS.size)} members, so every comparison over it is vacuous`);
-    assert.ok(EXCLUDED !== undefined, "_LOGGED_COLLECTIONS is no longer derived by excluding one member of Collection");
-    assert.ok(MEMBERS.has(EXCLUDED), `the derivation excludes ${EXCLUDED}, which the enum does not declare`);
-    assert.equal(LOGGED.length, MEMBERS.size - 1);
+    assert.ok(EXCLUDED !== undefined, "_LOGGED_COLLECTIONS is no longer derived by excluding a set of members of Collection");
+    assert.deepEqual(
+      EXCLUDED.filter((member) => !MEMBERS.has(member)),
+      [],
+      "the derivation excludes a member the enum does not declare",
+    );
+    assert.deepEqual(
+      [...EXCLUDED].sort(),
+      Object.keys(LEFT_OUT).sort(),
+      "the derivation leaves out a member LEFT_OUT does not name, or the reverse",
+    );
+    assert.equal(LOGGED.length, MEMBERS.size - EXCLUDED.length);
   });
 
   /* THE COUPLING. A collection the backend starts recording lists under its stored word and matches no

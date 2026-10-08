@@ -79,7 +79,7 @@ async function openMenu(team: AdminTeamRow): Promise<HTMLElement> {
   );
 
   const table = screen.getByRole("grid", { name: "Tabelle aller Teams" });
-  await userEvent.setup().click(within(table).getByRole("button", { name: `Weitere Aktionen für Team ${team.name}` }));
+  await userEvent.setup().click(within(table).getByRole("button", { name: `Weitere Aktionen: Team ${team.name}` }));
 
   return screen.getByRole("menu");
 }

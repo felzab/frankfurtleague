@@ -95,12 +95,23 @@ export type FensterZustand = "laeuft" | "noch-nicht" | "geschlossen" | "vorbei" 
 export type KuerzelVerdikt = { shorthand: string; vergeben: boolean };
 
 /**
- * What a link is once the backend has looked it up. `abgelaufen` and `ungueltig` render one wording:
- * telling them apart would tell a guessed link that a record once existed.
+ * An application's `abgelaufen` and `ungueltig` render one wording, since telling them apart tells a
+ * guessed link that a record once existed; a season row's spent link is worded for the row its read named.
  */
 export type LinkZustand = "bestaetigt" | "abgelehnt" | "abgelaufen" | "ungueltig" | "gesperrt";
 
 /** A link still open, and so a seat that still holds the person the page is about to name. */
 export type EinwilligungGeoeffnet = FLBewerbungEinwilligungAnsichtResponse & { vorname: string };
 
-export type EinwilligungAnsicht = { zustand: "gueltig"; ansicht: EinwilligungGeoeffnet } | { zustand: LinkZustand };
+/** Which record a link opened: an application's seat, or a seat an administrator typed onto a team's season row. */
+export type EinwilligungQuelle = FLBewerbungEinwilligungAnsichtResponse["quelle"];
+
+/**
+ * A spent link keeps the record it opened where the read answered one, so its panel says what is true of
+ * that record; a link opening nothing names none.
+ */
+export type EinwilligungAnsicht =
+  // One member per open state, so a check of `zustand` narrows to the one the caller handles.
+  | { zustand: "gueltig"; ansicht: EinwilligungGeoeffnet }
+  | { zustand: "saison_vorbei"; ansicht: EinwilligungGeoeffnet }
+  | { zustand: LinkZustand; quelle?: EinwilligungQuelle };

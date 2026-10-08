@@ -9,6 +9,7 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.services import hash_token
+from app.api.einwilligung.services import FASSUNG_UNZULAESSIG
 from app.api.saisons.cache import invalidate_saison_cache
 from app.api.schiedsrichter.admin_router import (
     anonymise_schiedsrichter,
@@ -34,7 +35,6 @@ from app.api.schiedsrichter.services import (
     SCHIEDSRICHTER_ALREADY_CONFIRMED,
     SCHIEDSRICHTER_ALTER,
     SCHIEDSRICHTER_BESTAETIGUNG_GESPERRT,
-    SCHIEDSRICHTER_ERTEILT_VON,
     SCHIEDSRICHTER_KEINE_ADRESSE,
     SCHIEDSRICHTER_MEDIEN_ALTER,
     SCHIEDSRICHTER_RETIRED,
@@ -48,6 +48,7 @@ from app.api.zustellung.schemas import FLZustellungAngenommenPayload
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
+from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS
 from tests import documents
 from tests.actor_tokens import FRESH_STEP_UP_CHECK
@@ -90,7 +91,8 @@ A_CHILDS_BIRTHDATE = "2018-01-01"
 MESSAGE_ID = "49a3999c-0ce1-4ea6-ab68-afcd6dc2e794"
 ACCEPTED_AT = "2026-04-01T10:00:00.000000+00:00"
 
-TEXT_VERSION = "2026-04-schiedsrichterseite"
+# The label the referee page runs, the one a new acceptance must name.
+TEXT_VERSION = LAUFENDE_FASSUNGEN["bestaetigung_schiedsrichter"]
 
 # Seeded before every confirmation that asserts on it, so "the write reaches one collection" is a
 # comparison against a document that exists rather than against an empty collection.
@@ -178,8 +180,10 @@ async def correct(database: AsyncDatabase, client: AsyncMongoClient, *, email: s
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         spiele_collection=database[Collection.SPIELE],
         sperrliste=ban_list(database),
+        aktionen_collection=database[Collection.AKTIONEN],
         db=client,
         today=today,
+        germany_now=NOW,
         refuse_unconfirmed=FRESH_STEP_UP_CHECK,
     )
 
@@ -227,6 +231,7 @@ async def confirm(database: AsyncDatabase, client: AsyncMongoClient, token: str,
         sperrliste=ban_list(database),
         db=client,
         today=today,
+        germany_now=NOW,
     )
 
 
@@ -324,7 +329,7 @@ class TestTheCreateIsTheInvitation:
             created = await create(database, client)
             accepted = await angenommen_zustellung(
                 angenommen_data=FLZustellungAngenommenPayload.model_validate(
-                    {"ziel": "schiedsrichter", "ziel_id": str(created.created_id), "nachricht_id": MESSAGE_ID, "am": ACCEPTED_AT}
+                    {"ziel": "schiedsrichter", "ziel_id": str(created.created_id), "rollen": [], "nachricht_id": MESSAGE_ID, "am": ACCEPTED_AT}
                 ),
                 db=database,
                 db_client=client,
@@ -366,22 +371,6 @@ class TestACorrectedAddressReMintsAndRetiresTheOldLink:
             return refused.value
 
         assert on_a_league(mongo_replica_set_url, body).error_code == SCHIEDSRICHTER_TOKEN_UNKNOWN
-
-    def test_a_confirmed_referees_address_change_mints_nothing(self, mongo_replica_set_url: str):
-        """Their link keeps working: the address change is a procedure rather than a fresh collection."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            first = await resend(database, client)
-            await confirm(database, client, first.bestaetigung.token)
-            corrected = await correct(database, client, email=CORRECTED_EMAIL)
-
-            return first, corrected, await stored(database)
-
-        first, corrected, row = on_a_league(mongo_replica_set_url, body)
-
-        assert corrected.bestaetigung is None
-        assert row[BESTAETIGUNG_FELD]["token_hash"] == hash_token(first.bestaetigung.token)
-        assert row["kontakt"]["email"] == CORRECTED_EMAIL
 
     def test_a_save_leaving_the_address_alone_mints_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -725,13 +714,18 @@ class TestTheConfirmation:
         response, row = on_a_league(mongo_replica_set_url, body)
 
         assert row["geburtsdatum"] == AN_ADULTS_BIRTHDATE
+        # Each choice evidenced by the confirmation, its instant in UTC: `NOW` is half past noon in
+        # Frankfurt's summer time.
         assert row[EINWILLIGUNG_FELD] == {
             "umfang": "kader_oeffentlich",
-            "erteilt_von": SCHIEDSRICHTER_ERTEILT_VON,
             "datum": TODAY,
             "bestaetigt_am": TODAY,
             "text_version": TEXT_VERSION,
             "medien": True,
+            "nachweis": {
+                "umfang": {"am": "2026-04-01T10:30:00+00:00", "text_version": TEXT_VERSION},
+                "medien": {"am": "2026-04-01T10:30:00+00:00", "text_version": TEXT_VERSION},
+            },
         }
         assert (response.umfang, response.medien, response.bestaetigt_am) == ("kader_oeffentlich", True, TODAY)
 
@@ -837,10 +831,37 @@ class TestTheConfirmation:
 # A record a hand edit stamped `""`: every key the validator requires, which admits a string there.
 EMPTY_STAMPED: Mapping[str, Any] = {
     "umfang": "intern",
-    "erteilt_von": SCHIEDSRICHTER_ERTEILT_VON,
+    "erteilt_von": "volljaehrig",
     "datum": "2026-03-01",
     "bestaetigt_am": "",
 }
+
+
+class TestTheLabelAPressNames:
+    """`REQ-EINWILLIGUNG-001`: a referee's press names the referee page's running label and nothing else."""
+
+    @pytest.mark.parametrize(
+        "genannt",
+        [
+            pytest.param("2026-09-schiedsrichterseite-2", id="a superseded label of the referee page"),
+            pytest.param(LAUFENDE_FASSUNGEN["bestaetigung_spieler"], id="the pupil page's running label"),
+            pytest.param("2026-04-schiedsrichterseite", id="a label the registry never held"),
+        ],
+    )
+    def test_any_other_label_is_refused_and_spends_nothing(self, mongo_replica_set_url: str, genannt: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            minted = await resend(database, client)
+            before = await stored(database)
+            with pytest.raises(WriteRefusalException) as refused:
+                await confirm(database, client, minted.bestaetigung.token, text_version=genannt)
+
+            return refused.value, before, await stored(database), await ansicht(database, minted.bestaetigung.token)
+
+        refusal, before, after, view = on_a_league(mongo_replica_set_url, body)
+
+        assert (refusal.error_code, refusal.status_code) == (FASSUNG_UNZULAESSIG, 409)
+        assert after == before
+        assert view.zustand == "gueltig"
 
 
 class TestAStoredEmptyStamp:

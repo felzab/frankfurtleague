@@ -1,4 +1,4 @@
-import { EINWILLIGUNG_HERKUNFT_OPTIONS, GRUPPEN_OPTIONS, KONTAKT_ROLLEN } from "./constants";
+import { EINGETRAGEN_VON_OPTIONS, GRUPPEN_OPTIONS, KONTAKT_ROLLEN } from "./constants";
 
 import type { Facet } from "@/shared/utils/facets";
 import type { AdminKontakteRow, AdminTeamRow } from "./types";
@@ -122,11 +122,15 @@ export const KONTAKTE_FACETS: readonly Facet<AdminKontakteRow>[] = [
     // `param` is a URL query key a bookmarked link carries, so it keeps the stored key's spelling
     // while the label reads the seat's own word.
     param: "einwilligung",
-    label: "Kenntnisnahme",
-    options: EINWILLIGUNG_HERKUNFT_OPTIONS.map(({ value, label }) => ({ value, label })),
+    label: "Eingetragen",
+    options: EINGETRAGEN_VON_OPTIONS.map(({ value, label }) => ({ value, label })),
     /* Across all three seats, because the row is now the club: a club answers every herkunft one of
-       its people gave. Seats holding nobody answer with none, so no herkunft claims them. */
-    read: (row) => [...new Set(row.seats.flatMap((seat) => (seat.person === null ? [] : [seat.person.einwilligung.erfasst_von])))],
+       its people was seated by. Seats holding nobody, or seated before the field, answer with none. */
+    read: (row) => [
+      ...new Set(
+        row.seats.flatMap((seat) => (seat.person?.einwilligung.eingetragen_von == null ? [] : [seat.person.einwilligung.eingetragen_von])),
+      ),
+    ],
   },
 ];
 

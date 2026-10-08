@@ -1,10 +1,14 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 
+import { getGenannteFassung } from "@/core/einwilligung";
+import { gekeyteFassung, KONTAKT_ABSATZ_SCHLUESSEL, KONTAKT_BEDIEN_SCHLUESSEL } from "@/core/einwilligungSeiten";
+import { nullUnlessContractBreak } from "@/core/errors";
 import { BestaetigungView } from "@/features/bewerbungen/components/views/BestaetigungView";
 import { getEinwilligungAnsicht } from "@/features/bewerbungen/queries";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { openGraphFor } from "@/shared/utils/metadata";
+import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import type { BestaetigungStart } from "@/features/bewerbungen/components/views/BestaetigungView";
 import type { NextPageProps } from "@/shared/types/types";
@@ -41,13 +45,27 @@ async function BestaetigungContent(props: NextPageProps) {
 
   // A missing or repeated parameter is no link at all and reads as the dead link. Caught, so a
   // failed read is its own state: the dead-link panel there would call a live link void.
-  const start: BestaetigungStart =
-    typeof token === "string" && token !== ""
-      ? await getEinwilligungAnsicht(token).then(
-          (gelesen) => (gelesen.zustand === "gueltig" ? { zustand: "gueltig", ansicht: gelesen.ansicht, token: token } : gelesen),
-          () => ({ zustand: "unlesbar" }),
-        )
-      : { zustand: "ungueltig" };
+  if (typeof token !== "string" || token === "") return <BestaetigungView start={{ zustand: "ungueltig" }} />;
+
+  const start: BestaetigungStart = await getEinwilligungAnsicht(token).then(
+    async (gelesen): Promise<BestaetigungStart> => {
+      // Offered the Widerspruch alone, which shows no stamped words.
+      if (gelesen.zustand === "saison_vorbei") return { zustand: "saison_vorbei", ansicht: gelesen.ansicht, token: token };
+      if (gelesen.zustand !== "gueltig") return gelesen;
+
+      // After the link's read, never beside it: the view names the label by how the seat was filled.
+      // A failed read is the panel below; a label the registry does not hold reaches the error boundary.
+      const fassung = await runWithIncomingTrace(() => getGenannteFassung(gelesen.ansicht.laufende_fassung)).catch(nullUnlessContractBreak);
+
+      // A page with no words to show is a page that cannot be answered, which the failed read's panel says.
+      if (fassung === null) return { zustand: "unlesbar" };
+
+      // Uncaught: words this page cannot key are a broken contract, which the error boundary logs.
+      const worte = gekeyteFassung(fassung, KONTAKT_ABSATZ_SCHLUESSEL, KONTAKT_BEDIEN_SCHLUESSEL);
+      return { zustand: "gueltig", ansicht: gelesen.ansicht, token: token, fassung: worte };
+    },
+    () => ({ zustand: "unlesbar" }),
+  );
 
   return <BestaetigungView start={start} />;
 }

@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { saisonRules } from "@/shared/testing/saisonRules.ts";
+
 import { deriveSaisonDraftStatus } from "./saisonDraftStatus";
 
 import type { SaisonDraftFields } from "./types";
@@ -8,17 +10,7 @@ import type { SaisonDraftFields } from "./types";
 const stored: SaisonDraftFields = {
   start_date: "2025-09-01",
   end_date: "2026-06-30",
-  rules: {
-    win_points: 3,
-    draw_points: 1,
-    qualifiers_per_group: 2,
-    number_of_groups: 2,
-    teams_per_group: 5,
-    tiebreak_order: "tordifferenz",
-    max_kadergroesse: 50,
-    forfeit_ergebnis: { sieger_tore: 3, verlierer_tore: 0 },
-    erlaubte_stufen: ["E1", "E2", "Q1", "Q2"],
-  },
+  rules: saisonRules({ teams_per_group: 5, max_kadergroesse: 50, erlaubte_stufen: ["E1", "E2", "Q1", "Q2"] }),
   bewerbung: { offen: true, von: "2025-05-01", bis: "2025-06-30" },
   registrierung: { offen: true, von: "2025-07-01", bis: "2025-08-15" },
 };

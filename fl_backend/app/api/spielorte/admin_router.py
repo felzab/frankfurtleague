@@ -4,6 +4,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Body, Depends
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
+from pymongo.results import InsertOneResult
 
 from app.api.spielorte.schemas import (
     FLPatchSpielortPayload,
@@ -39,16 +40,22 @@ def _maps_link(name: str, address: FLAddress) -> str:
 async def post_spielort(
     spielort_data: Annotated[FLPostSpielortPayload, Body()],
     spielorte_collection: SpielorteCollection,
+    db: DBClient,
 ) -> FLPostSpielortResponse:
     """Create a venue. `maps_link` is built server-side from the name and address and must not be submitted."""
 
-    post_operation = await insert_live(
-        collection=spielorte_collection,
-        document={
-            **spielort_data.model_dump(mode="json"),
-            "maps_link": _maps_link(spielort_data.name, spielort_data.address),
-        },
-    )
+    async def enter_the_venue(session: AsyncClientSession) -> InsertOneResult:
+        return await insert_live(
+            collection=spielorte_collection,
+            document={
+                **spielort_data.model_dump(mode="json"),
+                "maps_link": _maps_link(spielort_data.name, spielort_data.address),
+            },
+            session=session,
+        )
+
+    async with transaction_session(db) as session:
+        post_operation = await session.with_transaction(enter_the_venue)
 
     return FLPostSpielortResponse(
         acknowledged=1 if post_operation.acknowledged else 0,
@@ -108,7 +115,7 @@ async def patch_spielort(
     by_id("spielort_id"),
     response_model=FLSpielortWriteResponse,
     summary="Deactivate a Spielort (soft delete)",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def delete_spielort(
     spielort_id: CustomRouteObjectId,
@@ -150,18 +157,19 @@ async def delete_spielort(
     f"{by_id('spielort_id')}/reactivate",
     response_model=FLSpielortWriteResponse,
     summary="Bring a deactivated Spielort back",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def reactivate_spielort(
     spielort_id: CustomRouteObjectId,
     spielorte_collection: SpielorteCollection,
+    db: DBClient,
 ) -> FLSpielortWriteResponse:
     """Clear `inactive_since`, putting the venue back into the picker and every default read."""
 
-    updated_document_raw = await set_inactive_since(
-        collection=spielorte_collection,
-        db_filter={"_id": spielort_id},
-        when=None,
-    )
+    async def bring_the_venue_back(session: AsyncClientSession) -> Mapping[str, Any]:
+        return await set_inactive_since(collection=spielorte_collection, db_filter={"_id": spielort_id}, when=None, session=session)
+
+    async with transaction_session(db) as session:
+        updated_document_raw = await session.with_transaction(bring_the_venue_back)
 
     return FLSpielortWriteResponse(updated_document=FLSpielort(**updated_document_raw))

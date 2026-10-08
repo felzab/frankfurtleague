@@ -1,7 +1,13 @@
-import { einwilligungHerkunftLabel, KONTAKT_ROLLEN, TRAINER_ZUGLEICH_FRAGE, trainerZugleichLabel } from "@/features/teams/constants";
+import {
+  eingetragenVonLabel,
+  KONTAKT_ROLLEN,
+  kontaktGeburtsdatumLeer,
+  TRAINER_ZUGLEICH_FRAGE,
+  trainerZugleichLabel,
+} from "@/features/teams/constants";
 import { holdsNobody } from "@/features/teams/utils";
 import { deriveDraftStatus, emptyAsNull } from "@/shared/utils/draftStatus";
-import { formatSpielDatum } from "@/shared/utils/format";
+import { formatSpielDatum, nichtHinterlegt } from "@/shared/utils/format";
 
 import type { KontaktRolle } from "@/features/teams/constants";
 import type { KontaktpersonDraft, SaisonTeamKontakteDraft } from "@/features/teams/types";
@@ -34,23 +40,26 @@ const readPerson = (rolle: KontaktRolle) => (source: FLKontakteDraftFields) => {
   const name = `${person.vorname} ${person.nachname}`.trim();
 
   return [
-    name === "" ? "Ohne Namen" : name,
-    emptyAsNull(person.email) ?? "Keine E-Mail",
-    emptyAsNull(person.telefon) ?? "Keine Telefonnummer",
-    // Read out rather than judged: the date is the person's own to enter at their confirmation, so a
-    // seat without one is waiting on them rather than half filled in.
-    person.geburtsdatum ? `geboren am ${formatSpielDatum(person.geburtsdatum)}` : "Kein Geburtsdatum",
+    name === "" ? nichtHinterlegt("Name") : name,
+    emptyAsNull(person.email) ?? nichtHinterlegt("E-Mail"),
+    emptyAsNull(person.telefon) ?? nichtHinterlegt("Telefon"),
+    // Read out rather than judged: the date is the person's own to enter at their confirmation, so an
+    // unconfirmed seat without one is waiting on them rather than half filled in.
+    person.geburtsdatum
+      ? `geboren am ${formatSpielDatum(person.geburtsdatum)}`
+      : kontaktGeburtsdatumLeer(person.einwilligung.bestaetigt_am, true),
   ].join(", ");
 };
 
 const readEinwilligung = (rolle: KontaktRolle) => (source: FLKontakteDraftFields) => {
   const record = seatOf(rolle)(source)?.einwilligung ?? null;
   if (record === null) return null;
-  const herkunft = record.erfasst_von === null ? "Noch offen" : einwilligungHerkunftLabel(record.erfasst_von);
-  const fassung = record.text_version === "" ? "ohne Fassung" : `Fassung ${record.text_version}`;
-  const datum = record.datum === "" ? "ohne Datum" : `ab ${formatSpielDatum(record.datum)}`;
+  const fassung = record.text_version === "" ? nichtHinterlegt("Fassung") : `Fassung ${record.text_version}`;
+  const datum = record.datum === "" ? nichtHinterlegt("Datum") : `ab ${formatSpielDatum(record.datum)}`;
 
-  return `${herkunft}, ${fassung} (${datum})`;
+  // Who seated the person, where the record says: a new seat's is the save's to stamp, and a seat
+  // seated before the field names nobody, so neither is guessed.
+  return record.eingetragen_von === null ? `${fassung} (${datum})` : `${eingetragenVonLabel(record.eingetragen_von)}, ${fassung} (${datum})`;
 };
 
 /**

@@ -8,7 +8,7 @@ import {
   RolledBackError,
 } from "@/core/errors";
 
-import { buildRefusal, UNKNOWN_REFUSAL } from "./refusal";
+import { buildRefusal, LADE_DIE_SEITE_NEU, UNKNOWN_REFUSAL, VERSUCHE_ES_ERNEUT_SATZ } from "./refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "./validation";
 
 import type { SentRequest } from "@/core/errors";
@@ -21,6 +21,25 @@ import type { FieldErrors } from "./validation";
  * grant's own refusal: neither a retry nor a new sign-in restores it.
  */
 export const ZUGANG_WEG = "Dein Zugang zur Verwaltung besteht nicht mehr.";
+
+/**
+ * What a person whose address was barred after their session was judged is told: the ban outlasts a
+ * retry and a sign-in alike, so neither is offered.
+ */
+export const GESPERRT_KEINE_AENDERUNG = "Diese E-Mail-Adresse ist gesperrt. Solange die Sperre gilt, ist keine Änderung möglich.";
+
+/**
+ * What a signed-in person is told at the ceiling of the kind of person they write as
+ * (`REQ-DROSSELUNG-001`): the count starts again at German midnight, so neither a retry nor a sign-in
+ * is offered.
+ */
+export const HEUTE_GENUG_GEAENDERT = "Du hast heute schon sehr viel geändert. Morgen geht es weiter.";
+
+/**
+ * What a seat holder whose seat went after the page was drawn is told, by the person spine and by the
+ * backend's own seat check: a reload draws the page they still hold, or the forbidden panel.
+ */
+export const SITZ_WEG = "Du bist in dieser Saison nicht mehr in diesem Team eingetragen. Lade die Seite neu.";
 
 /**
  * Under a box whose value only the API refused. Never the form's own message for that box: the form's
@@ -44,7 +63,7 @@ export const AENDERUNG_STEHT_WEITERHIN = "Die Änderung steht weiterhin.";
  * An admin editor's answer to a `REQ-VAL-001` no rendered control takes, which only a page older than
  * the running API can send: a retry resends the refused body, and a reload fetches the page that fits.
  */
-const EINZELNE_ANGABEN_ABGELEHNT = buildRefusal({ reason: "Einzelne Angaben wurden nicht übernommen", repair: "Lade die Seite neu" });
+const EINZELNE_ANGABEN_ABGELEHNT = buildRefusal({ reason: "Einzelne Angaben wurden nicht übernommen", repair: LADE_DIE_SEITE_NEU });
 
 /**
  * Whether the API refused the request, which every mapper asks before reading the code: a 4xx, at
@@ -52,6 +71,14 @@ const EINZELNE_ANGABEN_ABGELEHNT = buildRefusal({ reason: "Einzelne Angaben wurd
  */
 export function isRefusal(error: unknown): error is APIBadStatusError {
   return error instanceof APIBadStatusError && error.statusCode >= 400 && error.statusCode < 500;
+}
+
+/**
+ * Whether the backend found the Funktion the request acts in not held (`REQ-FUNKTION-001`): a write
+ * answers it with `SITZ_WEG`, and a page reading for that seat renders the forbidden panel.
+ */
+export function isFunktionLost(error: unknown): error is APIBadStatusError {
+  return isRefusal(error) && error.serverErrorCode === "REQ-FUNKTION-001";
 }
 
 /**
@@ -130,12 +157,22 @@ const OCCUPANT_REFUSALS: Record<string, string> = {
   "REQ-SPIELTAG-001": "Dieses Team spielt am selben Spieltag schon in einem anderen Spiel.",
 };
 
+/** The sentence of a write that may or may not have landed. */
+export const SPEICHERUNG_UNKLAR = buildRefusal({
+  reason: "Ob die Änderung gespeichert wurde, ist unklar",
+  repair: "Lade die Seite neu und prüfe, ob sie da ist",
+});
+
 /** A write that may or may not have landed, marked so the toast titles it neither a success nor a failure. */
-const OUTCOME_UNKNOWN: ActionFailure = {
-  success: false,
-  error: buildRefusal({ reason: "Ob die Änderung gespeichert wurde, ist unklar", repair: "Lade die Seite neu und prüfe, ob sie da ist" }),
-  outcome: "unknown",
-};
+const OUTCOME_UNKNOWN: ActionFailure = { success: false, error: SPEICHERUNG_UNKLAR, outcome: "unknown" };
+
+/**
+ * A spine's answer where a write it sent may stand behind whatever the body made of it. Never an
+ * action's rejection, which `unansweredAction` reads first.
+ */
+export function outcomeUnknown(): ActionFailure {
+  return { ...OUTCOME_UNKNOWN };
+}
 
 /**
  * An undo nobody can tell landed, said by the route for a replay that threw and by the dispatch for
@@ -145,26 +182,68 @@ const OUTCOME_UNKNOWN: ActionFailure = {
 export const RUECKNAHME_UNKLAR = "Ob die Änderung zurückgenommen wurde, ist unklar. Lade die Seite neu und prüfe sie.";
 
 /**
- * An editor's answer to its own action rejecting, a dropped connection among the causes: the press may
- * have reached the server, and uncaught inside a transition the rejection replaces the editor with the
- * error page.
+ * The body of every 429 the edge answers itself (`nginx/shared/site.conf :: @edge_refusal`), which Next hands
+ * a rejected action as its error's message only under a content type of exactly `text/plain`: so ASCII,
+ * sent with no charset.
  */
-export function unansweredAction(): ActionFailure {
-  return { ...OUTCOME_UNKNOWN };
+export const EDGE_REFUSAL_BODY = "Zu viele Versuche in kurzer Zeit. Warte einen Moment und versuche es dann erneut.";
+
+/** A press the edge's rate refused, which never reached Next: nothing was written, and the meter refills within the minute. */
+export const ZU_VIELE_VERSUCHE_NICHTS_GESPEICHERT =
+  "Zu viele Versuche in kurzer Zeit. Die Änderung wurde nicht gespeichert. Warte einen Moment und versuche es dann erneut.";
+
+/**
+ * A send or a submission the edge's rate refused, under a title saying what did not happen: the meter
+ * refills within the minute. The public forms' answer to the same refusal too.
+ */
+export const ZU_VIELE_VERSUCHE = "Zu viele Versuche in kurzer Zeit. Warte einen Moment und versuche es dann erneut.";
+
+function isEdgeRefusal(error: unknown): boolean {
+  return error instanceof Error && error.message === EDGE_REFUSAL_BODY;
+}
+
+/**
+ * A send's state where its action rejected with the edge's own refusal, which reached nothing past the
+ * edge; any other rejection is handed back unread, to whatever its caller answers it with.
+ */
+export function edgeRefusedSend(error: unknown): ActionFailure | null {
+  return isEdgeRefusal(error) ? { success: false, error: ZU_VIELE_VERSUCHE } : null;
+}
+
+/**
+ * An editor's answer to its own action rejecting: the press may have reached the server, and uncaught in a
+ * transition the rejection replaces the editor with the error page. Required: dropped, the edge's refusal reads
+ * as an unclear save.
+ */
+export function unansweredAction(error: unknown, repair?: string): ActionFailure {
+  // The one rejection that says what became of the press: the edge refused it before Next ran.
+  if (isEdgeRefusal(error)) return { success: false, error: ZU_VIELE_VERSUCHE_NICHTS_GESPEICHERT };
+
+  return repair === undefined ? { ...OUTCOME_UNKNOWN } : { ...OUTCOME_UNKNOWN, error: repair };
 }
 
 /**
  * A write action's rejection answered as `unansweredAction` answers it, with the page read again: a rejection brings
- * no server refresh back while the write may stand. `repair` is a control's own sentence where it has one.
+ * no server refresh back while the write may stand. The edge's refusal wrote nothing, so it reads nothing.
  */
-export function rejectedWrite(router: { refresh: () => void }, repair?: string): () => ActionFailure {
-  return () => {
-    router.refresh();
-    const unanswered = unansweredAction();
+export function rejectedWrite(router: { refresh: () => void }, repair?: string): (error: unknown) => ActionFailure {
+  return (error) => {
+    if (!isEdgeRefusal(error)) router.refresh();
 
-    return repair === undefined ? unanswered : { ...unanswered, error: repair };
+    return unansweredAction(error, repair);
   };
 }
+
+/**
+ * `rejectedWrite`'s repair on every control that sends a confirmation link. The rejection says nothing
+ * of whether the link left, and a second send is safe either way, a new link replacing the earlier one;
+ * the reload comes first (`docs/frontend/spec.md` §1.12).
+ */
+export const LINK_ERNEUT_OHNE_ANTWORT =
+  "Prüfe die Verbindung, lade die Seite neu und sende den Link erneut. Ein neuer Link ersetzt einen, der schon rausging.";
+
+/** The toast title of a link send whose outcome is unknown: a send saves nothing, so the title saves nothing either. */
+export const LINK_UNKLAR = "Unklar, ob der Link verschickt wurde";
 
 /**
  * An admin read's answer to its own action rejecting: it wrote nothing, so it is the failure it is
@@ -237,6 +316,19 @@ function refusedAnswer(error: APIBadStatusError): ActionFailure | null {
  * than the failure: the diagnosis is in the server log, and the toast's title says what became of the save.
  */
 export function toActionErrorResult(error: unknown, answering?: SentRequest): ActionFailure {
+  if (error instanceof APIBadStatusError) {
+    // Raised by the actor check before any handler, and by a write's transaction re-judging the
+    // grant before each attempt, so nothing was written: the grant went after the guard read it.
+    if (error.serverErrorCode === "REQ-AUTH-006") return { success: false, error: ZUGANG_WEG };
+    // The person binder reads the ban per request, so a ban entered since the session was judged.
+    if (error.serverErrorCode === "REQ-AUTH-008") return { success: false, error: GESPERRT_KEINE_AENDERUNG };
+    // Every person's write route can answer it, so it is worded here rather than by each slice; the consent
+    // writes' mapper words a refused grant first (`fl_frontend/src/features/konto/einwilligung.ts :: ZUSTIMMEN_MORGEN`).
+    if (error.serverErrorCode === "REQ-DROSSELUNG-001") return { success: false, error: HEUTE_GENUG_GEAENDERT };
+  }
+  // A rule's code, so ahead of the rule fallback below, which would name no reason for it.
+  if (isFunktionLost(error)) return { success: false, error: SITZ_WEG };
+
   if (isRefusal(error)) {
     const refused = refusedAnswer(error);
     if (refused !== null) return refused;
@@ -244,9 +336,6 @@ export function toActionErrorResult(error: unknown, answering?: SentRequest): Ac
   }
 
   if (error instanceof APIBadStatusError) {
-    // The actor check before any handler, so nothing was written: the grant went between the guard and this call.
-    if (error.serverErrorCode === "REQ-AUTH-006") return { success: false, error: ZUGANG_WEG };
-
     if (error.statusCode === 500 && error.serverErrorCode === "DB-FAIL-002") {
       // A commit went unanswered, or the deadline cut a write, so the write may stand: "try again"
       // would repeat it, and the retry then meets its own "already exists".
@@ -256,7 +345,7 @@ export function toActionErrorResult(error: unknown, answering?: SentRequest): Ac
     // or a proxy's own answer among them.
     if (error.statusCode >= 500 && error.serverErrorCode !== "DB-FAIL-001" && mayHaveWritten(error)) return { ...OUTCOME_UNKNOWN };
 
-    return { success: false, error: "Der Server hat mit einem Fehler geantwortet. Versuche es erneut." };
+    return { success: false, error: `Der Server hat mit einem Fehler geantwortet. ${VERSUCHE_ES_ERNEUT_SATZ}` };
   }
 
   if (error instanceof APINetworkError) {
@@ -267,7 +356,7 @@ export function toActionErrorResult(error: unknown, answering?: SentRequest): Ac
     return {
       success: false,
       error: error.isTimeout
-        ? "Der Server hat zu lange nicht geantwortet. Versuche es erneut."
+        ? `Der Server hat zu lange nicht geantwortet. ${VERSUCHE_ES_ERNEUT_SATZ}`
         : "Der Server ist gerade nicht erreichbar. Versuche es später erneut.",
     };
   }
@@ -276,7 +365,7 @@ export function toActionErrorResult(error: unknown, answering?: SentRequest): Ac
     // A 2xx whose body failed its schema: the write landed, and only its answer is unreadable.
     if (mayHaveWritten(error)) return { ...OUTCOME_UNKNOWN };
 
-    return { success: false, error: "Die Daten kamen fehlerhaft an. Versuche es erneut." };
+    return { success: false, error: `Die Daten kamen fehlerhaft an. ${VERSUCHE_ES_ERNEUT_SATZ}` };
   }
 
   // This application's own throw carries no request, so the one its caller answers stands in: thrown

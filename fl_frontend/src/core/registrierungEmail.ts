@@ -4,10 +4,13 @@ import { KONTAKT_EMAIL } from "./brand";
 import {
   ANTWORT_SATZ_HTML,
   ANTWORT_SATZ_TEXT,
+  art21Satz,
   ASIDE_TEXT,
   BRAND_NAME,
   brandPhrase,
   escapeHtml,
+  FALLBACK_SATZ,
+  fallbackBloecke,
   link,
   mailOrigin,
   paragraph,
@@ -18,8 +21,6 @@ import {
 } from "./emailShell";
 
 import type { Aktion } from "./emailShell";
-
-const FALLBACK_SATZ = "Falls der Button nicht funktioniert, kopiere diese Adresse in Deinen Browser:";
 
 export const SPIELER_BESTAETIGUNG_PATH = "/bestaetigung/spieler";
 
@@ -53,12 +54,29 @@ export interface RegistrierungLinkEmailData {
   readonly fristTage: number;
 }
 
-/** What the season-end note is addressed with. It carries no link, the record it is about being gone. */
+/**
+ * What the season-end note is addressed with. It carries no confirmation link, only the league's
+ * landing, the record it is about being gone.
+ */
 export interface RegistrierungNotizEmailData {
   readonly vorname: string;
   readonly teamName: string;
   readonly saisonId: string;
   readonly origin: string;
+}
+
+/**
+ * Why a team declined, as the decline stores it: the backend's fixed choice, never free text. Spelled
+ * here because `core` may not import the slice's mirror, which is passed in and so checked against this.
+ */
+export type RegistrierungAbsageGrund = "andere_person" | null;
+
+/**
+ * What the decline note is addressed with. Like the season-end note it carries no confirmation link,
+ * only the league's landing: the decision is the team's and stands.
+ */
+export interface RegistrierungAbsageEmailData extends RegistrierungNotizEmailData {
+  readonly grund: RegistrierungAbsageGrund;
 }
 
 /**
@@ -79,20 +97,11 @@ const ignorierSatz = (fristTage: number, kontakt: string): string =>
 
 function linkBloecke(url: string, fristTage: number): readonly string[] {
   return [
-    paragraph(FALLBACK_SATZ, "0 0 8px", ASIDE_TEXT),
-    /* The link runs past the card's width, so this one paragraph breaks inside a word, as the
-       sign-in message's does. Marked as a link as well: an address a reader has to select and paste
-       is not a route. */
-    paragraph(link(url, url), "0 0 16px", `${ASIDE_TEXT}word-break:break-all;`),
+    ...fallbackBloecke([{ label: "", url: url }], FALLBACK_SATZ),
     // The address as a marked link here too: the escape route is one a reader has to select and paste otherwise.
     paragraph(ignorierSatz(fristTage, link(`mailto:${KONTAKT_EMAIL}`, KONTAKT_EMAIL)), "0", ASIDE_TEXT),
   ];
 }
-
-// A paragraph and a line group of its own: Art. 21(4) DSGVO asks the objection to reach a person at
-// the first contact, apart from every other piece of information.
-const art21Satz = (adresse: string): string =>
-  `Der Verarbeitung Deiner Angaben für den Spielbetrieb kannst Du jederzeit aus Gründen widersprechen, die sich aus Deiner besonderen Situation ergeben (Art. 21 DSGVO); eine formlose E-Mail an ${adresse} genügt.`;
 
 const bestaetigungSaetze = ({ vorname, teamName, saisonId, fristTage }: RegistrierungLinkEmailData): readonly string[] => [
   `Hallo ${vorname}, Du hast Dich für ${teamName} in der Saison ${saisonId} der ${BRAND_NAME} registriert.`,
@@ -128,7 +137,7 @@ export function buildRegistrierungBestaetigungEmail(data: RegistrierungLinkEmail
         paragraph(escapeHtml(worum ?? "")),
         paragraph(escapeHtml(frist ?? "")),
         // The address as a marked link: one a reader has to select and paste is not a route.
-        paragraph(art21Satz(link(`mailto:${KONTAKT_EMAIL}`, KONTAKT_EMAIL))),
+        paragraph(art21Satz(link(`mailto:${KONTAKT_EMAIL}`, KONTAKT_EMAIL), { zweck: "für den Spielbetrieb" })),
         ...linkBloecke(url, data.fristTage),
       ],
       aktionen: aktionen(url),
@@ -148,7 +157,7 @@ export function buildRegistrierungBestaetigungEmail(data: RegistrierungLinkEmail
           "",
           frist ?? "",
           "",
-          art21Satz(KONTAKT_EMAIL),
+          art21Satz(KONTAKT_EMAIL, { zweck: "für den Spielbetrieb" }),
           "",
           ignorierSatz(data.fristTage, KONTAKT_EMAIL),
         ].join("\n"),
@@ -251,6 +260,56 @@ export function buildRegistrierungSaisonendeEmail(data: RegistrierungNotizEmailD
     }),
     text: [
       stuffSignatureDelimiter([`${BRAND_NAME}: Registrierung gelöscht`, "", anrede ?? "", "", geloescht ?? "", "", naechste ?? ""].join("\n")),
+      ...textFooter(site, [ANTWORT_SATZ_TEXT]),
+    ].join("\n"),
+  };
+}
+
+/**
+ * The pupil's next step after a decline, by its reason: a team saying the address is somebody else's
+ * refused the address rather than the pupil, so that note sends them back with one of their own.
+ */
+const ABSAGE_WEITER: Readonly<Record<NonNullable<RegistrierungAbsageGrund> | "keiner", string>> = {
+  andere_person:
+    "Unter dieser E-Mail-Adresse ist schon eine andere Person eingetragen. Registriere Dich bitte erneut über den Link Deines Teams, mit Deiner eigenen E-Mail-Adresse.",
+  keiner: "Hast Du Fragen zu dieser Entscheidung, sprich bitte mit Deinem Team.",
+};
+
+const absageSaetze = ({ vorname, teamName, saisonId, grund }: RegistrierungAbsageEmailData): readonly string[] => [
+  `Hallo ${vorname}, ${teamName} hat Deine Registrierung für die Saison ${saisonId} der ${BRAND_NAME} abgelehnt.`,
+  ABSAGE_WEITER[grund ?? "keiner"],
+  "Deine Angaben aus der Registrierung löschen wir einen Monat nach dieser Entscheidung.",
+];
+
+/**
+ * The one note after a team declines a registration.
+ *
+ * **It names no other person**: the reason it states is the stored choice, so whoever holds the
+ * mailbox learns that an address is taken and never by whom.
+ */
+export function buildRegistrierungAbsageEmail(data: RegistrierungAbsageEmailData): RegistrierungEmail {
+  const site = mailOrigin(data.origin);
+  const [anrede, weiter, loeschung] = absageSaetze(data);
+
+  return {
+    subject: `Deine Registrierung für ${data.teamName}`,
+    html: renderKarte({
+      titel: `${BRAND_NAME}: Registrierung abgelehnt`,
+      ueberschrift: escapeHtml("Registrierung abgelehnt"),
+      bloecke: [
+        paragraph(
+          `Hallo ${strong(escapeHtml(data.vorname))}, ${strong(escapeHtml(data.teamName))} hat Deine Registrierung für die ${brandPhrase(`Saison ${escapeHtml(data.saisonId)}`)} der ${BRAND_NAME} abgelehnt.`,
+        ),
+        paragraph(escapeHtml(weiter ?? "")),
+        paragraph(escapeHtml(loeschung ?? ""), "0", ASIDE_TEXT),
+      ],
+      // The league's landing, as the season-end note's: no record is left to press on.
+      aktionen: [{ href: site, label: "Zur Frankfurt League", ton: "outline" }],
+      fuss: ANTWORT_SATZ_HTML,
+      origin: site,
+    }),
+    text: [
+      stuffSignatureDelimiter([`${BRAND_NAME}: Registrierung abgelehnt`, "", anrede ?? "", "", weiter ?? "", "", loeschung ?? ""].join("\n")),
       ...textFooter(site, [ANTWORT_SATZ_TEXT]),
     ].join("\n"),
   };

@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
+
 import {
   adressenAndererPersonen,
   bestaetigungsStand,
@@ -14,8 +16,9 @@ import {
 } from "./bestaetigungStand.ts";
 
 import type { KontaktRolle } from "@/features/teams/constants";
+import type { FLBewerbungZustellstand } from "@/shared/schemas.ts";
 import type { SitzBestaetigung } from "./bestaetigungStand.ts";
-import type { FLBewerbung, FLBewerbungBestaetigung, FLBewerbungZustellstand } from "./schemas.ts";
+import type { FLBewerbung, FLBewerbungBestaetigung } from "./schemas.ts";
 
 type Sitze = Pick<FLBewerbung, "bestaetigungen" | "kontakte" | "status">;
 type Person = FLBewerbung["kontakte"]["trainer"];
@@ -28,13 +31,12 @@ function person(vorname: string, bestaetigtAm: string | null): Person {
     email: `${vorname.toLowerCase()}@schule.example`,
     telefon: "069 1234567",
     geburtsdatum: bestaetigtAm === null ? null : "1988-04-02",
-    einwilligung: {
-      umfang: "kontaktdaten",
+    einwilligung: kenntnisnahme({
       erfasst_von: bestaetigtAm === null ? "administrativ" : "person",
       text_version: "2026-09-bestaetigungsseite",
       datum: "2026-09-01",
       bestaetigt_am: bestaetigtAm,
-    },
+    }),
   };
 }
 
@@ -504,21 +506,19 @@ describe("a seat nobody answered on an application already decided", () => {
 describe("what the strip says of an incomplete application's deadline", () => {
   const OFFEN_UND_FRIST = { staende: standsOf2(seatsOf()), frist: "2026-09-07", eingereicht: true } as const;
 
-  /* The sweep answers `link_is_over` on the deadline's own day as still open, and deletes only once
-     the day has passed (`deletion_is_due`), so the day itself still reads as the future. */
-  it("words a deadline today or later as what happens if an answer stays out", () => {
-    for (const today of ["2026-09-01", "2026-09-07"]) {
-      assert.equal(
-        loeschungsSatz({ ...OFFEN_UND_FRIST, heute: today }),
-        "Bleibt eine Bestätigung bis zum 07.09.2026 aus, wird die Bewerbung gelöscht.",
-      );
-    }
+  /* The read judges the deadline's own day as running, as the sweep does, so the sentence follows the
+     read alone: a date this browser holds decides nothing. */
+  it("words a deadline the read judges running as what happens if an answer stays out", () => {
+    assert.equal(
+      loeschungsSatz({ ...OFFEN_UND_FRIST, istAbgelaufen: false }),
+      "Bleibt eine Bestätigung bis zum 07.09.2026 aus, wird die Bewerbung gelöscht.",
+    );
   });
 
   /* Past it, the future tense promised a deletion that is already owed. */
   it("words a passed deadline as passed, and names when the deletion comes", () => {
     assert.equal(
-      loeschungsSatz({ ...OFFEN_UND_FRIST, heute: "2026-09-08" }),
+      loeschungsSatz({ ...OFFEN_UND_FRIST, istAbgelaufen: true }),
       "Die Frist für die Bestätigungen ist am 07.09.2026 abgelaufen. Die Bewerbung wird bei der nächsten stündlichen Prüfung gelöscht.",
     );
   });
@@ -534,11 +534,11 @@ describe("what the strip says of an incomplete application's deadline", () => {
     );
 
     assert.equal(
-      loeschungsSatz({ ...OFFEN_UND_FRIST, staende: heldOpen, heute: "2026-09-08" }),
+      loeschungsSatz({ ...OFFEN_UND_FRIST, staende: heldOpen, istAbgelaufen: true }),
       "Die Frist für die Bestätigungen ist am 07.09.2026 abgelaufen. Gelöscht wird die Bewerbung nicht, solange die Ansprechperson per E-Mail nicht erreichbar ist.",
     );
     assert.equal(
-      loeschungsSatz({ ...OFFEN_UND_FRIST, staende: heldOpen, heute: "2026-09-01" }),
+      loeschungsSatz({ ...OFFEN_UND_FRIST, staende: heldOpen, istAbgelaufen: false }),
       "Die Frist für die Bestätigungen läuft bis zum 07.09.2026. Gelöscht wird die Bewerbung danach nicht, solange die Ansprechperson per E-Mail nicht erreichbar ist.",
     );
     // A delay is not a refusal: the provider may still carry the notice.
@@ -546,17 +546,17 @@ describe("what the strip says of an incomplete application's deadline", () => {
       loeschungsSatz({
         ...OFFEN_UND_FRIST,
         staende: standsOf2(seatsOf({ bestaetigungen: { ansprechperson: zugestellt("verzoegert"), stellvertretung: OFFEN, trainer: OFFEN } })),
-        heute: "2026-09-08",
+        istAbgelaufen: true,
       }) ?? "",
       /nächsten stündlichen Prüfung/,
     );
-    assert.match(loeschungsSatz({ ...OFFEN_UND_FRIST, staende: otherPerson, heute: "2026-09-08" }) ?? "", /nächsten stündlichen Prüfung/);
+    assert.match(loeschungsSatz({ ...OFFEN_UND_FRIST, staende: otherPerson, istAbgelaufen: true }) ?? "", /nächsten stündlichen Prüfung/);
   });
 
   /* The sweep reads `eingereicht` alone, so a decided application is never deleted on this clock. */
   it("says nothing where the deletion clock does not reach the application", () => {
-    assert.equal(loeschungsSatz({ ...OFFEN_UND_FRIST, eingereicht: false, heute: "2026-09-01" }), null);
-    assert.equal(loeschungsSatz({ ...OFFEN_UND_FRIST, frist: null, heute: "2026-09-01" }), null);
+    assert.equal(loeschungsSatz({ ...OFFEN_UND_FRIST, eingereicht: false, istAbgelaufen: false }), null);
+    assert.equal(loeschungsSatz({ ...OFFEN_UND_FRIST, frist: null, istAbgelaufen: false }), null);
 
     const allSeats = standsOf2(
       seatsOf({
@@ -565,7 +565,7 @@ describe("what the strip says of an incomplete application's deadline", () => {
         trainer: person("Clara", "2026-09-03"),
       }),
     );
-    assert.equal(loeschungsSatz({ ...OFFEN_UND_FRIST, staende: allSeats, heute: "2026-09-08" }), null);
+    assert.equal(loeschungsSatz({ ...OFFEN_UND_FRIST, staende: allSeats, istAbgelaufen: true }), null);
   });
 });
 

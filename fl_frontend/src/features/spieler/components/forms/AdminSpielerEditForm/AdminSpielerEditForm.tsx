@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { patchSaisonSpielerAction, patchSpielerAction } from "@/features/spieler/actions";
-import { rolleLabel } from "@/features/spieler/constants";
+import { kaderName, rolleLabel } from "@/features/spieler/constants";
 import { FLPatchSaisonSpielerPayloadSchema, FLPatchSpielerPayloadSchema } from "@/features/spieler/schemas";
 import { deriveSpielerDraftStatus } from "@/features/spieler/spielerDraftStatus";
 import { judgeRowReturn, nummerPayload } from "@/features/spieler/utils";
@@ -57,6 +57,7 @@ type SpielerUndoPayloads = {
 export function AdminSpielerEditForm({
   spieler,
   einwilligung,
+  istFassungBekannt,
   saison,
   teams,
   membershipCount,
@@ -65,6 +66,8 @@ export function AdminSpielerEditForm({
   spieler: { id: string; vorname: string; nachname: string | null; inactive_since: string | null; geburtsdatum: string | null };
   /** `null` for a person stored before consent was collected. */
   einwilligung: FLEinwilligung | null;
+  /** Whether the registry holds the stored label. */
+  istFassungBekannt: boolean | null;
   /** The sidemenu selector's season and its squad row, resolved by the page. */
   saison: SpielerSaisonMembership;
   /** The selected season's teams, for the picker and for reading a `team_id` as a name. */
@@ -342,7 +345,10 @@ export function AdminSpielerEditForm({
 
           {/* Beside the name and above the season's panels: consent is the person's, and it does not
               change when the sidemenu's season does. */}
-          <FormEinwilligungSection einwilligung={einwilligung} />
+          <FormEinwilligungSection
+            einwilligung={einwilligung}
+            istFassungBekannt={istFassungBekannt}
+          />
 
           <FormKaderSection
             saison={{ saisonId: saison.saisonId, saisonStatus: saison.saisonStatus, erlaubteStufen: saison.erlaubteStufen }}
@@ -387,7 +393,7 @@ export function AdminSpielerEditForm({
               rendered — closed, it is where the admin reads that retirement comes first. */}
           <FormLoeschenSection
             spielerId={spieler.id}
-            fullName={spieler.nachname === null ? spieler.vorname : `${spieler.vorname} ${spieler.nachname}`}
+            fullName={kaderName(spieler)}
             isRetired={spieler.inactive_since !== null}
             membershipCount={membershipCount}
           />

@@ -51,6 +51,24 @@ describe("what the team shell lists", () => {
     }
   });
 
+  /* Named literally rather than read off the table, whose own entries the case above compares against:
+     with the squad's entry gone from the table, that case still passes. */
+  it("lists the squad for every seat, a Trainer-only seat's included", () => {
+    for (const rolle of ["ansprechperson", "trainer", "stellvertretung"] as const) {
+      assert.ok(listedAt([seat({ rolle: rolle })], TEAM_A, "2526").includes("kader"), `a ${rolle} seat lists no squad`);
+    }
+  });
+
+  // Named literally for the squad case's reason above.
+  it("lists the registrations page for every seat, a Trainer-only seat included", () => {
+    for (const rolle of ["ansprechperson", "trainer", "stellvertretung"] as const) {
+      assert.ok(
+        listedAt([seat({ rolle: rolle })], TEAM_A, "2526").includes("registrierungen"),
+        `a ${rolle} seat is not shown the registrations`,
+      );
+    }
+  });
+
   /* A pupil's row or a referee's is no seat on any team, even one carrying the address's own team and
      season, which none carries today and a later Funktion may: only the `art` tells it from a seat. */
   it("lists nothing for a Funktion that is no seat", () => {

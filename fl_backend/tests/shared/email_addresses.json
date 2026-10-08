@@ -166,5 +166,23 @@
     "typed": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@m\u00fcller.m\u00fcller.m\u00fcller.m\u00fcller.m\u00fcller.m\u00fcller.m\u00fcller.m\u00fcller.m\u00fcller.m\u00fcller.m\u00fcller.m\u00fcller.m\u00fcller.bbbbb.de",
     "stored": null,
     "folded": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@xn--mller-kva.xn--mller-kva.xn--mller-kva.xn--mller-kva.xn--mller-kva.xn--mller-kva.xn--mller-kva.xn--mller-kva.xn--mller-kva.xn--mller-kva.xn--mller-kva.xn--mller-kva.xn--mller-kva.bbbbb.de"
+  },
+  {
+    "case": "a domain under a special-use name",
+    "typed": "Trainer@Example.TEST",
+    "stored": null,
+    "folded": "trainer@example.test"
+  },
+  {
+    "case": "a domain two labels under a special-use name",
+    "typed": "anna@mail.schule.local",
+    "stored": null,
+    "folded": "anna@mail.schule.local"
+  },
+  {
+    "case": "the example domain the special-use names leave out",
+    "typed": "anna@example.org",
+    "stored": "anna@example.org",
+    "folded": "anna@example.org"
   }
 ]

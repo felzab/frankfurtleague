@@ -10,6 +10,7 @@ import { fireEvent, render } from "@testing-library/react";
 import { FLSpielAdminSchema, FLSpielSchema } from "@/features/spiele/schemas.ts";
 import { doubleActions } from "@/shared/testing/actionDoubles.ts";
 import { declaredStatus } from "@/shared/testing/declaredStatus.ts";
+import { assertLeerMarkup } from "@/shared/testing/leerGrade.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
 
@@ -129,6 +130,13 @@ const quelleValues = (html: string): string[] => options(html, "team1_quelle.typ
 const selectedIn = (html: string, name: string): string => /<option value="([^"]*)"[^>]*selected=""/.exec(nativeSelect(html, name))?.[1] ?? "";
 
 const isClosed = (html: string, name: string): boolean => /<select [^>]*\sdisabled=""/.test(nativeSelect(html, name));
+
+describe("a side the team picker leaves open", () => {
+  /* The open slot stands where a club's name would, so the trigger sets it in the one empty grade. */
+  it("sets „Noch offen“ in the empty-value grade on the trigger", () => {
+    assertLeerMarkup(markup({}), "Noch offen");
+  });
+});
 
 describe("the Herkunft picker's group placing", () => {
   /* The floor for every absence below, which a picker rendering nothing at all would satisfy. */

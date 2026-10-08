@@ -810,6 +810,348 @@ for (const [event, entry] of registered) {
   orphan_out="$(orphan_drive "")"
   if [[ -z "$orphan_out" ]]; then info 'orphan server hook: no netstat — silent, exit 0'
   else note_fail "orphan server hook: without netstat it must say nothing and exit 0, got '${orphan_out}'"; fi
+
+  # A registration whose matcher misses a tool runs its script for none of that tool's calls, and
+  # the script's own probes stay green.
+  check_hook_matcher() { # $1 the settings file · $2 event · $3 hook script · $4… each name its matcher must take
+    local missing rc=0 name IFS=' '
+    missing="$(node -e '
+const fs = require("fs");
+const [file, event, script, ...names] = process.argv.slice(1);
+const groups = ((JSON.parse(fs.readFileSync(file, "utf8")).hooks || {})[event] || []).filter((group) =>
+  (group.hooks || []).some((entry) => (entry.command || "").includes("/" + script)));
+// The harness reads a matcher of plain names as an exact list, and anything else as a pattern.
+const takes = (matcher, name) =>
+  matcher === "" || matcher === "*" ? true
+  : /^[A-Za-z0-9_\- ,|]+$/.test(matcher) ? matcher.split(/[|,]/).map((one) => one.trim()).includes(name)
+  : new RegExp(matcher).test(name);
+for (const name of names) if (!groups.some((group) => takes(group.matcher || "", name))) process.stdout.write(name + "\n");
+' "$1" "$2" "$3" "${@:4}" 2>/dev/null)" || rc=$?
+    if (( rc != 0 )); then
+      note_fail "${3}'s ${2} registration in ${1} could not be read (node exit ${rc}), so its matcher was not checked."
+      return 0
+    fi
+    if [[ -z "$missing" ]]; then
+      info "${3}: registered on ${2} for ${*:4}"
+      return 0
+    fi
+    while IFS= read -r name; do
+      note_fail "${1} registers ${3} on ${2} with no matcher taking ${name}, so the harness runs it for none of those calls."
+    done <<< "$missing"
+  }
+
+  # An implementer's whole run refused, and nothing else: a refusal that stopped firing and one that
+  # refuses a targeted run both read as the agent's own choice.
+  SUITE_HOOK="${REPO_ROOT}/.claude/hooks/implementer-whole-suite.sh"
+  check_hook_matcher "${REPO_ROOT}/.claude/settings.json" PreToolUse implementer-whole-suite.sh Bash Monitor PowerShell
+  suite_err="${SELFCHECK_TMP}/suite-hook.err"
+  suite_drive() { # $1 payload — prints the exit status and stderr
+    local rc=0
+    # Bounded as the harness bounds the hook, so a reader that hangs fails its probe instead of the step.
+    printf '%s' "$1" | timeout 10 bash "$SUITE_HOOK" >/dev/null 2>"$suite_err" || rc=$?
+    printf '%s %s' "$rc" "$(tr '\n' ' ' < "$suite_err")"
+  }
+  # Queued, then answered by one node importing the reader's `refusal`: a node pair per arm cost this
+  # step most of its time.
+  SUITE_ROUTES=(); SUITE_EXPECTS=(); SUITE_AGENTS=(); SUITE_TOOLS=(); SUITE_COMMANDS=()
+  # How many arms the answer pass judged, -1 until it has run: the step's last check compares it with
+  # the queue, so a pass deleted or a probe queued after it fails rather than judging nothing.
+  SUITE_JUDGED=-1
+  suite_queue() { # $1 refused or through · $2 agent type, empty for the main session · $3 tool · $4 command
+    if (( SUITE_JUDGED >= 0 )); then
+      note_fail "whole-suite hook: ${3} '${4}' was queued after the arms were answered, so nothing judged it"
+      return 0
+    fi
+    SUITE_ROUTES+=("${suite_route:-reader}"); SUITE_EXPECTS+=("$1")
+    SUITE_AGENTS+=("$2"); SUITE_TOOLS+=("$3"); SUITE_COMMANDS+=("$4")
+  }
+  expect_refused() { suite_queue refused implementer "$1" "$2"; } # $1 tool · $2 command
+  expect_let_through() { suite_queue through "$1" "$2" "$3"; } # $1 agent type · $2 tool · $3 command
+  # Through the shell script as the harness runs it, for what only the script decides: its word
+  # match, its exit status and its stderr.
+  through_hook() { local suite_route=hook; "$@"; }
+  suite_answer_queued() {
+    local arms="${SELFCHECK_TMP}/suite-arms" answers="${SELFCHECK_TMP}/suite-answers" rc=0 i said unanswered
+    local -a answered=()
+    SUITE_JUDGED=0
+    : > "$arms"
+    for i in "${!SUITE_EXPECTS[@]}"; do
+      printf '%s\0%s\0%s\0%s\0' "${SUITE_ROUTES[i]}" "${SUITE_AGENTS[i]}" "${SUITE_TOOLS[i]}" "${SUITE_COMMANDS[i]}" >> "$arms"
+    done
+    # One record per arm, written as it is judged: a reader hanging on one arm leaves the arms before
+    # it answered, and the rest fail by name below rather than the step failing whole.
+    timeout 10 node -e '
+const fs = require("fs");
+const { pathToFileURL } = require("url");
+const [reader, arms] = process.argv.slice(1);
+import(pathToFileURL(reader).href).then(({ refusal }) => {
+  const fields = fs.readFileSync(arms, "utf8").split("\0");
+  for (let k = 0; k + 3 < fields.length; k += 4) {
+    const [route, agent, tool, command] = fields.slice(k, k + 4);
+    const input = { session_id: "probe", hook_event_name: "PreToolUse", tool_name: tool, tool_input: { command } };
+    if (agent) input.agent_type = agent;
+    const payload = JSON.stringify(input);
+    // An arm through the script gets its payload; any other gets what the script would report.
+    const refused = route === "hook" ? null : refusal(payload);
+    fs.writeSync(1, (route === "hook" ? payload : refused ? "2 " + refused.replace(/\n/g, " ") : "0 ") + "\0");
+  }
+});
+' "${HOOKS_DIR}/implementer-whole-suite.mjs" "$arms" > "$answers" 2>"${SELFCHECK_TMP}/suite-driver.err" || rc=$?
+    mapfile -d '' -t answered < "$answers"
+    # Read now: an arm through the script below rewrites that script's own stderr file.
+    unanswered="no answer, the reader's driver exited ${rc}: $(tr '\n' ' ' < "${SELFCHECK_TMP}/suite-driver.err")"
+    for i in "${!SUITE_EXPECTS[@]}"; do
+      if (( i >= ${#answered[@]} )); then
+        said="$unanswered"
+      elif [[ "${SUITE_ROUTES[i]}" == hook ]]; then
+        said="$(suite_drive "${answered[i]}")"
+      else
+        said="${answered[i]}"
+      fi
+      set -- "${SUITE_AGENTS[i]}" "${SUITE_TOOLS[i]}" "${SUITE_COMMANDS[i]}"
+      if [[ "${SUITE_EXPECTS[i]}" == refused ]]; then
+        case "$said" in
+          "2 Refused by .claude/hooks/implementer-whole-suite.sh"*) info "whole-suite hook: ${2} '${3}' — refused" ;;
+          *) note_fail "whole-suite hook: ${2} '${3}' must exit 2 naming the hook, got '${said:0:200}'" ;;
+        esac
+      elif [[ "$said" == "0 " ]]; then info "whole-suite hook: ${1:-the main session} ${2} '${3}' — let through"
+      else note_fail "whole-suite hook: ${1:-the main session} ${2} '${3}' must exit 0 silently, got '${said:0:200}'"; fi
+      SUITE_JUDGED=$(( SUITE_JUDGED + 1 ))
+    done
+  }
+  # One probe per arm of the reader, every member of its word lists included: an arm no probe reaches
+  # can be deleted with the step green. The runners and the operands that narrow nothing first.
+  through_hook expect_refused Bash 'pnpm test'
+  expect_refused Bash 'npm test'
+  expect_refused Bash 'npm run test'
+  expect_refused Bash 'pnpm run test -- --test-name-pattern one'
+  expect_refused Bash 'pnpm --dir fl_frontend run test:db'
+  expect_refused Bash 'pnpm -C fl_frontend test'
+  expect_refused Bash 'pnpm --filter fl_frontend test'
+  expect_refused Bash 'pnpm run test:base'
+  expect_refused Bash 'pnpm run test:base -- --test-name-pattern one'
+  for suite_tree in . ./src/ src fl_frontend fl_frontend/src '"**/*.test.ts"'; do
+    expect_refused Bash "pnpm run test:base ${suite_tree}"
+  done
+  expect_refused Bash 'node --import ./scripts/tsconfig-alias-hook.mjs --test'
+  expect_refused Bash 'node --test --test-name-pattern one'
+  expect_refused Bash 'pnpm exec node --test'
+  expect_refused Bash 'pytest'
+  expect_refused Bash 'python3 -m pytest'
+  expect_refused Bash 'uv run --frozen pytest -q'
+  expect_refused Bash 'uv run --frozen pytest -k spiele'
+  for suite_tree in tests ./tests/ fl_backend fl_backend/tests; do
+    expect_refused Bash "uv run --frozen pytest ${suite_tree}"
+  done
+  # A narrowing operand names a test file or a node id, so a directory, a glob or a flag's value is none.
+  for suite_tree in tests/api 'tests/*' '-n auto' '-p no:cacheprovider --maxfail 1'; do
+    expect_refused Bash "uv run --frozen pytest ${suite_tree}"
+  done
+  expect_refused Bash 'uv run --project fl_backend --frozen python -m pytest -m db'
+  expect_refused Bash 'uv run --frozen pytest -m db -n 2'
+  expect_refused Bash 'uv run --frozen pytest -m db tests/api/test_spiele.py tests/api/test_teams.py'
+  expect_refused Bash 'node --test --test-reporter spec'
+  expect_refused Bash 'pnpm run test:base -- --test-reporter dot'
+  expect_refused Bash 'npm t'
+  expect_refused Bash 'bash -x ./scripts/gate/verify.sh'
+  expect_refused Bash 'uv run --directory fl_backend pytest'
+  expect_refused Bash './scripts/gate/verify.sh --docs'
+  expect_refused Bash 'bash scripts/ops/local.sh --down'
+  # Then each route to a runner: a wrapper, a quote, a separator, a redirect, another shell.
+  expect_refused Bash 'CI=1 pnpm test'
+  expect_refused Bash 'env CI=1 pnpm test'
+  expect_refused Bash 'cross-env CI=1 pnpm test'
+  expect_refused Bash 'timeout 600 pnpm test'
+  for suite_word in 'time' 'exec' 'command' '!' 'if' 'then' 'else' 'do' 'while' 'until'; do
+    expect_refused Bash "${suite_word} pnpm test"
+  done
+  expect_refused Bash 'cd fl_backend && uv run --frozen pytest > out.txt 2>&1'
+  expect_refused Bash 'uv run --frozen pytest < /dev/null'
+  expect_refused Bash "uv run --frozen \\"$'\n'"pytest"
+  expect_refused Bash "echo \$(uv run --frozen pytest)"
+  suite_tick='`'
+  expect_refused Bash "echo ${suite_tick}pnpm test${suite_tick}"
+  expect_refused Bash '(cd fl_frontend && pnpm test)'
+  expect_refused Bash '{ pnpm test; }'
+  expect_refused Bash 'bash -c "cd fl_frontend && pnpm test"'
+  expect_refused Bash "sh -c 'pnpm test'"
+  expect_refused Bash 'bash -lc "pnpm test"'
+  # A double quote's escapes are read, so the escaped quotes inside close nothing.
+  expect_refused Bash 'bash -c "pnpm test \"x\""'
+  expect_refused Monitor 'pnpm test 2>&1 | tail -5'
+  expect_refused PowerShell 'cd fl_frontend; pnpm test'
+  # PowerShell's backslash separates a path rather than escaping the character after it.
+  expect_refused PowerShell 'uv run --frozen pytest fl_backend\tests'
+  expect_let_through implementer Bash 'pnpm run test:base src/core/apiContract.test.ts'
+  expect_let_through implementer Bash 'node --test src/core/apiContract.test.ts'
+  through_hook expect_let_through implementer Bash 'uv run --frozen pytest tests/api/test_spiele.py'
+  expect_let_through implementer Bash 'uv run --frozen pytest tests/api/test_spiele.py::test_one'
+  expect_let_through implementer Bash 'uv run --frozen pytest -m db tests/api/test_spiele.py'
+  # A substitution's output is the operand, whatever it lists.
+  expect_let_through implementer Bash "uv run --frozen pytest \$(git diff --name-only HEAD~1 -- tests)"
+  expect_let_through implementer Bash "uv run --frozen pytest ${suite_tick}cat files.txt${suite_tick}"
+  expect_let_through implementer Bash "pnpm run test:base \$(git ls-files 'src/features/x/*.test.ts')"
+  expect_let_through implementer PowerShell "uv run --frozen pytest ${suite_tick}"$'\n'"  tests/api/test_spiele.py"
+  expect_let_through implementer Bash 'uv run --frozen pytest --collect-only -q'
+  expect_let_through implementer Bash 'uv run --frozen pytest --co'
+  expect_let_through implementer Bash 'uv run --frozen pytest --version'
+  expect_let_through implementer Bash 'uv run --frozen pytest -h'
+  expect_let_through implementer Bash 'git log -- scripts/gate/verify.sh'
+  expect_let_through implementer Bash "git commit -F - <<'EOF'"$'\n''pnpm test'$'\n''EOF'
+  expect_let_through implementer Bash 'true # ; pnpm test'
+  expect_let_through implementer Bash 'echo "an unterminated quote'
+  # A call the reader cannot read is let through, and in time.
+  expect_let_through implementer Bash 'pnpm test "x'
+  expect_let_through implementer Bash "pnpm test 'x"
+  expect_let_through driving-reauditor Bash 'pnpm test'
+  # Past the shell script's word match, the reader's own agent check.
+  through_hook expect_let_through driving-reauditor Bash 'pnpm test # implementer'
+  through_hook expect_let_through '' Bash 'pnpm test'
+  suite_answer_queued
+  # Without node the hook cannot read the call, and lets it through rather than refusing blind.
+  suite_rc=0
+  printf '{"agent_type":"implementer","tool_input":{"command":"pnpm test"}}' |
+    PATH=/nonexistent "$BASH" "$SUITE_HOOK" >/dev/null 2>&1 || suite_rc=$?
+  if (( suite_rc == 0 )); then info 'whole-suite hook: no node — let through'
+  else note_fail "whole-suite hook: without node it must let the call through, got exit ${suite_rc}"; fi
+
+  # Its whole contract is reaching a coordinator and nobody else, so each arm is a payload that
+  # must be told apart from the one that speaks.
+  COMPACT_HOOK="${REPO_ROOT}/.claude/hooks/orchestration-compact.sh"
+  check_hook_matcher "${REPO_ROOT}/.claude/settings.json" SessionStart orchestration-compact.sh compact
+  compact_home="${SELFCHECK_TMP}/compact-home"
+  mkdir -p "${compact_home}/.claude/plans/programme"
+  printf '# Agent register\n\nCoordinator session id: probe-1\n' > "${compact_home}/.claude/plans/programme/REGISTER-one.md"
+  compact_drive() { # $1 payload — prints the exit status and what the hook said
+    local rc=0 out
+    out="$(printf '%s' "$1" | HOME="$compact_home" bash "$COMPACT_HOOK" 2>&1)" || rc=$?
+    printf '%s %s' "$rc" "$out"
+  }
+  compact_said="$(compact_drive '{"session_id":"probe-1","source":"compact","hook_event_name":"SessionStart"}')"
+  if [[ "$compact_said" == "0 "* ]] && node -e '
+const said = JSON.parse(process.argv[1]).hookSpecificOutput;
+const text = said.additionalContext;
+// The core as the file on disk, the resume point and the register: the hook owes all three.
+const pointers = /\.claude\/skills\/orchestration\/SKILL\.md as it is on disk/.test(text) && /resume point/.test(text);
+process.exit(said.hookEventName === "SessionStart" && pointers && /REGISTER-one\.md/.test(text) ? 0 : 1);
+' "${compact_said#0 }" 2>/dev/null; then
+    info 'compaction hook: the coordinator — told its core, its register and its resume point'
+  else
+    note_fail "compaction hook: the coordinator's compaction must name the core, the resume point and its register as JSON, got '${compact_said:0:200}'"
+  fi
+  for compact_case in \
+    'another session|{"session_id":"probe-2","source":"compact","hook_event_name":"SessionStart"}' \
+    'a startup|{"session_id":"probe-1","source":"startup","hook_event_name":"SessionStart"}' \
+    'a subagent|{"session_id":"probe-1","source":"compact","agent_id":"a1","hook_event_name":"SessionStart"}' \
+    'a pattern for an id|{"session_id":"probe-.*","source":"compact","hook_event_name":"SessionStart"}' \
+    'unreadable input|not json'; do
+    compact_said="$(compact_drive "${compact_case#*|}")"
+    if [[ "$compact_said" == "0 " ]]; then info "compaction hook: ${compact_case%%|*} — silent"
+    else note_fail "compaction hook: ${compact_case%%|*} must exit 0 silently, got '${compact_said:0:200}'"; fi
+  done
+
+  # The coordinator's send is recorded in the recipient's file through uv, its text whatever it names;
+  # one it cannot record reaches the coordinator; a subagent's writes nothing. The recording's cases are
+  # scripts/tests/test_orchestration_tools.py's.
+  MESSAGES_HOOK="${REPO_ROOT}/.claude/hooks/orchestration-messages.sh"
+  check_hook_matcher "${REPO_ROOT}/.claude/settings.json" PostToolUse orchestration-messages.sh SendMessage
+  # With no uv nothing records, and a silent hook reads exactly like one that recorded.
+  messages_said="$(printf '%s' '{"session_id":"probe-1","tool_name":"SendMessage","tool_input":{"to":"W","message":"x"}}' |
+    PATH=/nonexistent "$BASH" "$MESSAGES_HOOK" 2>&1)" || messages_said="exit $? ${messages_said}"
+  if [[ "$messages_said" == *'"additionalContext":"The messages hook found no uv'* ]]; then
+    info 'messages hook: no uv — told to the coordinator'
+  else note_fail "messages hook: with no uv it must tell the coordinator, got '${messages_said:0:200}'"; fi
+  if ! command -v uv >/dev/null 2>&1; then
+    if [[ -n "${GITHUB_ACTIONS:-}" ]]; then note_fail "uv is absent, and this is CI, which installs it for every python scope"
+    else note_skip "the messages hook's probe did not run: uv is absent, and the hook records through it"; fi
+  else
+    messages_home="${SELFCHECK_TMP}/messages-home"
+    messages_briefs="${messages_home}/.claude/plans/programme/briefs"
+    mkdir -p "$messages_briefs"
+    # Python opens the register's path as written, so a native program spells it: node resolves its
+    # argument as the platform's own tools do.
+    printf '# Agent register\n\nCoordinator session id: probe-1\nBriefs: %s\n\n## Live agents\n\n| Agent | Status |\n| --- | --- |\n| WORKER | RUNNING |\n' \
+      "$(node -e 'process.stdout.write(require("path").resolve(process.argv[1]))' "$messages_briefs")" > "${messages_home}/.claude/plans/programme/REGISTER-one.md"
+    printf '# WORKER\n' > "${messages_briefs}/WORKER-messages.md"
+    messages_drive() { # $1 payload — prints the exit status and what the hook said
+      local rc=0 out
+      out="$(printf '%s' "$1" | HOME="$messages_home" bash "$MESSAGES_HOOK" 2>&1)" || rc=$?
+      printf '%s %s' "$rc" "$out"
+    }
+    messages_said="$(messages_drive '{"session_id":"probe-1","tool_name":"SendMessage","tool_input":{"to":"WORKER","message":"probe order naming \"agent_id\": in its text"}}')"
+    if [[ "$messages_said" == "0 " ]] && grep -q '^probe order naming "agent_id": in its text$' "${messages_briefs}/WORKER-messages.md"; then
+      info 'messages hook: the coordinator'"'"'s send — recorded in the recipient'"'"'s file'
+    else note_fail "messages hook: the coordinator's send must be appended to WORKER-messages.md silently, got '${messages_said:0:200}'"; fi
+    messages_said="$(messages_drive '{"session_id":"probe-1","agent_id":"a1","tool_name":"SendMessage","tool_input":{"to":"WORKER","message":"subagent reply"}}')"
+    if [[ "$messages_said" == "0 " ]] && ! grep -q 'subagent reply' "${messages_briefs}/WORKER-messages.md"; then
+      info 'messages hook: a subagent'"'"'s send — silent, nothing written'
+    else note_fail "messages hook: a subagent's send must write nothing and stay silent, got '${messages_said:0:200}'"; fi
+    messages_said="$(messages_drive '{"session_id":"probe-1","tool_name":"SendMessage","tool_input":{"to":"NOBODY","message":"lost order"}}')"
+    if [[ "$messages_said" == "0 "*'"hookEventName": "PostToolUse"'*"is in no messages file"* ]]; then
+      info 'messages hook: a send it cannot record — told to the coordinator'
+    else note_fail "messages hook: a send to an agent with no messages file must be told as PostToolUse context, got '${messages_said:0:200}'"; fi
+  fi
+
+  # A writing or driving agent's MCP and Skill calls refused, because the app ignores the
+  # definitions' `disallowedTools`; every other caller and tool let through.
+  TOOLS_HOOK="${REPO_ROOT}/.claude/hooks/writer-tools.sh"
+  check_hook_matcher "${REPO_ROOT}/.claude/settings.json" PreToolUse writer-tools.sh Skill mcp__Claude_Browser__navigate mcp__ccd_session__spawn_task
+  tools_drive() { # $1 payload — prints the exit status and stderr
+    local rc=0 out
+    out="$(printf '%s' "$1" | timeout 10 bash "$TOOLS_HOOK" 2>&1 >/dev/null)" || rc=$?
+    printf '%s %s' "$rc" "$out"
+  }
+  for tools_case in \
+    'implementer|mcp__Claude_Browser__navigate' 'implementer|Skill' 'driving-reauditor|mcp__ccd_session__spawn_task'; do
+    tools_said="$(tools_drive "{\"agent_type\":\"${tools_case%%|*}\",\"tool_name\":\"${tools_case#*|}\",\"tool_input\":{}}")"
+    case "$tools_said" in
+      "2 Refused by .claude/hooks/writer-tools.sh"*) info "writer-tools hook: ${tools_case%%|*} ${tools_case#*|} — refused" ;;
+      *) note_fail "writer-tools hook: ${tools_case%%|*} ${tools_case#*|} must exit 2 naming the hook, got '${tools_said:0:200}'" ;;
+    esac
+  done
+  for tools_case in \
+    'the main session|{"tool_name":"mcp__Claude_Browser__navigate","tool_input":{"note":"implementer"}}' \
+    'a researcher|{"agent_type":"researcher","tool_name":"mcp__Claude_Browser__navigate","tool_input":{}}' \
+    'an implementer reading|{"agent_type":"implementer","tool_name":"Read","tool_input":{}}' \
+    'unreadable input|implementer {'; do
+    tools_said="$(tools_drive "${tools_case#*|}")"
+    if [[ "$tools_said" == "0 " ]]; then info "writer-tools hook: ${tools_case%%|*} — let through"
+    else note_fail "writer-tools hook: ${tools_case%%|*} must exit 0 silently, got '${tools_said:0:200}'"; fi
+  done
+
+  # Every spawned or resumed agent with a definition file is told that file binds, by the checkout's
+  # absolute path, its worktree's copy being as old as its fork; a Windows path must still parse.
+  DEFINITION_HOOK="${REPO_ROOT}/.claude/hooks/agent-definition.sh"
+  check_hook_matcher "${REPO_ROOT}/.claude/settings.json" SubagentStart agent-definition.sh implementer driving-reauditor researcher cold-auditor
+  for definition_type in implementer driving-reauditor researcher cold-auditor; do
+    definition_said="$(printf '{"hook_event_name":"SubagentStart","agent_id":"a1","agent_type":"%s"}' "$definition_type" | CLAUDE_PROJECT_DIR='C:\probe\checkout' bash "$DEFINITION_HOOK" 2>&1)"
+    if node -e '
+const said = JSON.parse(process.argv[1]).hookSpecificOutput;
+const text = said.additionalContext;
+const absolute = text.includes("C:\\probe\\checkout/.claude/agents/" + process.argv[2] + ".md");
+process.exit(said.hookEventName === "SubagentStart" && absolute && /own worktree can be older/.test(text) ? 0 : 1);
+' "$definition_said" "$definition_type" 2>/dev/null; then info "definition hook: ${definition_type} — told its definition file by absolute path"
+    else note_fail "definition hook: ${definition_type} must be told the project directory's .claude/agents/${definition_type}.md, and that its worktree's copy can be older, as JSON, got '${definition_said:0:200}'"; fi
+  done
+  # With no project directory the hook falls back to its own checkout, which must name a file that exists.
+  definition_said="$(printf '{"hook_event_name":"SubagentStart","agent_type":"implementer"}' | (unset CLAUDE_PROJECT_DIR; bash "$DEFINITION_HOOK") 2>&1)"
+  if [[ "$definition_said" == *"${REPO_ROOT}/.claude/agents/implementer.md as it is on disk"* ]]; then
+    info "definition hook: no project directory — told its own checkout's file"
+  else note_fail "definition hook: with no project directory it must name ${REPO_ROOT}/.claude/agents/implementer.md, got '${definition_said:0:200}'"; fi
+  for definition_case in \
+    'a built-in agent|{"hook_event_name":"SubagentStart","agent_type":"Explore"}' \
+    'a path in the type|{"hook_event_name":"SubagentStart","agent_type":"../settings"}' \
+    'unreadable input|not json'; do
+    definition_said="$(printf '%s' "${definition_case#*|}" | bash "$DEFINITION_HOOK" 2>&1)"
+    if [[ -z "$definition_said" ]]; then info "definition hook: ${definition_case%%|*} — silent"
+    else note_fail "definition hook: ${definition_case%%|*} must stay silent, got '${definition_said:0:200}'"; fi
+  done
+
+  if (( ${#SUITE_EXPECTS[@]} > 0 && SUITE_JUDGED == ${#SUITE_EXPECTS[@]} )); then
+    info "whole-suite hook: all ${SUITE_JUDGED} queued arms judged"
+  else
+    note_fail "whole-suite hook: ${#SUITE_EXPECTS[@]} arm(s) were queued and $(( SUITE_JUDGED < 0 ? 0 : SUITE_JUDGED )) judged — suite_answer_queued must run once, after the last probe is queued"
+  fi
 fi
 
 step "13. Every deliberate non-run reaches the gate"
@@ -1021,5 +1363,5 @@ printf '\n'
 if (( FAILURES == 0 )); then
   ok "All script self-checks passed."
 else
-  die "${FAILURES} script self-check(s) failed."
+  die --summary "${FAILURES} script self-check(s) failed."
 fi

@@ -9,11 +9,12 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.identitaet.crud import funktionen_of
 from app.api.identitaet.schemas import FLSubjekt
-from app.api.kontakte.services import KONTAKT_SLOTS
+from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.collections import Collection
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
 from tests.documents import EINWILLIGUNG, rules_document, saison_document, saison_team_document, spieler_document
+from tests.records import record_collections
 from tests.worker import worker_database
 
 from .conftest import AUSTRITT, unwritten
@@ -126,7 +127,7 @@ def _junction(
         name[:2].upper(),
         _id=row_id,
         austritt=austritt,
-        kontakte={**{slot: None for slot in KONTAKT_SLOTS}, **slots, "trainer_ist_zugleich": zugleich},
+        kontakte={**{slot: None for slot in KONTAKT_ROLLEN}, **slots, "trainer_ist_zugleich": zugleich},
     )
 
 
@@ -275,14 +276,7 @@ def seeded_league(mongo_replica_set_url: str) -> Iterator[str]:
 
 
 async def _ask(database: AsyncDatabase, email: str, session: AsyncClientSession) -> FLSubjekt:
-    return await funktionen_of(
-        email,
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        saisons_collection=database[Collection.SAISONS],
-        spieler_collection=database[Collection.SPIELER],
-        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-        session=session,
-    )
+    return await funktionen_of(email, record_collections(database), session=session)
 
 
 def answered(url: str, email: str) -> FLSubjekt:
@@ -514,13 +508,4 @@ def test_an_identifier_folding_to_nothing_is_refused_before_any_read(identifier:
     unreachable = cast(Any, object())
 
     with pytest.raises(ValueError, match="empty identifier"):
-        asyncio.run(
-            funktionen_of(
-                identifier,
-                saison_teams_collection=unreachable,
-                saisons_collection=unreachable,
-                spieler_collection=unreachable,
-                schiedsrichter_collection=unreachable,
-                session=unreachable,
-            )
-        )
+        asyncio.run(funktionen_of(identifier, unreachable, session=unreachable))

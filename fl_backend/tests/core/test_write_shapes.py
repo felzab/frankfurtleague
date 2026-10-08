@@ -13,7 +13,7 @@ from app.api.teams.admin_router import post_team
 from app.core.collections import Collection
 from app.core.constraints import COLLECTION_VALIDATORS
 from app.core.domain import AGGREGATES
-from app.main import SYSTEM_ROUTERS, WRITE_ROUTERS
+from app.main import PERSON_ROUTERS, SYSTEM_ROUTERS, WRITE_ROUTERS
 from tests.core.app_source import (
     APP_ROOT,
     BACKEND_ROOT,
@@ -33,6 +33,8 @@ from tests.core.app_source import (
     removals,
     session_carriers,
     session_handoffs,
+    snapshot_blocks,
+    snapshot_carriers,
     transactional_callbacks,
 )
 
@@ -72,7 +74,9 @@ SERVICE_PACKAGES: frozenset[str] = frozenset(
         "berechtigungen",
         "bewerbungen",
         "einladungen",
+        "einwilligung",
         "identitaet",
+        "konto",
         "kontakte",
         "registrierungen",
         "saisons",
@@ -372,6 +376,18 @@ class TestWhatARemovalFilterMayName:
         ]
 
         assert unscoped == []
+
+    def test_no_removal_reaches_a_team_or_a_season(self):
+        """What lets reads assert a team or season present rather than answer 404.
+
+        `app/api/registrierungen/einwilligung_router.py :: get_bestaetigung_ansicht`,
+        `app/api/bewerbungen/einwilligung_router.py :: _schule_name`, `:: _saison_ansicht`, `:: post_einwilligung`,
+        `app/api/spieler/person_router.py :: _erlaubte_stufen`.
+        """
+
+        removed = sorted({removal.collection for removal in removals()} & {str(Collection.TEAMS), str(Collection.SAISONS)})
+
+        assert removed == []
 
     def test_every_removal_from_bewerbungen_is_an_erasure(self):
         """Swap one sweep call to `delete_many_from_db` and this fails.
@@ -732,13 +748,41 @@ class TestEveryHelperTheTransactionReachesReadsInSession:
         assert {read for carrier in carriers if carrier.called == "pull_one_from_db" for read, _ in carrier.reads} == {"find_one"}
 
     def test_no_read_inside_one_is_left_off_the_session_it_was_handed(self):
-        """Drop `session=` from the count in `app/api/spieler/admin_router.py :: _refuse_a_taken_rolle` and this fails.
+        """Drop `session=` from the count in `app/api/spieler/crud.py :: refuse_a_taken_rolle` and this fails.
 
         The refusal then decides on what committed last while the write beside it is in the
         transaction, so the retry re-decides on that same stale count.
         """
 
         loose = [f"{carrier.where} reads with {read}" for carrier in session_carriers() for read, carries in carrier.reads if not carries]
+
+        assert loose == []
+
+
+# Two snapshot sessions the finder must see, so a finder matching nothing cannot pass the clause below.
+SNAPSHOT_READERS = frozenset({"app/api/berechtigungen/crud.py :: _grant_and_its_record", "app/api/spieler/person_router.py :: get_kader"})
+
+
+class TestEveryReadInsideASnapshotSessionCarriesIt:
+    """That a snapshot session's reads are one point in time.
+
+    A read left off it sees whatever committed last, and nothing at run time tells the two apart.
+    """
+
+    def test_the_sweep_sees_the_snapshot_sessions_and_what_each_reads(self):
+        blocks = snapshot_blocks()
+
+        assert SNAPSHOT_READERS <= {block.where for block in blocks}, "a snapshot session is no longer seen, so the clause below asks less"
+        assert [block.where for block in blocks if not (block.reads or block.seeds)] == [], "a block is seen reading nothing at all"
+
+    def test_no_read_and_no_handoff_inside_one_leaves_its_session(self):
+        """Write a read without `session=` straight into `app/api/spieler/person_router.py :: get_kader`'s snapshot and this fails."""
+
+        loose = [
+            *(f"{block.where} reads with {read}" for block in snapshot_blocks() for read, carries in block.reads if not carries),
+            *(f"{block.where} hands {called} no session" for block in snapshot_blocks() for called, bound in block.handoffs if not bound),
+            *(f"{carrier.where} reads with {read}" for carrier in snapshot_carriers() for read, carries in carrier.reads if not carries),
+        ]
 
         assert loose == []
 
@@ -952,7 +996,7 @@ def creations() -> tuple[list[Creation], frozenset[str]]:
 
     found: list[Creation] = []
     unreadable: set[str] = set()
-    for router in (*WRITE_ROUTERS, *SYSTEM_ROUTERS):
+    for router in (*WRITE_ROUTERS, *SYSTEM_ROUTERS, *PERSON_ROUTERS):
         for route in router.routes:
             found_endpoint: Callable[..., Any] | None = getattr(route, "endpoint", None)
             if found_endpoint is None:

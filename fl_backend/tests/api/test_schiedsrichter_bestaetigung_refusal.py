@@ -24,12 +24,12 @@ from app.api.schiedsrichter.services import (
     SCHIEDSRICHTER_ADRESSE_GESPERRT,
     SCHIEDSRICHTER_ALREADY_CONFIRMED,
     SCHIEDSRICHTER_ALTER,
-    SCHIEDSRICHTER_ERTEILT_VON,
     SCHIEDSRICHTER_KEINE_ADRESSE,
     SCHIEDSRICHTER_MEDIEN_ALTER,
     SCHIEDSRICHTER_RETIRED,
     SCHIEDSRICHTER_TOKEN_EXPIRED,
     SCHIEDSRICHTER_TOKEN_UNKNOWN,
+    KorrekturLink,
     bestaetigung_frist_from,
     build_token_filter,
     compose_bestaetigung,
@@ -60,6 +60,8 @@ from app.shared.schemas.bounds import (
 )
 
 TODAY = "2026-04-01"
+# The confirmation's instant on `TODAY`, as `app/core/recording.py :: log_stamp` spells one.
+CONFIRMED_AT = "2026-04-01T10:30:00+00:00"
 YESTERDAY = "2026-03-31"
 TOMORROW = "2026-04-02"
 
@@ -116,21 +118,35 @@ class TestTheRecordTheConfirmationWrites:
         """One write and never two: between them the row would hold a birthdate nobody had yet consented to the league keeping."""
 
         update = compose_confirmation_update(
-            geburtsdatum=AN_ADULTS_BIRTHDATE, umfang="kader_oeffentlich", medien=True, text_version="v1", today=TODAY
+            geburtsdatum=AN_ADULTS_BIRTHDATE, umfang="kader_oeffentlich", medien=True, text_version="v1", today=TODAY, am=CONFIRMED_AT
         )
 
         assert set(update) == {"$set"}
         assert set(update["$set"]) == {"geburtsdatum", EINWILLIGUNG_FELD}
+
+    def test_the_record_is_born_with_each_choice_evidenced_by_the_confirmation(self):
+        """Whole and never dotted: a dotted `$set` under the null block a live referee row stores aborts the transaction."""
+
+        update = compose_confirmation_update(
+            geburtsdatum=AN_ADULTS_BIRTHDATE, umfang="kader_oeffentlich", medien=True, text_version="v1", today=TODAY, am=CONFIRMED_AT
+        )
+
+        assert update["$set"][EINWILLIGUNG_FELD]["nachweis"] == {
+            "umfang": {"am": CONFIRMED_AT, "text_version": "v1"},
+            "medien": {"am": CONFIRMED_AT, "text_version": "v1"},
+        }
 
     def test_the_record_carries_the_media_answer_even_when_it_is_off(self):
         """An off switch is an answer, so the key is stored rather than omitted for the model's default to supply."""
 
         assert compose_einwilligung(umfang="intern", medien=False, text_version="v1", today=TODAY)["medien"] is False
 
-    def test_nobody_may_answer_for_a_referee(self):
+    def test_the_record_is_given_and_confirmed_in_one_press_naming_no_speaker(self):
+        """Nobody but the referee answers on their own link, and no write names who answered any longer."""
+
         record = compose_einwilligung(umfang="intern", medien=False, text_version="v1", today=TODAY)
 
-        assert record["erteilt_von"] == SCHIEDSRICHTER_ERTEILT_VON
+        assert "erteilt_von" not in record
         assert record["datum"] == record["bestaetigt_am"] == TODAY
 
     def test_the_record_carries_every_key_the_validator_requires(self):
@@ -420,7 +436,7 @@ class TestARetiredRefereeTakesNoFreshLink:
             stored=stored, payload=payload, payload_email="new@example.com", token_hash=TOKEN_HASH, today=TODAY
         )
 
-        assert minted is False
+        assert minted is None
         assert update == {"$set": payload, "$unset": {BESTAETIGUNG_FELD: ""}}
 
     def test_a_retired_referees_unmoved_address_keeps_its_link_in_whichever_spelling_it_was_stored(self):
@@ -431,7 +447,7 @@ class TestARetiredRefereeTakesNoFreshLink:
             stored=stored, payload=payload, payload_email=LOWER_CASE_SAVED, token_hash=TOKEN_HASH, today=TODAY
         )
 
-        assert (update, minted) == ({"$set": payload}, False)
+        assert (update, minted) == ({"$set": payload}, None)
 
     def test_a_live_referees_new_address_is_minted_for(self):
         stored = {"kontakt": {"email": "old@example.com"}, EINWILLIGUNG_FELD: None, "inactive_since": None}
@@ -441,7 +457,7 @@ class TestARetiredRefereeTakesNoFreshLink:
             stored=stored, payload=payload, payload_email="new@example.com", token_hash=TOKEN_HASH, today=TODAY
         )
 
-        assert minted is True
+        assert minted == "bestaetigung"
         assert update == {"$set": {**payload, BESTAETIGUNG_FELD: compose_bestaetigung(token_hash=TOKEN_HASH, today=TODAY)}}
 
 
@@ -502,7 +518,7 @@ class TestAnAddressOnTheBanList:
         assert refusal.error_code == SCHIEDSRICHTER_ADRESSE_GESPERRT
 
 
-def korrektur(stored: Mapping[str, Any], payload_email: str, *, today: str = TODAY) -> tuple[dict[str, Any], bool]:
+def korrektur(stored: Mapping[str, Any], payload_email: str, *, today: str = TODAY) -> tuple[dict[str, Any], KorrekturLink | None]:
     """The save's update over an empty payload, so all it `$set`s is what the save minted."""
 
     return compose_korrektur_update(
@@ -528,7 +544,7 @@ class TestACorrectedAddressReMints:
     def test_an_unconfirmed_referee_whose_address_moves_gets_a_fresh_block(self, stored: Mapping[str, Any], payload_email: str):
         assert korrektur(stored, payload_email) == (
             {"$set": {BESTAETIGUNG_FELD: compose_bestaetigung(token_hash=TOKEN_HASH, today=TODAY)}},
-            True,
+            "bestaetigung",
         )
 
     @pytest.mark.parametrize(
@@ -536,29 +552,17 @@ class TestACorrectedAddressReMints:
         [
             ({"kontakt": {"email": "same@example.com"}, EINWILLIGUNG_FELD: None}, "same@example.com"),
             ({"kontakt": {"email": CAPITALS_STORED}, EINWILLIGUNG_FELD: None}, LOWER_CASE_SAVED),
-            ({"kontakt": {"email": "old@example.com"}, EINWILLIGUNG_FELD: confirmed()}, "new@example.com"),
+            ({"kontakt": {"email": "same@example.com"}, EINWILLIGUNG_FELD: confirmed()}, "same@example.com"),
         ],
-        ids=["address-unchanged", "address-unchanged-but-its-domain-in-capitals", "already-confirmed"],
+        ids=["address-unchanged", "address-unchanged-but-its-domain-in-capitals", "already-confirmed-and-unmoved"],
     )
     def test_every_other_save_mints_nothing(self, stored: Mapping[str, Any], payload_email: str):
-        assert korrektur(stored, payload_email) == ({"$set": {}}, False)
-
-    def test_a_confirmed_referees_corrected_address_is_stopped_here_and_by_no_refusal(self):
-        """The already-answered half of the save's mint is this early return, which the two refusals beside it never reach.
-
-        Named because the invariant over every mint reads as though a refusal carried every half.
-        """
-
-        stored = {"kontakt": {"email": "old@example.com"}, EINWILLIGUNG_FELD: confirmed(), "inactive_since": None}
-
-        assert korrektur(stored, "new@example.com") == ({"$set": {}}, False)
-        assert find_already_confirmed_refusal(einwilligung=stored[EINWILLIGUNG_FELD]) is not None
-        assert find_retired_refusal(inactive_since=stored["inactive_since"]) is None
+        assert korrektur(stored, payload_email) == ({"$set": {}}, None)
 
     def test_the_fresh_block_restarts_the_deadline(self):
         update, minted = korrektur({"kontakt": {"email": "old@example.com"}, EINWILLIGUNG_FELD: None}, "new@example.com", today=TOMORROW)
 
-        assert minted is True
+        assert minted == "bestaetigung"
         assert update["$set"][BESTAETIGUNG_FELD]["frist"] == bestaetigung_frist_from(today=TOMORROW)
 
 

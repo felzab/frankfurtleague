@@ -8,8 +8,15 @@ import { toFieldErrors } from "@/shared/utils/validation";
 
 import { FLPatchSaisonTeamKontaktePayloadSchema } from "./schemas";
 
+import type { KontaktZeile } from "@/core/kontaktEmail";
 import type { KontaktRolle } from "@/features/teams/constants";
-import type { FLKontaktpersonPayload, FLSaisonTeamKontaktePayload, FLTeamMembership, FLTrainerZugleich } from "@/features/teams/schemas";
+import type {
+  FLAustritt,
+  FLKontaktpersonPayload,
+  FLSaisonTeamKontaktePayload,
+  FLTeamMembership,
+  FLTrainerZugleich,
+} from "@/features/teams/schemas";
 import type { KontaktpersonDraft, SaisonTeamKontakteDraft, TeamSaisonMembership } from "@/features/teams/types";
 import type { QueryResult } from "@/shared/types/types";
 import type { FLKontaktErasureAnsichtResponse, FLKontaktErasureResponse, FLPatchSaisonTeamKontaktePayload } from "./schemas";
@@ -20,6 +27,23 @@ import type { ErasureAnsicht, SaisonTeamKontaktePayloadDraft } from "./types";
  * reads the list a second time.
  */
 const ERNEUT_STARTEN = "Brich ab und starte das Löschen erneut.";
+
+/**
+ * The block with every seat naming `textVersion`, the form's running label: a handed seat is a new
+ * acceptance only that label may stamp, and a kept seat's stored record stands whatever is sent
+ * (`docs/backend/spec.md :: I610`).
+ */
+export function mitLaufenderFassung(kontakte: FLSaisonTeamKontaktePayload, textVersion: string): FLSaisonTeamKontaktePayload {
+  const gestempelt = (sitz: FLKontaktpersonPayload | null) =>
+    sitz === null ? null : { ...sitz, einwilligung: { ...sitz.einwilligung, text_version: textVersion } };
+
+  return {
+    ...kontakte,
+    trainer: gestempelt(kontakte.trainer),
+    ansprechperson: gestempelt(kontakte.ansprechperson),
+    stellvertretung: gestempelt(kontakte.stellvertretung),
+  };
+}
 
 /** One count as German reads it, with a word for none and a word for one. */
 function countPhrase(count: number, singular: string, plural: string): string {
@@ -106,12 +130,15 @@ export function applySeatPresence(
   value: SaisonTeamKontakteDraft,
   rolle: KontaktRolle,
   present: boolean,
+  /** The label the application form runs, which a seat opened blank stamps; `null` where it could not be read. */
+  textVersion: string | null,
   /** What the seat held when it was switched off. Absent for a seat that has never held anybody. */
   zurueck?: KontaktpersonDraft,
 ): { next: SaisonTeamKontakteDraft; revalidate: boolean } {
-  // Given BACK rather than rebuilt: a switch is not a delete, and an admin who turns a seat off and
-  // on again has not asked for the details they entered to be thrown away.
-  const seat = present ? (zurueck ?? buildEmptyKontaktperson()) : null;
+  // Given BACK rather than rebuilt: a switch is not a delete, and turning a seat off and on again asks
+  // for nothing typed to be thrown away. Without a label a blank seat has no wording to stamp.
+  const blank = textVersion === null ? null : buildEmptyKontaktperson(textVersion);
+  const seat = present ? (zurueck ?? blank) : null;
 
   return { next: { ...value, [rolle]: seat }, revalidate: !present };
 }
@@ -190,6 +217,17 @@ export function teamPageHref(teamId: string, saisonId: string): string {
 }
 
 /**
+ * The state that fixes what a link minted on the row opens: once its season is over or its team has
+ * left it, the backend mints a newcomer a link taking the Widerspruch alone and sends no fresh one
+ * (`REQ-KONTAKT-005`).
+ */
+export function kontaktZeile(saisonStatus: TeamSaisonMembership["saisonStatus"], austritt: FLAustritt | null): KontaktZeile {
+  if (saisonStatus === "past") return "saison_vorbei";
+
+  return austritt === null ? "offen" : "ausgetreten";
+}
+
+/**
  * The selected season's junction row for one club, or `null` where the club does not play it. Never
  * another season's row: the header names the selected one and a save writes onto it, so a fallback
  * would move three people between seasons.
@@ -211,6 +249,7 @@ export function resolveTeamSaisonMembership(
             austritt: membership.austritt,
             trikot_farbe: membership.trikot_farbe,
             kontakte: membership.kontakte,
+            bestaetigungen: membership.bestaetigungen,
             kontakte_stand: membership.kontakte_stand,
           },
   };

@@ -1,10 +1,8 @@
 "use server";
 
-import { updateTag } from "next/cache";
-
 import { isFreshlySignedIn } from "@/core/auth";
-import { refusalResult, refuseUnconfirmed, runAdminMutation } from "@/shared/utils/adminMutation";
-import { buildRefusal } from "@/shared/utils/refusal";
+import { invalidatesOnWrite, refusalResult, refuseUnconfirmed, runAdminMutation } from "@/shared/utils/adminMutation";
+import { buildRefusal, LADE_DIE_SEITE_NEU, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { SCHIEDSRICHTER_ANONYM_LABEL } from "./constants";
@@ -12,15 +10,18 @@ import { returnMayMint, saveMayMint } from "./linkMint";
 import {
   anonymiseSchiedsrichter,
   deleteSchiedsrichter,
+  einladeAdresswechsel,
   einladeSchiedsrichter,
   patchSchiedsrichter,
   postSchiedsrichter,
   reactivateSchiedsrichter,
+  verwirfAdresswechsel,
 } from "./mutations";
-import { describeLinkMail, mailSchiedsrichterLink } from "./notifications";
+import { describeAdresswechselMail, describeLinkMail, mailSchiedsrichterAdresswechsel, mailSchiedsrichterLink } from "./notifications";
 import { getSchiedsrichterById } from "./queries";
 import {
   KEINE_ADRESSE,
+  mapAdresswechselRefusal,
   mapAnonymiseRefusal,
   mapEinladenRefusal,
   mapGesperrteAdresseRefusal,
@@ -32,6 +33,8 @@ import {
   FLAnonymiseSchiedsrichterPayloadSchema,
   FLPatchSchiedsrichterPayloadSchema,
   FLPostSchiedsrichterPayloadSchema,
+  FLSchiedsrichterAdresswechselEinladenPayloadSchema,
+  FLSchiedsrichterAdresswechselVerwerfenPayloadSchema,
   FLSchiedsrichterEinladenPayloadSchema,
   FLSchiedsrichterKeyPayloadSchema,
   hatAdresse,
@@ -44,6 +47,8 @@ import type {
   FLPatchSchiedsrichterPayload,
   FLPostSchiedsrichterPayload,
   FLSchiedsrichter,
+  FLSchiedsrichterAdresswechselEinladenPayload,
+  FLSchiedsrichterAdresswechselVerwerfenPayload,
   FLSchiedsrichterEinladenPayload,
   FLSchiedsrichterKeyPayload,
 } from "./schemas";
@@ -74,7 +79,7 @@ export async function postSchiedsrichterAction(
     }
 
     if (!postOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Der Schiedsrichter wurde nicht angelegt", repair: "Versuche es erneut" }) };
+      return { success: false, error: buildRefusal({ reason: "Der Schiedsrichter wurde nicht angelegt", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
     const mint = postOperation.bestaetigung;
@@ -102,7 +107,14 @@ export async function patchSchiedsrichterAction(
   rawPayload: FLSchiedsrichterPayloadDraft<FLPatchSchiedsrichterPayload>,
   // A flag beside the message rather than a sentence the caller parses: the editor grades the toast
   // a warning on it, and the save landed either way.
-): Promise<ActionResult<{ updated_document?: FLSchiedsrichter; versandSatz?: string; versandFehlgeschlagen?: boolean }>> {
+): Promise<
+  ActionResult<{
+    updated_document?: FLSchiedsrichter;
+    versandSatz?: string;
+    versandFehlgeschlagen?: boolean;
+    adresswechselGespeichert?: boolean;
+  }>
+> {
   return runAdminMutation("patchSchiedsrichterAction", async (session) => {
     const validated = FLPatchSchiedsrichterPayloadSchema.safeParse(rawPayload);
 
@@ -114,6 +126,8 @@ export async function patchSchiedsrichterAction(
       };
     }
 
+    // A rename fans the name into every match, the one cached read it reaches; a match keeps its own fee.
+    invalidatesOnWrite("spiele");
     // A save minting a new link is a step-up write and any other save is not, so the stored row
     // decides; read only for a session past the window, the one it can refuse.
     const stored = isFreshlySignedIn(session) ? null : await getSchiedsrichterById(validated.data.id);
@@ -133,12 +147,9 @@ export async function patchSchiedsrichterAction(
     if (!postOperation.acknowledged) {
       return {
         success: false,
-        error: buildRefusal({ reason: "Die Schiedsrichterdaten wurden nicht gespeichert", repair: "Versuche es erneut" }),
+        error: buildRefusal({ reason: "Die Schiedsrichterdaten wurden nicht gespeichert", repair: VERSUCHE_ES_ERNEUT }),
       };
     }
-
-    // A rename fans the name into every match, the one cached read it reaches; a match keeps its own fee.
-    updateTag("spiele");
 
     // Non-null only where the correction moved an unconfirmed referee's address: the old link was
     // posted to a mailbox nobody reads, and leaving it live is a credential in the wrong inbox.
@@ -157,17 +168,41 @@ export async function patchSchiedsrichterAction(
             anlass: "erneut",
           });
 
+    // Non-null only where the save moved a confirmed referee's address, which waits on the new mailbox.
+    const wechsel = postOperation.adresswechsel;
+    const wechselVersand =
+      wechsel === null
+        ? null
+        : await mailSchiedsrichterAdresswechsel({
+            operation: "patchSchiedsrichterAction",
+            schiedsrichterId: validated.data.id,
+            name: validated.data.name,
+            mint: wechsel,
+            anlass: "empfang",
+          });
+
     return {
       success: true,
       updated_document: postOperation.updated_document,
       message: "Schiedsrichter bearbeitet",
       // Its own field rather than folded into the message: the editor hands this to the undo offer,
       // and a save that mailed nothing has no sentence to hand it.
-      versandSatz: mint === null || versand === null ? undefined : describeLinkMail(mint.email, versand),
-      versandFehlgeschlagen: versand === "fehlgeschlagen",
+      versandSatz:
+        mint !== null && versand !== null
+          ? describeLinkMail(mint.email, versand)
+          : wechsel !== null && wechselVersand !== null
+            ? describeAdresswechselMail(wechsel.email, wechselVersand)
+            : undefined,
+      versandFehlgeschlagen: versand === "fehlgeschlagen" || wechselVersand?.link === "fehlgeschlagen",
+      // The backend's own word that THIS save left a new address waiting, for the undo to tell apart
+      // from a save that moved only the fee while an earlier change waited.
+      adresswechselGespeichert: wechsel !== null,
     };
   });
 }
+
+/** A row gone before a mint could read its address: both link sends meet it. */
+const EINTRAG_WEG = buildRefusal({ reason: "Diesen Eintrag gibt es nicht mehr", repair: LADE_DIE_SEITE_NEU });
 
 /**
  * The address is read BEFORE the mint, which replaces the whole block: a read failing afterwards
@@ -187,7 +222,7 @@ export async function einladeSchiedsrichterAction(rawPayload: FLSchiedsrichterEi
 
     const gelesen = await getSchiedsrichterById(validated.data.id);
     if (gelesen === null) {
-      return { success: false, error: buildRefusal({ reason: "Diesen Eintrag gibt es nicht mehr", repair: "Lade die Seite neu" }) };
+      return { success: false, error: EINTRAG_WEG };
     }
 
     // No address, or the placeholder a row without one is given, rather than making the round trip to
@@ -207,7 +242,7 @@ export async function einladeSchiedsrichterAction(rawPayload: FLSchiedsrichterEi
     }
 
     if (!mintOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Der Bestätigungslink wurde nicht gesendet", repair: "Versuche es erneut" }) };
+      return { success: false, error: buildRefusal({ reason: "Der Bestätigungslink wurde nicht gesendet", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
     // The address the MINT read in its own transaction, never `email` above: this read is the older
@@ -227,6 +262,80 @@ export async function einladeSchiedsrichterAction(rawPayload: FLSchiedsrichterEi
       // Said whichever way the send went: the previous link is dead either way, which is the fact an
       // administrator has to act on when the message did not leave.
       message: `${describeLinkMail(mint.email, versand)} Der vorherige Link gilt nicht mehr.`,
+    };
+  });
+}
+
+/** A fresh link to the pending address, mailed with a fresh notice to the stored one: the earlier link is dead either way. */
+export async function einladeAdresswechselAction(rawPayload: FLSchiedsrichterAdresswechselEinladenPayload): Promise<ActionResult<object>> {
+  return runAdminMutation("einladeAdresswechselAction", { stepUp: true }, async () => {
+    const validated = FLSchiedsrichterAdresswechselEinladenPayloadSchema.safeParse(rawPayload);
+
+    if (!validated.success) {
+      return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
+    }
+
+    // The first name the mails greet with. Read before the mint, for the consent re-send's reason.
+    const gelesen = await getSchiedsrichterById(validated.data.id);
+    if (gelesen === null) {
+      return { success: false, error: EINTRAG_WEG };
+    }
+
+    let mintOperation;
+    try {
+      mintOperation = await einladeAdresswechsel(validated.data);
+    } catch (error) {
+      const refusal = mapAdresswechselRefusal(error);
+      if (refusal !== null) return { success: false, error: refusal };
+      throw error;
+    }
+
+    if (!mintOperation.acknowledged) {
+      return { success: false, error: buildRefusal({ reason: "Der Link wurde nicht gesendet", repair: VERSUCHE_ES_ERNEUT }) };
+    }
+
+    // Both addresses as the mint read them in its own transaction, never as this action's read had them.
+    const wechsel = mintOperation.adresswechsel;
+    const versand = await mailSchiedsrichterAdresswechsel({
+      operation: "einladeAdresswechselAction",
+      schiedsrichterId: validated.data.id,
+      name: gelesen.schiedsrichter.name,
+      mint: wechsel,
+      anlass: "erneut",
+    });
+
+    return { success: true, message: `${describeAdresswechselMail(wechsel.email, versand)} Der vorherige Link gilt nicht mehr.` };
+  });
+}
+
+/** Discards the pending address and its link; the stored address stays, and nobody is mailed. */
+export async function verwirfAdresswechselAction(
+  rawPayload: FLSchiedsrichterAdresswechselVerwerfenPayload,
+): Promise<ActionResult<{ updated_document?: FLSchiedsrichter }>> {
+  return runAdminMutation("verwirfAdresswechselAction", { stepUp: true }, async () => {
+    const validated = FLSchiedsrichterAdresswechselVerwerfenPayloadSchema.safeParse(rawPayload);
+
+    if (!validated.success) {
+      return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
+    }
+
+    let operation;
+    try {
+      operation = await verwirfAdresswechsel(validated.data);
+    } catch (error) {
+      const refusal = mapAdresswechselRefusal(error);
+      if (refusal !== null) return { success: false, error: refusal };
+      throw error;
+    }
+
+    if (!operation.acknowledged) {
+      return { success: false, error: buildRefusal({ reason: "Die Änderung wurde nicht verworfen", repair: VERSUCHE_ES_ERNEUT }) };
+    }
+
+    return {
+      success: true,
+      updated_document: operation.updated_document,
+      message: "Der Link an die neue Adresse gilt nicht mehr; die bisherige Adresse bleibt.",
     };
   });
 }
@@ -256,7 +365,7 @@ export async function deleteSchiedsrichterAction(
     }
 
     if (!postOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Der Schiedsrichter wurde nicht stillgelegt", repair: "Versuche es erneut" }) };
+      return { success: false, error: buildRefusal({ reason: "Der Schiedsrichter wurde nicht stillgelegt", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
     return {
@@ -303,7 +412,7 @@ export async function reactivateSchiedsrichterAction(
     }
 
     if (!reactivateOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Der Schiedsrichter wurde nicht reaktiviert", repair: "Versuche es erneut" }) };
+      return { success: false, error: buildRefusal({ reason: "Der Schiedsrichter wurde nicht reaktiviert", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
     // Non-null where the row came back unanswered: a retired referee's save mails nothing, so
@@ -349,6 +458,9 @@ export async function anonymiseSchiedsrichterAction(
       };
     }
 
+    // The repointed booking fans into every match as a rename does, so the same one cached read is
+    // stale here. The referee list and the log are uncached.
+    invalidatesOnWrite("spiele");
     // The refusal belongs in the dialog that asked, not on the error page.
     let anonymiseOperation;
     try {
@@ -360,12 +472,8 @@ export async function anonymiseSchiedsrichterAction(
     }
 
     if (!anonymiseOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Die Daten wurden nicht gelöscht", repair: "Versuche es erneut" }) };
+      return { success: false, error: buildRefusal({ reason: "Die Daten wurden nicht gelöscht", repair: VERSUCHE_ES_ERNEUT }) };
     }
-
-    // The repointed booking fans into every match as a rename does, so the same one cached read is
-    // stale here. The referee list and the log are uncached.
-    updateTag("spiele");
 
     return {
       success: true,

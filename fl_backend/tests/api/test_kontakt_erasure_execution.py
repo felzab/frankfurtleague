@@ -14,8 +14,8 @@ from pymongo.errors import OperationFailure
 from app.api.bewerbungen.services import compose_bestaetigungen, hash_token
 from app.api.kontakte.admin_router import erase_kontaktperson, get_kontakt_erasure_ansicht
 from app.api.kontakte.schemas import FLKontaktErasureAnsichtResponse, FLKontaktErasurePayload, FLKontaktErasureResponse
-from app.api.kontakte.services import KONTAKT_SLOTS, build_clearing_update, build_matching_rows_pipeline, same_address
-from app.api.teams.schemas import FLSaisonTeamKontakte
+from app.api.kontakte.services import build_clearing_update, build_matching_rows_pipeline, same_address
+from app.api.teams.schemas import KONTAKT_ROLLEN, FLSaisonTeamKontakte
 from app.core.collections import Collection
 from app.core.crud import patch_one_in_db
 from app.shared.folding import sign_in_identifier
@@ -112,7 +112,7 @@ PEOPLE: dict[str, tuple[str, str, str]] = {
     UNREACHED_NACHNAME: (UNREACHED_EMAIL, UNREACHED_TELEFON, UNREACHED_FORMER_TELEFON),
 }
 
-# Who stands in each slot of each seeded row, in `KONTAKT_SLOTS` order, plus which seat the form said
+# Who stands in each slot of each seeded row, in `KONTAKT_ROLLEN` order, plus which seat the form said
 # the Trainer also holds. Every case the erasure has to answer is one row here.
 SEEDED_ROLES: dict[ObjectId, tuple[tuple[str, str, str], str | None]] = {
     # One slot naming the erased person, and two people beside them who asked for nothing.
@@ -154,7 +154,7 @@ def blocks(*, live: bool) -> dict[ObjectId, dict[str, Any]]:
 
     return {
         row_id: {
-            **{slot: person(nachname, telefone[nachname]) for slot, nachname in zip(KONTAKT_SLOTS, roles, strict=True)},
+            **{slot: person(nachname, telefone[nachname]) for slot, nachname in zip(KONTAKT_ROLLEN, roles, strict=True)},
             "trainer_ist_zugleich": zugleich,
         }
         for row_id, (roles, zugleich) in SEEDED_ROLES.items()
@@ -183,26 +183,25 @@ def saison_team_document(row_id: ObjectId, saison_id: str, team_id: ObjectId) ->
 
 
 # The three live links every seeded application carries, so an erasure has bookkeeping to reach.
-BESTAETIGUNGEN = compose_bestaetigungen(hashes={slot: hash_token(f"link-{slot}") for slot in KONTAKT_SLOTS}, today="2026-01-05")
+# Minted as the shared application builder mints them, from this prefix on the submission's day.
+LINK_PREFIX = "link"
+BESTAETIGUNGEN = compose_bestaetigungen(hashes={slot: hash_token(f"{LINK_PREFIX}-{slot}") for slot in KONTAKT_ROLLEN}, today="2026-01-05")
 
 
 def bewerbung_document(row_id: ObjectId, team_id: ObjectId) -> dict[str, Any]:
     """The same, for `Collection.BEWERBUNGEN`, whose `kontakte` is a REQUIRED, non-nullable block."""
 
-    return {
-        "_id": row_id,
-        "saison_id": LATER_SAISON,
-        "eingereicht_am": "2026-01-05",
-        "status": "eingereicht",
-        "team_id": team_id,
-        "schule": None,
-        "kontakte": FORMER_BLOCKS[row_id],
-        "trikot": {"vorhandener_satz": "keiner", "wunschfarbe": "rot"},
-        "kader": {"voraussichtliche_groesse": 12, "gute_spieler": 3},
-        "entscheidung": None,
-        "bestaetigungsfrist": "2026-01-19",
-        "bestaetigungen": {slot: dict(entry) for slot, entry in BESTAETIGUNGEN.items()},
-    }
+    return documents.bewerbung_document(
+        row_id,
+        LATER_SAISON,
+        "eingereicht",
+        kontakte=FORMER_BLOCKS[row_id],
+        eingereicht_am="2026-01-05",
+        bestaetigungsfrist="2026-01-19",
+        team_id=team_id,
+        link_prefix=LINK_PREFIX,
+        kader={"voraussichtliche_groesse": 12, "gute_spieler": 3},
+    )
 
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
@@ -317,7 +316,7 @@ async def log_rows_naming(database: AsyncDatabase, collection: Collection, row_i
 def a_block_holding(trainer: Mapping[str, Any]) -> dict[str, Any]:
     """One person in the Trainer slot, the other two empty, all four keys present."""
 
-    return {**{slot: None for slot in KONTAKT_SLOTS}, "trainer": dict(trainer), "trainer_ist_zugleich": None}
+    return {**{slot: None for slot in KONTAKT_ROLLEN}, "trainer": dict(trainer), "trainer_ist_zugleich": None}
 
 
 def a_junction_row(row_id: ObjectId, saison_id: str, block: Mapping[str, Any]) -> dict[str, Any]:
@@ -421,24 +420,19 @@ class TestTheSlotsAreReadOffTheModel:
     """The spelling the write turns on, apart from a database."""
 
     def test_the_person_valued_slots_are_the_three_roles(self):
-        assert KONTAKT_SLOTS == ("trainer", "ansprechperson", "stellvertretung")
-
-    def test_the_assertion_field_is_not_among_them(self):
-        """`trainer_ist_zugleich` records what somebody ASSERTED about two slots, which stays true once one is empty."""
-
-        assert "trainer_ist_zugleich" not in KONTAKT_SLOTS
+        assert KONTAKT_ROLLEN == ("trainer", "ansprechperson", "stellvertretung")
 
     def test_every_slot_the_model_declares_is_covered(self):
-        """Kills a hand-typed tuple: a fourth role added to the block would be cleared by nothing."""
+        """A role added to the block alone is cleared by nothing, and one added out of order is listed out of it."""
 
-        declared = {name for name, field in FLSaisonTeamKontakte.model_fields.items() if name != "trainer_ist_zugleich"}
+        declared = tuple(name for name in FLSaisonTeamKontakte.model_fields if name != "trainer_ist_zugleich")
 
-        assert set(KONTAKT_SLOTS) == declared
+        assert declared == KONTAKT_ROLLEN
 
     def test_a_block_with_every_slot_empty_still_validates(self):
         """The read model is what a junction row is served through, so a slot that stopped being nullable is a 500."""
 
-        cleared = FLSaisonTeamKontakte.model_validate({**{slot: None for slot in KONTAKT_SLOTS}, "trainer_ist_zugleich": "ansprechperson"})
+        cleared = FLSaisonTeamKontakte.model_validate({**{slot: None for slot in KONTAKT_ROLLEN}, "trainer_ist_zugleich": "ansprechperson"})
 
         assert (cleared.trainer, cleared.ansprechperson, cleared.stellvertretung) == (None, None, None)
 
@@ -534,7 +528,7 @@ def test_the_block_survives_with_all_four_of_its_keys(mongo_replica_set_url: str
     _, rows, _ = after_erasing(mongo_replica_set_url)
 
     for row_id in EXPECTED_SLOTS:
-        assert set(rows[row_id]["kontakte"]) == {*KONTAKT_SLOTS, "trainer_ist_zugleich"}, f"{row_id} lost a key"
+        assert set(rows[row_id]["kontakte"]) == {*KONTAKT_ROLLEN, "trainer_ist_zugleich"}, f"{row_id} lost a key"
 
 
 @pytest.mark.db

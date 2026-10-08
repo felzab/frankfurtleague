@@ -443,6 +443,23 @@ def test_a_named_location_refuses_rather_than_reading_as_a_prefix():
         raise AssertionError("a named location was read as a prefix")
 
 
+def test_a_named_location_an_error_page_sends_to_is_read_as_no_route():
+    """Reached by the redirect alone, it covers no handler and names none, so it is neither coverage nor an orphan."""
+    found = served("    error_page 429 = @refusal;\n", block("location @refusal", PASS), CATCH_ALL)
+
+    assert [location.path for location in found] == ["/"]
+
+
+def test_an_error_page_sending_to_no_named_location_refuses():
+    """nginx refuses the redirect at its first use, and this reader would otherwise read the file as whole."""
+    try:
+        served("    error_page 429 = @refusal;\n", CATCH_ALL)
+    except routes.NginxSyntax as refusal:
+        assert re.search("@refusal", str(refusal)), refusal
+    else:
+        raise AssertionError("an error_page naming no location was read as whole")
+
+
 def test_a_location_inside_a_location_refuses():
     """Which of the two answers a request is match order this reader does not resolve."""
     nested = block("location /api/", "        location = /api/x { proxy_pass http://frontend:3000; }\n")

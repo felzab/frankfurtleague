@@ -208,10 +208,21 @@ skip() { _emit "$C_DIM"    "  --" "$*"; _escalate 1; }
 # An advisory, never a finding — use `fail` where the run must not stay green.
 warn() { _emit "$C_YELLOW" "  !!" "$*" >&2; _record_advisory; }
 
+# Under Actions, one error annotation per finding, on stdout beside the output it follows, and none
+# for a statement summing findings already annotated: `.claude/skills/orchestration/tools/ci.py`
+# reads a run's findings off these lines.
+_annotate() {
+  if [[ -z "${GITHUB_ACTIONS:-}" ]]; then return 0; fi
+  local message="${*//'%'/%25}"
+  message="${message//$'\r'/}"
+  printf '::error::%s\n' "${message//$'\n'/ }"
+}
+
 # `die` without the exit, for a script collecting every finding before it reports. It closes the
-# step: a later verdict carries no duration.
+# step: a later verdict carries no duration. `--summary` first: the line sums findings annotated above.
 fail() {
   local s; s="$(_step_suffix)"
+  if [[ "${1-}" == --summary ]]; then shift; else _annotate "$*"; fi
   _emit "$C_RED" "   ✗" "$*${s}" >&2
   add_findings 1
   _escalate 5
@@ -220,6 +231,7 @@ fail() {
 
 die() {
   local s; s="$(_step_suffix)"
+  if [[ "${1-}" == --summary ]]; then shift; else _annotate "$*"; fi
   printf '\n' >&2
   _emit "$C_RED" "   ✗" "$*${s}" >&2
   printf '\n' >&2
@@ -376,7 +388,7 @@ section() {
   _SECTION_FINDINGS+=(0); _SECTION_ADVISORIES+=(0)
   _SECTION_OPEN=$(( ${#_SECTION_NAMES[@]} - 1 ))
   _SECTION_T0="$(_now_ms)"
-  # Findings annotations stay off: they surface out of order and duplicate the closing table.
+  # A fold and no annotation: each finding carries its own (`_annotate`), and the table only sums them.
   if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
     printf '::group::%s\n' "$name"
   else
@@ -642,6 +654,7 @@ refuse() {
   # Closed first, so the message lands outside the Actions fold: a reader told to look above must
   # not be sent into something collapsed.
   end_section
+  _annotate "$*"
   printf '\n' >&2
   _emit "$C_RED" "   ✗" "$*" >&2
   _closing refused
@@ -659,6 +672,7 @@ on_error() {
   _escalate 5
   # Outside the fold, for `refuse`'s reason.
   end_section
+  _annotate "${SELF##*/} failed at line ${line}: ${cmd} (exit status ${rc})"
   printf '\n' >&2
   _emit "$C_RED" "   ✗" "${SELF##*/} failed
 line ${line}:  ${cmd}
@@ -770,36 +784,103 @@ $2}"; }
 require_dir()  { [[ -d "$1" ]] || refuse "Missing required directory: $1${2:+
 $2}"; }
 
-# Each environment file reaches a service through compose and a dev server through that package's own
-# reader, which read four spellings differently (`docs/ops/spec.md :: I487`). Read as text before any
-# compose call; prints names and line numbers, never a value.
-check_env_spellings() { # $1 the file
-  local line number=0 name value IFS=' '
-  local -a wrong=()
+# A backslash escapes either quote, as `fl_frontend/scripts/check-environment-names.mjs :: endOfQuoted`
+# reads one: closing on an escaped quote reads the value's next line as a declaration.
+quote_closes() { # $1 the text, $2 the quote, $3 the index to read from
+  local text="$1" quote="$2" i="$3"
+  while (( i < ${#text} )); do
+    if [[ "${text:i:1}" == "\\" ]]; then
+      i=$(( i + 2 ))
+      continue
+    fi
+    [[ "${text:i:1}" == "$quote" ]] && return 0
+    i=$(( i + 1 ))
+  done
+  return 1
+}
+
+# One reading of an environment file as compose's parser finds it, for every check over the file,
+# so a form one check learns the other reads: `ENV_DECL_*` per declaration, `ENV_DATA_*` per later
+# line of a quoted value, `ENV_BOM`, `ENV_UNCLOSED_*`.
+env_declarations() { # $1 the file
+  local line number=0 name="" value open=""
+  ENV_DECL_NUMBER=(); ENV_DECL_NAME=(); ENV_DECL_FORM=(); ENV_DECL_VALUE=()
+  ENV_DATA_NUMBER=(); ENV_DATA_NAME=(); ENV_DATA_TEXT=()
+  ENV_BOM=0; ENV_UNCLOSED_AT=""; ENV_UNCLOSED_NAME=""
   while IFS= read -r line || [[ -n "$line" ]]; do
     number=$(( number + 1 ))
     line="${line%$'\r'}"
-    [[ "$line" =~ ^[[:space:]]*(#.*)?$ ]] && continue
-    # A line no reader takes as NAME=value is compose's to refuse, which it does by name.
-    [[ "$line" =~ ^[[:space:]]*(export[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*=[[:space:]]*(.*)$ ]] || continue
-    name="${BASH_REMATCH[2]}"; value="${BASH_REMATCH[3]}"
-    if [[ "$value" == *'$'* ]]; then
-      wrong+=("line ${number}: ${name} holds a \$, which each reader substitutes its own way")
-    elif [[ "$value" == '`'* ]]; then
-      wrong+=("line ${number}: ${name} opens with a backtick, which only Next's reader takes as a quote")
-    elif [[ "$value" == [\"\']* && "$value" == *\\* ]]; then
-      wrong+=("line ${number}: ${name} holds a backslash inside quotes, which each reader decodes its own way")
-    elif [[ "$value" != [\"\']* && ( "$value" == '#'* || "$value" =~ [^[:space:]]# ) ]]; then
-      wrong+=("line ${number}: ${name} holds a # with no space before it, where Next's reader alone ends the value")
+    if (( number == 1 )) && [[ "$line" == $'\xEF\xBB\xBF'* ]]; then
+      ENV_BOM=1
+      line="${line#$'\xEF\xBB\xBF'}"
+    fi
+    # A quoted value's later lines are its data and declare nothing, `word:` and `word=` among them.
+    if [[ -n "$open" ]]; then
+      ENV_DATA_NUMBER+=("$number"); ENV_DATA_NAME+=("$name"); ENV_DATA_TEXT+=("$line")
+      if quote_closes "$line" "$open" 0; then open=""; fi
+      continue
+    fi
+    [[ "$line" =~ ^[[:space:]]*(export[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*([=:]|$) ]] || continue
+    name="${BASH_REMATCH[2]}"
+    value="${line:${#BASH_REMATCH[0]}}"
+    value="${value#"${value%%[![:space:]]*}"}"
+    ENV_DECL_NUMBER+=("$number"); ENV_DECL_NAME+=("$name"); ENV_DECL_FORM+=("${BASH_REMATCH[3]}"); ENV_DECL_VALUE+=("$value")
+    if [[ "$value" == [\"\']* ]] && ! quote_closes "$value" "${value:0:1}" 1; then
+      open="${value:0:1}"; ENV_UNCLOSED_AT="$number"; ENV_UNCLOSED_NAME="$name"
     fi
   done < "$1"
+  if [[ -z "$open" ]]; then ENV_UNCLOSED_AT=""; ENV_UNCLOSED_NAME=""; fi
+}
+
+# Compose and each package's dev server read an environment file, five spellings apart
+# (`docs/ops/spec.md :: I487`). Judged as text before a start's first compose call; names and line
+# numbers only, never a value.
+check_env_spellings() { # $1 the file
+  local i name value
+  local -a wrong=()
+  env_declarations "$1"
+  # Compose, python-dotenv and Next's reader drop a byte-order mark; `parseEnv` reads it into the
+  # first name and the deploy's frontend checker cannot parse the line.
+  if (( ENV_BOM )); then
+    wrong+=("line 1 opens with a byte-order mark, which some readers take as part of the first name")
+  fi
+  for i in "${!ENV_DECL_NUMBER[@]}"; do
+    name="${ENV_DECL_NAME[i]}"; value="${ENV_DECL_VALUE[i]}"
+    # Compose takes `NAME:value` in every spacing, Next's reader only with a space after the colon;
+    # python-dotenv and `parseEnv` skip it, and the deploy's frontend checker cannot parse it.
+    if [[ "${ENV_DECL_FORM[i]}" == ":" ]]; then
+      wrong+=("line ${ENV_DECL_NUMBER[i]}: ${name} is written with a colon, which compose reads as NAME=value and python-dotenv skips")
+    elif [[ "${ENV_DECL_FORM[i]}" == "=" ]]; then
+      if [[ "$value" == *'$'* ]]; then
+        wrong+=("line ${ENV_DECL_NUMBER[i]}: ${name} holds a \$, which each reader substitutes its own way")
+      elif [[ "$value" == '`'* ]]; then
+        wrong+=("line ${ENV_DECL_NUMBER[i]}: ${name} opens with a backtick, which only Next's reader takes as a quote")
+      elif [[ "$value" == [\"\']* && "$value" == *\\* ]]; then
+        wrong+=("line ${ENV_DECL_NUMBER[i]}: ${name} holds a backslash inside quotes, which each reader decodes its own way")
+      elif [[ "$value" != [\"\']* && ( "$value" == '#'* || "$value" =~ [^[:space:]]# ) ]]; then
+        wrong+=("line ${ENV_DECL_NUMBER[i]}: ${name} holds a # with no space before it, where Next's reader alone ends the value")
+      fi
+    fi
+  done
+  # A quoted value's later lines, judged for what the readers decode.
+  for i in "${!ENV_DATA_NUMBER[@]}"; do
+    if [[ "${ENV_DATA_TEXT[i]}" == *'$'* ]]; then
+      wrong+=("line ${ENV_DATA_NUMBER[i]}: ${ENV_DATA_NAME[i]}'s quoted value holds a \$, which each reader substitutes its own way")
+    elif [[ "${ENV_DATA_TEXT[i]}" == *\\* ]]; then
+      wrong+=("line ${ENV_DATA_NUMBER[i]}: ${ENV_DATA_NAME[i]}'s quoted value holds a backslash, which each reader decodes its own way")
+    fi
+  done
+  # Read as closed, every line below it would have gone unjudged.
+  if [[ -n "$ENV_UNCLOSED_AT" ]]; then
+    wrong+=("line ${ENV_UNCLOSED_AT}: ${ENV_UNCLOSED_NAME}'s quoted value never closes")
+  fi
   if (( ${#wrong[@]} )); then
     refuse "$1 holds a value its readers would not agree on, so the service and its dev server would
 each be handed a different one:
 $(printf '  %s\n' "${wrong[@]}")
-In a URL, a retired MONGODB_URI line among them, write the character percent-encoded (\$ as %24, # as
-%23); any other value, generate again without it. A trailing comment counts too: move it to a line of
-its own.
+In a URL, write the character percent-encoded (\$ as %24, # as %23); any other value, generate
+again without it. A trailing comment counts too: move it to a line of its own. A line written with
+a colon is written NAME=value instead. A byte-order mark goes by saving the file as UTF-8 without one.
 NOTHING was asked of compose or of either service."
   fi
 }
@@ -810,29 +891,20 @@ NOTHING was asked of compose or of either service."
 SIGNING_KEY_FILE="secrets/fl_actor_signing_key"
 SIGNING_KEY_MOUNT="/run/secrets/fl_actor_signing_key"
 
-# The frontend's own reading of the key, by its own user (uid 1001, mode 400): `ACTOR_SIGNING_KEY_FILE`
-# over the default `$1`, as `fl_frontend/src/core/config.ts` reads it. Exit 3 names the fault, never
-# a value.
-# shellcheck disable=SC2016  # node's template literals
+# `ACTOR_SIGNING_KEY_FILE` over the mount `$1`, as the frontend reads the key. Whether it is usable is
+# the boot's to refuse (`check_frontend_boot_config`, asked first), so a failed read is an advisory.
+# Exit 3 names the fault, never a value.
 ACTOR_KEY_CHECK='
 process.on("uncaughtException", (error) => { console.error(error.name); process.exit(4); });
 const { readFileSync } = require("node:fs");
-const { createPrivateKey, createPublicKey } = require("node:crypto");
+const { createPublicKey } = require("node:crypto");
 const { parseEnv } = require("node:util");
 const refuse = (line) => { console.error(line); process.exit(3); };
-const named = process.env.ACTOR_SIGNING_KEY_FILE;
-let pem;
-try { pem = readFileSync(named ?? process.argv[1]); } catch (error) {
-  if (named === undefined) refuse(`the signing key could not be read by the frontend user (${error.code})`);
-  refuse(`the frontend reads its signing key at ${JSON.stringify(named)}, which ACTOR_SIGNING_KEY_FILE names in its environment, and could not read it there (${error.code}); the stack mounts the key at ${process.argv[1]}`);
-}
-let key;
-try { key = createPrivateKey(pem); } catch { refuse("the signing key file holds no private key in PEM"); }
-if (key.asymmetricKeyType !== "ed25519") refuse(`the signing key is ${key.asymmetricKeyType}, not Ed25519`);
+const signing = readFileSync(process.env.ACTOR_SIGNING_KEY_FILE ?? process.argv[1]);
 const published = parseEnv(readFileSync(0, "utf8")).ACTOR_TOKEN_PUBLIC_KEY;
 if (published === undefined) refuse("ACTOR_TOKEN_PUBLIC_KEY is missing from fl_backend/.env");
 if (!/^[A-Za-z0-9_-]{43}$/.test(published) || Buffer.from(published, "base64url").length !== 32) refuse("ACTOR_TOKEN_PUBLIC_KEY is not the base64url of 32 bytes");
-if (createPublicKey(key).export({ format: "jwk" }).x !== published) refuse("ACTOR_TOKEN_PUBLIC_KEY is not the public half of the signing key");
+if (createPublicKey(signing).export({ format: "jwk" }).x !== published) refuse("ACTOR_TOKEN_PUBLIC_KEY is not the public half of the signing key");
 '
 
 # The lines of `fl_backend/.env` the pair check is handed, as `node:util :: parseEnv` finds the name.
@@ -853,9 +925,8 @@ ${standing}"
   said="$(MSYS_NO_PATHCONV=1 "$@" node -e "$ACTOR_KEY_CHECK" "$SIGNING_KEY_MOUNT" <<<"$lines" 2>&1)" || rc=$?
   if [[ -n "$said" ]]; then printf '%s\n' "$said" | redact_uri_credentials | detail; fi
   if (( rc == 3 )); then
-    refuse "the actor token's key pair would not work, and the line above says why. Where it names
-ACTOR_SIGNING_KEY_FILE, delete that line from fl_frontend/.env; otherwise generate the pair again and
-put each half where docs/ops/runbooks.md §16 says.
+    refuse "the actor token's key pair would not work, and the line above says why: generate the pair again
+and put each half where docs/ops/runbooks.md §16 says.
 ${standing}"
   elif (( rc )); then
     # An advisory, as each environment reader's is: the running stack never runs this check.
@@ -872,7 +943,7 @@ nothing here says whether the frontend can sign with it or the backend verify it
 # `scripts/checks/check_compose_model.py :: SECRET_HOLDERS`; each image judges whether it can use
 # them. The signing key and the tunnel token are checked apart.
 # shellcheck disable=SC2034  # read by the scripts that source this file
-FRONTEND_SECRETS=(frontend_mongodb_uri auth_secret auth_resend_key resend_webhook_secret internal_api_key_base internal_api_key_system internal_api_key_admin)
+FRONTEND_SECRETS=(frontend_mongodb_uri auth_secret auth_resend_key resend_webhook_secret internal_api_key_base internal_api_key_system internal_api_key_admin turnstile_secret_key)
 # shellcheck disable=SC2034  # read by the scripts that source this file
 BACKEND_SECRETS=(backend_mongodb_uri sperrliste_schluessel internal_api_key_base internal_api_key_system internal_api_key_admin)
 
@@ -884,33 +955,34 @@ LOCAL_FRONTEND_SECRETS=(auth_secret internal_api_key_base internal_api_key_syste
 # shellcheck disable=SC2034  # read by the scripts that source this file
 LOCAL_BACKEND_SECRETS=(sperrliste_schluessel internal_api_key_base internal_api_key_system internal_api_key_admin)
 
-# The environment names those files replace. An image from before the files still reads them, so a
-# host keeps them until the release after the files runs healthy (`docs/ops/runbooks.md` §16).
-MOVED_ENV_NAMES=(MONGODB_URI SPERRLISTE_SCHLUESSEL AUTH_SECRET AUTH_RESEND_KEY RESEND_WEBHOOK_SECRET INTERNAL_API_KEY_BASE INTERNAL_API_KEY_SYSTEM INTERNAL_API_KEY_ADMIN)
+# The environment names those files replace, `scripts/checks/check_compose_model.py :: MOVED_ENV_NAMES`
+# spelled again, since neither the deploy nor the local stack runs a Python of the host's own to read
+# it; `scripts/tests/test_check_compose_model.py` holds the two equal.
+MOVED_ENV_NAMES=(MONGODB_URI SPERRLISTE_SCHLUESSEL AUTH_SECRET AUTH_RESEND_KEY RESEND_WEBHOOK_SECRET INTERNAL_API_KEY_BASE INTERNAL_API_KEY_SYSTEM INTERNAL_API_KEY_ADMIN TURNSTILE_SECRET_KEY)
 
-# By the list the image's own schema emitted, so a file a release starts requiring is asked for by
-# the build requiring it (`fl_frontend/scripts/check-environment-names.mjs`'s `--secret-files`). The
-# backend's files are its boot check's.
-check_frontend_secret_files() { # $1 what stands at the refusal, $2 production or local, the rest runs the frontend's container
-  local standing="$1" rc=0 said=""
-  local -a flags=(--secret-files)
-  # Local sends no mail, so the schema demands its provider key of production alone.
-  if [[ "$2" == production ]]; then flags+=(--production); fi
+# The administrator list the stored grants replaced: read by no service, and its addresses are what
+# `docker inspect` would print.
+RETIRED_ENV_NAMES=(ALLOWED_ADMIN_EMAILS)
+
+# No command, so the image's own server runs its boot gates, which `BOOT_CHECK` ends there; `$2` is
+# the deployment the boot holds `APP_ENV` to (`fl_frontend/src/instrumentation-node.ts :: registerOnNode`).
+check_frontend_boot_config() { # $1 what stands at the refusal, $2 production or local, the rest runs the frontend's container
+  local standing="$1" deployment="$2" rc=0 said=""
   shift 2
-  said="$("$@" frontend node check-environment-names.mjs "${flags[@]}" 2>&1)" || rc=$?
-  if [[ -n "$said" ]]; then printf '%s\n' "$said" | redact_uri_credentials | detail; fi
+  said="$("$@" -e "BOOT_CHECK=${deployment}" frontend 2>&1)" || rc=$?
+  # A pass prints only the server's start banner, which says nothing about the check.
+  if (( rc )) && [[ -n "$said" ]]; then printf '%s\n' "$said" | redact_uri_credentials | detail; fi
   if (( rc == 3 )); then
-    refuse "the frontend container cannot use the secret files named above. Each is secrets/<name> on this
-host, owned and moded as docs/ops/runbooks.md §16 says: a missing one is written there, an unreadable
-one given that owner and mode, a blank one written again.
+    refuse "the frontend refuses the settings its container would boot with, and the CRITICAL line above names
+what: a variable to correct in fl_frontend/.env -- APP_ENV where it names another deployment than
+${deployment} -- or a file under secrets/, the signing key among them, to write again or give the owner
+and mode docs/ops/runbooks.md §16 says. No value is printed.
 ${standing}"
   elif (( rc )); then
-    # An advisory, as `check_actor_key`'s is: the running stack never runs this check, and an image
-    # older than the mode answers here.
-    warn "the frontend image could not be asked to read its secret files (exit ${rc}), so nothing here says
-whether it can. Its own answer is above."
+    warn "the frontend image could not be asked to run its boot gates (exit ${rc}), so nothing here says
+whether it would boot. Its own answer is above."
   else
-    ok "the frontend container reads every secret file its schema requires, and none is blank"
+    ok "the frontend's boot passes every gate on its container's variables, secret files and signing key"
   fi
 }
 
@@ -936,7 +1008,7 @@ except Exception as unexpected:
     raise SystemExit(4)
 '
 
-# `check_frontend_secret_files`' shape, the backend's program in place of the frontend's.
+# `check_frontend_boot_config`'s contract, the backend's program in place of the frontend's boot.
 check_backend_boot_config() { # $1 what stands at the refusal, the rest runs the backend's container
   local standing="$1" rc=0 said=""
   shift
@@ -954,34 +1026,28 @@ whether it would boot. Its own answer is above."
   fi
 }
 
-# A moved name still in an environment file is read by nothing this release runs. The deploy warns,
-# a rollback's image reading the line; the local stack, restoring nothing, refuses. Names only, case
-# folded as the backend folds them.
-check_moved_names() { # $1 warn or refuse, $2.. the environment files
-  local verb="$1" file line name moved
+# Compose hands a container every line of its environment file as a variable, which
+# `docker inspect` prints, so a credential's or the retired administrator list's name is refused
+# with any value or none (`docs/ops/spec.md :: I508`). Names only.
+refuse_credential_lines() { # $@ the environment files
+  # A space, not this file's newline, joins one file's names onto its own line of the refusal.
+  local file name moved IFS=' '
   local -a held found=()
-  shift
   for file in "$@"; do
     held=()
-    while IFS= read -r line || [[ -n "$line" ]]; do
-      [[ "${line%$'\r'}" =~ ^[[:space:]]*(export[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*= ]] || continue
-      name="${BASH_REMATCH[2]}"
-      for moved in "${MOVED_ENV_NAMES[@]}"; do
+    env_declarations "$file"
+    for name in "${ENV_DECL_NAME[@]}"; do
+      for moved in "${MOVED_ENV_NAMES[@]}" "${RETIRED_ENV_NAMES[@]}"; do
         if [[ "${name^^}" == "$moved" ]]; then held+=("$name"); fi
       done
-    done < "$file"
+    done
     if (( ${#held[@]} )); then found+=("${file}: ${held[*]}"); fi
   done
   (( ${#found[@]} )) || return 0
-  if [[ "$verb" == refuse ]]; then
-    refuse "these lines name a value this stack reads from secrets/ instead, and nothing reads them here:
+  refuse "these lines name a value no service reads from its environment: a credential, which is its
+file's under secrets/, or the administrator list the stored grants replaced:
 $(printf '  %s\n' "${found[@]}")
 Delete them (docs/ops/runbooks.md §16). NOTHING was asked of compose or of either service."
-  fi
-  warn "these lines name a value this release reads from secrets/ instead:
-$(printf '  %s\n' "${found[@]}")
-Keep them until this release runs healthy, for the image a rollback restores; then delete them
-(docs/ops/runbooks.md §16)."
 }
 
 # Compose loads a `.env` here unasked, for its `COMPOSE_*` settings and a bare `NAME` line's value:

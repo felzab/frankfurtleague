@@ -185,6 +185,13 @@ COMPONENT_REF = "#/components/schemas/{model}"
 JSON_MEDIA_TYPE = "application/json"
 
 
+# The statuses whose every refusal names when to come back: `DrosselungException`'s and
+# `DatabaseUnavailableException`'s, the one class raising each (`fl_backend/tests/api/test_error_responses.py ::
+# TestTheRetryAfterHeader`).
+RETRY_AFTER_STATUSES: Final = frozenset({HTTPStatus.TOO_MANY_REQUESTS, HTTPStatus.SERVICE_UNAVAILABLE})
+RETRY_AFTER: Final = "Retry-After"
+
+
 def refusal_response(status: HTTPStatus, codes: AbstractSet[str]) -> dict[str, Any]:
     """A failure status as an OpenAPI Response Object: the body it answers, its `error_code` narrowed to `codes`."""
 
@@ -195,7 +202,11 @@ def refusal_response(status: HTTPStatus, codes: AbstractSet[str]) -> dict[str, A
     schema = {"allOf": [{"$ref": COMPONENT_REF.format(model=body.__name__)}, narrowed]}
 
     # The reason phrase, FastAPI's own default for a declared response, being true of every code the status carries.
-    return {"description": status.phrase, "content": {JSON_MEDIA_TYPE: {"schema": schema}}}
+    response: dict[str, Any] = {"description": status.phrase, "content": {JSON_MEDIA_TYPE: {"schema": schema}}}
+    if status in RETRY_AFTER_STATUSES:
+        response["headers"] = {RETRY_AFTER: {"description": "Seconds to wait before asking again", "schema": {"type": "integer"}}}
+
+    return response
 
 
 def refused_codes(response: Mapping[str, Any]) -> set[str]:

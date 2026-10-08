@@ -1,6 +1,7 @@
+import { isRecordMissing } from "@/core/errors";
 import { SPERRLISTE_ADRESSE_GESPERRT } from "@/features/sperrliste/constants";
-import { isRefusal } from "@/shared/utils/actionError";
-import { buildRefusal } from "@/shared/utils/refusal";
+import { isRefusal, KONFLIKT_MIT_BESTEHENDEM } from "@/shared/utils/actionError";
+import { buildRefusal, LADE_DIE_SEITE_NEU } from "@/shared/utils/refusal";
 
 import type { FieldErrors } from "@/shared/utils/validation";
 
@@ -100,3 +101,26 @@ export const KEINE_ADRESSE = buildRefusal({
   reason: "Für diese Person ist keine verwendbare E-Mail-Adresse hinterlegt",
   repair: "Trage oben eine E-Mail-Adresse ein und speichere",
 });
+
+/**
+ * The pending address change's two controls, or `null`. A change answered, replaced or discarded
+ * since the page loaded is the 404 both answer, and the page holding a stale panel is the repair.
+ */
+export function mapAdresswechselRefusal(error: unknown): string | null {
+  if (isRecordMissing(error)) return KEIN_ADRESSWECHSEL;
+  if (!isRefusal(error)) return null;
+
+  return error.serverErrorCode === "REQ-SCHIEDSRICHTER-007" ? SPERRLISTE_ADRESSE_GESPERRT : null;
+}
+
+const KEIN_ADRESSWECHSEL = buildRefusal({
+  reason: "Für diese Person wartet keine neue E-Mail-Adresse mehr auf Bestätigung",
+  repair: LADE_DIE_SEITE_NEU,
+});
+
+/** Worded for the undo: the save's own sentences send an admin to a form this toast has not got. */
+export const SCHIEDSRICHTER_REPLAY_REFUSALS: Readonly<Record<string, string>> = {
+  "REQ-SCHIEDSRICHTER-007":
+    "Die frühere E-Mail-Adresse steht auf der Sperrliste, und zurückschreiben würde ihr einen neuen Bestätigungslink schicken.",
+  "DB-COMMON-002": KONFLIKT_MIT_BESTEHENDEM,
+};

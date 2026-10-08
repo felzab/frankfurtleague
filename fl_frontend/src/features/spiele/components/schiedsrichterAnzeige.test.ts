@@ -6,6 +6,7 @@ import { createElement as h } from "react";
 import { GHOST_SCHIEDSRICHTER_ID, SCHIEDSRICHTER_ANONYM_LABEL, SCHIEDSRICHTER_OHNE_NAMEN_LABEL } from "@/features/schiedsrichter/constants.ts";
 import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { declaredStatus } from "@/shared/testing/declaredStatus.ts";
+import { assertLeerMarkup } from "@/shared/testing/leerGrade.ts";
 import { renderMarkup, renderTree, textOf } from "@/shared/testing/renderTest.ts";
 import { PLACEHOLDER } from "@/shared/utils/format.ts";
 
@@ -106,10 +107,11 @@ const NAMENLOS_IN_LIST: FLSchiedsrichter = {
   geburtsdatum: null,
   einwilligung: null,
   bestaetigung: null,
+  adresswechsel: null,
 };
 
 /** The picker under both providers it reads, with the list offering NOBODY unless a caller names somebody. */
-function pickerText(
+function pickerMarkup(
   schiedsrichterPayload: { schiedsrichter_id: string; name: string | null; payment: number | null } | null,
   offered: FLSchiedsrichter[] = [],
 ): string {
@@ -120,10 +122,10 @@ function pickerText(
     onValidateFields: () => {},
   });
 
-  return textOf(
-    renderTree(h(DraftStatusProvider, { status: NO_DRAFT, children: h(SpielExpectedProvider, { expected: [], children: picker }) })),
-  );
+  return renderTree(h(DraftStatusProvider, { status: NO_DRAFT, children: h(SpielExpectedProvider, { expected: [], children: picker }) }));
 }
+
+const pickerText = (...args: Parameters<typeof pickerMarkup>): string => textOf(pickerMarkup(...args));
 
 describe("what the referee picker's trigger renders for a fixture whose referee is off the list", () => {
   /* The erasure deletes the person's row and repoints their fixtures at the ghost, which the list
@@ -137,6 +139,12 @@ describe("what the referee picker's trigger renders for a fixture whose referee 
     const nameless = pickerText({ schiedsrichter_id: NAMELESS_ID, name: null, payment: PAYMENT });
     assert.ok(nameless.includes(SCHIEDSRICHTER_OHNE_NAMEN_LABEL), `the held nameless row renders no stand-in name: ${nameless}`);
     assert.ok(!nameless.includes(SCHIEDSRICHTER_ANONYM_LABEL), "a held nameless row claims an erasure that never touched it");
+  });
+
+  /* A stand-in word stands where a name would, so the trigger sets it in the one empty grade. */
+  it("sets the held stand-in name in the empty-value grade", () => {
+    assertLeerMarkup(pickerMarkup({ schiedsrichter_id: GHOST_SCHIEDSRICHTER_ID, name: null, payment: PAYMENT }), SCHIEDSRICHTER_ANONYM_LABEL);
+    assertLeerMarkup(pickerMarkup({ schiedsrichter_id: NAMELESS_ID, name: null, payment: PAYMENT }), SCHIEDSRICHTER_OHNE_NAMEN_LABEL);
   });
 
   it("leaves the trigger empty where the fixture books nobody", () => {

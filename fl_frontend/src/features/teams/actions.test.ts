@@ -4,8 +4,15 @@ import { describe, it } from "node:test";
 import { APINetworkError } from "@/core/errors.ts";
 import { cacheCalls, doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
-import { answerShown, assertEachAnswered, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
-import { unansweredAction } from "@/shared/utils/actionError.ts";
+import {
+  answerShown,
+  assertEachAnswered,
+  DUPLICATE_KEY,
+  publishedRefusals,
+  refusedOn,
+  unpublishedOn,
+} from "@/shared/testing/publishedRefusals.ts";
+import { outcomeUnknown } from "@/shared/utils/actionError.ts";
 
 import {
   mapAlreadyEnteredRefusal,
@@ -37,7 +44,6 @@ const {
 const CREATE_OPERATION = "POST /teams";
 const EDIT_OPERATION = "PATCH /teams/{team_id}";
 const RETIRE_OPERATION = "DELETE /teams/{team_id}";
-const REACTIVATE_OPERATION = "POST /teams/{team_id}/reactivate";
 const ENTRY_OPERATION = "POST /teams/{team_id}/saisons";
 const REPLACEMENT_OPERATION = "POST /teams/{team_id}/saisons/{saison_id}/replace";
 /* Neither `ENTRY_OPERATION` nor `REPLACEMENT_OPERATION`: the junction patch is a third endpoint, and the one the undo replays. */
@@ -198,7 +204,7 @@ describe("a club created whose entry into the season is refused", () => {
         traceId: "0",
         isTimeout: false,
       }),
-      refusedOn(ENTRY_OPERATION, "DB-FAIL-002", 500),
+      unpublishedOn(ENTRY_OPERATION, "DB-FAIL-002", 500),
     ];
     for (const failure of lost) {
       cacheCalls.length = 0;
@@ -206,7 +212,7 @@ describe("a club created whose entry into the season is refused", () => {
 
       const result = await postTeamAction({ ...CLUB, saison_id: SAISON_ID, gruppe: "A" });
 
-      assert.deepEqual(result, unansweredAction(), failure.name);
+      assert.deepEqual(result, outcomeUnknown(), failure.name);
       assert.deepEqual(
         cacheCalls,
         [
@@ -269,24 +275,6 @@ describe("the team actions against the codes their endpoints publish", () => {
       refuseWith: answerWith,
       act: () => deleteTeamAction({ id: TEAM_ID }),
       mapped: mapRetireRefusal,
-    });
-  });
-
-  /* Asks no mapper: the one code it publishes is the unique index's, whose sentence is the shared
-     reader's own. A rule published on it later fails here until a mapper words it. */
-  it("leaves every refusal the reactivation publishes to the shared reader", async () => {
-    for (const code of publishedRefusals(REACTIVATE_OPERATION)) {
-      assert.notEqual(
-        answerShown(REACTIVATE_OPERATION, code, () => null),
-        null,
-        `${code} reaches the admin with no reason`,
-      );
-    }
-    await assertEachAnswered({
-      operation: REACTIVATE_OPERATION,
-      refuseWith: answerWith,
-      act: () => reactivateTeamAction({ id: TEAM_ID }),
-      mapped: () => null,
     });
   });
 
@@ -433,10 +421,7 @@ describe("the junction edit's refusals", () => {
   /* `PATCH /teams/{team_id}` is a prefix of it, and the club patch refuses on no rule: its one refusal,
      the duplicate shorthand, the undo route words with the junction's table. */
   it("reads the junction patch's own rules, and none on the club patch", () => {
-    assert.deepEqual(
-      publishedRefusals(JUNCTION_OPERATION).filter((code) => code !== DUPLICATE_KEY),
-      ["REQ-ENTER-002", "REQ-ENTER-003", "REQ-ENTER-004"],
-    );
+    assert.deepEqual(publishedRefusals(JUNCTION_OPERATION), ["REQ-ENTER-002", "REQ-ENTER-003", "REQ-ENTER-004"]);
     assert.deepEqual(
       publishedRefusals(EDIT_OPERATION).filter((code) => code !== DUPLICATE_KEY),
       [],

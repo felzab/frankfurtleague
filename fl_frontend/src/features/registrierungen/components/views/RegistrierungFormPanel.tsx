@@ -27,8 +27,10 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { TextField } from "@/shared/components/ui/TextField";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
+import { useTurnstile } from "@/shared/hooks/useTurnstile";
 import { appToast } from "@/shared/utils/appToast";
-import { postPublicForm } from "@/shared/utils/publicSubmit";
+import { postPublicForm, UNKLAR_TITEL } from "@/shared/utils/publicSubmit";
+import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal";
 
 import { REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE } from "../../constants";
 import { FLPostRegistrierungPayloadSchema } from "../../schemas";
@@ -40,13 +42,13 @@ import type { RegistrierungFormDraft } from "../../types";
 
 type RegistrierungAntwort = { success: true } | (PublicEnvelope & { success: false; zustand?: "ungueltig" });
 
-const NICHT_ABGESCHICKT = "Deine Registrierung wurde nicht gespeichert. Versuche es erneut.";
+const NICHT_ABGESCHICKT = `Deine Registrierung wurde nicht gespeichert. ${VERSUCHE_ES_ERNEUT_SATZ}`;
 
 /**
  * A second press is safe from this panel alone, which holds the key the first one carried
  * (`docs/frontend/spec.md :: I348`); unchanged, because other details under that key are refused.
  */
-const REGISTRIERUNG_UNKLAR = "Schick die Registrierung hier unverändert noch einmal ab: Doppelt ankommen kann sie so nicht.";
+const REGISTRIERUNG_UNKLAR = "Schick die Registrierung hier unverändert erneut ab: Doppelt ankommen kann sie so nicht.";
 
 const POSITION_OPTIONS = FLSpielerPositionSchema.options;
 
@@ -61,14 +63,18 @@ const buildEmptyDraft = (): RegistrierungFormDraft => ({ vorname: "", nachname: 
 export function RegistrierungFormPanel({
   token,
   ansicht,
+  siteKey,
   onLinkTot,
 }: {
   token: string;
   ansicht: FLEinladungAnsichtResponse;
+  /** The bot check's public key: Cloudflare's script loads where this form renders, and on no other state of the page. */
+  siteKey: string;
   /** Raised where the write found the invite gone, which is the whole page's answer rather than this panel's. */
   onLinkTot: () => void;
 }) {
   const [isPending, startSending] = useTransition();
+  const humanCheck = useTurnstile(siteKey);
   const [draft, setDraft] = useState<RegistrierungFormDraft>(buildEmptyDraft);
   /** One per attempt rather than per press: kept until a box carries a refusal, so the next press replays it (`docs/frontend/spec.md :: I348`). */
   const [schluessel, setSchluessel] = useState(() => crypto.randomUUID());
@@ -97,12 +103,21 @@ export function RegistrierungFormPanel({
     const payload = registrierungPayload(draft, token);
 
     startSending(async () => {
-      const gesendet = await postPublicForm<RegistrierungAntwort>("/api/registrierung", payload, { idempotencyKey: schluessel });
+      const anfrage = await humanCheck.takeToken();
+      if ("satz" in anfrage) {
+        appToast.danger("Registrierung nicht abgeschickt", { description: anfrage.satz });
+        return;
+      }
+
+      const gesendet = await postPublicForm<RegistrierungAntwort>("/api/registrierung", payload, {
+        idempotencyKey: schluessel,
+        turnstileToken: anfrage.token,
+      });
 
       if (!gesendet.answered) {
         // No one title is true across both, the edge refusing the REQUEST ruling the write out where
         // an unread answer does not (`fl_frontend/src/shared/utils/publicSubmit.ts :: PublicAnswer`).
-        appToast.danger(gesendet.wroteNothing ? "Registrierung nicht abgeschickt" : "Unklar, ob es bei uns angekommen ist", {
+        appToast.danger(gesendet.wroteNothing ? "Registrierung nicht abgeschickt" : UNKLAR_TITEL, {
           // Every arm that may have landed gives the one step the outcome-unknown answer gives.
           description: gesendet.wroteNothing ? gesendet.error : REGISTRIERUNG_UNKLAR,
         });
@@ -117,7 +132,7 @@ export function RegistrierungFormPanel({
         if (!antwort.success) {
           // Titled as an unread answer is: the envelope's own sentence is an administrator's repair.
           if (antwort.outcome === "unknown") {
-            appToast.danger("Unklar, ob es bei uns angekommen ist", { description: REGISTRIERUNG_UNKLAR });
+            appToast.danger(UNKLAR_TITEL, { description: REGISTRIERUNG_UNKLAR });
             return;
           }
 
@@ -169,7 +184,7 @@ export function RegistrierungFormPanel({
         <p className="max-w-md muted-hint">
           Wir haben Dir eine E-Mail mit einem Link geschickt. Erst wenn Du dort bestätigst, kann Dein Team Dich in den Kader aufnehmen.
           Bestätigst Du nicht innerhalb von {String(REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE)} Tagen, löschen wir die Registrierung wieder. Keine
-          Mail bekommen? Prüfe die Adresse und registriere Dich einfach noch einmal.
+          Mail bekommen? Prüfe die Adresse und registriere Dich einfach erneut.
         </p>
       </BestaetigungErgebnis>
     );
@@ -273,13 +288,17 @@ export function RegistrierungFormPanel({
         </div>
       </section>
 
-      <div className="flex w-full flex-col items-stretch gap-3 sm:flex-row sm:justify-end">
-        <Button
-          type="submit"
-          isPending={isPending}
-          className={formButton({ intent: "submit", fullWidth: true })}>
-          {isPending ? "Schickt ab..." : "Registrierung abschicken"}
-        </Button>
+      {/* One item of the form's gap with the submit: a widget Cloudflare shows nothing in leaves no gap of its own. */}
+      <div className="flex flex-col">
+        {humanCheck.widget}
+        <div className="flex w-full flex-col items-stretch gap-3 sm:flex-row sm:justify-end">
+          <Button
+            type="submit"
+            isPending={isPending}
+            className={formButton({ intent: "submit", fullWidth: true })}>
+            {isPending ? "Schickt ab..." : "Registrierung abschicken"}
+          </Button>
+        </div>
       </div>
     </Form>
   );

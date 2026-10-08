@@ -17,7 +17,11 @@ from typing import Any, Final
 
 from bson import ObjectId
 
+from app.api.bewerbungen.services import compose_bestaetigungen, hash_token
+from app.api.registrierungen.services import compose_bestaetigung, compose_confirmation_update, compose_registrierung
 from app.api.sperrliste.services import SPERRLISTE_SCHLUESSEL_VERSION, adresse_hash
+from app.api.teams.schemas import KONTAKT_ROLLEN
+from app.shared.einwilligung import LAUFENDE_FASSUNGEN, Seite
 from tests.config import build_test_config
 
 ADDRESS: Final[Mapping[str, str]] = {
@@ -139,8 +143,122 @@ def spieler_document(spieler_id: Any, vorname: str, nachname: str | None, **fiel
     }
 
 
-def kontaktperson_document(vorname: str, *, bestaetigt_am: str | None = None, **fields: Any) -> dict[str, Any]:
-    """One contact seat as the submission stores it, or, given `bestaetigt_am`, as its own person's confirmation left it."""
+def neue_schule_document(team_name: str, shorthand: str, **fields: Any) -> dict[str, Any]:
+    """The school block of an application naming a school the league does not hold yet, named as `team_document` names one."""
+
+    return {
+        "team_name": team_name,
+        "full_name": f"{team_name}-Schule",
+        "shorthand": shorthand,
+        "schulform": None,
+        "address": dict(ADDRESS),
+        "website_url": None,
+        **fields,
+    }
+
+
+def bewerbung_document(
+    bewerbung_id: Any,
+    saison_id: str,
+    status: str,
+    *,
+    kontakte: Mapping[str, Any],
+    eingereicht_am: str,
+    bestaetigungsfrist: str | None = None,
+    team_id: Any = None,
+    schule: Mapping[str, Any] | None = None,
+    link_prefix: str | None = None,
+    verschickt_am: str | None = None,
+    **fields: Any,
+) -> dict[str, Any]:
+    """A stored application, its school an existing club by `team_id` or a new one in `schule`.
+
+    Each link is minted from `<link_prefix>-<seat>` on `verschickt_am`, by default the id and the submission day.
+    Without `bestaetigungsfrist` it predates the confirmation flow.
+    """
+
+    prefix = str(bewerbung_id) if link_prefix is None else link_prefix
+    bestaetigung = (
+        {}
+        if bestaetigungsfrist is None
+        else {
+            "wunschgegner": None,
+            "bestaetigungsfrist": bestaetigungsfrist,
+            "bestaetigungen": compose_bestaetigungen(
+                hashes={seat: hash_token(f"{prefix}-{seat}") for seat in KONTAKT_ROLLEN}, today=verschickt_am or eingereicht_am
+            ),
+        }
+    )
+
+    return {
+        "_id": bewerbung_id,
+        "saison_id": saison_id,
+        "eingereicht_am": eingereicht_am,
+        "status": status,
+        "team_id": team_id,
+        "schule": None if schule is None else dict(schule),
+        "kontakte": dict(kontakte),
+        "trikot": {"vorhandener_satz": "keiner", "wunschfarbe": "rot"},
+        "kader": {"voraussichtliche_groesse": 14, "gute_spieler": 3},
+        "entscheidung": None,
+        **bestaetigung,
+        **fields,
+    }
+
+
+def registrierung_document(
+    registrierung_id: Any,
+    email: str,
+    *,
+    saison_id: str,
+    team_id: Any,
+    vorname: str,
+    nachname: str,
+    token: str,
+    eingereicht_am: str,
+    frist: str,
+    position: str | None = None,
+    nummer: str | None = None,
+    stufe: str | None = None,
+    bestaetigt: Mapping[str, Any] | None = None,
+    **fields: Any,
+) -> dict[str, Any]:
+    """A registration as the submission leaves it and, given `bestaetigt`, as its pupil's own confirmation then does, through their composers.
+
+    `token` is the raw link its hash is minted from; `bestaetigt` the confirmation composer's keywords.
+    """
+
+    document = {
+        "_id": registrierung_id,
+        **compose_registrierung(
+            saison_id=saison_id,
+            team_id=team_id,
+            einladung_id=ObjectId(),
+            vorname=vorname,
+            nachname=nachname,
+            email=email,
+            position=position,
+            nummer=nummer,
+            stufe=stufe,
+            bestaetigung=compose_bestaetigung(token_hash=hash_token(token), today=eingereicht_am, frist=frist),
+            today=eingereicht_am,
+        ),
+        "idempotenz_schluessel": str(registrierung_id),
+        "idempotenz_fingerabdruck": "f" * 64,
+    }
+    if bestaetigt is not None:
+        document.update(compose_confirmation_update(**bestaetigt)["$set"])
+
+    return {**document, **fields}
+
+
+def kontaktperson_document(
+    vorname: str, *, bestaetigt_am: str | None = None, einwilligung: Mapping[str, Any] | None = None, **fields: Any
+) -> dict[str, Any]:
+    """One contact seat as the submission stores it, or, given `bestaetigt_am`, as its own person's confirmation left it.
+
+    `einwilligung` holds the record's keys a case sets itself, its label and choices among them, laid over the seat's own.
+    """
 
     return {
         "vorname": vorname,
@@ -154,6 +272,7 @@ def kontaktperson_document(vorname: str, *, bestaetigt_am: str | None = None, **
             "text_version": "v3",
             "datum": "2026-03-20",
             "bestaetigt_am": bestaetigt_am,
+            **(einwilligung or {}),
         },
         **fields,
     }
@@ -192,4 +311,61 @@ def saison_spieler_document(spieler_id: Any, saison_id: str, team_id: Any, **fie
         "nummer": None,
         "inactive_since": None,
         **fields,
+    }
+
+
+# --- A person's OWN records, as the sign-in gate and the account page read them. The address, the stamps
+# and every label a case asserts are passed at the call.
+
+
+def eigene_einwilligung_document(*, text_version: str, bestaetigt_am: str, **fields: Any) -> dict[str, Any]:
+    """A pupil's or a referee's consent as their own confirmation left it, publishing the name and no media."""
+
+    return {
+        "umfang": "kader_oeffentlich",
+        "erteilt_von": "volljaehrig",
+        "datum": bestaetigt_am,
+        "bestaetigt_am": bestaetigt_am,
+        "text_version": text_version,
+        "medien": False,
+        **fields,
+    }
+
+
+def schiedsrichter_document(
+    schiedsrichter_id: Any, *, email: str, name: str, default_payment: int, einwilligung: Mapping[str, Any] | None, **fields: Any
+) -> dict[str, Any]:
+    """One referee row, `name` unique across the collection (`app/core/constraints.py :: uniq_schiedsrichter_name`)."""
+
+    return {
+        "_id": schiedsrichter_id,
+        "name": name,
+        "schule": None,
+        "default_payment": default_payment,
+        "kontakt": {"telefon": "+49 69 5550202", "email": email},
+        "inactive_since": None,
+        "geburtsdatum": None,
+        "einwilligung": None if einwilligung is None else dict(einwilligung),
+        **fields,
+    }
+
+
+def kontakte_document(**seats: Any) -> dict[str, Any]:
+    """A block of three seats, each empty unless named, and no seat held twice unless `trainer_ist_zugleich` says so."""
+
+    return {**dict.fromkeys(KONTAKT_ROLLEN), "trainer_ist_zugleich": None, **seats}
+
+
+def registrierung_bestaetigt(
+    seite: Seite, *, geburtsdatum: str, today: str, am: str, umfang: str | None = None, medien: bool | None = None
+) -> dict[str, Any]:
+    """`registrierung_document`'s `bestaetigt` for a pupil's confirmation on `seite`, under that page's running label."""
+
+    return {
+        "geburtsdatum": geburtsdatum,
+        "umfang": umfang,
+        "medien": medien,
+        "text_version": LAUFENDE_FASSUNGEN[seite],
+        "today": today,
+        "am": am,
     }

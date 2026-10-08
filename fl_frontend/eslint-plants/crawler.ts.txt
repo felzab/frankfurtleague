@@ -3,7 +3,7 @@ import { I18nProvider as PinnedLocale } from "@heroui/react/rac"; // expect: loc
 // What a crawler reads stands on the published origin.
 import { SITE_URL } from "@/core/brand";
 import { mintRequestActor } from "@/core/actorToken"; // expect: actor-signing
-import { authResendKey, authSecret, internalApiKeySystem, mongodbUri, resendWebhookSecret } from "@/core/config"; // expect: secret-store expect: secret-session expect: secret-mail expect: secret-webhook expect: secret-backend
+import { authResendKey, authSecret, internalApiKeySystem, mongodbUri, resendWebhookSecret, turnstileSecretKey } from "@/core/config"; // expect: secret-store expect: secret-session expect: secret-mail expect: secret-webhook expect: secret-backend expect: secret-turnstile
 import { auth } from "@/core/auth"; // expect: auth-instance
 import { signInStore } from "@/core/db?probe"; // expect: sign-in-store
 export { sendSperreNotice } from "@/core/mail?probe"; // expect: sperre-notice
@@ -24,6 +24,6 @@ export const NUMBER_FIELD_USED = HeroNumberField;
 export const LOCALE_USED = PinnedLocale;
 export const TEXT_FIELD_USED = HeroTextField;
 export const SIGNING_USED = mintRequestActor;
-export const SECRETS_USED = [authResendKey, authSecret, internalApiKeySystem, mongodbUri, resendWebhookSecret];
+export const SECRETS_USED = [authResendKey, authSecret, internalApiKeySystem, mongodbUri, turnstileSecretKey, resendWebhookSecret];
 export const AFTER_USED = after;
 export const HOLDERS_USED = [auth, signInStore];

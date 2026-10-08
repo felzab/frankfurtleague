@@ -53,6 +53,8 @@ pytestmark = pytest.mark.db
 
 DATABASE_NAME = worker_database("fl_reference_isolation_test")
 
+# The instant a redaction stamps, which the endpoint reads from `get_germany_now`.
+NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 TODAY = "2026-04-01"
 
 
@@ -111,23 +113,17 @@ def kontaktperson(vorname: str) -> dict[str, Any]:
 def bewerbung_document() -> dict[str, Any]:
     """An application picking `CLUB` with no `bestaetigungen`, so its acceptance meets `REQ-ENTER-005` and never `REQ-BEWERBUNG-013`."""
 
-    return {
-        "_id": BEWERBUNG,
-        "saison_id": SAISON,
-        "eingereicht_am": "2026-02-01",
-        "status": "eingereicht",
-        "team_id": CLUB,
-        "schule": None,
-        "kontakte": {
-            "trainer": kontaktperson("Wraxlington"),
-            "ansprechperson": kontaktperson("Quillhilde"),
-            "stellvertretung": kontaktperson("Bramblewick"),
-            "trainer_ist_zugleich": None,
-        },
-        "trikot": {"vorhandener_satz": "16 rote Trikots, Größe M", "wunschfarbe": "rot"},
-        "kader": {"voraussichtliche_groesse": 14, "gute_spieler": 3},
-        "entscheidung": None,
-    }
+    return documents.bewerbung_document(
+        BEWERBUNG,
+        SAISON,
+        "eingereicht",
+        kontakte=documents.kontakte_document(
+            trainer=kontaktperson("Wraxlington"), ansprechperson=kontaktperson("Quillhilde"), stellvertretung=kontaktperson("Bramblewick")
+        ),
+        eingereicht_am="2026-02-01",
+        team_id=CLUB,
+        trikot={"vorhandener_satz": "16 rote Trikots, Größe M", "wunschfarbe": "rot"},
+    )
 
 
 def fixture_document(**overrides: Any) -> dict[str, Any]:
@@ -402,8 +398,10 @@ async def rename_the_referee(client: AsyncMongoClient, handles: Mapping[Collecti
         schiedsrichter_collection=handles[Collection.SCHIEDSRICHTER],
         spiele_collection=handles[Collection.SPIELE],
         sperrliste=ban_list(handles),
+        aktionen_collection=handles[Collection.AKTIONEN],
         db=client,
         today=TODAY,
+        germany_now=NOW,
         refuse_unconfirmed=FRESH_STEP_UP_CHECK,
     )
 

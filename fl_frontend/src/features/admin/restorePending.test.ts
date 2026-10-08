@@ -77,6 +77,7 @@ const REFEREE: FLSchiedsrichter = {
   geburtsdatum: null,
   einwilligung: null,
   bestaetigung: null,
+  adresswechsel: null,
 };
 
 /** Filled from `before`: each list is imported after this file's own doubles are registered. */
@@ -122,7 +123,7 @@ function listsOfferingARestore(): string[] {
 const mount = (list: ReactNode): ReactNode => underNext(list, { search: "saison_id=2026" });
 
 /** Every restore the list draws, by the name it carries; both layouts render, so each name comes twice. */
-const restores = (): HTMLElement[] => screen.getAllByRole("button", { name: /reaktivieren$/ });
+const restores = (): HTMLElement[] => screen.getAllByRole("button", { name: /reaktivieren: /i });
 
 /** The first control of that name, which is the one a reader at this width presses. */
 const restore = (name: string): HTMLElement => restores().find((button) => button.getAttribute("aria-label") === name) ?? assert.fail(name);

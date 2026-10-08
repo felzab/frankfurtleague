@@ -23,10 +23,12 @@ import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarnin
 import { unansweredAction } from "@/shared/utils/actionError";
 import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
 import { fieldStatus } from "@/shared/utils/draftStatus";
+import { focusSection } from "@/shared/utils/focusAfterWrite";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { offerUndo } from "@/shared/utils/undoDispatch";
 
 import { buildSchiedsrichterBanners } from "./banners";
+import { FormAdresswechselSection } from "./FormAdresswechselSection";
 import { FormAnonymisierenSection } from "./FormAnonymisierenSection";
 import { FormBestaetigungSection } from "./FormBestaetigungSection";
 import { FormHonorarSection } from "./FormHonorarSection";
@@ -35,6 +37,7 @@ import { FormPersonSection } from "./FormPersonSection";
 
 import type {
   FLPatchSchiedsrichterPayload,
+  FLSchiedsrichterAdresswechsel,
   FLSchiedsrichterBestaetigung,
   FLSchiedsrichterPayloadDraft,
 } from "@/features/schiedsrichter/schemas";
@@ -69,6 +72,7 @@ const OHNE_GESPEICHERTE_ADRESSE = buildRefusal({
  */
 export function AdminSchiedsrichterEditForm({
   schiedsrichter,
+  istFassungBekannt,
   isRetired,
   pageHeader,
 }: {
@@ -84,7 +88,12 @@ export function AdminSchiedsrichterEditForm({
     geburtsdatum: string | null;
     einwilligung: FLEinwilligung | null;
     bestaetigung: FLSchiedsrichterBestaetigung | null;
+    adresswechsel: FLSchiedsrichterAdresswechsel | null;
+    /** Whether each link's deadline has passed, as the read judged it rather than this browser's day. */
+    abgelaufen: { bestaetigung: boolean; adresswechsel: boolean };
   };
+  /** Whether the registry holds the stored label, which no record of the row says. */
+  istFassungBekannt: boolean | null;
   /** A fact about the row rather than a field this form commits, so it arrives beside the values. */
   isRetired: boolean;
   pageHeader: EditPageHeaderContent;
@@ -223,7 +232,7 @@ export function AdminSchiedsrichterEditForm({
 
           offerUndo({
             endpoint: "/api/admin/schiedsrichter/undo",
-            body: undoPayload,
+            body: { ...undoPayload, adresswechsel_gespeichert: res.adresswechselGespeichert === true },
             message: gespeichertesSatz === "" ? undefined : gespeichertesSatz,
             // A save that mailed nothing is clean; one whose link did not leave is graded a warning, the
             // referee having no working link and nobody else being told.
@@ -271,11 +280,29 @@ export function AdminSchiedsrichterEditForm({
             onFieldLeft={validateFields}
           />
 
-          <FormKontaktSection
-            kontakt={kontakt}
-            onChange={setKontakt}
-            onFieldLeft={validateFields}
-          />
+          {/* One place for the address and its waiting change, laid out as if absent: a discard takes the
+              change's panel away, and the focus lands on the contact panel's heading rather than the page's
+              (`docs/frontend/spec.md :: I536`). */}
+          <div
+            className="contents"
+            {...focusSection("kontakt")}>
+            <FormKontaktSection
+              kontakt={kontakt}
+              onChange={setKontakt}
+              onFieldLeft={validateFields}
+            />
+
+            {/* Beside the address it would replace, and only while one waits: the box above still holds
+                the address in force, which an administrator would otherwise read as a save that failed. */}
+            {schiedsrichter.adresswechsel !== null && (
+              <FormAdresswechselSection
+                schiedsrichterId={schiedsrichter.id}
+                adresswechsel={schiedsrichter.adresswechsel}
+                istAbgelaufen={schiedsrichter.abgelaufen.adresswechsel}
+                isDirty={isDirty}
+              />
+            )}
+          </div>
 
           <FormHonorarSection
             defaultPayment={defaultPayment}
@@ -291,7 +318,9 @@ export function AdminSchiedsrichterEditForm({
             hatAdresse={gespeicherteAdresseGilt}
             isRetired={isRetired}
             bestaetigung={schiedsrichter.bestaetigung}
+            istAbgelaufen={schiedsrichter.abgelaufen.bestaetigung}
             einwilligung={schiedsrichter.einwilligung}
+            istFassungBekannt={istFassungBekannt}
             geburtsdatum={schiedsrichter.geburtsdatum}
           />
 

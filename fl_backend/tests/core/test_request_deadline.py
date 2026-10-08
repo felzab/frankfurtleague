@@ -31,6 +31,7 @@ from app.core import middlewares
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import (
+    anchor_in_db,
     delete_many_from_db,
     erase_many_from_db,
     patch_many_in_db,
@@ -236,7 +237,7 @@ class _Transacted(NamedTuple):
 async def _transactions_held(url: str, session_ids: list[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
     """Through a client of its own: the route's would hand this read the session it asks about, then listed as this read rather than idle."""
 
-    async with AsyncMongoClient(url, serverMonitoringMode="poll") as probe:
+    async with AsyncMongoClient(url) as probe:
         listed = await probe.admin.aggregate(
             [
                 {"$currentOp": {"allUsers": True, "idleSessions": True}},
@@ -255,7 +256,10 @@ def _transacted(url: str, cut: _Cut) -> _Transacted:
         async with fresh as (client, database):
             written = database[Collection.AKTIONEN]
 
+            sessions: list[Mapping[str, Any]] = []
+
             async def write_then_wait(session: AsyncClientSession) -> None:
+                sessions.append(session.session_id)
                 # Through the helper every route writes through, which is what marks the request as having sent one.
                 await post_one_to_db(collection=written, document={"_id": ObjectId()}, session=session)
                 if cut is not _Cut.NOWHERE:
@@ -263,11 +267,8 @@ def _transacted(url: str, cut: _Cut) -> _Transacted:
                 if cut is _Cut.INSIDE_THE_CALLBACK:
                     await post_one_to_db(collection=written, document={"_id": ObjectId()}, session=session)
 
-            sessions: list[Mapping[str, Any]] = []
-
             async def transacting() -> None:
                 async with transaction_session(client) as session:
-                    sessions.append(session.session_id)
                     await session.with_transaction(write_then_wait)
 
             served = create_app(build_test_config())
@@ -695,6 +696,7 @@ NO_SESSION: Any = None
 
 # One call per `app/core/crud.py` helper reaching the driver's writes, each as a route makes it.
 WRITE_CALLS: dict[str, Callable[[Any], Awaitable[Any]]] = {
+    "anchor_in_db": lambda collection: anchor_in_db(collection=collection, db_filter={"_id": 1}, session=NO_SESSION),
     "patch_one_in_db": lambda collection: patch_one_in_db(
         collection=collection, db_filter={"_id": 1}, update={"$set": {"name": "Adler"}}, return_document=ReturnDocument.BEFORE
     ),
@@ -740,11 +742,18 @@ class TestAWriteTheDeadlineCutIsNotCalledFailed:
         assert _crud_functions_reaching_a_driver_write() == set(WRITE_CALLS)
 
     def test_no_write_reaches_the_driver_past_those_helpers(self):
-        """The log's own row aside, which follows a helper's write: a write sent past them is cut unmarked and called failed."""
+        """A write sent past them is cut unmarked and called failed.
+
+        Excused: the log's row, which follows a helper's write, and a day count, which precedes the
+        write it counts, so a cut one leaves nothing standing.
+        """
 
         outside = {f"{module} :: {scope}" for module, scope, call in app_calls() if callee(call) in DRIVER_WRITES}
 
-        assert {site for site in outside if not site.startswith(f"{CRUD_MODULE} :: ")} == {"app/core/recording.py :: record_write"}
+        assert {site for site in outside if not site.startswith(f"{CRUD_MODULE} :: ")} == {
+            "app/core/recording.py :: record_write",
+            "app/core/drosselung.py :: drosseln",
+        }
 
     def test_the_method_does_not_decide_it(self):
         """A `GET` that sent a write may have left it standing as surely as a `POST` does."""

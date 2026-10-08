@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
+
 import { bestaetigteEmpfaenger } from "./empfaenger.ts";
 
 import type { FLKontaktperson, FLSaisonTeamKontakte } from "@/features/teams/schemas.ts";
@@ -11,13 +13,12 @@ const person = (vorname: string, email: string, bestaetigtAm: string | null): FL
   email: email,
   telefon: "069 1234567",
   geburtsdatum: bestaetigtAm === null ? null : "1990-04-01",
-  einwilligung: {
-    umfang: "kontaktdaten",
+  einwilligung: kenntnisnahme({
     erfasst_von: bestaetigtAm === null ? "administrativ" : "person",
     text_version: "2026-08-01",
     datum: "2026-08-02",
     bestaetigt_am: bestaetigtAm,
-  },
+  }),
 });
 
 const block = (seats: Partial<FLSaisonTeamKontakte>): FLSaisonTeamKontakte => ({

@@ -26,6 +26,7 @@ import {
   identityName,
   TABLE_HEADING_CLASSES,
 } from "@/shared/components/ui/adminTable";
+import { Leer } from "@/shared/components/ui/Angabe";
 import { card } from "@/shared/components/ui/card";
 import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
 import { RowActionCopy, RowActionDelete, RowActionLink, RowActionRestore, RowActions } from "@/shared/components/ui/RowActions";
@@ -34,7 +35,7 @@ import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { appToast } from "@/shared/utils/appToast";
 import { CLIPBOARD_ERROR_DETAIL, copyTextToClipboard } from "@/shared/utils/clipboard";
 import { focusSection } from "@/shared/utils/focusAfterWrite";
-import { formatEuro } from "@/shared/utils/format";
+import { formatEuro, nichtHinterlegt } from "@/shared/utils/format";
 
 import { hatAdresse } from "../../schemas";
 
@@ -71,13 +72,16 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
     else appToast.danger("Kontaktdaten nicht kopiert", { description: CLIPBOARD_ERROR_DETAIL });
   };
 
-  // Italic where the row carries no name, so a reader takes the stand-in word for the state it is
-  // rather than for somebody's name. „anonym“ cannot reach this cell: that word is the ghost's.
+  // The empty-value grade where the row carries no name, so a reader takes the stand-in word for
+  // the state it is rather than for somebody's name. „anonym“ cannot reach this cell: that word is
+  // the ghost's.
   /* A nameless row on this list is what a hand-write leaves: the one row an erasure creates is the
      ghost, which `GET /schiedsrichter` excludes by id, so no erased person reaches this cell. */
   const renderName = (schiedsrichter: FLSchiedsrichter) =>
     schiedsrichter.name === null ? (
-      <span className={`${IDENTITY_NAME_BOX_CLASSES} text-foreground-muted italic`}>{SCHIEDSRICHTER_OHNE_NAMEN_LABEL}</span>
+      <span className={IDENTITY_NAME_BOX_CLASSES}>
+        <Leer>{SCHIEDSRICHTER_OHNE_NAMEN_LABEL}</Leer>
+      </span>
     ) : (
       <span className={identityName(schiedsrichter.inactive_since !== null)}>{schiedsrichter.name}</span>
     );
@@ -106,14 +110,14 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
               so a column would be empty on every live row. */}
           {schiedsrichter.inactive_since !== null && <RetiredBadge since={schiedsrichter.inactive_since} />}
         </div>
-        <span className={IDENTITY_LINE_CLASSES}>{schiedsrichter.schule || <span className="italic">Keine Schule</span>}</span>
+        <span className={IDENTITY_LINE_CLASSES}>{schiedsrichter.schule || <Leer>{nichtHinterlegt("Schule")}</Leer>}</span>
         <span className={IDENTITY_PAIR_CLASSES}>
           {/* The placeholder a row without an address holds is shown as the gap it is, not as an address. */}
           <span className={IDENTITY_LINE_CLASSES}>
-            {hatAdresse(schiedsrichter.kontakt.email) ? schiedsrichter.kontakt.email : <span className="italic">Keine E-Mail</span>}
+            {hatAdresse(schiedsrichter.kontakt.email) ? schiedsrichter.kontakt.email : <Leer>{nichtHinterlegt("E-Mail")}</Leer>}
           </span>
           <span className={`${IDENTITY_LINE_CLASSES} font-numeric tabular-nums`}>
-            {schiedsrichter.kontakt.telefon || <span className="italic">Keine Telefonnummer</span>}
+            {schiedsrichter.kontakt.telefon || <Leer>{nichtHinterlegt("Telefon")}</Leer>}
           </span>
         </span>
       </div>
@@ -126,9 +130,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
 
     // The italics marking the stand-in word a STATE reach a screen reader as nothing, so every control
     // on a nameless row names the entry rather than announcing that word as somebody's name.
-    const einsatzLabel = name === null ? "Einsätze dieses Eintrags anzeigen" : `Einsätze von ${name} anzeigen`;
     const rowSubject = name === null ? SCHIEDSRICHTER_OHNE_NAMEN_LABEL : `Schiedsrichter ${name}`;
-    const kontaktLabel = name === null ? "Kontaktdaten dieses Eintrags kopieren" : `Kontaktdaten von ${name} kopieren`;
 
     // The stored values and never a displayed stand-in, less the placeholder a row without an address
     // holds: a clipboard carrying either reads as a detail somebody could paste into a message.
@@ -143,7 +145,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
         <RowActionLink
           href={saisonHref(`/bereich/admin/spielsuche?schiedsrichter=${schiedsrichter.id}`)}
           label="Einsätze anzeigen"
-          ariaLabel={einsatzLabel}>
+          subject={rowSubject}>
           <Magnifier
             className="size-4.5"
             aria-hidden="true"
@@ -154,7 +156,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
         {hasKontakt && (
           <RowActionCopy
             label="Kontaktdaten kopieren"
-            ariaLabel={kontaktLabel}
+            subject={rowSubject}
             onPress={() => handleCopyKontakt(kontaktdaten)}
           />
         )}
@@ -162,7 +164,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
         <RowActionLink
           href={saisonHref(`/bereich/admin/schiedsrichter/${schiedsrichter.id}`)}
           label="Bearbeiten"
-          ariaLabel={`${rowSubject} bearbeiten`}>
+          subject={rowSubject}>
           <Pencil
             className="size-4.5"
             aria-hidden="true"
@@ -171,7 +173,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
         {isRetired && (
           <RowActionRestore
             label="Reaktivieren"
-            ariaLabel={`${rowSubject} reaktivieren`}
+            subject={rowSubject}
             isPending={isReactivating}
             // A return that mints the referee a link is a step-up write.
             onPress={(pressed) => reactivate({ id: schiedsrichter.id }, { stepUp: returnMayMint(schiedsrichter), pressed })}
@@ -180,7 +182,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
         {!isRetired && (
           <RowActionDelete
             label="Stilllegen"
-            ariaLabel={`${rowSubject} stilllegen`}
+            subject={rowSubject}
             onPress={(pressed) => setDeletingSchiedsrichter(schiedsrichter, pressed)}
           />
         )}

@@ -14,10 +14,11 @@ import { FIELD_ERROR_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { Hint } from "@/shared/components/ui/Hint";
 import { BRAND_INK_OUTSIDE_PROSE_CLASSES } from "@/shared/components/ui/textLink";
 import { appToast } from "@/shared/utils/appToast";
-import { postPublicForm } from "@/shared/utils/publicSubmit";
+import { postPublicForm, UNKLAR_TITEL } from "@/shared/utils/publicSubmit";
 import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal";
 
 import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
+import type { ReactNode } from "react";
 
 /** The route handler a typed code is checked at (`fl_frontend/src/app/api/signin/code/route.ts`). */
 const CODE_ENDPOINT = "/api/signin/code";
@@ -60,6 +61,7 @@ export function CodeStep({
   submitLabel,
   isSending,
   onResend,
+  resendCheck,
   onBack,
   onSignedIn,
 }: {
@@ -71,6 +73,8 @@ export function CodeStep({
   submitLabel: { rest: string; pending: string };
   isSending: boolean;
   onResend: () => void;
+  /** The bot check guarding the resend, set before it as Cloudflare's example sets one before a submit. */
+  resendCheck?: ReactNode;
   onBack?: () => void;
   /** `bereits`: a session another tab made answered this, and no code was confirmed here. */
   onSignedIn: (answer: { bereits: boolean }) => void;
@@ -130,7 +134,7 @@ export function CodeStep({
 
     if (!checked.answered) {
       setIsChecking(false);
-      appToast.danger("Nicht angemeldet", { description: checked.error });
+      appToast.danger(checked.wroteNothing ? "Nicht angemeldet" : UNKLAR_TITEL, { description: checked.error });
       return;
     }
 
@@ -212,23 +216,27 @@ export function CodeStep({
             text={hint}
           />
 
-          <Hint
-            mode="refusal"
-            reason={isCoolingDown ? ERST_WARTEN : null}
-            label="Code erneut senden">
-            <button
-              type="button"
-              // Not before the cooldown: a new code goes out and voids the one before, so a second press a
-              // moment after the first kills the code the first mail is still carrying.
-              disabled={isCoolingDown || isChecking || isSending}
-              onClick={onResend}
-              className={`${QUIET_ACTION_CLASSES} text-left`}>
-              Code erneut senden
-              {/* Inside the control the cooldown makes inert, so a screen reader is read the reason once and
-                  never a number a second. */}
-              {isCoolingDown && <span className="font-numeric tabular-nums"> ({asClock(secondsLeft)})</span>}
-            </button>
-          </Hint>
+          {/* One item of the list's gap with the resend: a widget Cloudflare shows nothing in leaves no gap of its own. */}
+          <div className="flex flex-col items-start">
+            {resendCheck}
+            <Hint
+              mode="refusal"
+              reason={isCoolingDown ? ERST_WARTEN : null}
+              label="Code erneut senden">
+              <button
+                type="button"
+                // Not before the cooldown: a new code goes out and voids the one before, so a second press a
+                // moment after the first kills the code the first mail is still carrying.
+                disabled={isCoolingDown || isChecking || isSending}
+                onClick={onResend}
+                className={`${QUIET_ACTION_CLASSES} text-left`}>
+                Code erneut senden
+                {/* Inside the control the cooldown makes inert, so a screen reader is read the reason once and
+                    never a number a second. */}
+                {isCoolingDown && <span className="font-numeric tabular-nums"> ({asClock(secondsLeft)})</span>}
+              </button>
+            </Hint>
+          </div>
         </div>
       </div>
 

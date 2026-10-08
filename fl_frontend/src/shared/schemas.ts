@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { hasAsciiLocalPart, isDeliverableAddress, KONTAKT_EMAIL_MAX_LENGTH } from "@/core/emailAddress";
+import { hasAsciiLocalPart, isDeliverableAddress, isSpecialUseAddress, KONTAKT_EMAIL_MAX_LENGTH } from "@/core/emailAddress";
 
 // Each schema mirrors a constraint in `fl_backend/app/shared/schemas/custom.py`,
 // `fl_backend/app/shared/schemas/addresses.py` or, for an email address,
@@ -174,15 +174,28 @@ export function addressSchema(accepts: (address: string) => boolean, box: z.ZodS
  * Every address typed to be stored or signed in with is judged here. `z.email()` cannot be it: no
  * pattern of its converts an umlaut domain, and its `html5Email` takes the doubled dot the API refuses.
  */
-export const KontaktEmailSchema = addressSchema(
-  isDeliverableAddress,
+const asciiLocalBox = addressBox.refine(hasAsciiLocalPart, {
   // First and alone: the one refusal nobody can read out of the generic sentence. It asks for another
   // address and never a retyped one: the same mailbox spelled without its umlaut is a stranger's.
-  addressBox.refine(hasAsciiLocalPart, {
-    error: "Diese Adresse können wir nicht nutzen: Vor dem @ dürfen keine Umlaute, kein ß, keine Akzente und keine anderen Schriften stehen.",
-    abort: true,
-  }),
-);
+  error: "Diese Adresse können wir nicht nutzen: Vor dem @ dürfen keine Umlaute, kein ß, keine Akzente und keine anderen Schriften stehen.",
+  abort: true,
+});
+
+/**
+ * The address rule on `box`, a reserved domain worded ahead of the generic sentence, which
+ * `isDeliverableAddress` would otherwise answer it with. Last on the box, so a refusal `box` words
+ * itself is shown in its place.
+ */
+const kontaktEmailOn = (box: z.ZodString) =>
+  addressSchema(
+    isDeliverableAddress,
+    box.refine((address) => !isSpecialUseAddress(address), {
+      error: "Diese Adresse können wir nicht nutzen: Der Teil nach dem @ ist reserviert und empfängt keine E-Mails.",
+      abort: true,
+    }),
+  );
+
+export const KontaktEmailSchema = kontaktEmailOn(asciiLocalBox);
 
 export const FLKontaktSchema = z.object({
   // Judged on the payload alone, as `email` is: a stored number `PHONE_REGEX` refuses, such as one ending
@@ -211,9 +224,35 @@ export const FLKontaktPayloadSchema = FLKontaktSchema.extend({
     .nullable(),
   // Required where the telephone is not: an administrator enters a referee, and the address is how
   // that person learns of it.
-  email: KontaktEmailSchema
-    // Named here, the box says why rather than the save failing whole.
-    .refine((email) => !isPlaceholderAddress(email), {
+  email: kontaktEmailOn(
+    // Named here, the box says why rather than the save failing whole. On the box, ahead of the reserved
+    // domain's sentence: the placeholder's `.invalid` is one, and only this sentence says what to type.
+    asciiLocalBox.refine((email) => !isPlaceholderAddress(email), {
       error: "Bitte gib statt des Platzhalters die echte E-Mail-Adresse ein.",
+      abort: true,
     }),
+  ),
 });
+
+/**
+ * Mirrors `FLBewerbungZustellstand`, which every kind of link records. **Orthogonal to `Stand`**, which is
+ * what the PERSON did: a seat can have confirmed from an address an earlier link bounced at, and folding
+ * the two would lose it.
+ */
+export const FLBewerbungZustellstandSchema = z.enum(["angenommen", "zugestellt", "verzoegert", "unzustellbar", "unterdrueckt", "beschwerde"], {
+  error: "Diesen Zustellstand gibt es nicht.",
+});
+export type FLBewerbungZustellstand = z.infer<typeof FLBewerbungZustellstandSchema>;
+
+/** Mirrors `FLBewerbungZustellung` — what became of the last message sent to one seat. */
+export const FLBewerbungZustellungSchema = z.object({
+  // The provider's own id for that message. An event naming another one is about a message a
+  // re-send has already replaced, and marking this seat from it would grade the wrong link.
+  nachricht_id: z.string(),
+  stand: FLBewerbungZustellstandSchema,
+  // The provider's stable token, never its prose, which quotes the recipient's address.
+  grund: z.string().nullable(),
+  // Not `CustomDateStringSchema`: an instant, and the key an out-of-order event is judged against.
+  am: z.string(),
+});
+export type FLBewerbungZustellung = z.infer<typeof FLBewerbungZustellungSchema>;

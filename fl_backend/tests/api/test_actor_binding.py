@@ -41,7 +41,6 @@ from app.core.security import (
     MISSING_ACTOR,
     PERSON_ACTOR_BINDERS,
     PERSON_BARRED,
-    SAFE_METHODS,
     STEP_UP_WINDOW_S,
     BanLookup,
     GrantLookup,
@@ -78,6 +77,10 @@ ROUTE_TEMPLATE = "/api/v0/teams/{team_id}"
 READ_PATH = "/api/v0/aktionen"
 
 ACTOR = "admin@example.com"
+
+# The methods that record nothing, which every write inventory here and in
+# `tests/api/test_drosselung.py` leaves out.
+SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 
 # The one route the two exemptions below name, spelled once.
 PUBLIC_WRITE_PATH = "/api/v0/bewerbungen"
@@ -146,7 +149,7 @@ async def through_the_binder(request: Request) -> tuple[Bound, Bound]:
     """
 
     # The binder's own dependencies first, as FastAPI resolves them.
-    binder = bind_actor(request, verify_admin_actor(get_actor_token(request), KEY))
+    binder = bind_actor(request, verify_admin_actor(get_actor_token(request), KEY), CONFIG)
     await anext(binder)
     during = (actor_var.get(), request_var.get())
 
@@ -357,6 +360,9 @@ PUBLIC_WRITES = [
     # actor and the confirmation's write is recorded under it.
     ("/api/v0/schiedsrichter/bestaetigung/ansicht", "POST"),
     ("/api/v0/schiedsrichter/bestaetigung", "POST"),
+    # The holder of a referee's new mailbox holds no session either, for the same reason.
+    ("/api/v0/schiedsrichter/adresswechsel/ansicht", "POST"),
+    ("/api/v0/schiedsrichter/adresswechsel", "POST"),
     # A pupil answering their own link holds no session either, so both endpoints bind the public
     # actor and the confirmation's write is recorded under it.
     ("/api/v0/registrierungen/bestaetigung/ansicht", "POST"),
@@ -383,6 +389,7 @@ SYSTEM_WRITES = [
     # Reads rather than writes, and listed for the binder all the same: omitted, it is demanded the
     # administrator's `X-FL-Actor`, which the system key never sends.
     ("/api/v0/identitaet/subjekt", "POST"),
+    ("/api/v0/identitaet/anmeldung", "POST"),
     ("/api/v0/identitaet/gesperrt", "POST"),
     # The grants' reconciliation: the read's reason above for the one, and the stamp is recorded
     # under `SYSTEM` because a change made in the database directly had no administrator.
@@ -391,11 +398,21 @@ SYSTEM_WRITES = [
 ]
 
 # The writes a signed-in person makes on the admin key, binding one of `PERSON_ACTOR_BINDERS` in
-# place of `bind_actor`: the header names a person, recorded under a pseudonym. Empty until a router
-# serving a person is mounted.
-PERSON_WRITES: list[tuple[str, str]] = []
+# place of `bind_actor`: the header names a person, recorded under a pseudonym.
+PERSON_WRITES: list[tuple[str, str]] = [
+    ("/api/v0/spieler/kader/{team_id:objectid}/{saison_id}/{spieler_id:objectid}", "PATCH"),
+    ("/api/v0/spieler/kader/{team_id:objectid}/{saison_id}/{spieler_id:objectid}", "DELETE"),
+    ("/api/v0/registrierungen/{registrierung_id:objectid}/aufnehmen", "POST"),
+    ("/api/v0/registrierungen/{registrierung_id:objectid}/ablehnen", "POST"),
+    ("/api/v0/spieler/selbst/einwilligung", "PATCH"),
+    ("/api/v0/schiedsrichter/selbst/{schiedsrichter_id:objectid}/einwilligung", "PATCH"),
+    ("/api/v0/teams/{team_id:objectid}/saisons/{saison_id}/person/einwilligung", "PATCH"),
+    ("/api/v0/bewerbungen/{bewerbung_id:objectid}/person/einwilligung", "PATCH"),
+    ("/api/v0/registrierungen/selbst/{registrierung_id:objectid}/einwilligung", "PATCH"),
+]
 
-# Split by the constant the guard itself reads, so a method moved between the two tiers moves here too.
+# Split by the methods `SAFE_METHODS` names as recording nothing, since a read binding no actor
+# misattributes no row; the guard itself exempts none (`TestTheGuardExemptsNoMethod`).
 MUTATIONS = sorted(
     operation
     for operation in ROUTES_BY_OPERATION
@@ -434,7 +451,7 @@ def test_every_person_write_binds_a_person_in_place_of_an_administrator():
     """What earns a write its place outside `MUTATIONS`.
 
     `tests/api/test_admin_guard.py :: PERSON_OPERATIONS` is held to the same routes, so the two lists
-    agree. Not parametrised: the list is empty until a person's router is mounted.
+    agree. Not parametrised, so one failure names every unearned write at once.
     """
     unearned = [
         operation
@@ -443,6 +460,30 @@ def test_every_person_write_binds_a_person_in_place_of_an_administrator():
     ]
 
     assert unearned == [], f"{unearned} leaves `MUTATIONS` without being a mounted write that binds a person"
+
+
+def test_a_person_write_binds_no_administrator_beside_the_person():
+    """In PLACE of `bind_actor`, never beside it: the administrator's binder refuses every person's token, so the write would serve nobody."""
+
+    beside = [operation for operation in PERSON_WRITES if operation in ROUTES_BY_OPERATION and binds_an_actor(ROUTES_BY_OPERATION[operation])]
+
+    assert PERSON_WRITES, "the list is empty, so the comparison below holds of nothing"
+    assert beside == [], f"{beside} binds the administrator's actor beside a person's"
+
+
+def test_no_route_binds_two_funktionen():
+    """A handler's identifier alias of another Funktion than its router's runs a second binder.
+
+    The route still serves, its writes recorded under the later Funktion, so nothing else fails.
+    """
+    binders = set(PERSON_ACTOR_BINDERS.values())
+    doubled = [
+        operation
+        for operation, route in sorted(ROUTES_BY_OPERATION.items())
+        if len({dependency.call for dependency in route.dependant.dependencies if dependency.call in binders}) > 1
+    ]
+
+    assert doubled == [], f"{doubled} binds more than one Funktion"
 
 
 @pytest.mark.parametrize(("path", "method"), PUBLIC_WRITES, ids=lambda value: value)
@@ -683,9 +724,12 @@ STEP_UP_WRITES = [
     pytest.param("post", "/api/v0/schiedsrichter", id="a referee's entry"),
     pytest.param("post", "/api/v0/schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen", id="a referee's fresh link"),
     pytest.param("post", "/api/v0/schiedsrichter/{schiedsrichter_id}/anonymisieren", id="a referee's anonymisation"),
+    pytest.param("post", "/api/v0/schiedsrichter/{schiedsrichter_id}/adresswechsel/einladen", id="a referee's fresh address link"),
+    pytest.param("delete", "/api/v0/schiedsrichter/{schiedsrichter_id}/adresswechsel", id="a referee's address change discarded"),
     pytest.param("delete", "/api/v0/sperrliste/{sperrliste_id}", id="a ban's lift"),
     pytest.param("delete", "/api/v0/spieler/{spieler_id}/erasure", id="a player's erasure"),
     pytest.param("post", "/api/v0/teams/{team_id}/saisons", id="a club's entry into a season"),
+    pytest.param("post", "/api/v0/teams/{team_id}/saisons/{saison_id}/kontakte/{seat}/bestaetigung/einladen", id="a contact seat's fresh link"),
     pytest.param("post", "/api/v0/teams/{team_id}/saisons/{saison_id}/replace", id="a club's replacement"),
     pytest.param("delete", "/api/v0/teams/{team_id}/saisons/{saison_id}/einladung", id="a club's link revoked"),
 ]
@@ -849,7 +893,7 @@ class TestThePersonBinder:
         assert during[0] == lower_during[0]
 
     def test_the_log_row_carries_the_pseudonym_and_no_address(self):
-        """Driven through the variable the binder sets and the recorder reads, since no route declares the binder yet."""
+        """Driven through the variable the binder sets and the recorder reads, so no database write is needed to read the row."""
         log = _LogDouble()
 
         async def _one_write() -> None:
@@ -899,7 +943,7 @@ def _probe() -> dict[str, bool]:
 
 
 def person_client(*, barred: frozenset[str] | None = frozenset({BARRED_PERSON})) -> TestClient:
-    """The real application and one route declaring a person's binder, which no router mounts yet.
+    """The real application and one probe route declaring a person's binder, its handler reading no database.
 
     The ban read is answered from `barred`, or left real where it is `None`, which reaches the missing database.
     """

@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 import { publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
-import { assertEachRefusalCloses, doubleRouteRequest, unacknowledged, undo } from "@/shared/testing/undoRoutes.ts";
+import { assertEachRefusalCloses, doubleRouteRequest, revalidatedTags, unacknowledged, undo } from "@/shared/testing/undoRoutes.ts";
 
 /** The pre-save venue the press replays, as the editor builds it. */
 const BODY = {
@@ -35,6 +35,8 @@ describe("the venue save's undo", () => {
     assert.equal(answer.success, true, String(answer.error));
     const { id, ...fields } = BODY;
     assert.deepEqual(requestsOf(calls), [{ endpoint: `/spielorte/${id}`, method: "PATCH", body: fields }]);
+    // The caches the replay moves, which the undo spine drops with no staleness tolerated.
+    assert.deepEqual(revalidatedTags(), [["spiele", { expire: 0 }]]);
   });
 
   it("words every refusal the replayed endpoint publishes, closing on the change standing once", async () => {

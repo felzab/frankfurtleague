@@ -364,12 +364,15 @@ class TestWhatSeatingAnotherPersonWrites:
 
         assert {field: slot[field] for field in NEW_PERSON} == dict(NEW_PERSON)
         assert slot["geburtsdatum"] is None
+        # Naming the league as who seated them: it is what tells an administrator-filled seat from an
+        # applicant-named one.
         assert slot["einwilligung"] == {
             "umfang": "kontaktdaten",
-            "erfasst_von": "administrativ",
             "text_version": "2026-09-bestaetigung-4",
             "datum": "2026-03-26",
             "bestaetigt_am": None,
+            "medien": False,
+            "eingetragen_von": "liga",
         }
 
     def test_the_day_the_last_holder_stepped_out_goes_with_the_entry(self):

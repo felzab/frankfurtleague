@@ -1,7 +1,9 @@
 import { buildBewerbungBestaetigungEmail, buildBewerbungEingangOffenEmail } from "@/core/bewerbungEmail";
 import { frontend_config } from "@/core/config";
 import { IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
-import { bestaetigungsLink } from "@/features/bewerbungen/bestaetigungLink";
+import { kontaktBestaetigungsLink } from "@/core/kontaktLink";
+import { turnstileRefusal } from "@/core/turnstile";
+import { TURNSTILE_HEADER } from "@/core/turnstileToken";
 import { BEWERBUNG_SEATS } from "@/features/bewerbungen/constants";
 import { postBewerbung } from "@/features/bewerbungen/mutations";
 import {
@@ -17,7 +19,7 @@ import { BEWERBUNG_VERALTET, empfangsSitze, mapBewerbungSubmitRefusal } from "@/
 import { refusedDraftAnswer } from "@/shared/utils/actionError";
 import { formatSpielDatum } from "@/shared/utils/format";
 import { handlePublicRequest } from "@/shared/utils/publicRoute";
-import { buildRefusal } from "@/shared/utils/refusal";
+import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 
 import type { BewerbungSeat } from "@/core/bewerbungEmail";
 import type { NextRequest } from "next/server";
@@ -34,10 +36,15 @@ export async function POST(request: NextRequest) {
   return handlePublicRequest(request, {
     routeName: "postBewerbung",
     run: async () => {
+      // First, before the body is read: nothing an unverified sender posted is parsed, and the write, which
+      // mails three addresses the payload names, is never reached past a refusal.
+      const refusal = await turnstileRefusal(request.headers.get(TURNSTILE_HEADER));
+      if (refusal !== null) return { success: false as const, error: refusal };
+
       const body: unknown = await request.json().catch(() => null);
 
       // No label check here, unlike the confirmation handlers: the backend judges the label after
-      // its replay lookup, and one here would refuse a retry whose first press is stored (`REQ-BEWERBUNG-016`).
+      // its replay lookup, and one here would refuse a retry whose first press is stored (`REQ-EINWILLIGUNG-001`).
       const parsed = FLPostBewerbungPayloadSchema.safeParse(body);
 
       if (!parsed.success) return { success: false as const, ...refusedDraftAnswer(parsed.error, BEWERBUNG_VERALTET) };
@@ -57,7 +64,7 @@ export async function POST(request: NextRequest) {
       if (!eingang.acknowledged) {
         return {
           success: false as const,
-          error: buildRefusal({ reason: "Die Bewerbung wurde nicht gespeichert", repair: "Versuche es erneut" }),
+          error: buildRefusal({ reason: "Die Bewerbung wurde nicht gespeichert", repair: VERSUCHE_ES_ERNEUT }),
         };
       }
 
@@ -90,7 +97,7 @@ export async function POST(request: NextRequest) {
         Object.fromEntries(
           BEWERBUNG_SEATS.filter((seat) => !imEmpfang.includes(seat.value)).map((seat) => [
             seat.value,
-            bestaetigungsLink(origin, seats[seat.value]),
+            kontaktBestaetigungsLink(origin, seats[seat.value]),
           ]),
         ),
       );
@@ -138,7 +145,7 @@ export async function POST(request: NextRequest) {
             rollenText: rollenText,
             ausstehend: ausstehend,
             fristText: fristText,
-            link: bestaetigungsLink(origin, seats.ansprechperson),
+            link: kontaktBestaetigungsLink(origin, seats.ansprechperson),
           }),
       });
 

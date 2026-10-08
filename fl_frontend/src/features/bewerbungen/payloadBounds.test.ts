@@ -3,7 +3,9 @@ import { describe, it } from "node:test";
 
 import { readPublishedDocument } from "@/core/openapiDocument";
 import { publishedCeilings } from "@/core/publishedCeilings";
+import { laufendeBewerbungFassung } from "@/shared/testing/einwilligungAnswers.ts";
 import { renderMarkup } from "@/shared/testing/renderTest";
+import { TEST_SITE_KEY } from "@/shared/testing/siteverifyDouble.ts";
 
 import { kaderWithSquad, strongPlayerCeiling } from "./components/forms/BewerbungForm/kaderBounds.ts";
 import { BEWERBUNG_KADER_GROESSE_MAX, BEWERBUNG_STUFENGROESSE_MAX, SCHULE_NICHT_IN_LISTE } from "./constants.ts";
@@ -56,7 +58,14 @@ const SCHOOLS = [{ id: "68d0f2a4c1e2b3a4d5e6f708", name: "Lessing-Kolleg" }];
  * block only the picker's sentinel reaches is rendered beside it.
  */
 const RENDERED = [
-  renderMarkup(BewerbungForm, { saisonId: "2026", schulen: SCHOOLS, isSchulenLesbar: true, vergebeneFarben: [] }),
+  renderMarkup(BewerbungForm, {
+    saisonId: "2026",
+    fassung: laufendeBewerbungFassung(),
+    schulen: SCHOOLS,
+    isSchulenLesbar: true,
+    vergebeneFarben: [],
+    siteKey: TEST_SITE_KEY,
+  }),
   renderMarkup(FormSchuleSection, {
     schulen: SCHOOLS,
     auswahl: SCHULE_NICHT_IN_LISTE,

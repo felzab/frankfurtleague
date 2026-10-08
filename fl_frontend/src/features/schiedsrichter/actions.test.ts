@@ -12,7 +12,7 @@ import { act, render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { DOUBLE_PRESS_MS } from "@/shared/hooks/useTwoPressConfirm.ts";
-import { doubleActionRequest, doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import { doubleActionRequest, doubleActions, doubleToasts, loggedLines } from "@/shared/testing/actionDoubles.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { answer, answerReadsWith, EMPTIEST_ANSWER, pageBody } from "@/shared/testing/pageHarness.ts";
 import { answerShown, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
@@ -83,10 +83,7 @@ describe("the referee's writes against the codes their endpoints publish", () =>
   /* Coming back mints for an unanswered referee, so the reactivation meets the ban list as every mint
      does; left unmapped it reaches the admin as the shared fallback, which names no rule. */
   it("words every refusal the reactivation publishes", () => {
-    assert.deepEqual(
-      publishedRefusals(REACTIVATE_OPERATION).filter((code) => code !== DUPLICATE_KEY),
-      ["REQ-SCHIEDSRICHTER-007"],
-    );
+    assert.deepEqual(publishedRefusals(REACTIVATE_OPERATION), ["REQ-SCHIEDSRICHTER-007"]);
     for (const code of publishedRefusals(REACTIVATE_OPERATION)) {
       assert.notEqual(
         answerShown(REACTIVATE_OPERATION, code, mapReactivateRefusal),
@@ -126,10 +123,12 @@ describe("the referee's writes against the codes their endpoints publish", () =>
   /* Every refusal the re-send publishes, worded at the panel: nothing there is a form, so each is a
      sentence rather than a field error. */
   it("words every refusal the re-send publishes", () => {
-    assert.deepEqual(
-      publishedRefusals(EINLADEN_OPERATION).filter((code) => code !== DUPLICATE_KEY),
-      ["REQ-SCHIEDSRICHTER-001", "REQ-SCHIEDSRICHTER-004", "REQ-SCHIEDSRICHTER-006", "REQ-SCHIEDSRICHTER-007"],
-    );
+    assert.deepEqual(publishedRefusals(EINLADEN_OPERATION), [
+      "REQ-SCHIEDSRICHTER-001",
+      "REQ-SCHIEDSRICHTER-004",
+      "REQ-SCHIEDSRICHTER-006",
+      "REQ-SCHIEDSRICHTER-007",
+    ]);
     for (const code of publishedRefusals(EINLADEN_OPERATION)) {
       assert.notEqual(answerShown(EINLADEN_OPERATION, code, mapEinladenRefusal), null, `${code} reaches the admin as an unhandled conflict`);
     }
@@ -156,10 +155,7 @@ describe("the referee's writes against the codes their endpoints publish", () =>
   });
 
   it("leaves the retirement's own refusal on the retirement", () => {
-    assert.deepEqual(
-      publishedRefusals(RETIRE_OPERATION).filter((code) => code !== DUPLICATE_KEY),
-      ["REQ-RETIRE-004"],
-    );
+    assert.deepEqual(publishedRefusals(RETIRE_OPERATION), ["REQ-RETIRE-004"]);
     for (const code of publishedRefusals(RETIRE_OPERATION)) {
       assert.notEqual(answerShown(RETIRE_OPERATION, code, mapRetireRefusal), null, `${code} reaches the admin as an unhandled conflict`);
     }
@@ -229,15 +225,23 @@ const RECORD = {
   geburtsdatum: null,
   einwilligung: null,
   bestaetigung: null,
+  adresswechsel: null,
+  abgelaufen: { bestaetigung: false, adresswechsel: false },
 };
 
 /** The record the editor page's read answers with, as the backend holds it at that moment. */
-let stored = { ...RECORD, inactive_since: null };
-answerReadsWith((endpoint, schema, params) =>
-  endpoint === `/schiedsrichter/${RECORD.id}`
-    ? answer(schema, endpoint, { schiedsrichter: stored })
-    : EMPTIEST_ANSWER(endpoint, schema, params),
-);
+let stored: Record<string, unknown> = { ...RECORD, inactive_since: null };
+/** The registry's read failing, where a case asks it to: with a failure, or with words off their schema. */
+let registerFehlt: boolean | "vertragsbruch" = false;
+/** The read's judgement of each link's deadline, served beside the record. */
+let lapse = { bestaetigung_abgelaufen: false, adresswechsel_abgelaufen: false };
+answerReadsWith((endpoint, schema, params) => {
+  if (registerFehlt === true && endpoint.startsWith("/einwilligung/fassungen/")) throw new Error("backend unreachable");
+  if (registerFehlt === "vertragsbruch" && endpoint.startsWith("/einwilligung/fassungen/")) return { acknowledged: 1 };
+  return endpoint === `/schiedsrichter/${RECORD.id}`
+    ? answer(schema, endpoint, { schiedsrichter: stored, ...lapse })
+    : EMPTIEST_ANSWER(endpoint, schema, params);
+});
 
 /** What the save answers where the address of an outstanding referee moved and the link went out. */
 const VERSAND_SATZ = "Der Best\u00e4tigungslink ging an anna@example.de.";
@@ -251,7 +255,8 @@ afterEach(() => {
 });
 
 /** The editor the page mounts for a referee nobody erased, whose last panel is the erasure. */
-const renderEditor = () => render(underRecordingNext(h(AdminSchiedsrichterEditView, { schiedsrichter: RECORD, inactiveSince: null })));
+const renderEditor = () =>
+  render(underRecordingNext(h(AdminSchiedsrichterEditView, { istFassungBekannt: true, schiedsrichter: RECORD, inactiveSince: null })));
 
 const erasureButton = () => screen.getByRole("button", { name: /^(Ja, )?Daten (endgültig )?löschen$/ });
 
@@ -472,6 +477,73 @@ describe("the erasure on the referee's editor", () => {
     assert.equal(seen.refresh, 0, "the erasure re-reads a row it has deleted");
   });
 
+  /* The registry tells a known label from an unknown one, which the consent panel says beside it; its
+     failure leaves that unchecked rather than taking the editor down. */
+  it("hands the editor an unchecked label, and renders, where the registry read failed", async () => {
+    const props = { params: Promise.resolve({ schiedsrichter_id: RECORD.id }), searchParams: Promise.resolve({}) };
+    stored = {
+      ...RECORD,
+      inactive_since: null,
+      einwilligung: {
+        umfang: "intern",
+        erteilt_von: "volljaehrig",
+        datum: "2026-09-22",
+        bestaetigt_am: "2026-09-22",
+        text_version: "2026-09-schiedsrichterseite",
+        medien: false,
+        nachweis: { umfang: null, medien: null },
+      },
+    };
+    registerFehlt = true;
+
+    try {
+      const body = await pageBody(AdminSchiedsrichterEditPage, props);
+      assert.equal(
+        (body.props as { istFassungBekannt: unknown }).istFassungBekannt,
+        null,
+        "a failed registry read reached the editor as a verdict",
+      );
+    } finally {
+      registerFehlt = false;
+      stored = { ...RECORD, inactive_since: null };
+    }
+  });
+
+  /* The editor is the operator's tool for repairing the record, so a broken contract leaves it
+     standing too; logged under the error boundary's own code, so the broken deploy is still seen. */
+  it("hands the editor an unchecked label where the registry broke its contract, and logs it", async () => {
+    const props = { params: Promise.resolve({ schiedsrichter_id: RECORD.id }), searchParams: Promise.resolve({}) };
+    stored = {
+      ...RECORD,
+      inactive_since: null,
+      einwilligung: {
+        umfang: "intern",
+        erteilt_von: "volljaehrig",
+        datum: "2026-09-22",
+        bestaetigt_am: "2026-09-22",
+        text_version: "2026-09-schiedsrichterseite",
+        medien: false,
+        nachweis: { umfang: null, medien: null },
+      },
+    };
+    registerFehlt = "vertragsbruch";
+
+    try {
+      const body = await pageBody(AdminSchiedsrichterEditPage, props);
+      assert.equal((body.props as { istFassungBekannt: unknown }).istFassungBekannt, null, "a contract break took the editor down");
+      assert.deepEqual(
+        loggedLines
+          .filter(({ level }) => level === "error")
+          .map(({ message, meta }) => [message, (meta as { error_code?: string }).error_code]),
+        [["Contract break absorbed by an admin readout", "FE-RSC-001"]],
+        "the contract break went unlogged",
+      );
+    } finally {
+      registerFehlt = false;
+      stored = { ...RECORD, inactive_since: null };
+    }
+  });
+
   /* A rename is the surviving write on this page, and the draft mirrors the stored record: without
      the key the saved values never reach the boxes and the form reads as dirty against them. */
   it("keys the editor on the stored record, so a save remounts it", async () => {
@@ -490,6 +562,58 @@ describe("the erasure on the referee's editor", () => {
       "Anna Beispiel-Berg",
       "the box keeps the draft over the record the save stored",
     );
+  });
+});
+
+/* The page hands each panel the read's flag for that panel's own link: two booleans of one type,
+   which a swap anywhere between the read and the panel moves with nothing failing to compile. */
+describe("which link the editor's page marks as lapsed", () => {
+  const props = { params: Promise.resolve({ schiedsrichter_id: RECORD.id }), searchParams: Promise.resolve({}) };
+  // One deadline for both links, so only the served flag can tell the two panels apart.
+  const frist = "2026-10-05";
+  const bestaetigung = { verschickt_am: "2026-09-21", erinnert_am: null, frist, zustellung: null };
+  const BESTAETIGT = {
+    umfang: "intern",
+    erteilt_von: "volljaehrig",
+    datum: "2026-09-22",
+    bestaetigt_am: "2026-09-22",
+    text_version: "2026-09-schiedsrichterseite",
+    medien: false,
+    nachweis: { umfang: null, medien: null },
+  };
+
+  /** The text of the panel headed `title`, as the page renders it over the read answered with `served`. */
+  async function shownIn(record: Record<string, unknown>, served: typeof lapse, title: string): Promise<string> {
+    stored = { ...RECORD, inactive_since: null, ...record };
+    lapse = served;
+    try {
+      const { unmount } = render(underRecordingNext(await pageBody(AdminSchiedsrichterEditPage, props)));
+      const text = screen.getByRole("heading", { level: 2, name: title }).closest("section")?.textContent ?? "";
+      unmount();
+      return text;
+    } finally {
+      stored = { ...RECORD, inactive_since: null };
+      lapse = { bestaetigung_abgelaufen: false, adresswechsel_abgelaufen: false };
+    }
+  }
+
+  it("marks the consent link's panel where only that link has lapsed", async () => {
+    const shown = await shownIn({ bestaetigung }, { bestaetigung_abgelaufen: true, adresswechsel_abgelaufen: false }, "Bestätigung");
+
+    assert.match(shown, /abgelaufen/, "the consent link's panel says nothing of the lapse the read served for it");
+  });
+
+  // A confirmed referee: the only one an address change waits on, and one whose consent link no lapse costs.
+  it("marks the address change's panel, and not the consent link's, where only the change has lapsed", async () => {
+    const record = {
+      einwilligung: BESTAETIGT,
+      bestaetigung,
+      adresswechsel: { email: "anna@neu.example", verschickt_am: "2026-10-01", frist, zustellung: null },
+    };
+    const served = { bestaetigung_abgelaufen: false, adresswechsel_abgelaufen: true };
+
+    assert.match(await shownIn(record, served, "Neue E-Mail-Adresse"), /abgelaufen/, "the change's panel misses the lapse served for it");
+    assert.doesNotMatch(await shownIn(record, served, "Bestätigung"), /abgelaufen/, "the consent link's panel took the change's lapse");
   });
 });
 

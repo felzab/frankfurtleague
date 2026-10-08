@@ -94,7 +94,7 @@ take_dump() {
     -e DB_BASE_NAME \
     -v "/${REPO_ROOT}/${DUMP_URI_FILE}:/run/secrets/dump_mongodb_uri:ro" \
     -v "/${REPO_ROOT}/.local-db/dump:/dump" \
-    mongo:8.3.11@sha256:5d7043a4ffe02b9ed1b6e0bab057546981af5ca0a79107e9c461e49bc44c0a7b sh -s >"$DUMP_LOG" 2>&1 <<'CONTAINER'
+    mongo:8.3.11@sha256:d731d77bfd7afd66bd487bdf627b5bf7ce4c3602ec461d635977021db529ebbc sh -s >"$DUMP_LOG" 2>&1 <<'CONTAINER'
 set -e
 # Neither the file nor the dotenv line has its quotes or a Windows editor's CR stripped on the way
 # in, and mongodump answers a URI holding either with a parse error.
@@ -264,10 +264,11 @@ step "Files the containers read"
 require_file "fl_frontend/.env" "The frontend container reads it via env_file. Write this machine's own with the variables
 docs/frontend/spec.md §1.7 lists; it holds no credential, each being a file under secrets/."
 require_file "fl_backend/.env"  "The backend container reads it via env_file."
+# The only reader of these files here before the containers hold their lines: neither image's name
+# check runs on this stack. Before the spellings, whose remedy would have a credential's line rewritten.
+refuse_credential_lines fl_frontend/.env fl_backend/.env
 check_env_spellings "fl_frontend/.env"
 check_env_spellings "fl_backend/.env"
-# Nothing here restores an older image, so a line kept for a rollback is a line to delete.
-check_moved_names refuse fl_frontend/.env fl_backend/.env
 require_file "$SIGNING_KEY_FILE" "The frontend signs every admin and person call with it. Generate this machine's pair: docs/ops/runbooks.md §16."
 for secret_file in $(printf '%s\n' "${LOCAL_FRONTEND_SECRETS[@]}" "${LOCAL_BACKEND_SECRETS[@]}" | sort -u); do
   require_file "secrets/${secret_file}" "The stack mounts it at /run/secrets/${secret_file}. Make this machine's own: docs/ops/runbooks.md §16."
@@ -304,15 +305,15 @@ step "Building images from source"
 docker compose build || die "The image build failed — its own output is above."
 ok "images built"
 
-step "The actor token's key pair"
-# Through compose, so the key is mounted as the stack will mount it, owner and mode included, and
-# read at the path the frontend's environment files name.
-check_actor_key "NOTHING has been started." docker compose run --rm --no-deps -T frontend
-
-step "The secret files"
-# For the key check's reason: each container reads its files as the stack mounts them.
-check_frontend_secret_files "NOTHING has been started." local docker compose run --rm --no-deps -T
+step "Each service's settings and secret files, as its own boot builds them"
+# Through compose, as the deploy asks it: each container reads its variables and files as the stack
+# hands them over, owner and mode included.
+check_frontend_boot_config "NOTHING has been started." local docker compose run --rm --no-deps -T
 check_backend_boot_config "NOTHING has been started." docker compose run --rm --no-deps -T
+
+step "The actor token's key pair"
+# After the frontend's boot, which has refused a key it cannot read where its environment points it.
+check_actor_key "NOTHING has been started." docker compose run --rm --no-deps -T frontend
 
 # Before `start`, not inside it: a page rendered against an empty database caches that read for
 # days. The copy comes before the database container as well, for the reason at `fetch_copy`.

@@ -3,7 +3,7 @@ import { connection } from "next/server";
 
 import { resolveAdminSaison } from "@/features/saisons/resolvers";
 import { AdminSpielerView } from "@/features/spieler/components/views/AdminSpielerView";
-import { SPIELER_CRUD_COPY } from "@/features/spieler/constants";
+import { kaderName, SPIELER_CRUD_COPY } from "@/features/spieler/constants";
 import { getSpielerMemberships } from "@/features/spieler/queries";
 import { countLiveSquadRows, squadIsFull } from "@/features/spieler/utils";
 import { getTeamMemberships } from "@/features/teams/queries";
@@ -77,7 +77,7 @@ async function SpielerTable({ searchParams }: { searchParams: NextPageProps["sea
       id: spieler.id,
       vorname: spieler.vorname,
       nachname: spieler.nachname,
-      fullName: spieler.nachname === null ? spieler.vorname : `${spieler.vorname} ${spieler.nachname}`,
+      fullName: kaderName(spieler),
       inactive_since: spieler.inactive_since,
       selected:
         selected === null

@@ -6,6 +6,7 @@ import { FLSpieltagWithSpieleSchema } from "@/features/spieltage/schemas.ts";
 import { labelBadge, PILL_TINT_CLASSES } from "@/shared/components/ui/badges.ts";
 import { card } from "@/shared/components/ui/card.ts";
 import { side, spielFields } from "@/shared/testing/fixtures.ts";
+import { assertLeerMarkup } from "@/shared/testing/leerGrade.ts";
 import { renderMarkup, textOf } from "@/shared/testing/renderTest.ts";
 
 import type { FLSaisonPhase } from "@/features/saisons/schemas.ts";
@@ -162,6 +163,19 @@ describe("the bracket wiring review", () => {
         "the pair cell draws what only the eye gets",
       );
     }
+  });
+});
+
+describe("an open slot in the bracket wiring", () => {
+  /* The slot stands where a club's name would, so it keeps the name's weight and takes the one empty
+     grade, which alone tells it from a club. */
+  it("reads „Noch offen“ in the empty-value grade at a club name's weight", () => {
+    assertLeerMarkup(HTML, "Noch offen");
+    assert.match(
+      HTML,
+      /<span class="[^"]*\bfont-bold\b[^"]*"><span class="text-foreground-muted not-italic">Noch offen<\/span><\/span>/,
+      "the open slot lost a name's weight",
+    );
   });
 });
 

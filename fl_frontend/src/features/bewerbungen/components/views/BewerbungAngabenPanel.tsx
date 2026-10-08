@@ -1,9 +1,21 @@
 import Link from "next/link";
 
-import { vonOderGesperrt } from "@/features/berechtigungen/constants";
+import { VonOderGesperrt } from "@/features/berechtigungen/components/ui/VonOderGesperrt";
 import { BEWERBUNG_HERKUNFT_LABELS } from "@/features/bewerbungen/constants";
 import { bewerbungHerkunft } from "@/features/bewerbungen/utils";
-import { einwilligungHerkunftLabel, KONTAKT_ROLLEN, schulformLabel, trikotFarbeHex, trikotFarbeLabel } from "@/features/teams/constants";
+import { Beleg } from "@/features/spieler/components/ui/Nachweis";
+import { EINWILLIGUNG_MEDIEN_FRAGE, EINWILLIGUNG_MEDIEN_LABELS } from "@/features/spieler/constants";
+import {
+  eingetragenVonLabel,
+  KONTAKT_ROLLEN,
+  KONTAKT_WHATSAPP_FRAGE,
+  KONTAKT_WHATSAPP_LABELS,
+  kontaktGeburtsdatumLeer,
+  schulformLabel,
+  trikotFarbeHex,
+  trikotFarbeLabel,
+} from "@/features/teams/constants";
+import { Angabe, Leer } from "@/shared/components/ui/Angabe";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
@@ -16,24 +28,6 @@ import { withSaisonId } from "@/shared/utils/saisonHref";
 import type { SitzBestaetigung } from "@/features/bewerbungen/bestaetigungStand";
 import type { FLBewerbung } from "@/features/bewerbungen/schemas";
 import type { ReactNode } from "react";
-
-/** What an unanswered field reads as — the school left it empty, which is not the same as a zero. */
-const NOT_RECORDED = "Nicht angegeben";
-
-/** One stored fact. A `<dl>` is its only valid parent: the pair is what makes the value a fact about the label. */
-function Angabe({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="flex flex-col gap-y-0.5">
-      <dt className="fluid-xxs font-bold text-foreground-muted">{label}</dt>
-      <dd className="min-w-0 fluid-sm font-medium break-words text-foreground">{children}</dd>
-    </div>
-  );
-}
-
-/** A value the school did not fill in, in the one grade every empty field here takes. */
-function Leer() {
-  return <span className="text-foreground-muted italic">{NOT_RECORDED}</span>;
-}
 
 /**
  * Validated before it becomes an `href`: the API serves this value unchecked, so a `javascript:`
@@ -170,9 +164,15 @@ export function BewerbungAngabenPanel({
                 ) : (
                   <dl className={ANGABEN_GRID_CLASSES}>
                     <Angabe label="Name">{`${person.vorname} ${person.nachname}`}</Angabe>
-                    {/* Null until that seat's contact has confirmed and entered it themselves, so an
-                        empty one is a step still outstanding rather than a school's omission. */}
-                    <Angabe label="Geburtsdatum">{person.geburtsdatum === null ? <Leer /> : formatSpielDatum(person.geburtsdatum)}</Angabe>
+                    {/* The person's own to enter when they confirm, so the contacts editor's words: whose step
+                        it is until then, a field held empty after. */}
+                    <Angabe label="Geburtsdatum">
+                      {person.geburtsdatum === null ? (
+                        <Leer>{kontaktGeburtsdatumLeer(person.einwilligung.bestaetigt_am)}</Leer>
+                      ) : (
+                        formatSpielDatum(person.geburtsdatum)
+                      )}
+                    </Angabe>
                     {/* The scheme is a literal prefix here, so neither stored value can steer the href
                         the way `Website`'s can, and neither needs that field's validator. */}
                     {/* Both rows guard the TRIMMED value: `PHONE_REGEX` admits the space character, the read
@@ -206,11 +206,22 @@ export function BewerbungAngabenPanel({
                         these details and when, which on an application from before the workflow is
                         nobody's answer — and a Zusage turns on that answer. */}
                     <Angabe label={stand === null ? "Kenntnisnahme" : "Bestätigung"}>
-                      {/* No `Leer`: an outstanding seat has a state rather than a gap, and a seat
-                          reaching no state has its stored record instead. */}
-                      {stand === null
-                        ? `${einwilligungHerkunftLabel(person.einwilligung.erfasst_von)}, ${formatSpielDatum(person.einwilligung.datum)}`
-                        : stand.satz}
+                      {/* A step not taken stands where the confirmation's day would, so it takes the empty
+                          grade; a confirmation or a Widerspruch is the fact itself. */}
+                      {stand === null ? (
+                        <>
+                          {person.einwilligung.eingetragen_von === null ? (
+                            <Leer>{eingetragenVonLabel(null)}</Leer>
+                          ) : (
+                            eingetragenVonLabel(person.einwilligung.eingetragen_von)
+                          )}
+                          {`, ${formatSpielDatum(person.einwilligung.datum)}`}
+                        </>
+                      ) : stand.stand.art === "bestaetigt" || stand.stand.art === "abgelehnt" ? (
+                        stand.satz
+                      ) : (
+                        <Leer>{stand.satz}</Leer>
+                      )}
                       {/* Over a confirmation that has been given and no other: the version an
                           outstanding seat stores is the wording the SUBMITTER acknowledged, which
                           naming here would file against the person who has not answered yet. */}
@@ -218,6 +229,28 @@ export function BewerbungAngabenPanel({
                         person.einwilligung.text_version !== "" &&
                         ` (Fassung ${person.einwilligung.text_version})`}
                     </Angabe>
+                    {/* While pending alone: the person withdraws either choice on the account page then, and a
+                        decided application's copy is frozen, the seats' choices living on the team's row. */}
+                    {bewerbung.status === "eingereicht" && (
+                      <>
+                        <Angabe label={KONTAKT_WHATSAPP_FRAGE}>
+                          {KONTAKT_WHATSAPP_LABELS[person.einwilligung.umfang]}
+                          <Beleg
+                            nachweis={person.einwilligung.nachweis.umfang}
+                            bestaetigtAm={person.einwilligung.bestaetigt_am}
+                            textVersion={person.einwilligung.text_version}
+                          />
+                        </Angabe>
+                        <Angabe label={EINWILLIGUNG_MEDIEN_FRAGE}>
+                          {person.einwilligung.medien ? EINWILLIGUNG_MEDIEN_LABELS.erteilt : EINWILLIGUNG_MEDIEN_LABELS.nicht_erteilt}
+                          <Beleg
+                            nachweis={person.einwilligung.nachweis.medien}
+                            bestaetigtAm={person.einwilligung.bestaetigt_am}
+                            textVersion={person.einwilligung.text_version}
+                          />
+                        </Angabe>
+                      </>
+                    )}
                   </dl>
                 )}
               </div>
@@ -274,7 +307,16 @@ export function BewerbungAngabenPanel({
         <Panel title="Entscheidung">
           <dl className={ANGABEN_GRID_CLASSES}>
             <Angabe label="Getroffen am">{formatSpielDatum(entscheidung.getroffen_am)}</Angabe>
-            <Angabe label="Von">{entscheidung.von === "" ? "System" : vonOderGesperrt(entscheidung.von, entscheidung.von_gesperrt)}</Angabe>
+            <Angabe label="Von">
+              {entscheidung.von === "" ? (
+                "System"
+              ) : (
+                <VonOderGesperrt
+                  von={entscheidung.von}
+                  gesperrt={entscheidung.von_gesperrt}
+                />
+              )}
+            </Angabe>
             {/* Absent on an acceptance rather than filled in with „angenommen“: what an acceptance
                 did is the club and the season entry it wrote. */}
             {entscheidung.grund !== null && <Angabe label="Grund">{entscheidung.grund}</Angabe>}

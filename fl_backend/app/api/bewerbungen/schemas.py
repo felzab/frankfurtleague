@@ -1,4 +1,3 @@
-import re
 from datetime import UTC, datetime
 from typing import Annotated, Any, Final, Literal, Self
 
@@ -9,14 +8,17 @@ from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Fie
 # no model in `teams` imports this slice.
 from app.api.teams.schemas import (
     FLGruppenNames,
+    FLKontaktKenntnisnahmeUmfang,
+    FLKontaktRolle,
+    FLKontaktZeile,
     FLSaisonTeamKontakte,
     FLSaisonTeamKontaktePayload,
     FLSchulform,
     FLTrikotFarbe,
+    SitzEinwilligungPayload,
     _KontaktpersonWritablePayload,
 )
 from app.shared.alter import whole_years_between
-from app.shared.folding import sign_in_identifier
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
 from app.shared.schemas.bounds import (
     ADDRESS_STADTTEIL_MAX_LENGTH,
@@ -45,8 +47,10 @@ from app.shared.schemas.custom import (
     parse_empty_string_to_none,
     validate_external_url,
 )
+from app.shared.schemas.einwilligung import FLEinwilligungStand
 from app.shared.schemas.kontakt import CustomEmail
 from app.shared.schemas.responses import BaseAPIResponse
+from app.shared.schemas.zustellung import FLBewerbungZustellung
 
 # `eingereicht` is the only state a submission arrives in; the other two are the triage's, and
 # `app/api/bewerbungen/admin_router.py` is the only writer of either.
@@ -61,14 +65,6 @@ FLBewerbungSaisonbezug = Literal["diese_saison", "andere_saison"]
 # submission and no path removes a row, so a second order would plan a blocking sort over an archive
 # nothing bounds.
 FLBewerbungenSortOptions = Literal["eingereicht_am"]
-
-# The three seats as a closed set, for the wire: `app/api/kontakte/services.py :: KONTAKT_SLOTS`
-# derives the same three from the model, and a test holds the two spellings equal.
-FLKontaktRolle = Literal["trainer", "ansprechperson", "stellvertretung"]
-
-# What became of the last message to one seat's address. `angenommen` is the provider ACCEPTING the
-# request, which is all a send ever learns; the five after it are what a delivery event reports.
-FLBewerbungZustellstand = Literal["angenommen", "zugestellt", "verzoegert", "unzustellbar", "unterdrueckt", "beschwerde"]
 
 # The arms an EVENT may carry. `angenommen` is the sender's own answer and no event reports it, so an
 # event claiming it would overwrite a refusal with the accept that preceded it.
@@ -106,25 +102,6 @@ CustomNachrichtId = Annotated[str, StringConstraints(strip_whitespace=True, min_
 # one every other kind's takes too. Bounded and single-line for `CustomNachrichtId`'s reason, the
 # token being the provider's own and never its prose.
 CustomZustellgrund = Annotated[str | None, StringConstraints(strip_whitespace=True, max_length=128, pattern=SINGLE_LINE_PATTERN)]
-
-
-class FLBewerbungZustellung(BaseModel):
-    """What became of the last message to one seat.
-
-    Inside the seat's block rather than a collection of its own: an erasure empties that block, so
-    this goes with the person it is about.
-    """
-
-    # The join key: an event naming another message is about a link the seat does not hold, so a
-    # superseded message's bounce cannot mark the fresh one.
-    nachricht_id: str
-    stand: FLBewerbungZustellstand
-    # The provider's own token, never its prose: a bounce message quotes the recipient's address
-    # (`docs/logging/spec.md :: L9`), and the German is composed at the surface.
-    grund: str | None
-    # A PLAIN string here where the payload normalises, as `FLBewerbungSchule.website_url` is: this
-    # model reads stored values, and refusing one would 500 the whole triage list.
-    am: str
 
 
 class FLBewerbungBestaetigung(BaseModel):
@@ -358,6 +335,9 @@ class FLBewerbungenListResponse(BaseAPIResponse):
 
 class FLBewerbungSingleResponse(BaseAPIResponse):
     bewerbung: FLBewerbung
+    # Whether the confirmation deadline has passed today, judged on the server's date so the editor
+    # reads no day of its own; false where the application holds no deadline.
+    bestaetigungsfrist_abgelaufen: bool
 
 
 class FLAnnehmenBewerbungResponse(BaseAPIResponse):
@@ -403,35 +383,11 @@ def refuse_age_outside_the_bounds(*, geburtsdatum: str, today: str, mindestalter
         raise ValueError(f"Ein Geburtsdatum, das auf ein Alter über {BEWERBUNG_KONTAKT_MAX_AGE_YEARS} Jahre führt, ist kein gültiges Datum.")
 
 
-# Both spellings of the country code. Neither arm can take the other's value -- `0049…` does not
-# start with `49` -- so the order carries nothing.
-_TELEFON_COUNTRY_CODES = ("0049", "49")
-
-
-def normalise_telefon(value: str) -> str:
-    """One spelling per telephone number, so `+49 170 …` and `0170 …` compare equal.
-
-    Digits alone, `PHONE_REGEX` admitting spaces, brackets, hyphens and dots. No German area code
-    starts with the trunk `0`, so a leading country code folds back to it.
-    """
-
-    digits = re.sub(r"[^0-9]", "", value)
-
-    for country_code in _TELEFON_COUNTRY_CODES:
-        if digits.startswith(country_code):
-            # The second `removeprefix` takes the trunk zero written as `(0)`, which is the standard
-            # German notation and the commonest spelling of all. An international-format number
-            # carries no real leading zero, so dropping one can only be right.
-            return f"0{digits.removeprefix(country_code).removeprefix('0')}"
-
-    return digits
-
-
 class FLBewerbungEinwilligungPayload(BaseModel):
     """What the applicant agreed to, and nothing about how the record of it is composed.
 
-    `umfang`, `erfasst_von` and `datum` are the SERVER's: a client offered them could claim an
-    administrative transcription, or backdate a record.
+    `umfang` and `datum` are the SERVER's: a client offered them could claim the person's own
+    answer, or backdate a record.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -464,47 +420,6 @@ class FLBewerbungKontaktePayload(FLSaisonTeamKontaktePayload):
     trainer: FLBewerbungKontaktpersonPayload
     ansprechperson: FLBewerbungKontaktpersonPayload
     stellvertretung: FLBewerbungKontaktpersonPayload
-
-    @model_validator(mode="after")
-    def the_trainer_equals_the_seat_they_also_hold(self) -> Self:
-        """Where one person holds two seats, the two blocks must agree field for field.
-
-        The form fills the second seat from the first, so a mismatch is a client that has drifted --
-        and storing it would leave two records of one person the erasure cannot pair up.
-        """
-
-        if self.trainer_ist_zugleich is None:
-            return self
-
-        seat: FLBewerbungKontaktpersonPayload = getattr(self, self.trainer_ist_zugleich)
-
-        if seat != self.trainer:
-            raise ValueError(f"Die Angaben unter '{self.trainer_ist_zugleich}' müssen denen des Trainers entsprechen.")
-
-        return self
-
-    @model_validator(mode="after")
-    def the_distinct_people_share_no_email_or_telephone(self) -> Self:
-        """Two DIFFERENT people may not be reachable at one address or one number.
-
-        The seat the Trainer also holds is left out of the comparison: it is the same person, and
-        the rule above has already held the two blocks equal.
-        """
-
-        seats = [seat for seat in ("trainer", "ansprechperson", "stellvertretung") if seat != self.trainer_ist_zugleich]
-        people: list[FLBewerbungKontaktpersonPayload] = [getattr(self, seat) for seat in seats]
-
-        # On the sign-in fold: two seats one sign-in reaches are one identity, and `casefold` would
-        # refuse „strasse“ beside „straße“, two domains to IDNA 2008.
-        emails = [sign_in_identifier(person.email) for person in people]
-        if len(set(emails)) != len(emails):
-            raise ValueError("Die Kontaktpersonen müssen unterschiedliche E-Mail-Adressen haben.")
-
-        telefone = [normalise_telefon(person.telefon) for person in people]
-        if len(set(telefone)) != len(telefone):
-            raise ValueError("Die Kontaktpersonen müssen unterschiedliche Telefonnummern haben.")
-
-        return self
 
 
 class FLBewerbungAddressPayload(FLAddressPayload):
@@ -747,10 +662,15 @@ class FLPostBewerbungResponse(BaseAPIResponse):
 # Stripped, a token pasted from a mail client arriving with a trailing space more often than not.
 CustomBewerbungToken = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=BEWERBUNG_TOKEN_MAX_LENGTH)]
 
-# What a reopened link shows. `abgelaufen` covers the deadline having passed AND the application
-# having been decided: either way the link is spent, and the page says so in one way. `gesperrt`
-# ranks first (`docs/backend/spec.md :: I515`).
-FLBewerbungEinwilligungZustand = Literal["gueltig", "bestaetigt", "abgelehnt", "abgelaufen", "gesperrt"]
+# What a reopened link shows. `abgelaufen` is a spent link, its deadline passed or its application
+# decided, said one way; `gesperrt` ranks first (`docs/backend/spec.md :: I515`).
+# `saison_vorbei`, a season row's alone, takes a Widerspruch and no consent (`REQ-KONTAKT-006`).
+FLBewerbungEinwilligungZustand = Literal["gueltig", "bestaetigt", "abgelehnt", "abgelaufen", "saison_vorbei", "gesperrt"]
+
+# Which record a link's seat sits on: an application, or a team's season row an administrator seated
+# the person on. The page picks its wording by it, and the route handler mails an application's
+# messages for the first alone.
+FLEinwilligungQuelle = Literal["bewerbung", "saison"]
 
 
 class FLBewerbungEinwilligungAnsichtPayload(BaseModel):
@@ -768,9 +688,14 @@ class FLBewerbungEinwilligungAnsichtResponse(BaseAPIResponse):
     season, the roles one answer covers and a wording's version.
     """
 
+    quelle: FLEinwilligungQuelle
     zustand: FLBewerbungEinwilligungZustand
+    # A season row's state now, read as the mint reads it, so a closed row's page can name why it takes
+    # no consent; null on an application's link, which no season or withdrawal closes.
+    zeile: FLKontaktZeile | None
     saison_id: str
-    # The school's name as submitted, or the picked club's.
+    # The school's name as submitted, or the picked club's; on a season row, the name the club
+    # carries in that season.
     schule: str
     rolle: FLKontaktRolle
     # The second seat this link's answer writes (`app/api/bewerbungen/services.py :: paired_seat`),
@@ -780,9 +705,14 @@ class FLBewerbungEinwilligungAnsichtResponse(BaseAPIResponse):
     # Null exactly where the seat is empty -- declined or erased -- and the record went with it.
     vorname: str | None
     text_version: str | None
+    # The label the page renders and its answer must name: the applicant's page, or the one for a
+    # person an administrator seated, decided from how the seat was filled (`kontakt_seite_of`).
+    laufende_fassung: str
     # The PERSON's floor over the seats this link answers for, so the page bounds its date control
     # and fills its own sentences from what the answer will judge rather than from a constant.
     mindestalter: int
+    # The age from which the page offers the media switch, `REQ-EINWILLIGUNG-002`'s floor.
+    medien_mindestalter: int
 
 
 class FLBewerbungEinwilligungAntwortPayload(BaseModel):
@@ -797,6 +727,8 @@ class FLBewerbungEinwilligungAntwortPayload(BaseModel):
     # `REQ-VAL-001`.
     geburtsdatum: CustomOptionalDateString
     whatsapp: bool
+    # Required as `whatsapp` is: a page that forgot the switch is refused rather than read as a no.
+    medien: bool
     # The wording the CONFIRMING person saw, which is what a confirmed seat then cites: the label
     # the applicant ticked for them may be an older one.
     text_version: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)]
@@ -830,15 +762,19 @@ class FLBewerbungEinwilligungAntwortResponse(BaseAPIResponse):
     withhold the rest at.
     """
 
+    quelle: Literal["bewerbung"] = "bewerbung"
     ergebnis: Literal["bestaetigt", "abgelehnt"]
     # In `FLSaisonTeamKontakte`'s declaration order. A declined seat stays listed: the application
     # cannot complete without it.
     ausstehend: list[FLKontaktRolle]
     geburtsdatum: CustomOptionalDateString
     whatsapp: bool
+    # As stored on every seat the answer wrote, as the referee's answer carries it: `false` after a
+    # Widerspruch, which stores no answer.
+    medien: bool
 
     # The seven below compose the two outbound messages and are the frontend SERVER's alone; its
-    # route handler answers the browser the four above.
+    # route handler answers the browser the five above.
 
     # The application this seat belongs to, so a message composed here can be tagged with it and the
     # provider's delivery event routed back to the seat that was written to.
@@ -855,6 +791,26 @@ class FLBewerbungEinwilligungAntwortResponse(BaseAPIResponse):
     ansprechperson_email: str | None
     # Every seat that one mailbox holds, so a person holding two is told both in the message it gets.
     ansprechperson_rollen: list[FLKontaktRolle]
+
+
+class FLSaisonTeamEinwilligungAntwortResponse(BaseAPIResponse):
+    """What an answer on a season row's link did, and nothing to compose a message from.
+
+    No application stands behind the seat, so nobody is told.
+    """
+
+    quelle: Literal["saison"] = "saison"
+    ergebnis: Literal["bestaetigt", "abgelehnt"]
+    geburtsdatum: CustomOptionalDateString
+    whatsapp: bool
+    # `FLBewerbungEinwilligungAntwortResponse.medien`'s.
+    medien: bool
+
+
+FLEinwilligungAntwortResponse = Annotated[
+    FLBewerbungEinwilligungAntwortResponse | FLSaisonTeamEinwilligungAntwortResponse,
+    Field(discriminator="quelle"),
+]
 
 
 class FLBewerbungEinwilligungErneutResponse(BaseAPIResponse):
@@ -876,9 +832,9 @@ class FLBewerbungKontaktSitzPayload(_KontaktpersonWritablePayload):
     nothing: their own link is what asks them.
     """
 
-    # The label alone, `compose_einwilligung` requiring one and the registry naming it being the
-    # frontend's (`fl_frontend/src/core/einwilligung.ts :: LIGA_KENNTNISNAHMEN`). Stripped before the
-    # floor counts it: a version that is spaces cites no text.
+    # The label alone, `compose_einwilligung` requiring one and the registry naming it
+    # (`fl_backend/app/shared/einwilligung.py :: FASSUNGEN`). Stripped before the floor counts it: a
+    # version that is spaces cites no text.
     text_version: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)]
 
 
@@ -1075,3 +1031,21 @@ class FLBewerbungZustellungResponse(BaseAPIResponse):
     """
 
     angewendet: list[FLKontaktRolle]
+
+
+class FLBewerbungPersonEinwilligungPayload(SitzEinwilligungPayload):
+    """The season seat's payload on a pending application, where its press takes withdrawals alone.
+
+    The same shape, so one control serves both; a grant on it is refused rather than unrepresentable.
+    """
+
+
+class FLBewerbungPersonEinwilligungResponse(BaseAPIResponse):
+    """Which of the application's seats the withdrawal reached, and the two answers they now all hold."""
+
+    bewerbung_id: CustomObjectId
+    rollen: list[FLKontaktRolle]
+    umfang: FLKontaktKenntnisnahmeUmfang
+    medien: bool
+    # The precondition a next press on this application echoes.
+    nachweis_stand: FLEinwilligungStand

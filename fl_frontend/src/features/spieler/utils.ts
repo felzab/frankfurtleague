@@ -1,3 +1,5 @@
+import { kaderName } from "./constants";
+
 import type { FLSpielerRolle, FLSpielerWithMemberships } from "./schemas";
 import type { RowReturn, SpielerTeamOption } from "./types";
 
@@ -26,8 +28,7 @@ export function collectHeldRollen({
 
       // First writer wins. A squad holding one role twice is a state the write path refuses, so the
       // name shown is only ever a starting point for the person repairing it.
-      (byTeam[membership.team_id] ??= {})[membership.rolle] ??=
-        person.nachname === null ? person.vorname : `${person.vorname} ${person.nachname}`;
+      (byTeam[membership.team_id] ??= {})[membership.rolle] ??= kaderName(person);
     }
   }
 

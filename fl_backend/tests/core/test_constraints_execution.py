@@ -5,6 +5,7 @@ from typing import Any, Final, get_args
 
 import pytest
 from bson import ObjectId
+from pydantic import SecretStr
 from pymongo import ASCENDING
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
@@ -12,7 +13,9 @@ from pymongo.errors import OperationFailure
 from app.api.aktionen.admin_router import FACET_TALLY
 from app.api.aktionen.services import build_aktionen_sort
 from app.api.bewerbungen.services import build_bewerbungen_sort, build_schluessel_filter
+from app.api.registrierungen.services import compose_confirmation_update
 from app.api.teams.schemas import FLGruppenNames
+from app.core import constraints
 from app.core.collections import Collection
 from app.core.constraints import (
     ABSENT_COLLECTION_NAME,
@@ -26,6 +29,7 @@ from app.core.constraints import (
     report_relations,
     report_violations,
 )
+from tests.config import build_test_config
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
 
@@ -326,6 +330,11 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "beanspruchung": "a-claim",
             "versuche": 1,
         },
+        "drosselung": {
+            "_id": "kontakt:" + "a" * 64 + ":2026-03-15",
+            "n": 1,
+            "ablauf": datetime(2026, 3, 15, 23, tzinfo=UTC),
+        },
     }
 
 
@@ -496,6 +505,32 @@ def test_a_malformed_document_is_rejected(mongo_url: str, collection: str, docum
     assert insert_outcome(mongo_url, collection, document) == "rejected", f"the validator let through {why}"
 
 
+def _confirmed_registration(*, umfang: Any, medien: Any) -> dict[str, Any]:
+    """A registration as the pupil's own press leaves it, through the composer that press writes with."""
+
+    confirmed = compose_confirmation_update(
+        geburtsdatum="2009-05-04", umfang=umfang, medien=medien, text_version="2026-10-x", today="2026-03-17", am="2026-03-17T08:00:00+00:00"
+    )
+
+    return valid_document("registrierungen", **confirmed["$set"])
+
+
+@pytest.mark.parametrize(
+    ("document", "outcome"),
+    [
+        pytest.param(_confirmed_registration(umfang=None, medien=None), "accepted", id="the returning pupil's stamp and label alone"),
+        pytest.param(_confirmed_registration(umfang="intern", medien=False), "accepted", id="the new pupil's whole record"),
+        pytest.param(
+            valid_document("registrierungen", einwilligung={"text_version": "2026-10-x"}), "rejected", id="a record with no stamp key"
+        ),
+    ],
+)
+def test_a_registrations_record_requires_its_stamp_alone(mongo_url: str, document: dict[str, Any], outcome: str):
+    """The returning pupil's record holds no choice, which `_EINWILLIGUNG` on a person's row would refuse; the stamp's key still binds."""
+
+    assert insert_outcome(mongo_url, "registrierungen", document) == outcome
+
+
 def test_an_absent_embedded_object_is_still_accepted(mongo_url: str):
     """MongoDB applies `required` only when the value really is an object, so a nullable `ort` and its required keys do not fight."""
     assert insert_outcome(mongo_url, "spiele", valid_document("spiele", ort=None, schiedsrichter=None)) == "accepted"
@@ -556,6 +591,19 @@ DUPLICATE_PAIRS: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {
     "uniq_registrierung_idempotenz_schluessel": (
         valid_document("registrierungen", idempotenz_schluessel=IDEMPOTENZ_SCHLUESSEL, idempotenz_fingerabdruck="a" * 64),
         valid_document("registrierungen", _id=TEAM_OID, idempotenz_schluessel=IDEMPOTENZ_SCHLUESSEL, idempotenz_fingerabdruck="b" * 64),
+    ),
+    # Two persons' rows in one season, keyed alike: the index refuses on the key alone, where the
+    # junction's own index would refuse a pair sharing the person.
+    "uniq_saison_spieler_idempotenz_schluessel": (
+        valid_document("saison_spieler", idempotenz_schluessel=IDEMPOTENZ_SCHLUESSEL, idempotenz_fingerabdruck="a" * 64),
+        valid_document(
+            "saison_spieler", _id=TEAM_OID, spieler_id=TEAM_OID, idempotenz_schluessel=IDEMPOTENZ_SCHLUESSEL, idempotenz_fingerabdruck="b" * 64
+        ),
+    ),
+    # Two persons differing in their name and sharing an address: the index refuses on the address alone.
+    "uniq_spieler_email": (
+        valid_document("spieler", email="pupil@example.invalid"),
+        valid_document("spieler", _id=TEAM_OID, vorname="Zweite", email="pupil@example.invalid"),
     ),
     # The second row differs in its tier and its author: the index refuses on the address alone, which
     # is what refuses a paste granting an address a route already granted.
@@ -679,6 +727,14 @@ def test_applying_twice_changes_nothing(mongo_url: str):
     assert on_the_shipped_schema(mongo_url, body) == (len(COLLECTION_VALIDATORS), len(UNIQUE_INDEXES))
 
 
+def _raised(failure: RuntimeError, named: str) -> str:
+    """The refusal names what it was building and carries the driver's, which `app/core/constraints.py :: _run` diagnoses."""
+
+    if named not in str(failure):
+        return f"raised the wrong thing: {failure}"
+    return "raised" if isinstance(failure.__cause__, OperationFailure) else f"raised without its cause: {failure}"
+
+
 def test_the_startup_apply_fails_rather_than_skipping_a_broken_index(mongo_url: str):
     """The tempting fix — catch it, log it, carry on — leaves a database that looks constrained and is not."""
 
@@ -687,10 +743,33 @@ def test_the_startup_apply_fails_rather_than_skipping_a_broken_index(mongo_url: 
         try:
             await apply_constraints(database)
         except RuntimeError as failure:
-            return "raised" if "uniq_shorthand" in str(failure) else f"raised the wrong thing: {failure}"
+            return _raised(failure, "uniq_shorthand")
         return "carried on"
 
     assert on_a_database(mongo_url, body) == "raised"
+
+
+def test_the_apply_command_diagnoses_a_seeded_duplicate_rather_than_tracing_it(
+    mongo_url: str, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+):
+    """`python -m app.core.constraints --apply` over the real refusal, so a wrap losing its cause fails here and not at an operator."""
+
+    monkeypatch.setattr(
+        constraints,
+        "get_config",
+        lambda: build_test_config().model_copy(update={"mongodb_uri": SecretStr(mongo_url), "db_base_name": DATABASE_NAME}),
+    )
+
+    async def body(database: AsyncDatabase) -> int:
+        await database.teams.insert_many([valid_documents()["teams"], valid_document("teams", _id=SPIELER_OID, name="Lessing II")])
+        return await constraints._run(check=False)
+
+    exit_code = on_a_database(mongo_url, body)
+    printed = capsys.readouterr().out
+
+    assert exit_code == 2
+    assert "Could not build unique index 'teams.uniq_shorthand'" in printed
+    assert "The database refused the command (DuplicateKey)" in printed
 
 
 def test_the_startup_apply_fails_rather_than_skipping_a_broken_validator(mongo_url: str):
@@ -703,7 +782,7 @@ def test_the_startup_apply_fails_rather_than_skipping_a_broken_validator(mongo_u
         try:
             await apply_constraints(database)
         except RuntimeError as failure:
-            return "raised" if "the validator for 'teams'" in str(failure) else f"raised the wrong thing: {failure}"
+            return _raised(failure, "the validator for 'teams'")
         return "carried on"
 
     assert on_a_database(mongo_url, body) == "raised"
@@ -734,7 +813,7 @@ def test_the_startup_apply_fails_rather_than_skipping_a_broken_support_index(mon
         try:
             await apply_constraints(database)
         except RuntimeError as failure:
-            return "raised" if CONFLICTING_SUPPORT_INDEX in str(failure) else f"raised the wrong thing: {failure}"
+            return _raised(failure, CONFLICTING_SUPPORT_INDEX)
         return "carried on"
 
     assert on_a_database(mongo_url, body) == "raised"
@@ -748,7 +827,7 @@ def test_the_startup_apply_fails_rather_than_skipping_a_broken_ttl_index(mongo_u
         try:
             await apply_constraints(database)
         except RuntimeError as failure:
-            return "raised" if CONFLICTING_TTL_INDEX in str(failure) else f"raised the wrong thing: {failure}"
+            return _raised(failure, CONFLICTING_TTL_INDEX)
         return "carried on"
 
     assert on_a_database(mongo_url, body) == "raised"
@@ -1126,7 +1205,7 @@ def test_an_apply_refuses_a_retention_bound_already_built_at_another_number(mong
             await apply_constraints(database)
             outcome = "carried on"
         except RuntimeError as failure:
-            outcome = f"raised: {failure}"
+            outcome = f"raised: {failure}" if isinstance(failure.__cause__, OperationFailure) else f"raised without its cause: {failure}"
 
         built = {index["name"]: index async for index in await database[ttl.collection].list_indexes()}
         return outcome, built[ttl.name].get("expireAfterSeconds")

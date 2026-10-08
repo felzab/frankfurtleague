@@ -64,6 +64,7 @@ const FRONTEND_ONLY: Record<string, string> = {
   OptionalExternalUrl: "a Pydantic Annotated alias, inlined at each use site",
   PersonName: "a shared validator applied per field; the backend spells it as a Field pattern",
   KontaktEmail: "a shared validator applied per field; the backend spells it as the `CustomEmail` alias",
+  LinkAntwortTextVersion: "a shared validator applied per field; the backend spells it as each link confirmation's `text_version` bounds",
 
   FLGruppenNames: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLSaisonPhase: "a Pydantic Literal alias, inlined as an enum at each use site",
@@ -77,9 +78,11 @@ const FRONTEND_ONLY: Record<string, string> = {
   FLTrikotFarbe: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLBewerbungStatus: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLKontaktRolle: "a Pydantic Literal alias, inlined as an enum at each use site",
+  FLKontaktZeile: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLBewerbungZustellstand: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLZustellungZiel: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLEinwilligungUmfang: "a Pydantic Literal alias, inlined as an enum at each use site",
+  FLRegistrierungAblehnungsgrund: "a Pydantic Literal alias, inlined as an enum at each use site",
 
   // Both fields are path segments of `POST /bewerbungen/{bewerbung_id}/einwilligung/{seat}/erneut`,
   // so the request carries no body for FastAPI to describe.
@@ -94,6 +97,7 @@ const FRONTEND_ONLY: Record<string, string> = {
   FLSpielTeamField: "no endpoint touches the stored side: a read serves FLSpielTeamFieldJoined and a write takes FLSpielTeamFieldPayload",
 
   FLTeamsResponse: "the discriminated union is published inline at GET /teams; both members are paired",
+  FLEinwilligungAntwortResponse: "the discriminated union is published inline at POST /bewerbungen/einwilligung; both members are paired",
 
   FLSpielQuelle: "the discriminated union is published inline on each teamN_quelle; both variants are paired",
 
@@ -109,6 +113,8 @@ const FRONTEND_ONLY: Record<string, string> = {
   FLReactivateTeamPayload: "the reactivate POST takes its id from the path and has no request body",
   FLReactivateSpielerPayload: "the reactivate POST takes its id from the path and has no request body",
   FLSaisonSpielerKeyPayload: "the junction's DELETE and reactivate take both ids from the path, with no request body",
+  FLKaderZeileKeyPayload: "a seat holder's austragen DELETE takes its three ids from the path and has no request body",
+  FLKontaktEinladenPayload: "the seat re-send POST takes team, season and seat from the path and has no request body",
   FLActivateSaisonPayload: "the activate POST takes its id from the path and has no request body",
   FLUndrawSpielplanPayload: "the undraw DELETE takes its season id from the path and has no request body",
   FLEinladungKeyPayload: "the mint and the revoke take both ids from the path and have no request body",
@@ -118,6 +124,8 @@ const FRONTEND_ONLY: Record<string, string> = {
   FLSchiedsrichterEinladenPayload: "the referee's re-send POST takes its id from the path and has no request body",
   FLSchiedsrichterUmfang: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLAnonymiseSchiedsrichterPayload: "the anonymisation POST takes its id from the path and has no request body",
+  FLSchiedsrichterAdresswechselEinladenPayload: "the address link's re-send POST takes its id from the path and has no request body",
+  FLSchiedsrichterAdresswechselVerwerfenPayload: "the address change's DELETE takes its id from the path and has no request body",
   FLSperrlisteKeyPayload: "the ban's DELETE takes the id from the path and has no request body",
   FLBerechtigungKeyPayload: "the grant's DELETE takes the id from the path and has no request body",
   FLVerwaltung: "a Pydantic Literal alias, inlined as an enum at each use site",
@@ -159,6 +167,7 @@ const FRONTEND_ONLY_FIELDS: Record<string, string[]> = {
   FLReplaceSaisonTeamPayload: ["team_id", "saison_id"],
   FLPostSaisonSpielerPayload: ["spieler_id"],
   FLPatchSaisonSpielerPayload: ["spieler_id", "saison_id"],
+  FLPatchKaderZeilePayload: ["team_id", "saison_id", "spieler_id"],
 };
 
 type JsonSchema = Record<string, unknown>;
@@ -338,7 +347,7 @@ const pairs = Object.entries(components).flatMap(([component, node]) => {
 });
 
 // Pinned so a component quietly dropping out of the comparison is a failure rather than a smaller run.
-const EXPECTED_PAIRS = 247;
+const EXPECTED_PAIRS = 308;
 
 describe("the published document", () => {
   it("is present and carries both sections the comparison reads", () => {

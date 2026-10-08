@@ -1,9 +1,37 @@
+import { cache } from "react";
+
+import { apiClient } from "@/core/api";
+import { runPersonRead } from "@/shared/utils/personRead";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import { postBestaetigungAnsicht, postEinladungAnsicht } from "./mutations";
+import { FLOffeneRegistrierungenResponseSchema } from "./schemas";
 import { einladungZustand, mapRegistrierungAnsichtRefusal } from "./utils";
 
+import type { Leserichtung } from "@/shared/utils/leserichtung";
+import type { FLOffeneRegistrierungenResponse } from "./schemas";
 import type { RegistrierungStart, SpielerBestaetigungAnsicht } from "./types";
+
+/**
+ * A team's pending registrations from one end of a capped queue, the page offering the other where
+ * `vollstaendig` is false. Never cached, being the person's own; memoised per render pass on primitive
+ * arguments alone, `cache` comparing them by identity.
+ */
+export const getOffeneRegistrierungen = cache(
+  async (teamId: string, saisonId: string, order: Leserichtung): Promise<FLOffeneRegistrierungenResponse> => {
+    // Optional as published, though the page always sends one end: `fl_frontend/src/core/apiRequests.test.ts`
+    // refuses a parameter the request requires where the server omits it.
+    const filters: { order?: Leserichtung } = { order: order };
+
+    return runPersonRead(() =>
+      apiClient<FLOffeneRegistrierungenResponse>(
+        `/registrierungen/kader/${encodeURIComponent(teamId)}/${encodeURIComponent(saisonId)}`,
+        FLOffeneRegistrierungenResponseSchema,
+        { authType: "admin", params: filters },
+      ),
+    );
+  },
+);
 
 /**
  * One invite's standing, read on every open and stored nowhere: a read records nothing, not even a

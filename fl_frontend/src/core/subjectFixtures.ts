@@ -29,6 +29,29 @@ export const NO_RECORDS: SubjectSession["subjekt"] = deepFrozen({
   inhaber_seit: null,
 });
 
+/**
+ * What a suite's backend holds for one address. `konto` is stated, never worked out from the lists:
+ * which records count is the backend's rule, and a double deriving it hands each case its own copy's answer.
+ */
+export type LookupFixture = Partial<SubjectSession["subjekt"]> & { readonly acknowledged?: 0 | 1; readonly konto: boolean };
+
+/** The path the sign-in gate reads, its own beside the subject read every guard takes. */
+export const GATE_ENDPOINT = "/identitaet/anmeldung";
+
+/** One table of fixtures answering the subject read and the gate alike, each in its read's shape. */
+export function answerAt(endpoint: string, held: LookupFixture): Record<string, unknown> {
+  const { konto, ...subjekt } = held;
+  if (!endpoint.endsWith(GATE_ENDPOINT)) return subjekt;
+
+  return {
+    acknowledged: 1,
+    unbestaetigt: subjekt.unbestaetigt ?? false,
+    konto: konto,
+    gesperrt: subjekt.gesperrt ?? false,
+    verwaltung: subjekt.verwaltung ?? null,
+  };
+}
+
 /** One contact seat on a running season, which grants a panel. */
 export const SITZ: FLSubjektSitz = deepFrozen({
   saison_id: "2526",

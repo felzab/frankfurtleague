@@ -24,9 +24,10 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.security import CONFIRMATION_REQUIRED, STEP_UP_WINDOW_S
 from app.main import create_app
+from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
-from tests.config import ADMIN_KEY
+from tests.config import ADMIN_KEY, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import rules_document, saison_document, saison_team_document
 from tests.worker import worker_database
@@ -74,9 +75,10 @@ def on_a_season(url: str, body: Body, *, seed: Callable[[AsyncDatabase], Awaitab
                 saison_document(SAISON_ID, "active", rules=rules_document(number_of_groups=2), registrierung=dict(REGISTRIERUNG))
             )
             await database[Collection.SAISON_TEAMS].insert_one(saison_team_document(SAISON_ID, TEAM_ID, "Adler", "AD", kontakte=None))
+            await database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
             if seed is not None:
                 await seed(database)
-            async with app_client(url, app=_served(), admitting=(ADMIN,)) as http:
+            async with app_client(url, app=_served()) as http:
                 return await body(database, http)
 
     return on_the_seed_loop(_run())
@@ -146,6 +148,26 @@ class TestTheClubsContacts:
             return (await http.patch(self.URL, headers=OLDER, json=payload)).status_code
 
         assert on_a_season(mongo_replica_set_url, body, seed=self.seed_the_block) == 200
+
+    def test_a_rewrite_seating_a_new_person_from_an_older_sign_in_is_refused_and_seats_nobody(self, mongo_replica_set_url: str):
+        """Seating somebody new mints them a link, which is a step-up write whatever else the save does."""
+
+        newcomer = {
+            "vorname": "Ida",
+            "nachname": "Musterfrau",
+            "email": "ida@example.com",
+            "telefon": "+4917010000001",
+            # The running label, so the label judgement admits the newcomer and the step-up alone refuses.
+            "einwilligung": {"umfang": "kontaktdaten", "text_version": LAUFENDE_FASSUNGEN["bewerbung"], "datum": "2026-03-01"},
+        }
+
+        async def body(database: AsyncDatabase, http: AsyncClient) -> tuple[bool, Any]:
+            payload = {"kontakte": {**self.NOBODY, "trainer": newcomer}, "kontakte_stand": kontakte_stand_of(self.NOBODY)}
+            response = await http.patch(self.URL, headers=OLDER, json=payload)
+            stored = await database[Collection.SAISON_TEAMS].find_one({"team_id": TEAM_ID})
+            return refused(response), stored and (stored["kontakte"], stored.get("bestaetigungen"))
+
+        assert on_a_season(mongo_replica_set_url, body, seed=self.seed_the_block) == (True, (self.NOBODY, None))
 
 
 class TestTheDraw:
@@ -221,11 +243,26 @@ class TestTheRefereesSave:
 
         assert on_a_season(mongo_replica_set_url, body, seed=seed) == (True, (REFEREE_EMAIL, hash_token("seeded-referee")))
 
+    @pytest.mark.parametrize("retired", [False, True], ids=("serving", "retired"))
+    def test_a_confirmed_referee_s_moved_address_from_an_older_sign_in_is_refused_and_asks_nobody(
+        self, mongo_replica_set_url: str, retired: bool
+    ):
+        """The address link hands the referee's record to whoever holds the new mailbox, as a consent link hands the answer."""
+
+        async def body(database: AsyncDatabase, http: AsyncClient) -> tuple[bool, Any]:
+            response = await http.patch(self.URL, headers=OLDER, json=a_save(MOVED_EMAIL))
+            stored = await database[Collection.SCHIEDSRICHTER].find_one({"_id": SCHIEDSRICHTER_ID})
+            return refused(response), stored and (stored["kontakt"]["email"], "adresswechsel" in stored)
+
+        seed = seeding(a_referee(confirmed=True, retired=retired))
+
+        assert on_a_season(mongo_replica_set_url, body, seed=seed) == (True, (REFEREE_EMAIL, False))
+
     @pytest.mark.parametrize(
         ("referee", "email"),
         [
             pytest.param(a_referee(), "collina@EXAMPLE.com", id="the same mailbox, its domain spelled otherwise"),
-            pytest.param(a_referee(confirmed=True), MOVED_EMAIL, id="a confirmed referee's moved address"),
+            pytest.param(a_referee(confirmed=True), "collina@EXAMPLE.com", id="a confirmed referee's same mailbox"),
         ],
     )
     def test_a_save_touching_no_link_takes_the_older_sign_in(self, mongo_replica_set_url: str, referee: dict[str, Any], email: str):

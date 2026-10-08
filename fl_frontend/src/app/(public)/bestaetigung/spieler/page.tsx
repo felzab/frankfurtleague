@@ -1,13 +1,19 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 
-import { SPIELER_EINWILLIGUNG } from "@/core/einwilligung";
+import { getLaufendeFassung } from "@/core/einwilligung";
+import { gekeyteFassung, SPIELER_ABSATZ_SCHLUESSEL, SPIELER_WIEDERKEHREND_ABSATZ_SCHLUESSEL } from "@/core/einwilligungSeiten";
+import { nullUnlessContractBreak } from "@/core/errors";
 import { SpielerBestaetigungView } from "@/features/registrierungen/components/views/SpielerBestaetigungView";
+import { EINWILLIGUNG_UMFANG_OPTIONS } from "@/features/registrierungen/constants";
 import { getSpielerBestaetigungAnsicht } from "@/features/registrierungen/queries";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { openGraphFor } from "@/shared/utils/metadata";
+import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
-import type { SpielerBestaetigungStart } from "@/features/registrierungen/types";
+import type { FLEinwilligungFassung } from "@/core/schemas";
+import type { FLRegistrierungSeite } from "@/features/registrierungen/schemas";
+import type { SpielerBestaetigungStart, SpielerSeitenFassung } from "@/features/registrierungen/types";
 import type { NextPageProps } from "@/shared/types/types";
 import type { Metadata } from "next";
 
@@ -42,26 +48,45 @@ async function SpielerBestaetigungContent(props: NextPageProps) {
   await connection();
   const { token } = await props.searchParams;
 
-  const start: SpielerBestaetigungStart =
+  // Beside the link's read, which names the page, and per request: a deploy moves the stamped label.
+  // Settled together, so a contract break in either words' read reaches the error boundary rather than
+  // rejecting unobserved.
+  const [start, neu, wiederkehrend] = await Promise.all([
     typeof token === "string" && token !== ""
-      ? await getSpielerBestaetigungAnsicht(token).then(
-          (gelesen) => (gelesen.zustand === "gueltig" ? { zustand: "gueltig", ansicht: gelesen.ansicht, token: token } : gelesen),
-          () => ({ zustand: "unlesbar" }),
+      ? getSpielerBestaetigungAnsicht(token).then(
+          (gelesen): SpielerBestaetigungStart =>
+            gelesen.zustand === "gueltig" ? { zustand: "gueltig", ansicht: gelesen.ansicht, token: token } : gelesen,
+          (): SpielerBestaetigungStart => ({ zustand: "unlesbar" }),
         )
-      : { zustand: "ungueltig" };
+      : ({ zustand: "ungueltig" } satisfies SpielerBestaetigungStart),
+    runWithIncomingTrace(() => getLaufendeFassung("bestaetigung_spieler")).catch(nullUnlessContractBreak),
+    runWithIncomingTrace(() => getLaufendeFassung("bestaetigung_spieler_wiederkehrend")).catch(nullUnlessContractBreak),
+  ]);
 
-  // Every word off the CURRENT LABEL's own entry, the paragraphs included: a page reaching past the
-  // label for its wording renders whatever that object holds after the next rewording, under a
-  // label whose records cite the words before it.
   return (
     <SpielerBestaetigungView
       start={start}
-      fassung={{
-        textVersion: SPIELER_EINWILLIGUNG.textVersion,
-        absaetze: SPIELER_EINWILLIGUNG.absaetzeNachSchluessel,
-        schalter: SPIELER_EINWILLIGUNG.schalter,
-        bedienelemente: SPIELER_EINWILLIGUNG.bedienelemente,
-      }}
+      fassung={start.zustand === "gueltig" ? seitenFassung(start.ansicht.seite, neu, wiederkehrend) : null}
     />
   );
+}
+
+/**
+ * The words of the page the link opens, keyed as that page places them.
+ *
+ * Keyed outside the read's catch: words this page cannot key are a broken contract, which the error
+ * boundary logs.
+ */
+function seitenFassung(
+  seite: FLRegistrierungSeite,
+  neu: FLEinwilligungFassung | null,
+  wiederkehrend: FLEinwilligungFassung | null,
+): SpielerSeitenFassung | null {
+  if (seite === "bestaetigung_spieler") {
+    return neu === null ? null : { ...gekeyteFassung(neu, SPIELER_ABSATZ_SCHLUESSEL, EINWILLIGUNG_UMFANG_OPTIONS), seite: seite };
+  }
+
+  return wiederkehrend === null
+    ? null
+    : { ...gekeyteFassung(wiederkehrend, SPIELER_WIEDERKEHREND_ABSATZ_SCHLUESSEL, EINWILLIGUNG_UMFANG_OPTIONS), seite: seite };
 }

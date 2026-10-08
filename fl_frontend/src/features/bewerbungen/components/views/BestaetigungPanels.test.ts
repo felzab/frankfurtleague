@@ -8,13 +8,14 @@ import { createRef } from "react";
 
 import { act, renderHook } from "@testing-library/react";
 
-import { LIGA_KENNTNISNAHMEN } from "@/core/einwilligung.ts";
+import { readEinwilligungDocument } from "@/core/einwilligungDocument.ts";
 import { SEITE_CLASSES } from "@/features/bewerbungen/components/ui/seite.ts";
 import { renderMarkup, textOf } from "@/shared/testing/renderTest.ts";
 import { filledSlots } from "@/shared/testing/stampedText.ts";
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
-const { AdresseGesperrt, Gefuellt, useLinkSeite } = await import("./BestaetigungPanels.tsx");
+const { AdresseGesperrt, LinkUnlesbar, useLinkSeite } = await import("./BestaetigungPanels.tsx");
+const { Gefuellt } = await import("../ui/Gefuellt.tsx");
 
 const PFAD = "/bestaetigung/kontakt";
 const MIT_TOKEN = `${PFAD}?token=kein-echtes-token`;
@@ -33,7 +34,7 @@ describe("a stamped sentence with its slots filled", () => {
      passes on a sentence no page could show. */
   it("reads as the suites' oracle fills it, for every stamped paragraph and every map", () => {
     const vorlagen = [
-      ...Object.values(LIGA_KENNTNISNAHMEN).flatMap((fassung) => fassung.absaetze),
+      ...Object.values(readEinwilligungDocument().fassungen).flatMap((fassung) => fassung.absaetze),
       "in der {datenschutz}",
       "{constructor}, {toString} und {__proto__}",
       "{rolle} für {unbekannt}",
@@ -137,5 +138,18 @@ describe("what a link to a barred address opens on", () => {
     const html = renderMarkup(AdresseGesperrt, { panelRef: createRef<HTMLElement>() });
 
     assert.ok(html.startsWith(`<section class="${SEITE_CLASSES}">`), "the barred page draws a column of its own");
+  });
+});
+
+/* Every page a token link opens shows this panel where its read failed, so its words are pinned here once. */
+describe("what a link nobody could check opens on", () => {
+  it("says it does not know and offers the mailbox, calling the link neither live nor void", () => {
+    const html = renderMarkup(LinkUnlesbar, {});
+
+    assert.equal(
+      textOf(html, " ").replace(/\s+/g, " ").trim(),
+      "Wir können diesen Link gerade nicht prüfen. Lade die Seite in ein paar Minuten neu, oder schreib uns. Frage stellen",
+    );
+    assert.match(html, /href="mailto:kontakt@frankfurtleague\.de"/);
   });
 });

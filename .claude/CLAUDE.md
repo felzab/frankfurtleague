@@ -86,7 +86,8 @@ CI runs on every push.
 [`docs/ops/spec.md`](../docs/ops/spec.md) §1.6 holds what each scope runs and needs.
 
 - **Let the command finish, and read the exit code from the command whose code it is**, never
-  through a pipe: `verify.sh --docs | tail -5` reports `tail`'s 0 while the gate exited 1. Report the
+  through a pipe or past Bash's byte mask: `verify.sh --docs | tail -5` reports `tail`'s 0 while the
+  gate exited 1, and a child's 2304 reads as 0. Report the
   number — never the word "passing", and never one checker such as `check_docs.py` standing in for
   the scope that runs it.
 
@@ -193,7 +194,10 @@ Each fails silently. The rest load from `.claude/rules/` with the surface that c
 
 - **Never let a Windows text-mode stream write a file, a scratch file included**:
   `Path.write_text()`, `open(path, "w")` and a redirect of a program's stdout each turn every `\n`
-  into `\r\n`. Write bytes, or pass `newline=""`.
+  into `\r\n`. Write bytes, or pass `newline=""`. Git Bash strips a carriage return before a
+  pattern sees it, so count one from the bytes.
+- **Never let a command whose file operand is a variable read stdin**: with the variable empty,
+  `grep` waits on stdin with nothing to show it. Guard the empty case and pass `< /dev/null`.
 - **Never hand a native program an argument opening with `/` from Git Bash without
   `MSYS_NO_PATHCONV=1`**: MSYS rewrites it as a Windows path, so `git grep -F '/src/core/api.ts'`
   answers a confident zero with no error. A regex or a URL path is the same argument.
@@ -264,6 +268,10 @@ Commands live in `.claude/commands/` and are slash-only — **never launch one f
 hand its file to an agent: the first fans out its own auditors, the second edits the branch in place.
 
 **Comply with every refusal from a permission rule, and never route around it.** Write a multi-line
-file with the `Write` tool, never a heredoc.
+file with the `Write` tool, never a heredoc. Give each shell command one purpose: a deny rule
+matching any command of a compound line refuses the whole line.
+
+When compacting a session that coordinates a fleet, keep its register's path, the session branch
+and every live agent's id.
 
 Every section keeps its number; a clause §6 or §7 hands to `.claude/rules/` is cited by its file.

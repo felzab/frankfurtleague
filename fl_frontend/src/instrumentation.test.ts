@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -14,9 +15,6 @@ type Line = { level: string; event: string; fields: unknown };
 
 const lines: Line[] = [];
 
-/** The retired names the doubled config answers as carried, which a case sets. */
-let retired: string[] = [];
-
 /** Where a refused boot's own files go, removed after the run. */
 const KEY_DIRECTORY = mkdtempSync(path.join(tmpdir(), "fl-boot-key-"));
 after(() => rmSync(KEY_DIRECTORY, { recursive: true, force: true }));
@@ -24,7 +22,7 @@ after(() => rmSync(KEY_DIRECTORY, { recursive: true, force: true }));
 /** The key file the doubled config names, which a case sets; every other boot reads the run's own key. */
 let keyFile = ACTOR_KEY_FILE;
 
-// Every level records: which level the retired variable's line takes is part of what is asserted.
+// Every level records, so a case counting a line never rests on the level its writer chose.
 const record =
   (level: string) =>
   (event: string, ...rest: unknown[]): void =>
@@ -33,7 +31,7 @@ const LOGGING_DOUBLE = {
   logger: { debug: record("DEBUG"), info: record("INFO"), warn: record("WARN"), error: record("ERROR") },
 };
 
-// A getter and a function, so each case sets what the one registry entry reads.
+// A getter, so each case sets what the one registry entry reads.
 const CONFIG_DOUBLE = {
   frontend_config: {
     LOG_FORMAT: "console",
@@ -42,7 +40,6 @@ const CONFIG_DOUBLE = {
       return keyFile;
     },
   },
-  retiredVariablesSet: () => retired,
 };
 
 /** How often a boot asked for the sign-in store's indexes. */
@@ -70,29 +67,10 @@ beforeEach(() => {
   lines.length = 0;
 });
 
-describe("the boot finding a retired variable", () => {
-  /* One environment file serves this image and one a rollback returns to, so each variable is taken and
-     read by nothing; the line tells an operator the file still carries it. No value reaches the boot
-     to print. */
-  it("warns once, naming every one the environment carries", async () => {
-    retired = ["ALLOWED_ADMIN_EMAILS", "MONGODB_URI"];
-
-    try {
-      await register();
-    } finally {
-      retired = [];
-    }
-
-    assert.deepEqual(lines, [
-      {
-        level: "WARN",
-        event: "config.retired_variable",
-        fields: { error_code: "FE-BOOT-002", variables: "ALLOWED_ADMIN_EMAILS, MONGODB_URI" },
-      },
-    ]);
-  });
-
-  it("writes nothing where the file no longer carries it", async () => {
+describe("a boot with nothing to report", () => {
+  /* Every line a boot writes is one an operator reads in the container log, so a line written on every
+     clean boot buries the one that matters. */
+  it("writes no log line", async () => {
     await register();
 
     assert.deepEqual(lines, []);
@@ -224,7 +202,7 @@ describe("the boot reading the actor's signing key", () => {
     const { thrown, written, exited } = await refusedBoot(t, missing);
 
     assert.ok(thrown instanceof Error && thrown.message.includes(missing), "the boot went on, or its error named no path");
-    assert.equal(exited, 1, "the process was left serving rather than ended non-zero");
+    assert.equal(exited, 3, "the process was left serving, or ended on a fault's code rather than a refusal's");
     assert.match(written, /CRITICAL/);
     assert.match(written, /FE-BOOT-003/);
     assert.ok(written.includes(missing), "the line named no path");
@@ -240,7 +218,7 @@ describe("the boot reading the actor's signing key", () => {
     const { thrown, written, exited } = await refusedBoot(t, file);
 
     assert.ok(thrown instanceof Error, "the boot went on over a file holding no key");
-    assert.equal(exited, 1, "the process was left serving rather than ended non-zero");
+    assert.equal(exited, 3, "the process was left serving, or ended on a fault's code rather than a refusal's");
     assert.match(written, /FE-BOOT-003/);
     assert.ok(!written.includes(mark) && !String(thrown.stack).includes(mark), "the refusal quoted the file");
   });
@@ -251,5 +229,134 @@ describe("the boot reading the actor's signing key", () => {
     assert.equal(thrown, undefined);
     assert.equal(written, "");
     assert.equal(exited, undefined);
+  });
+});
+
+/* The real modules in a process of their own, as `scripts/lib/_lib.sh :: check_frontend_boot_config` runs
+   the image: the exit code is the whole of what the deploy reads, and only a process that ends has one. */
+describe("the boot the deploy's preflight runs, and the code it ends on", () => {
+  const FRONTEND_DIR = path.join(import.meta.dirname, "..");
+
+  // `package.json :: scripts`' own way of running a server module outside Next: `server-only` resolves
+  // to the module that throws without the condition, and Node reads no `@/` alias without the hook.
+  const NODE_FLAGS = [
+    "--conditions=react-server",
+    "--disable-warning=MODULE_TYPELESS_PACKAGE_JSON",
+    "--import",
+    "./scripts/tsconfig-alias-hook.mjs",
+  ];
+
+  // Next catches the hook's rejection and serves on, so this does too: the code read is the boot's own.
+  // A hook that returns is one Next goes on to serve behind, which the last line says.
+  const BOOT = [
+    'const { register } = await import("./src/instrumentation.ts");',
+    "await register().catch(() => undefined);",
+    'process.stdout.write("serving\\n");',
+  ].join("\n");
+
+  /** A production host's settings, of values nobody could mistake for real ones. */
+  const SETTINGS: Readonly<Record<string, string>> = {
+    APP_ENV: "production",
+    API_URL: "http://backend:8000",
+    API_VERSION: "0",
+    AUTH_URL: "https://frankfurtleague.de",
+    LOG_FORMAT: "json",
+    TURNSTILE_SITE_KEY: "fabricated-site-key",
+  };
+
+  // Production's whole set, each value one the schema takes, so a case changes exactly the file it is about.
+  const SIGN_IN_SECRET = "fabricated-not-a-credential-xxxx";
+  const FILES: Readonly<Record<string, string>> = {
+    frontend_mongodb_uri: "mongodb://mongo:27017/?directConnection=true",
+    auth_secret: SIGN_IN_SECRET,
+    auth_resend_key: "resend-probe",
+    resend_webhook_secret: "whsec_probe",
+    internal_api_key_base: "b".repeat(64),
+    internal_api_key_system: "s".repeat(64),
+    internal_api_key_admin: "a".repeat(64),
+    turnstile_secret_key: "fabricated-turnstile-secret",
+  };
+
+  type Case = {
+    settings?: Record<string, string | undefined>;
+    files?: Record<string, string | undefined>;
+    checkedAs?: string;
+  };
+
+  /** One boot in a process of its own: its exit code, and everything it wrote. */
+  function boot({ settings = {}, files = {}, checkedAs = "production" }: Case): {
+    code: number | null;
+    said: string;
+  } {
+    const secrets = mkdtempSync(path.join(KEY_DIRECTORY, "secrets-"));
+    for (const [name, content] of Object.entries({ ...FILES, ...files })) {
+      if (content !== undefined) writeFileSync(path.join(secrets, name), content);
+    }
+
+    // Built rather than inherited, so no variable of the runner's own, `SKIP_ENV_VALIDATION` above all,
+    // decides a case. Not production, under which a hook left returning would arm the sweeps and never end.
+    const environment: NodeJS.ProcessEnv = { NODE_ENV: "test", SECRETS_DIR: secrets, ACTOR_SIGNING_KEY_FILE: ACTOR_KEY_FILE };
+    for (const name of ["PATH", "Path", "SystemRoot"]) {
+      const value = process.env[name];
+      if (value !== undefined) environment[name] = value;
+    }
+    for (const [name, value] of Object.entries({ ...SETTINGS, ...settings })) if (value !== undefined) environment[name] = value;
+    if (checkedAs !== "") environment.BOOT_CHECK = checkedAs;
+
+    const done = spawnSync(process.execPath, [...NODE_FLAGS, "--input-type=module", "-e", BOOT], {
+      cwd: FRONTEND_DIR,
+      env: environment,
+      encoding: "utf8",
+    });
+
+    return { code: done.status, said: `${done.stdout}${done.stderr}` };
+  }
+
+  /** The one refusal a boot wrote: the code it ended on, and its CRITICAL documents' codes and names. */
+  function refused(setup: Case): { code: number | null; lines: string[] } {
+    const { code, said } = boot(setup);
+    const lines = said
+      .split("\n")
+      .filter((line) => line.startsWith("{"))
+      .map((line) => JSON.parse(line) as Record<string, unknown>)
+      .filter((document) => document.level === "CRITICAL")
+      .map((document) => `${String(document.error_code)} ${String(document.variables ?? document.files ?? document.path)}`);
+
+    return { code, lines };
+  }
+
+  it("ends on 0 having written nothing, where every gate passes", () => {
+    assert.deepEqual(boot({}), { code: 0, said: "" });
+  });
+
+  // The local stack holds none of production's own files, and its preflight names its own deployment.
+  it("ends on 0 for the local stack's deployment, which production's files are not demanded of", () => {
+    const local = boot({
+      settings: { APP_ENV: "local" },
+      files: { auth_resend_key: undefined, resend_webhook_secret: undefined, turnstile_secret_key: undefined },
+      checkedAs: "local",
+    });
+
+    assert.deepEqual(local, { code: 0, said: "" });
+  });
+
+  /* The schema demands production's files on `APP_ENV`'s word alone, so a production host whose file says
+     `local` would pass with none of them and its bot check on the published test secret. */
+  it("refuses with 3 a deployment its APP_ENV does not name, judging the files that deployment is held to", () => {
+    const production = { files: { turnstile_secret_key: undefined }, settings: { APP_ENV: "local" } };
+
+    assert.deepEqual(refused(production), { code: 3, lines: ["FE-BOOT-001 APP_ENV"] });
+    assert.deepEqual(refused({ ...production, checkedAs: "local" }), { code: 0, lines: [] });
+  });
+
+  /* The process's environment carries names of the platform's own beside the file's, so no boot can tell a
+     typo from them: `fl_frontend/scripts/check-environment-names.mjs` reads the file itself for that. */
+  it("boots past a name nothing declares", () => {
+    assert.deepEqual(boot({ settings: { TURNSTILE_SITEKEY: "a typo of a declared name" } }), { code: 0, said: "" });
+  });
+
+  // A refusal is one code wherever the boot runs, so a restarting container reads alike under either.
+  it("ends a serving boot's refusal on 3 too", () => {
+    assert.equal(boot({ files: { auth_secret: undefined }, checkedAs: "" }).code, 3);
   });
 });

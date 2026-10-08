@@ -608,7 +608,9 @@ def _shell_comments(text: str) -> str:
             keep.append(line)
             continue
         marker = line.find(" #")
-        keep.append(line[marker:] if marker != -1 else "")
+        # The code before a trailing comment goes to blanks rather than away: `code_body` blanks
+        # this line's columns, and a comment moved left would blank the code instead.
+        keep.append(" " * marker + line[marker:] if marker != -1 else "")
     return "\n".join(keep)
 
 

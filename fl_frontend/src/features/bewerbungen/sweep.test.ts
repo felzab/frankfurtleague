@@ -75,7 +75,6 @@ const CONFIG_DOUBLE = {
       return appEnv;
     },
   },
-  retiredVariablesSet: () => [],
 };
 
 const INDEXES_DOUBLE = { buildAuthIndexes: () => Promise.resolve() };
@@ -214,6 +213,8 @@ describe("the switch the retention sweep is armed by", () => {
     API_VERSION: "0",
     AUTH_URL: "http://localhost:3000",
     LOG_FORMAT: "console",
+    // Of no published test key's shape, which production refuses.
+    TURNSTILE_SITE_KEY: "fabricated-site-key",
   };
 
   /** And every secret file it reads, by the file's own name. */
@@ -230,6 +231,7 @@ describe("the switch the retention sweep is armed by", () => {
     internal_api_key_base: "b".repeat(64),
     internal_api_key_system: "s".repeat(64),
     internal_api_key_admin: "a".repeat(64),
+    turnstile_secret_key: "fabricated-turnstile-secret",
   })) {
     writeFileSync(path.join(SECRETS_DIR, name), value);
   }

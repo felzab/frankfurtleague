@@ -7,17 +7,18 @@ import PaperPlane from "@gravity-ui/icons/PaperPlane";
 
 import { Button } from "@heroui/react/button";
 
-import { einwilligungFassung } from "@/core/einwilligung";
-import { ZUSTELLUNG_CHIP } from "@/features/bewerbungen/zustellung";
+import { LinkStandAngaben } from "@/features/bewerbungen/components/ui/LinkStandAngaben";
 import { einladeSchiedsrichterAction } from "@/features/schiedsrichter/actions";
 import {
+  SCHIEDSRICHTER_ADRESSWECHSEL_HINWEIS,
   SCHIEDSRICHTER_EINLADEN_OHNE_ADRESSE,
   SCHIEDSRICHTER_EINLADEN_STILLGELEGT,
   SCHIEDSRICHTER_KORREKTUR_HINWEIS,
-  SCHIEDSRICHTER_MEDIEN_LABELS,
   SCHIEDSRICHTER_UMFANG_LABELS,
 } from "@/features/schiedsrichter/constants";
-import { labelBadge } from "@/shared/components/ui/badges";
+import { Beleg, Fassung } from "@/features/spieler/components/ui/Nachweis";
+import { EINWILLIGUNG_FASSUNG_FRAGE, EINWILLIGUNG_MEDIEN_FRAGE, EINWILLIGUNG_MEDIEN_LABELS } from "@/features/spieler/constants";
+import { Angabe, Leer } from "@/shared/components/ui/Angabe";
 import { FocusSlot } from "@/shared/components/ui/FocusSlot";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { FIELD_PAIR_CLASSES } from "@/shared/components/ui/formFieldStyles";
@@ -26,114 +27,87 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { StepUpRefused } from "@/shared/components/ui/StepUpRefused";
 import { useStepUp } from "@/shared/hooks/useStepUp";
-import { rejectedWrite } from "@/shared/utils/actionError";
+import { LINK_ERNEUT_OHNE_ANTWORT, LINK_UNKLAR } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
-import { getGermanTodayStr } from "@/shared/utils/date";
-import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
+import { benannt } from "@/shared/utils/benannt";
 import { focusAfterWrite, focusSection } from "@/shared/utils/focusAfterWrite";
 import { formatSpielDatum } from "@/shared/utils/format";
+import { pressLinkWrite } from "@/shared/utils/linkWrite";
 
 import type { FLSchiedsrichterBestaetigung } from "@/features/schiedsrichter/schemas";
 import type { FLEinwilligung } from "@/features/spieler/schemas";
-import type { PillTone } from "@/shared/components/ui/badges";
-import type { ReactNode } from "react";
 
 /**
- * A rejected action says nothing of whether the write committed. A second send is safe either way,
- * which is why this one invites it — and the previous link is dead on both readings.
+ * The re-send's accessible name, its link named for this panel as the address change's panel names its
+ * own: a confirmed referee's editor can show both re-sends, each for another link.
  */
-const OHNE_ANTWORT = "Prüfe die Verbindung und sende den Link noch einmal. Ein neuer Link ersetzt einen, der schon rausging.";
-
-/** Beside the deadline rather than in the right-hand cluster, which is about the delivery. */
-const LINK_ABGELAUFEN_LABEL = "abgelaufen";
-const LINK_ABGELAUFEN_TINT: PillTone = "warning";
+export const BESTAETIGUNG_ERNEUT = benannt("Link erneut senden", "Bestätigung");
 
 /** Closed on a person who answered: the endpoint refuses a second link, there being no page left to open. */
 const SCHON_BESTAETIGT_GRUND = "Diese Person hat ihren Eintrag schon bestätigt.";
 
-/** One stored fact. A `<dl>` is its only valid parent: the pair is what makes the value a fact about the label. */
-function Angabe({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="flex flex-col gap-y-0.5">
-      <dt className="fluid-xxs font-bold text-foreground-muted">{label}</dt>
-      <dd className="min-w-0 fluid-sm font-medium break-words text-foreground">{children}</dd>
-    </div>
-  );
-}
-
-/** Its own grade, so a day the record does not carry never reads as one somebody wrote down. */
-function KeinTag({ children }: { children: ReactNode }) {
-  return <span className="text-foreground-muted italic">{children}</span>;
-}
-
-/**
- * A stored label names an `@/core/einwilligung :: LIGA_KENNTNISNAHMEN` entry, so one no entry
- * answers is a record citing words nobody can produce, and a bare key renders the two alike.
- */
-function Fassung({ textVersion }: { textVersion: string | null }) {
-  if (textVersion === null) return <KeinTag>Nicht erfasst</KeinTag>;
-
-  // Beside the key rather than instead of it: whoever repairs the mismatch needs the key that
-  // resolved to nothing.
-  if (einwilligungFassung(textVersion) === null) {
-    return (
-      <>
-        {textVersion} <KeinTag>Unbekannte Fassung</KeinTag>
-      </>
-    );
-  }
-
-  return textVersion;
-}
-
 /** What the last link reached, where one has gone out at all. */
-function LinkStand({ bestaetigung, istBestaetigt }: { bestaetigung: FLSchiedsrichterBestaetigung; istBestaetigt: boolean }) {
-  const zustellung = bestaetigung.zustellung === null ? null : ZUSTELLUNG_CHIP[bestaetigung.zustellung.stand];
-  // A date an administrator reads as a deadline says nothing once it is past, and the answer
-  // („einen neuen schicken“) is the control in this same panel.
-  const istAbgelaufen = !istBestaetigt && bestaetigung.frist < getGermanTodayStr();
-
+function LinkStand({ bestaetigung, offenUndAbgelaufen }: { bestaetigung: FLSchiedsrichterBestaetigung; offenUndAbgelaufen: boolean }) {
   return (
     <dl className={FIELD_PAIR_CLASSES}>
-      <Angabe label="Link gesendet am">{formatSpielDatum(bestaetigung.verschickt_am)}</Angabe>
-      <Angabe label="Gültig bis">
-        {formatSpielDatum(bestaetigung.frist)}
-        {istAbgelaufen && <span className={`${labelBadge(LINK_ABGELAUFEN_TINT)} ms-2 h-7 shrink-0`}>{LINK_ABGELAUFEN_LABEL}</span>}
-      </Angabe>
-      {/* A state rather than a gap: nothing reminds a referee, so „Keine Erinnerung“ is the fact
-          rather than a day that went missing. */}
-      <Angabe label="Erinnert am">
-        {bestaetigung.erinnert_am === null ? <KeinTag>Keine Erinnerung</KeinTag> : formatSpielDatum(bestaetigung.erinnert_am)}
-      </Angabe>
-      <Angabe label="Zustellung">
-        {/* `null` covers accepted and delivered alike: the chip exists for what an administrator can
-            act on, and the delivery register spells the one word for a blocked address. */}
-        {zustellung === null ? (
-          <KeinTag>Nichts zu melden</KeinTag>
-        ) : (
-          <span className={`${labelBadge(zustellung.tone)} h-7 shrink-0`}>{zustellung.label}</span>
-        )}
-      </Angabe>
+      <LinkStandAngaben
+        verschicktAm={bestaetigung.verschickt_am}
+        frist={bestaetigung.frist}
+        istAbgelaufen={offenUndAbgelaufen}
+        zustellung={bestaetigung.zustellung}
+        vorZustellung={
+          // A state rather than a gap: nothing reminds a referee, so „Keine Erinnerung“ is the fact
+          // rather than a day that went missing.
+          <Angabe label="Erinnert am">
+            {bestaetigung.erinnert_am === null ? <Leer>Keine Erinnerung</Leer> : formatSpielDatum(bestaetigung.erinnert_am)}
+          </Angabe>
+        }
+      />
     </dl>
   );
 }
 
-/** The record the referee's own press wrote, read back as facts. */
-function EinwilligungStand({ einwilligung, geburtsdatum }: { einwilligung: FLEinwilligung; geburtsdatum: string | null }) {
+/** The referee's record read back as facts, each choice with the act that set it. */
+function EinwilligungStand({
+  einwilligung,
+  istFassungBekannt,
+  geburtsdatum,
+}: {
+  einwilligung: FLEinwilligung;
+  istFassungBekannt: boolean | null;
+  geburtsdatum: string | null;
+}) {
   return (
     <dl className={FIELD_PAIR_CLASSES}>
-      <Angabe label="Veröffentlichung">{SCHIEDSRICHTER_UMFANG_LABELS[einwilligung.umfang]}</Angabe>
+      <Angabe label="Veröffentlichung">
+        {SCHIEDSRICHTER_UMFANG_LABELS[einwilligung.umfang]}
+        <Beleg
+          nachweis={einwilligung.nachweis.umfang}
+          bestaetigtAm={einwilligung.bestaetigt_am}
+          textVersion={einwilligung.text_version}
+        />
+      </Angabe>
+      <Angabe label={EINWILLIGUNG_MEDIEN_FRAGE}>
+        {einwilligung.medien ? EINWILLIGUNG_MEDIEN_LABELS.erteilt : EINWILLIGUNG_MEDIEN_LABELS.nicht_erteilt}
+        <Beleg
+          nachweis={einwilligung.nachweis.medien}
+          bestaetigtAm={einwilligung.bestaetigt_am}
+          textVersion={einwilligung.text_version}
+        />
+      </Angabe>
       <Angabe label="Bestätigt am">
-        {einwilligung.bestaetigt_am === null ? <KeinTag>Nicht bestätigt</KeinTag> : formatSpielDatum(einwilligung.bestaetigt_am)}
+        {einwilligung.bestaetigt_am === null ? <Leer>Nicht bestätigt</Leer> : formatSpielDatum(einwilligung.bestaetigt_am)}
       </Angabe>
       {/* The key rather than a German gloss of it, which would be a second name for one wording. */}
-      <Angabe label="Fassung">
-        <Fassung textVersion={einwilligung.text_version} />
+      <Angabe label={EINWILLIGUNG_FASSUNG_FRAGE}>
+        <Fassung
+          textVersion={einwilligung.text_version}
+          istBekannt={istFassungBekannt}
+        />
       </Angabe>
-      <Angabe label="Medien">{einwilligung.medien ? SCHIEDSRICHTER_MEDIEN_LABELS.erteilt : SCHIEDSRICHTER_MEDIEN_LABELS.nicht_erteilt}</Angabe>
       {/* Beside the record because the same press wrote it, and on no field of this form: the person
           enters it themselves and no admin payload carries it. */}
-      <Angabe label="Geburtsdatum">{geburtsdatum === null ? <KeinTag>Nicht erfasst</KeinTag> : formatSpielDatum(geburtsdatum)}</Angabe>
+      <Angabe label="Geburtsdatum">{geburtsdatum === null ? <Leer /> : formatSpielDatum(geburtsdatum)}</Angabe>
     </dl>
   );
 }
@@ -148,7 +122,9 @@ export function FormBestaetigungSection({
   hatAdresse,
   isRetired,
   bestaetigung,
+  istAbgelaufen,
   einwilligung,
+  istFassungBekannt,
   geburtsdatum,
   isDirty,
 }: {
@@ -157,7 +133,11 @@ export function FormBestaetigungSection({
   hatAdresse: boolean;
   isRetired: boolean;
   bestaetigung: FLSchiedsrichterBestaetigung | null;
+  /** The read's judgement of the link's deadline, never this browser's day. */
+  istAbgelaufen: boolean;
   einwilligung: FLEinwilligung | null;
+  /** Whether the registry holds the stored label, resolved by the page through the words read. */
+  istFassungBekannt: boolean | null;
   geburtsdatum: string | null;
   /** The editor's unsaved typing, which the mint re-keys the editor over. */
   isDirty: boolean;
@@ -169,6 +149,7 @@ export function FormBestaetigungSection({
 
   const istBestaetigt = einwilligung?.bestaetigt_am != null;
   const sendeLabel = bestaetigung === null ? "Bestätigungslink senden" : "Link erneut senden";
+  const sendeName = bestaetigung === null ? sendeLabel : BESTAETIGUNG_ERNEUT;
 
   // In the order the endpoint raises them, so the sentence names the first thing to repair rather
   // than the one an administrator would fix second.
@@ -181,26 +162,23 @@ export function FormBestaetigungSection({
         : SCHIEDSRICHTER_EINLADEN_OHNE_ADRESSE;
 
   const sende = async () => {
-    if (!guardAgainstDraft(isDirty, DRAFT_DISCARDED)) return;
-
     // The page re-keys on the minted link's record, drawing this control anew under its next label.
     const landing = focusAfterWrite();
-    setSendet(true);
-    // A new link voids the one the referee holds (`docs/frontend/spec.md :: I432`).
-    if (!(await stepUp.confirm(true))) {
-      setSendet(false);
-      return;
-    }
-
-    // Awaited outside a transition, so a rejected action reaches no error boundary: uncaught, it
-    // leaves „Sendet...“ standing for good and reports nothing.
-    const res = await einladeSchiedsrichterAction({ id: schiedsrichterId }).catch(rejectedWrite(router, OHNE_ANTWORT));
-    setSendet(false);
+    // A new link voids the one the referee holds.
+    const res = await pressLinkWrite({
+      isDirty,
+      stepUp,
+      router,
+      pending: setSendet,
+      write: () => einladeSchiedsrichterAction({ id: schiedsrichterId }),
+      repair: LINK_ERNEUT_OHNE_ANTWORT,
+    });
+    if (res === null) return;
 
     // A rejection, which no answer came back from, carries this control's repair naming the connection; an
     // answer, an unknown outcome among them, carries its own sentence.
     if (!res.success) {
-      appToast.failure("Bestätigungslink nicht gesendet", res);
+      appToast.failure("Bestätigungslink nicht gesendet", res, LINK_UNKLAR);
       return;
     }
 
@@ -232,7 +210,9 @@ export function FormBestaetigungSection({
         ) : (
           <LinkStand
             bestaetigung={bestaetigung}
-            istBestaetigt={istBestaetigt}
+            // A date an administrator reads as a deadline says nothing once it is past, and the
+            // answer („einen neuen schicken“) is the control in this same panel; an answered link's says nothing at all.
+            offenUndAbgelaufen={!istBestaetigt && istAbgelaufen}
           />
         )}
 
@@ -248,14 +228,15 @@ export function FormBestaetigungSection({
             <p className="muted-hint">Diese Angaben lassen sich nicht bearbeiten.</p>
             <EinwilligungStand
               einwilligung={einwilligung}
+              istFassungBekannt={istFassungBekannt}
               geburtsdatum={geburtsdatum}
             />
           </>
         )}
 
-        {/* Only while the record is outstanding, because that is the one state the correction mints
-            in: on a confirmed referee the save moves the address and sends nothing. */}
-        {!istBestaetigt && <p className="muted-hint">{SCHIEDSRICHTER_KORREKTUR_HINWEIS}</p>}
+        {/* One sentence per state, because the save mints a different link in each: a consent link
+            while the record is outstanding, an address link once it is given. */}
+        <p className="muted-hint">{istBestaetigt ? SCHIEDSRICHTER_ADRESSWECHSEL_HINWEIS : SCHIEDSRICHTER_KORREKTUR_HINWEIS}</p>
 
         <div className="flex w-full flex-col items-start">
           {/* Closed rather than withheld, so the refusal can name what to repair. `sendet` is left
@@ -264,11 +245,12 @@ export function FormBestaetigungSection({
             <Hint
               mode="refusal"
               reason={verweigerung}
-              label={sendeLabel}>
+              label={sendeName}>
               <Button
                 type="button"
                 isPending={sendet}
                 isDisabled={verweigerung !== null}
+                aria-label={sendeName}
                 onPress={() => void sende()}
                 className={`${formButton({ intent: "nav", size: "xs" })} gap-x-2`}>
                 <PaperPlane

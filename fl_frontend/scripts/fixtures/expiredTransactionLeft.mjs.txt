@@ -7,14 +7,15 @@ import { startJudgedReplicaSet } from "@/core/expiredTransactions.ts";
 
 const { mongod } = await startJudgedReplicaSet();
 
-// In the container's own shell, so no client of this file holds the transaction: one begun under a
-// one-second lifetime, which the server fixes as the transaction begins, so it is set first.
-// Judged by the server's own counts alone, never by wall time: under load the write itself can
-// outlast the second and be interrupted, and the transaction has expired all the same. The wait
-// ends on the kill, or once the server's periodic pass has run several times past the lifetime.
+// In the container's own shell, so no client of this file holds the transaction.
 const LEAVE_ONE_TO_EXPIRE = `
+// Set first: the server fixes a transaction's lifetime as the transaction begins.
 db.adminCommand({ setParameter: 1, transactionLifetimeLimitSeconds: 1 });
+// Created outside the transaction, so its one write runs no DDL on the transaction's clock and
+// usually ends inside the second, leaving the transaction idle when the expiry pass aborts it.
+db.getSiblingDB("probe").createCollection("rows");
 const expiry = () => db.serverStatus().metrics.abortExpiredTransactions;
+const killed = () => Number(expiry().successfulKills) + Number(expiry().timedOutKills);
 const passesBefore = Number(expiry().passes);
 const session = db.getMongo().startSession();
 session.startTransaction();
@@ -23,13 +24,15 @@ try {
 } catch (error) {
   print("WRITE " + error.message);
 }
-while (Number(expiry().successfulKills) < 1 && Number(expiry().passes) < passesBefore + 5) sleep(200);
-print("KILLED " + Number(expiry().successfulKills));
+// Judged by the counts the helper reads, never by wall time, since under load the write can still be
+// interrupted mid-flight: the wait ends on a count, or once the pass has run several times past the lifetime.
+while (killed() < 1 && Number(expiry().passes) < passesBefore + 5) sleep(200);
+print("KILLED " + killed());
 `;
 
 it("leaves a transaction to expire", async () => {
   const { output, exitCode } = await mongod.exec(["mongosh", "--quiet", "--eval", LEAVE_ONE_TO_EXPIRE]);
 
   assert.equal(exitCode, 0, output);
-  assert.match(output, /^KILLED 1$/m, `the server never aborted the transaction left open:\n${output}`);
+  assert.match(output, /^KILLED [1-9]\d*$/m, `the server never aborted the transaction left open:\n${output}`);
 });

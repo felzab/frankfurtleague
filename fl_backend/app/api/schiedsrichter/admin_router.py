@@ -13,12 +13,16 @@ from app.api.schiedsrichter.schemas import (
     FLPostSchiedsrichterPayload,
     FLPostSchiedsrichterResponse,
     FLSchiedsrichter,
+    FLSchiedsrichterAdresswechselMint,
+    FLSchiedsrichterAdresswechselMintResponse,
     FLSchiedsrichterMint,
     FLSchiedsrichterMintResponse,
     FLSchiedsrichterReactivateResponse,
     FLSchiedsrichterWriteResponse,
 )
 from app.api.schiedsrichter.services import (
+    ADRESSWECHSEL_EINLADEN_FIELDS,
+    ADRESSWECHSEL_FELD,
     BESTAETIGUNG_FELD,
     EINLADEN_FIELDS,
     EINWILLIGUNG_FELD,
@@ -27,8 +31,10 @@ from app.api.schiedsrichter.services import (
     build_booked_image_filter,
     build_ghost_repoint,
     build_ghost_schiedsrichter,
+    build_pending_adresswechsel_filter,
     build_referee_filter,
     build_unplayed_assignment_filter,
+    compose_adresswechsel,
     compose_bestaetigung,
     compose_korrektur_update,
     compose_mint_update,
@@ -40,6 +46,8 @@ from app.api.schiedsrichter.services import (
     find_retired_refusal,
     first_stamped,
     owes_reactivation_mint,
+    save_asks_an_address_change,
+    save_drops_a_pending_address,
     save_moves_the_link,
 )
 from app.api.sperrliste.lookup import SperrlisteLookup, hash_gesperrt, sperrliste_saison
@@ -164,25 +172,35 @@ async def patch_schiedsrichter(
     schiedsrichter_collection: SchiedsrichterCollection,
     spiele_collection: SpieleCollection,
     sperrliste: SperrlisteLookup,
+    aktionen_collection: AktionenCollection,
     db: DBClient,
     refuse_unconfirmed: Annotated[StepUpCheck, Depends(get_step_up_check)],
     today: str = Depends(get_german_date_str),
+    germany_now: datetime = Depends(get_germany_now),
 ) -> FLPatchSchiedsrichterResponse:
     """
     Update a referee, then update the embedded name on every Spiel that uses them.
 
     Only the name. `payment` is NOT propagated: the fee on a match is what was agreed for it.
 
-    **A corrected address on an UNCONFIRMED referee retires their link and answers a fresh one**, for
-    the caller to mail to the new address: the old link was posted to a mailbox nobody reads, and
-    leaving it live is a credential in the wrong inbox. A CONFIRMED referee's address change mints
-    nothing and answers `bestaetigung: null`, the record being already given; the administrator tells
-    them by hand (`docs/ops/runbooks.md` §5).
+    **A corrected address on an UNCONFIRMED referee retires their link and answers a fresh one** in
+    `bestaetigung`, for the caller to mail to the new address: the old link was posted to a mailbox
+    nobody reads, and leaving it live is a credential in the wrong inbox.
 
-    **A RETIRED referee's corrected address is stored and mails nothing**: no consent is collected for
-    a role nobody gives them. Their old link is retired all the same, and the reactivation mints the
-    fresh one. Where a fresh link is minted, a banned new address is refused `REQ-SCHIEDSRICHTER-007`. A save retiring or
-    replacing a link is refused `REQ-AUTH-009` from a sign-in or confirmation older than `STEP_UP_WINDOW_HOURS`.
+    **A CONFIRMED referee's address does not move on this save.** The stored address stays in force,
+    and the typed one is held as a pending change until its own mailbox confirms it, the save
+    answering `adresswechsel` with that link and the address it replaces, for the caller to mail the
+    link to the new address and a notice to the stored one. Retired or not: the record is theirs
+    either way. A new pending change replaces an earlier one, whose link stops working, and where it
+    names another mailbox the earlier address goes from the action log as a decline's does
+    (`docs/backend/spec.md :: I562`); a save leaving the address alone leaves a pending change
+    standing. Its consent is never asked again.
+
+    **A RETIRED unconfirmed referee's corrected address is stored and mails nothing**: no consent is
+    collected for a role nobody gives them. Their old link is retired all the same, and the
+    reactivation mints the fresh one. Where either link is minted, a banned new address is refused
+    `REQ-SCHIEDSRICHTER-007`. A save retiring or minting a link is refused `REQ-AUTH-009` from a
+    sign-in or confirmation older than `STEP_UP_WINDOW_HOURS`.
 
     The ghost answers 404 here as it does to every read: a name written onto it would appear on the
     fixtures of every referee already erased.
@@ -198,22 +216,23 @@ async def patch_schiedsrichter(
     # save: whether a mint is owed is decided in-session below.
     massgebliche_saison_id = await sperrliste_saison(sperrliste)
 
-    async def rename_and_fan_out(session: AsyncClientSession) -> tuple[FLPatchSchiedsrichterResponse, bool]:
+    async def rename_and_fan_out(session: AsyncClientSession) -> tuple[FLPatchSchiedsrichterResponse, str | None]:
         # In-session, so the judgement below reads the address and the record this save replaces
         # rather than a snapshot a rival write has already moved.
         stored = await pull_one_from_db(
             collection=schiedsrichter_collection,
             db_filter=build_referee_filter(schiedsrichter_id),
-            projection={"kontakt.email": 1, EINWILLIGUNG_FELD: 1, "inactive_since": 1},
+            projection={"kontakt.email": 1, EINWILLIGUNG_FELD: 1, "inactive_since": 1, f"{ADRESSWECHSEL_FELD}.email": 1},
             session=session,
         )
-        if save_moves_the_link(stored=stored, payload_email=email):
+        verwirft = save_drops_a_pending_address(stored=stored, payload_email=email)
+        if save_moves_the_link(stored=stored, payload_email=email) or save_asks_an_address_change(stored=stored, payload_email=email):
             refuse_unconfirmed()
         update, minted = compose_korrektur_update(stored=stored, payload=payload, payload_email=email, token_hash=token_hash, today=today)
 
         # The season is NOT a condition here: it is `None` while no season is running, and the
         # ban list is asked on the hash alone then (`REQ-SCHIEDSRICHTER-007`).
-        if minted:
+        if minted is not None:
             gesperrt = await hash_gesperrt(sperrliste, gehasht, massgebliche_saison_id=massgebliche_saison_id, session=session)
             refuse(find_gesperrt_refusal(gesperrt=gesperrt))
 
@@ -225,6 +244,16 @@ async def patch_schiedsrichter(
             return_document=ReturnDocument.AFTER,
         )
         updated_document = FLSchiedsrichter(**updated_document_raw)
+
+        if verwirft:
+            # After the patch, for the decline's reason: it reaches the pre-image this save just filed,
+            # which still holds the address it replaced.
+            await patch_many_in_db(
+                collection=aktionen_collection,
+                db_filter=build_redaction_filter([(Collection.SCHIEDSRICHTER, [schiedsrichter_id])]),
+                update=build_redaction_update(at=log_stamp(germany_now)),
+                session=session,
+            )
 
         fan_out = await patch_many_in_db(
             collection=spiele_collection,
@@ -243,10 +272,16 @@ async def patch_schiedsrichter(
     async with transaction_session(db) as session:
         answer, re_minted = await session.with_transaction(rename_and_fan_out)
 
-    if re_minted:
+    if re_minted == "bestaetigung":
         # The CORRECTED address this transaction wrote, never the stored one it replaced: mailing
         # the link to the address the save moved away from is the defect the re-mint exists to end.
         answer.bestaetigung = FLSchiedsrichterMint(token=raw_token, frist=bestaetigung_frist_from(today=today), email=email)
+    elif re_minted == "adresswechsel":
+        # The notice goes to the address this transaction kept in force, which holds the record until
+        # the new mailbox answers.
+        answer.adresswechsel = FLSchiedsrichterAdresswechselMint(
+            token=raw_token, frist=bestaetigung_frist_from(today=today), email=email, bisherige_email=answer.updated_document.kontakt.email
+        )
 
     return answer
 
@@ -255,7 +290,7 @@ async def patch_schiedsrichter(
     by_id("schiedsrichter_id"),
     response_model=FLSchiedsrichterWriteResponse,
     summary="Deactivate a Schiedsrichter (soft delete)",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def delete_schiedsrichter(
     schiedsrichter_id: CustomRouteObjectId,
@@ -308,7 +343,7 @@ async def delete_schiedsrichter(
     f"{by_id('schiedsrichter_id')}/reactivate",
     response_model=FLSchiedsrichterReactivateResponse,
     summary="Bring a deactivated Schiedsrichter back",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def reactivate_schiedsrichter(
     schiedsrichter_id: CustomRouteObjectId,
@@ -382,7 +417,7 @@ async def reactivate_schiedsrichter(
     f"{by_id('schiedsrichter_id')}/bestaetigung/einladen",
     response_model=FLSchiedsrichterMintResponse,
     summary="Send a Schiedsrichter a fresh confirmation link",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
     dependencies=[Depends(verify_step_up)],
 )
 async def einladen_schiedsrichter(
@@ -459,6 +494,121 @@ async def einladen_schiedsrichter(
     return FLSchiedsrichterMintResponse(
         bestaetigung=FLSchiedsrichterMint(token=raw_token, frist=bestaetigung_frist_from(today=today), email=gemintet_fuer)
     )
+
+
+@router.post(
+    f"{by_id('schiedsrichter_id')}/adresswechsel/einladen",
+    response_model=FLSchiedsrichterAdresswechselMintResponse,
+    summary="Send a Schiedsrichter's pending address a fresh link",
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
+    dependencies=[Depends(verify_step_up)],
+)
+async def einladen_adresswechsel(
+    schiedsrichter_id: CustomRouteObjectId,
+    schiedsrichter_collection: SchiedsrichterCollection,
+    sperrliste: SperrlisteLookup,
+    db: DBClient,
+    today: str = Depends(get_german_date_str),
+) -> FLSchiedsrichterAdresswechselMintResponse:
+    """
+    Mint a fresh link for this referee's pending address change and answer the raw token once, with both addresses, for the caller to mail.
+
+    It replaces the whole pending block but its address, so the previous link stops working at once and the delivery state of
+    the message it went out in goes with it. The deadline restarts from today, and a deadline already passed is no refusal:
+    the re-send is how a lapsed change is asked again.
+
+    Refused where the pending address is on the ban list (`REQ-SCHIEDSRICHTER-007`). 404 where the referee holds no pending
+    change, and for an id no referee holds, the ghost's included.
+    """
+
+    raw_token, token_hash = mint_token()
+    # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_gesperrt`).
+    massgebliche_saison_id = await sperrliste_saison(sperrliste)
+
+    async def judge_and_remint_the_change(session: AsyncClientSession) -> tuple[str, str | None]:
+        """Judge, then replace the block, answering both addresses as this transaction reads them."""
+
+        stored = await pull_one_from_db(
+            collection=schiedsrichter_collection,
+            db_filter=build_pending_adresswechsel_filter(schiedsrichter_id),
+            projection=dict(ADRESSWECHSEL_EINLADEN_FIELDS),
+            session=session,
+        )
+        email = str(stored[ADRESSWECHSEL_FELD]["email"])
+
+        gesperrt = await hash_gesperrt(sperrliste, sperrliste.hash_of(email), massgebliche_saison_id=massgebliche_saison_id, session=session)
+        refuse(find_gesperrt_refusal(gesperrt=gesperrt))
+
+        await patch_one_in_db(
+            collection=schiedsrichter_collection,
+            db_filter=build_pending_adresswechsel_filter(schiedsrichter_id),
+            update={"$set": {ADRESSWECHSEL_FELD: compose_adresswechsel(email=email, token_hash=token_hash, today=today)}},
+            session=session,
+            return_document=ReturnDocument.BEFORE,
+        )
+
+        return email, (stored.get("kontakt") or {}).get("email")
+
+    async with transaction_session(db) as session:
+        gemintet_fuer, bisherige_email = await session.with_transaction(judge_and_remint_the_change)
+
+    return FLSchiedsrichterAdresswechselMintResponse(
+        adresswechsel=FLSchiedsrichterAdresswechselMint(
+            token=raw_token, frist=bestaetigung_frist_from(today=today), email=gemintet_fuer, bisherige_email=bisherige_email
+        )
+    )
+
+
+@router.delete(
+    f"{by_id('schiedsrichter_id')}/adresswechsel",
+    response_model=FLSchiedsrichterWriteResponse,
+    summary="Discard a Schiedsrichter's pending address change",
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
+    dependencies=[Depends(verify_step_up)],
+)
+async def delete_adresswechsel(
+    schiedsrichter_id: CustomRouteObjectId,
+    schiedsrichter_collection: SchiedsrichterCollection,
+    aktionen_collection: AktionenCollection,
+    db: DBClient,
+    germany_now: datetime = Depends(get_germany_now),
+) -> FLSchiedsrichterWriteResponse:
+    """
+    Discard this referee's pending address change: the block goes, its link opens nothing, and the stored address stays.
+
+    **The address goes from the action log too** (`docs/backend/spec.md :: I562`): every image the log holds of this
+    referee is emptied, since every write on the row while the change stood, a re-send or this discard included, filed one
+    carrying an address nobody proved. Nothing is mailed. 404 where the referee holds no pending change, and for an id no
+    referee holds, the ghost's included.
+    """
+
+    async def discard_the_change(session: AsyncClientSession) -> Mapping[str, Any]:
+        # The filter is the judgement, as the registration link's revocation's is: `patch_one_in_db`
+        # answers a miss with the 404, so no read stands between finding the change and removing it.
+        updated = await patch_one_in_db(
+            collection=schiedsrichter_collection,
+            db_filter=build_pending_adresswechsel_filter(schiedsrichter_id),
+            update={"$unset": {ADRESSWECHSEL_FELD: ""}},
+            session=session,
+            return_document=ReturnDocument.AFTER,
+        )
+
+        # LAST, for the contact's Widerspruch's reason: it reaches the pre-image the patch above
+        # just filed, which still holds the discarded address.
+        await patch_many_in_db(
+            collection=aktionen_collection,
+            db_filter=build_redaction_filter([(Collection.SCHIEDSRICHTER, [schiedsrichter_id])]),
+            update=build_redaction_update(at=log_stamp(germany_now)),
+            session=session,
+        )
+
+        return updated
+
+    # One transaction, so the write, the log row recording it and the redaction land together.
+    async with transaction_session(db) as session:
+        updated_document_raw = await session.with_transaction(discard_the_change)
+
+    return FLSchiedsrichterWriteResponse(updated_document=FLSchiedsrichter(**updated_document_raw))
 
 
 @router.post(

@@ -105,3 +105,22 @@ export function publishedOperations(document: unknown = readPublishedDocument())
 
   return [...found.values()];
 }
+
+/** Spelled as the backend publishes it, once on the document: a family is the protocol's on every operation. */
+const PROTOCOL_FAMILIES_EXTENSION = "x-fl-protocol-families";
+
+/**
+ * The code families the backend raises no rule under (`fl_frontend/src/core/errors.ts :: PROTOCOL_FAMILIES`
+ * is compared against them). Throws where none is published, which a comparison would read as every
+ * family the frontend holds having been dropped.
+ */
+export function publishedProtocolFamilies(document: unknown = readPublishedDocument()): string[] {
+  const families = isObject(document) ? document[PROTOCOL_FAMILIES_EXTENSION] : undefined;
+  if (!Array.isArray(families) || families.length === 0 || !families.every((name) => typeof name === "string")) {
+    throw new Error(
+      `${DOCUMENT_PATH} publishes no ${PROTOCOL_FAMILIES_EXTENSION}; refresh it with the command ${REGENERATE_CITATION} declares`,
+    );
+  }
+
+  return families as string[];
+}

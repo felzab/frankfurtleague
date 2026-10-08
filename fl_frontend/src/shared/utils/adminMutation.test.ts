@@ -11,10 +11,11 @@ const { setSession, setRefusal } = doubleActionRequest({ session: ADMIN });
 /** How many times the spine asked Next to refresh the page since the case began. */
 const refreshes = (): number => cacheCalls.filter(({ name }) => name === "refresh").length;
 
-const { ADMIN_FORBIDDEN, runAdminMutation, runAdminRouteWrite, stepUpRequired } = await import("./adminMutation.ts");
+const { ADMIN_FORBIDDEN, invalidatesOnWrite, runAdminMutation, runAdminRouteWrite, stepUpRequired } = await import("./adminMutation.ts");
 const { boundCall, recordWriteSent, REQUEST_DEADLINE_MS } = await import("@/core/requestScope");
 const { getAdminSession } = await import("@/core/auth");
 const { APIBadStatusError, APINetworkError, ApiUnsentError, RolledBackError } = await import("@/core/errors");
+const { refusedOn } = await import("@/shared/testing/publishedRefusals.ts");
 const { ENROLMENT_WINDOW_MS } = await import("@/core/sessionLifetimes");
 
 /** A body that sends a write before it answers, as a call through the API client records one. */
@@ -183,6 +184,56 @@ describe("the refresh an admin write owes the page", () => {
     }
   });
 
+  /* A drop after the awaited write never reaches a write whose answer was lost, and the cached public
+     read it feeds serves the replaced data for days (`docs/frontend/spec.md :: I640`). */
+  it("drops the tags a body declared after a landed write, and after one whose answer was lost", async () => {
+    const lost = new APINetworkError({
+      message: "Request failed.",
+      url: "http://backend:8000",
+      method: "PATCH",
+      readOnly: false,
+      traceId: "0",
+      isTimeout: false,
+    });
+    for (const answer of [() => Promise.resolve({ success: true }), () => Promise.reject(lost)]) {
+      cacheCalls.length = 0;
+      await runAdminMutation(
+        "probeAction",
+        writing(() => {
+          invalidatesOnWrite("spieler", "teams:saison_id:2526");
+          return answer();
+        }),
+      );
+
+      assert.deepEqual(
+        cacheCalls.map(({ name, args }) => [name, ...args]),
+        [["updateTag", "spieler"], ["updateTag", "teams:saison_id:2526"], ["refresh"]],
+      );
+    }
+  });
+
+  /* A partial answer stands behind a landed write the page is not re-read for; a refusal and a body
+     that sent nothing moved no cached read. */
+  it("drops them after a partial write without the refresh, and never after a refusal or no write", async () => {
+    const declaring =
+      <T>(answer: T) =>
+      (): Promise<T> => {
+        invalidatesOnWrite("teams");
+        return Promise.resolve(answer);
+      };
+
+    await runAdminMutation("probeAction", writing(declaring({ success: false, error: "Teils.", outcome: "partial" as const })));
+    assert.deepEqual(
+      cacheCalls.map(({ name, args }) => [name, ...args]),
+      [["updateTag", "teams"]],
+    );
+
+    cacheCalls.length = 0;
+    await runAdminMutation("probeAction", writing(declaring({ success: false, error: "Nein." })));
+    await runAdminMutation("probeAction", declaring({ success: true }));
+    assert.deepEqual(cacheCalls, []);
+  });
+
   /* Next throws on `refresh()` outside a server action, which the spine would answer as an unclear undo. */
   it("leaves a route handler's success to the route", async () => {
     const answer = await runAdminRouteWrite(
@@ -197,16 +248,8 @@ describe("the refresh an admin write owes the page", () => {
   /* An undo replaying a step-up write meets the backend's own window as an action does: answered in other
      words, the admin is sent to a retry the same window refuses (`docs/frontend/spec.md :: I493`). */
   it("answers the backend's refusal for want of a confirmation as the step-up refusal, refreshing nothing", async () => {
-    const refused = new APIBadStatusError({
-      url: "http://api/x",
-      endpoint: "/x",
-      traceId: "a".repeat(32),
-      message: "refused",
-      statusCode: 403,
-      serverErrorCode: "REQ-AUTH-009",
-      method: "PATCH",
-      readOnly: false,
-    });
+    // The contacts save, one of the step-up writes an undo replays.
+    const refused = refusedOn("PATCH /teams/{team_id}/saisons/{saison_id}/kontakte", "REQ-AUTH-009");
 
     const answer = await runAdminRouteWrite(
       "probeRoute",

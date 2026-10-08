@@ -1,7 +1,7 @@
 import inspect
 from collections.abc import Mapping
 from http import HTTPStatus
-from typing import Any, get_args
+from typing import Any
 
 import pytest
 from pydantic import ValidationError
@@ -9,7 +9,6 @@ from pydantic import ValidationError
 from app.api.bewerbungen.schemas import (
     FLBewerbungEinwilligungAnsichtPayload,
     FLBewerbungEinwilligungAntwortPayload,
-    FLKontaktRolle,
     refuse_age_outside_the_bounds,
 )
 from app.api.bewerbungen.services import (
@@ -21,12 +20,13 @@ from app.api.bewerbungen.services import (
     BEWERBUNG_TOKEN_UNKNOWN,
     EINWILLIGUNG_ANSICHT_FIELDS,
     EINWILLIGUNG_ANTWORT_FIELDS,
-    KONTAKT_SEATS,
     SEAT_MIN_AGE_YEARS,
     TOKEN_HASH_FIELDS,
     WITHOUT_TOKEN_HASHES,
+    antwort_seite,
     ausstehende_seats,
     bestaetigungsfrist_from,
+    bewerbung_kontakt_seite,
     build_token_filter,
     compose_bestaetigungen,
     compose_confirmation_update,
@@ -38,14 +38,16 @@ from app.api.bewerbungen.services import (
     find_unconfirmed_kontakte_refusal,
     find_unknown_token_refusal,
     hash_token,
+    kontakt_seite_of,
     mindestalter_for,
     mint_token,
     paired_seat,
+    saison_kontakt_seite,
     seat_holding,
     seat_named,
     zustand_of,
 )
-from app.api.kontakte.services import KONTAKT_SLOTS
+from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.constraints import _BEWERBUNG_BESTAETIGUNG, _BEWERBUNG_BESTAETIGUNGEN
 from app.shared.schemas.bounds import (
     BEWERBUNG_BESTAETIGUNG_FRIST_TAGE,
@@ -61,7 +63,7 @@ TOMORROW = "2026-04-02"
 
 # Fixed rather than minted, so a case names the same hash every run; the raw values are never
 # needed here, only what the database would hold.
-HASHES: Mapping[str, str] = {seat: hash_token(f"raw-{seat}") for seat in KONTAKT_SEATS}
+HASHES: Mapping[str, str] = {seat: hash_token(f"raw-{seat}") for seat in KONTAKT_ROLLEN}
 BESTAETIGUNGEN: Mapping[str, Any] = compose_bestaetigungen(hashes=HASHES, today=TODAY)
 
 
@@ -91,14 +93,11 @@ def application(**overrides: Any) -> dict[str, Any]:
 
 
 class TestTheSeatSpellings:
-    """Three spellings of one set, held equal: the wire's `Literal`, the erasure's derivation and the composer's tuple."""
+    """`seat_named` answers a seat's own spelling and nothing else, the block's other key included."""
 
-    def test_the_literal_the_derivation_and_the_tuple_agree(self):
-        assert get_args(FLKontaktRolle) == KONTAKT_SLOTS == KONTAKT_SEATS
-
-    @pytest.mark.parametrize("value", [*KONTAKT_SEATS, "trainer_ist_zugleich", "", None, 7])
+    @pytest.mark.parametrize("value", [*KONTAKT_ROLLEN, "trainer_ist_zugleich", "", None, 7])
     def test_only_a_seat_is_named(self, value: Any):
-        assert seat_named(value) == (value if value in KONTAKT_SEATS else None)
+        assert seat_named(value) == (value if value in KONTAKT_ROLLEN else None)
 
 
 class TestTheTokenAndItsHash:
@@ -124,7 +123,7 @@ class TestTheTokenAndItsHash:
 
         db_filter = build_token_filter(token_hash="abc")
 
-        assert db_filter == {"$or": [{f"bestaetigungen.{seat}.{field}": "abc"} for seat in KONTAKT_SEATS for field in TOKEN_HASH_FIELDS]}
+        assert db_filter == {"$or": [{f"bestaetigungen.{seat}.{field}": "abc"} for seat in KONTAKT_ROLLEN for field in TOKEN_HASH_FIELDS]}
 
     def test_the_projection_names_every_seats_hash_and_excludes_it(self):
         """Read off the validator rather than off `TOKEN_HASH_FIELDS` alone.
@@ -136,7 +135,7 @@ class TestTheTokenAndItsHash:
         declared = sorted(field for field in _BEWERBUNG_BESTAETIGUNG["properties"] if field.startswith("token_hash"))
 
         assert declared == sorted(TOKEN_HASH_FIELDS)
-        assert WITHOUT_TOKEN_HASHES == {f"bestaetigungen.{seat}.{field}": 0 for seat in KONTAKT_SEATS for field in declared}
+        assert WITHOUT_TOKEN_HASHES == {f"bestaetigungen.{seat}.{field}": 0 for seat in KONTAKT_ROLLEN for field in declared}
 
 
 PROJECTIONS = [
@@ -148,7 +147,7 @@ PROJECTIONS = [
 def per_seat_paths(projection: Mapping[str, int]) -> list[tuple[str, str, str]]:
     """Each `<block>.<seat>.<leaf>` key parted in three.
 
-    Selected by the key's SHAPE, never by `KONTAKT_SEATS`: a fourth seat drawn from that tuple would
+    Selected by the key's SHAPE, never by `KONTAKT_ROLLEN`: a fourth seat drawn from that tuple would
     otherwise drop out of this population and pass.
     """
 
@@ -191,15 +190,15 @@ class TestTheDeadline:
     def test_the_block_carries_every_seat_with_its_four_keys(self):
         block = compose_bestaetigungen(hashes=HASHES, today=TODAY)
 
-        assert set(block) == set(KONTAKT_SEATS)
-        for seat in KONTAKT_SEATS:
+        assert set(block) == set(KONTAKT_ROLLEN)
+        for seat in KONTAKT_ROLLEN:
             assert block[seat] == {"token_hash": HASHES[seat], "verschickt_am": TODAY, "erinnert_am": None, "abgelehnt_am": None}
 
 
 class TestATokenNoSeatHolds:
     """`REQ-BEWERBUNG-009`: the one answer for unknown, replaced and deleted, because nothing tells them from a guess."""
 
-    @pytest.mark.parametrize("seat", KONTAKT_SEATS)
+    @pytest.mark.parametrize("seat", KONTAKT_ROLLEN)
     def test_a_hash_a_seat_holds_names_that_seat(self, seat: str):
         assert seat_holding(bewerbung_raw=application(), token_hash=HASHES[seat]) == seat
         assert find_unknown_token_refusal(seat=seat_named(seat)) is None
@@ -331,7 +330,7 @@ class TestWhichFloorAPersonClears:
     def test_every_seat_declares_a_floor_and_no_other_key_does(self):
         """A seat added to the set with no row here is a `KeyError` at the confirmation rather than a silent 16."""
 
-        assert set(SEAT_MIN_AGE_YEARS) == set(KONTAKT_SEATS)
+        assert set(SEAT_MIN_AGE_YEARS) == set(KONTAKT_ROLLEN)
 
     # The NUMBERS rather than the constants that hold them: read through the constants, every case
     # here passes with both of them set to one value, which is the state this slice exists to end.
@@ -454,7 +453,7 @@ class TestWhatAReopenedLinkShows:
 
 class TestTheSeatsStillOpen:
     def test_every_seat_is_open_at_submission(self):
-        assert ausstehende_seats(kontakte=kontakte()) == list(KONTAKT_SEATS)
+        assert ausstehende_seats(kontakte=kontakte()) == list(KONTAKT_ROLLEN)
 
     def test_a_confirmed_seat_leaves_the_list_and_the_order_stands(self):
         assert ausstehende_seats(kontakte=kontakte(ansprechperson=kontaktperson_document("Ansgar", bestaetigt_am=TODAY))) == [
@@ -477,7 +476,7 @@ class TestAnEmptyStampConfirmsNothing:
     """Every reader of a seat's stamp agrees with the other packages: the seat stays open."""
 
     def test_the_seat_is_still_outstanding(self):
-        assert ausstehende_seats(kontakte=EMPTY_STAMP) == list(KONTAKT_SEATS)
+        assert ausstehende_seats(kontakte=EMPTY_STAMP) == list(KONTAKT_ROLLEN)
 
     def test_its_link_still_takes_the_answer(self):
         assert find_already_answered_refusal(kontakte=EMPTY_STAMP, bestaetigungen=BESTAETIGUNGEN, seat="trainer") is None
@@ -518,34 +517,58 @@ class TestThePairedSeat:
         assert paired_seat(kontakte=block, bestaetigungen=BESTAETIGUNGEN, seat="stellvertretung") is None
 
 
+# The seat's record as the answer's read holds it, `medien` refused so the case can tell the answer's
+# own media consent from the stored one.
+STORED_RECORD = {
+    "umfang": "kontaktdaten",
+    "bestaetigt_am": None,
+    "medien": False,
+    "datum": "2026-03-20",
+    "eingetragen_von": "bewerbung",
+}
+AM = "2026-04-01T08:00:00+00:00"
+
+
+def confirmation(*, seats: tuple[str, ...] = ("trainer",), whatsapp: bool = False, medien: bool = True) -> Mapping[str, Any]:
+    stored = {seat: {"einwilligung": dict(STORED_RECORD)} for seat in KONTAKT_ROLLEN}
+
+    return compose_confirmation_update(
+        kontakte=stored, seats=seats, geburtsdatum="1984-05-09", today=TODAY, text_version="v4", whatsapp=whatsapp, medien=medien, am=AM
+    )
+
+
 class TestWhatAConfirmationWrites:
-    """One `$set` per answer, so `docs/backend/spec.md :: I141`'s pairing cannot land in halves."""
+    """One update per answer, so `docs/backend/spec.md :: I141`'s pairing cannot land in halves."""
 
-    def test_a_consent_writes_the_date_the_stamp_the_source_and_the_wording_together(self):
-        update = compose_confirmation_update(seats=("trainer",), geburtsdatum="1984-05-09", today=TODAY, text_version="v4", whatsapp=False)
+    def test_a_consent_moves_the_record_field_by_field_with_each_choices_evidence(self):
+        """Never the block whole: that would erase `eingetragen_von`, which is what decides the page a link opens."""
 
-        assert update == {
+        assert confirmation() == {
             "$set": {
                 "kontakte.trainer.geburtsdatum": "1984-05-09",
                 "kontakte.trainer.einwilligung.bestaetigt_am": TODAY,
-                "kontakte.trainer.einwilligung.erfasst_von": "person",
                 "kontakte.trainer.einwilligung.text_version": "v4",
                 "kontakte.trainer.einwilligung.umfang": "kontaktdaten",
-            }
+                "kontakte.trainer.einwilligung.nachweis.umfang": {"am": AM, "text_version": "v4"},
+                "kontakte.trainer.einwilligung.medien": True,
+                "kontakte.trainer.einwilligung.nachweis.medien": {"am": AM, "text_version": "v4"},
+            },
+            # No speaker is written, and one a seat stored before its answer named goes.
+            "$unset": {"kontakte.trainer.einwilligung.erteilt_von": "", "kontakte.trainer.einwilligung.erfasst_von": ""},
         }
 
     def test_the_whatsapp_tick_widens_the_scope_and_nothing_else(self):
-        update = compose_confirmation_update(seats=("trainer",), geburtsdatum="1984-05-09", today=TODAY, text_version="v4", whatsapp=True)
+        update = confirmation(whatsapp=True)
 
         assert update["$set"]["kontakte.trainer.einwilligung.umfang"] == "kontaktdaten_whatsapp"
+        assert update["$set"]["kontakte.trainer.einwilligung.nachweis.umfang"] == {"am": AM, "text_version": "v4"}
 
     def test_a_paired_seat_takes_every_key_the_first_does(self):
-        update = compose_confirmation_update(
-            seats=("trainer", "ansprechperson"), geburtsdatum="1984-05-09", today=TODAY, text_version="v4", whatsapp=False
-        )
+        update = confirmation(seats=("trainer", "ansprechperson"))
 
         assert {key.split(".")[1] for key in update["$set"]} == {"trainer", "ansprechperson"}
-        assert len(update["$set"]) == 10
+        assert len(update["$set"]) == 14
+        assert {key.split(".")[1] for key in update["$unset"]} == {"trainer", "ansprechperson"}
 
     def test_a_decline_empties_the_slot_and_marks_the_day_beside_it(self):
         assert compose_decline_update(seats=("trainer",), today=TODAY) == {
@@ -564,7 +587,15 @@ class TestWhatAConfirmationWrites:
 
 
 def antwort(**overrides: Any) -> dict[str, Any]:
-    return {"token": "raw-trainer", "antwort": "erteilt", "geburtsdatum": "1984-05-09", "whatsapp": False, "text_version": "v4", **overrides}
+    return {
+        "token": "raw-trainer",
+        "antwort": "erteilt",
+        "geburtsdatum": "1984-05-09",
+        "whatsapp": False,
+        "medien": False,
+        "text_version": "v4",
+        **overrides,
+    }
 
 
 class TestWhatTheAnswerPayloadRefuses:
@@ -597,7 +628,7 @@ class TestWhatTheAnswerPayloadRefuses:
 
         assert (payload.antwort, payload.whatsapp) == ("abgelehnt", False)
 
-    @pytest.mark.parametrize("field", ["geburtsdatum", "whatsapp", "text_version", "antwort"])
+    @pytest.mark.parametrize("field", ["geburtsdatum", "whatsapp", "medien", "text_version", "antwort"])
     def test_every_field_is_required(self, field: str, assert_rejects):
         body = antwort()
         del body[field]
@@ -616,3 +647,94 @@ class TestWhatTheAnswerPayloadRefuses:
             FLBewerbungEinwilligungAnsichtPayload.model_validate({"token": "raw", "seat": "trainer"})
 
         assert [entry["type"] for entry in failure.value.errors()] == ["extra_forbidden"]
+
+
+def seat_record(*, eingetragen_von: str | None, datum: str = "2026-03-20") -> dict[str, Any]:
+    """A seat's record naming who seated its person, or stored before the field where that is `None`."""
+
+    return {"datum": datum, **({} if eingetragen_von is None else {"eingetragen_von": eingetragen_von})}
+
+
+class TestWhichPageASeatOpens:
+    """The person reads a page true for them: the applicant's where the applicant named them, their home's own elsewhere."""
+
+    @pytest.mark.parametrize(
+        ("seiten", "seite"),
+        [
+            pytest.param(["bestaetigung_kontakt"], "bestaetigung_kontakt", id="one applicant-named seat"),
+            pytest.param(["bestaetigung_kontakt", "bestaetigung_kontakt"], "bestaetigung_kontakt", id="both named by the applicant"),
+            pytest.param(["bestaetigung_kontakt", "bestaetigung_kontakt_saison"], "bestaetigung_kontakt_saison", id="a mixed pair"),
+            pytest.param(
+                ["bestaetigung_kontakt_saison", "bestaetigung_kontakt"], "bestaetigung_kontakt_saison", id="a mixed pair the other way"
+            ),
+            pytest.param(["bestaetigung_kontakt_saison"], "bestaetigung_kontakt_saison", id="one seat the league filled"),
+        ],
+    )
+    def test_a_link_answering_two_seats_opens_one_page(self, seiten: list[Any], seite: str):
+        """One press is one person's answer to one page: a mixed pair opens its home's own, true of the seat the league filled."""
+
+        assert antwort_seite(seiten=seiten, verwaltet="bestaetigung_kontakt_saison") == seite
+
+    @pytest.mark.parametrize(
+        ("eingetragen_von", "seite"),
+        [
+            pytest.param("bewerbung", "bestaetigung_kontakt", id="named by the applicant"),
+            pytest.param("liga", "bestaetigung_kontakt_verwaltung", id="reseated or entered by the editor"),
+        ],
+    )
+    def test_who_seated_the_person_decides_whatever_the_fallback_says(self, eingetragen_von: str, seite: str):
+        for fallback in (True, False):
+            entschieden = kontakt_seite_of(
+                einwilligung=seat_record(eingetragen_von=eingetragen_von),
+                sonst_vom_bewerber=fallback,
+                verwaltet="bestaetigung_kontakt_verwaltung",
+            )
+            assert entschieden == seite
+
+    @pytest.mark.parametrize("fallback", [True, False])
+    def test_a_value_outside_the_vocabulary_reads_as_a_seat_stored_before_the_field(self, fallback: bool):
+        """`verwaltung` is the access tier's word, never this field's: a hand-written one must not pick a page."""
+
+        entschieden = kontakt_seite_of(
+            einwilligung=seat_record(eingetragen_von="verwaltung"), sonst_vom_bewerber=fallback, verwaltet="bestaetigung_kontakt_verwaltung"
+        )
+
+        assert entschieden == ("bestaetigung_kontakt" if fallback else "bestaetigung_kontakt_verwaltung")
+
+    @pytest.mark.parametrize(
+        ("eingetragen_von", "seite"),
+        [
+            pytest.param("bewerbung", "bestaetigung_kontakt", id="named by the applicant, carried at acceptance"),
+            pytest.param("liga", "bestaetigung_kontakt_saison", id="reseated then carried, or entered by the editor"),
+        ],
+    )
+    def test_a_season_row_seat_an_administrator_filled_opens_the_season_rows_page(self, eingetragen_von: str, seite: str):
+        """A season row's seat speaks of no application, however the administrator came to fill it."""
+
+        row = {"kontakte": {"trainer": {"email": "ida@example.org", "einwilligung": seat_record(eingetragen_von=eingetragen_von)}}}
+
+        assert saison_kontakt_seite(row=row, seat="trainer") == seite
+
+    @pytest.mark.parametrize(
+        ("datum", "seite"),
+        [
+            pytest.param("2026-03-20", "bestaetigung_kontakt", id="dated the submission's day"),
+            pytest.param("2026-03-27", "bestaetigung_kontakt_verwaltung", id="dated the reseat's day"),
+        ],
+    )
+    def test_an_application_seat_stored_before_the_field_is_read_off_its_day(self, datum: str, seite: str):
+        """The submission stamps its own day on every seat it writes; a reseat stamps the day it seats somebody."""
+
+        bewerbung_raw = {
+            "eingereicht_am": "2026-03-20",
+            "kontakte": {"trainer": {"einwilligung": seat_record(eingetragen_von=None, datum=datum)}},
+        }
+
+        assert bewerbung_kontakt_seite(bewerbung_raw=bewerbung_raw, seat="trainer") == seite
+
+    def test_a_season_row_seat_stored_before_the_field_opens_the_season_rows_page(self):
+        """Whoever named its person: the applicant's page promises a deadline and a message a season row's link never brings."""
+
+        row = {"kontakte": {"trainer": {"email": "ida@example.org", "einwilligung": seat_record(eingetragen_von=None)}}}
+
+        assert saison_kontakt_seite(row=row, seat="trainer") == "bestaetigung_kontakt_saison"

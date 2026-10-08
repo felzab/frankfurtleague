@@ -489,7 +489,7 @@ class TestAnErasureLeavesTheListStanding:
                     "inactive_since": None,
                 }
             )
-            await delete_spieler(spieler_id=spieler_id, spieler_collection=database[Collection.SPIELER], today=TODAY)
+            await delete_spieler(spieler_id=spieler_id, spieler_collection=database[Collection.SPIELER], today=TODAY, db=database.client)
             await erase_spieler(
                 spieler_id=spieler_id,
                 spieler_collection=database[Collection.SPIELER],

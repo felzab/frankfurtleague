@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { SITE_URL } from "@/core/brand.ts";
-import { redactedParameterNames } from "@/core/edgeRedaction.ts";
+import { assertRedactedAtTheEdge } from "@/core/edgeRedaction.ts";
 import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { cacheCalls, doubleActionRequest, doubleActions } from "@/shared/testing/actionDoubles.ts";
@@ -83,14 +83,8 @@ describe("the invite link the mail carries", () => {
     assert.equal(einladungsLink(ORIGIN, "a b&c=d?e/f#g"), `${ORIGIN}/registrierung?token=a%20b%26c%3Dd%3Fe%2Ff%23g`);
   });
 
-  /* The name is the whole of what the edge matches on (`docs/logging/spec.md :: L11`), so a link
-     spelled with any other parameter writes the credential into the access line and the referer. */
   it("names a parameter the edge's own redaction map replaces", () => {
-    const redacted = redactedParameterNames();
-    const name = /\?(\w+)=/.exec(einladungsLink(ORIGIN, "beispiel-eins"))?.[1] ?? "";
-
-    assert.ok(redacted.length > 0, "the edge's map was read as replacing no parameter at all, so this case compares nothing");
-    assert.ok(redacted.includes(name), `the link is spelled \`${name}=\`, which the edge does not redact`);
+    assertRedactedAtTheEdge(einladungsLink(ORIGIN, "beispiel-eins"));
   });
 });
 

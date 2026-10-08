@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 import { publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
-import { assertEachRefusalCloses, doubleRouteRequest, unacknowledged, undo } from "@/shared/testing/undoRoutes.ts";
+import { assertEachRefusalCloses, doubleRouteRequest, revalidatedTags, unacknowledged, undo } from "@/shared/testing/undoRoutes.ts";
 
 /* The real route and the mutations it replays through, called: the request it runs in and the backend client are the doubles. */
 doubleRouteRequest();
@@ -53,6 +53,11 @@ describe("the team save's undo", () => {
       { endpoint: `/teams/${id}`, method: "PATCH", body: club },
       { endpoint: `/teams/${team_id}/saisons/${saison_id}`, method: "PATCH", body: junction },
     ]);
+    // The caches the replay moves, which the undo spine drops with no staleness tolerated.
+    assert.deepEqual(
+      revalidatedTags(),
+      ["teams", "spiele", `teams:saison_id:${saison_id}`, `spiele:saison_id:${saison_id}`].map((tag) => [tag, { expire: 0 }]),
+    );
   });
 
   it("words every refusal the club half publishes, closing on the change standing once", async () => {

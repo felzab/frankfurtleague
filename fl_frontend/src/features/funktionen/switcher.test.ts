@@ -37,7 +37,7 @@ answerReadsWith((endpoint, schema, params) =>
 );
 
 /** The name the switcher's trigger carries in the markup, or `null` where the shell shows no switcher. */
-const triggerIn = (markup: string): string | null => /aria-label="([^"]*, Funktion wechseln)"/.exec(markup)?.[1] ?? null;
+const triggerIn = (markup: string): string | null => /aria-label="([^"]*: Funktion wechseln)"/.exec(markup)?.[1] ?? null;
 
 /** What a render at `pathname` leaves, and every backend read it made on the way. */
 async function renderedAt(tree: ReactElement, pathname: string): Promise<{ markup: string; reads: string[] }> {
@@ -56,7 +56,7 @@ describe("the switcher each signed-in shell heads its sidemenu with", () => {
     const { markup, reads } = await teamAt(`/bereich/team/${TEAM_A}/2526`);
 
     assert.deepEqual(reads, [], "the team shell reads past the session its switcher is drawn from");
-    assert.equal(triggerIn(markup), "Goethe-Gymnasium, Funktion wechseln");
+    assert.equal(triggerIn(markup), "Goethe-Gymnasium: Funktion wechseln");
   });
 
   /* One team in two seasons shares one title, so the trigger announces the season the address holds. */
@@ -65,7 +65,7 @@ describe("the switcher each signed-in shell heads its sidemenu with", () => {
     const { markup, reads } = await teamAt(`/bereich/team/${TEAM_A}/2526`);
 
     assert.deepEqual(reads, [], "the team shell reads past the session its switcher is drawn from");
-    assert.equal(triggerIn(markup), "Goethe-Gymnasium, Saison 2526, Funktion wechseln");
+    assert.equal(triggerIn(markup), "Goethe-Gymnasium, Saison 2526: Funktion wechseln");
   });
 
   /* Two seats at one team and season are one place, which is no choice to offer. */
@@ -82,7 +82,7 @@ describe("the switcher each signed-in shell heads its sidemenu with", () => {
     const { markup, reads } = await renderedAt(h(PersoenlichLayout, { children: null }), "/bereich/spieler");
 
     assert.deepEqual(reads, [], "the person shell reads past the session its switcher is drawn from");
-    assert.equal(triggerIn(markup), "Spieler, Funktion wechseln");
+    assert.equal(triggerIn(markup), "Spieler: Funktion wechseln");
   });
 
   /* One page, one name: the rail's own entry and the bar call `/bereich` „Übersicht“, and so does the
@@ -92,7 +92,7 @@ describe("the switcher each signed-in shell heads its sidemenu with", () => {
     const { markup, reads } = await renderedAt(h(PersoenlichLayout, { children: null }), "/bereich");
 
     assert.deepEqual(reads, [], "the person shell reads past the session its switcher is drawn from");
-    assert.equal(triggerIn(markup), "Übersicht, Funktion wechseln");
+    assert.equal(triggerIn(markup), "Übersicht: Funktion wechseln");
   });
 });
 
@@ -150,7 +150,7 @@ describe("the administrator's switcher", () => {
   it("names the administration where the administrator also holds a seat", async () => {
     const { markup } = await adminAt({ sitze: [sitz()] });
 
-    assert.equal(triggerIn(markup), "Verwaltung, Funktion wechseln");
+    assert.equal(triggerIn(markup), "Verwaltung: Funktion wechseln");
   });
 
   it("shows none where the grant is all the administrator holds", async () => {

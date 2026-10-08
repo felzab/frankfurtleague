@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, it } from "node:test";
 
 import { z } from "zod";
@@ -8,12 +10,16 @@ import { publishedOperations } from "@/core/openapiDocument.ts";
 import { bodyField, refusedPayload } from "@/shared/testing/refusedPayload.ts";
 
 import {
+  EDGE_REFUSAL_BODY,
   FELD_ABGELEHNT,
+  HEUTE_GENUG_GEAENDERT,
   isRuleRefusal,
+  outcomeUnknown,
   refusedDraftAnswer,
   rejectedWrite,
   toActionErrorResult,
   unansweredAction,
+  ZU_VIELE_VERSUCHE_NICHTS_GESPEICHERT,
   ZUGANG_WEG,
 } from "./actionError.ts";
 import { UNKNOWN_REFUSAL } from "./refusal.ts";
@@ -38,6 +44,18 @@ describe("toActionErrorResult", () => {
       const result = toActionErrorResult(new APIBadStatusError({ ...sent, message: "bad", statusCode: 403, serverErrorCode: "REQ-AUTH-006" }));
 
       assert.deepEqual(result, { success: false, error: ZUGANG_WEG }, sent.method);
+    }
+  });
+
+  /* Raised before the write on every person's route, so nothing was written; a retry meets the same count
+     until German midnight, which is why the server error's retry is never offered. */
+  it("tells a person at their day's ceiling to come back tomorrow, at any status the code arrives at", () => {
+    for (const statusCode of [429, 409]) {
+      const result = toActionErrorResult(
+        new APIBadStatusError({ ...write, message: "bad", statusCode, serverErrorCode: "REQ-DROSSELUNG-001" }),
+      );
+
+      assert.deepEqual(result, { success: false, error: HEUTE_GENUG_GEAENDERT }, String(statusCode));
     }
   });
 
@@ -338,7 +356,16 @@ describe("a refusal read by its code, whatever its status", () => {
   /* By the class alone: each protocol class keeps any code the backend adds to it, and only a rule's
      code or the unique index's is ever a refusal a mapper words. */
   it("classifies a code by its class, whatever it is numbered", () => {
-    for (const code of ["REQ-AUTH-005", "REQ-VAL-001", "REQ-VAL-002", "REQ-ROUTE-001", "DB-COMMON-001", "DB-CONN-001", "SRV-FAIL-001"]) {
+    for (const code of [
+      "REQ-AUTH-005",
+      "REQ-VAL-001",
+      "REQ-VAL-002",
+      "REQ-ROUTE-001",
+      "REQ-DROSSELUNG-001",
+      "DB-COMMON-001",
+      "DB-CONN-001",
+      "SRV-FAIL-001",
+    ]) {
       assert.equal(isRefusalCode(code), false, code);
     }
     for (const code of ["REQ-SWAP-007", "REQ-BEWERBUNG-009", "REQ-UNCLAIMED-000", "DB-COMMON-002"])
@@ -431,8 +458,42 @@ describe("a write action that rejected", () => {
     let refreshed = 0;
     const router = { refresh: () => void (refreshed += 1) };
 
-    assert.deepEqual(rejectedWrite(router)(), unansweredAction());
-    assert.deepEqual(rejectedWrite(router, "Prüfe die Verbindung.")(), { ...unansweredAction(), error: "Prüfe die Verbindung." });
+    const dropped = new Error("An unexpected response was received from the server.");
+    assert.deepEqual(rejectedWrite(router)(dropped), outcomeUnknown());
+    assert.deepEqual(rejectedWrite(router, "Prüfe die Verbindung.")(dropped), { ...outcomeUnknown(), error: "Prüfe die Verbindung." });
     assert.equal(refreshed, 2, "a rejected write left the page as it was");
+  });
+
+  /* As Next's action client raises it: the body of a non-RSC answer under exactly `text/plain` becomes the
+     error's message. Anything else it raises carries its own generic message, which stays unclear. */
+  it("says nothing was saved where the edge refused the press, reading nothing again", () => {
+    let refreshed = 0;
+    const router = { refresh: () => void (refreshed += 1) };
+    const edge = new Error(EDGE_REFUSAL_BODY);
+    const refused = { success: false, error: ZU_VIELE_VERSUCHE_NICHTS_GESPEICHERT };
+
+    assert.deepEqual(unansweredAction(edge), refused);
+    assert.deepEqual(unansweredAction(edge, "Prüfe die Verbindung."), refused);
+    assert.deepEqual(rejectedWrite(router)(edge), refused);
+    assert.deepEqual(rejectedWrite(router, "Prüfe die Verbindung.")(edge), refused);
+    assert.equal(refreshed, 0, "a press the edge refused wrote nothing to read again");
+
+    for (const other of [
+      new Error("An unexpected response was received from the server."),
+      new Error(`${EDGE_REFUSAL_BODY}\n`),
+      EDGE_REFUSAL_BODY,
+    ]) {
+      assert.deepEqual(unansweredAction(other), outcomeUnknown(), String(other));
+    }
+  });
+
+  /* Source text rather than a served answer: `nginx/edge_test.sh` serves the file and grades the body
+     against this same line, so the two halves meet at it. */
+  it("expects the very sentence the edge returns, in ASCII alone", () => {
+    const site = readFileSync(path.resolve(import.meta.dirname, "..", "..", "..", "..", "nginx", "shared", "site.conf"), "utf8");
+    const returned = [...site.matchAll(/^\s*return 429 "(.*)";$/gm)].map((match) => match[1]);
+
+    assert.deepEqual(returned, [EDGE_REFUSAL_BODY]);
+    assert.match(EDGE_REFUSAL_BODY, /^[ -~]+$/);
   });
 });

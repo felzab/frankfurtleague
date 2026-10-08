@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
+import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
 
 import {
@@ -20,13 +22,16 @@ import type { FLKontaktperson, FLTeamMembership } from "@/features/teams/schemas
 import type { KontaktpersonDraft, SaisonTeamKontakteDraft } from "@/features/teams/types";
 import type { FLKontaktErasureAnsichtResponse } from "./schemas";
 
+/** The label the backend runs on the application form, which a seat opened blank stamps. */
+const LABEL = publishedLaufendeFassung("bewerbung").text_version;
+
 const person = (overrides: Partial<KontaktpersonDraft> = {}): KontaktpersonDraft => ({
   vorname: "Erika",
   nachname: "Mustermann",
   email: "erika@beispiel.de",
   telefon: "069 1234567",
   geburtsdatum: "1990-01-01",
-  einwilligung: { umfang: "kontaktdaten", erfasst_von: "person", text_version: "2025-08", datum: "2025-09-01", bestaetigt_am: "2025-09-02" },
+  einwilligung: kenntnisnahme({ erfasst_von: "person", text_version: "2025-08", datum: "2025-09-01", bestaetigt_am: "2025-09-02" }),
   ...overrides,
 });
 
@@ -34,7 +39,7 @@ const person = (overrides: Partial<KontaktpersonDraft> = {}): KontaktpersonDraft
 const block = (overrides: Partial<SaisonTeamKontakteDraft> = {}): SaisonTeamKontakteDraft => ({
   trainer: person(),
   ansprechperson: person({ vorname: "Max", email: "max@beispiel.de", telefon: "069 7654321", geburtsdatum: "1985-05-05" }),
-  stellvertretung: person({ vorname: "Lena", email: "lena@beispiel.de" }),
+  stellvertretung: person({ vorname: "Lena", email: "lena@beispiel.de", telefon: "069 2345678" }),
   trainer_ist_zugleich: null,
   ...overrides,
 });
@@ -93,29 +98,40 @@ describe("applySeatPresence", () => {
   /* Re-judged on the way OUT only. A seat just switched on holds fields nobody has typed in, and a
      message over those describes a value nobody finished entering. */
   it("re-judges the seats a switch emptied and never the ones it opened", () => {
-    assert.equal(applySeatPresence(block(), "trainer", false).revalidate, true);
-    assert.equal(applySeatPresence(block({ trainer: null }), "trainer", true).revalidate, false);
-    assert.equal(applySeatPresence(block(), "stellvertretung", false).revalidate, true);
-    assert.equal(applySeatPresence(block({ stellvertretung: null }), "stellvertretung", true).revalidate, false);
+    assert.equal(applySeatPresence(block(), "trainer", false, LABEL).revalidate, true);
+    assert.equal(applySeatPresence(block({ trainer: null }), "trainer", true, LABEL).revalidate, false);
+    assert.equal(applySeatPresence(block(), "stellvertretung", false, LABEL).revalidate, true);
+    assert.equal(applySeatPresence(block({ stellvertretung: null }), "stellvertretung", true, LABEL).revalidate, false);
   });
 
   it("empties the seat it is given and opens a blank person in it", () => {
-    assert.equal(applySeatPresence(block(), "stellvertretung", false).next.stellvertretung, null);
+    assert.equal(applySeatPresence(block(), "stellvertretung", false, LABEL).next.stellvertretung, null);
 
-    const opened = applySeatPresence(block({ trainer: null }), "trainer", true).next;
+    const opened = applySeatPresence(block({ trainer: null }), "trainer", true, LABEL).next;
     assert.equal(opened.trainer?.vorname, "");
     assert.equal(opened.trainer?.einwilligung.erfasst_von, null);
+    // The label the page read, never one the slice keeps: a blank seat cites the words the form runs.
+    assert.equal(opened.trainer?.einwilligung.text_version, LABEL);
+  });
+
+  /* A blank seat stamps the running label, so without it a seat opens on nobody; one switched off
+     and on again gets its person back, who needs no label. */
+  it("opens no blank person where the label could not be read, and gives a held person back", () => {
+    assert.equal(applySeatPresence(block({ trainer: null }), "trainer", true, null).next.trainer, null);
+
+    const gehalten = block().trainer ?? assert.fail("the fixture seats no Trainer");
+    assert.equal(applySeatPresence(block({ trainer: null }), "trainer", true, null, gehalten).next.trainer, gehalten);
   });
 
   /* The switch moves ITS OWN seat and nothing else. The claim is honoured when the payload is
      composed, so a switch that also moved the mirrored seat would write into the draft the very
      overwrite composing exists to avoid. */
   it("reaches no seat beside its own, claim or no claim", () => {
-    const shared = applySeatPresence(block({ trainer_ist_zugleich: "ansprechperson" }), "trainer", false).next;
+    const shared = applySeatPresence(block({ trainer_ist_zugleich: "ansprechperson" }), "trainer", false, LABEL).next;
     assert.equal(shared.trainer, null);
     assert.equal(shared.ansprechperson?.vorname, "Max", "emptying the Trainer emptied the seat the claim names");
 
-    const alone = applySeatPresence(block(), "trainer", false).next;
+    const alone = applySeatPresence(block(), "trainer", false, LABEL).next;
     assert.equal(alone.trainer, null);
     assert.equal(alone.ansprechperson?.vorname, "Max");
     assert.equal(alone.stellvertretung?.vorname, "Lena");
@@ -124,7 +140,7 @@ describe("applySeatPresence", () => {
   /* What the composed payload does with it: the Trainer reads the named seat, so emptying that seat
      is what empties the Trainer — through `mirrorKontakte`, not through the switch. */
   it("empties the composed trainer by emptying the seat the claim names", () => {
-    const emptied = applySeatPresence(block({ trainer_ist_zugleich: "ansprechperson" }), "ansprechperson", false).next;
+    const emptied = applySeatPresence(block({ trainer_ist_zugleich: "ansprechperson" }), "ansprechperson", false, LABEL).next;
 
     assert.equal(mirrorKontakte(emptied).trainer, null);
   });
@@ -364,6 +380,7 @@ describe("resolveTeamSaisonMembership", () => {
     austritt: null,
     trikot_farbe: null,
     kontakte: { trainer: stored, ansprechperson: null, stellvertretung: null, trainer_ist_zugleich: null },
+    bestaetigungen: null,
     kontakte_stand: TOKEN,
   });
 
@@ -443,17 +460,17 @@ describe("what a seat's switch does to what was entered", () => {
     const erikaSeat = person({ vorname: "Erika", email: "erika@beispiel.de" });
     const fullBlock = block({ ansprechperson: erikaSeat });
 
-    const takenOut = applySeatPresence(fullBlock, "ansprechperson", false);
+    const takenOut = applySeatPresence(fullBlock, "ansprechperson", false, LABEL);
     assert.equal(takenOut.next.ansprechperson, null, "switching a seat off no longer empties it");
 
-    const again2 = applySeatPresence(takenOut.next, "ansprechperson", true, erikaSeat);
+    const again2 = applySeatPresence(takenOut.next, "ansprechperson", true, LABEL, erikaSeat);
     assert.deepEqual(again2.next.ansprechperson, erikaSeat, "the seat came back with something other than the person it held");
   });
 
   /* A seat that has never held anybody has nothing to give back, and must still open as three empty
      boxes rather than as whatever another seat left behind. */
   it("opens an untouched seat empty", () => {
-    const emptyBlock = applySeatPresence(block({ ansprechperson: null }), "ansprechperson", true);
+    const emptyBlock = applySeatPresence(block({ ansprechperson: null }), "ansprechperson", true, LABEL);
 
     assert.notEqual(emptyBlock.next.ansprechperson, null, "switching an empty seat on left it holding nobody");
     assert.equal(emptyBlock.next.ansprechperson?.vorname, "", "an untouched seat opened holding somebody's name");
@@ -462,7 +479,7 @@ describe("what a seat's switch does to what was entered", () => {
   /* Re-judged on the way to empty only: a seat just switched back on holds values the admin entered
      and has not left again, and a message over one of those describes a value nobody finished. */
   it("re-judges the seats only on the way to empty", () => {
-    assert.equal(applySeatPresence(block({}), "ansprechperson", false).revalidate, true);
-    assert.equal(applySeatPresence(block({ ansprechperson: null }), "ansprechperson", true).revalidate, false);
+    assert.equal(applySeatPresence(block({}), "ansprechperson", false, LABEL).revalidate, true);
+    assert.equal(applySeatPresence(block({ ansprechperson: null }), "ansprechperson", true, LABEL).revalidate, false);
   });
 });

@@ -2,17 +2,20 @@ import hashlib
 import hmac
 import secrets
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
+from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Annotated, Final, get_args
 
+from bson import ObjectId
 from fastapi import Depends, Request, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import SecretStr
+from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.berechtigungen.crud import live_unbarred_grant_since
+from app.api.berechtigungen.crud import anchor_the_actors_grant, live_unbarred_grant_in, live_unbarred_grant_since
 from app.api.berechtigungen.services import signed_in_since
-from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt
+from app.api.sperrliste.lookup import BanList, SperrlisteLookup, adressen_gesperrt, get_ban_list
 from app.core.actor_token import (
     ACTOR_TOKEN_MAX_LENGTH,
     COMPACT_JWS_PATTERN,
@@ -21,7 +24,9 @@ from app.core.actor_token import (
     ActorTokenRefusal,
     verify_actor_token,
 )
+from app.core.collections import Collection
 from app.core.config import BackendConfig, get_app_config
+from app.core.crud import a_write_may_stand
 from app.core.db import get_berechtigungen_collection
 from app.core.exceptions import (
     ActorConfirmationRequiredException,
@@ -31,6 +36,7 @@ from app.core.exceptions import (
     RequestAuthorizationException,
 )
 from app.core.recording import PUBLIC_ACTOR, SYSTEM_ACTOR, Actor, AktorFunktion, PersonActor, actor_var, request_var
+from app.core.transactions import ActorJudge, actor_judge_var
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.bounds import ENROLMENT_WINDOW_MINUTES, STEP_UP_WINDOW_HOURS
 from app.shared.sub_keys import derive_sub_key
@@ -110,9 +116,6 @@ ACTOR_TOKEN_REFUSED = "REQ-AUTH-007"
 PERSON_BARRED = "REQ-AUTH-008"
 CONFIRMATION_REQUIRED = "REQ-AUTH-009"
 
-# The methods that record nothing (`app/core/exception_handlers.py` reads them).
-SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
-
 
 def get_actor_token_key(request: Request) -> ActorTokenKey:
     """The key the application was built with (`app/main.py :: create_app`), its `kid` computed there once."""
@@ -189,6 +192,56 @@ async def verify_actor_is_admin(
         raise ActorTokenRefusedException(error_code=ACTOR_TOKEN_REFUSED, reason="session older than its grant", jti=actor.jti)
 
 
+def _lists_on(session: AsyncClientSession, config: BackendConfig) -> tuple[AsyncCollection, BanList]:
+    """The grants and the ban list on the transaction's own client.
+
+    Not the request's collection dependencies: resolved at binding, they would open the database
+    ahead of every refusal a request meets before its handler.
+    """
+
+    database = session.client[config.db_base_name]
+
+    return database[Collection.BERECHTIGUNGEN], get_ban_list(database[Collection.SPERRLISTE], database[Collection.SAISONS], config)
+
+
+def admin_judge(actor: ActorClaims, config: BackendConfig) -> ActorJudge:
+    """The actor check asked again in each attempt of every transaction the request opens (`docs/backend/spec.md :: I575`)."""
+
+    @asynccontextmanager
+    async def judging_the_administrator(session: AsyncClientSession) -> AsyncIterator[None]:
+        berechtigungen_collection, sperrliste = _lists_on(session, config)
+        # The row answering, for the anchor: one at most, the actor's own.
+        answering: list[ObjectId] = []
+
+        async def grant_since(identifier: str) -> datetime | None:
+            grant = await live_unbarred_grant_in(
+                identifier, berechtigungen_collection=berechtigungen_collection, sperrliste=sperrliste, session=session
+            )
+            if grant is None:
+                return None
+
+            answering.append(grant[0])
+            return grant[1]
+
+        # The very check the request passed before its handler, over this attempt's reads, so it
+        # refuses under the codes every admin-tier operation already publishes.
+        await verify_actor_is_admin(actor, grant_since)
+
+        yield
+
+        # Nothing sent by this request is an attempt that wrote nothing, which takes part in no write
+        # skew: its answer holds as of its snapshot, so a no-op logs no anchor (`docs/backend/spec.md :: I438`).
+        if not a_write_may_stand():
+            return
+
+        # Last rather than first: written early, this row would stall every rival writing it -- a revoke,
+        # any judgement of the whole list -- until this attempt ends; written last, a rival committing
+        # meanwhile makes this attempt retry instead.
+        await anchor_the_actors_grant(berechtigungen_collection=berechtigungen_collection, berechtigung_id=answering[0], session=session)
+
+    return judging_the_administrator
+
+
 def get_actor_auth_time(actor: Annotated[ActorClaims, Depends(verify_admin_actor)]) -> int:
     """When the acting administrator signed in, which an owner's power is judged against inside the write (`docs/backend/spec.md :: I534`)."""
 
@@ -239,7 +292,7 @@ def get_step_up_check(actor: Annotated[ActorClaims, Depends(verify_admin_actor)]
     """The step-up of a write stepped up on some calls alone (`docs/backend/spec.md :: I524`).
 
     A dependency rather than a raise in the handler, so the document derives the refusal from the
-    operations running it (`app/main.py :: HANDLER_JUDGED_REFUSALS`).
+    operations running it (`app/main.py :: DEPENDENCY_REFUSALS`).
     """
 
     def refuse_unconfirmed() -> None:
@@ -276,7 +329,29 @@ async def verify_person_is_unbarred(
     return actor
 
 
-async def bind_actor(request: Request, actor: Annotated[ActorClaims, Depends(verify_admin_actor)]) -> AsyncIterator[None]:
+def person_judge(actor: ActorClaims, config: BackendConfig) -> ActorJudge:
+    """The ban check asked again in each attempt of every transaction a person's request opens (`docs/backend/spec.md :: I575`)."""
+
+    @asynccontextmanager
+    async def judging_the_person(session: AsyncClientSession) -> AsyncIterator[None]:
+        _, sperrliste = _lists_on(session, config)
+
+        async def is_gesperrt(identifier: str) -> bool:
+            return bool(await adressen_gesperrt(sperrliste, [identifier], session=session))
+
+        # The binder's own check over this attempt's read, as the administrator's judge asks its own.
+        await verify_person_is_unbarred(actor, is_gesperrt)
+
+        yield
+
+    return judging_the_person
+
+
+async def bind_actor(
+    request: Request,
+    actor: Annotated[ActorClaims, Depends(verify_admin_actor)],
+    config: Annotated[BackendConfig, Depends(get_app_config)],
+) -> AsyncIterator[None]:
     """Attribute this request's writes to the administrator its verified actor token names.
 
     Every method, a read included: the grant check judges who asks off this token. At router level,
@@ -286,6 +361,8 @@ async def bind_actor(request: Request, actor: Annotated[ActorClaims, Depends(ver
     # Folded, as the grant check read it: one administrator is one spelling in every stored actor
     # field, whatever case the session's address was typed in.
     actor_token = actor_var.set(Actor(kind="admin_session", email=sign_in_identifier(actor.email)))
+    # Beside the actor, so no transaction this request opens runs unjudged (`docs/backend/spec.md :: I575`).
+    judge_token = actor_judge_var.set(admin_judge(actor, config))
     # The route's template, not `request.url.path`: an id baked into the stored path would make one
     # row per document where the page wants one row per kind of action.
     route = request.scope.get("route")
@@ -297,6 +374,7 @@ async def bind_actor(request: Request, actor: Annotated[ActorClaims, Depends(ver
         # Reset, or the actor bleeds onto whichever request the loop runs next -- the same hazard
         # `TraceContextMiddleware` resets its own ids for.
         actor_var.reset(actor_token)
+        actor_judge_var.reset(judge_token)
         request_var.reset(request_token)
 
 
@@ -338,6 +416,7 @@ def person_actor_binder(funktion: AktorFunktion) -> Callable[..., AsyncIterator[
 
         pseudonym = akteur_pseudonym(identifier, schluessel=config.sperrliste_schluessel)
         actor_token = actor_var.set(PersonActor(pseudonym=pseudonym, funktion=funktion))
+        judge_token = actor_judge_var.set(person_judge(actor, config))
         # The route's template, as `bind_actor` binds it and for the same reason.
         route = request.scope.get("route")
         request_token = request_var.set((request.method, getattr(route, "path", request.url.path)))
@@ -349,6 +428,7 @@ def person_actor_binder(funktion: AktorFunktion) -> Callable[..., AsyncIterator[
         finally:
             # Reset for `bind_actor`'s reason: the next request on this loop is somebody else's.
             actor_var.reset(actor_token)
+            actor_judge_var.reset(judge_token)
             request_var.reset(request_token)
 
     return bind_person
@@ -359,6 +439,12 @@ def person_actor_binder(funktion: AktorFunktion) -> Callable[..., AsyncIterator[
 PERSON_ACTOR_BINDERS: Final[Mapping[AktorFunktion, Callable[..., AsyncIterator[str]]]] = {
     funktion: person_actor_binder(funktion) for funktion in get_args(AktorFunktion)
 }
+
+# A handler's folded address, from the binder its router declares, which FastAPI then runs once a
+# request; another Funktion's alias runs a second binder, recording the writes under that Funktion.
+KontaktIdentifier = Annotated[str, Depends(PERSON_ACTOR_BINDERS["kontakt"])]
+SpielerIdentifier = Annotated[str, Depends(PERSON_ACTOR_BINDERS["spieler"])]
+SchiedsrichterIdentifier = Annotated[str, Depends(PERSON_ACTOR_BINDERS["schiedsrichter"])]
 
 
 async def bind_public_actor(request: Request) -> AsyncIterator[None]:

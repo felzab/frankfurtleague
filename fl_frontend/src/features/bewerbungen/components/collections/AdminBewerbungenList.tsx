@@ -25,11 +25,12 @@ import {
   IDENTITY_ROW_CLASSES,
   IDENTITY_STACK_CLASSES,
 } from "@/shared/components/ui/adminTable";
+import { Leer } from "@/shared/components/ui/Angabe";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 import { RowActionLink, RowActions } from "@/shared/components/ui/RowActions";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
-import { formatSpielDatum } from "@/shared/utils/format";
+import { formatSpielDatum, nichtHinterlegt } from "@/shared/utils/format";
 
 import type { BewerbungDublette } from "@/features/bewerbungen/duplicates";
 import type { AdminBewerbungRow } from "@/features/bewerbungen/types";
@@ -45,7 +46,7 @@ const EMPTY_MESSAGES: Record<CrudEmptiness, string> = {
 };
 
 /** What an application naming no team at all reads as — the one `REQ-BEWERBUNG-002` refuses to accept. */
-const NO_TEAM = "Kein Team benannt";
+const NO_TEAM = nichtHinterlegt("Team");
 
 /** What an application predating the confirmation flow reads as, in the register the admin uses for an absent value. */
 const NO_BESTAETIGUNGEN = "Keine Bestätigungen angefragt";
@@ -90,7 +91,9 @@ export const AdminBewerbungenList = memo(function AdminBewerbungenList({
 
   const renderName = (bewerbung: AdminBewerbungRow) =>
     bewerbung.teamName === null ? (
-      <span className={`${IDENTITY_NAME_BOX_CLASSES} text-foreground-muted italic`}>{NO_TEAM}</span>
+      <span className={IDENTITY_NAME_BOX_CLASSES}>
+        <Leer>{NO_TEAM}</Leer>
+      </span>
     ) : (
       <span className={IDENTITY_NAME_CLASSES}>{bewerbung.teamName}</span>
     );
@@ -103,7 +106,7 @@ export const AdminBewerbungenList = memo(function AdminBewerbungenList({
   // row says which it is before it is opened.
 
   // One tone for both: a Herkunft is a kind and not a standing, so the word tells the two apart. No
-  // badge where it names neither: the name cell already reads „Kein Team benannt“ there.
+  // badge where it names neither: the name cell already reads „Team nicht hinterlegt“ there.
   const renderHerkunft = (bewerbung: AdminBewerbungRow) => {
     const herkunft = bewerbungHerkunft(bewerbung);
 
@@ -146,7 +149,12 @@ export const AdminBewerbungenList = memo(function AdminBewerbungenList({
 
     // An application submitted before the workflow has no per-seat state, and a badge reading „0 von
     // 3“ over one would send an administrator hunting for links that were never sent.
-    if (staende === null) return <span className="fluid-sm text-foreground-muted italic">{NO_BESTAETIGUNGEN}</span>;
+    if (staende === null)
+      return (
+        <span className="fluid-sm">
+          <Leer>{NO_BESTAETIGUNGEN}</Leer>
+        </span>
+      );
 
     // Ahead of the count, which would read „2 von 3“ over a row no answer can complete and send an
     // administrator waiting for a third that is never coming.
@@ -175,12 +183,16 @@ export const AdminBewerbungenList = memo(function AdminBewerbungenList({
       KONTAKT_LABEL[rolle],
       <div className="flex min-w-0 flex-col gap-0.5">
         {person === null ? (
-          <span className={`${IDENTITY_NAME_BOX_CLASSES} text-foreground-muted italic`}>Keine Kontaktperson</span>
+          <span className={IDENTITY_NAME_BOX_CLASSES}>
+            <Leer>Keine Kontaktperson</Leer>
+          </span>
         ) : (
           <span className={IDENTITY_NAME_CLASSES}>{`${person.vorname} ${person.nachname}`}</span>
         )}
         {person === null || person.email === "" ? (
-          <span className={`${IDENTITY_LINE_CLASSES} italic`}>Keine E-Mail</span>
+          <span className={IDENTITY_LINE_CLASSES}>
+            <Leer>{nichtHinterlegt("E-Mail")}</Leer>
+          </span>
         ) : (
           <span className={IDENTITY_LINE_CLASSES}>{person.email}</span>
         )}
@@ -220,7 +232,7 @@ export const AdminBewerbungenList = memo(function AdminBewerbungenList({
       <RowActionLink
         href={saisonHref(`/bereich/admin/bewerbungen/${bewerbung.id}`)}
         label="Bewerbung öffnen"
-        ariaLabel={`Bewerbung von ${bewerbung.teamName ?? NO_TEAM} öffnen`}>
+        subject={bewerbung.teamName ?? NO_TEAM}>
         <ArrowRightFromSquare
           className="size-4.5"
           aria-hidden="true"

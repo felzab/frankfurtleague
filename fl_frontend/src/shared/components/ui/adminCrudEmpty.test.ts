@@ -11,6 +11,7 @@ import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
+import { saisonRules } from "@/shared/testing/saisonRules.ts";
 
 import { CELL_EDGE_CLASSES, CELL_INNER_CLASSES, COLUMN_EDGE_CLASSES, COLUMN_INNER_CLASSES, TABLE_HEADING_CLASSES } from "./adminTable.ts";
 
@@ -43,17 +44,7 @@ const ACTIONS_WIDTH: Record<number, string> = { 1: "w-32", 2: "w-36", 3: "w-48",
 const STILLGELEGT_AM = "2026-09-09";
 const TEAM_ID = "6890a1b2c3d4e5f607910001";
 
-const RULES: Row<ComponentProps<typeof AdminSaisonsTable>, "filteredSaisons">["rules"] = {
-  win_points: 3,
-  draw_points: 1,
-  qualifiers_per_group: 2,
-  number_of_groups: 2,
-  teams_per_group: 4,
-  max_kadergroesse: 18,
-  tiebreak_order: "tordifferenz",
-  forfeit_ergebnis: { sieger_tore: 3, verlierer_tore: 0 },
-  erlaubte_stufen: ["E1", "Q1"],
-};
+const RULES: Row<ComponentProps<typeof AdminSaisonsTable>, "filteredSaisons">["rules"] = saisonRules();
 
 /** A log entry naming its document, so the row holds its link beside the copy. */
 const AKTION: Row<ComponentProps<typeof AdminAktionenTable>, "filteredAktionen"> = {
@@ -90,6 +81,7 @@ const REFEREE: Row<ComponentProps<typeof AdminSchiedsrichterTable>, "filteredSch
   geburtsdatum: null,
   einwilligung: null,
   bestaetigung: null,
+  adresswechsel: null,
 };
 
 /** Retired twice over, so the row holds both restores beside its link. */

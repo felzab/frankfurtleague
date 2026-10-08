@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
+import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
 import { doublePublicRouteRequest } from "@/shared/testing/publicRoutes.ts";
 
@@ -23,9 +24,13 @@ const { calls } = doubleApiAnswers(async ({ endpoint }) => antwortFuer(endpoint)
 doublePublicRouteRequest({ modules: { "core/logging.ts": LOGGING }, specifiers: { "next/cache": NEXT_CACHE } });
 
 const { POST } = await import("./route.ts");
-const { APIBadStatusError } = await import("@/core/errors.ts");
-const { SCHIEDSRICHTER_EINWILLIGUNG } = await import("@/core/einwilligung.ts");
-const { ANTWORT_NEU_OEFFNEN } = await import("@/shared/utils/reopenLink.ts");
+const { APINetworkError } = await import("@/core/errors.ts");
+const { refusedOn } = await import("@/shared/testing/publishedRefusals.ts");
+const { outcomeUnknown } = await import("@/shared/utils/actionError.ts");
+const { ANTWORT_NEU_OEFFNEN, FASSUNG_NEU_OEFFNEN } = await import("@/shared/utils/reopenLink.ts");
+
+/** The label the backend runs on this page, off the registry it generated. */
+const LAUFEND = publishedLaufendeFassung("bestaetigung_schiedsrichter").text_version;
 
 const TOKEN = "abc123";
 const HEUTE = "2026-09-21";
@@ -34,7 +39,7 @@ const ANSICHT = {
   acknowledged: 1,
   zustand: "gueltig" as const,
   vorname: "Anna",
-  text_version: SCHIEDSRICHTER_EINWILLIGUNG.textVersion,
+  text_version: LAUFEND,
   mindestalter: 16,
   medien_mindestalter: 18,
   frist: "2026-10-05",
@@ -42,18 +47,9 @@ const ANSICHT = {
 
 const GESCHRIEBEN = { acknowledged: 1, vorname: "Anna", umfang: "intern" as const, medien: false, bestaetigt_am: HEUTE };
 
-/** One refused answer as the client raises it; only the status and the code are read past this file. */
-const aRefusal = (statusCode: number, serverErrorCode: string) =>
-  new APIBadStatusError({
-    message: "refused",
-    url: "http://localhost/schiedsrichter/bestaetigung",
-    statusCode,
-    serverErrorCode,
-    endpoint: "/schiedsrichter/bestaetigung",
-    method: "POST",
-    readOnly: false,
-    traceId: "0",
-  });
+/** The answer the handler writes, and the view it reads back where the write refused. */
+const WRITE_OPERATION = "POST /schiedsrichter/bestaetigung";
+const VIEW_OPERATION = "POST /schiedsrichter/bestaetigung/ansicht";
 
 /** The body a browser sends, naming the label the page rendered. */
 const gueltigerKoerper = {
@@ -61,7 +57,7 @@ const gueltigerKoerper = {
   geburtsdatum: "1990-01-01",
   umfang: "intern",
   medien: false,
-  text_version: SCHIEDSRICHTER_EINWILLIGUNG.textVersion,
+  text_version: LAUFEND,
 };
 
 function aRequest(body: unknown, headers: Record<string, string> = {}) {
@@ -108,23 +104,30 @@ beforeEach(() => {
 });
 
 describe("the referee's confirmation handler", () => {
-  /* A page opened before a deploy moved the label shows words the running build does not serve, and
-     filing the answer under the new label would record a consent to a text nobody was shown. */
-  it("refuses a label other than the one this server renders, before the endpoint", async () => {
+  /* The backend judges the label (`docs/backend/spec.md :: I550`): a page opened before a deploy moved
+     it posts words other than those the backend runs, and only the mail's link reopens the page on them. */
+  it("answers the backend's refusal of the label with the sentence that reopens the link", async () => {
+    schreibAntwort = () => refusedOn(WRITE_OPERATION, "REQ-EINWILLIGUNG-001");
+
     const answer = await bodyOf(aRequest({ ...gueltigerKoerper, text_version: "eine-fremde-fassung" }));
 
-    assert.deepEqual(answer.body, { success: false, error: ANTWORT_NEU_OEFFNEN });
-    assert.deepEqual(calls, []);
+    assert.deepEqual(answer.body, { success: false, error: FASSUNG_NEU_OEFFNEN });
+    assert.equal(
+      JSON.parse(calls.find((call) => call.endpoint === "/schiedsrichter/bestaetigung")?.body ?? "{}").text_version,
+      "eine-fremde-fassung",
+    );
   });
 
-  /* Judged before the parse, so an older page gets the one sentence as its whole answer rather than
-     marks on boxes whose values may be right. */
-  it("answers a body carrying no label with that same sentence", async () => {
+  /* No box carries the label, so a body naming none comes from an older page, and the mail's link is its repair. */
+  it("answers a body carrying no label with that same sentence beside the boxes, reaching nothing", async () => {
     const { text_version: _fassung, ...ohneFassung } = gueltigerKoerper;
     const answer = await bodyOf(aRequest(ohneFassung));
 
-    assert.deepEqual(answer.body, { success: false, error: ANTWORT_NEU_OEFFNEN });
+    assert.equal((answer.body as { success: boolean }).success, false);
+    assert.equal((answer.body as { unplacedError?: string }).unplacedError, ANTWORT_NEU_OEFFNEN);
     assert.deepEqual(calls, []);
+    // The tag is declared before the body is read, so only the spine's "no write sent" keeps this clean.
+    assert.deepEqual(tags, []);
   });
 
   it("files the answer under the label this server renders", async () => {
@@ -132,7 +135,7 @@ describe("the referee's confirmation handler", () => {
 
     const geschrieben = calls.find((call) => call.endpoint === "/schiedsrichter/bestaetigung");
 
-    assert.equal(JSON.parse(geschrieben?.body ?? "{}").text_version, SCHIEDSRICHTER_EINWILLIGUNG.textVersion);
+    assert.equal(JSON.parse(geschrieben?.body ?? "{}").text_version, LAUFEND);
   });
 
   it("sends the media answer as a boolean rather than omitting it", async () => {
@@ -143,8 +146,8 @@ describe("the referee's confirmation handler", () => {
     assert.equal(JSON.parse(geschrieben?.body ?? "{}").medien, false);
   });
 
-  /* `{ expire: 0 }` and never `updateTag`, which throws here (`docs/frontend/spec.md :: I14`):
-     without the profile the recommended one serves the withheld name once more. */
+  /* `{ expire: 0 }` and never `updateTag`, which throws here (`docs/frontend/spec.md :: I14`), ahead
+     of the fixture read joining the referee's record. */
   it("drops the fixture cache with no staleness tolerated", async () => {
     const answer = await bodyOf(aRequest(gueltigerKoerper));
 
@@ -152,8 +155,26 @@ describe("the referee's confirmation handler", () => {
     assert.deepEqual(tags, [["spiele", { expire: 0 }]]);
   });
 
+  /* The confirmation may stand behind a lost answer, and a drop after the awaited write never runs. */
+  it("drops the fixture cache when the write's answer is lost", async () => {
+    schreibAntwort = () =>
+      new APINetworkError({
+        message: "Request failed.",
+        url: "http://localhost/schiedsrichter/bestaetigung",
+        method: "POST",
+        readOnly: false,
+        traceId: "0",
+        isTimeout: false,
+      });
+
+    const answer = await bodyOf(aRequest(gueltigerKoerper));
+
+    assert.deepEqual(answer.body, outcomeUnknown());
+    assert.deepEqual(tags, [["spiele", { expire: 0 }]]);
+  });
+
   it("drops nothing where the write was refused", async () => {
-    schreibAntwort = () => aRefusal(409, "REQ-SCHIEDSRICHTER-004");
+    schreibAntwort = () => refusedOn(WRITE_OPERATION, "REQ-SCHIEDSRICHTER-004");
 
     await bodyOf(aRequest(gueltigerKoerper));
 
@@ -164,12 +185,12 @@ describe("the referee's confirmation handler", () => {
      error would leave a dead link looking like a mistyped one. */
   for (const [code, zustand, zurueckgelesen] of [
     // The administrator re-sent while the page stood open, so the token matches no stored hash.
-    ["REQ-SCHIEDSRICHTER-002", "ungueltig", () => aRefusal(409, "REQ-SCHIEDSRICHTER-002")],
+    ["REQ-SCHIEDSRICHTER-002", "ungueltig", () => refusedOn(VIEW_OPERATION, "REQ-SCHIEDSRICHTER-002")],
     ["REQ-SCHIEDSRICHTER-003", "abgelaufen", () => ({ ...ANSICHT, zustand: "abgelaufen" })],
     ["REQ-SCHIEDSRICHTER-004", "bestaetigt", () => ({ ...ANSICHT, zustand: "bestaetigt" })],
   ] as const) {
     it(`answers ${code} as the ${zustand} panel, without waiting on a second read`, async () => {
-      schreibAntwort = () => aRefusal(409, code);
+      schreibAntwort = () => refusedOn(WRITE_OPERATION, code);
       leseAntwort = zurueckgelesen;
 
       const answer = await bodyOf(aRequest(gueltigerKoerper));
@@ -182,7 +203,7 @@ describe("the referee's confirmation handler", () => {
   /* The one refusal that spends nothing, so the typed date survives it and the form stays live —
      and the ONLY one that pays for a second read, the sentence naming a number. */
   it("puts the age refusal on the date the person typed, reading the floor once", async () => {
-    schreibAntwort = () => aRefusal(409, "REQ-SCHIEDSRICHTER-005");
+    schreibAntwort = () => refusedOn(WRITE_OPERATION, "REQ-SCHIEDSRICHTER-005");
 
     const answer = await bodyOf(aRequest(gueltigerKoerper));
     const body = answer.body as { success: boolean; fieldErrors?: Record<string, string>; zustand?: string };
@@ -196,7 +217,7 @@ describe("the referee's confirmation handler", () => {
   /* The panel the view opens a barred link on, so a ban entered while the form stood open leaves no
      form behind. */
   it("answers a barred address with the barred panel, in place of the form", async () => {
-    schreibAntwort = () => aRefusal(403, "REQ-SCHIEDSRICHTER-009");
+    schreibAntwort = () => refusedOn(WRITE_OPERATION, "REQ-SCHIEDSRICHTER-009");
 
     const answer = await bodyOf(aRequest(gueltigerKoerper));
 
@@ -205,8 +226,8 @@ describe("the referee's confirmation handler", () => {
   });
 
   it("leaves the age refusal unworded where the floor cannot be read", async () => {
-    schreibAntwort = () => aRefusal(409, "REQ-SCHIEDSRICHTER-005");
-    leseAntwort = () => aRefusal(409, "REQ-SCHIEDSRICHTER-002");
+    schreibAntwort = () => refusedOn(WRITE_OPERATION, "REQ-SCHIEDSRICHTER-005");
+    leseAntwort = () => refusedOn(VIEW_OPERATION, "REQ-SCHIEDSRICHTER-002");
 
     const answer = await bodyOf(aRequest(gueltigerKoerper));
 
@@ -217,13 +238,15 @@ describe("the referee's confirmation handler", () => {
   });
 
   it("refuses a body no schema admits without reaching the endpoint", async () => {
-    const answer = await bodyOf(aRequest({ token: TOKEN, text_version: SCHIEDSRICHTER_EINWILLIGUNG.textVersion }));
+    const answer = await bodyOf(aRequest({ token: TOKEN, text_version: LAUFEND }));
 
     assert.equal((answer.body as { success: boolean }).success, false);
     // Beside the boxes it names, the sentence for any this page does not render: only an older page
     // sends such a body, and only the mail's link reopens this one.
     assert.equal((answer.body as { unplacedError?: string }).unplacedError, ANTWORT_NEU_OEFFNEN);
     assert.deepEqual(calls, []);
+    // The tag is declared before the body is read, so only the spine's "no write sent" keeps this clean.
+    assert.deepEqual(tags, []);
   });
 
   /* A GET would let a mail scanner's pre-fetch confirm for the reader, and the same-origin guard

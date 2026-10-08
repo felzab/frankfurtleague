@@ -41,9 +41,13 @@ services:
       # pass deletes applications and stamps rows in the copy below; APP_ENV withholds every notice
       # it raises.
       - BEWERBUNG_SWEEP=off
-    # Production's list without `auth_resend_key` and `resend_webhook_secret`: `APP_ENV=local` sends
-    # no mail and the provider sends this stack no event, so a machine holds no key to the provider.
-    # The login is the config below.
+      # Cloudflare's published site key that always passes, which the published secret the frontend
+      # reads where no file is handed over verifies; production refuses both at boot
+      # (https://developers.cloudflare.com/turnstile/troubleshooting/testing/, read 2026-10-04).
+      - TURNSTILE_SITE_KEY=1x00000000000000000000AA
+    # Production's list without `auth_resend_key`, `resend_webhook_secret` and `turnstile_secret_key`:
+    # this stack mails nothing, is sent no provider event, and verifies the bot check with Cloudflare's
+    # published secret. The login is the config below.
     secrets: !override
       - fl_actor_signing_key
       - auth_secret
@@ -92,7 +96,7 @@ services:
     # The tag `fl_backend/tests/conftest.py` starts the db tier against, and the floor the managed
     # cluster runs, so a copy taken from it restores into a server of its own major version. Pinned
     # here by its digest too (`docs/ops/spec.md` §1.1).
-    image: mongo:8.3.11@sha256:5d7043a4ffe02b9ed1b6e0bab057546981af5ca0a79107e9c461e49bc44c0a7b
+    image: mongo:8.3.11@sha256:d731d77bfd7afd66bd487bdf627b5bf7ce4c3602ec461d635977021db529ebbc
     # A single-node replica set rather than a standalone: every transactional endpoint runs
     # `session.with_transaction`, and a standalone answers one with `IllegalOperation`.
     command: --replSet rs0 --bind_ip_all

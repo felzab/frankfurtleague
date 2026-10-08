@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useState, useTransition } from "react";
+import Link from "next/link";
 
 import CircleCheck from "@gravity-ui/icons/CircleCheck";
 import { parseDate } from "@internationalized/date";
@@ -13,18 +14,22 @@ import { ToggleButton } from "@heroui/react/toggle-button";
 import { ToggleButtonGroup } from "@heroui/react/toggle-button-group";
 
 import { KONTAKT_EMAIL } from "@/core/brand";
+import { KONTO_HREF } from "@/core/kontoHref";
+import { ABSATZ_CLASSES, FESTE_WERTE, Gefuellt, Wert } from "@/features/bewerbungen/components/ui/Gefuellt";
 import { SEITE_CLASSES } from "@/features/bewerbungen/components/ui/seite";
 import {
-  ABSATZ_CLASSES,
   AdresseGesperrt,
+  ANTWORT_NICHT_GESPEICHERT,
+  ANTWORT_NICHT_GESPEICHERT_SATZ,
   BestaetigungAbschnitt,
   BestaetigungErgebnis,
   FaktenBanner,
   FrageStellen,
-  Gefuellt,
   GespeicherteAngaben,
+  LINK_UNLESBAR_TITEL,
+  LinkUnlesbar,
+  medienZeile,
   useLinkSeite,
-  Wert,
   ZurLiga,
 } from "@/features/bewerbungen/components/views/BestaetigungPanels";
 import { geburtsdatumSpanne } from "@/features/bewerbungen/utils";
@@ -45,30 +50,44 @@ import { formPanel } from "@/shared/components/ui/formPanel";
 import { OPTION_CHIP_CLASSES } from "@/shared/components/ui/optionChip";
 import { Switch } from "@/shared/components/ui/Switch";
 import { TextField } from "@/shared/components/ui/TextField";
+import { textLink } from "@/shared/components/ui/textLink";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { appToast } from "@/shared/utils/appToast";
 import { getGermanTodayStr } from "@/shared/utils/date";
 import { formatSpielDatum } from "@/shared/utils/format";
-import { ANTWORT_UNKLAR, postPublicForm } from "@/shared/utils/publicSubmit";
+import { reportRefusedConfirmation } from "@/shared/utils/linkConfirmation";
+import { postPublicForm, UNKLAR_TITEL } from "@/shared/utils/publicSubmit";
 
-import { EINWILLIGUNG_UMFANG_OPTIONS } from "../../constants";
+import { EINWILLIGUNG_UMFANG_OPTIONS, SPIELER_UMFANG_FRAGE } from "../../constants";
 import { buildRegistrierungBestaetigungPayloadSchema } from "../../schemas";
 
+import type { SpielerAbsatzSchluessel, SpielerWiederkehrendAbsatzSchluessel } from "@/core/einwilligungSeiten";
 import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
 import type { Slots } from "@/shared/utils/stampedSlots";
 import type { Key } from "@heroui/react/rac";
 import type { CalendarDate } from "@internationalized/date";
 import type { FLEinwilligungUmfang } from "../../schemas";
 import type {
-  SpielerAbsatzSchluessel,
-  SpielerBestaetigungDraft,
   SpielerBestaetigungGeoeffnet,
+  SpielerBestaetigungGespeichert,
   SpielerBestaetigungStart,
   SpielerFassung,
   SpielerLinkZustand,
+  SpielerSeitenFassung,
 } from "../../types";
 
-type Stand = SpielerBestaetigungStart | { zustand: "erfolg"; ansicht: SpielerBestaetigungGeoeffnet; gespeichert: SpielerBestaetigungDraft };
+// The words ride with the two states that show them, so neither can render without them.
+type Stand =
+  | (Extract<SpielerBestaetigungStart, { zustand: "gueltig" }> & { fassung: SpielerSeitenFassung })
+  | Exclude<SpielerBestaetigungStart, { zustand: "gueltig" }>
+  | { zustand: "erfolg"; ansicht: SpielerBestaetigungGeoeffnet; gespeichert: SpielerBestaetigungGespeichert; fassung: SpielerSeitenFassung };
+
+/** An open link whose words could not be read is a page nobody can answer, which the failed read's panel says. */
+function anfang(start: SpielerBestaetigungStart, fassung: SpielerSeitenFassung | null): Stand {
+  if (start.zustand !== "gueltig") return start;
+
+  return fassung === null ? { zustand: "unlesbar" } : { ...start, fassung: fassung };
+}
 
 /** One heading per state, uppercased by the page rather than typed so, as the application page does it. A barred link's page has none. */
 const TITEL: Record<Exclude<Stand["zustand"], "gesperrt">, string> = {
@@ -77,17 +96,15 @@ const TITEL: Record<Exclude<Stand["zustand"], "gesperrt">, string> = {
   bestaetigt: "Schon erledigt",
   abgelaufen: "Link ungültig",
   ungueltig: "Link ungültig",
-  unlesbar: "Link nicht geprüft",
+  unlesbar: LINK_UNLESBAR_TITEL,
 };
 
 const LISTE_CLASSES = `${ABSATZ_CLASSES} flex list-disc flex-col gap-y-1 pl-5`;
 const ABSCHNITT_CLASSES = "flex flex-col gap-y-2";
 
-const NICHT_GESPEICHERT = "Deine Antwort wurde nicht gespeichert. Versuche es erneut.";
-
 /**
  * The slots a record fills from the person who opened the link
- * (`fl_frontend/src/features/bewerbungen/components/views/BestaetigungPanels.tsx :: Gefuellt`).
+ * (`fl_frontend/src/features/bewerbungen/components/ui/Gefuellt.tsx :: Gefuellt`).
  */
 const EIGENE_SLOTS = new Set(["vorname", "team", "schule", "saison"]);
 
@@ -100,19 +117,28 @@ const EIGENE_SLOTS = new Set(["vorname", "team", "schule", "saison"]);
 const umfangOptionen = (fassung: SpielerFassung): readonly { value: FLEinwilligungUmfang; label: string }[] =>
   EINWILLIGUNG_UMFANG_OPTIONS.map((value) => ({ value: value, label: fassung.bedienelemente[value] }));
 
-const UMFANG_FRAGE = "Was darf von Deinem Namen auf der Website stehen?";
-
 /** The empty string is a date nobody has entered yet, which the picker shows as empty rather than refuses. */
 function toCalendarDate(stored: string): CalendarDate | null {
   return stored === "" ? null : parseDate(stored);
+}
+
+/** The paragraphs both pages hold under one key, which the standing text renders on either. */
+type HinweisSchluessel = SpielerAbsatzSchluessel & SpielerWiederkehrendAbsatzSchluessel;
+
+/** The two choices that stand, in the words of the label the page showed: the returning page's readout and every answer panel. */
+function wahlZeilen(fassung: SpielerSeitenFassung, umfang: FLEinwilligungUmfang | null, medien: boolean | null) {
+  return [
+    ...(umfang === null ? [] : [{ label: "Auf der Website", wert: fassung.bedienelemente[umfang] }]),
+    ...(medien === null ? [] : [medienZeile(medien)]),
+  ];
 }
 
 /**
  * The standing text, in the order a reader meets it rather than the legal draft's: the media
  * paragraph sits at its switch and the points at the button.
  */
-function SpielerHinweise({ absaetze, werte }: { absaetze: SpielerFassung["absaetze"]; werte: Slots }) {
-  const absatz = (schluessel: SpielerAbsatzSchluessel) => (
+function SpielerHinweise({ absaetze, werte }: { absaetze: Readonly<Record<HinweisSchluessel, string>>; werte: Slots }) {
+  const absatz = (schluessel: HinweisSchluessel) => (
     <Gefuellt
       text={absaetze[schluessel]}
       werte={werte}
@@ -157,17 +183,23 @@ function SpielerHinweise({ absaetze, werte }: { absaetze: SpielerFassung["absaet
  * **The one wording of the points**: the button describes itself by this block's `id` rather
  * than by a summary sentence beside it, which is how a reader meets the same promise twice.
  */
-function KlickBestaetigung({ id, absaetze, werte }: { id: string; absaetze: SpielerFassung["absaetze"]; werte: Slots }) {
+function KlickBestaetigung({ id, fassung, werte }: { id: string; fassung: SpielerSeitenFassung; werte: Slots }) {
+  // The returning page's points carry no consent: it asks none.
+  const punkte =
+    fassung.seite === "bestaetigung_spieler"
+      ? [fassung.absaetze.klickIdentitaet, fassung.absaetze.klickAlter, fassung.absaetze.klickEinwilligung, fassung.absaetze.klickHinweise]
+      : [fassung.absaetze.klickIdentitaet, fassung.absaetze.klickAlter, fassung.absaetze.klickHinweise];
+
   return (
     <div
       id={id}
       className="flex flex-col gap-y-3">
       <h3 className={FORM_SECTION_HEADING_CLASSES}>Was Du mit dem Klick bestätigst</h3>
       <ul className={LISTE_CLASSES}>
-        {(["klickIdentitaet", "klickAlter", "klickEinwilligung", "klickHinweise"] as const).map((schluessel) => (
-          <li key={schluessel}>
+        {punkte.map((punkt) => (
+          <li key={punkt}>
             <Gefuellt
-              text={absaetze[schluessel]}
+              text={punkt}
               werte={werte}
               eigene={EIGENE_SLOTS}
             />
@@ -179,7 +211,7 @@ function KlickBestaetigung({ id, absaetze, werte }: { id: string; absaetze: Spie
 }
 
 type Antwort =
-  | { success: true; ergebnis: "bestaetigt"; geburtsdatum: string; umfang: FLEinwilligungUmfang; medien: boolean }
+  | { success: true; ergebnis: "bestaetigt"; geburtsdatum: string; umfang: FLEinwilligungUmfang | null; medien: boolean | null }
   | (PublicEnvelope & { success: false; zustand?: SpielerLinkZustand });
 
 /**
@@ -188,8 +220,8 @@ type Antwort =
  * `fassung` is handed in rather than imported: the label freezes exactly what a reader saw, and a
  * component reaching for the current words would render a text no stored record cites.
  */
-export function SpielerBestaetigungView({ start, fassung }: { start: SpielerBestaetigungStart; fassung: SpielerFassung }) {
-  const [stand, setStand] = useState<Stand>(start);
+export function SpielerBestaetigungView({ start, fassung }: { start: SpielerBestaetigungStart; fassung: SpielerSeitenFassung | null }) {
+  const [stand, setStand] = useState<Stand>(() => anfang(start, fassung));
   const { ergebnisRef, beantwortet } = useLinkSeite(stand.zustand);
 
   if (stand.zustand === "gesperrt") return <AdresseGesperrt panelRef={ergebnisRef} />;
@@ -219,12 +251,12 @@ export function SpielerBestaetigungView({ start, fassung }: { start: SpielerBest
         <SpielerBestaetigungForm
           token={stand.token}
           ansicht={stand.ansicht}
-          fassung={fassung}
+          fassung={stand.fassung}
           onAbschluss={(abschluss) => {
             beantwortet();
             setStand(
               abschluss.zustand === "erfolg"
-                ? { zustand: "erfolg", ansicht: stand.ansicht, gespeichert: abschluss.gespeichert }
+                ? { zustand: "erfolg", ansicht: stand.ansicht, gespeichert: abschluss.gespeichert, fassung: stand.fassung }
                 : { zustand: abschluss.zustand },
             );
           }}
@@ -241,8 +273,7 @@ export function SpielerBestaetigungView({ start, fassung }: { start: SpielerBest
           <GespeicherteAngaben
             zeilen={[
               { label: "Geburtsdatum", wert: formatSpielDatum(stand.gespeichert.geburtsdatum) },
-              { label: "Auf der Website", wert: fassung.bedienelemente[stand.gespeichert.umfang] },
-              { label: "Fotos und Videos", wert: stand.gespeichert.medien ? "erlaubt" : "nicht erlaubt" },
+              ...wahlZeilen(stand.fassung, stand.gespeichert.umfang, stand.gespeichert.medien),
             ]}
           />
           <p className={ABSATZ_CLASSES}>
@@ -272,29 +303,20 @@ export function SpielerBestaetigungView({ start, fassung }: { start: SpielerBest
           panelRef={ergebnisRef}
           tone="hinweis">
           <p className={ABSATZ_CLASSES}>Dieser Link ist ungültig oder abgelaufen, und die Registrierung dazu haben wir gelöscht.</p>
-          <p className={ABSATZ_CLASSES}>Du kannst Dich über den Link Deines Teams einfach noch einmal registrieren.</p>
+          <p className={ABSATZ_CLASSES}>Du kannst Dich über den Link Deines Teams einfach erneut registrieren.</p>
           <FrageStellen />
         </BestaetigungErgebnis>
       )}
 
-      {stand.zustand === "unlesbar" && (
-        <BestaetigungErgebnis
-          panelRef={ergebnisRef}
-          tone="hinweis">
-          <p className={ABSATZ_CLASSES}>
-            Wir können diesen Link gerade nicht prüfen. Lade die Seite in ein paar Minuten neu, oder schreib uns.
-          </p>
-          <FrageStellen />
-        </BestaetigungErgebnis>
-      )}
+      {stand.zustand === "unlesbar" && <LinkUnlesbar panelRef={ergebnisRef} />}
     </section>
   );
 }
 
-type Abschluss = { zustand: "erfolg"; gespeichert: SpielerBestaetigungDraft } | { zustand: SpielerLinkZustand };
+type Abschluss = { zustand: "erfolg"; gespeichert: SpielerBestaetigungGespeichert } | { zustand: SpielerLinkZustand };
 
 /**
- * The three answers and the press.
+ * The answers and the press.
  *
  * The controls stand in the order the copy reads them in — the date, the publication choice, the
  * media switch — because a reader meets each paragraph and then the control it is about.
@@ -307,16 +329,16 @@ function SpielerBestaetigungForm({
 }: {
   token: string;
   ansicht: SpielerBestaetigungGeoeffnet;
-  fassung: SpielerFassung;
+  fassung: SpielerSeitenFassung;
   onAbschluss: (abschluss: Abschluss) => void;
 }) {
   const [isPending, startSending] = useTransition();
-  // The stored answers for a returning pupil and nothing preselected for a new one: a media switch
-  // that opened on and a scope already picked are consents nobody gave.
+  // Nothing preselected, whatever the read served: a media switch that opened on and a scope already
+  // picked are consents nobody gave on this page.
   const [entwurf, setEntwurf] = useState<{ geburtsdatum: string; umfang: FLEinwilligungUmfang | null; medien: boolean }>({
     geburtsdatum: ansicht.geburtsdatum ?? "",
-    umfang: ansicht.umfang,
-    medien: ansicht.medien ?? false,
+    umfang: null,
+    medien: false,
   });
 
   const klickPunkteId = useId();
@@ -324,30 +346,35 @@ function SpielerBestaetigungForm({
 
   // Built from the floor the link answered, never the module's own: the endpoint judges this
   // person, so a schema on a constant would let the press through at the wrong number.
-  const bestaetigungSchema = buildRegistrierungBestaetigungPayloadSchema(ansicht.mindestalter);
+  const bestaetigungSchema = buildRegistrierungBestaetigungPayloadSchema(ansicht.mindestalter, fassung.seite);
 
   const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formWiring } =
     useDraftFieldErrors({
       schemas: { bestaetigung: bestaetigungSchema },
-      failureTitle: "Antwort nicht gespeichert",
+      failureTitle: ANTWORT_NICHT_GESPEICHERT,
     });
 
   const { frueheste, spaeteste } = geburtsdatumSpanne(getGermanTodayStr(), ansicht.mindestalter);
 
+  const fragtWahlen = fassung.seite === "bestaetigung_spieler";
+
   // Off the date the age check reads, at the served media age: with no date yet the age is unknown,
   // and a switch offered then would be one the write refuses for anybody under it.
   const medienAngeboten =
-    entwurf.geburtsdatum !== "" && entwurf.geburtsdatum <= geburtsdatumSpanne(getGermanTodayStr(), ansicht.medien_mindestalter).spaeteste;
+    fragtWahlen &&
+    entwurf.geburtsdatum !== "" &&
+    entwurf.geburtsdatum <= geburtsdatumSpanne(getGermanTodayStr(), ansicht.medien_mindestalter).spaeteste;
 
   // The DRAFT's shape rather than the payload's: `umfang` stands unanswered until it is picked, and
   // the schema is what turns that into a field error rather than this builder into a cast.
   const payload = () => ({
     token: token,
     geburtsdatum: entwurf.geburtsdatum,
-    umfang: entwurf.umfang,
-    // Never the draft's own `true` where no switch stands: a returning pupil's stored answer, or one
-    // given before the date moved below the media age, would send a consent this page withheld.
-    medien: medienAngeboten && entwurf.medien,
+    // Both choices null from the returning page, which asks neither (`REQ-REGISTRIERUNG-017` refuses any other).
+    umfang: fragtWahlen ? entwurf.umfang : null,
+    // Never the draft's own `true` where no switch stands: one given before the date moved below the
+    // media age would send a consent this page withheld.
+    medien: fragtWahlen ? medienAngeboten && entwurf.medien : null,
     text_version: fassung.textVersion,
   });
 
@@ -364,10 +391,9 @@ function SpielerBestaetigungForm({
     saison: ansicht.saison_id,
     minAlter: String(ansicht.mindestalter),
     medienMinAlter: String(ansicht.medien_mindestalter),
-    kontakt: KONTAKT_EMAIL,
     // Filled rather than left standing: `Gefuellt` leaves an unfilled slot as written, so the
     // consent text would spell its own placeholder on the live page.
-    loeschung: "Konto löschen",
+    ...FESTE_WERTE,
   };
 
   const sende = () => {
@@ -377,7 +403,7 @@ function SpielerBestaetigungForm({
       const gesendet = await postPublicForm<Antwort>("/api/bestaetigung/spieler", body);
 
       if (!gesendet.answered) {
-        appToast.danger(gesendet.wroteNothing ? "Antwort nicht gespeichert" : "Unklar, ob es bei uns angekommen ist", {
+        appToast.danger(gesendet.wroteNothing ? ANTWORT_NICHT_GESPEICHERT : UNKLAR_TITEL, {
           description: gesendet.error,
         });
         return;
@@ -389,37 +415,31 @@ function SpielerBestaetigungForm({
       // so bare it commits before the pending state lifts.
       startSending(() => {
         if (!antwort.success) {
-          // Titled as an unread answer is, the confirmation having perhaps landed: the envelope's own
-          // sentence is an administrator's repair, and a reload of this page has lost its token.
-          if (antwort.outcome === "unknown") {
-            appToast.danger("Unklar, ob es bei uns angekommen ist", { description: ANTWORT_UNKLAR });
-            return;
-          }
-
-          // The link died between the open and the press: the answer is the panel, never a toast.
-          if (antwort.zustand !== undefined) {
-            onAbschluss({ zustand: antwort.zustand });
-            return;
-          }
-
-          // The hook owns the press's one toast: none where a field shows the refusal.
-          reportSubmitFailure(
-            {
-              success: false,
-              error: antwort.error ?? NICHT_GESPEICHERT,
-              fieldErrors: antwort.fieldErrors,
-              unplacedError: antwort.unplacedError,
-            },
-            { bestaetigung: body },
-            { raise: (shown) => appToast.failure("Antwort nicht gespeichert", shown) },
-          );
+          reportRefusedConfirmation(antwort, {
+            onZustand: (zustand) => onAbschluss({ zustand }),
+            // The hook owns the press's one toast: none where a field shows the refusal.
+            onRefusal: () =>
+              reportSubmitFailure(
+                {
+                  success: false,
+                  error: antwort.error ?? ANTWORT_NICHT_GESPEICHERT_SATZ,
+                  fieldErrors: antwort.fieldErrors,
+                  unplacedError: antwort.unplacedError,
+                },
+                { bestaetigung: body },
+                { raise: (shown) => appToast.failure(ANTWORT_NICHT_GESPEICHERT, shown) },
+              ),
+          });
           return;
         }
 
         setSubmitFieldErrors({}, {});
         onAbschluss({
           zustand: "erfolg",
-          gespeichert: { geburtsdatum: antwort.geburtsdatum, umfang: antwort.umfang, medien: antwort.medien },
+          // The returning page's pair off the read, its answer carrying none: those choices stand.
+          gespeichert: fragtWahlen
+            ? { geburtsdatum: antwort.geburtsdatum, umfang: antwort.umfang, medien: antwort.medien }
+            : { geburtsdatum: antwort.geburtsdatum, umfang: ansicht.umfang, medien: ansicht.medien },
         });
       });
     });
@@ -463,84 +483,44 @@ function SpielerBestaetigungForm({
           )}
         </section>
 
-        <section className="flex flex-col gap-y-3">
-          <h3 className={FORM_SECTION_HEADING_CLASSES}>Auf der Website</h3>
-          {/* `ToggleButtonGroup` takes no `name`, so this proxy field is what names it: it is the
-              control a refusal on the path reaches, and the hidden `Input` is what puts the name in
-              `form.elements`. */}
-          <TextField
-            name="umfang"
-            value={entwurf.umfang ?? ""}
-            onChange={() => undefined}
-            className="flex w-full flex-col gap-y-1">
-            <Label className={FIELD_LABEL_CLASSES}>{UMFANG_FRAGE}</Label>
-            <ToggleButtonGroup
-              aria-label={UMFANG_FRAGE}
-              size="sm"
-              isDetached
-              selectionMode="single"
-              // Never on a choice still unanswered: a pressed chip on first paint is a consent the
-              // reader did not give.
-              disallowEmptySelection={entwurf.umfang !== null}
-              selectedKeys={entwurf.umfang === null ? [] : [entwurf.umfang]}
-              onSelectionChange={(keys: Set<Key>) => {
-                const [picked] = [...keys].map(String);
-                const option = umfangOptionen(fassung).find((candidate) => candidate.value === picked);
-                if (option !== undefined) setEntwurf({ ...entwurf, umfang: option.value });
-              }}
-              className={`flex w-full flex-row flex-wrap gap-2 ${TOGGLE_GROUP_ALIGN_CLASSES}`}>
-              {umfangOptionen(fassung).map((option) => (
-                <ToggleButton
-                  key={option.value}
-                  id={option.value}
-                  className={OPTION_CHIP_CLASSES}>
-                  {option.label}
-                </ToggleButton>
-              ))}
-            </ToggleButtonGroup>
-
-            <Input className="hidden" />
-            <FieldError className={FIELD_ERROR_CLASSES} />
-          </TextField>
-          <p className={ABSATZ_CLASSES}>
-            <Gefuellt
-              text={fassung.absaetze.veroeffentlichung}
-              werte={werte}
-              eigene={EIGENE_SLOTS}
-            />
-          </p>
-        </section>
-
-        <section className="flex flex-col gap-y-3">
-          <h3 className={FORM_SECTION_HEADING_CLASSES}>Freiwillig</h3>
-          {/* The paragraph below stands for every age and the switch alone goes: the record's label
-              then reproduces the screen whichever of the two its person was shown. */}
-          {medienAngeboten && (
-            <Switch
-              className="flex w-full flex-col gap-y-1"
-              name="medien"
-              isSelected={entwurf.medien}
-              onChange={(medien) => setEntwurf({ ...entwurf, medien: medien })}>
-              <Switch.Content className={panel.switchContent()}>
-                {fassung.schalter}
-                <Switch.Control className={panel.switchControl()}>
-                  <Switch.Thumb />
-                </Switch.Control>
-              </Switch.Content>
-            </Switch>
-          )}
-          <p className={ABSATZ_CLASSES}>
-            <Gefuellt
-              text={fassung.absaetze.medien}
-              werte={werte}
-              eigene={EIGENE_SLOTS}
-            />
-          </p>
-        </section>
+        {fassung.seite === "bestaetigung_spieler" ? (
+          <WahlenAbschnitte
+            fassung={fassung}
+            werte={werte}
+            umfang={entwurf.umfang}
+            medien={entwurf.medien}
+            medienAngeboten={medienAngeboten}
+            onUmfang={(umfang) => setEntwurf({ ...entwurf, umfang: umfang })}
+            onMedien={(medien) => setEntwurf({ ...entwurf, medien: medien })}
+            switchContentClassName={panel.switchContent()}
+            switchControlClassName={panel.switchControl()}
+          />
+        ) : (
+          <section className="flex flex-col gap-y-3">
+            <h3 className={FORM_SECTION_HEADING_CLASSES}>Deine Einwilligung</h3>
+            <p className={ABSATZ_CLASSES}>
+              <Gefuellt
+                text={fassung.absaetze.einwilligungen}
+                werte={werte}
+                eigene={EIGENE_SLOTS}
+              />
+            </p>
+            <GespeicherteAngaben zeilen={wahlZeilen(fassung, ansicht.umfang, ansicht.medien)} />
+            {/* The way there alone: the stamped paragraph above already says what the account page changes. */}
+            <p className={ABSATZ_CLASSES}>
+              <Link
+                href={KONTO_HREF}
+                prefetch={false}
+                className={textLink()}>
+                Zum Konto
+              </Link>
+            </p>
+          </section>
+        )}
 
         <KlickBestaetigung
           id={klickPunkteId}
-          absaetze={fassung.absaetze}
+          fassung={fassung}
           werte={werte}
         />
 
@@ -569,5 +549,107 @@ function SpielerBestaetigungForm({
         </div>
       </BestaetigungAbschnitt>
     </Form>
+  );
+}
+
+/** The new pupil's two choices, each below the paragraph it answers. */
+function WahlenAbschnitte({
+  fassung,
+  werte,
+  umfang,
+  medien,
+  medienAngeboten,
+  onUmfang,
+  onMedien,
+  switchContentClassName,
+  switchControlClassName,
+}: {
+  fassung: SpielerFassung;
+  werte: Slots;
+  umfang: FLEinwilligungUmfang | null;
+  medien: boolean;
+  medienAngeboten: boolean;
+  onUmfang: (umfang: FLEinwilligungUmfang) => void;
+  onMedien: (medien: boolean) => void;
+  switchContentClassName: string;
+  switchControlClassName: string;
+}) {
+  return (
+    <>
+      <section className="flex flex-col gap-y-3">
+        <h3 className={FORM_SECTION_HEADING_CLASSES}>Auf der Website</h3>
+        {/* `ToggleButtonGroup` takes no `name`, so this proxy field is what names it: it is the
+              control a refusal on the path reaches, and the hidden `Input` is what puts the name in
+              `form.elements`. */}
+        <TextField
+          name="umfang"
+          value={umfang ?? ""}
+          onChange={() => undefined}
+          className="flex w-full flex-col gap-y-1">
+          <Label className={FIELD_LABEL_CLASSES}>{SPIELER_UMFANG_FRAGE}</Label>
+          <ToggleButtonGroup
+            aria-label={SPIELER_UMFANG_FRAGE}
+            size="sm"
+            isDetached
+            selectionMode="single"
+            // Never on a choice still unanswered: a pressed chip on first paint is a consent the
+            // reader did not give.
+            disallowEmptySelection={umfang !== null}
+            selectedKeys={umfang === null ? [] : [umfang]}
+            onSelectionChange={(keys: Set<Key>) => {
+              const [picked] = [...keys].map(String);
+              const option = umfangOptionen(fassung).find((candidate) => candidate.value === picked);
+              if (option !== undefined) onUmfang(option.value);
+            }}
+            className={`flex w-full flex-row flex-wrap gap-2 ${TOGGLE_GROUP_ALIGN_CLASSES}`}>
+            {umfangOptionen(fassung).map((option) => (
+              <ToggleButton
+                key={option.value}
+                id={option.value}
+                className={OPTION_CHIP_CLASSES}>
+                {option.label}
+              </ToggleButton>
+            ))}
+          </ToggleButtonGroup>
+
+          <Input className="hidden" />
+          <FieldError className={FIELD_ERROR_CLASSES} />
+        </TextField>
+        <p className={ABSATZ_CLASSES}>
+          <Gefuellt
+            text={fassung.absaetze.veroeffentlichung}
+            werte={werte}
+            eigene={EIGENE_SLOTS}
+          />
+        </p>
+      </section>
+
+      <section className="flex flex-col gap-y-3">
+        <h3 className={FORM_SECTION_HEADING_CLASSES}>Freiwillig</h3>
+        {/* The paragraph below stands for every age and the switch alone goes: the record's label
+              then reproduces the screen whichever of the two its person was shown. */}
+        {medienAngeboten && (
+          <Switch
+            className="flex w-full flex-col gap-y-1"
+            name="medien"
+            isSelected={medien}
+            onChange={onMedien}>
+            <Switch.Content className={switchContentClassName}>
+              {fassung.schalter}
+              <Switch.Control className={switchControlClassName}>
+                <Switch.Thumb />
+              </Switch.Control>
+            </Switch.Content>
+          </Switch>
+        )}
+        <p className={ABSATZ_CLASSES}>
+          <Gefuellt
+            text={fassung.absaetze.medien}
+            werte={werte}
+            eigene={EIGENE_SLOTS}
+          />
+        </p>
+      </section>
+    </>
   );
 }

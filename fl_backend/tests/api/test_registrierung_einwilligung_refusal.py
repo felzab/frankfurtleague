@@ -17,26 +17,37 @@ from app.api.registrierungen.services import (
     BESTAETIGUNG_ANTWORT_FIELDS,
     REGISTRIERUNG_ALREADY_CONFIRMED,
     REGISTRIERUNG_ALTER,
-    REGISTRIERUNG_ERTEILT_VON,
     REGISTRIERUNG_MEDIEN_ALTER,
     REGISTRIERUNG_TOKEN_EXPIRED,
     REGISTRIERUNG_TOKEN_UNKNOWN,
+    REGISTRIERUNG_WAHLEN_UNPASSEND,
+    SEITE_NEU,
+    SEITE_WIEDERKEHREND,
     TOKEN_HASH_FIELDS,
-    answers_shown_back,
     build_bestaetigung_filter,
     compose_bestaetigung,
     compose_confirmation_update,
+    compose_person,
     find_already_confirmed_refusal,
     find_alter_refusal,
     find_expired_token_refusal,
     find_medien_refusal,
     find_unknown_token_refusal,
+    find_wahlen_refusal,
     persons_named,
+    seite_of,
     sole_person,
     zustand_of,
 )
 from app.core.collections import Collection
-from app.core.constraints import _EINWILLIGUNG, _EINWILLIGUNG_QUELLEN, _EINWILLIGUNG_UMFANG, _REGISTRIERUNG_BESTAETIGUNG, SUPPORT_INDEXES
+from app.core.constraints import (
+    _EINWILLIGUNG,
+    _EINWILLIGUNG_UMFANG,
+    _REGISTRIERUNG_BESTAETIGUNG,
+    _REGISTRIERUNG_EINWILLIGUNG,
+    SUPPORT_INDEXES,
+)
+from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.schemas.bounds import (
     BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
     EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH,
@@ -53,6 +64,7 @@ RAW = "raw-token-for-this-pupil"
 TOKEN_HASH = hash_token(RAW)
 
 A_LABEL = "2026-09-spielerseite"
+AM = "2026-04-01T08:00:00+00:00"
 
 
 def einwilligung(**overrides: Any) -> dict[str, Any]:
@@ -60,7 +72,6 @@ def einwilligung(**overrides: Any) -> dict[str, Any]:
 
     return {
         "umfang": "kader_oeffentlich",
-        "erteilt_von": REGISTRIERUNG_ERTEILT_VON,
         "datum": YESTERDAY,
         "bestaetigt_am": YESTERDAY,
         "text_version": A_LABEL,
@@ -143,7 +154,7 @@ class TestTheLookupAndItsProjections:
             "schule",
             "saison_id",
             "vorname",
-            "text_version",
+            "seite",
             "mindestalter",
             "medien_mindestalter",
             "geburtsdatum",
@@ -162,13 +173,27 @@ class TestTheLookupAndItsProjections:
             "medien",
         }
 
-    def test_the_answers_read_holds_what_the_press_judges_and_no_team_or_name(self):
-        """Widened to the view's, the read would name the team and the pupil.
+    def test_the_answers_read_holds_what_the_press_judges_and_no_team(self):
+        """Widened to the view's, the read would name the team.
 
-        The address is read for the ban alone, and the answer's model above keeps it off the response.
+        The address is read for the ban and the name for the page, and the answer's model above keeps
+        all three off the response.
         """
 
-        assert set(BESTAETIGUNG_ANTWORT_FIELDS) == {"bestaetigung.frist", "status", "einwilligung.bestaetigt_am", "email"}
+        assert set(BESTAETIGUNG_ANTWORT_FIELDS) == {
+            "bestaetigung.frist",
+            "status",
+            "einwilligung.bestaetigt_am",
+            "email",
+            "vorname",
+            "nachname",
+        }
+
+    def test_the_views_read_takes_the_stamp_and_none_of_the_registrations_answers(self):
+        """What the pupil answered is shown back from the person alone, so a confirmed row's own answers reach no base-tier read."""
+
+        assert "geburtsdatum" not in BESTAETIGUNG_ANSICHT_FIELDS
+        assert [key for key in BESTAETIGUNG_ANSICHT_FIELDS if key.startswith("einwilligung")] == ["einwilligung.bestaetigt_am"]
 
 
 class TestATokenNoRegistrationHolds:
@@ -341,8 +366,8 @@ class TestWhatAReopenedLinkShows:
         assert zustand_of(registrierung_raw=stored, today=TODAY, gesperrt=True) == "gesperrt"
 
 
-class TestWhoseAnswersThePagePresents:
-    """The returning pupil: the stored record is shown back rather than asked for again."""
+class TestWhichPageTheLinkOpens:
+    """`docs/backend/spec.md :: I287`: the returning pupil's page is the confirmed person's at this address and name alone."""
 
     PERSON = {
         "vorname": "Quillhilde",
@@ -352,22 +377,30 @@ class TestWhoseAnswersThePagePresents:
     }
     SIBLING = {**PERSON, "vorname": "Bramblewick", "geburtsdatum": "2007-02-02"}
 
-    def test_a_first_timer_is_shown_nothing(self):
-        assert answers_shown_back(registrierung_raw=registrierung(), spieler_raw=None) == {}
+    @pytest.mark.parametrize(
+        ("person", "seite"),
+        [
+            pytest.param(None, SEITE_NEU, id="nobody at the address"),
+            pytest.param(PERSON, SEITE_WIEDERKEHREND, id="the confirmed person under the registration's name"),
+            pytest.param({**PERSON, "inactive_since": "2025-07-01"}, SEITE_WIEDERKEHREND, id="that person retired"),
+            pytest.param({**PERSON, "geburtsdatum": None}, SEITE_WIEDERKEHREND, id="that person with no stored birthdate"),
+            pytest.param({**PERSON, "vorname": "Bramblewick"}, SEITE_NEU, id="another name at the address, a sibling"),
+            pytest.param({**PERSON, "einwilligung": einwilligung(bestaetigt_am=None)}, SEITE_NEU, id="a record nobody confirmed"),
+            pytest.param({**PERSON, "einwilligung": einwilligung(bestaetigt_am="")}, SEITE_NEU, id="a record stamped with an empty string"),
+        ],
+    )
+    def test_only_the_confirmed_person_of_the_registrations_name_makes_it_returning(self, person: Any, seite: str):
+        """The unconfirmed case is the one an address alone would get wrong: that page says choices nobody gave still stand."""
 
-    def test_a_returning_pupil_is_shown_the_person_the_league_holds(self):
-        shown = answers_shown_back(registrierung_raw=registrierung(), spieler_raw=self.PERSON)
+        assert seite_of(registrierung_raw=registrierung(nachname="Brackenmoor"), person_raw=person) == seite
 
-        assert shown["geburtsdatum"] == "2009-05-09"
-        assert shown["einwilligung"]["medien"] is True
+    def test_the_name_is_folded_as_the_narrowing_folds_it(self):
+        """The registration's own spelling of a stored name, which the page must not read as a stranger's."""
 
-    def test_a_confirmed_registration_outranks_the_person(self):
-        """The newest answer is this registration's own; the person's record is what the admission has not yet caught up with."""
-
-        stored = registrierung(geburtsdatum="2008-01-01", einwilligung=einwilligung())
-        shown = answers_shown_back(registrierung_raw=stored, spieler_raw=self.PERSON)
-
-        assert shown["geburtsdatum"] == "2008-01-01"
+        assert (
+            seite_of(registrierung_raw=registrierung(vorname="  quillhilde ", nachname="BRACKENMOOR"), person_raw=self.PERSON)
+            == SEITE_WIEDERKEHREND
+        )
 
     @pytest.mark.parametrize(
         ("spelling", "found"),
@@ -438,18 +471,20 @@ class TestWhatAConfirmationWrites:
     """One `$set`, so `docs/backend/spec.md :: I141`'s pairing cannot land in halves."""
 
     def test_the_date_and_the_whole_record_land_in_one_set(self):
-        update = compose_confirmation_update(geburtsdatum="2009-05-09", umfang="intern", medien=True, text_version=A_LABEL, today=TODAY)
+        update = compose_confirmation_update(geburtsdatum="2009-05-09", umfang="intern", medien=True, text_version=A_LABEL, today=TODAY, am=AM)
 
         assert update == {
             "$set": {
                 "geburtsdatum": "2009-05-09",
                 "einwilligung": {
+                    # No speaker: no write names who answered any longer.
                     "umfang": "intern",
-                    "erteilt_von": "volljaehrig",
                     "datum": TODAY,
                     "bestaetigt_am": TODAY,
                     "text_version": A_LABEL,
                     "medien": True,
+                    # Born with each choice's evidence: no record stood on the registration before this press.
+                    "nachweis": {"umfang": {"am": AM, "text_version": A_LABEL}, "medien": {"am": AM, "text_version": A_LABEL}},
                 },
             }
         }
@@ -457,25 +492,86 @@ class TestWhatAConfirmationWrites:
     def test_the_record_it_writes_carries_every_key_the_validator_requires(self):
         """A record short of one is refused by mongod at the write rather than by anything here, which is a 500 on the page."""
 
-        update = compose_confirmation_update(geburtsdatum="2009-05-09", umfang="intern", medien=True, text_version=A_LABEL, today=TODAY)
+        update = compose_confirmation_update(geburtsdatum="2009-05-09", umfang="intern", medien=True, text_version=A_LABEL, today=TODAY, am=AM)
 
         assert set(_EINWILLIGUNG["required"]) <= set(update["$set"]["einwilligung"])
 
     def test_both_answers_the_person_gave_are_stored_as_given(self):
         """Publication and media are two consents under one record, so neither may be derived from the other."""
 
-        narrow = compose_confirmation_update(geburtsdatum="2009-05-09", umfang="intern", medien=False, text_version=A_LABEL, today=TODAY)
+        narrow = compose_confirmation_update(geburtsdatum="2009-05-09", umfang="intern", medien=False, text_version=A_LABEL, today=TODAY, am=AM)
         wide = compose_confirmation_update(
-            geburtsdatum="2009-05-09", umfang="kader_oeffentlich", medien=True, text_version=A_LABEL, today=TODAY
+            geburtsdatum="2009-05-09", umfang="kader_oeffentlich", medien=True, text_version=A_LABEL, today=TODAY, am=AM
         )
 
         assert (narrow["$set"]["einwilligung"]["umfang"], narrow["$set"]["einwilligung"]["medien"]) == ("intern", False)
         assert (wide["$set"]["einwilligung"]["umfang"], wide["$set"]["einwilligung"]["medien"]) == ("kader_oeffentlich", True)
 
-    def test_the_source_is_a_member_the_validator_declares(self):
-        """`volljaehrig` names who spoke and pins no age (`docs/glossary.md :: Einwilligung`), so it is right for a sixteen-year-old."""
 
-        assert REGISTRIERUNG_ERTEILT_VON in _EINWILLIGUNG_QUELLEN
+RETURNING_LABEL = LAUFENDE_FASSUNGEN[SEITE_WIEDERKEHREND]
+
+
+class TestWhatAReturningPupilsConfirmationWrites:
+    """`docs/backend/spec.md :: I557`: the page asked no choice, so the record holds none."""
+
+    def test_the_registrations_validator_takes_it_and_a_persons_would_not(self):
+        """Why the registration has a sub-schema of its own: `_EINWILLIGUNG` requires a scope this record does not carry."""
+
+        record = compose_confirmation_update(
+            geburtsdatum="2009-05-09", umfang=None, medien=None, text_version=RETURNING_LABEL, today=TODAY, am=AM
+        )["$set"]["einwilligung"]
+
+        assert set(_REGISTRIERUNG_EINWILLIGUNG["required"]) <= set(record)
+        assert not set(_EINWILLIGUNG["required"]) <= set(record)
+
+    @pytest.mark.parametrize(("umfang", "medien"), [("intern", None), (None, False)], ids=("a scope alone", "a media answer alone"))
+    def test_half_a_pair_is_never_composed(self, umfang: Any, medien: Any):
+        """A record holding one choice is neither page's, and stored it would be published from as if both were answered."""
+
+        with pytest.raises(ValueError, match="both choices or neither"):
+            compose_confirmation_update(geburtsdatum="2009-05-09", umfang=umfang, medien=medien, text_version=A_LABEL, today=TODAY, am=AM)
+
+
+class TestTheChoicesThePageAsks:
+    """`REQ-REGISTRIERUNG-017`: both choices on the new pupil's page, neither on the returning pupil's."""
+
+    @pytest.mark.parametrize(
+        ("seite", "umfang", "medien", "refused"),
+        [
+            pytest.param(SEITE_NEU, "intern", False, False, id="new page, both answered"),
+            pytest.param(SEITE_NEU, None, None, True, id="new page, neither answered"),
+            pytest.param(SEITE_NEU, "intern", None, True, id="new page, the media answer missing"),
+            pytest.param(SEITE_NEU, None, False, True, id="new page, the scope missing"),
+            pytest.param(SEITE_WIEDERKEHREND, None, None, False, id="returning page, neither answered"),
+            pytest.param(SEITE_WIEDERKEHREND, "kader_oeffentlich", True, True, id="returning page, both answered"),
+            pytest.param(SEITE_WIEDERKEHREND, None, True, True, id="returning page, a media grant alone"),
+            pytest.param(SEITE_WIEDERKEHREND, None, False, True, id="returning page, an off switch alone"),
+        ],
+    )
+    def test_each_body_is_judged_against_its_page(self, seite: Any, umfang: Any, medien: Any, refused: bool):
+        """The last case is the load-bearing one: an off switch is an answer, and the returning page asked none."""
+
+        refusal = find_wahlen_refusal(seite=seite, umfang=umfang, medien=medien)
+
+        assert (refusal is not None) == refused
+        assert refusal is None or (refusal.error_code, refusal.status) == (REGISTRIERUNG_WAHLEN_UNPASSEND, 422)
+
+
+class TestWhatAReturningAdmissionWrites:
+    """`docs/backend/spec.md :: I611`: a registration carrying no choice renews nothing on the person's record."""
+
+    RETURNING = {
+        "vorname": "Quillhilde",
+        "nachname": "Brackenmoor",
+        "geburtsdatum": "2009-05-09",
+        "einwilligung": {"bestaetigt_am": TODAY, "text_version": RETURNING_LABEL},
+    }
+
+    def test_a_new_person_is_never_born_from_it(self):
+        """The guard behind `REQ-REGISTRIERUNG-018`: a person born with no scope is one the validator refuses mid-transaction."""
+
+        with pytest.raises(ValueError, match="no choice"):
+            compose_person(spieler_id="a-new-id", registrierung_raw=self.RETURNING, adresse="quillhilde@example.com")
 
 
 def antwort(**overrides: Any) -> dict[str, Any]:
@@ -494,6 +590,13 @@ class TestWhatTheAnswerPayloadRefuses:
         del body[field]
 
         assert_rejects(FLRegistrierungBestaetigungPayload, body, field)
+
+    def test_the_returning_pupils_page_states_both_choices_as_null(self):
+        """Which page a body may carry nulls on is the press's to judge (`REQ-REGISTRIERUNG-017`), never the model's."""
+
+        stated = FLRegistrierungBestaetigungPayload.model_validate(antwort(umfang=None, medien=None, text_version=RETURNING_LABEL))
+
+        assert (stated.umfang, stated.medien) == (None, None)
 
     def test_the_two_scopes_are_the_pair_the_validator_declares(self):
         """A third member offered here and refused by mongod is a 500 on a page that has already taken the consent."""

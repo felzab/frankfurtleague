@@ -1,3 +1,4 @@
+import ast
 import re
 from collections import Counter
 from collections.abc import Callable
@@ -8,6 +9,7 @@ from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
 from app.api.spieler import schemas as spieler_schemas
+from app.core.exception_handlers import stores_nothing
 from app.core.security import (
     MISSING_TOKEN,
     PERSON_ACTOR_BINDERS,
@@ -17,7 +19,9 @@ from app.core.security import (
     verify_access_system,
     verify_actor_is_admin,
 )
-from tests.core.app_source import api_routes, application
+from app.core.transactions import transaction_session
+from tests.core.app_source import api_routes, application, callee, declared, module_of, parsed
+from tests.core.test_duplicate_key_publication import _write_operations as write_operations
 
 from .conftest import MINIMUM_EXPECTED_MUTATIONS
 
@@ -88,6 +92,9 @@ PUBLIC_WRITES = [
     # the token is the whole credential, so the guard here would have no session to check.
     ("/api/v0/schiedsrichter/bestaetigung/ansicht", "post"),
     ("/api/v0/schiedsrichter/bestaetigung", "post"),
+    # A referee's address link, on a base-tier router of its own for the same reason.
+    ("/api/v0/schiedsrichter/adresswechsel/ansicht", "post"),
+    ("/api/v0/schiedsrichter/adresswechsel", "post"),
     # A pupil's own confirmation link, on a third base-tier router under the registration prefix:
     # the token is the whole credential, so the guard here would have no session to check.
     ("/api/v0/registrierungen/bestaetigung/ansicht", "post"),
@@ -114,6 +121,7 @@ SYSTEM_WRITES = [
     # travels in a body, so `MUTATIONS` covers it, and this exemption leaves its one guard the
     # system tier's.
     ("/api/v0/identitaet/subjekt", "post"),
+    ("/api/v0/identitaet/anmeldung", "post"),
     ("/api/v0/identitaet/gesperrt", "post"),
     # The grants' reconciliation, one call reading and one stamping: the frontend's timer holds no
     # session, and a change made in the database directly has no administrator to attribute it to.
@@ -156,6 +164,18 @@ ADMIN_READS = [
     # A registration holds a pupil's name, the address the league mailed and, once they confirm,
     # their date of birth -- `READ-CONTACT-001`'s subject, as the two `bewerbungen` reads are.
     ("/api/v0/registrierungen", "get"),
+    # A team's squad with every surname whole, served to its own seat holders: a revert to
+    # `verify_access_base` hands it to every visitor, past the initial `READ-PUPIL-001` keeps for them.
+    ("/api/v0/spieler/kader/{team_id}/{saison_id}", "get"),
+    # A team's pending registrations name the person each address resolves to, a pupil's record the
+    # base tier never serves; the seat lines name three people who agreed to administrators alone.
+    ("/api/v0/registrierungen/kader/{team_id}/{saison_id}", "get"),
+    ("/api/v0/teams/{team_id}/saisons/{saison_id}/person/sitze", "get"),
+    # A person's own records: a birthdate and a consent record, and on a referee's the contact
+    # details (`READ-CONTACT-001`), each served to that person alone.
+    ("/api/v0/spieler/selbst", "get"),
+    ("/api/v0/schiedsrichter/selbst", "get"),
+    ("/api/v0/konto/einwilligungen", "get"),
 ]
 
 
@@ -197,9 +217,26 @@ def test_every_operation_carries_exactly_one_guard(path: str, method: str):
 
 
 # The operations a signed-in person reaches on the admin key through `PERSON_ACTOR_BINDERS`, whose actor
-# is a person no grant names: the one exemption from the check below, by name. Empty until the
-# first router serving a person is mounted.
-PERSON_OPERATIONS: frozenset[tuple[str, str]] = frozenset()
+# is a person no grant names: the one exemption from the check below, by name.
+PERSON_OPERATIONS: frozenset[tuple[str, str]] = frozenset(
+    {
+        ("/api/v0/spieler/kader/{team_id}/{saison_id}", "get"),
+        ("/api/v0/spieler/kader/{team_id}/{saison_id}/{spieler_id}", "patch"),
+        ("/api/v0/spieler/kader/{team_id}/{saison_id}/{spieler_id}", "delete"),
+        ("/api/v0/registrierungen/kader/{team_id}/{saison_id}", "get"),
+        ("/api/v0/registrierungen/{registrierung_id}/aufnehmen", "post"),
+        ("/api/v0/registrierungen/{registrierung_id}/ablehnen", "post"),
+        ("/api/v0/teams/{team_id}/saisons/{saison_id}/person/sitze", "get"),
+        ("/api/v0/spieler/selbst", "get"),
+        ("/api/v0/spieler/selbst/einwilligung", "patch"),
+        ("/api/v0/schiedsrichter/selbst", "get"),
+        ("/api/v0/schiedsrichter/selbst/{schiedsrichter_id}/einwilligung", "patch"),
+        ("/api/v0/konto/einwilligungen", "get"),
+        ("/api/v0/teams/{team_id}/saisons/{saison_id}/person/einwilligung", "patch"),
+        ("/api/v0/bewerbungen/{bewerbung_id}/person/einwilligung", "patch"),
+        ("/api/v0/registrierungen/selbst/{registrierung_id}/einwilligung", "patch"),
+    }
+)
 
 # Derived from the guard, as every tier here is, so a router added later is swept without being listed.
 ADMIN_TIER_OPERATIONS = [
@@ -224,6 +261,103 @@ def test_every_admin_tier_operation_judges_its_actor_after_the_key(path: str, me
     assert calls.index(verify_access_admin) < calls.index(bind_actor), f"{method.upper()} {path} asks for its actor before its key"
 
 
+# Read off the helper, so a rename cannot leave every write below matching nothing.
+TRANSACTION_SESSION = transaction_session.__name__
+
+
+def _opens_a_judged_transaction(endpoint: Callable[..., Any]) -> bool:
+    """Whether `endpoint`, or a function of its own module it calls, opens `transaction_session`, the one place its actor is judged again."""
+
+    module = parsed(module_of(endpoint))
+    own = {node.name: node for node in module.body if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))}
+    pending, seen = [declared(endpoint)], set()
+    while pending:
+        function = pending.pop()
+        if function.name in seen:
+            continue
+        seen.add(function.name)
+        for call in ast.walk(function):
+            if not isinstance(call, ast.Call):
+                continue
+            if callee(call) == TRANSACTION_SESSION:
+                return True
+            if isinstance(call.func, ast.Name) and call.func.id in own:
+                pending.append(own[call.func.id])
+
+    return False
+
+
+# Derived from the guard and the method, as `ADMIN_TIER_OPERATIONS` is, so a write router added later is swept unlisted.
+ADMIN_TIER_WRITES = [
+    operation
+    for operation in ADMIN_TIER_OPERATIONS
+    if operation[1] != "get" and stores_nothing not in [dependency.call for dependency in ROUTES_BY_OPERATION[operation].dependant.dependencies]
+]
+
+# Every operation the sweep above, and the published `x-fl-stores-nothing`, take at its word: held below to the word.
+STORES_NOTHING_OPERATIONS = sorted(
+    operation
+    for operation in PUBLISHED_OPERATIONS
+    if operation[1] != "get" and stores_nothing in [dependency.call for dependency in ROUTES_BY_OPERATION[operation].dependant.dependencies]
+)
+
+
+@pytest.mark.parametrize(("path", "method"), STORES_NOTHING_OPERATIONS, ids=lambda value: value)
+def test_an_operation_declaring_it_stores_nothing_reaches_no_write(path: str, method: str):
+    """Through the write trace `tests/core/test_duplicate_key_publication.py` builds per route, its helpers and the driver's own writes alike.
+
+    A write behind the declaration is judged by no transaction and published as storing nothing.
+    """
+
+    operation = f"{method.upper()} {ROUTES_BY_OPERATION[(path, method)].path_format}"
+    _, writes = write_operations()[operation]
+
+    assert [f"{write.helper} at {write.site}" for write in writes] == []
+
+
+def test_the_declaration_sweep_reads_some_operation_and_a_write():
+    """The floors: an empty population passes every case above, and a trace that finds no write passes them too."""
+
+    assert STORES_NOTHING_OPERATIONS
+    assert any(writes for _, writes in write_operations().values())
+
+
+@pytest.mark.parametrize(("path", "method"), ADMIN_TIER_WRITES, ids=lambda value: value)
+def test_every_admin_tier_write_runs_in_a_transaction_judging_its_actor(path: str, method: str):
+    """`docs/backend/spec.md :: I575`: a write outside the helper's session is judged once, before its handler.
+
+    A revoke committing between that check and the write then leaves the revoked administrator one write to make.
+    """
+
+    assert _opens_a_judged_transaction(ROUTES_BY_OPERATION[(path, method)].endpoint), (
+        f"{method.upper()} {path} writes outside `{TRANSACTION_SESSION}`, which judges no actor"
+    )
+
+
+# The writes `PERSON_OPERATIONS` exempts from the sweep above, which binding a person earns them
+# (`test_every_person_operation_binds_a_person_after_the_key`) and which a write outside the helper would not.
+PERSON_LANE_WRITES = sorted(operation for operation in PERSON_OPERATIONS if operation[1] != "get")
+
+
+@pytest.mark.parametrize(("path", "method"), PERSON_LANE_WRITES, ids=lambda value: value)
+def test_every_person_lane_write_runs_in_a_transaction_judging_its_person(path: str, method: str):
+    """`docs/backend/spec.md :: I576`: the binder reads the ban once before the handler; the transaction reads it again in each attempt."""
+
+    assert _opens_a_judged_transaction(ROUTES_BY_OPERATION[(path, method)].endpoint), (
+        f"{method.upper()} {path} writes outside `{TRANSACTION_SESSION}`, which judges no person"
+    )
+
+
+def test_the_transaction_sweep_follows_a_helper_and_can_refuse():
+    """Every case above passes, so only these two show the reader reaching past the endpoint's body and answering no at all.
+
+    The mailing opens one transaction per team in a helper of its module; the grants' list opens none.
+    """
+
+    assert _opens_a_judged_transaction(ROUTES_BY_OPERATION[("/api/v0/saisons/{saison_id}/einladungen/versand", "post")].endpoint)
+    assert not _opens_a_judged_transaction(ROUTES_BY_OPERATION[("/api/v0/berechtigungen", "get")].endpoint)
+
+
 def test_the_person_exemption_names_only_published_operations():
     """A stale entry would exempt nothing while reading as a decision."""
     assert set(PERSON_OPERATIONS) <= set(PUBLISHED_OPERATIONS), f"{sorted(set(PERSON_OPERATIONS) - set(PUBLISHED_OPERATIONS))} is not published"
@@ -233,7 +367,7 @@ def test_every_person_operation_binds_a_person_after_the_key():
     """What earns an operation its exemption from the grants check.
 
     `tests/api/test_actor_binding.py :: PERSON_WRITES` is held to the same routes, so the two lists
-    agree. Not parametrised: the list is empty until a person's router is mounted.
+    agree. Not parametrised, so one failure names every unearned exemption at once.
     """
     unearned = []
     for operation in sorted(PERSON_OPERATIONS):

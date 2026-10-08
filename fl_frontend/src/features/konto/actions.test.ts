@@ -34,7 +34,7 @@ const LOGGING_DOUBLE = { logger: { debug: () => undefined, info: () => undefined
 // Every address this file signs in is seated: the gate at session creation is not its subject.
 seatEveryAddress();
 
-registerAuthDoubles({
+const { sent } = registerAuthDoubles({
   core: { logging: LOGGING_DOUBLE, config: configDouble(GATE_BACKEND_CONFIG) },
   specifiers: {
     "next/headers": HEADERS_DOUBLE,
@@ -46,7 +46,8 @@ registerAuthDoubles({
 const store = memoryStore(STORE);
 
 // Imported here rather than at the top: a static import resolves before the hooks above are registered.
-const { endAndereAnmeldungenAction, endAnmeldungAction } = await import("./actions.ts");
+const { endAndereAnmeldungenAction, endAnmeldungAction, sendeBestaetigungscodeAction } = await import("./actions.ts");
+const { KONTO_FORBIDDEN } = await import("@/shared/utils/kontoMutation.ts");
 const { readSicherheit } = await import("./sicherheit.ts");
 const { auth, getKontoSession } = await import("@/core/auth");
 const { PERSON_LIFETIME } = await import("@/core/sessionLifetimes");
@@ -369,5 +370,33 @@ describe("ending every other sign-in", () => {
     assert.equal((await endAndereAnmeldungenAction()).success, false);
     assert.equal((await endAnmeldungAction(other.row.id)).success, false);
     assert.ok(store.session.some((entry) => entry.id === other.row.id));
+  });
+});
+
+describe("the step-up's code", () => {
+  /* The address is the session's, so a press carries none and the bot check, which guards a typed one,
+     has nothing to guard here (`docs/frontend/spec.md :: I624`). */
+  it("mails the holder's own address, from a session past the step-up window too", async () => {
+    const { cookie, row } = await signIn(PERSON_EMAIL);
+    row.createdAt = new Date(Date.now() - 3 * HOUR_MS);
+    arriveAs(cookie);
+    const before = sent.length;
+
+    const answer = await sendeBestaetigungscodeAction();
+
+    assert.equal(answer.success, true, JSON.stringify(answer));
+    assert.deepEqual(
+      sent.slice(before).map((mail) => mail.to),
+      [PERSON_EMAIL],
+    );
+  });
+
+  /* The page's session ended between its render and the press: the one sentence a person can act on. */
+  it("answers a press with no session the account page's own sentence, and mails nobody", async () => {
+    requestHeaders = new Headers(ORIGIN);
+    const before = sent.length;
+
+    assert.deepEqual(await sendeBestaetigungscodeAction(), { success: false, error: KONTO_FORBIDDEN });
+    assert.equal(sent.length, before);
   });
 });

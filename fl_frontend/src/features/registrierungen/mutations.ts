@@ -4,8 +4,11 @@ import { IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
 import {
   FLEinladungAnsichtResponseSchema,
   FLPostRegistrierungResponseSchema,
+  FLRegistrierungAblehnungResponseSchema,
+  FLRegistrierungAufnahmeResponseSchema,
   FLRegistrierungBestaetigungAnsichtResponseSchema,
   FLRegistrierungBestaetigungResponseSchema,
+  FLRegistrierungSelbstEinwilligungResponseSchema,
   FLRegistrierungSweepResponseSchema,
 } from "./schemas";
 
@@ -14,10 +17,16 @@ import type {
   FLEinladungAnsichtResponse,
   FLPostRegistrierungPayload,
   FLPostRegistrierungResponse,
+  FLRegistrierungAblehnenPayload,
+  FLRegistrierungAblehnungResponse,
+  FLRegistrierungAufnahmeResponse,
+  FLRegistrierungAufnehmenPayload,
   FLRegistrierungBestaetigungAnsichtPayload,
   FLRegistrierungBestaetigungAnsichtResponse,
   FLRegistrierungBestaetigungPayload,
   FLRegistrierungBestaetigungResponse,
+  FLRegistrierungSelbstEinwilligungPayload,
+  FLRegistrierungSelbstEinwilligungResponse,
   FLRegistrierungSweepResponse,
 } from "./schemas";
 
@@ -72,6 +81,30 @@ export async function postSpielerBestaetigung(payload: FLRegistrierungBestaetigu
   });
 }
 
+/** Admits one registration; the id goes in the path and the body names whom it is admitted into. */
+export async function postRegistrierungAufnehmen(
+  registrierungId: string,
+  payload: FLRegistrierungAufnehmenPayload,
+): Promise<FLRegistrierungAufnahmeResponse> {
+  return apiClient<FLRegistrierungAufnahmeResponse>(
+    `/registrierungen/${encodeURIComponent(registrierungId)}/aufnehmen`,
+    FLRegistrierungAufnahmeResponseSchema,
+    { method: "POST", authType: "admin", body: JSON.stringify(payload) },
+  );
+}
+
+/** Declines one registration under a fixed reason. */
+export async function postRegistrierungAblehnen(
+  registrierungId: string,
+  payload: FLRegistrierungAblehnenPayload,
+): Promise<FLRegistrierungAblehnungResponse> {
+  return apiClient<FLRegistrierungAblehnungResponse>(
+    `/registrierungen/${encodeURIComponent(registrierungId)}/ablehnen`,
+    FLRegistrierungAblehnungResponseSchema,
+    { method: "POST", authType: "admin", body: JSON.stringify(payload) },
+  );
+}
+
 /**
  * Runs one season's retention clocks. **One call and not three**: the registration gets no
  * pre-notice, so the application flow's mail-stamp-erase ordering has no counterpart, and what this
@@ -84,4 +117,17 @@ export async function postRegistrierungSweep(saisonId: string): Promise<FLRegist
     // is what `fl_backend/app/core/recording.py :: SYSTEM_ACTOR` exists to avoid.
     authType: "system",
   });
+}
+
+// A pupil's own withdrawal on their pending registration, under the person lane's actor: the backend
+// judges the registration theirs and takes a withdrawal alone until the team admits it.
+export async function patchRegistrierungEinwilligung(
+  registrierungId: string,
+  payload: FLRegistrierungSelbstEinwilligungPayload,
+): Promise<FLRegistrierungSelbstEinwilligungResponse> {
+  return apiClient<FLRegistrierungSelbstEinwilligungResponse>(
+    `/registrierungen/selbst/${encodeURIComponent(registrierungId)}/einwilligung`,
+    FLRegistrierungSelbstEinwilligungResponseSchema,
+    { method: "PATCH", authType: "admin", body: JSON.stringify(payload) },
+  );
 }

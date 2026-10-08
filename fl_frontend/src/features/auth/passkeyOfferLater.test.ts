@@ -12,7 +12,7 @@ import {
   registerAuthDoubles,
   signInByCode,
 } from "../../core/authDoubles.ts";
-import { SITZ } from "../../core/subjectFixtures.ts";
+import { answerAt, GATE_ENDPOINT, SITZ } from "../../core/subjectFixtures.ts";
 
 const STORE = "__flOfferLaterStore";
 /** What the request a case arrives as carries. */
@@ -33,9 +33,11 @@ registerAuthDoubles({
   },
 });
 
-// The one backend read on this path, the sign-in gate's and the landing's alike: a live seat.
+// The two backend reads on this path, the sign-in gate's and the landing's, each answering a live seat.
 answerReadsWith((endpoint, schema, params) =>
-  endpoint === "/identitaet/subjekt" ? { ...HOLDS_NOTHING, sitze: [SITZ] } : EMPTIEST_ANSWER(endpoint, schema, params),
+  endpoint === "/identitaet/subjekt" || endpoint === GATE_ENDPOINT
+    ? answerAt(endpoint, { ...HOLDS_NOTHING, sitze: [SITZ], konto: true })
+    : EMPTIEST_ANSWER(endpoint, schema, params),
 );
 
 // After the doubles, so each import resolves through them.

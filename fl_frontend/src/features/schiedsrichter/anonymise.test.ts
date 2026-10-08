@@ -11,9 +11,17 @@ doubleActionRequest();
 
 /** Every write acknowledged, echoing the referee as stored, with no link minted: the save then mails nothing. */
 const { calls: sent } = doubleApiAnswers(async ({ method }) => {
-  const stored = { id: SCHIEDSRICHTER_ID, ...REFEREE, inactive_since: null, geburtsdatum: null, einwilligung: null, bestaetigung: null };
+  const stored = {
+    id: SCHIEDSRICHTER_ID,
+    ...REFEREE,
+    inactive_since: null,
+    geburtsdatum: null,
+    einwilligung: null,
+    bestaetigung: null,
+    adresswechsel: null,
+  };
   return method === "PATCH"
-    ? { acknowledged: 1, updated_document: stored, fanned_out_to_spiele: 0, bestaetigung: null }
+    ? { acknowledged: 1, updated_document: stored, fanned_out_to_spiele: 0, bestaetigung: null, adresswechsel: null }
     : { acknowledged: 1, updated_document: stored };
 });
 

@@ -12,6 +12,7 @@ import { SaisonSlotSkeleton } from "@/shared/components/ui/SaisonSlotSkeleton";
 import { Select } from "@/shared/components/ui/Select";
 import { useMounted } from "@/shared/hooks/useMounted";
 import { useNavigationClosedOverlay } from "@/shared/hooks/useNavigationClosedOverlay";
+import { benannt } from "@/shared/utils/benannt";
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import type { Key } from "@heroui/react/rac";
@@ -78,7 +79,7 @@ export function SaisonSelector({ saisons, defaultSaison }: { saisons: SaisonSele
   return (
     <div className="w-full">
       <Select
-        aria-label="Saison auswählen"
+        aria-label={benannt(`Saison ${activeSaisonId}`, "Saison auswählen")}
         value={activeSaisonId}
         onChange={handleSelectionChange}
         isOpen={isOpen}

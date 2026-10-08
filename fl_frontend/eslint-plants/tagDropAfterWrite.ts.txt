@@ -1,0 +1,28 @@
+// Linted as src/features/spieler/actions.ts.
+import { refresh, updateTag } from "next/cache"; // expect: tag-drop
+import * as nextCache from "next/cache";
+
+import { invalidatesOnWrite } from "@/shared/utils/adminMutation";
+
+export async function plantedAfterWrite(write: () => Promise<void>): Promise<void> {
+  await write();
+  updateTag("spieler");
+  nextCache.updateTag("spieler"); // expect: tag-drop
+  nextCache["updateTag"]("spieler"); // expect: tag-drop
+  nextCache[`updateTag`]("spieler"); // expect: tag-drop
+  const { updateTag: dropTag } = nextCache; // expect: tag-drop
+  const { "updateTag": dropQuoted } = nextCache; // expect: tag-drop
+  const { [`updateTag`]: dropTemplated } = nextCache; // expect: tag-drop
+  dropTag("spieler");
+  dropQuoted("spieler");
+  dropTemplated("spieler");
+  refresh();
+}
+
+// The declaration ahead of the write, which the spine drops; a name merely holding the word is no call.
+export async function declared(write: () => Promise<void>): Promise<void> {
+  invalidatesOnWrite("spieler");
+  const updateTagName = "updateTag";
+  await write();
+  return void updateTagName;
+}

@@ -35,7 +35,6 @@ from app.api.berechtigungen.services import (
     BERECHTIGUNG_LETZTER_INHABER,
     BERECHTIGUNG_MINDESTZAHL,
     BERECHTIGUNG_NUR_INHABER,
-    BERECHTIGUNG_OHNE_ZUGANG,
     BERECHTIGUNG_VORHANDEN,
     VERSUCHE_HOECHSTENS,
     compose_postausgang,
@@ -45,12 +44,14 @@ from app.api.sperrliste.admin_router import delete_sperrliste_eintrag
 from app.api.sperrliste.services import SPERRLISTE_VERWALTUNG, compose_gesperrt_bis_saison_id
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
+from app.core.crud import ANCHOR_FIELD, WritesSent, writes_sent_var
+from app.core.exceptions import ActorForbiddenException, DocumentNotFoundException, WriteRefusalException
 from app.core.recording import SYSTEM_ACTOR, Actor, actor_var
-from app.core.security import ACTOR_HEADER, ACTOR_NOT_ADMIN, ACTOR_TOKEN_REFUSED, get_grant_lookup
+from app.core.security import ACTOR_HEADER, ACTOR_NOT_ADMIN, ACTOR_TOKEN_REFUSED, admin_judge, get_grant_lookup
+from app.core.transactions import actor_judge_var
 from app.main import create_app
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
-from tests.actor_tokens import SignedActor, actor_claims, sign
+from tests.actor_tokens import SignedActor, actor_claims, sign, verified_actor
 from tests.app_client import app_client
 from tests.bans import ban_list, ban_through_the_route
 from tests.config import ADMIN_KEY, SYSTEM_AUTH
@@ -153,6 +154,20 @@ async def acting(actor: Any, call: Callable[[], Awaitable[Any]]) -> Any:
         actor_var.reset(token)
 
 
+async def administering(als: str, call: Callable[[], Awaitable[Any]]) -> Any:
+    """`call` as one request of the administrator: the actor and the judge `bind_actor` binds, and the record of what it sent.
+
+    The record as `app/core/middlewares.py :: TraceContextMiddleware` binds one, which the judge reads to leave a no-op unanchored.
+    """
+
+    judge_token, sent_token = actor_judge_var.set(admin_judge(verified_actor(als), CONFIG)), writes_sent_var.set(WritesSent())
+    try:
+        return await acting(Actor(kind="admin_session", email=als), call)
+    finally:
+        actor_judge_var.reset(judge_token)
+        writes_sent_var.reset(sent_token)
+
+
 async def grant(
     database: AsyncDatabase,
     client: AsyncMongoClient,
@@ -174,7 +189,7 @@ async def grant(
             now=now,
         )
 
-    return (await acting(Actor(kind="admin_session", email=als), call)).created_id
+    return (await administering(als, call)).created_id
 
 
 async def revoke(
@@ -194,7 +209,7 @@ async def revoke(
             now=NOW,
         )
 
-    await acting(Actor(kind="admin_session", email=als), call)
+    await administering(als, call)
 
 
 async def change(
@@ -223,7 +238,7 @@ async def change(
             now=now,
         )
 
-    await acting(Actor(kind="admin_session", email=als), call)
+    await administering(als, call)
 
 
 async def tiers(database: AsyncDatabase) -> dict[str, str]:
@@ -240,7 +255,7 @@ async def ban(database: AsyncDatabase, client: AsyncMongoClient, email: str = NE
     async def call() -> Any:
         return await ban_through_the_route(database, client, email=email, grund=GRUND, von=als, today=TODAY, berechtigungen=berechtigungen)
 
-    return await acting(Actor(kind="admin_session", email=als), call)
+    return await administering(als, call)
 
 
 async def queued(database: AsyncDatabase) -> list[Mapping[str, Any]]:
@@ -402,7 +417,7 @@ class TestTheOutboxMovesWithItsChange:
                 )
 
             with pytest.raises(RuntimeError):
-                await acting(Actor(kind="admin_session", email=ANNA), call)
+                await administering(ANNA, call)
 
             return (
                 await database[Collection.BERECHTIGUNGEN].count_documents({"adresse": NEU}),
@@ -431,7 +446,7 @@ class TestTheOutboxMovesWithItsChange:
                 )
 
             with pytest.raises(RuntimeError):
-                await acting(Actor(kind="admin_session", email=OWNER), call)
+                await administering(OWNER, call)
 
             return (
                 await database[Collection.BERECHTIGUNGEN].count_documents({"_id": BERND_ID}),
@@ -549,14 +564,20 @@ class TestOnlyAnOwnerRevokes:
         assert on_a_league(mongo_replica_set_url, body) == (BERECHTIGUNG_NUR_INHABER, BERECHTIGUNG_NUR_INHABER, sorted([OWNER, ANNA]))
 
     def test_an_owner_row_that_is_dead_revokes_nothing(self, mongo_replica_set_url: str):
-        """Folded and equal to its own actor, and refused by the address rule: an owner in name that the one reading reads as none."""
+        """Folded and equal to its own actor, and refused by the address rule: an owner in name that the one reading reads as none.
 
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
-            return await refusal_of(revoke(database, client, BERND_ID, als=DEAD_OWNER))
+        So the actor's judge refuses it as no administrator at all, ahead of `REQ-BERECHTIGUNG-005`.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, int]:
+            with pytest.raises(ActorForbiddenException) as refused:
+                await revoke(database, client, BERND_ID, als=DEAD_OWNER)
+
+            return refused.value.error_code, await database[Collection.BERECHTIGUNGEN].count_documents({"_id": BERND_ID})
 
         grants = [grant_document(OWNER_ID, DEAD_OWNER, "owner"), *the_three_grants()[1:]]
 
-        assert on_a_league(mongo_replica_set_url, body, grants=grants) == BERECHTIGUNG_NUR_INHABER
+        assert on_a_league(mongo_replica_set_url, body, grants=grants) == (ACTOR_NOT_ADMIN, 1)
 
     def test_an_owner_demoted_after_the_first_read_revokes_nothing(self, mongo_replica_set_url: str):
         """The owner's own grant is judged on the read the retry makes inside the transaction, not on the one before it."""
@@ -576,27 +597,32 @@ class TestOnlyAnOwnerRevokes:
 
 
 class TestAnActorRevokedMidRequest:
-    """`REQ-BERECHTIGUNG-006`: the actor check ran before the transaction, so the grant re-judges the actor inside it."""
+    """`REQ-AUTH-006` from the actor's judge, which every transaction runs again after the retry its anchor's conflict forces.
+
+    `serially=0`: with the revoke committed first, the judge refuses before the write reads the list at all.
+    """
 
     def test_a_grant_whose_actor_is_revoked_after_the_check_is_refused_and_stores_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str | None, str, list[str]]:
             racing = GrantsRunningARivalAfterTheFirstRead(database[Collection.BERECHTIGUNGEN], lambda: revoke(database, client, ANNA_ID))
-            outcome = await outcome_of(grant(database, client, als=ANNA, berechtigungen=racing))
-            racing.assert_landed_inside(serially=1)
+            with pytest.raises(ActorForbiddenException) as refused:
+                await grant(database, client, als=ANNA, berechtigungen=racing)
+            racing.assert_landed_inside(serially=0)
 
-            return racing.rival_outcome, outcome, await addresses(database)
+            return racing.rival_outcome, refused.value.error_code, await addresses(database)
 
-        assert on_a_league(mongo_replica_set_url, body) == (COMMITTED, BERECHTIGUNG_OHNE_ZUGANG, sorted([OWNER, BERND]))
+        assert on_a_league(mongo_replica_set_url, body) == (COMMITTED, ACTOR_NOT_ADMIN, sorted([OWNER, BERND]))
 
     def test_a_ban_whose_actor_is_revoked_after_the_check_is_refused_and_stores_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str | None, str, int]:
             racing = GrantsRunningARivalAfterTheFirstRead(database[Collection.BERECHTIGUNGEN], lambda: revoke(database, client, ANNA_ID))
-            outcome = await outcome_of(ban(database, client, als=ANNA, berechtigungen=racing))
-            racing.assert_landed_inside(serially=1)
+            with pytest.raises(ActorForbiddenException) as refused:
+                await ban(database, client, als=ANNA, berechtigungen=racing)
+            racing.assert_landed_inside(serially=0)
 
-            return racing.rival_outcome, outcome, await database[Collection.SPERRLISTE].count_documents({})
+            return racing.rival_outcome, refused.value.error_code, await database[Collection.SPERRLISTE].count_documents({})
 
-        assert on_a_league(mongo_replica_set_url, body) == (COMMITTED, BERECHTIGUNG_OHNE_ZUGANG, 0)
+        assert on_a_league(mongo_replica_set_url, body) == (COMMITTED, ACTOR_NOT_ADMIN, 0)
 
 
 class TestTheOwnersRow:
@@ -831,10 +857,17 @@ class GrantsRunningARivalAfterTheFirstRead(InterleavedCollection):
 
 
 class TestTheAnchorClosesEachRace:
-    """Each outcome equals a serial order of the pair; with the anchor gone, both commit and the list breaks its own rule."""
+    """Each outcome equals a serial order of the pair.
+
+    Each administrator's judge anchors only their own grant row, so between two administrators only the list anchor
+    conflicts: with it gone, both commit.
+    """
 
     def test_two_revokes_that_each_leave_the_floor_do_not_both_commit(self, mongo_replica_set_url: str):
-        """Three grants, two revokes: either alone leaves two, both together leave the `owner` grant alone."""
+        """Three grants, two revokes: either alone leaves two, both together leave the `owner` grant alone.
+
+        One owner on both sides, the only revoker three grants allow, so its own anchor conflicts too.
+        """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str | None, str, list[str]]:
             racing = GrantsRunningARivalAfterTheFirstRead(database[Collection.BERECHTIGUNGEN], lambda: revoke(database, client, BERND_ID))
@@ -847,7 +880,7 @@ class TestTheAnchorClosesEachRace:
 
     def test_a_ban_landing_beside_a_grant_of_its_address_refuses_the_grant(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str | None, str, list[str]]:
-            racing = GrantsRunningARivalAfterTheFirstRead(database[Collection.BERECHTIGUNGEN], lambda: ban(database, client))
+            racing = GrantsRunningARivalAfterTheFirstRead(database[Collection.BERECHTIGUNGEN], lambda: ban(database, client, als=BERND))
             outcome = await outcome_of(grant(database, client, berechtigungen=racing))
             racing.assert_landed_inside(serially=1)
 
@@ -857,7 +890,7 @@ class TestTheAnchorClosesEachRace:
 
     def test_a_grant_landing_beside_a_ban_of_its_address_refuses_the_ban(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str | None, str, int]:
-            racing = GrantsRunningARivalAfterTheFirstRead(database[Collection.BERECHTIGUNGEN], lambda: grant(database, client))
+            racing = GrantsRunningARivalAfterTheFirstRead(database[Collection.BERECHTIGUNGEN], lambda: grant(database, client, als=BERND))
             outcome = await outcome_of(ban(database, client, berechtigungen=racing))
             racing.assert_landed_inside(serially=1)
 
@@ -953,15 +986,17 @@ class TestTheAnchorClosesEachRace:
 
 class TestTheClaim:
     def test_a_pass_with_nothing_to_queue_writes_no_anchor(self, mongo_replica_set_url: str):
-        """A pass runs every few minutes, and an anchor each time would fill the log with rows about nothing."""
+        """A pass runs every few minutes, and an anchor each time would make every grant write it overlaps retry for nothing."""
 
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[int, int]:
+        async def anchored(database: AsyncDatabase) -> list[int]:
+            return [int(row.get(ANCHOR_FIELD, 0)) async for row in database[Collection.BERECHTIGUNGEN].find().sort("_id", 1)]
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[list[int], list[int]]:
             await told(database, client)
-            logged = {"collection": str(Collection.BERECHTIGUNGEN), "operation": "patch_many"}
-            before = await database[Collection.AKTIONEN].count_documents(logged)
+            before = await anchored(database)
             await claimed(database, client)
 
-            return before, await database[Collection.AKTIONEN].count_documents(logged)
+            return before, await anchored(database)
 
         before, after = on_a_league(mongo_replica_set_url, body)
 

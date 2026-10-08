@@ -1,6 +1,8 @@
 import functools
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from collections.abc import Set as AbstractSet
+from dataclasses import dataclass
+from enum import StrEnum
 from http import HTTPStatus
 from typing import Any, NamedTuple
 
@@ -19,42 +21,55 @@ from app.api.berechtigungen.admin_router import router as berechtigungen_admin_r
 from app.api.berechtigungen.sweep_router import router as berechtigungen_sweep_router
 from app.api.bewerbungen.admin_router import router as bewerbungen_admin_router
 from app.api.bewerbungen.einwilligung_router import router as bewerbungen_einwilligung_router
+from app.api.bewerbungen.person_router import router as bewerbungen_person_router
 from app.api.bewerbungen.public_router import router as bewerbungen_public_router
 from app.api.bewerbungen.router import router as bewerbungen_router
 from app.api.bewerbungen.sweep_router import router as bewerbungen_sweep_router
 from app.api.bewerbungen.zustellung_router import router as bewerbungen_zustellung_router
+from app.api.einwilligung.router import router as einwilligung_router
 from app.api.identitaet.router import router as identitaet_router
 from app.api.kontakte.admin_router import router as kontakte_admin_router
+from app.api.konto.router import router as konto_router
 from app.api.registrierungen.einwilligung_router import router as registrierungen_einwilligung_router
+from app.api.registrierungen.person_router import router as registrierungen_person_router
 from app.api.registrierungen.public_router import router as registrierungen_public_router
 from app.api.registrierungen.router import router as registrierungen_router
+from app.api.registrierungen.selbst_router import router as registrierungen_selbst_router
 from app.api.registrierungen.sweep_router import router as registrierungen_sweep_router
 from app.api.saisons.admin_router import router as saisons_admin_router
 from app.api.saisons.router import router as saisons_router
 from app.api.schiedsrichter.admin_router import router as schiedsrichter_admin_router
+from app.api.schiedsrichter.adresswechsel_router import router as schiedsrichter_adresswechsel_router
 from app.api.schiedsrichter.bestaetigung_router import router as schiedsrichter_bestaetigung_router
+from app.api.schiedsrichter.person_router import router as schiedsrichter_person_router
 from app.api.schiedsrichter.router import router as schiedsrichter_router
 from app.api.sperrliste.admin_router import router as sperrliste_admin_router
 from app.api.spiele.admin_router import router as spiele_admin_router
 from app.api.spiele.router import router as spiele_router
 from app.api.spieler.admin_router import router as spieler_admin_router
+from app.api.spieler.person_router import router as spieler_person_router
 from app.api.spieler.router import router as spieler_router
+from app.api.spieler.selbst_router import router as spieler_selbst_router
 from app.api.spielorte.admin_router import router as spielorte_admin_router
 from app.api.spielorte.router import router as spielorte_router
 from app.api.spieltage.admin_router import router as spieltage_admin_router
 from app.api.spieltage.router import router as spieltage_router
 from app.api.system.router import router as system_router
 from app.api.teams.admin_router import router as teams_admin_router
+from app.api.teams.person_router import router as teams_person_router
 from app.api.teams.router import router as teams_router
 from app.api.zustellung.router import router as zustellung_router
 from app.core.actor_token import ActorTokenKey
 from app.core.config import API_VERSION, BackendConfig
 from app.core.db import get_database, get_db_client, lifespan
 from app.core.domain import OPERATION_SEPARATOR, RULES
+from app.core.drosselung import DROSSELUNG_ERREICHT, get_drossel
 from app.core.exception_handlers import (
     BODY_UNREADABLE,
     COMPONENT_REF,
     JSON_MEDIA_TYPE,
+    METHOD_NOT_SERVED,
+    NO_ROUTE,
     PAYLOAD_REFUSED,
     STORES_NOTHING_WHEN,
     refusal_response,
@@ -104,6 +119,7 @@ READ_ROUTERS = (
     schiedsrichter_router,
     bewerbungen_router,
     registrierungen_router,
+    einwilligung_router,
 )
 WRITE_ROUTERS = (
     spiele_admin_router,
@@ -127,6 +143,7 @@ PUBLIC_ROUTERS = (
     registrierungen_public_router,
     registrierungen_einwilligung_router,
     schiedsrichter_bestaetigung_router,
+    schiedsrichter_adresswechsel_router,
 )
 # Its own group for the same reason: system-tier operations the application makes to itself, which
 # neither tuple above describes. A POST that stores nothing sits here too, both guard sheets listing
@@ -139,43 +156,106 @@ SYSTEM_ROUTERS = (
     identitaet_router,
     berechtigungen_sweep_router,
 )
+# Its own group, as the two above are: a signed-in person's routers read and write on the admin key
+# with a person's binder in place of `bind_actor`, which no tuple above describes. A sweep walking
+# the writers walks these too.
+PERSON_ROUTERS = (
+    spieler_person_router,
+    registrierungen_person_router,
+    teams_person_router,
+    bewerbungen_person_router,
+    spieler_selbst_router,
+    registrierungen_selbst_router,
+    schiedsrichter_person_router,
+    konto_router,
+)
 
 # Spelled as `fl_frontend/src/core/api.ts :: FetchOptions` spells its `authType`, the value being
 # published so the two can be compared (`docs/backend/spec.md :: I190`).
 KEY_TIER_EXTENSION = "x-fl-tier"
 KEY_TIERS = {verify_access_base: "base", verify_access_admin: "admin", verify_access_system: "system"}
 
-# Each dependency answering a refusal of its own before any handler runs, and the one it answers;
-# held to what each raises by `fl_backend/tests/api/test_dependency_refusals.py`.
-DEPENDENCY_REFUSALS: Mapping[Callable[..., Any], tuple[HTTPStatus, str]] = {
-    get_token: (HTTPStatus.UNAUTHORIZED, MISSING_TOKEN),
-    verify_access_base: (HTTPStatus.UNAUTHORIZED, WRONG_BASE_KEY),
-    verify_access_admin: (HTTPStatus.UNAUTHORIZED, WRONG_ADMIN_KEY),
-    verify_access_system: (HTTPStatus.UNAUTHORIZED, WRONG_SYSTEM_KEY),
+
+class RefusalDriver(StrEnum):
+    """The suite that makes a dependency's refusal happen, which holds the table's entry to what a request meets."""
+
+    #: Met before any handler, by `fl_backend/tests/api/test_dependency_refusals.py`'s probe of every
+    #: operation against an application holding no database.
+    PROBE = "probe"
+    #: Met only past the database, where the handler calls the check: `fl_backend/tests/api/test_step_up_execution.py`.
+    STEP_UP = "step_up"
+    #: Met only once the stored day's count is spent: `fl_backend/tests/api/test_drosselung_execution.py`.
+    COUNT = "count"
+
+
+@dataclass(frozen=True, kw_only=True)
+class DependencyRefusal:
+    status: HTTPStatus
+    code: str
+    driven_by: RefusalDriver
+
+
+def _probed(status: HTTPStatus, code: str) -> DependencyRefusal:
+    return DependencyRefusal(status=status, code=code, driven_by=RefusalDriver.PROBE)
+
+
+# Each dependency answering a refusal of its own, the one it answers, and the suite making it happen.
+# One table, so a dependency added to it is published with no second list to join.
+DEPENDENCY_REFUSALS: Mapping[Callable[..., Any], DependencyRefusal] = {
+    get_token: _probed(HTTPStatus.UNAUTHORIZED, MISSING_TOKEN),
+    verify_access_base: _probed(HTTPStatus.UNAUTHORIZED, WRONG_BASE_KEY),
+    verify_access_admin: _probed(HTTPStatus.UNAUTHORIZED, WRONG_ADMIN_KEY),
+    verify_access_system: _probed(HTTPStatus.UNAUTHORIZED, WRONG_SYSTEM_KEY),
     # The actor's three, each raised by the dependency it is keyed on; a binder declaring them raises
     # none of its own, and an operation meets them through it (`dependency_refusals` walks sub-dependencies).
-    get_actor_token: (HTTPStatus.BAD_REQUEST, MISSING_ACTOR),
-    verify_admin_actor: (HTTPStatus.UNAUTHORIZED, ACTOR_TOKEN_REFUSED),
-    verify_person_actor: (HTTPStatus.UNAUTHORIZED, ACTOR_TOKEN_REFUSED),
+    get_actor_token: _probed(HTTPStatus.BAD_REQUEST, MISSING_ACTOR),
+    verify_admin_actor: _probed(HTTPStatus.UNAUTHORIZED, ACTOR_TOKEN_REFUSED),
+    verify_person_actor: _probed(HTTPStatus.UNAUTHORIZED, ACTOR_TOKEN_REFUSED),
     # A session older than its grant is refused here under `verify_admin_actor`'s code, which this
     # check's own dependency on it publishes on every operation running both.
-    verify_actor_is_admin: (HTTPStatus.FORBIDDEN, ACTOR_NOT_ADMIN),
-    verify_person_is_unbarred: (HTTPStatus.FORBIDDEN, PERSON_BARRED),
-    verify_recent_confirmation: (HTTPStatus.UNAUTHORIZED, CONFIRMATION_REQUIRED),
-    verify_step_up: (HTTPStatus.UNAUTHORIZED, CONFIRMATION_REQUIRED),
-    get_db_client: (HTTPStatus.SERVICE_UNAVAILABLE, NO_DATABASE_CLIENT),
-    get_database: (HTTPStatus.SERVICE_UNAVAILABLE, NO_DATABASE_CLIENT),
-}
-
-# Dependencies handing their handler a check it calls on the calls it judges, and what that check
-# answers: published as the table above is, but met only past the database, so
-# `fl_backend/tests/api/test_step_up_execution.py` drives them.
-HANDLER_JUDGED_REFUSALS: Mapping[Callable[..., Any], tuple[HTTPStatus, str]] = {
-    get_step_up_check: (HTTPStatus.UNAUTHORIZED, CONFIRMATION_REQUIRED),
+    verify_actor_is_admin: _probed(HTTPStatus.FORBIDDEN, ACTOR_NOT_ADMIN),
+    verify_person_is_unbarred: _probed(HTTPStatus.FORBIDDEN, PERSON_BARRED),
+    verify_recent_confirmation: _probed(HTTPStatus.UNAUTHORIZED, CONFIRMATION_REQUIRED),
+    verify_step_up: _probed(HTTPStatus.UNAUTHORIZED, CONFIRMATION_REQUIRED),
+    get_db_client: _probed(HTTPStatus.SERVICE_UNAVAILABLE, NO_DATABASE_CLIENT),
+    get_database: _probed(HTTPStatus.SERVICE_UNAVAILABLE, NO_DATABASE_CLIENT),
+    # A check handed to the handler, which calls it on the calls it judges.
+    get_step_up_check: DependencyRefusal(status=HTTPStatus.UNAUTHORIZED, code=CONFIRMATION_REQUIRED, driven_by=RefusalDriver.STEP_UP),
+    get_drossel: DependencyRefusal(status=HTTPStatus.TOO_MANY_REQUESTS, code=DROSSELUNG_ERREICHT, driven_by=RefusalDriver.COUNT),
 }
 UNGUARDED_TIER = "none"
 
 STORES_NOTHING_EXTENSION = "x-fl-stores-nothing"
+
+# Not domain rules: each is a property of the transport, or of how much one person writes in a day.
+# Each is raised in `app/core/` and declared by no `RULES` row, which is what
+# `fl_backend/tests/core/test_domain.py :: test_the_protocol_codes_are_the_ones_outside_the_api_layer` holds.
+PROTOCOL_CODES = frozenset(
+    {
+        MISSING_TOKEN,
+        WRONG_BASE_KEY,
+        WRONG_SYSTEM_KEY,
+        WRONG_ADMIN_KEY,
+        MISSING_ACTOR,
+        ACTOR_NOT_ADMIN,
+        ACTOR_TOKEN_REFUSED,
+        PERSON_BARRED,
+        CONFIRMATION_REQUIRED,
+        DROSSELUNG_ERREICHT,
+        PAYLOAD_REFUSED,
+        BODY_UNREADABLE,
+        NO_ROUTE,
+        METHOD_NOT_SERVED,
+    }
+)
+
+# Published for the frontend, which hands a code to no slice's mapper by its family alone
+# (`fl_frontend/src/core/errors.ts :: PROTOCOL_FAMILIES`) and is compared against this.
+PROTOCOL_FAMILIES_EXTENSION = "x-fl-protocol-families"
+
+
+def refusal_family(code: str) -> str:
+    return code.split("-")[1]
 
 
 # Every failure an operation answers is `app/core/exception_handlers.py :: error_response`'s body, and
@@ -312,6 +392,11 @@ def publish_stores_nothing(app: FastAPI) -> DocumentPass:
     return functools.partial(with_extension, extension=STORES_NOTHING_EXTENSION, values=declared)
 
 
+def with_protocol_families(document: Mapping[str, Any]) -> Document:
+    # On the document rather than an operation: a family is the protocol's on every operation alike.
+    return {**document, PROTOCOL_FAMILIES_EXTENSION: sorted({refusal_family(code) for code in PROTOCOL_CODES})}
+
+
 def body_response(body: type[BaseModel], description: str) -> dict[str, Any]:
     return {"description": description, "content": {JSON_MEDIA_TYPE: {"schema": {"$ref": COMPONENT_REF.format(model=body.__name__)}}}}
 
@@ -382,19 +467,16 @@ def _dependency_calls(dependant: Dependant) -> Iterator[Callable[..., Any]]:
         yield from _dependency_calls(dependency)
 
 
-def dependency_refusals(
-    app: FastAPI, tables: Sequence[Mapping[Callable[..., Any], tuple[HTTPStatus, str]]] = (DEPENDENCY_REFUSALS, HANDLER_JUDGED_REFUSALS)
-) -> dict[Operation, Refusals]:
-    """Each operation's codes by status from the dependencies it runs, keyed as `declared_refusals` keys them; both tables unless named."""
+def dependency_refusals(app: FastAPI, drivers: AbstractSet[RefusalDriver] = frozenset(RefusalDriver)) -> dict[Operation, Refusals]:
+    """Each operation's codes by status from the dependencies it runs, keyed as `declared_refusals` keys them; every driver's unless named."""
 
-    table = {call: refusal for named in tables for call, refusal in named.items()}
+    table = {call: refusal for call, refusal in DEPENDENCY_REFUSALS.items() if refusal.driven_by in drivers}
     found: dict[Operation, Refusals] = {}
     for route in document_routes(app):
         refusing = set(_dependency_calls(route.dependant)) & table.keys()
         for operation in route.operations:
             for call in refusing:
-                status, code = table[call]
-                found.setdefault(operation, {}).setdefault(status, set()).add(code)
+                found.setdefault(operation, {}).setdefault(table[call].status, set()).add(table[call].code)
 
     return found
 
@@ -499,7 +581,7 @@ def create_app(config: BackendConfig | None = None) -> FastAPI:
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=config.api_trusted_hosts_list)
 
     app.include_router(system_router)
-    for router in (*READ_ROUTERS, *WRITE_ROUTERS, *PUBLIC_ROUTERS, *SYSTEM_ROUTERS):
+    for router in (*READ_ROUTERS, *WRITE_ROUTERS, *PUBLIC_ROUTERS, *SYSTEM_ROUTERS, *PERSON_ROUTERS):
         app.include_router(router)
 
     # The published prose is the decorator's rather than the docstring's: a docstring cannot
@@ -515,7 +597,15 @@ def create_app(config: BackendConfig | None = None) -> FastAPI:
     # After the last route is mounted and before anything asks for the document: `app.openapi()`
     # caches what it builds, so an edit made afterwards never reaches a reader.
     publish_document(
-        app, (publish_key_tiers(app), publish_stores_nothing(app), publish_path_patterns(app), with_failure_bodies, publish_refusals(app))
+        app,
+        (
+            publish_key_tiers(app),
+            publish_stores_nothing(app),
+            publish_path_patterns(app),
+            with_failure_bodies,
+            publish_refusals(app),
+            with_protocol_families,
+        ),
     )
 
     return app

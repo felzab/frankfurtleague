@@ -9,6 +9,7 @@ import { annehmenBewerbungAction } from "@/features/bewerbungen/actions";
 import { GruppeSelect } from "@/features/teams/components/forms/GruppeSelect";
 import { TrikotFarbeSelect } from "@/features/teams/components/forms/TrikotFarbeSelect";
 import { trikotFarbeLabel } from "@/features/teams/constants";
+import { Leer } from "@/shared/components/ui/Angabe";
 import { Callout } from "@/shared/components/ui/Callout";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
@@ -26,9 +27,6 @@ import { focusAfterWrite, focusSection } from "@/shared/utils/focusAfterWrite";
 
 import type { FLGruppenNames, FLTrikotFarbe } from "@/features/teams/schemas";
 import type { GruppeOffer } from "@/features/teams/types";
-
-/** What the readout reads where no colour has been assigned — the season's row accepts that answer. */
-const KEINE_FARBE = "Keine Angabe";
 
 /**
  * The acceptance, on `POST /bewerbungen/{bewerbung_id}/annehmen`. **A confirmation step and no
@@ -205,9 +203,10 @@ export function AdminBewerbungAnnehmenSection({
                       label="Gruppe"
                       value={`Gruppe ${gruppe} der Saison ${saisonId}`}
                     />
+                    {/* No colour is an answer the season's row accepts, so it reads as an empty field rather than a refusal. */}
                     <ConfirmReadoutRow
                       label="Trikotfarbe"
-                      value={trikotFarbe === null ? KEINE_FARBE : trikotFarbeLabel(trikotFarbe)}
+                      value={trikotFarbe === null ? <Leer /> : trikotFarbeLabel(trikotFarbe)}
                     />
                   </dl>
                 </div>

@@ -1,0 +1,8 @@
+# ORCHESTRATION · holds the coordinator's tools to the rules the gate's own python keeps
+#
+# The scripts scope lints this folder beside `scripts/`, and ruff reads each file under the nearest
+# configuration above it, which for this folder would be none: without this file the same run holds
+# these tools to ruff's defaults. `extend` of `scripts/ruff.toml` rather than a copy, so it adds and
+# overrides nothing, for the reason that file gives.
+
+extend = "../../../../scripts/ruff.toml"

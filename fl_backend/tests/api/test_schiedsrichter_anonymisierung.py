@@ -17,9 +17,11 @@ from app.api.schiedsrichter.admin_router import (
     patch_schiedsrichter,
     reactivate_schiedsrichter,
 )
+from app.api.schiedsrichter.adresswechsel_router import post_adresswechsel
 from app.api.schiedsrichter.router import get_schiedsrichter, get_schiedsrichter_by_id
 from app.api.schiedsrichter.schemas import (
     FLPatchSchiedsrichterPayload,
+    FLSchiedsrichterAdresswechselPayload,
     FLSchiedsrichterFilterParams,
     FLSchiedsrichterWriteResponse,
 )
@@ -363,13 +365,13 @@ Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
 async def a_referee_with_a_history(database: AsyncDatabase, client: AsyncMongoClient, schiedsrichter_id: ObjectId) -> None:
-    """Details EDITED through the real endpoint, which leaves the log holding the pair the edit replaced.
+    """Details EDITED through the real endpoints, which leave the log holding the pair the edit replaced.
 
     Without the edit the log would hold no contact value at all and every assertion below would pass
     vacuously.
     """
 
-    await patch_schiedsrichter(
+    saved = await patch_schiedsrichter(
         schiedsrichter_id=schiedsrichter_id,
         schiedsrichter_data=FLPatchSchiedsrichterPayload(
             name=REFEREE_NAMES[schiedsrichter_id],
@@ -380,9 +382,23 @@ async def a_referee_with_a_history(database: AsyncDatabase, client: AsyncMongoCl
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         spiele_collection=database[Collection.SPIELE],
         sperrliste=ban_list(database),
+        aktionen_collection=database[Collection.AKTIONEN],
         db=client,
         today=TODAY,
+        germany_now=NOW,
         refuse_unconfirmed=FRESH_STEP_UP_CHECK,
+    )
+    assert saved.adresswechsel is not None, "the seeded referee's address change minted no link"
+
+    # The referee has confirmed, so the address moves only once its new mailbox answers the link.
+    await post_adresswechsel(
+        antwort_data=FLSchiedsrichterAdresswechselPayload(token=saved.adresswechsel.token, antwort="bestaetigt"),
+        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        sperrliste=ban_list(database),
+        aktionen_collection=database[Collection.AKTIONEN],
+        db=client,
+        today=TODAY,
+        germany_now=NOW,
     )
 
 
@@ -629,6 +645,7 @@ def test_the_single_read_answers_for_neither_the_erased_referee_nor_the_ghost(mo
                 await get_schiedsrichter_by_id(
                     schiedsrichter_id=schiedsrichter_id,
                     schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+                    today=TODAY,
                 )
                 answers.append("answered")
             except DocumentNotFoundException:
@@ -701,8 +718,10 @@ def test_no_write_endpoint_reaches_the_ghost(mongo_replica_set_url: str, press: 
                     schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
                     spiele_collection=database[Collection.SPIELE],
                     sperrliste=ban_list(database),
+                    aktionen_collection=database[Collection.AKTIONEN],
                     db=client,
                     today=TODAY,
+                    germany_now=NOW,
                     refuse_unconfirmed=FRESH_STEP_UP_CHECK,
                 )
             elif press == "delete":

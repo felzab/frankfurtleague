@@ -1,21 +1,31 @@
-from typing import Literal
+from typing import Final, Literal, Self
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, model_validator
 
 # The application's slice is where the delivery vocabulary was first written, and a second spelling
 # of the six states would let two homes disagree about what a bounce is called.
-from app.api.bewerbungen.schemas import CustomNachrichtId, CustomZustellgrund, CustomZustellzeitpunkt, FLBewerbungZustellEreignis
+from app.api.bewerbungen.schemas import (
+    CustomNachrichtId,
+    CustomZustellgrund,
+    CustomZustellzeitpunkt,
+    FLBewerbungZustellEreignis,
+    FLKontaktRolle,
+)
 from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.responses import BaseAPIResponse
 
 # A member joins this set in the commit that gives it an `app/api/zustellung/services.py ::
 # ZIEL_PFADE` row and its own validator block: one arriving without either names a kind every
 # write reaches nothing through.
-FLZustellungZiel = Literal["schiedsrichter", "einladung", "registrierung"]
+FLZustellungZiel = Literal["schiedsrichter", "einladung", "registrierung", "kontakt", "schiedsrichter_adresswechsel"]
+
+# The kinds whose record sits under each contact seat rather than once per row, so a report names
+# the seats one message reached. Every other kind names none.
+ZIELE_JE_SITZ: Final[frozenset[FLZustellungZiel]] = frozenset({"kontakt"})
 
 
 class _ZielMeldung(BaseModel):
-    """What every write names: the kind of record, the row itself, and when."""
+    """What every write names: the kind of record, the row itself, the seats where the kind has them, and when."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -24,7 +34,19 @@ class _ZielMeldung(BaseModel):
     # row a later reader guesses at. In the BODY, as the application's twin keeps its own id there,
     # the edge logging a path (`docs/logging/spec.md :: L9`).
     ziel_id: CustomObjectId
+    # Required as a KEY on every kind, and empty for a kind with one record per row: two people on one
+    # row are two records, and a message reaching both seats one person holds writes both.
+    rollen: list[FLKontaktRolle]
     am: CustomZustellzeitpunkt
+
+    @model_validator(mode="after")
+    def the_seats_are_named_exactly_where_the_kind_has_them(self) -> Self:
+        """A report naming seats a kind does not have, or a seat kind naming none, writes nothing anybody meant."""
+
+        if (self.ziel in ZIELE_JE_SITZ) != bool(self.rollen):
+            raise ValueError("Eine Zustellmeldung nennt die Sitze genau dann, wenn ihr Ziel welche hat.")
+
+        return self
 
 
 class _ZielZustellungPayload(_ZielMeldung):

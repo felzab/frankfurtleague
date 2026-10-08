@@ -17,7 +17,7 @@ WRITE_DOCUMENTS = frozenset({"document", "update"})
 DRIVER_WRITES = frozenset(
     {"bulk_write", "find_one_and_replace", "find_one_and_update", "insert_many", "insert_one", "replace_one", "update_many", "update_one"}
 )
-WRITE_MODULES = ("app/core/crud.py", "app/core/recording.py")
+WRITE_MODULES = ("app/core/crud.py", "app/core/recording.py", "app/core/drosselung.py")
 
 
 def _literal_writes_of(field: str, *, on: str) -> set[tuple[str, str]]:
@@ -65,11 +65,11 @@ class TestTheActivationIsTheOneWriterOfTheStatus:
         outside = sorted({f"{module} :: {scope}" for module, scope, call in app_calls() if callee(call) in DRIVER_WRITES})
         assert [call for call in outside if not call.startswith(WRITE_MODULES)] == []
 
-        # `post_saison` writes the constant `future` at create; `active` and the demotion to `past`
-        # are one function's, which is what lets one transaction hold the pair. That function is the
-        # callback the activation runs, not the endpoint.
+        # `post_saison`'s callback writes the constant `future` at create; `active` and the demotion
+        # to `past` are one function's, which is what lets one transaction hold the pair. That
+        # function is the callback the activation runs, not the endpoint.
         assert _literal_writes_of("status", on="saisons_collection") == {
-            ("post_saison", "future"),
+            ("enter_the_season", "future"),
             (ACTIVATION_CALLBACK, "past"),
             (ACTIVATION_CALLBACK, "active"),
         }

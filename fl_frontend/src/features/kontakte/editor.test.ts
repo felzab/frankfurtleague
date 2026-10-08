@@ -1,4 +1,7 @@
 import "@/shared/testing/dom.ts";
+
+import { FASSUNG_UNLESBAR } from "@/shared/utils/refusal.ts";
+
 import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
@@ -9,16 +12,20 @@ import { act, createElement as h } from "react";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
-import { LIGA_KENNTNISNAHME } from "@/core/einwilligung";
+import { einwilligungAnswer, publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { buildEmptyBewerbungKontaktperson } from "@/features/bewerbungen/utils";
+import { ZUSTELLUNG_CHIP } from "@/features/bewerbungen/zustellung.ts";
 import { FLSaisonSchema } from "@/features/saisons/schemas.ts";
-import { einwilligungHerkunftLabel, TRAINER_ZUGLEICH_FRAGE, TRAINER_ZUGLEICH_OPTIONS } from "@/features/teams/constants";
+import { EINWILLIGUNG_MEDIEN_FRAGE, EINWILLIGUNG_MEDIEN_LABELS } from "@/features/spieler/constants.ts";
+import { eingetragenVonLabel, TRAINER_ZUGLEICH_FRAGE, TRAINER_ZUGLEICH_OPTIONS } from "@/features/teams/constants";
 import { FLTeamMembershipSchema, FLTeamWithMembershipsSchema } from "@/features/teams/schemas";
 import { buildEmptyKontaktperson } from "@/features/teams/utils";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
 import { doubleActionRequest, doubleEveryAction, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
+import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
+import { membershipAnswer } from "@/shared/testing/membershipFixtures.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import {
   answer,
@@ -31,18 +38,18 @@ import {
   saisonFields,
   steps,
 } from "@/shared/testing/pageHarness.ts";
-import { answerShown, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
+import { answerShown, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { renderMarkup, renderTree } from "@/shared/testing/renderTest";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
 
 import { buildKontakteBanners } from "./components/forms/AdminKontakteEditForm/banners.ts";
 import { deriveKontakteDraftStatus } from "./kontakteDraftStatus.ts";
-import { mapStaleBlockRefusal } from "./refusals.ts";
+import { mapKontakteRefusal } from "./refusals.ts";
 import { FLPatchSaisonTeamKontaktePayloadSchema } from "./schemas.ts";
 import { describeUnrestorableKontakte, teamPageHref, toKontaktePayload } from "./utils.ts";
 
-import type { FLKontaktperson, FLSaisonTeamKontakte } from "@/features/teams/schemas";
-import type { AdminKontakteRow, AdminKontaktSeat } from "@/features/teams/types";
+import type { FLAustritt, FLKontaktperson, FLSaisonTeamBestaetigungenAnsicht, FLSaisonTeamKontakte } from "@/features/teams/schemas";
+import type { AdminKontakteRow, AdminKontaktSeat, TeamSaisonMembership } from "@/features/teams/types";
 import type { ReactNode } from "react";
 import type { KontakteBanner } from "./components/forms/AdminKontakteEditForm/banners.ts";
 import type { FLPatchSaisonTeamKontaktePayload } from "./schemas.ts";
@@ -93,7 +100,7 @@ const ADA: FLKontaktperson = {
   email: "ada@example.org",
   telefon: "069 111",
   geburtsdatum: "1990-12-10",
-  einwilligung: { umfang: "kontaktdaten", erfasst_von: "person", text_version: "1", datum: "2026-03-12", bestaetigt_am: "2026-03-14" },
+  einwilligung: kenntnisnahme({ erfasst_von: "person", text_version: "1", datum: "2026-03-12", bestaetigt_am: "2026-03-14" }),
 };
 
 /** One list seat. `person: null` is what an erasure leaves, which is the state these cases are about. */
@@ -132,7 +139,16 @@ const bannersFor = (state: Partial<Parameters<typeof buildKontakteBanners>[0]>):
   });
 
 /** One stored seat. The ADDRESS is what decides whether that seat offers the person's erasure. */
-const seatPerson = (vorname: string, nachname: string, email: string): FLKontaktperson => ({ ...ADA, vorname, nachname, email });
+/** A number per person: two seats sharing one are refused as one person entered twice. */
+const TELEFON: Record<string, string> = { Ada: "069 501", Grace: "069 502", Alan: "069 503" };
+
+const seatPerson = (vorname: string, nachname: string, email: string): FLKontaktperson => ({
+  ...ADA,
+  vorname,
+  nachname,
+  email,
+  telefon: TELEFON[vorname] ?? ADA.telefon,
+});
 
 /** Three seats filled in, which is the state most of the renders below are about. */
 const BLOCK: FLSaisonTeamKontakte = {
@@ -168,9 +184,23 @@ const editorElement = (node: ReactNode, kontakte: FLSaisonTeamKontakte | null): 
 
 const editorTree = (node: ReactNode, kontakte: FLSaisonTeamKontakte | null): string => renderTree(editorElement(node, kontakte));
 
-const sectionElement = (kontakte: FLSaisonTeamKontakte | null, isMember = true): ReactNode =>
+/** The application form's running words, off the registry the backend generated, as the page reads them. */
+const FORM = publishedLaufendeFassung("bewerbung");
+
+const sectionElement = (
+  kontakte: FLSaisonTeamKontakte | null,
+  isMember = true,
+  nimmtLinks = true,
+  bestaetigungen: FLSaisonTeamBestaetigungenAnsicht | null = null,
+): ReactNode =>
   h(FormKontakteSection, {
+    laufendesLabel: FORM.text_version,
     value: kontakte,
+    stored: kontakte,
+    bestaetigungen,
+    teamId: "507f1f77bcf86cd799439011",
+    saisonId: "2526",
+    nimmtLinks,
     isMember,
     teamHref: "/bereich/admin/teams/t1?saison_id=2526",
     banners: [],
@@ -181,22 +211,36 @@ const sectionElement = (kontakte: FLSaisonTeamKontakte | null, isMember = true):
   });
 
 /** The seats as the admin meets them, in the state each case names. */
-const sectionMarkup = (kontakte: FLSaisonTeamKontakte | null, isMember = true): string =>
-  editorTree(sectionElement(kontakte, isMember), kontakte);
+const sectionMarkup = (kontakte: FLSaisonTeamKontakte | null, isMember = true, nimmtLinks = true): string =>
+  editorTree(sectionElement(kontakte, isMember, nimmtLinks), kontakte);
 
 /** The whole editor a reader meets: the view renders the form, and the form the seats and the deletion. */
 /** `teamId` is the payload's own field: a save is judged against the mirror, which refuses a short id. */
-const viewElement = (kontakte: FLSaisonTeamKontakte | null, hasRow = true, teamId = "t1"): ReactNode =>
+const viewElement = (
+  kontakte: FLSaisonTeamKontakte | null,
+  hasRow = true,
+  teamId = "t1",
+  {
+    saisonStatus = "active",
+    austritt = null,
+    laufendesLabel = FORM.text_version,
+  }: { saisonStatus?: TeamSaisonMembership["saisonStatus"]; austritt?: FLAustritt | null; laufendesLabel?: string | null } = {},
+): ReactNode =>
   h(AdminKontakteEditView, {
+    laufendesLabel,
     team: { id: teamId, name: "SG Alpha", shorthand: "ALP", inactive_since: null },
     saison: {
       saisonId: "2526",
-      saisonStatus: "active",
-      membership: hasRow ? { gruppe: "A", austritt: null, trikot_farbe: null, kontakte, kontakte_stand: "9f2c" } : null,
+      saisonStatus,
+      membership: hasRow ? { gruppe: "A", austritt, trikot_farbe: null, kontakte, bestaetigungen: null, kontakte_stand: "9f2c" } : null,
     },
   });
 
 const viewMarkup = (kontakte: FLSaisonTeamKontakte | null, hasRow = true): string => editorTree(viewElement(kontakte, hasRow), kontakte);
+
+/** The editor's markup over a running label the page could not read. */
+const markupOhneLabel = (kontakte: FLSaisonTeamKontakte | null): string =>
+  editorTree(viewElement(kontakte, true, "t1", { laufendesLabel: null }), kontakte);
 
 /** A club id the payload's mirror takes, so a save reaches the write rather than stopping at the block. */
 const TEAM_ID = "507f1f77bcf86cd799439011";
@@ -289,11 +333,19 @@ const PAGE_PROPS = { params: Promise.resolve({ team_id: OBJECT_ID }), searchPara
 
 /** The block the page's memberships read answers with, as the backend holds it at that moment. */
 let storedBlock: FLSaisonTeamKontakte = BLOCK;
+/** The registry's answer where a case names one, an `Error` failing its read. */
+let seitenAntwort: unknown = undefined;
 
 /** The season the address names. */
 const SAISON = answer(FLSaisonSchema, "/saisons/list/admin", saisonFields("2526", "active"));
 
 answerReadsWith((endpoint, schema, params) => {
+  if (seitenAntwort !== undefined && endpoint === "/einwilligung/seiten") {
+    if (seitenAntwort instanceof Error) throw seitenAntwort;
+    return seitenAntwort;
+  }
+  const einwilligung = einwilligungAnswer(endpoint);
+  if (einwilligung !== undefined) return einwilligung;
   if (endpoint === "/saisons/list/admin") return answer(schema, endpoint, { saisons: [SAISON] });
   if (endpoint === "/teams/memberships") {
     const club = answer(FLTeamWithMembershipsSchema, endpoint, {
@@ -302,7 +354,7 @@ answerReadsWith((endpoint, schema, params) => {
       shorthand: "SA",
       full_name: "Sportgemeinschaft Alpha",
       address: { strasse: "Am Sportpark", hausnummer: "1", plz: "60435", stadtteil: "Nordend", stadt: "Frankfurt am Main" },
-      memberships: [{ saison_id: "2526", gruppe: "A", austritt: null, trikot_farbe: null, kontakte: storedBlock, kontakte_stand: "9f2c" }],
+      memberships: [membershipAnswer({ kontakte: storedBlock, kontakte_stand: "9f2c" })],
     });
     return answer(schema, endpoint, { teams: [club] });
   }
@@ -335,23 +387,26 @@ const KONTAKTE_OPERATION = "PATCH /teams/{team_id}/saisons/{saison_id}/kontakte"
 /* Spelled out rather than read off the published document, which is the very thing the case below
    compares it to: a code taken from `publishedRefusals` would agree with itself whatever the backend publishes. */
 const STALE_BLOCK = "REQ-KONTAKT-001";
+/** The backend's judgement of a seat's label (`docs/backend/spec.md :: I610`), spelled out for the same reason. */
+const LABEL_REFUSED = "REQ-EINWILLIGUNG-001";
+/** A newly seated address on the ban list, spelled out for the same reason. */
+const BARRED = "REQ-KONTAKT-003";
 
 describe("the contacts write against the codes its endpoint publishes", () => {
   /* Worded apart from the undo, whose toast has not got the form the save's sentence sends the admin to
      (`fl_frontend/src/app/api/admin/kontakte/undo/route.test.ts`). A code the save leaves unmapped
      falls through to the shared fallback, which names no reason. */
-  it("words the one refusal its endpoint publishes, at the save", () => {
+  it("words every refusal its endpoint publishes, at the save", () => {
     const published = publishedRefusals(KONTAKTE_OPERATION);
 
-    assert.deepEqual(
-      published.filter((code) => code !== DUPLICATE_KEY),
-      [STALE_BLOCK],
-    );
+    assert.deepEqual(published, [LABEL_REFUSED, STALE_BLOCK, BARRED]);
     for (const code of published) {
-      assert.notEqual(answerShown(KONTAKTE_OPERATION, code, mapStaleBlockRefusal), null, `${code} reaches the admin as an unhandled conflict`);
+      assert.notEqual(answerShown(KONTAKTE_OPERATION, code, mapKontakteRefusal), null, `${code} reaches the admin as an unhandled conflict`);
     }
     // Two sentences, the way out second: the shared refusal shape, which a hand-spelled pair drifts from.
-    assert.match(String(mapStaleBlockRefusal(refusedOn(KONTAKTE_OPERATION, STALE_BLOCK))), /^[^.]+\. [^.]+\.$/);
+    for (const code of [STALE_BLOCK, BARRED]) {
+      assert.match(String(mapKontakteRefusal(refusedOn(KONTAKTE_OPERATION, code))), /^[^.]+\. [^.]+\.$/, `${code} is not two sentences`);
+    }
   });
 });
 
@@ -378,6 +433,32 @@ describe("the editor's shape", () => {
     const unresolved = { ...PAGE_PROPS, params: new Promise<{ team_id: string }>(() => undefined) };
 
     assert.ok(renderTree(h(AdminKontakteEditPage, unresolved)).includes('role="status"'), "the page waits on the row before it renders");
+  });
+
+  /* A blank seat stamps the running label, and only that needs it: its failed read hands the editor
+     none, and the page stands. */
+  it("hands the editor no label, and renders, where the running label could not be read", async () => {
+    seitenAntwort = new Error("backend unreachable");
+    try {
+      const body = await pageBody(AdminKontakteEditPage, PAGE_PROPS);
+      assert.equal((body.props as { laufendesLabel: unknown }).laufendesLabel, null, "a failed read reached the editor as a label");
+    } finally {
+      seitenAntwort = undefined;
+    }
+  });
+
+  /* A registry answering against what this page was built for: only a deploy repairs it, so it reaches
+     the error boundary, which logs it, never an editor closing blank seats in silence. */
+  it("lets a registry breaking its contract reach the error boundary", async () => {
+    try {
+      seitenAntwort = { acknowledged: 1, laufende_fassungen: {} };
+      await assert.rejects(pageBody(AdminKontakteEditPage, PAGE_PROPS), { name: "ContractBreakError" }, "no label for the form");
+
+      seitenAntwort = { acknowledged: 1 };
+      await assert.rejects(pageBody(AdminKontakteEditPage, PAGE_PROPS), { name: "APIMalformedDataError" }, "an answer off its schema");
+    } finally {
+      seitenAntwort = undefined;
+    }
   });
 
   /* The club is judged before the backend is asked: a malformed id reads nothing. */
@@ -424,6 +505,28 @@ describe("the editor's shape", () => {
     await user.tab();
     assert.equal(refused().length, 1, "leaving a seat's field judges nothing");
   });
+
+  /* The backend refuses two seats sharing a person's address or number with a 422 naming the block,
+     which lands on no box: judged here, it lands on the seat the administrator just typed into. */
+  for (const [label, wert, satz] of [
+    ["E-Mail", "Grace@Example.org", "Diese E-Mail-Adresse ist schon bei einer anderen Person eingetragen."],
+    ["Telefon", "+49 (0)69 502", "Diese Telefonnummer ist schon bei einer anderen Person eingetragen."],
+  ] as const) {
+    it(`refuses the Ansprechperson's ${label} on the Stellvertretung's box when it is left`, async () => {
+      const user = userEvent.setup({ delay: null });
+      render(editorElement(viewElement(BLOCK), BLOCK));
+      // Seats render Ansprechperson, Stellvertretung, Trainer; the second is the one typed into.
+      const box = screen.getAllByRole("textbox", { name: label })[1] ?? assert.fail(`the seats render no second ${label} box`);
+
+      await user.clear(box);
+      await user.paste(wert);
+      await user.tab();
+
+      const beschrieben = screen.queryAllByRole("textbox", { name: label, description: satz });
+      assert.equal(beschrieben.length, 1, `the refusal is on ${String(beschrieben.length)} ${label} boxes, not one`);
+      assert.ok(beschrieben[0] === box, `the refusal landed on a ${label} box other than the Stellvertretung's`);
+    });
+  }
 
   /* The claim is honoured at the ONE compose site. Written into the draft it overwrites whichever of
      two real people it does not name, on the first keystroke and with no undo — a stored row can hold
@@ -491,6 +594,43 @@ describe("the editor's shape", () => {
       ["kontakte.ansprechperson.email", "kontakte.trainer.email"],
       "a left field is judged without the Trainer's copy of it",
     );
+  });
+
+  /* Any unconfirmed seat takes a re-send, and a pair shares one link: the press stands on exactly one of
+     its two seats, so a half-confirmed pair is never left with none. */
+  it("offers the re-send on every unconfirmed person once, a half-confirmed pair included", () => {
+    const offen = (person: FLKontaktperson): FLKontaktperson => ({ ...person, einwilligung: { ...person.einwilligung, bestaetigt_am: null } });
+    const offers = (kontakte: FLSaisonTeamKontakte, nimmtLinks = true): string[] =>
+      [...sectionMarkup(kontakte, true, nimmtLinks).matchAll(/aria-label="[^"]*senden: ([^"]+)"/g)].map((treffer) => treffer[1] ?? "");
+    const grace = BLOCK.ansprechperson ?? assert.fail("the block seats no Ansprechperson");
+    const ada = BLOCK.trainer ?? assert.fail("the block seats no Trainer");
+
+    assert.deepEqual(offers(BLOCK), [], "a confirmed seat offers a re-send");
+    assert.deepEqual(offers({ ...BLOCK, stellvertretung: offen(BLOCK.stellvertretung ?? grace) }), ["Stellvertretung"]);
+    // A season that is over, or a team that has left it, takes no link, so nothing offers one.
+    assert.deepEqual(offers({ ...BLOCK, stellvertretung: offen(BLOCK.stellvertretung ?? grace) }, false), []);
+    // Both seats of the pair open: one person, one press, on the named seat.
+    assert.deepEqual(offers({ ...BLOCK, ansprechperson: offen(grace), trainer: offen(grace), trainer_ist_zugleich: "ansprechperson" }), [
+      "Ansprechperson",
+    ]);
+    // The named seat confirmed and the Trainer's not: the press moves to the Trainer rather than vanishing.
+    assert.deepEqual(offers({ ...BLOCK, ansprechperson: grace, trainer: offen(ada), trainer_ist_zugleich: "ansprechperson" }), ["Trainer"]);
+  });
+
+  /* Read off the season and the row the page holds, never the seat: a season that is over and a team
+     that has left it take no link (`REQ-KONTAKT-005`), so the editor offers none rather than a refusal. */
+  it("offers no re-send on a past season or a row whose team has left it", () => {
+    const stellvertretung = BLOCK.stellvertretung ?? assert.fail("the block seats no Stellvertretung");
+    const offen: FLSaisonTeamKontakte = {
+      ...BLOCK,
+      stellvertretung: { ...stellvertretung, einwilligung: { ...stellvertretung.einwilligung, bestaetigt_am: null } },
+    };
+    const offers = (row: Parameters<typeof viewElement>[3]): number =>
+      [...editorTree(viewElement(offen, true, "t1", row), offen).matchAll(/aria-label="[^"]*senden: /g)].length;
+
+    assert.equal(offers({}), 1, "an open seat on a running row offers no re-send, so the absences below prove nothing");
+    assert.equal(offers({ saisonStatus: "past" }), 0, "a past season's row offers a re-send");
+    assert.equal(offers({ austritt: { type: "rueckzug", grund: "x", datum: "2026-03-12" } }), 0, "a withdrawn team's row offers a re-send");
   });
 
   /* An empty seat is a saveable state rather than a half-finished one, and the record keeps no field
@@ -642,6 +782,7 @@ describe("the editor's shape", () => {
       austritt: null,
       trikot_farbe: null,
       kontakte: BLOCK_EMPTY,
+      bestaetigungen: null,
       kontakte_stand: "9f2c",
     });
 
@@ -777,7 +918,7 @@ describe("the way in and out of the editor", () => {
           saison: {
             saisonId: "2526",
             saisonStatus: "active",
-            membership: { gruppe: "A", austritt: null, trikot_farbe: null, kontakte: BLOCK, kontakte_stand: "9f2c" },
+            membership: { gruppe: "A", austritt: null, trikot_farbe: null, kontakte: BLOCK, bestaetigungen: null, kontakte_stand: "9f2c" },
           },
           today: "2026-03-01",
           gruppeLocked: false,
@@ -1027,45 +1168,163 @@ describe("what the editor says about a Kenntnisnahme it may not write", () => {
   /* The server composes both fields. A control offering either would let an administrator record a
      Kenntnisnahme as the person's own, or overwrite the stamp a confirmation wrote — which no rendered
      surface would show afterwards. */
-  it("renders the origin and the confirmation stamp, and offers a control for neither", () => {
-    const renderedSeats = sectionMarkup(BLOCK);
+  it("renders who seated the person and the confirmation stamp, and offers a control for neither", () => {
+    const seated = (eingetragen_von: FLKontaktperson["einwilligung"]["eingetragen_von"]) => ({
+      ...ADA,
+      einwilligung: { ...ADA.einwilligung, eingetragen_von },
+    });
+    const renderedSeats = sectionMarkup({ ...BLOCK, trainer: seated("bewerbung"), ansprechperson: seated("liga") });
 
-    assert.match(renderedSeats, />Erfasst</, "the Kenntnisnahme's origin is no longer shown at all");
+    assert.match(renderedSeats, />Eingetragen</, "who seated the person is not shown at all");
     assert.match(renderedSeats, />Bestätigt am</, "the confirmation stamp is no longer shown at all");
-    assert.ok(renderedSeats.includes(einwilligungHerkunftLabel("person")), "the origin renders as its stored slug rather than its label");
+    assert.ok(renderedSeats.includes(`value="${eingetragenVonLabel("bewerbung")}"`), "an applicant's seat does not say so");
+    assert.ok(renderedSeats.includes(`value="${eingetragenVonLabel("liga")}"`), "a seat the league filled does not say so");
+    // The Stellvertretung was seated before the field: stored, so its origin is unrecorded rather than
+    // pending, and its box is labelled, so it takes the labelled word.
+    assert.ok(renderedSeats.includes('value="Nicht hinterlegt"'), "a seat stored before the field reads as one still pending");
     assert.ok(renderedSeats.includes("14.03.2026"), "the stamp renders no date, or renders it as the stored string");
 
-    for (const fieldName of ["erfasst_von", "bestaetigt_am"]) {
+    for (const fieldName of ["erfasst_von", "eingetragen_von", "bestaetigt_am"]) {
       assert.ok(!renderedSeats.includes(`einwilligung.${fieldName}"`), `${fieldName} is still a named field, so a save can carry it`);
     }
-    // The chips themselves, because a disabled group would still read as a question with an answer.
-    assert.ok(!renderedSeats.includes(einwilligungHerkunftLabel("administrativ")), "the origin is still offered as a pick");
+  });
+
+  /* A seat opened in the editor has nobody who seated it until the save stamps the league. */
+  it("reads a seat not yet saved as one whose origin is still open", async () => {
+    const user = userEvent.setup({ delay: null });
+    const stored: FLSaisonTeamKontakte = { ...BLOCK, stellvertretung: null };
+    render(editorElement(viewElement(stored), stored));
+
+    await user.click(screen.getByRole("switch", { name: "Stellvertretung hinterlegt" }));
+    const herkuenfte = screen.queryAllByRole<HTMLInputElement>("textbox", { name: "Eingetragen" }).map((box) => box.value);
+
+    assert.equal(herkuenfte.length, 3, "a seat renders no origin box, so the comparison below reads the wrong seats");
+    assert.ok(herkuenfte.includes("Noch offen"), "a seat not yet saved reads as one whose origin went unrecorded");
+  });
+});
+
+describe("the editor over a running label the page could not read", () => {
+  /* A blank seat stamps the running label, so without it no seat opens blank; every stored person stays
+     editable, and the page stands. */
+  it("closes opening an empty seat with the reason, and keeps the stored people editable", () => {
+    const stored: FLSaisonTeamKontakte = { ...BLOCK, stellvertretung: null };
+    const { unmount } = render(editorElement(viewElement(stored, true, "t1", { laufendesLabel: null }), stored));
+
+    const leer = screen.getByRole("switch", { name: "Stellvertretung hinterlegt" });
+    const geschlossen = leer.hasAttribute("disabled") || leer.getAttribute("aria-disabled") === "true";
+    const grund = document.body.innerHTML.includes(FASSUNG_UNLESBAR);
+    const vornamen = screen.queryAllByRole("textbox", { name: "Vorname" }).length;
+    unmount();
+
+    assert.ok(geschlossen, "an empty seat opens blank with no label to stamp");
+    assert.ok(grund, "the closed seat says nothing of why");
+    assert.equal(vornamen, 2, "a stored person's boxes went with the label");
+  });
+
+  it("says why no one can be entered where no block is stored yet", () => {
+    const text = markupOhneLabel(null);
+
+    assert.ok(text.includes(FASSUNG_UNLESBAR), "an editor with nothing to enter people into says nothing of why");
+    assert.ok(!text.includes("hinterlegt"), "seats are offered with no label to stamp them");
+  });
+});
+
+describe("the contact person's own two choices", () => {
+  /* The league publishes the photographs and writes on WhatsApp, so an administrator must see both
+     answers and the act each stands on, neither of which the editor may write. */
+  it("reads WhatsApp and the media consent with the act each stands on", () => {
+    const geantwortet: FLKontaktperson = {
+      ...ADA,
+      einwilligung: {
+        ...ADA.einwilligung,
+        umfang: "kontaktdaten_whatsapp",
+        medien: false,
+        nachweis: {
+          umfang: null,
+          medien: {
+            am: "2026-10-04T08:00:00Z",
+            text_version: "2026-10-konto-kontakt",
+            erteilt_zuvor: { am: "2026-03-14T09:00:00Z", text_version: "1" },
+          },
+        },
+      },
+    };
+    const html = sectionMarkup({ ...BLOCK, trainer: geantwortet });
+
+    assert.match(html, />WhatsApp<[\s\S]*?value="erlaubt"/, "the WhatsApp answer is not shown");
+    // The one wording every admin readout gives the media consent (`fl_frontend/src/features/spieler/constants.ts`).
+    assert.ok(
+      new RegExp(`>${EINWILLIGUNG_MEDIEN_FRAGE}<[\\s\\S]*?value="${EINWILLIGUNG_MEDIEN_LABELS.nicht_erteilt}"`).test(html),
+      "the media answer is not shown in the readouts' one wording",
+    );
+    assert.ok(
+      html.includes("seit 04.10.2026, 10:00 Uhr, Fassung 2026-10-konto-kontakt; zuvor erteilt am 14.03.2026, 10:00 Uhr, Fassung 1"),
+      "the media choice reads without its own act",
+    );
+  });
+
+  /* The other arm of each: a readout saying „erlaubt“ for every seat would have the league write to
+     someone on WhatsApp who never allowed it. */
+  it("reads a seat that allows no WhatsApp as not allowed, and a given media consent as given", () => {
+    const html = sectionMarkup({ ...BLOCK, trainer: { ...ADA, einwilligung: { ...ADA.einwilligung, umfang: "kontaktdaten", medien: true } } });
+
+    assert.match(html, />WhatsApp<[\s\S]*?value="nicht erlaubt"/, "a seat allowing no WhatsApp reads otherwise");
+    assert.ok(
+      new RegExp(`>${EINWILLIGUNG_MEDIEN_FRAGE}<[\\s\\S]*?value="${EINWILLIGUNG_MEDIEN_LABELS.erteilt}"`).test(html),
+      "a given media consent reads otherwise",
+    );
+    assert.ok(html.includes("seit der Bestätigung am 14.03.2026, Fassung 1"), "a choice never moved does not stand on its confirmation");
+  });
+});
+
+/* Each seat shows its link's state as the referee editor shows the referee's, by ruling. */
+describe("what each seat shows of its confirmation link", () => {
+  const LINK = { verschickt_am: "2026-09-21", frist: "2026-10-05", abgelehnt_am: null, zustellung: null, abgelaufen: false };
+  const markup = (bestaetigungen: FLSaisonTeamBestaetigungenAnsicht | null): string =>
+    editorTree(sectionElement(BLOCK, true, true, bestaetigungen), BLOCK);
+
+  it("reads out the sent day, the deadline and the delivery on the seat its link went to", () => {
+    const html = markup({
+      trainer: { ...LINK, zustellung: { nachricht_id: "m1", stand: "unzustellbar", grund: null, am: "2026-09-21T10:00:00Z" } },
+      ansprechperson: null,
+      stellvertretung: null,
+    });
+
+    assert.equal(html.split(">Link gesendet am<").length - 1, 1, "the readout stands on a seat its link did not go to, or on none");
+    assert.match(html, />Link gesendet am<[\s\S]*?21\.09\.2026[\s\S]*?>Gültig bis<[\s\S]*?05\.10\.2026/);
+    assert.ok(html.includes(ZUSTELLUNG_CHIP.unzustellbar?.label ?? "-"), "the refused delivery is not named");
+  });
+
+  it("names nothing to report where the delivery is not one to act on", () => {
+    assert.match(markup({ trainer: LINK, ansprechperson: LINK, stellvertretung: LINK }), /Nichts zu melden/);
+  });
+
+  /* The read judges the deadline by the seat's own rule, so this browser's day decides nothing. */
+  it("marks a lapse by the read's judgement alone, never by the date it shows", () => {
+    const lapse = (frist: string, abgelaufen: boolean) =>
+      markup({ trainer: { ...LINK, frist, abgelaufen }, ansprechperson: null, stellvertretung: null });
+
+    assert.doesNotMatch(lapse("2020-01-01", false), />abgelaufen</);
+    assert.match(lapse("2099-12-31", true), />abgelaufen</);
+  });
+
+  it("reads out no link on a row that stores none", () => {
+    assert.doesNotMatch(markup(null), />Link gesendet am</);
   });
 });
 
 describe("which wording a record cites", () => {
-  /* The version NAMES the text. Kept apart, a rewording without a bump leaves every earlier record
-     citing a text nobody was shown. */
-  it("keeps a version and the wording it names, both filled in", () => {
-    // That the two are one object is this file's type error; what no type can say is that neither
-    // half is a placeholder.
-    assert.notEqual(LIGA_KENNTNISNAHME.textVersion, "", "the version is empty, so every record cites nothing");
-    assert.ok(LIGA_KENNTNISNAHME.absaetze.length > 0, "the version names no wording at all");
-    for (const wordingParagraph of LIGA_KENNTNISNAHME.absaetze) assert.notEqual(wordingParagraph, "", "the wording carries an empty paragraph");
-    assert.notEqual(LIGA_KENNTNISNAHME.schalter, "", "the wording carries no sentence for the switch to agree to");
-  });
-
-  /* Both surfaces gather the SAME Kenntnisnahme, so a copy per feature is two texts that drift and two
-     versions that disagree about which one a record cites. */
-  it("stamps that one version on a new record from either surface", () => {
+  /* Both surfaces gather the SAME Kenntnisnahme, so each stamps the label its page read rather than
+     one of its own: two versions would disagree about which one a record cites. */
+  it("stamps the label its page read on a new record from either surface", () => {
     assert.equal(
-      buildEmptyKontaktperson().einwilligung.text_version,
-      LIGA_KENNTNISNAHME.textVersion,
+      buildEmptyKontaktperson(FORM.text_version).einwilligung.text_version,
+      FORM.text_version,
       "the admin editor stamps its own version",
     );
     assert.equal(
-      buildEmptyBewerbungKontaktperson().einwilligung.text_version,
-      LIGA_KENNTNISNAHME.textVersion,
+      buildEmptyBewerbungKontaktperson(FORM.text_version).einwilligung.text_version,
+      FORM.text_version,
       "the public form stamps its own version",
     );
   });
@@ -1374,6 +1633,30 @@ describe("whose birthdate a seat holds, and who may put one there", () => {
     const box = birthdateBox(sectionMarkup(WITHOUT_BIRTHDATE), "trainer");
 
     assert.ok(box.includes("Trägt die Person selbst ein"), "an undated seat leaves the reader without who fills the field");
+    // A step in a value's place takes the empty-value grade, and never a second ink beside it.
+    const classes = /class="([^"]*)"/.exec(box)?.[1]?.split(" ") ?? [];
+    assert.ok(
+      classes.includes("text-foreground-muted") && classes.includes("not-italic"),
+      `the stand-in reads as a value: ${classes.join(" ")}`,
+    );
+    assert.ok(!classes.includes("text-foreground"), `the stand-in carries the value's ink as well: ${classes.join(" ")}`);
+  });
+
+  /* Once the person has confirmed, the date was theirs to give and was not: a field held empty, in the
+     application panel's words for the same seat. */
+  it("reads a confirmed seat without a birthdate as a field held empty", () => {
+    const bestaetigt: FLSaisonTeamKontakte = {
+      ...WITHOUT_BIRTHDATE,
+      trainer: WITHOUT_BIRTHDATE.trainer && {
+        ...WITHOUT_BIRTHDATE.trainer,
+        einwilligung: { ...WITHOUT_BIRTHDATE.trainer.einwilligung, bestaetigt_am: "2026-03-14" },
+      },
+    };
+
+    assert.ok(
+      birthdateBox(sectionMarkup(bestaetigt), "trainer").includes('value="Nicht hinterlegt"'),
+      "a confirmed seat still waits on its person",
+    );
   });
 
   /* A seat whose person has not confirmed holds no date: a payload requiring one refuses a body no

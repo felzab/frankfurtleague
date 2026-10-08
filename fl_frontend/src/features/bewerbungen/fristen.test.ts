@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { EINWILLIGUNG_SEITEN } from "@/core/einwilligungSeiten.ts";
 import { registerDoubles } from "@/core/exportingModule.ts";
 import { REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE } from "@/features/registrierungen/constants.ts";
 import { SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE } from "@/features/schiedsrichter/constants.ts";
@@ -8,6 +9,7 @@ import { SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE } from "@/features/schiedsrichte
 import { BEWERBUNG_BESTAETIGUNG_FRIST_TAGE, BEWERBUNG_ERINNERUNG_TAGE } from "./constants.ts";
 
 import type { BewerbungBestaetigungData } from "@/core/bewerbungEmail.ts";
+import type { EinwilligungSeite } from "@/core/einwilligungSeiten.ts";
 
 registerDoubles();
 
@@ -19,7 +21,7 @@ const {
   buildBewerbungVollstaendigEmail,
   buildBewerbungWiderspruchEmail,
 } = await import("@/core/bewerbungEmail.ts");
-const { LIGA_KENNTNISNAHMEN } = await import("@/core/einwilligung.ts");
+const { readEinwilligungDocument } = await import("@/core/einwilligungDocument.ts");
 
 /** The origin the local stack serves from, which `docker-compose.local.yml` sets `AUTH_URL` to. */
 const ORIGIN = "http://localhost:3000";
@@ -80,19 +82,26 @@ const MESSAGES = [
 const NUMBER_WORD: Readonly<Record<string, number>> = { drei: 3, sieben: 7, vierzehn: 14 };
 
 /**
- * The deletion clock a stamped page states, where it is not the application's.
- *
- * A label absent here is held to that one: three flows stamp wordings into one registry, and one
- * number cannot hold all three.
+ * Each page's deletion clock, keyed by page so a known page's new label needs no entry; `null` where
+ * its flow sets none. Typed over every page: a new one fails to compile until its flow is named.
  */
-const STAMPED_CLOCK: Readonly<Record<string, number>> = {
-  "2026-09-spielerseite": REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE,
-  "2026-09-spielerseite-2": REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE,
-  "2026-09-spielerseite-3": REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE,
-  "2026-09-schiedsrichterseite": SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE,
-  "2026-09-schiedsrichterseite-2": SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE,
-  "2026-09-schiedsrichterseite-3": SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE,
+const STAMPED_CLOCK: Readonly<Record<EinwilligungSeite, number | null>> = {
+  bewerbung: BEWERBUNG_BESTAETIGUNG_FRIST_TAGE,
+  bestaetigung_kontakt: BEWERBUNG_BESTAETIGUNG_FRIST_TAGE,
+  bestaetigung_kontakt_verwaltung: BEWERBUNG_BESTAETIGUNG_FRIST_TAGE,
+  // A season row's link runs the application's clock too: `BestaetigungView` states it for that link.
+  bestaetigung_kontakt_saison: BEWERBUNG_BESTAETIGUNG_FRIST_TAGE,
+  bestaetigung_spieler: REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE,
+  // The returning pupil's link is a registration's link all the same.
+  bestaetigung_spieler_wiederkehrend: REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE,
+  bestaetigung_schiedsrichter: SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE,
+  konto_spieler: null,
+  konto_schiedsrichter: null,
+  konto_kontakt: null,
 };
+
+/** Whether the registry's page name is one this frontend renders. */
+const istSeite = (seite: string): seite is EinwilligungSeite => (EINWILLIGUNG_SEITEN as readonly string[]).includes(seite);
 
 /** Every day count a text states, and `null` for one written in a word this reader does not hold. */
 function daysIn(text: string): (number | null)[] {
@@ -140,17 +149,14 @@ describe("the two clocks the workflow messages state", () => {
   /* The stamped text is never interpolated from the constant: the words are what somebody was shown,
      so a moved bound has to fail here and be minted as a new label rather than reword this one. */
   it("holds each stamped wording to its own flow's deletion clock, written in a word", () => {
-    const gelesen = Object.entries(LIGA_KENNTNISNAHMEN).flatMap(([label, fassung]) =>
-      daysIn(fassung.absaetze.join(" ")).map((number) => [label, number] as const),
+    const gelesen = Object.entries(readEinwilligungDocument().fassungen).flatMap(([label, fassung]) =>
+      daysIn(fassung.absaetze.join(" ")).map((number) => [label, fassung.seite, number] as const),
     );
 
     assert.ok(gelesen.length > 0, "no stored wording states a day count, so this case compares nothing");
-    for (const [label, number] of gelesen) {
-      assert.equal(
-        number,
-        STAMPED_CLOCK[label] ?? BEWERBUNG_BESTAETIGUNG_FRIST_TAGE,
-        `${label} states a deletion clock no bound of its flow sets`,
-      );
+    for (const [label, seite, number] of gelesen) {
+      assert.ok(istSeite(seite), `${label} names the page ${seite}, which this frontend renders nowhere`);
+      assert.equal(number, STAMPED_CLOCK[seite], `${label} states a deletion clock no bound of its flow sets`);
     }
   });
 });

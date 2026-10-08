@@ -31,7 +31,7 @@ Neither mode runs inside the other's session.
   Where the existing population matters — a newly introduced rule above all — measure it directly and
   work that list.
 - **Dispatch from a file-ownership map, never from the segment list**
-  (`.claude/skills/orchestration/SKILL.md` §2): a defect whose halves sit in different segments
+  (`.claude/skills/orchestration/SKILL.md`, "Planning any wave"): a defect whose halves sit in different segments
   belongs to one worker.
 - **Never restate a rule from `docs/_standard/standard.md` — not here, and not in an agent's prompt.** Cite it;
   the reader opens it.

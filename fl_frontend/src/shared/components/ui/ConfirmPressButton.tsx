@@ -57,8 +57,8 @@ export function ConfirmPressButton({
   /** A hint the resting control is described by, dropped once armed: the armed label says it. */
   describedBy?: string;
   /**
-   * The resting control's name where its label repeats row after row: it names the row, the visible
-   * label kept inside it (WCAG 2.5.3). Dropped once armed, where the armed label is the name.
+   * The resting control's name where its label repeats row after row: it names the row after the visible
+   * label, which it starts with (WCAG 2.5.3). Dropped once armed, where the armed label is the name.
    */
   restingName?: string;
 }) {

@@ -14,9 +14,12 @@ import type { TeamSaisonMembership } from "@/features/teams/types";
  * no control here repeats it.
  */
 export function AdminKontakteEditView({
+  laufendesLabel,
   team,
   saison,
 }: {
+  /** The label the application form runs, which a seat opened blank stamps. */
+  laufendesLabel: string | null;
   team: { id: string; name: string; shorthand: string; inactive_since: string | null };
   saison: TeamSaisonMembership;
 }) {
@@ -25,6 +28,7 @@ export function AdminKontakteEditView({
   return (
     <div className={`${PAGE_RISE_CLASSES} flex min-h-0 w-full flex-1 flex-col`}>
       <AdminKontakteEditForm
+        laufendesLabel={laufendesLabel}
         teamId={team.id}
         saison={saison}
         pageHeader={{

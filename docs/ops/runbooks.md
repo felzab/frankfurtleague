@@ -26,6 +26,7 @@ The contracts these depend on — the services, the scripts, the gate scopes and
 | [16. The secret files](#16-the-secret-files)                                                                                                    | What each holds, and how each machine makes its own            |
 | [17. Clearing an address's code lock](#17-clearing-an-addresss-code-lock)                                                                       | Who meets it, when it lifts, and what clearing it costs        |
 | [18. The Node a checkout runs](#18-the-node-a-checkout-runs)                                                                                    | What `pnpm install` fetches, and what a bare `node` still runs |
+| [19. The database's storage alert](#19-the-databases-storage-alert)                                                                             | What fills the tier unseen, and the two alerts that show it    |
 
 ---
 
@@ -41,9 +42,10 @@ the machine is outside the repository. What it does tell you:
   `./secrets/` the stack mounts, and `./certs/` must all exist beside the compose file — preflight
   checks each before anything is pulled. What each secret file holds, who owns it and how it is
   made, is §16.
-- **A line naming a value a secret file holds draws a warning, and nothing more**: the image a
-  rollback restores reads it, so it stays until the deploy that follows it runs healthy, and is then
-  deleted (§16).
+- **A line naming a value a secret file holds, or `ALLOWED_ADMIN_EMAILS`, refuses the deploy at exit
+  2 before compose is asked anything**, naming the line and never its value
+  (`scripts/lib/_lib.sh :: refuse_credential_lines`): delete it, a credential being its file's (§16)
+  and the administrator list read by nothing.
 - **A `.env` beside the compose file refuses every run at exit 2 before compose is asked anything**,
   `--status` included (`scripts/lib/_lib.sh :: refuse_compose_dotenv`). Git ignores the name, so
   `git status` never shows it; move it out of the checkout, keeping it only if it holds something
@@ -77,17 +79,21 @@ the machine is outside the repository. What it does tell you:
   **write a missing required one into the file WITH a value**, a bare `NAME` line taking its value
   from the shell that ran compose, which holds none for it, and reaching the container as nothing at
   all. That is where a
-  release adding a required name meets a host nobody edited. Every VALUE is judged at boot and
-  nowhere else, a sign-in secret below its library's floor of 32 characters among them — each a
-  refusal this reader and the secret files' reader both pass and the recreated container meets. It does catch the misspelling whose value is EMPTY
+  release adding a required name meets a host nobody edited. Every VALUE is the frontend's own boot's
+  to judge, in the step below. It does catch the misspelling whose value is EMPTY
   that the backend's reader drops, and a line its reader cannot take at all is an advisory rather
   than a refusal ([`spec.md`](spec.md) §1.5).
-- **Each application service's own container then judges its secret files**, started as the stack
-  starts it, so as its own user and in its own group, and by its own image's list: the frontend's
-  reads every file its schema requires (`scripts/lib/_lib.sh :: check_frontend_secret_files`), and
-  **a file missing, not a file, unreadable by that user or blank refuses the deploy at exit 2** with
-  nothing recreated, naming the file and never its contents. The remedy is §16's owner, mode or
-  contents for that file. The backend's container builds its settings as its boot does
+- **Each application service's own boot then judges its settings and secret files, before anything
+  is recreated**, in a one-off container started as the stack starts the service, so with its
+  variables, as its own user and in its own group. The frontend's runs the image's own server, which
+  runs every boot gate and ends there (`scripts/lib/_lib.sh :: check_frontend_boot_config`): **a value
+  the schema refuses, a secret file missing, blank, not a file or unreadable by that user, a signing
+  key it cannot read, and an `APP_ENV` naming another deployment than the one being deployed each
+  refuse the deploy at exit 2** with nothing recreated — Cloudflare's published test site key under
+  production and a sign-in secret below its library's floor of 32 characters among them. The
+  `CRITICAL` line above the refusal names the variable, the file or the key's path and never a value:
+  correct a variable in `fl_frontend/.env`, and give a file §16's contents, owner or mode. The
+  backend's container builds its settings as its boot does
   (`scripts/lib/_lib.sh :: check_backend_boot_config`), so a file it cannot use and a value its
   validators refuse — an internal key outside its alphabet among them — refuse there, naming the
   variable or the file.
@@ -119,11 +125,23 @@ the machine is outside the repository. What it does tell you:
   pulls the failed build straight back. **After a rollback, deploy by tag** — `./scripts/ops/deploy.sh <tag>`,
   the tag the rollback names — until a good build is published. Nothing is put back where the pull left
   `:latest` naming the images that were already running: restoring them would restore the build that
-  just failed, and the script says so instead ([`spec.md`](spec.md) §4). **A deploy by tag to a build
-  from before the secret files is refused by this checkout whatever the environment files hold**,
-  before either tag moves (`scripts/ops/deploy.sh :: check_pin_reads_secret_files`), and a rollback
-  restoring such a build names §16's steps rather than its tag: that build is deployed from its own
-  commit.
+  just failed, and the script says so instead ([`spec.md`](spec.md) §4).
+- **Never deploy by tag a build from before the frontend's boot check.** Its image does not know
+  `BOOT_CHECK`, so the preflight's one-off frontend serves instead of ending, and the deploy waits on
+  it with nothing recreated until Ctrl-C. Every such image is deleted from the registry, where the
+  pull of its tag refuses before anything moves. **The automatic rollback is not a deploy by tag**: it
+  restores the running build by image id and runs no preflight, so the first deploy of a build
+  carrying the check can still fall back to the build before it. Then publish a fixed build rather
+  than deploying the restored one by the tag the script names.
+- **After serving a build older than the season-row confirmation links, re-send the link of every
+  contact seat that build re-staffed, once the current build is back.** That build's contacts editor
+  leaves a row's links standing when it hands a seat to another person, and the confirmation finds a
+  seat by its link alone (`fl_backend/app/api/bewerbungen/services.py :: build_saison_token_filter`),
+  so the link the seat's earlier person still holds would confirm the new person's seat or empty it.
+  The re-send replaces the seat's link (`fl_backend/app/api/teams/admin_router.py :: einladen_kontakt`).
+  A row whose season has ended or whose team has left it refuses the re-send: there, empty the seat in
+  the contacts editor and save, then enter the person again and save, which voids the old link and
+  mints the person a new one.
 - After the health wait, what `deploy.sh` checks is the **running stack rather than the checkout alone**:
   that nginx is running, reloaded and holding the checkout's configuration, the security headers as they
   are actually served, and the liveness probe through the edge. `./scripts/ops/deploy.sh --status` reads the
@@ -258,8 +276,9 @@ image is refused until the new image is up, because it writes the old name.
 `fl_backend/app/api/teams/schemas.py :: FLKontaktKenntnisnahme` requires the block's names, and
 `fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbung` declares the same block, so the contacts
 editor, a club's season panel and the whole application queue answer 500 on every stored row until
-the rename lands. A junction contacts save over an already-confirmed seat raises too,
-`fl_backend/app/api/teams/services.py :: _confirmation_held_by` indexing the key directly. **A
+the rename lands. A junction contacts save over a seat its person keeps is refused too: it writes
+that seat's stored record back whole (`fl_backend/app/api/teams/services.py :: _confirmation_held_by`),
+under the old name, which the renamed validator refuses. **A
 contact person's own confirmation link still OPENS**, serving no contact record
 (`READ-BEWERBUNG-002`) — but the answer behind its button is a write over the same block and is
 refused with everything else, so a person who confirms or objects in that window is told nothing
@@ -384,11 +403,6 @@ administration is shut while it is down. Each of these is easy to get wrong:
   neither, and a duplicate address in it then fails the next boot's index build (`SRV-BOOT-004`).
   Until the paste lands no address holds a grant, so the site admits no administrator; the public
   site is untouched.
-- **`ALLOWED_ADMIN_EMAILS` is read by nothing, and each boot names it while it stands**:
-  `FE-BOOT-002` for `fl_frontend/.env`, `SRV-BOOT-008` for `fl_backend/.env`. It stays in
-  `fl_frontend/.env` alone, so a rollback to the frontend before still finds the line it requires;
-  never add it to the server's `fl_backend/.env`, which the backend before refuses to boot with.
-  Delete it from the frontend's once this release is settled.
 - **Keep two grants standing, an `owner` grant among them.** The revoke route refuses to leave fewer
   (`docs/backend/spec.md :: I435`), the tier change to leave no owner
   (`docs/backend/spec.md :: I479`), and the Playground refuses nothing: the boot warns with
@@ -523,8 +537,9 @@ section never exercised against a real page load.
 
 ## 5. When somebody asks for their data, or asks us to change it
 
-Access, rectification, objection, restriction, portability and the withdrawal of a consent all
-arrive the same way and are answered by one person by hand. Erasure has its own mechanisms and is
+Access, rectification, objection, restriction and portability all arrive the same way and are
+answered by one person by hand. The withdrawal of a consent is the person's own write on their
+account page, and a request for one by mail is answered by pointing them there (below). Erasure has its own mechanisms and is
 [`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)'s; everything else is
 this section.
 
@@ -551,7 +566,11 @@ Read it for an access request. **Finish the erasure of anybody who has signed in
 Atlas console**, after the route's own erasure has run:
 
 1. In the `auth` database's `user` collection, find the row whose `email` is the address as the
-   sign-in box folds it, in lower case (`fl_frontend/src/core/emailAddress.ts :: asSignInIdentifier`).
+   sign-in box folds it, in lower case (`fl_frontend/src/core/emailAddress.ts :: asSignInIdentifier`),
+   and do the same for **every address the record held**: a referee whose address moved by its link
+   left an account at each earlier one, which the record does not name. Read those
+   addresses off the action log's images of the referee before the route's erasure runs, which
+   empties them; a decline or a discard of a later change empties them too.
 2. Delete every row of `session`, `account` and `passkey` whose `userId` is that row's `_id`, then
    the `user` row itself.
 3. Delete the `verification` row whose `identifier` is `sign-in-otp-` followed by that address, a
@@ -600,16 +619,45 @@ season's matches, a referee not being season-scoped.
 role the address sits in.** It is what a person signs in as, so changing one changes who can sign in
 as them.
 
-- **A pupil.** `spieler.email` is on no payload and no route writes one, so there is no stored
-  address on the person to correct. What the league does hold is the address a pending registration
-  was typed with, and that one is not corrected either: the answer to somebody asking is to register
-  again through their team's link, the unconfirmed row going with the seven-day sweep.
+- **A pupil.** `spieler.email` is written by the team's admission alone and is on no payload, so no
+  screen corrects it. A pupil admitted under an address they cannot read is corrected by hand: set
+  `spieler.email` to the new address as `fl_backend/app/shared/folding.py :: sign_in_identifier`
+  folds it, in the Playground, and run `python -m app.core.constraints --check` (§2); the unique
+  index `uniq_spieler_email` refuses an address another person already holds. Registering again
+  from the new address instead writes a second person, which the admission joins to the first only
+  where the first holds no address. The address a PENDING registration was typed with is not
+  corrected: the answer is to register again through the team's link, the unconfirmed row going
+  with the seven-day sweep.
 - **A referee who has NOT confirmed.** Correct `kontakt.email` in the referee editor. The save
   itself kills the link that went to the old mailbox, mints a fresh one and mails the corrected
   address, so nothing further is owed and the old link opens nothing.
-- **A referee who HAS confirmed.** Correct `kontakt.email` in the referee editor. Their link is not
-  re-minted — the record is already given — so the correction is the ordinary rectification above
-  and no message goes out. Tell them by hand that the address on file has moved.
+- **A referee who HAS confirmed, retired or not.** Enter the new address in the referee editor. The
+  save keeps the address on file and holds the new one as a pending change with a link of its own;
+  the address moves only once its holder confirms there, so until then the referee still signs in,
+  and is written to, at the address on file (`docs/backend/spec.md :: I559`). Re-send its
+  link when it lapses, or discard it when the request turns out to be wrong; a lapsed change is
+  the yearly deletion's to remove, which is not built yet, so until it is the change stands
+  ([`../datenschutz.md`](../datenschutz.md#6-retention-is-bounded-where-a-bound-was-chosen)).
+  Their consent link is not re-minted — the record is already given. **Once the change confirms,
+  the old address's sign-in account stays behind**, the confirmation touching no sign-in row, and
+  the referee's passkeys stay on it until its rows are deleted. Delete its sign-in rows by the
+  erasure's hand step above, run on the old address, once nothing else holds it, each read by the
+  address: no referee, searching `/bereich/admin/schiedsrichter`; no contact seat, searching
+  `/bereich/admin/kontakte` and `/bereich/admin/bewerbungen`; no grant, searching
+  `/bereich/admin/administratoren`; and no pupil or registration, which no page searches by address,
+  so a Playground count of `spieler` rows whose `email` is the address as
+  `fl_backend/app/shared/folding.py :: sign_in_identifier` folds it, as the pupil's correction
+  above reads it, and of `registrierungen` rows whose `email` matches it in any case, a
+  registration storing it unfolded (`docs/glossary.md :: Registrierung`). Those are the records
+  the sign-in gate admits an address for (`docs/glossary.md :: Konto`).
+- **The holder of a pending new referee address**, a mailbox an administrator's typing reached. No
+  read keys on that address, by design (`docs/backend/spec.md :: I560`), so no page search
+  finds the referee from it: find the row with a read-only Playground query on `schiedsrichter` for
+  `adresswechsel.email` equal to the address, matched in any case and projecting `_id` and `name`
+  alone, then open that referee's editor and press „Änderung verwerfen“
+  (`DELETE /schiedsrichter/{schiedsrichter_id}/adresswechsel`), which removes the address and the
+  log's images of it (`docs/backend/spec.md :: I562`). The link's own „Das ist nicht meine
+  Adresse“ does the same, past its deadline too.
 - **A referee who is RETIRED and has not confirmed.** Correct `kontakt.email` in the referee editor.
   The save stores the address, mails nothing and kills the old link, since a retired referee takes
   no booking to consent for; reactivating them later mints a fresh link and mails it to the
@@ -620,12 +668,33 @@ as them.
   confirmation deadline, and where one person holds two seats it corrects both. A seat whose person
   has stepped out takes a different route, below.
 
-**The self-service change is not built.** It would be an endpoint, a page, a proving link and a
-notice to the old mailbox, for a case nobody has met twice; the procedure above is the answer, and a
-request for one is answered by performing it rather than by building the route.
+**A person asking to change their own address is answered by performing the procedure above.**
+No page lets anybody change the address they sign in as: a confirmed referee's change is the
+administrator's save, proved by the new mailbox's own link and told to the address on file, and
+every other role's is the administrator's correction.
 
-**A withdrawal is an erasure, and a contact seat has one case where it is not.** Which of the three
-you are in is decided by that seat's own link, not by the person's role:
+**Withdrawing a consent is the person's own write on their account page, `/bereich/konto`, and
+never an erasure or an edit by hand** (`docs/backend/spec.md :: I613`, `:: I596`). Point a request
+arriving by mail at the control for its record, which the person reaches by signing in with the
+address that record holds:
+
+- **A referee's publication scope and media consent:**
+  `PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung`.
+- **A seat's WhatsApp scope and media consent on a team's season row:**
+  `PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung`, for every seat the address holds
+  on that row (`docs/backend/spec.md :: I599`).
+- **A seat's WhatsApp scope and media consent on a pending application:**
+  `PATCH /bewerbungen/{bewerbung_id}/person/einwilligung`, which withdraws them and never grants
+  either.
+- **A pending registration's publication scope and media consent:**
+  `PATCH /registrierungen/selbst/{registrierung_id}/einwilligung`, which withdraws them and grants
+  neither. The admission deletes the registration, and its choices then move on the pupil's own
+  control above.
+- **A pupil's:** the paragraph below.
+
+**Taking a contact person off their seat is an erasure, unless the seat's own link still takes
+their Widerspruch.** On an application, which of the three cases below you are in is decided by
+that seat's own link, not by the person's role; a seat on a team's season row is the fourth:
 
 - **The seat is unanswered and its link still works.** Their own Widerspruch, on the confirmation
   page the link opens, empties the seat at once and tells the submitter so the school can name
@@ -646,25 +715,43 @@ you are in is decided by that seat's own link, not by the person's role:
   each is a refusal the person meets on the page, not something to talk them through. The route is `POST /kontakte/erasure`
   like any other.
 - **The application has been decided.** `POST /kontakte/erasure`, as above.
+- **The seat is on a team's season row.** Its person's own link takes their Widerspruch while it
+  is live, and the Widerspruch empties the seat and mails nobody, an administrator rather than a
+  submitter having entered them (`docs/glossary.md :: Bestätigung`). A lost or lapsed link is sent
+  again with „Bestätigungslink senden“ on that seat in the team's contacts editor
+  (`fl_backend/app/api/teams/admin_router.py :: einladen_kontakt`), which replaces the old link
+  whole. It refuses an address the ban list holds (`REQ-KONTAKT-003`) and a row whose season has
+  ended or whose team has left it (`REQ-KONTAKT-005`, `docs/backend/spec.md :: I570`), though a link
+  such a row already holds still takes a Widerspruch. Where no live link is left, or the seat has
+  already answered, the route is `POST /kontakte/erasure`.
 
-**A pupil withdrawing the consent that publishes their name is the case with no route at all.** No
-payload carries the record and no endpoint writes one
-(`fl_backend/app/core/domain.py :: FIELD_POLICIES`), so nothing an administrator presses changes it.
-Two answers, and which one you give is the person's to choose:
+**A pupil withdrawing the consent that publishes their name does it on their account page.**
+`PATCH /spieler/selbst/einwilligung` moves the record, and no administrator route writes it
+(`fl_backend/app/core/domain.py :: FIELD_POLICIES`). A request arriving
+by mail instead has two answers, and which one you give is the person's to choose:
 
 - **They want off the website and out of the league.** `DELETE /spieler/{spieler_id}` and then
   `DELETE /spieler/{spieler_id}/erasure`, which is the erasure above and takes the squad rows with
   the person.
-- **They want their name withheld and their place kept.** Clear that person's consent record on
-  their `spieler` document in the Atlas console; the publication gate fails closed, so the next read
-  serves the row as a nameless slot
-  (`docs/backend/spec.md :: READ-PUPIL-003`). **The squad list is
-  cached for a day and a console edit invalidates nothing**
-  ([`../frontend/spec.md`](../frontend/spec.md#15-out-of-band-invalidation)), so the name stays on
-  the page for up to that long — save anything in the admin player editor afterwards, which drops the
-  tag, and check the public squad page before you answer the person.
+- **They want their name withheld and their place kept.** Answer by pointing them to the control
+  on their account page, `/bereich/konto`, which they reach by signing in with the address their
+  record holds. **Nobody edits a consent block by hand**, in the console or anywhere else: a choice
+  the person did not make is not their consent (`docs/backend/spec.md :: I613`). **A pupil whose
+  record holds no address cannot sign in**, and the one route the code leaves to keep their place
+  takes two writes by their team, in this order. A seat holder first takes the pupil's squad row of
+  the season out, since a live row there refuses any admission (`REQ-REGISTRIERUNG-015`); the pupil
+  then registers again through the team's link while the season's registration window is open,
+  choosing the narrower publication, and a seat holder admits that registration onto the stored
+  record the pending list proposes by name (`docs/backend/spec.md :: I581`). The admission writes the address, rewrites the retired
+  squad row rather than writing a second (`docs/backend/spec.md :: I583`) and renews the choice from
+  the pupil's own answer
+  (`fl_backend/app/api/registrierungen/services.py :: compose_person_update`). Where the window is
+  shut, the erasure above is the only route. Either write that withholds the name drops the cached
+  squad list, and the next read serves the row as a nameless slot
+  (`docs/backend/spec.md :: READ-PUPIL-003`); check the public squad page before you answer.
 
-Tell them which of the two you did, and that the second is reversible and the first is not.
+Tell them that the first cannot be undone, and that the second is theirs to change back on the same
+page.
 
 **A referee whose row was dropped has nothing left to erase, and their fixtures hold no name**:
 [section 12](#12-deleting-this-seasons-player-records-and-resetting-the-action-log)'s drop empties it
@@ -1272,9 +1359,9 @@ carries the address. Ask when they tried and read that window
   On the local stack that is `.tmp-mail/`, which every `./scripts/ops/local.sh` start empties of what
   earlier runs filed, so a code there is this run's.
 
-**A refusal by the gate writes no line.** It refuses an address that is barred, that holds nothing
-live, or whose only seat is on a `past` season; an address whose records all await confirmation is
-mailed, to be told so once signed in, unless it is barred. So a quiet window means a refusal, or a
+**A refusal by the gate writes no line.** It refuses an address that is barred, or that holds no
+record of its own (`docs/glossary.md :: Konto`) and none awaiting its confirmation; an address whose
+records all await confirmation is mailed, to be told so once signed in, unless it is barred. So a quiet window means a refusal, or a
 message the provider accepted and the mailbox never showed, whose bounce the delivery webhook
 reports (§10). An administrator's grant is read on that same call
 (`fl_frontend/src/core/signInGate.ts :: mayReceiveSignIn`), so an administrator too is mailed
@@ -1305,21 +1392,22 @@ writes, each readable by its writer alone, and prints nothing:
 
 `openssl rand -hex 32` is the 64 characters every key's floor or length demands. Neither of the
 provider's keys is written: nothing outside production sends mail, and the provider sends its
-delivery events to production alone.
+delivery events to production alone. Nor is `turnstile_secret_key`: outside production the bot
+check verifies with Cloudflare's published passing secret, so a development machine's
+`fl_frontend/.env` carries the site key that secret passes, `TURNSTILE_SITE_KEY=1x00000000000000000000AA`
+([Cloudflare's testing page](https://developers.cloudflare.com/turnstile/troubleshooting/testing/),
+read 2026-10-04). **Production holds the widget's own pair**, the site key in `fl_frontend/.env`
+and the secret in `secrets/turnstile_secret_key`, both from the Cloudflare dashboard's Turnstile
+widget, and refuses to boot on either published test key.
 
 **`secrets/dump_mongodb_uri` is the one exception, and it is production's read-only login**, which
 reads the application database and nothing else: `./scripts/ops/local.sh --seed` copies production
 with it and with no other login. Copy its URI out of the password manager into the file in an
 editor, never through a shell command that echoes it.
 
-**Every line the secret files replace in the package files stays on the server for one release**
-(`scripts/lib/_lib.sh :: MOVED_ENV_NAMES`), the three `INTERNAL_API_KEY_*` lines in both of them
-among it, because the image a failed deploy is rolled back to reads them there: the deploy warns
-while they are there, and once the release reading the files runs healthy they are
-deleted in an editor, never with `cat`, and a second `./scripts/ops/deploy.sh` recreates both
-containers without them. `local.sh` refuses them outright, since the local stack restores no older
-image. Keep their password-manager entries: a rollback by hand across that release needs them, as
-below.
+**No line in either package file names a value a secret file holds**: the deploy and `local.sh`
+refuse one before compose reads the file ([`spec.md`](spec.md) §1.5). Delete such a line in an
+editor, never with `cat`.
 
 **On the server, each file is owned by the user that reads it** ([`spec.md`](spec.md) §1.2): a new
 value is written without ever existing under another owner or mode, and without passing through the
@@ -1332,13 +1420,16 @@ sudo install -o 1002 -g 1002 -m 400 /dev/stdin secrets/<a backend file>
 sudo install -o root -g 1003 -m 440 /dev/stdin secrets/<an internal key>
 ```
 
+**Each service reads its files once, as it boots**, so a value replaced on a running stack — a
+wrong `secrets/turnstile_secret_key` among them, which fails every bot check until then — takes
+effect only with the next `./scripts/ops/deploy.sh`, which judges it and recreates both containers.
+
 **Where a deploy refuses naming a file**, the refusal says
 which fault: a missing one is written, an unreadable one is given the user and mode above, a blank
 one is written again. **Where it names an `INTERNAL_API_KEY_*`, that key carries a character outside
 the class** ([`spec.md`](spec.md) §1.5): generate all three again on the server, each with
 `openssl rand -hex 32 | tr -d '\r\n' | sudo install -o root -g 1003 -m 440 /dev/stdin secrets/<key>`,
-and update the password-manager entry and, while they still hold the keys, both package files'
-`INTERNAL_API_KEY_*` lines: nothing compares the two, and a rollback's image reads the lines. Both containers are recreated by the same deploy, so the new
+and update the password-manager entry. Both containers are recreated by the same deploy, so the new
 keys never meet the old. **`sperrliste_schluessel` is never replaced**: every ban is stored under it,
 and a new one disarms them all in silence (§5). **A new `auth_secret` signs everybody out.**
 
@@ -1378,39 +1469,13 @@ Then put the private half in place, from the same shell, which still holds `$t`:
   finished until `aktionen` has been read for every `berechtigungen` write since the leak, and every
   grant nobody can account for is revoked in the Playground.
 
-`deploy.sh` and `local.sh` refuse a missing key file before anything starts. They then have the
-frontend service's own container, started as the stack starts it and handed the
-`ACTOR_TOKEN_PUBLIC_KEY` line alone, judge the pair: a key it cannot read where its environment
-points it, a key that is not Ed25519, or an `ACTOR_TOKEN_PUBLIC_KEY` that is missing, malformed or
-not its public half. Each refusal names the fault and never a value. The remedy is to run the command
-above again, or, where the refusal names `ACTOR_SIGNING_KEY_FILE`, to delete that line from
-`fl_frontend/.env`.
-
-**A deploy by tag to a build from before the secret files is refused by this checkout**, whatever
-the environment files hold and before either tag moves: that build was released with another
-compose file, edge and preflight than this checkout's, and runs under these only as the automatic
-rollback's accepted limit. The rollback a failed health wait makes is unaffected while the moved
-lines are still there, since it restores images and reads no environment file, and it names these
-steps rather than the restored build's tag. To roll back across that release by hand, on the server
-at the checkout root:
-
-1. `git checkout <commit>`, the older build's own commit, so the deploy script, the compose file and
-   nginx's configuration are the ones that build was released with.
-2. Put each moved line back from its file, printing nothing — for the backend's database URI,
-   `{ printf 'MONGODB_URI='; sudo cat secrets/backend_mongodb_uri; echo; } >> fl_backend/.env`, and
-   the same shape for every other line into the package file of the service that reads it, the
-   three internal keys into both.
-3. `./scripts/ops/deploy.sh sha-<commit>`.
-
-Rolling forward undoes each step before deploying: check out the newer commit, then deploy, and
-delete the lines again once it runs healthy.
-
-**A build from before the actor token takes a step more**, and every build published before the
-secret files is one, the two arriving in one release. Its backend's settings forbid a name they do
-not declare, so its own preflight refuses `ACTOR_TOKEN_PUBLIC_KEY`: turn that line in
-`fl_backend/.env` into a comment by putting `#` in front of it; its frontend also requires the
-`ALLOWED_ADMIN_EMAILS` line §3 keeps in `fl_frontend/.env`. Rolling forward restores the
-`ACTOR_TOKEN_PUBLIC_KEY` line.
+`deploy.sh` and `local.sh` refuse a missing key file before anything starts. The frontend's boot,
+run as §1 says, then refuses a key it cannot read where its environment points it or one that is not
+Ed25519, naming the path: where that path is not `/run/secrets/fl_actor_signing_key`, delete the
+`ACTOR_SIGNING_KEY_FILE` line from `fl_frontend/.env`. Last, the frontend service's own container,
+handed the `ACTOR_TOKEN_PUBLIC_KEY` line alone, judges the pair: an `ACTOR_TOKEN_PUBLIC_KEY` that is
+missing, malformed or not the key's public half. Each refusal names the fault and never a value, and
+the remedy is to run the command above again.
 
 ## 17. Clearing an address's code lock
 
@@ -1450,7 +1515,44 @@ and every `pnpm run` and `pnpm exec` in that checkout runs it**, whatever Node t
 installed; `pnpm exec node --version` there prints the pinned release. A pull request moving the pin
 needs nothing more on a machine than the next `pnpm install`.
 
-**A bare `node` still runs the machine's own**, and `.claude/hooks/docs-standard.sh` and
-`scripts/gate/selfcheck.sh` call it bare. Install the pinned release machine-wide from
+**A bare `node` still runs the machine's own**, and `.claude/hooks/docs-standard.sh`,
+`.claude/hooks/implementer-whole-suite.sh` and `scripts/gate/selfcheck.sh` call it bare. Install the pinned release machine-wide from
 https://nodejs.org/en/download, and again whenever the pin moves: a machine left on an older release
 of the line keeps every security flaw fixed since.
+
+## 19. The database's storage alert
+
+**Nothing in this repository watches how full the database is, and the production tier has a hard
+limit**: 5 GB of documents and indexes together. What a write meets past it is unverified: MongoDB's
+page on the limit states the size and not the behaviour, so plan for every save failing at once.
+What keeps one person from filling it is the daily write ceiling (`docs/backend/spec.md :: I614`,
+its numbers `fl_backend/app/shared/schemas/bounds.py :: DROSSELUNG_KONTAKT_PRO_TAG` and its two
+siblings), sized so that no one person writing 10 KB a write at their ceiling every day reaches the
+first alert below within a year. The alerts show the rest: many people at once, the action log's own
+growth, or counts that stopped expiring.
+
+**No alert on a Flex cluster reads the limit's own measure at a threshold we choose.** The one size
+condition it takes a threshold on, `DB Data Size is`, reads documents alone, so it is set low enough
+to leave the indexes room, and the fixed alert reading both stays on behind it:
+
+1. In the Atlas console's alert settings for the project, add an alert on `DB Data Size is` above
+   2 GB, notifying the league's own address. It fires ahead of step 2's alert as long as the
+   indexes stay smaller than the documents.
+2. Add an alert on `Flex metric outside threshold`, notifying the same address, which Atlas does not
+   set for a new project. It reads documents and indexes together and fires past 4 GB: it is the one
+   alert on the limit's own measure, so it is the backstop where the indexes outgrow the documents,
+   and never the warning, since it leaves a fifth of the limit.
+3. Read both back in the console's list of alert settings.
+
+The condition names and figures are copied from MongoDB's Atlas documentation, which moves without
+us; read 2026-10-07:
+
+- the conditions and what each measures: https://www.mongodb.com/docs/atlas/reference/alert-conditions/
+- the limit and what it counts: https://www.mongodb.com/docs/atlas/reference/flex-limitations/
+- the alerts a new project gets: https://www.mongodb.com/docs/atlas/configure-alerts/
+
+**When either fires, find the collection that grew**, from the cluster's collection and index sizes
+in the Atlas console. `drosselung` holds one row per person, kind of person and day, which its TTL
+index removes (`docs/backend/spec.md :: I619`), so a large one there is the TTL monitor stopping
+rather than people writing. Indexes larger than the documents put step 1's alert behind step 2's:
+lower its threshold below 4 GB times the documents' share of documents and indexes.

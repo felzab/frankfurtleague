@@ -1,4 +1,3 @@
-import { LIGA_KENNTNISNAHME } from "@/core/einwilligung";
 import { SAISON_PHASE_OPTIONS } from "@/features/saisons/constants";
 import { computeErgebnisFor, PHASE_RANK } from "@/features/spiele/utils";
 
@@ -102,7 +101,7 @@ export const computeQualifyingTeamIds = ({
 
 /**
  * Numbered as a `Platz` is (`docs/glossary.md :: Platz`), walking past a row that can hold none.
- * **A club absent from this map is the table's `N/A`**, so nothing may restate the rule at a cell.
+ * **A club absent from this map is the table's „Kein Platz“**, so nothing may restate the rule at a cell.
  */
 export const computePlatzByTeamId = (teams: readonly FLGruppenTeam[]): ReadonlyMap<string, number> => {
   const platzByTeamId = new Map<string, number>();
@@ -249,7 +248,7 @@ export const computeEntscheidungFor = ({ spiel, teamId }: { spiel: FLSpiel; team
  * A blank contact person, for the moment the editor's contact block is switched on. `erfasst_von` and
  * the date stay unanswered: who recorded it, and when, is the one thing nobody may guess for the league.
  */
-export const buildEmptyKontaktperson = (): KontaktpersonDraft => ({
+export const buildEmptyKontaktperson = (textVersion: string): KontaktpersonDraft => ({
   vorname: "",
   nachname: "",
   email: "",
@@ -260,11 +259,15 @@ export const buildEmptyKontaktperson = (): KontaktpersonDraft => ({
   einwilligung: {
     umfang: EINWILLIGUNG_UMFANG,
     erfasst_von: null,
-    text_version: LIGA_KENNTNISNAHME.textVersion,
+    text_version: textVersion,
     datum: "",
     // A confirmation link is the only writer of this stamp, so a seat an administrator opened here
     // has none and the blank is the truth rather than a value still to be filled in.
     bestaetigt_am: null,
+    medien: false,
+    // The save that seats the person stamps who seated them; no payload carries it, so the form never guesses.
+    eingetragen_von: null,
+    nachweis: { umfang: null, medien: null },
   },
 });
 
@@ -272,10 +275,10 @@ export const buildEmptyKontaktperson = (): KontaktpersonDraft => ({
  * The three blank seats, for the same moment. All three are PRESENT: a new block asks for three whole
  * people, and a seat left empty is one the admin switches off rather than the state it starts in.
  */
-export const buildEmptyKontakte = (): SaisonTeamKontakteDraft => ({
-  trainer: buildEmptyKontaktperson(),
-  ansprechperson: buildEmptyKontaktperson(),
-  stellvertretung: buildEmptyKontaktperson(),
+export const buildEmptyKontakte = (textVersion: string): SaisonTeamKontakteDraft => ({
+  trainer: buildEmptyKontaktperson(textVersion),
+  ansprechperson: buildEmptyKontaktperson(textVersion),
+  stellvertretung: buildEmptyKontaktperson(textVersion),
   trainer_ist_zugleich: null,
 });
 

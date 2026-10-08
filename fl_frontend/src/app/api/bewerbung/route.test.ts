@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
+import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
 import { doublePublicRouteRequest } from "@/shared/testing/publicRoutes.ts";
+import { doubleSiteverify, TEST_SECRET, TEST_TOKEN } from "@/shared/testing/siteverifyDouble.ts";
 
 import type { SentMail } from "@/core/mailDouble.ts";
 
@@ -14,7 +16,7 @@ const logs: string[] = [];
 const line = (...args: unknown[]): void => void logs.push(JSON.stringify(args));
 const LOGGING = { logger: { info: line, warn: line, error: line } };
 const ORIGIN = "http://localhost:3000";
-const CONFIG = { frontend_config: { AUTH_URL: ORIGIN, APP_ENV: "test" } };
+const CONFIG = { frontend_config: { AUTH_URL: ORIGIN, APP_ENV: "test" }, turnstileSecretKey: () => TEST_SECRET };
 const calls = doubleApiClient(({ endpoint }, schema) =>
   // The accepted-send record every mail reports back; its answer is read by nothing here.
   schema.parse(endpoint === "/bewerbungen" ? schreibAntwort() : { acknowledged: 1, angewendet: [] }),
@@ -25,19 +27,24 @@ const { sent: mails } = doubleSendMail();
 const QUERIES = { getBewerbungSchulen: async () => ({ acknowledged: 1, schulen: [] }) };
 
 doublePublicRouteRequest({ modules: { "core/logging.ts": LOGGING, "core/config.ts": CONFIG, "features/bewerbungen/queries.ts": QUERIES } });
+const siteverify = doubleSiteverify();
 
 const { POST } = await import("./route.ts");
 const { BEWERBUNG_VERALTET, bewerbungPayload, buildEmptyBewerbungDraft } = await import("@/features/bewerbungen/utils.ts");
 const { TRIKOT_FARBE_OPTIONS } = await import("@/features/teams/constants.ts");
-const { APIBadStatusError } = await import("@/core/errors.ts");
+const { refusedOn } = await import("@/shared/testing/publishedRefusals.ts");
 const { FELD_ABGELEHNT } = await import("@/shared/utils/actionError.ts");
 const { bodyField, refusedPayload } = await import("@/shared/testing/refusedPayload.ts");
 const { mapBewerbungSubmitRefusal } = await import("@/features/bewerbungen/utils.ts");
 const route = await import("./route.ts");
 const { buildBewerbungEingangOffenEmail } = await import("@/core/bewerbungEmail.ts");
-const { bestaetigungsLink } = await import("@/features/bewerbungen/bestaetigungLink.ts");
+const { kontaktBestaetigungsLink } = await import("@/core/kontaktLink.ts");
 const { rollenText } = await import("@/features/bewerbungen/notifications.ts");
 const { formatSpielDatum } = await import("@/shared/utils/format.ts");
+const { TURNSTILE_HEADER } = await import("@/core/turnstileToken.ts");
+
+/** The label the application form runs, off the registry the backend generated. */
+const FORM_LABEL = publishedLaufendeFassung("bewerbung").text_version;
 
 const KEY = "1b4e28ba-2fa1-4d2b-883f-0016d3cca427";
 
@@ -46,12 +53,12 @@ const person = (vorname: string, email: string, telefon: string) => ({
   nachname: "Muster",
   email: email,
   telefon: telefon,
-  einwilligung: { ...buildEmptyBewerbungDraft("2026").kontakte.trainer.einwilligung, erteilt: true },
+  einwilligung: { ...buildEmptyBewerbungDraft("2026", FORM_LABEL).kontakte.trainer.einwilligung, erteilt: true },
 });
 
 /** An application the payload schema takes whole, for a school the league already holds. */
 const BODY = bewerbungPayload({
-  ...buildEmptyBewerbungDraft("2026"),
+  ...buildEmptyBewerbungDraft("2026", FORM_LABEL),
   auswahl: "68d0f2a4c1e2b3a4d5e6f708",
   stufengroesse: 90,
   kontakte: {
@@ -75,8 +82,11 @@ const GESCHRIEBEN = {
 
 let schreibAntwort: () => unknown = () => GESCHRIEBEN;
 
+/** A submission as the form sends it, the bot check's token in its header unless `headers` replaces it. */
 function aRequest(headers: Record<string, string> = {}, body: unknown = BODY) {
-  return { headers: new Headers(headers), json: async () => body } as unknown as Parameters<typeof POST>[0];
+  return { headers: new Headers({ [TURNSTILE_HEADER]: TEST_TOKEN, ...headers }), json: async () => body } as unknown as Parameters<
+    typeof POST
+  >[0];
 }
 
 type Sitz = "ansprechperson" | "stellvertretung" | "trainer";
@@ -141,18 +151,8 @@ describe("the application handler's submission key", () => {
   });
 });
 
-/** One refused write as the client raises it; only the status and the code are read past this file. */
-const aRefusal = (serverErrorCode: string) =>
-  new APIBadStatusError({
-    message: "refused",
-    url: "http://backend/api/v0/bewerbungen",
-    statusCode: 409,
-    serverErrorCode,
-    endpoint: "/bewerbungen",
-    method: "POST",
-    readOnly: false,
-    traceId: "0",
-  });
+/** One refused write as the client raises it, at the status the document publishes its code under. */
+const aRefusal = (serverErrorCode: string) => refusedOn("POST /bewerbungen", serverErrorCode);
 
 describe("the application handler's refused write", () => {
   /* The window shut between the page loading and the press: the answer is the slice's own banner,
@@ -216,7 +216,7 @@ describe("the application handler's own parse", () => {
 
 describe("the application handler's consent label", () => {
   /* A retry across a deploy that moved the label resends the first press's words, and only the write
-     can tell a stored key from a new one (`docs/frontend/spec.md :: I148`). */
+     can tell a stored key from a new one (`docs/backend/spec.md :: I550`). */
   it("passes an earlier label on to the write, which answers a stored key's replay", async () => {
     const answer = await bodyOf(aRequest({ "Idempotency-Key": KEY }, labelledThroughout("2026-09-bestaetigung-4")));
 
@@ -227,7 +227,7 @@ describe("the application handler's consent label", () => {
   /* A new press under that label is the write's to refuse, and the page's reload is the answer. */
   it("answers the write's refusal of an earlier label with the page's reload, mailing nothing", async () => {
     schreibAntwort = () => {
-      throw aRefusal("REQ-BEWERBUNG-016");
+      throw aRefusal("REQ-EINWILLIGUNG-001");
     };
 
     const answer = await bodyOf(aRequest({ "Idempotency-Key": KEY }, labelledThroughout("2026-09-bestaetigung-4")));
@@ -251,7 +251,7 @@ const receiptOwed = (ausstehend: { vorname: string; rolleText: string }[]): stri
     rollenText: rollenText(["ansprechperson"]),
     ausstehend: ausstehend,
     fristText: formatSpielDatum(GESCHRIEBEN.bestaetigungsfrist),
-    link: bestaetigungsLink(ORIGIN, GESCHRIEBEN.bestaetigungen.ansprechperson),
+    link: kontaktBestaetigungsLink(ORIGIN, GESCHRIEBEN.bestaetigungen.ansprechperson),
   }).text;
 
 describe("who the submission's messages are addressed to", () => {
@@ -281,8 +281,8 @@ describe("who the submission's messages are addressed to", () => {
     assert.deepEqual(
       sentFor("eingang").map((mail) => [
         mail.to,
-        mail.text.includes(bestaetigungsLink(ORIGIN, "s-frisch")),
-        mail.text.includes(bestaetigungsLink(ORIGIN, "t-frisch")),
+        mail.text.includes(kontaktBestaetigungsLink(ORIGIN, "s-frisch")),
+        mail.text.includes(kontaktBestaetigungsLink(ORIGIN, "t-frisch")),
       ]),
       [
         ["bernd@schule.example", true, false],
@@ -312,7 +312,7 @@ describe("who the submission's messages are addressed to", () => {
 
     assert.deepEqual(
       [...new Set(links)].toSorted(),
-      minted.map((token) => bestaetigungsLink(ORIGIN, token)).toSorted(),
+      minted.map((token) => kontaktBestaetigungsLink(ORIGIN, token)).toSorted(),
       "a message carries a link the helper did not spell, or misses one",
     );
     assert.deepEqual(
@@ -337,6 +337,22 @@ describe("what the submission's messages say about themselves", () => {
     assert.deepEqual(
       mails.map((mail) => mail.idempotencyKey),
       mails.map(() => undefined),
+    );
+  });
+});
+
+describe("the application handler's bot check", () => {
+  /* The check's verdicts, and the secret it sends under the real config, are `fl_frontend/src/core/turnstile.test.ts`'s;
+     this handler asking it first is `fl_frontend/src/app/botCheckCoverage.test.ts`'s. Here: the header
+     the token is read from. */
+  it("writes past the test key's token, read from the header the form sends it in", async () => {
+    const answer = await bodyOf(aRequest({ "Idempotency-Key": KEY }));
+
+    assert.equal((answer.body as { success: boolean }).success, true);
+    assert.equal(writes().length, 1);
+    assert.deepEqual(
+      siteverify.asked().map(({ response }) => response),
+      [TEST_TOKEN],
     );
   });
 });

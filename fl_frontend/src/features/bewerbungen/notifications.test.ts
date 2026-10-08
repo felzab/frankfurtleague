@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 
 import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
+import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 
 import type { MailOutcome } from "@/core/mailDouble.ts";
 import type { FLKontaktperson } from "../teams/schemas.ts";
@@ -64,7 +65,7 @@ const {
   zustellungIdempotenzSchluessel,
 } = await import("./notifications.ts");
 const { buildBewerbungBestaetigungEmail } = await import("../../core/bewerbungEmail.ts");
-const { bestaetigungsLink } = await import("./bestaetigungLink.ts");
+const { kontaktBestaetigungsLink } = await import("@/core/kontaktLink.ts");
 const { ZURUECKGEHALTEN } = await import("@/features/einladungen/meldungen.ts");
 const { requestOutcomeUnknown, runWithRequestScope } = await import("@/core/requestScope");
 
@@ -91,7 +92,7 @@ function person(email: string): FLKontaktperson {
     email: email,
     telefon: "0151 12345678",
     geburtsdatum: "1990-04-01",
-    einwilligung: { umfang: "kontaktdaten", erfasst_von: "person", text_version: "v1", datum: "2026-04-01", bestaetigt_am: "2026-04-02" },
+    einwilligung: kenntnisnahme({ erfasst_von: "person", text_version: "v1", datum: "2026-04-01", bestaetigt_am: "2026-04-02" }),
   };
 }
 
@@ -292,8 +293,8 @@ describe("which mailbox is sent which link", () => {
     };
     // The local stack's own origin, as every minter now hands the helper (`docs/frontend/spec.md :: I186`).
     const origin = "http://localhost:3000";
-    const ownLink2 = bestaetigungsLink(origin, "erste");
-    const gespiegelter = bestaetigungsLink(origin, "zweite");
+    const ownLink2 = kontaktBestaetigungsLink(origin, "erste");
+    const gespiegelter = kontaktBestaetigungsLink(origin, "zweite");
 
     const verlinkt = seatsByMailbox(kontakte, { ansprechperson: "L-A", stellvertretung: ownLink2, trainer: gespiegelter });
     const gepaart = verlinkt.find((mailbox) => mailbox.address === "mira@schule.de");

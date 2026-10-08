@@ -8,6 +8,7 @@ import type {
   FLKontaktperson,
   FLPatchSaisonTeamPayload,
   FLPostSaisonTeamPayload,
+  FLSaisonTeamBestaetigungenAnsicht,
   FLSaisonTeamKontakte,
   FLTrikotFarbe,
 } from "./schemas";
@@ -79,17 +80,9 @@ export type AustrittDraft = Omit<FLAustritt, "type"> & {
   type: FLAustrittType | null;
 };
 
-/**
- * The origin is widened to `null` for DISPLAY: the editor reads a stored one and never sends one, so
- * a seat nobody has confirmed has none to show.
- */
-type KontaktKenntnisnahmeDraft = Omit<FLKontaktKenntnisnahme, "erfasst_von"> & {
-  erfasst_von: FLKontaktKenntnisnahme["erfasst_von"] | null;
-};
-
 /** One contact person mid-edit. Every other field is typed, so an unanswered one is the empty string. */
 export type KontaktpersonDraft = Omit<FLKontaktperson, "einwilligung"> & {
-  einwilligung: KontaktKenntnisnahmeDraft;
+  einwilligung: FLKontaktKenntnisnahme;
 };
 
 /**
@@ -123,6 +116,8 @@ export type TeamSaisonMembership = {
     austritt: FLAustritt | null;
     trikot_farbe: FLTrikotFarbe | null;
     kontakte: FLSaisonTeamKontakte | null;
+    /** Each seat's link, read beside the block for the contacts editor. */
+    bestaetigungen: FLSaisonTeamBestaetigungenAnsicht | null;
     /** The token `PATCH .../kontakte` judges a save against, carried from the read (`REQ-KONTAKT-001`). */
     kontakte_stand: string;
   } | null;

@@ -1,13 +1,13 @@
-import { refresh } from "next/cache";
+import { refresh, updateTag } from "next/cache";
 import { unstable_rethrow } from "next/navigation";
 
 import { isFreshlySignedIn, judgeAdminRequest } from "@/core/auth";
 import { APIBadStatusError, APIMalformedDataError, APINetworkError, ApiUnsentError } from "@/core/errors";
 import { logger } from "@/core/logging";
-import { requestWriteSent } from "@/core/requestScope";
+import { declareWriteTags, requestWriteSent, requestWriteTags } from "@/core/requestScope";
 import { isWithinEnrolmentWindow } from "@/core/sessionLifetimes";
 
-import { unansweredAction, ZUGANG_WEG } from "./actionError";
+import { outcomeUnknown, ZUGANG_WEG } from "./actionError";
 import { VERSUCHE_ES_ERNEUT_SATZ } from "./refusal";
 import { runWithIncomingTrace } from "./traceScope";
 import { VALIDATION_FAILED } from "./validation";
@@ -90,7 +90,7 @@ async function runGuarded<S, T extends { success: boolean }>(
   mutationName: string,
   guard: Guard<S>,
   fn: (session: S) => Promise<T>,
-): Promise<{ forbidden: true } | { forbidden: false; answer: T | ActionFailure; wrote: boolean }> {
+): Promise<{ forbidden: true } | { forbidden: false; answer: T | ActionFailure; wrote: boolean; tags: readonly string[] }> {
   return runWithIncomingTrace(async () => {
     let answer: T | ActionFailure;
     try {
@@ -118,15 +118,16 @@ async function runGuarded<S, T extends { success: boolean }>(
 
     // Read once the body has settled and inside this scope, which closes with the callback.
     const wrote = requestWriteSent();
+    const tags = requestWriteTags();
 
     // Whatever the action made of it: part of the write may stand.
     if (writeOutcomeUnknown()) {
       logger.error(`${guard.lane} mutation of unknown outcome: ${mutationName}`, undefined, { error_code: "FE-NET-001" });
 
-      return { forbidden: false, answer: unansweredAction(), wrote: wrote };
+      return { forbidden: false, answer: outcomeUnknown(), wrote: wrote, tags: tags };
     }
 
-    return { forbidden: false, answer: answer, wrote: wrote };
+    return { forbidden: false, answer: answer, wrote: wrote, tags: tags };
   });
 }
 
@@ -142,13 +143,26 @@ export async function runGuardedMutation<S, T extends { success: boolean }>(
   const guarded = await runGuarded(mutationName, guard, fn);
   if (guarded.forbidden) return { success: false, error: typeof guard.forbidden === "string" ? guard.forbidden : await guard.forbidden() };
 
-  const { answer, wrote } = guarded;
+  const { answer, wrote, tags } = guarded;
+  const outcome = "outcome" in answer ? answer.outcome : undefined;
+  // Wherever a write may stand, a lost answer and a partial one included: a cached public read the
+  // write feeds keeps serving what it replaced for days otherwise (`docs/frontend/spec.md :: I640`).
+  if (wrote && (answer.success || outcome !== undefined)) for (const tag of tags) updateTag(tag);
   // Here, where no action can forget it (`docs/frontend/spec.md :: I233`). Never on a refusal, left to its
   // action where a landed write stands behind it: a refresh can remount an editor keyed on its row,
   // dropping the refused entries.
-  if (wrote && (answer.success || ("outcome" in answer && answer.outcome === "unknown"))) refresh();
+  if (wrote && (answer.success || outcome === "unknown")) refresh();
 
   return answer;
+}
+
+/**
+ * The cache tags a body's write feeds, declared before the write is sent: this spine, and a public
+ * route's (`fl_frontend/src/shared/utils/publicRoute.ts`), drop them once the body settles, a lost
+ * answer included, which a drop after the awaited write never reaches.
+ */
+export function invalidatesOnWrite(...tags: readonly string[]): void {
+  declareWriteTags(tags);
 }
 
 /**

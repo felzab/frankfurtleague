@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 import { publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
-import { assertEachRefusalCloses, doubleRouteRequest, unacknowledged, undo } from "@/shared/testing/undoRoutes.ts";
+import { assertEachRefusalCloses, doubleRouteRequest, revalidatedTags, unacknowledged, undo } from "@/shared/testing/undoRoutes.ts";
 
 /** The pre-save span the press replays, as the editor builds it. */
 const BODY = { id: "6890a1b2c3d4e5f607a20001", beginn: "2026-04-01", ende: "2026-04-05" };
@@ -30,6 +30,8 @@ describe("the matchday save's undo", () => {
     assert.equal(answer.success, true, String(answer.error));
     const { id, ...span } = BODY;
     assert.deepEqual(requestsOf(calls), [{ endpoint: `/spieltage/${id}`, method: "PATCH", body: span }]);
+    // The caches the replay moves, which the undo spine drops with no staleness tolerated.
+    assert.deepEqual(revalidatedTags(), [["spieltage", { expire: 0 }]]);
   });
 
   it("words every refusal the replayed endpoint publishes, closing on the change standing once", async () => {

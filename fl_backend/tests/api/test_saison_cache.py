@@ -1,5 +1,6 @@
 import ast
 import asyncio
+import functools
 import inspect
 import sys
 import textwrap
@@ -25,8 +26,8 @@ from app.api.saisons.cache import (
 from app.api.saisons.crud import pull_current_saison, pull_saison_id_and_rules
 from app.core import crud, dependencies
 from app.core.exceptions import DocumentNotFoundException
-from app.main import SYSTEM_ROUTERS, WRITE_ROUTERS
-from tests.core.app_source import APP_ROOT, parsed
+from app.main import PERSON_ROUTERS, SYSTEM_ROUTERS, WRITE_ROUTERS
+from tests.core.app_source import APP_ROOT, DRIVER_WRITES, WRITE_HELPERS, parsed
 from tests.documents import rules_document
 
 # The three a case below reads back or reshapes, passed rather than defaulted.
@@ -244,32 +245,15 @@ SAISONS_COLLECTION_PARAM = "saisons_collection"
 SAISONS_COLLECTION_ANNOTATION = "SaisonsCollection"
 
 # Spelled rather than read off the object, an `Annotated` alias carrying no name of its own, so the
-# spelling is checked against the module the way `CRUD_WRITERS` is.
+# spelling is checked against the module the way `WRITE_HELPERS` is.
 assert hasattr(dependencies, SAISONS_COLLECTION_ANNOTATION), (
     f"app/core/dependencies.py no longer spells {SAISONS_COLLECTION_ANNOTATION}, so the annotation route reads nothing"
 )
 
-# `app/core/crud.py`'s writing half, checked against that module below: a rename there would
-# otherwise leave this sweep matching nothing and passing.
-CRUD_WRITERS = ("patch_one_in_db", "patch_many_in_db", "post_one_to_db", "post_many_to_db", "set_inactive_since", "insert_live")
-
-# A handler reaching past those helpers writes through the driver itself.
-DRIVER_WRITERS = frozenset(
-    {
-        "bulk_write",
-        "delete_many",
-        "delete_one",
-        "find_one_and_replace",
-        "find_one_and_update",
-        "insert_many",
-        "insert_one",
-        "replace_one",
-        "update_many",
-        "update_one",
-    }
-)
-
-UNKNOWN_WRITERS = [name for name in CRUD_WRITERS if not hasattr(crud, name)]
+# `app/core/crud.py`'s writing half, checked against that module here: a rename there would
+# otherwise leave this sweep matching nothing and passing. A handler reaching past those helpers
+# writes through the driver itself (`tests/core/app_source.py :: DRIVER_WRITES`).
+UNKNOWN_WRITERS = [name for name in WRITE_HELPERS if not hasattr(crud, name)]
 assert not UNKNOWN_WRITERS, f"{UNKNOWN_WRITERS} are no longer in app/core/crud.py, so this sweep would see no write"
 
 
@@ -328,12 +312,12 @@ def _season_write_among(nodes: Iterable[ast.AST], *, names: frozenset[str]) -> b
             continue
 
         called = node.func
-        if isinstance(called, ast.Name) and called.id in CRUD_WRITERS:
+        if isinstance(called, ast.Name) and called.id in WRITE_HELPERS:
             targets = (keyword for keyword in node.keywords if keyword.arg == "collection")
             if any(isinstance(target.value, ast.Name) and target.value.id in names for target in targets):
                 return True
 
-        if isinstance(called, ast.Attribute) and called.attr in DRIVER_WRITERS:
+        if isinstance(called, ast.Attribute) and called.attr in DRIVER_WRITES:
             if isinstance(called.value, ast.Name) and called.value.id in names:
                 return True
 
@@ -349,6 +333,14 @@ def _drops(node: ast.AST) -> bool:
     )
 
 
+@functools.cache
+def _source_of(function: Any) -> ast.Module:
+    """Cached: most handlers reach the same helpers, and every xdist worker runs the sweep below at collection to parametrize it."""
+
+    # Dedented, so a handler that is not at column zero still parses.
+    return ast.parse(textwrap.dedent(inspect.getsource(function)))
+
+
 def _writes_the_season_inside_the_drop(endpoint: Any) -> bool:
     """Whether a season write is reached from INSIDE `with dropping_the_saison_cache()`, never merely beside one.
 
@@ -356,7 +348,7 @@ def _writes_the_season_inside_the_drop(endpoint: Any) -> bool:
     `with_transaction` uncalled, and into this package's functions.
     """
 
-    tree = ast.parse(textwrap.dedent(inspect.getsource(endpoint)))
+    tree = _source_of(endpoint)
     names = _season_collection_names(tree)
     namespace = vars(sys.modules[endpoint.__module__])
     nested = {node.name: node for node in ast.walk(tree) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))}
@@ -368,11 +360,7 @@ def _writes_the_season_inside_the_drop(endpoint: Any) -> bool:
             block = pending.pop()
             if _writes_the_season(block, names=names):
                 return True
-            if any(
-                _writes_the_season(reached)
-                for called in _called_functions(ast.walk(block), namespace)
-                for reached in _source_reached_by(called)
-            ):
+            if any(_reaches_a_season_write(called) for called in _called_functions(ast.walk(block), namespace)):
                 return True
 
             for name in {node.id for node in ast.walk(block) if isinstance(node, ast.Name) and node.id in nested} - followed:
@@ -409,7 +397,7 @@ def _writes_the_season_outside_the_drop(endpoint: Any) -> bool:
             continue
         walked.add(function)
 
-        tree = ast.parse(textwrap.dedent(inspect.getsource(function)))
+        tree = _source_of(function)
         names = _season_collection_names(tree)
         namespace = vars(sys.modules[function.__module__])
         nested = {node.name: node for node in ast.walk(tree) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))}
@@ -461,14 +449,23 @@ def _called_functions(nodes: Iterable[ast.AST], namespace: Mapping[str, Any]) ->
     return resolved
 
 
-def _source_reached_by(endpoint: Any) -> tuple[ast.AST, ...]:
-    """The handler's own source and every helper it reaches, however deep.
+@functools.cache
+def _calls_of(function: Any) -> tuple[FunctionType, ...]:
+    return tuple(_called_functions(ast.walk(_source_of(function)), vars(sys.modules[function.__module__])))
+
+
+@functools.cache
+def _writes_the_season_itself(function: Any) -> bool:
+    return _writes_the_season(_source_of(function))
+
+
+def _reaches_a_season_write(endpoint: Any) -> bool:
+    """Whether the handler's own source or any helper it reaches, however deep, writes a season.
 
     A refusal helper takes the season's own write inside its caller's transaction
     (`app/api/teams/crud.py :: refuse_a_full_gruppe`), where a handler-only sweep cannot see it.
     """
 
-    reached: list[ast.AST] = []
     walked: set[Any] = set()
     pending: list[Any] = [endpoint]
     while pending:
@@ -477,12 +474,11 @@ def _source_reached_by(endpoint: Any) -> tuple[ast.AST, ...]:
             continue
         walked.add(current)
 
-        # Dedented, so a handler that is not at column zero still parses.
-        tree = ast.parse(textwrap.dedent(inspect.getsource(current)))
-        reached.append(tree)
-        pending.extend(_called_functions(ast.walk(tree), vars(sys.modules[current.__module__])))
+        if _writes_the_season_itself(current):
+            return True
+        pending.extend(_calls_of(current))
 
-    return tuple(reached)
+    return False
 
 
 def _season_write_handlers() -> dict[str, Any]:
@@ -493,14 +489,14 @@ def _season_write_handlers() -> dict[str, Any]:
     """
 
     handlers: dict[str, Any] = {}
-    # Both tiers, the rule being about writing a season rather than about who may: the retention
-    # sweep stamps every season from a router of its own, which an admin-only walk cannot see.
-    for router in (*WRITE_ROUTERS, *SYSTEM_ROUTERS):
+    # Every group that writes, the rule being about writing a season rather than about who may: the
+    # retention sweep and a representative's squad edit each write one from a router of their own.
+    for router in (*WRITE_ROUTERS, *SYSTEM_ROUTERS, *PERSON_ROUTERS):
         for route in router.routes:
             endpoint = getattr(route, "endpoint", None)
             if endpoint is None or not getattr(route, "methods", set()) & WRITE_METHODS:
                 continue
-            if any(_writes_the_season(tree) for tree in _source_reached_by(endpoint)):
+            if _reaches_a_season_write(endpoint):
                 handlers[endpoint.__name__] = endpoint
 
     return handlers
@@ -511,7 +507,7 @@ SEASON_WRITE_HANDLERS = _season_write_handlers()
 # Floored rather than non-empty: an endpoint the recogniser stopped seeing drops out of the parameter
 # set instead of failing (`docs/_standard/standard.md` PRE-4), so a rename costing no behaviour can
 # shrink the sweep and still report success.
-SEASON_WRITE_HANDLER_FLOOR = 13
+SEASON_WRITE_HANDLER_FLOOR = 17
 
 # Ahead of `pyproject.toml :: empty_parameter_set_mark`, which refuses an empty parametrize without
 # naming what to look at when the recognition stops matching.
@@ -522,6 +518,14 @@ assert len(SEASON_WRITE_HANDLERS) >= SEASON_WRITE_HANDLER_FLOOR, (
 
 
 class TestEverySeasonWriteDropsIt:
+    def test_the_admission_is_among_the_season_writers(self):
+        """Named, because the floor alone lets the sweep lose it while another writer joins.
+
+        The admission writes the season through the squad cap's anchor, a module away from its handler.
+        """
+
+        assert "aufnehmen" in SEASON_WRITE_HANDLERS
+
     @pytest.mark.parametrize("handler", sorted(SEASON_WRITE_HANDLERS))
     def test_a_handler_writing_a_season_runs_it_inside_the_drop(self, handler: str):
         """A source sweep, because the call leaves no trace on the wire: an execution test could only observe it through a stale read."""

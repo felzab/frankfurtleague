@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { redactedParameterNames } from "./edgeRedaction.ts";
+import { assertRedactedAtTheEdge } from "./edgeRedaction.ts";
 import { registerDoubles } from "./exportingModule.ts";
 
 import type { RegistrierungLinkEmailData } from "./registrierungEmail.ts";
@@ -9,6 +9,7 @@ import type { RegistrierungLinkEmailData } from "./registrierungEmail.ts";
 registerDoubles();
 
 const {
+  buildRegistrierungAbsageEmail,
   buildRegistrierungBestaetigungEmail,
   buildRegistrierungErinnerungEmail,
   buildRegistrierungSaisonendeEmail,
@@ -38,17 +39,12 @@ const MESSAGES = {
   bestaetigung: buildRegistrierungBestaetigungEmail(LINK_DATEN),
   erinnerung: buildRegistrierungErinnerungEmail(LINK_DATEN),
   saisonende: buildRegistrierungSaisonendeEmail(NOTIZ_DATEN),
+  absage: buildRegistrierungAbsageEmail({ ...NOTIZ_DATEN, grund: null }),
 };
 
 describe("the pupil's confirmation link", () => {
-  /* The name is the whole of what the edge matches on (`docs/logging/spec.md :: L11`), so a link
-     spelled with any other parameter writes the credential into the access line and the referer. */
   it("names a parameter the edge's own redaction map replaces", () => {
-    const redacted = redactedParameterNames();
-    const name = /\?(\w+)=/.exec(spielerBestaetigungsLink(ORIGIN, "kein-echtes-token"))?.[1] ?? "";
-
-    assert.ok(redacted.length > 0, "the edge's map was read as replacing no parameter at all, so this case compares nothing");
-    assert.ok(redacted.includes(name), `the link is spelled \`${name}=\`, which the edge does not redact`);
+    assertRedactedAtTheEdge(spielerBestaetigungsLink(ORIGIN, "kein-echtes-token"));
   });
 
   it("lands on the pupil's own segment rather than the shared confirmation path", () => {
@@ -76,12 +72,13 @@ describe("the pupil's confirmation link", () => {
 });
 
 describe("what every message of the registration flow carries", () => {
-  it("names the team and the season in its subject, so an inbox of three tells them apart", () => {
+  it("names the team in its subject, under a subject no other message of the flow carries", () => {
     const subjects = Object.values(MESSAGES).map((mail) => mail.subject);
 
-    assert.equal(new Set(subjects).size, subjects.length, "two of the three messages arrive under one subject");
+    assert.equal(new Set(subjects).size, subjects.length, "two messages of the flow arrive under one subject");
     for (const [name, mail] of Object.entries(MESSAGES)) {
-      assert.ok(mail.subject.includes(LINK_DATEN.teamName), `${name}'s subject names no team`);
+      // One preposition for one relation: a registration is „für“ its team in every message of the flow.
+      assert.ok(mail.subject.includes(`für ${LINK_DATEN.teamName}`), `${name}'s subject names no team, or names it apart`);
     }
   });
 
@@ -192,5 +189,48 @@ describe("what the season-end note says after the row is gone", () => {
     assert.match(MAIL.text, /gelöscht/, "the note never says what happened");
     assert.match(MAIL.text, /Du musst nichts tun/, "the note asks a reader to act on something they cannot change");
     assert.match(MAIL.text, /wieder registrieren/, "the note leaves a returning pupil no way back");
+  });
+});
+
+describe("what the decline note says, by the reason the team chose", () => {
+  const OHNE_GRUND = MESSAGES.absage;
+  const ANDERE_PERSON = buildRegistrierungAbsageEmail({ ...NOTIZ_DATEN, grund: "andere_person" });
+
+  /* The decision is the team's and stands, so a control into the confirmation would open a link the
+     decline has already spent. */
+  it("carries no confirmation link and no token, whichever the reason", () => {
+    for (const [name, mail] of [
+      ["without a reason", OHNE_GRUND],
+      ["for another person", ANDERE_PERSON],
+    ] as const) {
+      assert.doesNotMatch(mail.html, /token=/, `the note ${name} carries a token`);
+      assert.doesNotMatch(mail.text, /token=/, `the note ${name}'s text branch carries a token`);
+      assert.ok(mail.html.includes(`href="${ORIGIN}"`), `the note ${name}'s one control points somewhere other than the league's landing`);
+    }
+  });
+
+  /* A team saying the address holds somebody else refused the address and not the pupil: the note
+     has to send them back with an address of their own, which the plain decline must never say. */
+  it("sends a pupil turned away for the address back with an address of their own, and only that one", () => {
+    assert.match(ANDERE_PERSON.text, /mit Deiner eigenen E-Mail-Adresse/, "the note never says what to register again with");
+    assert.match(ANDERE_PERSON.html, /mit Deiner eigenen E-Mail-Adresse/, "the card says less than the text branch");
+    assert.doesNotMatch(OHNE_GRUND.text, /eigenen E-Mail-Adresse/, "a plain decline tells a pupil their address is taken");
+  });
+
+  /* The reader holds the mailbox and nothing more, so the stored person under the address stays unnamed. */
+  it("names nobody but the reader", () => {
+    assert.ok(ANDERE_PERSON.text.includes(`Hallo ${NOTIZ_DATEN.vorname},`), "the note addresses nobody");
+    assert.doesNotMatch(ANDERE_PERSON.text, /dieselbe Person wie/, "the note carries the team's question and the name in it");
+  });
+
+  it("says the decision has been taken and when the entry goes", () => {
+    assert.ok(
+      OHNE_GRUND.text.includes("Hallo Mira, Lessing-Kolleg hat Deine Registrierung für die Saison 2026 der Frankfurt League abgelehnt."),
+      "the note never says what was decided",
+    );
+    assert.ok(OHNE_GRUND.text.startsWith("Frankfurt League: Registrierung abgelehnt\n"), "the text branch's heading names another decision");
+    assert.match(OHNE_GRUND.html, /Registrierung abgelehnt/, "the card's heading names another decision");
+    assert.match(OHNE_GRUND.html, /der Frankfurt League abgelehnt\./, "the card says less than the text branch");
+    assert.match(OHNE_GRUND.text, /einen Monat nach dieser Entscheidung/, "the note never says when the entry goes");
   });
 });

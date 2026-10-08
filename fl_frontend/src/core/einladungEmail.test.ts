@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { registerDoubles } from "./exportingModule.ts";
+import { flat, readable } from "./mailText.ts";
 
 registerDoubles();
 
@@ -12,35 +13,6 @@ const { KONTAKT_EMAIL, VEREIN_ANSCHRIFT, VEREIN_NAME } = await import("./brand.t
 const ORIGIN = "http://localhost:3000";
 
 const URL_ = `${ORIGIN}/registrierung?token=abc123`;
-
-/** The markup branch reduced to the facts a reader ends up with, so a fact is checked as a fact in both branches. */
-function readable(html: string): string {
-  let stripped = html;
-
-  // To a FIXPOINT: a pattern leaving a tag standing hands the caller markup to read as text
-  // (`fl_frontend/src/shared/testing/renderTest.ts :: textOf`).
-  for (let previous = ""; stripped !== previous;) {
-    previous = stripped;
-    stripped = stripped.replace(/<style[\s\S]*?<\/style>/g, " ").replace(/<[^>]*>/g, " ");
-  }
-
-  return (
-    stripped
-      // Below the strip and never inside it: `&lt;script&gt;` decodes to a tag this file asserts a
-      // reader is served, and a strip running after would eat it.
-      .replaceAll("&lt;", "<")
-      .replaceAll("&gt;", ">")
-      .replaceAll("&quot;", '"')
-      .replaceAll("&#39;", "'")
-      .replaceAll("&amp;", "&")
-      .replace(/\s+/g, " ")
-      // The space this stripper itself put in front of the punctuation that follows an inline link.
-      .replace(/\s+([,.;:!?])/g, "$1")
-      .trim()
-  );
-}
-
-const flat = (text: string): string => text.replace(/\s+/g, " ").trim();
 
 const daten = { teamName: "Goethe-Gymnasium", saisonId: "2026", origin: ORIGIN, link: URL_ };
 

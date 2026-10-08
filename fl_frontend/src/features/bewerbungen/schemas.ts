@@ -1,8 +1,14 @@
 import z from "zod";
 
-import { asSignInIdentifier, mailboxKey } from "@/core/emailAddress";
+import { mailboxKey } from "@/core/emailAddress";
 import { BaseAPIResponseSchema } from "@/core/schemas";
 import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
+import {
+  FLEinwilligungStandSchema,
+  FLSpielerSelbstEinwilligungPayloadSchema,
+  LinkAntwortTextVersionSchema,
+  WAHL_UNBEKANNT,
+} from "@/features/spieler/schemas";
 import {
   EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH,
   KONTAKT_NAME_MAX_LENGTH,
@@ -11,8 +17,10 @@ import {
   TEAM_NAME_MAX_LENGTH,
   TEAM_WEBSITE_URL_MAX_LENGTH,
 } from "@/features/teams/constants";
+import { kontaktePersonenRegeln } from "@/features/teams/kontaktePersonen";
 import {
   FLGruppenNamesSchema,
+  FLKontaktKenntnisnahmeSchema,
   FLSaisonTeamKontakteSchema,
   FLSchulformSchema,
   FLTrainerZugleichSchema,
@@ -25,6 +33,8 @@ import {
   ExternalUrlSchema,
   FLAddressPayloadSchema,
   FLAddressSchema,
+  FLBewerbungZustellstandSchema,
+  FLBewerbungZustellungSchema,
   KontaktEmailSchema,
   PersonNameSchema,
   PHONE_REGEX,
@@ -44,6 +54,8 @@ import {
   KUERZEL_LAENGE,
 } from "./constants";
 import { geburtsdatumSpanne } from "./utils";
+
+import type { KontaktZeile } from "@/core/kontaktEmail";
 
 /**
  * Mirrors `FLBewerbungStatus`. `eingereicht` is the only state a submission arrives in; the other two
@@ -100,28 +112,6 @@ export const FLBewerbungEntscheidungZeileSchema = z.object({
   grund: z.string().nullable(),
 });
 export type FLBewerbungEntscheidungZeile = z.infer<typeof FLBewerbungEntscheidungZeileSchema>;
-
-/**
- * Mirrors `FLBewerbungZustellstand`. **Orthogonal to `Stand`**, which is what the PERSON did: a seat
- * can have confirmed from an address an earlier link bounced at, and folding the two would lose it.
- */
-export const FLBewerbungZustellstandSchema = z.enum(["angenommen", "zugestellt", "verzoegert", "unzustellbar", "unterdrueckt", "beschwerde"], {
-  error: "Diesen Zustellstand gibt es nicht.",
-});
-export type FLBewerbungZustellstand = z.infer<typeof FLBewerbungZustellstandSchema>;
-
-/** Mirrors `FLBewerbungZustellung` — what became of the last message sent to one seat. */
-export const FLBewerbungZustellungSchema = z.object({
-  // The provider's own id for that message. An event naming another one is about a message a
-  // re-send has already replaced, and marking this seat from it would grade the wrong link.
-  nachricht_id: z.string(),
-  stand: FLBewerbungZustellstandSchema,
-  // The provider's stable token, never its prose, which quotes the recipient's address.
-  grund: z.string().nullable(),
-  // Not `CustomDateStringSchema`: an instant, and the key an out-of-order event is judged against.
-  am: z.string(),
-});
-export type FLBewerbungZustellung = z.infer<typeof FLBewerbungZustellungSchema>;
 
 /**
  * Mirrors one seat's confirmation history. No `token_hash`: the credential is written as a raw
@@ -233,6 +223,8 @@ export type FLBewerbungenListResponse = z.infer<typeof FLBewerbungenListResponse
 
 export const FLBewerbungSingleResponseSchema = BaseAPIResponseSchema.extend({
   bewerbung: FLBewerbungSchema,
+  // The backend's judgement of the confirmation deadline today, so the editor reads no day of its own.
+  bestaetigungsfrist_abgelaufen: z.boolean(),
 });
 export type FLBewerbungSingleResponse = z.infer<typeof FLBewerbungSingleResponseSchema>;
 
@@ -354,8 +346,8 @@ export type FLPostBewerbungResponse = z.infer<typeof FLPostBewerbungResponseSche
  * transcription or backdate a Kenntnisnahme.
  */
 export const FLBewerbungEinwilligungPayloadSchema = z.object({
-  // Written by the form from `LIGA_KENNTNISNAHME` rather than typed: the wording lives in the
-  // frontend and is versioned there, so a later rewording never changes what a stored record claims.
+  // Written by the form from the label the backend runs rather than typed: a label names one
+  // frozen wording, so a later rewording never changes what a stored record claims.
   text_version: z
     .string()
     .trim()
@@ -386,21 +378,9 @@ export const FLBewerbungKontaktpersonPayloadSchema = z.object({
 });
 export type FLBewerbungKontaktpersonPayload = z.infer<typeof FLBewerbungKontaktpersonPayloadSchema>;
 
-/**
- * The pairs of seats that must not be one person, in the order the form shows them. The issue lands
- * on the SECOND of each pair: it is the field the applicant reaches next, and the one to change.
- */
-const KONTAKT_PAARE = [
-  ["ansprechperson", "stellvertretung"],
-  ["ansprechperson", "trainer"],
-  ["stellvertretung", "trainer"],
-] as const;
-
-/**
- * One address on the sign-in fold, as the API compares two seats: an umlaut domain is its punycode,
- * and „strasse“ beside „straße“ is two domains to sign-in and to IDNA 2008.
- */
-export const gleicheAdresse = (a: string, b: string): boolean => asSignInIdentifier(a) === asSignInIdentifier(b) && a.trim() !== "";
+// Re-exported where its callers have always read it; the rule's one home is
+// `fl_frontend/src/features/teams/kontaktePersonen.ts`.
+export { gleicheAdresse } from "@/features/teams/kontaktePersonen";
 
 /**
  * Whether a correction leaves the delivery target where it was, as every send compares two mailboxes.
@@ -408,53 +388,11 @@ export const gleicheAdresse = (a: string, b: string): boolean => asSignInIdentif
  */
 export const gleichesPostfach = (a: string, b: string): boolean => mailboxKey(a.trim()) === mailboxKey(b.trim()) && a.trim() !== "";
 
-// Both spellings of the country code. Neither arm can take the other's value -- `0049…` does not
-// start with `49` -- so the order carries nothing.
-const TELEFON_LAENDERVORWAHLEN = ["0049", "49"] as const;
-
-/**
- * One spelling per number, mirroring `fl_backend/app/api/bewerbungen/schemas.py :: normalise_telefon`.
- * Compared raw, the form accepts a pair the backend refuses as a 422 naming the contact block rather
- * than a box — so the applicant is told to retry what cannot succeed.
- */
-function normalisiereTelefon(value: string): string {
-  const ziffern = value.replace(/[^0-9]/g, "");
-
-  for (const vorwahl of TELEFON_LAENDERVORWAHLEN) {
-    // The second strip takes the trunk zero written as `(0)`, the commonest German spelling of all.
-    // An international-format number carries no real leading zero, so dropping one can only be right.
-    if (ziffern.startsWith(vorwahl)) return `0${ziffern.slice(vorwahl.length).replace(/^0/, "")}`;
-  }
-
-  return ziffern;
-}
-
-/**
- * Compared as digits, so `+49 (0)170 …` and `0170 …` are the one number the backend reads them as.
- * No empty-guard beside `gleicheAdresse`'s: `PHONE_REGEX` ends every accepted value in a digit, so
- * none of them normalises to nothing.
- */
-const gleicheNummer = (a: string, b: string): boolean => normalisiereTelefon(a) === normalisiereTelefon(b);
-
 /**
  * Asked instead of zod's default, which skips a refinement once any check in the block aborts — the consent switch
  * left off is one — so a shared address would wait for a second press.
  */
 const SITZE_LESBAR = z.object({ ansprechperson: z.object({}), stellvertretung: z.object({}), trainer: z.object({}) });
-
-/**
- * Two values are compared only where each one's own field accepts it. An empty or malformed box carries its own
- * refusal, and two empty telephone boxes fold to one number.
- */
-const feldNimmt = (feld: z.ZodType, wert: unknown): boolean => feld.safeParse(wert).success;
-
-// By value, because `einwilligung` is an object and two equal acknowledgements are two objects. One
-// level of nesting is all a contact block has, and `einwilligung` is flat, so entry-wise comparison
-// is total.
-const gleicherWert = (a: unknown, b: unknown): boolean =>
-  typeof a === "object" && a !== null && typeof b === "object" && b !== null
-    ? JSON.stringify(Object.entries(a).sort()) === JSON.stringify(Object.entries(b).sort())
-    : a === b;
 
 /**
  * Mirrors `FLBewerbungKontaktePayload`. All three seats are REQUIRED and non-null, unlike the
@@ -471,50 +409,11 @@ export const FLBewerbungKontaktePayloadSchema = z
     trainer_ist_zugleich: FLTrainerZugleichSchema.nullable(),
   })
   .superRefine(
-    (kontakte, ctx) => {
-      const { email: emailFeld, telefon: telefonFeld } = FLBewerbungKontaktpersonPayloadSchema.shape;
-
-      for (const [erste, zweite] of KONTAKT_PAARE) {
-        // The declared pair IS one person and shares everything by construction. Every other pair is
-        // two people the league has to be able to tell apart when one of them stops answering.
-        if (zweite === "trainer" && erste === kontakte.trainer_ist_zugleich) continue;
-
-        const [eine, andere] = [kontakte[erste], kontakte[zweite]];
-
-        if (feldNimmt(emailFeld, eine.email) && feldNimmt(emailFeld, andere.email) && gleicheAdresse(eine.email, andere.email)) {
-          ctx.addIssue({
-            code: "custom",
-            message: "Diese E-Mail-Adresse ist schon bei einer anderen Person eingetragen.",
-            path: [zweite, "email"],
-          });
-        }
-
-        if (feldNimmt(telefonFeld, eine.telefon) && feldNimmt(telefonFeld, andere.telefon) && gleicheNummer(eine.telefon, andere.telefon)) {
-          ctx.addIssue({
-            code: "custom",
-            message: "Diese Telefonnummer ist schon bei einer anderen Person eingetragen.",
-            path: [zweite, "telefon"],
-          });
-        }
-      }
-
-      // Parsed rather than compared with `null`: this pass also runs beside a refused claim, which names no seat.
-      const zugleich = FLTrainerZugleichSchema.safeParse(kontakte.trainer_ist_zugleich);
-
-      // The seat the Trainer also holds is filled FROM the Trainer, so a difference is a drifted client
-      // rather than something an applicant can type — and a banner naming no field cannot explain it.
-      if (zugleich.success) {
-        for (const feld of Object.keys(kontakte.trainer) as (keyof FLBewerbungKontaktpersonPayload)[]) {
-          if (!gleicherWert(kontakte[zugleich.data][feld], kontakte.trainer[feld])) {
-            ctx.addIssue({
-              code: "custom",
-              message: "Diese Angabe muss mit der des Trainers übereinstimmen.",
-              path: [zugleich.data, feld],
-            });
-          }
-        }
-      }
-    },
+    kontaktePersonenRegeln({
+      email: FLBewerbungKontaktpersonPayloadSchema.shape.email,
+      telefon: FLBewerbungKontaktpersonPayloadSchema.shape.telefon,
+      zugleich: FLTrainerZugleichSchema,
+    }),
     { when: ({ value }) => SITZE_LESBAR.safeParse(value).success },
   );
 export type FLBewerbungKontaktePayload = z.infer<typeof FLBewerbungKontaktePayloadSchema>;
@@ -714,13 +613,24 @@ export const FLBewerbungEinwilligungAnsichtPayloadSchema = z.object({
 export type FLBewerbungEinwilligungAnsichtPayload = z.infer<typeof FLBewerbungEinwilligungAnsichtPayloadSchema>;
 
 /**
+ * Mirrors `FLKontaktZeile` — the season row's state a link was minted on or is read against, which fixes
+ * what its page takes. An ended season outranks a team that left it.
+ */
+export const FLKontaktZeileSchema = z.enum(["offen", "saison_vorbei", "ausgetreten"] as const satisfies readonly KontaktZeile[]);
+
+/**
  * What a link is told before any press: school, season, seat and first name, and nothing else of
  * the person. The surname never travels, so a leaked link learns no name to look anything up against.
  */
 export const FLBewerbungEinwilligungAnsichtResponseSchema = BaseAPIResponseSchema.extend({
   // The link's own standing, answered rather than refused: a spent link stays readable, so only an
   // unknown token has nothing to answer with and reaches the page as a 409.
-  zustand: z.enum(["gueltig", "bestaetigt", "abgelehnt", "abgelaufen", "gesperrt"]),
+  zustand: z.enum(["gueltig", "bestaetigt", "abgelehnt", "abgelaufen", "saison_vorbei", "gesperrt"]),
+  // Which record the token opened: an application's seat, or a seat an administrator typed onto a
+  // team's season row, whose reader applied for nothing.
+  quelle: z.enum(["bewerbung", "saison"]),
+  // A season row's state, which names the one cause a closed row's page states; null on an application's link.
+  zeile: FLKontaktZeileSchema.nullable(),
   saison_id: z.string(),
   schule: z.string(),
   rolle: FLKontaktRolleSchema,
@@ -730,9 +640,15 @@ export const FLBewerbungEinwilligungAnsichtResponseSchema = BaseAPIResponseSchem
   // alone: a dead link's panel has nobody to name and must not invent one.
   vorname: z.string().nullable(),
   text_version: z.string().nullable(),
+  // The label whose words the page renders and whose name the answer sends back: the backend picks the
+  // applicant's page or the administration's by how the seat was filled, so no page of this side's choosing.
+  laufende_fassung: z.string(),
   // The floor this link's person has to reach, over both their seats: the page bounds its date
   // control and words its own sentences from this rather than from a constant of its own.
   mindestalter: z.number().int(),
+  // The age the media switch is offered from, served for `mindestalter`'s reason: a copy of this
+  // side's own would offer the switch where the endpoint refuses the answer.
+  medien_mindestalter: z.number().int(),
 });
 export type FLBewerbungEinwilligungAnsichtResponse = z.infer<typeof FLBewerbungEinwilligungAnsichtResponseSchema>;
 
@@ -750,14 +666,12 @@ export const buildEinwilligungAntwortPayloadSchema = (mindestalter: number) =>
       antwort: z.enum(["erteilt", "abgelehnt"], { error: "Diese Antwort kennen wir nicht. Lade die Seite neu." }),
       geburtsdatum: CustomDateStringSchema.nullable(),
       whatsapp: z.boolean(),
+      // Never optional, as `whatsapp` is not: a page that dropped the switch is refused rather than
+      // read as a no. An objection sends `false`, its seat storing no person to consent.
+      medien: z.boolean(),
       // The version this page rendered, never the one the submission stamped: the seat's record has to
       // cite the words the confirming person read, and the two are months apart.
-      text_version: z
-        .string()
-        .trim()
-        .max(EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH, {
-          error: `Die Fassung darf höchstens ${String(EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)} Zeichen lang sein.`,
-        }),
+      text_version: LinkAntwortTextVersionSchema,
     })
     .superRefine((payload, ctx) => {
       if (payload.antwort !== "erteilt") {
@@ -796,10 +710,12 @@ export type FLBewerbungEinwilligungAntwortPayload = z.infer<typeof FLBewerbungEi
 
 /** The write's echo: what was stored for this seat, and which seats the application still waits on. */
 export const FLBewerbungEinwilligungAntwortResponseSchema = BaseAPIResponseSchema.extend({
+  quelle: z.literal("bewerbung"),
   ergebnis: z.enum(["bestaetigt", "abgelehnt"]),
   ausstehend: z.array(FLKontaktRolleSchema),
   geburtsdatum: CustomDateStringSchema.nullable(),
   whatsapp: z.boolean(),
+  medien: z.boolean(),
   // Every field below is the route handler's alone:
   // `fl_frontend/src/app/api/bestaetigung/kontakt/route.ts` composes the two outbound messages from
   // them and answers the browser those above, so no contact person is handed another one's address.
@@ -813,6 +729,26 @@ export const FLBewerbungEinwilligungAntwortResponseSchema = BaseAPIResponseSchem
   ansprechperson_rollen: z.array(FLKontaktRolleSchema),
 });
 export type FLBewerbungEinwilligungAntwortResponse = z.infer<typeof FLBewerbungEinwilligungAntwortResponseSchema>;
+
+/**
+ * Mirrors `FLSaisonTeamEinwilligungAntwortResponse` — a season row's seat answered: the echo alone.
+ * No application stands behind it, so there is no Ansprechperson to tell and nothing to compose a message from.
+ */
+export const FLSaisonTeamEinwilligungAntwortResponseSchema = BaseAPIResponseSchema.extend({
+  quelle: z.literal("saison"),
+  ergebnis: FLBewerbungEinwilligungAntwortResponseSchema.shape.ergebnis,
+  geburtsdatum: CustomDateStringSchema.nullable(),
+  whatsapp: z.boolean(),
+  medien: z.boolean(),
+});
+export type FLSaisonTeamEinwilligungAntwortResponse = z.infer<typeof FLSaisonTeamEinwilligungAntwortResponseSchema>;
+
+/** What one press on the confirmation page answers, by the record its token opened. Published inline, both members paired. */
+export const FLEinwilligungAntwortResponseSchema = z.discriminatedUnion("quelle", [
+  FLBewerbungEinwilligungAntwortResponseSchema,
+  FLSaisonTeamEinwilligungAntwortResponseSchema,
+]);
+export type FLEinwilligungAntwortResponse = z.infer<typeof FLEinwilligungAntwortResponseSchema>;
 
 /** Which application and which of its seats. Both travel in the path, so the request carries no body at all. */
 export const FLEinwilligungErneutPayloadSchema = z.object({
@@ -830,6 +766,27 @@ export const FLBewerbungEinwilligungErneutResponseSchema = BaseAPIResponseSchema
   bestaetigungsfrist: CustomDateStringSchema,
 });
 export type FLBewerbungEinwilligungErneutResponse = z.infer<typeof FLBewerbungEinwilligungErneutResponseSchema>;
+
+/**
+ * Mirrors `SitzEinwilligungPayload`, which the backend publishes as this and as
+ * `FLSaisonTeamPersonEinwilligungPayload`: a seat holder's two choices from the account page. A pending
+ * application's seats take a withdrawal alone, which the backend judges; the page offers no grant there.
+ */
+export const FLBewerbungPersonEinwilligungPayloadSchema = FLSpielerSelbstEinwilligungPayloadSchema.extend({
+  // Both choices on every press, so moving one never leaves the other judged by nothing.
+  umfang: z.enum(FLKontaktKenntnisnahmeSchema.shape.umfang.options, { error: WAHL_UNBEKANNT }),
+});
+export type FLBewerbungPersonEinwilligungPayload = z.infer<typeof FLBewerbungPersonEinwilligungPayloadSchema>;
+
+/** Mirrors `FLBewerbungPersonEinwilligungResponse`: the application's seats the withdrawal reached. */
+export const FLBewerbungPersonEinwilligungResponseSchema = BaseAPIResponseSchema.extend({
+  bewerbung_id: CustomObjectIdStringSchema,
+  rollen: z.array(FLKontaktRolleSchema),
+  umfang: FLKontaktKenntnisnahmeSchema.shape.umfang,
+  medien: z.boolean(),
+  nachweis_stand: FLEinwilligungStandSchema,
+});
+export type FLBewerbungPersonEinwilligungResponse = z.infer<typeof FLBewerbungPersonEinwilligungResponseSchema>;
 
 /**
  * Mirrors `FLBewerbungKontaktEmailPayload` — the one field of a submitted application an

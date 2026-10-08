@@ -11,6 +11,7 @@ import { Table } from "@heroui/react/table";
 import { reactivateSaisonSpielerAction, reactivateSpielerAction } from "@/features/spieler/actions";
 import {
   LIST_REACTIVATION_NEEDS_A_TEAM_IN_SAISON,
+  NUMMER_NICHT_HINTERLEGT,
   REACTIVATION_NEEDS_ROOM_IN_SQUAD,
   rolleLabel,
   SPIELER_CRUD_COPY,
@@ -30,6 +31,7 @@ import {
   identityName,
   TABLE_HEADING_CLASSES,
 } from "@/shared/components/ui/adminTable";
+import { Leer } from "@/shared/components/ui/Angabe";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
@@ -123,7 +125,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
         <RowActionLink
           href={withSaisonId(`/bereich/admin/spieler/${spieler.id}`, selectedFromUrl)}
           label="Bearbeiten"
-          ariaLabel={`Spieler ${spieler.fullName} bearbeiten`}>
+          subject={`Spieler ${spieler.fullName}`}>
           <Pencil
             className="size-4.5"
             aria-hidden="true"
@@ -134,7 +136,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
         {row?.inactive_since != null && (
           <RowActionRestore
             label="Kadereintrag reaktivieren"
-            ariaLabel={`Kadereintrag von ${spieler.fullName} reaktivieren`}
+            subject={spieler.fullName}
             // The editor's gate from the list, asked of the row's STORED club: a club replacement takes a club
             // out of the season and leaves the squad rows still naming it.
             disabledReason={RETURN_REFUSAL[judgeRowReturn(row.team_id, saisonTeams)]}
@@ -149,14 +151,14 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
         {spieler.inactive_since !== null ? (
           <RowActionRestore
             label="Spieler reaktivieren"
-            ariaLabel={`Spieler ${spieler.fullName} reaktivieren`}
+            subject={spieler.fullName}
             isPending={person.isReactivating}
             onPress={(pressed) => person.reactivate({ id: spieler.id }, { pressed })}
           />
         ) : (
           <RowActionDelete
             label="Stilllegen"
-            ariaLabel={`Spieler ${spieler.fullName} stilllegen`}
+            subject={`Spieler ${spieler.fullName}`}
             onPress={(pressed) => setDeletingSpieler(spieler, pressed)}
           />
         )}
@@ -176,13 +178,13 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
    */
   const renderNummer = (spieler: AdminSpielerRow) => (
     <span
-      aria-label={spieler.selected?.nummer ? undefined : "Keine Nummer"}
       // A fixed height rather than padding: `py-1.5` sizes the chip from its line box, and an empty
       // span has none, so the empty chip would collapse.
       className={`inline-flex h-7 w-10 shrink-0 items-center justify-center rounded-md font-numeric fluid-xs font-extrabold tracking-wide tabular-nums ${
         spieler.selected?.nummer ? "bg-muted text-foreground" : "bg-muted/50"
       }`}>
-      {spieler.selected?.nummer ?? ""}
+      {/* Text, never an `aria-label`, which a screen reader ignores on a span with no role. */}
+      {spieler.selected?.nummer ?? <span className="sr-only">{NUMMER_NICHT_HINTERLEGT}</span>}
     </span>
   );
 
@@ -193,7 +195,12 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
    */
   const renderTeam = (spieler: AdminSpielerRow) => {
     const row = spieler.selected;
-    if (row?.teamName == null || row.teamName === "") return <span className={IDENTITY_LINE_CLASSES}>Kein Team in dieser Saison</span>;
+    if (row?.teamName == null || row.teamName === "")
+      return (
+        <span className={IDENTITY_LINE_CLASSES}>
+          <Leer>Kein Team in dieser Saison</Leer>
+        </span>
+      );
 
     return (
       <Link

@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { einwilligungFassung } from "@/core/einwilligung";
+import { readEinwilligungDocument } from "@/core/einwilligungDocument.ts";
+import { assertLeerMarkup } from "@/shared/testing/leerGrade.ts";
 import { renderMarkup, textOf } from "@/shared/testing/renderTest";
 import { PLACEHOLDER } from "@/shared/utils/format";
 
@@ -18,7 +19,7 @@ import type { FLEinwilligung } from "../../../schemas.ts";
    static import beside it resolves first and dies on the extension. */
 const { FormEinwilligungSection } = await import("./FormEinwilligungSection.tsx");
 
-/** A label `@/core/einwilligung :: LIGA_KENNTNISNAHMEN` answers, which is the branch a stored record is meant to take. */
+/** A label the backend's registry holds, which is the branch a stored record is meant to take. */
 const FASSUNG = "2026-09-bestaetigung-3";
 
 /** A label it answers with nothing — what a record stamped under a wording since removed would carry. */
@@ -32,6 +33,7 @@ const UEBERNOMMEN: FLEinwilligung = {
   bestaetigt_am: null,
   text_version: null,
   medien: false,
+  nachweis: { umfang: null, medien: null },
 };
 
 /** A consent the registration flow collected: dated, confirmed, and citing the wording its person was shown. */
@@ -42,10 +44,14 @@ const ERTEILT: FLEinwilligung = {
   bestaetigt_am: "2026-03-04",
   text_version: FASSUNG,
   medien: true,
+  nachweis: { umfang: null, medien: null },
 };
 
-const markup = (einwilligung: FLEinwilligung | null): string => renderMarkup(FormEinwilligungSection, { einwilligung });
-const words = (einwilligung: FLEinwilligung | null): string => textOf(markup(einwilligung));
+/** The panel as the page hands it over, which resolves the stored label through the words read. */
+const markup = (einwilligung: FLEinwilligung | null, istFassungBekannt: boolean | null = true): string =>
+  renderMarkup(FormEinwilligungSection, { einwilligung, istFassungBekannt });
+const words = (einwilligung: FLEinwilligung | null, istFassungBekannt: boolean | null = true): string =>
+  textOf(markup(einwilligung, istFassungBekannt));
 
 /** The panel's last paragraph, which is where the publication rule is written on either branch. */
 const closingNote = (einwilligung: FLEinwilligung | null): string => {
@@ -62,7 +68,7 @@ describe("the stored consent panel", () => {
   });
 
   it("renders every origin and every scope the record can carry", () => {
-    const herkuenfte = Object.keys(EINWILLIGUNG_HERKUNFT_LABELS) as FLEinwilligung["erteilt_von"][];
+    const herkuenfte = Object.keys(EINWILLIGUNG_HERKUNFT_LABELS) as NonNullable<FLEinwilligung["erteilt_von"]>[];
     const umfaenge = Object.keys(EINWILLIGUNG_UMFANG_LABELS) as FLEinwilligung["umfang"][];
     // Floored, because a loop over a table that has emptied runs zero times and reports clean.
     assert.ok(herkuenfte.length >= 3, "the origin table is short of the three the record declares");
@@ -93,26 +99,45 @@ describe("the stored consent panel", () => {
   it("leaves an unasked consent undated without borrowing the fixture placeholder", () => {
     const text = words(UEBERNOMMEN);
     assert.ok(!text.includes(PLACEHOLDER.datum), "an absent day promises a day that is coming");
-    assert.ok(text.includes("Kein Datum"), "an absent day renders as blank rather than as an absence");
+    assert.match(text, /Erteilt am\s*Nicht hinterlegt/, "an absent day renders as blank rather than as an absence");
+    assertLeerMarkup(markup(UEBERNOMMEN), "Nicht hinterlegt");
   });
 
   it("shows the wording a record cites, and says in words where it cites none", () => {
     // Floored on the registry, because the fixture's own label is what the assertion under it
     // greps for: a key the registry stopped answering would take the resolving branch with it.
-    assert.notEqual(einwilligungFassung(FASSUNG), null, "the fixture cites a label the registry no longer answers");
+    assert.ok(Object.hasOwn(readEinwilligungDocument().fassungen, FASSUNG), "the fixture cites a label the registry does not hold");
     assert.ok(words(ERTEILT).includes(FASSUNG), "the stored wording label is not shown");
     // The label is the registry key rather than a sentence, so an absent one renders as blank
     // unless the panel words it — and a blank cell reads as a record nobody has finished filling.
-    assert.ok(words(UEBERNOMMEN).includes("Nicht erfasst"), "a record citing no wording renders an empty cell");
+    assert.ok(words(UEBERNOMMEN).includes("Nicht hinterlegt"), "a record citing no wording renders an empty cell");
   });
 
   it("marks a label the wording registry answers with nothing, beside the key itself", () => {
-    assert.equal(einwilligungFassung(UNBEKANNTE_FASSUNG), null, "the fixture names a label the registry does answer");
+    assert.ok(!Object.hasOwn(readEinwilligungDocument().fassungen, UNBEKANNTE_FASSUNG), "the fixture names a label the registry does answer");
 
-    const text = words({ ...ERTEILT, text_version: UNBEKANNTE_FASSUNG });
+    const text = words({ ...ERTEILT, text_version: UNBEKANNTE_FASSUNG }, false);
 
     assert.ok(text.includes(UNBEKANNTE_FASSUNG), "the key that resolved to nothing is not shown");
     assert.ok(text.includes("Unbekannte Fassung"), "a record citing words nobody can produce reads as an ordinary one");
+  });
+
+  /* The registry's read failed: the key stands, and the panel says the check was not made rather than
+     calling a label known or unknown. */
+  it("says the label went unchecked where the registry could not be read", () => {
+    const text = words(ERTEILT, null);
+
+    assert.ok(text.includes(FASSUNG) && text.includes("Nicht geprüft"), "an unchecked label reads as a checked one");
+    assert.ok(!text.includes("Unbekannte Fassung"), "an unchecked label reads as an unknown one");
+  });
+
+  /* Nothing names who answered since the person alone may: a record naming nobody shows no origin rather than a guessed one. */
+  it("shows no origin for a record naming nobody", () => {
+    const text = words({ ...ERTEILT, erteilt_von: null });
+
+    assert.ok(!text.includes("Herkunft"), "a record naming nobody reads an origin");
+    for (const label of Object.values(EINWILLIGUNG_HERKUNFT_LABELS))
+      assert.ok(!text.includes(label), `a record naming nobody reads as ${label}`);
   });
 
   it("reads the media consent as a word on either answer", () => {
@@ -122,6 +147,31 @@ describe("the stored consent panel", () => {
     assert.notEqual(EINWILLIGUNG_MEDIEN_LABELS.erteilt, EINWILLIGUNG_MEDIEN_LABELS.nicht_erteilt, "the two answers read alike");
     assert.ok(words(ERTEILT).includes(EINWILLIGUNG_MEDIEN_LABELS.erteilt), "a media consent renders no word");
     assert.ok(words(UEBERNOMMEN).includes(EINWILLIGUNG_MEDIEN_LABELS.nicht_erteilt), "a record carrying none renders no word");
+  });
+
+  /* The account page moves one choice and leaves the confirmation's day and label standing, so a
+     choice read beside those alone would claim the person decided it on the confirmation day. */
+  it("reads each choice with the act it stands on, a withdrawal naming the grant it ended", () => {
+    const zurueckgenommen: FLEinwilligung = {
+      ...ERTEILT,
+      medien: false,
+      nachweis: {
+        umfang: null,
+        medien: {
+          am: "2026-10-04T08:00:00Z",
+          text_version: "2026-10-konto-spieler",
+          erteilt_zuvor: { am: "2026-03-04T09:00:00Z", text_version: FASSUNG },
+        },
+      },
+    };
+    const text = words(zurueckgenommen);
+
+    assert.ok(text.includes("seit 04.10.2026, 10:00 Uhr, Fassung 2026-10-konto-spieler"), "the media choice reads without its own act");
+    assert.ok(text.includes("zuvor erteilt am 04.03.2026, 10:00 Uhr"), "the withdrawal hides the grant it ended");
+    assert.ok(
+      text.includes(`seit der Bestätigung am 04.03.2026, Fassung ${FASSUNG}`),
+      "a choice never moved does not stand on its confirmation",
+    );
   });
 
   it("reads an unconfirmed record as a state rather than a missing day", () => {

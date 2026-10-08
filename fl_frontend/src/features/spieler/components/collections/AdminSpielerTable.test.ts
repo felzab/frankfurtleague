@@ -156,3 +156,14 @@ describe("what an empty Spieler list says about itself", () => {
     }
   });
 });
+
+describe("a Spieler row without a number", () => {
+  /* An `aria-label` on a span with no role is one a screen reader may skip, so the empty chip says it in text. */
+  it("says so in text a screen reader reads, and nowhere in an aria-label", () => {
+    const html = table([STILLGELEGT, AUSGETRAGEN]);
+
+    assert.ok(html.includes('<span class="sr-only">Nummer nicht hinterlegt</span>'), "the empty chip says nothing a screen reader reads");
+    assert.doesNotMatch(html, /aria-label="Nummer nicht hinterlegt"/, "the empty chip is named by an aria-label again");
+    assert.ok(textOf(html).includes("7"), "the numbered row lost its number, so the empty one is compared against nothing");
+  });
+});

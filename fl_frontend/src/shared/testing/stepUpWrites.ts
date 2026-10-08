@@ -3,9 +3,7 @@ import path from "node:path";
 
 import ts from "typescript";
 
-import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
-
-const SLICES = path.resolve(import.meta.dirname, "..", "..", "features");
+import { filesUnder, isTestFile, routeHandlerFiles, serverActionModules } from "@/core/treeWalk.ts";
 
 /** How an exported action declares its step-up: before its body, inside it, or not at all. */
 function declarationOf(body: ts.Node): "declared" | "conditional" | null {
@@ -63,14 +61,17 @@ function isExported(statement: ts.Statement): boolean {
   return ts.canHaveModifiers(statement) && (ts.getModifiers(statement)?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword) ?? false);
 }
 
-/** Every slice's `actions.ts`, by the slice its directory names, with its syntax tree. */
-const ACTION_SOURCES = filesUnder(SLICES, (name) => name === "actions.ts", 10).map((file) => ({
+/**
+ * Every server action module, by the slice its directory names, with its syntax tree: a person's write
+ * is a door to a request as an administrator's is.
+ */
+const ACTION_SOURCES = serverActionModules(20).map((file) => ({
   file,
   slice: path.basename(path.dirname(file)),
   source: ts.createSourceFile(file, readFileSync(file, "utf8"), ts.ScriptTarget.Latest, true),
 }));
 
-/** Every exported action of every slice, how it declares its step-up and the requests it sends, read off each `actions.ts`'s syntax tree. */
+/** Every exported action of every slice, how it declares its step-up and the requests it sends, read off each module's syntax tree. */
 const ACTIONS = ACTION_SOURCES.flatMap(({ slice, source }) => {
   const imported = mutationImports(source, slice);
 
@@ -105,8 +106,8 @@ function declaresStepUp(node: ts.Node): boolean {
 
 /** Every undo route, by the slice its directory names, with its syntax tree. */
 const UNDO_ROUTE_SOURCES: ReadonlyMap<string, ts.SourceFile> = new Map(
-  filesUnder(UNDO_ROUTES, (name) => name === "route.ts", 8)
-    .filter((file) => path.basename(path.dirname(file)) === "undo")
+  routeHandlerFiles(8)
+    .filter((file) => path.dirname(path.dirname(path.dirname(file))) === UNDO_ROUTES && path.basename(path.dirname(file)) === "undo")
     .map((file) => [
       path.basename(path.dirname(path.dirname(file))),
       ts.createSourceFile(file, readFileSync(file, "utf8"), ts.ScriptTarget.Latest, true),
@@ -254,7 +255,7 @@ const SOURCE_ROOT = path.resolve(import.meta.dirname, "..", "..");
 
 const relative = (file: string): string => path.relative(SOURCE_ROOT, file).split(path.sep).join("/");
 
-/** An `actions.ts`'s reach, read where `ACTIONS` reads one: a direct call inside an exported function's body. */
+/** A server action module's reach, read where `ACTIONS` reads one: a direct call inside an exported function's body. */
 export function actionReachOf(source: ts.SourceFile, slice: string): Reach {
   return reachOf(source, slice, inExportedAction);
 }
@@ -322,7 +323,8 @@ export const STEP_UP_CALLERS: Readonly<Record<string, Readonly<Record<string, St
     kontaktEmailKorrigierenAction: "one-press",
     besetzeKontaktSitzAction: "one-press",
   },
-  "features/kontakte/components/forms/AdminKontakteEditForm/AdminKontakteEditForm.tsx": { patchSaisonTeamKontakteAction: "never" },
+  "features/kontakte/components/forms/AdminKontakteEditForm/AdminKontakteEditForm.tsx": { patchSaisonTeamKontakteAction: "one-press" },
+  "features/kontakte/components/forms/AdminKontakteEditForm/FormKontaktEinladen.tsx": { einladeKontaktAction: "one-press" },
   "features/kontakte/components/forms/AdminKontakteEditForm/FormKontakteLoeschenSection.tsx": { patchSaisonTeamKontakteAction: "two-press" },
   "features/kontakte/components/forms/AdminKontakteEditForm/FormKontaktErasure.tsx": { eraseKontaktpersonAction: "two-press" },
   "features/saisons/components/forms/AdminCreateSaisonForm.tsx": { postSaisonAction: "create" },
@@ -343,6 +345,10 @@ export const STEP_UP_CALLERS: Readonly<Record<string, Readonly<Record<string, St
   },
   "features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormBestaetigungSection.tsx": {
     einladeSchiedsrichterAction: "one-press",
+  },
+  "features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormAdresswechselSection.tsx": {
+    einladeAdresswechselAction: "one-press",
+    verwirfAdresswechselAction: "one-press",
   },
   "features/schiedsrichter/components/views/AdminSchiedsrichterEditView.tsx": { reactivateSchiedsrichterAction: "one-press" },
   "features/sperrliste/components/forms/AdminSperreAufhebenPanel.tsx": { deleteSperreAction: "two-press" },
