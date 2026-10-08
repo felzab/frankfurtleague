@@ -340,8 +340,8 @@ _EXPIRED_ABORT_LOG_ID = 20707
 _CHECKOUT_TIMED_OUT_LOG_ID = 11790801
 _TRANSACTION_LOG_ID = 51802
 
-# The expired-transaction pass's thread: other session kills, a step-down's among them, log a timed-out checkout under
-# the same id.
+# The expired-transaction pass's thread: other session kills, a step-down's among them, log a
+# timed-out checkout under the same id.
 _EXPIRY_PASS_THREAD = "abortExpiredTransactions"
 
 # The server's clock is the container's, which can sit a moment off the host's.
@@ -391,6 +391,7 @@ def _named_aborts(url: str) -> Iterator[str]:
         for entry in entries
         if entry.get("id") == _TRANSACTION_LOG_ID and "parameters" in entry.get("attr", {})
     ]
+    named: set[tuple[str, object]] = set()
     for entry in entries:
         if entry.get("id") == _EXPIRED_ABORT_LOG_ID:
             session, txn_number = entry["attr"]["sessionId"]["uuid"]["$uuid"], entry["attr"]["txnNumberAndRetryCounter"]["txnNumber"]
@@ -401,8 +402,14 @@ def _named_aborts(url: str) -> Iterator[str]:
         else:
             continue
         aborted = _logged_at(entry)
-        candidates = [(abs(at - aborted), attr) for lsid, number, at, attr in records if lsid == session and txn_number in (None, number)]
-        record = min(candidates, key=lambda candidate: candidate[0])[1] if candidates else {}
+        candidates = [
+            (abs(at - aborted), number, attr) for lsid, number, at, attr in records if lsid == session and txn_number in (None, number)
+        ]
+        _, txn_number, record = min(candidates, key=lambda candidate: candidate[0]) if candidates else (0.0, txn_number, {})
+        # Once each: a later pass meeting the transaction still running after a timed-out kill counts it again.
+        if (session, txn_number) in named:
+            continue
+        named.add((session, txn_number))
         active_s = record.get("timeActiveMicros", 0) / 1e6
         inactive_s = record.get("timeInactiveMicros", 0) / 1e6
         writes = {key: value for key, value in record.items() if key in {"ninserted", "nModified", "ndeleted"}}

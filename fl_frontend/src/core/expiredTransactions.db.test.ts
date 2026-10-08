@@ -24,6 +24,7 @@ describe("a db file's replica set, started through the helper", () => {
     // Its own case passing, so the file fails by its teardown alone and not by a transaction never left.
     assert.match(run.output, /✔ leaves a transaction to expire/, `the fixture's own case did not pass:\n${run.output}`);
     assert.equal(run.status, 1, run.output);
-    assert.ok(run.output.includes("this file's teardown: this file's replica set aborted 1 transaction(s)"), run.output);
+    // Any count: a later pass meeting an interrupted write still running counts its transaction again.
+    assert.match(run.output, /this file's teardown: this file's replica set's expiry pass counted [1-9]\d* kill\(s\)/, run.output);
   });
 });

@@ -44,22 +44,29 @@ describe("the count a db suite's server reports", () => {
 });
 
 describe("what a db suite's file is answered once its cases are done", () => {
-  it("fails where the count rose during it, naming how many", () => {
-    assert.match(String(expiredTransactionsRefusal(2, 3)), /aborted 1 transaction\(s\)/);
+  it("fails where the count rose during it, naming how many kills", () => {
+    assert.match(String(expiredTransactionsRefusal(2, 3)), /counted 1 kill\(s\)/);
   });
 
   it("passes where the count did not move", () => {
     assert.equal(expiredTransactionsRefusal(2, 2), null);
   });
 
-  it("fails as unjudged where either end went unread, or the count fell with a restart between", () => {
+  it("fails as unjudged where either end went unread", () => {
     for (const [atStart, now] of [
       [null, 0],
       [0, null],
-      [3, 1],
     ] as const) {
-      assert.match(String(expiredTransactionsRefusal(atStart, now)), /was not judged/, `${String(atStart)} → ${String(now)}`);
+      assert.match(
+        String(expiredTransactionsRefusal(atStart, now)),
+        /reported no number .* was not judged/,
+        `${String(atStart)} → ${String(now)}`,
+      );
     }
+  });
+
+  it("fails as unjudged where the count fell, naming the restart", () => {
+    assert.match(String(expiredTransactionsRefusal(3, 1)), /fewer expiry kills .* mongod restart .* was not judged/);
   });
 });
 
