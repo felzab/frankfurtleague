@@ -300,9 +300,9 @@ TMPFS_DATA_OPTIONS = "size=1g"
 # is ENOSPC, then `WT_PANIC`, then a dead container.
 REPLICA_SET_OPLOG_MB = 128
 
-# Every client built from these urls polls: a streaming monitor's close leaves no TIME_WAIT on
-# Windows, so its port is reused at once, and under load WSL's mirrored loopback relay stalls a
-# connect on it past the request deadline.
+# In both `_standalone_mongod`'s and `_replica_set_mongod`'s url: a streaming monitor's close leaves
+# no TIME_WAIT on Windows, so its port is reused at once, and under load WSL's mirrored loopback
+# relay stalls a connect on it past the request deadline.
 POLLING_MONITORS = "serverMonitoringMode=poll"
 
 # What `pytest_configure_node` hands each worker, so one pair of containers serves the whole run.

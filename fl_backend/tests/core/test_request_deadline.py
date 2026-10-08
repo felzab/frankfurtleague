@@ -237,7 +237,7 @@ class _Transacted(NamedTuple):
 async def _transactions_held(url: str, session_ids: list[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
     """Through a client of its own: the route's would hand this read the session it asks about, then listed as this read rather than idle."""
 
-    async with AsyncMongoClient(url, serverMonitoringMode="poll") as probe:
+    async with AsyncMongoClient(url) as probe:
         listed = await probe.admin.aggregate(
             [
                 {"$currentOp": {"allUsers": True, "idleSessions": True}},
