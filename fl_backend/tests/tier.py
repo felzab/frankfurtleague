@@ -189,19 +189,25 @@ _EXPIRED = (
 )
 
 _KILLS_UNREAD = (
-    "the db tier's replica set reported no `metrics.abortExpiredTransactions.successfulKills` in `serverStatus`, so whether a"
-    " transaction ran to MongoDB's lifetime limit during this run was not judged: find where this server version reports it"
-    " (`docs/backend/spec.md` §1.6)."
+    "the db tier's replica set reported no `metrics.abortExpiredTransactions.successfulKills` or no `timedOutKills` in"
+    " `serverStatus`, so whether a transaction ran to MongoDB's lifetime limit during this run was not judged: find where this"
+    " server version reports them (`docs/backend/spec.md` §1.6)."
 )
+
+# Both: mongod's expiry pass, interrupting a transaction's operation in flight and failing to check its session out
+# within `AbortExpiredTransactionsSessionCheckoutTimeout`, counts that transaction under `timedOutKills` alone.
+_EXPIRY_COUNTS = ("successfulKills", "timedOutKills")
 
 
 def expired_transaction_kills(status: Mapping[str, Any]) -> int | None:
-    """`None` where `serverStatus` carries no count, which a passing run must never read as none aborted."""
+    """`None` where `serverStatus` lacks either count, which a passing run must never read as none aborted."""
 
     metrics = status.get("metrics")
     expired = metrics.get("abortExpiredTransactions") if isinstance(metrics, Mapping) else None
-    kills = expired.get("successfulKills") if isinstance(expired, Mapping) else None
-    return kills if isinstance(kills, int) else None
+    if not isinstance(expired, Mapping):
+        return None
+    counts = [count for name in _EXPIRY_COUNTS if isinstance(count := expired.get(name), int)]
+    return sum(counts) if len(counts) == len(_EXPIRY_COUNTS) else None
 
 
 def expired_transactions_refusal(at_start: int | None, now: int | None, named: Callable[[], Iterable[str]] = tuple) -> str | None:
