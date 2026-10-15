@@ -485,8 +485,8 @@ def referenced_addresses(
     stored = (
         *(seat_address(row, slot) for row in seat_rows for slot in KONTAKT_ROLLEN),
         *(seat_address(row, slot) for row in bewerbung_rows for slot in KONTAKT_ROLLEN),
-        *((row.get("kontakt") or {}).get("email") for row in referee_rows),
-        *(row.get("email") for row in pupil_rows),
+        *map(referee_address, referee_rows),
+        *map(pupil_address, pupil_rows),
         # The one kind narrowed to its pupil's confirmation, as the gate narrows it. The row's own fold
         # stands for the identifier, its selection having matched the row to the batch already.
         *(row.get("email") for row in registrierung_rows if ist_eigene_registrierung(row, folded(row.get("email")) or "")),
