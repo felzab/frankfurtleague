@@ -956,7 +956,21 @@ class TestTheSeasonAndOneClock:
         assert row is not None and row["kontakte"] is None
         # The block's own keys survive around the clearing: the row is still a junction row.
         assert (row["gruppe"], row["trikot_farbe"]) == ("B", "blau")
-        assert junction_log and all(entry["before"] is None and entry["redacted_at"] == REDACTED_AT for entry in junction_log)
+        assert junction_log and all(entry["before"]["kontakte"] is None and entry["redacted_at"] == REDACTED_AT for entry in junction_log)
+
+    def test_the_rows_earlier_states_stay_in_its_log_with_the_block_alone_emptied(self, mongo_replica_set_url: str):
+        """Restore the redaction by document and this fails: the season's own history of the row is no person's to lose."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await sweep(database, client)
+
+            return await log_rows_naming(database, Collection.SAISON_TEAMS, JUNCTION_OID)
+
+        images = [entry["before"] for entry in on_a_league(mongo_replica_set_url, body, next_status="past")]
+
+        # The seeded move into group B filed the row as it stood in A; the clearing filed it in B.
+        assert sorted(image["gruppe"] for image in images) == ["A", "B"]
+        assert all((image["trikot_farbe"], image["kontakte"], image["bestaetigungen"]) == ("blau", None, None) for image in images)
 
     @pytest.mark.parametrize("people", [pytest.param(kontakte(), id="beside their people"), pytest.param(None, id="left by an older image")])
     def test_the_rows_confirmation_links_and_their_delivery_records_go_too(self, mongo_replica_set_url: str, people: Any):
@@ -977,12 +991,18 @@ class TestTheSeasonAndOneClock:
             )
             response = await sweep(database, client)
 
-            return response.kontaktbloecke_geleert, await database[Collection.SAISON_TEAMS].find_one({"_id": JUNCTION_OID})
+            return (
+                response.kontaktbloecke_geleert,
+                await database[Collection.SAISON_TEAMS].find_one({"_id": JUNCTION_OID}),
+                await log_rows_naming(database, Collection.SAISON_TEAMS, JUNCTION_OID),
+            )
 
-        geleert, row = on_a_league(mongo_replica_set_url, body, next_status="past")
+        geleert, row, log = on_a_league(mongo_replica_set_url, body, next_status="past")
 
         assert geleert == 1
         assert row is not None and (row["kontakte"], row["bestaetigungen"]) == (None, None)
+        # The clearing's own image held the link, beside a person or not, and loses it with the block.
+        assert "msg-1" not in str(log)
 
     def test_a_season_with_no_successor_yet_keeps_everything(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:

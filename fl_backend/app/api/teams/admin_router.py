@@ -20,7 +20,7 @@ from app.api.einladungen.services import (
     find_team_in_saison_refusal,
 )
 from app.api.einwilligung.services import find_fassung_refusal
-from app.api.kontakte.services import every_seat_image_edits
+from app.api.kontakte.services import contact_block_image_edits
 from app.api.registrierungen.services import saison_nimmt_registrierungen_an
 from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.saisons.crud import pull_saison_id_and_rules
@@ -837,11 +837,11 @@ async def replace_saison_team(
         )
 
         # Owed at once by the row's page (`app/shared/einwilligung.py :: _BESTAETIGUNGSSEITE_SAISON`). The
-        # seats alone leave the images: the exit record and every earlier state of the row stay.
+        # contacts and their links alone leave the images: the exit record and every earlier state stay.
         await redact_images_in_session(
             aktionen_collection=aktionen_collection,
             db_filter=build_redaction_filter([(Collection.SAISON_TEAMS, [updated_raw["_id"]])]),
-            judge=every_seat_image_edits,
+            judge=contact_block_image_edits,
             stamp=log_stamp(germany_now),
             session=session,
         )

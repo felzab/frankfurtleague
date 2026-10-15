@@ -509,7 +509,7 @@ class TestTheOutgoingPeopleLeaveTheLog:
         assert len(rows) == 2, "the editor's save and the replacement each file one image"
         for row in rows:
             image = row["before"]
-            assert [image["kontakte"][seat] for seat in KONTAKT_ROLLEN] == [None] * len(KONTAKT_ROLLEN)
+            assert (image["kontakte"], image["bestaetigungen"]) == (None, None)
             assert (image["austritt"], image["gruppe"], image["trikot_farbe"]) == (EXIT, "A", OUTGOING_TRIKOT_FARBE)
             assert row["redacted_at"] == REDACTED_AT
         assert OUTGOING_KONTAKTPERSON["email"] not in str(rows)

@@ -131,17 +131,17 @@ def seat_image_edits(image: Mapping[str, Any], identifiers: Iterable[str], *, li
     return _emptied_seats(image, {slot for identifier in identifiers for slot in find_matching_slots(image, identifier)}, links=links)
 
 
-def every_seat_image_edits(image: Mapping[str, Any]) -> dict[str, None]:
-    """Every seat one log image of a season row holds, emptied with its link.
+def contact_block_image_edits(image: Mapping[str, Any]) -> dict[str, None]:
+    """One season row image's contacts and links, emptied as the write clearing them empties them.
 
-    A club handing its row on takes every person it ever seated there, earlier holders included: the
-    row's page promised each deletion at once.
+    Every person the row ever seated goes, earlier holders included, and a declined seat's link with
+    them; nothing else does.
     """
 
-    kontakte = image.get("kontakte")
-    seated = {slot for slot in KONTAKT_ROLLEN if isinstance(kontakte, Mapping) and isinstance(kontakte.get(slot), Mapping)}
+    blocks = [image.get("kontakte"), image.get("bestaetigungen")]
+    held = any(isinstance(block, Mapping) and any(isinstance(block.get(slot), Mapping) for slot in KONTAKT_ROLLEN) for block in blocks)
 
-    return _emptied_seats(image, seated, links=True)
+    return {"kontakte": None, "bestaetigungen": None} if held else {}
 
 
 def build_clearing_update(slots: Sequence[str], *, bestaetigungen: bool = False) -> Mapping[str, Any]:
