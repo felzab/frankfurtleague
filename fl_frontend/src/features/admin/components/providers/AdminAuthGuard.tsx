@@ -8,8 +8,9 @@ import { confirmedUntil } from "@/shared/utils/kontoMutation";
 import { AdminStepUpProvider } from "./AdminStepUpProvider";
 
 /**
- * Admin-only `children`, and it must WRAP them: as a sibling the page's own hole could stream before
- * the check resolved. It sits in the layout's `Suspense`, not the layout, which would go fully dynamic.
+ * Admin-only `children`, WRAPPED so nothing under it shows before the check; it stops no page rendering,
+ * each page's own reads turning the session away (`fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`).
+ * In the layout's `Suspense`, never the layout, which would go fully dynamic.
  */
 export async function AdminAuthGuard({ children }: { children: React.ReactNode }) {
   // The builder stage has no reachable Mongo, so a session lookup resolved at build time fails the

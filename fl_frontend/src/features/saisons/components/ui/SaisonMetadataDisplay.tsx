@@ -18,9 +18,8 @@ const asOption = ({ id, start_date, end_date }: FLSaison): SaisonSelectorOption 
 export async function SaisonMetadataDisplay({ tier }: { tier: "base" | "admin" }) {
   await connection();
 
-  // The admin branch carries no guard of its own, so a caller placing it outside `AdminAuthGuard`
-  // serves the planned seasons to whoever drew the render -- `fl_frontend/src/app/bereich/admin/layout.tsx`
-  // places it under one.
+  // Only an admin render asks for the admin branch: its read sends a session that is no administrator's
+  // to the sign-in landing (`fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`).
   if (tier === "admin") {
     const { saisons } = await getAdminSaisons();
     // The pages' own default off the list they read in this request, never the cached current season,

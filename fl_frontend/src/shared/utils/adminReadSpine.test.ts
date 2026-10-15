@@ -7,6 +7,7 @@ import { pathToFileURL } from "node:url";
 import ts from "typescript";
 
 import { registerDoubles } from "@/core/exportingModule.ts";
+import { SIGN_IN_LANDING } from "@/core/signInLanding.ts";
 import { filesUnder } from "@/core/treeWalk.ts";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 
@@ -30,7 +31,7 @@ registerDoubles({
   },
 });
 
-const { AdminReadWithoutAdministratorError, UnattributedAdminCallError } = await import("@/core/errors.ts");
+const { UnattributedAdminCallError } = await import("@/core/errors.ts");
 const { ACTOR_HEADER } = await import("@/core/trace.ts");
 
 const SRC = path.resolve(import.meta.dirname, "..", "..");
@@ -115,8 +116,14 @@ describe("every admin-tier read", () => {
     setSession(null);
     const { thrown } = await callEvery();
 
-    const refusedElsewhere = attributed.filter((name) => !(thrown.get(name) instanceof AdminReadWithoutAdministratorError));
-    assert.deepEqual(refusedElsewhere, [], "these reads were not refused by runAdminRead for a session with no administrator");
+    const refusedElsewhere = attributed.filter(
+      (name) => (thrown.get(name) as { digest?: unknown } | undefined)?.digest !== `NEXT_REDIRECT;replace;${SIGN_IN_LANDING};307;`,
+    );
+    assert.deepEqual(
+      refusedElsewhere,
+      [],
+      "these reads were not sent to the sign-in landing by runAdminRead for a session with no administrator",
+    );
   });
 
   /* Public pages import these modules for their base reads, and the sign-in store is loaded by the

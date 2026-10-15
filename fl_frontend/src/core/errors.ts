@@ -47,15 +47,6 @@ export class UnattributedAdminCallError extends Error {
   }
 }
 
-/** An admin-tier read made for a session that is no administrator's: a caller outside the admin guards. */
-export class AdminReadWithoutAdministratorError extends Error {
-  override name = "AdminReadWithoutAdministratorError";
-
-  constructor() {
-    super("An admin-tier read was made for a session that is no administrator's.");
-  }
-}
-
 /**
  * A person-tier read made with no person signed in, or one barred: a caller outside a page's own seat
  * check, which reads the session before it reads anything.
