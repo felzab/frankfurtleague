@@ -119,6 +119,8 @@ THEIR_VALUES = (VORNAME, NACHNAME, IDENTIFIER, "7771234", GEBURTSDATUM, PSEUDONY
 
 # The people beside them, each asserted still present so a database emptied wholesale fails.
 BYSTANDER_VALUES = ("Quillhilde", "Bramblewick", "Wraxlington", "kraus.bernd@example.com")
+# Those the seed's own edits file into shared log images beside the person, which keep them past the erasure.
+BYSTANDERS_IN_THE_LOG = ("Quillhilde", "Bramblewick", "kraus.bernd@example.com")
 OTHER_PSEUDONYM = akteur_pseudonym("wraxlington@example.com", schluessel=CONFIG.sperrliste_schluessel)
 
 HOME_TEAM_OID = ObjectId("6890a1b2c3d4e5f607b00001")
@@ -561,7 +563,7 @@ class TestNothingOfTheirsIsLeftAnywhere:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             if holding_a_grant:
                 await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
-            before = await where_held(database, *THEIR_VALUES)
+            before = await where_held(database, *THEIR_VALUES, *BYSTANDERS_IN_THE_LOG)
             response = await erased_over_http(mongo_replica_set_url, headers=by_passkey(TYPED))
 
             return before, response.status_code, await where_held(database, *THEIR_VALUES, *BYSTANDER_VALUES)
@@ -572,7 +574,8 @@ class TestNothingOfTheirsIsLeftAnywhere:
         assert status == 200
         assert {value: after[value] for value in THEIR_VALUES} == dict.fromkeys(THEIR_VALUES, [])
         # In the log too: a pass emptying a shared image whole would take the people beside them with it.
-        assert {value: "aktionen" in after[value] for value in BYSTANDER_VALUES} == dict.fromkeys(BYSTANDER_VALUES, True), after
+        assert {value: "aktionen" in before[value] for value in BYSTANDERS_IN_THE_LOG} == dict.fromkeys(BYSTANDERS_IN_THE_LOG, True), before
+        assert {value: "aktionen" in after[value] for value in BYSTANDERS_IN_THE_LOG} == dict.fromkeys(BYSTANDERS_IN_THE_LOG, True), after
 
     def test_each_kind_is_counted_as_it_went(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
