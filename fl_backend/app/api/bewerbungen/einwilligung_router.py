@@ -449,7 +449,7 @@ async def post_einwilligung(
         )
 
         # LAST, so it reaches the pre-image the clearing patch just filed, which still holds the
-        # person who refused to be held (`app/api/kontakte/admin_router.py :: erase_kontaktperson`).
+        # person who refused to be held (`app/api/kontakte/crud.py :: erase_kontaktperson_in_session`).
         await patch_many_in_db(
             collection=aktionen_collection,
             db_filter=build_redaction_filter([(Collection.BEWERBUNGEN, [bewerbung_raw["_id"]])]),
