@@ -505,12 +505,14 @@ REFERENCES: tuple[Reference, ...] = (
         target=Collection.SPIELER,
         on_reference_created=Action.RESTRICT,
         on_target_change=Action.NO_ACTION,
-        on_target_removed=Action.NO_ACTION,
+        on_target_removed=Action.CASCADE,
         note=(
             "An administrator's entry reads the person the path names and answers 404 where no row holds the id, the erased "
             "pupils' sentinel included, anchoring the person so an erasure landing beside it conflicts "
             "(`app/api/spieler/crud.py :: pull_a_person_to_enter`); an admission writes the person its row names. "
-            "Retiring the person leaves every squad row intact -- the seasons they played still happened."
+            "The person's erasure removes every squad row naming them in its own transaction and repoints none, a squad being "
+            "a live list (`app/api/spieler/crud.py :: erase_person_in_session`); retiring the person changes neither side, "
+            "and the seasons they played still happened."
         ),
     ),
     Reference(
