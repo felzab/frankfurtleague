@@ -48,6 +48,18 @@ export class UnattributedAdminCallError extends Error {
 }
 
 /**
+ * An admin-tier read whose grant the backend left unread: an outage, answered by the admin boundary's
+ * retry, never a sign-in, which would meet the same unread grant.
+ */
+export class UnreadGrantError extends Error {
+  override name = "UnreadGrantError";
+
+  constructor() {
+    super("The backend left the administrator's grant unread.");
+  }
+}
+
+/**
  * A person-tier read made with no person signed in, or one barred: a caller outside a page's own seat
  * check, which reads the session before it reads anything.
  */
