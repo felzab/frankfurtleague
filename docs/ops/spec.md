@@ -134,7 +134,7 @@ is the call.
 **It runs the account sweep too, on a timer and a switch of its own.**
 `fl_frontend/src/instrumentation-node.ts :: registerOnNode` arms
 `fl_frontend/src/features/funktionen/sweep.ts :: armKontoSweep` under a production build with
-`KONTO_SWEEP` on, on the same clock, a minute after start and then hourly: an operator stops
+`KONTO_SWEEP` on, on the same schedule, a minute after start and then hourly: an operator stops
 account deletion without stopping the retention clocks, and a slow retention pass delays none of
 it. A pass deletes the sign-in account of every address no record references
 ([`docs/frontend/spec.md`](../frontend/spec.md) I699), and a pass repeated costs nothing, an

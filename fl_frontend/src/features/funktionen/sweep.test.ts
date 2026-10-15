@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
+import { APIBadStatusError } from "@/core/errors.ts";
 import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
 
@@ -83,6 +84,9 @@ const unreferencedBut =
     identifiers.filter((identifier) => !referenced.includes(identifier));
 
 const failures = (): Line[] => lines.filter(({ level }) => level === "ERROR");
+
+/** The trace a refused call was sent under, which its failure line carries to join the backend's. */
+const TRACE_ID = "4bf92f3577b34da6a3ce929d0e0e4736";
 
 beforeEach(() => {
   calls.length = 0;
@@ -180,6 +184,79 @@ describe("a pass meeting a failure", () => {
         fields: { error_code: "FE-SWEEP-003", name: "TypeError", anzahl: undefined },
       },
     ]);
+  });
+
+  it("keeps an account whose second ask fails, and goes on to the next", async () => {
+    accounts = ["a@schule.de", "b@schule.de", "c@schule.de"];
+    referenzen = (identifiers) => {
+      if (identifiers.length === 1 && identifiers[0] === "b@schule.de") throw new TypeError("fetch failed for b@schule.de");
+      return identifiers;
+    };
+
+    await runKontoSweep();
+
+    assert.deepEqual(deleteCalls, ["a@schule.de", "c@schule.de"]);
+    assert.deepEqual(
+      failures().map(({ event, fields }) => ({ event, fields })),
+      [{ event: "konto.delete_failed", fields: { error_code: "FE-SWEEP-003", name: "TypeError", anzahl: undefined } }],
+    );
+  });
+
+  /* The store unreachable: an unhandled rejection an hour after its tick otherwise, and a completion line
+     would say a pass ran that listed nothing. */
+  it("ends a pass whose store cannot be listed with one failure line, asking the backend nothing", async () => {
+    listing = () => Promise.reject(new TypeError("no connection for erika@schule.de"));
+
+    await runKontoSweep();
+
+    assert.deepEqual(calls, []);
+    assert.deepEqual(lines, [
+      {
+        level: "ERROR",
+        event: "konto.sweep_failed",
+        error: undefined,
+        fields: { error_code: "FE-SWEEP-003", name: "TypeError", anzahl: undefined },
+      },
+    ]);
+    assert.ok(!JSON.stringify(lines).includes("@"), "a line carries an address");
+  });
+
+  /* The backend refuses the read whole where the grants it reads hold no live owner: an empty or wrong
+     database would otherwise answer every address unreferenced, twice. */
+  it("deletes nothing the backend's fail-safe refuses, naming the refusal's status, code and trace", async () => {
+    accounts = ["a@schule.de", "b@schule.de"];
+    referenzen = () => {
+      throw new APIBadStatusError({
+        message: "The backend refused the request.",
+        url: "http://backend:8000/api/v0/identitaet/referenzen",
+        endpoint: "/identitaet/referenzen",
+        method: "POST",
+        readOnly: true,
+        statusCode: 409,
+        serverErrorCode: "REQ-REFERENZEN-001",
+        traceId: TRACE_ID,
+      });
+    };
+
+    await runKontoSweep();
+
+    assert.deepEqual(deleteCalls, []);
+    assert.deepEqual(
+      failures().map(({ event, fields }) => ({ event, fields })),
+      [
+        {
+          event: "konto.referenzen_failed",
+          fields: {
+            error_code: "FE-SWEEP-003",
+            name: "APIBadStatusError",
+            status: 409,
+            server_error_code: "REQ-REFERENZEN-001",
+            trace_id: TRACE_ID,
+            anzahl: 2,
+          },
+        },
+      ],
+    );
   });
 
   /* Every kind of line a pass writes, each failure carrying an address in its message the way a real

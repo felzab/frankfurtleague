@@ -718,11 +718,15 @@ Every ruling below is the sign-up flow as it stands for the next season.
   `docs/backend/spec.md :: I480`). The announced record and the outbox row leave no image in the log
   (`docs/backend/spec.md :: I465`), while a revoked grant keeps its own under the log's twelve
   months. The published notice tabulates it (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-09-28.
-- **A sign-in account and its passkeys are kept until nothing else about their address is stored,
-  and then deleted within the hour, with no message.** The account sweep deletes every
-  account whose address no league record, grant or ban still holds, its sessions, passkeys and codes
-  with it (`docs/frontend/spec.md :: I699`), so a barred address keeps its account until the ban
-  ends. The published notice states this in advance (`DatenschutzView.tsx :: FRISTEN`),
+- **A sign-in account and its passkeys are kept until no league record, grant or ban holds their
+  address, and then deleted within the hour, with no message.** A record holds it as a contact seat
+  of any season or of a pending application, as a pupil or referee row, confirmed or not and live or
+  retired, or as a pending registration its pupil confirmed (`docs/backend/spec.md :: I698`). What
+  else still names the address holds nothing: the log's images, an administrator's authorship, an
+  unconfirmed or decided registration, a decided application and a pending address change. The
+  account sweep deletes the account with its sessions, passkeys and codes
+  (`docs/frontend/spec.md :: I699`), so a barred address keeps its account until the ban ends. The
+  published notice states the criterion in advance (`DatenschutzView.tsx :: FRISTEN`),
   which is why nothing is sent after the fact: the person was told what ends the account, and a
   message after it could reach a mailbox that has since changed hands. Ruled 2026-10-15.
 - **No open tracking and no click tracking is subscribed, and none is read.** The mail provider

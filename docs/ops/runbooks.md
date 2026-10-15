@@ -1108,11 +1108,14 @@ failure left for the next pass, never naming an address:
 
     docker compose logs --since 2h frontend | grep konto.sweep_
 
-**No `konto.sweep_completed` line in two hours means no pass completed.** `KONTO_SWEEP` is off, the
-build is not a production one, or the timer stopped, which recreating the frontend service re-arms;
-a `konto.sweep_failed` line says the sign-in store could not be listed, and `konto.sweep_skipped`
-that a tick found the previous pass still running. Every failure inside a pass is an `FE-SWEEP-003`
-line ([`../logging/error-codes.md`](../logging/error-codes.md)), and the next pass asks again.
+**No `konto.sweep_completed` line in two hours means no pass completed, or the line went
+unwritten.** A `LOG_LEVEL` above `INFO` drops it, the line being `INFO`; otherwise `KONTO_SWEEP` is
+off, the build is not a production one, or the timer stopped, which recreating the frontend service
+re-arms. A `konto.sweep_failed` line says the sign-in store could not be listed. A
+`konto.sweep_skipped` line says a tick found the previous pass still running, and one in every hour
+says that pass is stuck, which recreating the service ends too. Every failure inside a pass is an
+`FE-SWEEP-003` line ([`../logging/error-codes.md`](../logging/error-codes.md)), and the next pass
+asks again.
 
 ## 10. The mail provider's dashboard
 
