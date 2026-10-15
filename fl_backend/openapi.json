@@ -4553,7 +4553,7 @@
     "/api/v0/spieler/{spieler_id}/erasure": {
       "delete": {
         "summary": "Erase a Spieler (hard delete)",
-        "description": "Erase a player: the person, their squad rows, and their values in the log.\n\nHARD and refused until retirement (`REQ-PURGE-001`); the soft `DELETE` stays.\nNo log row is dropped: images are emptied in place and stamped (`docs/backend/spec.md :: I42`).",
+        "description": "Erase a player: the person, their squad rows, and their values in the log.\n\nHARD and refused until retirement (`REQ-PURGE-001`); the soft `DELETE` stays.\nNo log row is dropped: images are emptied in place and stamped (`docs/backend/spec.md :: I671`).",
         "operationId": "erase_spieler_api_v0_spieler__spieler_id__erasure_delete",
         "security": [
           {

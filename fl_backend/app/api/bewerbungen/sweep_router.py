@@ -102,7 +102,7 @@ async def _club_names(
 async def _redact(
     *, aktionen_collection: AktionenCollection, collection: Collection, ids: Sequence[Any], stamp: str, session: AsyncClientSession
 ) -> int:
-    """Every log row naming the removed documents, emptied and stamped -- the erasure's second half (`docs/backend/spec.md :: I42`)."""
+    """Every log row naming the removed documents, emptied and stamped -- the erasure's second half (`docs/backend/spec.md :: I671`)."""
 
     if not ids:
         return 0

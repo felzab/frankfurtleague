@@ -149,7 +149,7 @@ async def record_write(
         "before": _stored_image(before),
         "modified_count": modified_count,
         # Set when a write destroying a person's values overwrites theirs here. Null means the image
-        # still holds what it recorded (`docs/backend/spec.md :: I42`).
+        # still holds what it recorded (`docs/backend/spec.md :: I42`, `:: I671`).
         "redacted_at": None,
     }
 
@@ -185,10 +185,10 @@ def _stringify_filter(db_filter: Mapping[str, Any]) -> dict[str, str]:
 
 
 def build_redaction_filter(targets: Sequence[RedactionTarget]) -> Mapping[str, Any]:
-    """Every log row whose `(collection, document_id)` names one of the documents handed in.
+    """Every log row naming one of the documents handed in.
 
-    NOT narrowed to rows holding an image: every row naming a redacted document carries a stamp,
-    so "was this reached" is one query rather than a judgement per row.
+    NOT narrowed to rows holding an image: a whole-image redaction stamps every row naming the
+    document, so "was this reached" is one query; a per-image one stamps those it changed.
     """
 
     # Equality on `collection` and a match on `document_id` in each branch, the shape
@@ -202,7 +202,7 @@ def build_redaction_filter(targets: Sequence[RedactionTarget]) -> Mapping[str, A
 
 
 def build_redaction_update(*, at: str) -> Mapping[str, Any]:
-    """Overwrite the IMAGE a row recorded and stamp it, in one `$set` (`docs/backend/spec.md :: I42`).
+    """Overwrite the IMAGE a row recorded and stamp it, in one `$set` (`docs/backend/spec.md :: I671`).
 
     `document_id` stays: it names what the row was about, and dropping it would leave a row
     nothing can attribute to the write that redacted it.
@@ -232,7 +232,8 @@ def build_image_redactions(
         edits = frozenset(
             (f"{prefix}.{path}", value) for prefix, image in images if isinstance(image, Mapping) for path, value in judge(image).items()
         )
-        # Unstamped where no image names them, so a stamp still means a value of somebody's went.
+        # Unstamped where no image names them: this redaction stamps the rows it took a value from, where
+        # `build_redaction_update` stamps every row naming a document, an insert's included.
         if edits:
             grouped.setdefault(edits, []).append(row["_id"])
 

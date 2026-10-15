@@ -591,9 +591,9 @@ Every ruling below is the sign-up flow as it stands for the next season.
 - **The log keeps storing the full prior document on every write, person-bearing rows included.**
   That copy is what a restore over the log replays, which is the log's purpose, and the
   twelve-month bound `docs/backend/spec.md :: I119` states is what answers the accumulation. Dropping the copies would remove the
-  log's value exactly where writes matter most. A person who asks for erasure still has their log
-  rows emptied and stamped inside the transaction that removes them
-  (`docs/backend/spec.md :: I42`); what the bound answers is the copies of everyone who never
+  log's value exactly where writes matter most. A person who asks for erasure still has their values
+  taken out of the log inside the transaction that removes them
+  (`docs/backend/spec.md :: I42`, `:: I671`); what the bound answers is the copies of everyone who never
   asked. The database applies it rather than a sweep in this codebase
   (`fl_backend/app/core/constraints.py :: TTL_INDEXES`), and it reaches a stamped row alone
   ([section 3](#3-the-current-pupil-records-are-reset-once)). Ruled 2026-09-02.
@@ -971,7 +971,7 @@ the `Entry` column carries a token only where one still resolves in that file.
   published on every fixture they officiate on the basis the notice gives for every referee; the rows
   are dropped whole, once, their past fixtures go to the ghost with the name emptied, and the drop
   empties the action log's images of them, those of their fixtures whole where an erasure repoints
-  the booking alone (`docs/backend/spec.md :: I42`)
+  the booking alone (`docs/backend/spec.md :: I212`, `:: I213`)
   ([section 3](#3-the-current-pupil-records-are-reset-once),
   [`ops/runbooks.md`](ops/runbooks.md#12-deleting-this-seasons-player-records-and-resetting-the-action-log)).
   Nothing informs these people under Art. 14: a placeholder row is

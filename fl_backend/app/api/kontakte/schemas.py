@@ -67,7 +67,6 @@ class FLKontaktErasureResponse(BaseAPIResponse):
     # wherever `trainer_ist_zugleich` put one person in two slots of one row, which is what
     # makes this the figure showing the double-slot case was reached.
     cleared_kontakt_slots: int = Field(ge=0)
-    # Log rows emptied and stamped (`docs/backend/spec.md :: I42`): those naming a row above, and
-    # those still HOLDING the person where a swap moved them out of one. Disjoint, so nothing is
-    # counted twice -- and no row is dropped, so never a deletion count.
+    # Log rows whose images held the person, a swap's orphan included, each stamped as their seats
+    # leave it (`docs/backend/spec.md :: I42`). No row is dropped, so never a deletion count.
     redacted_aktionen: int = Field(ge=0)
