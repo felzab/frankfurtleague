@@ -7,12 +7,18 @@ import Pencil from "@gravity-ui/icons/Pencil";
 
 import { BESTAETIGT_MARKE, REGISTRIERUNGEN_CRUD_COPY } from "@/features/registrierungen/constants";
 import { AdminCrudEmptyCard } from "@/shared/components/ui/AdminCrudEmpty";
-import { IDENTITY_HEAD_CLASSES, IDENTITY_NAME_CLASSES, IDENTITY_ROW_CLASSES } from "@/shared/components/ui/adminTable";
+import {
+  IDENTITY_HEAD_CLASSES,
+  IDENTITY_LINE_CLASSES,
+  IDENTITY_NAME_CLASSES,
+  IDENTITY_ROW_CLASSES,
+  IDENTITY_STACK_CLASSES,
+} from "@/shared/components/ui/adminTable";
 import { Leer } from "@/shared/components/ui/Angabe";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 import { RowActionLink, RowActions } from "@/shared/components/ui/RowActions";
-import { nichtHinterlegt } from "@/shared/utils/format";
+import { formatSpielDatum, nichtHinterlegt } from "@/shared/utils/format";
 import { withSaisonId } from "@/shared/utils/saisonHref";
 
 import type { AdminRegistrierungRow } from "@/features/registrierungen/types";
@@ -58,11 +64,15 @@ export const AdminRegistrierungenList = memo(function AdminRegistrierungenList({
         aria-hidden="true"
         className="size-4.5 shrink-0 text-foreground-muted"
       />
-      <div className={IDENTITY_HEAD_CLASSES}>
-        <span className={IDENTITY_NAME_CLASSES}>{`${registrierung.vorname} ${registrierung.nachname}`}</span>
-        <span className={labelBadge(registrierung.bestaetigt ? "success" : "warning")}>
-          {registrierung.bestaetigt ? BESTAETIGT_MARKE.ja : BESTAETIGT_MARKE.nein}
-        </span>
+      <div className={IDENTITY_STACK_CLASSES}>
+        <div className={IDENTITY_HEAD_CLASSES}>
+          <span className={IDENTITY_NAME_CLASSES}>{`${registrierung.vorname} ${registrierung.nachname}`}</span>
+          <span className={labelBadge(registrierung.bestaetigt ? "success" : "warning")}>
+            {registrierung.bestaetigt ? BESTAETIGT_MARKE.ja : BESTAETIGT_MARKE.nein}
+          </span>
+        </div>
+        {/* The team's own card's line, word for word: the day the queue is read by. */}
+        <span className={IDENTITY_LINE_CLASSES}>Registriert am {formatSpielDatum(registrierung.eingereicht_am)}</span>
       </div>
     </div>
   );

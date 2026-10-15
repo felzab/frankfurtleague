@@ -103,7 +103,11 @@ const zeile = (id: string, team_id: string, saison_id: string, vorname: string, 
 
 /** Lena confirmed for team A in a planned season; Mia has not answered for team B in a past one; Ole's team is gone. */
 const LENA = zeile("6890a1b2c3d4e5f6071b0001", TEAM_A, "2027", "Lena", "Meier");
-const MIA = zeile("6890a1b2c3d4e5f6071b0002", TEAM_B, "2025", "Mia", "Schmidt", { bestaetigt: false, geburtsdatum: null });
+const MIA = zeile("6890a1b2c3d4e5f6071b0002", TEAM_B, "2025", "Mia", "Schmidt", {
+  bestaetigt: false,
+  geburtsdatum: null,
+  eingereicht_am: "2026-09-18",
+});
 const OLE = zeile("6890a1b2c3d4e5f6071b0003", TEAM_FEHLT, "2027", "Ole", "Brandt", { stufe: null });
 
 /** What the queue read answers in the running case. */
@@ -169,16 +173,19 @@ describe("the administrator's list of pending registrations", () => {
     assert.deepEqual(hrefsOf(karte(page, "Mia Schmidt")), [`/bereich/admin/kontakte/${TEAM_B}?saison_id=2025`]);
   });
 
-  it("names each card's team and season", async () => {
+  /* The day too, which the read orders by: a cut-short list's notice names an end, and the cards are
+     what tell where it falls. */
+  it("names each card's team, season and submission day", async () => {
     const { page } = await rendered();
 
-    for (const [name, team, saison] of [
-      ["Lena Meier", "Goethe-Gymnasium", "2027"],
-      ["Mia Schmidt", "Schiller-Schule", "2025"],
+    for (const [name, team, saison, tag] of [
+      ["Lena Meier", "Goethe-Gymnasium", "2027", "Registriert am 20.09.2026"],
+      ["Mia Schmidt", "Schiller-Schule", "2025", "Registriert am 18.09.2026"],
     ] as const) {
       const text = karte(page, name).textContent;
       assert.ok(text.includes(team), `${name}'s card does not name ${team}`);
       assert.ok(text.includes(saison), `${name}'s card does not name ${saison}`);
+      assert.ok(text.includes(tag), `${name}'s card does not say „${tag}“`);
     }
   });
 
