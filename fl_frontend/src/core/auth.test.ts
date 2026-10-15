@@ -241,6 +241,7 @@ const {
 } = await import("./auth.ts");
 const { buildCodeEmail, CODE_VALIDITY_MINUTES } = await import("./authEmail.ts");
 const { holdsOwnersTier } = await import("./verwaltung.ts");
+const { getSubjectSession } = await import("./subject.ts");
 const { proxy } = await import("../proxy.ts");
 const { NextRequest } = await import("next/server");
 
@@ -868,6 +869,21 @@ describe("the administrator's idle hour across the proxy's slide", () => {
 
   it("serves a session slid a minute short of an hour idle, so the mark is the window and not every slide", async () => {
     assert.ok(await slidThenJudged(HOUR_MS - MINUTE_MS));
+  });
+
+  /* The hook marks any session an hour idle, a person's too: the mark narrows the administrator's lane
+     alone, so a person guard reading it would refuse every person returning after an hour. */
+  it("leaves a person's session the slide marked to every guard of the person lane", async () => {
+    const { cookie, row } = await signIn(PERSON_EMAIL);
+    refreshedAgo(row, 2 * HOUR_MS);
+
+    await proxy(new NextRequest("http://localhost:3000/bereich/konto", { headers: { cookie } }));
+    assert.equal(Reflect.get(row, "adminLapsed"), true, "the slide left no mark, so the case proves nothing");
+
+    arriveAs(cookie);
+    assert.ok(await getKontoSession(), "the account guard refused a person's marked session");
+    assert.ok(await getSubjectSession(), "the person guard refused a person's marked session");
+    assert.equal(await getSignInDestination(), "/bereich");
   });
 });
 
