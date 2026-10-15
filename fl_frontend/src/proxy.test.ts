@@ -300,7 +300,8 @@ function refreshedAgo(row: SessionRow, ago: number): void {
  */
 async function visit(url: string, cookie: string | undefined, load: "document" | "navigation" = "navigation"): Promise<Response> {
   const headers: Record<string, string> = { host: "localhost:3000" };
-  // What the router sends on a client navigation: a render reading these skips the refresh.
+  // What the router sends on a client navigation, which the proxy slides on too. A render's read refreshes
+  // nothing whatever these say: it passes `disableRefresh` (`fl_frontend/src/core/auth.ts :: readServedSession`).
   if (load === "navigation") Object.assign(headers, { rsc: "1", "next-router-state-tree": "%5B%22%22%5D" });
   if (cookie !== undefined) headers.cookie = cookie;
 
