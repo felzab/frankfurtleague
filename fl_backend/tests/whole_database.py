@@ -2,10 +2,10 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 
 async def where_held(database: AsyncDatabase, *values: str, folded: bool = False) -> dict[str, list[str]]:
-    """Per value, every collection holding it, so a value is looked for where nobody thought to put it.
+    """Per value, the collections holding it, looked for where nobody thought to put it.
 
-    Named rather than rendered, so a failure says where. `folded` finds a capitalised spelling too; exact by default, as a
-    case telling a typed spelling from a stored fold needs.
+    Named rather than rendered, so a failure says where. Exact unless `folded`, since a case may tell a typed spelling from
+    its stored fold.
     """
 
     def matchable(text: str) -> str:
