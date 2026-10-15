@@ -185,7 +185,7 @@ let consuming: () => Promise<unknown> = async () => undefined;
 
 // Imported after the hooks above are registered: a static import resolves before they exist.
 const { toNextJsHandler } = await import("better-auth/next-js");
-const { auth, endSessionsOfAddress } = await import("./auth.ts");
+const { auth, deleteAccountFor, deleteOwnAccount, endSessionsOfAddress, requestAccountDeletion } = await import("./auth.ts");
 const { buildAuthIndexes } = await import("./authIndexes.ts");
 
 type Collection = {
@@ -631,5 +631,96 @@ describe("a session only read, against a real database (`docs/frontend/spec.md :
 
     const [[slidAt = 0, lapsesAt = 0] = []] = await stamps();
     assert.ok(slidAt >= before && lapsesAt >= before + expiresIn, "the proxy's read left the stored row where it was");
+  });
+});
+
+/** One signed-in address with every row the store keeps of it: a session, a passkey, a live code, a failed guess, a mail's count and a deletion token. */
+async function seedAccount(email: string): Promise<{ cookie: string; userId: string; pending: string[]; token: string }> {
+  gateAnswer = { sitze: [SITZ], gesperrt: false, konto: true };
+  const cookie = await signIn(email);
+  const account = await authDb().collection("user").find({ email }).toArray();
+  const userId = String(account[0]?._id ?? assert.fail("the sign-in wrote no account"));
+  const before = new Set((await authDb().collection("verification").find({}).toArray()).map((row) => String(row._id)));
+
+  const headers = new Headers(ORIGIN);
+  await auth.api.sendVerificationOTP({ body: { email, type: "sign-in" }, headers });
+  const otp = lastMailedCode(sent, email);
+  assert.ok(otp !== null, "the send mailed no code");
+  await assert.rejects(auth.api.signInEmailOTP({ body: { email, otp: otp === "000000" ? "111111" : "000000" }, headers }));
+  const { adapter } = await auth.$context;
+  await adapter.create({
+    model: "passkey",
+    data: {
+      userId,
+      credentialID: `credential-${email}`,
+      publicKey: "k",
+      counter: 0,
+      deviceType: "singleDevice",
+      backedUp: false,
+      transports: "",
+      createdAt: new Date(),
+    },
+  });
+  await requestAccountDeletion(new Headers({ ...ORIGIN, cookie }));
+  const found = /\/loeschung\?token=([0-9a-z]+)/.exec([...sent].reverse().find((message) => message.to === email)?.text ?? "");
+  assert.ok(found?.[1] !== undefined, "the request mailed no link to the interstitial");
+  await requestAccountDeletion(new Headers({ ...ORIGIN, cookie }));
+
+  // The aggregate count names no address, so it is nobody's to delete.
+  const pending = (await authDb().collection("verification").find({}).toArray())
+    .filter((row) => !before.has(String(row._id)) && row.identifier !== "sign-in-mail-every-address")
+    .map((row) => String(row.identifier));
+  assert.equal(pending.length, 5, `the seeding left ${String(pending.length)} pending rows, so a case reads fewer than it means to`);
+
+  return { cookie, userId, pending, token: found[1] };
+}
+
+/** What the store still holds of a seeded account, by kind. */
+async function heldOf({ userId, pending }: { userId: string; pending: readonly string[] }) {
+  const of = async (name: string, filter: object) => (await authDb().collection(name).find(filter).toArray()).length;
+  const { ObjectId } = await import("mongodb");
+  return {
+    user: await of("user", { _id: new ObjectId(userId) }),
+    sessions: await of("session", { userId: new ObjectId(userId) }),
+    passkeys: await of("passkey", { userId: new ObjectId(userId) }),
+    pending: await of("verification", { identifier: { $in: pending } }),
+  };
+}
+
+/* The Mongo adapter turns the helper's `in` and `starts_with` into a query of its own, which the memory store
+   never shows: a row they miss stands here and nowhere else (`docs/frontend/spec.md :: I_NEW_S9-AUTH_2`). */
+describe("an account deleted, against a real database", () => {
+  it("leaves nothing of the address once its own link completes, and nothing of anybody else's goes", async () => {
+    const { runWithRequestScope } = await import("./requestScope.ts");
+    const bystander = await seedAccount("unbeteiligt-db@example.org");
+    const person = await seedAccount("loeschende-db@example.org");
+    let erased = 0;
+
+    const answer = await runWithRequestScope(
+      {
+        traceId: `${"0".repeat(31)}4`,
+        spanId: `${"0".repeat(15)}4`,
+        actor: { email: "loeschende-db@example.org", lane: "person", token: "doubled-person-token-not-a-credential" },
+      },
+      () =>
+        deleteOwnAccount(person.token, new Headers({ ...ORIGIN, cookie: person.cookie }), () => {
+          erased += 1;
+          return Promise.resolve({});
+        }),
+    );
+
+    assert.deepEqual([answer, erased], ["deleted", 1]);
+    assert.deepEqual(await heldOf(person), { user: 0, sessions: 0, passkeys: 0, pending: 0 });
+    assert.deepEqual(await heldOf(bystander), { user: 1, sessions: 1, passkeys: 1, pending: 5 });
+  });
+
+  it("deletes every row of an address in one transaction for the administrator's erasure and the sweep", async () => {
+    const bystander = await seedAccount("unbeteiligt-konto-db@example.org");
+    const person = await seedAccount("konto-weg-db@example.org");
+
+    assert.equal(await deleteAccountFor("Konto-Weg-DB@Example.org"), true);
+
+    assert.deepEqual(await heldOf(person), { user: 0, sessions: 0, passkeys: 0, pending: 0 });
+    assert.deepEqual(await heldOf(bystander), { user: 1, sessions: 1, passkeys: 1, pending: 5 });
   });
 });

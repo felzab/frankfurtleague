@@ -2,7 +2,7 @@
 
 import { headers } from "next/headers";
 
-import { endSessionOf, revokeOtherSessions, sendSignInCode } from "@/core/auth";
+import { endSessionOf, requestAccountDeletion, revokeOtherSessions, sendSignInCode } from "@/core/auth";
 import { asSignInIdentifier } from "@/core/emailAddress";
 import { logger } from "@/core/logging";
 import { recordWriteSent } from "@/core/requestScope";
@@ -77,5 +77,25 @@ export async function sendeBestaetigungscodeAction(): Promise<ActionResult> {
     }
 
     return { success: true, message: CODE_UNTERWEGS };
+  });
+}
+
+/**
+ * What the request answers. The library answers a send that failed as one that went, so the only remedy
+ * it can offer a missing mail is a second press.
+ */
+const LOESCHLINK_UNTERWEGS =
+  "Wir haben Dir einen Link geschickt. Erst wenn Du ihn öffnest und dort bestätigst, löschen wir Dein Konto. Kommt keine E-Mail an, fordere den Link erneut an.";
+
+/**
+ * Mails the holder a link to delete their account. The account page's guard without the step-up window
+ * (`docs/frontend/spec.md :: I_NEW_S9-AUTH_3`): the link goes to the session's own mailbox, and completing it
+ * takes that mailbox and the signed-in session both.
+ */
+export async function fordereKontoLoeschungAnAction(): Promise<ActionResult> {
+  return runKontoStepUp("fordereKontoLoeschungAnAction", async () => {
+    await requestAccountDeletion(await headers());
+
+    return { success: true, message: LOESCHLINK_UNTERWEGS };
   });
 }

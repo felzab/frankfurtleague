@@ -52,6 +52,7 @@ const {
 const { buildCodeEmail } = await import("./authEmail.ts");
 const { buildEinladungEmail } = await import("./einladungEmail.ts");
 const { buildKontaktBestaetigungEmail } = await import("./kontaktEmail.ts");
+const { buildLoeschungEmail } = await import("./loeschungEmail.ts");
 const { buildPasskeyGeloeschtEmail, buildPasskeyHinzugefuegtEmail } = await import("./passkeyEmail.ts");
 const {
   buildRegistrierungAbsageEmail,
@@ -102,6 +103,7 @@ const BUILT_MESSAGES = [
   ...Object.keys(await import("./authEmail.ts")),
   ...Object.keys(await import("./einladungEmail.ts")),
   ...Object.keys(await import("./kontaktEmail.ts")),
+  ...Object.keys(await import("./loeschungEmail.ts")),
   ...Object.keys(await import("./passkeyEmail.ts")),
   ...Object.keys(await import("./registrierungEmail.ts")),
   ...Object.keys(await import("./schiedsrichterEmail.ts")),
@@ -195,6 +197,7 @@ const FIXTURES: Record<string, (origin: string) => { html: string; text: string 
       zeile: "offen",
     }),
   buildCodeEmail: (origin) => buildCodeEmail("048213", origin),
+  buildLoeschungEmail: (origin) => buildLoeschungEmail({ origin: origin, token: "beispiel-sieben" }),
   buildPasskeyHinzugefuegtEmail: (origin) =>
     buildPasskeyHinzugefuegtEmail({ zeitpunkt: new Date("2026-01-15T22:30:00Z"), origin: origin, konto: "/bereich/konto" }),
   buildPasskeyGeloeschtEmail: (origin) =>

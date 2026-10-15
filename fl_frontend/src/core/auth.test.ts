@@ -220,6 +220,8 @@ const { runWithEndpointContext } = (await import(
 )) as { runWithEndpointContext: <T>(context: object, run: () => Promise<T>) => Promise<T> };
 const {
   auth,
+  deleteAccountFor,
+  deleteOwnAccount,
   endSessionsOfAddress,
   forgiveCodeAttempt,
   getAdminSession,
@@ -230,9 +232,11 @@ const {
   isAdminSession,
   isFreshlySignedIn,
   judgeAdminRequest,
+  listAccounts,
   PASSKEY_LIMIT,
   readAdmittedSession,
   readServedSession,
+  requestAccountDeletion,
   slideSession,
 } = await import("./auth.ts");
 const { buildCodeEmail, CODE_VALIDITY_MINUTES } = await import("./authEmail.ts");
@@ -354,6 +358,7 @@ const OVER_HTTP = [
 
 /** What this application's own code reaches through `auth.api`, and no browser may. */
 const IN_PROCESS_ONLY = [
+  "/delete-user",
   "/email-otp/send-verification-otp",
   "/get-session",
   "/passkey/delete-passkey",
@@ -369,7 +374,6 @@ const REFUSED = [
   "/callback/:id",
   "/change-email",
   "/change-password",
-  "/delete-user",
   "/delete-user/callback",
   "/email-otp/change-email",
   "/email-otp/check-verification-otp",
@@ -3435,5 +3439,268 @@ describe("a sign-in the ban's ending overtook between its gate read and its row"
       heldRead = undefined;
       BACKENDS.delete(OVERTAKEN_EMAIL);
     }
+  });
+});
+
+/** Runs `run` as one request of `email`'s, its person recorded as the actor, as the person spine records one. */
+async function asPerson<T>(email: string, run: () => Promise<T>): Promise<T> {
+  const { runWithRequestScope } = await import("./requestScope.ts");
+  return runWithRequestScope(
+    {
+      traceId: `${"0".repeat(31)}3`,
+      spanId: `${"0".repeat(15)}3`,
+      // A token nobody verifies: the backend these cases reach is the erasure each case hands in.
+      actor: { email: email, lane: "person", token: "doubled-person-token-not-a-credential" },
+    },
+    run,
+  );
+}
+
+/** The token the last deletion mail to `email` carries, read off the link its text branch spells. */
+function mailedToken(email: string): string {
+  const message = sent.findLast((entry) => entry.to === email);
+  assert.ok(message !== undefined, "no deletion mail went to the address");
+  const found = /\/loeschung\?token=([0-9a-z]+)/.exec(message.text);
+  assert.ok(found?.[1] !== undefined, "the deletion mail carries no link to the interstitial");
+
+  return found[1];
+}
+
+/**
+ * Everything the store holds of one signed-in address, its pending rows among them: a session, a passkey,
+ * a live code, a failed guess's count, a mail's count and two deletion tokens, the second outstanding.
+ */
+async function seedAccount(email: string): Promise<{ cookie: string; userId: string; pending: string[]; token: string }> {
+  const { cookie, row } = await signIn(email);
+  const before = new Set(store.verification.map((held) => held.id));
+
+  BACKENDS.set(email, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true });
+  try {
+    await auth.api.sendVerificationOTP({ body: { email, type: "sign-in" }, headers: new Headers(ORIGIN) });
+    assert.equal((await answerOf(email, await wrongCodeFor(email))).code, "INVALID_OTP");
+  } finally {
+    BACKENDS.delete(email);
+  }
+  store.passkey.push({ ...aPasskeyFor(row.userId), id: `passkey-of-${row.userId}`, credentialID: `credential-of-${row.userId}` });
+
+  const headers = new Headers({ ...ORIGIN, cookie });
+  await requestAccountDeletion(headers);
+  const token = mailedToken(email);
+  await requestAccountDeletion(headers);
+
+  // The aggregate count names no address, so it is nobody's to delete.
+  const pending = store.verification
+    .filter((held) => !before.has(held.id) && held.identifier !== "sign-in-mail-every-address")
+    .map((held) => held.identifier);
+  assert.equal(pending.length, 5, `the seeding left ${String(pending.length)} pending rows, so a case reads fewer than it means to`);
+
+  return { cookie, userId: row.userId, pending, token };
+}
+
+/** What the store still holds of a seeded account, by kind. */
+const heldOf = ({ userId, pending }: { userId: string; pending: readonly string[] }) => ({
+  user: store.user.filter((user) => user.id === userId).length,
+  sessions: store.session.filter((session) => session.userId === userId).length,
+  passkeys: store.passkey.filter((passkey) => passkey.userId === userId).length,
+  pending: store.verification.filter((held) => pending.includes(held.identifier)).length,
+});
+
+/** The backend's refusal of the erasure for a ban entered since the request was judged, as the API client raises one. */
+async function erasureRefused(): Promise<Error> {
+  const { APIBadStatusError } = await import("./errors.ts");
+  return new APIBadStatusError({
+    message: "API returned a bad status.",
+    url: `${API_ORIGIN}/api/v0/identitaet/selbst/erasure`,
+    statusCode: 403,
+    serverErrorCode: "REQ-AUTH-008",
+    endpoint: "/identitaet/selbst/erasure",
+    method: "POST",
+    readOnly: false,
+    traceId: "0".repeat(32),
+  });
+}
+
+/* The library completes a deletion through the hook alone, so every case below drives the in-process call
+   the press makes (`docs/frontend/spec.md :: I_NEW_S9-AUTH_2`). */
+describe("a person's own account deletion", () => {
+  /* The library's own link deletes on a GET, which a mail scanner's fetch would set off: the mail spells
+     the interstitial's link from the token instead (`docs/frontend/spec.md :: I_NEW_S9-AUTH_1`). */
+  it("mails a link to the interstitial carrying the stored token, never the library's deleting URL, and deletes nothing", async () => {
+    const email = "loeschlink@example.org";
+    const { cookie, row } = await signIn(email);
+
+    await requestAccountDeletion(new Headers({ ...ORIGIN, cookie }));
+
+    const message = sent.findLast((entry) => entry.to === email);
+    assert.ok(message !== undefined, "the request mailed nothing");
+    for (const part of [message.html, message.text]) {
+      assert.ok(part.includes("http://localhost:3000/loeschung?token="), "a part of the mail lacks the interstitial's link");
+      assert.ok(!part.includes("/delete-user"), "a part of the mail carries the library's own deleting URL");
+    }
+    const stored = store.verification.filter((held) => held.identifier.startsWith("delete-account-") && held.value === row.userId);
+    assert.equal(stored.length, 1, "the request stored no token for the account");
+    assert.ok(stored[0]?.identifier === `delete-account-${mailedToken(email)}`, "the mail carries a token the store does not hold");
+    assert.equal(store.user.filter((user) => user.id === row.userId).length, 1, "the request deleted the account");
+  });
+
+  it("deletes the account, its sessions, its passkeys and every pending row of its address once the records are erased, and nobody else's", async () => {
+    const bystander = await seedAccount("unbeteiligt-loeschung@example.org");
+    const person = await seedAccount("loeschende@example.org");
+    const erasures: string[] = [];
+
+    const answer = await asPerson("loeschende@example.org", () =>
+      deleteOwnAccount(person.token, new Headers({ ...ORIGIN, cookie: person.cookie }), () => {
+        erasures.push("erased");
+        return Promise.resolve({ acknowledged: 1 });
+      }),
+    );
+
+    assert.equal(answer, "deleted");
+    assert.deepEqual(erasures, ["erased"], "the league's records were not erased exactly once");
+    assert.deepEqual(heldOf(person), { user: 0, sessions: 0, passkeys: 0, pending: 0 });
+    assert.deepEqual(heldOf(bystander), { user: 1, sessions: 1, passkeys: 1, pending: 5 });
+  });
+
+  /* Asked and refused: a case passing where the hook never ran -- no session, another account's token --
+     would leave the same rows standing (`docs/frontend/spec.md :: I_NEW_S9-AUTH_2`). */
+  it("leaves the account and its passkeys standing where the backend refuses the erasure, having asked it", async () => {
+    const person = await seedAccount("verweigert-loeschung@example.org");
+    const refusal = await erasureRefused();
+    const erasures: string[] = [];
+
+    await assert.rejects(
+      asPerson("verweigert-loeschung@example.org", () =>
+        deleteOwnAccount(person.token, new Headers({ ...ORIGIN, cookie: person.cookie }), () => {
+          erasures.push("asked");
+          return Promise.reject(refusal);
+        }),
+      ),
+      (thrown) => thrown === refusal,
+    );
+
+    assert.deepEqual(erasures, ["asked"], "the backend was never asked, so the refusal proves nothing");
+    const held = heldOf(person);
+    assert.deepEqual([held.user, held.sessions, held.passkeys], [1, 1, 1]);
+  });
+
+  /* The library spends the token before it compares whose it is, so a forwarded link opened by another
+     signed-in account is lost to its holder; nothing of either account is erased or deleted. */
+  it("refuses a link minted for another account, erasing and deleting nothing", async () => {
+    const holder = await seedAccount("linkhalterin@example.org");
+    const other = await signIn("andere-sitzung@example.org");
+    const erasures: string[] = [];
+
+    const answer = await asPerson("andere-sitzung@example.org", () =>
+      deleteOwnAccount(holder.token, new Headers({ ...ORIGIN, cookie: other.cookie }), () => {
+        erasures.push("erased");
+        return Promise.resolve({});
+      }),
+    );
+
+    assert.equal(answer, "linkRefused");
+    assert.deepEqual(erasures, []);
+    assert.deepEqual(heldOf(holder).user, 1);
+    assert.equal(store.user.filter((user) => user.id === other.row.userId).length, 1);
+  });
+
+  /* The hook is what keeps an account from going ahead of the league's records, so a caller reaching the
+     library without an erasure, or with the backend's person not the account's, deletes nothing. */
+  it("deletes nothing where no erasure was handed in, or where the request acts for another person", async () => {
+    const person = await seedAccount("ohne-loeschung@example.org");
+    const headers = new Headers({ ...ORIGIN, cookie: person.cookie });
+    const erasures: string[] = [];
+
+    await assert.rejects(
+      asPerson("ohne-loeschung@example.org", () => auth.api.deleteUser({ body: { token: person.token }, headers })),
+      (thrown: Error) => thrown.name === "DeletionWithoutErasure",
+    );
+    assert.equal(heldOf(person).user, 1);
+
+    await requestAccountDeletion(headers);
+    await assert.rejects(
+      asPerson("jemand-anderes@example.org", () =>
+        deleteOwnAccount(mailedToken("ohne-loeschung@example.org"), headers, () => {
+          erasures.push("erased");
+          return Promise.resolve({});
+        }),
+      ),
+      (thrown: Error) => thrown.name === "DeletionWithoutErasure",
+    );
+
+    assert.deepEqual(erasures, [], "another person's records were erased");
+    const held = heldOf(person);
+    assert.deepEqual([held.user, held.sessions, held.passkeys], [1, 1, 1]);
+  });
+
+  /* The library swallows a throw from its sender and answers the press as sent whatever happened, so what
+     tells a filed send from a failed one is the stream alone. */
+  it("logs no failure for a send this deployment withheld or the ban list kept, and the library's own line for a refused one", async () => {
+    const { cookie } = await signIn("versand-loeschung@example.org");
+    const headers = new Headers({ ...ORIGIN, cookie });
+    const failures = () =>
+      logged.filter((line) => line.message === "auth.library_failed").map((line) => [line.meta.error_code, line.meta.name]);
+
+    for (const outcome of ["withheld", "barred"] as const) {
+      answerMail(() => outcome);
+      logged.length = 0;
+      const before = sent.length;
+
+      assert.equal((await requestAccountDeletion(headers)).success, true);
+      assert.equal(sent.length, before + 1, `the request mailed nothing, so no send was ${outcome}`);
+      assert.deepEqual(failures(), [], `a ${outcome} send was logged as a failure`);
+    }
+
+    answerMail(() => "refused");
+    logged.length = 0;
+    assert.equal((await requestAccountDeletion(headers)).success, true);
+    assert.deepEqual(failures(), [["FE-AUTH-003", "MailSendError"]]);
+  });
+});
+
+/* The administrator's erasure and the account sweep reach the store through these two, never through the
+   library's admin plugin. */
+describe("an account deleted for its address, and the list of every account", () => {
+  it("deletes the account an address holds and every row of it, in any spelling, and nobody else's", async () => {
+    const bystander = await seedAccount("unbeteiligt-konto@example.org");
+    const person = await seedAccount("konto-weg@example.org");
+
+    assert.equal(await deleteAccountFor("Konto-Weg@Example.org"), true);
+
+    assert.deepEqual(heldOf(person), { user: 0, sessions: 0, passkeys: 0, pending: 0 });
+    assert.deepEqual(heldOf(bystander), { user: 1, sessions: 1, passkeys: 1, pending: 5 });
+  });
+
+  /* Every address typed is answered alike, so a code row stands for an address holding no account: it
+     carries the address in its identifier. */
+  it("deletes the pending code row of an address holding no account, answering that none was there", async () => {
+    const email = "nie-angemeldet@example.org";
+    BACKENDS.set(email, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true });
+    try {
+      await auth.api.sendVerificationOTP({ body: { email, type: "sign-in" }, headers: new Headers(ORIGIN) });
+    } finally {
+      BACKENDS.delete(email);
+    }
+    assert.ok(codeRowOf(email) !== undefined, "no code row was written, so the case proves nothing");
+
+    assert.equal(await deleteAccountFor(email), false);
+
+    assert.equal(codeRowOf(email), undefined);
+  });
+
+  /* The adapter answers 100 rows where no limit is named, so a sweep reading that page would leave every
+     account past it standing forever. */
+  it("lists every account past the library's default page of a hundred", async () => {
+    const { adapter } = await auth.$context;
+    const addresses = Array.from({ length: 101 }, (_, index) => `liste-${String(index)}@example.org`);
+    for (const email of addresses) {
+      await adapter.create({ model: "user", data: { email, emailVerified: true, name: "", createdAt: new Date(), updatedAt: new Date() } });
+    }
+
+    const listed = new Set(await listAccounts());
+
+    assert.deepEqual(
+      addresses.filter((email) => !listed.has(email)),
+      [],
+    );
   });
 });
