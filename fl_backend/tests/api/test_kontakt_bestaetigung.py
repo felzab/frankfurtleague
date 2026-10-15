@@ -9,7 +9,7 @@ press as the application's links ask it.
 
 import asyncio
 from collections.abc import Awaitable, Callable, Mapping
-from datetime import datetime
+from datetime import UTC, datetime
 from http import HTTPStatus
 from typing import Any, cast
 from zoneinfo import ZoneInfo
@@ -48,6 +48,7 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.db import get_sperrliste_collection
 from app.core.exceptions import ActorConfirmationRequiredException, DocumentNotFoundException, WriteRefusalException
+from app.core.recording import log_stamp
 from app.core.security import CONFIRMATION_REQUIRED, STEP_UP_WINDOW_S, get_step_up_check
 from app.main import create_app
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
@@ -771,6 +772,41 @@ class TestTheLinkConfirms:
             # The link stays with the seat in the image, as it does on the row, its decline recorded there.
             assert entry["before"]["bestaetigungen"]["stellvertretung"] is not None
         assert second_save["before"]["kontakte"]["trainer"]["telefon"] == TELEFON["Ida"]
+
+    def test_a_widerspruch_is_taken_over_an_image_of_an_older_shape_in_the_rows_log(self, mongo_replica_set_url: str):
+        """Read a seat without checking its shape and this answers 500: the redaction judges every image the row ever filed."""
+
+        # The real clock: the retention index removes a row a year past `at_date`.
+        recorded = datetime.now(UTC)
+        older = {
+            "_id": ObjectId("6890a1b2c3d4e5f607a5a001"),
+            "at": log_stamp(recorded),
+            "at_date": recorded,
+            "actor": {"kind": "admin_session", "email": ADMIN},
+            "trace_id": "0123456789abcdef",
+            "request": {"method": "PATCH", "path": f"/api/{API_VERSION}/teams/{TEAM_OID}/saisons/{SAISON_ID}/kontakte"},
+            "collection": str(Collection.SAISON_TEAMS),
+            "operation": "patch_one",
+            "document_id": ROW_OID,
+            "db_filter": None,
+            # A seat held as one string, as no write today stores it.
+            "before": {"_id": ROW_OID, "kontakte": {"trainer": "Ida Musterfrau", "ansprechperson": None, "stellvertretung": None}},
+            "modified_count": None,
+            "redacted_at": None,
+        }
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
+            await database[Collection.AKTIONEN].insert_one(older)
+            response = await save(database, THREE)
+            answered = await answer(database, response.bestaetigungen[0].token, antwort="abgelehnt")
+
+            return answered, await row_now(database), await database[Collection.AKTIONEN].find_one({"_id": older["_id"]})
+
+        answered, row, kept = on_a_league(mongo_replica_set_url, body)
+
+        assert (answered.ergebnis, row["kontakte"]["trainer"]) == ("abgelehnt", None)
+        # Nothing in it is an address, so nothing in it is judged theirs.
+        assert (kept["before"], kept["redacted_at"]) == (older["before"], None)
 
     def test_a_second_answer_on_the_link_is_refused(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:

@@ -16,7 +16,13 @@ from app.api.identitaet.schemas import FLErasureResponse
 from app.api.identitaet.services import build_erasure_seat_pipeline
 from app.api.kontakte.admin_router import get_kontakt_erasure_ansicht
 from app.api.kontakte.schemas import FLKontaktErasureAnsichtResponse, FLKontaktErasurePayload
-from app.api.kontakte.services import build_clearing_update, same_address
+from app.api.kontakte.services import (
+    build_clearing_update,
+    contact_block_image_edits,
+    find_matching_slots,
+    same_address,
+    seat_image_edits,
+)
 from app.api.teams.schemas import KONTAKT_ROLLEN, FLSaisonTeamKontakte
 from app.core.collections import Collection
 from app.core.crud import patch_one_in_db
@@ -839,6 +845,28 @@ def test_a_seat_stored_with_its_domain_decoded_is_cleared(mongo_replica_set_url:
         return (await stored_rows(database))[DECODED_ROW_OID]["kontakte"]["trainer"]
 
     assert on_a_league(mongo_replica_set_url, body) is None
+
+
+class TestTheSeatJudgesReadWhateverAnImageHolds:
+    """A log image is whatever its row held when the write ran; the pure half, apart from a database."""
+
+    @pytest.mark.parametrize(
+        "kontakte",
+        [
+            pytest.param("Ida Musterfrau", id="a block held as a string"),
+            pytest.param(["ida@example.com"], id="a block held as a list"),
+            pytest.param({"trainer": "ida@example.com"}, id="a seat held as a string"),
+            pytest.param({"trainer": {"email": 7}}, id="an address held as a number"),
+        ],
+    )
+    def test_an_older_shape_names_nobody_and_raises_nothing(self, kontakte: Any):
+        image = {"_id": BEWERBUNG_OID, "kontakte": kontakte}
+
+        assert find_matching_slots(image, "ida@example.com") == ()
+        assert seat_image_edits(image, ("ida@example.com",), links=True) == {}
+
+    def test_an_image_recorded_before_links_existed_gains_no_links_block(self):
+        assert contact_block_image_edits({"kontakte": {"trainer": {"email": "ida@example.com"}}}) == {"kontakte": None}
 
 
 PADDED_ROW_OIDS = {email: ObjectId(f"6890a1b2c3d4e5f60781{7000 + index:04d}") for index, email in enumerate(PADDED_SPELLINGS)}

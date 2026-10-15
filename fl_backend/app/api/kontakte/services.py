@@ -106,11 +106,15 @@ def find_matching_slots(row: Mapping[str, Any], identifier: str) -> tuple[str, .
     person's seat on the first person's request.
     """
 
-    kontakte = row.get("kontakte") or {}
+    # Every shape checked before it is read: a log image is whatever a row held when its write ran,
+    # and a person's Widerspruch must not answer 500 over an older one.
+    kontakte = row.get("kontakte")
+    seats = [kontakte.get(slot) for slot in KONTAKT_ROLLEN] if isinstance(kontakte, Mapping) else [None] * len(KONTAKT_ROLLEN)
+    emails = [seat.get("email") if isinstance(seat, Mapping) else None for seat in seats]
 
-    # `str` around it because the slot is declared `bsonType: "string"` and nothing narrower, so what
-    # sits there is only as trustworthy as whatever wrote the row.
-    return tuple(slot for slot in KONTAKT_ROLLEN if sign_in_identifier(str((kontakte.get(slot) or {}).get("email") or "")) == identifier)
+    named = zip(KONTAKT_ROLLEN, emails, strict=True)
+
+    return tuple(slot for slot, email in named if isinstance(email, str) and sign_in_identifier(email) == identifier)
 
 
 def rows_naming(rows: Sequence[Mapping[str, Any]], identifier: str) -> list[Mapping[str, Any]]:
@@ -156,10 +160,11 @@ def contact_block_image_edits(image: Mapping[str, Any]) -> dict[str, None]:
     them; nothing else does.
     """
 
-    blocks = [image.get("kontakte"), image.get("bestaetigungen")]
-    held = any(isinstance(block, Mapping) and any(isinstance(block.get(slot), Mapping) for slot in KONTAKT_ROLLEN) for block in blocks)
+    blocks = {key: image.get(key) for key in ("kontakte", "bestaetigungen")}
+    held = any(isinstance(block, Mapping) and any(isinstance(block.get(slot), Mapping) for slot in KONTAKT_ROLLEN) for block in blocks.values())
 
-    return {"kontakte": None, "bestaetigungen": None} if held else {}
+    # The fields the image holds alone: one recorded before links existed gains no `bestaetigungen`.
+    return {key: None for key, block in blocks.items() if block is not None} if held else {}
 
 
 def build_clearing_update(slots: Sequence[str], *, bestaetigungen: bool = False) -> Mapping[str, Any]:
