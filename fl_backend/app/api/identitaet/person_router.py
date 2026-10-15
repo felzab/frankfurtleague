@@ -5,13 +5,19 @@ from fastapi import APIRouter, Depends
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.berechtigungen.crud import verwaltung_of
+from app.api.berechtigungen.crud import pull_the_list_to_judge, read_berechtigungen, verwaltung_of
+from app.api.berechtigungen.services import lebendige
 from app.api.identitaet.crud import JEDE_PERSONENGRUPPE, after_the_erasure_commits, erase_everything, resolve_subject
 from app.api.identitaet.schemas import FLErasureResponse, FLSelbstErasureAnsichtResponse
-from app.api.identitaet.services import build_registrierung_team_pipeline, compose_erasure_ansicht
-from app.api.sperrliste.lookup import SperrlisteLookup
+from app.api.identitaet.services import (
+    build_registrierung_team_pipeline,
+    compose_erasure_ansicht,
+    find_letzter_inhaber_erasure_refusal,
+    holds_an_owner_grant,
+)
+from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt
 from app.core.config import API_VERSION, BackendConfig, get_app_config
-from app.core.crud import aggregate_many_from_db
+from app.core.crud import aggregate_many_from_db, refuse
 from app.core.db import get_drosselung_collection
 from app.core.dependencies import (
     AktionenCollection,
@@ -73,8 +79,10 @@ async def erase_selbst(
     """
     Erase every record the signed-in address holds, at once and as one write, and answer how many of each kind went.
 
-    PERSON TIER, refusing nothing about the person: no precondition stands in front of a person's own request, a pupil in a
-    live squad and a referee booked on a fixture still to be played included. Nothing is counted against the person's day.
+    PERSON TIER, refusing one person alone: the last live, unbarred `owner` of the administration, until another administrator
+    is made one (`REQ-PURGE-004`), since nobody else could ever make an owner again. No other precondition stands in front of
+    a person's own request, a pupil in a live squad and a referee booked on a fixture still to be played included. Nothing is
+    counted against the person's day.
 
     Removed: the pupil record and every squad row it holds, so the team reads one player fewer; the referee record, every
     fixture it was booked on moving to the one row that holds no person and keeping its own fee; every registration at the
@@ -92,6 +100,15 @@ async def erase_selbst(
     """
 
     async def erase_the_address(session: AsyncClientSession) -> FLErasureResponse:
+        # Before any write, and for an owner alone: no other erasure can leave the administration without one.
+        grants = lebendige(await read_berechtigungen(berechtigungen_collection=berechtigungen_collection, session=session))
+        if holds_an_owner_grant(identifier, grants):
+            # Rereads this snapshot's rows and writes each, so two owners erasing themselves at once conflict, and
+            # the one retried finds itself the last (`docs/backend/spec.md :: I438`).
+            await pull_the_list_to_judge(berechtigungen_collection=berechtigungen_collection, session=session)
+            barred = await adressen_gesperrt(sperrliste, [str(grant["adresse"]) for grant in grants], session=session)
+            refuse(find_letzter_inhaber_erasure_refusal(identifier=identifier, grants=grants, barred=barred))
+
         erased = await erase_everything(
             identifier,
             scope=JEDE_PERSONENGRUPPE,

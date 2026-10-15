@@ -679,6 +679,6 @@ async def after_the_erasure_commits(
 
     fl_logger.info(f"{ERASURE_JOURNAL_LINE}: {loeschung_journal_hash(identifier, schluessel=schluessel)}")
 
-    # Neither the floor of two nor an owner's protection holds against an erasure (`docs/backend/spec.md :: I435`).
+    # The floor of two holds against no erasure (`docs/backend/spec.md :: I435`): the boot's warnings name what is left.
     if erased.berechtigungen:
         await warn_about_the_grants(berechtigungen_collection)

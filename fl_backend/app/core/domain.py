@@ -2281,6 +2281,15 @@ RULES: tuple[Rule, ...] = (
         tested_by="tests/api/test_spieler_erasure_execution.py::TestTheErasureIsRefusedUntilTheyAreRetired",
     ),
     Rule(
+        code="REQ-PURGE-004",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /identitaet/selbst/erasure",
+        aggregate="Berechtigung",
+        summary="the last live, unbarred `owner` does not erase themselves until another administrator is made an owner",
+        implemented_by="app.api.identitaet.services.find_letzter_inhaber_erasure_refusal",
+        tested_by="tests/api/test_funktionen_erasure.py::TestTheLastOwner",
+    ),
+    Rule(
         code="REQ-SPERRLISTE-001",
         status=HTTPStatus.CONFLICT,
         operation="POST /sperrliste",

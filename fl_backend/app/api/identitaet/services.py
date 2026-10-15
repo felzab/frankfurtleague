@@ -12,6 +12,7 @@ from typing import Any, Literal
 
 from bson import ObjectId
 
+from app.api.berechtigungen.services import OWNER
 from app.api.bewerbungen.services import build_eigene_bewerbung_filter
 from app.api.identitaet.schemas import FLSelbstErasureAnsicht, FLSubjekt, FLSubjektSitz
 from app.api.kontakte.services import rows_possibly_naming, same_address
@@ -384,4 +385,32 @@ def find_funktion_refusal(*, sitze: Iterable[FLSubjektSitz], team_id: ObjectId, 
         error_code=FUNKTION_NICHT_GEHALTEN,
         status=HTTPStatus.FORBIDDEN,
         message="the signed-in person holds no seat on this team in this season, so its panel is not theirs to read or change",
+    )
+
+
+# Refused rather than warned of: with no owner left nobody may make one or change a tier again, and only
+# a database paste could hand the administration on (`docs/backend/spec.md :: I436`).
+LETZTER_INHABER_ERASURE = "REQ-PURGE-004"
+
+
+def holds_an_owner_grant(identifier: str, grants: Iterable[Mapping[str, Any]]) -> bool:
+    """Whether this folded address holds one of these live grants as an `owner`."""
+
+    return any(grant["adresse"] == identifier and grant["verwaltung"] == OWNER for grant in grants)
+
+
+def find_letzter_inhaber_erasure_refusal(*, identifier: str, grants: Iterable[Mapping[str, Any]], barred: Iterable[str]) -> WriteRefusal | None:
+    """`REQ-PURGE-004`: the address holding the last live, unbarred `owner` grant erases itself only once another holds one.
+
+    `grants` are the live ones. A barred `owner` admits nobody, so it is no owner here, as for a demotion.
+    """
+
+    owners = {str(grant["adresse"]) for grant in grants if grant["verwaltung"] == OWNER} - set(barred)
+    if owners != {identifier}:
+        return None
+
+    return WriteRefusal(
+        error_code=LETZTER_INHABER_ERASURE,
+        status=HTTPStatus.CONFLICT,
+        message="the administration keeps at least one owner; make another administrator an owner before erasing yourself",
     )

@@ -4,9 +4,9 @@ API · a person's erasure through the registry, held against the whole database 
 One address holds a pupil row in a live squad, a seat on a season row and on an application beside
 two bystanders, a referee row booked on a played fixture, a pending and a declined registration,
 another referee's and another pupil's pending address change, a pupil row corrected away from the
-address, a day's counts, the only `owner` grant, records made as an administrator and as a seat
-holder, and log rows written as a person and as an administrator. Every case asks what is left, so a
-step removed from the registry fails here.
+address, a day's counts, records they made as an administrator, though they hold no grant, and as a
+seat holder, and log rows written as a person and as an administrator. Every case asks what is left,
+so a step removed from the registry fails here.
 """
 
 import functools
@@ -28,6 +28,7 @@ from app.api.bewerbungen.services import hash_token
 from app.api.einladungen.services import compose_einladung
 from app.api.identitaet.crud import ERASURE_JOURNAL_LINE, ERASURE_STEPS, JEDE_PERSONENGRUPPE, erase_everything
 from app.api.identitaet.person_router import erase_selbst
+from app.api.identitaet.services import LETZTER_INHABER_ERASURE
 from app.api.registrierungen.person_router import aufnehmen
 from app.api.registrierungen.schemas import FLRegistrierungAufnehmenPayload
 from app.api.registrierungen.services import compose_ablehnung_update
@@ -67,7 +68,7 @@ from tests.documents import (
     spieler_document,
     team_document,
 )
-from tests.isolation import InterleavedCollection
+from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
 from tests.records import record_collections
 from tests.whole_database import where_held
 from tests.worker import worker_database
@@ -122,6 +123,9 @@ THEIR_SPIEL_OID = ObjectId("6890a1b2c3d4e5f607b00061")
 OTHER_SPIEL_OID = ObjectId("6890a1b2c3d4e5f607b00062")
 # The records the person made as an administrator and as a seat holder, and their own grant.
 THEIR_GRANT_OID = ObjectId("6890a1b2c3d4e5f607b00071")
+# A second owner, granted by nobody the person is, so no record of theirs ties the two erasures together.
+OTHER_OWNER_OID = ObjectId("6890a1b2c3d4e5f607b00077")
+OTHER_OWNER = "ortwin.inhaber@example.com"
 GRANTED_BY_THEM_OID = ObjectId("6890a1b2c3d4e5f607b00072")
 BANNED_BY_THEM_OID = ObjectId("6890a1b2c3d4e5f607b00073")
 INVITED_BY_THEM_OID = ObjectId("6890a1b2c3d4e5f607b00074")
@@ -299,7 +303,7 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
     await database[Collection.DROSSELUNG].insert_many(
         [{"_id": count_id, "n": 3, "ablauf": FAR_OFF} for count_id in (*COUNT_IDS, OTHER_COUNT_ID)]
     )
-    await an_administrator_and_a_deciding_seat_holder(database)
+    await records_they_made_holding_no_grant(database)
     await database[Collection.SPIELER].insert_one(
         spieler_document(
             MOVING_PUPIL_OID,
@@ -344,32 +348,26 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
     )
 
 
-async def an_administrator_and_a_deciding_seat_holder(database: AsyncDatabase) -> None:
-    """The only `owner` grant, a grant they made, and a ban, an invitation and two decisions in their name, each typed as stored."""
+GRANTED = datetime(2026, 1, 1, tzinfo=UTC)
 
-    granted = datetime(2026, 1, 1, tzinfo=UTC)
-    await database[Collection.BERECHTIGUNGEN].insert_many(
-        [
-            {"_id": THEIR_GRANT_OID, "adresse": IDENTIFIER, "verwaltung": "owner", "erteilt_von": "PLAYGROUND", "erteilt_am": granted},
-            {
-                "_id": GRANTED_BY_THEM_OID,
-                "adresse": "bramblewick.admin@example.com",
-                "verwaltung": "administration",
-                "erteilt_von": IDENTIFIER,
-                "erteilt_am": granted,
-            },
-        ]
+
+async def records_they_made_holding_no_grant(database: AsyncDatabase) -> None:
+    """A grant, a ban, an invitation and two decisions in their name, each typed as stored, while the address holds no grant.
+
+    The grants step marks each: it runs in the full scope whatever the address holds.
+    """
+
+    await database[Collection.BERECHTIGUNGEN].insert_one(
+        {
+            "_id": GRANTED_BY_THEM_OID,
+            "adresse": "bramblewick.admin@example.com",
+            "verwaltung": "administration",
+            "erteilt_von": IDENTIFIER,
+            "erteilt_am": GRANTED,
+        }
     )
-    await database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT].insert_many(
-        [
-            {"_id": THEIR_GRANT_OID, "adresse": IDENTIFIER, "verwaltung": "owner", "angekuendigt_am": granted},
-            {
-                "_id": GRANTED_BY_THEM_OID,
-                "adresse": "bramblewick.admin@example.com",
-                "verwaltung": "administration",
-                "angekuendigt_am": granted,
-            },
-        ]
+    await database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT].insert_one(
+        {"_id": GRANTED_BY_THEM_OID, "adresse": "bramblewick.admin@example.com", "verwaltung": "administration", "angekuendigt_am": GRANTED}
     )
     await database[Collection.SPERRLISTE].insert_one(
         ban_document(
@@ -410,6 +408,23 @@ async def an_administrator_and_a_deciding_seat_holder(database: AsyncDatabase) -
     await database[Collection.REGISTRIERUNGEN].insert_one(
         {**declined, **compose_ablehnung_update(von=IDENTIFIER, grund=None, today="2026-03-22")["$set"]}
     )
+
+
+async def a_grant(database: AsyncDatabase, grant_id: ObjectId, adresse: str, verwaltung: str) -> None:
+    """A grant and its announced row, granted by a paste, for the cases about a grant the address holds."""
+
+    await database[Collection.BERECHTIGUNGEN].insert_one(
+        {"_id": grant_id, "adresse": adresse, "verwaltung": verwaltung, "erteilt_von": "PLAYGROUND", "erteilt_am": GRANTED}
+    )
+    await database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT].insert_one(
+        {"_id": grant_id, "adresse": adresse, "verwaltung": verwaltung, "angekuendigt_am": GRANTED}
+    )
+
+
+async def everything_in(database: AsyncDatabase) -> dict[str, list[Any]]:
+    """Every document of every collection, in a fixed order, so two reads compare equal only where nothing was written."""
+
+    return {name: await database[name].find().sort("_id", 1).to_list(length=None) for name in sorted(await database.list_collection_names())}
 
 
 def on_a_league(url: str, body: Body, *, mutates_schema: bool = False) -> Any:
@@ -462,11 +477,11 @@ def the_collections(database: AsyncDatabase, **replaced: Any) -> dict[str, Any]:
     return {**handles, **replaced}
 
 
-async def erased_by_the_handler(database: AsyncDatabase, client: AsyncMongoClient, **replaced: Any) -> Any:
+async def erased_by_the_handler(database: AsyncDatabase, client: AsyncMongoClient, *, identifier: str = IDENTIFIER, **replaced: Any) -> Any:
     """The route's own function, outside a request: what a case needs to catch the driver's failure itself."""
 
     return await erase_selbst(
-        identifier=IDENTIFIER,
+        identifier=identifier,
         **the_collections(database, **replaced),
         sperrliste=ban_list(database),
         db=client,
@@ -529,7 +544,7 @@ class TestNothingOfTheirsIsLeftAnywhere:
             "kontakt_sitze": 2,
             "registrierungen": 2,
             "adresswechsel": 2,
-            "berechtigungen": 1,
+            "berechtigungen": 0,
             "drosselung": 3,
         }
 
@@ -749,7 +764,7 @@ class TestOneTransaction:
 
         # On the code, so this cannot pass because something else failed before any write.
         assert code == DOCUMENT_VALIDATION_FAILED
-        assert counts == {"berechtigungen": 2, "spieler": 4, "saison_spieler": 2, "schiedsrichter": 2, "registrierungen": 3, "drosselung": 4}
+        assert counts == {"berechtigungen": 1, "spieler": 4, "saison_spieler": 2, "schiedsrichter": 2, "registrierungen": 3, "drosselung": 4}
         assert (seat, pending, their_rows, stamped, on_the_ghost) == (TYPED, TYPED, 2, 0, 0)
         # And no journal line nor floor warning: an erasure rolled back is no erasure a replay may repeat.
         assert not [record for record in caplog.records if record.getMessage().startswith(ERASURE_JOURNAL_LINE)]
@@ -757,10 +772,12 @@ class TestOneTransaction:
 
 
 class TestTheGrantsLeftBehind:
-    def test_an_erasure_taking_the_last_owner_warns_once_it_commits(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
-        """Neither the floor of two nor an owner's protection holds against an erasure, so the boot's own warning names what is left."""
+    def test_an_erasure_taking_a_grant_names_what_is_left_once_it_commits(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+        """The floor of two holds against no erasure, so the boot's own warning names what is left: here a list holding no owner."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
+
             return (await erased_over_http(mongo_replica_set_url)).json()["berechtigungen"]
 
         with caplog.at_level(logging.WARNING):
@@ -801,6 +818,7 @@ class TestTheJournal:
                 "errorCode": WRITE_CONFLICT,
                 "errorLabels": ["TransientTransactionError"],
             }
+            await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
             entered = (await client.admin.command("configureFailPoint", "failCommand", mode={"times": 1}, data=refusal))["count"]
             try:
                 answer = await erased_by_the_handler(refusing[database.name], refusing)
@@ -821,11 +839,86 @@ class TestTheJournal:
         assert (refused, removed) == (1, 1)
 
 
+class OwnersErasingAtOnce(InterleavedCollection):
+    """`berechtigungen` as one owner's erasure reads it, the other owner's whole erasure committing once its first read answered."""
+
+    async def aggregate(self, *args: Any, **kwargs: Any) -> Any:
+        # After the read rather than before it: the read opens this transaction's snapshot, which the rival must land inside.
+        cursor = await self._collection.aggregate(*args, **kwargs)
+        await self.run_the_rival()
+        return cursor
+
+
+class TestTheLastOwner:
+    """`REQ-PURGE-004`: nobody but an owner makes an owner, so the last one does not leave by erasing themselves."""
+
+    def test_the_last_owner_is_refused_and_nothing_is_written(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "owner")
+            before = await everything_in(database)
+            outcome = await outcome_of(erased_by_the_handler(database, client))
+
+            return outcome, before == await everything_in(database)
+
+        with caplog.at_level(logging.INFO):
+            outcome, untouched = on_a_league(mongo_replica_set_url, body)
+
+        assert (outcome, untouched) == (LETZTER_INHABER_ERASURE, True)
+        assert not [record for record in caplog.records if record.getMessage().startswith(ERASURE_JOURNAL_LINE)]
+
+    def test_a_barred_second_owner_is_no_owner_to_leave_behind(self, mongo_replica_set_url: str):
+        """Counted as a demotion counts: a barred owner admits nobody, so it could make nobody an owner."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "owner")
+            await a_grant(database, OTHER_OWNER_OID, OTHER_OWNER, "owner")
+            await database[Collection.SPERRLISTE].insert_one(
+                ban_document(OTHER_OWNER, bis=compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID))
+            )
+
+            return await outcome_of(erased_by_the_handler(database, client))
+
+        assert on_a_league(mongo_replica_set_url, body) == LETZTER_INHABER_ERASURE
+
+    def test_one_of_two_owners_goes_and_the_other_stands(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "owner")
+            await a_grant(database, OTHER_OWNER_OID, OTHER_OWNER, "owner")
+            outcome = await outcome_of(erased_by_the_handler(database, client))
+
+            return outcome, await database[Collection.BERECHTIGUNGEN].find({"verwaltung": "owner"}, {"_id": 1}).to_list(length=None)
+
+        assert on_a_league(mongo_replica_set_url, body) == (COMMITTED, [{"_id": OTHER_OWNER_OID}])
+
+    def test_two_owners_erasing_themselves_at_once_leave_one_owner(self, mongo_replica_set_url: str):
+        """Judged on the snapshot alone, each would see the other standing and both would go, leaving nobody to make an owner."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "owner")
+            await a_grant(database, OTHER_OWNER_OID, OTHER_OWNER, "owner")
+            rival: list[str] = []
+
+            async def the_other_owner_erases_themselves() -> None:
+                rival.append(await outcome_of(erased_by_the_handler(database, client, identifier=OTHER_OWNER)))
+
+            grants = OwnersErasingAtOnce(database[Collection.BERECHTIGUNGEN], the_other_owner_erases_themselves)
+            outcome = await outcome_of(erased_by_the_handler(database, client, berechtigungen_collection=grants))
+
+            return grants, outcome, rival, await database[Collection.BERECHTIGUNGEN].count_documents({"verwaltung": "owner"})
+
+        grants, outcome, rival, owners = on_a_league(mongo_replica_set_url, body)
+
+        assert (rival, outcome, owners) == ([COMMITTED], LETZTER_INHABER_ERASURE, 1)
+        # The premise last: a read, the rival, the anchor's read meeting the conflict, then the retry's read and its anchor's.
+        grants.assert_landed_inside(serially=2)
+
+
 class TestTheScope:
     """The yearly deletion takes a pupil's data alone, every other kind at the address standing."""
 
     def test_the_pupil_scope_takes_the_pupil_and_their_registrations_and_nothing_else(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
             await erased_in_scope(database, client, frozenset({"spieler"}))
 
             return (
@@ -881,12 +974,13 @@ class TestEachStepWritesWhatItDeclares:
     def test_the_collections_each_step_writes_are_the_ones_it_declares(self, mongo_replica_set_url: str):
         """`reaches` is what the completeness case in `tests/core/test_domain.py` trusts; here it is held to the writes themselves.
 
-        The seed gives every step something to write in each collection it declares.
+        The seed and a grant of the person's own give every step something to write in each collection it declares.
         """
 
         writes: dict[str, set[str]] = {}
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
             recorded = {name: WritesRecorded(handle, writes) for name, handle in the_collections(database).items()}
             await erased_in_scope(database, client, JEDE_PERSONENGRUPPE, **recorded)
 
@@ -1027,6 +1121,7 @@ class TestThePreview:
 
     def test_it_names_every_record_the_erasure_reaches(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
             async with app_client(mongo_replica_set_url, app=_app(), now=NOW) as http:
                 return await http.get(f"{PATH}/ansicht", headers=as_person(TYPED))
 
@@ -1041,5 +1136,5 @@ class TestThePreview:
         ]
         assert answer["bewerbungen"] == [{"saison_id": SAISON_ID, "rolle": "trainer", "vorname": VORNAME, "nachname": NACHNAME}]
         assert answer["registrierungen"] == [{"saison_id": SAISON_ID, "team_name": "Heim-Schule", "vorname": VORNAME, "nachname": NACHNAME}] * 2
-        assert (answer["adresswechsel"], answer["verwaltung"]) == (2, "owner")
+        assert (answer["adresswechsel"], answer["verwaltung"]) == (2, "administration")
         assert "@" not in response.text and GEBURTSDATUM not in response.text

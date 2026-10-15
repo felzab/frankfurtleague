@@ -379,7 +379,9 @@ Every ruling below is the sign-up flow as it stands for the next season.
 - **Anyone — player, referee, contact person, administrator — can have their data deleted, with
   the least asymmetry between roles.** The mechanisms today are a person's own
   `POST /identitaet/selbst/erasure`, which reaches every record the address holds in one write
-  (`docs/backend/spec.md :: I663`), and the administrator's `DELETE /spieler/{spieler_id}/erasure`,
+  (`docs/backend/spec.md :: I663`) and refuses only the administration's last live owner, until they
+  make another administrator an owner (`:: I479`), and the administrator's
+  `DELETE /spieler/{spieler_id}/erasure`,
   `POST /kontakte/erasure` and `POST /schiedsrichter/{schiedsrichter_id}/anonymisieren`; the one-off drop of
   [section 3](#3-the-current-pupil-records-are-reset-once) empties the name on every fixture it
   repoints, so it leaves no name with no row behind it. The referee path deletes the document
