@@ -608,7 +608,7 @@ describe("the confirmation's refusals against the codes its endpoint publishes",
      toast, which names neither the field to fix nor the panel that would explain the dead link. */
   it("maps every code the confirmation publishes", () => {
     for (const code of publishedRefusals(CONFIRM_OPERATION)) {
-      const answered = answerShown(CONFIRM_OPERATION, code, (error) => mapEinwilligungRefusal(error, VERTRETUNG_MIN_ALTER));
+      const answered = answerShown(CONFIRM_OPERATION, code, (error) => mapEinwilligungRefusal(error, VERTRETUNG_MIN_ALTER, null));
       assert.notEqual(answered, null, `${code} reaches the contact person unmapped`);
     }
   });
@@ -628,7 +628,7 @@ describe("the confirmation's refusals against the codes its endpoint publishes",
     const answers = new Map(
       publishedRefusals(CONFIRM_OPERATION).map((code) => [
         code,
-        JSON.stringify(mapEinwilligungRefusal(refusedOn(CONFIRM_OPERATION, code), VERTRETUNG_MIN_ALTER)),
+        JSON.stringify(mapEinwilligungRefusal(refusedOn(CONFIRM_OPERATION, code), VERTRETUNG_MIN_ALTER, null)),
       ]),
     );
 
@@ -642,7 +642,7 @@ describe("the confirmation's refusals against the codes its endpoint publishes",
   /* One code covers a confirmation and a decline alike, so a state picked here tells a seat that
      declined in another window that it confirmed. Which way it went is the ansicht read's to say. */
   it("asks its caller to read the already-answered link rather than naming a state", () => {
-    const mappedRefusal = mapEinwilligungRefusal(publishedOn(CONFIRM_OPERATION, "REQ-BEWERBUNG-011"), VERTRETUNG_MIN_ALTER);
+    const mappedRefusal = mapEinwilligungRefusal(publishedOn(CONFIRM_OPERATION, "REQ-BEWERBUNG-011"), VERTRETUNG_MIN_ALTER, null);
 
     assert.equal(mappedRefusal?.nachlesen, true, "the already-answered refusal no longer asks for the read");
     assert.equal(mappedRefusal?.zustand, undefined, "one code picked a panel it has no way to tell from the other");
@@ -653,7 +653,7 @@ describe("the confirmation's refusals against the codes its endpoint publishes",
      here would replace a live form with a dead-link panel and lose the date the person typed. */
   it("answers the age refusal at the field, naming the floor it was given and never a state", () => {
     for (const floor of [BEWERBUNG_MIN_ALTER, VERTRETUNG_MIN_ALTER]) {
-      const mappedRefusal = mapEinwilligungRefusal(publishedOn(CONFIRM_OPERATION, "REQ-BEWERBUNG-012"), floor);
+      const mappedRefusal = mapEinwilligungRefusal(publishedOn(CONFIRM_OPERATION, "REQ-BEWERBUNG-012"), floor, null);
       const gesagt = mappedRefusal?.fieldErrors?.geburtsdatum ?? "";
 
       assert.equal(mappedRefusal?.zustand, undefined, "a refusal the token survives closed the form anyway");
@@ -676,14 +676,14 @@ describe("the confirmation's refusals against the codes its endpoint publishes",
      answer names no box, nothing here knowing which one broke, and reopens the mail's link, the page
      having stripped its token. */
   it("answers a body refusal naming no field with the mail's link, pointing at no field", () => {
-    const mappedRefusal = mapEinwilligungRefusal(refusedPayload([], "/bewerbungen"), VERTRETUNG_MIN_ALTER);
+    const mappedRefusal = mapEinwilligungRefusal(refusedPayload([], "/bewerbungen"), VERTRETUNG_MIN_ALTER, null);
 
     assert.deepEqual(mappedRefusal, { error: ANTWORT_NEU_OEFFNEN });
   });
 
   /* A body the API could not read at all is the same drifted client, and a retry sends the same bytes. */
   it("answers a body the API could not read with the mail's link", () => {
-    assert.deepEqual(mapEinwilligungRefusal(refusedOn(CONFIRM_OPERATION, "REQ-VAL-002"), VERTRETUNG_MIN_ALTER), {
+    assert.deepEqual(mapEinwilligungRefusal(refusedOn(CONFIRM_OPERATION, "REQ-VAL-002"), VERTRETUNG_MIN_ALTER, null), {
       error: ANTWORT_NEU_OEFFNEN,
     });
   });
@@ -692,6 +692,7 @@ describe("the confirmation's refusals against the codes its endpoint publishes",
     const mappedRefusal = mapEinwilligungRefusal(
       refusedPayload([bodyField(["geburtsdatum"], "date_from_datetime_parsing")], "/bewerbungen"),
       VERTRETUNG_MIN_ALTER,
+      null,
     );
 
     assert.deepEqual(mappedRefusal, { fieldErrors: { geburtsdatum: FELD_ABGELEHNT }, unplacedError: ANTWORT_NEU_OEFFNEN });
@@ -702,7 +703,7 @@ describe("which wording an answer may be stored under", () => {
   /* The backend judges the label (`docs/backend/spec.md :: I550`): a page opened before a deploy moved
      it shows words other than those the backend runs, and only the mail's link reopens the page on them. */
   it("answers the backend's refusal of the label with the mail's link, saying the words moved", () => {
-    assert.deepEqual(mapEinwilligungRefusal(refusedOn(CONFIRM_OPERATION, "REQ-EINWILLIGUNG-001"), VERTRETUNG_MIN_ALTER), {
+    assert.deepEqual(mapEinwilligungRefusal(refusedOn(CONFIRM_OPERATION, "REQ-EINWILLIGUNG-001"), VERTRETUNG_MIN_ALTER, null), {
       error: FASSUNG_NEU_OEFFNEN,
     });
   });

@@ -152,9 +152,24 @@ describe("the contact seat's confirmation handler", () => {
     assert.deepEqual(answer.body, { success: false, fieldErrors: { geburtsdatum: alterAusserhalb(18) } });
   });
 
-  /* Spends nothing, as the age refusal does: the form stays, and the sentence names the switch that repairs it. */
-  it("answers the media refusal with its own sentence, keeping the form", async () => {
+  /* Spends nothing, as the age refusal does: the form stays, and the sentence names the switch that repairs
+     it and the floor the link's view serves, 21 being no floor served today. */
+  it("answers the media refusal at the media floor the link's view serves, keeping the form", async () => {
     schreibAntwort = () => aRefusal("REQ-EINWILLIGUNG-002");
+    ansichtAntwort = () => ({ ...ANSICHT, medien_mindestalter: 21 });
+
+    const answer = await bodyOf(aRequest(gueltigerKoerper));
+
+    assert.deepEqual(answer.body, {
+      success: false,
+      error: "Fotos, Videos und Interviews kannst Du erst ab 21 Jahren erlauben. Schalte die Erlaubnis aus und bestätige erneut.",
+    });
+  });
+
+  /* A view that could not be read serves no floor, and a number of the handler's own could name the wrong one. */
+  it("answers the media refusal naming no age where the link's view cannot be read", async () => {
+    schreibAntwort = () => aRefusal("REQ-EINWILLIGUNG-002");
+    ansichtAntwort = () => new Error("the view went unanswered");
 
     const answer = await bodyOf(aRequest(gueltigerKoerper));
 

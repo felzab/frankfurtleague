@@ -16,7 +16,10 @@ export const SEITE_VERALTET = "Diese Seite ist nicht mehr aktuell. Lade sie neu 
  */
 export const medienZuJung = (alter: number): string => `Fotos, Videos und Interviews kannst Du erst ab ${String(alter)} Jahren erlauben.`;
 
-/** The floor a granting record's control binds to its write, read only to word `medienZuJung`. */
+/**
+ * A record's served media floor, in one shape for the account page's read and for the argument a granting
+ * control binds to its write, which only words `medienZuJung`: a floor the writes refuse fails the read.
+ */
 export const MedienMindestalterSchema = z.int().positive();
 
 // `REQ-FUNKTION-001` on a record admitting a grant: the address holds no such record of its own now.
@@ -31,13 +34,10 @@ export const BEWERBUNG_NICHT_MEHR_OFFEN =
 export const REGISTRIERUNG_NICHT_MEHR_OFFEN =
   "Diese Registrierung ist nicht mehr offen. Lade die Seite neu. Dort steht, was jetzt für Dich gilt.";
 
-/** A withdraw-only record's reason where its words carry none, asking no reload: a refused write adds one. */
-export const NUR_ZURUECKNEHMEN = "Hier kannst Du eine Erlaubnis nur zurücknehmen.";
-
 // A grant on the person's own record that takes a withdrawal alone (`REQ-EINWILLIGUNG-004`): the page
 // offers none there, so a page drawn before the record stopped admitting one sent it, and a refused write
 // never refreshes the page.
-export const NUR_WIDERRUF = `${NUR_ZURUECKNEHMEN} Lade die Seite neu.`;
+export const NUR_WIDERRUF = "Hier kannst Du eine Erlaubnis nur zurücknehmen. Lade die Seite neu.";
 
 // A grant past the person's ceiling for the day (`REQ-DROSSELUNG-001`): the count starts again at
 // German midnight, and a withdrawal is never counted, so the page says both.

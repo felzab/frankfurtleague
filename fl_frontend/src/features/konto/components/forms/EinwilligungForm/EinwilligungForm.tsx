@@ -15,7 +15,7 @@ import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { focusAfterWrite, focusSlot } from "@/shared/utils/focusAfterWrite";
 
-import { medienZuJung, NUR_ZURUECKNEHMEN, WAHL_GESPEICHERT, WAHL_NICHT_GESPEICHERT } from "../../../einwilligung";
+import { medienZuJung, WAHL_GESPEICHERT, WAHL_NICHT_GESPEICHERT } from "../../../einwilligung";
 
 import type { FLEinwilligung, FLEinwilligungStand } from "@/features/spieler/schemas";
 import type { FLKontaktKenntnisnahme } from "@/features/teams/schemas";
@@ -66,11 +66,18 @@ export type EinwilligungWorte<U extends Umfang = Umfang> = {
   /** With the scope it writes on and off, so a person's words cannot carry one. */
   readonly whatsapp?: { readonly schalter: string; readonly an: U & SitzUmfang; readonly aus: U & SitzUmfang; readonly absatz: ReactNode };
   readonly medien: { readonly schalter: string; readonly absatz: ReactNode };
-  /** Why a record offers a withdrawal alone where its person would look for a grant too, read with every control. */
-  readonly nurWiderruf?: string;
   /** What a change takes effect from. */
   readonly widerruf: ReactNode;
 };
+
+/**
+ * Whether the record admits a grant, with its words. One granting no panel takes a withdrawal alone, never
+ * closed, and its words say why, read with every control, so a closed grant without a reason fails the
+ * type check.
+ */
+export type Gewaehrung<U extends Umfang = Umfang> =
+  | { readonly erteilbar: true; readonly worte: EinwilligungWorte<U> & { readonly nurWiderruf?: never } }
+  | { readonly erteilbar: false; readonly worte: EinwilligungWorte<U> & { readonly nurWiderruf: string } };
 
 /** What a press sends: the whole record's choices, so moving one never resets the other. */
 export type EinwilligungAntwort<U extends Umfang = Umfang> = EinwilligungWahl<U> & {
@@ -120,8 +127,7 @@ function GrantSchalter({
 }
 
 /** One record's control, typed by the record's own scope `U`. */
-export type EinwilligungFormProps<U extends Umfang> = {
-  worte: EinwilligungWorte<U>;
+export type EinwilligungFormProps<U extends Umfang> = Gewaehrung<U> & {
   /** The record as the page read it; the controls show it again once a press has been answered. */
   gespeichert: EinwilligungWahl<U>;
   /** The stand the page was served with the record. */
@@ -130,8 +136,6 @@ export type EinwilligungFormProps<U extends Umfang> = {
   medienAngeboten: boolean;
   /** The media floor the record's entry serves, which a grant refused below it names. */
   medienMindestalter: number;
-  /** Whether the record admits a grant; one that grants no panel takes a withdrawal alone, which is never closed. */
-  erteilbar: boolean;
   /** Typed by the record's own payload, so a field its write's mirror gains fails the page that binds it. */
   speichereAction: (antwort: EinwilligungAntwort<U>) => Promise<Gespeichert | ActionFailure>;
 };
@@ -175,7 +179,7 @@ export function EinwilligungForm<U extends Umfang>({
 
   // Why a closed grant is closed, for a press queued behind a landed withdrawal, whose refresh draws the
   // switch closed, so no reload is asked. On a record admitting a grant, only the media consent below the age closes.
-  const grund = (): string => (erteilbar ? medienZuJung(medienMindestalter) : (worte.nurWiderruf ?? NUR_ZURUECKNEHMEN));
+  const grund = (): string => (erteilbar ? medienZuJung(medienMindestalter) : worte.nurWiderruf);
 
   // Every control on a withdraw-only record is read with its reason, a closed one and an open one alike.
   const beschreibung = (...eigene: string[]): string | undefined => {
