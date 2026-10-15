@@ -1061,6 +1061,16 @@ process.exit(said.hookEventName === "SessionStart" && pointers && /REGISTER-one\
   if [[ "$messages_said" == *'"additionalContext":"The messages hook found no uv'* ]]; then
     info 'messages hook: no uv — told to the coordinator'
   else note_fail "messages hook: with no uv it must tell the coordinator, got '${messages_said:0:200}'"; fi
+  # A uv refusing to start reg.py, as it does under a `required-version` it does not meet, reaches no
+  # line of reg.py, so only the hook can say so.
+  mkdir -p "${SELFCHECK_TMP}/refusing-uv"
+  printf '#!/usr/bin/env bash\nexit 2\n' > "${SELFCHECK_TMP}/refusing-uv/uv"
+  chmod +x "${SELFCHECK_TMP}/refusing-uv/uv"
+  messages_said="$(printf '%s' '{"session_id":"probe-1","tool_name":"SendMessage","tool_input":{"to":"W","message":"x"}}' |
+    PATH="${SELFCHECK_TMP}/refusing-uv:${PATH}" "$BASH" "$MESSAGES_HOOK" 2>&1)" || messages_said="exit $? ${messages_said}"
+  if [[ "$messages_said" == *"\"additionalContext\":\"The messages hook's uv run exited 2"* ]]; then
+    info 'messages hook: uv refusing to start — told to the coordinator'
+  else note_fail "messages hook: with uv refusing to start it must tell the coordinator, got '${messages_said:0:200}'"; fi
   if ! command -v uv >/dev/null 2>&1; then
     if [[ -n "${GITHUB_ACTIONS:-}" ]]; then note_fail "uv is absent, and this is CI, which installs it for every python scope"
     else note_skip "the messages hook's probe did not run: uv is absent, and the hook records through it"; fi

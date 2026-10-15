@@ -21,4 +21,13 @@ root="$(cd "${here}/../.." && pwd)"
 
 printf '%s' "$payload" | uv run --quiet --project "${root}/fl_backend" --frozen python \
   "${root}/.claude/skills/orchestration/tools/reg.py" message "${HOME}/.claude/plans"
+status=$?
+
+# reg.py tells of its own failures; uv refusing to start it, a `required-version` this uv does not
+# meet among them, reaches none of its lines, so the status is read here. Still exit 0: the send went.
+if (( status != 0 )); then
+  [[ "$payload" =~ \"agent_id\"[[:space:]]*: ]] && exit 0
+  printf '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"%s"}}' \
+    "The messages hook's uv run exited ${status}, so this message is in no messages file; uv's error is on the hook's stderr."
+fi
 exit 0
