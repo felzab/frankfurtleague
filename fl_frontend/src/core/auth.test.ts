@@ -3657,6 +3657,28 @@ describe("a person's own account deletion", () => {
     assert.deepEqual([held.user, held.sessions, held.passkeys], [1, 1, 1]);
   });
 
+  /* The library reads an empty token as a request for a new link, which it mints and mails: a caller passing
+     one through was told of a deletion while a fresh link went out instead. */
+  it("answers an empty token as no link, mailing, erasing and deleting nothing", async () => {
+    const person = await seedAccount("leerer-link@example.org");
+    const erasures: string[] = [];
+    const mailed = sent.length;
+    const tokens = store.verification.filter((held) => held.identifier.startsWith("delete-account-")).length;
+
+    const answer = await asPerson("leerer-link@example.org", () =>
+      deleteOwnAccount("", new Headers({ ...ORIGIN, cookie: person.cookie }), () => {
+        erasures.push("erased");
+        return Promise.resolve({});
+      }),
+    );
+
+    assert.equal(answer, "linkRefused");
+    assert.equal(sent.length, mailed, "an empty token mailed a new link");
+    assert.equal(store.verification.filter((held) => held.identifier.startsWith("delete-account-")).length, tokens);
+    assert.deepEqual(erasures, []);
+    assert.equal(heldOf(person).user, 1);
+  });
+
   /* The library spends the token before it compares whose it is, so a forwarded link opened by another
      signed-in account is lost to its holder; nothing of either account is erased or deleted. */
   it("refuses a link minted for another account, erasing and deleting nothing", async () => {

@@ -803,6 +803,14 @@ class DeletionWithoutErasure extends Error {
   override name = "DeletionWithoutErasure";
 }
 
+/** The library's answer to a link it completed (`better-auth/api :: deleteUser`), its one answer that deletes. */
+const ACCOUNT_DELETED = "User deleted";
+
+/** A deletion the library answered with something other than a deletion, which no caller may read as one. */
+class DeletionNotAnswered extends Error {
+  override name = "DeletionNotAnswered";
+}
+
 // Our own dependency injection, never a compensation for the library: the hook takes no per-call
 // value, the backend's write lives in a slice's mutations module, and `core` imports no slice.
 /** The erasure of the league's records one press hands `deleteOwnAccount`, for the deletion that call makes. */
@@ -1840,8 +1848,13 @@ export async function deleteOwnAccount(
   requestHeaders: Headers,
   eraseRecords: () => Promise<unknown>,
 ): Promise<OwnAccountDeletion> {
+  // The library reads an empty token as a request for a new link, which it would mint and mail: no link at all.
+  if (token === "") return "linkRefused";
+
   try {
-    await ownErasure.run(eraseRecords, () => auth.api.deleteUser({ body: { token: token }, headers: requestHeaders }));
+    const answer = await ownErasure.run(eraseRecords, () => auth.api.deleteUser({ body: { token: token }, headers: requestHeaders }));
+    // The library's own word for a deletion, never the absence of a throw: its one other answer mails a link.
+    if (answer.message !== ACCOUNT_DELETED) throw new DeletionNotAnswered();
     return "deleted";
   } catch (failed) {
     // The library's own refusals alone: a token spent, lapsed or another account's -- spent all the same
