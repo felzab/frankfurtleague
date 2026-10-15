@@ -103,7 +103,6 @@ const ANSWERED_BY: Readonly<Record<string, Mapper>> = {
   "PATCH /spiele/{spiel_id}": spiele.mapSpielRefusal,
   // Written by the match undo's replay alone.
   "PATCH /spiele/paarungen": (error) => replayRefusal(error, spiele.PAARUNGEN_REPLAY_REFUSALS) ?? null,
-  "DELETE /spieler/{spieler_id}/erasure": spieler.mapErasureRefusal,
   "GET /spieler/kader/{team_id}/{saison_id}": TEAM_FORBIDDEN_PANEL,
   "PATCH /spieler/kader/{team_id}/{saison_id}/{spieler_id}": spieler.mapKaderZeileRefusal,
   "DELETE /spieler/kader/{team_id}/{saison_id}/{spieler_id}": SHARED_READER,

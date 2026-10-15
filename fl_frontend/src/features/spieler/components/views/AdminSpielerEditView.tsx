@@ -9,7 +9,7 @@ import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
  * Every exit routes through the form's discard guard.
  *
  * **The header owns the PERSON's retirement, the form's foot the squad row's** — two controls that
- * read alike invite the wrong one. The erasure is neither, and sits below both.
+ * read alike invite the wrong one.
  */
 import { useReactivation } from "@/shared/hooks/useReactivation";
 
@@ -22,7 +22,6 @@ export function AdminSpielerEditView({
   istFassungBekannt,
   saison,
   teams,
-  membershipCount,
 }: {
   spieler: { id: string; vorname: string; nachname: string | null; inactive_since: string | null; geburtsdatum: string | null };
   einwilligung: FLEinwilligung | null;
@@ -31,8 +30,6 @@ export function AdminSpielerEditView({
   saison: SpielerSaisonMembership;
   /** The selected season's teams, for the picker and for reading a `team_id` as a name. */
   teams: SpielerTeamOption[];
-  /** Squad rows across EVERY season, for the erasure panel — this page shows one season's. */
-  membershipCount: number;
 }) {
   const { isReactivating, reactivate } = useReactivation({ action: reactivateSpielerAction, noun: "Spieler" });
 
@@ -47,7 +44,6 @@ export function AdminSpielerEditView({
         istFassungBekannt={istFassungBekannt}
         saison={saison}
         teams={teams}
-        membershipCount={membershipCount}
         pageHeader={{
           title: fullName,
           // Retirement outranks the number: the number is a field of the form below, the day is nowhere else.

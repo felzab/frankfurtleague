@@ -105,14 +105,6 @@ export const RETIREMENT_CONSEQUENCE =
 export const RETIREMENT_KEEPS_SQUAD_ROWS = "Die Kadereinträge dieser Person bleiben erhalten.";
 
 /**
- * `REQ-PURGE-001` in German, said once — the REPAIR rather than the state, which the Callout beside
- * the control carries. A race, somebody reactivating the player in another tab, then toasts the
- * sentence that control already showed.
- */
-export const ERASURE_NEEDS_RETIREMENT =
-  "Lege die Person zuerst still, in der Spielerliste über „Stilllegen“ in ihrer Zeile. Danach lässt sie sich endgültig löschen.";
-
-/**
  * `REQ-SQUAD-001` in German for a reader standing where it is repaired — the REPAIR rather than the
  * state, which the banner beside the control carries. `actions.ts` words it for a reader elsewhere,
  * and one sentence cannot point both ways.

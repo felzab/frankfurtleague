@@ -142,7 +142,6 @@ const M = {
   sperre: "features/sperrliste/components/forms/AdminSperreAufhebenPanel.tsx",
   zugangEntziehen: "features/berechtigungen/components/forms/AdminBerechtigungEntziehenPanel.tsx",
   zugangStufe: "features/berechtigungen/components/forms/AdminBerechtigungStufePanel.tsx",
-  spielerLoeschen: "features/spieler/components/forms/AdminSpielerEditForm/FormLoeschenSection.tsx",
   einladung: "features/teams/components/forms/AdminTeamEditForm/FormEinladungSection.tsx",
   saison: "features/teams/components/forms/AdminTeamEditForm/FormSaisonSection.tsx",
   registrierungen: "features/registrierungen/components/collections/RegistrierungenList.tsx",
@@ -166,7 +165,6 @@ const C = {
   sperre: await component(M.sperre, "AdminSperreAufhebenPanel"),
   zugangEntziehen: await component(M.zugangEntziehen, "AdminBerechtigungEntziehenPanel"),
   zugangStufe: await component(M.zugangStufe, "AdminBerechtigungStufePanel"),
-  spielerLoeschen: await component(M.spielerLoeschen, "FormLoeschenSection"),
   einladung: await component(M.einladung, "FormEinladungSection"),
   saison: await component(M.saison, "FormSaisonSection"),
   registrierungen: await component(M.registrierungen, "RegistrierungenList"),
@@ -481,18 +479,6 @@ const PANELS: Record<string, Arming[]> = {
           }),
         ),
       resting: "Mich zur Verwaltung herabstufen",
-    },
-  ],
-  [M.spielerLoeschen]: [
-    {
-      render: () =>
-        underNext(
-          el(C.spielerLoeschen, { spielerId: "68c1f0a2b3c4d5e6f7a8b9c0", fullName: "Lena Meier", isRetired: true, membershipCount: 2 }),
-          {
-            search: "saison_id=2026",
-          },
-        ),
-      resting: "Spieler endgültig löschen",
     },
   ],
   [M.einladung]: [

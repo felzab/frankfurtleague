@@ -562,7 +562,6 @@ the other refuses.
 | `replaceSaisonTeamAction`               | teams           | `spiele`, `teams`, `spieler`, + `spiele:saison_id:{id}`, `teams:saison_id:{id}`                |
 | `patchSpielerAction`                    | spieler         | `spieler`                                                                                      |
 | `deleteSpielerAction`                   | spieler         | `spieler`                                                                                      |
-| `eraseSpielerAction`                    | spieler         | `spieler`                                                                                      |
 | `reactivateSpielerAction`               | spieler         | `spieler`                                                                                      |
 | `postSaisonSpielerAction`               | spieler         | `spieler`                                                                                      |
 | `patchSaisonSpielerAction`              | spieler         | `spieler`                                                                                      |
@@ -675,7 +674,7 @@ page-owned editor — `kontakte`'s erasure from inside the seat holding the pers
 an ADDRESS rather than on the seat it stands in, so it reaches every season's junction row, every
 application and the log
 (`fl_backend/app/api/kontakte/admin_router.py :: erase_kontaktperson`). **These of its writes are
-irreversible** — a pupil's erasure, a referee's anonymisation, a contact person's erasure, the
+irreversible** — a referee's anonymisation, a contact person's erasure, the
 replacement of a club on a season's junction row, the draw's `replace`, the undraw beside it, the
 rollover's close of the outgoing season and the triage's decisions
 ([`docs/backend/spec.md`](../backend/spec.md#11-endpoint-inventory)). Each destroys or hands on
@@ -1747,7 +1746,8 @@ alike:**
   second press. A control that leaves the page is I68's and stays disabled while it goes, and a press
   that WRITES and only then leaves is pending rather than disabled: react-aria hands `useHover` the
   pending flag beside the disabled one, so I68's hover ends either way, and only `isPending` keeps the
-  focus the press was made with (`fl_frontend/src/features/spieler/components/forms/AdminSpielerEditForm/FormLoeschenSection.tsx`).
+  focus the press was made with (an editor's save,
+  `fl_frontend/src/shared/components/ui/FormActionBar.tsx :: FormActionBar`).
 - **A panel's action closed until the reader picks, types or changes something, or by a condition
   standing on the page, carries that reason in the `refusal` mode of
   `fl_frontend/src/shared/components/ui/Hint.tsx :: Hint`**, laid over the button, and never in a

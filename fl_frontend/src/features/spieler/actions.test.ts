@@ -17,16 +17,13 @@ import { pageBody } from "@/shared/testing/pageHarness.ts";
 import { answerShown, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { refusalWrappers, renderTree } from "@/shared/testing/renderTest.ts";
 import { spokenText } from "@/shared/testing/spokenText.ts";
-import { pressTwice } from "@/shared/testing/twoPress.ts";
-import { withSaisonId } from "@/shared/utils/saisonHref.ts";
 
 import {
-  ERASURE_NEEDS_RETIREMENT,
   LIST_REACTIVATION_NEEDS_A_TEAM_IN_SAISON,
   REACTIVATION_NEEDS_A_TEAM_IN_SAISON,
   REACTIVATION_NEEDS_ROOM_IN_SQUAD,
 } from "./constants.ts";
-import { mapAlreadyInSaisonRefusal, mapErasureRefusal, mapSquadRefusal } from "./refusals.ts";
+import { mapAlreadyInSaisonRefusal, mapSquadRefusal } from "./refusals.ts";
 
 import type { ReactElement, ReactNode } from "react";
 import type { FLSpielerRolle } from "./schemas.ts";
@@ -50,7 +47,6 @@ beforeEach(() => {
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { FormAustragenSection } = await import("./components/forms/AdminSpielerEditForm/FormAustragenSection.tsx");
-const { FormLoeschenSection } = await import("./components/forms/AdminSpielerEditForm/FormLoeschenSection.tsx");
 const { AdminSpielerEditForm } = await import("./components/forms/AdminSpielerEditForm/AdminSpielerEditForm.tsx");
 const { AdminSpielerTable } = await import("./components/collections/AdminSpielerTable.tsx");
 const { TeamSelect } = await import("./components/forms/TeamSelect.tsx");
@@ -154,7 +150,6 @@ function renderEditor({
           },
         },
         teams,
-        membershipCount: 1,
         pageHeader: { title: "Lena Meier" },
       }),
     ),
@@ -171,7 +166,6 @@ async function pickTeam(user: ReturnType<typeof userEvent.setup>, team: SpielerT
   assert.ok(screen.getByRole("button", TEAM_PICKER).textContent.includes(team.name), "the pick never landed, so nothing after it is judged");
 }
 
-const ERASURE_OPERATION = "DELETE /spieler/{spieler_id}/erasure";
 const ENTRY_OPERATION = "POST /spieler/{spieler_id}/saisons";
 const SQUAD_PATCH_OPERATION = "PATCH /spieler/{spieler_id}/saisons/{saison_id}";
 const REACTIVATE_ROW_OPERATION = "POST /spieler/{spieler_id}/saisons/{saison_id}/reactivate";
@@ -180,17 +174,6 @@ const REACTIVATE_ROW_OPERATION = "POST /spieler/{spieler_id}/saisons/{saison_id}
 const squadAnswer = (code: string) => mapSquadRefusal(refusedOn(SQUAD_PATCH_OPERATION, code));
 
 describe("the player actions against the codes their endpoints publish", () => {
-  /* `DELETE /spieler/{spieler_id}` is a prefix of the erasure's operation, and the erasure's mapper
-     answers its own set alone. */
-  it("maps every refusal the erasure endpoint publishes", () => {
-    const published = publishedRefusals(ERASURE_OPERATION);
-
-    assert.deepEqual(published, ["REQ-PURGE-001"]);
-    for (const code of published) {
-      assert.notEqual(answerShown(ERASURE_OPERATION, code, mapErasureRefusal), null, `${code} reaches the admin as an unhandled conflict`);
-    }
-  });
-
   /* The squad's rules first and the unique index after, whose mapper answers every 409 it is handed:
      pinned, so a rule published later fails here rather than reading as a repeat row. */
   it("maps every refusal the squad entry publishes", () => {
@@ -209,149 +192,6 @@ describe("the player actions against the codes their endpoints publish", () => {
     for (const code of publishedRefusals(REACTIVATE_ROW_OPERATION)) {
       assert.notEqual(answerShown(REACTIVATE_ROW_OPERATION, code, mapSquadRefusal), null, `${code} reaches the admin as an unhandled conflict`);
     }
-  });
-});
-
-/** The erasure panel at rest, for a person retired or still in the league. */
-const loeschenPanel = (isRetired: boolean): string =>
-  renderTree(underSaison(h(FormLoeschenSection, { spielerId: SPIELER_ID, fullName: "Lena Meier", isRetired, membershipCount: 2 })));
-
-const ERASE_LABEL = "Spieler endgültig löschen";
-
-describe("REQ-PURGE-001 as the admin reads it", () => {
-  /* One string, imported by the mapper and by the control that disables itself on it: a race —
-     somebody reactivating the player in another tab — must read as the state the page already showed. */
-  it("is stated once and reused by both", () => {
-    assert.equal(
-      mapErasureRefusal(refusedOn(ERASURE_OPERATION, "REQ-PURGE-001")),
-      ERASURE_NEEDS_RETIREMENT,
-      "the mapper words the refusal its own way",
-    );
-    assert.equal(refusalNamed(loeschenPanel(false), ERASE_LABEL), ERASURE_NEEDS_RETIREMENT, "the panel words the refusal its own way");
-  });
-
-  it("names the repair and where it is done", () => {
-    assert.match(ERASURE_NEEDS_RETIREMENT, /still/, "the message does not name retirement as the step that comes first");
-    assert.match(ERASURE_NEEDS_RETIREMENT, /Spielerliste/, "the message does not say where a player is retired");
-    assert.match(ERASURE_NEEDS_RETIREMENT, /Stilllegen/, "the message does not name the control that does it");
-  });
-});
-
-/** The erasure panel for a retired person, mounted so a press can arm and run it. */
-function renderErasure(router = recordingRouter().router): void {
-  render(underSaison(h(FormLoeschenSection, { spielerId: SPIELER_ID, fullName: "Lena Meier", isRetired: true, membershipCount: 2 }), router));
-}
-
-const erasures = (): unknown[] => calls.filter((call) => call.action === "eraseSpielerAction").map((call) => call.payload);
-
-describe("the erasure's copy", () => {
-  it("says the person, the squad rows and the log entries all go", () => {
-    const resting = read(loeschenPanel(true));
-
-    assert.match(resting, /die Person selbst/, "the confirmation does not say the person goes");
-    assert.match(resting, /Kadereinträge/, "the confirmation does not say the squad rows go");
-    assert.match(resting, /Änderungsprotokoll/, "the confirmation does not say the log is reached");
-  });
-
-  it("arms a confirmation saying the log entries are emptied and none of it comes back", async () => {
-    renderErasure();
-    await userEvent.setup().click(screen.getByRole("button", { name: ERASE_LABEL }));
-
-    const armed = document.body.textContent;
-    assert.match(armed, /Angaben werden geleert/, "the confirmation does not say the log entries are EMPTIED rather than removed");
-    assert.match(armed, /Zurückholen lässt sich das nicht/, "the confirmation does not refuse an undo in words");
-    assert.doesNotMatch(armed, /Rückgängig/, "the armed panel offers an undo, and no endpoint can honour one");
-  });
-
-  /* The escalation is two presses, the draw's shape. One press would put a permanent removal behind
-     the same gesture as a name edit. */
-  it("arms before it writes", async () => {
-    const user = userEvent.setup();
-    renderErasure();
-
-    await pressTwice(user, {
-      resting: ERASE_LABEL,
-      armed: `Ja, ${ERASE_LABEL}`,
-      whileArmed: () => void assert.deepEqual(erasures(), [], "the first press erases rather than arming"),
-    });
-
-    assert.deepEqual(erasures(), [{ id: SPIELER_ID }], "the armed press writes nothing, or writes for another person");
-    await act(answered);
-  });
-});
-
-describe("the erasure's gate and its exit", () => {
-  /* `REQ-PURGE-001` refuses the erasure while the person is still in the league, so the press is
-     offered the other way round. Inverted, the button is live exactly where the endpoint refuses. */
-  it("offers the press only while the person is retired", () => {
-    assert.equal(
-      refusalNamed(loeschenPanel(false), ERASE_LABEL),
-      ERASURE_NEEDS_RETIREMENT,
-      "the press is offered to a person still in the league",
-    );
-    assert.equal(refusalNamed(loeschenPanel(true), ERASE_LABEL), null, "the gate reads the wrong way round");
-  });
-
-  /* This page is the erased player's own and answers not-found once the write lands, so Back must not
-     return to it, and the list it lands on keeps the season the admin was working in. */
-  it("leaves by replacing the page, never by pushing", async () => {
-    const user = userEvent.setup();
-    const { router, seen } = recordingRouter();
-    renderErasure(router);
-
-    await pressTwice(user, { resting: ERASE_LABEL, armed: `Ja, ${ERASE_LABEL}` });
-    await act(answered);
-
-    await waitFor(() =>
-      assert.deepEqual(
-        seen.replaced,
-        [withSaisonId("/bereich/admin/spieler", SAISON_ID)],
-        "the erasure does not leave the page it just emptied",
-      ),
-    );
-    assert.deepEqual(seen.pushed, [], "Back is left pointing at a page that now answers not-found");
-  });
-
-  /* Every season's rows: the erasure takes them all, so a figure narrowed to the selected season
-     understates what the press destroys — and the reader agrees to the figure. */
-  it("is handed the squad rows of every season, not the selected one's", async () => {
-    const row = (saison_id: string) => ({
-      saison_id,
-      team_id: STORED_TEAM.teamId,
-      nummer: "10",
-      position: null,
-      stufe: null,
-      ist_nachnominiert: false,
-      rolle: null,
-      inactive_since: RETIRED_ON,
-    });
-    const saison = (id: string, status: string) => ({ id, status, rules: { erlaubte_stufen: ["Q1"], max_kadergroesse: 20 } });
-
-    pageAnswers = {
-      memberships: {
-        spieler: [
-          {
-            id: SPIELER_ID,
-            vorname: "Lena",
-            nachname: "Meier",
-            inactive_since: RETIRED_ON,
-            geburtsdatum: null,
-            einwilligung: null,
-            email: null,
-            memberships: [row("2025"), row(SAISON_ID)],
-          },
-        ],
-      },
-      saisons: { saisons: [saison("2025", "finished"), saison(SAISON_ID, "active")] },
-      teams: {
-        teams: [{ id: STORED_TEAM.teamId, name: STORED_TEAM.name, shorthand: STORED_TEAM.shorthand, memberships: [{ saison_id: SAISON_ID }] }],
-      },
-    };
-
-    render(underSaison(await editorPageBody()));
-    await userEvent.setup().click(screen.getByRole("button", { name: ERASE_LABEL }));
-
-    assert.equal(screen.getByText("Kadereinträge").nextElementSibling?.textContent, "2", "the figure is narrowed to the selected season's row");
   });
 });
 
@@ -863,7 +703,6 @@ describe("the late-entry marker, which the backend derives", () => {
           einwilligung: null,
           saison: { saisonId: SAISON_ID, saisonStatus: "active", erlaubteStufen: ["Q1"], nachnominierungLaeuft, membership: null },
           teams: [STORED_TEAM],
-          membershipCount: 0,
           pageHeader: { title: "Lena Meier" },
         }),
       ),

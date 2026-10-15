@@ -104,7 +104,6 @@ const FRONTEND_ONLY: Record<string, string> = {
 
   FLDeleteTeamPayload: "a DELETE takes its id from the path and has no request body",
   FLDeleteSpielerPayload: "a DELETE takes its id from the path and has no request body",
-  FLEraseSpielerPayload: "a DELETE takes its id from the path and has no request body",
   FLReactivateTeamPayload: "the reactivate POST takes its id from the path and has no request body",
   FLReactivateSpielerPayload: "the reactivate POST takes its id from the path and has no request body",
   FLSaisonSpielerKeyPayload: "the junction's DELETE and reactivate take both ids from the path, with no request body",

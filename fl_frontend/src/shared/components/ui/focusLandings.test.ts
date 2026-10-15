@@ -208,7 +208,6 @@ const spielerEditor = (inactiveSince: string | null, inKader = true) =>
       membership: inKader ? { ...SQUAD, inactive_since: null } : null,
     },
     teams: SAISON_TEAMS,
-    membershipCount: 1,
   });
 
 const TEAM_RECORD = {

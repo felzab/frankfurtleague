@@ -106,8 +106,9 @@ export function FormAustragenSection({
               banners={banners}
               spot="austragen"
             />
-            {/* The reason is said on the control as well as in the banner above it, the erasure's
-                treatment. `isPending` is left out: it ends by itself. */}
+            {/* The reason is said on the control as well as in the banner above it, the treatment
+                `docs/frontend/spec.md` §1.14 gives a standing closure. `isPending` is left out: it
+                ends by itself. */}
             <FocusSlot name={KADEREINTRAG_PLACE}>
               <Hint
                 mode="refusal"
