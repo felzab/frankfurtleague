@@ -370,26 +370,57 @@ def test_a_status_no_command_knows_is_refused_by_every_command_reading_the_ledge
 
 
 @pytest.mark.parametrize(
-    ("held", "said"),
+    ("held", "said", "commands"),
     [
-        (
-            "OPENED",
-            "A-F1 is `OPENED`, no word of OPEN, ROUTED, FIXED, RULED, HANDOFF, NOT A DEFECT, MOOT: `close <status> <evidence> A-F1 --reclose`",
-        ),
-        ("FIXED (abc1234) | stray", "has 6 cells, not 5: mend its cells by hand"),
+        ("OPENED", "A-F1 is `OPENED`, no word of OPEN, ROUTED, FIXED, RULED, HANDOFF, NOT A DEFECT, MOOT: where its finding is done", True),
+        ("FIXED (abc1234) | stray", "has 6 cells, not 5: mend its cells by hand", False),
     ],
     ids=["a word a status opens", "a row of six cells"],
 )
-def test_a_status_cell_naming_no_status_whole_is_refused(tmp_path: Path, held: str, said: str) -> None:
+def test_a_status_cell_naming_no_status_whole_is_refused(tmp_path: Path, held: str, said: str, commands: bool) -> None:
     """Read by its opening letters `OPENED` was OPEN, and a row an unescaped pipe widened was no row at all.
 
-    Each refusal names the repair that works for its kind: `close` cannot rewrite a row it cannot split.
+    Each refusal names the repair that works for its kind: no command rewrites a row it cannot split.
     """
     register = _banked(tmp_path, ("A-report.md", "F1 one\n"))
     _set(register, "A-F1", held)
     done = _run("ledger", "open", str(register), "--unclosed")
     assert done.returncode == 2 and said in done.stderr, done.stderr
-    assert ("--reclose" in done.stderr) is said.endswith("--reclose`"), done.stderr
+    assert ("--reclose" in done.stderr and "--reroute" in done.stderr) is commands, done.stderr
+    assert ("--reclose" in done.stderr or "--reroute" in done.stderr) is commands, done.stderr
+
+
+def _printed(said: str, kind: str, **filled: str) -> list[str]:
+    """The repair a refusal printed for `kind`, each `<placeholder>` filled, as the arguments a shell runs."""
+    found = re.search(rf"where {kind}, `([^`]+)`", said)
+    assert found is not None, said
+    return [filled[arg[1:-1]] if ledger.PLACEHOLDER_RE.fullmatch(arg) else arg for arg in shlex.split(found[1])]
+
+
+@pytest.mark.parametrize(
+    ("kind", "filled", "after"),
+    [
+        ("its finding is done", {"status": "MOOT", "evidence": "the plan moved"}, ["MOOT (the plan moved)", "was ROUTD; FIXER"]),
+        ("it is in flight", {"agent": "FIXER"}, ["ROUTED", "FIXER; was ROUTD; FIXER"]),
+    ],
+    ids=["done", "in flight"],
+)
+def test_a_mistyped_status_is_mended_by_either_repair_its_refusal_prints(
+    tmp_path: Path, kind: str, filled: dict[str, str], after: list[str]
+) -> None:
+    """Offered a closing repair alone, a mistyped in-flight row was steered to closed, a finding nobody fixed.
+
+    Each printed line runs whole, from outside the repository, into a register whose path holds a space.
+    """
+    folder = tmp_path / "a fleet"
+    folder.mkdir()
+    register = _banked(folder, ("A-report.md", "F1 one\n"))
+    _set(register, "A-F1", "ROUTD", "FIXER")
+    refused = _run("ledger", "open", str(register), "--unclosed")
+    assert refused.returncode == 2, refused.stderr
+    mend = subprocess.run(_printed(refused.stderr, kind, **filled), cwd=tmp_path, capture_output=True, check=False)
+    assert mend.returncode == 0, mend.stderr.decode("utf-8", "replace")
+    assert _row(register, "A-F1")[3:] == after
 
 
 def test_a_row_has_one_owner_until_it_is_rerouted(tmp_path: Path) -> None:
@@ -417,15 +448,21 @@ def test_a_routed_row_carrying_a_note_routes_to_its_owner_again(tmp_path: Path) 
 
 
 @pytest.mark.parametrize(
-    ("row", "held", "said"),
-    [("A-F9", "OPEN", "is no ledger row"), ("A-F1", "MOOT", "only an OPEN row"), ("A-F1", "ENDING", "A-F1 is `ENDING`")],
-    ids=["no such row", "a closed row", "a status no command knows"],
+    ("row", "held", "flags", "said"),
+    [
+        ("A-F9", "OPEN", (), "is no ledger row"),
+        ("A-F1", "MOOT", (), "only an OPEN row"),
+        ("A-F1", "MOOT", ("--reroute",), "only an OPEN row"),
+        ("A-F1", "ENDING", (), "A-F1 is `ENDING`"),
+    ],
+    ids=["no such row", "a closed row", "a closed row rerouted", "a status no command knows"],
 )
-def test_a_route_naming_a_row_it_cannot_take_moves_none(tmp_path: Path, row: str, held: str, said: str) -> None:
+def test_a_route_naming_a_row_it_cannot_take_moves_none(tmp_path: Path, row: str, held: str, flags: tuple[str, ...], said: str) -> None:
+    """`--reroute` lifts the refusal of a word no command knows, and never a closed row's evidence."""
     register = _banked(tmp_path, ("A-report.md", "F1 one\n\nF2 two\n"))
     _set(register, "A-F1", held, "its evidence")
     before = register.read_bytes()
-    done = _run("ledger", "route", str(register), "FIXER-1", "A-F2", row)
+    done = _run("ledger", "route", str(register), "FIXER-1", "A-F2", row, *flags)
     assert done.returncode == 2 and said in done.stderr
     assert register.read_bytes() == before
 
