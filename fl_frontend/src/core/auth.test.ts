@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
+import path from "node:path";
 import { after, afterEach, beforeEach, describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
@@ -24,6 +26,7 @@ import {
 import { ENROLMENT_WINDOW_MS, STEP_UP_WINDOW_MS } from "./sessionLifetimes.ts";
 import { answerAt, NO_RECORDS, SITZ } from "./subjectFixtures.ts";
 import { assertionFor, COSE_KEY, CREDENTIAL_ID, CREDENTIAL_RAW_ID, registrationFor } from "./testAuthenticator.ts";
+import { filesUnder, isTestFile } from "./treeWalk.ts";
 
 import type { MemoryDB } from "better-auth/adapters/memory";
 import type { MemoryStore, SessionRow } from "./authDoubles.ts";
@@ -3655,6 +3658,19 @@ describe("a person's own account deletion", () => {
     assert.deepEqual(erasures, ["asked"], "the backend was never asked, so the refusal proves nothing");
     const held = heldOf(person);
     assert.deepEqual([held.user, held.sessions, held.passkeys], [1, 1, 1]);
+  });
+
+  /* The eraser is whatever its caller hands in, so a second production caller could delete an account
+     erasing nothing: the action sending the backend's own erasure is the one that may call it. Named
+     anywhere else, a comment included, it fails here. */
+  it("is reached in production from the deletion's own action alone", () => {
+    const src = path.resolve(import.meta.dirname, "..");
+    const naming = filesUnder(src, (name) => /\.tsx?$/.test(name) && !isTestFile(name), 200)
+      .filter((file) => /\bdeleteOwnAccount\b/.test(readFileSync(file, "utf8")))
+      .map((file) => path.relative(src, file).split(path.sep).join("/"))
+      .filter((file) => file !== "core/auth.ts");
+
+    assert.deepEqual(naming, ["features/konto/personActions.ts"]);
   });
 
   /* The library reads an empty token as a request for a new link, which it mints and mails: a caller passing
