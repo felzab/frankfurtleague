@@ -97,8 +97,9 @@ where it slides the session a person only reads ([`spec.md`](spec.md) I495), and
 `/bereich/admin/:path*` it turns away a request with no session or one no passkey made, reading
 nothing but the session, as Next's own guidance has a proxy check. The grant is judged where the data
 is read: every admin-tier read checks the administrator verdict through
-`fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead` and sends any other session to the
-sign-in landing, since Next renders a page whatever its layout decides, so rendering fails closed even
+`fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`, sending a session it refuses to the
+sign-in landing and a grant the backend left unread to the admin boundary's retry, since Next renders
+a page whatever its layout decides, so rendering fails closed even
 if the matcher stops matching ([`spec.md`](spec.md) I122). The admin guard,
 `fl_frontend/src/features/admin/components/providers/AdminAuthGuard.tsx :: AdminAuthGuard`, rendered
 inside the admin layout's `Suspense` boundary so the shell still prerenders, shows nothing it wraps
