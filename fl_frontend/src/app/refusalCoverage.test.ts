@@ -206,7 +206,7 @@ const UNDO_FLOOR = 8;
 
 /**
  * Each undo replaying through no table of its own, by `<module> :: <export>`, and why: one answered by
- * the shared fallback alone names no reason and sends the admin to a retry the same rule refuses.
+ * the spine's fallback alone never names the reason its rule refused for.
  */
 const REPLAYS_THROUGH_NO_TABLE: Readonly<Record<string, string>> = {};
 
