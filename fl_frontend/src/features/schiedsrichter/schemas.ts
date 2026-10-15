@@ -3,6 +3,7 @@ import z from "zod";
 import { BaseAPIResponseSchema } from "@/core/schemas";
 import { BEWERBUNG_TOKEN_MAX_LENGTH } from "@/features/bewerbungen/constants";
 import { geburtsdatumSpanne } from "@/features/bewerbungen/utils";
+import { MedienMindestalterSchema } from "@/features/konto/einwilligung";
 import {
   FLEinwilligungSchema,
   FLEinwilligungStandSchema,
@@ -283,7 +284,7 @@ export const FLSchiedsrichterBestaetigungAnsichtResponseSchema = BaseAPIResponse
   // side's own would be a second number nothing compares.
   mindestalter: z.number().int(),
   // The age the media switch is offered from, over the wire for `mindestalter`'s reason.
-  medien_mindestalter: z.number().int(),
+  medien_mindestalter: MedienMindestalterSchema,
   frist: CustomDateStringSchema,
 });
 export type FLSchiedsrichterBestaetigungAnsichtResponse = z.infer<typeof FLSchiedsrichterBestaetigungAnsichtResponseSchema>;

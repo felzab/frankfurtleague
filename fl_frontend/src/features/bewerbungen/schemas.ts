@@ -2,6 +2,7 @@ import z from "zod";
 
 import { mailboxKey } from "@/core/emailAddress";
 import { BaseAPIResponseSchema } from "@/core/schemas";
+import { MedienMindestalterSchema } from "@/features/konto/einwilligung";
 import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
 import {
   FLEinwilligungStandSchema,
@@ -648,7 +649,7 @@ export const FLBewerbungEinwilligungAnsichtResponseSchema = BaseAPIResponseSchem
   mindestalter: z.number().int(),
   // The age the media switch is offered from, served for `mindestalter`'s reason: a copy of this
   // side's own would offer the switch where the endpoint refuses the answer.
-  medien_mindestalter: z.number().int(),
+  medien_mindestalter: MedienMindestalterSchema,
 });
 export type FLBewerbungEinwilligungAnsichtResponse = z.infer<typeof FLBewerbungEinwilligungAnsichtResponseSchema>;
 

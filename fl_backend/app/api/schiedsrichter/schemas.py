@@ -261,7 +261,7 @@ class FLSchiedsrichterBestaetigungAnsichtResponse(BaseAPIResponse):
     mindestalter: int
     # Served for `mindestalter`'s reason: the page offers the media switch only from this age, and a
     # copy of its own would offer it where the write refuses.
-    medien_mindestalter: int
+    medien_mindestalter: int = Field(gt=0)
     frist: CustomDateString
 
 

@@ -10997,6 +10997,7 @@
           },
           "medien_mindestalter": {
             "type": "integer",
+            "exclusiveMinimum": 0.0,
             "title": "Medien Mindestalter"
           }
         },
@@ -15165,6 +15166,7 @@
           },
           "medien_mindestalter": {
             "type": "integer",
+            "exclusiveMinimum": 0.0,
             "title": "Medien Mindestalter"
           }
         },
@@ -15315,6 +15317,7 @@
           },
           "medien_mindestalter": {
             "type": "integer",
+            "exclusiveMinimum": 0.0,
             "title": "Medien Mindestalter"
           },
           "kontext": {
@@ -15495,6 +15498,7 @@
           },
           "medien_mindestalter": {
             "type": "integer",
+            "exclusiveMinimum": 0.0,
             "title": "Medien Mindestalter"
           },
           "kontext": {
@@ -15581,6 +15585,7 @@
           },
           "medien_mindestalter": {
             "type": "integer",
+            "exclusiveMinimum": 0.0,
             "title": "Medien Mindestalter"
           }
         },
@@ -15685,6 +15690,7 @@
           },
           "medien_mindestalter": {
             "type": "integer",
+            "exclusiveMinimum": 0.0,
             "title": "Medien Mindestalter"
           },
           "kontext": {
@@ -18360,6 +18366,7 @@
           },
           "medien_mindestalter": {
             "type": "integer",
+            "exclusiveMinimum": 0.0,
             "title": "Medien Mindestalter"
           },
           "geburtsdatum": {
@@ -20467,6 +20474,7 @@
           },
           "medien_mindestalter": {
             "type": "integer",
+            "exclusiveMinimum": 0.0,
             "title": "Medien Mindestalter"
           },
           "frist": {

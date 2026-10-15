@@ -712,7 +712,7 @@ class FLBewerbungEinwilligungAnsichtResponse(BaseAPIResponse):
     # and fills its own sentences from what the answer will judge rather than from a constant.
     mindestalter: int
     # The age from which the page offers the media switch, `REQ-EINWILLIGUNG-002`'s floor.
-    medien_mindestalter: int
+    medien_mindestalter: int = Field(gt=0)
 
 
 class FLBewerbungEinwilligungAntwortPayload(BaseModel):
