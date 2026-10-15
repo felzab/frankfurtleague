@@ -563,10 +563,10 @@ class TestNothingOfTheirsIsLeftAnywhere:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             if holding_a_grant:
                 await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
-            before = await where_held(database, *THEIR_VALUES, *BYSTANDERS_IN_THE_LOG)
+            before = await where_held(database, *THEIR_VALUES, *BYSTANDERS_IN_THE_LOG, folded=True)
             response = await erased_over_http(mongo_replica_set_url, headers=by_passkey(TYPED))
 
-            return before, response.status_code, await where_held(database, *THEIR_VALUES, *BYSTANDER_VALUES)
+            return before, response.status_code, await where_held(database, *THEIR_VALUES, *BYSTANDER_VALUES, folded=True)
 
         before, status, after = on_a_league(mongo_replica_set_url, body)
 

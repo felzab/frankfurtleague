@@ -1,12 +1,16 @@
 from pymongo.asynchronous.database import AsyncDatabase
 
 
-async def where_held(database: AsyncDatabase, *values: str) -> dict[str, list[str]]:
+async def where_held(database: AsyncDatabase, *values: str, folded: bool = False) -> dict[str, list[str]]:
     """Per value, every collection holding it, so a value is looked for where nobody thought to put it.
 
-    Named rather than rendered, so a failure says where; case-folded on both sides, so a capitalised spelling is found too.
+    Named rather than rendered, so a failure says where. `folded` finds a capitalised spelling too; exact by default, as a
+    case telling a typed spelling from a stored fold needs.
     """
 
-    rendered = {name: str(await database[name].find().to_list(length=None)).casefold() for name in await database.list_collection_names()}
+    def matchable(text: str) -> str:
+        return text.casefold() if folded else text
 
-    return {value: sorted(name for name, text in rendered.items() if value.casefold() in text) for value in values}
+    rendered = {name: matchable(str(await database[name].find().to_list(length=None))) for name in await database.list_collection_names()}
+
+    return {value: sorted(name for name, text in rendered.items() if matchable(value) in text) for value in values}
