@@ -643,6 +643,12 @@
 # bound. The module is one chunk under `--dist loadfile`, far shorter than the suite's longest; the
 # budget does not move and takes no new stamp.
 #
+# `scripts` gained a case among `scripts/gate/selfcheck.sh`'s probes of the messages hook, a stub uv
+# refusing to start: 157-291 ms a run, median about 162 ms, against 64-82 ms for the no-uv case
+# beside it, ten interleaved rounds, measured locally on 2026-10-15 on a sixteen-core Windows machine
+# carrying a fleet of agent sessions, so an upper bound on a runner's cost. The row carries `-` for
+# its reference, so the case moves no figure and answers to the budget alone.
+#
 # The total row is the sum of the seconds above it, compared the same way where it carries a floor.
 # Its floor sums each referenced row's draws, so `--stamp` cuts one only where every row holding a
 # reference was re-stamped from the one population it reads, and `--base` refuses a total floor that
