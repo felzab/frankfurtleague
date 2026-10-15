@@ -15,18 +15,21 @@ from app.api.bewerbungen.services import compose_bestaetigungen, hash_token
 from app.api.identitaet.schemas import FLErasureResponse
 from app.api.identitaet.services import build_erasure_seat_pipeline
 from app.api.kontakte.admin_router import get_kontakt_erasure_ansicht
+from app.api.kontakte.crud import erase_kontaktperson_in_session
 from app.api.kontakte.schemas import FLKontaktErasureAnsichtResponse, FLKontaktErasurePayload
 from app.api.kontakte.services import (
     build_clearing_update,
     contact_block_image_edits,
     departing_names,
     find_matching_slots,
+    rows_naming,
     same_address,
     seat_image_edits,
 )
 from app.api.teams.schemas import KONTAKT_ROLLEN, FLSaisonTeamKontakte
 from app.core.collections import Collection
-from app.core.crud import patch_one_in_db
+from app.core.crud import aggregate_many_from_db, patch_one_in_db
+from app.core.transactions import transaction_session
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.kontakt import CustomEmail
 from tests import documents
@@ -638,6 +641,45 @@ def test_an_applications_image_loses_the_seats_link_and_the_submission_digest_wi
     assert len(clearing) == 1, "no image holding the digest was filed"
     assert clearing[0]["bestaetigungen"] == {**BESTAETIGUNGEN, "ansprechperson": None}
     assert clearing[0]["idempotenz_fingerabdruck"] is None
+
+
+@pytest.mark.db
+def test_a_spelling_handed_in_unfolded_still_clears_and_redacts(mongo_replica_set_url: str):
+    """Drop the fold at the erasure's entry and this fails: both callers read rows on the fold, and the variant handed on matches no seat."""
+
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+        folded = sign_in_identifier(VARIANT_REQUEST_EMAIL)
+
+        async def in_session(session: Any) -> Any:
+            reached = {
+                collection: rows_naming(
+                    await aggregate_many_from_db(
+                        collection=database[collection], pipeline=build_erasure_seat_pipeline(folded), session=session
+                    ),
+                    folded,
+                )
+                for collection in (Collection.SAISON_TEAMS, Collection.BEWERBUNGEN)
+            }
+            return await erase_kontaktperson_in_session(
+                saison_teams_collection=database[Collection.SAISON_TEAMS],
+                bewerbungen_collection=database[Collection.BEWERBUNGEN],
+                aktionen_collection=database[Collection.AKTIONEN],
+                identifier=VARIANT_REQUEST_EMAIL,
+                saison_team_rows=reached[Collection.SAISON_TEAMS],
+                bewerbung_rows=reached[Collection.BEWERBUNGEN],
+                stamp=REDACTED_AT,
+                session=session,
+            )
+
+        async with transaction_session(client) as session:
+            cleared = await session.with_transaction(in_session)
+
+        return cleared, await database[Collection.AKTIONEN].find().to_list(length=None)
+
+    cleared, log = on_a_league(mongo_replica_set_url, body)
+
+    assert cleared.kontakt_slots == sum(EXPECTED_SLOTS.values())
+    assert ERASED_EMAIL not in str(log)
 
 
 @pytest.mark.db

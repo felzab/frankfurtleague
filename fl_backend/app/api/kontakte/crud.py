@@ -15,6 +15,7 @@ from app.api.kontakte.services import (
 )
 from app.core.crud import aggregate_many_from_db, patch_one_in_db
 from app.core.recording import RedactionTarget, build_redaction_filter
+from app.shared.folding import sign_in_identifier
 
 
 async def _clear_each(collection: AsyncCollection, rows: Sequence[Mapping[str, Any]], identifier: str, session: AsyncClientSession) -> int:
@@ -46,7 +47,6 @@ async def erase_kontaktperson_in_session(
     saison_teams_collection: AsyncCollection,
     bewerbungen_collection: AsyncCollection,
     aktionen_collection: AsyncCollection,
-    # Folded (`app/shared/folding.py :: sign_in_identifier`): every match below compares the fold.
     identifier: str,
     # The rows naming the address in a seat, of every status, each carrying its seats' addresses and its
     # `bestaetigungen`, read unbounded in the caller's transaction BEFORE any clearing: a cleared row stops matching.
@@ -59,6 +59,10 @@ async def erase_kontaktperson_in_session(
     session: AsyncClientSession,
 ) -> SeatsCleared:
     """Clear, then redact, the rows the caller read in-session, so a retry re-reads them."""
+
+    # Folded again, the fold being idempotent: every match below compares the fold, so an unfolded
+    # spelling would match no seat and the erasure would commit having removed nothing.
+    identifier = sign_in_identifier(identifier)
 
     cleared_slots = await _clear_each(saison_teams_collection, saison_team_rows, identifier, session)
     cleared_slots += await _clear_each(bewerbungen_collection, bewerbung_rows, identifier, session)

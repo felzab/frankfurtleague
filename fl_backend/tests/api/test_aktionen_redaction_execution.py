@@ -234,7 +234,8 @@ def test_a_spelling_handed_in_unfolded_still_takes_the_address_out(mongo_replica
     _, log, counts = after_the_pass(mongo_replica_set_url, identifier=ERASED_AS_TYPED)
 
     assert ERASED not in str(log).lower()
-    assert counts == [8]
+    # Every row the folded spelling's run stamps, each counted once.
+    assert counts == [len([row for row in log if row["redacted_at"] == STAMP])] == [10]
 
 
 @pytest.mark.db
