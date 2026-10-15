@@ -7,7 +7,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.berechtigungen.crud import pull_the_list_to_judge, read_berechtigungen
 from app.api.berechtigungen.services import lebendige
-from app.api.identitaet.crud import JEDE_PERSONENGRUPPE, after_the_erasure_commits, erase_everything, resolve_subject
+from app.api.identitaet.crud import JEDE_PERSONENGRUPPE, ErasureJournal, erase_everything, resolve_subject
 from app.api.identitaet.schemas import FLErasureResponse, FLSelbstErasureAnsichtResponse
 from app.api.identitaet.services import (
     build_registrierung_team_pipeline,
@@ -136,12 +136,12 @@ async def erase_selbst(
 
         return FLErasureResponse(**erased.model_dump())
 
-    async with transaction_session(db) as session:
-        answer = await session.with_transaction(erase_the_address)
-
-    await after_the_erasure_commits(
-        identifier, answer, schluessel=config.sperrliste_schluessel, berechtigungen_collection=berechtigungen_collection
+    journal = ErasureJournal[FLErasureResponse](
+        identifier, schluessel=config.sperrliste_schluessel, berechtigungen_collection=berechtigungen_collection
     )
+    async with journal:
+        async with transaction_session(db) as session:
+            answer = journal.took(await session.with_transaction(erase_the_address))
 
     return answer
 

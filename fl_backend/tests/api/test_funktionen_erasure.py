@@ -17,16 +17,17 @@ from datetime import UTC, datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
+import pymongo
 import pytest
 from bson import ObjectId
 from fastapi import FastAPI
 from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.database import AsyncDatabase
-from pymongo.errors import OperationFailure
+from pymongo.errors import OperationFailure, PyMongoError
 
 from app.api.bewerbungen.services import hash_token
 from app.api.einladungen.services import compose_einladung
-from app.api.identitaet.crud import ERASURE_JOURNAL_LINE, ERASURE_STEPS, JEDE_PERSONENGRUPPE, erase_everything
+from app.api.identitaet.crud import ERASURE_JOURNAL_EVENT, ERASURE_STEPS, JEDE_PERSONENGRUPPE, UNKNOWN_COMMIT_RESULT, erase_everything
 from app.api.identitaet.person_router import erase_selbst
 from app.api.identitaet.services import LETZTER_INHABER_ERASURE
 from app.api.registrierungen.person_router import aufnehmen
@@ -41,6 +42,7 @@ from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db
 from app.core.db import NO_OWNER
 from app.core.exceptions import DocumentNotFoundException
+from app.core.logging import setup_custom_logger
 from app.core.recording import ERASED_ACTOR_MARKER, Actor, PersonActor, actor_var
 from app.core.security import akteur_pseudonym, loeschung_journal_hash
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID, GHOST_SPIELER_ID
@@ -87,6 +89,12 @@ PATH = f"/api/v{API_VERSION}/identitaet/selbst/erasure"
 REFUSED_COMMIT_APP = f"{DATABASE_NAME}-refused-commit"
 # The server's code for a write conflict, which a commit refused under the transient label carries.
 WRITE_CONFLICT = 112
+# The client whose every commit lands and answers a replication timeout, so its answer never arrives.
+LOST_COMMIT_APP = f"{DATABASE_NAME}-lost-commit"
+# The deadline the case holds around the erasure, which ends the driver's retries of that commit.
+LOST_COMMIT_DEADLINE_S = 0.5
+# The server's code for a write concern it could not meet in time.
+WRITE_CONCERN_FAILED = 64
 
 SAISON_ID = "2026"
 TODAY = "2026-04-01"
@@ -151,6 +159,10 @@ Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 @functools.cache
 def _app() -> FastAPI:
     return create_app(CONFIG)
+
+
+# The suite's settings with the application's own lines silenced, as an operator may set them.
+QUIET = CONFIG.model_copy(update={"log_level_app": "WARNING"})
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -767,7 +779,7 @@ class TestOneTransaction:
         assert counts == {"berechtigungen": 1, "spieler": 4, "saison_spieler": 2, "schiedsrichter": 2, "registrierungen": 3, "drosselung": 4}
         assert (seat, pending, their_rows, stamped, on_the_ghost) == (TYPED, TYPED, 2, 0, 0)
         # And no journal line nor floor warning: an erasure rolled back is no erasure a replay may repeat.
-        assert not [record for record in caplog.records if record.getMessage().startswith(ERASURE_JOURNAL_LINE)]
+        assert not [record for record in caplog.records if record.getMessage().startswith(ERASURE_JOURNAL_EVENT)]
         assert NO_OWNER.error_code not in [getattr(record, "error_code", None) for record in caplog.records]
 
 
@@ -795,16 +807,71 @@ class TestTheJournal:
         with caplog.at_level(logging.INFO):
             status = on_a_league(mongo_replica_set_url, body)
 
-        lines = [record.getMessage() for record in caplog.records if record.getMessage().startswith(ERASURE_JOURNAL_LINE)]
+        lines = [record.getMessage() for record in caplog.records if record.getMessage().startswith(ERASURE_JOURNAL_EVENT)]
         expected = loeschung_journal_hash(IDENTIFIER, schluessel=CONFIG.sperrliste_schluessel)
 
         assert status == 200
-        assert lines == [f"{ERASURE_JOURNAL_LINE}: {expected}"]
+        assert lines == [f"{ERASURE_JOURNAL_EVENT} {expected}"]
         # Its own label: under the log's, the journal would name the very pseudonym the erasure removed.
         assert expected != PSEUDONYM
 
+    def test_the_line_is_written_whatever_the_application_log_level(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+        """Catches the journal written through the application's own logger, which `LOG_LEVEL_APP=WARNING` silences.
+
+        No `caplog.at_level` here: it would lower the very levels this case is about.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            quiet = create_app(QUIET)
+            # The build's `dictConfig` took every handler off the root, `caplog`'s among them: that one back, at no level.
+            logging.getLogger().addHandler(caplog.handler)
+            try:
+                async with app_client(mongo_replica_set_url, app=quiet, now=NOW) as http:
+                    return (await http.post(PATH, headers=as_person(TYPED))).status_code
+            finally:
+                # The suite's own levels back, for every case after this one.
+                setup_custom_logger(CONFIG)
+
+        status = on_a_league(mongo_replica_set_url, body)
+        lines = [record.getMessage() for record in caplog.records if record.getMessage().startswith(ERASURE_JOURNAL_EVENT)]
+
+        assert (status, len(lines)) == (200, 1)
+
+    def test_a_commit_whose_answer_is_lost_is_journalled_all_the_same(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+        """Catches the journal left to a commit that answered: this one landed, and its answer was lost to the deadline.
+
+        Every commit runs and answers a replication timeout, so the driver retries it until the case's deadline ends it.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            losing = AsyncMongoClient(mongo_replica_set_url, serverMonitoringMode="poll", appname=LOST_COMMIT_APP)
+            unanswered = {
+                "failCommands": ["commitTransaction"],
+                "appName": LOST_COMMIT_APP,
+                "writeConcernError": {"code": WRITE_CONCERN_FAILED, "errmsg": "waiting for replication timed out"},
+            }
+            entered = (await client.admin.command("configureFailPoint", "failCommand", mode="alwaysOn", data=unanswered))["count"]
+            try:
+                with pytest.raises(PyMongoError) as lost:
+                    with pymongo.timeout(LOST_COMMIT_DEADLINE_S):
+                        await erased_by_the_handler(losing[database.name], losing)
+            finally:
+                left = (await client.admin.command("configureFailPoint", "failCommand", mode="off"))["count"]
+                await losing.close()
+
+            return left > entered, lost.value.has_error_label(UNKNOWN_COMMIT_RESULT), await where_held(database, IDENTIFIER)
+
+        with caplog.at_level(logging.INFO):
+            answered, labelled, after = on_a_league(mongo_replica_set_url, body)
+
+        lines = [record.getMessage() for record in caplog.records if record.getMessage().startswith(ERASURE_JOURNAL_EVENT)]
+
+        assert len(lines) == 1
+        # The premise last: a commit ran and its answer was lost, and the erasure landed.
+        assert (answered, labelled, after) == (True, True, {IDENTIFIER: []})
+
     def test_an_attempt_rolled_back_at_its_commit_writes_no_line(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
-        """Catches `after_the_erasure_commits` moved into the callback, ahead of a commit that can still fail.
+        """Catches the journal written inside the callback, ahead of a commit that can still fail.
 
         The refusal is transient, so the driver reruns the erasure and the rerun commits: one line and one warning, none of the
         first attempt's.
@@ -831,7 +898,7 @@ class TestTheJournal:
         with caplog.at_level(logging.INFO):
             refused, removed = on_a_league(mongo_replica_set_url, body)
 
-        lines = [record for record in caplog.records if record.getMessage().startswith(ERASURE_JOURNAL_LINE)]
+        lines = [record for record in caplog.records if record.getMessage().startswith(ERASURE_JOURNAL_EVENT)]
         warnings = [getattr(record, "error_code", None) for record in caplog.records].count(NO_OWNER.error_code)
 
         assert (len(lines), warnings) == (1, 1)
@@ -864,7 +931,7 @@ class TestTheLastOwner:
             outcome, untouched = on_a_league(mongo_replica_set_url, body)
 
         assert (outcome, untouched) == (LETZTER_INHABER_ERASURE, True)
-        assert not [record for record in caplog.records if record.getMessage().startswith(ERASURE_JOURNAL_LINE)]
+        assert not [record for record in caplog.records if record.getMessage().startswith(ERASURE_JOURNAL_EVENT)]
 
     def test_a_barred_second_owner_is_no_owner_to_leave_behind(self, mongo_replica_set_url: str):
         """Counted as a demotion counts: a barred owner admits nobody, so it could make nobody an owner."""

@@ -1,12 +1,14 @@
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
+from types import TracebackType
 from typing import Any, Final, Literal, get_args
 
 from bson import ObjectId
 from pydantic import SecretStr
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
+from pymongo.errors import PyMongoError
 
 from app.api.aktionen.crud import redact_address_in_images
 from app.api.berechtigungen.erasure import erase_grants_and_authorship_in_session
@@ -53,7 +55,7 @@ from app.core.concurrency import gather_cancelling
 from app.core.crud import aggregate_many_from_db, patch_many_in_db, refuse
 from app.core.db import warn_about_the_grants
 from app.core.drosselung import erase_counts_in_session
-from app.core.logging import fl_logger
+from app.core.logging import journal_logger
 from app.core.recording import ERASED_ACTOR_MARKER
 from app.core.security import akteur_pseudonym, loeschung_journal_hash
 from app.shared.einwilligung import is_confirmed
@@ -537,8 +539,8 @@ async def erase_everything(
 ) -> FLErasure:
     """Erase every record of this folded address the scope reaches, in the caller's transaction.
 
-    The subject is read HERE, so a retry after a conflict re-reads it. Once committed, the caller passes the counts to
-    `after_the_erasure_commits`, never before.
+    The subject is read HERE, so a retry after a conflict re-reads it. The caller runs its transaction inside an
+    `ErasureJournal`, which journals once it commits.
     """
 
     subject = await resolve_subject(
@@ -665,20 +667,51 @@ async def erase_everything(
     )
 
 
-# What every erasure journal line opens with, so the host's daily export finds the day's lines by it.
-ERASURE_JOURNAL_LINE: Final = "A person's records were erased"
+# What every erasure journal line opens with: a token rather than a sentence, so the host's daily
+# export matches the day's lines by it whatever wording surrounds it.
+ERASURE_JOURNAL_EVENT: Final = "loeschung-journal"
+
+# The driver's label on a commit whose answer was lost: the erasure may have landed.
+UNKNOWN_COMMIT_RESULT: Final = "UnknownTransactionCommitResult"
 
 
-async def after_the_erasure_commits(
-    identifier: str, erased: FLErasure, *, schluessel: SecretStr, berechtigungen_collection: AsyncCollection
-) -> None:
-    """Every erasure route calls this once its transaction has committed, never inside it: a rolled-back attempt erased nobody.
+class ErasureJournal[Erased: FLErasure]:
+    """Entered around every erasure route's transaction block: the journal and the warnings follow its commit.
 
-    Its journal line names the address by keyed hash alone; a restore replays from it the erasures made since the backup.
+    Outside the block, whose abort a failure meets first (`docs/backend/spec.md :: I539`); never in the callback, where a
+    rolled-back attempt would be journalled.
     """
 
-    fl_logger.info(f"{ERASURE_JOURNAL_LINE}: {loeschung_journal_hash(identifier, schluessel=schluessel)}")
+    def __init__(self, identifier: str, *, schluessel: SecretStr, berechtigungen_collection: AsyncCollection) -> None:
+        self._identifier = identifier
+        self._schluessel = schluessel
+        self._berechtigungen_collection = berechtigungen_collection
+        self._erased: Erased | None = None
 
-    # The floor of two holds against no erasure (`docs/backend/spec.md :: I435`): the boot's warnings name what is left.
-    if erased.berechtigungen:
-        await warn_about_the_grants(berechtigungen_collection)
+    async def __aenter__(self) -> ErasureJournal[Erased]:
+        return self
+
+    def took(self, erased: Erased) -> Erased:
+        """The transaction's answer, handed on as it arrives."""
+
+        self._erased = erased
+
+        return erased
+
+    async def __aexit__(self, kind: type[BaseException] | None, failure: BaseException | None, traceback: TracebackType | None) -> None:
+        if failure is None:
+            if self._erased is None:
+                raise RuntimeError("an erasure route left its journal without handing it the transaction's answer")
+            self._journal()
+            # It fires on a list left holding no live grant, no owner or a dead row, never on one merely a
+            # grant short: the ended grant's queued notice is what tells the other administrators.
+            if self._erased.berechtigungen:
+                await warn_about_the_grants(self._berechtigungen_collection)
+        # A lost answer, never a refusal (which raises before any commit): it may have landed, and replaying an
+        # erasure the person asked for wrongs nobody. Unwarned: the warning's read would meet the deadline that
+        # lost the answer.
+        elif isinstance(failure, PyMongoError) and failure.has_error_label(UNKNOWN_COMMIT_RESULT):
+            self._journal()
+
+    def _journal(self) -> None:
+        journal_logger.info(f"{ERASURE_JOURNAL_EVENT} {loeschung_journal_hash(self._identifier, schluessel=self._schluessel)}")
