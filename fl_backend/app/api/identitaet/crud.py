@@ -1,5 +1,6 @@
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, Final, Literal, get_args
 
 from bson import ObjectId
@@ -7,6 +8,7 @@ from pydantic import SecretStr
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
+from app.api.berechtigungen.erasure import erase_grants_and_authorship_in_session
 from app.api.identitaet.lookup import RecordCollections
 from app.api.identitaet.schemas import FLAnmeldung, FLErasure, FLSubjekt, FLSubjektSchiedsrichter, FLSubjektSitz, FLSubjektSpieler
 from app.api.identitaet.services import (
@@ -40,10 +42,12 @@ from app.api.kontakte.services import rows_naming, same_address
 from app.api.registrierungen.crud import erase_registrierungen_in_session
 from app.api.saisons.schemas import FLSaisonStatus
 from app.api.schiedsrichter.crud import ensure_ghost_schiedsrichter, erase_referee_in_session, remove_pending_addresses_in_session
+from app.api.sperrliste.lookup import BanList
 from app.api.spieler.crud import ensure_ghost_spieler, erase_person_in_session
 from app.core.collections import Collection
 from app.core.concurrency import gather_cancelling
 from app.core.crud import aggregate_many_from_db, patch_many_in_db, refuse
+from app.core.db import warn_about_the_grants
 from app.core.drosselung import erase_counts_in_session
 from app.core.logging import fl_logger
 from app.core.recording import ERASED_ACTOR_MARKER
@@ -297,7 +301,7 @@ async def refuse_without_a_seat(
 
 # The kinds of person a step's records belong to, „Personengruppe“ in the published notice: never a
 # `rolle` or a `Funktion`, each of which names something else here (`docs/glossary.md :: Funktion`).
-Personengruppe = Literal["kontakt", "spieler", "schiedsrichter", "verwaltung"]
+Personengruppe = Literal["kontakt", "spieler", "schiedsrichter"]
 
 # The scope of a person's own request and an administrator's: everything the address holds.
 JEDE_PERSONENGRUPPE: Final[frozenset[Personengruppe]] = frozenset(get_args(Personengruppe))
@@ -451,6 +455,23 @@ ERASURE_STEPS: Final[tuple[ErasureStep, ...]] = (
         personengruppe="spieler",
         run=erase_person_in_session,
     ),
+    # No kind's alone: it changes records the person made as an administrator and as a seat holder, so
+    # the pupil scope must never run it.
+    ErasureStep(
+        reaches=frozenset(
+            {
+                Collection.BERECHTIGUNGEN,
+                Collection.BERECHTIGUNGEN_ANGEKUENDIGT,
+                Collection.BERECHTIGUNGEN_POSTAUSGANG,
+                Collection.BEWERBUNGEN,
+                Collection.REGISTRIERUNGEN,
+                Collection.SPERRLISTE,
+                Collection.EINLADUNGEN,
+            }
+        ),
+        personengruppe=None,
+        run=erase_grants_and_authorship_in_session,
+    ),
     ErasureStep(reaches=frozenset({Collection.DROSSELUNG}), personengruppe=None, run=erase_counts_in_session),
     ErasureStep(reaches=frozenset({Collection.AKTIONEN}), personengruppe=None, run=unattribute_in_session),
 )
@@ -479,16 +500,26 @@ async def erase_everything(
     registrierungen_collection: AsyncCollection,
     drosselung_collection: AsyncCollection,
     aktionen_collection: AsyncCollection,
+    berechtigungen_collection: AsyncCollection,
+    berechtigungen_angekuendigt_collection: AsyncCollection,
+    berechtigungen_postausgang_collection: AsyncCollection,
+    einladungen_collection: AsyncCollection,
+    sperrliste_collection: AsyncCollection,
+    sperrliste: BanList,
+    # Whom the grant notice names as ending the person's grant: the person on their own request, the
+    # administrator on theirs.
+    geaendert_von: str,
     schluessel: SecretStr,
     # The caller's, so every redaction of one erasure carries one instant.
     stamp: str,
+    now: datetime,
     # REQUIRED: the caller's transaction, every step committing together or none (`docs/backend/spec.md :: I52`).
     session: AsyncClientSession,
 ) -> FLErasure:
     """Erase every record of this folded address the scope reaches in the caller's transaction, answering the counts.
 
-    The subject is read HERE, in the callback, so a retry after a conflict re-reads it; the caller journals after the commit
-    (`write_erasure_journal`).
+    The subject is read HERE, in the callback, so a retry after a conflict re-reads it; once committed the caller hands the
+    counts to `after_the_erasure_commits`.
     """
 
     subject = await resolve_subject(
@@ -567,6 +598,25 @@ async def erase_everything(
             spieler += erased.spieler
             saison_spieler += erased.saison_spieler
 
+    berechtigungen = 0
+    if _runs(erase_grants_and_authorship_in_session, scope):
+        berechtigungen = (
+            await erase_grants_and_authorship_in_session(
+                berechtigungen_collection=berechtigungen_collection,
+                berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
+                berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
+                bewerbungen_collection=bewerbungen_collection,
+                registrierungen_collection=registrierungen_collection,
+                einladungen_collection=einladungen_collection,
+                sperrliste_collection=sperrliste_collection,
+                sperrliste=sperrliste,
+                identifier=identifier,
+                geaendert_von=geaendert_von,
+                now=now,
+                session=session,
+            )
+        ).removed_berechtigungen
+
     drosselung = 0
     if _runs(erase_counts_in_session, scope):
         drosselung = await erase_counts_in_session(drosselung_collection=drosselung_collection, pseudonym=subject.pseudonym, session=session)
@@ -584,6 +634,7 @@ async def erase_everything(
         kontakt_sitze=kontakt_sitze,
         registrierungen=registrierungen,
         adresswechsel=adresswechsel,
+        berechtigungen=berechtigungen,
         drosselung=drosselung,
     )
 
@@ -592,10 +643,17 @@ async def erase_everything(
 ERASURE_JOURNAL_LINE: Final = "A person's records were erased"
 
 
-def write_erasure_journal(identifier: str, *, schluessel: SecretStr) -> None:
-    """One INFO line naming the erased address by its journal hash, never by itself, written once the erasure has committed.
+async def after_the_erasure_commits(
+    identifier: str, erased: FLErasure, *, schluessel: SecretStr, berechtigungen_collection: AsyncCollection
+) -> None:
+    """What every erasure route does once its transaction has committed, and never inside it: a rolled-back attempt erased nobody.
 
-    A restore reaches no log line, so a replay can ask which mailboxes were erased since a backup.
+    One INFO journal line names the address by its keyed hash, never by itself: a restore reaches no log line, so a replay
+    asks it which mailboxes were erased since a backup. Where a grant went, the boot's own warning names what is left.
     """
 
     fl_logger.info(f"{ERASURE_JOURNAL_LINE}: {loeschung_journal_hash(identifier, schluessel=schluessel)}")
+
+    # Neither the floor of two nor an owner's protection holds against an erasure (`docs/backend/spec.md :: I435`).
+    if erased.berechtigungen:
+        await warn_about_the_grants(berechtigungen_collection)

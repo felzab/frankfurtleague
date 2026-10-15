@@ -3,7 +3,8 @@ API · a person's erasure through the registry, held against the whole database 
 
 One address holds a pupil row in a live squad, a seat on a season row and on an application beside
 two bystanders, a referee row booked on a played fixture, a pending and a declined registration,
-another referee's pending address change, a day's counts, and log rows written as a person and as an
+another referee's pending address change, a day's counts, the only `owner` grant,
+records made as an administrator and as a seat holder, and log rows written as a person and as an
 administrator. Every case asks what is left, so a step removed from the registry fails here.
 """
 
@@ -23,17 +24,20 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
 from app.api.bewerbungen.services import hash_token
+from app.api.einladungen.services import compose_einladung
 from app.api.identitaet.crud import ERASURE_JOURNAL_LINE, ERASURE_STEPS, JEDE_PERSONENGRUPPE, erase_everything
 from app.api.identitaet.person_router import erase_selbst
 from app.api.registrierungen.person_router import aufnehmen
 from app.api.registrierungen.schemas import FLRegistrierungAufnehmenPayload
 from app.api.registrierungen.services import compose_ablehnung_update
 from app.api.schiedsrichter.services import compose_adresswechsel, compose_einwilligung
+from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.api.spieler.crud import erase_person_in_session
 from app.api.spieler.services import build_ghost_spieler
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db
+from app.core.db import NO_OWNER
 from app.core.exceptions import DocumentNotFoundException
 from app.core.recording import ERASED_ACTOR_MARKER, Actor, PersonActor, actor_var
 from app.core.security import akteur_pseudonym, loeschung_journal_hash
@@ -47,6 +51,7 @@ from tests.config import ADMIN_KEY
 from tests.core.app_source import DRIVER_WRITES
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.documents import (
+    ban_document,
     bewerbung_document,
     eigene_einwilligung_document,
     kontakte_document,
@@ -75,6 +80,11 @@ DATABASE_NAME = worker_database("fl_funktionen_erasure_test")
 CONFIG = config_for(DATABASE_NAME)
 
 PATH = f"/api/v{API_VERSION}/identitaet/selbst/erasure"
+
+# The fail point refusing one commit matches this client's name alone: every worker shares the server.
+REFUSED_COMMIT_APP = f"{DATABASE_NAME}-refused-commit"
+# The server's code for a write conflict, which a commit refused under the transient label carries.
+WRITE_CONFLICT = 112
 
 SAISON_ID = "2026"
 TODAY = "2026-04-01"
@@ -109,6 +119,13 @@ DECLINED_OID = ObjectId("6890a1b2c3d4e5f607b00042")
 SPIELTAG_OID = ObjectId("6890a1b2c3d4e5f607b00051")
 THEIR_SPIEL_OID = ObjectId("6890a1b2c3d4e5f607b00061")
 OTHER_SPIEL_OID = ObjectId("6890a1b2c3d4e5f607b00062")
+# The records the person made as an administrator and as a seat holder, and their own grant.
+THEIR_GRANT_OID = ObjectId("6890a1b2c3d4e5f607b00071")
+GRANTED_BY_THEM_OID = ObjectId("6890a1b2c3d4e5f607b00072")
+BANNED_BY_THEM_OID = ObjectId("6890a1b2c3d4e5f607b00073")
+INVITED_BY_THEM_OID = ObjectId("6890a1b2c3d4e5f607b00074")
+DECIDED_BY_THEM_OID = ObjectId("6890a1b2c3d4e5f607b00075")
+DECLINED_BY_THEM_OID = ObjectId("6890a1b2c3d4e5f607b00076")
 
 REFEREE_NAME = f"{VORNAME} {NACHNAME}"
 PAYMENT = 25
@@ -277,6 +294,7 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
     await database[Collection.DROSSELUNG].insert_many(
         [{"_id": count_id, "n": 3, "ablauf": FAR_OFF} for count_id in (*COUNT_IDS, OTHER_COUNT_ID)]
     )
+    await an_administrator_and_a_deciding_seat_holder(database)
 
     # The history: every image the log holds of the person is one of these edits'.
     await edited(database, Collection.SAISON_TEAMS, (await the_one(database, Collection.SAISON_TEAMS))["_id"], {"$set": {"gruppe": "B"}})
@@ -300,6 +318,74 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
     await acting(
         Actor(kind="admin_session", email=IDENTIFIER),
         lambda: edited(database, Collection.TEAMS, OTHER_TEAM_OID, {"$set": {"name": "Gast-Schule"}}),
+    )
+
+
+async def an_administrator_and_a_deciding_seat_holder(database: AsyncDatabase) -> None:
+    """The only `owner` grant, a grant they made, and a ban, an invitation and two decisions in their name, each typed as stored."""
+
+    granted = datetime(2026, 1, 1, tzinfo=UTC)
+    await database[Collection.BERECHTIGUNGEN].insert_many(
+        [
+            {"_id": THEIR_GRANT_OID, "adresse": IDENTIFIER, "verwaltung": "owner", "erteilt_von": "PLAYGROUND", "erteilt_am": granted},
+            {
+                "_id": GRANTED_BY_THEM_OID,
+                "adresse": "bramblewick.admin@example.com",
+                "verwaltung": "administration",
+                "erteilt_von": IDENTIFIER,
+                "erteilt_am": granted,
+            },
+        ]
+    )
+    await database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT].insert_many(
+        [
+            {"_id": THEIR_GRANT_OID, "adresse": IDENTIFIER, "verwaltung": "owner", "angekuendigt_am": granted},
+            {
+                "_id": GRANTED_BY_THEM_OID,
+                "adresse": "bramblewick.admin@example.com",
+                "verwaltung": "administration",
+                "angekuendigt_am": granted,
+            },
+        ]
+    )
+    await database[Collection.SPERRLISTE].insert_one(
+        ban_document(
+            "gebannt@beispiel.de",
+            bis=compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID),
+            _id=BANNED_BY_THEM_OID,
+            erstellt_von=TYPED,
+        )
+    )
+    await database[Collection.EINLADUNGEN].insert_one(
+        {
+            "_id": INVITED_BY_THEM_OID,
+            **compose_einladung(saison_id=SAISON_ID, team_id=HOME_TEAM_OID, token_hash="hash-of-their-invite", erstellt_von=TYPED, today=TODAY),
+        }
+    )
+    await database[Collection.BEWERBUNGEN].insert_one(
+        bewerbung_document(
+            DECIDED_BY_THEM_OID,
+            SAISON_ID,
+            "abgelehnt",
+            kontakte=kontakte_document(),
+            eingereicht_am="2026-03-01",
+            schule=neue_schule_document("Abgelehnt", "AB"),
+            entscheidung={"getroffen_am": "2026-03-10", "von": TYPED, "grund": "Keine Halle"},
+        )
+    )
+    declined = registrierung_document(
+        DECLINED_BY_THEM_OID,
+        "rita@beispiel.de",
+        saison_id=SAISON_ID,
+        team_id=HOME_TEAM_OID,
+        vorname="Rita",
+        nachname="Registriert",
+        token="token-rita",
+        eingereicht_am="2026-03-20",
+        frist="2026-03-27",
+    )
+    await database[Collection.REGISTRIERUNGEN].insert_one(
+        {**declined, **compose_ablehnung_update(von=IDENTIFIER, grund=None, today="2026-03-22")["$set"]}
     )
 
 
@@ -342,6 +428,11 @@ def the_collections(database: AsyncDatabase, **replaced: Any) -> dict[str, Any]:
             Collection.REGISTRIERUNGEN,
             Collection.DROSSELUNG,
             Collection.AKTIONEN,
+            Collection.BERECHTIGUNGEN,
+            Collection.BERECHTIGUNGEN_ANGEKUENDIGT,
+            Collection.BERECHTIGUNGEN_POSTAUSGANG,
+            Collection.EINLADUNGEN,
+            Collection.SPERRLISTE,
         )
     }
 
@@ -351,7 +442,14 @@ def the_collections(database: AsyncDatabase, **replaced: Any) -> dict[str, Any]:
 async def erased_by_the_handler(database: AsyncDatabase, client: AsyncMongoClient, **replaced: Any) -> Any:
     """The route's own function, outside a request: what a case needs to catch the driver's failure itself."""
 
-    return await erase_selbst(identifier=IDENTIFIER, **the_collections(database, **replaced), db=client, config=CONFIG, germany_now=NOW)
+    return await erase_selbst(
+        identifier=IDENTIFIER,
+        **the_collections(database, **replaced),
+        sperrliste=ban_list(database),
+        db=client,
+        config=CONFIG,
+        germany_now=NOW,
+    )
 
 
 async def erased_in_scope(database: AsyncDatabase, client: AsyncMongoClient, scope: frozenset[Any], **replaced: Any) -> Any:
@@ -360,8 +458,11 @@ async def erased_in_scope(database: AsyncDatabase, client: AsyncMongoClient, sco
             IDENTIFIER,
             scope=scope,
             **the_collections(database, **replaced),
+            sperrliste=ban_list(database),
+            geaendert_von=IDENTIFIER,
             schluessel=CONFIG.sperrliste_schluessel,
             stamp=TODAY,
+            now=NOW,
             session=session,
         )
 
@@ -405,6 +506,7 @@ class TestNothingOfTheirsIsLeftAnywhere:
             "kontakt_sitze": 2,
             "registrierungen": 2,
             "adresswechsel": 1,
+            "berechtigungen": 1,
             "drosselung": 3,
         }
 
@@ -591,6 +693,7 @@ class TestOneTransaction:
                 {
                     str(collection): await database[collection].count_documents({})
                     for collection in (
+                        Collection.BERECHTIGUNGEN,
                         Collection.SPIELER,
                         Collection.SAISON_SPIELER,
                         Collection.SCHIEDSRICHTER,
@@ -612,10 +715,25 @@ class TestOneTransaction:
 
         # On the code, so this cannot pass because something else failed before any write.
         assert code == DOCUMENT_VALIDATION_FAILED
-        assert counts == {"spieler": 2, "saison_spieler": 2, "schiedsrichter": 2, "registrierungen": 2, "drosselung": 4}
+        assert counts == {"berechtigungen": 2, "spieler": 2, "saison_spieler": 2, "schiedsrichter": 2, "registrierungen": 3, "drosselung": 4}
         assert (seat, pending, their_rows, stamped, on_the_ghost) == (TYPED, TYPED, 2, 0, 0)
-        # And no journal line: an erasure rolled back is no erasure a replay may repeat.
+        # And no journal line nor floor warning: an erasure rolled back is no erasure a replay may repeat.
         assert not [record for record in caplog.records if record.getMessage().startswith(ERASURE_JOURNAL_LINE)]
+        assert NO_OWNER.error_code not in [getattr(record, "error_code", None) for record in caplog.records]
+
+
+class TestTheGrantsLeftBehind:
+    def test_an_erasure_taking_the_last_owner_warns_once_it_commits(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+        """Neither the floor of two nor an owner's protection holds against an erasure, so the boot's own warning names what is left."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            return (await erased_over_http(mongo_replica_set_url)).json()["berechtigungen"]
+
+        with caplog.at_level(logging.WARNING):
+            removed = on_a_league(mongo_replica_set_url, body)
+
+        assert removed == 1
+        assert [getattr(record, "error_code", None) for record in caplog.records].count(NO_OWNER.error_code) == 1
 
 
 class TestTheJournal:
@@ -634,6 +752,40 @@ class TestTheJournal:
         # Its own label: under the log's, the journal would name the very pseudonym the erasure removed.
         assert expected != PSEUDONYM
 
+    def test_an_attempt_rolled_back_at_its_commit_writes_no_line(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+        """Catches `after_the_erasure_commits` moved into the callback, where it runs before a commit that can still fail.
+
+        The refused commit carries the transient label, so the driver runs the erasure again and that attempt commits: one line
+        and one warning, the rolled-back attempt's none.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            refusing = AsyncMongoClient(mongo_replica_set_url, serverMonitoringMode="poll", appname=REFUSED_COMMIT_APP)
+            refusal = {
+                "failCommands": ["commitTransaction"],
+                "appName": REFUSED_COMMIT_APP,
+                "errorCode": WRITE_CONFLICT,
+                "errorLabels": ["TransientTransactionError"],
+            }
+            entered = (await client.admin.command("configureFailPoint", "failCommand", mode={"times": 1}, data=refusal))["count"]
+            try:
+                answer = await erased_by_the_handler(refusing[database.name], refusing)
+            finally:
+                left = (await client.admin.command("configureFailPoint", "failCommand", mode="off"))["count"]
+                await refusing.close()
+
+            return left - entered, answer.berechtigungen
+
+        with caplog.at_level(logging.INFO):
+            refused, removed = on_a_league(mongo_replica_set_url, body)
+
+        lines = [record for record in caplog.records if record.getMessage().startswith(ERASURE_JOURNAL_LINE)]
+        warnings = [getattr(record, "error_code", None) for record in caplog.records].count(NO_OWNER.error_code)
+
+        assert (len(lines), warnings) == (1, 1)
+        # The premise last: one commit refused, so the line counted above is the second attempt's alone.
+        assert (refused, removed) == (1, 1)
+
 
 class TestTheScope:
     """The yearly deletion takes a pupil's data alone, every other kind at the address standing."""
@@ -644,15 +796,16 @@ class TestTheScope:
 
             return (
                 await database[Collection.SPIELER].count_documents({"_id": PUPIL_OID}),
-                await database[Collection.REGISTRIERUNGEN].count_documents({}),
+                await database[Collection.REGISTRIERUNGEN].count_documents({"_id": {"$in": [PENDING_OID, DECLINED_OID]}}),
                 (await the_one(database, Collection.SAISON_TEAMS))["kontakte"]["ansprechperson"]["email"],
                 await database[Collection.SCHIEDSRICHTER].count_documents({"_id": REFEREE_OID}),
                 "adresswechsel" in await the_one(database, Collection.SCHIEDSRICHTER, {"_id": OTHER_REFEREE_OID}),
                 await database[Collection.DROSSELUNG].count_documents({}),
                 await database[Collection.AKTIONEN].count_documents({"actor.email": IDENTIFIER}),
+                await database[Collection.BERECHTIGUNGEN].count_documents({"adresse": IDENTIFIER}),
             )
 
-        assert on_a_league(mongo_replica_set_url, body) == (0, 0, TYPED, 1, True, 4, 1)
+        assert on_a_league(mongo_replica_set_url, body) == (0, 0, TYPED, 1, True, 4, 1, 1)
 
 
 # The registry's steps by the code each runs, so a write can be put down to the step it was made in.
@@ -853,5 +1006,5 @@ class TestThePreview:
         ]
         assert answer["bewerbungen"] == [{"saison_id": SAISON_ID, "rolle": "trainer", "vorname": VORNAME, "nachname": NACHNAME}]
         assert answer["registrierungen"] == [{"saison_id": SAISON_ID, "team_name": "Heim-Schule", "vorname": VORNAME, "nachname": NACHNAME}] * 2
-        assert (answer["adresswechsel"], answer["verwaltung"]) == (1, None)
+        assert (answer["adresswechsel"], answer["verwaltung"]) == (1, "owner")
         assert "@" not in response.text and GEBURTSDATUM not in response.text

@@ -9338,7 +9338,7 @@
     "/api/v0/identitaet/selbst/erasure": {
       "post": {
         "summary": "Erase every record the signed-in address holds",
-        "description": "Erase every record the signed-in address holds, at once and as one write, and answer how many of each kind went.\n\nPERSON TIER, refusing nothing about the person: no precondition stands in front of a person's own request, a pupil in a\nlive squad and a referee booked on a fixture still to be played included. Nothing is counted against the person's day.\n\nRemoved: the pupil record and every squad row it holds, so the team reads one player fewer; the referee record, every\nfixture it was booked on moving to the one row that holds no person and keeping its own fee; every registration at the\naddress, pending or declined; another referee's pending address change naming this address, that referee's row itself\nstanding; and the person's day counts. Emptied: every contact seat the address holds on a team's season row and on an\napplication of any status, the row and its other seats standing. The log images of those records are emptied, and every\nlog row the person wrote, as a person or as an administrator, names a fixed marker in their place, this erasure's own\nrows included.\n\nAn address holding nothing is answered with every count zero rather than refused. The 404 and the 409 answer only a\ndatabase changed by hand under the request. The sign-in account is not touched here: deleting it is the caller's, once\nthis has answered.",
+        "description": "Erase every record the signed-in address holds, at once and as one write, and answer how many of each kind went.\n\nPERSON TIER, refusing nothing about the person: no precondition stands in front of a person's own request, a pupil in a\nlive squad and a referee booked on a fixture still to be played included. Nothing is counted against the person's day.\n\nRemoved: the pupil record and every squad row it holds, so the team reads one player fewer; the referee record, every\nfixture it was booked on moving to the one row that holds no person and keeping its own fee; every registration at the\naddress, pending or declined; another referee's pending address change naming this address, that referee's row itself\nstanding; every grant the address holds, an `owner` grant and the last two among them, every administrator being told it\nended; and the person's day counts. Emptied: every contact seat the address holds on a team's season row and on an\napplication of any status, the row and its other seats standing. The log images of those records are emptied. Every\nrecord the person made as an administrator or decided as a seat holder -- a grant, a ban, an invitation, an\napplication's or a registration's decision -- and every log row they wrote name a fixed marker in their place, this\nerasure's own rows included.\n\nAn address holding nothing is answered with every count zero rather than refused. The 404 and the 409 answer only a\ndatabase changed by hand under the request. The sign-in account is not touched here: deleting it is the caller's, once\nthis has answered.",
         "operationId": "erase_selbst_api_v0_identitaet_selbst_erasure_post",
         "responses": {
           "200": {
@@ -9346,7 +9346,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLSelbstErasureResponse"
+                  "$ref": "#/components/schemas/FLErasureResponse"
                 }
               }
             }
@@ -14201,6 +14201,68 @@
           "medien"
         ],
         "title": "FLEinwilligungStandPayload"
+      },
+      "FLErasureResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "spieler": {
+            "type": "integer",
+            "title": "Spieler"
+          },
+          "saison_spieler": {
+            "type": "integer",
+            "title": "Saison Spieler"
+          },
+          "schiedsrichter": {
+            "type": "integer",
+            "title": "Schiedsrichter"
+          },
+          "spiele": {
+            "type": "integer",
+            "title": "Spiele"
+          },
+          "kontakt_sitze": {
+            "type": "integer",
+            "title": "Kontakt Sitze"
+          },
+          "registrierungen": {
+            "type": "integer",
+            "title": "Registrierungen"
+          },
+          "adresswechsel": {
+            "type": "integer",
+            "title": "Adresswechsel"
+          },
+          "berechtigungen": {
+            "type": "integer",
+            "title": "Berechtigungen"
+          },
+          "drosselung": {
+            "type": "integer",
+            "title": "Drosselung"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spieler",
+          "saison_spieler",
+          "schiedsrichter",
+          "spiele",
+          "kontakt_sitze",
+          "registrierungen",
+          "adresswechsel",
+          "berechtigungen",
+          "drosselung"
+        ],
+        "title": "FLErasureResponse"
       },
       "FLFailureBody": {
         "properties": {
@@ -21150,63 +21212,6 @@
         ],
         "title": "FLSelbstErasureRegistrierung",
         "description": "One registration, pending or declined."
-      },
-      "FLSelbstErasureResponse": {
-        "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
-          "spieler": {
-            "type": "integer",
-            "title": "Spieler"
-          },
-          "saison_spieler": {
-            "type": "integer",
-            "title": "Saison Spieler"
-          },
-          "schiedsrichter": {
-            "type": "integer",
-            "title": "Schiedsrichter"
-          },
-          "spiele": {
-            "type": "integer",
-            "title": "Spiele"
-          },
-          "kontakt_sitze": {
-            "type": "integer",
-            "title": "Kontakt Sitze"
-          },
-          "registrierungen": {
-            "type": "integer",
-            "title": "Registrierungen"
-          },
-          "adresswechsel": {
-            "type": "integer",
-            "title": "Adresswechsel"
-          },
-          "drosselung": {
-            "type": "integer",
-            "title": "Drosselung"
-          }
-        },
-        "type": "object",
-        "required": [
-          "spieler",
-          "saison_spieler",
-          "schiedsrichter",
-          "spiele",
-          "kontakt_sitze",
-          "registrierungen",
-          "adresswechsel",
-          "drosselung"
-        ],
-        "title": "FLSelbstErasureResponse"
       },
       "FLSelbstErasureSchiedsrichter": {
         "properties": {

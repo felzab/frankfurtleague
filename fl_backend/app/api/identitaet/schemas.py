@@ -149,10 +149,12 @@ class FLErasure(BaseModel):
     registrierungen: int
     # Another referee row's pending address change, removed alone: that row is the old address's person's.
     adresswechsel: int
+    # The person's own grants, a dead spelling of their address among them.
+    berechtigungen: int
     drosselung: int
 
 
-class FLSelbstErasureResponse(FLErasure, BaseAPIResponse):
+class FLErasureResponse(FLErasure, BaseAPIResponse):
     pass
 
 

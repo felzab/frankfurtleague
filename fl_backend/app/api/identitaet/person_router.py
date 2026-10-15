@@ -6,21 +6,26 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.berechtigungen.crud import verwaltung_of
-from app.api.identitaet.crud import JEDE_PERSONENGRUPPE, erase_everything, resolve_subject, write_erasure_journal
-from app.api.identitaet.schemas import FLSelbstErasureAnsichtResponse, FLSelbstErasureResponse
+from app.api.identitaet.crud import JEDE_PERSONENGRUPPE, after_the_erasure_commits, erase_everything, resolve_subject
+from app.api.identitaet.schemas import FLErasureResponse, FLSelbstErasureAnsichtResponse
 from app.api.identitaet.services import build_registrierung_team_pipeline, compose_erasure_ansicht
+from app.api.sperrliste.lookup import SperrlisteLookup
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import aggregate_many_from_db
 from app.core.db import get_drosselung_collection
 from app.core.dependencies import (
     AktionenCollection,
+    BerechtigungenAngekuendigtCollection,
     BerechtigungenCollection,
+    BerechtigungenPostausgangCollection,
     BewerbungenCollection,
     DBClient,
+    EinladungenCollection,
     RegistrierungenCollection,
     SaisonSpielerCollection,
     SaisonTeamsCollection,
     SchiedsrichterCollection,
+    SperrlisteCollection,
     SpieleCollection,
     SpielerCollection,
     get_germany_now,
@@ -40,7 +45,7 @@ router = APIRouter(
 
 @router.post(
     "/erasure",
-    response_model=FLSelbstErasureResponse,
+    response_model=FLErasureResponse,
     summary="Erase every record the signed-in address holds",
     responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
 )
@@ -55,10 +60,16 @@ async def erase_selbst(
     registrierungen_collection: RegistrierungenCollection,
     drosselung_collection: Annotated[AsyncCollection, Depends(get_drosselung_collection)],
     aktionen_collection: AktionenCollection,
+    berechtigungen_collection: BerechtigungenCollection,
+    berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
+    berechtigungen_postausgang_collection: BerechtigungenPostausgangCollection,
+    einladungen_collection: EinladungenCollection,
+    sperrliste_collection: SperrlisteCollection,
+    sperrliste: SperrlisteLookup,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     germany_now: datetime = Depends(get_germany_now),
-) -> FLSelbstErasureResponse:
+) -> FLErasureResponse:
     """
     Erase every record the signed-in address holds, at once and as one write, and answer how many of each kind went.
 
@@ -68,17 +79,19 @@ async def erase_selbst(
     Removed: the pupil record and every squad row it holds, so the team reads one player fewer; the referee record, every
     fixture it was booked on moving to the one row that holds no person and keeping its own fee; every registration at the
     address, pending or declined; another referee's pending address change naming this address, that referee's row itself
-    standing; and the person's day counts. Emptied: every contact seat the address holds on a team's season row and on an
-    application of any status, the row and its other seats standing. The log images of those records are emptied, and every
-    log row the person wrote, as a person or as an administrator, names a fixed marker in their place, this erasure's own
-    rows included.
+    standing; every grant the address holds, an `owner` grant and the last two among them, every administrator being told it
+    ended; and the person's day counts. Emptied: every contact seat the address holds on a team's season row and on an
+    application of any status, the row and its other seats standing. The log images of those records are emptied. Every
+    record the person made as an administrator or decided as a seat holder -- a grant, a ban, an invitation, an
+    application's or a registration's decision -- and every log row they wrote name a fixed marker in their place, this
+    erasure's own rows included.
 
     An address holding nothing is answered with every count zero rather than refused. The 404 and the 409 answer only a
     database changed by hand under the request. The sign-in account is not touched here: deleting it is the caller's, once
     this has answered.
     """
 
-    async def erase_the_address(session: AsyncClientSession) -> FLSelbstErasureResponse:
+    async def erase_the_address(session: AsyncClientSession) -> FLErasureResponse:
         erased = await erase_everything(
             identifier,
             scope=JEDE_PERSONENGRUPPE,
@@ -91,18 +104,27 @@ async def erase_selbst(
             registrierungen_collection=registrierungen_collection,
             drosselung_collection=drosselung_collection,
             aktionen_collection=aktionen_collection,
+            berechtigungen_collection=berechtigungen_collection,
+            berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
+            berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
+            einladungen_collection=einladungen_collection,
+            sperrliste_collection=sperrliste_collection,
+            sperrliste=sperrliste,
+            geaendert_von=identifier,
             schluessel=config.sperrliste_schluessel,
             stamp=log_stamp(germany_now),
+            now=germany_now,
             session=session,
         )
 
-        return FLSelbstErasureResponse(**erased.model_dump())
+        return FLErasureResponse(**erased.model_dump())
 
     async with transaction_session(db) as session:
         answer = await session.with_transaction(erase_the_address)
 
-    # After the commit, so an attempt that rolled back journals nothing.
-    write_erasure_journal(identifier, schluessel=config.sperrliste_schluessel)
+    await after_the_erasure_commits(
+        identifier, answer, schluessel=config.sperrliste_schluessel, berechtigungen_collection=berechtigungen_collection
+    )
 
     return answer
 
