@@ -1865,9 +1865,9 @@ export async function deleteOwnAccount(
 }
 
 /**
- * Deletes every sign-in-store row of the account `identifier` names in one transaction, and the address's
- * pending rows where it holds none; answers whether an account was there. Its callers erase the league's
- * records first (`docs/frontend/spec.md :: I675`).
+ * Every sign-in-store row of the account `identifier` names, in one transaction, and the address's pending
+ * rows; answers whether an account was there. Its callers first establish the league holds nothing of the
+ * address, erased or unreferenced (`docs/frontend/spec.md :: I675`).
  */
 export async function deleteAccountFor(identifier: string): Promise<boolean> {
   const folded = asSignInIdentifier(identifier);
