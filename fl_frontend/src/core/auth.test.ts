@@ -547,6 +547,10 @@ describe("what the mounted HTTP surface answers", () => {
     // The credential id beside it, which would let a code session name a passkey's sessions as its own.
     await assert.rejects(() => auth.api.updateSession({ body: { passkeyCredentialId: CREDENTIAL_ID }, headers }));
     assert.equal(row.passkeyCredentialId, undefined, "the request wrote a credential id onto a code session");
+    // The idle mark beside them, which cleared would hand an idle administrator's session back its lane.
+    Reflect.set(row, "adminLapsed", true);
+    await assert.rejects(() => auth.api.updateSession({ body: { adminLapsed: false }, headers }));
+    assert.equal(Reflect.get(row, "adminLapsed"), true, "the request cleared the idle mark");
 
     assert.equal(row.authFactor, "code", "the request rewrote the factor, so every guard below proves nothing");
   });
