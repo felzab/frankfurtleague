@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
-import { publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
+import { publishedRefusals, refusedOn, unpublishedOn } from "@/shared/testing/publishedRefusals.ts";
 import { assertEachRefusalCloses, droppedTags, failedWrite, refreshes, unacknowledged } from "@/shared/testing/undoActions.ts";
 
 import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
@@ -114,15 +114,25 @@ describe("the player save's undo", () => {
   it("clears the cache and reads the page again where the squad half fails after the person half went back", async () => {
     answerWith((call) => (isTheSquadHalf(call) ? Promise.reject(failedWrite(call.endpoint)) : Promise.resolve(replayed(call, 1))));
 
-    const answer = await undoAdminSpielerEditAction({ person: PERSON, saison: SAISON });
-
-    assert.equal(answer.success ? undefined : answer.outcome, "partial", "the half that went back is not said to stand");
-    assert.ok(
-      !answer.success && answer.error.endsWith(" Nur die Personendaten wurden zurückgesetzt."),
-      "the answer does not name the half that went back",
-    );
-    assert.equal(answer.success, false, "a squad row that failed was reported as restored");
+    // The server's reason, then the half that went back, never a retry: the offer pressed is gone.
+    assert.deepEqual(await undoAdminSpielerEditAction({ person: PERSON, saison: SAISON }), {
+      success: false,
+      error: "Der Server hat mit einem Fehler geantwortet. Nur die Personendaten wurden zurückgesetzt.",
+      outcome: "partial",
+    });
     assert.deepEqual(droppedTags(), ["spieler"]);
     assert.equal(refreshes(), 1, "the page keeps the person data the undo already put back");
+  });
+
+  /* A rule no table words has no reason to name, so the answer names the half that cannot go back. */
+  it("names the squad entry where a rule no table words refuses it after the person half went back", async () => {
+    const refusal = unpublishedOn(SQUAD_OPERATION, "REQ-UNCLAIMED-000", 409);
+    answerWith((call) => (isTheSquadHalf(call) ? Promise.reject(refusal) : Promise.resolve(replayed(call, 1))));
+
+    assert.deepEqual(await undoAdminSpielerEditAction({ person: PERSON, saison: SAISON }), {
+      success: false,
+      error: "Der Kadereintrag lässt sich so nicht mehr zurücksetzen. Nur die Personendaten wurden zurückgesetzt.",
+      outcome: "partial",
+    });
   });
 });

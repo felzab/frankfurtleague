@@ -352,6 +352,9 @@ const TeamUndoSchema = z
 /** What closes a refusal where the club half went back first, which the change standing would deny. */
 const CLUB_HALF_RESTORED = "Nur die Stammdaten wurden zurückgesetzt.";
 
+/** The season half after the club half went back, as a refusal names it. */
+const SEASON_HALF = { unworded: "Die Saison-Zugehörigkeit lässt sich so nicht mehr zurücksetzen.", restored: CLUB_HALF_RESTORED };
+
 export async function undoAdminTeamEditAction(rawPayload: z.input<typeof TeamUndoSchema>): Promise<UndoOutcome> {
   return runAdminUndo("undoAdminTeamEditAction", async () => {
     const validated = TeamUndoSchema.safeParse(rawPayload);
@@ -381,9 +384,7 @@ export async function undoAdminTeamEditAction(rawPayload: z.input<typeof TeamUnd
       try {
         operation = await patchSaisonTeam(saison);
       } catch (error) {
-        return club === undefined
-          ? refusedReplay(error, TEAM_REPLAY_REFUSALS)
-          : partlyRestored(error, TEAM_REPLAY_REFUSALS, CLUB_HALF_RESTORED);
+        return club === undefined ? refusedReplay(error, TEAM_REPLAY_REFUSALS) : partlyRestored(error, TEAM_REPLAY_REFUSALS, SEASON_HALF);
       }
 
       if (!operation.acknowledged) {

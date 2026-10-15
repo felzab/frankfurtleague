@@ -7,6 +7,7 @@ import { answerThrow } from "./writeOutcome";
 
 import type { AdminRefusal } from "@/core/auth";
 import type { ActionFailure } from "@/shared/types/types";
+import type { Wording } from "./actionError";
 import type { AdminSession } from "./adminMutation";
 
 const UNDO_RESTORED = "Die Änderung wurde zurückgenommen.";
@@ -20,6 +21,16 @@ export const UNDO_UNREADABLE = buildRefusal({ reason: "Die Rücknahme wurde nich
  */
 const undoTurnedAway = (reason: AdminRefusal): string =>
   `${reason === "unread" ? BERECHTIGUNG_UNGELESEN : FORBIDDEN_BY_REFUSAL[reason]} ${AENDERUNG_STEHT_WEITERHIN}`;
+
+/**
+ * The shared reader's sentences for an undo. The press clears the offer and nothing raises it again, so
+ * where a save offers the same press again, the undo says what became of the change.
+ */
+const UNDO_WORDING: Wording = {
+  close: (reason) => `${reason} ${AENDERUNG_STEHT_WEITERHIN}`,
+  unworded: `Die Rücknahme ist so nicht mehr möglich. ${AENDERUNG_STEHT_WEITERHIN}`,
+  unclear: RUECKNAHME_UNKLAR,
+};
 
 /** What an undo answers the offer that sent it: the restore, graded by what it cost, or why it did not land. */
 export type UndoOutcome = { success: true; message: string; warn: boolean } | ActionFailure;
@@ -57,16 +68,28 @@ export function refusedReplay(error: unknown, refusals: Readonly<Record<string, 
   return { success: false, error: `${reason} ${AENDERUNG_STEHT_WEITERHIN}` };
 }
 
-/**
- * A replay's second write failing after its first went back: the table's reason, or the spine's own
- * answer to a definite failure, then `restoredHalf`. A failure that may have landed is rethrown, for the
- * spine to answer as unclear.
- */
-export function partlyRestored(error: unknown, refusals: Readonly<Record<string, string>>, restoredHalf: string): ActionFailure {
-  const reason = replayRefusal(error, refusals) ?? answerThrow(error);
-  if (typeof reason !== "string" && reason.outcome === "unknown") throw error;
+/** The second write of a replay of two, in its slice's words. */
+type SecondHalf = {
+  /** Why it cannot go back, where a rule no table words refused it: the half is named, since the rule cannot be. */
+  readonly unworded: string;
+  /** The first half, which went back: it closes every answer, which the change standing would deny. */
+  readonly restored: string;
+};
 
-  return { success: false, error: `${typeof reason === "string" ? reason : reason.error} ${restoredHalf}`, outcome: "partial" };
+/**
+ * The second write failing after the first went back: the table's reason or the spine's answer to a
+ * definite failure, then the half that went back. One that may have landed is rethrown, for the spine
+ * to title unclear.
+ */
+export function partlyRestored(error: unknown, refusals: Readonly<Record<string, string>>, half: SecondHalf): ActionFailure {
+  // The reason alone, never a retry: the half closes every answer instead.
+  const reason = replayRefusal(error, refusals) ?? answerThrow(error, { ...UNDO_WORDING, close: (bare) => bare, unworded: half.unworded });
+  if (typeof reason !== "string" && reason.outcome === "unknown") throw error;
+  // No form stands behind an undo to mark the fields a refusal names, so the sentence for the rest is
+  // the answer, never the form's own.
+  const sentence = typeof reason === "string" ? reason : (reason.unplacedError ?? reason.error);
+
+  return { success: false, error: `${sentence} ${half.restored}`, outcome: "partial" };
 }
 
 /**
@@ -74,19 +97,11 @@ export function partlyRestored(error: unknown, refusals: Readonly<Record<string,
  * keeps its parse, its tags, its step-up and its replay, and answers what became of it.
  */
 export async function runAdminUndo(mutationName: string, fn: (session: AdminSession) => Promise<UndoOutcome>): Promise<UndoOutcome> {
-  let answered: UndoOutcome | undefined;
-  const answer = await runAdminMutation(mutationName, { stepUp: false, turnedAway: undoTurnedAway }, async (session) => {
-    answered = await fn(session);
-    return answered;
-  });
+  const answer = await runAdminMutation(mutationName, { stepUp: false, turnedAway: undoTurnedAway, wording: UNDO_WORDING }, fn);
 
-  if (answer.success) return answer;
-  // The spine's own unknown outcome, a throw's or a lost answer's, is its own object worded for a save;
-  // the body's carries the slice's sentence.
-  if (answer.outcome === "unknown" && answer !== answered) return { ...answer, error: RUECKNAHME_UNKLAR };
   // The spine drops the tags behind a half that went back and leaves the page to the action
   // (`docs/frontend/spec.md :: I233`).
-  if (answer.outcome === "partial") refresh();
+  if (!answer.success && answer.outcome === "partial") refresh();
 
   return answer;
 }

@@ -10,10 +10,12 @@ import type { UndoOutcome } from "./adminUndo.ts";
 const { setSession, setRefusal } = doubleActionRequest();
 
 const { partlyRestored, refusedReplay, replayRefusal, restored, runAdminUndo, unclearReplay } = await import("./adminUndo.ts");
-const { invalidatesOnWrite, FORBIDDEN_BY_REFUSAL } = await import("./adminMutation.ts");
+const { invalidatesOnWrite, FORBIDDEN_BY_REFUSAL, runAdminMutation } = await import("./adminMutation.ts");
 const { AENDERUNG_STEHT_WEITERHIN } = await import("./actionError.ts");
-const { APIBadStatusError } = await import("@/core/errors.ts");
+const { APIBadStatusError, APIMalformedDataError, APINetworkError } = await import("@/core/errors.ts");
 const { recordWriteSent } = await import("@/core/requestScope.ts");
+const { bodyField } = await import("@/shared/testing/refusedPayload.ts");
+const { UNKNOWN_REFUSAL } = await import("./refusal.ts");
 
 /** The ruling's words for an undo nobody can tell landed. */
 const RUECKNAHME_UNKLAR = "Ob die Änderung zurückgenommen wurde, ist unklar. Lade die Seite neu und prüfe sie.";
@@ -21,16 +23,21 @@ const RUECKNAHME_UNKLAR = "Ob die Änderung zurückgenommen wurde, ist unklar. L
 /** What the spine and the undo did to the caches and the page, by call. */
 const cleared = (): string[] => cacheCalls.map(({ name, args }) => [name, ...args].join(" "));
 
-/** One undo whose replay declares a tag and sends its write, then answers or throws as `replay` does. */
-const undo = (replay: () => Promise<UndoOutcome>) =>
-  runAdminUndo("undoProbe", () => {
-    invalidatesOnWrite("probe");
-    recordWriteSent();
-    return replay();
-  });
+/** A replay that declares a tag and, where `sent`, sends its write, then answers or throws as `replay` does. */
+const body = (replay: () => Promise<UndoOutcome>, sent: boolean) => () => {
+  invalidatesOnWrite("probe");
+  if (sent) recordWriteSent();
+  return replay();
+};
 
-/** A replayed endpoint's failure, answered as `apiClient` raises it. */
-const failed = (statusCode: number, serverErrorCode: string) =>
+/** One undo over that replay. */
+const undo = (replay: () => Promise<UndoOutcome>, sent = true) => runAdminUndo("undoProbe", body(replay, sent));
+
+/** The same replay as a save's body, on the spine every admin save runs on. */
+const save = (replay: () => Promise<UndoOutcome>, sent = true) => runAdminMutation("saveProbe", body(replay, sent));
+
+/** A replayed endpoint's failure, answered as `apiClient` raises it, naming the body fields `refusedFields` names. */
+const failed = (statusCode: number, serverErrorCode: string, refusedFields: ReturnType<typeof bodyField>[] = []) =>
   new APIBadStatusError({
     message: "refused",
     url: "http://backend:8000/api/v0/x",
@@ -40,10 +47,48 @@ const failed = (statusCode: number, serverErrorCode: string) =>
     traceId: "ab".repeat(16),
     statusCode,
     serverErrorCode,
+    refusedFields,
   });
 
 const TABLE = { "REQ-TEST-001": "Die Rücknahme wurde nicht ausgeführt." };
 const HALF = "Nur die Stammdaten wurden zurückgesetzt.";
+const SECOND_HALF = { unworded: "Die Saison-Zugehörigkeit lässt sich so nicht mehr zurücksetzen.", restored: HALF };
+
+/** A read an undo makes before its write, failing as `apiClient` raises it: nothing was sent. */
+const READ = { url: "http://backend:8000/api/v0/x", endpoint: "/x", method: "GET", readOnly: false, traceId: "ab".repeat(16) };
+
+/** Each failure after which a save's press may pass again, by its reason, with whether the undo had sent its write. */
+const PRESS_AGAIN = [
+  { failure: failed(500, "DB-FAIL-001"), sent: true, reason: "Der Server hat mit einem Fehler geantwortet.", retry: "Versuche es erneut." },
+  {
+    failure: new APINetworkError({ ...READ, message: "timed out", isTimeout: true }),
+    sent: false,
+    reason: "Der Server hat zu lange nicht geantwortet.",
+    retry: "Versuche es erneut.",
+  },
+  {
+    failure: new APINetworkError({ ...READ, message: "refused", isTimeout: false }),
+    sent: false,
+    reason: "Der Server ist gerade nicht erreichbar.",
+    retry: "Versuche es später erneut.",
+  },
+  {
+    failure: new APIMalformedDataError({ ...READ, message: "malformed", statusCode: 200 }),
+    sent: false,
+    reason: "Die Daten kamen fehlerhaft an.",
+    retry: "Versuche es erneut.",
+  },
+];
+
+/** Each failure naming no cause, with whether the undo had sent its write. */
+const UNNAMED = [
+  { what: "a rule no table words", failure: failed(409, "REQ-TEST-002"), sent: true },
+  { what: "a rule no table words, over a field", failure: failed(422, "REQ-TEST-002", [bodyField(["gruppe"])]), sent: true },
+  { what: "a throw of this application's own", failure: new Error("unnamed"), sent: false },
+];
+
+/** What the offer's toast shows of a failure: the sentence no box takes, where the refusal marks fields. */
+const shown = (answer: UndoOutcome): string => (answer.success ? "" : (answer.unplacedError ?? answer.error));
 
 describe("what the undo spine clears behind each answer", () => {
   /* One write refused wrote nothing, so no cached read moved and the page is left as it stands: a
@@ -60,7 +105,7 @@ describe("what the undo spine clears behind each answer", () => {
   it("clears the caches and reads the page again behind a half that went back, refused or failed", async () => {
     for (const second of [failed(409, "REQ-TEST-001"), failed(500, "DB-FAIL-001")]) {
       cacheCalls.length = 0;
-      const answer = await undo(async () => partlyRestored(second, TABLE, HALF));
+      const answer = await undo(async () => partlyRestored(second, TABLE, SECOND_HALF));
 
       assert.equal(answer.success, false);
       assert.equal(answer.success ? undefined : answer.outcome, "partial", `${String(second.serverErrorCode)} was not marked partly restored`);
@@ -69,9 +114,23 @@ describe("what the undo spine clears behind each answer", () => {
     }
   });
 
+  /* No form stands behind an undo, so the marks a refusal puts on the fields it names have no box: the
+     sentence for the rest is the answer, never the form's „Überprüfe Deine Eingaben.“ */
+  it("answers a second write refused over fields in the sentence no box takes, then the half that went back", async () => {
+    const sentences = {
+      "REQ-TEST-002": SECOND_HALF.unworded,
+      "REQ-VAL-001": "Einzelne Angaben wurden nicht übernommen. Lade die Seite neu.",
+    };
+    for (const [code, sentence] of Object.entries(sentences)) {
+      const answer = await undo(async () => partlyRestored(failed(422, code, [bodyField(["gruppe"])]), TABLE, SECOND_HALF));
+
+      assert.deepEqual(answer, { success: false, error: `${sentence} ${HALF}`, outcome: "partial" }, code);
+    }
+  });
+
   /* A failure that may have landed is no half restored: it is rethrown, so the spine titles it unclear. */
   it("answers a second write that may have landed as unclear, never as partly restored", async () => {
-    const answer = await undo(async () => partlyRestored(failed(500, "DB-FAIL-002"), TABLE, HALF));
+    const answer = await undo(async () => partlyRestored(failed(500, "DB-FAIL-002"), TABLE, SECOND_HALF));
 
     assert.deepEqual(answer, { success: false, error: RUECKNAHME_UNKLAR, outcome: "unknown" });
     assert.deepEqual(cleared(), ["updateTag probe", "refresh"]);
@@ -106,6 +165,28 @@ describe("what the undo spine answers when nobody can tell whether its replay la
       warn: true,
     });
   });
+});
+
+describe("what an undo says where a save offers its press again", () => {
+  /* The press clears the offer and nothing raises it again, so the undo says what became of the change
+     where a save, whose form stays open, offers the same press again. */
+  for (const { failure, sent, reason, retry } of PRESS_AGAIN) {
+    it(`says the change stands after „${reason}“, where a save retries`, async () => {
+      assert.deepEqual(await undo(() => Promise.reject(failure), sent), { success: false, error: `${reason} ${AENDERUNG_STEHT_WEITERHIN}` });
+      assert.deepEqual(await save(() => Promise.reject(failure), sent), { success: false, error: `${reason} ${retry}` });
+    });
+  }
+
+  /* No rule's reason can be named, and a reload would only show the change standing. */
+  for (const { what, failure, sent } of UNNAMED) {
+    it(`names no cause after ${what} and says the change stands, where a save retries`, async () => {
+      assert.equal(
+        shown(await undo(() => Promise.reject(failure), sent)),
+        `Die Rücknahme ist so nicht mehr möglich. ${AENDERUNG_STEHT_WEITERHIN}`,
+      );
+      assert.equal(shown(await save(() => Promise.reject(failure), sent)), UNKNOWN_REFUSAL);
+    });
+  }
 });
 
 describe("who the undo spine answers before it does any work", () => {

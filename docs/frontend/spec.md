@@ -474,8 +474,10 @@ once and every editor gets it. `fl_frontend/src/shared/utils/undoDispatch.ts :: 
 offer and calls the slice's undo action on its press, and
 `fl_frontend/src/shared/utils/adminUndo.ts :: runAdminUndo` is the spine every undo action runs on,
 `runAdminMutation`'s: each action supplies its parse, its tags, its step-up and the replay, and nothing
-else. **A caller the guard turns away is told what an action turned away for the same reason is told,
-never a retry, and that the change stands** (I522), the offer it pressed being gone. **A lapsed
+else. **No undo answer offers its press again**, the offer it pressed being gone: a caller the guard
+turns away is told what an action turned away for the same reason is told, and that the change stands
+(I522), and where the shared reader offers a save its retry, an undo is told that the change stands,
+or which half went back (`fl_frontend/src/shared/utils/adminUndo.ts :: UNDO_WORDING`). **A lapsed
 session pressing on an admin page leaves for `/signin` without a word**, as a save's does (I251): the
 proxy's turn-away is Next's own redirect, which the offer hands back to Next. Pressing from a page
 outside `/bereich/admin`, the forwarded action meets that turn-away with no answer to read, so it is
@@ -1170,7 +1172,8 @@ meets alike, a lost seat's `REQ-FUNKTION-001` (I553) among them. A public route 
 (`fl_frontend/src/shared/utils/publicRoute.ts :: SCHON_VORLIEGEND`). A rule's code no arm names
 (`fl_frontend/src/shared/utils/actionError.ts :: isRuleRefusal`) is answered with `fl_frontend/src/shared/utils/refusal.ts :: UNKNOWN_REFUSAL`, which
 names no reason, and on a public route with `:: UNHANDLED_FIELD_REFUSAL`, whose way out is no reload:
-a reload discards what the visitor typed. Every undo whose replayed endpoint publishes
+a reload discards what the visitor typed. An undo is told that the change stands instead, its offer
+gone once pressed (`fl_frontend/src/shared/utils/adminUndo.ts :: UNDO_WORDING`). Every undo whose replayed endpoint publishes
 `DB-COMMON-002` answers it in its replay table's row with the shared sentence
 (`fl_frontend/src/shared/utils/actionError.ts :: KONFLIKT_MIT_BESTEHENDEM`), which
 `fl_frontend/src/shared/utils/adminUndo.ts :: refusedReplay` closes, as it closes every row, on what
