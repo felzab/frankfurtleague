@@ -442,8 +442,8 @@ class ErasureStep:
     """One member of the erasure: the collections it writes, whose records they are, and the function `erase_everything` calls by name."""
 
     reaches: frozenset[Collection]
-    # `None` for a step reaching no kind of person's own record: the full scope alone runs it. Every step
-    # leaving the address in another record's images is one, so no scope runs it without the address pass.
+    # `None` for a step serving no one kind of person: the full scope alone runs it. Every step leaving
+    # the address in another record's images is one, so no scope runs it without the address pass.
     personengruppe: Personengruppe | None
     run: Callable[..., Awaitable[Any]]
 
@@ -492,8 +492,8 @@ ERASURE_STEPS: Final[tuple[ErasureStep, ...]] = (
     ),
     ErasureStep(reaches=frozenset({Collection.DROSSELUNG}), personengruppe=None, run=erase_counts_in_session),
     ErasureStep(reaches=frozenset({Collection.AKTIONEN}), personengruppe=None, run=unattribute_in_session),
-    # LAST: every step before it files images still holding the address. No kind's alone: in the pupil
-    # scope it would take a standing referee's or administrator's address out of their own images.
+    # LAST: images filed before the erasure hold the address, and the seat clearing files more. No kind's
+    # alone: in the pupil scope it would take a standing referee's or administrator's address out of their own images.
     ErasureStep(reaches=frozenset({Collection.AKTIONEN}), personengruppe=None, run=redact_address_in_images),
 )
 

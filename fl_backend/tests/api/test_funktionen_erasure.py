@@ -554,10 +554,10 @@ class TestNothingOfTheirsIsLeftAnywhere:
 
     @pytest.mark.parametrize("holding_a_grant", [False, True], ids=["holding no grant", "holding an administration grant"])
     def test_no_value_of_theirs_survives_and_every_bystanders_does(self, mongo_replica_set_url: str, holding_a_grant: bool):
-        """Catches a step removed from the registry, and a store none of them reaches -- the pseudonym's included.
+        """Catches a step removed from the registry, or a store none reaches, the pseudonym's included.
 
-        Every value is asserted present before, so a seed that stopped writing one fails rather than passing. With a grant,
-        its row, its announced row and the notice the erasure queues of it are inside the scan too.
+        Each value is asserted present first, so a seed that stopped writing one fails; the grant, where held, adds its rows and
+        notice.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:

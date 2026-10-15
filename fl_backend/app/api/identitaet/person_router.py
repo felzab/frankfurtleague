@@ -102,9 +102,10 @@ async def erase_selbst(
     log row they wrote name a fixed marker in their place, this erasure's own rows included. The log images of the removed
     records are emptied, and every other image holding the address loses it, the people beside them keeping theirs.
 
-    An address holding nothing is answered with every count zero rather than refused. The 404 and the 409 answer only a
-    database changed by hand under the request. The sign-in account is not touched here: deleting it is the caller's, once
-    this has answered.
+    An address holding nothing is answered with every count zero rather than refused. The 409 answers only a database
+    changed by hand, a second nameless referee meeting the ghost's name index. The 404 is published for the steps' reads by
+    id, which no request can meet: every id comes from the subject read in the same snapshot. The sign-in account is not
+    touched here: deleting it is the caller's, once this has answered.
     """
 
     async def erase_the_address(session: AsyncClientSession) -> FLErasureResponse:
