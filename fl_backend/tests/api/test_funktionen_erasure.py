@@ -35,7 +35,7 @@ from app.api.registrierungen.services import compose_ablehnung_update
 from app.api.schiedsrichter.services import compose_adresswechsel, compose_einwilligung
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.api.spieler.crud import erase_person_in_session
-from app.api.spieler.services import build_ghost_spieler
+from app.api.spieler.services import build_ghost_spieler, compose_spieler_adresswechsel
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db
@@ -311,7 +311,7 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
             "Gwendolyn-Muster",
             email="gwendolyn@example.com",
             einwilligung=einwilligung,
-            adresswechsel=compose_adresswechsel(email=TYPED, token_hash=hash_token("her-new-address"), today="2026-03-29"),
+            adresswechsel=compose_spieler_adresswechsel(email=TYPED, token_hash=hash_token("her-new-address"), today="2026-03-29"),
         )
     )
     await database[Collection.SPIELER].insert_one(
