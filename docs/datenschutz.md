@@ -790,7 +790,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   lengthen retention and add a processor receiving visitors' addresses. That the access line carries
   no credential and no typed search query is a separate guarantee, held by `nginx/edge_test.sh` in
   the gate's ops scope (`docs/frontend/spec.md :: I680`).
-  Ruled 2026-09-06, re-ruled 2026-09-07.
+  Ruled 2026-09-06, re-ruled 2026-09-07; the search-query half ruled 2026-10-15.
 
 ## 7. Processors and third parties
 

@@ -29,11 +29,19 @@ export function splitDateQuery(query: string): { dates: string[]; rest: string }
   };
 }
 
+/**
+ * A dotted path to a stored value, or Fuse's own key shape for a value the row's card derives: a card
+ * printing a label in place of what is stored is searched by that label (`docs/frontend/spec.md :: I681`).
+ */
+export type SearchKey<T> = string | { readonly name: string; readonly getFn: (item: T) => string };
+
 /** Every string one searched key reaches on an item, a dotted path walked and an array flattened. */
-function valuesAt(item: unknown, path: string): string[] {
+function valuesAt<T>(item: T, key: SearchKey<T>): string[] {
+  if (typeof key !== "string") return [key.getFn(item)];
+
   let reached: unknown[] = [item];
 
-  for (const step of path.split(".")) {
+  for (const step of key.split(".")) {
     reached = reached.flatMap((at) => (typeof at === "object" && at !== null ? [(at as Record<string, unknown>)[step]] : []));
   }
 
@@ -41,7 +49,7 @@ function valuesAt(item: unknown, path: string): string[] {
 }
 
 /** Whether an item carries each date on some searched key, written exactly as the query spells it. */
-export function carriesEveryDate(item: unknown, keys: readonly string[], dates: readonly string[]): boolean {
+export function carriesEveryDate<T>(item: T, keys: readonly SearchKey<T>[], dates: readonly string[]): boolean {
   return dates.every((date) => keys.some((key) => valuesAt(item, key).includes(date)));
 }
 
@@ -56,7 +64,7 @@ export function useFuzzySearch<T>({
   emptyQuery = "all",
 }: {
   items: T[];
-  keys: readonly string[];
+  keys: readonly SearchKey<T>[];
   query: string;
   emptyQuery?: "all" | "none";
 }): T[] {

@@ -4,11 +4,12 @@ import "@/shared/testing/renderTest.ts";
 import assert from "node:assert/strict";
 import { describe, it, mock } from "node:test";
 
-import { act, createElement as h } from "react";
+import { act, createElement as h, memo, Profiler } from "react";
 
 import { fireEvent, render, within } from "@testing-library/react";
 
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
+import { renderTree } from "@/shared/testing/renderTest.ts";
 
 import type { Navigations } from "@/shared/testing/nextContexts.ts";
 
@@ -85,6 +86,52 @@ describe("the query every admin list holds in the page", () => {
     } finally {
       mock.timers.reset();
     }
+  });
+
+  /* A list thousands of rows long takes long enough to re-render that a keystroke waiting on it lags:
+     the bar's own commit has to leave the memoised table alone, and the table catch up after it. */
+  it("commits a keystroke before the table re-renders behind it", () => {
+    let tableRenders = 0;
+    const perCommit: number[] = [];
+    const Table = memo(function Table({ rows }: { rows: Row[]; onDelete: unknown }) {
+      tableRenders += 1;
+      return h(
+        "ul",
+        null,
+        rows.map((row) => h("li", { key: row.id }, row.name)),
+      );
+    });
+    const { container } = render(
+      underNext(
+        h(Profiler, {
+          id: "liste",
+          onRender: () => void perCommit.push(tableRenders),
+          children: h(AdminCrudShell, {
+            search: h(AdminCrudSearch, { searchLabel: LABEL, searchPlaceholder: LABEL }),
+            children: h(AdminCrudView<Row>, {
+              items: ROWS,
+              searchKeys: SEARCH_KEYS,
+              shape: "cards",
+              renderTable: ({ filteredItems, onDelete }) => h(Table, { rows: filteredItems, onDelete }),
+            }),
+          }),
+        }),
+      ),
+    );
+
+    perCommit.length = 0;
+    const before = tableRenders;
+    fireEvent.change(within(container).getByRole("searchbox", { name: LABEL }), { target: { value: NAME } });
+
+    assert.equal(perCommit[0], before, "the keystroke's own commit re-rendered the table, so typing waits on every row");
+    assert.equal(tableRenders, before + 1, "the table never caught up with the keystroke, or rendered it more than once");
+    assert.deepEqual(shown(container), ["Lena Brückner"]);
+  });
+
+  /* A bar mounted outside the shell has nothing holding what is typed into it: it fails where it is
+     mounted rather than taking keystrokes that go nowhere. */
+  it("refuses a bar mounted with no holder", () => {
+    assert.throws(() => renderTree(underNext(h(AdminCrudSearch, { searchLabel: LABEL, searchPlaceholder: LABEL }))), /AdminCrudShell/);
   });
 
   /* The read half of the same rule: a link or a bookmark carrying `?q=` is no way into a search. */

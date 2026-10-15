@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
 import { AKTIONEN_FACETS, aktionenLogFacetCounts } from "@/features/aktionen/facets";
+import { aktorAnzeige } from "@/features/aktionen/utils";
 import { AdminCrudView } from "@/shared/components/ui/AdminCrudView";
 import { Callout } from "@/shared/components/ui/Callout";
 import { textLink } from "@/shared/components/ui/textLink";
@@ -13,11 +14,18 @@ import { AdminAktionenTable } from "../collections/AdminAktionenTable";
 
 import type { FLAktionenListResponse } from "@/features/aktionen/schemas";
 import type { AdminAktionRow } from "@/features/aktionen/types";
+import type { SearchKey } from "@/shared/hooks/useFuzzySearch";
 import type { Leserichtung } from "@/shared/utils/leserichtung";
 
 // Module scope: a fresh array here would defeat useFuzzySearch's memo on every render. The collection
 // is not among them because it is a facet: searching would match the stored name and not the label.
-const SEARCH_KEYS = ["actor.email", "document_id", "trace_id", "request.path"] as const;
+const SEARCH_KEYS: readonly SearchKey<AdminAktionRow>[] = [
+  // As its cell prints it, never as stored (`docs/frontend/spec.md :: I681`).
+  { name: "actor", getFn: (aktion) => aktorAnzeige(aktion.actor) },
+  "document_id",
+  "trace_id",
+  "request.path",
+];
 
 /**
  * **No `renderDeleteModal`**: the log is written by every other admin page and never from here, so a row is read and

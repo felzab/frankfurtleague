@@ -1,22 +1,17 @@
 "use client";
 
-import { createContext, useContext, useMemo, useState } from "react";
+import { createContext, useContext, useDeferredValue, useMemo, useState } from "react";
 
 import type { ReactNode } from "react";
 
 type PrivateQuery = { value: string; set: (value: string) => void };
 
-/**
- * What a half mounted outside the shell reads: no query, and a bar typing into nothing. Never the
- * URL, the one place a typed query must not reach (`docs/frontend/spec.md :: I680`).
- */
-const UNHELD: PrivateQuery = { value: "", set: () => undefined };
-
-const PrivateQueryContext = createContext<PrivateQuery>(UNHELD);
+/** `null` outside the shell, which holds every admin search, and never a fallback to the URL (`docs/frontend/spec.md :: I680`). */
+const PrivateQueryContext = createContext<PrivateQuery | null>(null);
 
 /**
  * Mounted by `AdminCrudShell` around both halves of every admin search. Held here, the query reaches
- * no request line, so neither nginx's access log nor `aktionen.request` can keep it.
+ * no request line, so nginx's access log cannot keep it.
  */
 export function AdminCrudPrivateQuery({ children }: { children: ReactNode }) {
   const [value, setValue] = useState("");
@@ -28,6 +23,8 @@ export function AdminCrudPrivateQuery({ children }: { children: ReactNode }) {
 
 export function useCrudSearchField(): { inputValue: string; setInputValue: (value: string) => void } {
   const held = useContext(PrivateQueryContext);
+  // Loud rather than a bar typing into nothing: outside the shell nothing would hold what is typed.
+  if (held === null) throw new Error("AdminCrudSearch renders inside AdminCrudShell, which holds what it types.");
 
   return { inputValue: held.value, setInputValue: held.set };
 }
@@ -37,5 +34,7 @@ export function useCrudSearchField(): { inputValue: string; setInputValue: (valu
  * joined by nothing else, which is why the held value travels as context rather than as a prop.
  */
 export function useCrudListQuery(): string {
-  return useContext(PrivateQueryContext).value;
+  // Deferred, so a keystroke commits the bar before a table thousands of rows long re-renders behind it.
+  // A list with no holder has no bar either, and reads no query.
+  return useDeferredValue(useContext(PrivateQueryContext)?.value ?? "");
 }

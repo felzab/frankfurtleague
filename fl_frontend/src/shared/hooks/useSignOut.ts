@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
 
 import { appToast } from "@/shared/utils/appToast";
+import { leaveDocumentFor } from "@/shared/utils/documentNavigation";
 
 import { useTwoPressConfirm } from "./useTwoPressConfirm";
 
@@ -18,7 +18,6 @@ export function useSignOut(onSignOut: () => Promise<FormState>) {
   // session before the armed control was read (`docs/frontend/spec.md :: I37`).
   const confirm = useTwoPressConfirm();
   const { isConfirming, press, cancel } = confirm;
-  const router = useRouter();
 
   // On iOS a tap on non-interactive content moves focus nowhere, so a capture-phase outside press is the
   // reliable disarm — `pointerdown` and `touchstart` both, since a scroll cancels the latter.
@@ -38,8 +37,7 @@ export function useSignOut(onSignOut: () => Promise<FormState>) {
     };
   }, [isConfirming, cancel]);
 
-  // The toast fires before navigating: `Toast.Provider` sits above the router, and one queued after
-  // `push()` races the caller's unmount.
+  // The toast fires before the document is left, and shows only until the start page replaces it.
   const signOutNow = async () => {
     try {
       const result = await onSignOut();
@@ -52,9 +50,9 @@ export function useSignOut(onSignOut: () => Promise<FormState>) {
       // The fallback stands for `null`, which `FormState` admits and no sign-out sends: the catch
       // below is what answers a round trip that did not land.
       appToast.success(result?.message ?? "Abgemeldet");
-      // `refresh()` drops the cached server render of the admin shell just left behind.
-      router.push("/");
-      router.refresh();
+      // A full document load, as Next's guide advises for a sign-out: a soft navigation keeps every route
+      // the router hid, with its rows and what was typed into it.
+      leaveDocumentFor("/");
     } catch {
       // A cut request may have ended the session or not, so neither answer above is true of it.
       appToast.danger("Abmeldung unklar", { description: "Lade die Seite neu, um zu sehen, ob Du noch angemeldet bist." });

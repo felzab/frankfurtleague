@@ -1,3 +1,5 @@
+import { withoutSearchQuery } from "./searchQuery";
+
 /**
  * Which end of a capped read a list keeps. The default keeps the NEWEST, so a flood buries the older
  * genuine rows; reversing is the one thing that puts them back in the window.
@@ -24,8 +26,8 @@ export function umgekehrt(richtung: Leserichtung): Leserichtung {
  * both ends and a link offering the other share one builder.
  */
 export function leserichtungHref(search: URLSearchParams, ziel: Leserichtung): string {
-  // Copied rather than rebuilt, so reversing never silently drops the search text or a facet.
-  const next = new URLSearchParams(search);
+  // Copied rather than rebuilt, so reversing never silently drops a facet or the season.
+  const next = withoutSearchQuery(search);
   next.delete(ORDER_PARAM);
   // The default end is the ABSENCE of the parameter, as `SaisonSelector` and `useUrlFilters` spell
   // theirs: a shared link carries only what somebody chose.
