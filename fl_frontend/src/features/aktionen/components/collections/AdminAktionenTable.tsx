@@ -207,7 +207,14 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
    */
   const renderStandBadge = (aktion: AdminAktionRow) => {
     if (aktion.redacted_at !== null) {
-      return <span className={labelBadge("danger")}>Werte gelöscht am {formatAktionZeitpunkt(aktion.redacted_at).datum}</span>;
+      const datum = formatAktionZeitpunkt(aktion.redacted_at).datum;
+
+      // A copy still standing lost one person's values alone: the people beside them on that record keep theirs.
+      return aktion.stand_gesichert ? (
+        <span className={labelBadge("danger")}>Einzelne Werte gelöscht am {datum}</span>
+      ) : (
+        <span className={labelBadge("danger")}>Werte gelöscht am {datum}</span>
+      );
     }
 
     if (aktion.stand_gesichert) return <span className={labelBadge("success")}>Stand gesichert</span>;

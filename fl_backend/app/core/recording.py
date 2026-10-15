@@ -10,7 +10,7 @@ log stream: a restore replays what a write replaced, so the prior document is th
 makes retention and redaction this module's problem rather than the stream's.
 """
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -148,8 +148,8 @@ async def record_write(
         "db_filter": _stringify_filter(db_filter) if db_filter is not None else None,
         "before": _stored_image(before),
         "modified_count": modified_count,
-        # Set when a person's erasure or a referee's anonymisation overwrites the values here. Null
-        # means the row still holds what it recorded (`docs/backend/spec.md :: I42`).
+        # Set when a write destroying a person's values overwrites theirs here. Null means the image
+        # still holds what it recorded (`docs/backend/spec.md :: I42`).
         "redacted_at": None,
     }
 
@@ -209,3 +209,31 @@ def build_redaction_update(*, at: str) -> Mapping[str, Any]:
     """
 
     return {"$set": {"before": None, "redacted_at": at}}
+
+
+# One image's verdict: each path inside it, relative to the image, and what overwrites it there.
+ImageEdits = Mapping[str, Any]
+
+
+def build_image_redactions(
+    rows: Sequence[Mapping[str, Any]], *, judge: Callable[[Mapping[str, Any]], ImageEdits], at: str
+) -> list[tuple[list[Any], Mapping[str, Any]]]:
+    """Overwrite only what `judge` finds of the departing person in each image, one update per overwrite (`docs/backend/spec.md :: I42`).
+
+    Never the whole image where others share the document: their earlier states are their consent trail.
+    """
+
+    grouped: dict[frozenset[tuple[str, Any]], list[Any]] = {}
+    for row in rows:
+        before = row.get("before")
+        # Addressed by index: a `delete_many` row's images are an array, and a dotted path naming no
+        # index is refused inside one.
+        images = [(f"before.{index}", image) for index, image in enumerate(before)] if isinstance(before, list) else [("before", before)]
+        edits = frozenset(
+            (f"{prefix}.{path}", value) for prefix, image in images if isinstance(image, Mapping) for path, value in judge(image).items()
+        )
+        # Unstamped where no image names them, so a stamp still means a value of somebody's went.
+        if edits:
+            grouped.setdefault(edits, []).append(row["_id"])
+
+    return [(ids, {"$set": {**dict(edits), "redacted_at": at}}) for edits, ids in grouped.items()]

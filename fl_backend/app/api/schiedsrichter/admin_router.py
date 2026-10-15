@@ -6,6 +6,7 @@ from fastapi import APIRouter, Body, Depends
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
+from app.api.aktionen.crud import redact_images_in_session
 from app.api.bewerbungen.services import mint_token
 from app.api.schiedsrichter.crud import erase_referee_in_session
 from app.api.schiedsrichter.schemas import (
@@ -27,6 +28,7 @@ from app.api.schiedsrichter.services import (
     BESTAETIGUNG_FELD,
     EINLADEN_FIELDS,
     EINWILLIGUNG_FELD,
+    adresswechsel_image_edits,
     bestaetigung_frist_from,
     build_assignment_filter,
     build_pending_adresswechsel_filter,
@@ -69,7 +71,7 @@ from app.core.dependencies import (
     get_germany_now,
 )
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
-from app.core.recording import build_redaction_filter, build_redaction_update, log_stamp
+from app.core.recording import build_redaction_filter, log_stamp
 from app.core.routing import by_id
 from app.core.security import (
     StepUpCheck,
@@ -80,6 +82,7 @@ from app.core.security import (
     verify_step_up,
 )
 from app.core.transactions import transaction_session
+from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
@@ -243,10 +246,12 @@ async def patch_schiedsrichter(
         if verwirft:
             # After the patch, for the decline's reason: it reaches the pre-image this save just filed,
             # which still holds the address it replaced.
-            await patch_many_in_db(
-                collection=aktionen_collection,
+            dropped = sign_in_identifier(str(stored[ADRESSWECHSEL_FELD]["email"]))
+            await redact_images_in_session(
+                aktionen_collection=aktionen_collection,
                 db_filter=build_redaction_filter([(Collection.SCHIEDSRICHTER, [schiedsrichter_id])]),
-                update=build_redaction_update(at=log_stamp(germany_now)),
+                judge=lambda image: adresswechsel_image_edits(image, dropped),
+                stamp=log_stamp(germany_now),
                 session=session,
             )
 
@@ -571,15 +576,21 @@ async def delete_adresswechsel(
     """
     Discard this referee's pending address change: the block goes, its link opens nothing, and the stored address stays.
 
-    **The address goes from the action log too** (`docs/backend/spec.md :: I562`): every image the log holds of this
-    referee is emptied, since every write on the row while the change stood, a re-send or this discard included, filed one
-    carrying an address nobody proved. Nothing is mailed. 404 where the referee holds no pending change, and for an id no
-    referee holds, the ghost's included.
+    **The address goes from the action log too** (`docs/backend/spec.md :: I562`): it is taken out of every image the log
+    holds of this referee, since every write on the row while the change stood, a re-send or this discard included, filed one
+    carrying an address nobody proved; the rest of each image stays. Nothing is mailed. 404 where the referee holds no pending
+    change, and for an id no referee holds, the ghost's included.
     """
 
     async def discard_the_change(session: AsyncClientSession) -> Mapping[str, Any]:
-        # The filter is the judgement, as the registration link's revocation's is: `patch_one_in_db`
-        # answers a miss with the 404, so no read stands between finding the change and removing it.
+        # In-session, so the address judged in the images below is the one this transaction removes.
+        # The filter is the judgement: a referee holding no change is the 404 here.
+        stored = await pull_one_from_db(
+            collection=schiedsrichter_collection,
+            db_filter=build_pending_adresswechsel_filter(schiedsrichter_id),
+            projection={f"{ADRESSWECHSEL_FELD}.email": 1},
+            session=session,
+        )
         updated = await patch_one_in_db(
             collection=schiedsrichter_collection,
             db_filter=build_pending_adresswechsel_filter(schiedsrichter_id),
@@ -590,10 +601,12 @@ async def delete_adresswechsel(
 
         # LAST, for the contact's Widerspruch's reason: it reaches the pre-image the patch above
         # just filed, which still holds the discarded address.
-        await patch_many_in_db(
-            collection=aktionen_collection,
+        discarded = sign_in_identifier(str(stored[ADRESSWECHSEL_FELD]["email"]))
+        await redact_images_in_session(
+            aktionen_collection=aktionen_collection,
             db_filter=build_redaction_filter([(Collection.SCHIEDSRICHTER, [schiedsrichter_id])]),
-            update=build_redaction_update(at=log_stamp(germany_now)),
+            judge=lambda image: adresswechsel_image_edits(image, discarded),
+            stamp=log_stamp(germany_now),
             session=session,
         )
 

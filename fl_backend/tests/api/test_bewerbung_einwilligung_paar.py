@@ -142,7 +142,10 @@ class TestAPairedDecline:
         assert document["kontakte"]["stellvertretung"] is not None
         assert (response.ergebnis, response.ausstehend) == ("abgelehnt", list(KONTAKT_ROLLEN))
         assert len(rows) == 1
-        assert (rows[0]["before"], rows[0]["redacted_at"]) == (None, "2026-04-01T10:30:00+00:00")
+        image = rows[0]["before"]["kontakte"]
+        assert (image["trainer"], image["ansprechperson"], rows[0]["redacted_at"]) == (None, None, "2026-04-01T10:30:00+00:00")
+        # The third seat's person, who refused nothing, keeps their state in the log as on the application.
+        assert image["stellvertretung"] == document["kontakte"]["stellvertretung"]
 
     def test_a_partner_whose_bookkeeping_is_gone_is_left_alone(self, mongo_replica_set_url: str):
         """A dotted `$set` under a null parent aborts the transaction, so the person's own seat would be refused a 500 rather than declined."""

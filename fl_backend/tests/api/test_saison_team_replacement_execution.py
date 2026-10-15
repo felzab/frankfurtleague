@@ -1,15 +1,17 @@
 import copy
 from collections.abc import Awaitable, Callable, Sequence
+from datetime import datetime
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
 from pydantic import ValidationError
-from pymongo import AsyncMongoClient
+from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.teams.admin_router import replace_saison_team
-from app.api.teams.schemas import FLReplaceSaisonTeamPayload
+from app.api.teams.schemas import KONTAKT_ROLLEN, FLReplaceSaisonTeamPayload
 from app.api.teams.services import (
     CLUB_RETIRED,
     REPLACE_INCOMING_ALREADY_ENTERED,
@@ -18,6 +20,7 @@ from app.api.teams.services import (
     REPLACE_SAISON_FINISHED,
 )
 from app.core.collections import Collection
+from app.core.crud import patch_one_in_db
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import saison_document, saison_spieler_document, saison_team_document, spiel_document, team_document
@@ -70,6 +73,9 @@ INCOMING_SIDE = {"team_id": INCOMING, "name": "Incoming", "shorthand": "IN", "to
 
 # The day the replacement runs, and a departure from the same squad that predates it.
 REPLACED_ON = "2026-04-15"
+NOW = datetime(2026, 4, 15, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
+# Written out rather than computed from `log_stamp`, which would agree with any conversion of `NOW`.
+REDACTED_AT = "2026-04-15T10:30:00+00:00"
 LEFT_EARLIER_ON = "2026-03-01"
 
 # A prefix of their own, so a squad row's id cannot be mistaken for a club's in a failure message.
@@ -285,8 +291,10 @@ async def call_replace(
         saisons_collection=database[Collection.SAISONS],
         spiele_collection=database[Collection.SPIELE],
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
+        aktionen_collection=database[Collection.AKTIONEN],
         db=client,
         today=REPLACED_ON,
+        germany_now=NOW,
     )
 
 
@@ -469,6 +477,43 @@ class TestAllFourLayersMoveTogether:
         assert (response.gruppe, response.name, response.shorthand) == (row["gruppe"], row["name"], row["shorthand"])
         # The pair the admin has to act on: the season now has no way at all to reach this team.
         assert (response.trikot_farbe, response.kontakte) == (None, None)
+
+
+# Who sat in all three seats before the contacts editor handed them to Anke: an earlier holder, who
+# exists in the log alone once the replacement has run.
+EARLIER_KONTAKTPERSON = {**OUTGOING_KONTAKTPERSON, "vorname": "Bodo", "email": "b.lindner@outgoing.example.de", "telefon": "+49 170 7654321"}
+
+
+class TestTheOutgoingPeopleLeaveTheLog:
+    """The row's page promises its people deletion at once when another club takes the place; the row's own history stays."""
+
+    def test_every_image_of_the_row_loses_its_seats_and_keeps_the_exit_record(self, mongo_replica_set_url: str):
+        """Restore the redaction by document and this fails on the exit record; drop it and the addresses outlive the promise."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            seeded = await row_of(database, WITHDRAWN)
+            assert seeded is not None
+            # The editor's save, which files the earlier holder's image.
+            await patch_one_in_db(
+                collection=database[Collection.SAISON_TEAMS],
+                db_filter={"_id": seeded["_id"]},
+                update={"$set": {"kontakte": {**OUTGOING_KONTAKTE, **dict.fromkeys(KONTAKT_ROLLEN, EARLIER_KONTAKTPERSON)}}},
+                return_document=ReturnDocument.BEFORE,
+            )
+            await call_replace(database, client)
+
+            return await database[Collection.AKTIONEN].find({"collection": str(Collection.SAISON_TEAMS)}).sort("_id", 1).to_list(length=None)
+
+        rows = on_a_seeded_season(mongo_replica_set_url, body)
+
+        assert len(rows) == 2, "the editor's save and the replacement each file one image"
+        for row in rows:
+            image = row["before"]
+            assert [image["kontakte"][seat] for seat in KONTAKT_ROLLEN] == [None] * len(KONTAKT_ROLLEN)
+            assert (image["austritt"], image["gruppe"], image["trikot_farbe"]) == (EXIT, "A", OUTGOING_TRIKOT_FARBE)
+            assert row["redacted_at"] == REDACTED_AT
+        assert OUTGOING_KONTAKTPERSON["email"] not in str(rows)
+        assert EARLIER_KONTAKTPERSON["email"] not in str(rows)
 
 
 class TestTheOutgoingClubsSquadIsRetired:

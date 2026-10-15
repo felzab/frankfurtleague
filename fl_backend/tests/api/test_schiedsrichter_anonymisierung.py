@@ -979,11 +979,11 @@ async def fixture_log_rows(database: AsyncDatabase) -> list[Mapping[str, Any]]:
 
 
 @pytest.mark.db
-def test_every_fixture_image_holding_their_name_is_emptied_and_stamped(mongo_replica_set_url: str):
-    """Kills a redaction reaching the referee's own rows alone.
+def test_every_fixture_image_holding_their_name_is_repointed_and_stamped(mongo_replica_set_url: str):
+    """Kills a redaction reaching the referee's own rows alone, and one taking the match's earlier states with the booking.
 
-    `build_redaction_filter`'s `(collection, document_id)` selection cannot reach these: a fixture's
-    image is filed under the FIXTURE's id, and the name inside it is a copy the erasure has to follow.
+    The image is filed under the FIXTURE's id, out of `build_redaction_filter`'s reach, the name inside
+    it a copy.
     """
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -998,8 +998,11 @@ def test_every_fixture_image_holding_their_name_is_emptied_and_stamped(mongo_rep
 
     theirs = [row for row in rows if row["document_id"] in SPIEL_OIDS[SCHIEDSRICHTER_OID]]
     assert len(theirs) == len(SPIEL_OIDS[SCHIEDSRICHTER_OID]), "a fixture of theirs filed no log row at all"
-    assert all(row["before"] is None for row in theirs)
+    assert [row["before"]["schiedsrichter"] for row in theirs] == [REPOINTED_BOOKING] * len(theirs)
     assert {row["redacted_at"] for row in theirs} == {REDACTED_AT}
+    # The match's own earlier state, which the image is the record of, stands but for the booking.
+    as_seeded = {row["_id"]: {**row["before"], "schiedsrichter": None} for row in seeded}
+    assert [{**row["before"], "schiedsrichter": None} for row in theirs] == [as_seeded[row["_id"]] for row in theirs]
 
     # The control: a sweep over every fixture row would empty this one too.
     (other,) = [row for row in rows if row["document_id"] in SPIEL_OIDS[OTHER_SCHIEDSRICHTER_OID]]
@@ -1008,7 +1011,7 @@ def test_every_fixture_image_holding_their_name_is_emptied_and_stamped(mongo_rep
 
 
 @pytest.mark.db
-def test_an_image_of_a_fixture_since_reassigned_is_emptied_too(mongo_replica_set_url: str):
+def test_an_image_of_a_fixture_since_reassigned_is_repointed_too(mongo_replica_set_url: str):
     """The row no id can name: this fixture books somebody else now, so nothing the erasure reads still points at it.
 
     Kills a redaction selecting the fixtures they hold TODAY, which the case above passes for.
@@ -1040,12 +1043,12 @@ def test_an_image_of_a_fixture_since_reassigned_is_emptied_too(mongo_replica_set
 
     # Two: the seeded reschedule and the reassignment, both filed before the erasure ran.
     assert len(rows) == 2, f"the reassignment filed no row of its own: {rows}"
-    assert all(row["before"] is None for row in rows)
+    assert [row["before"]["schiedsrichter"] for row in rows] == [REPOINTED_BOOKING] * 2
     assert {row["redacted_at"] for row in rows} == {REDACTED_AT}
 
 
 @pytest.mark.db
-def test_the_array_image_a_removal_files_is_emptied_too(mongo_replica_set_url: str):
+def test_every_image_in_the_array_a_removal_files_is_repointed_too(mongo_replica_set_url: str):
     """An undraw removes a season's fixtures and keeps every image in ONE row, `document_id` an array.
 
     Kills a filter reading `before` as a single document (`docs/backend/spec.md :: I48`).
@@ -1066,7 +1069,7 @@ def test_the_array_image_a_removal_files_is_emptied_too(mongo_replica_set_url: s
     (row,) = on_a_league(mongo_replica_set_url, body)
 
     assert sorted(row["document_id"]) == sorted(removed), "the removal filed no array of the ids it took"
-    assert row["before"] is None
+    assert [image["schiedsrichter"] for image in row["before"]] == [REPOINTED_BOOKING] * len(removed)
     assert row["redacted_at"] == REDACTED_AT
 
 

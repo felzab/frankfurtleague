@@ -401,13 +401,13 @@ Every ruling below is the sign-up flow as it stands for the next season.
 - **A referee's pending new address goes with that referee's erasure, and its own holder's request
   is answered by removing it.** Until it confirms, that mailbox owns nothing of the row, so
   its holder is not the person the referee's erasure is about: the link's own decline or
-  `DELETE /schiedsrichter/{schiedsrichter_id}/adresswechsel` removes the address and empties every
-  image the action log holds of the referee, since every write on the row while the change stood, a
-  re-send included, filed one carrying it (`docs/backend/spec.md :: I562`); the referee's own
-  earlier images go with them, the price a contact person's Widerspruch already pays. A save
-  replacing the pending address with another mailbox's empties them the same way, the replaced
-  address being one nobody proved either. `POST /kontakte/erasure` reaches no referee row, a pending
-  address included.
+  `DELETE /schiedsrichter/{schiedsrichter_id}/adresswechsel` removes the address, and takes it out of
+  every image the action log holds of the referee, since every write on the row while the change
+  stood, a re-send included, filed one carrying it (`docs/backend/spec.md :: I562`). The rest of each
+  image stays, the referee's own earlier consent states among it, as a contact person's Widerspruch
+  leaves the people beside them theirs (`docs/backend/spec.md :: I42`). A save replacing the pending
+  address with another mailbox's takes it out the same way, the replaced address being one nobody
+  proved either. `POST /kontakte/erasure` reaches no referee row, a pending address included.
 - **An erasure keyed on an email address names what it reaches.** Every seat the address holds is
   its one person's (the entry below), and each is listed for confirmation before the write — by name
   and by the season it sits in, read through `POST /kontakte/erasure/ansicht` rather than inferred on
