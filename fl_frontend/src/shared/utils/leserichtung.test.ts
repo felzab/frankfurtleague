@@ -58,6 +58,12 @@ describe("leserichtungHref", () => {
     assert.equal(leserichtungHref(new URLSearchParams("order=asc&saison_id=2026"), "asc"), "?saison_id=2026&order=asc");
   });
 
+  /* A bookmark can still hold a search query, and a reversal built from it would write the typed name
+     into a fresh history entry (`docs/frontend/spec.md :: I680`). */
+  it("leaves an old search query behind", () => {
+    assert.equal(leserichtungHref(new URLSearchParams("q=Lena&status=a"), "asc"), "?status=a&order=asc");
+  });
+
   it("carries every other parameter across, repeated keys included", () => {
     assert.equal(
       leserichtungHref(new URLSearchParams("saison_id=2025&status=a&status=b"), "asc"),

@@ -98,4 +98,13 @@ describe("which season an address names", () => {
       return true;
     });
   });
+
+  /* The redirect is a fresh request line and history entry, so an old search query a bookmark still
+     holds stays behind (`docs/frontend/spec.md :: I680`). */
+  it("leaves an old search query behind on the way back", async () => {
+    await assert.rejects(resolveSaisonId(Promise.resolve({ saison_id: " 2026", q: "Lena", gruppe: "A" }), "admin"), (error: unknown) => {
+      assert.equal((error as { digest?: string }).digest?.split(";")[2], "?gruppe=A");
+      return true;
+    });
+  });
 });
