@@ -16,7 +16,10 @@ export const SEITE_VERALTET = "Diese Seite ist nicht mehr aktuell. Lade sie neu 
  */
 export const medienZuJung = (alter: number): string => `Fotos, Videos und Interviews kannst Du erst ab ${String(alter)} Jahren erlauben.`;
 
-/** The floor a granting record's control binds to its write, read only to word `medienZuJung`. */
+/**
+ * A record's served media floor, in one shape for the account page's read and for the argument a granting
+ * control binds to its write, which only words `medienZuJung`: a floor the writes refuse fails the read.
+ */
 export const MedienMindestalterSchema = z.int().positive();
 
 // `REQ-FUNKTION-001` on a record admitting a grant: the address holds no such record of its own now.

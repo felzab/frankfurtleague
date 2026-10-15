@@ -610,6 +610,26 @@ describe("the account page's consent section", () => {
     });
   }
 
+  /* The read takes the floor in the shape the granting writes are bound it in, so a broken contract fails
+     here rather than drawing „ab 0 Jahren“ beside a switch whose every grant would be refused. */
+  it("refuses a read serving a media floor of 0 on any record", async () => {
+    setSubject(OHNE_FUNKTION);
+    for (const konto of [
+      { spieler: { ...SPIELER, medien_mindestalter: 0 } },
+      { schiedsrichter: [{ ...SCHIEDSRICHTER, medien_mindestalter: 0 }] },
+      { registrierungen: [{ ...REGISTRIERUNG, medien_mindestalter: 0 }] },
+      { sitze: [{ ...SITZ, medien_mindestalter: 0 }] },
+      { bewerbungen: [{ ...BEWERBUNG_SITZ, medien_mindestalter: 0 }] },
+    ]) {
+      answeringKonto(konto);
+      await assert.rejects(
+        EinwilligungSection(),
+        { code: "FE-API-002" },
+        `${Object.keys(konto).join()} served a floor of 0 and the read took it`,
+      );
+    }
+  });
+
   /* A Trainer who took the Ansprechperson seat later confirmed twice, each seat under its own words and
      floor: one block per confirmation, each headed by its own roles, never one block naming both seats
      at the higher floor. */
