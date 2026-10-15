@@ -2742,11 +2742,12 @@ UNENFORCED: tuple[Unenforced, ...] = (
     Unenforced(
         subject="a retired row kept indefinitely",
         reason=(
-            "Decided 2026-08, Datenschutzexperte consulted: a retired row is never purged on its age, so there is no "
-            "RETENTION sweep to build and none may be added. The application clocks in "
-            "`app/api/bewerbungen/sweep_router.py` are a different subject: they select on a season and a deadline, "
-            "never on `inactive_since`, and remove applications rather than retired rows (`docs/backend/spec.md :: "
-            "I150`). The one removal is a pupil's own erasure request, which "
+            "Decided 2026-08, Datenschutzexperte consulted: a retired row is never purged on its age, and no sweep "
+            "selects on `inactive_since`. The application clocks in `app/api/bewerbungen/sweep_router.py` select on a "
+            "season and a deadline and remove applications rather than retired rows (`docs/backend/spec.md :: I150`). "
+            "The season-after deletion, ruled 2026-10-15, selects pupils on the seasons' statuses and counts a retired "
+            "squad row as keeping its pupil, so retiring a row never brings that deletion nearer "
+            "(`docs/backend/spec.md :: I690`). Beside it, a pupil's own erasure request removes a row, which "
             "selects a subject, never an age, and `REQ-PURGE-001` makes retirement its precondition rather than its "
             "trigger. `inactive_since` stays a date (`docs/backend/spec.md :: I12`): it records WHEN a row retired, "
             "not when a sweep may take it. What the proof reaches is a removal through `app/core/crud.py`'s two "
