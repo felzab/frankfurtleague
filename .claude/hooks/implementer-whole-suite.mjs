@@ -270,8 +270,12 @@ function judge(words, depth, escapes) {
   }
   if (pytestArgs === null || pytestArgs.some((a) => RUNS_NO_TEST.has(a))) return null;
   const named = testOperands(pytestArgs, PYTEST_VALUE);
-  if (databaseTier(pytestArgs))
-    return named.length === 1 && !named[0].includes(SUBSTITUTION) ? null : "the database tier on more than one named file";
+  if (databaseTier(pytestArgs)) {
+    // Counted by file, each node id as the file it names: ids from one file hold the lock at most as
+    // long as that file does. A substitution's output may name any number of files.
+    const files = new Set(named.map((a) => a.split("::")[0]));
+    return files.size === 1 && !named.some((a) => a.includes(SUBSTITUTION)) ? null : "the database tier on more than one named file";
+  }
   return named.length ? null : "the whole backend suite";
 }
 

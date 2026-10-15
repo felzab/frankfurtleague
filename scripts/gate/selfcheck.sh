@@ -950,6 +950,7 @@ import(pathToFileURL(reader).href).then(({ refusal }) => {
   expect_refused Bash 'uv run --project fl_backend --frozen python -m pytest -m db'
   expect_refused Bash 'uv run --frozen pytest -m db -n 2'
   expect_refused Bash 'uv run --frozen pytest -m db tests/api/test_spiele.py tests/api/test_teams.py'
+  expect_refused Bash 'uv run --frozen pytest -m db tests/api/test_spiele.py::test_one tests/api/test_teams.py::test_two'
   expect_refused Bash 'node --test --test-reporter spec'
   expect_refused Bash 'pnpm run test:base -- --test-reporter dot'
   expect_refused Bash 'npm t'
@@ -987,6 +988,8 @@ import(pathToFileURL(reader).href).then(({ refusal }) => {
   through_hook expect_let_through implementer Bash 'uv run --frozen pytest tests/api/test_spiele.py'
   expect_let_through implementer Bash 'uv run --frozen pytest tests/api/test_spiele.py::test_one'
   expect_let_through implementer Bash 'uv run --frozen pytest -m db tests/api/test_spiele.py'
+  # A node id names its file, so ids from one database file are that one file.
+  expect_let_through implementer Bash 'uv run --frozen pytest -m db tests/api/test_spiele.py::test_one tests/api/test_spiele.py::test_two'
   # A substitution's output is the operand, whatever it lists.
   expect_let_through implementer Bash "uv run --frozen pytest \$(git diff --name-only HEAD~1 -- tests)"
   expect_let_through implementer Bash "uv run --frozen pytest ${suite_tick}cat files.txt${suite_tick}"
