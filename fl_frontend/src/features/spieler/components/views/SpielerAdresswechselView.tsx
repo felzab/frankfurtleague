@@ -156,7 +156,7 @@ function AntwortPanel({
 
 /**
  * A link whose confirmation is closed: the decline stays open, since the backend removes an address
- * nobody proved however late the press and whatever the ban list holds (`docs/frontend/spec.md :: I630`).
+ * nobody proved past its deadline and whatever the ban list holds (`docs/frontend/spec.md :: I630`).
  */
 function NurAblehnen({ token, onAbschluss }: { token: string; onAbschluss: (stand: Stand) => void }) {
   const antwort = useAntwort(token, onAbschluss);

@@ -52,10 +52,10 @@ const EMPFAENGER_SATZ = "Diese E-Mail geht nur an Dich.";
 
 const ADRESSE_UEBERSCHRIFT = "Neue E-Mail-Adresse bestätigen";
 
-// For the holder of a mailbox an administrator mistyped. No „ignoriere“: ignoring leaves the address
-// stored, and the page takes the decline past the link's deadline too.
+// For the holder of a mailbox an administrator mistyped. No promise of a decline after the lapse: the
+// day after it, the lapse removes the change, its link and the decline with it.
 const adresseIgnorierSatz =
-  "Ist das nicht Deine Adresse? Dann wähle auf der Seite „Das ist nicht meine Adresse“, auch wenn der Link schon abgelaufen ist. Wir entfernen sie dann sofort.";
+  "Ist das nicht Deine Adresse? Dann wähle auf der Seite „Das ist nicht meine Adresse“. Wir entfernen sie dann sofort. Tust Du nichts, löschen wir sie am Tag nach Ablauf des Links.";
 
 /**
  * The link to a pupil's new address, the referee's twin

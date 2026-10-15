@@ -43,8 +43,8 @@ const { refusedOn, unpublishedOn } = await import("@/shared/testing/publishedRef
 
 const SPIELER_ID = "6890a1b2c3d4e5f607800002";
 const BISHER = "lena@alt.example";
-const NEU = "lena@neu.example";
-/** As an administrator types it: the backend stores and mints the folded form, which is the one mailed. */
+/** As the mint answers `GETIPPT`: the payload rule lower-cases the domain alone, and this spelling is the one mailed. */
+const NEU = "Lena@neu.example";
 const GETIPPT = "Lena@Neu.Example";
 
 const REQUEST_OPERATION = "POST /spieler/{spieler_id}/adresswechsel";
@@ -83,7 +83,7 @@ describe("the request for a pupil's new address", () => {
     );
     // Never the typed spelling: the mint's own transaction is what says which mailbox the credential was made for.
     assert.deepEqual(mailedTo().sort(), [BISHER, NEU].sort());
-    assert.match(res.success ? (res.message ?? "") : "", /ging an lena@neu\.example\. Bis zur Bestätigung gilt die bisherige\./);
+    assert.match(res.success ? (res.message ?? "") : "", /ging an Lena@neu\.example\. Bis zur Bestätigung gilt die bisherige\./);
   });
 
   /* The serving origin, never the production site (`docs/frontend/spec.md :: I186`), on a parameter the edge redacts. */
@@ -94,6 +94,17 @@ describe("the request for a pupil's new address", () => {
     const link = linkMail();
     assert.ok(link?.text.includes(url) && link.html.includes(url), "a part of the link mail carries no address link on the serving origin");
     assertRedactedAtTheEdge(url);
+  });
+
+  /* The day after the lapse the change goes with its decline, so the mail promises no decline past it. */
+  it("tells the holder of a mistyped address the decline and what doing nothing costs, never a decline after the lapse", async () => {
+    await beantrageSpielerAdresswechselAction({ id: SPIELER_ID, email: GETIPPT });
+
+    const link = linkMail();
+    for (const teil of [link?.text ?? "", link?.html ?? ""]) {
+      assert.ok(teil.includes("Tust Du nichts, löschen wir sie am Tag nach Ablauf des Links."), "a part says nothing of the removal");
+      assert.doesNotMatch(teil, /schon abgelaufen/, "a part promises the decline after the lapse");
+    }
   });
 
   /* The change may be somebody's mistake: the stored mailbox is owed the word, never the other mailbox's name. */
@@ -211,7 +222,7 @@ describe("an address write from a session past the step-up window", () => {
 
 describe("what the administrator is told about an address change's messages", () => {
   it("names the new address on the link and asks for a second route only where the notice failed", () => {
-    assert.match(describeSpielerAdresswechselMail(NEU, { link: "gesendet", hinweis: "gesendet" }), /ging an lena@neu\.example/);
+    assert.match(describeSpielerAdresswechselMail(NEU, { link: "gesendet", hinweis: "gesendet" }), /ging an Lena@neu\.example/);
     assert.doesNotMatch(describeSpielerAdresswechselMail(NEU, { link: "gesendet", hinweis: "gesperrt" }), /Hinweis/);
     assert.match(describeSpielerAdresswechselMail(NEU, { link: "gesendet", hinweis: "fehlgeschlagen" }), /Sag der Person selbst Bescheid/);
   });
