@@ -1,4 +1,4 @@
-// Linted as src/app/api/admin/spieler/undo/route.ts.
+// Linted as src/app/api/zzplant/route.ts.
 import { revalidatePath, revalidateTag } from "next/cache"; // expect: route-tag-drop expect: route-tag-drop
 import * as nextCache from "next/cache";
 
@@ -20,6 +20,5 @@ export async function plantedAfterAnswer(write: () => Promise<void>): Promise<vo
   dropTemplated("/");
 }
 
-// The route's own tags, handed to its spine; a name merely holding the word is no call.
-export const tags = (): readonly string[] => ["spieler"];
+// A name merely holding the word is no call.
 export const revalidateTagName = "revalidateTag";

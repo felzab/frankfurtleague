@@ -216,7 +216,7 @@ def test_a_prefix_covering_a_handler_needs_a_recorded_reason(monkeypatch):
 
 
 def test_a_recorded_reason_covers_the_handlers_that_fall_to_its_prefix(monkeypatch):
-    """The other half of the same rule, and what the eight undo handlers are accounted for by."""
+    """The other half of the same rule: a handler under a recorded prefix is accounted for by its reason."""
     reason = routes.Reason("/api/admin/", "behind the admin guard")
     monkeypatch.setattr(routes, "REASONS", (reason,))
     findings, used = judged(tree("/api/admin/teams/undo", "/api/admin/spiele/undo"), served(prefix("/api/admin/"), CATCH_ALL))

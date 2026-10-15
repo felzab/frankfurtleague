@@ -67,7 +67,6 @@ const BANS = [
   ["action-state", /through `useAnsweredActionState`/],
   ["node-in-equality", /serialises the whole rendered tree/],
   ["facets-server", /cannot hand across to a client/],
-  ["invite-refusal", /No undo route replays/],
   ["layer-core", /core is infrastructure/],
   ["layer-shared", /shared must not import features/],
   ["site-origin", /SITE_URL is the published origin/],

@@ -80,7 +80,6 @@ class Reason:
 # Every handler a prefix covers, named by that prefix rather than by itself: an allowlist of
 # handlers would be a second copy of the route tree, stale the day a directory is renamed.
 REASONS: Final[tuple[Reason, ...]] = (
-    Reason("/api/admin/", "page-owned undo handlers, each authorizing itself behind the admin guard"),
     Reason("/api/auth", "the sign-in library's catch-all, every path of it metered by a prefix because a dynamic segment names no exact match"),
 )
 
