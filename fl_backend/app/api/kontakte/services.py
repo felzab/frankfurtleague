@@ -228,9 +228,7 @@ def build_clearing_update(slots: Sequence[str], *, bestaetigungen: bool = False)
     if bestaetigungen:
         cleared.update({f"bestaetigungen.{slot}": None for slot in slots})
 
-        # An application's submission digest was taken over this person's details too, and a hash of
-        # personal data is still personal data (`docs/backend/spec.md :: I346`). A season row holds
-        # none, so the `$unset` there removes nothing.
-        return {"$set": cleared, "$unset": {"idempotenz_fingerabdruck": ""}}
-
-    return {"$set": cleared}
+    # Whatever the block: the submission digest was taken over this person's details too, and a hash
+    # of personal data is personal data (`docs/backend/spec.md :: I346`). An `$unset` creates nothing
+    # where none is held.
+    return {"$set": cleared, "$unset": {"idempotenz_fingerabdruck": ""}}
