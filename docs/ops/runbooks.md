@@ -43,12 +43,13 @@ the machine is outside the repository. What it does tell you:
   checks each before anything is pulled. What each secret file holds, who owns it and how it is
   made, is §16.
 - **A line naming a value a secret file holds, or `ALLOWED_ADMIN_EMAILS`, refuses the deploy at exit
-  2 before compose is asked anything**, naming the line and never its value
+  2 before compose is asked anything**, giving each line by file, number and the name as the list
+  spells it, never by anything the line holds
   (`scripts/lib/_lib.sh :: refuse_credential_lines`): delete it, a credential being its file's (§16)
   and the administrator list read by nothing.
 - **A line of either `.env` that is not blank, a line opening with `#`, or `NAME=VALUE` refuses the
   deploy at exit 2 before compose is asked anything** ([`spec.md`](spec.md) I487), each line listed
-  by file and number, by name where it opens with one, and never by value. Rewrite it with nothing
+  as `file:line` alone, never by anything the line holds. Rewrite it with nothing
   around the `=` and a value of letters, digits and `_ - . ~ : / ? [ ] @ ! & ( ) * + , ; = %` alone:
   no quote, no space, no comment after the value, a URL writing `#`, `$` and `'` as `%23`, `%24` and
   `%27`. No line, a comment included, may hold a carriage return before its end, U+2028, U+2029 or a
