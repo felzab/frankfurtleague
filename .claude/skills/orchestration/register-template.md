@@ -117,8 +117,9 @@ report, a fixer's included, written by `ledger.py bank` before the next dispatch
 ROUTED by a sent message's `Rows:` line or `ledger.py route`, one owner at a time, to FIXED by
 the landing of its owner's branch whose `Rows fixed:` line names it, and otherwise to a closed
 status by `ledger.py close`, never by hand. A row the landing names as still ROUTED is one no body
-named: where the merge fixed it, run the `ledger.py close … FIXED <merge>` command the landing
-prints beside it. Status: one of
+named, and the landing prints one `ledger.py close … FIXED <merge> <row>` line per such row: run
+the line of each row the merge fixed and no other, since a row can stay routed for a later round.
+Status: one of
 `.claude/skills/orchestration/tools/ledger.py :: STATUSES`, a closed one followed by its evidence; a
 word outside it stops every ledger command, a landing included.
 A routed finding is a claim until its fixer has judged it real. The ending closes every row.>
