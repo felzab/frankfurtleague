@@ -13,13 +13,13 @@ from pymongo.errors import DuplicateKeyError
 from app.api.sperrliste.admin_router import delete_sperrliste_eintrag, get_sperrliste
 from app.api.sperrliste.crud import address_is_gesperrt, read_sperrliste_page
 from app.api.sperrliste.services import SPERRLISTE_ADRESSE_GESPERRT, SPERRLISTE_SCHLUESSEL_VERSION, SPERRLISTE_VERWALTUNG, adresse_hash
-from app.api.spieler.admin_router import delete_spieler, erase_spieler
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from tests.bans import ban_list, ban_through_the_route
 from tests.config import build_test_config, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import ban_document, rules_document, saison_document
+from tests.erasure import erased
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -465,18 +465,18 @@ class TestAnErasureLeavesTheListStanding:
         walk fails here.
         """
 
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[list[Mapping[str, Any]], list[Mapping[str, Any]]]:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[int, list[Mapping[str, Any]], list[Mapping[str, Any]]]:
             await ban(database, client)
             before = await rows_of(database)
 
-            # A pupil as one was stored BEFORE the registration flow existed, the shape production
-            # still holds: this case needs a stored pupil to erase, not a route that made one.
-            spieler_id = ObjectId()
+            # Seeded rather than admitted: this case needs a stored pupil at the barred address, not a
+            # route that made one.
             await database[Collection.SPIELER].insert_one(
                 {
-                    "_id": spieler_id,
+                    "_id": ObjectId(),
                     "vorname": "Zorbanax",
                     "nachname": "Mustermann",
+                    "email": BANNED_RETYPED,
                     "einwilligung": {
                         "umfang": "kader_oeffentlich",
                         "erteilt_von": "erziehungsberechtigt",
@@ -489,20 +489,14 @@ class TestAnErasureLeavesTheListStanding:
                     "inactive_since": None,
                 }
             )
-            await delete_spieler(spieler_id=spieler_id, spieler_collection=database[Collection.SPIELER], today=TODAY, db=database.client)
-            await erase_spieler(
-                spieler_id=spieler_id,
-                spieler_collection=database[Collection.SPIELER],
-                saison_spieler_collection=database[Collection.SAISON_SPIELER],
-                aktionen_collection=database[Collection.AKTIONEN],
-                db=client,
-                germany_now=NOW,
-            )
+            gone = await erased(database, client, BANNED, germany_now=NOW)
 
-            return before, await rows_of(database)
+            return gone.spieler, before, await rows_of(database)
 
-        before, after = on_a_clean_list(mongo_replica_set_url, body)
+        erased_pupils, before, after = on_a_clean_list(mongo_replica_set_url, body)
 
+        # The premise: an erasure reaching nobody leaves the list standing too.
+        assert erased_pupils == 1
         # Non-empty first: two empty lists compare equal, and an erasure that emptied the collection
         # would then read as one that left it alone.
         assert before
