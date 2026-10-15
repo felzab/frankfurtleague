@@ -1,3 +1,5 @@
+import { unstable_isUnrecognizedActionError, unstable_rethrow } from "next/navigation";
+
 import { STEP_UP_REFUSED } from "@/shared/components/ui/stepUp";
 
 import { AENDERUNG_STEHT_WEITERHIN, edgeRefusedSend, rejectedWrite, RUECKNAHME_UNKLAR } from "./actionError";
@@ -9,6 +11,9 @@ import type { UndoOutcome } from "./adminUndo";
 
 /** The edge refused the press before Next ran it, so nothing was taken back, and the offer it came from is gone. */
 const ZU_VIELE_RUECKNAHMEN = `Zu viele Versuche in kurzer Zeit. ${AENDERUNG_STEHT_WEITERHIN}`;
+
+/** A deploy since the page loaded retired the action the offer names, so nothing ran; a reload loads the running build. */
+const SEITE_VERALTET = `Die Website wurde inzwischen aktualisiert. Lade die Seite neu. ${AENDERUNG_STEHT_WEITERHIN}`;
 
 type UndoOffer = {
   /**
@@ -76,9 +81,15 @@ export function offerUndo({ undo, message, fallback, warn = false, unrestorable 
     },
   });
 
-  /** The action's rejection: the edge's refusal took nothing back, and anything else may follow a landed restore. */
+  /**
+   * The action's rejection: the edge's refusal and an action the running build does not hold took
+   * nothing back, and anything else may follow a landed restore.
+   */
   function rejected(error: unknown): Pick<ActionFailure, "error" | "outcome"> {
-    return edgeRefusedSend(error) === null ? rejectedWrite(router, RUECKNAHME_UNKLAR)(error) : { error: ZU_VIELE_RUECKNAHMEN };
+    if (edgeRefusedSend(error) !== null) return { error: ZU_VIELE_RUECKNAHMEN };
+    if (unstable_isUnrecognizedActionError(error)) return { error: SEITE_VERALTET };
+
+    return rejectedWrite(router, RUECKNAHME_UNKLAR)(error);
   }
 
   function dispatch(): void {
@@ -93,8 +104,8 @@ export function offerUndo({ undo, message, fallback, warn = false, unrestorable 
       (result) => {
         appToast.close(pendingKey);
         if (!result.success) {
-          // The action's own sentence under either title: it names what to check.
-          appToast.failure("Änderung nicht zurückgenommen", result, "Rücknahme unklar");
+          // The action's own sentence under its outcome's title: it names what to check.
+          appToast.failure("Änderung nicht zurückgenommen", result, "Rücknahme unklar", "Nur teilweise zurückgenommen");
           return;
         }
 
@@ -104,6 +115,9 @@ export function offerUndo({ undo, message, fallback, warn = false, unrestorable 
       },
       (error: unknown) => {
         appToast.close(pendingKey);
+        // Next's own redirect, the proxy turning a lapsed session away: the page leaves for `/signin`
+        // as a save's does, and a toast raised here would call unclear an undo that never ran.
+        unstable_rethrow(error);
         appToast.failure("Änderung nicht zurückgenommen", rejected(error), "Rücknahme unklar");
       },
     );

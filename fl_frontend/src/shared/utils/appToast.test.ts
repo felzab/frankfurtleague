@@ -52,6 +52,16 @@ describe("appToast.failure", () => {
     assert.deepEqual(raisedDescriptions(), [error]);
   });
 
+  /* An undo saves nothing, so „gespeichert“ misstates what went back: the site's own partial title stands
+     in, and never over an outcome that is not partial. */
+  it("raises the site's own partial title where it names one, and only where part of the press landed", () => {
+    const error = "Die Saison passt nicht mehr. Nur die Stammdaten wurden zurückgesetzt.";
+    appToast.failure("Änderung nicht zurückgenommen", { error, outcome: "partial" }, "Rücknahme unklar", "Nur teilweise zurückgenommen");
+    appToast.failure("Änderung nicht zurückgenommen", { error: "Nein." }, "Rücknahme unklar", "Nur teilweise zurückgenommen");
+
+    assert.deepEqual(raisedTitles(), ["Nur teilweise zurückgenommen", "Änderung nicht zurückgenommen"]);
+  });
+
   /* A toast marks nothing, so „Überprüfe Deine Eingaben.“ would point at marks nobody can see on
      every control that raises one over a refused payload. */
   it("speaks a refused payload's sentence for a map no control shows", () => {
