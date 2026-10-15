@@ -7,10 +7,11 @@ export type Lifetime = { readonly idle: number; readonly absolute: number };
 // Here rather than in `fl_frontend/src/core/auth.ts`, which enforces them: the privacy notice states
 // these figures too, and importing them from there would load Better Auth into the page. Mirrored in
 // `fl_backend/app/shared/schemas/bounds.py`, whose actor check refuses a token older than it.
-export const ADMIN_WINDOW_HOURS = 48;
+export const ADMIN_WINDOW_HOURS = 24;
 
-// ONE figure for the administrator, written into both halves below: `updatedAt` never precedes
-// `createdAt`, so where the two are equal the idle comparison can never be the one that refuses.
+// At most 24 hours: NIST SP 800-63B-4 §2.2.3's overall timeout at AAL2, which a passkey sign-in meets
+// (read 2026-10-15). ONE figure for both halves below: `updatedAt` never precedes `createdAt`, so the
+// idle comparison never refuses first.
 const ADMIN_WINDOW_MS = ADMIN_WINDOW_HOURS * HOUR_MS;
 
 export const ADMIN_LIFETIME: Lifetime = { idle: ADMIN_WINDOW_MS, absolute: ADMIN_WINDOW_MS };

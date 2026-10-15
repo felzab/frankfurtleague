@@ -155,7 +155,7 @@ MEDIEN_MIN_AGE_YEARS: Final = 18
 # The frontend expires an administrator's session this long after its sign-in, and the backend
 # refuses an actor token whose sign-in is older: a looser backend honours a session the frontend
 # believes gone.
-ADMIN_WINDOW_HOURS: Final = 48
+ADMIN_WINDOW_HOURS: Final = 24
 
 # The frontend ends a person's session this long after its sign-in however recently it was used, and
 # the backend refuses a person-lane token whose sign-in is older, for the administrator's reason above.

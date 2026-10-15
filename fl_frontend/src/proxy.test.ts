@@ -406,10 +406,10 @@ describe("where a session that is only read slides (`docs/frontend/spec.md :: I4
     assert.equal(await getKontoSession(), null);
   });
 
-  it("leaves an administrator's forty-eight-hour cap, and the step-up window, where the sign-in set them", async () => {
+  it("leaves an administrator's twenty-four-hour cap, and the step-up window, where the sign-in set them", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     madeByPasskey(store, row);
-    const signedIn = new Date(Date.now() - 49 * 60 * MINUTE_MS);
+    const signedIn = new Date(Date.now() - 25 * 60 * MINUTE_MS);
     row.createdAt = signedIn;
     refreshedAgo(row, UPDATE_AGE_MS + MINUTE_MS);
 
