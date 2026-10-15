@@ -9384,7 +9384,7 @@
     "/api/v0/identitaet/selbst/erasure/ansicht": {
       "get": {
         "summary": "Show what an erasure of the signed-in address would remove",
-        "description": "Answer what `POST /identitaet/selbst/erasure` would remove for the signed-in address, by kind and by name.\n\nRead through that erasure's own selections, so it names every record the erasure reaches, an unconfirmed seat, a retired\nrow and a declined registration among them, and no other. No address and no birthdate is answered. A pending address\nchange on another address's referee row is counted and not named, that row not being this address's until the change is\nconfirmed. `verwaltung` is the grant the address holds, or null.",
+        "description": "Answer what `POST /identitaet/selbst/erasure` would remove for the signed-in address, by kind and by name.\n\nRead through that erasure's own selections, so it names every record the erasure reaches, an unconfirmed seat, a retired\nrow and a declined registration among them, and no other. No address and no birthdate is answered. A pending address\nchange on another address's referee or pupil row is counted and not named, that row not being this address's until the\nchange is confirmed. `verwaltung` is the grant the address holds, or null.",
         "operationId": "get_erasure_ansicht_api_v0_identitaet_selbst_erasure_ansicht_get",
         "responses": {
           "200": {

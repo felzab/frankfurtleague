@@ -205,7 +205,7 @@ class FLSelbstErasureAnsicht(BaseModel):
     sitze: list[FLSelbstErasureSitz]
     bewerbungen: list[FLSelbstErasureBewerbung]
     registrierungen: list[FLSelbstErasureRegistrierung]
-    # A count and no name: each is a pending change on another address's referee row.
+    # A count and no name: each is a pending change on another address's referee or pupil row.
     adresswechsel: int
 
 

@@ -167,8 +167,8 @@ async def get_erasure_ansicht(
 
     Read through that erasure's own selections, so it names every record the erasure reaches, an unconfirmed seat, a retired
     row and a declined registration among them, and no other. No address and no birthdate is answered. A pending address
-    change on another address's referee row is counted and not named, that row not being this address's until the change is
-    confirmed. `verwaltung` is the grant the address holds, or null.
+    change on another address's referee or pupil row is counted and not named, that row not being this address's until the
+    change is confirmed. `verwaltung` is the grant the address holds, or null.
     """
 
     # A snapshot, so the preview names the records of one moment; never a transaction, a read
