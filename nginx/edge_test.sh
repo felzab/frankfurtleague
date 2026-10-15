@@ -650,7 +650,6 @@ done
 # The key spent, so each of these answers 429 only if the map takes it for an action.
 action_request multipart -X POST -F "probe=1" "${BASE}/"
 action_request urlencoded -X POST --data "probe=1" "${BASE}/"
-action_request admin-prefix -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/api/admin/probe"
 action_request static-prefix -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/_next/static/chunk.js"
 # An id opening with a colon, which a key joined on `:` would read as no id at all.
 action_request colon-id -X POST -H "Next-Action: :${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/"
@@ -689,7 +688,6 @@ expect_action rhythm 200
 expect_action flood some:429
 expect_action multipart 429
 expect_action urlencoded 429
-expect_action admin-prefix 429
 expect_action static-prefix 429
 expect_action colon-id 429
 expect_action refusal 429

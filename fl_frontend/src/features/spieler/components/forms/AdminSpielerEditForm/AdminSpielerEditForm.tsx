@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import { patchSaisonSpielerAction, patchSpielerAction } from "@/features/spieler/actions";
+import { patchSaisonSpielerAction, patchSpielerAction, undoAdminSpielerEditAction } from "@/features/spieler/actions";
 import { kaderName, rolleLabel } from "@/features/spieler/constants";
 import { FLPatchSaisonSpielerPayloadSchema, FLPatchSpielerPayloadSchema } from "@/features/spieler/schemas";
 import { deriveSpielerDraftStatus } from "@/features/spieler/spielerDraftStatus";
@@ -305,8 +305,7 @@ export function AdminSpielerEditForm({
         };
         // A success rather than a warning: this save destroys nothing without another copy.
         offerUndo({
-          endpoint: "/api/admin/spieler/undo",
-          body: undoPayloads,
+          undo: () => undoAdminSpielerEditAction(undoPayloads),
           message: consequenceNotes.join(" ") || undefined,
           fallback: "Die Spielerdaten wurden aktualisiert.",
           router,

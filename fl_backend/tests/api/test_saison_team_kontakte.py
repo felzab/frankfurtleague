@@ -1072,7 +1072,7 @@ class TestTheLabelASaveNames:
         assert stored["kontakte"]["trainer"] == as_kept(SEEDED_KONTAKTE["trainer"])
 
     def test_an_undo_putting_a_handed_seats_earlier_person_back_under_their_old_label_is_refused(self, mongo_replica_set_url: str):
-        """What the undo route replays: the save being undone handed every seat on, so the replay seats each person afresh."""
+        """What the undo replays: the save being undone handed every seat on, so the replay seats each person afresh."""
 
         async def body(database: AsyncDatabase) -> Any:
             saved = await write_kontakte(database, NEW_KONTAKTE)

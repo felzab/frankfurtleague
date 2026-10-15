@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { parseDate } from "@internationalized/date";
 
-import { patchSaisonTeamAction, patchTeamAction } from "@/features/teams/actions";
+import { patchSaisonTeamAction, patchTeamAction, undoAdminTeamEditAction } from "@/features/teams/actions";
 import { austrittZustand } from "@/features/teams/constants";
 import { FLPatchSaisonTeamPayloadSchema, FLPatchTeamPayloadSchema } from "@/features/teams/schemas";
 import { deriveTeamDraftStatus } from "@/features/teams/teamDraftStatus";
@@ -345,8 +345,7 @@ export function AdminTeamEditForm({
         // so that grade is a warning; an ordinary save is a reversible success.
         const destroyedSomething = austrittTouched && draftAustritt === null && storedMembership?.austritt != null;
         offerUndo({
-          endpoint: "/api/admin/teams/undo",
-          body: undoPayloads,
+          undo: () => undoAdminTeamEditAction(undoPayloads),
           message: consequenceNotes.join(" ") || undefined,
           fallback: "Die Teamdaten wurden aktualisiert.",
           warn: destroyedSomething,

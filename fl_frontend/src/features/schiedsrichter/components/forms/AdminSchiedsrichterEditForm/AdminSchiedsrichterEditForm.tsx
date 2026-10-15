@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import { patchSchiedsrichterAction } from "@/features/schiedsrichter/actions";
+import { patchSchiedsrichterAction, undoAdminSchiedsrichterEditAction } from "@/features/schiedsrichter/actions";
 import { saveMayMint } from "@/features/schiedsrichter/linkMint";
 import { FLPatchSchiedsrichterPayloadSchema, hatAdresse } from "@/features/schiedsrichter/schemas";
 import { deriveSchiedsrichterDraftStatus } from "@/features/schiedsrichter/schiedsrichterDraftStatus";
@@ -231,14 +231,13 @@ export function AdminSchiedsrichterEditForm({
             .join(" ");
 
           offerUndo({
-            endpoint: "/api/admin/schiedsrichter/undo",
-            body: { ...undoPayload, adresswechsel_gespeichert: res.adresswechselGespeichert === true },
+            undo: () => undoAdminSchiedsrichterEditAction({ ...undoPayload, adresswechsel_gespeichert: res.adresswechselGespeichert === true }),
             message: gespeichertesSatz === "" ? undefined : gespeichertesSatz,
             // A save that mailed nothing is clean; one whose link did not leave is graded a warning, the
             // referee having no working link and nobody else being told.
             warn: res.versandFehlgeschlagen === true,
             fallback: "Die Schiedsrichterdaten wurden aktualisiert.",
-            // Judged here and not left to the undo route: the shared spine can only answer a body the
+            // Judged here and not left to the undo action: the shared spine can only answer a body the
             // schema refuses with a reload nothing would change.
             unrestorable: schiedsrichter.name === null ? OHNE_GESPEICHERTEN_NAMEN : gespeicherteAdresseGilt ? null : OHNE_GESPEICHERTE_ADRESSE,
             // Moving the address back over what this save stored mints as the save did, so the press asks first.

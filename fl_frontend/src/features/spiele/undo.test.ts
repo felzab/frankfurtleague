@@ -1,20 +1,21 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { cacheCalls, doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
 import { publishedRefusals, refusedOn, unpublishedOn } from "@/shared/testing/publishedRefusals.ts";
-import { assertEachRefusalCloses, doubleRouteRequest, revalidatedTags, unacknowledged } from "@/shared/testing/undoRoutes.ts";
+import { assertEachRefusalCloses, droppedTags, unacknowledged } from "@/shared/testing/undoActions.ts";
 
 /** What `fl_frontend/src/features/spiele/mutations.ts :: patchAdminSpielePaarungen` sends, as the backend's own routes spell it. */
 const REPLAY_OPERATION = "PATCH /spiele/paarungen";
 
 /* The real client reaches a backend no test process runs, so it is the one module replaced here; the
-   handler, its mutation and the spine are the real ones, driven. */
-const { setSession } = doubleRouteRequest();
+   action, its mutation and the spine are the real ones, driven. */
+const { setSession } = doubleActionRequest();
 
 const { answerWith, calls } = doubleApiAnswers(() => Promise.resolve(RESTORED));
 
-const { POST } = await import("./route.ts");
+const { undoAdminSpielEditAction } = await import("./actions.ts");
 
 const SAISON_ID = "2026";
 const SPIEL_ID = "6890a1b2c3d4e5f607a10001";
@@ -34,31 +35,19 @@ const anEntry = (spiel_id: string) => ({
 
 const RESTORED = { acknowledged: 1, advanced_to: [], released_sides: [], bracket_faults: [] };
 
-/** The one shape `handleUndoRequest` reads a request through: a same-origin header and a JSON body. */
-const asRequest = (body: unknown) =>
-  ({
-    headers: new Headers({ "sec-fetch-site": "same-origin" }),
-    json: async () => body,
-  }) as never;
-
-type Outcome = { success: boolean; message?: string; error?: string; warn?: boolean };
-
-async function post(body: unknown): Promise<Outcome & { status: number }> {
-  const answered = await POST(asRequest(body));
-
-  return { ...((await answered.json()) as Outcome), status: answered.status };
-}
-
 const aReplayOf = (...ids: string[]) => ({ saison_id: SAISON_ID, paarungen: ids.map(anEntry) });
 
-describe("the undo route's replay refusals against the endpoint it replays", () => {
+/** The sentence an answer carries, success or not, which a case matches against. */
+const wordsOf = (answer: Awaited<ReturnType<typeof undoAdminSpielEditAction>>): string => (answer.success ? answer.message : answer.error);
+
+describe("the undo's replay refusals against the endpoint it replays", () => {
   it("words every refusal the replayed endpoint publishes, closing on the change standing once", async () => {
     const answers = await assertEachRefusalCloses({
       codes: publishedRefusals(REPLAY_OPERATION),
       refuse: (code) => {
         answerWith(() => Promise.reject(refusedOn(REPLAY_OPERATION, code)));
       },
-      press: () => post(aReplayOf(SPIEL_ID)),
+      press: () => undoAdminSpielEditAction(aReplayOf(SPIEL_ID)),
     });
 
     for (const [code, error] of answers) {
@@ -69,9 +58,9 @@ describe("the undo route's replay refusals against the endpoint it replays", () 
   });
 });
 
-describe("the undo route, driven", () => {
+describe("the match save's undo, driven", () => {
   it("replays the whole body in one request to the endpoint those rules are declared against", async () => {
-    const answered = await post(aReplayOf(SPIEL_ID, OTHER_SPIEL_ID));
+    const answered = await undoAdminSpielEditAction(aReplayOf(SPIEL_ID, OTHER_SPIEL_ID));
 
     assert.equal(answered.success, true);
     // ONE call for two fixtures: a call per entry is what let a stopped replay lose the rest.
@@ -90,21 +79,24 @@ describe("the undo route, driven", () => {
     );
   });
 
-  it("clears every cached read the restored fixtures reach, with no staleness allowed", async () => {
-    await post(aReplayOf(SPIEL_ID));
+  it("clears every cached read the restored fixtures reach, and reads the page again", async () => {
+    await undoAdminSpielEditAction(aReplayOf(SPIEL_ID));
 
-    assert.deepEqual(
-      revalidatedTags().map(([tag]) => tag),
-      EXPECTED_TAGS,
-    );
-    assert.deepEqual(
-      revalidatedTags().map(([, profile]) => profile),
-      EXPECTED_TAGS.map(() => ({ expire: 0 })),
-    );
+    assert.deepEqual(droppedTags(), EXPECTED_TAGS);
+    assert.equal(cacheCalls.filter(({ name }) => name === "refresh").length, 1, "the page the press stands on keeps the undone values");
+  });
+
+  /* A replay refused part-way leaves rows standing, so the refusal clears the caches as a restore does. */
+  it("clears them where the replay is refused too", async () => {
+    answerWith(() => Promise.reject(refusedOn(REPLAY_OPERATION, "REQ-WIRING-001")));
+
+    await undoAdminSpielEditAction(aReplayOf(SPIEL_ID));
+
+    assert.deepEqual(droppedTags(), EXPECTED_TAGS);
   });
 
   it("refuses a body naming no fixture, which no save produced", async () => {
-    const answered = await post({ saison_id: SAISON_ID, paarungen: [] });
+    const answered = await undoAdminSpielEditAction({ saison_id: SAISON_ID, paarungen: [] });
 
     assert.equal(answered.success, false);
     // Nothing sent: an empty replay reported as a restore would tell the admin their change was taken
@@ -115,14 +107,12 @@ describe("the undo route, driven", () => {
   it("reports a mapped refusal as the change still standing", async () => {
     answerWith(() => Promise.reject(refusedOn(REPLAY_OPERATION, "REQ-WIRING-001")));
 
-    const answered = await post(aReplayOf(SPIEL_ID, OTHER_SPIEL_ID));
+    const answered = await undoAdminSpielEditAction(aReplayOf(SPIEL_ID, OTHER_SPIEL_ID));
 
     assert.equal(answered.success, false);
-    // 200, as every outcome but a lapsed session: the dispatch sends the admin to sign in on a 401.
-    assert.equal(answered.status, 200);
-    assert.match(answered.error ?? "", /Herkunft passt nicht mehr/);
+    assert.match(wordsOf(answered), /Herkunft passt nicht mehr/);
     // The whole of the outcome, and true of every entry: the backend committed none of them.
-    assert.match(answered.error ?? "", /Die Änderung steht weiterhin\.$/);
+    assert.match(wordsOf(answered), /Die Änderung steht weiterhin\.$/);
   });
 
   // A row retired before the save being undone meets this refusal too, so a sentence dating the
@@ -130,11 +120,11 @@ describe("the undo route, driven", () => {
   it("words a retired or deleted booking without saying when it retired", async () => {
     answerWith(() => Promise.reject(refusedOn(REPLAY_OPERATION, "REQ-BOOKING-001")));
 
-    const answered = await post(aReplayOf(SPIEL_ID));
+    const answered = await undoAdminSpielEditAction(aReplayOf(SPIEL_ID));
 
     assert.equal(answered.success, false);
-    assert.match(answered.error ?? "", /stillgelegt oder gelöscht/);
-    assert.doesNotMatch(answered.error ?? "", /inzwischen/);
+    assert.match(wordsOf(answered), /stillgelegt oder gelöscht/);
+    assert.doesNotMatch(wordsOf(answered), /inzwischen/);
   });
 
   it("does not resolve a rejection it cannot word as a success", async () => {
@@ -145,12 +135,12 @@ describe("the undo route, driven", () => {
     ]) {
       answerWith(() => Promise.reject(rejection));
 
-      const answered = await post(aReplayOf(SPIEL_ID));
+      const answered = await undoAdminSpielEditAction(aReplayOf(SPIEL_ID));
 
       assert.equal(answered.success, false, `${String(rejection)} resolved as a restore`);
-      // Never the replay's own refusal text: an unmapped code is a failure the route cannot describe,
+      // Never the replay's own refusal text: an unmapped code is a failure the action cannot describe,
       // and wording it as one would tell the admin a rule refused what a crash lost.
-      assert.doesNotMatch(answered.error ?? "", /Herkunft/);
+      assert.doesNotMatch(wordsOf(answered), /Herkunft/);
     }
   });
 
@@ -158,18 +148,16 @@ describe("the undo route, driven", () => {
   it("answers an unacknowledged write as of unknown outcome, sending the admin to the fixtures", async () => {
     answerWith(() => Promise.resolve({ ...RESTORED, acknowledged: 0 }));
 
-    const { status, ...answered } = await post(aReplayOf(SPIEL_ID));
-
-    assert.equal(status, 200);
-    assert.deepEqual(answered, unacknowledged("Die Rücknahme wurde abgebrochen. Prüfe die betroffenen Spiele."));
+    assert.deepEqual(
+      await undoAdminSpielEditAction(aReplayOf(SPIEL_ID)),
+      unacknowledged("Die Rücknahme wurde abgebrochen. Prüfe die betroffenen Spiele."),
+    );
   });
 
   it("answers a clean replay with the plain restored sentence and no warning", async () => {
-    const answered = await post(aReplayOf(SPIEL_ID));
+    const answered = await undoAdminSpielEditAction(aReplayOf(SPIEL_ID));
 
-    assert.equal(answered.success, true);
-    assert.equal(answered.message, "Die Änderung wurde zurückgenommen.");
-    assert.notEqual(answered.warn, true);
+    assert.deepEqual(answered, { success: true, message: "Die Änderung wurde zurückgenommen.", warn: false });
   });
 
   it("names what the replay destroyed and raises it as a warning", async () => {
@@ -188,45 +176,25 @@ describe("the undo route, driven", () => {
       }),
     );
 
-    const answered = await post(aReplayOf(SPIEL_ID));
+    const answered = await undoAdminSpielEditAction(aReplayOf(SPIEL_ID));
 
     assert.equal(answered.success, true);
-    assert.equal(answered.warn, true);
+    assert.equal(answered.success && answered.warn, true);
     // The restored sentence first, then what it cost: the undo landed, and the loss is the second fact.
-    assert.match(answered.message ?? "", /^Die Änderung wurde zurückgenommen\. /);
-    assert.match(answered.message ?? "", /Ergebnis in Spiel 23 wurde dabei gelöscht/);
+    assert.match(wordsOf(answered), /^Die Änderung wurde zurückgenommen\. /);
+    assert.match(wordsOf(answered), /Ergebnis in Spiel 23 wurde dabei gelöscht/);
   });
 
-  it("answers a caller with no admin session 401 and writes nothing", async () => {
+  /* The guard's own words, which an action turned away for the same reason is told, and that the change stands. */
+  it("answers a caller with no admin session in the guard's words and writes nothing", async () => {
     setSession(null, "/signin");
 
-    const answered = await post(aReplayOf(SPIEL_ID));
+    const answered = await undoAdminSpielEditAction(aReplayOf(SPIEL_ID));
 
-    assert.equal(answered.success, false);
-    assert.equal(answered.status, 401);
-    assert.equal(calls.length, 0);
-  });
-
-  /* The two are not one refusal: the dispatch sends a 401 to sign in and a 403 to the sign-in landing,
-     so a person's live session answered 401 would loop them through a sign-in they already hold. */
-  it("answers a session that is live but not an administrator's 403", async () => {
-    setSession(null, "/bereich");
-
-    const answered = await post(aReplayOf(SPIEL_ID));
-
-    assert.equal(answered.success, false);
-    assert.equal(answered.status, 403);
-    assert.equal(calls.length, 0);
-  });
-
-  /* An administrator past a lifetime or short of the second factor: a live session, and 401 rather
-     than 403, because the way back is a sign-in rather than a person's landing. */
-  it("answers an administrator whose session no longer satisfies the guard 401", async () => {
-    setSession(null, "/signin/passkey");
-
-    const answered = await post(aReplayOf(SPIEL_ID));
-
-    assert.equal(answered.status, 401);
+    assert.deepEqual(answered, {
+      success: false,
+      error: "Deine Sitzung hat keine Administratorrechte. Melde Dich neu an. Die Änderung steht weiterhin.",
+    });
     assert.equal(calls.length, 0);
   });
 });

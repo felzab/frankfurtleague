@@ -1,8 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import z from "zod";
-
 import { PROTOCOL_FAMILIES } from "@/core/errors.ts";
 import { keyTierOf } from "@/core/keyTiers.ts";
 import { publishedOperations } from "@/core/openapiDocument.ts";
@@ -20,9 +18,9 @@ const { NextRequest } = await import("next/server");
 const { refusedOn, unpublishedOn } = await import("@/shared/testing/publishedRefusals.ts");
 const { GESPERRT_KEINE_AENDERUNG, HEUTE_GENUG_GEAENDERT, ZUGANG_WEG } = await import("@/shared/utils/actionError.ts");
 const { runAdminMutation, stepUpRequired } = await import("@/shared/utils/adminMutation.ts");
+const { runAdminUndo } = await import("@/shared/utils/adminUndo.ts");
 const { runPersonMutation, runPersonRecordMutation } = await import("@/shared/utils/personMutation.ts");
 const { handlePublicRequest } = await import("@/shared/utils/publicRoute.ts");
-const { handleUndoRequest } = await import("@/shared/utils/undoRoute.ts");
 
 /** The shared reader's words for a request the running API cannot take, which a slice's own mapper may word first. */
 const EINZELNE_ANGABEN_ABGELEHNT = "Einzelne Angaben wurden nicht übernommen. Lade die Seite neu.";
@@ -121,7 +119,7 @@ const READS = /^(?:GET|HEAD|OPTIONS) /;
 
 /**
  * A person's route under the admin key, told apart by the refusal only the person binder raises: its
- * writes are sent by a person's action alone, never by an admin action or an undo route.
+ * writes are sent by a person's action alone, never by an admin action or an undo.
  */
 const PERSON_ROUTES = new Set(PUBLISHED.filter(({ code }) => code === "REQ-AUTH-008").map(({ operation }) => operation));
 
@@ -145,7 +143,7 @@ const routeRequest = (path: string) =>
 
 /**
  * What each of `tier`'s write spines answers the refusal with, its body throwing it as the API client
- * raises it: an admin write is sent by an action and replayed by an undo route, each answering itself.
+ * raises it: an admin write is sent by an action and replayed by an undo action, each answering itself.
  */
 async function shownBySpines(
   tier: KeyTier | null,
@@ -165,16 +163,9 @@ async function shownBySpines(
   }
 
   if (tier === "admin") {
-    const undone = await handleUndoRequest(routeRequest("/api/admin/protocolCoverage/undo"), {
-      mutationName: "protocolCoverage",
-      schema: z.object({}),
-      restore: () => Promise.reject(refusal),
-      tags: () => [],
-    });
-
     return {
       "the action spine": errorOf(await runAdminMutation("protocolCoverage", () => Promise.reject(refusal))),
-      "the undo spine": errorOf(await undone.json()),
+      "the undo spine": errorOf(await runAdminUndo("protocolCoverage", () => Promise.reject(refusal))),
     };
   }
 

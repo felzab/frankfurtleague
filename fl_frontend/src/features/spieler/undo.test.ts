@@ -1,16 +1,17 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 import { publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
-import { assertEachRefusalCloses, doubleRouteRequest, revalidatedTags, unacknowledged, undo } from "@/shared/testing/undoRoutes.ts";
+import { assertEachRefusalCloses, droppedTags, unacknowledged } from "@/shared/testing/undoActions.ts";
 
 import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
 
-/* The real route and the mutations it replays through, called: the request it runs in and the backend client are the doubles. */
-doubleRouteRequest();
+/* The real action and the mutations it replays through, called: the request it runs in and the backend client are the doubles. */
+doubleActionRequest();
 const { answerWith, calls } = doubleApiAnswers((call) => Promise.resolve(replayed(call, 1)));
-const { POST } = await import("./route.ts");
+const { undoAdminSpielerEditAction } = await import("./actions.ts");
 
 /**
  * What `fl_frontend/src/features/spieler/mutations.ts :: patchSaisonSpieler` sends, as the backend's own routes spell
@@ -49,24 +50,24 @@ function refuseTheSquadHalf(code: string): void {
 
 describe("the player save's undo", () => {
   it("replays both halves, the person first", async () => {
-    const answer = await undo(POST, { person: PERSON, saison: SAISON });
+    const answer = await undoAdminSpielerEditAction({ person: PERSON, saison: SAISON });
 
-    assert.equal(answer.success, true, String(answer.error));
+    assert.equal(answer.success, true, JSON.stringify(answer));
     const { id, ...person } = PERSON;
     const { spieler_id, saison_id, ...squad } = SAISON;
     assert.deepEqual(requestsOf(calls), [
       { endpoint: `/spieler/${id}`, method: "PATCH", body: person },
       { endpoint: `/spieler/${spieler_id}/saisons/${saison_id}`, method: "PATCH", body: squad },
     ]);
-    // The caches the replay moves, which the undo spine drops with no staleness tolerated.
-    assert.deepEqual(revalidatedTags(), [["spieler", { expire: 0 }]]);
+    // The caches the replay moves, which the spine drops at once.
+    assert.deepEqual(droppedTags(), ["spieler"]);
   });
 
   it("words every refusal the squad half publishes, closing on the change standing once", async () => {
     await assertEachRefusalCloses({
       codes: publishedRefusals(SQUAD_OPERATION),
       refuse: refuseTheSquadHalf,
-      press: () => undo(POST, { saison: SAISON }),
+      press: () => undoAdminSpielerEditAction({ saison: SAISON }),
     });
   });
 
@@ -75,7 +76,7 @@ describe("the player save's undo", () => {
     await assertEachRefusalCloses({
       codes: publishedRefusals(SQUAD_OPERATION),
       refuse: refuseTheSquadHalf,
-      press: () => undo(POST, { person: PERSON, saison: SAISON }),
+      press: () => undoAdminSpielerEditAction({ person: PERSON, saison: SAISON }),
       closing: "Nur die Personendaten wurden zurückgesetzt.",
     });
   });
@@ -86,7 +87,7 @@ describe("the player save's undo", () => {
     answerWith((call) => Promise.resolve(replayed(call, 0)));
 
     assert.deepEqual(
-      await undo(POST, { person: PERSON, saison: SAISON }),
+      await undoAdminSpielerEditAction({ person: PERSON, saison: SAISON }),
       unacknowledged("Die Rücknahme wurde abgebrochen. Prüfe die Spielerdaten."),
     );
     assert.deepEqual(
@@ -98,9 +99,12 @@ describe("the player save's undo", () => {
   it("answers an unacknowledged squad half as of unknown outcome, alone or after the person half", async () => {
     answerWith((call) => Promise.resolve(replayed(call, isTheSquadHalf(call) ? 0 : 1)));
 
-    assert.deepEqual(await undo(POST, { saison: SAISON }), unacknowledged("Die Rücknahme wurde abgebrochen. Prüfe den Kadereintrag."));
     assert.deepEqual(
-      await undo(POST, { person: PERSON, saison: SAISON }),
+      await undoAdminSpielerEditAction({ saison: SAISON }),
+      unacknowledged("Die Rücknahme wurde abgebrochen. Prüfe den Kadereintrag."),
+    );
+    assert.deepEqual(
+      await undoAdminSpielerEditAction({ person: PERSON, saison: SAISON }),
       unacknowledged("Nur die Personendaten wurden zurückgesetzt. Prüfe den Kadereintrag."),
     );
   });

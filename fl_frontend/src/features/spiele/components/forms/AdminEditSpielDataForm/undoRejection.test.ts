@@ -15,7 +15,7 @@ import { underNext } from "@/shared/testing/nextContexts.ts";
 
 import type { FLSpielAdmin } from "@/features/spiele/schemas.ts";
 
-const { calls, answered } = doubleActions({
+const { calls, answerWith, answered } = doubleActions({
   modules: ["/src/features/spiele/actions.ts"],
   answer: () => Promise.resolve({ success: true, message: "Spiel gespeichert.", priorPaarungen: [] }),
 });
@@ -82,15 +82,16 @@ describe("the match editor's undo whose dispatch never answered", () => {
     const offer = await waitFor(
       () => raised.find((toast) => toast.options?.actionProps?.onPress !== undefined) ?? assert.fail("the save offered no undo"),
     );
-    const originalFetch = globalThis.fetch;
-    globalThis.fetch = () => Promise.reject(new TypeError("Failed to fetch"));
-    try {
-      raised.length = 0;
-      offer.options?.actionProps?.onPress?.();
-      await settled();
-    } finally {
-      globalThis.fetch = originalFetch;
-    }
+    answerWith(() => Promise.reject(new TypeError("Failed to fetch")));
+    raised.length = 0;
+    offer.options?.actionProps?.onPress?.();
+    await settled();
+
+    assert.deepEqual(
+      calls.map((call) => call.action),
+      ["patchAdminSpielDataAction", "undoAdminSpielEditAction"],
+      "the offer sent something other than the match's own undo",
+    );
 
     assert.deepEqual(
       raised.filter((toast) => toast.variant === "danger").map((toast) => [toast.title, toast.description]),

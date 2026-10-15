@@ -712,7 +712,7 @@ const STALE_ADMIN_URL = String.raw`/[a-z]+:\x2F\x2F[^\x2F\s]+\x2Fadmin(?![A-Za-z
 
 /**
  * Where a literal or a template opens, as `UNSEASONED_ADMIN_LINKS` reads one, or any text naming an
- * origin: a backend path ending in `/admin` and a route handler under `/api/admin` open on neither.
+ * origin: a backend path ending in `/admin` and a page under `/bereich/admin` open on neither.
  */
 const STALE_ADMIN_BAN = {
   // Misses a mail's `${LABEL}: ${origin}/admin`: read after a hole, the prefix also ends `/spiele/${id}/admin`.
@@ -1073,8 +1073,6 @@ const SOURCE_BANS = [
       "src/shared/hooks/useSignOut.ts",
       "src/features/auth/components/forms/SignInForm.tsx",
       "src/features/auth/components/forms/CodeStep.tsx",
-      // An undo of unknown outcome, under the undo's own unclear title: `appToast.failure`'s speaks of a save.
-      "src/shared/utils/undoDispatch.ts",
     ],
   },
   {
@@ -1168,9 +1166,8 @@ const SOURCE_BANS = [
     // A route handler's half of the same rule: its spine drops the tags it was handed wherever its
     // write may stand, where a drop of its own after the answer misses a lost one.
     selector: `:matches(ImportDeclaration[source.value="next/cache"] > ImportSpecifier[imported.name=/^revalidate(?:Tag|Path)$/], ${readsOff("/^revalidate(?:Tag|Path)$/")})`,
-    message:
-      "Hand a route's cache tags to its spine: `invalidatesOnWrite` under fl_frontend/src/shared/utils/publicRoute.ts, an undo route's `tags` under fl_frontend/src/shared/utils/undoRoute.ts.",
-    exempt: ["src/shared/utils/publicRoute.ts", "src/shared/utils/undoRoute.ts"],
+    message: "Hand a route's cache tags to its spine: `invalidatesOnWrite` under fl_frontend/src/shared/utils/publicRoute.ts.",
+    exempt: ["src/shared/utils/publicRoute.ts"],
   },
   {
     // Per function, so a module caching a public read beside a caller's own is held too, which the
@@ -1212,11 +1209,6 @@ const SCOPED_BANS = [
       // The directive is the module's own prologue alone: one inside a function makes no client module.
       selector: `Program:not(:has(> ExpressionStatement[directive="use client"])) :matches(ImportDeclaration, ExportNamedDeclaration, ExportAllDeclaration)[source.value=/${moduleNamed("facets")}/]`,
       message: "A facet carries a `read` function, which a Server Component cannot hand across to a client.",
-    },
-    {
-      files: ["src/app/**/route.{ts,tsx}"],
-      selector: inLiteral("REQ-EINLADUNG"),
-      message: "No undo route replays an invite endpoint, so its refusals are worded in fl_frontend/src/features/einladungen/actions.ts alone.",
     },
     // The provider's delivery report names the recipient, so a failure reading or filing it carries one.
     { files: ["src/app/api/mail/zustellung/route.ts"], ...LOGGED_ERROR },

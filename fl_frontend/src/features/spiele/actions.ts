@@ -1,15 +1,18 @@
 "use server";
 
 import { invalidatesOnWrite, runAdminMutation } from "@/shared/utils/adminMutation";
+import { refusedReplay, runAdminUndo, UNDO_UNREADABLE } from "@/shared/utils/adminUndo";
 import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
-import { patchAdminSpielData, previewAdminSpielData } from "./mutations";
-import { mapSpielRefusal } from "./refusals";
-import { FLPatchSpielDataPayloadSchema, FLSpielSchema } from "./schemas";
-import { formatSpielUpdateMessage } from "./utils";
+import { patchAdminSpielData, patchAdminSpielePaarungen, previewAdminSpielData } from "./mutations";
+import { mapSpielRefusal, PAARUNGEN_REPLAY_REFUSALS } from "./refusals";
+import { FLPatchSpielDataPayloadSchema, FLPatchSpielePaarungenPayloadSchema, FLSpielSchema } from "./schemas";
+import { describeMovedSpiele, formatSpielUpdateMessage } from "./utils";
 
 import type { ActionResult, QueryResult } from "@/shared/types/types";
+import type { UndoOutcome } from "@/shared/utils/adminUndo";
+import type z from "zod";
 import type { FLSpielPriorPaarung } from "./schemas";
 
 /**
@@ -111,5 +114,36 @@ export async function previewAdminSpielDataAction(rawPayload: unknown): Promise<
       voidedFixtures: preview.advanced_to.filter((advancement) => advancement.voided_ergebnis !== null).map((entry) => entry.spiel_nr),
       releasedFixtures: preview.released_sides.map((released) => released.spiel_nr),
     };
+  });
+}
+
+/**
+ * The save's own report, never one built from the page's props, which would revert a field another
+ * writer moved while the editor stood open; and the season keying the cached reads, which the endpoint
+ * derives for itself.
+ */
+const SpielUndoSchema = FLPatchSpielePaarungenPayloadSchema.extend({ saison_id: FLSpielSchema.shape.saison_id });
+
+export async function undoAdminSpielEditAction(rawPayload: z.input<typeof SpielUndoSchema>): Promise<UndoOutcome> {
+  return runAdminUndo("undoAdminSpielEditAction", async () => {
+    const validated = SpielUndoSchema.safeParse(rawPayload);
+    if (!validated.success) return { success: false, error: UNDO_UNREADABLE };
+
+    const { saison_id, paarungen } = validated.data;
+    invalidatesOnWrite("spiele", "teams", `spiele:saison_id:${saison_id}`, `teams:saison_id:${saison_id}`);
+    let operation;
+    try {
+      operation = await patchAdminSpielePaarungen({ paarungen });
+    } catch (error) {
+      // The change standing whole: the replay is one transaction, so a refusal on any fixture leaves
+      // every one of them where the save put it.
+      return refusedReplay(error, PAARUNGEN_REPLAY_REFUSALS);
+    }
+
+    if (!operation.acknowledged) return { unclear: "Die Rücknahme wurde abgebrochen. Prüfe die betroffenen Spiele." };
+
+    // The replay's own collateral: restoring the fixture the save named empties the slots below it
+    // again, and a fixture the list does not put back has lost its result for good.
+    return { cost: describeMovedSpiele(operation.advanced_to, operation.bracket_faults, operation.released_sides) };
   });
 }

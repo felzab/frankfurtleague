@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { parseDate } from "@internationalized/date";
 
-import { patchSaisonAction } from "@/features/saisons/actions";
+import { patchSaisonAction, undoAdminSaisonEditAction } from "@/features/saisons/actions";
 import { PLACING_RULES_FIELDS, RESCORING_RULES_FIELDS } from "@/features/saisons/constants";
 import { deriveSaisonDraftStatus } from "@/features/saisons/saisonDraftStatus";
 import { FLPatchSaisonPayloadSchema } from "@/features/saisons/schemas";
@@ -310,8 +310,7 @@ export function AdminSaisonEditForm({
         const tiebreakMoved = undoPayload.rules.tiebreak_order !== rules.tiebreak_order;
 
         offerUndo({
-          endpoint: "/api/admin/saisons/undo",
-          body: undoPayload,
+          undo: () => undoAdminSaisonEditAction(undoPayload),
           // The points first where both moved: a rescore subsumes a re-sort, and one toast holds one
           // sentence.
           message: pointsMoved

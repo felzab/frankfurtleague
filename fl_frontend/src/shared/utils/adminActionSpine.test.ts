@@ -11,6 +11,7 @@ const { setRefusal } = doubleActionRequest({ session: null });
 
 const { ADMIN_FORBIDDEN } = await import("./adminMutation.ts");
 const { KONTO_FORBIDDEN } = await import("./kontoMutation.ts");
+const { AENDERUNG_STEHT_WEITERHIN } = await import("./actionError.ts");
 
 /**
  * The two actions that authorize nobody, named by export rather than by their slice, so an admin action added
@@ -31,6 +32,21 @@ const ACCOUNT_ACTIONS: ReadonlySet<string> = new Set([
   "passkeys :: readPasskeyStandAction",
   "passkeys :: removePasskeyAction",
   "passkeys :: renamePasskeyAction",
+]);
+
+/**
+ * The page-owned editors' undos, which answer the guard's sentence and then that the change stands: the
+ * offer they were pressed from is gone. Named by export for `AUTHORIZES_NOBODY`'s reason.
+ */
+const UNDO_ACTIONS: ReadonlySet<string> = new Set([
+  "kontakte :: undoAdminKontakteEditAction",
+  "saisons :: undoAdminSaisonEditAction",
+  "schiedsrichter :: undoAdminSchiedsrichterEditAction",
+  "spiele :: undoAdminSpielEditAction",
+  "spieler :: undoAdminSpielerEditAction",
+  "spielorte :: undoAdminSpielortEditAction",
+  "spieltage :: undoAdminSpieltagEditAction",
+  "teams :: undoAdminTeamEditAction",
 ]);
 
 /**
@@ -69,7 +85,19 @@ async function answerOfEveryAction(): Promise<{ answers: Map<string, unknown>; e
 
 /** `adminLane` for every administrator's action, the account page's actions answering by their own guard. */
 const expectedOf = (answers: Map<string, unknown>, adminLane: string): Map<string, unknown> =>
-  new Map([...answers.keys()].map((action) => [action, { success: false, error: ACCOUNT_ACTIONS.has(action) ? KONTO_FORBIDDEN : adminLane }]));
+  new Map(
+    [...answers.keys()].map((action) => [
+      action,
+      {
+        success: false,
+        error: ACCOUNT_ACTIONS.has(action)
+          ? KONTO_FORBIDDEN
+          : UNDO_ACTIONS.has(action)
+            ? `${adminLane} ${AENDERUNG_STEHT_WEITERHIN}`
+            : adminLane,
+      },
+    ]),
+  );
 
 describe("every admin server action", () => {
   /* Each export called, never its source read: an action outside `runAdminMutation`, or one the spine
@@ -84,6 +112,11 @@ describe("every admin server action", () => {
       [...ACCOUNT_ACTIONS].filter((action) => !answers.has(action)),
       [],
       "an account action named here is exported nowhere",
+    );
+    assert.deepEqual(
+      [...UNDO_ACTIONS].filter((action) => !answers.has(action)),
+      [],
+      "an undo named here is exported nowhere",
     );
   });
 

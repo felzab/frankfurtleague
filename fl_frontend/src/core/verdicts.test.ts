@@ -54,14 +54,6 @@ const { apiClient } = await import("@/core/api.ts");`,
     leave: `await apiClient("/probe", { parse: () => { throw new Error("malformed"); } }).catch(() => undefined);`,
     verdict: "the case answered these calls with a body the real client refuses as malformed",
   },
-  {
-    double: "the route request double",
-    setup: `import { doubleRouteRequest } from "@/shared/testing/undoRoutes.ts";
-doubleRouteRequest();
-const { updateTag } = await import("next/cache");`,
-    leave: `try { updateTag("probe"); } catch {}`,
-    verdict: "the route called what Next refuses outside a Server Action",
-  },
 ] as const;
 
 /* Each child holds a resource a later hook releases, so a verdict thrown from its hook would leave it

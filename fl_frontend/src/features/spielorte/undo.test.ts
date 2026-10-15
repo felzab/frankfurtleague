@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 import { publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
-import { assertEachRefusalCloses, doubleRouteRequest, revalidatedTags, unacknowledged, undo } from "@/shared/testing/undoRoutes.ts";
+import { assertEachRefusalCloses, droppedTags, unacknowledged } from "@/shared/testing/undoActions.ts";
 
 /** The pre-save venue the press replays, as the editor builds it. */
 const BODY = {
@@ -20,30 +21,30 @@ const replayed = (acknowledged: 0 | 1) => ({
   fanned_out_to_spiele: 0,
 });
 
-/* The real route and the mutation it replays through, called: the request it runs in and the backend client are the doubles. */
-doubleRouteRequest();
+/* The real action and the mutation it replays through, called: the request it runs in and the backend client are the doubles. */
+doubleActionRequest();
 const { answerWith, calls } = doubleApiAnswers(() => Promise.resolve(replayed(1)));
-const { POST } = await import("./route.ts");
+const { undoAdminSpielortEditAction } = await import("./actions.ts");
 
 /** What `fl_frontend/src/features/spielorte/mutations.ts :: patchSpielort` sends, as the backend's own routes spell it. */
 const REPLAY_OPERATION = "PATCH /spielorte/{spielort_id}";
 
 describe("the venue save's undo", () => {
   it("replays the stored venue", async () => {
-    const answer = await undo(POST, BODY);
+    const answer = await undoAdminSpielortEditAction(BODY);
 
-    assert.equal(answer.success, true, String(answer.error));
+    assert.equal(answer.success, true, JSON.stringify(answer));
     const { id, ...fields } = BODY;
     assert.deepEqual(requestsOf(calls), [{ endpoint: `/spielorte/${id}`, method: "PATCH", body: fields }]);
-    // The caches the replay moves, which the undo spine drops with no staleness tolerated.
-    assert.deepEqual(revalidatedTags(), [["spiele", { expire: 0 }]]);
+    // The cache the replay moves, which the spine drops at once.
+    assert.deepEqual(droppedTags(), ["spiele"]);
   });
 
   it("words every refusal the replayed endpoint publishes, closing on the change standing once", async () => {
     await assertEachRefusalCloses({
       codes: publishedRefusals(REPLAY_OPERATION),
       refuse: (code) => answerWith(() => Promise.reject(refusedOn(REPLAY_OPERATION, code))),
-      press: () => undo(POST, BODY),
+      press: () => undoAdminSpielortEditAction(BODY),
     });
   });
 
@@ -51,6 +52,6 @@ describe("the venue save's undo", () => {
   it("answers an unacknowledged replay as of unknown outcome, sending the admin to the venue", async () => {
     answerWith(() => Promise.resolve(replayed(0)));
 
-    assert.deepEqual(await undo(POST, BODY), unacknowledged("Die Rücknahme wurde abgebrochen. Prüfe die Spielortdaten."));
+    assert.deepEqual(await undoAdminSpielortEditAction(BODY), unacknowledged("Die Rücknahme wurde abgebrochen. Prüfe die Spielortdaten."));
   });
 });

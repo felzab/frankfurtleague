@@ -4,10 +4,10 @@ import { describe, it } from "node:test";
 import { einwilligungAnswer, publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
-import { cacheCalls } from "@/shared/testing/actionDoubles.ts";
+import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 import { publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
-import { assertEachRefusalCloses, doubleRouteRequest, unacknowledged, undo } from "@/shared/testing/undoRoutes.ts";
+import { assertEachRefusalCloses, droppedTags, unacknowledged } from "@/shared/testing/undoActions.ts";
 
 /** The stored block the press replays, and the token the save left, as the editor builds them. */
 const BODY = { team_id: "6890a1b2c3d4e5f607182932", saison_id: "2026", kontakte: null, kontakte_stand: "9f2c" };
@@ -26,7 +26,7 @@ const ZURUECK = {
       nachname: "Byron",
       email: "ada@example.org",
       telefon: "069 111",
-      einwilligung: { umfang: "kontaktdaten", text_version: FORM_LABEL, datum: "2026-03-12" },
+      einwilligung: { umfang: "kontaktdaten" as const, text_version: FORM_LABEL, datum: "2026-03-12" },
     },
     stellvertretung: null,
     trainer_ist_zugleich: null,
@@ -55,9 +55,9 @@ const replayed = (acknowledged: 0 | 1, bestaetigungen: unknown[] = []) => ({
   bestaetigungen,
 });
 
-/* The real route, the save's own mutation and the link mailer, called: the request it runs in, the
+/* The real action, the save's own mutation and the link mailer, called: the request it runs in, the
    backend client and the mail transport are the doubles. */
-const { setFresh } = doubleRouteRequest();
+const { setFresh } = doubleActionRequest();
 const mail = doubleSendMail();
 registerDoubles({ modules: { "core/config.ts": { frontend_config: { AUTH_URL: "http://localhost:3000" } } } });
 /** The stored rows a stale replay is judged against: none, so only a replay seating somebody moves a link. */
@@ -77,7 +77,7 @@ const doubled = doubleApiAnswers(
 );
 const { calls } = doubled;
 const answerWith = (answer: Answer) => doubled.answerWith(mitSeiten(answer));
-const { POST } = await import("./route.ts");
+const { undoAdminKontakteEditAction } = await import("./actions.ts");
 const { stepUpRequired } = await import("@/shared/utils/adminMutation.ts");
 
 /** What `fl_frontend/src/features/kontakte/mutations.ts :: patchSaisonTeamKontakte` sends, as the backend's own routes spell it. */
@@ -95,9 +95,9 @@ const STALE_BLOCK = "REQ-KONTAKT-001";
 
 describe("the contacts save's undo", () => {
   it("replays the save's own payload through the save's own write", async () => {
-    const answer = await undo(POST, BODY);
+    const answer = await undoAdminKontakteEditAction(BODY);
 
-    assert.equal(answer.success, true, String(answer.error));
+    assert.equal(answer.success, true, JSON.stringify(answer));
     assert.deepEqual(requestsOf(calls), [saveOf(BODY)]);
   });
 
@@ -109,7 +109,7 @@ describe("the contacts save's undo", () => {
       nachname: "Byron",
       email: "ada@example.org",
       telefon: "069 111",
-      einwilligung: { umfang: "kontaktdaten", text_version: textVersion, datum: "2026-03-12" },
+      einwilligung: { umfang: "kontaktdaten" as const, text_version: textVersion, datum: "2026-03-12" },
     });
     const block = (textVersion: string) => ({
       trainer: seat(textVersion),
@@ -118,9 +118,9 @@ describe("the contacts save's undo", () => {
       trainer_ist_zugleich: null,
     });
 
-    const answer = await undo(POST, { ...BODY, kontakte: block("eine-fruehere-fassung") });
+    const answer = await undoAdminKontakteEditAction({ ...BODY, kontakte: block("eine-fruehere-fassung") });
 
-    assert.equal(answer.success, true, String(answer.error));
+    assert.equal(answer.success, true, JSON.stringify(answer));
     assert.deepEqual(
       requestsOf(calls).filter(({ method }) => method !== undefined),
       [saveOf({ ...BODY, kontakte: block(FORM_LABEL) })],
@@ -129,7 +129,7 @@ describe("the contacts save's undo", () => {
 
   /* An undo clearing the block puts nobody back, so it has no label to name and reads none. */
   it("reads no label for a replay clearing the block", async () => {
-    await undo(POST, BODY);
+    await undoAdminKontakteEditAction(BODY);
 
     assert.equal(
       calls.some(({ endpoint }) => endpoint === "/einwilligung/seiten"),
@@ -141,30 +141,28 @@ describe("the contacts save's undo", () => {
      (`docs/frontend/spec.md :: I432`); any other replay keeps its undo unasked. */
   it("refuses a replay clearing the block from a session past the step-up window, and no other", async () => {
     setFresh(false);
-    const clearing = await undo(POST, BODY);
+    const clearing = await undoAdminKontakteEditAction(BODY);
     assert.deepEqual(clearing, { ...stepUpRequired() }, "a stale session cleared a club's contacts through the undo");
     assert.deepEqual(calls, [], "the clearing replay reached the backend for a session past the window");
 
     const seats = { trainer: null, ansprechperson: null, stellvertretung: null, trainer_ist_zugleich: null };
-    const restoring = await undo(POST, { ...BODY, kontakte: seats });
+    const restoring = await undoAdminKontakteEditAction({ ...BODY, kontakte: seats });
     assert.equal(restoring.success, true, "a stale session was refused a replay restoring seats");
   });
 
   /* No cached read holds a contact person, so an invalidation here would clear what the replay never moved. */
   it("clears no cached read, whether the replay lands or is refused", async () => {
-    await undo(POST, BODY);
+    await undoAdminKontakteEditAction(BODY);
     answerWith(() => Promise.reject(refusedOn(REPLAY_OPERATION, "REQ-KONTAKT-003")));
-    await undo(POST, BODY);
+    await undoAdminKontakteEditAction(BODY);
 
-    assert.deepEqual(cacheCalls, []);
+    assert.deepEqual(droppedTags(), []);
   });
 
-  it("replays nothing for a body the save's schema refuses, or a caller from another site", async () => {
-    const withoutToken = await undo(POST, { ...BODY, kontakte_stand: undefined });
-    const crossSite = await undo(POST, BODY, "cross-site");
+  it("replays nothing for a body the save's schema refuses", async () => {
+    const withoutToken = await undoAdminKontakteEditAction({ ...BODY, kontakte_stand: undefined as unknown as string });
 
     assert.equal(withoutToken.success, false);
-    assert.equal(crossSite.success, false);
     assert.deepEqual(calls, []);
   });
 
@@ -172,7 +170,7 @@ describe("the contacts save's undo", () => {
     await assertEachRefusalCloses({
       codes: publishedRefusals(REPLAY_OPERATION).filter((code) => code !== STALE_BLOCK),
       refuse: (code) => answerWith(() => Promise.reject(refusedOn(REPLAY_OPERATION, code))),
-      press: () => undo(POST, BODY),
+      press: () => undoAdminKontakteEditAction(BODY),
     });
   });
 
@@ -181,7 +179,7 @@ describe("the contacts save's undo", () => {
   it("words the stale block for the undo, saying why it did not run", async () => {
     answerWith(() => Promise.reject(refusedOn(REPLAY_OPERATION, STALE_BLOCK)));
 
-    const answer = await undo(POST, BODY);
+    const answer = await undoAdminKontakteEditAction(BODY);
 
     assert.deepEqual(answer, {
       success: false,
@@ -204,9 +202,9 @@ describe("the contacts save's undo", () => {
       ),
     );
 
-    const answer = await undo(POST, ZURUECK);
+    const answer = await undoAdminKontakteEditAction(ZURUECK);
 
-    assert.equal(answer.success, true, String(answer.error));
+    assert.equal(answer.success, true, JSON.stringify(answer));
     assert.deepEqual(
       mail.sent.map(({ to, tags }) => [to, tags?.ziel, tags?.rollen]),
       [["ada@example.org", "kontakt", "ansprechperson"]],
@@ -227,9 +225,9 @@ describe("the contacts save's undo", () => {
       ),
     );
 
-    const answer = await undo(POST, ZURUECK);
+    const answer = await undoAdminKontakteEditAction(ZURUECK);
 
-    assert.equal(answer.success, true, String(answer.error));
+    assert.equal(answer.success, true, JSON.stringify(answer));
     assert.match(mail.sent[0]?.text ?? "", /Die Saison ist vorbei/);
     assert.doesNotMatch(mail.sent[0]?.text ?? "", /Bitte bestätige/);
   });
@@ -240,7 +238,7 @@ describe("the contacts save's undo", () => {
     setFresh(false);
     answerWith(({ endpoint }) => Promise.resolve(endpoint === "/teams/memberships" ? { acknowledged: 1, teams: [] } : replayed(1)));
 
-    assert.deepEqual(await undo(POST, ZURUECK), { ...stepUpRequired() });
+    assert.deepEqual(await undoAdminKontakteEditAction(ZURUECK), { ...stepUpRequired() });
     assert.deepEqual(
       requestsOf(calls).filter(({ method }) => method !== undefined),
       [],
@@ -252,6 +250,6 @@ describe("the contacts save's undo", () => {
   it("answers an unacknowledged replay as of unknown outcome, sending the admin to the contacts", async () => {
     answerWith(() => Promise.resolve(replayed(0)));
 
-    assert.deepEqual(await undo(POST, BODY), unacknowledged("Die Rücknahme wurde abgebrochen. Prüfe die Kontaktdaten."));
+    assert.deepEqual(await undoAdminKontakteEditAction(BODY), unacknowledged("Die Rücknahme wurde abgebrochen. Prüfe die Kontaktdaten."));
   });
 });

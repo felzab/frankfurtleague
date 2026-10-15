@@ -7,7 +7,7 @@ import type { Doubles } from "@/core/exportingModule.ts";
 /**
  * The packages a public route handler reaches that this process cannot load, under the modules and
  * packages a suite doubles itself. Registered before the suite's `await import` of the route, as
- * `fl_frontend/src/shared/testing/undoRoutes.ts :: doubleRouteRequest` is.
+ * `fl_frontend/src/shared/testing/actionDoubles.ts :: doubleActionRequest` is.
  */
 export function doublePublicRouteRequest({ modules = {}, specifiers = {} }: Doubles = {}): void {
   registerDoubles({

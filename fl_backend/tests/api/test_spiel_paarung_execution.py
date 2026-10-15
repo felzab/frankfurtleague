@@ -408,7 +408,7 @@ class TestARewrittenPaarungLeavesNoScoreline:
 
 
 class TestAnUndoReplayPutsTheFixtureBackAsItStood:
-    """The whole sequence `fl_frontend/src/app/api/admin/spiele/undo/route.ts` runs, driven end to end.
+    """The whole sequence `fl_frontend/src/features/spiele/actions.ts :: undoAdminSpielEditAction` runs, driven end to end.
 
     Every fixture goes back in one request, the edited one leading, which frees the club the moved
     one is about to claim again (`docs/backend/spec.md :: I215`).

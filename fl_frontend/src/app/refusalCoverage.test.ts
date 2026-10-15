@@ -9,15 +9,15 @@ import ts from "typescript";
 import { isRefusalCode } from "@/core/errors.ts";
 import { keyTierOf } from "@/core/keyTiers.ts";
 import { publishedOperations } from "@/core/openapiDocument.ts";
-import { routeHandlerFiles } from "@/core/treeWalk.ts";
+import { serverActionModules } from "@/core/treeWalk.ts";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 
-/* The request the public mappers' reads and the undo spine load in, doubled before the `await import`s below. */
+/* The request the public mappers' reads and the undo actions load in, doubled before the `await import`s below. */
 doubleActionRequest();
 
 const { answerSettled, publishedRefusals } = await import("@/shared/testing/publishedRefusals.ts");
 const { isFunktionLost } = await import("@/shared/utils/actionError.ts");
-const { replayRefusal } = await import("@/shared/utils/undoRoute.ts");
+const { replayRefusal } = await import("@/shared/utils/adminUndo.ts");
 const berechtigungen = await import("@/features/berechtigungen/refusals.ts");
 const bewerbungen = await import("@/features/bewerbungen/refusals.ts");
 const { BEWERBUNG_MIN_ALTER } = await import("@/features/bewerbungen/constants.ts");
@@ -101,7 +101,7 @@ const ANSWERED_BY: Readonly<Record<string, Mapper>> = {
   "POST /schiedsrichter/adresswechsel/ansicht": schiedsrichterQueries.mapSchiedsrichterAnsichtRefusal,
   "POST /sperrliste": sperrliste.mapAdresseRefusal,
   "PATCH /spiele/{spiel_id}": spiele.mapSpielRefusal,
-  // Written by the undo route's replay alone.
+  // Written by the match undo's replay alone.
   "PATCH /spiele/paarungen": (error) => replayRefusal(error, spiele.PAARUNGEN_REPLAY_REFUSALS) ?? null,
   "DELETE /spieler/{spieler_id}/erasure": spieler.mapErasureRefusal,
   "GET /spieler/kader/{team_id}/{saison_id}": TEAM_FORBIDDEN_PANEL,
@@ -179,7 +179,7 @@ describe("every published refusal against the mapper answering it", () => {
   });
 });
 
-/** Each undo route's replay table, with the operations its replay sends. */
+/** Each undo's replay table, with the operations its replay sends. */
 const REPLAYED: readonly (readonly [table: Readonly<Record<string, string>>, ...operations: string[]])[] = [
   [kontakte.KONTAKTE_REPLAY_REFUSALS, "PATCH /teams/{team_id}/saisons/{saison_id}/kontakte"],
   [kontakte.STALE_BLOCK_REFUSAL, "PATCH /teams/{team_id}/saisons/{saison_id}/kontakte"],
@@ -194,16 +194,19 @@ const REPLAYED: readonly (readonly [table: Readonly<Record<string, string>>, ...
 
 const SRC = path.resolve(import.meta.dirname, "..");
 
-/** Every undo route Next serves: a route handler under `api/admin/<slice>/undo`. */
-const UNDO_ROUTES = routeHandlerFiles(15).filter((file) => /^api\/admin\/[^/]+\/undo\/route\.tsx?$/.test(relativeTo(file)));
+/** Every server action module, where each page-owned editor's undo replays through its table. */
+const ACTION_MODULES = serverActionModules(20);
 
-function relativeTo(file: string, root = path.join(SRC, "app")): string {
+/** The page-owned editors whose undo replays a save, a floor under the modules found replaying one. */
+const UNDO_FLOOR = 8;
+
+function relativeTo(file: string, root = SRC): string {
   return path.relative(root, file).split(path.sep).join("/");
 }
 
 /**
  * Each table `file` hands `refusedReplay` or `replayRefusal`, read off its syntax tree, as the module
- * it imports the table from exports it: `undefined` for one no import reaches, a table of the route's own.
+ * it imports the table from exports it: `undefined` for one no import reaches, a table of the module's own.
  */
 async function replayTablesOf(file: string): Promise<{ name: string; table: unknown }[]> {
   const source = ts.createSourceFile(file, readFileSync(file, "utf8"), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
@@ -237,24 +240,24 @@ async function replayTablesOf(file: string): Promise<{ name: string; table: unkn
   );
 }
 
-describe("every undo route's replay table", () => {
-  /* Read off the undo routes rather than this table, so a table a route replays through and this file
-     leaves out, or one the route keeps to itself, fails here instead of going unjudged. */
-  it("is judged here, each one an undo route replays through", async () => {
-    const replayed = (await Promise.all(UNDO_ROUTES.map(async (file) => ({ file, tables: await replayTablesOf(file) })))).flatMap(
-      ({ file, tables }) => tables.map(({ name, table }) => ({ route: relativeTo(file), name, table })),
+describe("every undo's replay table", () => {
+  /* Read off the action modules rather than this table, so a table an undo replays through and this
+     file leaves out, or one a module keeps to itself, fails here instead of going unjudged. */
+  it("is judged here, each one an undo replays through", async () => {
+    const replayed = (await Promise.all(ACTION_MODULES.map(async (file) => ({ file, tables: await replayTablesOf(file) })))).flatMap(
+      ({ file, tables }) => tables.map(({ name, table }) => ({ module: relativeTo(file), name, table })),
     );
+    const replaying = new Set(replayed.map(({ module }) => module)).size;
 
-    assert.ok(UNDO_ROUTES.length >= 8, `${String(UNDO_ROUTES.length)} undo routes, under this sweep's floor of 8`);
-    assert.ok(replayed.length >= UNDO_ROUTES.length, "the reader found fewer replay tables than undo routes");
+    assert.ok(replaying >= UNDO_FLOOR, `${String(replaying)} action modules replay a table, under this sweep's floor of ${String(UNDO_FLOOR)}`);
     assert.deepEqual(
-      replayed.filter(({ table }) => !REPLAYED.some(([judged]) => judged === table)).map(({ route, name }) => `${route}: ${name}`),
+      replayed.filter(({ table }) => !REPLAYED.some(([judged]) => judged === table)).map(({ module, name }) => `${module}: ${name}`),
       [],
       "a replay table this file does not judge",
     );
   });
 
-  /* `fl_frontend/src/shared/testing/undoRoutes.ts :: assertEachRefusalCloses` holds the other direction:
+  /* `fl_frontend/src/shared/testing/undoActions.ts :: assertEachRefusalCloses` holds the other direction:
      a row for a code nothing sends is German nobody meets. */
   it("words only codes one of its replayed operations publishes", () => {
     const stray = REPLAYED.flatMap(([table, ...operations]) => {

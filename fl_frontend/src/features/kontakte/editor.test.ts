@@ -23,7 +23,6 @@ import { buildEmptyKontaktperson } from "@/features/teams/utils";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
 import { doubleActionRequest, doubleEveryAction, doubleToasts } from "@/shared/testing/actionDoubles.ts";
-import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 import { membershipAnswer } from "@/shared/testing/membershipFixtures.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
@@ -67,9 +66,6 @@ const { raised: toasts } = doubleToasts();
 // (`fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`).
 doubleActionRequest();
 
-/** The undo's dispatch, which posts to a route handler with the browser's own `fetch`. */
-const fetchMock = doubleFetch();
-
 /** Each navigation a control makes, which both destructive controls and both ways out are judged by. */
 const { router, seen } = recordingRouter();
 
@@ -92,6 +88,7 @@ const { DraftStatusProvider } = await import("@/shared/components/ui/DraftStatus
 const { default: AdminKontakteEditPage } = await import("@/app/bereich/admin/kontakte/[team_id]/page.tsx");
 const { AdminTeamEditForm } = await import("@/features/teams/components/forms/AdminTeamEditForm/AdminTeamEditForm.tsx");
 const { DRAFT_DISCARDED } = await import("@/shared/utils/draftGuard.ts");
+const { StepUpContext } = (await import("@/shared/components/ui/stepUp.ts")) as unknown as { StepUpContext: React.Context<unknown> };
 
 /** The stored shape, which the list seat takes a subset of, so one person serves both renders below. */
 const ADA: FLKontaktperson = {
@@ -394,7 +391,7 @@ const BARRED = "REQ-KONTAKT-003";
 
 describe("the contacts write against the codes its endpoint publishes", () => {
   /* Worded apart from the undo, whose toast has not got the form the save's sentence sends the admin to
-     (`fl_frontend/src/app/api/admin/kontakte/undo/route.test.ts`). A code the save leaves unmapped
+     (`fl_frontend/src/features/kontakte/undo.test.ts`). A code the save leaves unmapped
      falls through to the shared fallback, which names no reason. */
   it("words every refusal its endpoint publishes, at the save", () => {
     const published = publishedRefusals(KONTAKTE_OPERATION);
@@ -725,12 +722,9 @@ describe("the editor's shape", () => {
     }
   });
 
-  /* A page-owned editor's undo is a route handler (`docs/frontend/spec.md` §1.3). The STORED block and
-     both ids restore through the same PATCH: the save run backwards, never a second write shape. */
-  it("offers an undo that replays the pre-save block to its own route handler", async () => {
-    fetchMock.mock.mockImplementation(() =>
-      Promise.resolve(Response.json({ success: true, message: "Kontakte wiederhergestellt.", warn: false })),
-    );
+  /* The STORED block and both ids restore through the same PATCH: the save run backwards, never a
+     second write shape. */
+  it("offers an undo that replays the pre-save block through its own action", async () => {
     await saveOver(BLOCK);
 
     // The save's own body carries the token the page was SERVED, which is the whole of what it judges.
@@ -741,10 +735,10 @@ describe("the editor's shape", () => {
 
     await pressUndo();
     assert.deepEqual(
-      fetchMock.mock.calls.map((call) => [String(call.arguments[0]), JSON.parse(String(call.arguments[1]?.body)) as unknown]),
+      calls.slice(1).map(({ action, payload }) => [action, payload]),
       [
         [
-          "/api/admin/kontakte/undo",
+          "undoAdminKontakteEditAction",
           // The precondition is the write's own answer: this save has moved the row past the block the
           // page read, so replaying that one asks the endpoint to refuse.
           { team_id: TEAM_ID, saison_id: "2526", kontakte: toKontaktePayload(BLOCK), kontakte_stand: SAVED.saison_team.kontakte_stand },
@@ -755,9 +749,6 @@ describe("the editor's shape", () => {
 
   /* A ratified decision (`.claude/rules/frontend.md`) keeps the offer on the save the confirmation dialog gated too. */
   it("offers the same undo on a save the confirmation dialog gated", async () => {
-    fetchMock.mock.mockImplementation(() =>
-      Promise.resolve(Response.json({ success: true, message: "Kontakte wiederhergestellt.", warn: false })),
-    );
     await saveOver(BLOCK, SAVED, async (user) => {
       await user.click(screen.getByRole("switch", { name: "Stellvertretung hinterlegt" }));
     });
@@ -768,8 +759,36 @@ describe("the editor's shape", () => {
     assert.equal(calls.length, 1, "the dialog's confirmation never reached the write, so the offer below is judged over nothing");
     await pressUndo();
     assert.deepEqual(
-      fetchMock.mock.calls.map((call) => (JSON.parse(String(call.arguments[1]?.body)) as { kontakte?: unknown }).kontakte),
-      [toKontaktePayload(BLOCK)],
+      calls.slice(1).map(({ action, payload }) => [action, (payload as { kontakte?: unknown }).kontakte]),
+      [["undoAdminKontakteEditAction", toKontaktePayload(BLOCK)]],
+    );
+  });
+
+  /* Putting a person back on a seat mints them a link, so past the step-up window the offer asks before
+     its action is sent (`docs/frontend/spec.md :: I431`); the telephone save itself asked nothing. */
+  it("asks for the passkey before an undo putting people back, past the step-up window", async () => {
+    const prompts: string[] = [];
+    const stale = {
+      isStale: () => true,
+      confirm: () => {
+        prompts.push(`prompt before ${String(calls.length)} writes`);
+        return Promise.resolve(true);
+      },
+    };
+    const user = userEvent.setup({ delay: null });
+    answerWith(() => Promise.resolve(SAVED));
+    render(h(StepUpContext.Provider, { value: stale }, editorElement(viewElement(BLOCK, true, TEAM_ID), BLOCK)));
+    const phone = screen.getAllByRole("textbox", { name: "Telefon" })[0] ?? assert.fail("the seats render no telephone box");
+    await user.clear(phone);
+    await user.type(phone, "069 222");
+    await user.click(screen.getByRole("button", { name: "Speichern" }));
+    await saved();
+
+    await pressUndo();
+    assert.deepEqual(prompts, ["prompt before 1 writes"], "the undo was sent without the prompt its replay needs");
+    assert.deepEqual(
+      calls.map(({ action }) => action),
+      ["patchSaisonTeamKontakteAction", "undoAdminKontakteEditAction"],
     );
   });
 
@@ -791,7 +810,7 @@ describe("the editor's shape", () => {
   });
 
   /* A seat the person confirmed for WhatsApp reaches the editor on the read and is spelled by no
-     payload, so it is the block where the replay and the route's own parse can disagree. */
+     payload, so it is the block where the replay and the undo's own parse can disagree. */
   it("replays a confirmed seat at the scope an administrator may write", () => {
     const confirmedSeat: FLKontaktperson = { ...ADA, einwilligung: { ...ADA.einwilligung, umfang: "kontaktdaten_whatsapp" } };
     const restorable = {
@@ -802,7 +821,7 @@ describe("the editor's shape", () => {
     };
     const parsed = FLPatchSaisonTeamKontaktePayloadSchema.safeParse(restorable);
 
-    assert.ok(parsed.success, "the undo route refuses the block a confirmed seat leaves");
+    assert.ok(parsed.success, "the undo refuses the block a confirmed seat leaves");
     assert.equal(parsed.data.kontakte?.trainer?.einwilligung.umfang, "kontaktdaten");
     assert.deepEqual(Object.keys(restorable.kontakte?.trainer?.einwilligung ?? {}).sort(), ["datum", "text_version", "umfang"]);
     // The offer's own verdict, over the body it hands on: a withheld undo sends the admin to re-enter
@@ -823,7 +842,11 @@ describe("what the undo says when it cannot run", () => {
     const [refused] = toasts.filter(({ variant }) => variant === "danger").map(({ description }) => description ?? "");
     assert.match(refused ?? "", /von Hand ein/, "the refusal no longer asks for the pre-save values by hand");
     assert.doesNotMatch(refused ?? "", /Lade die Seite neu/, "the refusal reloads away the values it then asks for");
-    assert.equal(fetchMock.mock.callCount(), 0, "a replay with no precondition was dispatched");
+    assert.deepEqual(
+      calls.map(({ action }) => action),
+      ["patchSaisonTeamKontakteAction"],
+      "a replay with no precondition was dispatched",
+    );
   });
 
   /* Backend I36 (`docs/backend/spec.md`) admits a malformed address on READ, and such a block is no
@@ -846,7 +869,11 @@ describe("what the undo says when it cannot run", () => {
       toasts.filter(({ variant }) => variant === "danger").map(({ title, description }) => [title, description]),
       [["Änderung nicht zurückgenommen", describeUnrestorableKontakte(restorable)]],
     );
-    assert.equal(fetchMock.mock.callCount(), 0, "an unrestorable block was dispatched to a route that can only answer it with a reload");
+    assert.deepEqual(
+      calls.map(({ action }) => action),
+      ["patchSaisonTeamKontakteAction"],
+      "an unrestorable block was dispatched to an undo that can only answer it with a reload",
+    );
   });
 });
 
