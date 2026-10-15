@@ -599,9 +599,9 @@ export function DatenschutzView() {
               Ein Sitzungs-Cookie für angemeldete Personen. Es entsteht erst bei der Anmeldung und hält die Sitzung. Das Cookie selbst läuft ab,
               wenn die Sitzung {SESSION_EXPIRES_IN_DAYS} Tage lang nicht genutzt wurde. Bei jedem Aufruf prüfen wir zusätzlich, ob die Anmeldung
               nicht länger als {PERSON_WINDOW_DAYS} Tage her ist, und verlangen danach eine neue Anmeldung. Für den Zugang zur Verwaltung
-              verlangen wir sie schon nach {NACH_EINER_STUNDE[ADMIN_IDLE_HOURS]} ohne Nutzung, spätestens aber {ADMIN_WINDOW_HOURS} Stunden nach
-              der Anmeldung. Wer sich nicht anmeldet, bekommt es nie. Rechtsgrundlage für die Anmeldung ist Art. 6 Abs. 1 lit. f DSGVO; unser
-              berechtigtes Interesse ist, dass nur Du Deinen Bereich und nur berechtigte Personen die Verwaltung erreichen.
+              verlangen wir sie spätestens nach {NACH_EINER_STUNDE[ADMIN_IDLE_HOURS]} ohne Nutzung, spätestens aber {ADMIN_WINDOW_HOURS} Stunden
+              nach der Anmeldung. Wer sich nicht anmeldet, bekommt es nie. Rechtsgrundlage für die Anmeldung ist Art. 6 Abs. 1 lit. f DSGVO;
+              unser berechtigtes Interesse ist, dass nur Du Deinen Bereich und nur berechtigte Personen die Verwaltung erreichen.
             </li>
             {/* Typed: `@better-auth/passkey` (1.7.7, read 2026-10-03) sets this cookie's life to its `MAX_AGE_IN_SECONDS`,
                 300, which it neither exports nor takes as an option, and moves it without us. */}

@@ -48,7 +48,7 @@ const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
  * The „Stand“ and the words it dates, frozen together: a reader told nothing changed since that day
  * has been misled by any edit that left the date standing.
  */
-const FASSUNG = { stand: "15. Oktober 2026", digest: "fed10b0efd4cf4b79ad470ee63bf4f468ec1a7d409c07a9290fa03ca22563966" } as const;
+const FASSUNG = { stand: "15. Oktober 2026", digest: "26f0c7811ec8b75f9a711bd0339829cbeef0d11d739f9e8b2637567999202d02" } as const;
 
 /** Every word the page renders but its date, so moving the date alone never passes for moving the words. */
 const wortlautDigest = (): string =>
@@ -300,7 +300,7 @@ describe("the privacy notice states the sign-in's session figures at the constan
 
   it("in the cookie section", () => {
     assert.ok(SEITE.includes(`Das Cookie selbst läuft ab, wenn die Sitzung ${LEERLAUF} wurde.`));
-    assert.ok(SEITE.includes(`Für den Zugang zur Verwaltung verlangen wir sie schon ${VERWALTUNG}, ${VERWALTUNG_SPAETESTENS}`));
+    assert.ok(SEITE.includes(`Für den Zugang zur Verwaltung verlangen wir sie spätestens ${VERWALTUNG}, ${VERWALTUNG_SPAETESTENS}`));
   });
 });
 
