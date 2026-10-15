@@ -81,6 +81,9 @@ export type SchiedsrichterBestaetigungRefusal = {
   zustand?: SchiedsrichterLinkZustand;
 };
 
+/** `alterAusserhalb` where the link's view serves no floor to name: both bounds, never a number of its own. */
+const ALTER_AUSSERHALB_UNGELESEN = "Mit diesem Geburtsdatum bist Du zu jung oder zu alt. Prüfe Dein Geburtsdatum.";
+
 // A thunk, never the floors: they are read for the two age arms alone, and a caller resolving them first
 // answers every arm naming the link's state out of a second read, which finds nothing to read.
 /**
@@ -121,9 +124,8 @@ export async function mapSchiedsrichterBestaetigungRefusal(
     case "REQ-SCHIEDSRICHTER-005": {
       const floor = (await ansicht())?.mindestalter ?? null;
 
-      // Unworded rather than guessed: a sentence naming a floor this link was not minted under
-      // sends the person to correct a date that was right.
-      return floor === null ? null : { fieldErrors: { geburtsdatum: alterAusserhalb(floor) } };
+      // A view that went unread names no floor: one guessed could send the person to correct a date that was right.
+      return { fieldErrors: { geburtsdatum: floor === null ? ALTER_AUSSERHALB_UNGELESEN : alterAusserhalb(floor) } };
     }
     default:
       return null;
