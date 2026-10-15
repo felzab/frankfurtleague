@@ -398,7 +398,9 @@ administration is shut while it is down. Each of these is easy to get wrong:
   (`docs/backend/spec.md :: I479`). The person made an owner signs in once more before acting as
   one: an older sign-in keeps administering and is offered no owner's control
   (`docs/backend/spec.md :: I534`). A demotion takes the tier at once. An `owner` is revoked only once made an administrator, and in
-  the application only an `owner` revokes (`docs/backend/spec.md :: I449`).
+  the application only an `owner` revokes (`docs/backend/spec.md :: I449`); an erasure of the
+  holder's own data removes the grant whatever its tier (`docs/backend/spec.md :: I436`), the last
+  live owner's own erasure refused (`REQ-PURGE-004`).
 - **The database is written directly for two things alone: the first owner, before anybody can sign
   in, and recovery when no owner can sign in.** Write in MongoDB Playground, never
   `mongosh`, into the `berechtigungen` collection of the application database (`DB_BASE_NAME`,
@@ -417,7 +419,8 @@ administration is shut while it is down. Each of these is easy to get wrong:
   (`docs/backend/spec.md :: I435`), the tier change to leave no owner
   (`docs/backend/spec.md :: I479`), and the Playground refuses nothing: the boot warns with
   `SRV-BOOT-005` where no grant is left and `SRV-BOOT-006` where no owner is, and serves the public
-  site either way.
+  site either way. An erasure refuses neither short of the last owner's own, and the same two
+  warnings follow its commit; nothing warns where one grant is left.
 - **A barred address is granted nothing, and a granted one is banned by nothing**
   (`docs/backend/spec.md :: I437`): lift the ban first, or revoke the grant first. A grant the
   Playground writes onto a barred address is refused by nothing and admits nobody, neither to the
