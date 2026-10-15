@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
 import {
-  ADMIN_EMAIL,
   asDataUrl,
   configDouble,
   GATE_BACKEND_CONFIG,
@@ -183,21 +182,70 @@ describe("a person's own account deletion, from the account page's press to the 
     });
   }
 
-  /* An address holding a grant deletes only from the session its administrator's lane admits, as its own
-     account page is drawn only for one: the link its passkey session asked for, pressed from its mailbox's. */
-  it("deletes and erases nothing from an administrator's session the mailbox alone made", async () => {
-    HELD.set(ADMIN_EMAIL, { ...NO_RECORDS, verwaltung: "administration", berechtigt_seit: "2026-01-01T00:00:00Z", konto: false });
-    const durchPasskey = await sessionByCode(auth, store, ADMIN_EMAIL);
+  /* A grant goes with the account, so a grant holder is held to a revoke's own window, a passkey sign-in of the
+     last five minutes, judged before the library spends the link (`docs/frontend/spec.md :: I707`). */
+  for (const [label, email, pressedFrom, proceeds] of [
+    ["the mailbox alone", "verwaltung-code@example.org", "code", false],
+    ["a passkey ten minutes ago", "verwaltung-spaet@example.org", 10, false],
+    ["a passkey a minute ago", "verwaltung-frisch@example.org", 1, true],
+  ] as const) {
+    it(`${proceeds ? "deletes" : "deletes nothing, the link left standing,"} for a grant holder signed in by ${label}`, async () => {
+      HELD.set(email, {
+        ...NO_RECORDS,
+        verwaltung: "owner",
+        berechtigt_seit: "2026-01-01T00:00:00Z",
+        inhaber_seit: "2026-01-01T00:00:00Z",
+        konto: false,
+      });
+      const durchPasskey = await sessionByCode(auth, store, email);
+      madeByPasskey(store, durchPasskey.row);
+      arriveAs(durchPasskey.cookie);
+      assert.equal((await fordereKontoLoeschungAnAction()).success, true, "the grant holder's passkey session mailed no link");
+      const found = /\/loeschung\?token=([0-9a-z]+)/.exec(mail.sent.findLast((sent) => sent.to === email)?.text ?? "");
+      assert.ok(found?.[1] !== undefined, "the mail carries no link to the interstitial");
+
+      if (pressedFrom === "code") arriveAs((await sessionByCode(auth, store, email)).cookie);
+      else durchPasskey.row.createdAt = new Date(Date.now() - pressedFrom * 60 * 1000);
+      const answer = await loescheKontoAction(found[1]);
+
+      if (proceeds) {
+        assert.equal(answer.success, true, JSON.stringify(answer));
+        assert.equal(erasures.length, 1);
+        assert.deepEqual(heldOf(durchPasskey.row.userId), { user: 0, passkeys: 0 });
+        return;
+      }
+      assert.match(answer.success ? "" : answer.error, /Melde Dich erneut mit Deinem Passkey an/);
+      assert.deepEqual(erasures, []);
+      assert.deepEqual(heldOf(durchPasskey.row.userId), { user: 1, passkeys: 1 });
+      assert.ok(
+        store.verification.some((held) => held.identifier === `delete-account-${found[1]}`),
+        "the refused press spent the link, which the grant holder can no longer open",
+      );
+    });
+  }
+
+  /* The backend refuses the league's last owner, whose erasure would leave the administration owned by nobody. */
+  it("leaves the last owner's account standing, in the refusal's own words, the backend having asked it", async () => {
+    const email = "letzte-inhaberin@example.org";
+    HELD.set(email, {
+      ...NO_RECORDS,
+      verwaltung: "owner",
+      berechtigt_seit: "2026-01-01T00:00:00Z",
+      inhaber_seit: "2026-01-01T00:00:00Z",
+      konto: false,
+    });
+    const durchPasskey = await sessionByCode(auth, store, email);
     madeByPasskey(store, durchPasskey.row);
     arriveAs(durchPasskey.cookie);
-    assert.equal((await fordereKontoLoeschungAnAction()).success, true, "the administrator's passkey session mailed no link");
-    const found = /\/loeschung\?token=([0-9a-z]+)/.exec(mail.sent.findLast((sent) => sent.to === ADMIN_EMAIL)?.text ?? "");
+    assert.equal((await fordereKontoLoeschungAnAction()).success, true, "the owner's passkey session mailed no link");
+    const found = /\/loeschung\?token=([0-9a-z]+)/.exec(mail.sent.findLast((sent) => sent.to === email)?.text ?? "");
     assert.ok(found?.[1] !== undefined, "the mail carries no link to the interstitial");
+    erasureAnswer = () => Response.json({ error_code: "REQ-PURGE-004", trace_id: "0".repeat(32) }, { status: 409 });
 
-    arriveAs((await sessionByCode(auth, store, ADMIN_EMAIL)).cookie);
+    const answer = await loescheKontoAction(found[1]);
 
-    assert.deepEqual(await loescheKontoAction(found[1]), { success: false, error: KONTO_FORBIDDEN });
-    assert.deepEqual(erasures, []);
+    assert.equal(erasures.length, 1, "the backend was never asked, so the refusal proves nothing");
+    assert.match(answer.success ? "" : answer.error, /Du bist die letzte Person, der die Verwaltung gehört\./);
     assert.deepEqual(heldOf(durchPasskey.row.userId), { user: 1, passkeys: 1 });
   });
 

@@ -177,7 +177,7 @@ export const FLSelbstErasureBewerbungSchema = z.object({
 /** One registration, whatever its status. */
 export const FLSelbstErasureRegistrierungSchema = z.object({
   saison_id: z.string(),
-  // Null where no season row names the team any more.
+  // Null where no season row names the team.
   team_name: z.string().nullable(),
   vorname: z.string(),
   nachname: z.string(),
