@@ -17,16 +17,17 @@ from datetime import UTC, datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
+import pymongo
 import pytest
 from bson import ObjectId
 from fastapi import FastAPI
 from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.database import AsyncDatabase
-from pymongo.errors import OperationFailure
+from pymongo.errors import OperationFailure, PyMongoError
 
 from app.api.bewerbungen.services import hash_token
 from app.api.einladungen.services import compose_einladung
-from app.api.identitaet.crud import ERASURE_JOURNAL_LINE, ERASURE_STEPS, JEDE_PERSONENGRUPPE, erase_everything
+from app.api.identitaet.crud import ERASURE_JOURNAL_EVENT, ERASURE_STEPS, JEDE_PERSONENGRUPPE, UNKNOWN_COMMIT_RESULT, erase_everything
 from app.api.identitaet.person_router import erase_selbst
 from app.api.identitaet.services import LETZTER_INHABER_ERASURE
 from app.api.registrierungen.person_router import aufnehmen
@@ -41,12 +42,13 @@ from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db
 from app.core.db import NO_OWNER
 from app.core.exceptions import DocumentNotFoundException
+from app.core.logging import setup_custom_logger
 from app.core.recording import ERASED_ACTOR_MARKER, Actor, PersonActor, actor_var
-from app.core.security import akteur_pseudonym, loeschung_journal_hash
+from app.core.security import ACTOR_HEADER, akteur_pseudonym, loeschung_journal_hash
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID, GHOST_SPIELER_ID
 from app.core.transactions import transaction_session
 from app.main import create_app
-from tests.actor_tokens import SignedActor
+from tests.actor_tokens import ACTOR_TOKEN_CONTRACT, FRESH_STEP_UP_CHECK, SignedActor, actor_claims, sign
 from tests.app_client import app_client
 from tests.bans import ban_list
 from tests.config import ADMIN_KEY
@@ -87,6 +89,12 @@ PATH = f"/api/v{API_VERSION}/identitaet/selbst/erasure"
 REFUSED_COMMIT_APP = f"{DATABASE_NAME}-refused-commit"
 # The server's code for a write conflict, which a commit refused under the transient label carries.
 WRITE_CONFLICT = 112
+# The client whose every commit lands and answers a replication timeout, so its answer never arrives.
+LOST_COMMIT_APP = f"{DATABASE_NAME}-lost-commit"
+# The deadline the case holds around the erasure, which ends the driver's retries of that commit.
+LOST_COMMIT_DEADLINE_S = 0.5
+# The server's code for a write concern it could not meet in time.
+WRITE_CONCERN_FAILED = 64
 
 SAISON_ID = "2026"
 TODAY = "2026-04-01"
@@ -102,11 +110,17 @@ TELEFON = "+49 69 7771234"
 GEBURTSDATUM = "2008-07-14"
 PSEUDONYM = akteur_pseudonym(IDENTIFIER, schluessel=CONFIG.sperrliste_schluessel)
 
+# The submission digests of two applications the person holds a seat on, the second predating the confirmation block.
+THEIR_DIGEST = "digest-7f3a1c-mit-block"
+THEIR_BLOCKLESS_DIGEST = "digest-7f3a1c-ohne-block"
+
 # Distinctive, so a hit in a whole-database scan is never coincidence: every value the person holds.
-THEIR_VALUES = (VORNAME, NACHNAME, IDENTIFIER, "7771234", GEBURTSDATUM, PSEUDONYM)
+THEIR_VALUES = (VORNAME, NACHNAME, IDENTIFIER, "7771234", GEBURTSDATUM, PSEUDONYM, THEIR_DIGEST, THEIR_BLOCKLESS_DIGEST)
 
 # The people beside them, each asserted still present so a database emptied wholesale fails.
 BYSTANDER_VALUES = ("Quillhilde", "Bramblewick", "Wraxlington", "kraus.bernd@example.com")
+# Those the seed's own edits file into shared log images beside the person, which keep them past the erasure.
+BYSTANDERS_IN_THE_LOG = ("Quillhilde", "Bramblewick", "kraus.bernd@example.com")
 OTHER_PSEUDONYM = akteur_pseudonym("wraxlington@example.com", schluessel=CONFIG.sperrliste_schluessel)
 
 HOME_TEAM_OID = ObjectId("6890a1b2c3d4e5f607b00001")
@@ -116,6 +130,7 @@ OTHER_PUPIL_OID = ObjectId("6890a1b2c3d4e5f607b00012")
 REFEREE_OID = ObjectId("6890a1b2c3d4e5f607b00021")
 OTHER_REFEREE_OID = ObjectId("6890a1b2c3d4e5f607b00022")
 BEWERBUNG_OID = ObjectId("6890a1b2c3d4e5f607b00031")
+BLOCKLESS_BEWERBUNG_OID = ObjectId("6890a1b2c3d4e5f607b00032")
 PENDING_OID = ObjectId("6890a1b2c3d4e5f607b00041")
 DECLINED_OID = ObjectId("6890a1b2c3d4e5f607b00042")
 SPIELTAG_OID = ObjectId("6890a1b2c3d4e5f607b00051")
@@ -151,6 +166,10 @@ Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 @functools.cache
 def _app() -> FastAPI:
     return create_app(CONFIG)
+
+
+# The suite's settings with the application's own lines silenced, as an operator may set them.
+QUIET = CONFIG.model_copy(update={"log_level_app": "WARNING"})
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -245,6 +264,18 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
             eingereicht_am="2026-03-10",
             bestaetigungsfrist="2026-04-10",
             schule=neue_schule_document("Neue", "NE"),
+            idempotenz_fingerabdruck=THEIR_DIGEST,
+        )
+    )
+    await database[Collection.BEWERBUNGEN].insert_one(
+        bewerbung_document(
+            BLOCKLESS_BEWERBUNG_OID,
+            SAISON_ID,
+            "eingereicht",
+            kontakte=kontakte_document(ansprechperson=their_seat()),
+            eingereicht_am="2026-02-10",
+            schule=neue_schule_document("Alte", "AL"),
+            idempotenz_fingerabdruck=THEIR_BLOCKLESS_DIGEST,
         )
     )
     einwilligung = eigene_einwilligung_document(text_version="v1", bestaetigt_am="2026-03-02")
@@ -446,9 +477,17 @@ def as_person(email: str) -> SignedActor:
     return SignedActor(email, ADMIN_KEY, lane="person")
 
 
-async def erased_over_http(url: str, *, email: str = TYPED) -> Any:
+def by_passkey(email: str) -> dict[str, str]:
+    """A person who confirmed with their passkey a second before the token, as the page's prompt leaves them: signed when called."""
+
+    claims = {**actor_claims(email, lane="person", signed_in_before_s=1), "amr": [ACTOR_TOKEN_CONTRACT["admin_factor"]]}
+
+    return {**ADMIN_KEY, ACTOR_HEADER: sign(claims)}
+
+
+async def erased_over_http(url: str, *, email: str = TYPED, headers: Mapping[str, str] | None = None) -> Any:
     async with app_client(url, app=_app(), now=NOW) as http:
-        return await http.post(PATH, headers=as_person(email))
+        return await http.post(PATH, headers=headers or as_person(email))
 
 
 def the_collections(database: AsyncDatabase, **replaced: Any) -> dict[str, Any]:
@@ -484,6 +523,8 @@ async def erased_by_the_handler(database: AsyncDatabase, client: AsyncMongoClien
         identifier=identifier,
         **the_collections(database, **replaced),
         sperrliste=ban_list(database),
+        # Refusing none: a grant holder's passkey is held over HTTP, in `TestTheGrantsLeftBehind` and the step-up suite.
+        refuse_unconfirmed=FRESH_STEP_UP_CHECK,
         db=client,
         config=CONFIG,
         germany_now=NOW,
@@ -511,24 +552,30 @@ async def erased_in_scope(database: AsyncDatabase, client: AsyncMongoClient, sco
 class TestNothingOfTheirsIsLeftAnywhere:
     """The witness for reach: the whole database rendered as text, each collection named where a value survives."""
 
-    def test_no_value_of_theirs_survives_and_every_bystanders_does(self, mongo_replica_set_url: str):
-        """Catches a step removed from the registry, and a store none of them reaches -- the pseudonym's included.
+    @pytest.mark.parametrize("holding_a_grant", [False, True], ids=["holding no grant", "holding an administration grant"])
+    def test_no_value_of_theirs_survives_and_every_bystanders_does(self, mongo_replica_set_url: str, holding_a_grant: bool):
+        """Catches a step removed from the registry, or a store none reaches, the pseudonym's included.
 
-        Every value is asserted present before, so a seed that stopped writing one fails rather than passing.
+        Each value is asserted present first, so a seed that stopped writing one fails; the grant, where held, adds its rows and
+        notice.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            before = await where_held(database, *THEIR_VALUES)
-            response = await erased_over_http(mongo_replica_set_url)
+            if holding_a_grant:
+                await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
+            before = await where_held(database, *THEIR_VALUES, *BYSTANDERS_IN_THE_LOG, folded=True)
+            response = await erased_over_http(mongo_replica_set_url, headers=by_passkey(TYPED))
 
-            return before, response.status_code, await where_held(database, *THEIR_VALUES, *BYSTANDER_VALUES)
+            return before, response.status_code, await where_held(database, *THEIR_VALUES, *BYSTANDER_VALUES, folded=True)
 
         before, status, after = on_a_league(mongo_replica_set_url, body)
 
         assert all(before[value] for value in THEIR_VALUES), before
         assert status == 200
         assert {value: after[value] for value in THEIR_VALUES} == dict.fromkeys(THEIR_VALUES, [])
-        assert all(after[value] for value in BYSTANDER_VALUES), after
+        # In the log too: a pass emptying a shared image whole would take the people beside them with it.
+        assert {value: "aktionen" in before[value] for value in BYSTANDERS_IN_THE_LOG} == dict.fromkeys(BYSTANDERS_IN_THE_LOG, True), before
+        assert {value: "aktionen" in after[value] for value in BYSTANDERS_IN_THE_LOG} == dict.fromkeys(BYSTANDERS_IN_THE_LOG, True), after
 
     def test_each_kind_is_counted_as_it_went(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -541,7 +588,7 @@ class TestNothingOfTheirsIsLeftAnywhere:
             "saison_spieler": 1,
             "schiedsrichter": 1,
             "spiele": 1,
-            "kontakt_sitze": 2,
+            "kontakt_sitze": 3,
             "registrierungen": 2,
             "adresswechsel": 2,
             "berechtigungen": 0,
@@ -719,10 +766,10 @@ class TestTheSentinelIsNobodyToErase:
 
 
 class TestOneTransaction:
-    """A failure at the LAST write takes every step back: an erasure half done reports one that did not happen."""
+    """A failure at a late write takes every step back: an erasure half done reports one that did not happen."""
 
     def test_a_refused_last_write_leaves_everything_as_it_stood(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
-        """The validator refuses the marker on a person's row, which only the log's step writes, after every other step."""
+        """The validator refuses the marker on a person's row, which only the log's step writes, after every step but the address pass."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database.command(
@@ -767,7 +814,7 @@ class TestOneTransaction:
         assert counts == {"berechtigungen": 1, "spieler": 4, "saison_spieler": 2, "schiedsrichter": 2, "registrierungen": 3, "drosselung": 4}
         assert (seat, pending, their_rows, stamped, on_the_ghost) == (TYPED, TYPED, 2, 0, 0)
         # And no journal line nor floor warning: an erasure rolled back is no erasure a replay may repeat.
-        assert not [record for record in caplog.records if record.getMessage().startswith(ERASURE_JOURNAL_LINE)]
+        assert not [record for record in caplog.records if record.getMessage().startswith(ERASURE_JOURNAL_EVENT)]
         assert NO_OWNER.error_code not in [getattr(record, "error_code", None) for record in caplog.records]
 
 
@@ -778,7 +825,7 @@ class TestTheGrantsLeftBehind:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
 
-            return (await erased_over_http(mongo_replica_set_url)).json()["berechtigungen"]
+            return (await erased_over_http(mongo_replica_set_url, headers=by_passkey(TYPED))).json()["berechtigungen"]
 
         with caplog.at_level(logging.WARNING):
             removed = on_a_league(mongo_replica_set_url, body)
@@ -795,16 +842,71 @@ class TestTheJournal:
         with caplog.at_level(logging.INFO):
             status = on_a_league(mongo_replica_set_url, body)
 
-        lines = [record.getMessage() for record in caplog.records if record.getMessage().startswith(ERASURE_JOURNAL_LINE)]
+        lines = [record.getMessage() for record in caplog.records if record.getMessage().startswith(ERASURE_JOURNAL_EVENT)]
         expected = loeschung_journal_hash(IDENTIFIER, schluessel=CONFIG.sperrliste_schluessel)
 
         assert status == 200
-        assert lines == [f"{ERASURE_JOURNAL_LINE}: {expected}"]
+        assert lines == [f"{ERASURE_JOURNAL_EVENT} {expected}"]
         # Its own label: under the log's, the journal would name the very pseudonym the erasure removed.
         assert expected != PSEUDONYM
 
+    def test_the_line_is_written_whatever_the_application_log_level(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+        """Catches the journal written through the application's own logger, which `LOG_LEVEL_APP=WARNING` silences.
+
+        No `caplog.at_level` here: it would lower the very levels this case is about.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            quiet = create_app(QUIET)
+            # The build's `dictConfig` took every handler off the root, `caplog`'s among them: that one back, at no level.
+            logging.getLogger().addHandler(caplog.handler)
+            try:
+                async with app_client(mongo_replica_set_url, app=quiet, now=NOW) as http:
+                    return (await http.post(PATH, headers=as_person(TYPED))).status_code
+            finally:
+                # The suite's own levels back, for every case after this one.
+                setup_custom_logger(CONFIG)
+
+        status = on_a_league(mongo_replica_set_url, body)
+        lines = [record.getMessage() for record in caplog.records if record.getMessage().startswith(ERASURE_JOURNAL_EVENT)]
+
+        assert (status, len(lines)) == (200, 1)
+
+    def test_a_commit_whose_answer_is_lost_is_journalled_all_the_same(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+        """Catches the journal left to a commit that answered: this one landed, and its answer was lost to the deadline.
+
+        Every commit runs and answers a replication timeout, so the driver retries it until the case's deadline ends it.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            losing = AsyncMongoClient(mongo_replica_set_url, serverMonitoringMode="poll", appname=LOST_COMMIT_APP)
+            unanswered = {
+                "failCommands": ["commitTransaction"],
+                "appName": LOST_COMMIT_APP,
+                "writeConcernError": {"code": WRITE_CONCERN_FAILED, "errmsg": "waiting for replication timed out"},
+            }
+            entered = (await client.admin.command("configureFailPoint", "failCommand", mode="alwaysOn", data=unanswered))["count"]
+            try:
+                with pytest.raises(PyMongoError) as lost:
+                    with pymongo.timeout(LOST_COMMIT_DEADLINE_S):
+                        await erased_by_the_handler(losing[database.name], losing)
+            finally:
+                left = (await client.admin.command("configureFailPoint", "failCommand", mode="off"))["count"]
+                await losing.close()
+
+            return left > entered, lost.value.has_error_label(UNKNOWN_COMMIT_RESULT), await where_held(database, IDENTIFIER)
+
+        with caplog.at_level(logging.INFO):
+            answered, labelled, after = on_a_league(mongo_replica_set_url, body)
+
+        lines = [record.getMessage() for record in caplog.records if record.getMessage().startswith(ERASURE_JOURNAL_EVENT)]
+
+        assert len(lines) == 1
+        # The premise last: a commit ran and its answer was lost, and the erasure landed.
+        assert (answered, labelled, after) == (True, True, {IDENTIFIER: []})
+
     def test_an_attempt_rolled_back_at_its_commit_writes_no_line(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
-        """Catches `after_the_erasure_commits` moved into the callback, ahead of a commit that can still fail.
+        """Catches the journal written inside the callback, ahead of a commit that can still fail.
 
         The refusal is transient, so the driver reruns the erasure and the rerun commits: one line and one warning, none of the
         first attempt's.
@@ -831,7 +933,7 @@ class TestTheJournal:
         with caplog.at_level(logging.INFO):
             refused, removed = on_a_league(mongo_replica_set_url, body)
 
-        lines = [record for record in caplog.records if record.getMessage().startswith(ERASURE_JOURNAL_LINE)]
+        lines = [record for record in caplog.records if record.getMessage().startswith(ERASURE_JOURNAL_EVENT)]
         warnings = [getattr(record, "error_code", None) for record in caplog.records].count(NO_OWNER.error_code)
 
         assert (len(lines), warnings) == (1, 1)
@@ -864,7 +966,7 @@ class TestTheLastOwner:
             outcome, untouched = on_a_league(mongo_replica_set_url, body)
 
         assert (outcome, untouched) == (LETZTER_INHABER_ERASURE, True)
-        assert not [record for record in caplog.records if record.getMessage().startswith(ERASURE_JOURNAL_LINE)]
+        assert not [record for record in caplog.records if record.getMessage().startswith(ERASURE_JOURNAL_EVENT)]
 
     def test_a_barred_second_owner_is_no_owner_to_leave_behind(self, mongo_replica_set_url: str):
         """Counted as a demotion counts: a barred owner admits nobody, so it could make nobody an owner."""
@@ -1117,9 +1219,9 @@ class TestAPersonHoldingNoFunktion:
 
 
 class TestThePreview:
-    """What the page shows before the press: every kind the erasure reaches, by name, and no address or birthdate."""
+    """What the page shows before the press: every record of the person's own the erasure takes, by name, and no address or birthdate."""
 
-    def test_it_names_every_record_the_erasure_reaches(self, mongo_replica_set_url: str):
+    def test_it_names_every_record_of_their_own_the_erasure_takes(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
             async with app_client(mongo_replica_set_url, app=_app(), now=NOW) as http:
@@ -1134,7 +1236,52 @@ class TestThePreview:
         assert answer["sitze"] == [
             {"saison_id": SAISON_ID, "team_name": "Heim-Schule", "rolle": "ansprechperson", "vorname": VORNAME, "nachname": NACHNAME}
         ]
-        assert answer["bewerbungen"] == [{"saison_id": SAISON_ID, "rolle": "trainer", "vorname": VORNAME, "nachname": NACHNAME}]
+        assert sorted(answer["bewerbungen"], key=lambda entry: entry["rolle"]) == [
+            {"saison_id": SAISON_ID, "rolle": rolle, "vorname": VORNAME, "nachname": NACHNAME} for rolle in ("ansprechperson", "trainer")
+        ]
         assert answer["registrierungen"] == [{"saison_id": SAISON_ID, "team_name": "Heim-Schule", "vorname": VORNAME, "nachname": NACHNAME}] * 2
-        assert (answer["adresswechsel"], answer["verwaltung"]) == (2, "administration")
+        assert (answer["adresswechsel"], answer["verwaltung"], answer["letzter_inhaber"]) == (2, "administration", False)
         assert "@" not in response.text and GEBURTSDATUM not in response.text
+
+    def test_a_dead_spelling_of_the_address_goes_unnamed_and_goes(self, mongo_replica_set_url: str):
+        """A grant typed in capitals admits nobody, so the preview names no tier for it; the press removes it all the same."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await a_grant(database, THEIR_GRANT_OID, TYPED, "administration")
+            async with app_client(mongo_replica_set_url, app=_app(), now=NOW) as http:
+                verwaltung = (await http.get(f"{PATH}/ansicht", headers=as_person(TYPED))).json()["verwaltung"]
+
+            return verwaltung, (await erased_by_the_handler(database, client)).berechtigungen
+
+        assert on_a_league(mongo_replica_set_url, body) == (None, 1)
+
+    @pytest.mark.parametrize(
+        ("second_owner", "barred", "letzter_inhaber"),
+        [(False, False, True), (True, False, False), (True, True, True)],
+        ids=["the only owner", "beside a second owner", "beside a barred second owner"],
+    )
+    def test_it_foretells_the_last_owners_refusal_as_the_press_judges_it(
+        self, mongo_replica_set_url: str, second_owner: bool, barred: bool, letzter_inhaber: bool
+    ):
+        """A barred owner admits nobody, so beside one the address is still the last: `letzter_inhaber` reads true.
+
+        The press runs on the same seed, so a preview judging apart from it fails here.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "owner")
+            if second_owner:
+                await a_grant(database, OTHER_OWNER_OID, OTHER_OWNER, "owner")
+            if barred:
+                await database[Collection.SPERRLISTE].insert_one(
+                    ban_document(OTHER_OWNER, bis=compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID))
+                )
+            async with app_client(mongo_replica_set_url, app=_app(), now=NOW) as http:
+                preview = await http.get(f"{PATH}/ansicht", headers=as_person(TYPED))
+
+            return preview.status_code, preview.json()["letzter_inhaber"], await outcome_of(erased_by_the_handler(database, client))
+
+        status, foretold, pressed = on_a_league(mongo_replica_set_url, body)
+
+        assert (status, foretold) == (200, letzter_inhaber)
+        assert pressed == (LETZTER_INHABER_ERASURE if letzter_inhaber else COMMITTED)
