@@ -220,6 +220,14 @@ const environment = {
     .pipe(z.enum(["on", "off"]))
     .default("on"),
 
+  // The account sweep's own switch, for `BEWERBUNG_SWEEP`'s reasons: defaulted so no server .env is
+  // touched to arm it, and an enum because `z.coerce.boolean()` reads the string "false" as true.
+  KONTO_SWEEP: z
+    .string()
+    .transform((value) => value.toLowerCase())
+    .pipe(z.enum(["on", "off"]))
+    .default("on"),
+
   // Public: the bot check's widget prints it into the page. No default, so a host's file leaving it out
   // is refused before the recreate rather than at the boot.
   TURNSTILE_SITE_KEY: z.string().min(1),
@@ -303,6 +311,7 @@ const validated = createEnv({
     LOG_FORMAT: process.env.LOG_FORMAT,
     LOG_LEVEL: process.env.LOG_LEVEL,
     BEWERBUNG_SWEEP: process.env.BEWERBUNG_SWEEP,
+    KONTO_SWEEP: process.env.KONTO_SWEEP,
     TURNSTILE_SITE_KEY: process.env.TURNSTILE_SITE_KEY,
 
     // Off the files alone: a variable of the same name, standing in for a missing file, would hand
