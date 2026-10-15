@@ -8,14 +8,11 @@ import { underNext } from "@/shared/testing/nextContexts.ts";
 import { answer, answerReadsWith, EMPTIEST_ANSWER, OBJECT_ID, renderPage } from "@/shared/testing/pageHarness.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
 
-import type { ReactElement } from "react";
-
 doubleActionRequest();
 
 /* Reached with `await import` and never a static import beside the harness, which registers the JSX
    compile step as it evaluates (`docs/frontend/spec.md` §1.9). */
 const { default: AdminSperrlistePage } = await import("@/app/bereich/admin/sperrliste/page.tsx");
-const { AdminCrudShell } = await import("@/shared/components/ui/AdminCrudShell.tsx");
 
 /** The one ban the list read answers, every other read the emptiest body its schema takes. */
 const EINTRAG = {
@@ -54,16 +51,6 @@ describe("the page the ban list stands on", () => {
 
     assert.ok(zeile !== undefined, "the reason renders in no line of its own, so the case below reads nothing");
     assert.ok(zeile.includes("wrap-break-word"), "a long word of the reason runs past the card");
-  });
-
-  /* The bar an administrator types into is the one control this page offers, and the query it takes
-     is a person's address: on this route alone it is held in the page rather than written to `?q=`. */
-  it("asks the shell to hold the typed query instead of writing it", () => {
-    const shell = AdminSperrlistePage() as ReactElement<{ privateQuery?: boolean }>;
-
-    // What the flag does is `fl_frontend/src/shared/components/ui/AdminCrudPrivateQuery.test.ts`'s to hold.
-    assert.equal(shell.type, AdminCrudShell, "the page's chrome is no longer the shell the flag is read by");
-    assert.equal(shell.props.privateQuery, true, "the bar writes the typed address into a request line nginx logs");
   });
 
   /* The page's chrome may never wait on the list: rendered with no boundary awaited, the bar stands

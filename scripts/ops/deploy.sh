@@ -10,7 +10,7 @@
 #   ./scripts/ops/deploy.sh                    deploy the current :latest tag of both packages
 #   ./scripts/ops/deploy.sh sha-1a2b3c4        deploy, or ROLL BACK to, one published build
 #   ./scripts/ops/deploy.sh --status           report what is running and what the edge serves, change nothing
-#   ./scripts/ops/deploy.sh --check-env        list each .env line a deploy would refuse, by name and number, change nothing
+#   ./scripts/ops/deploy.sh --check-env        run the deploy's Docker-free checks of the .env files alone, change nothing
 #   ./scripts/ops/deploy.sh --verbose          stream each command's own output instead of capturing it
 #   ./scripts/ops/deploy.sh --help
 
@@ -94,15 +94,16 @@ fi
 
 require_platform linux
 
-# Before the daemon is asked anything, so a host's files can be judged ahead of the deploy that
-# would refuse them, with nothing started, stopped or pulled.
+# Before the daemon is asked anything, so a host's files are judged ahead of the deploy that would
+# refuse them: every check of them the deploy makes without Docker, in its order.
 if (( ENV_ONLY )); then
   section "environment files"
-  step "Each line of fl_frontend/.env and fl_backend/.env, as the preflight judges it"
+  step "fl_frontend/.env and fl_backend/.env, as the preflight judges them"
+  refuse_compose_dotenv
   require_file "fl_frontend/.env"
   require_file "fl_backend/.env"
-  check_env_spellings "fl_frontend/.env" "fl_backend/.env"
-  ok "0 lines refused: every line is a comment, blank, or NAME=VALUE in the characters every reader takes alike"
+  judge_env_files "fl_frontend/.env" "fl_backend/.env"
+  ok "0 lines refused: no credential, and every line is a comment, blank, or NAME=VALUE in the characters every reader takes alike"
   finish
 fi
 
@@ -228,11 +229,11 @@ check_env_names() {
   read_env_names fl_backend "$IMAGE_BACKEND" python -c "$ENV_NAME_CHECK" "$ENV_MOUNTS" || rc=$?
   if (( rc == 3 )); then
     refuse "the backend refuses this host's fl_backend/.env, and the line above is its own answer: the
-variables it could not accept, or the type of a read that failed before it reached one. No value is
-printed either way, and which remedy the line asks for is read off the names it carries. A name the
-backend declares is a value to correct; any other name is a line to delete or a field to add to the
-settings class, nothing in that class reading such a name -- so it reads as omitted and the shipped
-default serves production.
+variables it declares and could not accept, by name; the lines declaring a name it does not, by
+number alone; or the type of a read that failed before it reached one. No value is printed, and no
+name the backend does not declare. A named variable is a value to correct; a numbered line is one
+to open, then delete or answer with a field in the settings class, nothing in that class reading
+its name -- so it reads as omitted and the shipped default serves production.
 NOTHING has been recreated, and the site is untouched."
   elif (( rc )); then
     # An advisory rather than a refusal: this reads a file the running stack never reads, so a check
@@ -251,12 +252,14 @@ check_frontend_env_names() {
   local rc=0
   read_env_names fl_frontend "$IMAGE_FRONTEND" node check-environment-names.mjs "${ENV_MOUNTS}/.env" || rc=$?
   if (( rc == 3 )); then
-    refuse "the frontend refuses this host's fl_frontend/.env, and the line above names the variables.
-An undeclared name is one nothing in the schema reads, so the line reads as omitted and the shipped
-default serves production -- delete it, correct its spelling, or declare it in the schema. A missing
-required name is one the boot gate would meet instead, after the recreate and behind an edge already
-answering 502 -- write it into the file WITH A VALUE, a bare \`NAME\` line taking its value from the
-shell that ran compose, which here holds none.
+    refuse "the frontend refuses this host's fl_frontend/.env, and the lines above give each undeclared
+variable by its line number alone, never by name, and each missing one by name. An undeclared name
+is one nothing in the schema reads, so the line reads as omitted and the shipped default serves
+production -- open the line, then delete it, correct its spelling, or declare it in the schema. A missing
+name is one the frontend requires that the file omits, which the boot gate would meet instead,
+after the recreate and behind an edge already answering 502 -- write it into the file with its
+value. Whether a value, an empty one included, is accepted is the boot gate's to judge, in the step
+below.
 NOTHING has been recreated, and the site is untouched."
   elif (( rc )); then
     # An advisory rather than a refusal, for the reason `check_env_names` carries.
@@ -752,10 +755,7 @@ section "preflight"
 step "Files and directories the stack mounts, before anything is stopped or pulled"
 require_file "fl_frontend/.env" "The frontend cannot start without it. Restore it from your password manager."
 require_file "fl_backend/.env"  "The backend cannot start without it."
-# Before the spellings, whose remedy would have a credential's line rewritten rather than deleted.
-refuse_credential_lines fl_frontend/.env fl_backend/.env
-check_env_spellings "fl_frontend/.env"
-check_env_spellings "fl_backend/.env"
+judge_env_files "fl_frontend/.env" "fl_backend/.env"
 # Each file and never its directory alone: Docker mounts a missing directory empty, where nginx
 # loads no server of this site's or refuses the include, the edge serving its previous
 # configuration until it restarts.

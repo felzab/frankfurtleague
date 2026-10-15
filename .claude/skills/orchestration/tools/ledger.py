@@ -25,6 +25,7 @@ import io
 import json
 import os
 import re
+import shlex
 import sys
 from collections.abc import Collection
 from pathlib import Path
@@ -46,6 +47,16 @@ STATUS_RE: Final = re.compile(rf"^(?P<word>{'|'.join(map(re.escape, STATUSES))})
 CELL_SPLIT_RE: Final = re.compile(r"(?<!\\)\|")
 CODE_SPAN_RE: Final = re.compile(r"`([^`]+)`")
 AGENT_ID_RE: Final = re.compile(r"^[A-Za-z0-9]+$")
+# A printed command names this file and its repository's backend project by absolute path, so the
+# line runs as printed from any directory: a bare `ledger.py` runs nowhere.
+TOOL: Final = Path(__file__).resolve()
+INVOCATION: Final = ("uv", "run", "--project", str(TOOL.parents[4] / "fl_backend"), "--frozen", "python", str(TOOL))
+PLACEHOLDER_RE: Final = re.compile(r"<[a-z]+>")
+
+
+def command(*args: str) -> str:
+    """One ledger command as a line a shell runs, each `<placeholder>` left bare for the reader to fill."""
+    return " ".join(arg if PLACEHOLDER_RE.fullmatch(arg) else shlex.quote(arg) for arg in (*INVOCATION, *args))
 
 
 def findings(report: str) -> dict[int, str]:
@@ -133,7 +144,13 @@ def _rows(register: Path, mending: Collection[str] = ()) -> tuple[list[str], dic
             continue
         at[cells[0]] = k
         if status(cells) not in STATUSES and cells[0] not in mending:
-            unjudged.append(f"{cells[0]} is `{cells[3]}`, no word of {', '.join(STATUSES)}: `close <status> <evidence> {cells[0]} --reclose`")
+            # Both repairs: a mistyped in-flight row steered to a closing status closes a finding nobody fixed.
+            done = command("close", str(register.resolve()), "<status>", "<evidence>", cells[0], "--reclose")
+            in_flight = command("route", str(register.resolve()), "<agent>", cells[0], "--reroute")
+            unjudged.append(
+                f"{cells[0]} is `{cells[3]}`, no word of {', '.join(STATUSES)}: "
+                f"where its finding is done, `{done}`; where it is in flight, `{in_flight}`"
+            )
     if unjudged:
         raise ValueError("; ".join(unjudged))
     return lines, at
@@ -227,7 +244,9 @@ def bank_from(register: Path, report: Path, agent: str, projects: Path, declared
 
 def route(register: Path, agent: str, rows: list[str], reroute: bool = False) -> list[str]:
     """Each row ROUTED to the agent, all or none; the rows that moved."""
-    lines, at = _rows(register)
+    # `--reroute` lifts the refusal of a word no command knows for the rows it names, as `close
+    # --reclose` does: the in-flight half of the repair that refusal names.
+    lines, at = _rows(register, mending=rows if reroute else ())
     refused, moved = [], []
     for row in rows:
         if row not in at:
@@ -239,11 +258,15 @@ def route(register: Path, agent: str, rows: list[str], reroute: bool = False) ->
             continue
         if held == "ROUTED" and not reroute:
             refused.append(f"{row} is routed to {by} already: one finding, one owner (--reroute moves it)")
-        elif held not in ("OPEN", "ROUTED"):
+        elif held in CLOSED:
             # A closed row carries evidence a route would overwrite.
             refused.append(f"{row} is {cells[3]}, which only an OPEN row leaves by a route")
         else:
-            note = cells[4].split(";", 1)[1].strip() if held == "ROUTED" and ";" in cells[4] else cells[4] if held == "OPEN" else ""
+            if held == "ROUTED":
+                note = cells[4].split(";", 1)[1].strip() if ";" in cells[4] else ""
+            else:
+                # An OPEN row's cell is a note; a word no command knows keeps itself and its cell beside the owner.
+                note = cells[4] if held == "OPEN" else "; ".join(cell for cell in (f"was {cells[3]}", cells[4]) if cell)
             cells[3:5] = ["ROUTED", f"{agent}; {note}" if note else agent]
             lines[at[row]] = "| " + " | ".join(cells) + " |"
             moved.append(row)
@@ -332,7 +355,7 @@ def _parser() -> argparse.ArgumentParser:
     routing.add_argument("register", type=Path)
     routing.add_argument("agent")
     routing.add_argument("rows", nargs="+")
-    routing.add_argument("--reroute", action="store_true")
+    routing.add_argument("--reroute", action="store_true", help="move a row routed to another agent, or one whose status no command knows")
     closing = commands.add_parser("close")
     closing.add_argument("register", type=Path)
     closing.add_argument("status", help=f"one of {', '.join(word for word in STATUSES if word in CLOSED)}, quoted where it is several words")

@@ -234,7 +234,7 @@ describe("which addresses the proxy is run on", () => {
       assert.equal(matched(url), true, `${url} runs no proxy`);
     }
     // The route handlers write their own cookies, and a public page reads no session.
-    for (const url of ["http://localhost:3000/", "http://localhost:3000/api/signin/code", "http://localhost:3000/api/admin/spiele/undo"]) {
+    for (const url of ["http://localhost:3000/", "http://localhost:3000/api/signin/code", "http://localhost:3000/api/bestaetigung/kontakt"]) {
       assert.equal(matched(url), false, `${url} runs the proxy`);
     }
   });
@@ -247,8 +247,9 @@ describe("which addresses the proxy is run on", () => {
     assert.equal(matched("http://localhost:3000/bereich/admin/spiele", { headers: PREFETCH }), true);
   });
 
-  /* The prefix test inside the proxy is a second reading of the admin entry: a spelling that entry
-     admits and the test misses reaches the panel with the layout's guard alone. */
+  /* The proxy's prefix test is a second reading of the admin entry: a spelling that entry admits and
+     the test misses reaches the panel past the proxy, judged by the admin reads and, on a full load,
+     the shell's guard. */
   it("judges exactly the spellings the administrator's own entry admits", async () => {
     // The first entry, which names the subtree and nothing else.
     const adminEntry = config.matcher.slice(0, 1);
@@ -299,7 +300,8 @@ function refreshedAgo(row: SessionRow, ago: number): void {
  */
 async function visit(url: string, cookie: string | undefined, load: "document" | "navigation" = "navigation"): Promise<Response> {
   const headers: Record<string, string> = { host: "localhost:3000" };
-  // What the router sends on a client navigation: a render reading these skips the refresh.
+  // What the router sends on a client navigation, which the proxy slides on too. A render's read refreshes
+  // nothing whatever these say: it passes `disableRefresh` (`fl_frontend/src/core/auth.ts :: readServedSession`).
   if (load === "navigation") Object.assign(headers, { rsc: "1", "next-router-state-tree": "%5B%22%22%5D" });
   if (cookie !== undefined) headers.cookie = cookie;
 

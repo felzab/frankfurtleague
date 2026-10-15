@@ -48,7 +48,7 @@ const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
  * The „Stand“ and the words it dates, frozen together: a reader told nothing changed since that day
  * has been misled by any edit that left the date standing.
  */
-const FASSUNG = { stand: "15. Oktober 2026", digest: "72e78ca486594b27a81e075005ae37d4107797de0b1fc1578adbf8fe2078e2b7" } as const;
+const FASSUNG = { stand: "15. Oktober 2026", digest: "563a34ff1b6f5cdde6e3809d1f588609eb86e06c225bdba22ed2c05d92073b5c" } as const;
 
 /** Every word the page renders but its date, so moving the date alone never passes for moving the words. */
 const wortlautDigest = (): string =>
@@ -266,11 +266,13 @@ describe("the privacy notice writes its small counts in words", () => {
   });
 });
 
-/* The sign-in's two session figures, in both places the notice states them: typed, they stay true
-   only until `fl_frontend/src/core/sessionLifetimes.ts` moves. */
+/* The sign-in's session figures, in both places the notice states them: typed, they stay true
+   only until `fl_frontend/src/core/sessionLifetimes.ts` moves. The administrator's hour is written
+   out, the view's own word map failing `tsc` on any other count. */
 describe("the privacy notice states the sign-in's session figures at the constants the sign-in enforces", () => {
   const LEERLAUF = `${String(SESSION_EXPIRES_IN_DAYS)} Tage lang nicht genutzt`;
-  const VERWALTUNG = `${String(ADMIN_WINDOW_HOURS)} Stunden`;
+  const VERWALTUNG = "nach einer Stunde ohne Nutzung";
+  const VERWALTUNG_SPAETESTENS = `spätestens aber ${String(ADMIN_WINDOW_HOURS)} Stunden nach der Anmeldung.`;
 
   // A person's two figures, never the library's one: the longest of all four is nobody's idle window.
   it("in the retention table", () => {
@@ -280,14 +282,15 @@ describe("the privacy notice states the sign-in's session figures at the constan
     assert.ok(
       zeile.includes(
         `Eine Sitzung endet, wenn sie ${tage(PERSON_LIFETIME.idle)} Tage lang nicht genutzt wurde, spätestens aber ` +
-          `${tage(PERSON_LIFETIME.absolute)} Tage nach der Anmeldung; für die Verwaltung gilt sie höchstens ${VERWALTUNG}.`,
+          `${tage(PERSON_LIFETIME.absolute)} Tage nach der Anmeldung. Für die Verwaltung gilt sie ${VERWALTUNG} nicht mehr, ` +
+          VERWALTUNG_SPAETESTENS,
       ),
     );
   });
 
   it("in the cookie section", () => {
-    assert.ok(SEITE.includes(`Das Cookie selbst läuft ab, wenn die Sitzung ${LEERLAUF} wurde`));
-    assert.ok(SEITE.includes(`für den Zugang zur Verwaltung nicht länger als ${VERWALTUNG}, und verlangen danach eine neue Anmeldung`));
+    assert.ok(SEITE.includes(`Das Cookie selbst läuft ab, wenn die Sitzung ${LEERLAUF} wurde.`));
+    assert.ok(SEITE.includes(`Für den Zugang zur Verwaltung verlangen wir sie schon ${VERWALTUNG}, ${VERWALTUNG_SPAETESTENS}`));
   });
 });
 

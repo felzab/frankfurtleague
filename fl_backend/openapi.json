@@ -5642,7 +5642,7 @@
     "/api/v0/schiedsrichter/{schiedsrichter_id}/adresswechsel": {
       "delete": {
         "summary": "Discard a Schiedsrichter's pending address change",
-        "description": "Discard this referee's pending address change: the block goes, its link opens nothing, and the stored address stays.\n\n**The address goes from the action log too** (`docs/backend/spec.md :: I562`): every image the log holds of this\nreferee is emptied, since every write on the row while the change stood, a re-send or this discard included, filed one\ncarrying an address nobody proved. Nothing is mailed. 404 where the referee holds no pending change, and for an id no\nreferee holds, the ghost's included.",
+        "description": "Discard this referee's pending address change: the block goes, its link opens nothing, and the stored address stays.\n\n**The address goes from the action log too** (`docs/backend/spec.md :: I562`): it is taken out of every image the log\nholds of this referee, since every write on the row while the change stood, a re-send or this discard included, filed one\ncarrying an address nobody proved; the rest of each image stays. Nothing is mailed. 404 where the referee holds no pending\nchange, and for an id no referee holds, the ghost's included.",
         "operationId": "delete_adresswechsel_api_v0_schiedsrichter__schiedsrichter_id__adresswechsel_delete",
         "security": [
           {
@@ -7507,7 +7507,7 @@
     "/api/v0/schiedsrichter/adresswechsel": {
       "post": {
         "summary": "Confirm or decline one Schiedsrichter's pending address",
-        "description": "Record whether the mailbox this link was sent to is the referee's: `bestaetigt` moves their address to it, `abgelehnt` discards the change.\n\nEither answer ends the change, so the link opens nothing afterwards. The confirmation asks no consent and writes none: the\nconsent record stands as the referee gave it, and only `kontakt.email` moves.\n\nRefuses a token no referee holds (`REQ-SCHIEDSRICHTER-002`), and a CONFIRMATION through a link whose deadline has passed\n(`REQ-SCHIEDSRICHTER-003`), one mailed to an address the ban list holds now (`REQ-SCHIEDSRICHTER-009`), and one whose change\nwould replace an address the ban list holds now (`REQ-SCHIEDSRICHTER-010`), so a barred person cannot move their record off\nthe address the ban keys on. **A decline is refused\nneither**: it removes an address nobody proved, which a lapsed or barred link has no reason to keep, and it empties every image\nthe action log holds of this referee, those of every write while the change stood, a re-send included, carrying that address.",
+        "description": "Record whether the mailbox this link was sent to is the referee's: `bestaetigt` moves their address to it, `abgelehnt` discards the change.\n\nEither answer ends the change, so the link opens nothing afterwards. The confirmation asks no consent and writes none: the\nconsent record stands as the referee gave it, and only `kontakt.email` moves.\n\nRefuses a token no referee holds (`REQ-SCHIEDSRICHTER-002`), and a CONFIRMATION through a link whose deadline has passed\n(`REQ-SCHIEDSRICHTER-003`), one mailed to an address the ban list holds now (`REQ-SCHIEDSRICHTER-009`), and one whose change\nwould replace an address the ban list holds now (`REQ-SCHIEDSRICHTER-010`), so a barred person cannot move their record off\nthe address the ban keys on. **A decline is refused\nneither**: it removes an address nobody proved, which a lapsed or barred link has no reason to keep, and it takes that address out\nof every image the action log holds of this referee, those of every write while the change stood, a re-send included. The rest of\neach image stays, the referee's own earlier states among it.",
         "operationId": "post_adresswechsel_api_v0_schiedsrichter_adresswechsel_post",
         "requestBody": {
           "content": {
@@ -8251,7 +8251,7 @@
     "/api/v0/berechtigungen/abgleich": {
       "post": {
         "summary": "Claim the grant changes still to be announced",
-        "description": "Queue every change made to the grants in the database directly, then claim the unannounced changes and answer who to tell.\n\nEvery grant and revoke made through the application queued its own notice when it was made, naming the administrator who made\nit. What was changed in the database directly is found here, by comparing the grants with the record of what is already\naccounted for, and queued naming nobody: `geaendert_von` and `geaendert_am` null. A database change undone again before any\ncall to this endpoint is found by nothing. A row whose address no request can match counts as no grant, and `uebersprungen`\ncounts those rows. A grant found here -- a new row, or an address changed in place -- is stamped `gefunden_am` with this call's\ntime, which `POST /identitaet/subjekt` then answers as `berechtigt_seit`: a session signed in before it administers nothing. Every\nrow a call reads for the first time, one no request can match included, is stamped `gesehen_am`, and a row carrying it beside no\nrecord of its own was changed in the database since a call read it: it is no grant until a call finds it.\n\nThe call then claims, oldest first and a page at a time, every queued change no claim holds or whose claim has lapsed, for ten\nminutes from now. A second call inside that time is answered none of them. The caller mails each change and then hands the ids it\nmailed, with `beanspruchung`, to `POST /berechtigungen/abgleich/angekuendigt`. Where a lease lapses before that, the next call\nclaims those changes again. `beanspruchung` and `beansprucht_bis` are null exactly where nothing was claimed.\n\n`urheber` says who made each change: `anwendung` for an administrator through the application, `datenbank` for an edit\nfound here. No barred address is answered in plain: wherever one would stand -- `jetzt`, `vorher`, `geaendert_von`,\n`empfaenger` -- it is `null` or left out, and the change carries `gesperrt`; a withheld `geaendert_von` carries\n`geaendert_von_gesperrt` as well. An address changed in place is two changes, its removal and the new address's grant.\n`empfaenger` is every live, unbarred grant holder now; a removed address is read off its change.",
+        "description": "Queue every change made to the grants in the database directly, then claim the unannounced changes and answer who to tell.\n\nEvery grant and revoke made through the application queued its own notice when it was made, naming the administrator who made\nit. What was changed in the database directly is found here, by comparing the grants with the record of what is already\naccounted for, and queued naming nobody: `geaendert_von` and `geaendert_am` null. A database change undone again before any\ncall to this endpoint is found by nothing. A row whose address no request can match counts as no grant, and `uebersprungen`\ncounts those rows. A grant found here -- a new row, or an address changed in place -- is stamped `gefunden_am` with this call's\ntime, which `POST /identitaet/subjekt` then answers as `berechtigt_seit`: a session signed in before it administers nothing. Every\nrow a call reads for the first time, one no request can match included, is stamped `gesehen_am`, and a row carrying it beside no\nrecord of its own was changed in the database since a call read it: it is no grant until a call finds it.\n\nThe call then claims, oldest first and a page at a time, every queued change no claim holds or whose claim has lapsed, for ten\nminutes from now. A second call inside that time is answered none of them. The caller mails each change and then hands the ids it\nmailed, with `beanspruchung`, to `POST /berechtigungen/abgleich/angekuendigt`. Where a lease lapses before that, the next call\nclaims those changes again. `beanspruchung` and `beansprucht_bis` are null exactly where nothing was claimed.\n\n`urheber` says who made each change: `anwendung` for an administrator through the application, `datenbank` for an edit\nfound here. No barred address is answered in plain: wherever one would stand -- `jetzt`, `vorher`, `geaendert_von`,\n`empfaenger` -- it is `null` or left out; a barred grant address carries `gesperrt`, a barred `geaendert_von`\n`geaendert_von_gesperrt`. A grant address whose holder was erased is `null` beside `geloescht`, and an erased\n`geaendert_von` reads `ERASED`, naming nobody. An address changed in place is two changes, its removal and the new\naddress's grant.\n`empfaenger` is every live, unbarred grant holder now; a removed address is read off its change.",
         "operationId": "post_berechtigungen_abgleich_api_v0_berechtigungen_abgleich_post",
         "responses": {
           "200": {
@@ -10358,6 +10358,10 @@
             "type": "boolean",
             "title": "Gesperrt"
           },
+          "geloescht": {
+            "type": "boolean",
+            "title": "Geloescht"
+          },
           "aufgegeben": {
             "type": "boolean",
             "title": "Aufgegeben"
@@ -10375,6 +10379,7 @@
           "geaendert_von_gesperrt",
           "geaendert_am",
           "gesperrt",
+          "geloescht",
           "aufgegeben"
         ],
         "title": "FLBerechtigungAenderung",
@@ -10997,6 +11002,7 @@
           },
           "medien_mindestalter": {
             "type": "integer",
+            "exclusiveMinimum": 0.0,
             "title": "Medien Mindestalter"
           }
         },
@@ -15165,6 +15171,7 @@
           },
           "medien_mindestalter": {
             "type": "integer",
+            "exclusiveMinimum": 0.0,
             "title": "Medien Mindestalter"
           }
         },
@@ -15315,6 +15322,7 @@
           },
           "medien_mindestalter": {
             "type": "integer",
+            "exclusiveMinimum": 0.0,
             "title": "Medien Mindestalter"
           },
           "kontext": {
@@ -15495,6 +15503,7 @@
           },
           "medien_mindestalter": {
             "type": "integer",
+            "exclusiveMinimum": 0.0,
             "title": "Medien Mindestalter"
           },
           "kontext": {
@@ -15581,6 +15590,7 @@
           },
           "medien_mindestalter": {
             "type": "integer",
+            "exclusiveMinimum": 0.0,
             "title": "Medien Mindestalter"
           }
         },
@@ -15685,6 +15695,7 @@
           },
           "medien_mindestalter": {
             "type": "integer",
+            "exclusiveMinimum": 0.0,
             "title": "Medien Mindestalter"
           },
           "kontext": {
@@ -18360,6 +18371,7 @@
           },
           "medien_mindestalter": {
             "type": "integer",
+            "exclusiveMinimum": 0.0,
             "title": "Medien Mindestalter"
           },
           "geburtsdatum": {
@@ -20467,6 +20479,7 @@
           },
           "medien_mindestalter": {
             "type": "integer",
+            "exclusiveMinimum": 0.0,
             "title": "Medien Mindestalter"
           },
           "frist": {

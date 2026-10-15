@@ -11,6 +11,7 @@ from pymongo.errors import OperationFailure
 
 from app.core.collections import Collection
 from app.core.config import MONGODB_URI_FILE, get_config  # noqa: TID251
+from app.core.sentinels import GHOST_SPIELER_ID
 from app.shared.schemas.bounds import AKTION_RETENTION_SECONDS
 
 # Handled rather than re-raised: creating the collection with the validator attached reaches the
@@ -466,7 +467,7 @@ _REGISTRIERUNG_STATUS = ["eingereicht", "abgelehnt"]
 _VERWALTUNG = ["owner", "administration"]
 _BERECHTIGUNG_AENDERUNGEN = ["erteilt", "entzogen", "geaendert"]
 _BERECHTIGUNG_URHEBER = ["anwendung", "datenbank"]
-_BERECHTIGUNG_VORENTHALTEN = ["gesperrt"]
+_BERECHTIGUNG_VORENTHALTEN = ["gesperrt", "geloescht"]
 
 # One grant's state in an outbox row; the address null where it was barred when queued.
 _BERECHTIGUNG_STAND = _object(
@@ -1684,6 +1685,29 @@ async def report_relations(db: AsyncDatabase) -> list[RelationReport]:
     ]
 
 
+# The rule the `spieler` validator cannot state, its two nullable keys being the sentinel's alone.
+NAMELESS_PERSON_RULE = "a person is named and holds a consent record (spieler)"
+
+
+async def report_nameless_persons(db: AsyncDatabase) -> RelationReport:
+    """Count the persons with a null forename or a null consent record, writing nothing.
+
+    The first 500s the admin's membership list and the team's squad, every served model requiring a
+    forename; the admission refuses to admit into the second.
+    """
+
+    # By its id, as every read excludes the sentinel, and by `$type` rather than null, so a missing key
+    # stays the validator report's alone.
+    nameless = {"_id": {"$ne": GHOST_SPIELER_ID}, "$or": [{"vorname": {"$type": "null"}}, {"einwilligung": {"$type": "null"}}]}
+    collection = db[Collection.SPIELER]
+
+    return RelationReport(
+        rule=NAMELESS_PERSON_RULE,
+        groups=await collection.count_documents(nameless),
+        examples=[doc["_id"] for doc in await collection.find(nameless, {"_id": 1}).limit(5).to_list(length=5)],
+    )
+
+
 async def probe_collmod_privilege(db: AsyncDatabase) -> str:
     """Answer whether this connection may run `collMod`, writing nothing.
 
@@ -1865,6 +1889,16 @@ async def _run(check: bool) -> int:
             if relation.groups:
                 blocking += relation.groups
                 print(f"          first offenders: {relation.examples}")
+
+        # Counted for the cross-document rules' reason: the validator admits such a row, and every read
+        # serving it refuses it.
+        print("\n  Rows the validator admits for the erased pupils' sentinel alone")
+        nameless = await report_nameless_persons(database)
+        marker = "ok " if nameless.groups == 0 else "FAIL"
+        print(f"    {marker}  {nameless.rule:<46} {nameless.groups:>4}")
+        if nameless.groups:
+            blocking += nameless.groups
+            print(f"          first offenders: {nameless.examples}")
 
         print("\n  Clean — safe to apply.\n" if blocking == 0 else "\n  NOT clean. Correct the data above before applying.\n")
         return 0 if blocking == 0 else 1

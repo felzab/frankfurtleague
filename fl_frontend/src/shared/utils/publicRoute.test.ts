@@ -3,8 +3,8 @@ import { describe, it, mock } from "node:test";
 
 import { registerDoubles } from "@/core/exportingModule.ts";
 
-/* Replaced at the module boundary, as `fl_frontend/src/shared/utils/undoRoute.test.ts` replaces them:
-   a response is the framework's, and the spine between it and the handler is what is driven. */
+/* Replaced at the module boundary: a response is the framework's, and the spine between it and the
+   handler is what is driven. */
 /** How many times the spine opened a trace, which reads the request's headers. */
 let spineTraces = 0;
 

@@ -37,7 +37,8 @@ async function reportsOf(file: string, shown: string): Promise<{ address: string
   const before = fetchDouble.mock.calls.length;
   render(underNext(h(Boundary, { error: new Error("gepflanzt"), retry: () => undefined })));
   try {
-    // The report is sent from an effect, which `render` flushes before it returns.
+    // `render` has already flushed the effect sending the report. Awaiting its answer and the turn after
+    // it charges a second report sent meanwhile to this boundary's count, never to the next one's or to none.
     await act(fetchDouble.answered);
     assert.ok(
       fetchDouble.mock.calls.length > before,

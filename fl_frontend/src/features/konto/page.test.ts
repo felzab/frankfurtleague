@@ -69,7 +69,7 @@ describe("the account page", () => {
   });
 
   /* The section is the administrator's lane's to fill, so a lapsed administrator verdict is sent on to
-     that lane's step, as the landing sends it, rather than shown an empty section. */
+     a fresh sign-in or its passkey step, as the landing sends it, rather than shown an empty section. */
   it("sends an address holding a grant whose administrator verdict lapsed to the admin subtree", async () => {
     setSubject(MIT_ZUGANG);
     const { thrown } = await callPage(KontoPage, NO_PROPS);
@@ -261,13 +261,13 @@ describe("what the security section tells its reader", () => {
     }
   });
 
-  /* The activity stamp refreshes hourly, so a minute printed beside it would claim a precision the
-     row does not hold; the sign-in's own time is exact and keeps its minute. */
-  it("prints the last activity by the day and the sign-in by the minute", () => {
+  /* The activity stamp lags use by minutes (`fl_frontend/src/core/auth.ts :: SESSION_UPDATE_AGE_SECONDS`),
+     so it keeps its minute as the sign-in does. The fixture's 09:00 and 08:00 UTC read in Berlin's summer time. */
+  it("prints the last activity and the sign-in by the minute, in Berlin's time", () => {
     const text = shown({});
 
-    assert.match(text, /Zuletzt aktiv am 26\. September 2026(?! um)/);
-    assert.match(text, /Angemeldet am 26\. September 2026 um \d{2}:\d{2}/);
+    assert.match(text, /Zuletzt aktiv am 26\. September 2026 um 11:00/);
+    assert.match(text, /Angemeldet am 26\. September 2026 um 10:00/);
   });
 
   it("marks this device's sign-in, names its factor, and offers no sign-out of it beside the bar's", () => {
@@ -611,6 +611,26 @@ describe("the account page's consent section", () => {
       assert.ok(!text.includes("18 Jahren"), "words name a media floor of the page's own");
     });
   }
+
+  /* The read takes the floor in the shape the granting writes are bound it in, so a broken contract fails
+     here rather than drawing „ab 0 Jahren“ beside a switch whose every grant would be refused. */
+  it("refuses a read serving a media floor of 0 on any record", async () => {
+    setSubject(OHNE_FUNKTION);
+    for (const konto of [
+      { spieler: { ...SPIELER, medien_mindestalter: 0 } },
+      { schiedsrichter: [{ ...SCHIEDSRICHTER, medien_mindestalter: 0 }] },
+      { registrierungen: [{ ...REGISTRIERUNG, medien_mindestalter: 0 }] },
+      { sitze: [{ ...SITZ, medien_mindestalter: 0 }] },
+      { bewerbungen: [{ ...BEWERBUNG_SITZ, medien_mindestalter: 0 }] },
+    ]) {
+      answeringKonto(konto);
+      await assert.rejects(
+        EinwilligungSection(),
+        { code: "FE-API-002" },
+        `${Object.keys(konto).join()} served a floor of 0 and the read took it`,
+      );
+    }
+  });
 
   /* A Trainer who took the Ansprechperson seat later confirmed twice, each seat under its own words and
      floor: one block per confirmation, each headed by its own roles, never one block naming both seats

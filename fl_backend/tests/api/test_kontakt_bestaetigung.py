@@ -77,6 +77,8 @@ FRIST = bestaetigungsfrist_from(today=TODAY)
 # The day after the deadline a link minted on `TODAY` carries.
 AFTER_THE_DEADLINE = "2026-04-16"
 NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
+# Written out rather than computed from `log_stamp`, which would agree with any conversion of `NOW`.
+REDACTED_AT = "2026-04-01T10:30:00+00:00"
 
 TEAM_OID = ObjectId("6890a1b2c3d4e5f607a50001")
 ROW_OID = ObjectId("6890a1b2c3d4e5f607a50011")
@@ -729,27 +731,47 @@ class TestTheLinkConfirms:
         assert (held["einwilligung"]["bestaetigt_am"], held["einwilligung"]["umfang"]) == ("2026-03-20", "kontaktdaten")
         assert row["kontakte"][newly]["einwilligung"]["bestaetigt_am"] == TODAY, "the press confirmed nothing, so this case proves nothing"
 
-    def test_a_widerspruch_empties_the_seat_records_it_and_redacts_the_rows_log(self, mongo_replica_set_url: str):
+    def test_a_widerspruch_empties_the_seat_and_records_it(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             response = await save(database, THREE)
             token = response.bestaetigungen[2].token
             answered = await answer(database, token, antwort="abgelehnt")
-            log = (
-                await database[Collection.AKTIONEN]
-                .find({"collection": str(Collection.SAISON_TEAMS), "document_id": ROW_OID})
-                .to_list(length=None)
-            )
 
-            return answered, await row_now(database), await ansicht(database, token), log
+            return answered, await row_now(database), await ansicht(database, token)
 
-        answered, row, view, log = on_a_league(mongo_replica_set_url, body)
+        answered, row, view = on_a_league(mongo_replica_set_url, body)
 
         assert (answered.quelle, answered.ergebnis, answered.geburtsdatum) == ("saison", "abgelehnt", None)
         assert row["kontakte"]["stellvertretung"] is None
         assert row["bestaetigungen"]["stellvertretung"]["abgelehnt_am"] == TODAY
         assert view.zustand == "abgelehnt"
-        assert log, "nothing was logged, so the redaction proves nothing"
-        assert all(entry["before"] is None and entry.get("redacted_at") for entry in log)
+
+    def test_a_widerspruch_takes_its_seat_out_of_the_rows_log_and_leaves_the_others_earlier_states(self, mongo_replica_set_url: str):
+        """Restore the redaction by document and this fails: Ida's earlier number exists in the log alone, and is hers."""
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
+            response = await save(database, THREE)
+            await save(database, {**THREE, "trainer": {**person("Ida"), "telefon": TELEFON["Lea"]}})
+            await answer(database, response.bestaetigungen[2].token, antwort="abgelehnt")
+
+            return (
+                await database[Collection.AKTIONEN]
+                .find({"collection": str(Collection.SAISON_TEAMS), "document_id": ROW_OID})
+                .sort("_id", 1)
+                .to_list(length=None)
+            )
+
+        first_save, second_save, decline = on_a_league(mongo_replica_set_url, body)
+
+        # The first save replaced a row holding nobody, so it held nothing of the person declining.
+        assert (first_save["before"]["kontakte"], first_save["redacted_at"]) == (None, None)
+        for entry in (second_save, decline):
+            kontakte = entry["before"]["kontakte"]
+            assert (kontakte["stellvertretung"], entry["redacted_at"]) == (None, REDACTED_AT)
+            assert (kontakte["ansprechperson"]["vorname"], kontakte["trainer"]["vorname"]) == ("Jonas", "Ida")
+            # The link stays with the seat in the image, as it does on the row, its decline recorded there.
+            assert entry["before"]["bestaetigungen"]["stellvertretung"] is not None
+        assert second_save["before"]["kontakte"]["trainer"]["telefon"] == TELEFON["Ida"]
 
     def test_a_second_answer_on_the_link_is_refused(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
@@ -879,8 +901,10 @@ class TestARowsPeopleLeavingTakeTheirLinks:
                 saisons_collection=database[Collection.SAISONS],
                 spiele_collection=database[Collection.SPIELE],
                 saison_spieler_collection=database[Collection.SAISON_SPIELER],
+                aktionen_collection=database[Collection.AKTIONEN],
                 db=database.client,
                 today=TODAY,
+                germany_now=NOW,
             )
 
             return [await refused(ansicht(database, mint.token)) for mint in response.bestaetigungen], await row_now(database)

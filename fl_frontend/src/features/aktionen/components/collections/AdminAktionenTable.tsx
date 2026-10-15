@@ -10,6 +10,7 @@ import Person from "@gravity-ui/icons/Person";
 
 import { Table } from "@heroui/react/table";
 
+import { ERASED_ACTOR_MARKER } from "@/core/erasedActor";
 import { VonOderGesperrt } from "@/features/berechtigungen/components/ui/VonOderGesperrt";
 import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/AdminCrudEmpty";
 import {
@@ -101,7 +102,12 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
           />
           <span className="min-w-0 truncate fluid-sm font-semibold text-foreground">
             {actor.kind === "person_session" ? (
-              personAkteurLabel(actor)
+              // Erased since, the row names a state rather than a person, in the empty grade the barred arm takes.
+              actor.pseudonym === ERASED_ACTOR_MARKER ? (
+                <Leer>{personAkteurLabel(actor)}</Leer>
+              ) : (
+                personAkteurLabel(actor)
+              )
             ) : (
               <VonOderGesperrt
                 von={actor.email}
@@ -201,7 +207,14 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
    */
   const renderStandBadge = (aktion: AdminAktionRow) => {
     if (aktion.redacted_at !== null) {
-      return <span className={labelBadge("danger")}>Werte gelöscht am {formatAktionZeitpunkt(aktion.redacted_at).datum}</span>;
+      const datum = formatAktionZeitpunkt(aktion.redacted_at).datum;
+
+      // A copy still standing lost one person's values alone: the people beside them on that record keep theirs.
+      return aktion.stand_gesichert ? (
+        <span className={labelBadge("danger")}>Einzelne Werte gelöscht am {datum}</span>
+      ) : (
+        <span className={labelBadge("danger")}>Werte gelöscht am {datum}</span>
+      );
     }
 
     if (aktion.stand_gesichert) return <span className={labelBadge("success")}>Stand gesichert</span>;

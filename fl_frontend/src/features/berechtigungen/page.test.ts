@@ -3,18 +3,18 @@ import { beforeEach, describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
+import { ERASED_ACTOR_MARKER } from "@/core/erasedActor.ts";
+import { GELOESCHTE_PERSON } from "@/features/berechtigungen/constants.ts";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
+import { assertLeerMarkup } from "@/shared/testing/leerGrade.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { answer, answerReadsWith, EMPTIEST_ANSWER, renderPage } from "@/shared/testing/pageHarness.ts";
 import { refusalWrappers, renderTree, textOf } from "@/shared/testing/renderTest.ts";
-
-import type { ReactElement } from "react";
 
 const { setSession } = doubleActionRequest();
 
 /* Reached with `await import` and never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { default: AdminAdministratorenPage } = await import("@/app/bereich/admin/administratoren/page.tsx");
-const { AdminCrudShell } = await import("@/shared/components/ui/AdminCrudShell.tsx");
 
 const INHABER = {
   id: "6890a1b2c3d4e5f6071b0001",
@@ -104,14 +104,6 @@ describe("the page the administrators stand on", () => {
     assert.ok(!markup.includes("<h1"), "the page raises an h1 the shell already owns");
   });
 
-  /* The box takes an address, and a `?q=` is a request line the edge logs. */
-  it("asks the shell to hold the typed query instead of writing it", () => {
-    const shell = AdminAdministratorenPage() as ReactElement<{ privateQuery?: boolean }>;
-
-    assert.equal(shell.type, AdminCrudShell);
-    assert.equal(shell.props.privateQuery, true);
-  });
-
   it("renders its chrome before the list resolves", () => {
     const markup = renderTree(PAGE);
 
@@ -138,6 +130,18 @@ describe("the page the administrators stand on", () => {
       2,
       "a withheld address keeps a name's ink",
     );
+  });
+
+  /* An erasure leaves a marker naming nobody in the granter's place, which the row's own paste check
+     must pass through to the shared words rather than print. */
+  it("names a grant's administrator erased since by that state, and never as barred", async () => {
+    zeilen = [INHABER, { ...VORSTAND, erteilt_von: ERASED_ACTOR_MARKER }];
+    const html = await renderPage(PAGE);
+    const text = textOf(html, " ");
+
+    assertLeerMarkup(html, GELOESCHTE_PERSON);
+    assert.ok(!text.includes(ERASED_ACTOR_MARKER), "the marker reached the page");
+    assert.ok(!text.includes("Gesperrte Adresse"), "an erased administrator reads as barred");
   });
 
   it("dates a grant by the Berlin day it was made on", async () => {

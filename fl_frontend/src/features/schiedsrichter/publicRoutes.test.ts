@@ -81,4 +81,20 @@ describe("the words the referee's confirmation page is handed", () => {
     );
     await assert.rejects(start({ seiten: { acknowledged: 1 } }), { name: "APIMalformedDataError" }, "an answer off its schema");
   });
+
+  /* The published floor is a positive whole number: the read refuses a view serving 0, which would offer
+     the media switch to every age, so no form opens on it. */
+  it("opens no form on a view serving a media floor of 0", async () => {
+    answerReadsWith((endpoint, schema, params) =>
+      endpoint === "/schiedsrichter/bestaetigung/ansicht"
+        ? { ...GEOEFFNET, medien_mindestalter: 0 }
+        : (einwilligungAnswer(endpoint) ?? EMPTIEST_ANSWER(endpoint, schema, params)),
+    );
+    const body = (await pageBody(SchiedsrichterBestaetigungPage, {
+      params: Promise.resolve({}),
+      searchParams: Promise.resolve({ token: "kein-echtes-token" }),
+    })) as ReactElement<{ start: SchiedsrichterBestaetigungStart }>;
+
+    assert.deepEqual(body.props.start, { zustand: "unlesbar" }, "the page took a media floor of 0");
+  });
 });

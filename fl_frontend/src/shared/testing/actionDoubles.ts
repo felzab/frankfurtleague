@@ -163,27 +163,6 @@ export const NEXT_CACHE_DOUBLE = replacingPackage("next/cache", {
   ...INERT_DECLARATIONS,
 });
 
-/** Next's two invalidations that throw in a route handler, being a Server Action's alone. */
-export const ACTION_ONLY_INVALIDATIONS = ["updateTag", "refresh"];
-
-/**
- * `next/cache` as a route handler meets it: each of `ACTION_ONLY_INVALIDATIONS` throws there, as Next's
- * does, and is recorded first, since a route may catch the throw and answer as though it cleared.
- */
-export const ROUTE_NEXT_CACHE_DOUBLE = replacingPackage("next/cache", {
-  ...recorded(["revalidateTag", "revalidatePath"]),
-  ...Object.fromEntries(
-    ACTION_ONLY_INVALIDATIONS.map((name) => [
-      name,
-      (...args: unknown[]): never => {
-        cacheCalls.push({ name, args });
-        throw new Error(`${name} can only be called from within a Server Action`);
-      },
-    ]),
-  ),
-  ...INERT_DECLARATIONS,
-});
-
 /** `next/headers` for a request that carries none, for a harness that doubles its packages itself. */
 export const NEXT_HEADERS_DOUBLE = replacingPackage("next/headers", { headers: () => Promise.resolve(new Headers()) });
 
@@ -466,8 +445,13 @@ export function doubleToasts(): { raised: RaisedToast[] } {
     };
   // Titled as the real module titles it, so a press marked partly saved or of unknown outcome reads so
   // in every suite rather than under the raising site's title.
-  const fail = (title: string, failure?: Pick<ActionFailure, "error" | "unplacedError" | "outcome">, unklarTitle?: string): string =>
-    raise("danger")(failureToastTitle(title, failure?.outcome, unklarTitle), {
+  const fail = (
+    title: string,
+    failure?: Pick<ActionFailure, "error" | "unplacedError" | "outcome">,
+    unklarTitle?: string,
+    teilweiseTitle?: string,
+  ): string =>
+    raise("danger")(failureToastTitle(title, failure?.outcome, unklarTitle, teilweiseTitle), {
       description: failure?.unplacedError ?? failure?.error,
       outcome: failure?.outcome,
     });

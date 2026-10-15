@@ -1,11 +1,20 @@
 "use server";
 
 import { invalidatesOnWrite, refusalResult, refuseUnconfirmed, runAdminMutation } from "@/shared/utils/adminMutation";
+import { refusedReplay, restored, runAdminUndo, unclearReplay, UNDO_UNREADABLE } from "@/shared/utils/adminUndo";
 import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { activateSaison, generateSpielplan, patchSaison, postSaison, swapGruppen, undrawSpielplan } from "./mutations";
-import { mapActivateRefusal, mapRulesRefusal, mapSaisonIdRefusal, mapSpielplanRefusal, mapSwapRefusal, mapUndrawRefusal } from "./refusals";
+import {
+  mapActivateRefusal,
+  mapRulesRefusal,
+  mapSaisonIdRefusal,
+  mapSpielplanRefusal,
+  mapSwapRefusal,
+  mapUndrawRefusal,
+  SAISON_REPLAY_REFUSALS,
+} from "./refusals";
 import {
   FLActivateSaisonPayloadSchema,
   FLGenerateSpielplanPayloadSchema,
@@ -18,6 +27,7 @@ import { describeSpielplanUmfang } from "./utils";
 
 import type { FLSaisonRulesDraft, SaisonCreateDraft } from "@/features/saisons/types";
 import type { ActionResult } from "@/shared/types/types";
+import type { UndoOutcome } from "@/shared/utils/adminUndo";
 import type {
   FLActivateSaisonPayload,
   FLActivateSaisonResponse,
@@ -125,6 +135,23 @@ export async function patchSaisonAction(
       saison: patchOperation,
       message: "Saison gespeichert",
     };
+  });
+}
+
+export async function undoAdminSaisonEditAction(rawPayload: FLPatchSaisonPayload): Promise<UndoOutcome> {
+  return runAdminUndo("undoAdminSaisonEditAction", async () => {
+    const validated = FLPatchSaisonPayloadSchema.safeParse(rawPayload);
+    if (!validated.success) return { success: false, error: UNDO_UNREADABLE };
+
+    invalidateSaisonAndTable();
+    let operation;
+    try {
+      operation = await patchSaison(validated.data);
+    } catch (error) {
+      return refusedReplay(error, SAISON_REPLAY_REFUSALS);
+    }
+
+    return operation.acknowledged ? restored() : unclearReplay("Die Rücknahme wurde abgebrochen. Prüfe die Saisondaten.");
   });
 }
 

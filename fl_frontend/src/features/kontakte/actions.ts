@@ -5,18 +5,20 @@ import { getLaufendesLabel } from "@/core/einwilligung";
 import { describeLinkMail } from "@/features/schiedsrichter/notifications";
 import { getTeamMemberships } from "@/features/teams/queries";
 import { refuseUnconfirmed, runAdminMutation } from "@/shared/utils/adminMutation";
+import { refusedReplay, replayRefusal, restored, runAdminUndo, unclearReplay, UNDO_UNREADABLE } from "@/shared/utils/adminUndo";
 import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { kontakteMayMoveLinks } from "./linkMint";
 import { einladeKontakt, eraseKontaktperson, patchSaisonTeamKontakte, readKontaktErasureAnsicht } from "./mutations";
 import { describeKontaktVersand, mailKontaktLink } from "./notifications";
-import { mapEinladenRefusal, mapKontakteRefusal } from "./refusals";
+import { KONTAKTE_REPLAY_REFUSALS, mapEinladenRefusal, mapKontakteRefusal, STALE_BLOCK_REFUSAL } from "./refusals";
 import { FLKontaktEinladenPayloadSchema, FLKontaktErasurePayloadSchema, FLPatchSaisonTeamKontaktePayloadSchema } from "./schemas";
 import { describeKontaktErasureUmfang, mitLaufenderFassung } from "./utils";
 
 import type { FLSaisonTeamKontakte } from "@/features/teams/schemas";
 import type { ActionResult, QueryResult } from "@/shared/types/types";
+import type { UndoOutcome } from "@/shared/utils/adminUndo";
 import type { KontaktVersand } from "./notifications";
 import type {
   FLKontaktEinladenPayload,
@@ -147,6 +149,62 @@ export async function patchSaisonTeamKontakteAction(
       versandSatz: describeKontaktVersand(versendet) ?? undefined,
       versandFehlgeschlagen: versendet.some(({ versand }) => versand === "fehlgeschlagen"),
     };
+  });
+}
+
+/**
+ * The save's own payload, replayed: the endpoint replaces the block whole on the row its path names.
+ * The precondition beside it is the save's AFTER image, that save having moved the row past what the
+ * editor read.
+ */
+export async function undoAdminKontakteEditAction(rawPayload: FLPatchSaisonTeamKontaktePayload): Promise<UndoOutcome> {
+  return runAdminUndo("undoAdminKontakteEditAction", async (session) => {
+    const validated = FLPatchSaisonTeamKontaktePayloadSchema.safeParse(rawPayload);
+    if (!validated.success) return { success: false, error: UNDO_UNREADABLE };
+
+    // The replay is a save, judged as the save judges one (`docs/frontend/spec.md :: I432`): undoing a
+    // first entry clears the block, and putting an earlier person back mints a link and voids one.
+    const movesLinks =
+      validated.data.kontakte !== null &&
+      !isFreshlySignedIn(session) &&
+      kontakteMayMoveLinks(await gespeicherteKontakte(validated.data), validated.data.kontakte);
+    const unconfirmed = validated.data.kontakte === null || movesLinks ? refuseUnconfirmed(session) : null;
+    if (unconfirmed !== null) return unconfirmed;
+
+    // No tag moves, as on the save: no cached read holds a contact person.
+    let operation;
+    try {
+      // The earlier people come back as new acceptances, which name the label the form runs now
+      // (`fl_frontend/src/features/kontakte/utils.ts :: mitLaufenderFassung`).
+      const kontakte =
+        validated.data.kontakte === null ? null : mitLaufenderFassung(validated.data.kontakte, await getLaufendesLabel("bewerbung"));
+      operation = await patchSaisonTeamKontakte({ ...validated.data, kontakte });
+    } catch (error) {
+      const stale = replayRefusal(error, STALE_BLOCK_REFUSAL);
+      return stale === undefined ? refusedReplay(error, KONTAKTE_REPLAY_REFUSALS) : { success: false, error: stale };
+    }
+
+    if (!operation.acknowledged) return unclearReplay("Die Rücknahme wurde abgebrochen. Prüfe die Kontaktdaten.");
+
+    // The replay puts an earlier person back on a seat, which the endpoint reads as newly seating
+    // them and mints for: unmailed, that token exists in the database alone and the seat never confirms.
+    const versendet: KontaktVersand[] = await Promise.all(
+      operation.bestaetigungen.map(async (mint) => ({
+        email: mint.email,
+        versand: await mailKontaktLink({
+          operation: "undoAdminKontakteEditAction",
+          saisonTeamId: operation.saison_team_id,
+          saisonId: operation.saison_id,
+          mint: mint,
+          anlass: "erneut",
+        }),
+      })),
+    );
+    const versandSatz = describeKontaktVersand(versendet);
+
+    // A cost either way: the undo mailed a person, which is a fact about them rather than about the
+    // rows it put back.
+    return restored(versandSatz ?? undefined);
   });
 }
 

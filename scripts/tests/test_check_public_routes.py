@@ -209,17 +209,17 @@ def test_the_catch_all_is_never_coverage():
 def test_a_prefix_covering_a_handler_needs_a_recorded_reason(monkeypatch):
     """A prefix names where a path goes and meters nothing, so the reason is the whole accounting."""
     monkeypatch.setattr(routes, "REASONS", ())
-    findings, _ = judged(tree("/api/admin/teams/undo"), served(prefix("/api/admin/"), CATCH_ALL))
+    findings, _ = judged(tree("/api/beispiel/eins"), served(prefix("/api/beispiel/"), CATCH_ALL))
 
     assert severities(findings) == ["fail"]
     assert "no recorded reason" in details(findings)
 
 
 def test_a_recorded_reason_covers_the_handlers_that_fall_to_its_prefix(monkeypatch):
-    """The other half of the same rule, and what the eight undo handlers are accounted for by."""
-    reason = routes.Reason("/api/admin/", "behind the admin guard")
+    """The other half of the same rule: a handler under a recorded prefix is accounted for by its reason."""
+    reason = routes.Reason("/api/beispiel/", "each behind a guard of its own")
     monkeypatch.setattr(routes, "REASONS", (reason,))
-    findings, used = judged(tree("/api/admin/teams/undo", "/api/admin/spiele/undo"), served(prefix("/api/admin/"), CATCH_ALL))
+    findings, used = judged(tree("/api/beispiel/eins", "/api/beispiel/zwei"), served(prefix("/api/beispiel/"), CATCH_ALL))
 
     assert findings == []
     assert used == {reason}
@@ -252,9 +252,9 @@ def test_a_prefix_inside_the_dynamic_segment_does_not_cover_it():
 
 def test_a_recorded_reason_charging_no_handler_is_a_finding(monkeypatch):
     """Accounting rot the other way: the handlers moved and the claim stayed."""
-    monkeypatch.setattr(routes, "REASONS", (routes.Reason("/api/admin/", "behind the admin guard"),))
+    monkeypatch.setattr(routes, "REASONS", (routes.Reason("/api/beispiel/", "each behind a guard of its own"),))
 
-    findings = routes.unused(set(), served(prefix("/api/admin/"), CATCH_ALL))
+    findings = routes.unused(set(), served(prefix("/api/beispiel/"), CATCH_ALL))
 
     assert severities(findings) == ["fail"]
     assert "no handler is charged to that location" in details(findings)
@@ -262,7 +262,7 @@ def test_a_recorded_reason_charging_no_handler_is_a_finding(monkeypatch):
 
 def test_a_recorded_reason_naming_no_prefix_location_says_which_half_went(monkeypatch):
     """The two causes send a reader to different files, so the finding tells them apart."""
-    monkeypatch.setattr(routes, "REASONS", (routes.Reason("/api/admin/", "behind the admin guard"),))
+    monkeypatch.setattr(routes, "REASONS", (routes.Reason("/api/beispiel/", "each behind a guard of its own"),))
 
     findings = routes.unused(set(), served(CATCH_ALL))
 
@@ -487,9 +487,9 @@ def test_a_path_two_exact_matches_declare_refuses():
 
 def test_a_prefix_written_with_the_no_regex_modifier_still_matches_a_prefix():
     """`^~` changes which locations nginx goes on to consider, not what this one matches."""
-    found = served(block("location ^~ /api/admin/", PASS))
+    found = served(block("location ^~ /api/beispiel/", PASS))
 
-    assert [(one.exact, one.path) for one in found] == [(False, "/api/admin/")]
+    assert [(one.exact, one.path) for one in found] == [(False, "/api/beispiel/")]
 
 
 def test_a_server_body_file_is_read_at_its_top_level():

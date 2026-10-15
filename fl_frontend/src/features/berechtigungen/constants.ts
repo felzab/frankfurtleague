@@ -1,3 +1,4 @@
+import { ERASED_ACTOR_MARKER } from "@/core/erasedActor";
 import { benannt } from "@/shared/utils/benannt";
 
 import type { FLVerwaltung } from "./schemas";
@@ -26,12 +27,17 @@ export const INHABER_LABEL = "Inhaber";
 /** A barred address is served withheld, so the row names the state rather than an address it does not have. */
 export const GESPERRTE_ADRESSE = "Gesperrte Adresse";
 
+/** An erased person in an actor's place, which the backend serves as a marker naming nobody. */
+export const GELOESCHTE_PERSON = "Gelöschte Person";
+
 /**
  * An actor as every admin card names one a read may withhold: a barred administrator by that state,
- * their address served as `null` beside a flag (`docs/frontend/spec.md :: I492`).
+ * their address served as `null` beside a flag, and an erased person by theirs (`docs/frontend/spec.md :: I492`).
  */
 export function vonOderGesperrt(von: string | null, gesperrt: boolean): string {
-  return gesperrt || von === null ? GESPERRTE_ADRESSE : von;
+  if (gesperrt || von === null) return GESPERRTE_ADRESSE;
+
+  return von === ERASED_ACTOR_MARKER ? GELOESCHTE_PERSON : von;
 }
 
 /** What the runbook's Playground paste writes as `erteilt_von` (`docs/ops/runbooks.md` §3), which names nobody. */

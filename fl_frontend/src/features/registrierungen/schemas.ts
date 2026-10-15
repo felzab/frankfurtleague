@@ -5,6 +5,7 @@ import { BEWERBUNG_TOKEN_MAX_LENGTH } from "@/features/bewerbungen/constants";
 // The application's own derivation, not a copy of it: the two flows bound a birthdate by the same
 // two numbers, and a second span here would refuse a day the endpoint takes.
 import { geburtsdatumSpanne } from "@/features/bewerbungen/utils";
+import { MedienMindestalterSchema } from "@/features/konto/einwilligung";
 // The season slice's own mirror rather than a second enum: two copies of one published set drift,
 // and the invite read answers the same three members the season's own read does.
 import { FLSaisonStatusSchema } from "@/features/saisons/schemas";
@@ -144,7 +145,7 @@ export const FLRegistrierungBestaetigungAnsichtResponseSchema = BaseAPIResponseS
   mindestalter: z.number().int(),
   // The age the media switch is offered from, served for `mindestalter`'s reason: a copy of this
   // side's own would offer the switch where the endpoint refuses the answer.
-  medien_mindestalter: z.number().int(),
+  medien_mindestalter: MedienMindestalterSchema,
   geburtsdatum: CustomDateStringSchema.nullable(),
   umfang: FLEinwilligungUmfangSchema.nullable(),
   medien: z.boolean().nullable(),

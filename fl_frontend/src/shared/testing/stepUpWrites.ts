@@ -3,7 +3,7 @@ import path from "node:path";
 
 import ts from "typescript";
 
-import { filesUnder, isTestFile, routeHandlerFiles, serverActionModules } from "@/core/treeWalk.ts";
+import { filesUnder, isTestFile, serverActionModules } from "@/core/treeWalk.ts";
 
 /** How an exported action declares its step-up: before its body, inside it, or not at all. */
 function declarationOf(body: ts.Node): "declared" | "conditional" | null {
@@ -91,46 +91,7 @@ const DECLARED = ACTIONS.flatMap(({ declaration, ...action }) => (declaration ==
  */
 export const STEP_UP_WRITES: Readonly<Record<string, string>> = Object.fromEntries(DECLARED.map(({ name, slice }) => [name, slice]));
 
-const UNDO_ROUTES = path.resolve(import.meta.dirname, "..", "..", "app", "api", "admin");
-
-/** Whether a route's `handleUndoRequest` call hands it a `stepUp` of its own. */
-function declaresStepUp(node: ts.Node): boolean {
-  if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "handleUndoRequest") {
-    const [, route] = node.arguments;
-    return (
-      route !== undefined && ts.isObjectLiteralExpression(route) && route.properties.some((property) => property.name?.getText() === "stepUp")
-    );
-  }
-  return ts.forEachChild(node, declaresStepUp) ?? false;
-}
-
-/** Every undo route, by the slice its directory names, with its syntax tree. */
-const UNDO_ROUTE_SOURCES: ReadonlyMap<string, ts.SourceFile> = new Map(
-  routeHandlerFiles(8)
-    .filter((file) => path.dirname(path.dirname(path.dirname(file))) === UNDO_ROUTES && path.basename(path.dirname(file)) === "undo")
-    .map((file) => [
-      path.basename(path.dirname(path.dirname(file))),
-      ts.createSourceFile(file, readFileSync(file, "utf8"), ts.ScriptTarget.Latest, true),
-    ]),
-);
-
-/**
- * Every undo route a replay of which the server holds to the step-up window, by the slice its directory
- * names, read off its declaration as the actions are; a route's replay is a save, and is judged as one.
- */
-export const STEP_UP_ROUTES: ReadonlySet<string> = new Set(
-  [...UNDO_ROUTE_SOURCES].filter(([, source]) => declaresStepUp(source)).map(([slice]) => slice),
-);
-
-/**
- * Every request each undo route's replay sends, read off its calls rather than its declaration: the
- * second listing `STEP_UP_ROUTES` is held to, since a route dropping its `stepUp` drops out of that one.
- */
-export const UNDO_REPLAYS: Readonly<Record<string, readonly string[]>> = Object.fromEntries(
-  [...UNDO_ROUTE_SOURCES].map(([slice, source]) => [slice, requestsSent(source, mutationImports(source, slice))]),
-);
-
-/** Every request a step-up write sends, as `slice :: export`: an undo route replaying one is a second door to that write. */
+/** Every request a step-up write sends, as `slice :: export`: an action replaying one, an undo among them, is a second door to that write. */
 export const STEP_UP_REQUESTS: ReadonlySet<string> = new Set(DECLARED.flatMap(({ sends }) => sends));
 
 /**
@@ -262,13 +223,6 @@ export function actionReachOf(source: ts.SourceFile, slice: string): Reach {
 
 const ACTION_REACH = ACTION_SOURCES.map(({ file, slice, source }) => ({ file, reach: actionReachOf(source, slice) }));
 
-// The whole file: `UNDO_REPLAYS` reads a replay's every direct call, wherever in the route it sits.
-// Resolved again, `fileName` being the compiler's own spelling of the path, which on Windows the walk's is not.
-const REPLAY_REACH = [...UNDO_ROUTE_SOURCES].map(([slice, source]) => ({
-  file: path.resolve(source.fileName),
-  reach: reachOf(source, slice, () => true),
-}));
-
 /**
  * Each step-up write's request a module the reader skips names, and each mutations module it re-exports
  * whole: an action calling that module sends the write through a door no listing above names.
@@ -283,7 +237,7 @@ export function helperReachOf(source: ts.SourceFile, slice: string): string[] {
 }
 
 const HELPER_SENDS = filesUnder(SOURCE_ROOT, (name) => /\.tsx?$/.test(name) && !isTestFile(name), 500).flatMap((file) => {
-  if ([...ACTION_REACH, ...REPLAY_REACH].some((read) => read.file === file)) return [];
+  if (ACTION_REACH.some((read) => read.file === file)) return [];
   const text = readFileSync(file, "utf8");
   if (!text.includes("mutations")) return [];
 
@@ -293,24 +247,26 @@ const HELPER_SENDS = filesUnder(SOURCE_ROOT, (name) => /\.tsx?$/.test(name) && !
 
 /**
  * Every reach into a request the reader above cannot attribute: an action's, a replay's, or a helper's
- * sending a step-up write's request. Empty, or `UNDECLARED_SENDS` and `UNDO_REPLAYS` answer for less than the tree sends.
+ * sending a step-up write's request. Empty, or `UNDECLARED_SENDS` answers for less than the tree sends.
  */
 export const UNREAD_SENDS: readonly string[] = [
-  ...[...ACTION_REACH, ...REPLAY_REACH].flatMap(({ file, reach }) => reach.unread.map((why) => `${relative(file)}: ${why}`)),
+  ...ACTION_REACH.flatMap(({ file, reach }) => reach.unread.map((why) => `${relative(file)}: ${why}`)),
   ...HELPER_SENDS,
 ];
 
 /** Every request an action or a replay names, by the walk above: the second listing the reader's own is held to. */
-export const REQUESTS_NAMED: ReadonlySet<string> = new Set([...ACTION_REACH, ...REPLAY_REACH].flatMap(({ reach }) => reach.referenced));
+export const REQUESTS_NAMED: ReadonlySet<string> = new Set(ACTION_REACH.flatMap(({ reach }) => reach.referenced));
 
 /**
- * How a caller's press asks: on its armed press, on its only one, through the create form it declares
- * the step-up to, or `never`, for a conditional action sent only on calls the server lets through.
+ * How a caller's press asks: armed, on its only press, through the create form it declares the step-up
+ * to, through its save's undo offer, or `never`, for a conditional action sent only on calls the server
+ * lets through.
  */
-export type StepUpPress = "two-press" | "one-press" | "create" | "never";
+export type StepUpPress = "two-press" | "one-press" | "create" | "undo" | "never";
 
-// Driven by kind: two-press by `fl_frontend/src/shared/components/ui/confirmPanels.test.ts`, the rest
-// by `fl_frontend/src/features/admin/stepUpCallers.test.ts`.
+// Driven by kind: two-press by `fl_frontend/src/shared/components/ui/confirmPanels.test.ts`, undo by
+// each editor's own suite over `fl_frontend/src/shared/utils/undoDispatch.ts :: offerUndo`, the rest by
+// `fl_frontend/src/features/admin/stepUpCallers.test.ts`.
 /**
  * Every module sending a step-up write, and how each press asks, held to every module importing one
  * by the syntax sweep in `fl_frontend/src/features/admin/stepUpCallers.test.ts`.
@@ -323,7 +279,10 @@ export const STEP_UP_CALLERS: Readonly<Record<string, Readonly<Record<string, St
     kontaktEmailKorrigierenAction: "one-press",
     besetzeKontaktSitzAction: "one-press",
   },
-  "features/kontakte/components/forms/AdminKontakteEditForm/AdminKontakteEditForm.tsx": { patchSaisonTeamKontakteAction: "one-press" },
+  "features/kontakte/components/forms/AdminKontakteEditForm/AdminKontakteEditForm.tsx": {
+    patchSaisonTeamKontakteAction: "one-press",
+    undoAdminKontakteEditAction: "undo",
+  },
   "features/kontakte/components/forms/AdminKontakteEditForm/FormKontaktEinladen.tsx": { einladeKontaktAction: "one-press" },
   "features/kontakte/components/forms/AdminKontakteEditForm/FormKontakteLoeschenSection.tsx": { patchSaisonTeamKontakteAction: "two-press" },
   "features/kontakte/components/forms/AdminKontakteEditForm/FormKontaktErasure.tsx": { eraseKontaktpersonAction: "two-press" },
@@ -339,6 +298,7 @@ export const STEP_UP_CALLERS: Readonly<Record<string, Readonly<Record<string, St
   "features/schiedsrichter/components/forms/AdminCreateSchiedsrichterForm.tsx": { postSchiedsrichterAction: "create" },
   "features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/AdminSchiedsrichterEditForm.tsx": {
     patchSchiedsrichterAction: "one-press",
+    undoAdminSchiedsrichterEditAction: "undo",
   },
   "features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormAnonymisierenSection.tsx": {
     anonymiseSchiedsrichterAction: "two-press",

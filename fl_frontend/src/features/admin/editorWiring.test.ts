@@ -45,7 +45,7 @@ const written = (): string[] => calls.map((call) => call.action);
  the doubles above, the dom and the JSX compile step have to stand before the editor's graph loads.
 */
 
-/** Where each editor sends the browser, the undo's own departures among them. */
+/** Where each editor sends the browser, and each page it reads again. */
 const { router, seen } = recordingRouter();
 
 const renderEditor = (editor: ReactNode): HTMLElement => render(underNext(editor, { router, search: "saison_id=2026" })).container;
@@ -819,45 +819,54 @@ describe("a page-owned editor's field errors", () => {
   }
 });
 
+/** Each page-owned editor's slice, and the undo action its save's offer sends. */
+const UNDO_OF: Readonly<Record<string, string>> = {
+  kontakte: "undoAdminKontakteEditAction",
+  saisons: "undoAdminSaisonEditAction",
+  schiedsrichter: "undoAdminSchiedsrichterEditAction",
+  spiele: "undoAdminSpielEditAction",
+  spieler: "undoAdminSpielerEditAction",
+  spielorte: "undoAdminSpielortEditAction",
+  spieltage: "undoAdminSpieltagEditAction",
+  teams: "undoAdminTeamEditAction",
+};
+
 describe("a page-owned editor's undo", () => {
   for (const [file, editor] of Object.entries(EDITORS)) {
-    /* One request, to the slice's own route, answered as the proxy answers a lapsed session: only
-       `fl_frontend/src/shared/utils/undoDispatch.ts :: offerUndo` then sends the admin to sign in again. */
-    it(`${file} dispatches the undo its save offers through the shared dispatch, to its own slice's route`, async () => {
+    /* One call, to the slice's own undo action, answered as of unknown outcome: only
+       `fl_frontend/src/shared/utils/undoDispatch.ts :: offerUndo` titles that „Rücknahme unklar“. */
+    it(`${file} dispatches the undo its save offers through the shared offer, to its own slice's undo action`, async () => {
       // One success every editor reads its undo from: the match editor its prior pairings, the contacts
       // editor the row's new stand, without which it offers no replay at all.
       answerWith(() =>
         Promise.resolve({ success: true, message: "Gespeichert.", priorPaarungen: [], saison_team: { kontakte_stand: "nach" } }),
       );
-      const user = userEvent.setup();
-      const container = await editor.render();
-      await editor.change(user, container);
-      raised.length = 0;
-      await saveThrough(user);
-
-      const offer = raised.find((toast) => toast.options?.actionProps?.onPress !== undefined) ?? assert.fail("the save offered no undo");
-      const sent: string[] = [];
-      const original = globalThis.fetch;
-      globalThis.fetch = ((input: RequestInfo | URL) => {
-        sent.push(String(input));
-        return Promise.resolve(Response.json({ success: false, error: "Nicht angemeldet." }, { status: 401 }));
-      }) as typeof fetch;
-      seen.replaced.length = 0;
       try {
+        const user = userEvent.setup();
+        const container = await editor.render();
+        await editor.change(user, container);
+        raised.length = 0;
+        await saveThrough(user);
+
+        const offer = raised.find((toast) => toast.options?.actionProps?.onPress !== undefined) ?? assert.fail("the save offered no undo");
+        calls.length = 0;
+        raised.length = 0;
+        answerWith(() => Promise.resolve({ success: false, error: "Nicht zurückgenommen.", outcome: "unknown" }));
         await act(async () => {
           offer.options?.actionProps?.onPress?.();
           await new Promise((resolve) => setTimeout(resolve, 0));
         });
-      } finally {
-        globalThis.fetch = original;
-      }
+        await act(answered);
 
-      assert.deepEqual(
-        sent,
-        [`/api/admin/${file.split("/")[0] ?? ""}/undo`],
-        "the undo reached somewhere other than its own slice's route, once",
-      );
-      assert.deepEqual(seen.replaced, ["/signin"], "a lapsed session's undo stayed on the page, so the dispatch is not the shared one");
+        assert.deepEqual(written(), [UNDO_OF[file.split("/")[0] ?? ""]], "the undo reached something other than its own slice's action, once");
+        assert.deepEqual(
+          raised.filter((toast) => toast.variant === "danger").map((toast) => toast.title),
+          ["Rücknahme unklar"],
+          "the undo's answer was not titled by the shared offer",
+        );
+      } finally {
+        answerWith(REFUSED);
+      }
     });
   }
 });

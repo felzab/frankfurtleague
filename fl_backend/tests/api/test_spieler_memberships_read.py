@@ -44,7 +44,7 @@ TEAM_OID = ObjectId("6890a1b2c3d4e5f607190001")
 
 
 class TestTheMembershipsPipeline:
-    def test_it_filters_nothing_out(self):
+    def test_it_filters_out_the_sentinel_alone(self):
         # No `$match` but the sentinel's, the lookup included: a retired person, a retired row and a
         # player in no squad all belong in the admin list.
         matches = [stage["$match"] for stage in build_spieler_memberships_pipeline() if "$match" in stage]

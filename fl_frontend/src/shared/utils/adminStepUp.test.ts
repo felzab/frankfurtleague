@@ -19,13 +19,10 @@ import {
   REQUESTS_NAMED,
   STEP_UP_CALLERS,
   STEP_UP_REQUESTS,
-  STEP_UP_ROUTES,
   STEP_UP_WRITES,
   UNDECLARED_SENDS,
-  UNDO_REPLAYS,
   UNREAD_SENDS,
 } from "@/shared/testing/stepUpWrites.ts";
-import { undo } from "@/shared/testing/undoRoutes.ts";
 
 import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
 
@@ -206,7 +203,7 @@ describe("an administrator write the server holds to the step-up window", () => 
   /* The case above sees what the reader attributes, and the reader reads direct calls alone: a request
      sent any other way is undeclared and unseen, so every way of naming one is held to a call it reads. */
   it("sends every request it names where the reader reads it", () => {
-    const read = new Set([...STEP_UP_REQUESTS, ...Object.values(UNDECLARED_SENDS).flat(), ...Object.values(UNDO_REPLAYS).flat()]);
+    const read = new Set([...STEP_UP_REQUESTS, ...Object.values(UNDECLARED_SENDS).flat()]);
 
     assert.deepEqual(UNREAD_SENDS, []);
     assert.deepEqual([...REQUESTS_NAMED].sort(), [...read].sort(), "the walk and the reader disagree on what the tree sends");
@@ -417,11 +414,9 @@ describe("an administrator write the server holds to the step-up window", () => 
   });
 });
 
-const ROUTES = path.resolve(import.meta.dirname, "..", "..", "app", "api", "admin");
-
 /**
  * A referee's undo body as the editor sends it: the save's payload, its address `email`, and the
- * route's own field, as the kontakte drive carries its route's `kontakte_stand`.
+ * undo's own field, as the kontakte drive carries its save's `kontakte_stand`.
  */
 const refereeReplay = (email: string) => ({
   id: REFEREE_ID,
@@ -433,11 +428,11 @@ const refereeReplay = (email: string) => ({
 });
 
 /**
- * Per undo route declaring a step-up, a replay a stale session is refused and one it is not, over what
- * `landed` answers, and the operation the replay sends.
+ * Per undo the server holds to the step-up window, a replay a stale session is refused and one it is not,
+ * over what `landed` answers, and the operation the replay sends.
  */
-const ROUTE_DRIVES: Record<string, { refused: unknown; admitted: unknown; operation: string }> = {
-  kontakte: {
+const UNDO_DRIVES: Record<string, { refused: unknown; admitted: unknown; operation: string }> = {
+  undoAdminKontakteEditAction: {
     operation: "PATCH /teams/{team_id}/saisons/{saison_id}/kontakte",
     refused: { team_id: TEAM_ID, saison_id: "2526", kontakte: null, kontakte_stand: "9f2c" },
     admitted: {
@@ -448,7 +443,7 @@ const ROUTE_DRIVES: Record<string, { refused: unknown; admitted: unknown; operat
     },
   },
   // The stored referee has not answered, so moving the address back mints them a link.
-  schiedsrichter: {
+  undoAdminSchiedsrichterEditAction: {
     operation: "PATCH /schiedsrichter/{schiedsrichter_id}",
     refused: refereeReplay("anna@neu.example"),
     admitted: refereeReplay(STORED_EMAIL),
@@ -458,65 +453,52 @@ const ROUTE_DRIVES: Record<string, { refused: unknown; admitted: unknown; operat
 /** A request that writes, as `landed` tells a read from a write. */
 const writes = (sent: number): ApiCall[] => calls.slice(sent).filter(({ method }) => method !== undefined);
 
-describe("an undo route the server holds to the step-up window", () => {
-  /* A replay is a save, so a route declaring the step-up and driven by nothing here is a second door
-     to that save which nothing holds to the window. */
-  it("is driven for every route declaring one", () => {
-    assert.deepEqual(Object.keys(ROUTE_DRIVES).sort(), [...STEP_UP_ROUTES].sort());
+describe("an undo the server holds to the step-up window", () => {
+  /* A replay is a save, so an undo the registry says asks through its offer and driven by nothing here
+     is a second door to that save which nothing holds to the window. */
+  it("is driven for every undo a caller offers behind the step-up", () => {
+    const offered = Object.values(STEP_UP_CALLERS).flatMap((writes) =>
+      Object.entries(writes)
+        .filter(([, press]) => press === "undo")
+        .map(([name]) => name),
+    );
+
+    assert.deepEqual(Object.keys(UNDO_DRIVES).sort(), offered.sort());
   });
 
-  /* Two listings by different routes, what each replay sends against what each route declares: a route
-     replaying a step-up write's request with no `stepUp` of its own drops out of the declared one alone. */
-  it("is declared by every route whose replay sends a request a step-up write sends", () => {
-    const replaying = Object.entries(UNDO_REPLAYS)
-      .filter(([, sent]) => sent.some((request) => STEP_UP_REQUESTS.has(request)))
-      .map(([slice]) => slice);
-
-    assert.deepEqual(replaying.sort(), [...STEP_UP_ROUTES].sort());
-  });
-
-  /* A replay the reader finds no request in would pass the case above having been asked nothing. */
-  it("reads a request off every undo route's replay", () => {
-    const unread = Object.entries(UNDO_REPLAYS)
-      .filter(([, sent]) => sent.length === 0)
-      .map(([slice]) => slice);
-
-    assert.deepEqual(unread, []);
-  });
-
-  for (const [slice, drive] of Object.entries(ROUTE_DRIVES)) {
-    it(`${slice}'s replay is refused where it steps up and no other, and a fresh session reads nothing to judge it`, async () => {
-      const { POST } = (await import(pathToFileURL(path.join(ROUTES, slice, "undo", "route.ts")).href)) as {
-        POST: Parameters<typeof undo>[0];
-      };
+  for (const [name, drive] of Object.entries(UNDO_DRIVES)) {
+    it(`${name} is refused where its replay steps up and no other, and a fresh session reads nothing to judge it`, async () => {
+      const undo = await action(name);
       setFresh(false);
 
       let sent = calls.length;
-      assert.deepEqual(await undo(POST, drive.refused), { ...refused }, `a stale session's ${slice} replay ran`);
-      assert.deepEqual(writes(sent), [], `a stale session's ${slice} replay reached the backend`);
+      assert.deepEqual(await undo(drive.refused), refused, `a stale session's ${name} replay ran`);
+      assert.deepEqual(writes(sent), [], `a stale session's ${name} replay reached the backend`);
 
       sent = calls.length;
-      assert.notDeepEqual(await undo(POST, drive.admitted), { ...refused }, `a stale session was refused a ${slice} replay minting nothing`);
-      assert.ok(writes(sent).length > 0, `the ${slice} replay stopped short of the backend`);
+      assert.notDeepEqual(await undo(drive.admitted), refused, `a stale session was refused a ${name} replay minting nothing`);
+      assert.ok(writes(sent).length > 0, `the ${name} replay stopped short of the backend`);
 
       setFresh(true);
       sent = calls.length;
-      assert.notDeepEqual(await undo(POST, drive.refused), { ...refused }, `a fresh session was refused a ${slice} replay`);
-      assert.equal(calls.length - sent, writes(sent).length, `a fresh session's ${slice} replay read the store to judge a step-up`);
+      assert.notDeepEqual(await undo(drive.refused), refused, `a fresh session was refused a ${name} replay`);
+      assert.equal(calls.length - sent, writes(sent).length, `a fresh session's ${name} replay read the store to judge a step-up`);
     });
   }
 
   /* The backend judges the replay on the save's own condition and may refuse it at the window's edge,
      where the page admitted it: a slice's replay table swallowing the code would answer in other words. */
-  for (const [slice, drive] of Object.entries(ROUTE_DRIVES)) {
-    it(`${slice}'s replay answers the backend's own refusal of it as the step-up refusal`, async () => {
-      const { POST } = (await import(pathToFileURL(path.join(ROUTES, slice, "undo", "route.ts")).href)) as {
-        POST: Parameters<typeof undo>[0];
-      };
+  for (const [name, drive] of Object.entries(UNDO_DRIVES)) {
+    it(`${name} answers the backend's own refusal of its replay as the step-up refusal, and the page's figure is read again`, async () => {
       setFresh(true);
       answerWith(() => Promise.reject(refusedOn(drive.operation, "REQ-AUTH-009")));
 
-      assert.deepEqual(await undo(POST, drive.refused), { ...refused }, `the ${slice} replay answered the backend's refusal in other words`);
+      assert.deepEqual(await (await action(name))(drive.refused), refused, `the ${name} replay answered the backend's refusal in other words`);
+      assert.deepEqual(
+        cacheCalls.map((call) => call.name),
+        ["refresh"],
+        "the refusal left the page's figure standing, so its next press is refused again",
+      );
     });
   }
 });

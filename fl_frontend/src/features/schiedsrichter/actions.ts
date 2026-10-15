@@ -1,7 +1,10 @@
 "use server";
 
+import z from "zod";
+
 import { isFreshlySignedIn } from "@/core/auth";
 import { invalidatesOnWrite, refusalResult, refuseUnconfirmed, runAdminMutation } from "@/shared/utils/adminMutation";
+import { refusedReplay, restored, runAdminUndo, unclearReplay, UNDO_UNREADABLE } from "@/shared/utils/adminUndo";
 import { buildRefusal, LADE_DIE_SEITE_NEU, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
@@ -28,6 +31,7 @@ import {
   mapNameRefusal,
   mapReactivateRefusal,
   mapRetireRefusal,
+  SCHIEDSRICHTER_REPLAY_REFUSALS,
 } from "./refusals";
 import {
   FLAnonymiseSchiedsrichterPayloadSchema,
@@ -41,7 +45,9 @@ import {
 } from "./schemas";
 
 import type { FLSchiedsrichterPayloadDraft } from "@/features/schiedsrichter/schemas";
+import type { FLKontakt } from "@/shared/schemas";
 import type { ActionResult } from "@/shared/types/types";
+import type { UndoOutcome } from "@/shared/utils/adminUndo";
 import type {
   FLAnonymiseSchiedsrichterPayload,
   FLPatchSchiedsrichterPayload,
@@ -198,6 +204,86 @@ export async function patchSchiedsrichterAction(
       // from a save that moved only the fee while an earlier change waited.
       adresswechselGespeichert: wechsel !== null,
     };
+  });
+}
+
+const ADRESSWECHSEL_WARTET_WEITER =
+  "Die neue E-Mail-Adresse wartet weiter auf Bestätigung. Soll sie nicht gelten, verwirf die Änderung im Eintrag.";
+
+/**
+ * The stored values, and the save's own report of whether it left the waiting address: no read after
+ * the replay tells that save from one that moved only the fee while an earlier change waited.
+ */
+const SchiedsrichterUndoSchema = FLPatchSchiedsrichterPayloadSchema.extend({ adresswechsel_gespeichert: z.boolean() });
+
+export async function undoAdminSchiedsrichterEditAction(
+  // The STORED record as it stood, which the payload type cannot hold: the editor withholds an offer the schema refuses.
+  rawPayload: Omit<FLPatchSchiedsrichterPayload, "name" | "kontakt"> & {
+    name: string | null;
+    kontakt: FLKontakt;
+    adresswechsel_gespeichert: boolean;
+  },
+): Promise<UndoOutcome> {
+  return runAdminUndo("undoAdminSchiedsrichterEditAction", async (session) => {
+    const validated = SchiedsrichterUndoSchema.safeParse(rawPayload);
+    if (!validated.success) return { success: false, error: UNDO_UNREADABLE };
+    const { adresswechsel_gespeichert, ...payload } = validated.data;
+
+    // `spiele` alone: the rename fans out into cached fixtures embedding this row (`docs/frontend/spec.md` §1.4).
+    invalidatesOnWrite("spiele");
+    // The replay is a save, its mint judged as the save's own action judges one: without this the undo
+    // is a second door to that save with no step-up (`docs/frontend/spec.md :: I432`).
+    const stored = isFreshlySignedIn(session) ? null : await getSchiedsrichterById(payload.id);
+    const unconfirmed = stored !== null && saveMayMint(stored.schiedsrichter, payload.kontakt.email) ? refuseUnconfirmed(session) : null;
+    if (unconfirmed !== null) return unconfirmed;
+
+    let operation;
+    try {
+      operation = await patchSchiedsrichter(payload);
+    } catch (error) {
+      return refusedReplay(error, SCHIEDSRICHTER_REPLAY_REFUSALS);
+    }
+
+    if (!operation.acknowledged) return unclearReplay("Die Rücknahme wurde abgebrochen. Prüfe die Schiedsrichterdaten.");
+
+    // A confirmed referee's address never moved on the save, so the replay asks the earlier address
+    // again only where that change was confirmed since; unmailed, that link reaches nobody.
+    const wechsel = operation.adresswechsel;
+    if (wechsel !== null) {
+      const wechselVersand = await mailSchiedsrichterAdresswechsel({
+        operation: "undoAdminSchiedsrichterEditAction",
+        schiedsrichterId: payload.id,
+        name: payload.name,
+        mint: wechsel,
+        anlass: "erneut",
+      });
+
+      return restored(describeAdresswechselMail(wechsel.email, wechselVersand));
+    }
+
+    // The replay leaves a pending address standing, its link already in that mailbox, the discard
+    // being the editor's control. Said only after undoing the save that left it: an undone fee edit
+    // has nothing to do with it.
+    if (adresswechsel_gespeichert && operation.updated_document.adresswechsel !== null) return restored(ADRESSWECHSEL_WARTET_WEITER);
+
+    // The replay puts the earlier address back, which the endpoint reads as a correction and mints
+    // for: unmailed, that token exists in the database alone and the referee's own link is dead.
+    const mint = operation.bestaetigung;
+    if (mint === null) return restored();
+
+    const versand = await mailSchiedsrichterLink({
+      operation: "undoAdminSchiedsrichterEditAction",
+      schiedsrichterId: payload.id,
+      // The address the MINT names, never the payload's: the replay is the older of the two reads.
+      email: mint.email,
+      name: payload.name,
+      mint: mint,
+      anlass: "erneut",
+    });
+
+    // A cost either way: the undo silently replaced a live link, which is a fact about the person
+    // rather than about the rows it put back.
+    return restored(describeLinkMail(mint.email, versand));
   });
 }
 

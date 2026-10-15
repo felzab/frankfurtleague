@@ -54,7 +54,7 @@ deliverable.
 document and the image the write replaced (`fl_backend/app/core/recording.py`); `/bereich/admin/aktionen`
 lists the rows and narrows to one document's history. A row therefore holds what a replay needs, and
 replaying one is a small change over the undo spine the entity editors already share
-(`fl_frontend/src/shared/utils/undoDispatch.ts :: offerUndo`). What is missing is the control that
+(`fl_frontend/src/shared/utils/adminUndo.ts :: runAdminUndo`). What is missing is the control that
 does it: a restore offered on a log row, past the editor's fifteen-second, browser-held undo — one
 that survives a reload and reaches a write nobody was watching at the time.
 
@@ -65,11 +65,6 @@ deletes a semi-final scoreline that a person had entered, as a consequence of an
 else. That destruction is recorded and attributable; recoverable past the fifteen seconds is what
 this entry adds. Until it lands, an unrestorable write is recovered by hand from the row that
 recorded it — slowly, which is the cost of leaving this open rather than a loss.
-
-**What blocks it is a measurement.** `docs/frontend/spec.md` §1.3 admits a route handler for a
-page-owned editor and refuses one for a row control, and a restore on a log row is a row control.
-Whether Next's E592 reproduces on a page that stays mounted is what decides between a server action
-and a route handler of its own, and nobody has measured it.
 
 **Retention is built, and it is this entry's reach.** `docs/backend/spec.md :: I119` expires a stamped
 log row twelve months after the write it recorded, and a restore reaches a write only while its row
@@ -487,7 +482,7 @@ call this entry owns, and no surface answers it first.
 (`fl_frontend/src/features/saisons/components/modals/AdminCreateSaisonModal.tsx` over
 `fl_frontend/src/features/saisons/components/forms/AdminCreateSaisonForm.tsx`), and what happens
 when a form outgrows one is already fixed: it becomes a page at its own route, with panels per
-section, a field judged when it is left, one save bar, a discard guard and an undo route handler. A
+section, a field judged when it is left, one save bar, a discard guard and an undo. A
 flow that also picks clubs and creates them passes that threshold by a distance, so the guided
 workflow is a page rather than a larger modal, and the pattern to copy is on
 `/bereich/admin/saisons/[saison_id]` —
@@ -1112,7 +1107,7 @@ glossary entry is filed with the build.
 | `fl_backend/app/api/spieler/admin_router.py :: patch_saison_spieler`         | The same form, the player's squad row                                                                                                  | Nothing                                                                                                 |
 | `fl_backend/app/api/spieltage/admin_router.py :: patch_spieltag`             | `fl_frontend/src/features/spieltage/components/forms/AdminSpieltagEditForm/AdminSpieltagEditForm.tsx`                                  | Nothing                                                                                                 |
 | `fl_backend/app/api/spiele/admin_router.py :: patch_spiel_data`              | `fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/AdminEditSpielDataForm.tsx`, its save and its dry-run preview | Nothing                                                                                                 |
-| `fl_backend/app/api/spiele/admin_router.py :: patch_spiele_paarungen`        | That editor's undo, `fl_frontend/src/app/api/admin/spiele/undo/route.ts`                                                               | Fields the save left standing read off the document; the Paarung and the fields it replaced overwritten |
+| `fl_backend/app/api/spiele/admin_router.py :: patch_spiele_paarungen`        | That editor's undo, `fl_frontend/src/features/spiele/actions.ts :: undoAdminSpielEditAction`                                           | Fields the save left standing read off the document; the Paarung and the fields it replaced overwritten |
 | `fl_backend/app/api/bewerbungen/admin_router.py :: korrigiere_kontakt_email` | `fl_frontend/src/features/bewerbungen/components/views/BewerbungBestaetigungStrip.tsx`                                                 | Nothing on a waiting seat; a confirmed or answered seat is refused                                      |
 | `fl_backend/app/api/berechtigungen/admin_router.py :: patch_berechtigung`    | `fl_frontend/src/features/berechtigungen/components/forms/AdminBerechtigungStufePanel.tsx`                                             | Outside this entry's scope, below                                                                       |
 
@@ -1126,12 +1121,12 @@ change back to it. An editor typing a third address for a confirmed referee repl
 change a rival opened, its link dying and its address leaving the log, while the address the row
 reads has not moved. Every other field of that save lands whole.
 
-**Every undo but the contacts editor's is a second stale write.** Each other undo under
-`fl_frontend/src/app/api/admin/` replays the save's earlier image through a PATCH, so an undo
-pressed after a rival's save reverts the rival's too; the contacts undo sends the token of the image
-its save left and is refused where a rival has moved the block since
-(`fl_frontend/src/app/api/admin/kontakte/undo/route.ts`). The fixture undo reads off the document
-only the fields its save left standing
+**Every undo but the contacts editor's is a second stale write.** Each other undo action replays
+the save's earlier image through a PATCH, so an undo pressed after a rival's save reverts the
+rival's too; the contacts undo sends the token of the image its save left and is refused where a
+rival has moved the block since
+(`fl_frontend/src/features/kontakte/actions.ts :: undoAdminKontakteEditAction`). The fixture undo
+reads off the document only the fields its save left standing
 (`fl_backend/app/api/spiele/schemas.py :: FLPatchSpielPaarungPayload`) and writes back the Paarung
 and every field the save replaced, so a result a rival entered on one of its fixtures is reverted,
 and so is a rival's date, venue, referee or note wherever the undone save had changed that field
@@ -1204,11 +1199,12 @@ present scope.
 - **Three places the stand reaches that no one save shows.** The fixture save's report names every
   fixture its bracket resolution moved (`prior_paarungen`) and the undo replays each, so the report
   carries a stand for each moved fixture's image after the save. The player undo restores the
-  person half with no catch (`fl_frontend/src/app/api/admin/spieler/undo/route.ts`), so a refusal
-  new to `patch_spieler` needs one there, a refusal being worded at three sites by
+  person half with no catch
+  (`fl_frontend/src/features/spieler/actions.ts :: undoAdminSpielerEditAction`), so a refusal new to
+  `patch_spieler` needs one there, a refusal being worded at three sites by
   `.claude/rules/cross-surface.md`'s trap. The club and player forms save their two endpoints one
   after the other, so a refusal on the second lands after the first has saved, and the form says
-  which half stands, as both undo routes already do.
+  which half stands, as both undos already do.
 
 **Open, each settled by the building session and put to me:**
 

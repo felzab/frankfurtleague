@@ -3,11 +3,12 @@ CORE · the fixed ids naming a row no person stands behind
 
 An erasure deletes the person's document, so every entry that named them has to name something
 else: a reference the write path can still resolve, rather than a null each reader would branch on.
-Each sentinel is that row for its collection, nameless so each surface reads it through the
-null-name path it already has.
+Each sentinel is that row for its collection, and nameless.
 
-The referee's ghost is permanently retired, so `REQ-BOOKING-001` refuses it every new fixture. The
-pupil's sentinel carries no consent record either, so no count of consent records includes it.
+The referee's ghost is permanently retired, so `REQ-BOOKING-001` refuses it every new fixture, and
+each fixture surface reads it through the null-name path it already has. The pupils' sentinel also
+carries no consent record, so no count of consent records includes it, and no read serves it: every
+served model requires a forename, so each read excludes the sentinel by its id.
 
 Its own module because the referee routers, the fixture reads and the pupil filters all reach these
 ids, and because `app/core/domain.py` is a declaration no write path imports.

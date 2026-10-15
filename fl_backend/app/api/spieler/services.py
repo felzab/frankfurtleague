@@ -120,10 +120,22 @@ def build_ghost_spieler() -> dict[str, Any]:
 _NOT_THE_GHOST: Mapping[str, Any] = {"$ne": GHOST_SPIELER_ID}
 
 
-def build_real_spieler_filter() -> Mapping[str, Any]:
-    """Every person somebody stands behind, which is the whole collection but the sentinel."""
+def build_real_spieler_filter(terms: Mapping[str, Any] | None = None) -> Mapping[str, Any]:
+    """The persons `terms` match, never the sentinel; with none, every person somebody stands behind.
 
-    return {"_id": dict(_NOT_THE_GHOST)}
+    Takes the caller's terms rather than being spread into them: a spread replaces their own `_id`
+    term, an `$in` included, without a word.
+    """
+
+    composed = dict(terms or {})
+
+    # Apart under `$and` only where the caller names `_id`: kept flat otherwise, an address term stays at
+    # the top, where `fl_backend/tests/api/test_spieler_email_reads.py :: names_an_address` finds the
+    # reads whose plans it checks.
+    if "_id" in composed:
+        return {"$and": [composed, {"_id": dict(_NOT_THE_GHOST)}]}
+
+    return {**composed, "_id": dict(_NOT_THE_GHOST)}
 
 
 def build_spieler_filter(spieler_id: Any) -> Mapping[str, Any]:
@@ -476,7 +488,7 @@ def build_selbst_pupil_filter(identifier: str) -> Mapping[str, Any]:
     """
 
     # The sentinel by id although it holds no address: a hand edit can give it one, and the id is what names it nobody.
-    return {"email": {"$eq": identifier, "$type": "string"}, **build_real_spieler_filter()}
+    return build_real_spieler_filter({"email": {"$eq": identifier, "$type": "string"}})
 
 
 def build_selbst_pupil_pipeline(identifier: str) -> list[Mapping[str, Any]]:

@@ -80,10 +80,10 @@ VENUE = ObjectId("6890a1b2c3d4e5f608280003")
 REFEREE = ObjectId("6890a1b2c3d4e5f608280004")
 # The two fixtures beside `FIXTURE` that the clash cases book the same row onto.
 SECOND_FIXTURE = ObjectId("6890a1b2c3d4e5f608280005")
+THIRD_FIXTURE = ObjectId("6890a1b2c3d4e5f608280006")
 
 # Retired, so the erasure takes them (`REQ-PURGE-001`), and seeded by the one case entering them.
 PERSON = ObjectId("6890a1b2c3d4e5f608290001")
-THIRD_FIXTURE = ObjectId("6890a1b2c3d4e5f608280006")
 
 SEED_MAPS_LINK = "Sportplatz Ostpark, Hanauer Landstraße 12a, 60314 Frankfurt am Main, Deutschland"
 
@@ -306,8 +306,10 @@ async def replace(client: AsyncMongoClient, handles: Mapping[Collection, Any]) -
         saisons_collection=handles[Collection.SAISONS],
         spiele_collection=handles[Collection.SPIELE],
         saison_spieler_collection=handles[Collection.SAISON_SPIELER],
+        aktionen_collection=handles[Collection.AKTIONEN],
         db=client,
         today=RETIRED_ON,
+        germany_now=NOW,
     )
 
 
@@ -736,7 +738,7 @@ class TestARetirementLandingMidBookingIsJudgedAgain:
     def test_the_squad_entry_answers_not_found_on_a_person_the_erasure_removed(self, mongo_replica_set_url: str):
         """The anchor on the person is all the two share: the erasure writes no row the entry writes, which would commit a row naming nobody."""
 
-        async def body() -> tuple[str, list[str], int, int, int]:
+        async def body() -> tuple[tuple[str, list[str], int, int], RunningARivalMidWrite]:
             async with a_clean_database(mongo_replica_set_url, DATABASE_NAME) as (client, database):
                 handles = await a_seeded_league(database, None)
                 await database[Collection.SPIELER].insert_one(
@@ -754,19 +756,20 @@ class TestARetirementLandingMidBookingIsJudgedAgain:
                 except DocumentNotFoundException:
                     outcome = NOT_FOUND
 
-                return (
+                standing = (
                     outcome,
                     erasures,
                     await database[Collection.SPIELER].count_documents({"_id": PERSON}),
                     await database[Collection.SAISON_SPIELER].count_documents({"spieler_id": PERSON}),
-                    hook.passes,
                 )
 
-        *raced, passes = on_the_seed_loop(body())
+                return standing, hook
 
-        assert tuple(raced) == (NOT_FOUND, [COMMITTED], 0, 0)
-        # Once with the erasure committed first; a third arrival is the retry the anchor's conflict forced.
-        assert passes > 1, "the erasure landed outside the entry"
+        raced, hook = on_the_seed_loop(body())
+
+        assert raced == (NOT_FOUND, [COMMITTED], 0, 0)
+        # After the standing, so a missing anchor is reported as the row it left rather than as a rival outside.
+        hook.assert_landed_inside(serially=1)
 
 
 class TestABookingLandingMidRetirementIsJudgedAgain:

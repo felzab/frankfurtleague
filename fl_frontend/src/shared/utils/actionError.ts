@@ -48,14 +48,14 @@ export const SITZ_WEG = "Du bist in dieser Saison nicht mehr in diesem Team eing
 export const FELD_ABGELEHNT = "Diese Angabe wurde so nicht übernommen.";
 
 /**
- * The unique index's refusal (`DB-COMMON-002`), which every undo route answers with too: the conflict
+ * The unique index's refusal (`DB-COMMON-002`), which every undo answers with too: the conflict
  * is the same one whichever write met it.
  */
 export const KONFLIKT_MIT_BESTEHENDEM = "Der Eintrag steht im Konflikt mit einem, den es schon gibt.";
 
 /**
  * What became of a change an undo did not take back, closing every sentence that says so. Here rather
- * than beside the undo route, which loads the sign-in store: the browser's dispatch says it too.
+ * than beside the undo spine, which loads the sign-in store: the browser's offer says it too.
  */
 export const AENDERUNG_STEHT_WEITERHIN = "Die Änderung steht weiterhin.";
 
@@ -175,7 +175,7 @@ export function outcomeUnknown(): ActionFailure {
 }
 
 /**
- * An undo nobody can tell landed, said by the route for a replay that threw and by the dispatch for
+ * An undo nobody can tell landed, said by the spine for a replay that threw and by the offer for
  * one that never answered: „nicht zurückgenommen“ would send the admin to undo by hand what may
  * already be undone.
  */

@@ -302,8 +302,6 @@ def compose_postausgang(
 
     rows = (withheld(jetzt, gesperrt), withheld(vorher, gesperrt))
     actor = None if geaendert_von is None else sign_in_identifier(geaendert_von)
-    stored_actor = withheld_actor(actor, gesperrt)
-    withholds = any(stand is not None and stand.adresse is None for stand in rows) or stored_actor != actor
 
     return {
         "berechtigung_id": berechtigung_id,
@@ -311,9 +309,10 @@ def compose_postausgang(
         "urheber": "datenbank" if geaendert_von is None else "anwendung",
         "jetzt": None if rows[0] is None else rows[0].model_dump(),
         "vorher": None if rows[1] is None else rows[1].model_dump(),
-        "geaendert_von": stored_actor,
+        "geaendert_von": withheld_actor(actor, gesperrt),
         "geaendert_am": None if geaendert_von is None else now,
-        "vorenthalten": "gesperrt" if withholds else None,
+        # The grant's address alone: a null actor on an application's change already says it is barred.
+        "vorenthalten": "gesperrt" if any(stand is not None and stand.adresse is None for stand in rows) else None,
         "erfasst_am": now,
         "beansprucht_bis": None,
         "beanspruchung": None,

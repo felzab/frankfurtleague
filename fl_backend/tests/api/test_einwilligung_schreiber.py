@@ -333,6 +333,11 @@ NOT_DRIVEN_HERE: Final = frozenset(
         "app/api/konto/services.py::compose_bewerbungssitze_selbst",
         "app/api/konto/services.py::compose_registrierungen_selbst",
         "app/api/konto/services.py::_sitz_wahlen_gehalten",
+        # A query term rather than a block: the constraints check counts persons holding a null record,
+        # and the run printing that count reaches it through its own module.
+        "app/core/constraints.py::report_nameless_persons",
+        "app/core/constraints.py::_run",
+        "app/core/constraints.py::_main",
         # The row's choices as the read serves them, and the ones a seat press changed against it.
         "app/api/konto/services.py::sitz_wahlen_der_zeile",
         "app/api/konto/services.py::geaenderte_sitz_wahlen",

@@ -1,14 +1,16 @@
 "use server";
 
 import { invalidatesOnWrite, refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
+import { refusedReplay, restored, runAdminUndo, unclearReplay, UNDO_UNREADABLE } from "@/shared/utils/adminUndo";
 import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { patchSpieltag } from "./mutations";
-import { mapSpieltagRefusal } from "./refusals";
+import { mapSpieltagRefusal, SPIELTAG_REPLAY_REFUSALS } from "./refusals";
 import { FLPatchSpieltagPayloadSchema } from "./schemas";
 
 import type { ActionResult } from "@/shared/types/types";
+import type { UndoOutcome } from "@/shared/utils/adminUndo";
 import type { FLPatchSpieltagPayload, FLSpieltagWriteResponse } from "./schemas";
 
 function invalidateSpieltage(): void {
@@ -40,5 +42,22 @@ export async function patchSpieltagAction(rawPayload: FLPatchSpieltagPayload): P
     }
 
     return { success: true, spieltag: patchOperation, message: "Spieltag gespeichert" };
+  });
+}
+
+export async function undoAdminSpieltagEditAction(rawPayload: FLPatchSpieltagPayload): Promise<UndoOutcome> {
+  return runAdminUndo("undoAdminSpieltagEditAction", async () => {
+    const validated = FLPatchSpieltagPayloadSchema.safeParse(rawPayload);
+    if (!validated.success) return { success: false, error: UNDO_UNREADABLE };
+
+    invalidateSpieltage();
+    let operation;
+    try {
+      operation = await patchSpieltag(validated.data);
+    } catch (error) {
+      return refusedReplay(error, SPIELTAG_REPLAY_REFUSALS);
+    }
+
+    return operation.acknowledged ? restored() : unclearReplay("Die Rücknahme wurde abgebrochen. Prüfe den Spieltag.");
   });
 }

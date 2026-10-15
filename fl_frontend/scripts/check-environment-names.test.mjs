@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import { DECLARED_NAMES_FILE, scanNames, undeclaredNames } from "./check-environment-names.mjs";
+import { DECLARED_NAMES_FILE, scanNames, undeclaredLines } from "./check-environment-names.mjs";
 
 /** Stands in for `server-only`, whose real module throws outside a React server build. */
 const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export {};")}`;
@@ -42,20 +42,27 @@ describe("the names read out of an environment file", () => {
   it("takes a NAME=VALUE line and neither a comment nor a blank line, carriage returns included", () => {
     const file = ["# ALPHA_NAME is set elsewhere", "", " \t", "BETA_NAME=https://example.org:8443/a?b=c", "GAMMA_NAME=\r", ""].join("\n");
 
-    assert.deepEqual(scanNames(file), { names: ["BETA_NAME", "GAMMA_NAME"], unreadable: [] });
+    assert.deepEqual(scanNames(file), { names: ["BETA_NAME", "GAMMA_NAME"], lines: { BETA_NAME: [4], GAMMA_NAME: [5] }, unreadable: [] });
   });
 
-  // Each of these a preflight has already refused; read anyway, a name off one would be a guess.
-  it("reports by number every line outside the one strict shape, a quoted value's data line among them", () => {
+  // Each of these a preflight has already refused; read anyway, a name off one would be a guess. The
+  // quoted value's data line keeps the shape and is read as a name, the file unreadable all the same.
+  it("reports by number every line outside the one strict shape, a quoted value's opening and closing lines among them", () => {
     const file = ['ALPHA_NAME="first line', "BETA_NAME=data", 'last line"', "GAMMA_NAME", "\uFEFF"].join("\n");
 
     assert.deepEqual(scanNames(file).unreadable, [1, 3, 4, 5]);
   });
+
+  it("reports a comment holding a line break another reader takes, or a NUL byte", () => {
+    const file = ["# a\rB_NAME=1", "# a\u2028B_NAME=1", "# a\u2029B_NAME=1", "# a\u0000b", "# fine"].join("\n");
+
+    assert.deepEqual(scanNames(file), { names: [], lines: {}, unreadable: [1, 2, 3, 4] });
+  });
 });
 
 describe("the names outside the schema", () => {
-  it("returns a NEXT_PUBLIC_ name, which the client schema declares none of", () => {
-    assert.deepEqual(undeclaredNames(["ALPHA_NAME", "NEXT_PUBLIC_THING"], DECLARED), ["NEXT_PUBLIC_THING"]);
+  it("returns every line of a NEXT_PUBLIC_ name, which the client schema declares none of", () => {
+    assert.deepEqual(undeclaredLines({ ALPHA_NAME: [1], NEXT_PUBLIC_THING: [4, 2] }, DECLARED), [2, 4]);
   });
 });
 
@@ -74,12 +81,22 @@ describe("what the deploy grades the checker's answer as", () => {
     assert.equal(done.stderr, "");
   });
 
-  it("answers 3 naming the undeclared variables, and carries no value of any of them", () => {
+  it("answers 3 numbering the lines of the undeclared variables, and carries no value of any of them", () => {
     const done = check("ALPHA_NAME=one\nGAMMA_NAME=a-value-no-line-may-echo\n");
 
     assert.equal(done.status, 3, done.stderr);
-    assert.match(done.stderr, /Undeclared environment variables: GAMMA_NAME/);
+    assert.match(done.stderr, /Undeclared environment variables on 1 line\(s\): 2/);
     assert.doesNotMatch(done.stderr, /a-value-no-line-may-echo/);
+  });
+
+  // A pasted key's line keeping the shape declares its own text as a name, so an undeclared name is
+  // never printed.
+  it("names no undeclared variable, a key's fragment declared as one among them", () => {
+    const done = check("ALPHA_NAME=one\nKEYDATAvxq==\n");
+
+    assert.equal(done.status, 3, done.stderr);
+    assert.match(done.stderr, /on 1 line\(s\): 2/);
+    assert.doesNotMatch(done.stderr, /vxq/);
   });
 
   // The refusal stops a deploy, so an unreadable file answers the advisory instead: every name it
@@ -113,7 +130,7 @@ describe("what the deploy grades the checker's answer as", () => {
     const done = check("GAMMA_NAME=two\n");
 
     assert.equal(done.status, 3, done.stderr);
-    assert.match(done.stderr, /Undeclared environment variables: GAMMA_NAME/);
+    assert.match(done.stderr, /Undeclared environment variables on 1 line\(s\): 1/);
     assert.match(done.stderr, /Missing required environment variables: ALPHA_NAME/);
   });
 

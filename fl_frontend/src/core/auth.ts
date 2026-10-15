@@ -61,10 +61,10 @@ export const PASSKEY_LIMIT = 5;
 
 const SESSION_EXPIRES_IN_SECONDS = SESSION_EXPIRES_IN_DAYS * 24 * 60 * 60;
 
-// What the refresh costs, and so how closely `updatedAt` tracks activity: the idle windows in
-// `fl_frontend/src/core/sessionLifetimes.ts` are compared against it, and this is the width of their
-// granularity.
-const SESSION_UPDATE_AGE_SECONDS = 60 * 60;
+// A pause shorter than the administrator's idle hour can still be refused once it and this reach the
+// hour together: kept under the seventh of a window Better Auth's documented example slides at.
+// Global, so persons' rows slide as often.
+const SESSION_UPDATE_AGE_SECONDS = 5 * 60;
 
 const CODE_VALIDITY_SECONDS = CODE_VALIDITY_MINUTES * 60;
 
@@ -324,22 +324,12 @@ async function refuseEnrolment(
   if (credentialID !== undefined && held.some((row) => row.credentialID === credentialID)) throw APIError.fromStatus("NOT_FOUND");
 }
 
-// The server's code for a write refused over another transaction's write to the same document; the
-// driver exports no name for it.
-const WRITE_CONFLICT = 112;
-
-// The server's code for an insert a unique index refused; the driver exports no name for it either.
+// The server's code for an insert a unique index refused; the driver exports no name for it.
 const DUPLICATE_KEY = 11000;
 
 /** A second row for a credential `fl_frontend/src/core/authIndexes.ts` already holds one of. */
 function isDuplicateCredential(failed: unknown): boolean {
   return failed instanceof MongoServerError && failed.code === DUPLICATE_KEY && "credentialID" in (failed.keyPattern ?? {});
-}
-
-function isWriteConflict(failed: unknown): boolean {
-  // The code, not the `TransientTransactionError` label: the driver labels a lost connection and a
-  // stepped-down primary that way too, and neither is another change to these passkeys.
-  return failed instanceof MongoServerError && failed.code === WRITE_CONFLICT;
 }
 
 /** Named, because the library's failure line records an error's name and nothing else. */
@@ -741,8 +731,9 @@ const LIBRARY_EVENTS: readonly (readonly [string, string])[] = [
   ["Invalid errorCallbackURL", "auth.callback_refused"],
   ["Invalid newUserCallbackURL", "auth.callback_refused"],
   ["Blocked cross-site navigation login attempt", "auth.cross_site_login_blocked"],
-  // The adapter's own line, `fl_frontend/patches/@better-auth__mongo-adapter@1.7.7.patch` (`docs/frontend/spec.md :: I537`).
-  ["Transaction left open", "auth.transaction_left_open"],
+  // The adapter's line for an abort after a failed commit that failed too, which leaves the transaction
+  // open on the server (`@better-auth/mongo-adapter :: abortTransactionCommand`, `docs/frontend/spec.md :: I537`).
+  ["Failed to abort a MongoDB transaction", "auth.transaction_left_open"],
 ];
 
 const LIBRARY_EVENT_UNKNOWN = "auth.library_failed";
@@ -766,6 +757,9 @@ const sessionOptions = {
     // The `credentialID` of the passkey that made the session, so removing that passkey ends its
     // sessions and no other (`docs/frontend/spec.md :: I400`).
     passkeyCredentialId: { type: "string", required: false, input: false },
+    // Marked by the refresh alone (`input: false`, as above): a session clearing its own mark would undo
+    // the administrator's idle window (`docs/frontend/spec.md :: I658`).
+    adminLapsed: { type: "boolean", required: false, input: false },
     // Never returned: no guard reads it, and nothing but another sign-in's stamp is compared with it.
     [REPLACED_SESSION_FIELD]: { type: "string", required: false, input: false, returned: false },
   },
@@ -936,6 +930,18 @@ const authOptions = (origin: URL, client: MongoClient) =>
             await unlessUnsettled(() => clearCodeFailures(ctx.context, session.userId));
           },
         },
+        update: {
+          // The refresh moves `updatedAt` to now, erasing the idle gap every later read judges: the row as
+          // read before this write is judged instead, so a session the administrator's window refused stays
+          // refused (`docs/frontend/spec.md :: I658`).
+          before: async (data, ctx) => {
+            if (data.updatedAt === undefined) return;
+            const prior = ctx?.context.session?.session;
+            // No row to judge is no window kept, as `withinLifetime` reads an unreadable stamp.
+            if (prior !== undefined && withinLifetime(prior, ADMIN_LIFETIME)) return;
+            return { data: { ...data, adminLapsed: true } };
+          },
+        },
       },
     },
 
@@ -961,9 +967,9 @@ const authOptions = (origin: URL, client: MongoClient) =>
         // `fl_frontend/src/core/logFormat.ts :: serializeError` writes with its message and stack.
         const raised = args.find((argument) => argument instanceof Error);
 
-        // One authenticator enrolled twice at once: the credential index refuses the second row, inside a set-up's
-        // transaction as a write conflict. Any conflict there maps here, so a write added to that transaction joins it.
-        if (message.startsWith(REGISTRATION_FAILED) && (isDuplicateCredential(raised) || isWriteConflict(raised))) {
+        // One authenticator enrolled twice at once by enrolments that sign nobody in: the credential index refuses the
+        // second row. A set-up that signs in conflicts inside a transaction the adapter retries, and the retry is refused 404.
+        if (message.startsWith(REGISTRATION_FAILED) && isDuplicateCredential(raised)) {
           logger.warn("auth.passkey_enrolment_conflict", { error_code: "FE-AUTH-005" });
           return;
         }
@@ -1221,9 +1227,9 @@ const authOptions = (origin: URL, client: MongoClient) =>
 
       passkeyLastUse(),
 
-      // No `customSession` while its read answers a store that does not answer as no session: until a
-      // release lets that failure throw, `projected` below builds the guards' copy over the library's
-      // own read (`docs/frontend/spec.md :: I519`).
+      // No `customSession`: it reshapes `/get-session`, which `DISABLED_PATHS` closes to every browser, so
+      // `readLibrarySession` would be its one reader, and `projected` below already builds that reader's
+      // copy over the library's own read (`docs/frontend/spec.md :: I198`).
 
       // Last, which the library warns about: it copies a response's `set-cookie` into Next's store.
       nextCookies(),
@@ -1322,7 +1328,7 @@ export async function passkeysOf(userId: string): Promise<Passkey[]> {
 }
 
 /** What a removal found inside its transaction, each answered differently by the one caller. */
-type PasskeyRemoval = "removed" | "last" | "absent" | "conflict";
+type PasskeyRemoval = "removed" | "last" | "absent";
 
 /**
  * One transaction around the count, the claim, the delete and the sign-out: two removals started
@@ -1338,24 +1344,22 @@ export async function removePasskey(holder: { readonly id: string; readonly verw
 
   try {
     return await adapter.transaction(async (held) => {
+      // Cleared on every run: the adapter runs this again after a commit that failed transiently, and
+      // a throw from that run rolled back like the first run's would.
+      committing = false;
       const outcome = await removeInside(held);
       committing = true;
       return outcome;
     });
   } catch (failed) {
-    // Tested on the whole transaction rather than on the claim alone: another device refreshing or
-    // ending its own session meets the sign-out above the same way.
-    if (!isWriteConflict(failed)) throw committing ? failed : new RolledBackError(failed);
-
-    // The line is the record: the holder is refused, and nothing else notes that the removal met a
-    // change to their passkeys or sessions.
-    logger.warn("auth.passkey_removal_conflict", { error_code: "FE-AUTH-005" });
-    return "conflict";
+    // No conflict reaches here as one: the adapter retries a write conflict on a fresh snapshot, which
+    // answers the other change's result, until the client's `timeoutMS` turns it into a timeout.
+    throw committing ? failed : new RolledBackError(failed);
   }
 
   async function removeInside(
     held: Pick<DBTransactionAdapter, "findOne" | "count" | "update" | "delete" | "deleteMany">,
-  ): Promise<Exclude<PasskeyRemoval, "conflict">> {
+  ): Promise<PasskeyRemoval> {
     // The adapter hands itself back where it opens no transaction, and there the claim below
     // conflicts with nothing: refused rather than admitted unguarded.
     if (held === adapter) throw new RemovalOutsideTransaction();
@@ -1423,7 +1427,7 @@ type LibraryRead = NonNullable<Awaited<ReturnType<typeof auth.api.getSession>>>;
  */
 type ServedSession = {
   user: { id: string; email: string; sessionsEndedAt?: Date | null };
-  session: Pick<LibraryRead["session"], "id" | "createdAt" | "updatedAt" | "authFactor" | "passkeyCredentialId">;
+  session: Pick<LibraryRead["session"], "id" | "createdAt" | "updatedAt" | "authFactor" | "passkeyCredentialId" | "adminLapsed">;
 };
 
 function projected({ user, session }: LibraryRead): ServedSession {
@@ -1436,6 +1440,7 @@ function projected({ user, session }: LibraryRead): ServedSession {
       updatedAt: session.updatedAt,
       authFactor: session.authFactor,
       passkeyCredentialId: session.passkeyCredentialId,
+      adminLapsed: session.adminLapsed,
     },
   };
 }
@@ -1555,7 +1560,8 @@ export function isWithinPersonLifetime(session: { createdAt: Date; updatedAt: Da
 }
 
 function isAdminWithinWindow(served: ServedSession): boolean {
-  return withinLifetime(served.session, ADMIN_LIFETIME);
+  // A refreshed `updatedAt` shows none of the idle gap before it, and the mark does.
+  return served.session.adminLapsed !== true && withinLifetime(served.session, ADMIN_LIFETIME);
 }
 
 /** Every administrator's condition the grant itself does not decide: a passkey session inside both of the administrator's figures. */
@@ -1684,7 +1690,8 @@ async function ended(read: ServedSession): Promise<Landing> {
 async function destinationOf(served: ServedSession, verwaltung: Verwaltung): Promise<SignInDestination> {
   if (verwaltung.verwaltung !== null) {
     // The guard's own verdict rather than a second spelling of it: `/bereich` sends a granted session
-    // the guard refuses on to `/bereich/admin`, which the proxy bounces back here.
+    // the guard refuses on to `/bereich/admin`, which the proxy (a session no passkey made) or
+    // `runAdminRead` (any other refused one) sends back here.
     if (isAdminSession(served, verwaltung)) return "/bereich";
 
     // Where the passkey page has no step to offer, the session is spent, and an administrator signs in

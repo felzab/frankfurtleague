@@ -1,4 +1,4 @@
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from datetime import datetime
 from typing import Annotated, Any
 
@@ -6,6 +6,7 @@ from fastapi import APIRouter, Body, Depends
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
+from app.api.aktionen.crud import redact_images_in_session
 from app.api.bewerbungen.schemas import (
     FLBewerbungEinwilligungAnsichtPayload,
     FLBewerbungEinwilligungAnsichtResponse,
@@ -49,11 +50,12 @@ from app.api.bewerbungen.services import (
     zustand_of,
 )
 from app.api.einwilligung.services import find_fassung_refusal, find_selbst_medien_refusal
+from app.api.kontakte.services import seat_image_edits
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
 from app.api.teams.services import kontakt_zeile_of
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.crud import patch_many_in_db, patch_one_in_db, refuse
+from app.core.crud import patch_one_in_db, refuse
 from app.core.dependencies import (
     AktionenCollection,
     BewerbungenCollection,
@@ -65,10 +67,11 @@ from app.core.dependencies import (
     get_germany_now,
 )
 from app.core.exception_handlers import stores_nothing
-from app.core.recording import build_redaction_filter, build_redaction_update, log_stamp
+from app.core.recording import build_redaction_filter, log_stamp
 from app.core.security import bind_public_actor, verify_access_base
 from app.core.transactions import transaction_session
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
+from app.shared.folding import sign_in_identifier
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS
 
 # A THIRD router on the prefix, beside the admin one and the public create: the token is the whole
@@ -92,6 +95,28 @@ async def _schule_name(*, bewerbung_raw: Mapping[str, Any], teams_collection: Te
     assert team_raw is not None
 
     return bewerbung_schule(bewerbung_raw=bewerbung_raw, club_name=team_raw.get("name"))
+
+
+async def _redact_the_decliner(
+    *,
+    aktionen_collection: AktionenCollection,
+    collection: Collection,
+    row_id: Any,
+    adressen: Iterable[str],
+    stamp: str,
+    session: AsyncClientSession,
+) -> None:
+    """The declining person's seats out of every log image of this one row, which is all a Widerspruch reaches."""
+
+    identifiers = {sign_in_identifier(adresse) for adresse in adressen}
+    await redact_images_in_session(
+        aktionen_collection=aktionen_collection,
+        db_filter=build_redaction_filter([(collection, [row_id])]),
+        # The link stays with the seat, its decline recorded on it, as the live write leaves it.
+        judge=lambda image: seat_image_edits(image, identifiers, links=False),
+        stamp=stamp,
+        session=session,
+    )
 
 
 async def _saison_ansicht(
@@ -337,10 +362,12 @@ async def post_einwilligung(
 
         # LAST, for the application's reason: it reaches the pre-image the clearing patch just filed,
         # which still holds the person who refused to be held.
-        await patch_many_in_db(
-            collection=aktionen_collection,
-            db_filter=build_redaction_filter([(Collection.SAISON_TEAMS, [row["_id"]])]),
-            update=build_redaction_update(at=log_stamp(germany_now)),
+        await _redact_the_decliner(
+            aktionen_collection=aktionen_collection,
+            collection=Collection.SAISON_TEAMS,
+            row_id=row["_id"],
+            adressen=seat_adressen(kontakte=kontakte, seats=seats),
+            stamp=log_stamp(germany_now),
             session=session,
         )
 
@@ -449,11 +476,13 @@ async def post_einwilligung(
         )
 
         # LAST, so it reaches the pre-image the clearing patch just filed, which still holds the
-        # person who refused to be held (`app/api/kontakte/admin_router.py :: erase_kontaktperson`).
-        await patch_many_in_db(
-            collection=aktionen_collection,
-            db_filter=build_redaction_filter([(Collection.BEWERBUNGEN, [bewerbung_raw["_id"]])]),
-            update=build_redaction_update(at=log_stamp(germany_now)),
+        # person who refused to be held (`app/api/kontakte/crud.py :: erase_kontaktperson_in_session`).
+        await _redact_the_decliner(
+            aktionen_collection=aktionen_collection,
+            collection=Collection.BEWERBUNGEN,
+            row_id=bewerbung_raw["_id"],
+            adressen=seat_adressen(kontakte=kontakte, seats=seats),
+            stamp=log_stamp(germany_now),
             session=session,
         )
 

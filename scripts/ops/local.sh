@@ -86,7 +86,7 @@ take_dump() {
   local base=""
   # The database's name alone out of the backend's file, which is no credential: the file is not
   # handed over whole.
-  base="$(sed -n -E 's/^[[:space:]]*DB_BASE_NAME[[:space:]]*=[[:space:]]*//p' fl_backend/.env | tail -n 1)"
+  base="$(sed -n 's/^DB_BASE_NAME=//p' fl_backend/.env | tail -n 1)"
 
   # The local stack's mongo to the digest (`docker-compose.local.yml`, `docs/ops/spec.md` §1.1), so the
   # copy and the server it restores into are one build.
@@ -96,12 +96,13 @@ take_dump() {
     -v "/${REPO_ROOT}/.local-db/dump:/dump" \
     mongo:8.3.11@sha256:d731d77bfd7afd66bd487bdf627b5bf7ce4c3602ec461d635977021db529ebbc sh -s >"$DUMP_LOG" 2>&1 <<'CONTAINER'
 set -e
-# Neither the file nor the dotenv line has its quotes or a Windows editor's CR stripped on the way
-# in, and mongodump answers a URI holding either with a parse error.
+# The file keeps its quotes and a Windows editor's CR on the way in, and mongodump answers a URI
+# holding either with a parse error. The dotenv line keeps a CR alone, the preflight refusing every
+# other spelling.
 q=$(printf '"\047')
 clean() { printf '%s' "$1" | tr -d '\r\n' | sed -e "s/^[$q]//" -e "s/[$q]\$//"; }
 uri=$(clean "$(cat /run/secrets/dump_mongodb_uri)")
-base=$(clean "$DB_BASE_NAME")
+base=$(printf '%s' "$DB_BASE_NAME" | tr -d '\r')
 # The application database alone: the Flex tier denies `admin`, and this login reads no other
 # database -- least privilege working. One collection at a time stays under the
 # tier's rate cap.
@@ -265,10 +266,8 @@ require_file "fl_frontend/.env" "The frontend container reads it via env_file. W
 docs/frontend/spec.md §1.7 lists; it holds no credential, each being a file under secrets/."
 require_file "fl_backend/.env"  "The backend container reads it via env_file."
 # The only reader of these files here before the containers hold their lines: neither image's name
-# check runs on this stack. Before the spellings, whose remedy would have a credential's line rewritten.
-refuse_credential_lines fl_frontend/.env fl_backend/.env
-check_env_spellings "fl_frontend/.env"
-check_env_spellings "fl_backend/.env"
+# check runs on this stack.
+judge_env_files "fl_frontend/.env" "fl_backend/.env"
 require_file "$SIGNING_KEY_FILE" "The frontend signs every admin and person call with it. Generate this machine's pair: docs/ops/runbooks.md §16."
 for secret_file in $(printf '%s\n' "${LOCAL_FRONTEND_SECRETS[@]}" "${LOCAL_BACKEND_SECRETS[@]}" | sort -u); do
   require_file "secrets/${secret_file}" "The stack mounts it at /run/secrets/${secret_file}. Make this machine's own: docs/ops/runbooks.md §16."

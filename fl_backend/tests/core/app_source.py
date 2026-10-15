@@ -691,6 +691,10 @@ class SessionCarrier:
     called: str
     reads: tuple[tuple[str, bool], ...]
     writes: tuple[tuple[str, bool], ...]
+    #: Each session parameter of an application function the body calls, in source order: what it
+    #: binds, and whether that is the session followed in. One that is not is never followed, so this
+    #: alone answers for it.
+    handoffs: tuple[tuple[str, str, bool], ...]
 
 
 @functools.cache
@@ -733,6 +737,7 @@ def _carriers_from(frontier: list[tuple[Declaration, Path, str]]) -> tuple[Sessi
         seen.add((path, declaration.name, parameter))
         reads: list[tuple[str, bool]] = []
         writes: list[tuple[str, bool]] = []
+        handoffs: list[tuple[str, str, bool]] = []
 
         for chain, call in scoped_calls(declaration, (declaration,)):
             # The parameter this declaration was REACHED through, never its every session parameter:
@@ -750,9 +755,11 @@ def _carriers_from(frontier: list[tuple[Declaration, Path, str]]) -> tuple[Sessi
                 continue
 
             called, called_in = resolved
-            frontier += [
-                (called, called_in, name) for name, position in session_parameters(called) if bound_at(call, name, position).argument in carried
-            ]
+            for name, position in session_parameters(called):
+                bound = bound_at(call, name, position).argument
+                handoffs.append((called.name, bound, bound in carried))
+                if bound in carried:
+                    frontier.append((called, called_in, name))
 
         found.append(
             SessionCarrier(
@@ -760,6 +767,7 @@ def _carriers_from(frontier: list[tuple[Declaration, Path, str]]) -> tuple[Sessi
                 called=declaration.name,
                 reads=tuple(reads),
                 writes=tuple(writes),
+                handoffs=tuple(handoffs),
             )
         )
 

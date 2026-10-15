@@ -712,7 +712,7 @@ const STALE_ADMIN_URL = String.raw`/[a-z]+:\x2F\x2F[^\x2F\s]+\x2Fadmin(?![A-Za-z
 
 /**
  * Where a literal or a template opens, as `UNSEASONED_ADMIN_LINKS` reads one, or any text naming an
- * origin: a backend path ending in `/admin` and a route handler under `/api/admin` open on neither.
+ * origin: a backend path ending in `/admin` and a page under `/bereich/admin` open on neither.
  */
 const STALE_ADMIN_BAN = {
   // Misses a mail's `${LABEL}: ${origin}/admin`: read after a hole, the prefix also ends `/spiele/${id}/admin`.
@@ -900,6 +900,55 @@ const readsOff = (name) =>
     `ObjectPattern > Property > TemplateLiteral.key > TemplateElement[value.cooked=${name}]`,
   ].join(", ");
 
+/**
+ * A search query in a URL, which the access log keeps (`docs/frontend/spec.md :: I680`). By the name
+ * `q` alone: one held under another name passes, so the two bans below give every search box a holder.
+ */
+const SEARCH_IN_URL = {
+  selector: [
+    String.raw`CallExpression[callee.property.name=/^(?:get|getAll|has|set|append|delete)$/] > :matches(Literal[value="q"], TemplateLiteral[expressions.length=0][quasis.0.value.cooked="q"]).arguments:first-child`,
+    inLiteral(String.raw`[?&]q=`),
+    'NewExpression[callee.name="URLSearchParams"] Property:matches([key.name="q"], [key.value="q"])',
+    // A page's parameters, off the prop or what awaiting it gave.
+    'MemberExpression:matches([property.name="q"], [property.value="q"]):matches([object.name=/^(?:searchParams|params)$/], [object.type="AwaitExpression"])',
+    'VariableDeclarator:matches([init.name=/^(?:searchParams|params)$/], [init.type="AwaitExpression"]) > ObjectPattern.id > Property:matches([key.name="q"], [key.value="q"])',
+  ].join(", "),
+  message:
+    "A typed search query never rides a URL, which the access log, the history and every Referer keep: hold it in the page, as AdminCrudShell does (docs/frontend/spec.md :: I680).",
+};
+
+/** The search box, rendered only where a holder keeps what is typed in the page. */
+const SEARCH_BAR_HOME = {
+  selector: [
+    `:matches(ImportDeclaration, ExportNamedDeclaration, ExportAllDeclaration)[source.value=/${moduleNamed("SearchBar")}/]`,
+    loadOf(moduleNamed("SearchBar")),
+  ].join(", "),
+  message:
+    "A list's search field is AdminCrudSearch, whose query the shell holds in the page: a SearchBar rendered anywhere else has no holder keeping its query out of the URL (docs/frontend/spec.md :: I680).",
+  // The match search's bar and list are one component, which holds the query itself.
+  exempt: ["src/shared/components/ui/AdminCrudSearch.tsx", "src/features/spiele/components/views/SpielsucheView.tsx"],
+};
+
+/** Every other way to draw a search box, so a list cannot route around the one above. */
+const SEARCH_FIELD_HOME = {
+  selector: [
+    `:matches(ImportDeclaration, ExportNamedDeclaration, ExportAllDeclaration)[source.value=/${packageUnder("@heroui/react/search-field")}/]`,
+    loadOf(packageUnder("@heroui/react/search-field")),
+    'JSXAttribute[name.name="type"]:matches([value.value="search"], [value.expression.value="search"])',
+    'JSXAttribute[name.name="role"]:matches([value.value="searchbox"], [value.expression.value="searchbox"])',
+  ].join(", "),
+  message:
+    "A search box is SearchBar: HeroUI's search field, an input of type search and a searchbox role belong to it and to the pickers this ban exempts, whose filters never leave their form (docs/frontend/spec.md :: I680).",
+  exempt: [
+    "src/shared/components/ui/SearchBar.tsx",
+    // A facet's own option filter, and three pickers narrowing the options of one field.
+    "src/shared/components/ui/FilterPanel.tsx",
+    "src/features/bewerbungen/components/forms/BewerbungForm/FormSchuleSection.tsx",
+    "src/features/spiele/components/forms/AdminEditSpielDataForm/FormTeamPicker.tsx",
+    "src/features/spiele/components/forms/AdminEditSpielDataForm/PickOrCreateAutocomplete.tsx",
+  ],
+};
+
 const SOURCE_BANS = [
   {
     // A test's router double counts `seen.back` and destructures `back` off itself, which the
@@ -1073,8 +1122,6 @@ const SOURCE_BANS = [
       "src/shared/hooks/useSignOut.ts",
       "src/features/auth/components/forms/SignInForm.tsx",
       "src/features/auth/components/forms/CodeStep.tsx",
-      // An undo of unknown outcome, under the undo's own unclear title: `appToast.failure`'s speaks of a save.
-      "src/shared/utils/undoDispatch.ts",
     ],
   },
   {
@@ -1089,6 +1136,9 @@ const SOURCE_BANS = [
     tests: true,
   },
   STALE_ADMIN_BAN,
+  SEARCH_IN_URL,
+  SEARCH_BAR_HOME,
+  SEARCH_FIELD_HOME,
   {
     // The target itself, or the text its leftmost operand opens on; one ancestor outside a leading slot,
     // a call's argument or a ternary's branch, takes the text out of the lead.
@@ -1168,9 +1218,8 @@ const SOURCE_BANS = [
     // A route handler's half of the same rule: its spine drops the tags it was handed wherever its
     // write may stand, where a drop of its own after the answer misses a lost one.
     selector: `:matches(ImportDeclaration[source.value="next/cache"] > ImportSpecifier[imported.name=/^revalidate(?:Tag|Path)$/], ${readsOff("/^revalidate(?:Tag|Path)$/")})`,
-    message:
-      "Hand a route's cache tags to its spine: `invalidatesOnWrite` under fl_frontend/src/shared/utils/publicRoute.ts, an undo route's `tags` under fl_frontend/src/shared/utils/undoRoute.ts.",
-    exempt: ["src/shared/utils/publicRoute.ts", "src/shared/utils/undoRoute.ts"],
+    message: "Hand a route's cache tags to its spine: `invalidatesOnWrite` under fl_frontend/src/shared/utils/publicRoute.ts.",
+    exempt: ["src/shared/utils/publicRoute.ts"],
   },
   {
     // Per function, so a module caching a public read beside a caller's own is held too, which the
@@ -1212,11 +1261,6 @@ const SCOPED_BANS = [
       // The directive is the module's own prologue alone: one inside a function makes no client module.
       selector: `Program:not(:has(> ExpressionStatement[directive="use client"])) :matches(ImportDeclaration, ExportNamedDeclaration, ExportAllDeclaration)[source.value=/${moduleNamed("facets")}/]`,
       message: "A facet carries a `read` function, which a Server Component cannot hand across to a client.",
-    },
-    {
-      files: ["src/app/**/route.{ts,tsx}"],
-      selector: inLiteral("REQ-EINLADUNG"),
-      message: "No undo route replays an invite endpoint, so its refusals are worded in fl_frontend/src/features/einladungen/actions.ts alone.",
     },
     // The provider's delivery report names the recipient, so a failure reading or filing it carries one.
     { files: ["src/app/api/mail/zustellung/route.ts"], ...LOGGED_ERROR },

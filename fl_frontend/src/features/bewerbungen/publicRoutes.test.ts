@@ -1625,6 +1625,18 @@ describe("the words the two contact pages are handed", () => {
     assert.deepEqual(await bestaetigungStart(), { zustand: "unlesbar" });
   });
 
+  /* The published floor is a positive whole number: the read refuses a view serving 0, which would offer
+     the media switch to every age, so no form opens on it. */
+  it("opens no form on a view serving a media floor of 0", async () => {
+    answerReadsWith((endpoint, schema, params) =>
+      endpoint === "/bewerbungen/einwilligung/ansicht"
+        ? { ...GEOEFFNET, medien_mindestalter: 0 }
+        : (einwilligungAnswer(endpoint) ?? EMPTIEST_ANSWER(endpoint, schema, params)),
+    );
+
+    assert.deepEqual(await bestaetigungStart(), { zustand: "unlesbar" }, "the page took a media floor of 0");
+  });
+
   /* A closed season row's link takes a Widerspruch alone, which shows no stamped words. */
   it("opens a season row's link past its season on the Widerspruch alone, reading no words", async () => {
     backend({ zustand: "saison_vorbei", scheitert: `/einwilligung/fassungen/${KONTAKT_LABEL}` });

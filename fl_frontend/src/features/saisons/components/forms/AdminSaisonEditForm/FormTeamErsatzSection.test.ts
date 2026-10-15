@@ -96,7 +96,7 @@ describe("the replacement panel", () => {
     });
 
     assert.deepEqual(sent("replaceSaisonTeamAction"), [{ team_id: "t1", saison_id: "2026-27", incoming_team_id: "c1" }]);
-    // No undo: the undo route addresses the row by `team_id`, which answers to the arriving club by then.
+    // No undo: the club undo addresses the row by `team_id`, which answers to the arriving club by then.
     await act(answered);
     await waitFor(() =>
       assert.deepEqual(

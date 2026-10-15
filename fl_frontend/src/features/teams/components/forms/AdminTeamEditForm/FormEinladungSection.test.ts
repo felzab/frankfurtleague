@@ -29,7 +29,8 @@ const { raised } = doubleToasts();
 
 const { EinladungLinkHolder } = await import("@/features/einladungen/components/EinladungLinkHolder.tsx");
 const { FormEinladungSection } = await import("./FormEinladungSection.tsx");
-const { GESPERRTE_ADRESSE } = await import("@/features/berechtigungen/constants.ts");
+const { GELOESCHTE_PERSON, GESPERRTE_ADRESSE } = await import("@/features/berechtigungen/constants.ts");
+const { ERASED_ACTOR_MARKER } = await import("@/core/erasedActor.ts");
 /** The ruling's words for a mint of unknown outcome, whose token nothing can show again. */
 const MINT_UNKLAR = "Lade die Seite neu. Steht dort ein Link, ziehe ihn zurück und erstelle einen neuen.";
 
@@ -219,6 +220,16 @@ describe("the team's invite panel", () => {
     assert.ok(isInTheFlow(GESPERRTE_ADRESSE), "the barred minter is not named by state");
     assertLeer(screen.getByText(GESPERRTE_ADRESSE), GESPERRTE_ADRESSE);
     assert.equal(document.body.textContent.includes("@"), false, "the row names an address the backend withheld");
+  });
+
+  /* An erasure leaves a marker naming nobody in the minter's place, which printed as served reads as an address. */
+  it("names a minter erased since by that state, and never as barred", () => {
+    render(panel({ einladung: { ...LIVE, erstellt_von: ERASED_ACTOR_MARKER, erstellt_von_gesperrt: false } }));
+
+    assert.ok(isInTheFlow(GELOESCHTE_PERSON), "the erased minter is not named by state");
+    assertLeer(screen.getByText(GELOESCHTE_PERSON), GELOESCHTE_PERSON);
+    assert.equal(document.body.textContent.includes(ERASED_ACTOR_MARKER), false, "the marker reached the page");
+    assert.equal(document.body.textContent.includes(GESPERRTE_ADRESSE), false, "an erased minter reads as barred");
   });
 
   /* Both writes end the standing link, so a preselection would arm the one nobody read: the pick is

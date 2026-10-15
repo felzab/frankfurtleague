@@ -1,4 +1,5 @@
 from collections.abc import Mapping, Sequence
+from datetime import datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends
@@ -7,6 +8,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.results import InsertOneResult
 
+from app.api.aktionen.crud import redact_images_in_session
 from app.api.bewerbungen.services import mint_token, seat_adressen, seat_named
 from app.api.einladungen.schemas import FLEinladung, FLEinladungMintResponse, FLEinladungResponse, FLEinladungWriteResponse, FLEinladungZeile
 from app.api.einladungen.services import (
@@ -18,6 +20,7 @@ from app.api.einladungen.services import (
     find_team_in_saison_refusal,
 )
 from app.api.einwilligung.services import find_fassung_refusal
+from app.api.kontakte.services import contact_block_image_edits
 from app.api.registrierungen.services import saison_nimmt_registrierungen_an
 from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.saisons.crud import pull_saison_id_and_rules
@@ -79,6 +82,7 @@ from app.api.teams.services import (
     seats_one_link_answers,
     voids_a_live_link,
 )
+from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import (
     GERMAN_COLLATION,
@@ -93,6 +97,7 @@ from app.core.crud import (
     set_inactive_since,
 )
 from app.core.dependencies import (
+    AktionenCollection,
     DBClient,
     EinladungenCollection,
     SaisonsCollection,
@@ -101,9 +106,11 @@ from app.core.dependencies import (
     SpieleCollection,
     TeamsCollection,
     get_german_date_str,
+    get_germany_now,
 )
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
+from app.core.recording import build_redaction_filter, log_stamp
 from app.core.routing import by_id
 from app.core.security import (
     StepUpCheck,
@@ -736,8 +743,10 @@ async def replace_saison_team(
     saisons_collection: SaisonsCollection,
     spiele_collection: SpieleCollection,
     saison_spieler_collection: SaisonSpielerCollection,
+    aktionen_collection: AktionenCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
+    germany_now: datetime = Depends(get_germany_now),
 ) -> FLReplaceSaisonTeamResponse:
     """
     Hand this season's junction row, and every fixture on it, to another club.
@@ -825,6 +834,16 @@ async def replace_saison_team(
             update={"$set": {**incoming_side, "austritt": None, "trikot_farbe": None, "kontakte": None, "bestaetigungen": None}},
             session=session,
             return_document=ReturnDocument.AFTER,
+        )
+
+        # Owed at once by the row's page (`app/shared/einwilligung.py :: _BESTAETIGUNGSSEITE_SAISON`). The
+        # contacts and their links alone leave the images: the exit record and every earlier state stay.
+        await redact_images_in_session(
+            aktionen_collection=aktionen_collection,
+            db_filter=build_redaction_filter([(Collection.SAISON_TEAMS, [updated_raw["_id"]])]),
+            judge=contact_block_image_edits,
+            stamp=log_stamp(germany_now),
+            session=session,
         )
 
         # Ausgetragen, not moved: the players did not transfer, and a row left standing would name a

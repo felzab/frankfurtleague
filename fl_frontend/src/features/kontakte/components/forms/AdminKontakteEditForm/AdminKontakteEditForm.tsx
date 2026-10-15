@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import { patchSaisonTeamKontakteAction } from "@/features/kontakte/actions";
+import { patchSaisonTeamKontakteAction, undoAdminKontakteEditAction } from "@/features/kontakte/actions";
 import { deriveKontakteDraftStatus } from "@/features/kontakte/kontakteDraftStatus";
 import { kontakteMayMoveLinks } from "@/features/kontakte/linkMint";
 import { FLPatchSaisonTeamKontaktePayloadSchema } from "@/features/kontakte/schemas";
@@ -192,16 +192,15 @@ export function AdminKontakteEditForm({
           // page read, so the replay carrying that token would be refused (`REQ-KONTAKT-001`).
           const nachStand = res.saison_team?.kontakte_stand;
           // The same value seen as the endpoint's own payload, so what the toast replays is held to the
-          // shape the undo route parses.
+          // shape the undo action parses.
           const undoPayload: FLPatchSaisonTeamKontaktePayload = { ...wiederherstellbar, kontakte_stand: nachStand ?? "" };
-          // Judged here and not left to the undo route: backend I36 (`docs/backend/spec.md`) admits a
+          // Judged here and not left to the undo action: backend I36 (`docs/backend/spec.md`) admits a
           // malformed address on read, that row is no legal write, and the shared spine can only
           // answer such a body with a reload nothing would change.
           const unrestorable = nachStand === undefined ? OHNE_NACHSTAND : describeUnrestorableKontakte(undoPayload);
 
           offerUndo({
-            endpoint: "/api/admin/kontakte/undo",
-            body: undoPayload,
+            undo: () => undoAdminKontakteEditAction(undoPayload),
             // The link's own sentence in place of the save's: where the save mailed somebody, dropping
             // it leaves an administrator with no record that a message was sent at all.
             message: res.versandSatz ?? res.message,
@@ -211,7 +210,7 @@ export function AdminKontakteEditForm({
             fallback: "Die Kontakte wurden aktualisiert.",
             unrestorable,
             // Clearing the block, or putting back a person this save replaced or removed, is a step-up write the undo
-            // route refuses a session past the window, so the press asks first.
+            // action refuses a session past the window, so the press asks first.
             stepUp:
               undoPayload.kontakte === null || kontakteMayMoveLinks(res.saison_team?.kontakte ?? null, undoPayload.kontakte)
                 ? stepUp.page

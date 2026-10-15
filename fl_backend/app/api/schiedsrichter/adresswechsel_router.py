@@ -5,6 +5,7 @@ from fastapi import APIRouter, Body, Depends
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
+from app.api.aktionen.crud import redact_images_in_session
 from app.api.bewerbungen.services import hash_token
 from app.api.schiedsrichter.schemas import (
     FLSchiedsrichterAdresswechselAnsichtPayload,
@@ -16,6 +17,7 @@ from app.api.schiedsrichter.services import (
     ADRESSWECHSEL_ANSICHT_FIELDS,
     ADRESSWECHSEL_FELD,
     adresswechsel_adressen,
+    adresswechsel_image_edits,
     adresswechsel_zustand_of,
     build_adresswechsel_filter,
     compose_adresswechsel_antwort,
@@ -29,12 +31,13 @@ from app.api.schiedsrichter.services import (
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.crud import patch_many_in_db, patch_one_in_db, refuse
+from app.core.crud import patch_one_in_db, refuse
 from app.core.dependencies import AktionenCollection, DBClient, SchiedsrichterCollection, get_german_date_str, get_germany_now
 from app.core.exception_handlers import stores_nothing
-from app.core.recording import build_redaction_filter, build_redaction_update, log_stamp
+from app.core.recording import build_redaction_filter, log_stamp
 from app.core.security import bind_public_actor, verify_access_base
 from app.core.transactions import transaction_session
+from app.shared.folding import sign_in_identifier
 
 # A router of its own beside the consent link's, for that one's reason: the token is the whole
 # credential, so these two endpoints are base-tier and bind the public actor.
@@ -116,8 +119,9 @@ async def post_adresswechsel(
     (`REQ-SCHIEDSRICHTER-003`), one mailed to an address the ban list holds now (`REQ-SCHIEDSRICHTER-009`), and one whose change
     would replace an address the ban list holds now (`REQ-SCHIEDSRICHTER-010`), so a barred person cannot move their record off
     the address the ban keys on. **A decline is refused
-    neither**: it removes an address nobody proved, which a lapsed or barred link has no reason to keep, and it empties every image
-    the action log holds of this referee, those of every write while the change stood, a re-send included, carrying that address.
+    neither**: it removes an address nobody proved, which a lapsed or barred link has no reason to keep, and it takes that address out
+    of every image the action log holds of this referee, those of every write while the change stood, a re-send included. The rest of
+    each image stays, the referee's own earlier states among it.
     """
 
     token_hash = hash_token(antwort_data.token)
@@ -153,10 +157,12 @@ async def post_adresswechsel(
         if antwort_data.antwort == "abgelehnt":
             # LAST, for the contact's Widerspruch's reason: it reaches the pre-image the patch above
             # just filed, which still holds the address its holder disowned.
-            await patch_many_in_db(
-                collection=aktionen_collection,
+            disowned = sign_in_identifier(str(wechsel.get("email") or ""))
+            await redact_images_in_session(
+                aktionen_collection=aktionen_collection,
                 db_filter=build_redaction_filter([(Collection.SCHIEDSRICHTER, [raw["_id"]])]),
-                update=build_redaction_update(at=log_stamp(germany_now)),
+                judge=lambda image: adresswechsel_image_edits(image, disowned),
+                stamp=log_stamp(germany_now),
                 session=session,
             )
 

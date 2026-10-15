@@ -4,7 +4,9 @@ from typing import Any
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
+from app.api.aktionen.crud import redact_images_in_session
 from app.api.schiedsrichter.services import (
+    booked_image_edits,
     build_assignment_filter,
     build_booked_image_filter,
     build_ghost_repoint,
@@ -75,12 +77,13 @@ async def erase_referee_in_session(
     )
 
     # The `spiele` rows, which the pass above cannot reach: every fixture stores a COPY of the
-    # name, so each edit to one filed an image carrying it, under that fixture's id rather than
-    # the referee's.
-    await patch_many_in_db(
-        collection=aktionen_collection,
+    # name, so each edit filed an image carrying it under the fixture's id. The booking alone goes;
+    # each image keeps its result.
+    await redact_images_in_session(
+        aktionen_collection=aktionen_collection,
         db_filter=build_booked_image_filter(schiedsrichter_id),
-        update=build_redaction_update(at=stamp),
+        judge=lambda image: booked_image_edits(image, schiedsrichter_id),
+        stamp=stamp,
         session=session,
     )
 

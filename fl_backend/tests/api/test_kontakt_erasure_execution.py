@@ -559,7 +559,7 @@ def test_the_echo_reports_counts_and_names_nobody(mongo_replica_set_url: str):
 
 
 @pytest.mark.db
-def test_every_log_row_naming_a_reached_document_is_emptied_and_stamped(mongo_replica_set_url: str):
+def test_every_image_of_a_reached_document_loses_their_seat_and_is_stamped(mongo_replica_set_url: str):
     """Kills dropping the redaction, one that stamps without clearing, and one that clears without stamping."""
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -571,14 +571,37 @@ def test_every_log_row_naming_a_reached_document_is_emptied_and_stamped(mongo_re
     seeded, rows = on_a_league(mongo_replica_set_url, body)
 
     # The pre-state, without which a filter matching nothing would pass.
-    assert [row for row in seeded if row["before"] is not None], "the seeded log held no image to redact"
+    assert [row for row in seeded if row["before"]["kontakte"]["trainer"] is not None], "the seeded log held no image to redact"
     assert len(rows) > len(seeded), "the erasure's own patch recorded no row"
-    assert all(row["before"] is None for row in rows)
+    assert [row["before"]["kontakte"]["trainer"] for row in rows] == [None] * len(rows)
     assert {row["redacted_at"] for row in rows} == {REDACTED_AT}
 
 
 @pytest.mark.db
-def test_the_row_the_erasures_own_patch_wrote_is_redacted_too(mongo_replica_set_url: str):
+def test_a_bystanders_earlier_state_survives_with_only_the_erased_seat_null(mongo_replica_set_url: str):
+    """Restore the whole-image redaction and this fails: the people beside them lose their consent trail.
+
+    The image the seeding's first write filed holds a block that exists in the log alone.
+    """
+
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+        await call_erasure(database, client)
+
+        return await log_rows_naming(database, Collection.SAISON_TEAMS, ROW_A_EARLIER_OID)
+
+    former = FORMER_BLOCKS[ROW_A_EARLIER_OID]
+    images = [row["before"] for row in on_a_league(mongo_replica_set_url, body)]
+    earlier = [image for image in images if image["kontakte"]["ansprechperson"]["telefon"] == BYSTANDER_FORMER_TELEFON]
+
+    assert len(earlier) == 1, "the seeded history filed no image of the former block"
+    earliest = earlier[0]
+    assert earliest["kontakte"] == {**former, "trainer": None}
+    # The rest of the row's state stands as recorded, the row's own values with it.
+    assert (earliest["trikot_farbe"], earliest["saison_id"]) == ("blau", EARLIER_SAISON)
+
+
+@pytest.mark.db
+def test_the_row_the_erasures_own_patch_wrote_loses_both_seats_and_keeps_the_third(mongo_replica_set_url: str):
     """Kills redacting BEFORE the clearing: each clearing patch files a pre-image of the block still holding this person.
 
     Kills `patch_many_in_db` for the clearing too: that helper records no `document_id`, so its row
@@ -596,8 +619,26 @@ def test_the_row_the_erasures_own_patch_wrote_is_redacted_too(mongo_replica_set_
 
     assert seeded, "the seeded history left no row to tell the new one from"
     assert len(added) == 1, "the clearing wrote no addressable log row of its own"
-    assert added[0]["before"] is None
+    assert added[0]["before"]["kontakte"] == {**LIVE_BLOCKS[ROW_A_LATER_OID], "trainer": None, "ansprechperson": None}
     assert added[0]["redacted_at"] == REDACTED_AT
+
+
+@pytest.mark.db
+def test_an_applications_image_loses_the_seats_link_and_the_submission_digest_with_it(mongo_replica_set_url: str):
+    """The seat's link and a digest over its details are this person's too; the two links beside it are not."""
+
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+        await database[Collection.BEWERBUNGEN].update_one({"_id": BEWERBUNG_OID}, {"$set": {"idempotenz_fingerabdruck": "digest"}})
+        await call_erasure(database, client)
+
+        return await log_rows_naming(database, Collection.BEWERBUNGEN, BEWERBUNG_OID)
+
+    # The clearing's own image, the one filed after the digest was written.
+    clearing = [row["before"] for row in on_a_league(mongo_replica_set_url, body) if "idempotenz_fingerabdruck" in row["before"]]
+
+    assert len(clearing) == 1, "no image holding the digest was filed"
+    assert clearing[0]["bestaetigungen"] == {**BESTAETIGUNGEN, "ansprechperson": None}
+    assert clearing[0]["idempotenz_fingerabdruck"] is None
 
 
 @pytest.mark.db
@@ -659,7 +700,7 @@ def test_the_redaction_writes_no_row_of_its_own(mongo_replica_set_url: str):
 
 @pytest.mark.db
 def test_an_address_naming_nobody_is_a_clean_no_op(mongo_replica_set_url: str):
-    """Kills an `$in` of no ids reading as "every row": `build_redaction_filter` matches nothing, never everything."""
+    """Kills a redaction overwriting what the fold never judged: an address naming nobody stamps no row."""
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         before_count = await database[Collection.AKTIONEN].count_documents({})
@@ -957,7 +998,7 @@ def test_a_pre_image_the_row_no_longer_names_is_redacted(mongo_replica_set_url: 
     orphaned = [row for row in log if row["document_id"] == SWAPPED_ROW_OID]
 
     assert len(orphaned) == 1, "the swap filed no pre-image for the erasure to miss"
-    assert orphaned[0]["before"] is None
+    assert orphaned[0]["before"]["kontakte"]["trainer"] is None
     assert orphaned[0]["redacted_at"] == REDACTED_AT
     # No live row and one log row: the echo says the log was reached, never that there was nothing.
     assert (response.cleared_saison_teams, response.cleared_bewerbungen, response.cleared_kontakt_slots) == (0, 0, 0)
@@ -979,7 +1020,7 @@ def test_no_value_of_a_swapped_out_person_survives_anywhere(mongo_replica_set_ur
 
 @pytest.mark.db
 def test_erasing_the_same_person_a_second_time_is_a_clean_no_op(mongo_replica_set_url: str):
-    """`build_redaction_update` nulls `before`, so the second pass's own filter can no longer see the row it emptied."""
+    """The first run empties their seat inside each image, so the second finds nothing of theirs to stamp."""
 
     response, _, log = after_erasing_a_swapped_out_person(mongo_replica_set_url, runs=2)
 
@@ -995,12 +1036,8 @@ LATECOMER_BEWERBUNG_OID = ObjectId("6890a1b2c3d4e5f607810023")
 
 
 @pytest.mark.db
-def test_a_log_row_of_an_application_holding_no_image_of_them_is_stamped_anyway(mongo_replica_set_url: str):
-    """Drop the `bewerbungen` target from `build_redaction_filter` and this fails.
-
-    The orphaned pass nets only images HOLDING this person, and the write that put them into an
-    application filed one naming somebody else.
-    """
+def test_an_image_of_their_application_naming_only_other_people_stays_as_recorded(mongo_replica_set_url: str):
+    """Restore the redaction by document and this fails: the write that put them into the application filed an image of somebody else."""
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         application = database[Collection.BEWERBUNGEN]
@@ -1022,15 +1059,16 @@ def test_a_log_row_of_an_application_holding_no_image_of_them_is_stamped_anyway(
     introducing, response, rows = on_a_league(mongo_replica_set_url, body)
 
     # The floor: the pre-image this case rests on must name somebody else and not this person, or
-    # the orphaned pass would reach the row and the target below would prove nothing.
+    # it would be theirs to lose.
     assert len(introducing) == 1
-    assert ERASED_EMAIL not in str(introducing[0]["before"]), "the seeded image already names them, so no id is needed to reach it"
+    assert ERASED_EMAIL not in str(introducing[0]["before"]), "the seeded image already names them"
 
     assert response.cleared_bewerbungen == 2, "the application this case adds was not reached at all"
-    # Both: the write that introduced them, and the clearing patch the erasure itself filed.
-    assert len(rows) == 2
-    assert [row["redacted_at"] for row in rows] == [REDACTED_AT, REDACTED_AT]
-    assert [row["before"] for row in rows] == [None, None]
+    kept = next(row for row in rows if row["_id"] == introducing[0]["_id"])
+    assert (kept["before"], kept["redacted_at"]) == (introducing[0]["before"], None)
+    # The clearing patch the erasure itself filed holds them, and loses their seat alone.
+    (clearing,) = [row for row in rows if row["_id"] != introducing[0]["_id"]]
+    assert (clearing["before"]["kontakte"]["ansprechperson"], clearing["redacted_at"]) == (None, REDACTED_AT)
 
 
 # Two colleagues on ONE school mailbox, a season apart -- the case the confirmation exists for. The

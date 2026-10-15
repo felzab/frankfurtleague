@@ -20,6 +20,9 @@ dependencies = [
     # The driver, through `AsyncMongoClient`. Also the home of `bson`, which app/ imports under
     # that name.
     "pymongo>=4.17.0",
+    # Imported as `dotenv`, for the parser pydantic-settings reads `.env` with: a refusal numbers an
+    # undeclared name's line by it rather than printing the name the file spells.
+    "python-dotenv>=1.2.4",
     "starlette>=1.3.1",
     # `ZoneInfo("Europe/Berlin")` in app/core/dependencies.py reads the operating system's time-zone
     # database. Windows has none at all and a slim image promises none, so this package is where the
@@ -82,7 +85,7 @@ DEP002 = ["tzdata", "uvicorn"]
 [tool.uv]
 # The floor stays at or below the uv Dependabot relocks with (0.12.18, read 2026-10-15), which fails
 # outside this range; the ceiling stops before the next minor release, the only kind that may change
-# the lockfile's schema (`docs/ops/spec.md :: I_NEW_OPS-FOLD_1`).
+# the lockfile's schema (`docs/ops/spec.md :: I657`).
 required-version = ">=0.12.18,<0.14"
 # A release younger than a day is left out of every resolution, the day `.github/dependabot.yml`'s
 # cooldown waits. Relative, so it moves with the clock rather than freezing the graph at a date.

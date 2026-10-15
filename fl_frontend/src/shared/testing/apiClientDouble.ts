@@ -7,6 +7,8 @@ import { replacingModule } from "@/core/exportingModule.ts";
 import { judging } from "@/core/verdicts.ts";
 import { answersInFlight } from "@/shared/testing/answersInFlight.ts";
 
+import type { FetchOptions } from "@/core/api.ts";
+
 /** One request a module handed the backend client: the path, and what it went with. */
 export type ApiCall = {
   endpoint: string;
@@ -15,13 +17,22 @@ export type ApiCall = {
   params: unknown;
   headers: Headers;
   readOnly: boolean | undefined;
+  /** As the caller named it, `undefined` being the client's own default, a base-tier call. */
+  authType: FetchOptions["authType"];
 };
 
 /** The response schema the caller handed the client, which an answer is parsed through where the case wants its shape held. */
 export type ApiSchema = { parse: (value: unknown) => unknown };
 
 /** What a caller hands the client beside the endpoint and the schema. */
-type ApiOptions = { method?: string; body?: string; params?: unknown; headers?: HeadersInit; readOnly?: boolean };
+type ApiOptions = {
+  method?: string;
+  body?: string;
+  params?: unknown;
+  headers?: HeadersInit;
+  readOnly?: boolean;
+  authType?: FetchOptions["authType"];
+};
 
 /**
  * Replaces `fl_frontend/src/core/api.ts` at the module boundary, recording every call and answering
@@ -41,6 +52,7 @@ export function doubleApiClient(answer: (call: ApiCall, schema: ApiSchema) => un
       params: options.params,
       headers: new Headers(options.headers),
       readOnly: options.readOnly,
+      authType: options.authType,
     };
     return dispatchRequest(sentRequestOf(options.method, options.readOnly), async () => {
       calls.push(call);

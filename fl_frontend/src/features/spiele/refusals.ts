@@ -64,7 +64,7 @@ export function mapSpielRefusal(error: unknown): { error?: string; fieldErrors?:
 
 // One replay carries every fixture, so no row below names a single one.
 /**
- * What the undo route's replay of `PATCH /spiele/paarungen` meets, in German written for the undo: the
+ * What the undo's replay of `PATCH /spiele/paarungen` meets, in German written for the undo: the
  * save's own words name a field this toast has not got, and a repair that would undo the undo.
  */
 export const PAARUNGEN_REPLAY_REFUSALS: Readonly<Record<string, string>> = {

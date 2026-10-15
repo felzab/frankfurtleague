@@ -1,6 +1,6 @@
 """API · what an erasure of one contact person has to reach, spelled apart from the request."""
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence, Set
 from typing import Any
 
 from app.api.teams.schemas import KONTAKT_ROLLEN
@@ -66,25 +66,19 @@ def build_matching_seats_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     ]
 
 
-def build_orphaned_images_pipeline(identifier: str) -> list[Mapping[str, Any]]:
-    """The log rows that may still HOLD this person; `images_holding` decides.
+def build_seat_images_filter(identifier: str) -> Mapping[str, Any]:
+    """Log rows whose images may seat this person; `seat_image_edits` decides.
 
-    A swap orphans the pre-image carrying the address out, past `build_redaction_filter`'s ids; the
-    log's retention (`app/core/constraints.py :: TTL_INDEXES`) expires a row long after the erasure
-    is owed.
+    By what an image holds, never by row id: a swap orphans an image carrying the address out, and
+    the log keeps it its whole retention (`app/core/constraints.py :: TTL_INDEXES`).
     """
 
-    return [
-        {
-            "$match": {
-                # `collection` first, the one half of this an index serves: `aktionen_target` is a
-                # prefix match here, and nothing indexes inside `before`.
-                "collection": {"$in": [str(Collection.SAISON_TEAMS), str(Collection.BEWERBUNGEN)]},
-                "$or": [{f"before.kontakte.{slot}.email": same_address(identifier)} for slot in KONTAKT_ROLLEN],
-            }
-        },
-        {"$project": {f"before.kontakte.{slot}.email": 1 for slot in KONTAKT_ROLLEN}},
-    ]
+    return {
+        # `collection` first, the one half of this an index serves: `aktionen_target` is a prefix
+        # match here, and nothing indexes inside `before`.
+        "collection": {"$in": [str(Collection.SAISON_TEAMS), str(Collection.BEWERBUNGEN)]},
+        "$or": [{f"before.kontakte.{slot}.email": same_address(identifier)} for slot in KONTAKT_ROLLEN],
+    }
 
 
 def find_matching_slots(row: Mapping[str, Any], identifier: str) -> tuple[str, ...]:
@@ -110,14 +104,44 @@ def rows_naming(rows: Sequence[Mapping[str, Any]], identifier: str) -> list[Mapp
     return [row for row in rows if find_matching_slots(row, identifier)]
 
 
-def images_holding(rows: Sequence[Mapping[str, Any]], identifier: str) -> list[Any]:
-    """The ids of the log rows whose pre-image names this person; a `delete_many` row's `before` is a list of images."""
+def _emptied_seats(image: Mapping[str, Any], slots: Set[str], *, links: bool) -> dict[str, None]:
+    if not slots:
+        return {}
 
-    def images_of(row: Mapping[str, Any]) -> list[Any]:
-        before = row.get("before")
-        return before if isinstance(before, list) else [before]
+    edits: dict[str, None] = {f"kontakte.{slot}": None for slot in slots}
+    # Where the live write takes the link with the seat, and only where the image holds the block: a
+    # Widerspruch keeps it, its day recorded on it.
+    if links and isinstance(image.get("bestaetigungen"), Mapping):
+        edits.update({f"bestaetigungen.{slot}": None for slot in slots})
 
-    return [row["_id"] for row in rows if any(find_matching_slots(image, identifier) for image in images_of(row) if isinstance(image, Mapping))]
+    # The submission digest was taken over every seat's details, theirs among them.
+    if "idempotenz_fingerabdruck" in image:
+        edits["idempotenz_fingerabdruck"] = None
+
+    return edits
+
+
+def seat_image_edits(image: Mapping[str, Any], identifiers: Iterable[str], *, links: bool) -> dict[str, None]:
+    """The seats these people hold in one log image, emptied as the live write empties them.
+
+    On the fold, image by image: a slot somebody else held keeps them, their earlier states being
+    their consent trail.
+    """
+
+    return _emptied_seats(image, {slot for identifier in identifiers for slot in find_matching_slots(image, identifier)}, links=links)
+
+
+def contact_block_image_edits(image: Mapping[str, Any]) -> dict[str, None]:
+    """One season row image's contacts and links, emptied as the write clearing them empties them.
+
+    Every person the row ever seated goes, earlier holders included, and a declined seat's link with
+    them; nothing else does.
+    """
+
+    blocks = [image.get("kontakte"), image.get("bestaetigungen")]
+    held = any(isinstance(block, Mapping) and any(isinstance(block.get(slot), Mapping) for slot in KONTAKT_ROLLEN) for block in blocks)
+
+    return {"kontakte": None, "bestaetigungen": None} if held else {}
 
 
 def build_clearing_update(slots: Sequence[str], *, bestaetigungen: bool = False) -> Mapping[str, Any]:
