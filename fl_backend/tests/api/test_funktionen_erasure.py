@@ -1117,9 +1117,9 @@ class TestAPersonHoldingNoFunktion:
 
 
 class TestThePreview:
-    """What the page shows before the press: every kind the erasure reaches, by name, and no address or birthdate."""
+    """What the page shows before the press: every record of the person's own the erasure takes, by name, and no address or birthdate."""
 
-    def test_it_names_every_record_the_erasure_reaches(self, mongo_replica_set_url: str):
+    def test_it_names_every_record_of_their_own_the_erasure_takes(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
             async with app_client(mongo_replica_set_url, app=_app(), now=NOW) as http:
@@ -1136,5 +1136,48 @@ class TestThePreview:
         ]
         assert answer["bewerbungen"] == [{"saison_id": SAISON_ID, "rolle": "trainer", "vorname": VORNAME, "nachname": NACHNAME}]
         assert answer["registrierungen"] == [{"saison_id": SAISON_ID, "team_name": "Heim-Schule", "vorname": VORNAME, "nachname": NACHNAME}] * 2
-        assert (answer["adresswechsel"], answer["verwaltung"]) == (2, "administration")
+        assert (answer["adresswechsel"], answer["verwaltung"], answer["letzter_inhaber"]) == (2, "administration", False)
         assert "@" not in response.text and GEBURTSDATUM not in response.text
+
+    def test_a_dead_spelling_of_the_address_goes_unnamed_and_goes(self, mongo_replica_set_url: str):
+        """A grant typed in capitals admits nobody, so the preview names no tier for it; the press removes it all the same."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await a_grant(database, THEIR_GRANT_OID, TYPED, "administration")
+            async with app_client(mongo_replica_set_url, app=_app(), now=NOW) as http:
+                verwaltung = (await http.get(f"{PATH}/ansicht", headers=as_person(TYPED))).json()["verwaltung"]
+
+            return verwaltung, (await erased_by_the_handler(database, client)).berechtigungen
+
+        assert on_a_league(mongo_replica_set_url, body) == (None, 1)
+
+    @pytest.mark.parametrize(
+        ("second_owner", "barred", "letzter_inhaber"),
+        [(False, False, True), (True, False, False), (True, True, True)],
+        ids=["the only owner", "beside a second owner", "beside a barred second owner"],
+    )
+    def test_it_foretells_the_last_owners_refusal_as_the_press_judges_it(
+        self, mongo_replica_set_url: str, second_owner: bool, barred: bool, letzter_inhaber: bool
+    ):
+        """A barred owner admits nobody, so beside one the address is still the last: `letzter_inhaber` reads true.
+
+        The press runs on the same seed, so a preview judging apart from it fails here.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "owner")
+            if second_owner:
+                await a_grant(database, OTHER_OWNER_OID, OTHER_OWNER, "owner")
+            if barred:
+                await database[Collection.SPERRLISTE].insert_one(
+                    ban_document(OTHER_OWNER, bis=compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID))
+                )
+            async with app_client(mongo_replica_set_url, app=_app(), now=NOW) as http:
+                preview = await http.get(f"{PATH}/ansicht", headers=as_person(TYPED))
+
+            return preview.status_code, preview.json()["letzter_inhaber"], await outcome_of(erased_by_the_handler(database, client))
+
+        status, foretold, pressed = on_a_league(mongo_replica_set_url, body)
+
+        assert (status, foretold) == (200, letzter_inhaber)
+        assert pressed == (LETZTER_INHABER_ERASURE if letzter_inhaber else COMMITTED)

@@ -210,5 +210,7 @@ class FLSelbstErasureAnsicht(BaseModel):
 
 
 class FLSelbstErasureAnsichtResponse(FLSelbstErasureAnsicht, BaseAPIResponse):
-    # The grant the address holds, which the erasure removes with the rest.
+    # The tier of the live grant the address holds, read in the preview's snapshot as the press reads it.
     verwaltung: FLVerwaltung | None
+    # Advisory: read apart from the erasure's transaction, whose own `REQ-PURGE-004` alone decides.
+    letzter_inhaber: bool

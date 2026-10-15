@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.berechtigungen.crud import pull_the_list_to_judge, read_berechtigungen, verwaltung_of
+from app.api.berechtigungen.crud import pull_the_list_to_judge, read_berechtigungen
 from app.api.berechtigungen.services import lebendige
 from app.api.identitaet.crud import JEDE_PERSONENGRUPPE, after_the_erasure_commits, erase_everything, resolve_subject
 from app.api.identitaet.schemas import FLErasureResponse, FLSelbstErasureAnsichtResponse
@@ -159,16 +159,23 @@ async def get_erasure_ansicht(
     spieler_collection: SpielerCollection,
     registrierungen_collection: RegistrierungenCollection,
     berechtigungen_collection: BerechtigungenCollection,
+    sperrliste: SperrlisteLookup,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
 ) -> FLSelbstErasureAnsichtResponse:
     """
     Answer what `POST /identitaet/selbst/erasure` would remove for the signed-in address, by kind and by name.
 
-    Read through that erasure's own selections, so it names every record the erasure reaches, an unconfirmed seat, a retired
-    row and a declined registration among them, and no other. No address and no birthdate is answered. A pending address
-    change on another address's referee or pupil row is counted and not named, that row not being this address's until the
-    change is confirmed. `verwaltung` is the grant the address holds, or null.
+    Read through that erasure's own selections in one snapshot, so it names every record of the person's own the erasure
+    removes or empties, an unconfirmed seat, a retired row and a declined registration among them, and no other. No address
+    and no birthdate is answered. A pending address change on another address's referee or pupil row is counted and not
+    named, that row not being this address's until the change is confirmed. Reached and not named: what the person made or
+    decided for others, their day counts and their log rows. `verwaltung` is the tier of the live grant the address holds,
+    or null; a dead spelling of the address, which admits nobody, goes with the erasure unnamed.
+
+    `letzter_inhaber` says whether the press would be refused `REQ-PURGE-004` as the grants stand at this read: the address
+    holds the last live `owner` grant, a barred owner counting as none. Read outside the press's transaction, it is advisory;
+    the press judges again, and its answer alone decides.
     """
 
     # A snapshot, so the preview names the records of one moment; never a transaction, a read
@@ -192,8 +199,18 @@ async def get_erasure_ansicht(
             if subject.registrierungen
             else []
         )
-
-    grant = await verwaltung_of(berechtigungen_collection=berechtigungen_collection, adresse=identifier)
+        # The press's own judgement, on this snapshot rather than the press's: two owners can still leave between them.
+        grants = lebendige(await read_berechtigungen(berechtigungen_collection=berechtigungen_collection, session=session))
+        # A live row is its own fold, so equality is the fold's judgement (`docs/backend/spec.md :: I453`).
+        own = next((grant for grant in grants if grant["adresse"] == identifier), None)
+        letzter_inhaber = holds_an_owner_grant(identifier, grants) and (
+            find_letzter_inhaber_erasure_refusal(
+                identifier=identifier,
+                grants=grants,
+                barred=await adressen_gesperrt(sperrliste, [str(grant["adresse"]) for grant in grants], session=session),
+            )
+            is not None
+        )
 
     ansicht = compose_erasure_ansicht(
         identifier,
@@ -206,4 +223,6 @@ async def get_erasure_ansicht(
         team_rows=team_rows,
     )
 
-    return FLSelbstErasureAnsichtResponse(**ansicht.model_dump(), verwaltung=None if grant is None else grant[0])
+    return FLSelbstErasureAnsichtResponse(
+        **ansicht.model_dump(), verwaltung=None if own is None else own["verwaltung"], letzter_inhaber=letzter_inhaber
+    )

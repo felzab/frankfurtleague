@@ -9384,7 +9384,7 @@
     "/api/v0/identitaet/selbst/erasure/ansicht": {
       "get": {
         "summary": "Show what an erasure of the signed-in address would remove",
-        "description": "Answer what `POST /identitaet/selbst/erasure` would remove for the signed-in address, by kind and by name.\n\nRead through that erasure's own selections, so it names every record the erasure reaches, an unconfirmed seat, a retired\nrow and a declined registration among them, and no other. No address and no birthdate is answered. A pending address\nchange on another address's referee or pupil row is counted and not named, that row not being this address's until the\nchange is confirmed. `verwaltung` is the grant the address holds, or null.",
+        "description": "Answer what `POST /identitaet/selbst/erasure` would remove for the signed-in address, by kind and by name.\n\nRead through that erasure's own selections in one snapshot, so it names every record of the person's own the erasure\nremoves or empties, an unconfirmed seat, a retired row and a declined registration among them, and no other. No address\nand no birthdate is answered. A pending address change on another address's referee or pupil row is counted and not\nnamed, that row not being this address's until the change is confirmed. Reached and not named: what the person made or\ndecided for others, their day counts and their log rows. `verwaltung` is the tier of the live grant the address holds,\nor null; a dead spelling of the address, which admits nobody, goes with the erasure unnamed.\n\n`letzter_inhaber` says whether the press would be refused `REQ-PURGE-004` as the grants stand at this read: the address\nholds the last live `owner` grant, a barred owner counting as none. Read outside the press's transaction, it is advisory;\nthe press judges again, and its answer alone decides.",
         "operationId": "get_erasure_ansicht_api_v0_identitaet_selbst_erasure_ansicht_get",
         "responses": {
           "200": {
@@ -21129,6 +21129,10 @@
               }
             ],
             "title": "Verwaltung"
+          },
+          "letzter_inhaber": {
+            "type": "boolean",
+            "title": "Letzter Inhaber"
           }
         },
         "type": "object",
@@ -21139,7 +21143,8 @@
           "bewerbungen",
           "registrierungen",
           "adresswechsel",
-          "verwaltung"
+          "verwaltung",
+          "letzter_inhaber"
         ],
         "title": "FLSelbstErasureAnsichtResponse"
       },

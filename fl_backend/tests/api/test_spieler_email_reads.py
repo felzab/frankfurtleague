@@ -202,6 +202,7 @@ async def the_erasure_preview(database: AsyncDatabase, client: AsyncMongoClient,
         spieler_collection=database[Collection.SPIELER],
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
         berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
+        sperrliste=ban_list(database),
         db=client,
         config=build_test_config(),
     )
