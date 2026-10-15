@@ -488,7 +488,7 @@ const PANELS: Record<string, Arming[]> = {
             eigene: false,
           }),
         ),
-      resting: "Zum Inhaber ernennen: vorstand@schule.de",
+      resting: "Zur Inhaberin oder zum Inhaber ernennen: vorstand@schule.de",
     },
     {
       render: () =>

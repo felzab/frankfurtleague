@@ -21,8 +21,11 @@ export const BERECHTIGUNGEN_CRUD_COPY = {
   emptyOverall: "Es hat noch niemand Zugang zur Verwaltung.",
 } as const;
 
-/** The badge on an `owner` grant, which only an owner's tier change on this page gives or takes. */
-export const INHABER_LABEL = "Inhaber";
+/**
+ * The badge on an `owner` grant, which only an owner's tier change gives or takes. Both genders, as every sentence
+ * names the tier: a shorter badge word would be its second name.
+ */
+export const INHABER_LABEL = "Inhaberin oder Inhaber";
 
 /** A barred address is served withheld, so the row names the state rather than an address it does not have. */
 export const GESPERRTE_ADRESSE = "Gesperrte Adresse";
@@ -54,7 +57,7 @@ export const ERTEILT_AM_LABEL = "Erteilt am";
 export const ZUGANG_ERTEILT = "Zugang erteilt";
 
 /** Why the revoke is closed to an administrator holding no `owner` grant, and the backend's `-005` in the same words. */
-export const NUR_INHABER_ENTZIEHT = "Den Zugang entziehen kann nur der Inhaber.";
+export const NUR_INHABER_ENTZIEHT = "Den Zugang entziehen können nur Inhaberinnen und Inhaber.";
 
 /** The row a control's name tells apart after its words: the address, or the grant's day where the address is withheld. */
 const zugang = (adresse: string | null, erteiltAm: string): string => adresse ?? `Zugang vom ${erteiltAm}`;
@@ -79,7 +82,7 @@ export const ZUGANG_ENTZOGEN_MESSAGE = "Diese Adresse hat keinen Zugang zur Verw
 export const ADRESSE_GESPERRT = "Diese Adresse ist gesperrt. Hebe zuerst die Sperre auf, wenn sie Zugang zur Verwaltung erhalten soll.";
 
 /** A barred address already holds its grant here, so the sentence names what it would become. */
-export const INHABER_GESPERRT = "Diese Adresse ist gesperrt. Hebe zuerst die Sperre auf, wenn sie Inhaber werden soll.";
+export const INHABER_GESPERRT = "Diese Adresse ist gesperrt. Hebe zuerst die Sperre auf, wenn sie Inhaberin oder Inhaber werden soll.";
 
 /**
  * Each row's tier change in words: the control at rest and armed, its running label, and what the armed state
@@ -109,33 +112,33 @@ export function stufeWorte({
       armed: "Ja, mich zur Verwaltung herabstufen",
       running: "Stuft herab...",
       // Said before the press: nothing on this page makes the administrator an owner again.
-      folge: `Du bist dann nicht mehr Inhaber der Verwaltung und behältst den Zugang. Inhaber wirst Du nur wieder, wenn Dich ein anderer Inhaber ernennt. ${mail}`,
+      folge: `Du bist dann nicht mehr Inhaberin oder Inhaber der Verwaltung und behältst den Zugang. Wieder ernennen kann Dich nur, wer Inhaberin oder Inhaber ist. ${mail}`,
     };
   }
 
   const wer = adresse ?? `Wer den Zugang vom ${erteiltAm} hat,`;
   return ziel === "owner"
     ? {
-        resting: "Zum Inhaber ernennen",
-        name: benannt("Zum Inhaber ernennen", zugang(adresse, erteiltAm)),
-        armed: "Ja, zum Inhaber ernennen",
+        resting: "Zur Inhaberin oder zum Inhaber ernennen",
+        name: benannt("Zur Inhaberin oder zum Inhaber ernennen", zugang(adresse, erteiltAm)),
+        armed: "Ja, zur Inhaberin oder zum Inhaber ernennen",
         running: "Ernennt...",
         // What an owner can do that an administrator cannot, the acting owner's own tier included.
-        folge: `${wer} wird Inhaber der Verwaltung und kann dann Zugänge entziehen und jede Stufe ändern, auch Deine. ${mail}`,
+        folge: `${wer} wird Inhaberin oder Inhaber der Verwaltung und kann dann Zugänge entziehen und jede Stufe ändern, auch Deine. ${mail}`,
       }
     : {
         resting: "Zur Verwaltung herabstufen",
         name: benannt("Zur Verwaltung herabstufen", zugang(adresse, erteiltAm)),
         armed: "Ja, zur Verwaltung herabstufen",
         running: "Stuft herab...",
-        folge: `${wer} ist dann nicht mehr Inhaber der Verwaltung und behält den Zugang. ${mail}`,
+        folge: `${wer} ist dann nicht mehr Inhaberin oder Inhaber der Verwaltung und behält den Zugang. ${mail}`,
       };
 }
 
 /** What a tier change answers, done or already so, the notice's sentence for the tier with the address left out. */
 export const STUFE_GEAENDERT_MESSAGE: Readonly<Record<FLVerwaltung, string>> = {
-  owner: "Diese Adresse ist jetzt Inhaber der Verwaltung.",
-  administration: "Diese Adresse ist nicht mehr Inhaber der Verwaltung und behält den Zugang.",
+  owner: "Diese Adresse ist jetzt Inhaberin oder Inhaber der Verwaltung.",
+  administration: "Diese Adresse ist nicht mehr Inhaberin oder Inhaber der Verwaltung und behält den Zugang.",
 };
 
 /** Rows the backend left out as no request can match them: a database paste to repair, never one this page can make. */
