@@ -13,10 +13,11 @@ const { setSubject } = doubleActionRequest({ session: null, subject: person({ sc
 const { answerWith, calls } = doubleApiAnswers();
 
 const { patchSchiedsrichterEinwilligungAction } = await import("./personActions.ts");
-const { EINTRAG_WEG, mapEigeneEinwilligungRefusal, MEDIEN_ZU_JUNG, WAHL_GESPEICHERT, ZUSTIMMEN_MORGEN } =
-  await import("@/features/konto/einwilligung.ts");
+const { EINTRAG_WEG, mapEigeneEinwilligungRefusal, WAHL_GESPEICHERT, ZUSTIMMEN_MORGEN } = await import("@/features/konto/einwilligung.ts");
 
 const OPERATION = "PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung";
+/** The media floor the page binds, one no record is served today, so a refusal naming it took the bound one. */
+const MEDIEN_ALTER = 21;
 const WAHL = {
   umfang: "kader_oeffentlich" as const,
   medien: true,
@@ -50,7 +51,7 @@ describe("a referee's own consent write", () => {
     answerWith(() => Promise.resolve(LANDED));
     calls.length = 0;
 
-    const answer = await patchSchiedsrichterEinwilligungAction(SCHIEDSRICHTER_ID, WAHL);
+    const answer = await patchSchiedsrichterEinwilligungAction(SCHIEDSRICHTER_ID, MEDIEN_ALTER, WAHL);
 
     assert.deepEqual(answer, { success: true, message: WAHL_GESPEICHERT, nachweis_stand: LANDED.nachweis_stand });
     assert.deepEqual(requestsOf(calls), [
@@ -65,7 +66,7 @@ describe("a referee's own consent write", () => {
     answerWith(() => Promise.resolve(LANDED));
     calls.length = 0;
 
-    await patchSchiedsrichterEinwilligungAction(SCHIEDSRICHTER_ID, { ...WAHL, umfang: "intern", medien: false });
+    await patchSchiedsrichterEinwilligungAction(SCHIEDSRICHTER_ID, MEDIEN_ALTER, { ...WAHL, umfang: "intern", medien: false });
 
     assert.equal(requestsOf(calls).length, 1, "a withdrawal from a record granting no panel never reached the backend");
   });
@@ -73,21 +74,28 @@ describe("a referee's own consent write", () => {
   it("refuses an id that names no record before the backend", async () => {
     calls.length = 0;
 
-    const answer = await patchSchiedsrichterEinwilligungAction("kein-id", WAHL);
+    const answer = await patchSchiedsrichterEinwilligungAction("kein-id", MEDIEN_ALTER, WAHL);
 
     assert.equal(answer.success, false);
     assert.deepEqual(calls, [], "a malformed id reached the backend");
   });
 
+  it("refuses a bound media floor that is no positive whole number before the backend", async () => {
+    calls.length = 0;
+
+    for (const boden of [0, 17.5]) assert.equal((await patchSchiedsrichterEinwilligungAction(SCHIEDSRICHTER_ID, boden, WAHL)).success, false);
+    assert.deepEqual(calls, [], "a malformed floor reached the backend");
+  });
+
   for (const [code, status, words] of [
     ["REQ-FUNKTION-001", 403, EINTRAG_WEG],
-    ["REQ-EINWILLIGUNG-002", 422, MEDIEN_ZU_JUNG],
+    ["REQ-EINWILLIGUNG-002", 422, "Fotos, Videos und Interviews kannst Du erst ab 21 Jahren erlauben. Lade die Seite neu."],
   ] as const) {
     it(`answers ${code} in the account page's words and drops nothing`, async () => {
       setSubject(person({ schiedsrichter: [{ schiedsrichter_id: SCHIEDSRICHTER_ID }] }));
       answerWith(() => Promise.reject(refusedOn(OPERATION, code, status)));
 
-      const answer = await patchSchiedsrichterEinwilligungAction(SCHIEDSRICHTER_ID, WAHL);
+      const answer = await patchSchiedsrichterEinwilligungAction(SCHIEDSRICHTER_ID, MEDIEN_ALTER, WAHL);
 
       assert.deepEqual(answer, { success: false, error: words, fieldErrors: undefined });
       assert.deepEqual(invalidations(), [], "a refused write dropped a cache or refreshed the page");
@@ -103,8 +111,8 @@ describe("what a referee's own consent write answers a refusal with", () => {
     await assertEachAnswered({
       operation: OPERATION,
       refuseWith: answerWith,
-      act: () => patchSchiedsrichterEinwilligungAction(SCHIEDSRICHTER_ID, WAHL),
-      mapped: mapEigeneEinwilligungRefusal,
+      act: () => patchSchiedsrichterEinwilligungAction(SCHIEDSRICHTER_ID, MEDIEN_ALTER, WAHL),
+      mapped: (refusal) => mapEigeneEinwilligungRefusal(refusal, MEDIEN_ALTER),
     });
   });
 
@@ -114,7 +122,7 @@ describe("what a referee's own consent write answers a refusal with", () => {
     setSubject(person({ schiedsrichter: [{ schiedsrichter_id: SCHIEDSRICHTER_ID }] }));
     answerWith(() => Promise.reject(refusedOn(OPERATION, "REQ-DROSSELUNG-001")));
 
-    assert.deepEqual(await (() => patchSchiedsrichterEinwilligungAction(SCHIEDSRICHTER_ID, WAHL))(), {
+    assert.deepEqual(await (() => patchSchiedsrichterEinwilligungAction(SCHIEDSRICHTER_ID, MEDIEN_ALTER, WAHL))(), {
       success: false,
       error: ZUSTIMMEN_MORGEN,
       fieldErrors: undefined,

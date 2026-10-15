@@ -3,7 +3,12 @@
 import z from "zod";
 
 import { FLBewerbungPersonEinwilligungPayloadSchema } from "@/features/bewerbungen/schemas";
-import { mapBewerbungEinwilligungRefusal, mapEigeneEinwilligungRefusal, WAHL_GESPEICHERT } from "@/features/konto/einwilligung";
+import {
+  mapBewerbungEinwilligungRefusal,
+  mapEigeneEinwilligungRefusal,
+  MedienMindestalterSchema,
+  WAHL_GESPEICHERT,
+} from "@/features/konto/einwilligung";
 import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
 import { CustomObjectIdStringSchema } from "@/shared/schemas";
 import { refusalResult } from "@/shared/utils/adminMutation";
@@ -26,13 +31,15 @@ const SitzAdresseSchema = z.object({ team_id: CustomObjectIdStringSchema, saison
 export async function patchSitzEinwilligungAction(
   teamId: string,
   saisonId: string,
+  medienMindestalter: number,
   rawPayload: z.input<typeof FLSaisonTeamPersonEinwilligungPayloadSchema>,
 ): Promise<ActionResult<{ nachweis_stand: FLEinwilligungStand }>> {
   return runPersonRecordMutation("patchSitzEinwilligungAction", async () => {
     const adresse = SitzAdresseSchema.safeParse({ team_id: teamId, saison_id: saisonId });
+    const boden = MedienMindestalterSchema.safeParse(medienMindestalter);
     const validated = FLSaisonTeamPersonEinwilligungPayloadSchema.safeParse(rawPayload);
 
-    if (!adresse.success || !validated.success) {
+    if (!adresse.success || !boden.success || !validated.success) {
       return { success: false, error: VALIDATION_FAILED, fieldErrors: validated.success ? undefined : toFieldErrors(validated.error) };
     }
 
@@ -40,7 +47,7 @@ export async function patchSitzEinwilligungAction(
     try {
       antwort = await patchSitzEinwilligung(adresse.data.team_id, adresse.data.saison_id, validated.data);
     } catch (error) {
-      const refusal = mapEigeneEinwilligungRefusal(error);
+      const refusal = mapEigeneEinwilligungRefusal(error, boden.data);
       if (refusal !== null) return refusalResult(refusal);
       throw error;
     }

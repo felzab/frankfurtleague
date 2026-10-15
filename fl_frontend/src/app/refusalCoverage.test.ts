@@ -26,7 +26,7 @@ const einladungen = await import("@/features/einladungen/refusals.ts");
 const kontakte = await import("@/features/kontakte/refusals.ts");
 const konto = await import("@/features/konto/einwilligung.ts");
 const registrierungen = await import("@/features/registrierungen/utils.ts");
-const { REGISTRIERUNG_MIN_ALTER } = await import("@/features/registrierungen/constants.ts");
+const { MEDIEN_MIN_ALTER, REGISTRIERUNG_MIN_ALTER } = await import("@/features/registrierungen/constants.ts");
 const saisons = await import("@/features/saisons/refusals.ts");
 const schiedsrichter = await import("@/features/schiedsrichter/refusals.ts");
 const schiedsrichterQueries = await import("@/features/schiedsrichter/queries.ts");
@@ -111,9 +111,9 @@ const ANSWERED_BY: Readonly<Record<string, Mapper>> = {
   // landing, as each page's own check sends a person holding none.
   "GET /spieler/selbst": (error) => (isFunktionLost(error) ? "the landing, in the page's stead" : null),
   "GET /schiedsrichter/selbst": (error) => (isFunktionLost(error) ? "the landing, in the page's stead" : null),
-  "PATCH /spieler/selbst/einwilligung": konto.mapEigeneEinwilligungRefusal,
-  "PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung": konto.mapEigeneEinwilligungRefusal,
-  "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung": konto.mapEigeneEinwilligungRefusal,
+  "PATCH /spieler/selbst/einwilligung": (error) => konto.mapEigeneEinwilligungRefusal(error, MEDIEN_MIN_ALTER),
+  "PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung": (error) => konto.mapEigeneEinwilligungRefusal(error, MEDIEN_MIN_ALTER),
+  "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung": (error) => konto.mapEigeneEinwilligungRefusal(error, MEDIEN_MIN_ALTER),
   "PATCH /bewerbungen/{bewerbung_id}/person/einwilligung": konto.mapBewerbungEinwilligungRefusal,
   "PATCH /registrierungen/selbst/{registrierung_id}/einwilligung": konto.mapRegistrierungEinwilligungRefusal,
   "GET /teams/{team_id}/saisons/{saison_id}/person/sitze": TEAM_FORBIDDEN_PANEL,

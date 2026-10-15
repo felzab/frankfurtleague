@@ -21,7 +21,7 @@ const { raised } = doubleToasts();
 const { track, answered } = answersInFlight();
 
 const { EinwilligungForm } = await import("./EinwilligungForm.tsx");
-const { MEDIEN_ZU_JUNG, SEITE_VERALTET, WAHL_GESPEICHERT, WAHL_NICHT_GESPEICHERT } = await import("../../../einwilligung.ts");
+const { SEITE_VERALTET, WAHL_GESPEICHERT, WAHL_NICHT_GESPEICHERT } = await import("../../../einwilligung.ts");
 
 /** Words written for the suite rather than read from the registry: the component renders whatever it is handed. */
 const WORTE: EinwilligungWorte = {
@@ -55,6 +55,9 @@ const SITZ_WORTE: EinwilligungWorte = {
 const SITZ_GESPEICHERT: EinwilligungWahl = { umfang: "kontaktdaten", medien: false };
 
 const GESPEICHERT: EinwilligungWahl = { umfang: "kader_oeffentlich", medien: false };
+
+/** A media floor no record is served today, so a sentence naming it took the floor the form was handed. */
+const MEDIEN_ALTER = 21;
 
 /** The stand the page was served, which a press echoes. */
 const STAND: FLEinwilligungStand = { umfang: "2026-09-01T10:00:00+02:00", medien: null };
@@ -98,7 +101,18 @@ function renderForm({
   const { router } = recordingRouter();
   const user = userEvent.setup();
   const mounted = render(
-    underNext(h(EinwilligungForm, { worte, gespeichert, nachweisStand: STAND, medienAngeboten, erteilbar, speichereAction }), { router }),
+    underNext(
+      h(EinwilligungForm, {
+        worte,
+        gespeichert,
+        nachweisStand: STAND,
+        medienAngeboten,
+        medienMindestalter: MEDIEN_ALTER,
+        erteilbar,
+        speichereAction,
+      }),
+      { router },
+    ),
   );
 
   return { ...mounted, user };
@@ -115,8 +129,8 @@ function describedBy(control: Element): HTMLElement {
 const beschriebenVon = (control: Element): (string | null | undefined)[] =>
   (control.getAttribute("aria-describedby") ?? "").split(" ").map((id) => document.getElementById(id)?.textContent);
 
-/** A withdraw-only record's reason, written for the suite. */
-const NUR_WIDERRUF = "Hier kannst Du eine Erlaubnis nur zurücknehmen.";
+/** A withdraw-only record's reason, written for the suite, apart from the form's own for a record giving none. */
+const NUR_WIDERRUF = "Die Saison ist vorbei, darum kannst Du hier nur zurücknehmen.";
 
 /** Whether `first` comes before `second` in the document, which is the order a screen reader and the tab key read. */
 const precedes = (first: Node, second: Node): boolean => (first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
@@ -431,35 +445,41 @@ describe("a contact seat's WhatsApp switch", () => {
 /* A withdrawal on its way leaves the switch open on screen, the record unread, so a grant pressed after it
    would be refused: it is judged against the record the withdrawal leaves, and goes nowhere, saying why. */
 describe("a grant pressed while a withdrawal is on its way, on a record the grant is closed on", () => {
-  it("sends the withdrawal alone and says why the grant is not sent", async () => {
-    let release: () => void = () => undefined;
-    held = new Promise((resolve) => {
-      release = resolve;
-    });
-    const { user } = renderForm({
-      worte: { ...SITZ_WORTE, nurWiderruf: NUR_WIDERRUF },
-      gespeichert: { umfang: "kontaktdaten", medien: true },
-      erteilbar: false,
-      medienAngeboten: false,
-    });
+  // Without a reason of the record's own, the form's, which asks no reload: the withdrawal's refresh redraws the page.
+  for (const [art, nurWiderruf, grund] of [
+    ["its reason", NUR_WIDERRUF, NUR_WIDERRUF],
+    ["the form's reason where the record gives none", undefined, "Hier kannst Du eine Erlaubnis nur zurücknehmen."],
+  ] as const) {
+    it(`sends the withdrawal alone and says why the grant is not sent, in ${art}`, async () => {
+      let release: () => void = () => undefined;
+      held = new Promise((resolve) => {
+        release = resolve;
+      });
+      const { user } = renderForm({
+        worte: nurWiderruf === undefined ? SITZ_WORTE : { ...SITZ_WORTE, nurWiderruf: nurWiderruf },
+        gespeichert: { umfang: "kontaktdaten", medien: true },
+        erteilbar: false,
+        medienAngeboten: false,
+      });
 
-    await user.click(screen.getByRole("switch", { name: SITZ_WORTE.medien.schalter }));
-    await user.click(screen.getByRole("switch", { name: SITZ_WORTE.medien.schalter }));
-    held = null;
-    release();
-    await act(answered);
+      await user.click(screen.getByRole("switch", { name: SITZ_WORTE.medien.schalter }));
+      await user.click(screen.getByRole("switch", { name: SITZ_WORTE.medien.schalter }));
+      held = null;
+      release();
+      await act(answered);
 
-    assert.deepEqual(sent, [{ umfang: "kontaktdaten", medien: false, text_version: SITZ_WORTE.textVersion, nachweis_stand: STAND }]);
-    await waitFor(() =>
-      assert.deepEqual(
-        raised.map(({ variant, title, description }) => [variant, title, description]),
-        [
-          ["success", WAHL_GESPEICHERT, undefined],
-          ["danger", WAHL_NICHT_GESPEICHERT, NUR_WIDERRUF],
-        ],
-      ),
-    );
-  });
+      assert.deepEqual(sent, [{ umfang: "kontaktdaten", medien: false, text_version: SITZ_WORTE.textVersion, nachweis_stand: STAND }]);
+      await waitFor(() =>
+        assert.deepEqual(
+          raised.map(({ variant, title, description }) => [variant, title, description]),
+          [
+            ["success", WAHL_GESPEICHERT, undefined],
+            ["danger", WAHL_NICHT_GESPEICHERT, grund],
+          ],
+        ),
+      );
+    });
+  }
 
   /* A record that admits grants closes the media switch below the age: withdrawn there, the consent
      cannot be given again by a press queued behind the withdrawal, and the press says why. */
@@ -482,7 +502,8 @@ describe("a grant pressed while a withdrawal is on its way, on a record the gran
         raised.map(({ variant, title, description }) => [variant, title, description]),
         [
           ["success", WAHL_GESPEICHERT, undefined],
-          ["danger", WAHL_NICHT_GESPEICHERT, MEDIEN_ZU_JUNG],
+          // The record's floor, and no reload: the landed withdrawal's refresh draws the switch closed.
+          ["danger", WAHL_NICHT_GESPEICHERT, "Fotos, Videos und Interviews kannst Du erst ab 21 Jahren erlauben."],
         ],
       ),
     );

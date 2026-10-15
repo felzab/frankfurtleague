@@ -15,7 +15,7 @@ import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { focusAfterWrite, focusSlot } from "@/shared/utils/focusAfterWrite";
 
-import { MEDIEN_ZU_JUNG, NUR_WIDERRUF, WAHL_GESPEICHERT, WAHL_NICHT_GESPEICHERT } from "../../../einwilligung";
+import { medienZuJung, NUR_ZURUECKNEHMEN, WAHL_GESPEICHERT, WAHL_NICHT_GESPEICHERT } from "../../../einwilligung";
 
 import type { FLEinwilligung, FLEinwilligungStand } from "@/features/spieler/schemas";
 import type { FLKontaktKenntnisnahme } from "@/features/teams/schemas";
@@ -128,6 +128,8 @@ export type EinwilligungFormProps<U extends Umfang> = {
   nachweisStand: FLEinwilligungStand;
   /** The backend's verdict on the person's age; a media consent already given stays withdrawable without it. */
   medienAngeboten: boolean;
+  /** The media floor the record's entry serves, which a grant refused below it names. */
+  medienMindestalter: number;
   /** Whether the record admits a grant; one that grants no panel takes a withdrawal alone, which is never closed. */
   erteilbar: boolean;
   /** Typed by the record's own payload, so a field its write's mirror gains fails the page that binds it. */
@@ -144,6 +146,7 @@ export function EinwilligungForm<U extends Umfang>({
   gespeichert,
   nachweisStand,
   medienAngeboten,
+  medienMindestalter,
   erteilbar,
   speichereAction,
 }: EinwilligungFormProps<U>) {
@@ -170,9 +173,9 @@ export function EinwilligungForm<U extends Umfang>({
   const zu = (wahl_: Wahl, gehaltenWahl: EinwilligungWahl): boolean =>
     istGrant(wahl_) && !hält(gehaltenWahl, wahl_) && (!erteilbar || (wahl_.wahl === "medien" && !medienAngeboten));
 
-  // Why a closed grant is closed, said where a press would otherwise go out and be refused: on a record
-  // admitting a grant, only the media consent below the age closes.
-  const grund = (): string => (erteilbar ? MEDIEN_ZU_JUNG : (worte.nurWiderruf ?? NUR_WIDERRUF));
+  // Why a closed grant is closed, for a press queued behind a landed withdrawal, whose refresh draws the
+  // switch closed, so no reload is asked. On a record admitting a grant, only the media consent below the age closes.
+  const grund = (): string => (erteilbar ? medienZuJung(medienMindestalter) : (worte.nurWiderruf ?? NUR_ZURUECKNEHMEN));
 
   // Every control on a withdraw-only record is read with its reason, a closed one and an open one alike.
   const beschreibung = (...eigene: string[]): string | undefined => {
