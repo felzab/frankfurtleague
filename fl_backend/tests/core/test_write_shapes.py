@@ -536,11 +536,14 @@ class TestEveryWriteInsideATransactionCarriesIt:
 
         callbacks = transactional_callbacks(SESSION_TAKING_HELPERS)
 
+        # Outside `app/core/` alone: every step reaches that package's helpers, whose writes would hold
+        # this floor up with the step's own unseen.
         assert callbacks
         assert [
             callback.where
             for callback in callbacks
-            if not callback.writes and not any(carrier.writes for carrier in callback_carriers(callback.where))
+            if not callback.writes
+            and not any(carrier.writes for carrier in callback_carriers(callback.where) if not carrier.where.startswith("app/core/"))
         ] == []
 
     def test_no_write_inside_one_is_left_off_its_session(self):
@@ -746,8 +749,23 @@ class TestEverySessionHandOffInsideATransactionCarriesIt:
         assert {key: profiles[key] for key in loose} == dict(HANDED_OUTSIDE_THE_TRANSACTION)
 
 
-class TestEveryHelperTheTransactionReachesReadsInSession:
-    """`transactional_callbacks` reads a callback's own lexical body, so a read a module away answers in no clause above."""
+def _carried_profiles() -> dict[str, tuple[str, ...]]:
+    """`_handed_profiles` for the hand-offs a helper makes, in source order inside each helper."""
+
+    profiles: dict[str, list[str]] = {}
+    for carrier in session_carriers():
+        for called, argument, _ in carrier.handoffs:
+            profiles.setdefault(f"{carrier.where} hands {called}", []).append(argument)
+
+    return {key: tuple(arguments) for key, arguments in profiles.items()}
+
+
+# A helper's hand-off that a measured case needs outside the session it was handed, profiled as above.
+HANDED_ON_OUTSIDE_THE_SESSION: Mapping[str, tuple[str, ...]] = {}
+
+
+class TestEveryHelperTheTransactionReachesKeepsItsSession:
+    """`transactional_callbacks` reads a callback's own lexical body, so a read or a hand-off a module away answers in no clause above."""
 
     def test_the_sweep_reaches_every_session_taking_crud_helper(self):
         """The floor, derived on both sides rather than listed.
@@ -765,6 +783,11 @@ class TestEveryHelperTheTransactionReachesReadsInSession:
         # one: `app/core/crud.py` reads through its own `collection` parameter.
         assert {read for carrier in carriers if carrier.called == "pull_one_from_db" for read, _ in carrier.reads} == {"find_one"}
 
+        # `record_write` is reached only through a helper's hand-off, and its insert is seen only by
+        # the driver arm of `tests/core/app_source.py :: _writes_the_database_by_name`: lose either and
+        # the log row's insert answers in no clause.
+        assert {write for carrier in carriers if carrier.called == "record_write" for write, _ in carrier.writes} == {"insert_one"}
+
     def test_no_read_inside_one_is_left_off_the_session_it_was_handed(self):
         """Drop `session=` from the count in `app/api/spieler/crud.py :: refuse_a_taken_rolle` and this fails.
 
@@ -775,6 +798,17 @@ class TestEveryHelperTheTransactionReachesReadsInSession:
         loose = [f"{carrier.where} reads with {read}" for carrier in session_carriers() for read, carries in carrier.reads if not carries]
 
         assert loose == []
+
+    def test_no_hand_off_inside_one_is_left_off_the_session_it_was_handed(self):
+        """Take `patch_one_in_db`'s `record_write(session=session)` to `session=None` and this fails, where every clause above stays green.
+
+        The log row then commits on its own, so an aborted write leaves a record of a change that never happened.
+        """
+
+        profiles = _carried_profiles()
+        loose = {f"{carrier.where} hands {called}" for carrier in session_carriers() for called, _, carried in carrier.handoffs if not carried}
+
+        assert {key: profiles[key] for key in loose} == dict(HANDED_ON_OUTSIDE_THE_SESSION)
 
 
 # Two snapshot sessions the finder must see, so a finder matching nothing cannot pass the clause below.
@@ -800,6 +834,12 @@ class TestEveryReadInsideASnapshotSessionCarriesIt:
             *(f"{block.where} reads with {read}" for block in snapshot_blocks() for read, carries in block.reads if not carries),
             *(f"{block.where} hands {called} no session" for block in snapshot_blocks() for called, bound in block.handoffs if not bound),
             *(f"{carrier.where} reads with {read}" for carrier in snapshot_carriers() for read, carries in carrier.reads if not carries),
+            *(
+                f"{carrier.where} hands {called} no session"
+                for carrier in snapshot_carriers()
+                for called, _, carried in carrier.handoffs
+                if not carried
+            ),
         ]
 
         assert loose == []
