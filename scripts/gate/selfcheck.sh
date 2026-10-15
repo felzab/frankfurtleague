@@ -1294,12 +1294,20 @@ judge_pin() { # $1 what is pinned · $2 exact, or series · $3 the manifest · $
   fi
 }
 
-check_uv_pin() { # $1 the manifest · $2 the Dockerfile
+check_uv_pin() { # $1 the action installing CI's uv · $2 the Dockerfile
   local pin
   local -a tags
-  pin="$(sed -n 's/^required-version = "==\([0-9][^"]*\)"/\1/p' "$1")"
+  # Scoped to the setup-uv step's own inputs: another step's `version:` names something else.
+  pin="$(awk '
+    /uses:[[:space:]]*astral-sh\/setup-uv@/ { step = 1; next }
+    step && /^[[:space:]]*-[[:space:]]/ { exit }
+    step && match($0, /^[[:space:]]*version:[[:space:]]*"[0-9][^"]*"/) {
+      pin = substr($0, RSTART, RLENGTH); sub(/^[[:space:]]*version:[[:space:]]*"/, "", pin); sub(/"$/, "", pin)
+      print pin; exit
+    }
+  ' "$1")"
   mapfile -t tags < <(sed -n 's|^FROM ghcr.io/astral-sh/uv:\([^ @]*\)[@ ].*|\1|p' "$2")
-  judge_pin uv exact "$1" "$2" "uv sync refuses the pair, so the backend image cannot build" "$pin" "${tags[@]}"
+  judge_pin uv exact "$1" "$2" "move the one the bot left behind, which after a Dependabot image bump is setup-uv's version" "$pin" "${tags[@]}"
 }
 
 check_node_pin() { # $1 the manifest · $2 the Dockerfile
@@ -1335,9 +1343,9 @@ check_python_series() { # $1 the .python-version file · $2 the Dockerfile
 }
 
 step "15. The uv version is one number in two files"
-# A bot moves one and not the other, and `uv sync` then refuses outright, so the backend image
-# stops building on every branch at once — including branches that touched neither file.
-check_uv_pin fl_backend/pyproject.toml fl_backend/Dockerfile
+# Dependabot's docker ecosystem moves the image's tag alone, and with no publication date to wait
+# on, so this refusal is also the only age gate that release meets (`docs/ops/spec.md :: I_NEW_OPS-FOLD_1`).
+check_uv_pin .github/actions/backend-toolchain/action.yml fl_backend/Dockerfile
 
 step "16. The Node version is one number in two files"
 # pnpm downloads the pinned Node for the checkout and CI, and the image runs its base's own, so a

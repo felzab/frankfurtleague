@@ -80,10 +80,10 @@ dev = [
 DEP002 = ["tzdata", "uvicorn"]
 
 [tool.uv]
-# The uv the Dockerfile copies in, so one resolver builds the gate's venv and the image's;
-# setup-uv's `version-file` reads it too. Moves with the Dockerfile's `FROM ghcr.io/astral-sh/uv:`
-# line, and `scripts/gate/selfcheck.sh :: check_uv_pin` refuses the pair when it does not.
-required-version = "==0.12.22"
+# A floor, the oldest uv writing this lockfile's revision: Dependabot's uv ecosystem relocks with the
+# uv it bundles and fails on an exact pin naming another. CI's exact uv is setup-uv's `version` in
+# `.github/actions/backend-toolchain/action.yml` (`docs/ops/spec.md :: I_NEW_OPS-FOLD_1`).
+required-version = ">=0.12.22"
 # A release younger than a day is left out of every resolution, the day `.github/dependabot.yml`'s
 # cooldown waits. Relative, so it moves with the clock rather than freezing the graph at a date.
 exclude-newer = "1 day"
