@@ -241,7 +241,8 @@ const { proxy } = await import("../proxy.ts");
 const { NextRequest } = await import("next/server");
 
 const handler = toNextJsHandler(auth);
-const HOUR_MS = 60 * 60 * 1000;
+const MINUTE_MS = 60 * 1000;
+const HOUR_MS = 60 * MINUTE_MS;
 const DAY_MS = 24 * HOUR_MS;
 
 // Before rather than after each case: a seeded row cleared at the end of the case that seeded it
@@ -738,10 +739,10 @@ describe("what the landing ends (`docs/frontend/spec.md :: I518`)", () => {
 });
 
 describe("the three lifetimes, judged in the guard rather than in the store", () => {
-  it("refuses a session forty-nine hours old for an address holding a grant, and serves it for anyone else", async () => {
+  it("refuses a session a minute past twenty-four hours old for an address holding a grant, and serves it for anyone else", async () => {
     const admin = await signIn(ADMIN_EMAIL);
     madeByPasskey(store, admin.row);
-    ageRow(admin.row, { created: 49 * HOUR_MS });
+    ageRow(admin.row, { created: 24 * HOUR_MS + MINUTE_MS });
     arriveAs(admin.cookie);
 
     assert.equal(await getAdminSession(), null);
@@ -749,7 +750,7 @@ describe("the three lifetimes, judged in the guard rather than in the store", ()
     assert.ok(store.session.includes(admin.row), "the landing ended a session the person lane still serves");
 
     const person = await signIn(PERSON_EMAIL);
-    ageRow(person.row, { created: 49 * HOUR_MS });
+    ageRow(person.row, { created: 24 * HOUR_MS + MINUTE_MS });
     arriveAs(person.cookie);
 
     assert.equal(await getSignInDestination(), "/bereich");
@@ -765,7 +766,7 @@ describe("the three lifetimes, judged in the guard rather than in the store", ()
     assert.equal(await getSignInDestination(), "/signin");
   });
 
-  /* The person's arm alone: an administrator at fifteen days is refused by a forty-eight-hour cap
+  /* The person's arm alone: an administrator at fifteen days is refused by a twenty-four-hour cap
      whatever the idle figure says, so that arm would pass with the idle comparison deleted. */
   it("refuses a person's session fifteen days idle", async () => {
     const person = await signIn(PERSON_EMAIL);
@@ -795,10 +796,10 @@ describe("the three lifetimes, judged in the guard rather than in the store", ()
     assert.equal(await getSignInDestination(), "/bereich");
   });
 
-  it("serves an administrator's session forty-seven hours old, for the same reason", async () => {
+  it("serves an administrator's session a minute short of twenty-four hours old, for the same reason", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     madeByPasskey(store, row);
-    ageRow(row, { created: 47 * HOUR_MS, idle: 47 * HOUR_MS });
+    ageRow(row, { created: 24 * HOUR_MS - MINUTE_MS, idle: 24 * HOUR_MS - MINUTE_MS });
     arriveAs(cookie);
 
     assert.ok(await getAdminSession());

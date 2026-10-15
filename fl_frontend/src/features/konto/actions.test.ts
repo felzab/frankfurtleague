@@ -176,7 +176,7 @@ describe("what the sign-in list hands the page", () => {
   });
 
   /* The person area and this page admit an administrator's session for the person lifetime; listed by
-     the administration's 48 hours, a device still reaching every person page would be missing here. */
+     the administration's 24 hours, a device still reaching every person page would be missing here. */
   it("lists an administrator's sign-in the person area still admits, ending it at the person cap", async () => {
     const older = await signIn(ADMIN_EMAIL);
     older.row.createdAt = new Date(Date.now() - 3 * DAY_MS);
