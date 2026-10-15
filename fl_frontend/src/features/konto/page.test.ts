@@ -528,14 +528,15 @@ describe("the account page's consent section", () => {
 
   /* Each record's ids are strings and its payload the same shape, so a control bound to another record's
      id, or to another kind's action, type-checks and sends its press to a record that refuses it. */
-  it("binds each control to its own record's action and ids", async () => {
+  it("binds each control to its own record's action, ids and media floor", async () => {
     setSubject(OHNE_FUNKTION);
+    // A floor of each record's own, none served today, so a refusal naming one names its record's.
     answeringKonto({
-      spieler: SPIELER,
-      schiedsrichter: [SCHIEDSRICHTER],
-      registrierungen: [REGISTRIERUNG],
-      sitze: [SITZ],
-      bewerbungen: [BEWERBUNG_SITZ],
+      spieler: { ...SPIELER, medien_mindestalter: 19 },
+      schiedsrichter: [{ ...SCHIEDSRICHTER, medien_mindestalter: 20 }],
+      registrierungen: [{ ...REGISTRIERUNG, medien_mindestalter: 22 }],
+      sitze: [{ ...SITZ, medien_mindestalter: 21 }],
+      bewerbungen: [{ ...BEWERBUNG_SITZ, medien_mindestalter: 23 }],
     });
     const panel = (await EinwilligungSection()) as { props: { eintraege: readonly EinwilligungEintrag[] } };
     const antwort = { umfang: "intern" as const, medien: false, text_version: "2026-10-konto", nachweis_stand: { umfang: null, medien: null } };
@@ -548,12 +549,17 @@ describe("the account page's consent section", () => {
     assert.deepEqual(
       actionCalls.map(({ action, payload }) => [action, ...(payload as unknown[]).slice(0, -1)]),
       [
-        ["patchSpielerEinwilligungAction"],
-        ["patchSchiedsrichterEinwilligungAction", SCHIEDSRICHTER.schiedsrichter_id],
+        ["patchSpielerEinwilligungAction", 19],
+        ["patchSchiedsrichterEinwilligungAction", SCHIEDSRICHTER.schiedsrichter_id, 20],
         ["patchRegistrierungEinwilligungAction", REGISTRIERUNG.registrierung_id],
-        ["patchSitzEinwilligungAction", SITZ.team_id, SITZ.saison_id],
+        ["patchSitzEinwilligungAction", SITZ.team_id, SITZ.saison_id, 21],
         ["patchBewerbungEinwilligungAction", BEWERBUNG_SITZ.bewerbung_id],
       ],
+    );
+    // The floor a press queued behind a landed withdrawal is refused with, which no action is asked for.
+    assert.deepEqual(
+      panel.props.eintraege.map(({ control }) => control?.props.medienMindestalter),
+      [19, 20, 22, 21, 23],
     );
     assert.ok(
       actionCalls.every(({ payload }) => (payload as unknown[]).at(-1) === antwort),

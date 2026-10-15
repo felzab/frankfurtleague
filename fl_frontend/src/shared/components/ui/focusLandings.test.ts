@@ -627,6 +627,7 @@ const kontoBewerbung = (medien: boolean, whatsapp = false) =>
           gespeichert: { umfang: whatsapp ? ("kontaktdaten_whatsapp" as const) : ("kontaktdaten" as const), medien: medien },
           nachweisStand: { umfang: null, medien: null },
           medienAngeboten: false,
+          medienMindestalter: 18,
           erteilbar: false,
           // Through the doubled export, bound as the page binds it.
           speichereAction: patchBewerbungEinwilligungAction.bind(null, BEWERBUNG_ID),
@@ -665,6 +666,7 @@ const kontoRegistrierung = (medien: boolean) =>
           gespeichert: { umfang: "intern" as const, medien: medien },
           nachweisStand: { umfang: null, medien: null },
           medienAngeboten: false,
+          medienMindestalter: 18,
           erteilbar: false,
           speichereAction: patchRegistrierungEinwilligungAction.bind(null, REGISTRIERUNG_ID),
         }),

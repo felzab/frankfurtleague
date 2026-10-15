@@ -1,6 +1,6 @@
 "use server";
 
-import { mapEigeneEinwilligungRefusal, WAHL_GESPEICHERT } from "@/features/konto/einwilligung";
+import { mapEigeneEinwilligungRefusal, MedienMindestalterSchema, WAHL_GESPEICHERT } from "@/features/konto/einwilligung";
 import { invalidatesOnWrite, refusalResult } from "@/shared/utils/adminMutation";
 import { runPersonMutation, runPersonRecordMutation } from "@/shared/utils/personMutation";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
@@ -66,17 +66,20 @@ export async function deleteKaderZeileAction(
 }
 
 /**
- * The pupil's own consent, pressed on the account page. It claims the pupil's record rather than a
- * seat, so a retired pupil reaches the backend to withdraw a consent the league still holds.
+ * The pupil's own consent, pressed on the account page, which binds the record's media floor. It claims
+ * the pupil's record rather than a seat, so a retired pupil reaches the backend to withdraw a consent
+ * the league still holds.
  */
 export async function patchSpielerEinwilligungAction(
+  medienMindestalter: number,
   rawPayload: z.input<typeof FLSpielerSelbstEinwilligungPayloadSchema>,
 ): Promise<ActionResult<{ nachweis_stand: FLEinwilligungStand }>> {
   return runPersonRecordMutation("patchSpielerEinwilligungAction", async () => {
+    const boden = MedienMindestalterSchema.safeParse(medienMindestalter);
     const validated = FLSpielerSelbstEinwilligungPayloadSchema.safeParse(rawPayload);
 
-    if (!validated.success) {
-      return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
+    if (!boden.success || !validated.success) {
+      return { success: false, error: VALIDATION_FAILED, fieldErrors: validated.success ? undefined : toFieldErrors(validated.error) };
     }
 
     // The consent is an input of the public squad read (`READ-PUPIL-003`), cached for days: a withdrawal
@@ -86,7 +89,7 @@ export async function patchSpielerEinwilligungAction(
     try {
       antwort = await patchSpielerSelbstEinwilligung(validated.data);
     } catch (error) {
-      const refusal = mapEigeneEinwilligungRefusal(error);
+      const refusal = mapEigeneEinwilligungRefusal(error, boden.data);
       if (refusal !== null) return refusalResult(refusal);
       throw error;
     }

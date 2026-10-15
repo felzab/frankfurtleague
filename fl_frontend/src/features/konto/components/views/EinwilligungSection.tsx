@@ -114,8 +114,9 @@ export async function EinwilligungSection() {
           gespeichert={{ umfang: spieler.einwilligung.umfang, medien: spieler.einwilligung.medien }}
           nachweisStand={spieler.nachweis_stand}
           medienAngeboten={spieler.medien_angeboten}
+          medienMindestalter={spieler.medien_mindestalter}
           erteilbar={spieler.erteilbar}
-          speichereAction={patchSpielerEinwilligungAction}
+          speichereAction={patchSpielerEinwilligungAction.bind(null, spieler.medien_mindestalter)}
         />
       ),
     });
@@ -140,9 +141,10 @@ export async function EinwilligungSection() {
             gespeichert={{ umfang: eintrag.einwilligung.umfang, medien: eintrag.einwilligung.medien }}
             nachweisStand={eintrag.nachweis_stand}
             medienAngeboten={eintrag.medien_angeboten}
+            medienMindestalter={eintrag.medien_mindestalter}
             erteilbar={eintrag.erteilbar}
             // Bound here, never read off the page: one address may hold several referee rows.
-            speichereAction={patchSchiedsrichterEinwilligungAction.bind(null, eintrag.schiedsrichter_id)}
+            speichereAction={patchSchiedsrichterEinwilligungAction.bind(null, eintrag.schiedsrichter_id, eintrag.medien_mindestalter)}
           />
         ),
       });
@@ -173,6 +175,7 @@ export async function EinwilligungSection() {
                   nachweisStand={registrierung.nachweis_stand}
                   // Withdraw-only: a grant on a pending registration waits on its team's admission.
                   medienAngeboten={false}
+                  medienMindestalter={registrierung.medien_mindestalter}
                   erteilbar={false}
                   speichereAction={patchRegistrierungEinwilligungAction.bind(null, registrierung.registrierung_id)}
                 />
@@ -196,8 +199,9 @@ export async function EinwilligungSection() {
             gespeichert={{ umfang: sitz.umfang, medien: sitz.medien }}
             nachweisStand={sitz.nachweis_stand}
             medienAngeboten={sitz.medien_angeboten}
+            medienMindestalter={sitz.medien_mindestalter}
             erteilbar={sitz.erteilbar}
-            speichereAction={patchSitzEinwilligungAction.bind(null, sitz.team_id, sitz.saison_id)}
+            speichereAction={patchSitzEinwilligungAction.bind(null, sitz.team_id, sitz.saison_id, sitz.medien_mindestalter)}
           />
         ),
       });
@@ -222,6 +226,7 @@ export async function EinwilligungSection() {
             nachweisStand={bewerbung.nachweis_stand}
             // Withdraw-only: a grant on a pending application is its confirmation page's alone.
             medienAngeboten={false}
+            medienMindestalter={bewerbung.medien_mindestalter}
             erteilbar={false}
             speichereAction={patchBewerbungEinwilligungAction.bind(null, bewerbung.bewerbung_id)}
           />

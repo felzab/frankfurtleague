@@ -16,6 +16,8 @@ const { mapBewerbungEinwilligungRefusal, mapEigeneEinwilligungRefusal, WAHL_GESP
   await import("@/features/konto/einwilligung.ts");
 
 const OPERATION = "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung";
+/** The media floor the page binds, one no record is served today, so a refusal naming it took the bound one. */
+const MEDIEN_ALTER = 21;
 // Both choices on every press, the scope unchanged beside the media grant.
 const WAHL = {
   umfang: "kontaktdaten_whatsapp" as const,
@@ -45,7 +47,7 @@ describe("a seat holder's own consent write", () => {
     answerWith(() => Promise.resolve(LANDED));
     calls.length = 0;
 
-    const answer = await patchSitzEinwilligungAction(SITZ.team_id, SITZ.saison_id, WAHL);
+    const answer = await patchSitzEinwilligungAction(SITZ.team_id, SITZ.saison_id, MEDIEN_ALTER, WAHL);
 
     assert.deepEqual(answer, { success: true, message: WAHL_GESPEICHERT, nachweis_stand: LANDED.nachweis_stand });
     assert.deepEqual(requestsOf(calls), [
@@ -61,7 +63,7 @@ describe("a seat holder's own consent write", () => {
     answerWith(() => Promise.resolve({ ...LANDED, medien: false }));
     calls.length = 0;
 
-    await patchSitzEinwilligungAction(SITZ.team_id, SITZ.saison_id, { ...WAHL, medien: false });
+    await patchSitzEinwilligungAction(SITZ.team_id, SITZ.saison_id, MEDIEN_ALTER, { ...WAHL, medien: false });
 
     assert.equal(requestsOf(calls).length, 1, "a withdrawal on a past season's seat never reached the backend");
   });
@@ -69,10 +71,17 @@ describe("a seat holder's own consent write", () => {
   it("refuses an address that names no team season before the backend", async () => {
     calls.length = 0;
 
-    const answer = await patchSitzEinwilligungAction("kein-id", SITZ.saison_id, WAHL);
+    const answer = await patchSitzEinwilligungAction("kein-id", SITZ.saison_id, MEDIEN_ALTER, WAHL);
 
     assert.equal(answer.success, false);
     assert.deepEqual(calls, [], "a malformed address reached the backend");
+  });
+
+  it("refuses a bound media floor that is no positive whole number before the backend", async () => {
+    calls.length = 0;
+
+    for (const boden of [0, 17.5]) assert.equal((await patchSitzEinwilligungAction(SITZ.team_id, SITZ.saison_id, boden, WAHL)).success, false);
+    assert.deepEqual(calls, [], "a malformed floor reached the backend");
   });
 });
 
@@ -136,8 +145,8 @@ describe("what a seat holder's consent writes answer a refusal with", () => {
     await assertEachAnswered({
       operation: OPERATION,
       refuseWith: answerWith,
-      act: () => patchSitzEinwilligungAction(SITZ.team_id, SITZ.saison_id, WAHL),
-      mapped: mapEigeneEinwilligungRefusal,
+      act: () => patchSitzEinwilligungAction(SITZ.team_id, SITZ.saison_id, MEDIEN_ALTER, WAHL),
+      mapped: (refusal) => mapEigeneEinwilligungRefusal(refusal, MEDIEN_ALTER),
     });
   });
 
@@ -157,7 +166,7 @@ describe("what a seat holder's consent writes answer a refusal with", () => {
     setSubject(person({ sitze: [sitz()] }));
     answerWith(() => Promise.reject(refusedOn(OPERATION, "REQ-DROSSELUNG-001")));
 
-    assert.deepEqual(await (() => patchSitzEinwilligungAction(SITZ.team_id, SITZ.saison_id, WAHL))(), {
+    assert.deepEqual(await (() => patchSitzEinwilligungAction(SITZ.team_id, SITZ.saison_id, MEDIEN_ALTER, WAHL))(), {
       success: false,
       error: ZUSTIMMEN_MORGEN,
       fieldErrors: undefined,

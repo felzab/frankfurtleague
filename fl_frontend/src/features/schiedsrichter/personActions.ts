@@ -1,6 +1,6 @@
 "use server";
 
-import { mapEigeneEinwilligungRefusal, WAHL_GESPEICHERT } from "@/features/konto/einwilligung";
+import { mapEigeneEinwilligungRefusal, MedienMindestalterSchema, WAHL_GESPEICHERT } from "@/features/konto/einwilligung";
 import { CustomObjectIdStringSchema } from "@/shared/schemas";
 import { invalidatesOnWrite, refusalResult } from "@/shared/utils/adminMutation";
 import { runPersonRecordMutation } from "@/shared/utils/personMutation";
@@ -15,18 +15,20 @@ import type z from "zod";
 
 /**
  * A referee's own consent. The page binds the record's id, one address possibly holding several
- * referee rows, and the write claims that record, so a retired referee can still withdraw
- * (`docs/frontend/spec.md :: I639`).
+ * referee rows, and its media floor, and the write claims that record, so a retired referee can still
+ * withdraw (`docs/frontend/spec.md :: I639`).
  */
 export async function patchSchiedsrichterEinwilligungAction(
   schiedsrichterId: string,
+  medienMindestalter: number,
   rawPayload: z.input<typeof FLSchiedsrichterSelbstEinwilligungPayloadSchema>,
 ): Promise<ActionResult<{ nachweis_stand: FLEinwilligungStand }>> {
   return runPersonRecordMutation("patchSchiedsrichterEinwilligungAction", async () => {
     const id = CustomObjectIdStringSchema.safeParse(schiedsrichterId);
+    const boden = MedienMindestalterSchema.safeParse(medienMindestalter);
     const validated = FLSchiedsrichterSelbstEinwilligungPayloadSchema.safeParse(rawPayload);
 
-    if (!id.success || !validated.success) {
+    if (!id.success || !boden.success || !validated.success) {
       return { success: false, error: VALIDATION_FAILED, fieldErrors: validated.success ? undefined : toFieldErrors(validated.error) };
     }
 
@@ -37,7 +39,7 @@ export async function patchSchiedsrichterEinwilligungAction(
     try {
       antwort = await patchSchiedsrichterSelbstEinwilligung(id.data, validated.data);
     } catch (error) {
-      const refusal = mapEigeneEinwilligungRefusal(error);
+      const refusal = mapEigeneEinwilligungRefusal(error, boden.data);
       if (refusal !== null) return refusalResult(refusal);
       throw error;
     }
