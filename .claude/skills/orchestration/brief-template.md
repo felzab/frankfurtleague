@@ -23,6 +23,7 @@ the lines `ci.py` printed for it, never as a run to read.
 ```
 VALUES.         Your agent name: <name>. Session branch: <session branch>; your worktree forked
                 from it at <sha>. Coordinator's checkout: <path>. Scratch path: <path>.
+                Invariant ids reserved for you: <I<n> to I<m>, or none>.
 
 BAR.            Done is every item met in full, nothing traded. Challenge an item that conflicts
                 with documented practice or the evidence before you build it. Ask what you cannot

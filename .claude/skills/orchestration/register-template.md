@@ -43,12 +43,16 @@ Unattended changes still open, and the command that restores each:
 <Matches: a literal every CI log line of this red holds, which `ci.py` matches; Lines: how many
 distinct lines it matches, past which `ci.py` reads the surplus as new. A row is written
 when the landing causing it is pushed, its Status RED; it turns CLEARED <push> when a concluded run
-shows its job passing, never by deletion. Checks failing on `I_NEW_*` invariant rows are one row,
-cleared when the ending renumbers them.>
+shows its job passing, never by deletion. The `invariant-number` finding on a reserved invariant id
+that landed above a lower one not yet landed, or above one left unused, is one row, cleared when the
+lower id lands or the ending closes the gap.>
 
 ## File ownership
-| Files owned | Agent | Slice | Worktree branch, and the sha it forked at |
-| ----------- | ----- | ----- | ----------------------------------------- |
+| Files owned | Agent | Slice | Invariant ids reserved | Worktree branch, and the sha it forked at |
+| ----------- | ----- | ----- | ---------------------- | ----------------------------------------- |
+<Invariant ids reserved: the block of real ids the agent's brief hands it, never a placeholder.
+Each block starts one past the highest id reserved so far, never the highest landed, which would
+hand out again an id an unlanded branch holds. An id left unused is a gap the ending closes.>
 Hubs (written by more than one slice), each with its owner or its named regions:
 Leaves:
 Couplings that are not file edges, shared contracts included:
@@ -89,9 +93,9 @@ the name or the id in the first cell.>
 act on is taken in one announced exclusive window, the fleet stopped, other load recorded.>
 
 ## The ending -- enumerated before the last wave goes out
-<The last wave landed, its audit and its fix; every slice ticked to a landed commit; every
-`I_NEW_*` invariant row renumbered and every expected-red row closed; `ledger.py open --unclosed`
-exiting 0; the full gate; the draft pull request's body; every check's conclusion; the owner's
+<The last wave landed, its audit and its fix; every slice ticked to a landed commit; every gap an
+unused reserved invariant id left closed and every expected-red row closed;
+`ledger.py open --unclosed` exiting 0; the full gate; the draft pull request's body; every check's conclusion; the owner's
 deploy steps; the handoff and its independent audit; the starter.>
 
 ## Decisions taken by the owner
