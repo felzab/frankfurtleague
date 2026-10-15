@@ -479,8 +479,9 @@ Every ruling below is the sign-up flow as it stands for the next season.
   `session` row holds the account it belongs to, when it was made, its own
   expiry, which factor made it and, where a passkey did, that passkey's credential identifier,
   where it replaced a session the browser held a keyed digest of that session's cookie
-  (`fl_frontend/src/core/auth.ts :: lineageOf`), and neither the address nor the browser the sign-in
-  came from. It also records when it was last used, to within the interval a session waits before
+  (`fl_frontend/src/core/auth.ts :: lineageOf`), whether it once went unused past the administration's
+  idle hour (`fl_frontend/src/core/auth.ts :: isAdminWithinWindow`), and neither the address nor the
+  browser the sign-in came from. It also records when it was last used, to within the interval a session waits before
   its row is refreshed (`fl_frontend/src/core/auth.ts :: SESSION_UPDATE_AGE_SECONDS`), and the
   account page shows that as „Zuletzt aktiv“ beside each sign-in
   (`fl_frontend/src/features/konto/sicherheit.ts`). A `user` row's `updatedAt` records when that account last changed or last

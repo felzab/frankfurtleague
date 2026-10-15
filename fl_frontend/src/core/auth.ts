@@ -58,10 +58,10 @@ export const PASSKEY_LIMIT = 5;
 
 const SESSION_EXPIRES_IN_SECONDS = SESSION_EXPIRES_IN_DAYS * 24 * 60 * 60;
 
-// What the refresh costs, and so how closely `updatedAt` tracks activity: the idle windows in
-// `fl_frontend/src/core/sessionLifetimes.ts` are compared against it, and this is the width of their
-// granularity.
-const SESSION_UPDATE_AGE_SECONDS = 60 * 60;
+// A pause shorter than the administrator's idle hour can still be refused once it and this reach the
+// hour together: kept under the seventh of a window Better Auth's documented example slides at.
+// Global, so persons' rows slide as often.
+const SESSION_UPDATE_AGE_SECONDS = 5 * 60;
 
 const CODE_VALIDITY_SECONDS = CODE_VALIDITY_MINUTES * 60;
 
@@ -760,6 +760,9 @@ const sessionOptions = {
     // The `credentialID` of the passkey that made the session, so removing that passkey ends its
     // sessions and no other (`docs/frontend/spec.md :: I400`).
     passkeyCredentialId: { type: "string", required: false, input: false },
+    // Marked by the refresh alone (`input: false`, as above): a session clearing its own mark would undo
+    // the administrator's idle window (`docs/frontend/spec.md :: I658`).
+    adminLapsed: { type: "boolean", required: false, input: false },
     // Never returned: no guard reads it, and nothing but another sign-in's stamp is compared with it.
     [REPLACED_SESSION_FIELD]: { type: "string", required: false, input: false, returned: false },
   },
@@ -872,6 +875,18 @@ const authOptions = (origin: URL, client: MongoClient) =>
             if (!ctx) return;
             await endReplacedSession(ctx, session);
             await unlessUnsettled(() => clearCodeFailures(ctx.context, session.userId));
+          },
+        },
+        update: {
+          // The refresh moves `updatedAt` to now, erasing the idle gap every later read judges: the row as
+          // read before this write is judged instead, so a session the administrator's window refused stays
+          // refused (`docs/frontend/spec.md :: I658`).
+          before: async (data, ctx) => {
+            if (data.updatedAt === undefined) return;
+            const prior = ctx?.context.session?.session;
+            // No row to judge is no window kept, as `withinLifetime` reads an unreadable stamp.
+            if (prior !== undefined && withinLifetime(prior, ADMIN_LIFETIME)) return;
+            return { data: { ...data, adminLapsed: true } };
           },
         },
       },
@@ -1361,7 +1376,7 @@ type LibraryRead = NonNullable<Awaited<ReturnType<typeof auth.api.getSession>>>;
  */
 type ServedSession = {
   user: { id: string; email: string; sessionsEndedAt?: Date | null };
-  session: Pick<LibraryRead["session"], "id" | "createdAt" | "updatedAt" | "authFactor" | "passkeyCredentialId">;
+  session: Pick<LibraryRead["session"], "id" | "createdAt" | "updatedAt" | "authFactor" | "passkeyCredentialId" | "adminLapsed">;
 };
 
 function projected({ user, session }: LibraryRead): ServedSession {
@@ -1374,6 +1389,7 @@ function projected({ user, session }: LibraryRead): ServedSession {
       updatedAt: session.updatedAt,
       authFactor: session.authFactor,
       passkeyCredentialId: session.passkeyCredentialId,
+      adminLapsed: session.adminLapsed,
     },
   };
 }
@@ -1493,7 +1509,8 @@ export function isWithinPersonLifetime(session: { createdAt: Date; updatedAt: Da
 }
 
 function isAdminWithinWindow(served: ServedSession): boolean {
-  return withinLifetime(served.session, ADMIN_LIFETIME);
+  // A refreshed `updatedAt` shows none of the idle gap before it, and the mark does.
+  return served.session.adminLapsed !== true && withinLifetime(served.session, ADMIN_LIFETIME);
 }
 
 /** Every administrator's condition the grant itself does not decide: a passkey session inside both of the administrator's figures. */

@@ -18,8 +18,8 @@ const ZEITPUNKT = new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", 
 
 const zeit = (iso: string): string => ZEITPUNKT.format(new Date(iso));
 
-// The day alone: the library refreshes a session's activity stamp once an hour, so a minute printed
-// here could be up to an hour behind (`fl_frontend/src/core/auth.ts :: SESSION_UPDATE_AGE_SECONDS`).
+// The day alone: the library refreshes a session's activity stamp once per
+// `fl_frontend/src/core/auth.ts :: SESSION_UPDATE_AGE_SECONDS`, so a minute printed here could be that far behind.
 const TAG = new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", dateStyle: "long" });
 
 const UHRZEIT = new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", timeStyle: "short" });

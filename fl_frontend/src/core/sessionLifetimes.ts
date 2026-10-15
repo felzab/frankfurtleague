@@ -9,12 +9,11 @@ export type Lifetime = { readonly idle: number; readonly absolute: number };
 // `fl_backend/app/shared/schemas/bounds.py`, whose actor check refuses a token older than it.
 export const ADMIN_WINDOW_HOURS = 24;
 
-// At most 24 hours: NIST SP 800-63B-4 §2.2.3's overall timeout at AAL2, which a passkey sign-in meets
-// (read 2026-10-15). ONE figure for both halves below: `updatedAt` never precedes `createdAt`, so the
-// idle comparison never refuses first.
-const ADMIN_WINDOW_MS = ADMIN_WINDOW_HOURS * HOUR_MS;
+export const ADMIN_IDLE_HOURS = 1;
 
-export const ADMIN_LIFETIME: Lifetime = { idle: ADMIN_WINDOW_MS, absolute: ADMIN_WINDOW_MS };
+// NIST SP 800-63B-4 §2.2.3 at AAL2, which a passkey sign-in meets (read 2026-10-15): an overall
+// timeout of at most 24 hours, and an inactivity timeout of at most one hour.
+export const ADMIN_LIFETIME: Lifetime = { idle: ADMIN_IDLE_HOURS * HOUR_MS, absolute: ADMIN_WINDOW_HOURS * HOUR_MS };
 
 // A person's cap, from the sign-in however recently the session was used. Mirrored in
 // `fl_backend/app/shared/schemas/bounds.py`, whose actor check refuses a person-lane token older than it.
