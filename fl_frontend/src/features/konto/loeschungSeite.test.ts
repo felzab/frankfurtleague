@@ -35,6 +35,7 @@ registerDoubles({
 /* Reached with `await import` and never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { default: LoeschungPage } = await import("@/app/(public)/loeschung/page.tsx");
 const { LoeschungView } = await import("./components/views/LoeschungView.tsx");
+const { LETZTE_INHABERIN } = await import("./refusals.ts");
 
 const TOKEN = "kein-echtes-token";
 
@@ -47,7 +48,11 @@ const ANSICHT: LoeschungAnsicht = {
   registrierungen: [{ saison_id: "2627", team_name: "Goethe Gators", vorname: "Pia", nachname: "Brandt" }],
   adresswechsel: 1,
   verwaltung: "administration",
+  letzter_inhaber: false,
 };
+
+/** The read's fields that say something of the press rather than name a record the erasure reaches. */
+const NO_RECORD: ReadonlySet<string> = new Set(["acknowledged", "letzter_inhaber"]);
 
 /** A grant holder past every window, as the read serves one. */
 const PAST_EVERY_WINDOW: GrantHolderStepUp = { freshUntil: null, enrolmentUntil: null, servedAt: 0, holderId: "inhaberin" };
@@ -149,11 +154,25 @@ describe("what the interstitial restates before the press", () => {
 
   /* Read off the mirror rather than listed here: a kind the read gains with no line would be erased unannounced. */
   it("draws a line for every kind of record the read serves", () => {
-    const kinds = Object.keys(FLSelbstErasureAnsichtResponseSchema.shape).filter((key) => key !== "acknowledged");
-    assert.deepEqual(kinds.toSorted(), Object.keys(ANSICHT).toSorted(), "the read serves a kind this case holds no record of");
+    const fields = Object.keys(FLSelbstErasureAnsichtResponseSchema.shape);
+    assert.deepEqual(
+      fields.filter((key) => key !== "acknowledged").toSorted(),
+      Object.keys(ANSICHT).toSorted(),
+      "the read serves a field this case holds no value of",
+    );
 
     // The account's own line beside one per kind.
-    assert.equal([...html(BEREIT).matchAll(/<li[ >]/g)].length, kinds.length + 1);
+    assert.equal([...html(BEREIT).matchAll(/<li[ >]/g)].length, fields.filter((key) => !NO_RECORD.has(key)).length + 1);
+  });
+
+  /* The press would be refused, so the page offers none: one sentence serves the page and the refusal, and the
+     link stays unspent for when another owner is made (`docs/frontend/spec.md :: I708`). */
+  it("tells the league's last owner why, in place of the press, and still says what would go", () => {
+    const text = shown({ ...BEREIT, ansicht: { ...ANSICHT, verwaltung: "owner", letzter_inhaber: true } });
+
+    assert.ok(!text.includes("Konto endgültig löschen"), "the last owner is offered a press the action refuses");
+    assert.ok(text.includes(LETZTE_INHABERIN), "the page does not say why it offers no press");
+    assert.ok(text.includes("Dein Zugang zur Verwaltung"), "the list of what would go was dropped with the press");
   });
 
   for (const zustand of ["anmelden", "ohnePasskey"] as const) {

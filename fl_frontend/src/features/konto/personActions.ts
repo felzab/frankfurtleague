@@ -11,7 +11,8 @@ import { runPersonRecordMutation } from "@/shared/utils/personMutation";
 import { VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { eraseEigeneDaten } from "./mutations";
-import { mapLoeschungRefusal } from "./refusals";
+import { getLoeschungAnsicht } from "./queries";
+import { LETZTE_INHABERIN, mapLoeschungRefusal } from "./refusals";
 
 import type { ActionResult } from "@/shared/types/types";
 
@@ -31,6 +32,13 @@ export async function loescheKontoAction(token: string): Promise<ActionResult> {
 
     // Unconditional: the erasure reaches a squad and a fixture whatever this person turns out to hold.
     invalidatesOnWrite("spieler", "spiele");
+
+    // Refused before the library spends the link, so the same link completes once another owner is made
+    // (`docs/frontend/spec.md :: I708`); the backend refuses two owners at once. Read for an owner alone,
+    // the one tier that can be the last.
+    if (subject.subjekt.verwaltung === "owner" && (await getLoeschungAnsicht()).letzter_inhaber) {
+      return { success: false, error: LETZTE_INHABERIN };
+    }
 
     // A grant goes with the account, so a grant holder is held to a revoke's window, a passkey confirmation
     // of the enrolment's minutes (`docs/frontend/spec.md :: I707`), judged before the library spends the link.

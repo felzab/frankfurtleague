@@ -133,6 +133,7 @@ const RECORD_ROUTES: ReadonlySet<string> = new Set([
   "PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung",
   "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung",
   "PATCH /bewerbungen/{bewerbung_id}/person/einwilligung",
+  "POST /identitaet/selbst/erasure",
 ]);
 
 const errorOf = (answer: unknown): unknown => (typeof answer === "object" && answer !== null && "error" in answer ? answer.error : answer);
