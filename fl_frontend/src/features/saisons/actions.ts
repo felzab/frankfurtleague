@@ -1,7 +1,7 @@
 "use server";
 
 import { invalidatesOnWrite, refusalResult, refuseUnconfirmed, runAdminMutation } from "@/shared/utils/adminMutation";
-import { refusedReplay, runAdminUndo, UNDO_UNREADABLE } from "@/shared/utils/adminUndo";
+import { refusedReplay, restored, runAdminUndo, unclearReplay, UNDO_UNREADABLE } from "@/shared/utils/adminUndo";
 import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
@@ -151,7 +151,7 @@ export async function undoAdminSaisonEditAction(rawPayload: FLPatchSaisonPayload
       return refusedReplay(error, SAISON_REPLAY_REFUSALS);
     }
 
-    return operation.acknowledged ? {} : { unclear: "Die Rücknahme wurde abgebrochen. Prüfe die Saisondaten." };
+    return operation.acknowledged ? restored() : unclearReplay("Die Rücknahme wurde abgebrochen. Prüfe die Saisondaten.");
   });
 }
 

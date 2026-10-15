@@ -15,6 +15,20 @@ const { raised } = doubleToasts();
 const { offerUndo } = await import("./undoDispatch.ts");
 const { STEP_UP_REFUSED } = await import("@/shared/components/ui/stepUp.ts");
 const { EDGE_REFUSAL_BODY } = await import("./actionError.ts");
+const { redirect } = await import("next/navigation");
+// The class Next's action client rejects with for an action id the running build does not hold, which
+// no public export constructs.
+const { UnrecognizedActionError } = await import("next/dist/client/components/unrecognized-action-error.js");
+
+/** The error Next's action client rejects a press with where the proxy turned a lapsed session away. */
+const redirectRejection = (): unknown => {
+  try {
+    redirect("/signin");
+  } catch (thrown) {
+    return thrown;
+  }
+  return assert.fail("redirect() returned");
+};
 
 /** The ruling's words for an undo nobody can tell landed. */
 const RUECKNAHME_UNKLAR = "Ob die Änderung zurückgenommen wurde, ist unklar. Lade die Seite neu und prüfe sie.";
@@ -62,6 +76,40 @@ describe("what the shared undo offer says when its action never answered", () =>
     assert.equal(pressed.refreshed, 0, "a press that reached nothing read the page again");
   });
 
+  /* A deploy since the page loaded retired the action the offer names, so nothing ran, and the offer is gone. */
+  it("says the change stands where the running build no longer holds the action, reading nothing again", async () => {
+    const pressed = await pressAgainst(new UnrecognizedActionError("Server Action not found"));
+
+    assert.deepEqual(dangers(pressed), [
+      ["Änderung nicht zurückgenommen", "Die Website wurde inzwischen aktualisiert. Lade die Seite neu. Die Änderung steht weiterhin."],
+    ]);
+    assert.equal(pressed.refreshed, 0, "a press that ran nothing read the page again");
+  });
+
+  /* The proxy's turn-away is Next's own redirect, which loads `/signin` as a save's does: a toast raised
+     first would call an undo unclear that never ran. The redirect goes on to Next's own handler. */
+  it("raises nothing and reads nothing again for Next's own redirect, handing it on", async () => {
+    const handedOn: unknown[] = [];
+    const listener = (reason: unknown) => void handedOn.push(reason);
+    // The browser hands a rejection nobody awaits to Next's own listener; the runner's would fail the case
+    // on it, so they stand aside while this one catches it.
+    const runners = process.listeners("unhandledRejection");
+    process.removeAllListeners("unhandledRejection");
+    process.on("unhandledRejection", listener);
+    try {
+      const rejection = redirectRejection();
+      const pressed = await pressAgainst(rejection as Error);
+      await settled();
+
+      assert.deepEqual(dangers(pressed), [], "the redirect was answered with a toast");
+      assert.equal(pressed.refreshed, 0, "the redirect read the page again");
+      assert.deepEqual(handedOn, [rejection], "the redirect stopped short of Next's own handler");
+    } finally {
+      process.off("unhandledRejection", listener);
+      for (const runner of runners) process.on("unhandledRejection", runner);
+    }
+  });
+
   /* The browser's one path into the log is the crash report (`docs/logging/spec.md` §1.3); a `console`
      call from here lands outside the envelope. */
   it("writes nothing to the console when the action rejects", async () => {
@@ -92,6 +140,14 @@ describe("what the shared undo offer says of its action's answer", () => {
     assert.deepEqual(dangers(pressed), [["Rücknahme unklar", error]]);
     // The action read the page again itself, wherever its replay wrote.
     assert.equal(pressed.refreshed, 0);
+  });
+
+  /* A half went back, so neither „nicht zurückgenommen“ nor „zurückgenommen“ is true of it (`docs/frontend/spec.md :: I42`). */
+  it("titles a replay that put one half back partly restored, under the action's sentence", async () => {
+    const error = "Die Saison passt nicht mehr. Nur die Stammdaten wurden zurückgesetzt.";
+    const pressed = await pressAgainst({ success: false, error, outcome: "partial" });
+
+    assert.deepEqual(dangers(pressed), [["Nur teilweise zurückgenommen", error]]);
   });
 
   it("keeps a refused replay under the negated title, with the action's sentence", async () => {

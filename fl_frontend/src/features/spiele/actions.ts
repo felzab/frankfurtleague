@@ -1,7 +1,7 @@
 "use server";
 
 import { invalidatesOnWrite, runAdminMutation } from "@/shared/utils/adminMutation";
-import { refusedReplay, runAdminUndo, UNDO_UNREADABLE } from "@/shared/utils/adminUndo";
+import { refusedReplay, restored, runAdminUndo, unclearReplay, UNDO_UNREADABLE } from "@/shared/utils/adminUndo";
 import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
@@ -140,10 +140,10 @@ export async function undoAdminSpielEditAction(rawPayload: z.input<typeof SpielU
       return refusedReplay(error, PAARUNGEN_REPLAY_REFUSALS);
     }
 
-    if (!operation.acknowledged) return { unclear: "Die Rücknahme wurde abgebrochen. Prüfe die betroffenen Spiele." };
+    if (!operation.acknowledged) return unclearReplay("Die Rücknahme wurde abgebrochen. Prüfe die betroffenen Spiele.");
 
     // The replay's own collateral: restoring the fixture the save named empties the slots below it
     // again, and a fixture the list does not put back has lost its result for good.
-    return { cost: describeMovedSpiele(operation.advanced_to, operation.bracket_faults, operation.released_sides) };
+    return restored(describeMovedSpiele(operation.advanced_to, operation.bracket_faults, operation.released_sides));
   });
 }

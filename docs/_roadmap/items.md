@@ -54,7 +54,7 @@ deliverable.
 document and the image the write replaced (`fl_backend/app/core/recording.py`); `/bereich/admin/aktionen`
 lists the rows and narrows to one document's history. A row therefore holds what a replay needs, and
 replaying one is a small change over the undo spine the entity editors already share
-(`fl_frontend/src/shared/utils/undoDispatch.ts :: offerUndo`). What is missing is the control that
+(`fl_frontend/src/shared/utils/adminUndo.ts :: runAdminUndo`). What is missing is the control that
 does it: a restore offered on a log row, past the editor's fifteen-second, browser-held undo — one
 that survives a reload and reaches a write nobody was watching at the time.
 

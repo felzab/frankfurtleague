@@ -86,13 +86,14 @@ describe("the match save's undo, driven", () => {
     assert.equal(cacheCalls.filter(({ name }) => name === "refresh").length, 1, "the page the press stands on keeps the undone values");
   });
 
-  /* A replay refused part-way leaves rows standing, so the refusal clears the caches as a restore does. */
-  it("clears them where the replay is refused too", async () => {
+  /* The replay is one transaction, so a refusal wrote nothing: no cached read moved, and the page is
+     left as it stands. */
+  it("clears nothing and reads nothing again where the replay is refused", async () => {
     answerWith(() => Promise.reject(refusedOn(REPLAY_OPERATION, "REQ-WIRING-001")));
 
     await undoAdminSpielEditAction(aReplayOf(SPIEL_ID));
 
-    assert.deepEqual(droppedTags(), EXPECTED_TAGS);
+    assert.deepEqual(cacheCalls, []);
   });
 
   it("refuses a body naming no fixture, which no save produced", async () => {

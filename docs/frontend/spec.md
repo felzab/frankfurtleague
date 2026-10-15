@@ -392,10 +392,10 @@ a seat holder the league holds nothing of theirs.
 
 **Every ADMIN mutation is a server action, the eight page-owned editors' undos among them**, each
 undo beside the save it takes back in its slice's `actions.ts`. An undo is pressed from a toast that
-outlives its editor, so the press usually lands on another page, whose module imports none of the
-slice's actions: Next forwards it to a page whose module does, and runs it there without rendering
-that page, a page on a dynamic segment included. No test reaches that forwarding; only a signed-in
-browser pressing an undo on another page does.
+outlives its editor, so the press usually lands on another page, one that does not import this
+action: Next forwards it to a page that does, and runs it there without rendering that page, a page
+on a dynamic segment included. No test reaches that forwarding; only a signed-in browser pressing an
+undo on another page does.
 
 **The app's route handlers each stand where an action cannot, for a reason of their own.** The sign-in
 library's catch-all and the client-error ingest (`FE-CLIENT-001`) mutate no application data at all. The
@@ -475,22 +475,27 @@ offer and calls the slice's undo action on its press, and
 `fl_frontend/src/shared/utils/adminUndo.ts :: runAdminUndo` is the spine every undo action runs on,
 `runAdminMutation`'s: each action supplies its parse, its tags, its step-up and the replay, and nothing
 else. **A caller the guard turns away is told what an action turned away for the same reason is told,
-and that the change stands** (I522), the offer it pressed being gone; a lapsed session pressing on an
-admin page leaves for `/signin` as every action's does (I251). The edge's own refusal of the press
-says the change stands, and any other rejection is titled unclear and reads the page again.
+never a retry, and that the change stands** (I522), the offer it pressed being gone. **A lapsed
+session pressing on an admin page leaves for `/signin` without a word**, as a save's does (I251): the
+proxy's turn-away is Next's own redirect, which the offer hands back to Next. Pressing from a page
+outside `/bereich/admin`, the forwarded action meets that turn-away with no answer to read, so it is
+titled „Rücknahme unklar“ though nothing ran; the window is the offer's fifteen seconds after a lapse.
+The edge's own refusal of the press, and an action a deploy has retired since the page loaded, say
+the change stands, and any other rejection is titled unclear and reads the page again.
 
 **Every undo replay can be refused on the way back**, and each answers in German out of
 its own replay table, held in the slice's refusals module because a server action module may export only its actions
 (`fl_frontend/src/features/spiele/refusals.ts :: PAARUNGEN_REPLAY_REFUSALS` among them), every row a code the replayed
 endpoint publishes (`fl_frontend/src/app/refusalCoverage.test.ts :: "words only codes one of its replayed operations publishes"`): the replay meets the rules the save met, so a span another tab has
 since narrowed comes back from the matchday's as a refusal. **A refusal reports the change as still
-standing only where the replay is one write**: a replay that commits in parts words the half that
-went back instead. **`fl_frontend/src/shared/utils/adminUndo.ts :: runAdminUndo` therefore
-clears the caches and reads the page again wherever its replay sent a write, never only where it
-committed** — a refusal and a throw each leave rows written behind them, and a cached read would go
-on serving what the undo took back. **A replay whose write comes back unacknowledged is no
-refusal**: it may have landed, so the action answers it as of unknown outcome
-(`fl_frontend/src/shared/utils/adminUndo.ts :: UndoReport`) and the offer titles it „Rücknahme
+standing only where the replay is one write**: a replay of two writes whose second is refused or
+fails outright after the first went back words that half instead, titled „Nur teilweise
+zurückgenommen“ (`fl_frontend/src/shared/utils/adminUndo.ts :: partlyRestored`). **Its caches are
+cleared and the page read again wherever a write may stand** — a restore, a half that went back, a
+write that may have landed — and never behind a one-write replay's refusal, which wrote nothing; a
+cached read would otherwise go on serving what the undo took back. **A replay whose write comes back
+unacknowledged is no refusal**: it may have landed, so the action answers it as of unknown outcome
+(`fl_frontend/src/shared/utils/adminUndo.ts :: unclearReplay`) and the offer titles it „Rücknahme
 unklar“ over the action's sentence. The contacts undo declares no tag — the one place the eight
 differ.
 
@@ -2429,7 +2434,7 @@ carries an `aria-label` of its own and the glyph inside it is decorative like an
 | I629 | **A confirmed referee's moved address mails its link to the new address and a notice naming no new address to the stored one**                                                                                                                     | `fl_frontend/src/features/schiedsrichter/notifications.ts :: mailSchiedsrichterAdresswechsel`, called by the save, the re-send and the undo; `fl_frontend/src/features/schiedsrichter/adresswechsel.test.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | I630 | **Only an open address link offers both answers, and a lapsed or unconfirmable one the decline alone**; every other state is a panel naming nobody                                                                                                 | `fl_frontend/src/features/schiedsrichter/components/views/SchiedsrichterAdresswechselView.tsx :: SchiedsrichterAdresswechselView`; `fl_frontend/src/features/schiedsrichter/components/views/SchiedsrichterAdresswechselView.test.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | I521 | **A confirmation's windows count down on the browser's clock from what each server render left**, whichever way either clock is off or steps                                                                                                       | `fl_frontend/src/shared/hooks/useConfirmationWindows.ts :: useConfirmationWindows`, served by `fl_frontend/src/shared/utils/kontoMutation.ts :: confirmedUntil`; `fl_frontend/src/features/konto/components/views/SicherheitPanel.test.ts :: "on a browser clock minutes"`, `fl_frontend/src/features/admin/components/providers/AdminStepUpProvider.test.ts :: "on a browser clock"`                                                                                                                                                                                                                                                                                                              |
-| I522 | **An undo turned away says the cause an action turned away for the same reason is told**, and that the change stands                                                                                                                               | `fl_frontend/src/shared/utils/adminUndo.ts :: undoTurnedAway`; `fl_frontend/src/shared/utils/adminUndo.test.ts :: "answers every reason its guard turns a caller away for"`, `fl_frontend/src/shared/utils/adminActionSpine.test.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| I522 | **An undo the guard refuses names the cause an action refused for the same reason is told**, never a retry, and that the change stands                                                                                                             | `fl_frontend/src/shared/utils/adminUndo.ts :: undoTurnedAway`; `fl_frontend/src/shared/utils/adminUndo.test.ts :: "answers every reason its guard turns a caller away for"`, `fl_frontend/src/shared/utils/adminActionSpine.test.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | I531 | **A press that saved part of what it sent is titled „Nur teilweise gespeichert“**, never „nicht gespeichert“; I326's unclear title outranks it                                                                                                     | `fl_frontend/src/shared/utils/appToast.test.ts`; `fl_frontend/src/features/teams/actions.test.ts :: "a club created whose entry into the season is refused"`; `fl_frontend/src/features/admin/editorWiring.test.ts :: "a two-part press whose second half was refused"`                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | I532 | **A withheld send is filed, never failed**: every mail caller answers it in the deployment's words or as a receipt and logs only `FE-MAIL-004`                                                                                                     | `fl_frontend/src/core/mail.ts :: MailWithheldError`; the withheld cases of `fl_frontend/src/features/sperrliste/actions.test.ts`, `fl_frontend/src/features/schiedsrichter/einladen.test.ts`, `fl_frontend/src/features/bewerbungen/notifications.test.ts`, `fl_frontend/src/features/bewerbungen/actions.test.ts`, `fl_frontend/src/features/zustellung/notifications.test.ts` and `fl_frontend/src/core/auth.test.ts`                                                                                                                                                                                                                                                                            |
 | I535 | **The administrators page offers an owner's controls to a session made since `inhaber_seit` alone**: the backend refuses an owner's write from an older one                                                                                        | `fl_frontend/src/core/verwaltung.ts :: holdsOwnersTier`; `fl_frontend/src/core/auth.test.ts :: "holds an owner's power on a session made since the promotion alone, and administers on an older one"`, `fl_frontend/src/features/berechtigungen/page.test.ts :: "offers an owner signed in before the promotion no tier change, and every revoke closed with the reason"`                                                                                                                                                                                                                                                                                                                          |

@@ -3,7 +3,7 @@
 import z from "zod";
 
 import { invalidatesOnWrite, runAdminMutation } from "@/shared/utils/adminMutation";
-import { refusedReplay, runAdminUndo, UNDO_UNREADABLE } from "@/shared/utils/adminUndo";
+import { partlyRestored, refusedReplay, restored, runAdminUndo, unclearReplay, UNDO_UNREADABLE } from "@/shared/utils/adminUndo";
 import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
@@ -290,7 +290,7 @@ export async function undoAdminSpielerEditAction(rawPayload: z.input<typeof Spie
     if (person !== undefined) {
       // No replay catch: the register declares no refusal against the season-independent person row.
       const operation = await patchSpieler(person);
-      if (!operation.acknowledged) return { unclear: "Die Rücknahme wurde abgebrochen. Prüfe die Spielerdaten." };
+      if (!operation.acknowledged) return unclearReplay("Die Rücknahme wurde abgebrochen. Prüfe die Spielerdaten.");
     }
 
     if (saison !== undefined) {
@@ -300,20 +300,17 @@ export async function undoAdminSpielerEditAction(rawPayload: z.input<typeof Spie
       } catch (error) {
         return person === undefined
           ? refusedReplay(error, SQUAD_REPLAY_REFUSALS)
-          : refusedReplay(error, SQUAD_REPLAY_REFUSALS, PERSON_HALF_RESTORED);
+          : partlyRestored(error, SQUAD_REPLAY_REFUSALS, PERSON_HALF_RESTORED);
       }
 
       if (!operation.acknowledged) {
         // The first half may already be restored; reported rather than papered over.
-        return {
-          unclear:
-            person === undefined
-              ? "Die Rücknahme wurde abgebrochen. Prüfe den Kadereintrag."
-              : `${PERSON_HALF_RESTORED} Prüfe den Kadereintrag.`,
-        };
+        return unclearReplay(
+          person === undefined ? "Die Rücknahme wurde abgebrochen. Prüfe den Kadereintrag." : `${PERSON_HALF_RESTORED} Prüfe den Kadereintrag.`,
+        );
       }
     }
 
-    return {};
+    return restored();
   });
 }

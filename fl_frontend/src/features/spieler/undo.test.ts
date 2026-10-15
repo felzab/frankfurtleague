@@ -4,7 +4,7 @@ import { describe, it } from "node:test";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 import { publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
-import { assertEachRefusalCloses, droppedTags, unacknowledged } from "@/shared/testing/undoActions.ts";
+import { assertEachRefusalCloses, droppedTags, failedWrite, refreshes, unacknowledged } from "@/shared/testing/undoActions.ts";
 
 import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
 
@@ -107,5 +107,22 @@ describe("the player save's undo", () => {
       await undoAdminSpielerEditAction({ person: PERSON, saison: SAISON }),
       unacknowledged("Nur die Personendaten wurden zurückgesetzt. Prüfe den Kadereintrag."),
     );
+  });
+
+  /* The person half stands behind a squad row that failed outright, so the cache that half moved is
+     dropped and the page read again, as it is behind a refused squad row. */
+  it("clears the cache and reads the page again where the squad half fails after the person half went back", async () => {
+    answerWith((call) => (isTheSquadHalf(call) ? Promise.reject(failedWrite(call.endpoint)) : Promise.resolve(replayed(call, 1))));
+
+    const answer = await undoAdminSpielerEditAction({ person: PERSON, saison: SAISON });
+
+    assert.equal(answer.success ? undefined : answer.outcome, "partial", "the half that went back is not said to stand");
+    assert.ok(
+      !answer.success && answer.error.endsWith(" Nur die Personendaten wurden zurückgesetzt."),
+      "the answer does not name the half that went back",
+    );
+    assert.equal(answer.success, false, "a squad row that failed was reported as restored");
+    assert.deepEqual(droppedTags(), ["spieler"]);
+    assert.equal(refreshes(), 1, "the page keeps the person data the undo already put back");
   });
 });

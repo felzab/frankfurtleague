@@ -764,9 +764,8 @@ describe("the editor's shape", () => {
     );
   });
 
-  /* Putting a person back on a seat mints them a link, so past the step-up window the offer asks before
-     its action is sent (`docs/frontend/spec.md :: I431`); the telephone save itself asked nothing. */
-  it("asks for the passkey before an undo putting people back, past the step-up window", async () => {
+  /** A telephone saved over `BLOCK` past the step-up window, the save answering `answered`, then its undo pressed. */
+  async function undoPastTheWindow(answered: FLSaisonTeamKontakte): Promise<string[]> {
     const prompts: string[] = [];
     const stale = {
       isStale: () => true,
@@ -776,7 +775,7 @@ describe("the editor's shape", () => {
       },
     };
     const user = userEvent.setup({ delay: null });
-    answerWith(() => Promise.resolve(SAVED));
+    answerWith(() => Promise.resolve({ ...SAVED, saison_team: { kontakte: answered, kontakte_stand: SAVED.saison_team.kontakte_stand } }));
     render(h(StepUpContext.Provider, { value: stale }, editorElement(viewElement(BLOCK, true, TEAM_ID), BLOCK)));
     const phone = screen.getAllByRole("textbox", { name: "Telefon" })[0] ?? assert.fail("the seats render no telephone box");
     await user.clear(phone);
@@ -785,10 +784,29 @@ describe("the editor's shape", () => {
     await saved();
 
     await pressUndo();
-    assert.deepEqual(prompts, ["prompt before 1 writes"], "the undo was sent without the prompt its replay needs");
     assert.deepEqual(
       calls.map(({ action }) => action),
       ["patchSaisonTeamKontakteAction", "undoAdminKontakteEditAction"],
+    );
+    return prompts;
+  }
+
+  /* The save's answer holds another person on a seat, so the undo puts the earlier one back, which mints
+     them a link: past the step-up window the offer asks before its action is sent (`docs/frontend/spec.md :: I431`). */
+  it("asks for the passkey before an undo putting a person back, past the step-up window", async () => {
+    const replaced: FLSaisonTeamKontakte = { ...BLOCK, trainer: seatPerson("Barbara", "Liskov", "barbara@example.org") };
+
+    assert.deepEqual(await undoPastTheWindow(replaced), ["prompt before 1 writes"], "the undo was sent without the prompt its replay needs");
+  });
+
+  /* The converse, over the save's real answer: a telephone put back seats nobody, so the offer asks nothing. */
+  it("asks nothing before an undo putting a telephone back, past the step-up window", async () => {
+    const trainer = BLOCK.trainer ?? assert.fail("the block seats no trainer");
+
+    assert.deepEqual(
+      await undoPastTheWindow({ ...BLOCK, trainer: { ...trainer, telefon: "069 222" } }),
+      [],
+      "a telephone's undo asked for the passkey",
     );
   });
 
