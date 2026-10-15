@@ -17,7 +17,7 @@ from app.core.constraints import COLLECTION_VALIDATORS
 from app.core.crud import patch_many_in_db, patch_one_in_db, post_many_to_db, post_one_to_db
 from app.core.exceptions import DocumentNotFoundException
 from app.core.logging import span_id_var, trace_id_var
-from app.core.recording import Actor, _stringify_filter, actor_var, log_stamp, record_write, request_var
+from app.core.recording import Actor, _stringify_filter, actor_var, build_image_redactions, log_stamp, record_write, request_var
 
 # Fixed rather than generated, so a failing test names the same document every run.
 TEAM_OID = ObjectId("6890a1b2c3d4e5f607500001")
@@ -377,3 +377,32 @@ class TestStringifyFilter:
     def test_a_dotted_key_is_left_as_the_field_path_it_names(self):
         """Every reference fan-out matches on one -- `ort.spielort_id`, `team1.team_id` -- so a mangled key would hide what a rename touched."""
         assert _stringify_filter({"ort.spielort_id": TEAM_OID}) == {"ort.spielort_id": str(TEAM_OID)}
+
+
+def their_seat(image: Mapping[str, Any]) -> Mapping[str, Any]:
+    """A judge naming one person's seat in the images holding them."""
+
+    return {"kontakte.trainer": None} if image.get("trainer") == "them" else {}
+
+
+class TestAPerImageRedaction:
+    def test_an_image_is_overwritten_where_the_judge_names_the_person_and_the_row_stamped(self):
+        updates = build_image_redactions([{"_id": TEAM_OID, "before": {"trainer": "them"}}], judge=their_seat, at="stamp")
+
+        assert updates == [([TEAM_OID], {"$set": {"before.kontakte.trainer": None, "redacted_at": "stamp"}})]
+
+    def test_each_image_a_removal_kept_is_addressed_by_its_index(self):
+        """A dotted path naming no index is refused inside an array, so the removal's row would abort the erasure."""
+
+        rows = [{"_id": TEAM_OID, "before": [{"trainer": "somebody else"}, {"trainer": "them"}]}]
+
+        assert build_image_redactions(rows, judge=their_seat, at="stamp") == [
+            ([TEAM_OID], {"$set": {"before.1.kontakte.trainer": None, "redacted_at": "stamp"}})
+        ]
+
+    def test_a_row_naming_nobody_departing_is_left_unstamped(self):
+        """A stamp on it would say a value went where every value stands as recorded."""
+
+        rows = [{"_id": TEAM_OID, "before": {"trainer": "somebody else"}}, {"_id": CREATED_OID, "before": None}]
+
+        assert build_image_redactions(rows, judge=their_seat, at="stamp") == []

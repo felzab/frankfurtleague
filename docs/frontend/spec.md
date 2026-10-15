@@ -711,8 +711,8 @@ because a season that is over is `past`; no action writes `saisons.status` excep
 
 **Irreversible splits in two, and the copy says which** (my rule, 2026-08-26): where the action log
 keeps the pre-image, `Es gibt in der Verwaltung keinen Weg zurück.`; where the same transaction
-empties those log rows as it empties the values
-(`fl_backend/app/core/recording.py :: build_redaction_update`),
+takes those values out of the log as it takes them out of the record
+(`fl_backend/app/core/recording.py :: build_redaction_update`, `:: build_image_redactions`),
 `Zurückholen lässt sich das nicht.` — a pupil's erasure, a referee's anonymisation and a contact
 person's erasure alone. **Each is a whole sentence of its own**, because folding the qualifier into
 the object beside it is what let one promise grow into a family of wordings nobody could sort.

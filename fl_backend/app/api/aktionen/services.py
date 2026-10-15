@@ -1,9 +1,15 @@
-from collections.abc import Collection, Iterable, Mapping
-from typing import Any
+from collections.abc import Collection, Iterable, Mapping, Sequence
+from dataclasses import dataclass
+from types import MappingProxyType
+from typing import Any, Final
 
 from app.api.aktionen.schemas import FLAktorAdapter, FLAktorMitAdresse
+from app.api.kontakte.services import same_address
+from app.api.schiedsrichter.services import ADRESSWECHSEL_FELD
 from app.api.sperrliste.services import withheld_actor
+from app.core.collections import Collection as DbCollection
 from app.core.crud import build_sort
+from app.core.recording import ERASED_ACTOR_MARKER
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import parse_object_id
 
@@ -59,3 +65,60 @@ def build_aktionen_sort(*, order: str) -> list[tuple[str, int]]:
     direction = 1 if order == "asc" else -1
 
     return build_sort(sort_by="at", order=order, chain=(("_id", direction),))
+
+
+@dataclass(frozen=True)
+class ImageAddress:
+    """One address a log image keeps, where it sits inside the image, and what takes its place."""
+
+    path: str
+    # The field itself, or the block holding it where the whole block is the address's.
+    overwritten: str
+    replacement: Any
+
+
+# Every address an image keeps on a document the erasure neither removes nor clears; a seat's are
+# the seat step's (`app/api/kontakte/crud.py`). A required field naming who acted takes the marker,
+# so a replayed image still validates.
+IMAGE_ADDRESSES: Final[Mapping[DbCollection, tuple[ImageAddress, ...]]] = MappingProxyType(
+    {
+        DbCollection.BERECHTIGUNGEN: (
+            ImageAddress("adresse", "adresse", None),
+            ImageAddress("erteilt_von", "erteilt_von", ERASED_ACTOR_MARKER),
+        ),
+        DbCollection.SPERRLISTE: (ImageAddress("erstellt_von", "erstellt_von", ERASED_ACTOR_MARKER),),
+        DbCollection.EINLADUNGEN: (ImageAddress("erstellt_von", "erstellt_von", ERASED_ACTOR_MARKER),),
+        DbCollection.BEWERBUNGEN: (ImageAddress("entscheidung.von", "entscheidung.von", ERASED_ACTOR_MARKER),),
+        DbCollection.REGISTRIERUNGEN: (ImageAddress("entscheidung.von", "entscheidung.von", ERASED_ACTOR_MARKER),),
+        DbCollection.SCHIEDSRICHTER: (
+            # A row since re-addressed: the referee step reaches only the rows naming the person now.
+            ImageAddress("kontakt.email", "kontakt.email", None),
+            ImageAddress(f"{ADRESSWECHSEL_FELD}.email", ADRESSWECHSEL_FELD, None),
+        ),
+    }
+)
+
+
+def build_address_images_filter(collection: DbCollection, identifier: str) -> Mapping[str, Any]:
+    """The log rows of one collection whose images may hold this address; `address_image_edits` decides on the fold."""
+
+    return {
+        # `collection` first, the half `aktionen_target` serves: nothing indexes inside `before`.
+        "collection": str(collection),
+        "$or": [{f"before.{address.path}": same_address(identifier)} for address in IMAGE_ADDRESSES[collection]],
+    }
+
+
+def address_image_edits(image: Mapping[str, Any], *, identifier: str, addresses: Sequence[ImageAddress]) -> dict[str, Any]:
+    """Each of these addresses one image holds on the fold, mapped to what takes its place."""
+
+    edits: dict[str, Any] = {}
+    for address in addresses:
+        held: Any = image
+        for key in address.path.split("."):
+            held = held.get(key) if isinstance(held, Mapping) else None
+
+        if isinstance(held, str) and sign_in_identifier(held) == identifier:
+            edits[address.overwritten] = address.replacement
+
+    return edits

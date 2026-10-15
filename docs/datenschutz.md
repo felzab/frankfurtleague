@@ -401,13 +401,13 @@ Every ruling below is the sign-up flow as it stands for the next season.
 - **A referee's pending new address goes with that referee's erasure, and its own holder's request
   is answered by removing it.** Until it confirms, that mailbox owns nothing of the row, so
   its holder is not the person the referee's erasure is about: the link's own decline or
-  `DELETE /schiedsrichter/{schiedsrichter_id}/adresswechsel` removes the address and empties every
-  image the action log holds of the referee, since every write on the row while the change stood, a
-  re-send included, filed one carrying it (`docs/backend/spec.md :: I562`); the referee's own
-  earlier images go with them, the price a contact person's Widerspruch already pays. A save
-  replacing the pending address with another mailbox's empties them the same way, the replaced
-  address being one nobody proved either. `POST /kontakte/erasure` reaches no referee row, a pending
-  address included.
+  `DELETE /schiedsrichter/{schiedsrichter_id}/adresswechsel` removes the address, and takes it out of
+  every image the action log holds of the referee, since every write on the row while the change
+  stood, a re-send included, filed one carrying it (`docs/backend/spec.md :: I562`). The rest of each
+  image stays, the referee's own earlier consent states among it, as a contact person's Widerspruch
+  leaves the people beside them theirs (`docs/backend/spec.md :: I42`). A save replacing the pending
+  address with another mailbox's takes it out the same way, the replaced address being one nobody
+  proved either. `POST /kontakte/erasure` reaches no referee row, a pending address included.
 - **An erasure keyed on an email address names what it reaches.** Every seat the address holds is
   its one person's (the entry below), and each is listed for confirmation before the write — by name
   and by the season it sits in, read through `POST /kontakte/erasure/ansicht` rather than inferred on
@@ -447,7 +447,8 @@ Every ruling below is the sign-up flow as it stands for the next season.
   made it; a barred address it names by its state alone, and an erased person's not at all
   (`docs/frontend/spec.md :: I455`). A revoke removes the grant and its announced row
   at once (`docs/backend/spec.md :: I451`); the log keeps the removed grant's image, the address in
-  it, for its twelve months, as it keeps every administrator's write, and no image of an announced or
+  it, for its twelve months, as it keeps every administrator's write, until that person's erasure
+  takes the address out of it (`docs/backend/spec.md :: I670`), and no image of an announced or
   outbox row the revoke or a pass removes (`docs/backend/spec.md :: I465`). An erasure removes every
   grant the address holds and its announced row with no image, an `owner` grant included, and queues
   the notice that it ended (`docs/backend/spec.md :: I436`, `:: I659`); otherwise the revoke is the
@@ -457,8 +458,8 @@ Every ruling below is the sign-up flow as it stands for the next season.
   ([`ops/runbooks.md`](ops/runbooks.md#13-after-a-restore-from-a-snapshot)). **The granter's address outlives their revoke and not their
   erasure**: `erteilt_von` keeps it on every grant they made, served to every administrator while
   those grants stand and the ban list does not hold it (`docs/backend/spec.md :: I452`), until their
-  erasure replaces it, as on every ban, invite and decision they made, with a marker naming nobody
-  (`:: I660`).
+  erasure replaces it, as on every ban, invite and decision they made, with a marker naming nobody,
+  in the log's images of them too (`:: I660`, `:: I670`).
 - **The administrator's own email on every log row stays, outside every redaction.** The log
   exists to say who did what; the asymmetry is deliberate and is stated at the invariant once it
   leaves here (`docs/backend/spec.md :: I42` is the redaction it sits beside, and `:: I48` what a
@@ -559,7 +560,8 @@ Every ruling below is the sign-up flow as it stands for the next season.
   **It is bounded by the league's own calendar** and removed without anybody asking at the season
   activation [section 6](#6-retention-is-bounded-where-a-bound-was-chosen) names; an administrator
   may lift it earlier. **Either removal keeps a copy in the action log** — the hash, the key label,
-  the reason, the administrator and the season it ran to, and no barred address — for the twelve
+  the reason, the administrator, or the marker once they are erased (`docs/backend/spec.md :: I670`),
+  and the season it ran to, and no barred address — for the twelve
   months every stamped log row is kept (`docs/backend/spec.md :: I48`, `:: I119`), so a removed ban
   is readable at `/bereich/admin/aktionen` for that period and enforced by nothing from the moment it goes.
 - **A retired row is never removed because of its age.** A player who left a squad, a referee who
@@ -952,7 +954,8 @@ the `Entry` column carries a token only where one still resolves in that file.
   administrator before the confirmation link existed and carry no consent record, and their names are
   published on every fixture they officiate on the basis the notice gives for every referee; the rows
   are dropped whole, once, their past fixtures go to the ghost with the name emptied, and the drop
-  redacts the action log's images of them as an erasure does
+  empties the action log's images of them, those of their fixtures whole where an erasure repoints
+  the booking alone (`docs/backend/spec.md :: I42`)
   ([section 3](#3-the-current-pupil-records-are-reset-once),
   [`ops/runbooks.md`](ops/runbooks.md#12-deleting-this-seasons-player-records-and-resetting-the-action-log)).
   Nothing informs these people under Art. 14: a placeholder row is

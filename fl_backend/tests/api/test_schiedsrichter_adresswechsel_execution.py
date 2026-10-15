@@ -77,6 +77,8 @@ A_LATER_DAY = "2026-04-05"
 # One day past the deadline a link minted on `TODAY` carries.
 AFTER_THE_DEADLINE = "2026-04-16"
 NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
+# Written out rather than computed from `log_stamp`, which would agree with any conversion of `NOW`.
+REDACTED_AT = "2026-04-01T10:30:00+00:00"
 
 SCHIEDSRICHTER_OID = ObjectId("6890a1b2c3d4e5f607830001")
 
@@ -705,6 +707,46 @@ class TestTheDiscard:
             return await where_held(database, NEW_EMAIL)
 
         assert on_a_league(mongo_replica_set_url, body) == {NEW_EMAIL: []}
+
+
+class TestTheRefereesOwnTrailStays:
+    """Each way a pending address ends takes that address out of the referee's log images and leaves the rest of each."""
+
+    @pytest.mark.parametrize("ending", ["declined", "discarded", "replaced"])
+    def test_only_the_pending_block_leaves_the_log(self, mongo_replica_set_url: str, ending: str):
+        """Restore the redaction by document and this fails: the referee's state before their own consent is in the log alone."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await save(database, client, email=NEW_EMAIL)
+            resent = await resend(database, client)
+            if ending == "declined":
+                await answer(database, client, resent.adresswechsel.token, "abgelehnt")
+            elif ending == "discarded":
+                await discard(database, client)
+            else:
+                await save(database, client, email=THIRD_EMAIL)
+
+            return (
+                await database[Collection.AKTIONEN]
+                .find({"collection": str(Collection.SCHIEDSRICHTER), "document_id": SCHIEDSRICHTER_OID})
+                .sort("_id", 1)
+                .to_list(length=None)
+            )
+
+        rows = on_a_league(mongo_replica_set_url, body)
+        held = [row for row in rows if ADRESSWECHSEL_FELD in row["before"]]
+
+        assert held, "no image held the pending block, so the redaction proves nothing"
+        assert [(row["before"][ADRESSWECHSEL_FELD], row["redacted_at"]) for row in held] == [(None, REDACTED_AT)] * len(held)
+        # The referee's own record beside the block stands in every image holding it.
+        assert {(row["before"]["kontakt"]["email"], row["before"][EINWILLIGUNG_FELD]["umfang"]) for row in held} == {
+            (EMAIL, "kader_oeffentlich")
+        }
+        # The consent trail: the image the referee's own answer filed holds no change and stands as recorded.
+        trail = [row for row in rows if EINWILLIGUNG_FELD not in row["before"]]
+        assert trail, "the seeded history filed no image from before the referee's answer"
+        assert [(row["before"]["name"], row["redacted_at"]) for row in trail] == [(NAME, None)] * len(trail)
+        assert NEW_EMAIL not in str(rows)
 
 
 class TestTheDeliveryState:

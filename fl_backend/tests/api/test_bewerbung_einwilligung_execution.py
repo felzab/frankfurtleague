@@ -735,18 +735,27 @@ class TestADecline:
         assert response.ausstehend == list(KONTAKT_ROLLEN)
         assert (view.zustand, view.vorname, view.text_version) == ("abgelehnt", None, None)
 
-    def test_every_log_image_holding_the_person_is_emptied_and_stamped(self, mongo_replica_set_url: str):
-        """The clearing patch files the pre-image, so the redaction has to reach the row it just wrote."""
+    def test_the_seat_leaves_every_log_image_and_an_earlier_answer_beside_it_stays(self, mongo_replica_set_url: str):
+        """Restore the redaction by document and this fails: the Trainer's state before their own consent is in the log alone.
+
+        The clearing patch files a pre-image too, so the redaction has to reach the row it just wrote.
+        """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await answer(database, client, RAW["trainer"])
             await answer(database, client, RAW["stellvertretung"], antwort="abgelehnt", geburtsdatum=None, whatsapp=False)
 
             return await log_rows(database)
 
-        rows = on_a_league(mongo_replica_set_url, body)
+        consent, decline = on_a_league(mongo_replica_set_url, body)
 
-        assert len(rows) == 1
-        assert (rows[0]["before"], rows[0]["redacted_at"]) == (None, REDACTED_AT)
+        for row in (consent, decline):
+            assert (row["before"]["kontakte"]["stellvertretung"], row["redacted_at"]) == (None, REDACTED_AT)
+            assert row["before"].get("idempotenz_fingerabdruck") is None
+            # The link stays with the seat in the image, as it does on the application.
+            assert row["before"]["bestaetigungen"]["stellvertretung"] is not None
+        assert consent["before"]["kontakte"]["trainer"]["geburtsdatum"] is None
+        assert decline["before"]["kontakte"]["trainer"]["geburtsdatum"] == AN_ADULTS_BIRTHDATE
 
     def test_a_declined_seat_takes_no_second_answer(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:

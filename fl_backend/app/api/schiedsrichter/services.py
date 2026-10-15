@@ -13,7 +13,7 @@ from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
 from app.shared.alter import whole_years_between
 from app.shared.einwilligung import is_confirmed
 from app.shared.einwilligung_nachweis import compose_geboren
-from app.shared.folding import canonical_address, mailbox_key
+from app.shared.folding import canonical_address, mailbox_key, sign_in_identifier
 from app.shared.schemas.bounds import (
     BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
     MEDIEN_MIN_AGE_YEARS,
@@ -112,10 +112,24 @@ def build_booked_image_filter(schiedsrichter_id: Any) -> Mapping[str, Any]:
     """
 
     # `collection` first, the one half an index serves — nothing indexes inside `before`, as the
-    # contact erasure's orphan sweep also finds
-    # (`app/api/kontakte/services.py :: build_orphaned_images_pipeline`). A `delete_many` row's image is
+    # contact erasure's seat pass also finds
+    # (`app/api/kontakte/services.py :: build_seat_images_filter`). A `delete_many` row's image is
     # an ARRAY, matched on its members.
     return {"collection": str(Collection.SPIELE), "before.schiedsrichter.schiedsrichter_id": schiedsrichter_id}
+
+
+def booked_image_edits(image: Mapping[str, Any], schiedsrichter_id: Any) -> dict[str, Any]:
+    """One fixture image booked to this referee, repointed as the fixture itself is.
+
+    Its result and every other value stay: the match is the league's record, and only the booking
+    named the person.
+    """
+
+    booking = image.get("schiedsrichter")
+    if not isinstance(booking, Mapping) or booking.get("schiedsrichter_id") != schiedsrichter_id:
+        return {}
+
+    return dict(build_ghost_repoint()["$set"])
 
 
 def first_stamped(*, stored: Mapping[str, Any], field: str, today: str) -> str:
@@ -583,6 +597,19 @@ def save_drops_a_pending_address(*, stored: Mapping[str, Any], payload_email: st
         return False
 
     return mailbox_key(pending) != mailbox_key(payload_email)
+
+
+def adresswechsel_image_edits(image: Mapping[str, Any], identifier: str) -> dict[str, None]:
+    """The pending block in one log image of a referee, emptied where it names this mailbox on the fold.
+
+    Another address's block stays, and so does the referee's own record beside it: their earlier
+    consent states are theirs.
+    """
+
+    wechsel = image.get(ADRESSWECHSEL_FELD)
+    email = wechsel.get("email") if isinstance(wechsel, Mapping) else None
+
+    return {ADRESSWECHSEL_FELD: None} if isinstance(email, str) and sign_in_identifier(email) == identifier else {}
 
 
 def compose_adresswechsel_antwort(*, antwort: str, email: Any) -> Mapping[str, Any]:
