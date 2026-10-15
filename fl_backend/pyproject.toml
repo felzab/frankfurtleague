@@ -20,6 +20,9 @@ dependencies = [
     # The driver, through `AsyncMongoClient`. Also the home of `bson`, which app/ imports under
     # that name.
     "pymongo>=4.17.0",
+    # Imported as `dotenv`, for the parser pydantic-settings reads `.env` with: a refusal numbers an
+    # undeclared name's line by it rather than printing the name the file spells.
+    "python-dotenv>=1.2.4",
     "starlette>=1.3.1",
     # `ZoneInfo("Europe/Berlin")` in app/core/dependencies.py reads the operating system's time-zone
     # database. Windows has none at all and a slim image promises none, so this package is where the

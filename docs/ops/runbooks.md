@@ -74,17 +74,20 @@ the machine is outside the repository. What it does tell you:
   (`scripts/ops/deploy.sh :: check_env_names`): compose hands the container its keys as variables,
   and the settings class looks up none but its own, so a typo there reads as an omission and the
   shipped default serves production. **A name the backend does not declare, or a value it will not
-  accept, refuses the deploy at exit 2 with nothing recreated**, and the printed line names the
-  variables and never a value — so the remedy is read off the names: **delete an undeclared line,
-  correct a rejected value, or declare the name in the settings class**. A check that could not be made at all is an advisory the deploy goes on
+  accept, refuses the deploy at exit 2 with nothing recreated**, and the printed line names a
+  variable the backend declares, gives each line declaring any other name by its number alone, and
+  prints no value — so the remedy is read off the names and the numbers: **correct a named
+  variable's value; open a numbered line, then delete it or declare its name in the settings
+  class**. A check that could not be made at all is an advisory the deploy goes on
   past. It does not catch a misspelling whose value is EMPTY, which the settings reader drops before
   the check judges it ([`../backend/spec.md`](../backend/spec.md) §1.5); a line the two parsers
   could read differently was refused before either image was asked ([`spec.md`](spec.md) I487).
 - **The pulled frontend image is asked the same of `fl_frontend/.env`**
   (`scripts/ops/deploy.sh :: check_frontend_env_names`), and answers about names alone: **a name the
-  frontend does not declare, and a name it requires that the file omits, each refuse the deploy at
-  exit 2 with nothing recreated**. The remedy differs by kind — delete an undeclared line, correct
-  its spelling, or declare the name in the schema, nothing in that schema reading an undeclared one;
+  frontend does not declare, given by its line number, and a name it requires that the file omits,
+  given by name, each refuse the deploy at exit 2 with nothing recreated**. The remedy differs by
+  kind — open a numbered line, then delete it, correct its spelling, or declare the name in the
+  schema, nothing in that schema reading an undeclared one;
   **write a missing required one into the file with its value**. That is where a release adding a
   required name meets a host nobody edited. Every VALUE, an empty one included, is the frontend's own
   boot's to judge, in the step below. It does catch the misspelling whose value is EMPTY that the

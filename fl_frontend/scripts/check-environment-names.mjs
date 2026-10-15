@@ -16,7 +16,7 @@ export const DECLARED_NAMES_FILE = "/app/environment-names.json";
 
 /** Each line outside `STRICT_LINE`, a BOM-led first line among them, is `unreadable`: the advisory rather than the refusal (`docs/ops/spec.md` §1.5). */
 export function scanNames(text) {
-  const names = new Set();
+  const lines = new Map();
   const unreadable = [];
 
   text.split("\n").forEach((raw, index) => {
@@ -30,16 +30,19 @@ export function scanNames(text) {
 
     const declaration = STRICT_LINE.exec(line);
     if (declaration === null) unreadable.push(index + 1);
-    else names.add(declaration[1]);
+    else lines.set(declaration[1], [...(lines.get(declaration[1]) ?? []), index + 1]);
   });
 
-  return { names: [...names].sort(), unreadable };
+  return { names: [...lines.keys()].sort(), lines: Object.fromEntries(lines), unreadable };
 }
 
 /** A `NEXT_PUBLIC_` name is judged here like any other: the client schema declares none, so one in the file reaches no bundle. */
-export function undeclaredNames(found, declared) {
+export function undeclaredLines(lines, declared) {
   const known = new Set(declared);
-  return found.filter((name) => !known.has(name));
+  return Object.entries(lines)
+    .filter(([name]) => !known.has(name))
+    .flatMap(([, at]) => at)
+    .sort((a, b) => a - b);
 }
 
 function missingNames(found, required) {
@@ -55,7 +58,7 @@ function report(argv) {
     return 4;
   }
   const sets = JSON.parse(readFileSync(declaredFile, "utf8"));
-  const { names, unreadable } = scanNames(readFileSync(file, "utf8"));
+  const { names, lines, unreadable } = scanNames(readFileSync(file, "utf8"));
 
   // Judged before the names are, and answered with line numbers rather than lines: a file this
   // cannot read whole is a file whose undeclared names would be guesses, and every line holds a value.
@@ -64,13 +67,17 @@ function report(argv) {
     return 4;
   }
 
-  const undeclared = undeclaredNames(names, sets.declared);
+  const undeclared = undeclaredLines(lines, sets.declared);
   const missing = missingNames(names, sets.required);
   if (undeclared.length === 0 && missing.length === 0) return 0;
 
   // Both lines where both apply: one run of the preflight is one visit to the host, and a remedy
   // held back until the next run is a second recreate to reach it.
-  if (undeclared.length > 0) process.stderr.write(`Undeclared environment variables: ${undeclared.join(", ")}\n`);
+
+  // An undeclared name is the file's own text, a pasted key's line keeping the shape among them, so
+  // it goes by number; a required name is the schema's, so it is named.
+  if (undeclared.length > 0)
+    process.stderr.write(`Undeclared environment variables on ${undeclared.length} line(s): ${undeclared.join(", ")}\n`);
   if (missing.length > 0) process.stderr.write(`Missing required environment variables: ${missing.join(", ")}\n`);
   return 3;
 }

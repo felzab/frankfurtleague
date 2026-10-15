@@ -582,9 +582,10 @@ every missing or blank one follows as `; Invalid secret files: <FILES>`
 part of a key. **The file names are the same on the host, in the container and in development**,
 which is why the database login carries its service's prefix: the frontend's is `frontend_mongodb_uri`.
 
-**A credential's old variable name is declared nowhere**, so where a process reads
-`fl_backend/.env` as a file — `fastapi dev`, and the deploy's name check — a line of one refuses by
-name like any other undeclared name (below), its value printed nowhere. A container is handed the
+**A credential's old variable name is declared nowhere in the environment half**, so where a
+process reads `fl_backend/.env` as a file — `fastapi dev`, and the deploy's name check — a line of
+one refuses the boot, by name, the name being a field of the secret half's, and its value printed
+nowhere. A container is handed the
 file's lines as variables and boots past one, the process environment's undeclared names being read
 by nothing; what keeps such a line out of a container is the deploy's and the local stack's preflight,
 which refuse it in either package's file ([`docs/ops/spec.md`](../ops/spec.md) §1.5). **In development the files live in the checkout's `secrets/`**, and `fastapi dev` reaches them
@@ -655,7 +656,9 @@ file — `fastapi dev` and the deploy's name check — and is never read at all 
 environment**, which is all a container is handed
 (`fl_backend/app/core/config.py :: BackendEnvironment.model_config`): only the
 dotenv source hands the class an extra, and `extra="forbid"` is what stops a typo reading as an
-omission. **The one it does not catch carries an empty value** — the dotenv source drops such a name
+omission. **The refusal gives such a name by the number of each line declaring it and a count,
+never by name** (`fl_backend/app/core/config.py :: SETTING_NAMES`): it is the file's own text, and a
+pasted key's line keeping the dotenv shape declares one. **The one it does not catch carries an empty value** — the dotenv source drops such a name
 before the class judges it, so `LOG_FORMAT_=` boots on the shipped default in silence, and so does an
 empty credential line such as `MONGODB_URI=`, which only the deploy's and the local stack's
 preflights refuse.
