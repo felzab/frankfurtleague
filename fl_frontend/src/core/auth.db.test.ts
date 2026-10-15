@@ -389,6 +389,30 @@ describe("a passkey setup that signs in, against a real database", () => {
     const factors = (await sessionRows()).map(({ authFactor }) => authFactor).sort();
     assert.deepEqual(factors, ["code", "passkey"], "the refused setup minted a session or ended its caller's");
   });
+
+  /* The enrolment guard reads the caller's own rows alone, so a credential another account holds reaches
+     the insert, where the index refuses it as a duplicate no retry clears. */
+  it("refuses a setup naming a credential another account holds as the plugin's failure, on the conflict's warning", async () => {
+    const administrator = await offer(await signIn(ADMIN_EMAIL));
+    assert.equal((await verify(administrator, AUTHENTICATOR_A)).status, 200, "the administrator holds no passkey, so nothing is named twice");
+    gateAnswer = { sitze: [SITZ], gesperrt: false, konto: true };
+    const person = await offer(await signIn("zweites-konto@example.org"));
+    warnings.length = 0;
+    const mailedBefore = sent.length;
+
+    const refused = await verify(person, AUTHENTICATOR_A, { createSession: true });
+
+    assert.deepEqual(
+      {
+        status: refused.status,
+        logged: [warnings, errors],
+        notices: sent.length - mailedBefore,
+        rows: (await passkeyRows()).length,
+        factors: (await sessionRows()).map(({ authFactor }) => authFactor),
+      },
+      { status: 500, logged: [["auth.passkey_enrolment_conflict"], []], notices: 0, rows: 1, factors: ["code", "code"] },
+    );
+  });
 });
 
 describe("what a ban ends, against a real database (`docs/frontend/spec.md :: I402`)", () => {

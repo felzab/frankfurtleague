@@ -15,6 +15,10 @@ const options = {
   // Per operation, and an admin action runs up to seven: three session reads of two commands
   // (measured against `next start` on 2026-09-24) and a refresh, so a slow store costs it up to 21 s
   // (`docs/frontend/spec.md :: I362`).
+
+  // Shared inside a transaction, which the adapter runs through `withTransaction`: its operations,
+  // commit and retries draw on one budget, so a store slow at each step times the whole out. Its
+  // abort after a failed commit has its own.
   timeoutMS: 3000,
   // A visitor's first request after a cold start connects without `timeoutMS`, so an unreachable
   // server is met here. Tighter than `fl_backend/app/core/config.py :: db_server_selection_timeout`,
