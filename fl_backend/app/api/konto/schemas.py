@@ -35,7 +35,7 @@ class FLKontoSpielerEinwilligung(FLSpielerSelbst):
     medien_angeboten: bool
     # The floors the record's confirmation page named, so the page fills its words from the rule.
     mindestalter: int
-    medien_mindestalter: int
+    medien_mindestalter: int = Field(gt=0)
     kontext: FLSpielerKontext
 
 
@@ -49,7 +49,7 @@ class FLKontoSchiedsrichterEinwilligung(FLSchiedsrichterSelbst):
     erteilbar: bool
     medien_angeboten: bool
     mindestalter: int
-    medien_mindestalter: int
+    medien_mindestalter: int = Field(gt=0)
     kontext: FLSchiedsrichterKontext
 
 
@@ -86,7 +86,7 @@ class FLKontoSitzEinwilligung(BaseModel):
     # Never empty, a held seat being a confirmed one.
     bestaetigt: list[FLSitzBestaetigt] = Field(min_length=1)
     # One per entry: every confirmation and the control's own words name the same media floor.
-    medien_mindestalter: int
+    medien_mindestalter: int = Field(gt=0)
 
 
 class FLKontoBewerbungSitzEinwilligung(BaseModel):
@@ -107,7 +107,7 @@ class FLKontoBewerbungSitzEinwilligung(BaseModel):
     nachweis_stand: FLEinwilligungStand
     bestaetigt: list[FLSitzBestaetigt] = Field(min_length=1)
     # One per entry: every confirmation and the control's own words name the same media floor.
-    medien_mindestalter: int
+    medien_mindestalter: int = Field(gt=0)
 
 
 class FLKontoRegistrierungEinwilligung(BaseModel):
@@ -127,7 +127,7 @@ class FLKontoRegistrierungEinwilligung(BaseModel):
     # For `app/api/spieler/schemas.py :: FLSpielerSelbst`'s reason.
     mindestalter: int
     # For `app/api/spieler/schemas.py :: FLSpielerSelbst`'s reason.
-    medien_mindestalter: int
+    medien_mindestalter: int = Field(gt=0)
     # What the pupil's confirmation page filled its words with, read today.
     kontext: FLSpielerKontext
     # As the registration stores them: the account page shows what is kept about the pupil.

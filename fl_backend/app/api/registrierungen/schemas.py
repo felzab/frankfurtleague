@@ -281,7 +281,7 @@ class FLRegistrierungBestaetigungAnsichtResponse(BaseAPIResponse):
     mindestalter: int
     # The age the media answer is judged by, served for `mindestalter`'s reason: the page offers the
     # switch only from it, and a copy of its own would offer it where the write refuses.
-    medien_mindestalter: int
+    medien_mindestalter: int = Field(gt=0)
     # The returning pupil's stored answers, all three null on the new pupil's page; the birthdate is
     # null on the returning one too where the stored person has none.
     geburtsdatum: CustomOptionalDateString
