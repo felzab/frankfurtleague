@@ -790,24 +790,19 @@ $2}"; }
 ENV_LINE_RE='^[A-Za-z_][A-Za-z0-9_]*=[]A-Za-z0-9_.~:/?[@!&()*+,;=%-]*$'
 
 # A name in any form compose reads one from -- `NAME=`, `NAME:` or a bare `NAME`, behind an optional
-# `export` -- for the credential check, which prints its own list's names alone: a bare word may be
-# a key's data.
+# `export` -- for the credential check alone, which never prints it: a word off a line may be a
+# key's data.
 ENV_NAME_RE='^[[:space:]]*(export[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*([=:]|$)'
 
-# The one name a refused line is listed under: upper case, opening the line before `=` or `:`. A
-# lower-case word or a bare one may be a pasted key's data, so such a line is listed by number alone.
-ENV_LABEL_RE='^([A-Z_][A-Z0-9_]*)[=:]'
-
-# Every line neither blank nor a comment, as `ENV_LINE_*`: its number, the names `ENV_NAME_RE` and
-# `ENV_LABEL_RE` read past a byte-order mark, whether it keeps `ENV_LINE_RE`, and whether it holds a
-# quote.
+# Every line neither blank nor a comment, as `ENV_LINE_*`: its number, the name `ENV_NAME_RE` reads
+# past a byte-order mark, and whether it keeps `ENV_LINE_RE`.
 env_lines() { # $1 the file
   # Off, so a trace never prints a line; C, so a range admits ASCII alone whatever the host's locale.
   local -
   set +x
-  local LC_ALL=C line number=0 name label kept quoted marks k
+  local LC_ALL=C line number=0 name kept marks k
   local -a split=()
-  ENV_LINE_NUMBER=(); ENV_LINE_NAME=(); ENV_LINE_LABEL=(); ENV_LINE_KEPT=(); ENV_LINE_QUOTED=(); ENV_BOM=0
+  ENV_LINE_NUMBER=(); ENV_LINE_NAME=(); ENV_LINE_KEPT=(); ENV_BOM=0
   # `read` drops a NUL byte unseen, so the lines holding one are counted off the bytes first, a NUL
   # and a newline spelled as letters.
   marks="$(tr -cd '\000\n' < "$1" | tr '\000\n' 'Zn')"
@@ -826,41 +821,36 @@ env_lines() { # $1 the file
       split[number]=1
     fi
     if [[ -z "${split[$number]:-}" ]] && [[ "$line" =~ ^[[:blank:]]*$ || "$line" == '#'* ]]; then continue; fi
-    name=""; label=""; kept=0; quoted=0
+    name=""; kept=0
     if [[ -z "${split[$number]:-}" && "$line" =~ $ENV_LINE_RE ]]; then kept=1; fi
-    if [[ "$line" == *[\"\'\`]* ]]; then quoted=1; fi
     if (( number == 1 )) && [[ "$line" == $'\xEF\xBB\xBF'* ]]; then
       ENV_BOM=1
       line="${line#$'\xEF\xBB\xBF'}"
     fi
     if [[ "$line" =~ $ENV_NAME_RE ]]; then name="${BASH_REMATCH[2]}"; fi
-    if [[ "$line" =~ $ENV_LABEL_RE ]]; then label="${BASH_REMATCH[1]}"; fi
-    ENV_LINE_NUMBER+=("$number"); ENV_LINE_NAME+=("$name"); ENV_LINE_LABEL+=("$label")
-    ENV_LINE_KEPT+=("$kept"); ENV_LINE_QUOTED+=("$quoted")
+    ENV_LINE_NUMBER+=("$number"); ENV_LINE_NAME+=("$name"); ENV_LINE_KEPT+=("$kept")
   done < "$1"
+  # A last line of NUL bytes alone, no newline after it, reads as empty and ends the loop unvisited.
+  for k in "${!split[@]}"; do
+    if (( k > number )); then ENV_LINE_NUMBER+=("$k"); ENV_LINE_NAME+=(""); ENV_LINE_KEPT+=(0); fi
+  done
 }
 
 # Every file named is read before the refusal, so one visit to a host corrects them all.
 check_env_spellings() { # $@ the files
-  local file i name named
+  local file i
   local -a wrong=() marked=()
   for file in "$@"; do
     env_lines "$file"
     if (( ENV_BOM )); then marked+=("  ${file}"); fi
-    named=1
     for i in "${!ENV_LINE_NUMBER[@]}"; do
-      name="${ENV_LINE_LABEL[i]:-(no name)}"
-      # A quote may open a value running on over the lines below it, whose data -- a key's among
-      # them -- would read as a name, so no line after one is named.
-      if (( ! named )); then name="(no name)"; fi
-      if (( ! ENV_LINE_KEPT[i] )); then wrong+=("  ${file} ${name}:${ENV_LINE_NUMBER[i]}"); fi
-      if (( ENV_LINE_QUOTED[i] )); then named=0; fi
+      if (( ! ENV_LINE_KEPT[i] )); then wrong+=("  ${file}:${ENV_LINE_NUMBER[i]}"); fi
     done
   done
   (( ${#wrong[@]} )) || return 0
   refuse "${#wrong[@]} line(s) are not NAME=VALUE in the characters every reader of these files takes
-alike, so compose and a dev server could each be handed a different value. Each is listed as file,
-name:line, and never with its value:
+alike, so compose and a dev server could each be handed a different value. Each is listed as
+file:line, and never with anything the line holds:
 $(printf '%s\n' "${wrong[@]}")${marked[0]:+
 These open with a byte-order mark, which some readers take into the first name; save each as UTF-8
 without one:
@@ -869,8 +859,7 @@ Write each as NAME=VALUE with nothing around the =: no quotes, no spaces, no com
 value, and a value of letters, digits and _ - . ~ : / ? [ ] @ ! & ( ) * + , ; = % alone. In a URL,
 write # as %23, \$ as %24 and ' as %27; any other value, generate again without the character. A
 comment is a line of its own opening with #. No line, a comment included, may hold a carriage
-return before its end, U+2028, U+2029 or a NUL byte. A line is named only where it opens with an
-upper-case NAME= or NAME:, and by its number alone after a quote: anything else may be a value's data.
+return before its end, U+2028, U+2029 or a NUL byte.
 NOTHING was asked of compose or of either service."
 }
 
@@ -903,6 +892,9 @@ PUBLIC_KEY_LINE_RE='^ACTOR_TOKEN_PUBLIC_KEY='
 # the backend refuses. `$1` is what stands at the refusal; the rest runs the frontend service's
 # container as the stack starts it.
 check_actor_key() {
+  # Off, as in `check_frontend_boot_config`.
+  local -
+  set +x
   local standing="$1" rc=0 said="" lines=""; shift
   # The public half alone: the rest of the file is the backend's database login and keys, which a
   # frontend container never holds. grep's 1 is "no such line", the check's own finding below.
@@ -956,6 +948,9 @@ RETIRED_ENV_NAMES=(ALLOWED_ADMIN_EMAILS)
 # No command, so the image's own server runs its boot gates, which `BOOT_CHECK` ends there; `$2` is
 # the deployment the boot holds `APP_ENV` to (`fl_frontend/src/instrumentation-node.ts :: registerOnNode`).
 check_frontend_boot_config() { # $1 what stands at the refusal, $2 production or local, the rest runs the frontend's container
+  # Off, so a trace never prints what the container said before `redact_uri_credentials` reads it.
+  local -
+  set +x
   local standing="$1" deployment="$2" rc=0 said=""
   shift 2
   said="$("$@" -e "BOOT_CHECK=${deployment}" frontend 2>&1)" || rc=$?
@@ -999,6 +994,9 @@ except Exception as unexpected:
 
 # `check_frontend_boot_config`'s contract, the backend's program in place of the frontend's boot.
 check_backend_boot_config() { # $1 what stands at the refusal, the rest runs the backend's container
+  # Off, as in `check_frontend_boot_config`.
+  local -
+  set +x
   local standing="$1" rc=0 said=""
   shift
   said="$("$@" backend python -c "$BACKEND_BOOT_CHECK" 2>&1)" || rc=$?
@@ -1015,26 +1013,24 @@ whether it would boot. Its own answer is above."
   fi
 }
 
-# Compose hands a container every line of its environment file as a variable, which
-# `docker inspect` prints, so a credential's or the retired administrator list's name is refused
-# with any value or none (`docs/ops/spec.md :: I508`). Names only.
+# Compose hands the container every line of its file as a variable, which `docker inspect` prints,
+# so a credential's or the retired list's name is refused with any value or none
+# (`docs/ops/spec.md :: I508`), given in the list's spelling.
 refuse_credential_lines() { # $@ the environment files
   # Off, as in `env_lines`: a name read in any form may be a key's data, and a trace would print it.
   local -
   set +x
-  # A space, not this file's newline, joins one file's names onto its own line of the refusal. C,
-  # so `^^` upper-cases `i` to `I` in every locale, a Turkish one included.
-  local file name moved IFS=' ' LC_ALL=C
-  local -a held found=()
+  # C, so `^^` upper-cases `i` to `I` in every locale: a Turkish one's dotted capital would miss
+  # `mongodb_uri`, and no runner here holds that locale for a case to reach.
+  local file i moved LC_ALL=C
+  local -a found=()
   for file in "$@"; do
-    held=()
     env_lines "$file"
-    for name in "${ENV_LINE_NAME[@]}"; do
+    for i in "${!ENV_LINE_NAME[@]}"; do
       for moved in "${MOVED_ENV_NAMES[@]}" "${RETIRED_ENV_NAMES[@]}"; do
-        if [[ "${name^^}" == "$moved" ]]; then held+=("$name"); fi
+        if [[ "${ENV_LINE_NAME[i]^^}" == "$moved" ]]; then found+=("${file}:${ENV_LINE_NUMBER[i]} ${moved}"); fi
       done
     done
-    if (( ${#held[@]} )); then found+=("${file}: ${held[*]}"); fi
   done
   (( ${#found[@]} )) || return 0
   refuse "these lines name a value no service reads from its environment: a credential, which is its

@@ -653,8 +653,8 @@ not make a request against an unreachable server fail sooner.
 `LOG_FORMAT` defaults to the **production** format on purpose: a `.env` that omits it must not
 colourise the container stream ([`docs/logging/spec.md`](../logging/spec.md)). `API_VERSION` is deliberately
 not here — it is a constant of the code (`fl_backend/app/core/config.py :: API_VERSION`). A refusal
-names the failing variables and never their values (`docs/ops/spec.md :: I179`), so the value to
-look at is the one the log does not print.
+names the failing variables, gives an undeclared one by its line number, and never prints a value
+(`docs/ops/spec.md :: I179`), so the value to look at is the one the log does not print.
 
 **A name this table does not list is refused wherever a process reads the package's `.env` as a
 file — `fastapi dev` and the deploy's name check — and is never read at all from the process
