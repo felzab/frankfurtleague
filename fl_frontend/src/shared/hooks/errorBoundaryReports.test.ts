@@ -7,7 +7,7 @@ import path from "node:path";
 import { describe, it, mock } from "node:test";
 import { pathToFileURL } from "node:url";
 
-import { createElement as h } from "react";
+import { createElement as h, startTransition, Suspense, use, useState } from "react";
 
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
@@ -69,6 +69,12 @@ describe("the crash report every error boundary stands behind", () => {
   });
 });
 
+/** The router's state while its fetch is in flight, which suspends whatever reads it. */
+function Held({ until }: { until: Promise<void> }): null {
+  use(until);
+  return null;
+}
+
 describe("the retry every error boundary offers", () => {
   /* Next's `retry` is the refresh and the reset in one transition. A boundary wiring the two itself
      can drop either half with nothing failing, and a reset alone replays the router's cached failure. */
@@ -87,6 +93,50 @@ describe("the retry every error boundary offers", () => {
 
         assert.equal(retry.mock.callCount(), 1, `${shown}: a press calls the retry Next handed it ${String(retry.mock.callCount())} times`);
         assert.equal(seen.refresh, 0, `${shown}: refreshes the router beside the retry, which refreshes it already`);
+      } finally {
+        cleanup();
+      }
+    }
+  });
+
+  /* Next's refresh suspends its transition on the server's answer, and only a press inside the
+     boundary's own transition reads as pending meanwhile: a bare call reports nothing and invites a
+     second press. */
+  it("holds the press pending while the refresh it set off is in flight", async () => {
+    fetchDouble.mock.mockImplementation(() => Promise.resolve(new Response(null, { status: 204 })));
+
+    for (const file of BOUNDARIES) {
+      const shown = path.relative(APP_DIR, file).split(path.sep).join("/");
+      const { default: Boundary } = (await import(pathToFileURL(file).href)) as { default: Boundary };
+      let answer = (): void => undefined;
+      const answered = new Promise<void>((resolve) => {
+        answer = resolve;
+      });
+
+      /* What Next's `retry` does, a transition setting the router's state to the server's answer still
+         on its way, which the router reads with `use`. */
+      function Refreshing() {
+        const [refresh, setRefresh] = useState<Promise<void> | null>(null);
+        const retry = () => startTransition(() => setRefresh(answered));
+
+        return h(
+          Suspense,
+          { fallback: null },
+          refresh === null ? null : h(Held, { until: refresh }),
+          h(Boundary, { error: new Error("gepflanzt"), retry }),
+        );
+      }
+
+      render(underNext(h(Refreshing)));
+      try {
+        const press = screen.getByRole("button");
+        await userEvent.setup().click(press);
+
+        assert.ok(press.hasAttribute("disabled"), `${shown}: the press stands enabled while its refresh is in flight`);
+        assert.match(press.textContent, /Lädt neu/, `${shown}: the press reads ${press.textContent} while its refresh is in flight`);
+
+        answer();
+        await waitFor(() => assert.ok(!press.hasAttribute("disabled"), `${shown}: the press stays disabled once the refresh answered`));
       } finally {
         cleanup();
       }
