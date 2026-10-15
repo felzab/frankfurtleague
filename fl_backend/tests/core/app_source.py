@@ -676,26 +676,46 @@ def _reads_the_database_by_name(call: ast.Call) -> bool:
     return callee(call) in READ_HELPERS or (callee(call) in DRIVER_READS and isinstance(call.func, ast.Attribute))
 
 
+def _writes_the_database_by_name(call: ast.Call) -> bool:
+    """`_reads_the_database_by_name`'s twin for the writing half, safe over the same set and nowhere else."""
+
+    return callee(call) in WRITE_HELPERS | REMOVAL_HELPERS or (callee(call) in DRIVER_WRITES and isinstance(call.func, ast.Attribute))
+
+
 @dataclass(frozen=True)
 class SessionCarrier:
-    """One declaration a transaction reaches by handing its session on, and every read that declaration's own body makes."""
+    """One declaration a transaction reaches by handing its session on, and every read and write that declaration's own body makes."""
 
     where: str
     #: The declaration's own name, which is what a derived floor over these compares.
     called: str
     reads: tuple[tuple[str, bool], ...]
+    writes: tuple[tuple[str, bool], ...]
 
 
 @functools.cache
 def session_carriers() -> tuple[SessionCarrier, ...]:
     """Every declaration the transaction's session reaches, each hand-off inside one followed on to a fixpoint.
 
-    Where `transactional_callbacks` stops: it reads a callback's own lexical body, so a read a module
-    away answers nowhere in it.
+    Where `transactional_callbacks` stops: it reads a callback's own lexical body, so a read or a
+    write a module away answers nowhere in it.
     """
 
     return _carriers_from(
         [(handoff.declaration, handoff.declared_in, handoff.parameter) for handoff in session_handoffs() if handoff.in_session]
+    )
+
+
+@functools.cache
+def callback_carriers(where: str) -> tuple[SessionCarrier, ...]:
+    """`session_carriers` for the one callback `where` names, so a callback whose writes all sit in its helpers is told from one making none."""
+
+    return _carriers_from(
+        [
+            (handoff.declaration, handoff.declared_in, handoff.parameter)
+            for handoff in session_handoffs()
+            if handoff.in_session and handoff.where == where
+        ]
     )
 
 
@@ -712,6 +732,7 @@ def _carriers_from(frontier: list[tuple[Declaration, Path, str]]) -> tuple[Sessi
 
         seen.add((path, declaration.name, parameter))
         reads: list[tuple[str, bool]] = []
+        writes: list[tuple[str, bool]] = []
 
         for chain, call in scoped_calls(declaration, (declaration,)):
             # The parameter this declaration was REACHED through, never its every session parameter:
@@ -720,6 +741,9 @@ def _carriers_from(frontier: list[tuple[Declaration, Path, str]]) -> tuple[Sessi
 
             if _reads_the_database_by_name(call):
                 reads.append((callee(call), bound_at(call, "session", None).argument in carried))
+
+            if _writes_the_database_by_name(call):
+                writes.append((callee(call), bound_at(call, "session", None).argument in carried))
 
             resolved = resolve_callee(call, chain, path)
             if resolved is None:
@@ -735,6 +759,7 @@ def _carriers_from(frontier: list[tuple[Declaration, Path, str]]) -> tuple[Sessi
                 where=f"{path.relative_to(BACKEND_ROOT).as_posix()} :: {declaration.name}({parameter})",
                 called=declaration.name,
                 reads=tuple(reads),
+                writes=tuple(writes),
             )
         )
 
