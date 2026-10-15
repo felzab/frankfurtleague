@@ -402,6 +402,29 @@ describe("a person's own account deletion, from the account page's press to the 
     assert.deepEqual(heldOf(row.userId), { user: 1, passkeys: 1 });
   });
 
+  /* Every press mints a token row and mails a link, so the press counts on the address's own mail bound: past
+     its fifth, it answers as sent and mints and mails nothing (`docs/frontend/spec.md :: I713`). */
+  it("answers every press past the address's fifth link as sent, minting no token row and mailing nothing", async () => {
+    const email = "loeschlink-schleife@example.org";
+    const { cookie, row } = await sessionByCode(auth, store, email);
+    arriveAs(cookie);
+
+    const answers = [];
+    for (let press = 0; press < 50; press += 1) answers.push(await fordereKontoLoeschungAnAction());
+
+    assert.ok(
+      answers.every((answer) => answer.success),
+      "a press past the bound answered apart from a sent one",
+    );
+    assert.equal(new Set(answers.map((answer) => JSON.stringify(answer))).size, 1, "a capped press answers apart from a mailed one");
+    assert.equal(mail.sent.filter((sent) => sent.to === email).length, 5, "the address was mailed past its hour's five");
+    assert.equal(
+      store.verification.filter((held) => held.identifier.startsWith("delete-account-") && held.value === row.userId).length,
+      5,
+      "a capped press minted a token row",
+    );
+  });
+
   /* The link goes to the session's own mailbox, so a session past the step-up window still asks for one
      (`docs/frontend/spec.md :: I676`). */
   it("mails the link from a session signed in past the step-up window", async () => {

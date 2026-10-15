@@ -699,7 +699,7 @@ describe("a session only read, against a real database (`docs/frontend/spec.md :
   });
 });
 
-/** One signed-in address with every row the store keeps of it: a session, a passkey, a live code, a failed guess, a mail's count and a deletion token. */
+/** One signed-in address with every row the store keeps of it: a session, a passkey, a live code, a failed guess, three mails' counts and a deletion token. */
 async function seedAccount(email: string): Promise<{ cookie: string; userId: string; pending: string[]; token: string }> {
   gateAnswer = { sitze: [SITZ], gesperrt: false, konto: true };
   const cookie = await signIn(email);
@@ -735,7 +735,7 @@ async function seedAccount(email: string): Promise<{ cookie: string; userId: str
   const pending = (await authDb().collection("verification").find({}).toArray())
     .filter((row) => !before.has(String(row._id)) && row.identifier !== "sign-in-mail-every-address")
     .map((row) => String(row.identifier));
-  assert.equal(pending.length, 5, `the seeding left ${String(pending.length)} pending rows, so a case reads fewer than it means to`);
+  assert.equal(pending.length, 7, `the seeding left ${String(pending.length)} pending rows, so a case reads fewer than it means to`);
 
   return { cookie, userId, pending, token: found[1] };
 }
@@ -776,7 +776,7 @@ describe("an account deleted, against a real database", () => {
 
     assert.deepEqual([answer, erased], ["deleted", 1]);
     assert.deepEqual(await heldOf(person), { user: 0, sessions: 0, passkeys: 0, pending: 0 });
-    assert.deepEqual(await heldOf(bystander), { user: 1, sessions: 1, passkeys: 1, pending: 5 });
+    assert.deepEqual(await heldOf(bystander), { user: 1, sessions: 1, passkeys: 1, pending: 7 });
   });
 
   /* Both deletion paths find an account by its user row, so the helper goes first: a failure at that row
@@ -808,7 +808,7 @@ describe("an account deleted, against a real database", () => {
     assert.equal(await deleteAccountFor("Konto-Weg-DB@Example.org"), true);
 
     assert.deepEqual(await heldOf(person), { user: 0, sessions: 0, passkeys: 0, pending: 0 });
-    assert.deepEqual(await heldOf(bystander), { user: 1, sessions: 1, passkeys: 1, pending: 5 });
+    assert.deepEqual(await heldOf(bystander), { user: 1, sessions: 1, passkeys: 1, pending: 7 });
   });
 
   /* The first run's commit fails transiently and writes nothing, so the adapter runs the deletion again; that
@@ -840,6 +840,6 @@ describe("an account deleted, against a real database", () => {
 
     assert.equal(runs, 2, "the adapter ran the deletion once, so no retry followed a commit");
     assert.ok(answer instanceof RolledBackError, `the caller was told ${String(answer)} rather than of a rollback`);
-    assert.deepEqual(await heldOf(person), { user: 1, sessions: 1, passkeys: 1, pending: 5 });
+    assert.deepEqual(await heldOf(person), { user: 1, sessions: 1, passkeys: 1, pending: 7 });
   });
 });
