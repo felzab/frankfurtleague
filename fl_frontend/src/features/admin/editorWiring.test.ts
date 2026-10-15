@@ -153,7 +153,19 @@ const SCHIEDSRICHTER = {
   abgelaufen: { bestaetigung: false, adresswechsel: false },
 };
 
-const SPIELER = { id: "68c1f0a2b3c4d5e6f7a8b9c0", vorname: "Lena", nachname: "Meier", inactive_since: null, geburtsdatum: null };
+const SPIELER = {
+  id: "68c1f0a2b3c4d5e6f7a8b9c0",
+  vorname: "Lena",
+  nachname: "Meier",
+  inactive_since: null,
+  geburtsdatum: null,
+  email: "lena.meier@schule.example",
+  adresswechsel: null,
+  adresswechsel_abgelaufen: false,
+};
+
+/** A new address waiting on its mailbox, whose panel's re-send moves the record as the request does. */
+const SPIELER_ADRESSWECHSEL = { email: "lena@neu.example", verschickt_am: "2026-10-01", frist: "2099-12-31", zustellung: null };
 
 const SPIELER_MEMBERSHIP = {
   team_id: TEAM_A.teamId,
@@ -166,8 +178,12 @@ const SPIELER_MEMBERSHIP = {
 };
 
 /** The player's editor in the season its squad row stands in, and what the view hands it besides. */
-const spielerProps = (over: { inactiveSince?: string; rowInactiveSince?: string } = {}) => ({
-  spieler: { ...SPIELER, inactive_since: over.inactiveSince ?? null },
+const spielerProps = (over: { inactiveSince?: string; rowInactiveSince?: string; adresswechsel?: boolean } = {}) => ({
+  spieler: {
+    ...SPIELER,
+    inactive_since: over.inactiveSince ?? null,
+    adresswechsel: over.adresswechsel === true ? SPIELER_ADRESSWECHSEL : null,
+  },
   einwilligung: null,
   istFassungBekannt: true,
   saison: {
@@ -930,6 +946,31 @@ const RECORD_MOVES: Record<string, RecordMove> = {
     type: (user) => typeInto(user, box("Vorname"), "Lena-Marie"),
     press: "Reaktivieren",
     write: "reactivateSpielerAction",
+  },
+  // The address panel's two link writes, each re-keying the editor on the moved block.
+  "the player's address change": {
+    render: async () => {
+      const { AdminSpielerEditView } = await import("@/features/spieler/components/views/AdminSpielerEditView.tsx");
+
+      return renderEditor(h(AdminSpielerEditView, spielerProps()));
+    },
+    ready: async (user) => {
+      await user.click(screen.getByRole("button", { name: "Adresse ändern" }));
+      await typeInto(user, box("Neue E-Mail-Adresse"), "lena@neu.example");
+    },
+    type: (user) => typeInto(user, box("Vorname"), "Lena-Marie"),
+    press: "Link an neue Adresse senden",
+    write: "beantrageSpielerAdresswechselAction",
+  },
+  "the player's waiting address's re-send": {
+    render: async () => {
+      const { AdminSpielerEditView } = await import("@/features/spieler/components/views/AdminSpielerEditView.tsx");
+
+      return renderEditor(h(AdminSpielerEditView, spielerProps({ adresswechsel: true })));
+    },
+    type: (user) => typeInto(user, box("Vorname"), "Lena-Marie"),
+    press: "Link erneut senden",
+    write: "einladeSpielerAdresswechselAction",
   },
   "the squad row's removal": {
     render: async () => {

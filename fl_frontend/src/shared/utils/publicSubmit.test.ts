@@ -45,6 +45,8 @@ const { BestaetigungSaisonVorbei } = await import("@/features/bewerbungen/compon
 const { SchiedsrichterBestaetigungView } = await import("@/features/schiedsrichter/components/views/SchiedsrichterBestaetigungView.tsx");
 const { JA_MEINE_ADRESSE, SchiedsrichterAdresswechselView } =
   await import("@/features/schiedsrichter/components/views/SchiedsrichterAdresswechselView.tsx");
+const { JA_MEINE_ADRESSE: SPIELER_JA_MEINE_ADRESSE, SpielerAdresswechselView } =
+  await import("@/features/spieler/components/views/SpielerAdresswechselView.tsx");
 const { CodeStep } = await import("@/features/auth/components/forms/CodeStep.tsx");
 const { RegistrierungFormPanel } = await import("@/features/registrierungen/components/views/RegistrierungFormPanel.tsx");
 const { SpielerBestaetigungView } = await import("@/features/registrierungen/components/views/SpielerBestaetigungView.tsx");
@@ -361,6 +363,13 @@ const FORMS: Record<string, PublicForm> = {
     render: () =>
       h(SchiedsrichterAdresswechselView, { start: { zustand: "gueltig", vorname: "Anna", frist: "2026-10-05", token: "kein-echtes-token" } }),
     submit: (user) => user.click(screen.getByRole("button", { name: JA_MEINE_ADRESSE })),
+  },
+  "the pupil's address page": {
+    module: "features/spieler/components/views/SpielerAdresswechselView.tsx",
+    route: "/api/bestaetigung/spieler/adresse",
+    render: () =>
+      h(SpielerAdresswechselView, { start: { zustand: "gueltig", vorname: "Lena", frist: "2026-10-05", token: "kein-echtes-token" } }),
+    submit: (user) => user.click(screen.getByRole("button", { name: SPIELER_JA_MEINE_ADRESSE })),
   },
   // The sixth digit sends the check by itself.
   "the sign-in code step": {

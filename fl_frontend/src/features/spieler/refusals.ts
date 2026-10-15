@@ -1,5 +1,7 @@
+import { isRecordMissing } from "@/core/errors";
+import { SPERRLISTE_ADRESSE_GESPERRT } from "@/features/sperrliste/constants";
 import { isRefusal } from "@/shared/utils/actionError";
-import { buildRefusal } from "@/shared/utils/refusal";
+import { buildRefusal, LADE_DIE_SEITE_NEU } from "@/shared/utils/refusal";
 
 import { ALREADY_IN_SAISON, ERASURE_NEEDS_RETIREMENT, STUFE_NICHT_ZUGELASSEN } from "./constants";
 
@@ -77,6 +79,63 @@ export function mapAlreadyInSaisonRefusal(error: unknown): string | null {
 
   return ALREADY_IN_SAISON;
 }
+
+const ADRESSE_BELEGT = "Diese Adresse ist schon bei einer anderen Spielerin oder einem anderen Spieler hinterlegt.";
+
+const SCHON_HINTERLEGT = "Das ist schon die hinterlegte Adresse.";
+
+/** Shown where the control is missing too: a pupil holding no address takes no change, and the panel says where one comes from. */
+export const KEINE_ADRESSE_HINTERLEGT =
+  "Für diesen Eintrag ist keine Adresse hinterlegt. Sie kommt mit der Registrierung über den Link des Teams.";
+
+const EINTRAG_WEG = buildRefusal({ reason: "Diesen Eintrag gibt es nicht mehr", repair: LADE_DIE_SEITE_NEU });
+
+/**
+ * An address change's request, or `null`. The address's own refusals land on the box that holds it,
+ * which is itself the way out; the other two on no field, the box being no part of either.
+ */
+export function mapAdresswechselAntragRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
+  if (isRecordMissing(error)) return { error: EINTRAG_WEG };
+  if (!isRefusal(error)) return null;
+
+  switch (error.serverErrorCode) {
+    case "REQ-SPIELER-003":
+      return { error: SPERRLISTE_ADRESSE_GESPERRT, fieldErrors: { email: SPERRLISTE_ADRESSE_GESPERRT } };
+    case "REQ-SPIELER-006":
+      return { error: ADRESSE_BELEGT, fieldErrors: { email: ADRESSE_BELEGT } };
+    case "REQ-SPIELER-007":
+      return { error: SCHON_HINTERLEGT, fieldErrors: { email: SCHON_HINTERLEGT } };
+    // No address control stands where none is stored, so only a page older than the address's removal sends this.
+    case "REQ-SPIELER-008":
+      return { error: KEINE_ADRESSE_HINTERLEGT };
+    default:
+      return null;
+  }
+}
+
+/**
+ * The pending change's re-send and discard, or `null`. A change answered, replaced or discarded since
+ * the page loaded is the 404 both answer, and the page holding a stale panel is the repair.
+ */
+export function mapAdresswechselLinkRefusal(error: unknown): string | null {
+  if (isRecordMissing(error)) return KEIN_ADRESSWECHSEL;
+  if (!isRefusal(error)) return null;
+
+  switch (error.serverErrorCode) {
+    case "REQ-SPIELER-003":
+      return SPERRLISTE_ADRESSE_GESPERRT;
+    // The panel has no box, so the sentence names the two ways out it does hold.
+    case "REQ-SPIELER-006":
+      return `${ADRESSE_BELEGT} Verwirf die Änderung oder gib unter „Adresse ändern“ eine andere ein.`;
+    default:
+      return null;
+  }
+}
+
+const KEIN_ADRESSWECHSEL = buildRefusal({
+  reason: "Für diesen Eintrag wartet keine neue E-Mail-Adresse mehr auf Bestätigung",
+  repair: LADE_DIE_SEITE_NEU,
+});
 
 /**
  * The refusals the squad half of a replay can meet, in German written for the undo — the save's own

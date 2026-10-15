@@ -241,7 +241,16 @@ const FORMS: Record<string, FormCase> = {
     module: "features/spieler/components/forms/AdminSpielerEditForm/AdminSpielerEditForm.tsx",
     marks: async () => {
       const { AdminSpielerEditForm } = await import("@/features/spieler/components/forms/AdminSpielerEditForm/AdminSpielerEditForm.tsx");
-      const spieler = { id: "68c1f0a2b3c4d5e6f7a8b9c0", vorname: "Lena", nachname: "Meier", inactive_since: null, geburtsdatum: null };
+      const spieler = {
+        id: "68c1f0a2b3c4d5e6f7a8b9c0",
+        vorname: "Lena",
+        nachname: "Meier",
+        inactive_since: null,
+        geburtsdatum: null,
+        email: null,
+        adresswechsel: null,
+        adresswechsel_abgelaufen: false,
+      };
       const membership = {
         team_id: TEAM_A.teamId,
         nummer: "10",

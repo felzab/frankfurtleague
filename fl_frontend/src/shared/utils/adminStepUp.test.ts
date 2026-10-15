@@ -590,6 +590,12 @@ const CONFIRMED_BY_THE_BACKEND: Record<string, { name: string; payload: unknown 
   "DELETE /schiedsrichter/{schiedsrichter_id}/adresswechsel": { name: "verwirfAdresswechselAction", payload: { id: REFEREE_ID } },
   "DELETE /sperrliste/{sperrliste_id}": { name: "deleteSperreAction", payload: { id: SPERRE_ID } },
   "DELETE /spieler/{spieler_id}/erasure": { name: "eraseSpielerAction", payload: { id: SPIELER_ID } },
+  "POST /spieler/{spieler_id}/adresswechsel": {
+    name: "beantrageSpielerAdresswechselAction",
+    payload: { id: SPIELER_ID, email: "lena@neu.example" },
+  },
+  "POST /spieler/{spieler_id}/adresswechsel/einladen": { name: "einladeSpielerAdresswechselAction", payload: { id: SPIELER_ID } },
+  "DELETE /spieler/{spieler_id}/adresswechsel": { name: "verwirfSpielerAdresswechselAction", payload: { id: SPIELER_ID } },
   "POST /teams/{team_id}/saisons": { name: "postSaisonTeamAction", payload: { team_id: TEAM_ID, saison_id: SAISON_ID, gruppe: "A" } },
   "POST /teams/{team_id}/saisons/{saison_id}/replace": {
     name: "replaceSaisonTeamAction",

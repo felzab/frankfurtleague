@@ -31,6 +31,7 @@ const WITHHELD = [
   "/bestaetigung/schiedsrichter/adresse",
   "/registrierung",
   "/bestaetigung/spieler",
+  "/bestaetigung/spieler/adresse",
 ];
 
 /** A segment in parentheses organises files and names no path. */

@@ -239,3 +239,9 @@ export const KADER_AUSTRAGEN_FOLGE = "Der Kadereintrag bleibt gespeichert; zurü
 export function kaderAustragenHinweis(saisonId: string): string {
   return `Der Spieler verschwindet aus dem Kader der Saison ${saisonId}. ${KADER_AUSTRAGEN_FOLGE}`;
 }
+
+/**
+ * Mirrored from `fl_backend/app/shared/schemas/bounds.py`, so the lapsed address link's panel states
+ * the day the endpoint refuses on.
+ */
+export const SPIELER_ADRESSWECHSEL_FRIST_TAGE = 14;

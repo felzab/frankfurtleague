@@ -14,7 +14,7 @@ import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
 import { useReactivation } from "@/shared/hooks/useReactivation";
 
 import type { FLEinwilligung } from "@/features/spieler/schemas";
-import type { SpielerSaisonMembership, SpielerTeamOption } from "@/features/spieler/types";
+import type { AdminSpielerStored, SpielerSaisonMembership, SpielerTeamOption } from "@/features/spieler/types";
 
 export function AdminSpielerEditView({
   spieler,
@@ -24,7 +24,7 @@ export function AdminSpielerEditView({
   teams,
   membershipCount,
 }: {
-  spieler: { id: string; vorname: string; nachname: string | null; inactive_since: string | null; geburtsdatum: string | null };
+  spieler: AdminSpielerStored;
   einwilligung: FLEinwilligung | null;
   /** Whether the registry holds the stored label. */
   istFassungBekannt: boolean | null;

@@ -62,6 +62,7 @@ const {
 const { buildSchiedsrichterAdresswechselEmail, buildSchiedsrichterAdresswechselHinweisEmail, buildSchiedsrichterBestaetigungEmail } =
   await import("./schiedsrichterEmail.ts");
 const { buildSperreEmail } = await import("./sperrlisteEmail.ts");
+const { buildSpielerAdresswechselEmail, buildSpielerAdresswechselHinweisEmail } = await import("./spielerEmail.ts");
 const { art21Satz, escapeHtml, FALLBACK_SATZ, renderKarte, stuffSignatureDelimiter } = await import("./emailShell.ts");
 const { KONTAKT_EMAIL, VEREIN_ANSCHRIFT, VEREIN_NAME } = await import("./brand.ts");
 
@@ -106,6 +107,7 @@ const BUILT_MESSAGES = [
   ...Object.keys(await import("./registrierungEmail.ts")),
   ...Object.keys(await import("./schiedsrichterEmail.ts")),
   ...Object.keys(await import("./sperrlisteEmail.ts")),
+  ...Object.keys(await import("./spielerEmail.ts")),
 ]
   .filter((name) => name.startsWith("build"))
   .sort();
@@ -236,6 +238,9 @@ const FIXTURES: Record<string, (origin: string) => { html: string; text: string 
   buildSchiedsrichterAdresswechselHinweisEmail: (origin) => buildSchiedsrichterAdresswechselHinweisEmail({ origin: origin, vorname: "Anna" }),
   buildSperreEmail: (origin) =>
     buildSperreEmail({ grund: "Falsches Geburtsdatum bei der Anmeldung", gesperrtBisSaisonId: "2031", origin: origin }),
+  buildSpielerAdresswechselEmail: (origin) =>
+    buildSpielerAdresswechselEmail({ origin: origin, vorname: "Lena", token: "beispiel-sieben", fristText: "05.10.2026" }),
+  buildSpielerAdresswechselHinweisEmail: (origin) => buildSpielerAdresswechselHinweisEmail({ origin: origin, vorname: "Lena" }),
 };
 
 /** Every message the mail modules build, so a design claim is checked against all of them rather than against one. */
@@ -579,6 +584,7 @@ describe("the shared email shell", () => {
       "buildRegistrierungBestaetigungEmail",
       "buildSchiedsrichterAdresswechselEmail",
       "buildSchiedsrichterBestaetigungEmail",
+      "buildSpielerAdresswechselEmail",
     ]) {
       assert.ok(gedruckt.has(name), `${name} carries no token link on a control, so this case no longer reads it`);
     }

@@ -117,6 +117,9 @@ async function AdminSpielerEditContent({
         nachname: spieler.nachname,
         inactive_since: spieler.inactive_since,
         geburtsdatum: spieler.geburtsdatum,
+        email: spieler.email,
+        adresswechsel: spieler.adresswechsel,
+        adresswechsel_abgelaufen: spieler.adresswechsel_abgelaufen,
       }}
       // Off the record this page already holds: no read of its own, the memberships tier being the
       // only one that serves the field.

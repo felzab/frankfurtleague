@@ -1,4 +1,11 @@
-import type { FLPatchSaisonSpielerPayload, FLPostSaisonSpielerPayload, FLSpielerPosition, FLSpielerRolle, FLSpielerStufe } from "./schemas";
+import type {
+  FLPatchSaisonSpielerPayload,
+  FLPostSaisonSpielerPayload,
+  FLSpielerAdresswechsel,
+  FLSpielerPosition,
+  FLSpielerRolle,
+  FLSpielerStufe,
+} from "./schemas";
 
 /** Mirrors `FLSpielerSortOptions`: every option is a field the base tier serves, and it serves neither `nachname` whole nor `stufe` at all. */
 type FLSpielerSortingOptions = "vorname" | "nummer" | "position";
@@ -26,9 +33,8 @@ export type SaisonSpielerMembershipDraft = Omit<FLPatchSaisonSpielerPayload, "te
   team_id: string | null;
 };
 
-// The sign-in address is the admission's to write and no route's to edit, a mistyped one being
-// corrected by registering again (`docs/ops/runbooks.md` §5): a field for it here would bind a
-// control to a save the API refuses.
+// No sign-in address: it moves only once its new mailbox confirms a link, which the address panel
+// mints, so a field for it here would bind a control to a save the API refuses.
 /**
  * The editor's own draft rather than a payload type: every field here always holds a value — `null`
  * for an empty box — where an `undefined` reaching the patch erases the stored surname.
@@ -74,6 +80,33 @@ export type SpielerSaisonMembership = {
 
 /** The season the editor addresses — the sidemenu selector's, resolved by the page. */
 export type SpielerSaisonContext = Pick<SpielerSaisonMembership, "saisonId" | "saisonStatus">;
+
+/**
+ * The stored person the editor opens on. The address and its pending change travel beside the draft
+ * and in no payload: they move through their own link, never through the save.
+ */
+export type AdminSpielerStored = {
+  id: string;
+  vorname: string;
+  nachname: string | null;
+  inactive_since: string | null;
+  geburtsdatum: string | null;
+  email: string | null;
+  adresswechsel: FLSpielerAdresswechsel | null;
+  /** The read's judgement of the pending link's deadline, never this browser's day. */
+  adresswechsel_abgelaufen: boolean;
+};
+
+/**
+ * Every state a pupil's address link can be in but open. No `bestaetigt`: an answer removes what the
+ * link opens. „ungueltig“ is this side's, for a token the read refused.
+ */
+export type SpielerAdresswechselZustand = "abgelaufen" | "ungueltig" | "gesperrt" | "nicht_bestaetigbar";
+
+/** The states whose link the backend still takes the decline through, so the page keeps its token. */
+export type SpielerAdresswechselNurAblehnbar = Extract<SpielerAdresswechselZustand, "abgelaufen" | "nicht_bestaetigbar">;
+
+export type SpielerAdresswechselAnsicht = { zustand: "gueltig"; vorname: string; frist: string } | { zustand: SpielerAdresswechselZustand };
 
 /** Where a retired squad row's return to the club it names stands; the editor and the list each word a refusal for their own reader. */
 export type RowReturn = "open" | "clubLeft" | "squadFull";

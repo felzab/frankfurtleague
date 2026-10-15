@@ -1233,6 +1233,7 @@ const SCOPED_BANS = [
         "src/features/bewerbungen/notifications.ts",
         "src/features/bewerbungen/sweep.ts",
         "src/features/sperrliste/actions.ts",
+        "src/features/spieler/notifications.ts",
         "src/features/zustellung/notifications.ts",
       ],
       ...LOGGED_ERROR,

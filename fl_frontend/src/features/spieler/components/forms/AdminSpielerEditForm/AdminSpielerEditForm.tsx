@@ -23,9 +23,12 @@ import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { unansweredAction } from "@/shared/utils/actionError";
 import { fieldStatus } from "@/shared/utils/draftStatus";
+import { focusSection } from "@/shared/utils/focusAfterWrite";
 import { offerUndo } from "@/shared/utils/undoDispatch";
 
 import { buildSpielerBanners } from "./banners";
+import { FormAdresseSection } from "./FormAdresseSection";
+import { FormAdresswechselSection } from "./FormAdresswechselSection";
 import { FormAustragenSection } from "./FormAustragenSection";
 import { FormEinwilligungSection } from "./FormEinwilligungSection";
 import { FormKaderSection } from "./FormKaderSection";
@@ -41,7 +44,7 @@ import type {
   FLSpielerStufe,
 } from "@/features/spieler/schemas";
 import type { FLSpielerDraftFields, SpielerFieldPath } from "@/features/spieler/spielerDraftStatus";
-import type { SpielerPersonFields, SpielerSaisonMembership, SpielerTeamOption } from "@/features/spieler/types";
+import type { AdminSpielerStored, SpielerPersonFields, SpielerSaisonMembership, SpielerTeamOption } from "@/features/spieler/types";
 import type { EditPageHeaderContent } from "@/shared/components/ui/EditPageHeader";
 import type { BlockingBanners } from "@/shared/components/ui/railBanner";
 import type { ActionFailure } from "@/shared/types/types";
@@ -63,7 +66,7 @@ export function AdminSpielerEditForm({
   membershipCount,
   pageHeader,
 }: {
-  spieler: { id: string; vorname: string; nachname: string | null; inactive_since: string | null; geburtsdatum: string | null };
+  spieler: AdminSpielerStored;
   /** `null` for a person stored before consent was collected. */
   einwilligung: FLEinwilligung | null;
   /** Whether the registry holds the stored label. */
@@ -341,6 +344,29 @@ export function AdminSpielerEditForm({
             onChange={setPersonDraft}
             onFieldLeft={validatePersonFields}
           />
+
+          {/* One place for the address and its waiting change, laid out as if absent: a discard takes the
+              change's panel away, and the focus lands on the address panel's heading rather than the page's
+              (`docs/frontend/spec.md :: I536`). */}
+          <div
+            className="contents"
+            {...focusSection("adresse")}>
+            <FormAdresseSection
+              spielerId={spieler.id}
+              email={spieler.email}
+              isDirty={isDirty}
+            />
+
+            {/* Beside the address it would replace, and only while one waits. */}
+            {spieler.adresswechsel !== null && (
+              <FormAdresswechselSection
+                spielerId={spieler.id}
+                adresswechsel={spieler.adresswechsel}
+                istAbgelaufen={spieler.adresswechsel_abgelaufen}
+                isDirty={isDirty}
+              />
+            )}
+          </div>
 
           {/* Beside the name and above the season's panels: consent is the person's, and it does not
               change when the sidemenu's season does. */}

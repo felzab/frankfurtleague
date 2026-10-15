@@ -118,6 +118,8 @@ const spieler = (saisons: FLSaison[]) => ({
   geburtsdatum: null,
   einwilligung: null,
   email: null,
+  adresswechsel: null,
+  adresswechsel_abgelaufen: false,
   memberships: saisons.map((entry) => ({
     saison_id: entry.id,
     team_id: OBJECT_ID,
