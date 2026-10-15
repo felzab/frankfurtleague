@@ -48,7 +48,7 @@ const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
  * The „Stand“ and the words it dates, frozen together: a reader told nothing changed since that day
  * has been misled by any edit that left the date standing.
  */
-const FASSUNG = { stand: "15. Oktober 2026", digest: "26f0c7811ec8b75f9a711bd0339829cbeef0d11d739f9e8b2637567999202d02" } as const;
+const FASSUNG = { stand: "16. Oktober 2026", digest: "21a7f9749c1e201da6a1d70276f7ec58e1754d623953fae3dea28b81467204ae" } as const;
 
 /** Every word the page renders but its date, so moving the date alone never passes for moving the words. */
 const wortlautDigest = (): string =>
@@ -239,10 +239,10 @@ describe("the privacy notice's retention table", () => {
 
   /* Stated in advance because the account sweep mails nothing when it deletes one: this sentence is
      the whole of what a person is told about it. */
-  it("says the account goes on its own once nothing else under the address is kept", () => {
+  it("says the account goes on its own once no league record, grant or ban holds the address", () => {
     assert.ok(
       ANGABEN.get("Anmeldung: E-Mail-Adresse, Anmeldecode, Sitzung und Passkey")?.endsWith(
-        "Adresse und Passkeys bleiben, solange das Konto besteht. Das Konto löschen wir auf Wunsch und von selbst, sobald wir unter Deiner Adresse sonst nichts mehr speichern",
+        "Adresse und Passkeys bleiben, solange das Konto besteht. Das Konto löschen wir auf Wunsch und von selbst, sobald zu Deiner Adresse kein Eintrag der Liga, kein Zugang zur Verwaltung und keine Sperre mehr bestehen",
       ),
     );
   });
