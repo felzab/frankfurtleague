@@ -17,8 +17,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     <AdminAreaBoundary>
       <AdminShell
         saisonMetadataDisplay={
-          /* Under the guard like the page segment, never beside it: an action's POST makes Next render
-             this layout into the action's own response, and a slot outside the guard answers in full. */
+          /* An action's POST makes Next render this layout into the action's own response, so this slot
+             answers a refused session nothing: the guard turns it away, and so does the slot's own read
+             (`fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`). */
           <AdminAuthGuard>
             <SaisonMetadataDisplay tier="admin" />
           </AdminAuthGuard>

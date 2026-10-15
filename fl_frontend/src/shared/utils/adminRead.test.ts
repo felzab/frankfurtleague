@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
 import { registerDoubles } from "@/core/exportingModule.ts";
+import { SIGN_IN_LANDING } from "@/core/signInLanding.ts";
 import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 
 import type { RequestActor } from "@/core/requestScope.ts";
@@ -26,7 +27,6 @@ registerDoubles({ modules: { "core/auth.ts": AUTH }, specifiers: { "next/headers
 
 const { runAdminRead } = await import("./adminRead.ts");
 const { getRequestActor, runWithRequestScope } = await import("@/core/requestScope.ts");
-const { AdminReadWithoutAdministratorError } = await import("@/core/errors.ts");
 
 const TRACE = "a".repeat(32);
 const SPAN = "b".repeat(16);
@@ -77,9 +77,9 @@ describe("an admin-tier read's scope", () => {
     assert.equal(ran, 0, "the read ran under an actor that is not the session's administrator");
   });
 
-  /* Thrown rather than answered: a read has no failure value, and only a caller outside the admin
-     guards reaches this, which must be loud rather than a page that renders empty. */
-  it("throws for a session that is no administrator's, the read never running", async () => {
+  /* Redirected rather than thrown to the error boundary: every admin page reaches this with such a
+     session, its layout's guard stopping none of them. */
+  it("sends a session that is no administrator's to the sign-in landing, the read never running", async () => {
     let ran = 0;
 
     await assert.rejects(
@@ -87,7 +87,7 @@ describe("an admin-tier read's scope", () => {
         ran += 1;
         return Promise.resolve(undefined);
       }),
-      AdminReadWithoutAdministratorError,
+      (error: { digest?: unknown }) => error.digest === `NEXT_REDIRECT;replace;${SIGN_IN_LANDING};307;`,
     );
     assert.equal(ran, 0, "the read ran for a session nobody authorized");
   });
