@@ -48,7 +48,7 @@ const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
  * The „Stand“ and the words it dates, frozen together: a reader told nothing changed since that day
  * has been misled by any edit that left the date standing.
  */
-const FASSUNG = { stand: "15. Oktober 2026", digest: "563a34ff1b6f5cdde6e3809d1f588609eb86e06c225bdba22ed2c05d92073b5c" } as const;
+const FASSUNG = { stand: "15. Oktober 2026", digest: "fed10b0efd4cf4b79ad470ee63bf4f468ec1a7d409c07a9290fa03ca22563966" } as const;
 
 /** Every word the page renders but its date, so moving the date alone never passes for moving the words. */
 const wortlautDigest = (): string =>
@@ -233,6 +233,16 @@ describe("the privacy notice's retention table", () => {
     assert.ok(
       ANGABEN.get("Anmeldung: E-Mail-Adresse, Anmeldecode, Sitzung und Passkey")?.startsWith(
         `Ein Anmeldecode gilt ${inWorten(CODE_VALIDITY_MINUTES)} Minuten und wird danach gelöscht;`,
+      ),
+    );
+  });
+
+  /* Stated in advance because the account sweep mails nothing when it deletes one: this sentence is
+     the whole of what a person is told about it. */
+  it("says the account goes on its own once nothing else under the address is kept", () => {
+    assert.ok(
+      ANGABEN.get("Anmeldung: E-Mail-Adresse, Anmeldecode, Sitzung und Passkey")?.endsWith(
+        "Adresse und Passkeys bleiben, solange das Konto besteht. Das Konto löschen wir auf Wunsch und von selbst, sobald wir unter Deiner Adresse sonst nichts mehr speichern",
       ),
     );
   });
