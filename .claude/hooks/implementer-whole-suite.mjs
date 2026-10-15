@@ -289,9 +289,10 @@ export function refusal(raw) {
     for (const words of segments(command, escapes)) {
       const what = judge(words, 0, escapes);
       if (what) {
-        return (
-          'Refused by .claude/hooks/implementer-whole-suite.sh: "' + words.join(" ") + '" runs ' + what + ". " + RULE + "\n" + REFUSE + "\n"
-        );
+        // Never the marker itself, whose NUL would reach the agent's message and end a record of
+        // `scripts/gate/selfcheck.sh`'s driver, which splits on NUL.
+        const shown = words.join(" ").replaceAll(SUBSTITUTION, () => "$(...)");
+        return 'Refused by .claude/hooks/implementer-whole-suite.sh: "' + shown + '" runs ' + what + ". " + RULE + "\n" + REFUSE + "\n";
       }
     }
   } catch {

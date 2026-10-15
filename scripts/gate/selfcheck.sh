@@ -951,6 +951,7 @@ import(pathToFileURL(reader).href).then(({ refusal }) => {
   expect_refused Bash 'uv run --frozen pytest -m db -n 2'
   expect_refused Bash 'uv run --frozen pytest -m db tests/api/test_spiele.py tests/api/test_teams.py'
   expect_refused Bash 'uv run --frozen pytest -m db tests/api/test_spiele.py::test_one tests/api/test_teams.py::test_two'
+  expect_refused Bash "uv run --frozen pytest -m db \$(git ls-files 'tests/api/*.py')"
   expect_refused Bash 'node --test --test-reporter spec'
   expect_refused Bash 'pnpm run test:base -- --test-reporter dot'
   expect_refused Bash 'npm t'
