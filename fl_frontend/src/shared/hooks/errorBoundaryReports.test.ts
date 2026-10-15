@@ -9,10 +9,11 @@ import { pathToFileURL } from "node:url";
 
 import { createElement as h, startTransition, Suspense, use, useState } from "react";
 
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { filesUnder } from "@/core/treeWalk.ts";
+import { answersInFlight } from "@/shared/testing/answersInFlight.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 
@@ -36,12 +37,11 @@ async function reportsOf(file: string, shown: string): Promise<{ address: string
   const before = fetchDouble.mock.calls.length;
   render(underNext(h(Boundary, { error: new Error("gepflanzt"), retry: () => undefined })));
   try {
-    // The report is sent from an effect, after the boundary has drawn.
-    await waitFor(() =>
-      assert.ok(
-        fetchDouble.mock.calls.length > before,
-        `${shown}: renders a segment's crash and reports none of it, so the crash reaches the browser's console and nothing else`,
-      ),
+    // The report is sent from an effect, which `render` flushes before it returns.
+    await act(fetchDouble.answered);
+    assert.ok(
+      fetchDouble.mock.calls.length > before,
+      `${shown}: renders a segment's crash and reports none of it, so the crash reaches the browser's console and nothing else`,
     );
   } finally {
     cleanup();
@@ -68,6 +68,9 @@ describe("the crash report every error boundary stands behind", () => {
     }
   });
 });
+
+/** The refresh a retry below sets off, held until its case answers it. */
+const refreshes = answersInFlight();
 
 /** The router's state while its fetch is in flight, which suspends whatever reads it. */
 function Held({ until }: { until: Promise<void> }): null {
@@ -109,7 +112,7 @@ describe("the retry every error boundary offers", () => {
       const shown = path.relative(APP_DIR, file).split(path.sep).join("/");
       const { default: Boundary } = (await import(pathToFileURL(file).href)) as { default: Boundary };
       let answer = (): void => undefined;
-      const answered = new Promise<void>((resolve) => {
+      const serverAnswer = new Promise<void>((resolve) => {
         answer = resolve;
       });
 
@@ -117,7 +120,7 @@ describe("the retry every error boundary offers", () => {
          on its way, which the router reads with `use`. */
       function Refreshing() {
         const [refresh, setRefresh] = useState<Promise<void> | null>(null);
-        const retry = () => startTransition(() => setRefresh(answered));
+        const retry = () => startTransition(() => setRefresh(refreshes.track("the refresh", serverAnswer)));
 
         return h(
           Suspense,
@@ -136,7 +139,8 @@ describe("the retry every error boundary offers", () => {
         assert.match(press.textContent, /Lädt neu/, `${shown}: the press reads ${press.textContent} while its refresh is in flight`);
 
         answer();
-        await waitFor(() => assert.ok(!press.hasAttribute("disabled"), `${shown}: the press stays disabled once the refresh answered`));
+        await act(refreshes.answered);
+        assert.ok(!press.hasAttribute("disabled"), `${shown}: the press stays disabled once the refresh answered`);
       } finally {
         cleanup();
       }
