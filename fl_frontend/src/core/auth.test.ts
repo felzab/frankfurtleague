@@ -457,7 +457,7 @@ describe("what the mounted HTTP surface answers", () => {
       assert.ok(body);
       assert.deepEqual(Object.keys(body).sort(), ["session", "user"]);
       assert.deepEqual(Object.keys(body.user).sort(), ["email", "id", "sessionsEndedAt"]);
-      assert.deepEqual(Object.keys(body.session).sort(), ["authFactor", "createdAt", "id", "passkeyCredentialId", "updatedAt"]);
+      assert.deepEqual(Object.keys(body.session).sort(), ["adminLapsed", "authFactor", "createdAt", "id", "passkeyCredentialId", "updatedAt"]);
       assert.ok(!JSON.stringify(body).includes(row.token), "the served session carries the cookie's own value");
     }
   });
@@ -799,17 +799,71 @@ describe("the three lifetimes, judged in the guard rather than in the store", ()
   it("serves an administrator's session a minute short of twenty-four hours old, for the same reason", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     madeByPasskey(store, row);
-    ageRow(row, { created: 24 * HOUR_MS - MINUTE_MS, idle: 24 * HOUR_MS - MINUTE_MS });
+    ageRow(row, { created: 24 * HOUR_MS - MINUTE_MS });
     arriveAs(cookie);
 
     assert.ok(await getAdminSession());
     assert.equal(await getSignInDestination(), "/bereich");
   });
 
+  it("refuses an administrator's session a minute past an hour idle, and keeps it for the person lane", async () => {
+    const { cookie, row } = await signIn(ADMIN_EMAIL);
+    madeByPasskey(store, row);
+    ageRow(row, { created: 2 * HOUR_MS, idle: HOUR_MS + MINUTE_MS });
+    arriveAs(cookie);
+
+    assert.equal(await getAdminSession(), null);
+    assert.equal(await getSignInDestination(), "/signin");
+    assert.ok(store.session.includes(row), "the landing ended a session the person lane still serves");
+  });
+
+  it("serves an administrator's session a minute short of an hour idle, so the case above is the window", async () => {
+    const { cookie, row } = await signIn(ADMIN_EMAIL);
+    madeByPasskey(store, row);
+    ageRow(row, { created: 2 * HOUR_MS, idle: HOUR_MS - MINUTE_MS });
+    arriveAs(cookie);
+
+    assert.ok(await getAdminSession());
+  });
+
   /* Chosen rather than derived, and read back by the proxy's own cases, which therefore pass at any
-     figure: shorter, every signed-in request writes the session row; longer, the idle windows blur. */
-  it("slides a session's row at most once an hour, the granularity the idle windows are judged at", () => {
-    assert.equal(auth.options.session.updateAge, HOUR_MS / 1000);
+     figure: shorter, every signed-in request writes the session row; longer, a pause under the
+     administrator's idle hour is refused. */
+  it("slides a session's row at most every five minutes, the granularity the idle windows are judged at", () => {
+    assert.equal(auth.options.session.updateAge, (5 * MINUTE_MS) / 1000);
+  });
+});
+
+/* The proxy slides a session ahead of every guard, moving `updatedAt` to now: the guard behind it reads
+   a fresh stamp, and only the mark the slide leaves refuses (`docs/frontend/spec.md :: I658`). */
+describe("the administrator's idle hour across the proxy's slide", () => {
+  const EXPIRES_IN_MS = (auth.options.session.expiresIn ?? Number.NaN) * 1000;
+
+  /** Leaves `row` as the library's own refresh `ago` milliseconds back would have left it, so the next read slides it. */
+  function refreshedAgo(row: SessionRow, ago: number): void {
+    row.createdAt = new Date(Date.now() - 2 * HOUR_MS);
+    row.updatedAt = new Date(Date.now() - ago);
+    row.expiresAt = new Date(row.updatedAt.getTime() + EXPIRES_IN_MS);
+  }
+
+  async function slidThenJudged(idle: number) {
+    const { cookie, row } = await signIn(ADMIN_EMAIL);
+    madeByPasskey(store, row);
+    refreshedAgo(row, idle);
+
+    await proxy(new NextRequest("http://localhost:3000/bereich/admin/spiele", { headers: { cookie } }));
+    assert.ok(Date.now() - row.updatedAt.getTime() < MINUTE_MS, "the proxy slid nothing, so the case proves nothing");
+
+    arriveAs(cookie);
+    return getAdminSession();
+  }
+
+  it("keeps refusing a session slid a minute past an hour idle", async () => {
+    assert.equal(await slidThenJudged(HOUR_MS + MINUTE_MS), null);
+  });
+
+  it("serves a session slid a minute short of an hour idle, so the mark is the window and not every slide", async () => {
+    assert.ok(await slidThenJudged(HOUR_MS - MINUTE_MS));
   });
 });
 

@@ -259,13 +259,13 @@ describe("what the security section tells its reader", () => {
     }
   });
 
-  /* The activity stamp refreshes hourly, so a minute printed beside it would claim a precision the
-     row does not hold; the sign-in's own time is exact and keeps its minute. */
-  it("prints the last activity by the day and the sign-in by the minute", () => {
+  /* The activity stamp lags use by minutes (`fl_frontend/src/core/auth.ts :: SESSION_UPDATE_AGE_SECONDS`),
+     so it keeps its minute as the sign-in does. The fixture's 09:00 and 08:00 UTC read in Berlin's summer time. */
+  it("prints the last activity and the sign-in by the minute, in Berlin's time", () => {
     const text = shown({});
 
-    assert.match(text, /Zuletzt aktiv am 26\. September 2026(?! um)/);
-    assert.match(text, /Angemeldet am 26\. September 2026 um \d{2}:\d{2}/);
+    assert.match(text, /Zuletzt aktiv am 26\. September 2026 um 11:00/);
+    assert.match(text, /Angemeldet am 26\. September 2026 um 10:00/);
   });
 
   it("marks this device's sign-in, names its factor, and offers no sign-out of it beside the bar's", () => {

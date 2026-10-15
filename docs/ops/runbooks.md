@@ -475,7 +475,8 @@ ABGLEICH_INTERVAL_MS`) finds the row, it is dated by its own `erteilt_am`, or by
   so it works only while that store is still there, and dropping it is what closes this route.
 - **A removal is not a recovery route, and no control offers one to a session a mailed code alone
   made**: such a session could otherwise swap the administrator's passkey for a stolen mailbox's,
-  which is the attack the second factor exists against.
+  which is the attack the passkey sign-in exists against, the administration admitting only a session
+  a passkey signed in (`docs/frontend/spec.md :: I260`).
 - **An admin ending their own session needs no restart at all**: the sidemenu's options menu carries a
   sign-out, which arms on the first press and ends the session on the second.
 

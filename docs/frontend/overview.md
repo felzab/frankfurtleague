@@ -74,8 +74,9 @@ that line cannot render this app at all. It does **not** govern Next's own polyf
 
 ## Authentication and authorization
 
-Better Auth, with a passkey sign-in, a six-digit code mailed as the fallback, and a passkey as the
-administrator's second factor. **This is
+Better Auth, with a passkey sign-in and a six-digit code mailed as the fallback. The administration
+admits only a session a passkey signed in, never one a code made ([`spec.md`](spec.md) I260,
+[`../backend/spec.md`](../backend/spec.md) I478). **This is
 the one place the frontend touches MongoDB directly** — a separate `auth` database, no business
 entities — and it exists because the adapter has no HTTP transport and sits on the hot path of every
 authorization check. Application data goes through FastAPI without exception.
