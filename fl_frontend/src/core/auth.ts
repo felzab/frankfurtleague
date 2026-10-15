@@ -935,6 +935,7 @@ const authOptions = (origin: URL, client: MongoClient) =>
           // read before this write is judged instead, so a session the administrator's window refused stays
           // refused (`docs/frontend/spec.md :: I658`).
           before: async (data, ctx) => {
+            // Only a write moving `updatedAt` erases the gap; any other leaves the stamp to judge by.
             if (data.updatedAt === undefined) return;
             const prior = ctx?.context.session?.session;
             // No row to judge is no window kept, as `withinLifetime` reads an unreadable stamp.
