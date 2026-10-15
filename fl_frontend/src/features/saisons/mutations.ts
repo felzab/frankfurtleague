@@ -105,7 +105,7 @@ export async function postLoeschungLauf(): Promise<FLLoeschungLaufResponse> {
  * Every call of one run summed, the last answered call's season and remainder beside the sums. A person who fails
  * stays due and meets each later call, so `fehlgeschlagen` and `uebersprungen` count attempts, never persons.
  */
-export type LoeschungSumme = Omit<FLLoeschungLaufResponse, "acknowledged">;
+type LoeschungSumme = Omit<FLLoeschungLaufResponse, "acknowledged">;
 
 /** A run that ended on a call's answer, or on a call that threw: what remains is then unknown. */
 export type LoeschungLauf =
