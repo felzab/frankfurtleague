@@ -247,8 +247,9 @@ describe("which addresses the proxy is run on", () => {
     assert.equal(matched("http://localhost:3000/bereich/admin/spiele", { headers: PREFETCH }), true);
   });
 
-  /* The prefix test inside the proxy is a second reading of the admin entry: a spelling that entry
-     admits and the test misses reaches the panel with the layout's guard alone. */
+  /* The proxy's prefix test is a second reading of the admin entry: a spelling that entry admits and
+     the test misses reaches the panel past the proxy, judged by the admin reads and, on a full load,
+     the shell's guard. */
   it("judges exactly the spellings the administrator's own entry admits", async () => {
     // The first entry, which names the subtree and nothing else.
     const adminEntry = config.matcher.slice(0, 1);

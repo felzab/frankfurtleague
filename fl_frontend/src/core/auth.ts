@@ -1622,7 +1622,8 @@ async function ended(read: ServedSession): Promise<Landing> {
 async function destinationOf(served: ServedSession, verwaltung: Verwaltung): Promise<SignInDestination> {
   if (verwaltung.verwaltung !== null) {
     // The guard's own verdict rather than a second spelling of it: `/bereich` sends a granted session
-    // the guard refuses on to `/bereich/admin`, which the proxy bounces back here.
+    // the guard refuses on to `/bereich/admin`, which the proxy (a session no passkey made) or
+    // `runAdminRead` (any other refused one) sends back here.
     if (isAdminSession(served, verwaltung)) return "/bereich";
 
     // Where the passkey page has no step to offer, the session is spent, and an administrator signs in
