@@ -49,8 +49,21 @@ const store = memoryStore("__flLoeschungStore");
 /** What the backend holds for each address the subject read and the gate ask about, a live seat for any other. */
 const HELD = new Map<string, LookupFixture>();
 
+/** The counts the erasure answers a person holding one squad row. */
+const ERASED = {
+  acknowledged: 1,
+  spieler: 1,
+  saison_spieler: 1,
+  schiedsrichter: 0,
+  spiele: 0,
+  kontakt_sitze: 0,
+  registrierungen: 0,
+  adresswechsel: 0,
+  drosselung: 0,
+};
+
 /** What the backend's erasure answers, and every erasure it was asked for, with the actor header each carried. */
-let erasureAnswer: () => Response = () => Response.json({ acknowledged: 1, erased: { spieler: 1 } });
+let erasureAnswer: () => Response = () => Response.json(ERASED);
 const erasures: { method: string; actor: string | null }[] = [];
 
 const ERASURE_PATH = "/api/v0/identitaet/selbst/erasure";
@@ -81,7 +94,7 @@ beforeEach(() => {
   cacheCalls.length = 0;
   erasures.length = 0;
   HELD.clear();
-  erasureAnswer = () => Response.json({ acknowledged: 1, erased: { spieler: 1 } });
+  erasureAnswer = () => Response.json(ERASED);
 });
 
 /** Answers every guard below as one request would: the cookie they read off `headers()`. */

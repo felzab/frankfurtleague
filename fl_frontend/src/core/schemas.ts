@@ -134,10 +134,20 @@ export const FLEinwilligungFassungResponseSchema = BaseAPIResponseSchema.extend(
 export const FLEinwilligungSeitenResponseSchema = BaseAPIResponseSchema.extend({ laufende_fassungen: z.record(z.string(), z.string()) });
 
 /**
- * What `POST /identitaet/selbst/erasure` erased of the signed-in person, as counts by collection and
+ * What `POST /identitaet/selbst/erasure` erased of the signed-in person, as record counts by store and
  * never an echo of the person: anything of theirs answered back is a fresh copy of what was destroyed.
  */
-export const FLSelbstErasureResponseSchema = BaseAPIResponseSchema.extend({ erased: z.record(z.string(), z.int().nonnegative()) });
+export const FLSelbstErasureResponseSchema = BaseAPIResponseSchema.extend({
+  spieler: z.int(),
+  saison_spieler: z.int(),
+  schiedsrichter: z.int(),
+  // Fixtures moved to the erased referee's sentinel rather than deleted.
+  spiele: z.int(),
+  kontakt_sitze: z.int(),
+  registrierungen: z.int(),
+  adresswechsel: z.int(),
+  drosselung: z.int(),
+});
 export type FLSelbstErasureResponse = z.infer<typeof FLSelbstErasureResponseSchema>;
 
 /** A pupil record the erasure would reach, by the name it carries. */
@@ -166,7 +176,8 @@ export const FLSelbstErasureBewerbungSchema = z.object({
 /** One registration, whatever its status. */
 export const FLSelbstErasureRegistrierungSchema = z.object({
   saison_id: z.string(),
-  team_name: z.string(),
+  // Null where no season row names the team any more.
+  team_name: z.string().nullable(),
   vorname: z.string(),
   nachname: z.string(),
 });
@@ -182,7 +193,7 @@ export const FLSelbstErasureAnsichtResponseSchema = BaseAPIResponseSchema.extend
   bewerbungen: z.array(FLSelbstErasureBewerbungSchema),
   registrierungen: z.array(FLSelbstErasureRegistrierungSchema),
   // Another referee's pending change to this mailbox, which names no person to show.
-  adresswechsel: z.int().nonnegative(),
+  adresswechsel: z.int(),
   verwaltung: FLSubjektResponseSchema.shape.verwaltung,
 });
 export type FLSelbstErasureAnsichtResponse = z.infer<typeof FLSelbstErasureAnsichtResponseSchema>;
