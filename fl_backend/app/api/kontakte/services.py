@@ -50,39 +50,8 @@ def rows_possibly_naming(identifier: str) -> Mapping[str, Any]:
     return {"$or": [{f"kontakte.{slot}.email": same_address(identifier)} for slot in KONTAKT_ROLLEN]}
 
 
-def build_matching_rows_pipeline(identifier: str) -> list[Mapping[str, Any]]:
-    """Every row that may name this address in a slot, projected to those addresses and `bestaetigungen`.
-
-    On the sign-in fold: a payload keeps the local part's case, so equality leaves `Wiltrudis@`
-    standing and reports it gone.
-    """
-
-    return [
-        {"$match": rows_possibly_naming(identifier)},
-        # The bookkeeping block's PRESENCE rides along: the clearing nulls its seat only where the
-        # block exists, since a dotted `$set` into an absent one creates a block short of its keys.
-        {"$project": {**{f"kontakte.{slot}.email": 1 for slot in KONTAKT_ROLLEN}, "bestaetigungen": 1}},
-    ]
-
-
 # The address rides along because `find_matching_slots` picks the seat by it, off the row itself.
 SEAT_FIELDS: tuple[str, ...] = ("email", "vorname", "nachname")
-
-
-def build_matching_seats_pipeline(identifier: str) -> list[Mapping[str, Any]]:
-    """The seats' names and their season.
-
-    Nothing else of the block: a confirmation answers WHO, and a read serving the records would hand
-    a fresh copy of them to whoever is about to destroy them.
-    """
-
-    return [
-        {"$match": rows_possibly_naming(identifier)},
-        {"$project": {"saison_id": 1, **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in SEAT_FIELDS}}},
-        # Ordered here rather than by the reader: a reader counting seats needs one season's together,
-        # and natural order is the order the rows were written in.
-        {"$sort": {"saison_id": 1}},
-    ]
 
 
 def build_accepted_application_pipeline(*, saison_id: str, team_id: Any) -> list[Mapping[str, Any]]:

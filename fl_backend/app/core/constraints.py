@@ -956,6 +956,9 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "before": {"bsonType": ["object", "array", "null"]},
                 "modified_count": {"bsonType": _INT_OR_NULL},
                 "redacted_at": {"bsonType": _STRING_OR_NULL},
+                # Out of `required` for `at_date`'s reason: the rows the log already holds carry none,
+                # and a backfill would be a one-off migration.
+                "anlass": {"bsonType": _STRING_OR_NULL},
             },
         )
     },

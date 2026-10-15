@@ -962,7 +962,7 @@ def test_every_ttl_index_expires_on_a_date_field_the_validator_declares(ttl):
 
 # The TTL indexes built over a collection already holding rows without the key, each by name. Its
 # rows stand unexpired (`fl_backend/tests/core/test_aktionen_validator_execution.py ::
-# test_a_row_stored_before_the_retention_stamp_is_still_redactable`).
+# test_a_row_stored_before_a_key_existed_is_still_redactable`).
 RETROFITTED_TTL_INDEXES = frozenset({"aktionen_retention"})
 
 

@@ -94,6 +94,10 @@ actor_var: ContextVar[Actor | PersonActor] = ContextVar("actor", default=SYSTEM_
 # renamed" rather than "an update ran on `teams`", which the collection alone cannot distinguish.
 request_var: ContextVar[tuple[str, str] | None] = ContextVar("request", default=None)
 
+# The request an administrator's erasure answers, set around that erasure's whole transaction alone and
+# reset after it: a value left standing lands on the next request's rows (`docs/backend/spec.md :: I683`).
+anlass_var: ContextVar[str | None] = ContextVar("anlass", default=None)
+
 
 def log_stamp(moment: datetime) -> str:
     """A log row's instant, spelled the one way both its string stamps are.
@@ -151,6 +155,7 @@ async def record_write(
         # Set when a write destroying a person's values overwrites theirs here. Null means the image
         # still holds what it recorded (`docs/backend/spec.md :: I42`, `:: I671`).
         "redacted_at": None,
+        "anlass": anlass_var.get(),
     }
 
     # The target's own database handle, not an injected one: that is what keeps this module off

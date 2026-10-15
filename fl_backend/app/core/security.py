@@ -274,6 +274,19 @@ def verify_recent_confirmation(actor: Annotated[ActorClaims, Depends(verify_admi
         raise confirmation_required(actor, ENROLMENT_WINDOW_S)
 
 
+def get_recent_confirmation_check(actor: Annotated[ActorClaims, Depends(verify_admin_actor)]) -> Callable[[], None]:
+    """`verify_recent_confirmation`'s window on the calls a handler judges to end a grant (`docs/backend/spec.md :: I489`).
+
+    A dependency for `get_step_up_check`'s reason: the document derives the refusal from the operations running it.
+    """
+
+    def refuse_unconfirmed() -> None:
+        if confirmed_before(actor, ENROLMENT_WINDOW_S):
+            raise confirmation_required(actor, ENROLMENT_WINDOW_S)
+
+    return refuse_unconfirmed
+
+
 def verify_step_up(actor: Annotated[ActorClaims, Depends(verify_admin_actor)]) -> None:
     """Refuse a write stepped up on every call from a sign-in or confirmation older than the step-up window (`docs/backend/spec.md :: I524`).
 

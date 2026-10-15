@@ -47,7 +47,7 @@ async def get_subjekt(
     Answer which confirmed contact seats, pupil records and referee records the league holds for one mailbox.
 
     Stores nothing, and a POST all the same: the identifier travels in the body so that no path or query carries an address into an
-    access line, which is `POST /kontakte/erasure/ansicht`'s reason too.
+    access line, which is `POST /identitaet/erasure/ansicht`'s reason too.
 
     The address is folded to the sign-in identifier -- trimmed, its domain in punycode, its ASCII letters lower-cased -- on arrival
     and compared in that form, so `Anna.Mueller@Schule.de` in a contact seat answers for `anna.mueller@schule.de`, and a domain

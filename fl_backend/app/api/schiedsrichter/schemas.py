@@ -293,11 +293,7 @@ class FLSchiedsrichterBestaetigungResponse(BaseAPIResponse):
 
 
 class FLSchiedsrichterWriteResponse(BaseAPIResponse):
-    """Shared by delete and anonymisieren.
-
-    The retirement answers with the referee as they now stand; the erasure answers with the ghost,
-    the row it named being gone (`app/api/schiedsrichter/admin_router.py :: anonymise_schiedsrichter`).
-    """
+    """The referee as a retirement or a discarded address change leaves them."""
 
     updated_document: FLSchiedsrichter
 

@@ -167,12 +167,16 @@ class TestAStoppedContainerOutlastsEveryRequest:
 
 
 def _erasure_answered() -> tuple[Response, float]:
-    """`POST /kontakte/erasure` against a server nothing answers, its first database call past the actor check inside its transaction."""
+    """`POST /identitaet/erasure` against a server nothing answers, its first database call past the actor check inside its transaction."""
 
     async def _answered() -> tuple[Response, float]:
         async with app_client(UNANSWERED_URI, admitting=ADMINISTRATORS) as http:
             started = time.monotonic()
-            response = await http.post(f"/api/v{API_VERSION}/kontakte/erasure", headers=ADMIN_HEADERS, json={"email": "anna.mueller@schule.de"})
+            response = await http.post(
+                f"/api/v{API_VERSION}/identitaet/erasure",
+                headers=ADMIN_HEADERS,
+                json={"email": "anna.mueller@schule.de", "anlass": "Mail vom 30.03.2026"},
+            )
             return response, time.monotonic() - started
 
     return asyncio.run(_answered())

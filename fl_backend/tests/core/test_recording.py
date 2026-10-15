@@ -343,8 +343,8 @@ class TestTheRowAndTheValidatorAgree:
 
         # `_id` is the driver's to add, and the one required field no row arrives carrying.
         assert set(schema["required"]) - {"_id"} <= written
-        # Containment rather than equality: `at_date` is written and out of `required`, the rows
-        # already in the log carrying none.
+        # Containment rather than equality: `at_date` and `anlass` are written and out of `required`,
+        # the rows already in the log carrying neither.
         assert written <= set(schema["properties"])
 
     def test_the_recorded_collection_name_is_one_the_validator_admits(self):

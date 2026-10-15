@@ -10,7 +10,7 @@ from app.api.berechtigungen.services import lebendige
 from app.api.identitaet.crud import JEDE_PERSONENGRUPPE, ErasureJournal, erase_everything, resolve_subject
 from app.api.identitaet.schemas import FLErasureResponse, FLSelbstErasureAnsichtResponse
 from app.api.identitaet.services import (
-    build_registrierung_team_pipeline,
+    build_season_team_pipeline,
     compose_erasure_ansicht,
     find_letzter_inhaber_erasure_refusal,
     holds_an_owner_grant,
@@ -207,7 +207,7 @@ async def get_erasure_ansicht(
         # A registration holds its team's id alone, and the season row is what names the club that season.
         team_rows = (
             await aggregate_many_from_db(
-                collection=saison_teams_collection, pipeline=build_registrierung_team_pipeline(subject.registrierungen), session=session
+                collection=saison_teams_collection, pipeline=build_season_team_pipeline(subject.registrierungen), session=session
             )
             if subject.registrierungen
             else []
