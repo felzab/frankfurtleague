@@ -6,7 +6,7 @@ Here rather than in `crud.py`, which opens collections: a services module is wha
 so a judgement left beside a handle is one nothing stops from growing a read of its own.
 """
 
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from http import HTTPStatus
 from typing import Any, Literal
 
@@ -18,7 +18,7 @@ from app.api.kontakte.services import rows_possibly_naming, same_address
 from app.api.registrierungen.services import SUBMITTED, build_eigene_registrierung_filter, build_erasure_registrierung_filter
 from app.api.saisons.schemas import FLSaisonStatus
 from app.api.schiedsrichter.services import ADRESSWECHSEL_FELD, build_real_referees_filter, build_selbst_referee_filter
-from app.api.spieler.services import build_selbst_pupil_filter
+from app.api.spieler.services import build_real_spieler_filter, build_selbst_pupil_filter
 from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import is_confirmed
@@ -128,17 +128,34 @@ def build_pending_address_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     ]
 
 
-def pending_addresses_of(rows: Iterable[Mapping[str, Any]], identifier: str) -> list[Mapping[str, Any]]:
-    """The rows whose pending address IS this mailbox and whose stored one is not, each the old address's person's.
+def build_pending_pupil_address_pipeline(identifier: str) -> list[Mapping[str, Any]]:
+    """Every pupil row whose pending address change, the referee block's twin, may name the address."""
 
-    A row holding the address in both is the address's own referee row, which the erasure takes whole.
+    return [
+        {"$match": {f"{ADRESSWECHSEL_FELD}.email": same_address(identifier), **build_real_spieler_filter()}},
+        {"$project": {f"{ADRESSWECHSEL_FELD}.email": 1, "email": 1}},
+        {"$sort": {"_id": 1}},
+    ]
+
+
+def referee_address(row: Mapping[str, Any]) -> Any:
+    return (row.get("kontakt") or {}).get("email")
+
+
+def pupil_address(row: Mapping[str, Any]) -> Any:
+    return row.get("email")
+
+
+def pending_addresses_of(
+    rows: Iterable[Mapping[str, Any]], identifier: str, *, stored: Callable[[Mapping[str, Any]], Any]
+) -> list[Mapping[str, Any]]:
+    """The rows whose pending address IS this mailbox and whose `stored` one is not, each the old address's person's.
+
+    A row holding the address in both is the address's own row, which the erasure takes whole.
     """
 
     return [
-        row
-        for row in rows
-        if folds_to((row.get(ADRESSWECHSEL_FELD) or {}).get("email"), identifier)
-        and not folds_to((row.get("kontakt") or {}).get("email"), identifier)
+        row for row in rows if folds_to((row.get(ADRESSWECHSEL_FELD) or {}).get("email"), identifier) and not folds_to(stored(row), identifier)
     ]
 
 

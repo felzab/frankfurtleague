@@ -20,6 +20,7 @@ from app.api.identitaet.services import (
     build_erasure_registrierung_pipeline,
     build_erasure_seat_pipeline,
     build_pending_address_pipeline,
+    build_pending_pupil_address_pipeline,
     build_pupil_pipeline,
     build_referee_pipeline,
     build_registrierung_pipeline,
@@ -34,6 +35,8 @@ from app.api.identitaet.services import (
     lebt,
     nicht_ausgetreten,
     pending_addresses_of,
+    pupil_address,
+    referee_address,
     seat_is_confirmed,
     seats_naming,
 )
@@ -43,7 +46,7 @@ from app.api.registrierungen.crud import erase_registrierungen_in_session
 from app.api.saisons.schemas import FLSaisonStatus
 from app.api.schiedsrichter.crud import ensure_ghost_schiedsrichter, erase_referee_in_session, remove_pending_addresses_in_session
 from app.api.sperrliste.lookup import BanList
-from app.api.spieler.crud import ensure_ghost_spieler, erase_person_in_session
+from app.api.spieler.crud import ensure_ghost_spieler, erase_person_in_session, remove_pending_pupil_addresses_in_session
 from app.core.collections import Collection
 from app.core.concurrency import gather_cancelling
 from app.core.crud import aggregate_many_from_db, patch_many_in_db, refuse
@@ -322,8 +325,9 @@ class Subject:
     schiedsrichter: Rows
     spieler: Rows
     registrierungen: Rows
-    # Another address's referee rows whose pending change names this one.
+    # Another address's referee rows and pupil rows whose pending change names this one.
     adresswechsel: Rows
+    spieler_adresswechsel: Rows
 
 
 async def resolve_subject(
@@ -372,6 +376,12 @@ async def resolve_subject(
             collection=schiedsrichter_collection, pipeline=build_pending_address_pipeline(identifier), session=session
         ),
         identifier,
+        stored=referee_address,
+    )
+    spieler_adresswechsel = pending_addresses_of(
+        await aggregate_many_from_db(collection=spieler_collection, pipeline=build_pending_pupil_address_pipeline(identifier), session=session),
+        identifier,
+        stored=pupil_address,
     )
 
     return Subject(
@@ -383,6 +393,7 @@ async def resolve_subject(
         spieler=spieler,
         registrierungen=registrierungen,
         adresswechsel=adresswechsel,
+        spieler_adresswechsel=spieler_adresswechsel,
     )
 
 
@@ -442,6 +453,8 @@ ERASURE_STEPS: Final[tuple[ErasureStep, ...]] = (
         run=erase_kontaktperson_in_session,
     ),
     ErasureStep(reaches=frozenset({Collection.SCHIEDSRICHTER}), personengruppe="schiedsrichter", run=remove_pending_addresses_in_session),
+    # No kind's alone: the pupil row it waits on is another address's, so the pupil scope leaves it.
+    ErasureStep(reaches=frozenset({Collection.SPIELER}), personengruppe=None, run=remove_pending_pupil_addresses_in_session),
     ErasureStep(
         reaches=frozenset({Collection.SCHIEDSRICHTER, Collection.SPIELE, Collection.AKTIONEN}),
         personengruppe="schiedsrichter",
@@ -560,6 +573,10 @@ async def erase_everything(
             schiedsrichter_collection=schiedsrichter_collection,
             schiedsrichter_ids=[row["_id"] for row in subject.adresswechsel],
             session=session,
+        )
+    if _runs(remove_pending_pupil_addresses_in_session, scope):
+        adresswechsel += await remove_pending_pupil_addresses_in_session(
+            spieler_collection=spieler_collection, spieler_ids=[row["_id"] for row in subject.spieler_adresswechsel], session=session
         )
 
     spiele = 0

@@ -147,7 +147,7 @@ class FLErasure(BaseModel):
     # Per seat, as `app/api/kontakte/schemas.py :: FLKontaktErasureResponse` counts them: one row seats one person twice.
     kontakt_sitze: int
     registrierungen: int
-    # Another referee row's pending address change, removed alone: that row is the old address's person's.
+    # Another referee's or pupil's pending address change, removed alone: that row is the old address's person's.
     adresswechsel: int
     # The person's own grants, a dead spelling of their address among them.
     berechtigungen: int

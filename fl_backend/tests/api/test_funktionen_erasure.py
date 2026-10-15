@@ -3,7 +3,7 @@ API · a person's erasure through the registry, held against the whole database 
 
 One address holds a pupil row in a live squad, a seat on a season row and on an application beside
 two bystanders, a referee row booked on a played fixture, a pending and a declined registration,
-another referee's pending address change, a day's counts, the only `owner` grant,
+another referee's and another pupil's pending address change, a day's counts, the only `owner` grant,
 records made as an administrator and as a seat holder, and log rows written as a person and as an
 administrator. Every case asks what is left, so a step removed from the registry fails here.
 """
@@ -126,6 +126,8 @@ BANNED_BY_THEM_OID = ObjectId("6890a1b2c3d4e5f607b00073")
 INVITED_BY_THEM_OID = ObjectId("6890a1b2c3d4e5f607b00074")
 DECIDED_BY_THEM_OID = ObjectId("6890a1b2c3d4e5f607b00075")
 DECLINED_BY_THEM_OID = ObjectId("6890a1b2c3d4e5f607b00076")
+# Another pupil, moving to the person's address: the row is theirs until the change is confirmed.
+MOVING_PUPIL_OID = ObjectId("6890a1b2c3d4e5f607b00081")
 
 REFEREE_NAME = f"{VORNAME} {NACHNAME}"
 PAYMENT = 25
@@ -295,6 +297,16 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
         [{"_id": count_id, "n": 3, "ablauf": FAR_OFF} for count_id in (*COUNT_IDS, OTHER_COUNT_ID)]
     )
     await an_administrator_and_a_deciding_seat_holder(database)
+    await database[Collection.SPIELER].insert_one(
+        spieler_document(
+            MOVING_PUPIL_OID,
+            "Gwendolyn",
+            "Gwendolyn-Muster",
+            email="gwendolyn@example.com",
+            einwilligung=einwilligung,
+            adresswechsel=compose_adresswechsel(email=TYPED, token_hash=hash_token("her-new-address"), today="2026-03-29"),
+        )
+    )
 
     # The history: every image the log holds of the person is one of these edits'.
     await edited(database, Collection.SAISON_TEAMS, (await the_one(database, Collection.SAISON_TEAMS))["_id"], {"$set": {"gruppe": "B"}})
@@ -505,7 +517,7 @@ class TestNothingOfTheirsIsLeftAnywhere:
             "spiele": 1,
             "kontakt_sitze": 2,
             "registrierungen": 2,
-            "adresswechsel": 1,
+            "adresswechsel": 2,
             "berechtigungen": 1,
             "drosselung": 3,
         }
@@ -555,6 +567,17 @@ class TestWhatStandsBesideThem:
         assert row is not None
         assert "adresswechsel" not in row
         assert row["kontakt"]["email"] == "kraus.bernd@example.com"
+
+    def test_another_pupils_pending_change_goes_and_their_row_stands(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await erased_over_http(mongo_replica_set_url)
+
+            return await the_one(database, Collection.SPIELER, {"_id": MOVING_PUPIL_OID})
+
+        row = on_a_league(mongo_replica_set_url, body)
+
+        assert "adresswechsel" not in row
+        assert row["email"] == "gwendolyn@example.com"
 
     def test_their_fixture_names_the_ghost_and_no_name_and_keeps_its_fee(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -639,7 +662,7 @@ class TestTheSentinels:
 
         pupils, referees = on_a_league(mongo_replica_set_url, body)
 
-        assert pupils == [{"_id": GHOST_SPIELER_ID}]
+        assert sorted(row["_id"] for row in pupils) == [GHOST_SPIELER_ID, MOVING_PUPIL_OID]
         assert referees == [{"_id": GHOST_SCHIEDSRICHTER_ID}]
 
 
@@ -715,7 +738,7 @@ class TestOneTransaction:
 
         # On the code, so this cannot pass because something else failed before any write.
         assert code == DOCUMENT_VALIDATION_FAILED
-        assert counts == {"berechtigungen": 2, "spieler": 2, "saison_spieler": 2, "schiedsrichter": 2, "registrierungen": 3, "drosselung": 4}
+        assert counts == {"berechtigungen": 2, "spieler": 3, "saison_spieler": 2, "schiedsrichter": 2, "registrierungen": 3, "drosselung": 4}
         assert (seat, pending, their_rows, stamped, on_the_ghost) == (TYPED, TYPED, 2, 0, 0)
         # And no journal line nor floor warning: an erasure rolled back is no erasure a replay may repeat.
         assert not [record for record in caplog.records if record.getMessage().startswith(ERASURE_JOURNAL_LINE)]
@@ -803,9 +826,10 @@ class TestTheScope:
                 await database[Collection.DROSSELUNG].count_documents({}),
                 await database[Collection.AKTIONEN].count_documents({"actor.email": IDENTIFIER}),
                 await database[Collection.BERECHTIGUNGEN].count_documents({"adresse": IDENTIFIER}),
+                "adresswechsel" in await the_one(database, Collection.SPIELER, {"_id": MOVING_PUPIL_OID}),
             )
 
-        assert on_a_league(mongo_replica_set_url, body) == (0, 0, TYPED, 1, True, 4, 1, 1)
+        assert on_a_league(mongo_replica_set_url, body) == (0, 0, TYPED, 1, True, 4, 1, 1, True)
 
 
 # The registry's steps by the code each runs, so a write can be put down to the step it was made in.
@@ -1006,5 +1030,5 @@ class TestThePreview:
         ]
         assert answer["bewerbungen"] == [{"saison_id": SAISON_ID, "rolle": "trainer", "vorname": VORNAME, "nachname": NACHNAME}]
         assert answer["registrierungen"] == [{"saison_id": SAISON_ID, "team_name": "Heim-Schule", "vorname": VORNAME, "nachname": NACHNAME}] * 2
-        assert (answer["adresswechsel"], answer["verwaltung"]) == (1, "owner")
+        assert (answer["adresswechsel"], answer["verwaltung"]) == (2, "owner")
         assert "@" not in response.text and GEBURTSDATUM not in response.text

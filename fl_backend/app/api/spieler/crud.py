@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from typing import NamedTuple
 
 from pymongo.asynchronous.client_session import AsyncClientSession
@@ -198,3 +199,30 @@ async def erase_person_in_session(
     return PersonErased(
         spieler=erased_person.deleted_count, saison_spieler=erased_rows.deleted_count, redacted_aktionen=redacted.modified_count
     )
+
+
+async def remove_pending_pupil_addresses_in_session(
+    *,
+    spieler_collection: AsyncCollection,
+    # Rows whose pending block names the erased address and whose stored address does not: each is the
+    # old address's person's until the change is confirmed, so the block alone goes.
+    spieler_ids: Sequence[CustomObjectId],
+    # REQUIRED, so a caller forgetting it is a TypeError rather than writes committing one by one
+    # (`docs/backend/spec.md :: I52`).
+    session: AsyncClientSession,
+) -> int:
+    """Remove each pupil row's pending address change, answering how many.
+
+    The row's log images still carry the address: the erasure's pass over other documents' images, run after this, takes it out of them.
+    """
+
+    # No write for none: a fan-out matching nothing still files a log row.
+    if not spieler_ids:
+        return 0
+
+    # A fan-out and by ids alone: its filter, kept as text, names nobody (`docs/backend/spec.md :: I48`).
+    removed = await patch_many_in_db(
+        collection=spieler_collection, db_filter={"_id": {"$in": list(spieler_ids)}}, update={"$unset": {"adresswechsel": ""}}, session=session
+    )
+
+    return removed.modified_count

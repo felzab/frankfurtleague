@@ -78,7 +78,7 @@ async def erase_selbst(
 
     Removed: the pupil record and every squad row it holds, so the team reads one player fewer; the referee record, every
     fixture it was booked on moving to the one row that holds no person and keeping its own fee; every registration at the
-    address, pending or declined; another referee's pending address change naming this address, that referee's row itself
+    address, pending or declined; another referee's or pupil's pending address change naming this address, that row itself
     standing; every grant the address holds, an `owner` grant and the last two among them, every administrator being told it
     ended; and the person's day counts. Emptied: every contact seat the address holds on a team's season row and on an
     application of any status, the row and its other seats standing. The log images of those records are emptied. Every
@@ -185,7 +185,7 @@ async def get_erasure_ansicht(
         referee_rows=subject.schiedsrichter,
         pupil_rows=subject.spieler,
         registrierung_rows=subject.registrierungen,
-        adresswechsel_rows=subject.adresswechsel,
+        adresswechsel_rows=[*subject.adresswechsel, *subject.spieler_adresswechsel],
         team_rows=team_rows,
     )
 
