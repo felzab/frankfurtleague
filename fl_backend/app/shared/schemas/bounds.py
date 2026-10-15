@@ -105,6 +105,11 @@ SAISON_ID_LENGTH: Final = 4
 LIST_LIMIT_DEFAULT: Final = 1024
 LIST_LIMIT_MAX: Final = 1024
 
+# The most addresses one references call judges, about a millisecond each: 250 took 0.25 s over 400
+# season rows and 2,000 pupils (a local server, 2026-10-15), far inside
+# `app/core/middlewares.py :: REQUEST_DEADLINE_S` on a slower one.
+REFERENZEN_ADRESSEN_MAX: Final = 250
+
 # How long the action log keeps a row, counted from the write it recorded. Seconds because that is
 # the unit `create_index(expireAfterSeconds=)` takes, and a plain year because the database counts
 # no calendar months.
