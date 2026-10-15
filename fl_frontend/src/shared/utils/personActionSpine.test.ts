@@ -50,6 +50,7 @@ function countingBody() {
 const CLAIMS_A_RECORD: ReadonlySet<string> = new Set<string>([
   "kontakte :: patchBewerbungEinwilligungAction",
   "kontakte :: patchSitzEinwilligungAction",
+  "konto :: loescheKontoAction",
   "registrierungen :: patchRegistrierungEinwilligungAction",
   "schiedsrichter :: patchSchiedsrichterEinwilligungAction",
   "spieler :: patchSpielerEinwilligungAction",

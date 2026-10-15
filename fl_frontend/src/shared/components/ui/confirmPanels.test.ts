@@ -133,6 +133,8 @@ const M = {
   kontaktErasure: "features/kontakte/components/forms/AdminKontakteEditForm/FormKontaktErasure.tsx",
   passkey: "features/passkeys/components/ui/PasskeyKarteView.tsx",
   andereAbmelden: "features/konto/components/ui/AndereAbmelden.tsx",
+  kontoLoeschen: "features/konto/components/views/KontoLoeschenSection.tsx",
+  loeschung: "features/konto/components/views/LoeschungView.tsx",
   einladungVersand: "features/saisons/components/forms/AdminSaisonEditForm/FormEinladungVersandSection.tsx",
   gruppenSwap: "features/saisons/components/forms/AdminSaisonEditForm/FormGruppenSwapSection.tsx",
   rollover: "features/saisons/components/forms/AdminSaisonEditForm/FormRolloverSection.tsx",
@@ -157,6 +159,8 @@ const C = {
   kontaktErasure: await component(M.kontaktErasure, "FormKontaktErasure"),
   passkey: await component(M.passkey, "PasskeyKarteView"),
   andereAbmelden: await component(M.andereAbmelden, "AndereAbmelden"),
+  kontoLoeschen: await component(M.kontoLoeschen, "KontoLoeschenSection"),
+  loeschung: await component(M.loeschung, "LoeschungView"),
   einladungVersand: await component(M.einladungVersand, "FormEinladungVersandSection"),
   gruppenSwap: await component(M.gruppenSwap, "FormGruppenSwapSection"),
   rollover: await component(M.rollover, "FormRolloverSection"),
@@ -333,6 +337,23 @@ const PANELS: Record<string, Arming[]> = {
     {
       render: () => el(C.andereAbmelden, { onEnd: () => Promise.resolve() }),
       resting: "Alle anderen abmelden",
+    },
+  ],
+  [M.kontoLoeschen]: [{ render: () => underNext(el(C.kontoLoeschen, {})), resting: "Konto löschen" }],
+  [M.loeschung]: [
+    {
+      render: () =>
+        underNext(
+          el(C.loeschung, {
+            start: {
+              zustand: "bereit",
+              token: "kein-echtes-token",
+              email: "pia@example.org",
+              ansicht: { spieler: [], schiedsrichter: [], sitze: [], bewerbungen: [], registrierungen: [], adresswechsel: 0, verwaltung: null },
+            },
+          }),
+        ),
+      resting: "Konto endgültig löschen",
     },
   ],
   [M.einladungVersand]: [
@@ -663,6 +684,9 @@ const NOT_ADMINISTRATORS: Readonly<Record<string, string>> = {
   [M.saisonVorbei]: "the public confirmation page's Widerspruch on a closed season row, a person's own answer",
   [M.passkey]: "the passkey list, which asks through the account page's own confirmation",
   [M.andereAbmelden]: "the account page's sign-out of other devices, which asks through that page's own confirmation",
+  [M.kontoLoeschen]: "the account page's deletion link, which mails the holder's own mailbox and holds no step-up window",
+  [M.loeschung]:
+    "the deletion link's interstitial, a person's own press on their own link, a grant holder's asking through the page's own window",
   [M.registrierungen]: "a seat holder's decision on the person lane, which holds no administrator's step-up window",
 };
 

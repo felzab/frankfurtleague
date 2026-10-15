@@ -9,7 +9,17 @@ import type { ReactNode } from "react";
  * (`fl_frontend/eslint.config.mjs :: LAYER_BOUNDARY`), so the page reads the holder and hands the
  * feature sections in.
  */
-export function KontoPanel({ email, sicherheit, einwilligung }: { email: string; sicherheit: ReactNode; einwilligung: ReactNode }) {
+export function KontoPanel({
+  email,
+  sicherheit,
+  einwilligung,
+  loeschung,
+}: {
+  email: string;
+  sicherheit: ReactNode;
+  einwilligung: ReactNode;
+  loeschung: ReactNode;
+}) {
   const panel = formPanel();
 
   return (
@@ -35,6 +45,9 @@ export function KontoPanel({ email, sicherheit, einwilligung }: { email: string;
         {sicherheit}
 
         {einwilligung}
+
+        {/* Last and set apart: the one control on the page that ends the account rather than changing it. */}
+        {loeschung}
       </div>
     </div>
   );
