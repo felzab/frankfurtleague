@@ -213,8 +213,9 @@ whose view answers it `gesperrt`, the tier change, whose promotion of a barred a
 admin read naming an author, which withhold what it finds (I452), the actor check on every
 admin-tier request, which admits no barred holder (I463), the person check every person's
 binder carries, which serves no barred person (I488), the season's invite press and its preview,
-which skip a team whose every confirmed address it holds (I544), and `POST /identitaet/gesperrt`, which the
-frontend's mailer asks about every address it sends to and which answers it as `gesperrt` (I543).
+which skip a team whose every confirmed address it holds (I544), `POST /identitaet/gesperrt`, which the
+frontend's mailer asks about every address it sends to and which answers it as `gesperrt` (I543), and
+`POST /identitaet/referenzen`, which answers no barred address, so the account sweep keeps its account (I698).
 Each asks through the request's `fl_backend/app/api/sperrliste/lookup.py :: get_ban_list`, which reads the season a ban is judged
 against unless its caller already holds it. **The two sweeps' reminders withhold rather than refuse**
 (I417): they ask `:: adressen_gesperrt` once a page, over every due
@@ -316,11 +317,12 @@ Funktion presses too. A withdrawal reaches every confirmed record of the address
 
 #### `identitaet` router — system tier
 
-| Method | Path                    | Guard and what it does                                                                                                                                             |
-| ------ | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| POST   | `/identitaet/subjekt`   | `verify_access_system`. A mailbox's confirmed, live seats, pupil rows and referee rows, whether only unconfirmed ones matched, its ban and its grant's tier (I270) |
-| POST   | `/identitaet/anmeldung` | `verify_access_system`. Whether a mailbox holds a record of its own, whether only unconfirmed ones matched, its ban and its grant's tier (I564)                    |
-| POST   | `/identitaet/gesperrt`  | `verify_access_system`. Whether a standing ban holds one address the mailer is about to send to, and nothing else (I543)                                           |
+| Method | Path                     | Guard and what it does                                                                                                                                             |
+| ------ | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| POST   | `/identitaet/subjekt`    | `verify_access_system`. A mailbox's confirmed, live seats, pupil rows and referee rows, whether only unconfirmed ones matched, its ban and its grant's tier (I270) |
+| POST   | `/identitaet/anmeldung`  | `verify_access_system`. Whether a mailbox holds a record of its own, whether only unconfirmed ones matched, its ban and its grant's tier (I564)                    |
+| POST   | `/identitaet/gesperrt`   | `verify_access_system`. Whether a standing ban holds one address the mailer is about to send to, and nothing else (I543)                                           |
+| POST   | `/identitaet/referenzen` | `verify_access_system`. Which of a batch of sign-in addresses no record and no ban holds, so the account sweep may delete their accounts (I698)                    |
 
 #### `berechtigungen` reconciliation router — system tier
 
@@ -1263,6 +1265,7 @@ rather than by the handler remembering to conceal one.
 | I668 | Another row's pending address change naming the erased address goes alone: that referee or pupil row is the old address's person's and stands                                                                                                                                   | `fl_backend/app/api/schiedsrichter/crud.py :: remove_pending_addresses_in_session` and `fl_backend/app/api/spieler/crud.py :: remove_pending_pupil_addresses_in_session` over `fl_backend/app/api/identitaet/services.py :: pending_addresses_of`; `fl_backend/tests/api/test_funktionen_erasure.py :: TestWhatStandsBesideThem`                                                                                                                                                                                               |
 | I669 | The erasure's preview names every record the erasure reaches, by kind and name, and never an address or a birthdate                                                                                                                                                             | `fl_backend/app/api/identitaet/person_router.py :: get_erasure_ansicht` over `fl_backend/app/api/identitaet/crud.py :: resolve_subject`, the erasure's own read; `fl_backend/tests/api/test_funktionen_erasure.py :: TestThePreview`                                                                                                                                                                                                                                                                                           |
 | I670 | The address pass leaves the erased address in no log image `IMAGE_ADDRESSES` reaches: an author field reads `ERASED_ACTOR_MARKER`, the person's own address null                                                                                                                | `fl_backend/app/api/aktionen/crud.py :: redact_address_in_images` over `fl_backend/app/api/aktionen/services.py :: IMAGE_ADDRESSES`; `fl_backend/tests/api/test_aktionen_redaction_execution.py`                                                                                                                                                                                                                                                                                                                               |
+| I698 | `POST /identitaet/referenzen` answers only addresses no record references, a superset of what the sign-in gate admits; an address it cannot judge is referenced                                                                                                                 | `fl_backend/app/api/identitaet/services.py :: referenced_addresses` and `:: can_judge`; `fl_backend/tests/api/test_identitaet_referenzen_execution.py`                                                                                                                                                                                                                                                                                                                                                                         |
 
 ## 3. Violation → remedy
 

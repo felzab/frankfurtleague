@@ -6,7 +6,7 @@ Here rather than in `crud.py`, which opens collections: a services module is wha
 so a judgement left beside a handle is one nothing stops from growing a read of its own.
 """
 
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
 from http import HTTPStatus
 from typing import Any, Literal
 
@@ -23,7 +23,7 @@ from app.api.spieler.services import build_real_spieler_filter, build_selbst_pup
 from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import is_confirmed
-from app.shared.folding import sign_in_identifier
+from app.shared.folding import canonical_address, sign_in_identifier
 
 # --- The SELECTIONS, each shared with its record's own person-tier reads rather than spelled again.
 # Unnarrowed by retirement or withdrawal: `_judged` narrows the Funktionen (`docs/backend/spec.md :: I376`).
@@ -229,25 +229,32 @@ def build_registrierung_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     return [{"$match": build_eigene_registrierung_filter(identifier)}, {"$project": {"status": 1, "email": 1, "einwilligung": 1}}]
 
 
-def folds_to(stored: Any, identifier: str) -> bool:
-    """Whether one stored address is this mailbox, on the fold both ends of the join share.
+def folded(stored: Any) -> str | None:
+    """One stored address on the fold both ends of a join share, or `None` where nothing is stored.
 
     The null arm carries an empty seat slot and a referee whose `kontakt.email` is null, each
     declared so in `app/core/constraints.py`.
     """
 
-    return stored is not None and sign_in_identifier(str(stored)) == identifier
+    return None if stored is None else sign_in_identifier(str(stored))
+
+
+def folds_to(stored: Any, identifier: str) -> bool:
+    """Whether one stored address is this mailbox."""
+
+    return folded(stored) == identifier
+
+
+def seat_address(row: Mapping[str, Any], slot: str) -> Any:
+    """What one slot of a row's block stores as its address; a cleared block and an empty slot store none."""
+
+    return ((row.get("kontakte") or {}).get(slot) or {}).get("email")
 
 
 def seats_naming(rows: Sequence[Mapping[str, Any]], identifier: str) -> list[tuple[Mapping[str, Any], str]]:
     """One pair per SLOT rather than per row: one address stands in two of a block's person slots wherever one person was entered twice."""
 
-    return [
-        (row, slot)
-        for row in rows
-        for slot in KONTAKT_ROLLEN
-        if folds_to(((row.get("kontakte") or {}).get(slot) or {}).get("email"), identifier)
-    ]
+    return [(row, slot) for row in rows for slot in KONTAKT_ROLLEN if folds_to(seat_address(row, slot), identifier)]
 
 
 def seat_is_confirmed(row: Mapping[str, Any], slot: str) -> bool:
@@ -413,4 +420,104 @@ def find_letzter_inhaber_erasure_refusal(*, identifier: str, grants: Iterable[Ma
         error_code=LETZTER_INHABER_ERASURE,
         status=HTTPStatus.CONFLICT,
         message="the administration keeps at least one owner; make another administrator an owner before erasing yourself",
+    )
+
+
+# --- The REFERENCES: wider than the own records and than the sign-in gate alike
+# (`docs/backend/spec.md :: I698`). Each selection is the one its record's own reads take
+# for one address, asked for a batch.
+
+# An `$or` of those filters rather than one pattern taking every address, which costs a twelfth as
+# much: the server refuses a pattern past about 32,000 characters, and a full batch of long addresses
+# passes that.
+
+# The address alone, never the confirmation: an unconfirmed seat on the running season is one the
+# gate admits, to be told its confirmation is outstanding.
+SEAT_ADDRESS_FIELDS: Mapping[str, int] = {f"kontakte.{slot}.email": 1 for slot in KONTAKT_ROLLEN}
+
+
+def build_seat_references_pipeline(identifiers: Iterable[str]) -> list[Mapping[str, Any]]:
+    """Every season row whose block may name one of these addresses, a past season's and a withdrawn team's alike."""
+
+    return [{"$match": {"$or": [rows_possibly_naming(identifier) for identifier in identifiers]}}, {"$project": SEAT_ADDRESS_FIELDS}]
+
+
+def build_bewerbung_references_pipeline(identifiers: Iterable[str]) -> list[Mapping[str, Any]]:
+    return [{"$match": {"$or": [build_eigene_bewerbung_filter(identifier) for identifier in identifiers]}}, {"$project": SEAT_ADDRESS_FIELDS}]
+
+
+def build_referee_references_pipeline(identifiers: Iterable[str]) -> list[Mapping[str, Any]]:
+    """Retired rows too: a retired referee's account signs in to take back a consent."""
+
+    return [
+        {"$match": {"$or": [build_selbst_referee_filter(identifier) for identifier in identifiers]}},
+        {"$project": {"kontakt.email": 1}},
+    ]
+
+
+def build_pupil_references_pipeline(identifiers: Iterable[str]) -> list[Mapping[str, Any]]:
+    """`build_selbst_pupil_filter`'s equality over a batch, its `$type` term the unique index's partial filter, which `$in` does not imply."""
+
+    return [
+        {"$match": {"email": {"$in": sorted(set(identifiers)), "$type": "string"}, **build_real_spieler_filter()}},
+        {"$project": {"email": 1}},
+    ]
+
+
+def build_registrierung_references_pipeline(identifiers: Iterable[str]) -> list[Mapping[str, Any]]:
+    return [
+        {"$match": {"$or": [build_eigene_registrierung_filter(identifier) for identifier in identifiers]}},
+        {"$project": {"status": 1, "email": 1, "einwilligung": 1}},
+    ]
+
+
+def referenced_addresses(
+    *,
+    seat_rows: Iterable[Mapping[str, Any]],
+    bewerbung_rows: Iterable[Mapping[str, Any]],
+    referee_rows: Iterable[Mapping[str, Any]],
+    pupil_rows: Iterable[Mapping[str, Any]],
+    registrierung_rows: Iterable[Mapping[str, Any]],
+    grant_rows: Iterable[Mapping[str, Any]],
+) -> frozenset[str]:
+    """Every address, on the sign-in fold, that one of these records names (`docs/backend/spec.md :: I698`)."""
+
+    stored = (
+        *(seat_address(row, slot) for row in seat_rows for slot in KONTAKT_ROLLEN),
+        *(seat_address(row, slot) for row in bewerbung_rows for slot in KONTAKT_ROLLEN),
+        *map(referee_address, referee_rows),
+        *map(pupil_address, pupil_rows),
+        # The one kind narrowed to its pupil's confirmation, as the gate narrows it. The row's own fold
+        # stands for the identifier, its selection having matched the row to the batch already.
+        *(row.get("email") for row in registrierung_rows if ist_eigene_registrierung(row, folded(row.get("email")) or "")),
+        *(row.get("adresse") for row in grant_rows),
+    )
+
+    return frozenset(address for address in map(folded, stored) if address is not None)
+
+
+def can_judge(identifier: str) -> bool:
+    """Whether this address may be called unreferenced at all.
+
+    One today's address rule refuses keys no ban (`app/api/sperrliste/services.py :: stored_adresse_hash`),
+    so a ban entered under an older rule may hold it unseen.
+    """
+
+    try:
+        canonical_address(identifier)
+    except ValueError:
+        return False
+
+    return True
+
+
+def unreferenced(identifiers: Iterable[str], *, referenced: Collection[str], gesperrt: Collection[str]) -> list[str]:
+    """Each once, in the spelling it was asked in: the caller deletes the account holding that spelling."""
+
+    return list(
+        dict.fromkeys(
+            identifier
+            for identifier in identifiers
+            if can_judge(identifier) and sign_in_identifier(identifier) not in referenced and identifier not in gesperrt
+        )
     )

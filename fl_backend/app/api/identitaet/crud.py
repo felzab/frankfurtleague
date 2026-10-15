@@ -9,6 +9,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.aktionen.crud import redact_address_in_images
+from app.api.berechtigungen.crud import read_berechtigungen
 from app.api.berechtigungen.erasure import erase_grants_and_authorship_in_session
 from app.api.identitaet.lookup import RecordCollections
 from app.api.identitaet.schemas import FLAnmeldung, FLErasure, FLSubjekt, FLSubjektSchiedsrichter, FLSubjektSitz, FLSubjektSpieler
@@ -16,6 +17,7 @@ from app.api.identitaet.services import (
     EintragArt,
     awaits_confirmation,
     build_bewerbung_pipeline,
+    build_bewerbung_references_pipeline,
     build_erasure_pupil_pipeline,
     build_erasure_referee_pipeline,
     build_erasure_registrierung_pipeline,
@@ -23,9 +25,14 @@ from app.api.identitaet.services import (
     build_pending_address_pipeline,
     build_pending_pupil_address_pipeline,
     build_pupil_pipeline,
+    build_pupil_references_pipeline,
     build_referee_pipeline,
+    build_referee_references_pipeline,
     build_registrierung_pipeline,
+    build_registrierung_references_pipeline,
     build_seat_pipeline,
+    build_seat_references_pipeline,
+    can_judge,
     eigene_eintraege,
     eigene_sitze,
     find_funktion_refusal,
@@ -38,15 +45,17 @@ from app.api.identitaet.services import (
     pending_addresses_of,
     pupil_address,
     referee_address,
+    referenced_addresses,
     seat_is_confirmed,
     seats_naming,
+    unreferenced,
 )
 from app.api.kontakte.crud import erase_kontaktperson_in_session
 from app.api.kontakte.services import rows_naming, same_address
 from app.api.registrierungen.crud import erase_registrierungen_in_session
 from app.api.saisons.schemas import FLSaisonStatus
 from app.api.schiedsrichter.crud import ensure_ghost_schiedsrichter, erase_referee_in_session, remove_pending_addresses_in_session
-from app.api.sperrliste.lookup import BanList
+from app.api.sperrliste.lookup import BanList, adressen_gesperrt
 from app.api.spieler.crud import ensure_ghost_spieler, erase_person_in_session, remove_pending_pupil_addresses_in_session
 from app.core.collections import Collection
 from app.core.concurrency import gather_cancelling
@@ -682,3 +691,46 @@ async def after_the_erasure_commits(
     # The floor of two holds against no erasure (`docs/backend/spec.md :: I435`): the boot's warnings name what is left.
     if erased.berechtigungen:
         await warn_about_the_grants(berechtigungen_collection)
+
+
+async def unreferenced_of(
+    identifiers: Sequence[str], records: RecordCollections, *, berechtigungen_collection: AsyncCollection, sperrliste: BanList
+) -> list[str]:
+    """Which of these addresses no record references and no ban holds (`docs/backend/spec.md :: I698`).
+
+    Each collection is read once for the whole batch rather than once per address, which is what
+    `app/shared/schemas/bounds.py :: REFERENZEN_ADRESSEN_MAX` is measured against.
+    """
+
+    judged = [identifier for identifier in identifiers if can_judge(identifier)]
+    folded = sorted({sign_in_identifier(identifier) for identifier in judged})
+
+    # No address, no read: an empty `$or` is a query the server refuses.
+    if not folded:
+        return []
+
+    rows, gesperrt = await gather_cancelling(
+        gather_cancelling(
+            aggregate_many_from_db(collection=records.saison_teams_collection, pipeline=build_seat_references_pipeline(folded)),
+            aggregate_many_from_db(collection=records.bewerbungen_collection, pipeline=build_bewerbung_references_pipeline(folded)),
+            aggregate_many_from_db(collection=records.schiedsrichter_collection, pipeline=build_referee_references_pipeline(folded)),
+            aggregate_many_from_db(collection=records.spieler_collection, pipeline=build_pupil_references_pipeline(folded)),
+            aggregate_many_from_db(collection=records.registrierungen_collection, pipeline=build_registrierung_references_pipeline(folded)),
+            # Every row as stored, never `app/api/berechtigungen/crud.py :: verwaltung_of`: a grant edited in
+            # the database is in effect for nobody until the comparison sees it, and its account outlasts that.
+            read_berechtigungen(berechtigungen_collection=berechtigungen_collection),
+        ),
+        adressen_gesperrt(sperrliste, judged),
+    )
+    seat_rows, bewerbung_rows, referee_rows, pupil_rows, registrierung_rows, grant_rows = rows
+
+    referenced = referenced_addresses(
+        seat_rows=seat_rows,
+        bewerbung_rows=bewerbung_rows,
+        referee_rows=referee_rows,
+        pupil_rows=pupil_rows,
+        registrierung_rows=registrierung_rows,
+        grant_rows=grant_rows,
+    )
+
+    return unreferenced(identifiers, referenced=referenced, gesperrt=gesperrt)
