@@ -901,9 +901,8 @@ const readsOff = (name) =>
   ].join(", ");
 
 /**
- * A search query carried by a URL, which the access log, the history and every `Referer` keep
- * (`docs/frontend/spec.md :: I680`). Read by the parameter's name: a query held under another name
- * passes, which is why the two bans below keep every search box with a holder.
+ * A search query in a URL, which the access log keeps (`docs/frontend/spec.md :: I680`). By the name
+ * `q` alone: one held under another name passes, so the two bans below give every search box a holder.
  */
 const SEARCH_IN_URL = {
   selector: [
