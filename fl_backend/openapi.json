@@ -4614,7 +4614,7 @@
     "/api/v0/spieler/{spieler_id}/saisons": {
       "post": {
         "summary": "Add a Spieler to a squad",
-        "description": "Put a player in a team's squad for a season.\n\nOne row per player per season: moving a player is a PATCH of `team_id`, and a repeat is a 409\neven where the row is retired (`docs/backend/spec.md :: I20`). A squad holds each `rolle` once\n(`REQ-SQUAD-004`). `ist_nachnominiert` is derived here and never taken from the body: it is true\nfrom the first day of the season's matchday 1, and false while that matchday is undated.",
+        "description": "Put a player in a team's squad for a season.\n\n404 where no player has this id. One row per player per season: moving a player is a PATCH of\n`team_id`, and a repeat is a 409 even where the row is retired (`docs/backend/spec.md :: I20`). A\nsquad holds each `rolle` once (`REQ-SQUAD-004`). `ist_nachnominiert` is derived here and never\ntaken from the body: it is true from the first day of the season's matchday 1, and false while\nthat matchday is undated.",
         "operationId": "post_saison_spieler_api_v0_spieler__spieler_id__saisons_post",
         "security": [
           {

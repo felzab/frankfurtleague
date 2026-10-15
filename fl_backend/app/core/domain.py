@@ -502,11 +502,13 @@ REFERENCES: tuple[Reference, ...] = (
         source=Collection.SAISON_SPIELER,
         fields=("spieler_id",),
         target=Collection.SPIELER,
-        on_reference_created=Action.NO_ACTION,
+        on_reference_created=Action.RESTRICT,
         on_target_change=Action.NO_ACTION,
         on_target_removed=Action.NO_ACTION,
         note=(
-            "The path names the person and nothing reads it, so a squad row can name a `spieler` document nobody created. "
+            "An administrator's entry reads the person the path names and answers 404 where no row holds the id, the erased "
+            "pupils' sentinel included, anchoring the person so an erasure landing beside it conflicts "
+            "(`app/api/spieler/crud.py :: pull_a_person_to_enter`); an admission writes the person its row names. "
             "Retiring the person leaves every squad row intact -- the seasons they played still happened."
         ),
     ),

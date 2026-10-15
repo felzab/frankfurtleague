@@ -3,7 +3,7 @@ CORE · the source sweeps holding a rule judged on a read to the write that clos
 
 A snapshot re-validates no read, so a rule decided on one is held only where every writer that
 judges it also WRITES the document that read is scoped by: the season a count is taken in, or the
-club, the venue or the referee a retirement stamps. The helpers below do that, and what this module
+club, the venue or the referee a retirement stamps, or the person an erasure removes. The helpers below do that, and what this module
 proves is that every function writing the anchor is one of them, that no site can reach one of those
 rules past its helper, and that no caller can reach a helper without the transaction's session: the
 parameter is required, so an omission is a `TypeError` at the call rather than a race under a rule
@@ -28,7 +28,7 @@ from app.api.berechtigungen.crud import anchor_the_actors_grant, pull_the_list_t
 from app.api.sperrliste.admin_router import _pull_the_season_a_ban_counts_from
 from app.api.spiele.admin_router import patch_spiel_data
 from app.api.spiele.crud import anchor_a_booked_referee, anchor_a_booked_venue, pull_booked_referee, pull_booked_venue
-from app.api.spieler.crud import refuse_a_full_squad, refuse_a_taken_rolle
+from app.api.spieler.crud import pull_a_person_to_enter, refuse_a_full_squad, refuse_a_taken_rolle
 from app.api.spieltage.admin_router import _refuse_an_out_of_order_beginn
 from app.api.teams.crud import pull_a_club_to_enter, refuse_a_full_gruppe
 from app.core.crud import ANCHOR_FIELD, anchor_in_db
@@ -113,6 +113,9 @@ CALLERS: dict[str, frozenset[str]] = {
             "app/api/bewerbungen/admin_router.py :: accept_and_enter_the_school",
         }
     ),
+    # The administrator's entry alone: the admission writes the person it enters, which the erasure's
+    # delete already conflicts with.
+    "pull_a_person_to_enter": frozenset({"app/api/spieler/admin_router.py :: add_the_player"}),
     # One callback for both routes that book a fixture, the replay going through the editor's own.
     "anchor_a_booked_venue": frozenset({"app/api/spiele/admin_router.py :: write_and_resolve_the_bracket"}),
     "anchor_a_booked_referee": frozenset({"app/api/spiele/admin_router.py :: write_and_resolve_the_bracket"}),
@@ -145,6 +148,7 @@ CHOKE_POINT_FUNCTIONS = tuple(function for function, _, _ in CHOKE_POINTS)
 ANCHORS: tuple[tuple[Callable[..., Any], str], ...] = (
     *((function, "saisons_collection") for function in CHOKE_POINT_FUNCTIONS),
     (pull_a_club_to_enter, "teams_collection"),
+    (pull_a_person_to_enter, "spieler_collection"),
     (anchor_a_booked_venue, "spielorte_collection"),
     (anchor_a_booked_referee, "schiedsrichter_collection"),
     (_pull_the_season_a_ban_counts_from, "saisons_collection"),
@@ -156,7 +160,13 @@ ANCHORING_FUNCTIONS = tuple(function for function, _ in ANCHORS)
 
 # Every helper whose read a guarded refusal is judged on. The two booking reads sit apart from their
 # anchors, which the save takes once the whole payload is judged, so they are held here by name.
-JUDGED_READS: tuple[Callable[..., Any], ...] = (*CHOKE_POINT_FUNCTIONS, pull_a_club_to_enter, pull_booked_venue, pull_booked_referee)
+JUDGED_READS: tuple[Callable[..., Any], ...] = (
+    *CHOKE_POINT_FUNCTIONS,
+    pull_a_club_to_enter,
+    pull_a_person_to_enter,
+    pull_booked_venue,
+    pull_booked_referee,
+)
 
 # Every scope reaching a rule judged BESIDE its anchor rather than inside the helper taking it, or
 # choosing what such a rule judges: a site added beside these judges a row nothing conflicts with.

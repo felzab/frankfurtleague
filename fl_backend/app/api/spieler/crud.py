@@ -6,6 +6,7 @@ from app.api.spieler.schemas import FLSpielerErasureResponse, FLSpielerRolle
 from app.api.spieler.services import (
     build_live_rolle_filter,
     build_live_squad_filter,
+    build_spieler_filter,
     find_squad_capacity_refusal,
     find_squad_rolle_refusal,
 )
@@ -13,6 +14,28 @@ from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db, anchor_in_db, erase_many_from_db, patch_many_in_db, pull_one_from_db, refuse
 from app.core.recording import build_redaction_filter, build_redaction_update
 from app.shared.schemas.custom import CustomObjectId
+
+
+async def pull_a_person_to_enter(
+    *,
+    spieler_collection: AsyncCollection,
+    spieler_id: CustomObjectId,
+    # REQUIRED for `refuse_a_full_squad`'s reason: the anchor below closes the race.
+    session: AsyncClientSession,
+) -> None:
+    """A 404 where nobody stands behind the id, the sentinel included.
+
+    The erasure writes no row this entry writes, so only the anchor on the person puts the two in one
+    write set (`docs/backend/spec.md :: I53`).
+    """
+
+    await pull_one_from_db(collection=spieler_collection, db_filter=build_spieler_filter(spieler_id), projection=["_id"], session=session)
+
+    await anchor_in_db(
+        collection=spieler_collection,
+        db_filter={"_id": spieler_id},
+        session=session,
+    )
 
 
 async def refuse_a_full_squad(

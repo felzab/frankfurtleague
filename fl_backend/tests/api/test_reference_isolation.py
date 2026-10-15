@@ -1,5 +1,5 @@
 """
-API · a club's, a venue's and a referee's retirement, rename and booking, each driven with its rival landing inside its window
+API · a club's, venue's and referee's retirement, rename and booking, and a pupil's entry beside their erasure, each raced inside its window
 
 A retirement judges the rows an entry or a booking writes, which judges the date the retirement
 stamps; a rename rewrites the copies it can see while a booking copies the name it read; and
@@ -33,6 +33,8 @@ from app.api.schiedsrichter.services import REFEREE_STILL_ASSIGNED
 from app.api.spiele.admin_router import patch_spiel_data, patch_spiele_paarungen
 from app.api.spiele.schemas import FLPatchSpielDataPayload, FLPatchSpielePaarungenPayload, unplayed_filter
 from app.api.spiele.services import BOOKING_UNKNOWN_RESOURCE, FIXTURE_DOUBLE_BOOKED
+from app.api.spieler.admin_router import erase_spieler, post_saison_spieler
+from app.api.spieler.schemas import FLPostSaisonSpielerPayload
 from app.api.spielorte.admin_router import delete_spielort, patch_spielort
 from app.api.spielorte.schemas import FLPatchSpielortPayload
 from app.api.spielorte.services import VENUE_STILL_BOOKED
@@ -40,6 +42,7 @@ from app.api.teams.admin_router import delete_team, patch_team, post_saison_team
 from app.api.teams.schemas import FLPatchTeamPayload, FLPostSaisonTeamPayload, FLReplaceSaisonTeamPayload
 from app.api.teams.services import CLUB_RETIRED, RETIRE_BLOCKED
 from app.core.collections import Collection
+from app.core.exceptions import DocumentNotFoundException
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from tests import documents
 from tests.actor_tokens import FRESH_STEP_UP_CHECK
@@ -77,6 +80,9 @@ VENUE = ObjectId("6890a1b2c3d4e5f608280003")
 REFEREE = ObjectId("6890a1b2c3d4e5f608280004")
 # The two fixtures beside `FIXTURE` that the clash cases book the same row onto.
 SECOND_FIXTURE = ObjectId("6890a1b2c3d4e5f608280005")
+
+# Retired, so the erasure takes them (`REQ-PURGE-001`), and seeded by the one case entering them.
+PERSON = ObjectId("6890a1b2c3d4e5f608290001")
 THIRD_FIXTURE = ObjectId("6890a1b2c3d4e5f608280006")
 
 SEED_MAPS_LINK = "Sportplatz Ostpark, Hanauer Landstraße 12a, 60314 Frankfurt am Main, Deutschland"
@@ -727,6 +733,41 @@ class TestARetirementLandingMidBookingIsJudgedAgain:
 
         assert raced == (reference.refused_with, COMMITTED, (False, 0))
 
+    def test_the_squad_entry_answers_not_found_on_a_person_the_erasure_removed(self, mongo_replica_set_url: str):
+        """The anchor on the person is all the two share: the erasure writes no row the entry writes, which would commit a row naming nobody."""
+
+        async def body() -> tuple[str, list[str], int, int, int]:
+            async with a_clean_database(mongo_replica_set_url, DATABASE_NAME) as (client, database):
+                handles = await a_seeded_league(database, None)
+                await database[Collection.SPIELER].insert_one(
+                    documents.spieler_document(PERSON, "Quillhilde", "Brackenmoor", inactive_since=RETIRED_ON)
+                )
+                erasures: list[str] = []
+
+                async def the_erasure_lands() -> None:
+                    erasures.append(await outcome_of(erase_the_person(client, handles)))
+
+                hook = RunningARivalMidWrite(database[Collection.SPIELER], the_erasure_lands)
+                try:
+                    await enter_the_person(client, {**handles, Collection.SPIELER: hook})
+                    outcome = COMMITTED
+                except DocumentNotFoundException:
+                    outcome = NOT_FOUND
+
+                return (
+                    outcome,
+                    erasures,
+                    await database[Collection.SPIELER].count_documents({"_id": PERSON}),
+                    await database[Collection.SAISON_SPIELER].count_documents({"spieler_id": PERSON}),
+                    hook.passes,
+                )
+
+        *raced, passes = on_the_seed_loop(body())
+
+        assert tuple(raced) == (NOT_FOUND, [COMMITTED], 0, 0)
+        # Once with the erasure committed first; a third arrival is the retry the anchor's conflict forced.
+        assert passes > 1, "the erasure landed outside the entry"
+
 
 class TestABookingLandingMidRetirementIsJudgedAgain:
     """The retirement has judged the rows it reads when the entry, the booking or the revival commits."""
@@ -752,6 +793,36 @@ class TestABookingLandingMidRetirementIsJudgedAgain:
         )
 
         assert raced == (COMMITTED, COMMITTED, (False, GHOST_SCHIEDSRICHTER_ID))
+
+
+NOT_FOUND = "not found"
+
+
+async def enter_the_person(client: AsyncMongoClient, handles: Mapping[Collection, Any]) -> Any:
+    """Into the club the seeded season holds, so nothing but the person can refuse it."""
+
+    return await post_saison_spieler(
+        spieler_id=PERSON,
+        saison_spieler_data=FLPostSaisonSpielerPayload(saison_id=SAISON, team_id=OUTGOING, nummer=None, position=None, stufe=None, rolle=None),
+        spieler_collection=handles[Collection.SPIELER],
+        saison_spieler_collection=handles[Collection.SAISON_SPIELER],
+        saison_teams_collection=handles[Collection.SAISON_TEAMS],
+        saisons_collection=handles[Collection.SAISONS],
+        spieltage_collection=handles[Collection.SPIELTAGE],
+        db=client,
+        today=TODAY,
+    )
+
+
+async def erase_the_person(client: AsyncMongoClient, handles: Mapping[Collection, Any]) -> Any:
+    return await erase_spieler(
+        spieler_id=PERSON,
+        spieler_collection=handles[Collection.SPIELER],
+        saison_spieler_collection=handles[Collection.SAISON_SPIELER],
+        aktionen_collection=handles[Collection.AKTIONEN],
+        db=client,
+        germany_now=NOW,
+    )
 
 
 async def erased_standing(database: AsyncDatabase) -> tuple[bool, ObjectId | None]:

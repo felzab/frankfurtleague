@@ -7,9 +7,9 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.identitaet.services import build_pupil_pipeline
-from app.api.spieler.admin_router import delete_spieler, get_spieler_memberships, patch_spieler, reactivate_spieler
+from app.api.spieler.admin_router import delete_spieler, get_spieler_memberships, patch_spieler, post_saison_spieler, reactivate_spieler
 from app.api.spieler.router import get_spieler, get_spieler_by_id
-from app.api.spieler.schemas import FLPatchSpielerPayload, FLSpielerFilterParams
+from app.api.spieler.schemas import FLPatchSpielerPayload, FLPostSaisonSpielerPayload, FLSpielerFilterParams
 from app.api.spieler.services import build_ghost_spieler
 from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db
@@ -85,11 +85,25 @@ async def press(database: AsyncDatabase, client: AsyncMongoClient, route: str, s
         )
     if route == "delete":
         return await delete_spieler(spieler_id=spieler_id, spieler_collection=collection, db=client, today=TODAY)
+    if route == "reactivate":
+        return await reactivate_spieler(spieler_id=spieler_id, spieler_collection=collection, db=client)
 
-    return await reactivate_spieler(spieler_id=spieler_id, spieler_collection=collection, db=client)
+    return await post_saison_spieler(
+        spieler_id=spieler_id,
+        saison_spieler_data=FLPostSaisonSpielerPayload(
+            saison_id=SAISON_ID, team_id=TEAM_OID, nummer=None, position=None, stufe=None, rolle=None
+        ),
+        spieler_collection=collection,
+        saison_spieler_collection=database[Collection.SAISON_SPIELER],
+        saison_teams_collection=database[Collection.SAISON_TEAMS],
+        saisons_collection=database[Collection.SAISONS],
+        spieltage_collection=database[Collection.SPIELTAGE],
+        db=client,
+        today=TODAY,
+    )
 
 
-ROUTES = ["read", "patch", "delete", "reactivate"]
+ROUTES = ["read", "patch", "delete", "reactivate", "squad entry"]
 
 
 @pytest.mark.parametrize("route", ROUTES)
@@ -116,6 +130,18 @@ def test_every_route_by_id_still_reaches_a_person(mongo_replica_set_url: str, ro
         return await press(database, client, route, PERSON_OID)
 
     assert on_a_league(mongo_replica_set_url, body) is not None
+
+
+def test_an_id_nobody_holds_gets_no_squad_row(mongo_replica_set_url: str):
+    """A squad row naming nobody resolves to no person on any read of the squad, and nothing would ever remove it."""
+
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+        with pytest.raises(DocumentNotFoundException):
+            await press(database, client, "squad entry", ObjectId())
+
+        return await database[Collection.SAISON_SPIELER].count_documents({})
+
+    assert on_a_league(mongo_replica_set_url, body) == 0
 
 
 def test_neither_collection_read_serves_the_sentinel_and_a_person_holding_no_squad_row_is_still_served(mongo_replica_set_url: str):
