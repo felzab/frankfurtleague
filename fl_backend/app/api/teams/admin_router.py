@@ -843,7 +843,7 @@ async def replace_saison_team(
             db_filter={"saison_id": saison_id, "team_id": team_id},
             # `austritt` cleared: left standing it marks the INCOMING club withdrawn to
             # `REQ-SWAP-006` and `_may_hold_a_platz`; the exit survives in the logged pre-image. The
-            # colour, the contacts and their links leave with the OUTGOING school (`docs/backend/spec.md :: I50`).
+            # colour, the contacts and their links leave with the OUTGOING school (`docs/backend/spec.md :: I137`, `:: I567`).
             update={"$set": {**incoming_side, "austritt": None, "trikot_farbe": None, "kontakte": None, "bestaetigungen": None}},
             session=session,
             return_document=ReturnDocument.AFTER,
