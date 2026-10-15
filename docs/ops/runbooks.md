@@ -714,7 +714,8 @@ that seat's own link, not by the person's role; a seat on a team's season row is
   rather than that an administrator removed them. **An address the ban list holds takes no second
   link** (`REQ-BEWERBUNG-019`), and the link it already holds opens on the ban's sentence alone,
   offering no Widerspruch (`docs/frontend/spec.md :: I516`): its withdrawal reaches the league's
-  mailbox and is performed by hand, through `POST /kontakte/erasure`. Once the school has named a replacement, seat them
+  mailbox and is performed by hand, on „Löschung auf Anfrage“ (`/bereich/admin/loeschung`), which erases everything the
+  address holds rather than this seat alone. Once the school has named a replacement, seat them
   from „Neu besetzen“ on that seat's row of the application's Bestätigungen panel, which sends the
   new person their own link and restarts the confirmation deadline for the whole application; it is
   acceptable again once they confirm within that new deadline. An ERASED seat offers no such control,
@@ -723,9 +724,9 @@ that seat's own link, not by the person's role; a seat on a team's season row is
 - **The seat has already answered, or the link is over.** A seat that has confirmed or already
   contradicted takes no second answer (`REQ-BEWERBUNG-011`), and a link whose deadline has passed
   (`REQ-BEWERBUNG-017`) or whose application has been decided (`REQ-BEWERBUNG-010`) takes none either —
-  each is a refusal the person meets on the page, not something to talk them through. The route is `POST /kontakte/erasure`
+  each is a refusal the person meets on the page, not something to talk them through. The route is „Löschung auf Anfrage“
   like any other.
-- **The application has been decided.** `POST /kontakte/erasure`, as above.
+- **The application has been decided.** „Löschung auf Anfrage“, as above.
 - **The seat is on a team's season row.** Its person's own link takes their Widerspruch while it
   is live, and the Widerspruch empties the seat and mails nobody, an administrator rather than a
   submitter having entered them (`docs/glossary.md :: Bestätigung`). A lost or lapsed link is sent
@@ -734,16 +735,15 @@ that seat's own link, not by the person's role; a seat on a team's season row is
   whole. It refuses an address the ban list holds (`REQ-KONTAKT-003`) and a row whose season has
   ended or whose team has left it (`REQ-KONTAKT-005`, `docs/backend/spec.md :: I570`), though a link
   such a row already holds still takes a Widerspruch. Where no live link is left, or the seat has
-  already answered, the route is `POST /kontakte/erasure`.
+  already answered, the route is „Löschung auf Anfrage“.
 
 **A pupil withdrawing the consent that publishes their name does it on their account page.**
 `PATCH /spieler/selbst/einwilligung` moves the record, and no administrator route writes it
 (`fl_backend/app/core/domain.py :: FIELD_POLICIES`). A request arriving
 by mail instead has two answers, and which one you give is the person's to choose:
 
-- **They want off the website and out of the league.** `DELETE /spieler/{spieler_id}` and then
-  `DELETE /spieler/{spieler_id}/erasure`, which is the erasure above and takes the squad rows with
-  the person.
+- **They want off the website and out of the league.** „Löschung auf Anfrage“ on the address their
+  record holds, which takes the squad rows with the person and asks no retirement first.
 - **They want their name withheld and their place kept.** Answer by pointing them to the control
   on their account page, `/bereich/konto`, which they reach by signing in with the address their
   record holds. **Nobody edits a consent block by hand**, in the console or anywhere else: a choice
@@ -766,10 +766,9 @@ page.
 
 **A referee whose row was dropped has nothing left to erase, and their fixtures hold no name**:
 [section 12](#12-deleting-this-seasons-player-records-and-resetting-the-action-log)'s drop empties it
-as it repoints them at the ghost, which refuses an erasure itself (`REQ-ANONYMISE-004`), and redacts
-the log's images of them as an erasure does. Where the
-person has registered again since, erase the new row under „Daten löschen“ in that referee's own
-editor.
+as it repoints them at the ghost, which no erasure reaches, and redacts the log's images of them as
+an erasure does. Where the person has registered again since, erase their address on „Löschung auf
+Anfrage“.
 
 **Objection, restriction and portability have no mechanism and need none at this scale.** Answer the
 person in writing: say what is held, on what basis, and what you have done. Where a restriction is
@@ -778,16 +777,16 @@ agreed, the only reliable form it can take here is removing the data, which is t
 **Two things belong in every answer that touches a deletion.** Backups outlive it by the snapshot
 window and the person is told so
 ([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)); and an erasure is
-keyed on an email address, so it clears every seat that address holds, in every season and both
-collections. **The erasure takes the address the seat it is pressed on stores, and reaches another
-seat only where that one's address folds to the same spelling** once its capitals are lowered
+keyed on an email address, so it clears every record that address holds, in every season and every
+collection. **The erasure takes the address typed, and reaches a record only where that record's
+address folds to the same spelling** once its capitals are lowered
 (`fl_backend/app/shared/folding.py :: sign_in_identifier`). **Read the armed panel's list before
-pressing**: it names every one of those seats, by
-person and by the season or application it sits in, and the press stays shut until that list is on
-screen
-(`fl_frontend/src/features/kontakte/components/forms/AdminKontakteEditForm/FormKontaktErasure.tsx`).
-Read the counts the result reports afterwards —
-they are what say how far the write reached.
+pressing**: it names every one of those records, by kind, person and season, and the press stays shut
+until that list is on screen and the address is typed a second time
+(`fl_frontend/src/features/funktionen/components/forms/AdminLoeschungForm/FormPersonLoeschenSection.tsx`).
+Read the result afterwards: it says whether the address's account went too, and an account the
+erasure could not delete goes when the address is erased again
+([`../frontend/spec.md`](../frontend/spec.md#2-invariants) I685).
 
 **Answer as soon as what you need is gathered, and where it will take longer say so in the first
 reply rather than after it.** Where the answer needs the Datenschutzexperte, the person is told that
@@ -1183,10 +1182,9 @@ database edits: `aktionen` carries no POST and no DELETE route, and no code remo
 ([`../backend/spec.md`](../backend/spec.md#2-invariants) I119).
 
 **The log goes LAST whichever route the player half takes**, because every write through
-`fl_backend/app/core/crud.py` appends a row to it: taken through
-`DELETE /spieler/{spieler_id}/erasure` per person, the player half leaves rows this reset then has to
-take, and each of those calls is refused until that person is retired (`REQ-PURGE-001`). Which route
-the player half takes is not settled here.
+`fl_backend/app/core/crud.py` appends a row to it: taken through „Löschung auf Anfrage“ per person,
+the player half leaves rows this reset then has to take. Which route the player half takes is not
+settled here.
 
 **What the reset reaches that the retention index cannot is the rows carrying no `at_date`**, which
 nothing expires (I119), and a count of them says how many are left.
@@ -1261,14 +1259,13 @@ does not look erased, and each role's guard reads something the restore took awa
 
 - **A referee.** The whole row is back, with its name, school and contact members, and every fixture
   the erasure had repointed names them again in place of the ghost, so nothing reads as erased and
-  they are editable and bookable. `POST /schiedsrichter/{schiedsrichter_id}/anonymisieren` does all
-  of it again.
-- **A pupil.** The person and their squad rows are back and standing, so the erasure is refused until
-  the retirement is stamped again (`REQ-PURGE-001`): `DELETE /spieler/{spieler_id}`, then
-  `DELETE /spieler/{spieler_id}/erasure`.
-- **A contact seat.** Every seat that address held is back and filled. `POST /kontakte/erasure` is
-  keyed on the address, so the address off the thread is the whole input — and the armed panel's list
-  now names seats written since the snapshot as well, which is why section 5 says to read it before
+  they are editable and bookable. „Löschung auf Anfrage“ on the address off the thread does all of it
+  again.
+- **A pupil.** The person and their squad rows are back and standing, and „Löschung auf Anfrage“ takes
+  them again, asking no retirement first.
+- **A contact seat.** Every seat that address held is back and filled. „Löschung auf Anfrage“ is keyed
+  on the address, so the address off the thread is the whole input — and the armed panel's list now
+  names records written since the snapshot as well, which is why section 5 says to read it before
   pressing.
 - **Anybody who had signed in, whatever their role.** The `auth` database is on the same cluster
   ([`spec.md`](spec.md) I174), so a restore of the cluster brings back their `user`, `session`,

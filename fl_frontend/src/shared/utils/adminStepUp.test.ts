@@ -560,6 +560,7 @@ const CONFIRMED_BY_THE_BACKEND: Record<string, { name: string; payload: unknown 
     payload: { team_id: TEAM_ID, saison_id: SAISON_ID },
   },
   "POST /saisons/{saison_id}/einladungen/versand": { name: "postEinladungVersandAction", payload: { id: SAISON_ID } },
+  "POST /identitaet/erasure": { name: "eraseAufAnfrageAction", payload: { email: "berta@example.de", anlass: "E-Mail vom 12.10.2026" } },
   // Clearing the block, one of the two calls of the contacts save the backend steps up, the other
   // being a save that seats somebody new.
   "PATCH /teams/{team_id}/saisons/{saison_id}/kontakte": {

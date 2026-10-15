@@ -216,7 +216,11 @@ type SignInAnswers = {
   signedOut: string[];
   /** What that sign-out throws, where a case asks it to fail. */
   signOutFailure: Error | null;
-  /** Whether an account holds the address a ban signs out, which the real sign-out answers. */
+  /** Every address an erasure asked the store to delete the account of, in order. */
+  deletedAccounts: string[];
+  /** What that deletion throws, where a case asks it to fail. */
+  accountDeletionFailure: Error | null;
+  /** Whether an account holds the address a ban signs out or an erasure deletes, which the real store answers. */
   accountHeld: boolean;
   /** `isFreshlySignedIn`'s answer, whatever session it is handed. */
   fresh: boolean;
@@ -285,6 +289,10 @@ const signInStore = (answers: SignInAnswers) => ({
     answers.signedOut.push(String(address));
     return answering(answers.signOutFailure ?? answers.accountHeld);
   },
+  deleteAccountFor: (address: unknown) => {
+    answers.deletedAccounts.push(String(address));
+    return answering(answers.accountDeletionFailure ?? answers.accountHeld);
+  },
 });
 
 /**
@@ -328,7 +336,11 @@ export function doubleActionRequest({
   signedOut: () => readonly string[];
   /** Makes every sign-out for the rest of the case throw `failure`. */
   failSignOut: (failure: Error) => void;
-  /** Makes every sign-out for the rest of the case find no account; an account is held by default. */
+  /** Every address an erasure deleted the account of since the case began. */
+  deletedAccounts: () => readonly string[];
+  /** Makes every account deletion for the rest of the case throw `failure`. */
+  failAccountDeletion: (failure: Error) => void;
+  /** Makes every sign-out and account deletion for the rest of the case find no account; an account is held by default. */
   holdNoAccount: () => void;
   /** Why the guard refuses for the rest of the case, where it refuses. */
   setRefusal: (next: AdminRefusal) => void;
@@ -341,6 +353,8 @@ export function doubleActionRequest({
     subjectReads: 0,
     signedOut: [],
     signOutFailure: null,
+    deletedAccounts: [],
+    accountDeletionFailure: null,
     accountHeld: true,
     fresh: true,
     refusal: null,
@@ -362,6 +376,8 @@ export function doubleActionRequest({
     answers.subjectReads = 0;
     answers.signedOut.length = 0;
     answers.signOutFailure = null;
+    answers.deletedAccounts.length = 0;
+    answers.accountDeletionFailure = null;
     answers.accountHeld = true;
     answers.fresh = true;
     answers.refusal = null;
@@ -383,6 +399,8 @@ export function doubleActionRequest({
     subjectReads: () => answers.subjectReads,
     signedOut: () => [...answers.signedOut],
     failSignOut: (failure) => void (answers.signOutFailure = failure),
+    deletedAccounts: () => [...answers.deletedAccounts],
+    failAccountDeletion: (failure) => void (answers.accountDeletionFailure = failure),
     holdNoAccount: () => void (answers.accountHeld = false),
     setRefusal: (next) => void (answers.refusal = next),
   };

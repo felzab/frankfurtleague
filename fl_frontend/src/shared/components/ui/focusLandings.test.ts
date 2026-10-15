@@ -2,7 +2,7 @@ import "@/shared/testing/dom.ts";
 import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
-import { afterEach, describe, it } from "node:test";
+import { afterEach, describe, it, mock } from "node:test";
 
 import { Fragment, createElement as h, useState } from "react";
 
@@ -11,6 +11,7 @@ import { userEvent } from "@testing-library/user-event";
 
 import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { registerDoubles } from "@/core/exportingModule.ts";
+import { DOUBLE_PRESS_MS } from "@/shared/hooks/useTwoPressConfirm.ts";
 import { doubleEveryAction, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { laufendeNeubesetzung } from "@/shared/testing/einwilligungAnswers.ts";
 import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
@@ -57,6 +58,7 @@ const { FormGruppenSwapSection } = await import("@/features/saisons/components/f
 const { FormTeamErsatzSection } = await import("@/features/saisons/components/forms/AdminSaisonEditForm/FormTeamErsatzSection.tsx");
 const { FormSpielplanSection } = await import("@/features/saisons/components/forms/AdminSaisonEditForm/FormSpielplanSection.tsx");
 const { RegistrierungenView } = await import("@/features/registrierungen/components/views/RegistrierungenView.tsx");
+const { FormPersonLoeschenSection } = await import("@/features/funktionen/components/forms/AdminLoeschungForm/FormPersonLoeschenSection.tsx");
 const { EinwilligungPanel } = await import("@/features/konto/components/forms/EinwilligungForm/EinwilligungPanel.tsx");
 const { EinwilligungForm } = await import("@/features/konto/components/forms/EinwilligungForm/EinwilligungForm.tsx");
 const { patchBewerbungEinwilligungAction } = await import("@/features/kontakte/personActions.ts");
@@ -1231,6 +1233,33 @@ const LANDINGS: Record<string, Landing> = {
     press: (user) => pressTwice(user, { resting: "Ablehnen: Registrierung von Lena Meier", armed: "Ja, ablehnen" }),
     after: () => registrierungen([]),
     lands: () => heading("Offene Registrierungen"),
+  },
+  /* Its boxes emptied for the next request, the press stands closed where it was: its overlay is the stop. */
+  "a person's erasure, on its control closed over the emptied boxes": {
+    answers: {
+      readErasureAnsichtAction: {
+        success: true,
+        ansicht: { spieler: [], schiedsrichter: [], sitze: [], bewerbungen: [], registrierungen: [], adresswechsel: [], verwaltung: null },
+      },
+      eraseAufAnfrageAction: { success: true, konto: "geloescht", gespeichert: true, message: "Gelöscht." },
+    },
+    before: () => h(FormPersonLoeschenSection),
+    press: async (user) => {
+      await user.type(screen.getByRole("textbox", { name: "E-Mail" }), "ada@example.org");
+      await user.type(screen.getByRole("textbox", { name: "Anlass" }), "E-Mail vom 12.10.2026");
+      // By hand rather than `pressTwice`: the armed press stands closed, its overlay named alike, until the address is retyped.
+      mock.timers.enable({ apis: ["Date"] });
+      try {
+        await user.click(screen.getByRole("button", { name: "Person löschen" }));
+        await user.type(await screen.findByRole("textbox", { name: /^Gib zur Bestätigung die Adresse/ }), "ada@example.org");
+        mock.timers.tick(DOUBLE_PRESS_MS);
+        await user.click(screen.getByRole("button", { name: "Ja, Person endgültig löschen" }));
+      } finally {
+        mock.timers.reset();
+      }
+    },
+    after: () => h(FormPersonLoeschenSection),
+    lands: () => openStop("Person löschen"),
   },
 };
 

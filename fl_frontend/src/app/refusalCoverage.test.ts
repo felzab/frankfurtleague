@@ -23,6 +23,7 @@ const bewerbungen = await import("@/features/bewerbungen/refusals.ts");
 const { BEWERBUNG_MIN_ALTER } = await import("@/features/bewerbungen/constants.ts");
 const bewerbungUtils = await import("@/features/bewerbungen/utils.ts");
 const einladungen = await import("@/features/einladungen/refusals.ts");
+const funktionen = await import("@/features/funktionen/refusals.ts");
 const kontoLoeschung = await import("@/features/konto/refusals.ts");
 const kontakte = await import("@/features/kontakte/refusals.ts");
 const konto = await import("@/features/konto/einwilligung.ts");
@@ -102,6 +103,10 @@ const ANSWERED_BY: Readonly<Record<string, Mapper>> = {
   // The last owner's refusal is the slice's; the unique index's, which no request reaches without a hand
   // edit racing it, the shared reader's.
   "POST /identitaet/selbst/erasure": kontoLoeschung.mapLoeschungRefusal,
+  // The operator's own address and an owner's are the slice's; the unique index's is the shared reader's.
+  "POST /identitaet/erasure/ansicht": funktionen.mapErasureRefusal,
+  "POST /identitaet/erasure": funktionen.mapErasureRefusal,
+  "POST /identitaet/abmeldung": funktionen.mapAbmeldungRefusal,
   "POST /sperrliste": sperrliste.mapAdresseRefusal,
   "PATCH /spiele/{spiel_id}": spiele.mapSpielRefusal,
   // Written by the match undo's replay alone.

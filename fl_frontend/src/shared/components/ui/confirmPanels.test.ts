@@ -58,6 +58,8 @@ type Arming = {
   render: () => ReactNode;
   reach?: (user: User) => Promise<void>;
   answer?: () => Promise<unknown>;
+  /** What the armed panel needs typed before its press opens, as a typed confirmation keeps it closed until then. */
+  typed?: (user: User) => Promise<void>;
   resting: string;
   /** `false` where the armed write is one a reversal undoes, which asks nothing past the step-up window. */
   stepUp?: false;
@@ -129,6 +131,8 @@ const M = {
   annehmen: "features/bewerbungen/components/forms/AdminBewerbungAnnehmenSection.tsx",
   bestaetigung: "features/bewerbungen/components/views/BestaetigungFormPanel.tsx",
   saisonVorbei: "features/bewerbungen/components/views/BestaetigungSaisonVorbei.tsx",
+  abmelden: "features/funktionen/components/forms/AdminLoeschungForm/FormAbmeldenSection.tsx",
+  personLoeschen: "features/funktionen/components/forms/AdminLoeschungForm/FormPersonLoeschenSection.tsx",
   kontakteLoeschen: "features/kontakte/components/forms/AdminKontakteEditForm/FormKontakteLoeschenSection.tsx",
   passkey: "features/passkeys/components/ui/PasskeyKarteView.tsx",
   andereAbmelden: "features/konto/components/ui/AndereAbmelden.tsx",
@@ -152,6 +156,8 @@ const C = {
   annehmen: await component(M.annehmen, "AdminBewerbungAnnehmenSection"),
   bestaetigung: await component(M.bestaetigung, "BestaetigungFormPanel"),
   saisonVorbei: await component(M.saisonVorbei, "BestaetigungSaisonVorbei"),
+  abmelden: await component(M.abmelden, "FormAbmeldenSection"),
+  personLoeschen: await component(M.personLoeschen, "FormPersonLoeschenSection"),
   kontakteLoeschen: await component(M.kontakteLoeschen, "FormKontakteLoeschenSection"),
   passkey: await component(M.passkey, "PasskeyKarteView"),
   andereAbmelden: await component(M.andereAbmelden, "AndereAbmelden"),
@@ -286,6 +292,34 @@ const PANELS: Record<string, Arming[]> = {
           onAbschluss: () => undefined,
         }),
       resting: "Ich möchte nicht eingetragen sein",
+    },
+  ],
+  [M.abmelden]: [
+    {
+      render: () => underNext(el(C.abmelden, {})),
+      reach: (user) => user.type(screen.getByRole("textbox", { name: "E-Mail" }), "ada@example.org"),
+      resting: "Überall abmelden",
+      stepUp: false,
+    },
+  ],
+  [M.personLoeschen]: [
+    {
+      render: () => underNext(el(C.personLoeschen, {})),
+      reach: async (user) => {
+        await user.type(screen.getByRole("textbox", { name: "E-Mail" }), "ada@example.org");
+        await user.type(screen.getByRole("textbox", { name: "Anlass" }), "E-Mail vom 12.10.2026");
+      },
+      // The read the arming makes, answered: unanswered, the reveal holds its placeholder and the press stays held.
+      answer: () =>
+        Promise.resolve({
+          success: true,
+          message: "Gelöscht.",
+          ansicht: { spieler: [], schiedsrichter: [], sitze: [], bewerbungen: [], registrierungen: [], adresswechsel: [], verwaltung: null },
+          konto: "geloescht",
+          gespeichert: true,
+        }),
+      typed: (user) => user.type(screen.getByRole("textbox", { name: /^Gib zur Bestätigung die Adresse/ }), "ada@example.org"),
+      resting: "Person löschen",
     },
   ],
   [M.kontakteLoeschen]: [
@@ -683,6 +717,7 @@ describe("every administrator panel past the step-up window", () => {
         await act(answered);
         // Found rather than got: a panel that arms once a read it started has answered is armed after the click returns.
         await screen.findByRole("button", { name: "Abbrechen" });
+        await arming.typed?.(user);
         const armed = screen.queryByRole("button", { name: STEP_UP_LABEL });
         assert.equal(
           armed !== null,
