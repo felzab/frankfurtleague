@@ -803,6 +803,13 @@ PADDED_SPELLINGS: tuple[str, ...] = (f"{chr(0x20)}{ERASED_EMAIL}", f"{ERASED_EMA
             ("xanna@xn--mller-kva.de", "anna@xn--mller-kva.de.org"),
             id="a Unicode domain asked",
         ),
+        # Asked in punycode where a hand-typed row stores the domain decoded, which the fold claims too.
+        pytest.param(
+            "anna@xn--mller-kva.de",
+            ("anna@müller.de", "ANNA@müller.de", "anna@xn--mller-kva.de"),
+            ("xanna@müller.de", "anna@müller.de.org"),
+            id="a decoded domain stored",
+        ),
     ],
 )
 def test_the_pre_filter_takes_every_case_of_the_address_and_no_other_mailbox(asked: str, taken: tuple[str, ...], missed: tuple[str, ...]):
@@ -816,6 +823,22 @@ def test_the_pre_filter_takes_every_case_of_the_address_and_no_other_mailbox(ask
 
     assert [email for email in taken if not matches(email)] == []
     assert [email for email in missed if matches(email)] == []
+
+
+DECODED_ROW_OID = ObjectId("6890a1b2c3d4e5f607817101")
+
+
+@pytest.mark.db
+def test_a_seat_stored_with_its_domain_decoded_is_cleared(mongo_replica_set_url: str):
+    """Pre-filter on the punycode spelling alone and this fails: the server never hands the fold the row."""
+
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+        await database[Collection.SAISON_TEAMS].insert_one(a_row_naming(DECODED_ROW_OID, "anna@müller.de"))
+        await call_erasure(database, client, "anna@xn--mller-kva.de")
+
+        return (await stored_rows(database))[DECODED_ROW_OID]["kontakte"]["trainer"]
+
+    assert on_a_league(mongo_replica_set_url, body) is None
 
 
 PADDED_ROW_OIDS = {email: ObjectId(f"6890a1b2c3d4e5f60781{7000 + index:04d}") for index, email in enumerate(PADDED_SPELLINGS)}

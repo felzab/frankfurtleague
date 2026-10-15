@@ -6,7 +6,7 @@ from typing import Any
 from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.collections import Collection
 from app.core.crud import literal_pattern
-from app.shared.folding import sign_in_identifier, trimmed_pattern
+from app.shared.folding import canonical_address, sign_in_identifier, trimmed_pattern
 
 
 def same_address(identifier: str) -> Mapping[str, Any]:
@@ -18,7 +18,25 @@ def same_address(identifier: str) -> Mapping[str, Any]:
 
     # `i` because the identifier is lower-cased and a stored address need not be: a payload keeps the
     # local part's case.
-    return {"$regex": trimmed_pattern(literal_pattern(identifier)), "$options": "i"}
+    spellings = (identifier, *_unicode_spelling(identifier))
+    return {"$regex": trimmed_pattern("|".join(literal_pattern(spelling) for spelling in spellings)), "$options": "i"}
+
+
+def _unicode_spelling(identifier: str) -> tuple[str, ...]:
+    """The identifier with its punycode domain decoded: a hand-typed row may store it so, and the fold claims it."""
+
+    local, at, domain = identifier.rpartition("@")
+    if not at or "xn--" not in domain:
+        return ()
+
+    try:
+        decoded = canonical_address(identifier).rpartition("@")[2]
+        # A label decoding to a lone surrogate is one the driver cannot send.
+        decoded.encode("utf-8")
+    except ValueError:
+        return ()
+
+    return (f"{local}@{decoded}",) if decoded != domain else ()
 
 
 def rows_possibly_naming(identifier: str) -> Mapping[str, Any]:

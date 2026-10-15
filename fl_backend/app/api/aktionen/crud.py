@@ -15,6 +15,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 from app.api.aktionen.services import IMAGE_ADDRESSES, address_image_edits, build_address_images_filter
 from app.core.crud import aggregate_many_from_db, patch_many_in_db
 from app.core.recording import ImageEdits, build_image_redactions
+from app.shared.folding import sign_in_identifier
 
 
 async def redact_images_in_session(
@@ -57,6 +58,10 @@ async def redact_address_in_images(
     Run LAST and in the full scope alone: the steps' writes file images still holding it, and a
     standing role keeps its own.
     """
+
+    # Folded again, the fold being idempotent: an unfolded spelling passes the pre-filter's `i` and
+    # matches nothing on the fold, so the erasure would commit having removed nothing.
+    identifier = sign_in_identifier(identifier)
 
     changed = 0
     for collection, addresses in IMAGE_ADDRESSES.items():
