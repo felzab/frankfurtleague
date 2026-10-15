@@ -12,6 +12,7 @@ import { FilterLeiste } from "./FilterLeiste";
 import { CONTENT_LAYER_CLASSES, COVER_LAYER_CLASSES, PLACEHOLDER_BOX_CLASSES } from "./placeholderBox";
 
 import type { ReactNode } from "react";
+import type { SearchKey } from "../../hooks/useFuzzySearch";
 import type { Facet, FacetCounts } from "../../utils/facets";
 import type { Leserichtung } from "../../utils/leserichtung";
 import type { AdminCrudShape } from "./AdminCrudFallback";
@@ -51,7 +52,7 @@ export function AdminCrudView<TItem extends { id: string }>({
 }: {
   items: TItem[];
   /** Must be a module-scope constant, or `useFuzzySearch`'s memo is defeated. */
-  searchKeys: readonly string[];
+  searchKeys: readonly SearchKey<TItem>[];
   /** Must be a module-scope constant, for the reason `searchKeys` must be. An empty set renders no bar at all. */
   facets?: readonly Facet<TItem>[];
   /**

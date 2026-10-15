@@ -46,6 +46,16 @@ export const PLAYGROUND_MARKER = "PLAYGROUND";
 /** Shown for that marker under „Erteilt von“: the row came from the database, not from an administrator. */
 export const DIREKT_IN_DER_DATENBANK = "Direkt in der Datenbank";
 
+/**
+ * A grant's „Erteilt von“ as its card prints it, which the grants list's search reads too: a search
+ * over the stored value finds the marker nobody sees (`docs/frontend/spec.md :: I681`).
+ */
+export function erteiltVonAnzeige(von: string | null, gesperrt: boolean): string {
+  const angezeigt = vonOderGesperrt(von, gesperrt);
+
+  return angezeigt === PLAYGROUND_MARKER || angezeigt === "" ? DIREKT_IN_DER_DATENBANK : angezeigt;
+}
+
 /** The eyebrows over a row's two facts. */
 export const ERTEILT_VON_LABEL = "Erteilt von";
 export const ERTEILT_AM_LABEL = "Erteilt am";
