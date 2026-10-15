@@ -941,16 +941,6 @@ FRONTEND_BOOT: Final = f'check_frontend_boot_config "NOTHING has been recreated.
 BOOT_CHECK: Final = f'check_backend_boot_config "NOTHING has been recreated." {RUNNER}'
 
 
-@pytest.mark.parametrize("check", [NAMES, FRONTEND_BOOT, BOOT_CHECK, KEY_CHECK], ids=["names", "frontend-boot", "backend-boot", "actor-key"])
-def test_a_shell_trace_never_prints_what_a_container_said_before_the_filter(check: str) -> None:
-    """`bash -x` would trace each capture's assignment, the container's raw words in it, before `redact_uri_credentials` reads them."""
-    code, output, _ = _run(f"set -x\n{check}", FL_DEPLOY_RUN_RC="3", FL_DEPLOY_RUN_SAYS="MONGODB_URI mongodb://user:pw@cluster.example.net/x")
-
-    assert code == 2, output
-    assert "+ " in output, output
-    assert "user:pw@" not in output, output
-
-
 def _lib_array(name: str) -> list[str]:
     return lift_assignment(LIB, name).split("=", 1)[1].strip("()").split()
 
@@ -1451,6 +1441,35 @@ def test_a_model_mounting_no_sink_is_refused_naming_the_mount() -> None:
     assert code == 2, output
     assert "mounts nothing at /app/.tmp-mail" in output, output
     assert "sink-emptied" not in output, output
+
+
+# A connection string in what a container or compose answers, which each capture holds unfiltered.
+SAID: Final = "MONGODB_URI mongodb://user:pw@cluster.example.net/x"
+
+
+@pytest.mark.parametrize(
+    ("prelude", "check", "answer"),
+    [
+        pytest.param("", NAMES, {"FL_DEPLOY_RUN_RC": "3", "FL_DEPLOY_RUN_SAYS": SAID}, id="names"),
+        pytest.param("", FRONTEND_BOOT, {"FL_DEPLOY_RUN_RC": "3", "FL_DEPLOY_RUN_SAYS": SAID}, id="frontend-boot"),
+        pytest.param("", BOOT_CHECK, {"FL_DEPLOY_RUN_RC": "3", "FL_DEPLOY_RUN_SAYS": SAID}, id="backend-boot"),
+        pytest.param("", KEY_CHECK, {"FL_DEPLOY_RUN_RC": "3", "FL_DEPLOY_RUN_SAYS": SAID}, id="actor-key"),
+        # Compose's rendered model carries every value of both `.env` files; this one mounts no sink.
+        pytest.param(
+            SINK,
+            "empty_mail_sink",
+            {"FL_DEPLOY_CONFIG_SAYS": f'{{"services": {{"frontend": {{"environment": {{"X": "{SAID}"}}}}}}}}'},
+            id="mail-sink",
+        ),
+    ],
+)
+def test_a_shell_trace_never_prints_what_a_container_said_before_the_filter(prelude: str, check: str, answer: dict[str, str]) -> None:
+    """`bash -x` would trace each capture's assignment, the raw words in it, before `redact_uri_credentials` or any reader sees them."""
+    code, output, _ = _run(f"{prelude}set -x\n{check}", **answer)
+
+    assert code == 2, output
+    assert "+ " in output, output
+    assert "user:pw@" not in output, output
 
 
 def test_every_start_empties_the_sink_before_the_build() -> None:
