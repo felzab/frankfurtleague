@@ -6,11 +6,13 @@ through `app/core/crud.py`, which imports that module, so the call would close a
 """
 
 from collections.abc import Callable, Mapping
+from functools import partial
 from typing import Any
 
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
+from app.api.aktionen.services import IMAGE_ADDRESSES, address_image_edits, build_address_images_filter
 from app.core.crud import aggregate_many_from_db, patch_many_in_db
 from app.core.recording import ImageEdits, build_image_redactions
 
@@ -41,3 +43,29 @@ async def redact_images_in_session(
 
     return changed
 
+
+async def redact_address_in_images(
+    *,
+    aktionen_collection: AsyncCollection,
+    # Folded (`app/shared/folding.py :: sign_in_identifier`): every image is judged on the fold.
+    identifier: str,
+    stamp: str,
+    session: AsyncClientSession,
+) -> int:
+    """Take the erased address out of every log image no step removed or cleared.
+
+    Run LAST and in the full scope alone: the steps' writes file images still holding it, and a
+    standing role keeps its own.
+    """
+
+    changed = 0
+    for collection, addresses in IMAGE_ADDRESSES.items():
+        changed += await redact_images_in_session(
+            aktionen_collection=aktionen_collection,
+            db_filter=build_address_images_filter(collection, identifier),
+            judge=partial(address_image_edits, identifier=identifier, addresses=addresses),
+            stamp=stamp,
+            session=session,
+        )
+
+    return changed
