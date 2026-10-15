@@ -450,6 +450,15 @@ def test_a_later_stage_naming_another_release_fails(name: str, tmp_path: Path) -
     assert f"FAIL {(tmp_path / 'manifest').as_posix()}" in said and other in said, said
 
 
+def test_the_uv_remedy_names_the_range_the_project_admits(tmp_path: Path) -> None:
+    """Moving setup-uv to a Dependabot image bump past `required-version`'s ceiling turns this check green and every uv run red."""
+    manifest, stage, admitted, other = PIN_CHECKS["check_uv_pin"]
+
+    said = _pin_check("check_uv_pin", manifest, stage(admitted) + stage(other), tmp_path)
+
+    assert "fl_backend/pyproject.toml's required-version" in said, said
+
+
 @pytest.mark.parametrize("name", sorted(PIN_CHECKS))
 def test_a_side_it_cannot_read_fails(name: str, tmp_path: Path) -> None:
     """A spelling the reader misses would otherwise pass as agreement, on either side."""

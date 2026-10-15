@@ -563,7 +563,7 @@ class TestEveryWriteInsideATransactionCarriesIt:
         assert loose == []
 
     def test_no_write_a_helper_makes_is_left_off_the_session_it_was_handed(self):
-        """Drop `session=` from the clearing patch in `app/api/kontakte/crud.py :: _clear_each` and this fails; the clause above does not.
+        """Drop `session=` from the clearing patch in `app/api/kontakte/crud.py :: clear_seats` and this fails; the clause above does not.
 
         That slot then stays cleared when the redaction after it aborts, an erasure reporting nothing while half done.
         """

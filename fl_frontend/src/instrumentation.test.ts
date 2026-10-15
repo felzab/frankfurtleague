@@ -22,6 +22,9 @@ after(() => rmSync(KEY_DIRECTORY, { recursive: true, force: true }));
 /** The key file the doubled config names, which a case sets; every other boot reads the run's own key. */
 let keyFile = ACTOR_KEY_FILE;
 
+/** The account sweep's switch as the doubled config answers it, which a case sets; off, as a local stack sets it. */
+let kontoSweep: string | undefined = "off";
+
 // Every level records, so a case counting a line never rests on the level its writer chose.
 const record =
   (level: string) =>
@@ -36,9 +39,23 @@ const CONFIG_DOUBLE = {
   frontend_config: {
     LOG_FORMAT: "console",
     BEWERBUNG_SWEEP: "off",
+    get KONTO_SWEEP() {
+      return kontoSweep;
+    },
     get ACTOR_SIGNING_KEY_FILE() {
       return keyFile;
     },
+  },
+};
+
+/** How often the account sweep listed the store, which is what shows a pass ran. */
+let accountLists = 0;
+
+// An empty store, so a pass asks the backend nothing and deletes nothing: only whether one ran is asked here.
+const AUTH_DOUBLE = {
+  listAccounts: () => {
+    accountLists += 1;
+    return Promise.resolve([]);
   },
 };
 
@@ -58,6 +75,7 @@ registerDoubles({
     "core/logging.ts": LOGGING_DOUBLE,
     "core/config.ts": CONFIG_DOUBLE,
     "core/authIndexes.ts": INDEXES_DOUBLE,
+    "core/auth.ts": AUTH_DOUBLE,
   },
 });
 
@@ -125,6 +143,59 @@ describe("the pass announcing each change to who administers", () => {
 
   it("arms nothing under a development build", async (t) => {
     assert.deepEqual(await bootAndStep(t, "development", [10 * MINUTE_MS]), [0]);
+  });
+});
+
+describe("the account sweep", () => {
+  const SEKUNDE_MS = 1000;
+  const MINUTE_MS = 60 * SEKUNDE_MS;
+  const HOUR_MS = 60 * MINUTE_MS;
+  const env = process.env as Record<string, string | undefined>;
+
+  /** One boot under `nodeEnv` with the switch reading `value`, then each step of `steps`, answering the passes run after each. */
+  async function bootAndStep(t: TestContext, nodeEnv: string, value: string | undefined, steps: readonly number[]): Promise<number[]> {
+    const before = env.NODE_ENV;
+    env.NODE_ENV = nodeEnv;
+    kontoSweep = value;
+    accountLists = 0;
+    t.mock.timers.enable({ apis: ["setInterval", "setTimeout"] });
+    const counted: number[] = [];
+    try {
+      await register();
+      for (const step of steps) {
+        t.mock.timers.tick(step);
+        await new Promise((resolve) => setImmediate(resolve));
+        counted.push(accountLists);
+      }
+    } finally {
+      t.mock.timers.reset();
+      kontoSweep = "off";
+      if (before === undefined) delete env.NODE_ENV;
+      else env.NODE_ENV = before;
+    }
+
+    return counted;
+  }
+
+  /* A minute first, as a deploy recreates this container before the backend answers; then hourly from the boot. */
+  it("waits its minute after a production boot reading on, then runs hourly", async (t) => {
+    const steps = [MINUTE_MS - SEKUNDE_MS, SEKUNDE_MS, HOUR_MS - MINUTE_MS - SEKUNDE_MS, SEKUNDE_MS];
+
+    assert.deepEqual(await bootAndStep(t, "production", "on", steps), [0, 1, 1, 2]);
+  });
+
+  it("arms nothing where the switch is off", async (t) => {
+    assert.deepEqual(await bootAndStep(t, "production", "off", [3 * HOUR_MS]), [0]);
+  });
+
+  // A skipped validation leaves the value undefined, which a test negating "off" would arm on.
+  it("arms nothing where the value is missing", async (t) => {
+    assert.deepEqual(await bootAndStep(t, "production", undefined, [3 * HOUR_MS]), [0]);
+  });
+
+  /* `next dev` reaches whatever sign-in store the developer's own environment names, and deletes from it. */
+  it("arms nothing under a development build, whatever the switch says", async (t) => {
+    assert.deepEqual(await bootAndStep(t, "development", "on", [3 * HOUR_MS]), [0]);
   });
 });
 

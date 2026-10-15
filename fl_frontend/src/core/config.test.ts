@@ -511,6 +511,21 @@ describe("the names a failed validation is reduced to", () => {
   });
 });
 
+describe("the switch the account sweep is armed by", () => {
+  it("leaves the sweep armed where the server sets nothing", async () => {
+    assert.equal((await bootWith({ KONTO_SWEEP: undefined })).frontend_config.KONTO_SWEEP, "on");
+  });
+
+  it("reads off in either case", async () => {
+    assert.equal((await bootWith({ KONTO_SWEEP: "off" })).frontend_config.KONTO_SWEEP, "off");
+    assert.equal((await bootWith({ KONTO_SWEEP: "OFF" })).frontend_config.KONTO_SWEEP, "off");
+  });
+
+  it("refuses anything else by name, rather than reading it as one side or the other", async () => {
+    assert.equal(await refusedNames({ KONTO_SWEEP: "false" }), "KONTO_SWEEP");
+  });
+});
+
 /* One row per clause of the two installed regexes, each keyed by the clause it drives: a clause with
    no row here is drift the agreement case cannot see, and a row nothing drives is a row to delete. */
 const ADDRESS_TABLE: [clause: string, address: string][] = [

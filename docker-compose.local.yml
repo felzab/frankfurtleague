@@ -41,6 +41,9 @@ services:
       # pass deletes applications and stamps rows in the copy below; APP_ENV withholds every notice
       # it raises.
       - BEWERBUNG_SWEEP=off
+      # The account sweep's own switch, for the same reason: an armed pass deletes every account
+      # signed in here that no record references, its passkeys with it.
+      - KONTO_SWEEP=off
       # Cloudflare's published site key that always passes, which the published secret the frontend
       # reads where no file is handed over verifies; production refuses both at boot
       # (https://developers.cloudflare.com/turnstile/troubleshooting/testing/, read 2026-10-04).

@@ -9,7 +9,7 @@ from app.api.berechtigungen.schemas import FLUtcInstant, FLVerwaltung
 # endpoint publishes.
 from app.api.bewerbungen.schemas import FLKontaktRolle
 from app.api.saisons.schemas import FLSaisonStatus
-from app.shared.schemas.bounds import KONTAKT_EMAIL_MAX_LENGTH
+from app.shared.schemas.bounds import KONTAKT_EMAIL_MAX_LENGTH, REFERENZEN_ADRESSEN_MAX
 from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.kontakt import CustomEmail
 from app.shared.schemas.responses import BaseAPIResponse
@@ -214,3 +214,19 @@ class FLSelbstErasureAnsichtResponse(FLSelbstErasureAnsicht, BaseAPIResponse):
     verwaltung: FLVerwaltung | None
     # Advisory: read apart from the erasure's transaction, whose own `REQ-PURGE-004` alone decides.
     letzter_inhaber: bool
+
+
+class FLReferenzenPayload(BaseModel):
+    """The sign-in addresses a pass of the account sweep asks about."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    # Each held to no address rule, as `FLGesperrtPayload`'s is, nor to a length: one address refused
+    # refuses the whole batch, and every pass asks again, so the sweep would delete nothing ever after.
+    identifiers: list[str] = Field(min_length=1, max_length=REFERENZEN_ADRESSEN_MAX)
+
+
+class FLReferenzenResponse(BaseAPIResponse):
+    """Which of them nothing references, and nothing of the records that reference the others."""
+
+    unreferenziert: list[str]

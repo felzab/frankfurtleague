@@ -1317,7 +1317,8 @@ check_uv_pin() { # $1 the action installing CI's uv · $2 the Dockerfile
     }
   ' "$1")"
   mapfile -t tags < <(sed -n 's|^FROM ghcr.io/astral-sh/uv:\([^ @]*\)[@ ].*|\1|p' "$2")
-  judge_pin uv exact "$1" "$2" "move the one the bot left behind, which after a Dependabot image bump is setup-uv's version" "$pin" "${tags[@]}"
+  # The range names the third file: two pins agreeing past its ceiling pass here and fail every uv run.
+  judge_pin uv exact "$1" "$2" "move the one the bot left behind, which after a Dependabot image bump is setup-uv's version, and keep both inside fl_backend/pyproject.toml's required-version, raising its ceiling where the release is past it" "$pin" "${tags[@]}"
 }
 
 check_node_pin() { # $1 the manifest · $2 the Dockerfile

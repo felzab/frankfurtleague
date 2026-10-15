@@ -37,10 +37,6 @@ WORKDIR /app
 # Only what `pnpm fetch` reads (pnpm.io/cli/fetch): with package.json in this layer's key, renaming
 # a script re-downloads every package.
 COPY pnpm-lock.yaml pnpm-workspace.yaml* ./
-
-# A patched dependency is one of the things `pnpm fetch` reads, so this joins the lockfile's layer
-# rather than package.json's: without it the fetch dies on ERR_PNPM_PATCH_NOT_FOUND.
-COPY patches ./patches
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm fetch
 COPY package.json ./
 
@@ -57,10 +53,10 @@ FROM deps AS builder
 # the first module that reads config. The schema is still enforced by local.sh and on every deploy.
 ENV SKIP_ENV_VALIDATION=true
 
-# Everything but what `deps` installed from: pnpm's dependency check fails a patch written after the
-# install it validated, and a `deps` layer restored from the cache ran its install before this
-# context was checked out.
-COPY --exclude=patches --exclude=package.json --exclude=pnpm-lock.yaml --exclude=pnpm-workspace.yaml* . .
+# Everything but what `deps` installed from: a `deps` layer restored from the cache ran its install
+# before this context was checked out, and pnpm's check before each `pnpm run` re-validates any
+# manifest or lockfile written after it.
+COPY --exclude=package.json --exclude=pnpm-lock.yaml --exclude=pnpm-workspace.yaml* . .
 
 # Emitted rather than kept by hand: a tracked copy of the schema's names would be a second artefact
 # to keep current, and this one cannot disagree with the schema the same image was built from.

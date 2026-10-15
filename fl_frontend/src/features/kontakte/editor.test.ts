@@ -1055,9 +1055,9 @@ describe("the way in and out of the editor", () => {
 
     assert.deepEqual(hrefs("saison_id=2526"), ["/bereich/admin/kontakte/t1?saison_id=2526"]);
     // The season the sidemenu holds is the whole of what rides along; every other filter stays behind.
-    assert.deepEqual(hrefs("saison_id=2526&q=alpha&besetzung=teilweise"), ["/bereich/admin/kontakte/t1?saison_id=2526"]);
+    assert.deepEqual(hrefs("saison_id=2526&team=t2&besetzung=teilweise"), ["/bereich/admin/kontakte/t1?saison_id=2526"]);
     // Absent rather than empty: `?saison_id=` would read as a season nobody picked.
-    assert.deepEqual(hrefs("q=alpha"), ["/bereich/admin/kontakte/t1"]);
+    assert.deepEqual(hrefs("team=t2"), ["/bereich/admin/kontakte/t1"]);
   });
 });
 

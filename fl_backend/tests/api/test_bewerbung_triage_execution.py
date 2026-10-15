@@ -49,8 +49,6 @@ from app.api.bewerbungen.services import (
 )
 from app.api.bewerbungen.zustellung_router import angenommen_zustellung, post_zustellung
 from app.api.einwilligung.services import FASSUNG_UNZULAESSIG
-from app.api.kontakte.admin_router import erase_kontaktperson
-from app.api.kontakte.schemas import FLKontaktErasurePayload
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.api.teams.admin_router import post_team
 from app.api.teams.schemas import FLPostTeamPayload
@@ -69,6 +67,7 @@ from tests.bans import ban_list
 from tests.config import ADMIN_AUTH, ADMIN_KEY, grants_for_the_suite
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.documents import ADDRESS, ban_document, rules_document, saison_document, saison_team_document, team_document
+from tests.erasure import erased
 from tests.isolation import InterleavedCollection, Rival
 from tests.worker import worker_database
 
@@ -1627,14 +1626,7 @@ async def object_to_the_link(database: AsyncDatabase, client: AsyncMongoClient) 
 
 
 async def erase_the_person(database: AsyncDatabase, client: AsyncMongoClient) -> None:
-    await erase_kontaktperson(
-        erasure_data=FLKontaktErasurePayload.model_validate({"email": KONTAKTE["ansprechperson"]["email"]}),
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        bewerbungen_collection=database[Collection.BEWERBUNGEN],
-        aktionen_collection=database[Collection.AKTIONEN],
-        db=client,
-        germany_now=NOW,
-    )
+    await erased(database, client, KONTAKTE["ansprechperson"]["email"], germany_now=NOW)
 
 
 @pytest.mark.db
@@ -1969,26 +1961,19 @@ class TestSeatingAnotherPersonInAnEmptiedSeat:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await seed_an_application_a_seat_was_declined_on(database, client)
-            await erase_kontaktperson(
-                erasure_data=FLKontaktErasurePayload.model_validate({"email": KONTAKTE["stellvertretung"]["email"]}),
-                saison_teams_collection=database[Collection.SAISON_TEAMS],
-                bewerbungen_collection=database[Collection.BEWERBUNGEN],
-                aktionen_collection=database[Collection.AKTIONEN],
-                db=client,
-                germany_now=NOW,
-            )
-            erased = await stored_bewerbung(database, RESEAT_BEWERBUNG)
+            await erased(database, client, KONTAKTE["stellvertretung"]["email"], germany_now=NOW)
+            emptied = await stored_bewerbung(database, RESEAT_BEWERBUNG)
 
             with pytest.raises(WriteRefusalException) as refused:
                 await reseat(database, client, "stellvertretung")
 
-            return refused.value.error_code, erased, await stored_bewerbung(database, RESEAT_BEWERBUNG)
+            return refused.value.error_code, emptied, await stored_bewerbung(database, RESEAT_BEWERBUNG)
 
-        code, erased, after = on_a_league(mongo_replica_set_url, body)
+        code, emptied, after = on_a_league(mongo_replica_set_url, body)
 
-        assert erased["bestaetigungen"]["stellvertretung"] is None, "the erasure left bookkeeping the refusal would read as a Widerspruch"
+        assert emptied["bestaetigungen"]["stellvertretung"] is None, "the erasure left bookkeeping the refusal would read as a Widerspruch"
         assert code == BEWERBUNG_SEAT_ALREADY_ANSWERED
-        assert after == erased
+        assert after == emptied
 
     def test_an_address_another_contact_person_holds_is_refused(self, mongo_replica_set_url: str):
         """Two different people reachable at one mailbox is what the submission's own rule refuses, asked again where an administrator types."""

@@ -225,16 +225,33 @@ describe("the referee's confirmation handler", () => {
     assert.equal(gelesen, 0);
   });
 
-  it("leaves the age refusal unworded where the floor cannot be read", async () => {
+  /* The switch is offered from the served age on the browser's day, so a clock disagreeing with the
+     backend's sends this: the sentence names the view's floor, 21 being no floor served today. */
+  it("answers a media yes below the age at the media floor the link's view serves", async () => {
+    schreibAntwort = () => refusedOn(WRITE_OPERATION, "REQ-SCHIEDSRICHTER-008");
+    leseAntwort = () => ({ ...ANSICHT, medien_mindestalter: 21 });
+
+    const answer = await bodyOf(aRequest(gueltigerKoerper));
+
+    assert.deepEqual(answer.body, {
+      success: false,
+      error: "Fotos, Videos und Interviews kannst Du erst ab 21 Jahren erlauben. Schalte die Erlaubnis aus und bestätige erneut.",
+    });
+    assert.equal(gelesen, 1);
+  });
+
+  /* A floor this link was not minted under would send the person to correct a date that was right, so
+     an unreadable view's refusal names none, on the field all the same. */
+  it("puts the age refusal on the date naming no age where the floor cannot be read", async () => {
     schreibAntwort = () => refusedOn(WRITE_OPERATION, "REQ-SCHIEDSRICHTER-005");
     leseAntwort = () => refusedOn(VIEW_OPERATION, "REQ-SCHIEDSRICHTER-002");
 
     const answer = await bodyOf(aRequest(gueltigerKoerper));
 
-    // Rethrown to the spine, whose shared sentence stands: a floor this link was not minted under
-    // would send the person to correct a date that was right.
-    assert.equal((answer.body as { success: boolean }).success, false);
-    assert.equal((answer.body as { zustand?: string }).zustand, undefined);
+    assert.deepEqual(answer.body, {
+      success: false,
+      fieldErrors: { geburtsdatum: "Mit diesem Geburtsdatum bist Du zu jung oder zu alt. Prüfe Dein Geburtsdatum." },
+    });
   });
 
   it("refuses a body no schema admits without reaching the endpoint", async () => {

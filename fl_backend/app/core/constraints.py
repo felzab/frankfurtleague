@@ -469,7 +469,7 @@ _BERECHTIGUNG_AENDERUNGEN = ["erteilt", "entzogen", "geaendert"]
 _BERECHTIGUNG_URHEBER = ["anwendung", "datenbank"]
 _BERECHTIGUNG_VORENTHALTEN = ["gesperrt", "geloescht"]
 
-# One grant's state in an outbox row; the address null where it was barred when queued.
+# One grant's state in an outbox row; the address null where it was barred or its holder erased.
 _BERECHTIGUNG_STAND = _object(
     nullable=True,
     required=("adresse", "verwaltung"),
@@ -1117,7 +1117,8 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "vorher": _BERECHTIGUNG_STAND,
                 "geaendert_von": {"bsonType": _STRING_OR_NULL},
                 "geaendert_am": {"bsonType": ["date", "null"]},
-                # Why the row's addresses are withheld; a null address never says it by itself.
+                # Why the grant's address is withheld, which its null never says by itself; a null actor
+                # does, as a ban (`docs/backend/spec.md :: I661`).
                 "vorenthalten": {"bsonType": _STRING_OR_NULL, "enum": [*_BERECHTIGUNG_VORENTHALTEN, None]},
                 "erfasst_am": {"bsonType": "date"},
                 # Required as keys and null until a pass claims the row: the claim asks for a null
