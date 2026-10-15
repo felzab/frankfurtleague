@@ -3,31 +3,21 @@ from datetime import datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends
-from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
-from pymongo.asynchronous.collection import AsyncCollection
 
+from app.api.kontakte.crud import erase_kontaktperson_in_session
 from app.api.kontakte.schemas import (
     FLKontaktErasureAnsichtResponse,
     FLKontaktErasurePayload,
     FLKontaktErasureResponse,
     FLKontaktSitz,
 )
-from app.api.kontakte.services import (
-    build_clearing_update,
-    build_matching_rows_pipeline,
-    build_matching_seats_pipeline,
-    build_orphaned_images_pipeline,
-    find_matching_slots,
-    images_holding,
-    rows_naming,
-)
-from app.core.collections import Collection
+from app.api.kontakte.services import build_matching_seats_pipeline, find_matching_slots
 from app.core.config import API_VERSION
-from app.core.crud import aggregate_many_from_db, patch_many_in_db, patch_one_in_db
+from app.core.crud import aggregate_many_from_db
 from app.core.dependencies import AktionenCollection, BewerbungenCollection, DBClient, SaisonTeamsCollection, get_germany_now
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, stores_nothing
-from app.core.recording import build_redaction_filter, build_redaction_update, log_stamp
+from app.core.recording import log_stamp
 from app.core.security import bind_actor, verify_access_admin, verify_actor_is_admin, verify_step_up
 from app.core.transactions import transaction_session
 from app.shared.folding import sign_in_identifier
@@ -36,25 +26,6 @@ router = APIRouter(
     prefix=f"/api/v{API_VERSION}/kontakte",
     dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
 )
-
-
-async def _clear_each(collection: AsyncCollection, rows: Sequence[Mapping[str, Any]], identifier: str, session: AsyncClientSession) -> int:
-    """Null this person's slots row by row, and answer how many slots.
-
-    `patch_one_in_db` per row and never `patch_many_in_db`, which records no `document_id`
-    (`docs/backend/spec.md :: I40`): the redaction below must be able to match the row it logs.
-    """
-
-    cleared = 0
-    for row in rows:
-        slots = find_matching_slots(row, identifier)
-        update = build_clearing_update(slots, bestaetigungen=isinstance(row.get("bestaetigungen"), Mapping))
-        await patch_one_in_db(
-            collection=collection, db_filter={"_id": row["_id"]}, update=update, session=session, return_document=ReturnDocument.BEFORE
-        )
-        cleared += len(slots)
-
-    return cleared
 
 
 def _seats_of(rows: Sequence[Mapping[str, Any]], identifier: str) -> list[FLKontaktSitz]:
@@ -127,67 +98,13 @@ async def erase_kontaktperson(
     """
 
     async def clear_the_person_and_their_record(session: AsyncClientSession) -> FLKontaktErasureResponse:
-        """Find, then clear, then redact. Everything judged is read in-session, so a retry re-reads it."""
-
-        identifier = sign_in_identifier(str(erasure_data.email))
-
-        # BOTH reads before either write, and unbounded: the `$set` below stops the address matching,
-        # and a capped read would leave rows holding the person with nothing left to find them by
-        # (`app/api/spieler/admin_router.py :: erase_spieler` does the same).
-        saison_team_rows = rows_naming(
-            await aggregate_many_from_db(
-                collection=saison_teams_collection, pipeline=build_matching_rows_pipeline(identifier), session=session
-            ),
-            identifier,
-        )
-        bewerbung_rows = rows_naming(
-            await aggregate_many_from_db(collection=bewerbungen_collection, pipeline=build_matching_rows_pipeline(identifier), session=session),
-            identifier,
-        )
-
-        cleared_slots = await _clear_each(saison_teams_collection, saison_team_rows, identifier, session)
-        cleared_slots += await _clear_each(bewerbungen_collection, bewerbung_rows, identifier, session)
-
-        # ONE stamp for both passes below, so a row cannot say which of the two reached it.
-        stamp = log_stamp(germany_now)
-
-        # LAST, so it reaches the pre-images the clearing patches above just filed, each still holding
-        # this person. An `$in` of no ids matches nothing, so an address naming nobody redacts nothing
-        # rather than everything.
-        redacted = await patch_many_in_db(
-            collection=aktionen_collection,
-            db_filter=build_redaction_filter(
-                [
-                    (Collection.SAISON_TEAMS, [row["_id"] for row in saison_team_rows]),
-                    (Collection.BEWERBUNGEN, [row["_id"] for row in bewerbung_rows]),
-                ]
-            ),
-            update=build_redaction_update(at=stamp),
+        return await erase_kontaktperson_in_session(
+            saison_teams_collection=saison_teams_collection,
+            bewerbungen_collection=bewerbungen_collection,
+            aktionen_collection=aktionen_collection,
+            identifier=sign_in_identifier(str(erasure_data.email)),
+            stamp=log_stamp(germany_now),
             session=session,
-        )
-
-        # SECOND, so the pass above has already nulled `before` on everything it took and the counts
-        # never cover one row twice: what is left is a swap's orphan, an image of a row that has since
-        # stopped naming this person.
-        orphaned_candidates = await aggregate_many_from_db(
-            collection=aktionen_collection,
-            pipeline=build_orphaned_images_pipeline(identifier),
-            session=session,
-        )
-        orphaned = await patch_many_in_db(
-            collection=aktionen_collection,
-            # Judged before the patch: the pre-filter's `i` ignores case beyond ASCII (ſ for s), the
-            # fold lowers ASCII alone, and only the fold may say whose each image is.
-            db_filter={"_id": {"$in": images_holding(orphaned_candidates, identifier)}},
-            update=build_redaction_update(at=stamp),
-            session=session,
-        )
-
-        return FLKontaktErasureResponse(
-            cleared_saison_teams=len(saison_team_rows),
-            cleared_bewerbungen=len(bewerbung_rows),
-            cleared_kontakt_slots=cleared_slots,
-            redacted_aktionen=redacted.modified_count + orphaned.modified_count,
         )
 
     # ONE transaction over all of it (`docs/backend/spec.md :: I42`): rows cleared while the log
