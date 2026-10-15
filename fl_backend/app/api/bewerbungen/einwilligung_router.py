@@ -6,7 +6,6 @@ from fastapi import APIRouter, Body, Depends
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.aktionen.crud import redact_images_in_session
 from app.api.bewerbungen.schemas import (
     FLBewerbungEinwilligungAnsichtPayload,
     FLBewerbungEinwilligungAnsichtResponse,
@@ -50,7 +49,7 @@ from app.api.bewerbungen.services import (
     zustand_of,
 )
 from app.api.einwilligung.services import find_fassung_refusal, find_selbst_medien_refusal
-from app.api.kontakte.services import seat_image_edits
+from app.api.kontakte.crud import redact_seats_in_documents
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
 from app.api.teams.services import kontakt_zeile_of
 from app.core.collections import Collection
@@ -67,7 +66,7 @@ from app.core.dependencies import (
     get_germany_now,
 )
 from app.core.exception_handlers import stores_nothing
-from app.core.recording import build_redaction_filter, log_stamp
+from app.core.recording import log_stamp
 from app.core.security import bind_public_actor, verify_access_base
 from app.core.transactions import transaction_session
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
@@ -108,12 +107,12 @@ async def _redact_the_decliner(
 ) -> None:
     """The declining person's seats out of every log image of this one row, which is all a Widerspruch reaches."""
 
-    identifiers = {sign_in_identifier(adresse) for adresse in adressen}
-    await redact_images_in_session(
+    await redact_seats_in_documents(
         aktionen_collection=aktionen_collection,
-        db_filter=build_redaction_filter([(collection, [row_id])]),
+        documents=[(collection, [row_id])],
+        identifiers={sign_in_identifier(adresse) for adresse in adressen},
         # The link stays with the seat, its decline recorded on it, as the live write leaves it.
-        judge=lambda image: seat_image_edits(image, identifiers, links=False),
+        links=False,
         stamp=stamp,
         session=session,
     )

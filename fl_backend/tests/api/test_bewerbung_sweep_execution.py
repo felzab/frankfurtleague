@@ -970,7 +970,8 @@ class TestTheSeasonAndOneClock:
 
         # The seeded move into group B filed the row as it stood in A; the clearing filed it in B.
         assert sorted(image["gruppe"] for image in images) == ["A", "B"]
-        assert all((image["trikot_farbe"], image["kontakte"], image["bestaetigungen"]) == ("blau", None, None) for image in images)
+        # Seeded before links existed, so the redaction adds no block to its images either.
+        assert all((image["trikot_farbe"], image["kontakte"], "bestaetigungen" in image) == ("blau", None, False) for image in images)
 
     @pytest.mark.parametrize("people", [pytest.param(kontakte(), id="beside their people"), pytest.param(None, id="left by an older image")])
     def test_the_rows_confirmation_links_and_their_delivery_records_go_too(self, mongo_replica_set_url: str, people: Any):
