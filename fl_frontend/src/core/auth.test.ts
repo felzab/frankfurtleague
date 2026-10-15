@@ -1076,7 +1076,7 @@ describe("a grant on a barred address", () => {
   });
 });
 
-describe("the second factor, judged at the same guard", () => {
+describe("the administrator's passkey sign-in, judged at the same guard", () => {
   it("refuses a granted session the mailbox alone made, and sends it to the passkey page", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     assert.equal(row.authFactor, "code", "the mailbox factor's own verification did not stamp it");
@@ -1575,8 +1575,8 @@ describe("which sessions may enrol a passkey, and how many rows they may leave",
     assert.deepEqual(await getPasskeyStep(), { step: "assert", email: ADMIN_EMAIL });
   });
 
-  /* The hole the second factor would otherwise leave open: a mailbox alone reaches a code-borne
-     session, and the plugin gates both enrolment paths on freshness and nothing else. */
+  /* The hole a mailbox alone would otherwise open: it reaches a code-borne session, and the plugin
+     gates both enrolment paths on freshness and nothing else. */
   it("refuses both enrolment paths to a code-borne administrator who already holds one, writing no second row", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     const held = aPasskeyFor(row.userId);
