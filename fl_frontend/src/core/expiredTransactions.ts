@@ -53,10 +53,18 @@ const atStart = new WeakMap<StartedMongoDBContainer, number | null>();
 
 const messageOf = (failure: unknown): string => (failure instanceof Error ? failure.message : String(failure));
 
+/**
+ * Every client of a db file's replica set polls, as the backend's tier does
+ * (`fl_backend/tests/conftest.py :: POLLING_MONITORS`): a streaming monitor's close reuses its port at
+ * once on Windows, where WSL's loopback relay then stalls a connect under load.
+ */
+export const replicaSetUrl = (mongod: StartedMongoDBContainer): string =>
+  `${mongod.getConnectionString()}/?directConnection=true&serverMonitoringMode=poll`;
+
 // A client of its own: the suites' clients run the strict Stable API, which refuses `serverStatus`.
 async function readKills(mongod: StartedMongoDBContainer): Promise<number | null> {
   // IPv4: the mapped port answers there, and `localhost` tried as IPv6 first stalls every connect.
-  const client = new MongoClient(`${mongod.getConnectionString()}/?directConnection=true`, { family: 4 });
+  const client = new MongoClient(replicaSetUrl(mongod), { family: 4 });
   try {
     return expiredTransactionKills(await client.db("admin").command({ serverStatus: 1 }));
   } finally {
