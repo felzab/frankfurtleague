@@ -370,15 +370,25 @@ def test_a_status_no_command_knows_is_refused_by_every_command_reading_the_ledge
 
 @pytest.mark.parametrize(
     ("held", "said"),
-    [("OPENED", "A-F1 is `OPENED`"), ("FIXED (abc1234) | stray", "has 6 cells, not 5")],
+    [
+        (
+            "OPENED",
+            "A-F1 is `OPENED`, no word of OPEN, ROUTED, FIXED, RULED, HANDOFF, NOT A DEFECT, MOOT: `close <status> <evidence> A-F1 --reclose`",
+        ),
+        ("FIXED (abc1234) | stray", "has 6 cells, not 5: mend its cells by hand"),
+    ],
     ids=["a word a status opens", "a row of six cells"],
 )
 def test_a_status_cell_naming_no_status_whole_is_refused(tmp_path: Path, held: str, said: str) -> None:
-    """Read by its opening letters `OPENED` was OPEN, and a row an unescaped pipe widened was no row at all."""
+    """Read by its opening letters `OPENED` was OPEN, and a row an unescaped pipe widened was no row at all.
+
+    Each refusal names the repair that works for its kind: `close` cannot rewrite a row it cannot split.
+    """
     register = _banked(tmp_path, ("A-report.md", "F1 one\n"))
     _set(register, "A-F1", held)
     done = _run("ledger", "open", str(register), "--unclosed")
     assert done.returncode == 2 and said in done.stderr, done.stderr
+    assert ("--reclose" in done.stderr) is said.endswith("--reclose`"), done.stderr
 
 
 def test_a_row_has_one_owner_until_it_is_rerouted(tmp_path: Path) -> None:

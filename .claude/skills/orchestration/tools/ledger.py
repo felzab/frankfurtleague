@@ -127,14 +127,15 @@ def _rows(register: Path, mending: Collection[str] = ()) -> tuple[list[str], dic
     for k in range(first, end + 1):
         cells = _cells(lines[k])
         # A row of another width has no status cell to judge, and skipped it would read as no row at all.
+        # No command can mend it either, since `close` rewrites only a row it can split into five cells.
         if len(cells) != 5:
-            unjudged.append(f"`{lines[k][:60]}` has {len(cells)} cells, not 5")
+            unjudged.append(f"`{lines[k][:60]}` has {len(cells)} cells, not 5: mend its cells by hand, a pipe inside one written `\\|`")
             continue
         at[cells[0]] = k
         if status(cells) not in STATUSES and cells[0] not in mending:
-            unjudged.append(f"{cells[0]} is `{cells[3]}`, no word of {', '.join(STATUSES)}")
+            unjudged.append(f"{cells[0]} is `{cells[3]}`, no word of {', '.join(STATUSES)}: `close <status> <evidence> {cells[0]} --reclose`")
     if unjudged:
-        raise ValueError("; ".join(unjudged) + ": set each with `close <status> <evidence> <row>… --reclose`, or mend it by hand")
+        raise ValueError("; ".join(unjudged))
     return lines, at
 
 
