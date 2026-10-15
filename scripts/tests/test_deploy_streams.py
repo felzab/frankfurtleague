@@ -457,16 +457,18 @@ def test_each_value_shape_the_schemas_declare_is_clean(line: str) -> None:
     assert "judged-clean" in output, output
 
 
-# Each value carries `vxq`, which no refusal may print. A name is read in every form compose reads one.
+# Each value carries `vxq`, which no refusal may print. A line is named only where it opens with an
+# upper-case `NAME=` or `NAME:`; every other is listed by its number.
 @pytest.mark.parametrize(
     ("line", "name"),
     [
         pytest.param('LOG_FORMAT="vxq"', "LOG_FORMAT", id="double-quoted"),
         pytest.param("LOG_FORMAT='vxq'", "LOG_FORMAT", id="single-quoted"),
         pytest.param("LOG_FORMAT=`vxq`", "LOG_FORMAT", id="backtick-quoted"),
+        pytest.param("log_format='vxq'", "(no name)", id="lower-case-name"),
         pytest.param("API_TRUSTED_HOSTS=vxq, backend", "API_TRUSTED_HOSTS", id="space-inside"),
-        pytest.param("LOG_FORMAT = vxq", "LOG_FORMAT", id="space-around-the-equals"),
-        pytest.param("  LOG_FORMAT=vxq", "LOG_FORMAT", id="space-leading"),
+        pytest.param("LOG_FORMAT = vxq", "(no name)", id="space-around-the-equals"),
+        pytest.param("  LOG_FORMAT=vxq", "(no name)", id="space-leading"),
         pytest.param("LOG_FORMAT=vxq ", "LOG_FORMAT", id="space-trailing"),
         pytest.param("LOG_FORMAT=a\tvxq", "LOG_FORMAT", id="tab"),
         pytest.param("LOG_FORMAT=vxq # the stream", "LOG_FORMAT", id="inline-comment"),
@@ -478,11 +480,19 @@ def test_each_value_shape_the_schemas_declare_is_clean(line: str) -> None:
         pytest.param("ANGLED=<vxq>", "ANGLED", id="angle-bracket"),
         pytest.param("PIPED=vxq|b", "PIPED", id="pipe"),
         pytest.param("ACCENTED=jsön-vxq", "ACCENTED", id="non-ascii"),
-        pytest.param("export LOG_FORMAT=vxq", "LOG_FORMAT", id="export"),
+        pytest.param("export LOG_FORMAT=vxq", "(no name)", id="export"),
         pytest.param("LOG_FORMAT: vxq", "LOG_FORMAT", id="colon"),
         pytest.param("LOG_FORMAT:vxq", "LOG_FORMAT", id="colon-unspaced"),
-        pytest.param("LOG_FORMAT", "LOG_FORMAT", id="bare-pass-through"),
+        pytest.param("LOG_FORMAT", "(no name)", id="bare-pass-through"),
         pytest.param("  # vxq", "(no name)", id="comment-indented"),
+        # python-dotenv ends a line at a lone carriage return, `@next/env` at U+2028 and U+2029 too,
+        # and compose at neither, so a comment holding one declares a name for some readers alone.
+        pytest.param("# vxq\rLOG_LEVEL_APP=DEBUG", "(no name)", id="comment-carriage-return"),
+        pytest.param("# vxq\u2028LOG_LEVEL_APP=DEBUG", "(no name)", id="comment-line-separator"),
+        pytest.param("# vxq\u2029LOG_LEVEL_APP=DEBUG", "(no name)", id="comment-paragraph-separator"),
+        # `read` drops a NUL unseen, so the line would keep the shape to the shell alone.
+        pytest.param("TURNSTILE_SITE_KEY=vxq\x00b", "TURNSTILE_SITE_KEY", id="nul-in-a-value"),
+        pytest.param("# vxq\x00", "(no name)", id="nul-in-a-comment"),
         pytest.param("1_NAME=vxq", "(no name)", id="name-opening-on-a-digit"),
         pytest.param("A.NAME=vxq", "(no name)", id="name-with-a-dot"),
     ],
@@ -497,9 +507,13 @@ def test_a_line_outside_the_one_shape_refuses_naming_it_and_never_its_value(line
     assert "judged-clean" not in output, output
 
 
-def test_a_value_running_over_several_lines_names_none_of_the_lines_after_its_quote() -> None:
-    """Its data lines would read as names, a key's among them; a data line keeping the shape is no finding, its opening line being one."""
-    text = 'NOTE="first vxq\nKEYvxqMATERIAL\nDATAvxq=x\nlast vxq"\nLOG_FORMAT=json\n'
+@pytest.mark.parametrize("quote", ['"', "'", "`"], ids=["double", "single", "backtick"])
+def test_a_value_running_over_several_lines_names_none_of_the_lines_after_its_quote(quote: str) -> None:
+    """python-dotenv takes `"` and `'` over several lines, `@next/env` the backtick too.
+
+    Line 2 is shaped as a name only the quote above keeps unprinted; line 3 keeps the whole shape and is no finding.
+    """
+    text = f"NOTE={quote}first vxq\nKEYVXQ:MATERIAL\nDATAvxq=x\nlast vxq{quote}\nLOG_FORMAT=json\n"
     code, output = _env_spellings(text)
 
     assert code == 2, output
@@ -507,7 +521,32 @@ def test_a_value_running_over_several_lines_names_none_of_the_lines_after_its_qu
     assert "fl_backend/.env (no name):2" in output, output
     assert "fl_backend/.env (no name):4" in output, output
     assert "3 line(s)" in output, output
+    assert "vxq" not in output.lower(), output
+
+
+def test_a_pasted_key_s_lines_are_listed_by_number_alone() -> None:
+    """A bare word, a lower-case one before `=` and one before `:` would each have been printed whole as a name.
+
+    `vxqKEY==` keeps the shape, a declaration to every reader, so it is no finding here at all.
+    """
+    code, output = _env_spellings("LOG_FORMAT=json\nvxqKEYMATERIAL0123\nvxqKEY==\nvxquser:pw@host\nvxqkey+part/x==\n")
+
+    assert code == 2, output
+    assert "fl_backend/.env (no name):2" in output, output
+    assert "fl_backend/.env (no name):4" in output, output
+    assert "fl_backend/.env (no name):5" in output, output
+    assert "3 line(s)" in output, output
     assert "vxq" not in output, output
+
+
+def test_a_shell_trace_prints_no_line_of_either_check() -> None:
+    """`bash -x`, or an exported `SHELLOPTS` holding xtrace, would otherwise expand each line and each name read in any form."""
+    text = "LOG_FORMAT='vxq'\nvxqKEYMATERIAL0123\n"
+    code, output, _ = _run(f"{_written('fl_backend/.env', text)}set -x\njudge_env_files fl_backend/.env\n")
+
+    assert code == 2, output
+    assert "+ " in output, output
+    assert "vxq" not in output.lower(), output
 
 
 def test_a_byte_order_mark_refuses_its_line_and_names_the_file() -> None:
@@ -1045,6 +1084,17 @@ def test_a_credential_line_behind_a_byte_order_mark_refuses() -> None:
     assert "a value no case reads" not in output, output
 
 
+def test_a_credential_line_after_a_multi_line_value_is_still_judged() -> None:
+    """The credential check reads every line, so no quote above a credential's line hides it; the data line naming one is refused with it."""
+    text = 'NOTE="first\nAUTH_SECRET: data the value carries\nlast"\nAUTH_SECRET=a value no case reads\n'
+    code, output, _ = _run(_written("fl_backend/.env", text) + "refuse_credential_lines fl_backend/.env\n")
+
+    assert code == 2, output
+    assert "fl_backend/.env: AUTH_SECRET" in output, output
+    assert "data the value carries" not in output, output
+    assert "a value no case reads" not in output, output
+
+
 def test_the_retired_administrator_list_refuses_naming_it_and_no_address() -> None:
     """No credential, but no service reads it either, and on the local stack no other reader names it before `docker inspect` prints it."""
     body = (
@@ -1081,8 +1131,10 @@ START_MODES: Final = [
 ]
 
 
-def _start(script: str, uname: str, args: tuple[str, ...], frontend_env: str) -> tuple[int, str, list[str]]:
-    """One start mode, run whole from a checkout of its own.
+def _start(
+    script: str, uname: str, args: tuple[str, ...], frontend_env: str, *, stray: bool = False, backend_env: str = "LOG_FORMAT=json\n"
+) -> tuple[int, str, list[str]]:
+    """One start mode, run whole from a checkout of its own, `stray` putting compose's own `.env` beside it.
 
     Copied, because `_lib.sh` roots every path at its own checkout; the compose files need only
     exist, the stand-in `docker` reading neither.
@@ -1096,10 +1148,12 @@ def _start(script: str, uname: str, args: tuple[str, ...], frontend_env: str) ->
         ("docker-compose.yml", "services: {}\n"),
         ("docker-compose.local.yml", "services: {}\n"),
         ("fl_frontend/.env", frontend_env),
-        ("fl_backend/.env", "LOG_FORMAT=json\n"),
+        ("fl_backend/.env", backend_env),
     ):
         (root / rel).parent.mkdir(parents=True, exist_ok=True)
         (root / rel).write_bytes(text.encode())
+    if stray:
+        (root / ".env").write_bytes(b"COMPOSE_PROJECT_NAME=a-value-no-case-reads\n")
     stubs = root / "stubs"
     stubs.mkdir()
     os.chmod(write_shell(stubs / "docker", RECORDING_DOCKER), 0o755)
@@ -1117,7 +1171,7 @@ def _start(script: str, uname: str, args: tuple[str, ...], frontend_env: str) ->
 
 @pytest.mark.parametrize(("script", "uname", "args"), START_MODES)
 def test_a_credential_line_stops_every_start_before_compose_is_asked_anything(script: str, uname: str, args: tuple[str, ...]) -> None:
-    """Written with a colon, the one form the spelling check also refuses, so its remedy reaching the operator first fails this too."""
+    """Written with a colon, which the shape check refuses too, so its remedy reaching the operator first fails this."""
     code, output, calls = _start(script, uname, args, "APP_ENV=local\nAUTH_SECRET: a value no case reads\n")
 
     assert code == 2, output
@@ -1133,10 +1187,13 @@ def test_a_credential_line_stops_every_start_before_compose_is_asked_anything(sc
 def test_a_spelling_the_readers_disagree_on_stops_every_start_before_compose_is_asked_anything(
     script: str, uname: str, args: tuple[str, ...]
 ) -> None:
-    code, output, calls = _start(script, uname, args, "APP_ENV=local\nAPI_URL=http://backend:8000/$base\n")
+    """Both files in one refusal, so a refused frontend file never hides the backend file's lines."""
+    code, output, calls = _start(script, uname, args, "APP_ENV=local\nAPI_URL=http://backend:8000/$base\n", backend_env="LOG_FORMAT='json'\n")
 
     assert code == 2, output
     assert "fl_frontend/.env API_URL:2" in output, output
+    assert "fl_backend/.env LOG_FORMAT:1" in output, output
+    assert "2 line(s)" in output, output
     assert any(call.startswith("version") for call in calls), calls
     assert [call for call in calls if call.startswith("compose")] == [], calls
 
@@ -1168,14 +1225,47 @@ def test_the_dry_run_takes_no_other_mode(other: tuple[str, ...]) -> None:
     assert calls == [], calls
 
 
-# Every printable ASCII character, a tab, a non-ASCII letter and a byte-order mark, each first, inside
-# and last in a value; then each other shape a line takes.
-PARITY_LINES: Final = [
-    f"PARITY_{n}={value}"
-    for n, value in enumerate(
-        value for c in [chr(code) for code in range(0x20, 0x7F)] + ["\t", "ö", "\ufeff"] for value in (f"{c}b", f"a{c}b", f"a{c}")
-    )
-] + ["", " \t", "# a comment", "  # indented", "BARE", "export E=1", "C: 1", "C:1", "1N=x", "A.B=x", "E=", "R=1\r", "R=1\r\r"]
+def test_the_dry_run_refuses_a_credential_line_as_the_deploy_does() -> None:
+    """The shape alone would pass this line, and the dry run would answer 0 over a file the deploy refuses."""
+    code, output, calls = _start("deploy.sh", "Linux", ("--check-env",), "APP_ENV=production\nAUTH_SECRET=vxq\n")
+
+    assert code == 2, output
+    assert "fl_frontend/.env: AUTH_SECRET" in output, output
+    assert "vxq" not in output, output
+    assert calls == [], calls
+
+
+def test_the_dry_run_refuses_compose_s_own_dotenv_as_the_deploy_does() -> None:
+    code, output, calls = _start("deploy.sh", "Linux", ("--check-env",), "APP_ENV=production\n", stray=True)
+
+    assert code == 2, output
+    assert "a .env stands beside the compose files" in output, output
+    assert "a-value-no-case-reads" not in output, output
+    assert calls == [], calls
+
+
+def test_the_dry_run_runs_on_the_deploy_s_platform_alone() -> None:
+    code, output, calls = _start("deploy.sh", "MINGW64_NT-10.0", ("--check-env",), "APP_ENV=production\n")
+
+    assert code == 2, output
+    assert "This script targets linux" in output, output
+    assert calls == [], calls
+
+
+# Each printable ASCII character, a tab, `ö` and a byte-order mark first, inside and last in a value;
+# each printable ASCII character first in and inside a name; then the other shapes, NUL and
+# one-reader line breaks among them.
+PARITY_LINES: Final = (
+    [
+        f"PARITY_{n}={value}"
+        for n, value in enumerate(
+            value for c in [chr(code) for code in range(0x20, 0x7F)] + ["\t", "ö", "\ufeff"] for value in (f"{c}b", f"a{c}b", f"a{c}")
+        )
+    ]
+    + [line for c in [chr(code) for code in range(0x20, 0x7F)] for line in (f"{c}N=1", f"N{c}N=1")]
+    + ["", " \t", "\f", "\v", "\u00a0", "\u2028", "# a comment", "  # indented", "BARE", "export E=1", "C: 1", "C:1", "1N=x"]
+    + ["A.B=x", "E=", "R=1\r", "R=1\r\r", "# a\rB=1", "# a\u2028B=1", "# a\u2029B=1", "PARITY_NUL=a\x00b", "# a\x00b", "\x00"]
+)
 
 
 def test_the_frontend_reader_refuses_exactly_the_lines_the_preflight_refuses() -> None:

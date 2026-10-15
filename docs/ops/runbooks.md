@@ -46,12 +46,16 @@ the machine is outside the repository. What it does tell you:
   2 before compose is asked anything**, naming the line and never its value
   (`scripts/lib/_lib.sh :: refuse_credential_lines`): delete it, a credential being its file's (§16)
   and the administrator list read by nothing.
-- **A line of either `.env` that is not blank, a `#` comment or an unquoted `NAME=VALUE` refuses the
-  deploy at exit 2 before compose is asked anything** ([`spec.md`](spec.md) I487), each line named
-  by file, name and number and never by value: rewrite it with no quote, no space and no comment
-  after the value, a URL writing `#`, `$` and `'` as `%23`, `%24` and `%27`.
-  **`./scripts/ops/deploy.sh --check-env` runs that check alone**, after the pull and before the
-  deploy, changing nothing and ending 0 where no line is refused.
+- **A line of either `.env` that is not blank, a line opening with `#`, or `NAME=VALUE` refuses the
+  deploy at exit 2 before compose is asked anything** ([`spec.md`](spec.md) I487), each line listed
+  by file and number, by name where it opens with one, and never by value. Rewrite it with nothing
+  around the `=` and a value of letters, digits and `_ - . ~ : / ? [ ] @ ! & ( ) * + , ; = %` alone:
+  no quote, no space, no comment after the value, a URL writing `#`, `$` and `'` as `%23`, `%24` and
+  `%27`. No line, a comment included, may hold a carriage return before its end, U+2028, U+2029 or a
+  NUL byte.
+- **`./scripts/ops/deploy.sh --check-env` runs the three checks above and below that ask Docker
+  nothing** — the credential lines, the line shape and compose's own `.env` — and nothing else, so
+  run it after the pull and before the deploy: it changes nothing and ends 0 where none refuses.
 - **A `.env` beside the compose file refuses every run at exit 2 before compose is asked anything**,
   `--status` included (`scripts/lib/_lib.sh :: refuse_compose_dotenv`). Git ignores the name, so
   `git status` never shows it; move it out of the checkout, keeping it only if it holds something
@@ -78,17 +82,14 @@ the machine is outside the repository. What it does tell you:
   could read differently was refused before either image was asked ([`spec.md`](spec.md) I487).
 - **The pulled frontend image is asked the same of `fl_frontend/.env`**
   (`scripts/ops/deploy.sh :: check_frontend_env_names`), and answers about names alone: **a name the
-  frontend does not declare, and a name it requires that the file gives no value, each refuse the
-  deploy at exit 2
-  with nothing recreated**. The remedy differs by kind — delete an undeclared line, correct its
-  spelling, or declare the name in the schema, nothing in that schema reading an undeclared one;
-  **write a missing required one into the file WITH a value**, a bare `NAME` line taking its value
-  from the shell that ran compose, which holds none for it, and reaching the container as nothing at
-  all. That is where a
-  release adding a required name meets a host nobody edited. Every VALUE is the frontend's own boot's
-  to judge, in the step below. It does catch the misspelling whose value is EMPTY
-  that the backend's reader drops, and a line its reader cannot take at all is an advisory rather
-  than a refusal ([`spec.md`](spec.md) §1.5).
+  frontend does not declare, and a name it requires that the file omits, each refuse the deploy at
+  exit 2 with nothing recreated**. The remedy differs by kind — delete an undeclared line, correct
+  its spelling, or declare the name in the schema, nothing in that schema reading an undeclared one;
+  **write a missing required one into the file with its value**. That is where a release adding a
+  required name meets a host nobody edited. Every VALUE, an empty one included, is the frontend's own
+  boot's to judge, in the step below. It does catch the misspelling whose value is EMPTY that the
+  backend's reader drops, and a line its reader cannot take at all is an advisory rather than a
+  refusal ([`spec.md`](spec.md) §1.5).
 - **Each application service's own boot then judges its settings and secret files, before anything
   is recreated**, in a one-off container started as the stack starts the service, so with its
   variables, as its own user and in its own group. The frontend's runs the image's own server, which

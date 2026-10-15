@@ -45,11 +45,18 @@ describe("the names read out of an environment file", () => {
     assert.deepEqual(scanNames(file), { names: ["BETA_NAME", "GAMMA_NAME"], unreadable: [] });
   });
 
-  // Each of these a preflight has already refused; read anyway, a name off one would be a guess.
-  it("reports by number every line outside the one strict shape, a quoted value's data line among them", () => {
+  // Each of these a preflight has already refused; read anyway, a name off one would be a guess. The
+  // quoted value's data line keeps the shape and is read as a name, the file unreadable all the same.
+  it("reports by number every line outside the one strict shape, a quoted value's opening and closing lines among them", () => {
     const file = ['ALPHA_NAME="first line', "BETA_NAME=data", 'last line"', "GAMMA_NAME", "\uFEFF"].join("\n");
 
     assert.deepEqual(scanNames(file).unreadable, [1, 3, 4, 5]);
+  });
+
+  it("reports a comment holding a line break another reader takes, or a NUL byte", () => {
+    const file = ["# a\rB_NAME=1", "# a\u2028B_NAME=1", "# a\u2029B_NAME=1", "# a\u0000b", "# fine"].join("\n");
+
+    assert.deepEqual(scanNames(file), { names: [], unreadable: [1, 2, 3, 4] });
   });
 });
 

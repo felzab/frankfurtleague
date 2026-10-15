@@ -5,6 +5,10 @@ import { pathToFileURL } from "node:url";
 // the two to one verdict per line: a deploy's preflight refuses every other line before this runs.
 const STRICT_LINE = /^([A-Za-z_][A-Za-z0-9_]*)=[\]A-Za-z0-9_.~:/?[@!&()*+,;=%-]*$/;
 
+// A line break python-dotenv or `@next/env` takes and compose does not, or a NUL `_lib.sh` cannot
+// read: unreadable on any line, a comment's included.
+const SPLIT = /[\r\u2028\u2029\0]/;
+
 // Where `fl_frontend/Dockerfile` puts the key sets the builder emitted from the schema. The file to
 // judge has no default: the deploy hands the package's own `.env`, mounted read-only
 // (`scripts/ops/deploy.sh :: check_frontend_env_names`, `:: read_env_names`).
@@ -18,6 +22,10 @@ export function scanNames(text) {
   text.split("\n").forEach((raw, index) => {
     // One carriage return, the line terminator `_lib.sh` drops too, so the two count alike.
     const line = raw.endsWith("\r") ? raw.slice(0, -1) : raw;
+    if (SPLIT.test(line)) {
+      unreadable.push(index + 1);
+      return;
+    }
     if (/^[ \t]*$/.test(line) || line.startsWith("#")) return;
 
     const declaration = STRICT_LINE.exec(line);

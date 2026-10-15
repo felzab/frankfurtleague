@@ -515,19 +515,24 @@ remedy is a new key ([`runbooks.md`](runbooks.md) §16).
 
 **Every line of both packages' `.env` files is blank, a comment opening with `#`, or `NAME=VALUE`
 with nothing around the `=` and a value drawn from RFC 3986's URL characters less `#`, `$` and `'`**
-(I487, `scripts/lib/_lib.sh :: ENV_LINE_RE`), or a deploy and a local start refuse at exit 2 before
-their first compose call. Compose, python-dotenv, `@next/env` and `node:util :: parseEnv` each read
-such a line literally, and the set admits every value the two settings schemas declare: a URL, an
-enum, an integer, a path, a base64url key and the backend's comma-joined host and origin lists. Every
-other form — a quote, a space, an inline comment, `export`, `NAME:`, a bare pass-through name, a
-byte-order mark, a value over several lines — is one at least two readers take apart, so the rule
-admits what all of them agree on rather than a parser chasing each reader's quirks; a URL writes
-`#`, `$` and `'` percent-encoded. The refusal names each line by file, name and number, never by
-value, and a line after one holding a quote by number alone, the quote possibly opening a value whose
-data would read as a name. **`./scripts/ops/deploy.sh --check-env` runs this check alone**, before
-the daemon is asked anything, listing the same lines and their count and ending 0 where none is
-refused. The credential check runs first and reads a name in every form compose does (I548), so a
-credential's line is refused as a line to delete before this check would have it rewritten.
+(I487, `scripts/lib/_lib.sh :: ENV_LINE_RE`), or a deploy, its `--check-env` and a local start
+refuse at exit 2 before their first compose call. Compose, python-dotenv, `@next/env` and
+`node:util :: parseEnv` each read such a line literally, and the set holds a spelling of every value
+the two settings schemas declare: a list joined without spaces, a path without one, a URL in ASCII
+writing `#`, `$` and `'` percent-encoded. Every other form is refused: several are read apart — an
+unclosed quote, a quoted escape, `NAME:`, a byte-order mark, an unspaced `#`, a `$` — and the rest so
+the check holds one shape rather than a parser chasing each reader's quirks. **No line, a comment
+included, holds a carriage return before its end, U+2028, U+2029 or a NUL byte**: python-dotenv
+ends a line at the carriage return and `@next/env` at all three, so a comment carrying one declares
+a name for them and none for compose, and the shell's own reader drops a NUL unseen. The refusal
+lists each line by file and number, and by name only where the line opens with an upper-case
+`NAME=` or `NAME:` and no quote stands above it, since a bare word, a lower-case one or a line under
+a quote may be a key's data; never by value. The credential check runs first and reads a name in
+every form compose does (I548), so a credential's line is refused as a line to delete before this
+check would have it rewritten; the two run as one, `scripts/lib/_lib.sh :: judge_env_files`.
+**`./scripts/ops/deploy.sh --check-env` runs every check the deploy makes of these files without
+Docker** — compose's own `.env` (I533), the credential lines and this shape — after the platform
+check and before the daemon is asked anything, ending 0 where none refuses.
 
 **The local stack points both application services at its own database through one inline
 config**, `docker-compose.local.yml :: local_mongodb_uri`, mounted where each reads its login: it
@@ -594,8 +599,8 @@ alone**
 (`scripts/ops/deploy.sh :: check_frontend_env_names`): the image carries the schema's key sets
 rather than the schema, emitted at build from
 `fl_frontend/src/core/config.ts :: DECLARED_ENVIRONMENT_NAMES` and `:: REQUIRED_ENVIRONMENT_NAMES`,
-so a name it does not declare and a required name the file leaves unvalued each refuse at exit 2
-with nothing recreated while every value stays the boot gate's (I183). **The omitted half is the one
+so a name it does not declare and a required name the file omits each refuse at exit 2
+with nothing recreated while every value, an empty one included, stays the boot gate's (I183). **The omitted half is the one
 no reader over the file's own names can reach**: an undeclared line is one somebody wrote, a missing
 one is a line nobody did, so without it a release that makes a new name required deploys green and
 the recreated container refuses to boot behind an edge already answering 502. **What
@@ -625,10 +630,10 @@ looks up: Node and Next read `TZ`, `NODE_OPTIONS`, `PORT` and `HOSTNAME` of thei
 correct, or a name to declare in the schema — the same three the backend's arm offers for its
 settings class.
 
-**What that check proves stops at the names.** The preflight parses each package's file as
-python-dotenv does, and the running container gets it parsed as Compose does; the two agree on which
-names a file declares and not on every quoting form, so a value the preflight accepted is not proven
-identical to the one the container will see.
+**What that check accepts is what the container receives.** The preflight parses each package's
+file as python-dotenv does, and the running container gets it parsed as Compose does; I487 has
+refused, before either runs, every line the two could read apart, so a name and a value the
+preflight accepted are the ones the container will see.
 
 **Each service's own boot then judges its settings and secret files before the recreate** (I510),
 in a one-off container `docker compose run` starts as the stack starts the service — its variables,
@@ -1364,7 +1369,7 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | I471 | Only nginx shares a network with the connector, and only nginx with the application pair, in both stacks                                                                      | `scripts/checks/check_compose_model.py :: networks`, over the models `docker compose config` renders                                                                                                                                                                                                    |
 | I472 | The actor token's signing key reaches the frontend alone, at `/run/secrets/fl_actor_signing_key`, read from `./secrets/fl_actor_signing_key`                                  | `scripts/checks/check_compose_model.py :: secret_holders` and `:: secrets_directory`, over the models `docker compose config` renders                                                                                                                                                                   |
 | I473 | Before containers start, both preflights refuse a signing key the frontend cannot read or a mismatched public half, printing no value; an unrunnable check warns              | `scripts/lib/_lib.sh :: check_frontend_boot_config` for the key's read and `:: check_actor_key` for the pair, called by `scripts/ops/deploy.sh` and `scripts/ops/local.sh`; `scripts/tests/test_deploy_streams.py` runs the pair's snippet for real                                                     |
-| I487 | Every line of a `.env` compose reads is blank, a `#` comment or `NAME=VALUE` in RFC 3986's characters less `#`, `$`, `'`                                                      | `scripts/lib/_lib.sh :: check_env_spellings`, called by a deploy, its `--check-env` and a local start before their first compose call; `scripts/tests/test_deploy_streams.py`                                                                                                                           |
+| I487 | Each `.env` line compose reads is blank, a `#` comment or `NAME=VALUE` in RFC 3986's characters less `#`, `$`, `'`, and splits for no reader                                  | `scripts/lib/_lib.sh :: check_env_spellings`, called by a deploy, its `--check-env` and a local start before their first compose call; `scripts/tests/test_deploy_streams.py`                                                                                                                           |
 | I507 | Every service in both stacks drops every capability and sets `no-new-privileges`; `nginx` alone adds any back, `CHOWN`, `SETUID`, `SETGID` and `DAC_OVERRIDE`                 | `scripts/checks/check_compose_model.py :: privileges`, over the models `docker compose config` renders; `nginx/edge_test.sh` starts both edges with them                                                                                                                                                |
 | I508 | Every credential reaches a service as a Compose file secret, held by exactly the services that read it, from its own file under `secrets/`                                    | `scripts/checks/check_compose_model.py :: secret_holders` over `:: SECRET_HOLDERS`; the local stack's login-free database URI `:: config_holders`                                                                                                                                                       |
 | I509 | No service's `environment:` names a value a secret file holds, in any letter case                                                                                             | `scripts/checks/check_compose_model.py :: moved_names`, over the models `docker compose config` renders                                                                                                                                                                                                 |
