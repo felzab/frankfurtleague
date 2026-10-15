@@ -50,7 +50,7 @@ paths:
   endpoint declares refusals the undo action words it again in its own replay table. The frontend
   reads a refusal by its code, and the backend answers it at the status its rule's check chose, so a
   code either path leaves unmapped falls through, at any status, to the shared fallback in
-  `fl_frontend/src/shared/utils/actionError.ts`, which names no reason and sends the admin to a retry
-  the same rule refuses again. Each slice's test asks its mapper about every refusal code
+  `fl_frontend/src/shared/utils/actionError.ts`, which names no reason, and on a save sends the admin
+  to a retry the same rule refuses again. Each slice's test asks its mapper about every refusal code
   `fl_backend/openapi.json` publishes on that endpoint (`fl_frontend/src/shared/testing/publishedRefusals.ts`),
   and `fl_frontend/src/app/refusalCoverage.test.ts` fails for a published code its table's mapper leaves unworded.
