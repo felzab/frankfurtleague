@@ -215,9 +215,9 @@ function relativeTo(file: string, root = SRC): string {
 }
 
 /**
- * Each undo `file` exports, found by its `runAdminUndo` call, with every table it hands a replay's
- * wording, read off its syntax tree as its module exports it: `undefined` for a table no import reaches,
- * one of the module's own.
+ * Each undo `file` declares at its top level, a function or a variable holding one, found by its
+ * `runAdminUndo` call, with every table it hands a replay's wording: `undefined` for a table no import
+ * reaches, one of the module's own.
  */
 async function undosOf(file: string): Promise<{ undo: string; tables: { name: string; table: unknown }[] }[]> {
   const source = ts.createSourceFile(file, readFileSync(file, "utf8"), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
@@ -245,14 +245,20 @@ async function undosOf(file: string): Promise<{ undo: string; tables: { name: st
     return found;
   };
 
-  const undos = source.statements.flatMap((statement) =>
-    ts.isFunctionDeclaration(statement) && statement.name !== undefined && callsOf(statement, /^runAdminUndo$/).length > 0
-      ? [
-          {
-            undo: `${relativeTo(file)} :: ${statement.name.text}`,
-            passed: callsOf(statement, /^(?:refusedReplay|replayRefusal|partlyRestored)$/),
-          },
-        ]
+  // A variable's initializer as well as a declaration: `export const undo… = (…) => runAdminUndo(…)` is
+  // an undo as much as the function form is.
+  const declared = source.statements.flatMap((statement): { name: string; node: ts.Node }[] => {
+    if (ts.isFunctionDeclaration(statement)) return statement.name === undefined ? [] : [{ name: statement.name.text, node: statement }];
+    if (!ts.isVariableStatement(statement)) return [];
+    return statement.declarationList.declarations.flatMap((declaration) =>
+      ts.isIdentifier(declaration.name) && declaration.initializer !== undefined
+        ? [{ name: declaration.name.text, node: declaration.initializer }]
+        : [],
+    );
+  });
+  const undos = declared.flatMap(({ name, node }) =>
+    callsOf(node, /^runAdminUndo$/).length > 0
+      ? [{ undo: `${relativeTo(file)} :: ${name}`, passed: callsOf(node, /^(?:refusedReplay|replayRefusal|partlyRestored)$/) }]
       : [],
   );
 
