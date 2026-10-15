@@ -54,7 +54,7 @@ runs:
         save-cache: ${{ inputs.save-cache }}
         # The release the backend image's `FROM ghcr.io/astral-sh/uv:` tag names
         # (`scripts/gate/selfcheck.sh :: check_uv_pin`). Neither unset nor `version-file` serves: each
-        # installs that day's newest uv, fl_backend's `required-version` being a floor.
+        # installs that day's newest uv, fl_backend's `required-version` being a range.
         version: "0.13.1"
     # `--locked`: a bare sync REWRITES uv.lock in the working tree, so a branch with a stale
     # committed lockfile passes every later check against the rewritten file. `--locked` refuses

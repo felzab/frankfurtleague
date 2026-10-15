@@ -80,10 +80,10 @@ dev = [
 DEP002 = ["tzdata", "uvicorn"]
 
 [tool.uv]
-# A floor, the oldest uv writing this lockfile's revision: Dependabot's uv ecosystem relocks with the
-# uv it bundles and fails on an exact pin naming another. CI's exact uv is setup-uv's `version` in
-# `.github/actions/backend-toolchain/action.yml` (`docs/ops/spec.md :: I_NEW_OPS-FOLD_1`).
-required-version = ">=0.12.22"
+# The floor stays at or below the uv Dependabot relocks with (0.12.18, read 2026-10-15), which fails
+# outside this range; the ceiling stops before the next minor release, the only kind that may change
+# the lockfile's schema (`docs/ops/spec.md :: I_NEW_OPS-FOLD_1`).
+required-version = ">=0.12.18,<0.14"
 # A release younger than a day is left out of every resolution, the day `.github/dependabot.yml`'s
 # cooldown waits. Relative, so it moves with the clock rather than freezing the graph at a date.
 exclude-newer = "1 day"
