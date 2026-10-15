@@ -300,9 +300,6 @@ export const STEP_UP_CALLERS: Readonly<Record<string, Readonly<Record<string, St
     patchSchiedsrichterAction: "one-press",
     undoAdminSchiedsrichterEditAction: "undo",
   },
-  "features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormAnonymisierenSection.tsx": {
-    anonymiseSchiedsrichterAction: "two-press",
-  },
   "features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormBestaetigungSection.tsx": {
     einladeSchiedsrichterAction: "one-press",
   },

@@ -5,7 +5,7 @@ import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 import { assertEachAnswered } from "@/shared/testing/publishedRefusals.ts";
 
-import { mapAnonymiseRefusal, mapGesperrteAdresseRefusal, mapNameRefusal, mapReactivateRefusal, mapRetireRefusal } from "./refusals.ts";
+import { mapGesperrteAdresseRefusal, mapNameRefusal, mapReactivateRefusal, mapRetireRefusal } from "./refusals.ts";
 
 import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
 
@@ -14,7 +14,6 @@ import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
 doubleActionRequest();
 const { answerWith, calls } = doubleApiAnswers();
 const {
-  anonymiseSchiedsrichterAction,
   deleteSchiedsrichterAction,
   einladeSchiedsrichterAction,
   patchSchiedsrichterAction,
@@ -22,7 +21,6 @@ const {
   reactivateSchiedsrichterAction,
 } = await import("./actions.ts");
 
-const ANONYMISE_OPERATION = "POST /schiedsrichter/{schiedsrichter_id}/anonymisieren";
 const CREATE_OPERATION = "POST /schiedsrichter";
 const SAVE_OPERATION = "PATCH /schiedsrichter/{schiedsrichter_id}";
 const REACTIVATE_OPERATION = "POST /schiedsrichter/{schiedsrichter_id}/reactivate";
@@ -65,7 +63,6 @@ describe("the referee's writes", () => {
     await patchSchiedsrichterAction({ id: SCHIEDSRICHTER_ID, ...REFEREE });
     await deleteSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });
     await reactivateSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });
-    await anonymiseSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });
     await einladeSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });
 
     const referee = `/schiedsrichter/${SCHIEDSRICHTER_ID}`;
@@ -74,7 +71,6 @@ describe("the referee's writes", () => {
       { endpoint: referee, method: "PATCH", body: REFEREE },
       { endpoint: referee, method: "DELETE", body: undefined },
       { endpoint: `${referee}/reactivate`, method: "POST", body: undefined },
-      { endpoint: `${referee}/anonymisieren`, method: "POST", body: undefined },
       { endpoint: referee, method: undefined, body: undefined },
       { endpoint: `${referee}/bestaetigung/einladen`, method: "POST", body: undefined },
     ]);
@@ -101,9 +97,9 @@ describe("what each referee write answers a refusal with", () => {
     });
   });
 
-  /* Each of the reversible pair and the erasure asks its own mapper: the retirement's refusal read out
-     about an erasure, or the other way round, names a rule the admin did not meet. */
-  it("answers the retirement's, the reactivation's and the erasure's refusals each with its own mapper", async () => {
+  /* Each of the reversible pair asks its own mapper: the retirement's refusal read out about a
+     reactivation, or the other way round, names a rule the admin did not meet. */
+  it("answers the retirement's and the reactivation's refusals each with its own mapper", async () => {
     await assertEachAnswered({
       operation: RETIRE_OPERATION,
       refuseWith: answerWith,
@@ -115,12 +111,6 @@ describe("what each referee write answers a refusal with", () => {
       refuseWith: answerWith,
       act: () => reactivateSchiedsrichterAction({ id: SCHIEDSRICHTER_ID }),
       mapped: mapReactivateRefusal,
-    });
-    await assertEachAnswered({
-      operation: ANONYMISE_OPERATION,
-      refuseWith: answerWith,
-      act: () => anonymiseSchiedsrichterAction({ id: SCHIEDSRICHTER_ID }),
-      mapped: mapAnonymiseRefusal,
     });
   });
 });

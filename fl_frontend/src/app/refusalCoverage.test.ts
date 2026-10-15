@@ -92,7 +92,6 @@ const ANSWERED_BY: Readonly<Record<string, Mapper>> = {
   "DELETE /schiedsrichter/{schiedsrichter_id}": schiedsrichter.mapRetireRefusal,
   "POST /schiedsrichter/{schiedsrichter_id}/reactivate": schiedsrichter.mapReactivateRefusal,
   "POST /schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen": schiedsrichter.mapEinladenRefusal,
-  "POST /schiedsrichter/{schiedsrichter_id}/anonymisieren": schiedsrichter.mapAnonymiseRefusal,
   "POST /schiedsrichter/bestaetigung": (error) =>
     schiedsrichterQueries.mapSchiedsrichterBestaetigungRefusal(error, async () => SCHIEDSRICHTER_MIN_ALTER),
   "POST /schiedsrichter/bestaetigung/ansicht": schiedsrichterQueries.mapSchiedsrichterAnsichtRefusal,

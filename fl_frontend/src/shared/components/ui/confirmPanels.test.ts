@@ -138,7 +138,6 @@ const M = {
   rollover: "features/saisons/components/forms/AdminSaisonEditForm/FormRolloverSection.tsx",
   spielplan: "features/saisons/components/forms/AdminSaisonEditForm/FormSpielplanSection.tsx",
   teamErsatz: "features/saisons/components/forms/AdminSaisonEditForm/FormTeamErsatzSection.tsx",
-  anonymisieren: "features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormAnonymisierenSection.tsx",
   sperre: "features/sperrliste/components/forms/AdminSperreAufhebenPanel.tsx",
   zugangEntziehen: "features/berechtigungen/components/forms/AdminBerechtigungEntziehenPanel.tsx",
   zugangStufe: "features/berechtigungen/components/forms/AdminBerechtigungStufePanel.tsx",
@@ -161,7 +160,6 @@ const C = {
   rollover: await component(M.rollover, "FormRolloverSection"),
   spielplan: await component(M.spielplan, "FormSpielplanSection"),
   teamErsatz: await component(M.teamErsatz, "FormTeamErsatzSection"),
-  anonymisieren: await component(M.anonymisieren, "FormAnonymisierenSection"),
   sperre: await component(M.sperre, "AdminSperreAufhebenPanel"),
   zugangEntziehen: await component(M.zugangEntziehen, "AdminBerechtigungEntziehenPanel"),
   zugangStufe: await component(M.zugangStufe, "AdminBerechtigungStufePanel"),
@@ -416,21 +414,6 @@ const PANELS: Record<string, Arming[]> = {
         await pick(user, /^Nachrückendes Team/, /^TSV Beta/);
       },
       resting: "Team ersetzen",
-    },
-  ],
-  [M.anonymisieren]: [
-    {
-      render: () =>
-        underNext(
-          el(C.anonymisieren, {
-            schiedsrichterId: "68c1f0a2b3c4d5e6f7a8b9c0",
-            name: "Anna Beispiel",
-            schule: "Musterschule",
-            kontakt: { email: "anna@example.de", telefon: "069 1234567" },
-            onBeforeAnonymise: () => true,
-          }),
-        ),
-      resting: "Daten löschen",
     },
   ],
   [M.sperre]: [

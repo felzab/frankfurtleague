@@ -548,7 +548,6 @@ the other refuses.
 | `undoAdminSchiedsrichterEditAction`     | schiedsrichter  | `spiele`                                                                                       |
 | `deleteSchiedsrichterAction`            | schiedsrichter  | **nothing**                                                                                    |
 | `reactivateSchiedsrichterAction`        | schiedsrichter  | **nothing**                                                                                    |
-| `anonymiseSchiedsrichterAction`         | schiedsrichter  | `spiele` — the repointed booking fans into every fixture the erased referee held               |
 | `einladeSchiedsrichterAction`           | schiedsrichter  | **nothing** — no cached read holds a referee's confirmation link                               |
 | `einladeAdresswechselAction`            | schiedsrichter  | **nothing** — no cached read holds a pending address                                           |
 | `verwirfAdresswechselAction`            | schiedsrichter  | **nothing** — no cached read holds a pending address                                           |
@@ -674,7 +673,7 @@ page-owned editor — `kontakte`'s erasure from inside the seat holding the pers
 an ADDRESS rather than on the seat it stands in, so it reaches every season's junction row, every
 application and the log
 (`fl_backend/app/api/kontakte/admin_router.py :: erase_kontaktperson`). **These of its writes are
-irreversible** — a referee's anonymisation, a contact person's erasure, the
+irreversible** — a contact person's erasure, the
 replacement of a club on a season's junction row, the draw's `replace`, the undraw beside it, the
 rollover's close of the outgoing season and the triage's decisions
 ([`docs/backend/spec.md`](../backend/spec.md#11-endpoint-inventory)). Each destroys or hands on
