@@ -186,7 +186,7 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
         label: "Registrierungen",
         iconName: "Hourglass",
         hint: {
-          lead: "Wer sich bei einem Team registriert hat und auf dessen Entscheidung wartet, über alle Saisons.",
+          lead: "Wer sich bei einem Team registriert hat und noch nicht aufgenommen ist, über alle Saisons.",
           // What an admin comes here to do and cannot: the decision has no control on this page.
           note: "Über eine Registrierung entscheidet das Team.",
         },
