@@ -1286,21 +1286,21 @@ first_disagreeing_tag() { # $1 exact, or series for a pin naming a series · $2 
 }
 
 # The one judgement every pin step makes; each step's reader differs and hands it the two values.
-judge_pin() { # $1 what is pinned · $2 exact, or series · $3 the manifest · $4 the Dockerfile · $5 what a disagreement costs · $6 the pin · $7… the tags
-  local what="$1" mode="$2" manifest="$3" dockerfile="$4" cost="$5" pin="$6" other
+judge_pin() { # $1 what is pinned · $2 exact, or series · $3 the file holding the pin · $4 the Dockerfile · $5 what a disagreement costs, or how to mend it · $6 the pin · $7… the tags
+  local what="$1" mode="$2" pinning="$3" dockerfile="$4" last_clause="$5" pin="$6" other
   shift 6
   if [[ -z "$pin" || $# -eq 0 ]]; then
     # Not a skip: a spelling this cannot read is the same silence the step exists to remove.
-    note_fail "could not read the ${what} version from both files — ${manifest} '${pin:-none}', ${dockerfile} '${*:-none}'"
+    note_fail "could not read the ${what} version from both files — ${pinning} '${pin:-none}', ${dockerfile} '${*:-none}'"
     return 0
   fi
   other="$(first_disagreeing_tag "$mode" "$pin" "$@")"
   if [[ -n "$other" ]]; then
-    note_fail "${manifest} pins ${what} ${pin} and ${dockerfile} carries ${other}; ${cost}"
+    note_fail "${pinning} pins ${what} ${pin} and ${dockerfile} carries ${other}; ${last_clause}"
   elif [[ "$mode" == series ]]; then
     info "${what} ${*} in the image, inside the ${pin} the repository pins"
   else
-    info "${what} ${pin} in the manifest and the image"
+    info "${what} ${pin} in ${pinning} and ${dockerfile}"
   fi
 }
 
