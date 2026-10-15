@@ -338,8 +338,9 @@ describe("a passkey setup that signs in, against a real database", () => {
     );
   });
 
-  // One authenticator twice, so the credential index refuses the second row inside its transaction.
-  it("mints one session for the winner of two setups at once, and leaves the loser signed in by code", async () => {
+  /* One authenticator twice: the loser's insert conflicts inside its transaction, and the run the
+     adapter retries meets the winner's row in the enrolment guard, whose refusal is a 404 and no line. */
+  it("mints one session for the winner of two setups at once, and refuses the loser, leaving it signed in by code", async () => {
     const a = await offer(await signIn(ADMIN_EMAIL));
     const b = await offer(await signIn(ADMIN_EMAIL));
     const mailedBefore = sent.length;
@@ -352,8 +353,8 @@ describe("a passkey setup that signs in, against a real database", () => {
     barrier.disarm();
     assert.ok(await barrier.filled, "the setups were not both held at their first write, so no race was run");
 
-    assert.deepEqual(responses.map((response) => response.status).sort(), [200, 500]);
-    assert.deepEqual([warnings, errors], [["auth.passkey_enrolment_conflict"], []]);
+    assert.deepEqual(responses.map((response) => response.status).sort(), [200, 404]);
+    assert.deepEqual([warnings, errors], [[], []]);
     assert.equal(sent.length - mailedBefore, 1);
     const factors = (await sessionRows()).map(({ authFactor }) => authFactor).sort();
     assert.deepEqual(factors, ["code", "passkey"], "the refused setup minted a session or ended its caller's");

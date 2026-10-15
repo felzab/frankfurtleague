@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { once } from "node:events";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { createServer, connect as dial } from "node:net";
@@ -247,7 +248,7 @@ async function storeOf(url: string): Promise<MongoClient> {
 
 // Imported after the hooks above are registered: a static import resolves before they exist.
 const client = await storeOf(PRODUCTION_DB);
-const { auth, readServedSession } = await import("./auth.ts");
+const { auth, readServedSession, removePasskey } = await import("./auth.ts");
 // The same module evaluated again, so further clients built by the same code, each connecting first
 // inside its own case.
 const coldClient = await storeOf(`${import.meta.resolve("./db.ts")}?cold-start`);
@@ -349,8 +350,8 @@ describe("the sign-in store's client bounds every operation it sends (`docs/fron
     const otp = await auth.api.createVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" } });
     logged.length = 0;
 
-    // Two bounds: the abort the client sends after a failed commit takes one of its own
-    // (`fl_frontend/patches/@better-auth__mongo-adapter@1.7.7.patch`).
+    // Two bounds: the abort the adapter sends after a failed commit takes one of its own
+    // (`@better-auth/mongo-adapter :: abortTransactionCommand`).
     const outcome = await relay.hangFrom("commitTransaction", () =>
       settledWithin(OPERATION_BOUND * 2, "the hung commit", () =>
         auth.api.signInEmailOTP({ body: { email: ADMIN_EMAIL, otp }, headers: new Headers(ORIGIN), returnHeaders: true }),
@@ -367,6 +368,46 @@ describe("the sign-in store's client bounds every operation it sends (`docs/fron
     // The abort the hang swallowed too: the one line saying the server may hold the transaction, the
     // commit's own failure being its caller's to log.
     assert.deepEqual(logged, [{ event: "auth.transaction_left_open", error_code: "FE-AUTH-003", name: MongoOperationTimeoutError.name }]);
+  });
+
+  /* The case above's line, from a passkey removal: a server action runs it outside every endpoint,
+     where the library's own logger writes to the console rather than to the stream
+     (`docs/frontend/spec.md :: I678`). */
+  it("logs a removal's transaction left open through the configured logger, and nothing to the console", async (t) => {
+    const printed: unknown[][] = [];
+    t.mock.method(console, "error", (...line: unknown[]) => void printed.push(line));
+    await signInByCode(auth, ADMIN_EMAIL);
+    const { adapter } = await auth.$context;
+    const account = await adapter.findOne<{ id: string }>({ model: "user", where: [{ field: "email", value: ADMIN_EMAIL }] });
+    assert.ok(account !== null, "the sign-in wrote no account, so no removal runs");
+    const held = await adapter.create<Record<string, unknown>, { id: string }>({
+      model: "passkey",
+      data: {
+        userId: account.id,
+        credentialID: `fl-db-bound-${randomUUID()}`,
+        publicKey: "fabricated-public-key",
+        counter: 0,
+        deviceType: "singleDevice",
+        backedUp: false,
+        transports: "internal",
+        createdAt: new Date(),
+      },
+    });
+    logged.length = 0;
+
+    const outcome = await relay.hangFrom("commitTransaction", () =>
+      settledWithin(OPERATION_BOUND * 2, "the hung removal", () => removePasskey({ id: account.id, verwaltung: false }, held.id)),
+    );
+    // As the case above: the transaction the hung commit left would hold the store's rows for a minute.
+    const killed = await mongod.exec(["mongosh", "--quiet", "--eval", "db.adminCommand({ killAllSessions: [] }).ok"]);
+    assert.equal(killed.output.trim(), "1", `the hung removal's transaction was left standing: ${killed.output}`);
+
+    assert.ok(relay.triggered, "the removal sent no commit, so nothing here was hung");
+    assert.ok(outcome instanceof MongoOperationTimeoutError, `the hung removal settled with ${String(outcome)}`);
+    assert.deepEqual(
+      { logged: logged, printed: printed.length },
+      { logged: [{ event: "auth.transaction_left_open", error_code: "FE-AUTH-003", name: MongoOperationTimeoutError.name }], printed: 0 },
+    );
   });
 
   /* One request lost on its way to a store that answers everything else: the case above's whole hang
