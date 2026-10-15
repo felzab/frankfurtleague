@@ -153,7 +153,7 @@ Stop once the bar is met.
   RED row still matching after its clearing landing is a finding. Start no driving re-audit until
   it exits 0.
 - Run the suites in your checkout every few waves: CI is Linux. The bare gate is the ending's.
-- At a wave boundary `ledger.py open` prints nothing, your checkout is clean and every
+- At a wave boundary `ledger.py open` exits 0, your checkout is clean and every
   `git worktree list` entry is a live agent's or merged; remove a merged one with
   `git worktree remove` and `git branch -d`. Where Windows stops a removal at the path limit,
   `rm -rf <path>` in Git Bash, then `git worktree prune -v`.

@@ -13,6 +13,7 @@ import datetime
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
 from pathlib import Path
@@ -370,15 +371,25 @@ def test_a_status_no_command_knows_is_refused_by_every_command_reading_the_ledge
 
 @pytest.mark.parametrize(
     ("held", "said"),
-    [("OPENED", "A-F1 is `OPENED`"), ("FIXED (abc1234) | stray", "has 6 cells, not 5")],
+    [
+        (
+            "OPENED",
+            "A-F1 is `OPENED`, no word of OPEN, ROUTED, FIXED, RULED, HANDOFF, NOT A DEFECT, MOOT: `close <status> <evidence> A-F1 --reclose`",
+        ),
+        ("FIXED (abc1234) | stray", "has 6 cells, not 5: mend its cells by hand"),
+    ],
     ids=["a word a status opens", "a row of six cells"],
 )
 def test_a_status_cell_naming_no_status_whole_is_refused(tmp_path: Path, held: str, said: str) -> None:
-    """Read by its opening letters `OPENED` was OPEN, and a row an unescaped pipe widened was no row at all."""
+    """Read by its opening letters `OPENED` was OPEN, and a row an unescaped pipe widened was no row at all.
+
+    Each refusal names the repair that works for its kind: `close` cannot rewrite a row it cannot split.
+    """
     register = _banked(tmp_path, ("A-report.md", "F1 one\n"))
     _set(register, "A-F1", held)
     done = _run("ledger", "open", str(register), "--unclosed")
     assert done.returncode == 2 and said in done.stderr, done.stderr
+    assert ("--reclose" in done.stderr) is said.endswith("--reclose`"), done.stderr
 
 
 def test_a_row_has_one_owner_until_it_is_rerouted(tmp_path: Path) -> None:
@@ -964,9 +975,15 @@ def test_a_landing_closes_only_the_rows_routed_to_its_agent_that_a_rows_fixed_li
     assert f"FIXED A-F11 by {merge}" in done.stdout
     assert "not ROUTED to WORKER, a1b2c3, so left as they stand: A-F2, A-F3" in done.stdout
     # A fixer's body naming finding numbers rather than rows left its rows ROUTED with nothing said.
-    assert "still ROUTED to WORKER, a1b2c3 with no `Rows fixed:` line closing them: A-F1, A-F4" in done.stdout.splitlines()
+    said = done.stdout.splitlines()
+    assert "still ROUTED to WORKER, a1b2c3 with no `Rows fixed:` line closing them: A-F1, A-F4" in said
     assert _status(register, "A-F11") == [f"FIXED ({merge})", "was WORKER"]
     assert [_status(register, row)[0] for row in ("A-F1", "A-F2", "A-F3", "A-F4")] == ["ROUTED", "ROUTED", "OPEN", "ROUTED"]
+    # The template sends those rows' FIXED through the command the warning prints, so it must run as printed.
+    printed = next(line for line in said if line.startswith("  each this merge fixed closes with: "))
+    command = shlex.split(printed.split(": ", 1)[1])
+    assert command[:2] == ["ledger.py", "close"] and _run("ledger", *command[1:]).returncode == 0
+    assert [_status(register, row) for row in ("A-F1", "A-F4")] == [[f"FIXED ({merge})", "was WORKER"]] * 2
     assert "a standing action waits on this landing: WORKER lands B2c" in done.stdout
     assert "B1" not in done.stdout and "OTHER lands" not in done.stdout
 

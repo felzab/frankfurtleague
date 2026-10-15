@@ -90,8 +90,8 @@ act on is taken in one announced exclusive window, the fleet stopped, other load
 
 ## The ending -- enumerated before the last wave goes out
 <The last wave landed, its audit and its fix; every slice ticked to a landed commit; every
-`I_NEW_*` invariant row renumbered and every expected-red row closed; `ledger.py open` printing
-nothing; the full gate; the draft pull request's body; every check's conclusion; the owner's
+`I_NEW_*` invariant row renumbered and every expected-red row closed; `ledger.py open --unclosed`
+exiting 0; the full gate; the draft pull request's body; every check's conclusion; the owner's
 deploy steps; the handoff and its independent audit; the starter.>
 
 ## Decisions taken by the owner
@@ -115,8 +115,10 @@ the owner works everywhere goes to their `~/.claude/CLAUDE.md`.>
 <The fleet's only ledger: no other file holds findings. One row per labelled finding of every
 report, a fixer's included, written by `ledger.py bank` before the next dispatch. A row moves to
 ROUTED by a sent message's `Rows:` line or `ledger.py route`, one owner at a time, to FIXED by
-the landing of its owner's branch whose `Rows fixed:` line names it, and to any other closed status
-by `ledger.py close`, never by hand. Status: one of
+the landing of its owner's branch whose `Rows fixed:` line names it, and otherwise to a closed
+status by `ledger.py close`, never by hand. A row the landing names as still ROUTED is one no body
+named: where the merge fixed it, run the `ledger.py close … FIXED <merge>` command the landing
+prints beside it. Status: one of
 `.claude/skills/orchestration/tools/ledger.py :: STATUSES`, a closed one followed by its evidence; a
 word outside it stops every ledger command, a landing included.
 A routed finding is a claim until its fixer has judged it real. The ending closes every row.>

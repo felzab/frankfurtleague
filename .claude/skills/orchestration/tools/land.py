@@ -19,6 +19,7 @@ from __future__ import annotations
 import io
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -273,6 +274,8 @@ def land(register: Path, branch: str) -> int:
     # lands; a warning only, since a row can stay its agent's for a later round.
     if still := ledger.routed(register, agent):
         print(f"still ROUTED to {who} with no `Rows fixed:` line closing them: {', '.join(still)}")
+        command = shlex.join(("ledger.py", "close", str(register), "FIXED", merge, *still))
+        print(f"  each this merge fixed closes with: {command}")
     for trigger in standing(held, agent | {branch}):
         print(f"a standing action waits on this landing: {trigger}")
     return 0
