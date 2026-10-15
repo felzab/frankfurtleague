@@ -7,19 +7,29 @@ from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.aktionen.crud import redact_images_in_session
 from app.api.kontakte.services import (
+    PersonName,
     build_clearing_update,
     build_seat_images_filter,
     departing_names,
-    find_matching_slots,
+    departing_slots,
     seat_image_edits,
 )
+from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db, patch_one_in_db
 from app.core.recording import RedactionTarget, build_redaction_filter
 from app.shared.folding import sign_in_identifier
 
 
-async def _clear_each(collection: AsyncCollection, rows: Sequence[Mapping[str, Any]], identifier: str, session: AsyncClientSession) -> int:
-    """Null this person's slots row by row, and answer how many slots.
+async def clear_seats(
+    collection: AsyncCollection,
+    rows: Sequence[Mapping[str, Any]],
+    # Folded (`app/shared/folding.py :: sign_in_identifier`): each seat's address is compared on the fold.
+    identifiers: Set[str],
+    session: AsyncClientSession,
+    *,
+    names: Set[PersonName] = frozenset(),
+) -> int:
+    """Null these people's slots, one patch per row holding any, and answer how many slots.
 
     `patch_one_in_db` per row and never `patch_many_in_db`, which records no `document_id`
     (`docs/backend/spec.md :: I40`): each row's own history keeps the write that emptied the seat.
@@ -27,7 +37,11 @@ async def _clear_each(collection: AsyncCollection, rows: Sequence[Mapping[str, A
 
     cleared = 0
     for row in rows:
-        slots = find_matching_slots(row, identifier)
+        slots = departing_slots(row, identifiers, names)
+        # A row none of them sits in is not written, so its history gains no image.
+        if not slots:
+            continue
+
         update = build_clearing_update(slots, bestaetigungen=isinstance(row.get("bestaetigungen"), Mapping))
         await patch_one_in_db(
             collection=collection, db_filter={"_id": row["_id"]}, update=update, session=session, return_document=ReturnDocument.BEFORE
@@ -64,12 +78,19 @@ async def erase_kontaktperson_in_session(
     # spelling would match no seat and the erasure would commit having removed nothing.
     identifier = sign_in_identifier(identifier)
 
-    cleared_slots = await _clear_each(saison_teams_collection, saison_team_rows, identifier, session)
-    cleared_slots += await _clear_each(bewerbungen_collection, bewerbung_rows, identifier, session)
+    cleared_slots = await clear_seats(saison_teams_collection, saison_team_rows, {identifier}, session)
+    cleared_slots += await clear_seats(bewerbungen_collection, bewerbung_rows, {identifier}, session)
 
-    # LAST, so it reaches the pre-images the clearing patches above just filed, each still holding
-    # this person; their seats alone, the people beside them keeping theirs.
-    redacted = await redact_images_in_session(
+    # LAST, so both passes reach the pre-images the clearing just filed. The rows reached by document
+    # first, by address and by name; then by address alone, which also finds a swap's orphan.
+    reached: list[RedactionTarget] = [
+        (Collection.SAISON_TEAMS, [row["_id"] for row in saison_team_rows]),
+        (Collection.BEWERBUNGEN, [row["_id"] for row in bewerbung_rows]),
+    ]
+    redacted = await redact_seats_in_documents(
+        aktionen_collection=aktionen_collection, documents=reached, identifiers={identifier}, links=True, stamp=stamp, session=session
+    )
+    redacted += await redact_images_in_session(
         aktionen_collection=aktionen_collection,
         db_filter=build_seat_images_filter(identifier),
         judge=lambda image: seat_image_edits(image, (identifier,), links=True),
@@ -89,6 +110,8 @@ async def redact_seats_in_documents(
     links: bool,
     stamp: str,
     session: AsyncClientSession,
+    # Names the caller knows are theirs from outside these documents: the replacement's, off the row it hands over.
+    names: Set[PersonName] = frozenset(),
 ) -> int:
     """The departing person's seats out of every log image of documents the caller reached by id, and how many rows changed."""
 
@@ -101,12 +124,12 @@ async def redact_seats_in_documents(
         pipeline=[{"$match": {**db_filter, "before": {"$ne": None}}}, {"$project": {"before._id": 1, "before.kontakte": 1}}],
         session=session,
     )
-    names = departing_names(imaged, identifiers)
+    found = departing_names(imaged, identifiers)
 
     return await redact_images_in_session(
         aktionen_collection=aktionen_collection,
         db_filter=db_filter,
-        judge=lambda image: seat_image_edits(image, identifiers, links=links, names=names.get(image.get("_id"), frozenset())),
+        judge=lambda image: seat_image_edits(image, identifiers, links=links, names=found.get(image.get("_id"), frozenset()) | names),
         stamp=stamp,
         session=session,
     )

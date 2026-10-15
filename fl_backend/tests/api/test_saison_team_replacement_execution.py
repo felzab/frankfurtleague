@@ -291,6 +291,7 @@ async def call_replace(
         saisons_collection=database[Collection.SAISONS],
         spiele_collection=database[Collection.SPIELE],
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
+        bewerbungen_collection=database[Collection.BEWERBUNGEN],
         aktionen_collection=database[Collection.AKTIONEN],
         db=client,
         today=REPLACED_ON,

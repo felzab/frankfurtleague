@@ -442,11 +442,14 @@ Every ruling below is the sign-up flow as it stands for the next season.
   name matches as well and that person confirmed their record
   (`fl_backend/app/api/registrierungen/services.py :: seite_of` over `:: persons_named`), the one
   place a shared mailbox would otherwise show one pupil another's answers and leave their own
-  consent unasked. Ruled 2026-09-27. Inside the one season row or application a Widerspruch
-  answers, one name is one person as well: that row's log images lose every seat holding a name the
-  person's address held there, so an address corrected in a later save takes its earlier seat with
-  it (`docs/backend/spec.md :: I672`). An image found by what it holds alone stays matched on the
-  address. Ruled 2026-10-15.
+  consent unasked. Ruled 2026-09-27. Inside a season row or application that a Widerspruch answers
+  or a contact erasure clears, one name is one person as well: its log images lose every seat
+  holding the person's name, so an address corrected in a later save takes its earlier seat with it
+  (`docs/backend/spec.md :: I672`). Its live seats stay matched on the address alone, since the
+  person's link and the erasure's reveal both work by it. A team replacement goes further on the
+  club's accepted application for that season, where nothing stands in front of the write: the
+  outgoing people leave its live seats and its images by address or by name (`:: I673`). An image
+  found by what it holds alone stays matched on the address. Ruled 2026-10-15.
 - **An administrator's address is stored as their grant, in plain, and so is the address of
   whoever granted it.** `berechtigungen` holds the grant and `berechtigungen_angekuendigt` what the
   other administrators were told of it, and every administrator is served both addresses. The outbox
@@ -758,7 +761,9 @@ Every ruling below is the sign-up flow as it stands for the next season.
   person whose details they are (`fl_backend/app/shared/einwilligung.py :: FASSUNGEN`),
   and the published notice tabulates them (`DatenschutzView.tsx :: FRISTEN`). This bounds the
   permanent record that `docs/glossary.md :: Bewerbung`
-  and `docs/backend/spec.md :: READ-CONTACT-001` describe. Ruled 2026-09-02.
+  and `docs/backend/spec.md :: READ-CONTACT-001` describe. Ruled 2026-09-02. A team replacement
+  takes the outgoing people off the club's accepted application for that season at once, as the
+  season row's page promises them (`docs/backend/spec.md :: I673`). Ruled 2026-10-15.
 - **A season's contact persons follow the accepted application's clock**: their contact block is
   cleared when the season after the one they were collected for ends, and the confirmation links
   beside it with it (`fl_backend/app/api/bewerbungen/sweep_router.py :: sweep_saison`). The consent text scopes

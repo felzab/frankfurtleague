@@ -43,6 +43,7 @@ from app.api.teams.services import (
     KONTAKT_SITZ_OHNE_BESTAETIGUNG,
     KONTAKT_ZEILE_OHNE_SAISON,
     compose_kontakt_bestaetigung,
+    compose_kontakte_at_entry,
 )
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -221,6 +222,26 @@ async def resend(database: AsyncDatabase, seat: str, *, today: str = TODAY) -> A
         sperrliste=ban_list(database),
         db=database.client,
         today=today,
+    )
+
+
+async def replace(database: AsyncDatabase) -> Any:
+    """Another club takes this team's place in the season."""
+
+    return await replace_saison_team(
+        team_id=TEAM_OID,
+        saison_id=SAISON_ID,
+        replacement_data=FLReplaceSaisonTeamPayload(incoming_team_id=INCOMING_TEAM_OID),
+        teams_collection=database[Collection.TEAMS],
+        saison_teams_collection=database[Collection.SAISON_TEAMS],
+        saisons_collection=database[Collection.SAISONS],
+        spiele_collection=database[Collection.SPIELE],
+        saison_spieler_collection=database[Collection.SAISON_SPIELER],
+        bewerbungen_collection=database[Collection.BEWERBUNGEN],
+        aktionen_collection=database[Collection.AKTIONEN],
+        db=database.client,
+        today=TODAY,
+        germany_now=NOW,
     )
 
 
@@ -952,20 +973,7 @@ class TestARowsPeopleLeavingTakeTheirLinks:
     def test_a_replaced_club_s_links_open_nothing_on_the_incoming_club_s_row(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             response = await save(database, THREE)
-            await replace_saison_team(
-                team_id=TEAM_OID,
-                saison_id=SAISON_ID,
-                replacement_data=FLReplaceSaisonTeamPayload(incoming_team_id=INCOMING_TEAM_OID),
-                teams_collection=database[Collection.TEAMS],
-                saison_teams_collection=database[Collection.SAISON_TEAMS],
-                saisons_collection=database[Collection.SAISONS],
-                spiele_collection=database[Collection.SPIELE],
-                saison_spieler_collection=database[Collection.SAISON_SPIELER],
-                aktionen_collection=database[Collection.AKTIONEN],
-                db=database.client,
-                today=TODAY,
-                germany_now=NOW,
-            )
+            await replace(database)
 
             return [await refused(ansicht(database, mint.token)) for mint in response.bestaetigungen], await row_now(database)
 
@@ -1417,3 +1425,125 @@ class TestThePageASeasonRowsLinkOpens:
             return await ansicht(database, token)
 
         assert on_a_league(mongo_replica_set_url, body, kontakte=carried).laufende_fassung == BEWERBER_SEITE
+
+
+ACCEPTED_OID = ObjectId("6890a1b2c3d4e5f607a50041")
+
+
+def carried(vorname: str) -> dict[str, Any]:
+    """A seat its own person confirmed on the application, carried onto the row with who seated them."""
+
+    seat = stored(vorname, bestaetigt_am="2026-03-20")
+
+    return {**seat, "einwilligung": {**seat["einwilligung"], "eingetragen_von": "bewerbung"}}
+
+
+def accepted(kontakte: Mapping[str, Any]) -> dict[str, Any]:
+    """The application this team entered the season through, decided and kept for its retention."""
+
+    return documents.bewerbung_document(
+        ACCEPTED_OID,
+        SAISON_ID,
+        "angenommen",
+        kontakte=dict(kontakte),
+        eingereicht_am="2026-03-01",
+        team_id=TEAM_OID,
+        entscheidung={"getroffen_am": "2026-03-25", "von": ADMIN, "grund": None},
+    )
+
+
+async def the_application(database: AsyncDatabase) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """The accepted application and its log, oldest first."""
+
+    application = await database[Collection.BEWERBUNGEN].find_one({"_id": ACCEPTED_OID})
+    assert application is not None
+    log = database[Collection.AKTIONEN].find({"collection": str(Collection.BEWERBUNGEN), "document_id": ACCEPTED_OID}).sort("_id", 1)
+
+    return application, await log.to_list(length=None)
+
+
+class TestTheReplacementTakesThemOffTheApplication:
+    """The row's page promises its people deletion at once when another club takes the place, and the application seated them first."""
+
+    def test_people_the_editor_reseated_leave_the_application_with_the_row(self, mongo_replica_set_url: str):
+        """Keep the application as it was and this fails: the page Ida was shown promised her deletion, and her number stays."""
+
+        copied = {
+            "trainer": carried("Ida"),
+            "ansprechperson": carried("Jonas"),
+            "stellvertretung": carried("Klara"),
+            "trainer_ist_zugleich": None,
+        }
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
+            await database[Collection.BEWERBUNGEN].insert_one(accepted(copied))
+            # Ida and Klara swap seats, so each is seated afresh and Ida's link opens the row's page.
+            swapped = {
+                "trainer": person("Klara"),
+                "ansprechperson": person("Jonas"),
+                "stellvertretung": person("Ida"),
+                "trainer_ist_zugleich": None,
+            }
+            response = await save(database, swapped)
+            link = next(mint for mint in response.bestaetigungen if "stellvertretung" in mint.rollen)
+            view = await ansicht(database, link.token)
+            await replace(database)
+
+            return view, *await the_application(database)
+
+        view, application, log = on_a_league(mongo_replica_set_url, body, kontakte=copied)
+
+        assert view.laufende_fassung == SAISON_SEITE
+        assert [seat for seat in SEATS if application["kontakte"][seat] is not None] == []
+        assert log, "the clearing filed no image, so the log's assertion below proves nothing"
+        assert [vorname for vorname in ("ida", "jonas", "klara") if f"{vorname}@example.com" in str((application, log))] == []
+
+    def test_a_seat_a_pre_flow_application_carried_in_leaves_it_too(self, mongo_replica_set_url: str):
+        """Its seats entered the row unconfirmed and naming nobody as who seated them, so a re-send's link opens the row's page."""
+
+        applied = {
+            "trainer": documents.kontaktperson_document("Ida"),
+            "ansprechperson": documents.kontaktperson_document("Jonas"),
+            "stellvertretung": documents.kontaktperson_document("Klara"),
+            "trainer_ist_zugleich": None,
+        }
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
+            await database[Collection.BEWERBUNGEN].insert_one(accepted(applied))
+            view = await ansicht(database, (await resend(database, "trainer")).bestaetigung.token)
+            await replace(database)
+
+            return view, *await the_application(database)
+
+        view, application, log = on_a_league(mongo_replica_set_url, body, kontakte=compose_kontakte_at_entry(kontakte=applied))
+
+        assert view.laufende_fassung == SAISON_SEITE
+        assert [seat for seat in SEATS if application["kontakte"][seat] is not None] == []
+        assert log and "ida@example.com" not in str((application, log))
+
+    def test_a_seat_whose_address_the_editor_corrected_leaves_it_by_name(self, mongo_replica_set_url: str):
+        """Match the application on the address alone and this fails: it still spells Ida's address as the club first typed it."""
+
+        applied = {
+            "trainer": {**carried("Ida"), "email": "ida@exmaple.com"},
+            "ansprechperson": carried("Jonas"),
+            "stellvertretung": carried("Klara"),
+            "trainer_ist_zugleich": None,
+        }
+        # The row as the editor left it: Ida's address corrected, and Jonas handed his seat to Lea.
+        row = {"trainer": carried("Ida"), "ansprechperson": carried("Lea"), "stellvertretung": carried("Klara"), "trainer_ist_zugleich": None}
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
+            await database[Collection.BEWERBUNGEN].insert_one(accepted(applied))
+            await replace(database)
+
+            return await the_application(database)
+
+        application, log = on_a_league(mongo_replica_set_url, body, kontakte=row)
+
+        kontakte = application["kontakte"]
+        assert (kontakte["trainer"], kontakte["stellvertretung"]) == (None, None)
+        # Jonas left the row before the replacement, so he is nobody it takes out, there or in the log.
+        assert kontakte["ansprechperson"]["vorname"] == "Jonas"
+        assert [image["before"]["kontakte"]["ansprechperson"]["vorname"] for image in log] == ["Jonas"]
+        assert "ida@exmaple.com" not in str(log)

@@ -85,6 +85,19 @@ def build_matching_seats_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     ]
 
 
+def build_accepted_application_pipeline(*, saison_id: str, team_id: Any) -> list[Mapping[str, Any]]:
+    """The club's accepted application for a season, projected to what the clearing judges and `bestaetigungen`.
+
+    Every one, unbounded: a capped read would leave an application holding the outgoing people that
+    nothing reaches again.
+    """
+
+    return [
+        {"$match": {"saison_id": saison_id, "team_id": team_id, "status": "angenommen"}},
+        {"$project": {**{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in SEAT_FIELDS}, "bestaetigungen": 1}},
+    ]
+
+
 def build_seat_images_filter(identifier: str) -> Mapping[str, Any]:
     """Log rows whose images may seat this person; `seat_image_edits` decides.
 
@@ -179,6 +192,33 @@ def departing_names(rows: Iterable[Mapping[str, Any]], identifiers: Set[str]) ->
     return {document: frozenset(held) for document, held in names.items() if held}
 
 
+def departing_slots(row: Mapping[str, Any], identifiers: Iterable[str], names: Set[PersonName] = frozenset()) -> tuple[str, ...]:
+    """The slots these people hold in one row or log image, by address on the fold and by any name handed in."""
+
+    slots = {slot for identifier in identifiers for slot in find_matching_slots(row, identifier)}
+
+    # By name only inside a document the caller reached by id (`docs/backend/spec.md :: I672`), where
+    # one name is one person, so a corrected address takes its seat; the replacement hands in the
+    # outgoing row's names.
+    kontakte = row.get("kontakte")
+    if names and isinstance(kontakte, Mapping):
+        slots |= {slot for slot in KONTAKT_ROLLEN if seat_name(kontakte.get(slot)) in names}
+
+    return tuple(slot for slot in KONTAKT_ROLLEN if slot in slots)
+
+
+def seated_people(row: Mapping[str, Any]) -> tuple[frozenset[str], frozenset[PersonName]]:
+    """Every address a row seats, on the fold, and every name: who leaves with the row when another club takes its place."""
+
+    kontakte = row.get("kontakte")
+    seats = (
+        [seat for seat in (kontakte.get(slot) for slot in KONTAKT_ROLLEN) if isinstance(seat, Mapping)] if isinstance(kontakte, Mapping) else []
+    )
+    addresses = frozenset(sign_in_identifier(seat["email"]) for seat in seats if isinstance(seat.get("email"), str))
+
+    return addresses, frozenset(name for name in map(seat_name, seats) if name is not None)
+
+
 def seat_image_edits(
     image: Mapping[str, Any], identifiers: Iterable[str], *, links: bool, names: Set[PersonName] = frozenset()
 ) -> dict[str, None]:
@@ -188,16 +228,7 @@ def seat_image_edits(
     their consent trail.
     """
 
-    slots = {slot for identifier in identifiers for slot in find_matching_slots(image, identifier)}
-
-    # By name too where the caller reached the document by id: one address is one person, and inside
-    # one document so is one name, so a corrected address takes its earlier seat. `names` comes from
-    # that document's images (`departing_names`).
-    kontakte = image.get("kontakte")
-    if names and isinstance(kontakte, Mapping):
-        slots |= {slot for slot in KONTAKT_ROLLEN if seat_name(kontakte.get(slot)) in names}
-
-    return _emptied_seats(image, slots, links=links)
+    return _emptied_seats(image, set(departing_slots(image, identifiers, names)), links=links)
 
 
 def contact_block_image_edits(image: Mapping[str, Any]) -> dict[str, None]:

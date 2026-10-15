@@ -504,6 +504,35 @@ def test_the_clearing_names_the_bookkeeping_only_where_told_to_and_the_digest_al
     }
 
 
+CORRECTED_ROW_OID = ObjectId("6890a1b2c3d4e5f607817301")
+MISTYPED_EMAIL = "wiltrudis.quastenflosser@exmaple.com"
+
+
+@pytest.mark.db
+def test_a_seat_held_under_an_address_since_corrected_leaves_the_rows_images(mongo_replica_set_url: str):
+    """Match the reached row's images on the address alone and this fails: the mistyped one sits beside her name and number."""
+
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+        mistyped = a_block_holding({**person(ERASED_NACHNAME, ERASED_TELEFON), "email": MISTYPED_EMAIL})
+        await database[Collection.SAISON_TEAMS].insert_one(a_junction_row(CORRECTED_ROW_OID, LATER_SAISON, mistyped))
+        # The save correcting the address alone, which files the image holding the mistyped one.
+        await patch_one_in_db(
+            collection=database[Collection.SAISON_TEAMS],
+            db_filter={"_id": CORRECTED_ROW_OID},
+            update={"$set": {"kontakte.trainer.email": ERASED_EMAIL}},
+            return_document=ReturnDocument.BEFORE,
+        )
+        await call_erasure(database, client)
+
+        return await log_rows_naming(database, Collection.SAISON_TEAMS, CORRECTED_ROW_OID)
+
+    log = on_a_league(mongo_replica_set_url, body)
+
+    assert len(log) == 2, "the correction and the clearing each file one image"
+    assert all((row["before"]["kontakte"]["trainer"], row["redacted_at"]) == (None, REDACTED_AT) for row in log)
+    assert MISTYPED_EMAIL not in str(log)
+
+
 BLOCKLESS_BEWERBUNG_OID = ObjectId("6890a1b2c3d4e5f607817201")
 BLOCKLESS_TEAM_OID = ObjectId("6890a1b2c3d4e5f607817202")
 
