@@ -54,10 +54,18 @@ def build_ghost_schiedsrichter() -> dict[str, Any]:
 _NOT_THE_GHOST: Mapping[str, Any] = {"$ne": GHOST_SCHIEDSRICHTER_ID}
 
 
-def build_real_referees_filter() -> Mapping[str, Any]:
-    """Every referee a person stands behind, which is the whole collection but the ghost."""
+def build_real_referees_filter(terms: Mapping[str, Any] | None = None) -> Mapping[str, Any]:
+    """The referees `terms` match, the ghost never among them; with none, every referee a person stands behind.
 
-    return {"_id": dict(_NOT_THE_GHOST)}
+    Composed as `app/api/spieler/services.py :: build_real_spieler_filter` composes, for its reason.
+    """
+
+    composed = dict(terms or {})
+
+    if "_id" in composed:
+        return {"$and": [composed, {"_id": dict(_NOT_THE_GHOST)}]}
+
+    return {**composed, "_id": dict(_NOT_THE_GHOST)}
 
 
 def build_referee_filter(schiedsrichter_id: Any) -> Mapping[str, Any]:
