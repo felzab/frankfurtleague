@@ -8,6 +8,7 @@ import { pathToFileURL } from "node:url";
 import { createElement as h } from "react";
 
 import { einwilligungAnswer } from "@/core/einwilligungDocument.ts";
+import { UnreadGrantError } from "@/core/errors.ts";
 import { SIGN_IN_LANDING } from "@/core/signInLanding.ts";
 import { filesUnder } from "@/core/treeWalk.ts";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
@@ -26,7 +27,7 @@ import type { PageStep } from "@/shared/testing/pageHarness.ts";
 
 /* Nobody signed in, and each module called without the layouts above it: the router renders a page
    segment whatever a layout's guard decides, and a soft navigation renders no layout at all. */
-doubleActionRequest({ session: null });
+const { setRefusal } = doubleActionRequest({ session: null });
 
 // The consent registry's own answers, so a base-tier read beside a page's first admin read settles as it would.
 answerReadsWith((endpoint, schema, params) =>
@@ -97,6 +98,7 @@ async function visit(file: string, isPage: boolean): Promise<Visit> {
 const VISITS = new Map<string, Visit & { isPage: boolean }>();
 for (const page of PAGES) VISITS.set(label(page), { ...(await visit(page, true)), isPage: true });
 for (const segment of SEGMENTS) VISITS.set(label(segment), { ...(await visit(segment, false)), isPage: false });
+
 describe("every admin segment module called alone, for a session that is no administrator's", () => {
   it("crashes on none, and sends that session nowhere but the sign-in landing", () => {
     const crashed = [...VISITS].flatMap(([file, { thrown }]) =>
@@ -145,5 +147,38 @@ describe("every admin segment module called alone, for a session that is no admi
       answered,
       Object.keys(ANSWERED_BEFORE_ANY_READ).map((file) => ({ file, digests: [NOT_FOUND], reads: [] })),
     );
+  });
+});
+
+const UNREAD = "UnreadGrantError";
+
+/** A throw as the case compares it: Next's digest for a navigation, the class's name for the unread grant. */
+function answerOf(error: unknown): string {
+  if (error instanceof UnreadGrantError) return UNREAD;
+  const digest = (error as { digest?: unknown } | null)?.digest;
+  return typeof digest === "string" ? digest : error instanceof Error ? error.name : String(error);
+}
+
+describe("every admin segment module called alone, for a grant the backend left unread", () => {
+  /* One outage, one answer, the admin layout's guards and every page's read alike: thrown to the admin
+     boundary, whose retry keeps the administrator in place, where a sign-in meets the same unread grant. */
+  it("throws it to the admin boundary from the layout and every page but the excused, redirecting none", async () => {
+    setRefusal("unread");
+    const answers = new Map<string, string[]>();
+    for (const page of PAGES) answers.set(label(page), (await visit(page, true)).thrown.map(answerOf));
+    for (const segment of SEGMENTS) answers.set(label(segment), (await visit(segment, false)).thrown.map(answerOf));
+
+    const otherwise = [...answers].flatMap(([file, answered]) =>
+      answered
+        .filter((answer) => answer !== UNREAD && !(answer === NOT_FOUND && ANSWERED_BEFORE_ANY_READ[file] !== undefined))
+        .map((answer) => `${file} :: ${answer}`),
+    );
+    const unanswered = [...answers]
+      .filter(([file, answered]) => ANSWERED_BEFORE_ANY_READ[file] === undefined && !answered.includes(UNREAD))
+      .map(([file]) => file);
+
+    assert.deepEqual(otherwise, [], "these modules answered an unread grant otherwise");
+    assert.deepEqual(unanswered, [], "these modules rendered for an unread grant");
+    assert.ok(answers.get("layout.tsx")?.includes(UNREAD), "the admin layout was not visited, so its guard was not judged");
   });
 });
