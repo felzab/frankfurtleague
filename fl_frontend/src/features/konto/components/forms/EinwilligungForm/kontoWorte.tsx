@@ -7,7 +7,7 @@ import type { GekeyteFassung } from "@/core/einwilligungSeiten";
 import type { FLEinwilligungFassung } from "@/core/schemas";
 import type { FLKontaktRolle } from "@/features/bewerbungen/schemas";
 import type { Slots } from "@/shared/utils/stampedSlots";
-import type { EinwilligungWorte, PersonUmfang, SitzUmfang } from "./EinwilligungForm";
+import type { EinwilligungWorte, Gewaehrung, PersonUmfang, SitzUmfang } from "./EinwilligungForm";
 
 // Each list is its page's whole set, as `fl_frontend/src/core/einwilligungSeiten.ts` keeps the
 // confirmation pages': a served map missing a key or holding one more is refused, never rendered with a gap.
@@ -34,12 +34,19 @@ const absatz = (text: string, werte: Slots) => (
 /** The media floor a record's entry serves, which every paragraph naming it fills. */
 type MedienBoden = { readonly medien_mindestalter: number };
 
-/** A pupil's or a referee's control words from that kind's keyed wording, with the one reason its record takes a withdrawal alone. */
+/**
+ * A record's words, admitting a grant exactly where its label gives no reason for a withdrawal alone, so
+ * a withdraw-only record is never drawn without that reason.
+ */
+function gewaehrung<U extends PersonUmfang | SitzUmfang>(worte: EinwilligungWorte<U>, nurWiderruf: string | undefined): Gewaehrung<U> {
+  return nurWiderruf === undefined ? { erteilbar: true, worte: worte } : { erteilbar: false, worte: { ...worte, nurWiderruf: nurWiderruf } };
+}
+
+/** A pupil's or a referee's control words from that kind's keyed wording. */
 function personWorte(
   gekeyt: GekeyteFassung<"veroeffentlichung" | "medien" | "widerruf", (typeof UMFANG_SCHLUESSEL)[number]>,
   frage: string,
   eintrag: MedienBoden,
-  nurWiderruf: string | undefined,
 ): EinwilligungWorte<PersonUmfang> {
   const werte: Slots = { medienMinAlter: String(eintrag.medien_mindestalter) };
   const { absaetze } = gekeyt;
@@ -48,7 +55,6 @@ function personWorte(
     textVersion: gekeyt.textVersion,
     umfang: { frage: frage, optionen: gekeyt.bedienelemente, absatz: absatz(absaetze.veroeffentlichung, werte) },
     medien: { schalter: gekeyt.schalter, absatz: absatz(absaetze.medien, werte) },
-    ...(nurWiderruf === undefined ? {} : { nurWiderruf: nurWiderruf }),
     widerruf: absatz(absaetze.widerruf, werte),
   };
 }
@@ -58,19 +64,20 @@ export type SpielerGrund = "nichtAktiv" | "bisAufnahme";
 
 /**
  * The control's words for a pupil's record or pending registration, from the account page's running
- * wording for pupils. `frage` is the kind's own question, which the registry does not stamp.
+ * wording for pupils, withdraw-only where `grund` names why. `frage` is the kind's own question, which
+ * the registry does not stamp.
  */
 export function spielerWorte(
   fassung: FLEinwilligungFassung,
   frage: string,
   eintrag: MedienBoden,
   grund?: SpielerGrund,
-): EinwilligungWorte<PersonUmfang> {
+): Gewaehrung<PersonUmfang> {
   const gekeyt = gekeyteFassung(fassung, SPIELER_ABSATZ_SCHLUESSEL, UMFANG_SCHLUESSEL);
   const nurWiderruf =
     grund === undefined ? undefined : grund === "nichtAktiv" ? gekeyt.absaetze.nurWiderrufNichtAktiv : gekeyt.absaetze.nurWiderrufBisAufnahme;
 
-  return personWorte(gekeyt, frage, eintrag, nurWiderruf);
+  return gewaehrung(personWorte(gekeyt, frage, eintrag), nurWiderruf);
 }
 
 /** The control's words for a referee's record; a retired one's carries the reason it takes a withdrawal alone. */
@@ -79,10 +86,10 @@ export function schiedsrichterWorte(
   frage: string,
   eintrag: MedienBoden,
   nichtAktiv: boolean,
-): EinwilligungWorte<PersonUmfang> {
+): Gewaehrung<PersonUmfang> {
   const gekeyt = gekeyteFassung(fassung, SCHIEDSRICHTER_ABSATZ_SCHLUESSEL, UMFANG_SCHLUESSEL);
 
-  return personWorte(gekeyt, frage, eintrag, nichtAktiv ? gekeyt.absaetze.nurWiderrufNichtAktiv : undefined);
+  return gewaehrung(personWorte(gekeyt, frage, eintrag), nichtAktiv ? gekeyt.absaetze.nurWiderrufNichtAktiv : undefined);
 }
 
 /** Why a seat takes a withdrawal alone: a past season's or a withdrawn team's, or a pending application's. */
@@ -93,24 +100,26 @@ export function sitzWorte(
   fassung: FLEinwilligungFassung,
   sitz: MedienBoden & { readonly team_name: string; readonly saison_id: string },
   grund?: SitzGrund,
-): EinwilligungWorte<SitzUmfang> {
+): Gewaehrung<SitzUmfang> {
   const gekeyt = gekeyteFassung(fassung, SITZ_ABSATZ_SCHLUESSEL, SITZ_UMFANG_SCHLUESSEL);
   const werte: Slots = { medienMinAlter: String(sitz.medien_mindestalter), team: sitz.team_name, saison: sitz.saison_id };
   const nurWiderruf =
     grund === undefined ? undefined : grund === "vorbei" ? gekeyt.absaetze.nurWiderrufVorbei : gekeyt.absaetze.nurWiderrufBisZusage;
 
-  return {
-    textVersion: gekeyt.textVersion,
-    whatsapp: {
-      schalter: gekeyt.bedienelemente.kontaktdaten_whatsapp,
-      an: "kontaktdaten_whatsapp",
-      aus: "kontaktdaten",
-      absatz: absatz(gekeyt.absaetze.whatsapp, werte),
+  return gewaehrung(
+    {
+      textVersion: gekeyt.textVersion,
+      whatsapp: {
+        schalter: gekeyt.bedienelemente.kontaktdaten_whatsapp,
+        an: "kontaktdaten_whatsapp",
+        aus: "kontaktdaten",
+        absatz: absatz(gekeyt.absaetze.whatsapp, werte),
+      },
+      medien: { schalter: gekeyt.schalter, absatz: absatz(gekeyt.absaetze.medien, werte) },
+      widerruf: absatz(gekeyt.absaetze.widerruf, werte),
     },
-    medien: { schalter: gekeyt.schalter, absatz: absatz(gekeyt.absaetze.medien, werte) },
-    ...(nurWiderruf === undefined ? {} : { nurWiderruf: nurWiderruf }),
-    widerruf: absatz(gekeyt.absaetze.widerruf, werte),
-  };
+    nurWiderruf,
+  );
 }
 
 /** Filled by `Gefuellt` itself on every page, so no record has to carry it. */
