@@ -81,6 +81,12 @@ const wrapCollection = (name: string, collection: object): object =>
           return (value as Method).apply(target, args);
         };
       }
+      if (name === "user" && prop === "deleteOne") {
+        return async (...args: unknown[]) => {
+          await deletingUser();
+          return (value as Method).apply(target, args);
+        };
+      }
       return bound(target, value);
     },
   });
@@ -129,6 +135,9 @@ let atCommit: (session: HeldSession) => Promise<unknown> = async () => undefined
 
 /** What runs as an account's sign-in rows are deleted inside a deletion's transaction. */
 let deletingAccounts: () => Promise<unknown> = async () => undefined;
+
+/** What runs as a user row is deleted, by the library or by a deletion's transaction. */
+let deletingUser: () => Promise<unknown> = async () => undefined;
 
 const LOGGING_DOUBLE = {
   logger: {
@@ -242,6 +251,7 @@ beforeEach(async () => {
   consuming = async () => undefined;
   atCommit = async () => undefined;
   deletingAccounts = async () => undefined;
+  deletingUser = async () => undefined;
   await authDb().dropDatabase();
 
   // Production's indexes under every case, so the library is driven over what it meets there.
@@ -767,6 +777,29 @@ describe("an account deleted, against a real database", () => {
     assert.deepEqual([answer, erased], ["deleted", 1]);
     assert.deepEqual(await heldOf(person), { user: 0, sessions: 0, passkeys: 0, pending: 0 });
     assert.deepEqual(await heldOf(bystander), { user: 1, sessions: 1, passkeys: 1, pending: 5 });
+  });
+
+  /* The helper reaches the passkeys and the pending rows ahead of the library's user-row delete, because both
+     deletion paths find an account by that row: past a failure there, the row stands for them to find, and
+     nothing they could no longer reach is left (`docs/frontend/spec.md :: I675`). */
+  it("leaves the user row alone where the library's delete of it fails, its passkeys and pending rows gone", async () => {
+    const { runWithRequestScope } = await import("./requestScope.ts");
+    const person = await seedAccount("nutzerzeile-db@example.org");
+    deletingUser = () => Promise.reject(new Error("planted: the user row's delete fails"));
+
+    await assert.rejects(
+      runWithRequestScope(
+        {
+          traceId: `${"0".repeat(31)}5`,
+          spanId: `${"0".repeat(15)}5`,
+          actor: { email: "nutzerzeile-db@example.org", lane: "person", token: "doubled-person-token-not-a-credential" },
+        },
+        () => deleteOwnAccount(person.token, new Headers({ ...ORIGIN, cookie: person.cookie }), () => Promise.resolve({})),
+      ),
+      /planted: the user row's delete fails/,
+    );
+
+    assert.deepEqual(await heldOf(person), { user: 1, sessions: 0, passkeys: 0, pending: 0 });
   });
 
   it("deletes every row of an address in one transaction for the administrator's erasure and the sweep", async () => {
