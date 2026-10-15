@@ -38,7 +38,13 @@ from app.core.dependencies import (
 )
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
 from app.core.recording import log_stamp
-from app.core.security import PERSON_ACTOR_BINDERS, KontaktIdentifier, verify_access_admin
+from app.core.security import (
+    PERSON_ACTOR_BINDERS,
+    KontaktIdentifier,
+    StepUpCheck,
+    get_person_confirmation_check,
+    verify_access_admin,
+)
 from app.core.transactions import transaction_session
 
 # `kontakt` bound, as the account page's router binds it: a person erases themselves holding no
@@ -72,6 +78,7 @@ async def erase_selbst(
     einladungen_collection: EinladungenCollection,
     sperrliste_collection: SperrlisteCollection,
     sperrliste: SperrlisteLookup,
+    refuse_unconfirmed: Annotated[StepUpCheck, Depends(get_person_confirmation_check)],
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     germany_now: datetime = Depends(get_germany_now),
@@ -79,10 +86,11 @@ async def erase_selbst(
     """
     Erase every record the signed-in address holds, at once and as one write, and answer how many of each kind went.
 
-    PERSON TIER, refusing one person alone: the last live, unbarred `owner` of the administration, until another administrator
-    is made one (`REQ-PURGE-004`), since nobody else could ever make an owner again. No other precondition stands in front of
-    a person's own request, a pupil in a live squad and a referee booked on a fixture still to be played included. Nothing is
-    counted against the person's day.
+    PERSON TIER. The last live, unbarred `owner` of the administration is refused until another administrator is made one
+    (`REQ-PURGE-004`), since nobody else could ever make an owner again; a person holding a live grant erases it with the rest
+    from a passkey sign-in `ENROLMENT_WINDOW_MINUTES` old at most, as a revoke asks, else `REQ-AUTH-009`. No other
+    precondition stands in front of a person's own request, a pupil in a live squad and a referee booked on a fixture still
+    to be played included. Nothing is counted against the person's day.
 
     Removed: the pupil record and every squad row it holds, so the team reads one player fewer; the referee record, every
     fixture it was booked on moving to the one row that holds no person and keeping its own fee; every registration at the
@@ -100,8 +108,12 @@ async def erase_selbst(
     """
 
     async def erase_the_address(session: AsyncClientSession) -> FLErasureResponse:
-        # Before any write, and for an owner alone: no other erasure can leave the administration without one.
         grants = lebendige(await read_berechtigungen(berechtigungen_collection=berechtigungen_collection, session=session))
+        # A grant holder's grants go with the rest, so the erasure asks the passkey a revoke asks. A live
+        # row is its own fold, so equality is the fold's judgement (`docs/backend/spec.md :: I453`).
+        if any(grant["adresse"] == identifier for grant in grants):
+            refuse_unconfirmed()
+        # Before any write, and for an owner alone: no other erasure can leave the administration without one.
         if holds_an_owner_grant(identifier, grants):
             # Rereads this snapshot's rows and writes each, so two owners erasing themselves at once conflict, and
             # the one retried finds itself the last (`docs/backend/spec.md :: I438`).

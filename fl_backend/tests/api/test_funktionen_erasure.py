@@ -44,11 +44,11 @@ from app.core.db import NO_OWNER
 from app.core.exceptions import DocumentNotFoundException
 from app.core.logging import setup_custom_logger
 from app.core.recording import ERASED_ACTOR_MARKER, Actor, PersonActor, actor_var
-from app.core.security import akteur_pseudonym, loeschung_journal_hash
+from app.core.security import ACTOR_HEADER, akteur_pseudonym, loeschung_journal_hash
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID, GHOST_SPIELER_ID
 from app.core.transactions import transaction_session
 from app.main import create_app
-from tests.actor_tokens import SignedActor
+from tests.actor_tokens import ACTOR_TOKEN_CONTRACT, FRESH_STEP_UP_CHECK, SignedActor, actor_claims, sign
 from tests.app_client import app_client
 from tests.bans import ban_list
 from tests.config import ADMIN_KEY
@@ -458,9 +458,17 @@ def as_person(email: str) -> SignedActor:
     return SignedActor(email, ADMIN_KEY, lane="person")
 
 
-async def erased_over_http(url: str, *, email: str = TYPED) -> Any:
+def by_passkey(email: str) -> dict[str, str]:
+    """A person who confirmed with their passkey a second before the token, as the page's prompt leaves them: signed when called."""
+
+    claims = {**actor_claims(email, lane="person", signed_in_before_s=1), "amr": [ACTOR_TOKEN_CONTRACT["admin_factor"]]}
+
+    return {**ADMIN_KEY, ACTOR_HEADER: sign(claims)}
+
+
+async def erased_over_http(url: str, *, email: str = TYPED, headers: Mapping[str, str] | None = None) -> Any:
     async with app_client(url, app=_app(), now=NOW) as http:
-        return await http.post(PATH, headers=as_person(email))
+        return await http.post(PATH, headers=headers or as_person(email))
 
 
 def the_collections(database: AsyncDatabase, **replaced: Any) -> dict[str, Any]:
@@ -496,6 +504,8 @@ async def erased_by_the_handler(database: AsyncDatabase, client: AsyncMongoClien
         identifier=identifier,
         **the_collections(database, **replaced),
         sperrliste=ban_list(database),
+        # Refusing none: a grant holder's passkey is held over HTTP, in `TestTheGrantsLeftBehind` and the step-up suite.
+        refuse_unconfirmed=FRESH_STEP_UP_CHECK,
         db=client,
         config=CONFIG,
         germany_now=NOW,
@@ -790,7 +800,7 @@ class TestTheGrantsLeftBehind:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
 
-            return (await erased_over_http(mongo_replica_set_url)).json()["berechtigungen"]
+            return (await erased_over_http(mongo_replica_set_url, headers=by_passkey(TYPED))).json()["berechtigungen"]
 
         with caplog.at_level(logging.WARNING):
             removed = on_a_league(mongo_replica_set_url, body)
