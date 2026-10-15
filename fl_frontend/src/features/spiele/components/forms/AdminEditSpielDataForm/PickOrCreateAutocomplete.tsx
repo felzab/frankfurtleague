@@ -93,6 +93,9 @@ export function PickOrCreateAutocomplete<TItem extends { id: string; name: strin
         value={selectedId}
         isOpen={isOpen}
         onOpenChange={setIsOpen}
+        // Opens over a league holding none yet: react-stately opens no select over an empty list, and the
+        // empty state below is then the only way to the create.
+        allowsEmptyCollection
         onChange={(key: Key | null) => onSelect(key ? (options.find((item) => item.id === key) ?? null) : null)}>
         <FieldLabel<SpielFieldPath>
           path={fieldPath}

@@ -179,4 +179,12 @@ describe("a create dialog the match editor opens", () => {
 
     assert.deepEqual(await sent(), [], "the empty referee dialog's submit sent a write");
   });
+
+  /* react-stately opens no select over an empty list, which left a league with no venue no way to its first. */
+  it("opens over a league holding no venue and reaches the create dialog", async () => {
+    const user = userEvent.setup();
+    await renderEditor(user, { spielorte: [] });
+
+    await openVenueDialog(user, /Jetzt anlegen/);
+  });
 });
