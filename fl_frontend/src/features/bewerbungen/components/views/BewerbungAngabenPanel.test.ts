@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { GESPERRTE_ADRESSE } from "@/features/berechtigungen/constants.ts";
+import { ERASED_ACTOR_MARKER } from "@/core/erasedActor.ts";
+import { GELOESCHTE_PERSON, GESPERRTE_ADRESSE } from "@/features/berechtigungen/constants.ts";
 import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 import { assertLeerMarkup } from "@/shared/testing/leerGrade.ts";
 import { renderMarkup, textOf } from "@/shared/testing/renderTest";
@@ -238,6 +239,16 @@ describe("who the panel says decided", () => {
   it("names an administrator the ban list holds by that state", () => {
     assert.equal(entschieden(null, true), GESPERRTE_ADRESSE);
     assertLeerMarkup(markup({ entscheidung: { getroffen_am: "2026-09-10", von: null, von_gesperrt: true, grund: null } }), GESPERRTE_ADRESSE);
+  });
+
+  /* An erasure leaves a marker naming nobody in the decider's place: printed, it reads as an address, and
+     past the panel's own "System" arm it must reach the shared words. */
+  it("names an administrator erased since by that state, and never as barred", () => {
+    assert.equal(entschieden(ERASED_ACTOR_MARKER, false), GELOESCHTE_PERSON);
+    assertLeerMarkup(
+      markup({ entscheidung: { getroffen_am: "2026-09-10", von: ERASED_ACTOR_MARKER, von_gesperrt: false, grund: null } }),
+      GELOESCHTE_PERSON,
+    );
   });
 });
 

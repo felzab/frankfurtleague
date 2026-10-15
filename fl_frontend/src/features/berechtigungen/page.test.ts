@@ -3,7 +3,10 @@ import { beforeEach, describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
+import { ERASED_ACTOR_MARKER } from "@/core/erasedActor.ts";
+import { GELOESCHTE_PERSON } from "@/features/berechtigungen/constants.ts";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
+import { assertLeerMarkup } from "@/shared/testing/leerGrade.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { answer, answerReadsWith, EMPTIEST_ANSWER, renderPage } from "@/shared/testing/pageHarness.ts";
 import { refusalWrappers, renderTree, textOf } from "@/shared/testing/renderTest.ts";
@@ -138,6 +141,18 @@ describe("the page the administrators stand on", () => {
       2,
       "a withheld address keeps a name's ink",
     );
+  });
+
+  /* An erasure leaves a marker naming nobody in the granter's place, which the row's own paste check
+     must pass through to the shared words rather than print. */
+  it("names a grant's administrator erased since by that state, and never as barred", async () => {
+    zeilen = [INHABER, { ...VORSTAND, erteilt_von: ERASED_ACTOR_MARKER }];
+    const html = await renderPage(PAGE);
+    const text = textOf(html, " ");
+
+    assertLeerMarkup(html, GELOESCHTE_PERSON);
+    assert.ok(!text.includes(ERASED_ACTOR_MARKER), "the marker reached the page");
+    assert.ok(!text.includes("Gesperrte Adresse"), "an erased administrator reads as barred");
   });
 
   it("dates a grant by the Berlin day it was made on", async () => {

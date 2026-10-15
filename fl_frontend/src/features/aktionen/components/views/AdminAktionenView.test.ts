@@ -3,7 +3,8 @@ import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
-import { GESPERRTE_ADRESSE } from "@/features/berechtigungen/constants.ts";
+import { ERASED_ACTOR_MARKER } from "@/core/erasedActor.ts";
+import { GELOESCHTE_PERSON, GESPERRTE_ADRESSE } from "@/features/berechtigungen/constants.ts";
 import { assertLeerMarkup } from "@/shared/testing/leerGrade.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderMarkup, renderTree, textOf } from "@/shared/testing/renderTest.ts";
@@ -241,5 +242,24 @@ describe("who a row names", () => {
 
     assert.match(textOf(view({ aktionen: [gesperrt] })), new RegExp(GESPERRTE_ADRESSE));
     assertLeerMarkup(view({ aktionen: [gesperrt] }), GESPERRTE_ADRESSE);
+  });
+
+  /* An erasure redacts the actor of every row the person wrote to a marker naming nobody, an
+     administrator's address and a person's pseudonym alike: printed as served, either reads as somebody. */
+  it("names an administrator erased since by that state, and never as barred", () => {
+    const geloescht: AdminAktionRow = { ...ROW, actor: { kind: "admin_session", email: ERASED_ACTOR_MARKER, email_gesperrt: false } };
+    const html = view({ aktionen: [geloescht] });
+
+    assertLeerMarkup(html, GELOESCHTE_PERSON);
+    assert.ok(!textOf(html).includes(ERASED_ACTOR_MARKER), "the marker reached the page");
+    assert.ok(!textOf(html).includes(GESPERRTE_ADRESSE), "an erased administrator reads as barred");
+  });
+
+  it("names a person erased since by that state, keeping the kind they wrote as", () => {
+    const geloescht: AdminAktionRow = { ...ROW, actor: { kind: "person_session", pseudonym: ERASED_ACTOR_MARKER, funktion: "kontakt" } };
+    const html = view({ aktionen: [geloescht] });
+
+    assertLeerMarkup(html, `Kontakt · ${GELOESCHTE_PERSON}`);
+    assert.ok(!textOf(html).includes(ERASED_ACTOR_MARKER), "the marker reached the page");
   });
 });

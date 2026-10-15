@@ -1,3 +1,6 @@
+import { ERASED_ACTOR_MARKER } from "@/core/erasedActor";
+import { GELOESCHTE_PERSON } from "@/features/berechtigungen/constants";
+
 import { AKTION_COLLECTION_LABELS, AKTOR_FUNKTION_LABELS, AKTOR_HERKUNFT } from "./constants";
 
 import type { AktionHerkunft } from "./constants";
@@ -13,10 +16,13 @@ export function herkunftOfAktor(actor: FLAktor): AktionHerkunft {
 
 /**
  * How a signed-in person's row names them: the kind of person the write was made as and their pseudonym,
- * which the read serves already cut to the start a page may show (`fl_backend/app/api/aktionen/schemas.py :: FLAktorPerson`).
+ * served cut to the start a page may show (`fl_backend/app/api/aktionen/schemas.py :: FLAktorPerson`), or the
+ * admin cards' word for one erased since.
  */
 export function personAkteurLabel(actor: FLAktorPerson): string {
-  return `${AKTOR_FUNKTION_LABELS[actor.funktion]} · ${actor.pseudonym}`;
+  const wer = actor.pseudonym === ERASED_ACTOR_MARKER ? GELOESCHTE_PERSON : actor.pseudonym;
+
+  return `${AKTOR_FUNKTION_LABELS[actor.funktion]} · ${wer}`;
 }
 
 /** Falls back to the stored name, so a collection the backend adds lists as itself rather than as an empty cell. */
