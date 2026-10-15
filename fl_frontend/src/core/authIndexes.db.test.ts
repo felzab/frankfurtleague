@@ -13,7 +13,7 @@ import {
   registerAuthDoubles,
   signInByCode,
 } from "./authDoubles.ts";
-import { startJudgedReplicaSet } from "./expiredTransactions.ts";
+import { replicaSetUrl, startJudgedReplicaSet } from "./expiredTransactions.ts";
 import { overridingModule } from "./exportingModule.ts";
 import { assertionFor, CREDENTIAL_RAW_ID, registrationFor } from "./testAuthenticator.ts";
 
@@ -70,7 +70,7 @@ let requestHeaders: Headers | undefined;
 
 const { sent } = registerAuthDoubles({
   core: {
-    config: configDouble(GATE_BACKEND_CONFIG, { mongodbUri: () => `${mongod.getConnectionString()}/?directConnection=true` }),
+    config: configDouble(GATE_BACKEND_CONFIG, { mongodbUri: () => replicaSetUrl(mongod) }),
     db: DB_DOUBLE,
     logging: LOGGING_DOUBLE,
   },
@@ -100,7 +100,7 @@ beforeEach(async () => {
 
 // The server parameter is outside the Stable API the production client is held to, so it is set over a
 // client of the suite's own.
-const operator = new MongoClient(`${mongod.getConnectionString()}/?directConnection=true`);
+const operator = new MongoClient(replicaSetUrl(mongod));
 closing(() => operator.close());
 
 /** Runs `body` with table scans refused, recording each query the store could not serve from an index. */

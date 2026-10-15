@@ -18,7 +18,7 @@ import {
 } from "mongodb";
 
 import { ADMIN_EMAIL, configDouble, cookieHeader, ORIGIN, registerAuthDoubles, signInByCode } from "./authDoubles.ts";
-import { startJudgedReplicaSet } from "./expiredTransactions.ts";
+import { replicaSetUrl, startJudgedReplicaSet } from "./expiredTransactions.ts";
 import { overridingModule } from "./exportingModule.ts";
 
 import type { MongoClient } from "mongodb";
@@ -426,7 +426,7 @@ async function codeStillSignsIn(otp: string): Promise<boolean> {
  */
 async function transactionsHeld(): Promise<unknown[]> {
   // IPv4: the mapped port answers there, and `localhost` tried as IPv6 first stalls every connect.
-  const probe = new StoreProbe(`${mongod.getConnectionString()}/?directConnection=true`, { family: 4 });
+  const probe = new StoreProbe(replicaSetUrl(mongod), { family: 4 });
   try {
     return await probe
       .db("admin")

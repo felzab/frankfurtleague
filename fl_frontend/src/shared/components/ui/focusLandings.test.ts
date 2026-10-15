@@ -1261,7 +1261,9 @@ describe("where the focus lands once a write takes its control off the page", ()
     it(name, async () => {
       const user = userEvent.setup();
       answerWith(() => Promise.resolve(landing.answers?.[calls.at(-1)?.action ?? ""] ?? { success: true, message: "Gespeichert." }));
-      const page = (tree: ReactNode, search = landing.search ?? "saison_id=2026") => underNext(tree, { search });
+      // The path jsdom stands at, which a filter's URL write keeps as the router's pathname does: a landing
+      // stands down once the page's path changes under it.
+      const page = (tree: ReactNode, search = landing.search ?? "saison_id=2026") => underNext(tree, { search, pathname: "/" });
       const view = renderUnderWrite(page(landing.before()));
 
       await landing.press(user);

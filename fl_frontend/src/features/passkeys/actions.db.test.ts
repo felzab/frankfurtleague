@@ -15,7 +15,7 @@ import {
   registerAuthDoubles,
   signInByCode,
 } from "@/core/authDoubles.ts";
-import { startJudgedReplicaSet } from "@/core/expiredTransactions.ts";
+import { replicaSetUrl, startJudgedReplicaSet } from "@/core/expiredTransactions.ts";
 import { overridingModule } from "@/core/exportingModule.ts";
 import { NEXT_CACHE_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 
@@ -23,7 +23,7 @@ import { NEXT_CACHE_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 const { mongod, closing } = await startJudgedReplicaSet();
 
 // The set advertises its container-internal address, which topology discovery would follow and find nothing.
-const MONGO_URL = `${mongod.getConnectionString()}/?directConnection=true`;
+const MONGO_URL = replicaSetUrl(mongod);
 
 // A second URL for the production module, which the load hook's match on a path's end lets past the
 // double: the client under test is the one `fl_frontend/src/core/db.ts` builds, Stable API included.

@@ -2,7 +2,6 @@
 
 import { useTransition } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 
 import { Button } from "@heroui/react/button";
 
@@ -15,30 +14,24 @@ import { StatusPanel } from "./StatusPanel";
 
 export function Error({
   error,
-  reset,
+  retry,
   // The root boundary sits above every layout, so what failed there can be the chrome itself and it
   // renders none of it. A boundary under a shell passes `shell`
   // (`fl_frontend/src/app/(public)/error.tsx`).
   fills = "document",
 }: {
   error: Error & { digest?: string };
-  reset: () => void;
+  retry: () => void;
   fills?: "document" | "shell";
 }) {
-  const router = useRouter();
   const [isRetrying, startRetrying] = useTransition();
 
   useReportClientCrash(error);
 
-  /**
-   * `reset()` alone replays the router's cached payload of a server-side failure. `router.refresh()` first makes the
-   * retry a real attempt, and Next answers a refresh meeting another build with a whole new document.
-   */
+  // Next answers `retry`'s refresh meeting another build with a whole new document, so a deploy
+  // between the crash and the press heals here too.
   const handleRetry = () => {
-    startRetrying(() => {
-      router.refresh();
-      reset();
-    });
+    startRetrying(retry);
   };
 
   return (

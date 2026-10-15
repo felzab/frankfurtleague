@@ -549,23 +549,18 @@ it red; the repair re-aims it at the shared component and keeps asserting what i
 because a case is cut only where a surviving one still fails for the same regression
 (`.claude/CLAUDE.md` §3).
 
-**Two smaller duplications sit on pages the redesign reaches, each shaped and none built:**
-
-- **The confirmation pages' scope picker and answer handling.** The pupil's page and the referee's,
-  `fl_frontend/src/features/registrierungen/components/views/SpielerBestaetigungView.tsx` and
-  `fl_frontend/src/features/schiedsrichter/components/views/SchiedsrichterBestaetigungView.tsx`,
-  share 113 lines over ten spans — the `ToggleButtonGroup` over the stamped `umfang` options, and
-  the arms for an unclear answer, a dead link and a refused submission — and each shares 53 or 60
-  more with the contact seat's page, `fl_frontend/src/features/bewerbungen/components/views/BestaetigungView.tsx`.
-  The shape is one picker taking its options, its value and its setter, and one answer handler.
-  **The options are passed, never derived**: `umfang` holds different values on a pupil and on a
-  contact seat, so a picker reading one model's vocabulary is wrong on the other with no type
-  refusing it (`docs/glossary.md :: Einwilligung`). None was built because each page's copy and
-  payload differ, and the three are read side by side before one shape is chosen.
-- **The error boundaries' retry.** `fl_frontend/src/shared/components/ui/Error.tsx` and
-  `fl_frontend/src/features/dashboard/components/ui/DashboardErrorBoundary.tsx` wire the same
-  refresh-then-reset retry, and the argument for it is written at `Error.tsx` alone. The shape is
-  one hook.
+**A smaller duplication sits on pages the redesign reaches, shaped and not built: the confirmation
+pages' scope picker and answer handling.** The pupil's page and the referee's,
+`fl_frontend/src/features/registrierungen/components/views/SpielerBestaetigungView.tsx` and
+`fl_frontend/src/features/schiedsrichter/components/views/SchiedsrichterBestaetigungView.tsx`, share
+113 lines over ten spans — the `ToggleButtonGroup` over the stamped `umfang` options, and the arms
+for an unclear answer, a dead link and a refused submission — and each shares 53 or 60 more with the
+contact seat's page, `fl_frontend/src/features/bewerbungen/components/views/BestaetigungView.tsx`.
+The shape is one picker taking its options, its value and its setter, and one answer handler. **The
+options are passed, never derived**: `umfang` holds different values on a pupil and on a contact
+seat, so a picker reading one model's vocabulary is wrong on the other with no type refusing it
+(`docs/glossary.md :: Einwilligung`). None was built because each page's copy and payload differ,
+and the three are read side by side before one shape is chosen.
 
 **A test double is copied, and this pass takes it as the frontend's cleanup rather than a page's:**
 
