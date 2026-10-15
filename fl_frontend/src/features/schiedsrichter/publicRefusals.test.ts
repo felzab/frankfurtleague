@@ -19,6 +19,7 @@ const { describeLinkMail } = await import("./notifications.ts");
 const { mapSchiedsrichterAnsichtRefusal, mapSchiedsrichterBestaetigungRefusal } = await import("./queries.ts");
 const { FELD_ABGELEHNT } = await import("@/shared/utils/actionError.ts");
 const { ANTWORT_NEU_OEFFNEN } = await import("@/shared/utils/reopenLink.ts");
+const { MEDIEN_NOCH_NICHT } = await import("@/features/bewerbungen/utils.ts");
 const { bodyField, refusedPayload } = await import("@/shared/testing/refusedPayload.ts");
 const { refusedOn, unpublishedOn } = await import("@/shared/testing/publishedRefusals.ts");
 
@@ -29,7 +30,10 @@ const MINDESTALTER = 16;
 const BESTAETIGUNG_OPERATION = "POST /schiedsrichter/bestaetigung";
 const ANSICHT_OPERATION = "POST /schiedsrichter/bestaetigung/ansicht";
 
-const floor = () => Promise.resolve(MINDESTALTER);
+/** A media floor no link is served today, so a sentence naming it took the floor the read answered. */
+const MEDIEN_MINDESTALTER = 21;
+
+const floor = () => Promise.resolve({ mindestalter: MINDESTALTER, medien_mindestalter: MEDIEN_MINDESTALTER });
 const noFloor = () => Promise.resolve(null);
 
 describe("what one refused confirmation asks the referee's page to show", () => {
@@ -50,7 +54,7 @@ describe("what one refused confirmation asks the referee's page to show", () => 
       let gelesen = 0;
       await mapSchiedsrichterBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, code), () => {
         gelesen += 1;
-        return Promise.resolve(MINDESTALTER);
+        return floor();
       });
 
       assert.equal(gelesen, 0);
@@ -85,16 +89,24 @@ describe("what one refused confirmation asks the referee's page to show", () => 
 
   /* The page strips its token from the address bar, so a reload lands a live link on the panel
      calling it void; only the mail's link reopens it. */
-  it("sends the referee back to the mail's link where the body, or a media yes only an older page offers, was refused", async () => {
+  it("sends the referee back to the mail's link where the body was refused", async () => {
     assert.deepEqual(await mapSchiedsrichterBestaetigungRefusal(refusedPayload([], "/schiedsrichter/bestaetigung"), floor), {
-      error: ANTWORT_NEU_OEFFNEN,
-    });
-    assert.deepEqual(await mapSchiedsrichterBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, "REQ-SCHIEDSRICHTER-008"), floor), {
       error: ANTWORT_NEU_OEFFNEN,
     });
     // A body the API could not read at all: the same drifted page, and a retry sends the same bytes.
     assert.deepEqual(await mapSchiedsrichterBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, "REQ-VAL-002"), floor), {
       error: ANTWORT_NEU_OEFFNEN,
+    });
+  });
+
+  /* The page offers the media switch from the served age on the browser's German day, so a clock
+     disagreeing with the backend's sends a yes below it, which a reopened link would offer again. */
+  it("answers a media yes below the age at the floor the link answered, switching it off, and naming none unread", async () => {
+    assert.deepEqual(await mapSchiedsrichterBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, "REQ-SCHIEDSRICHTER-008"), floor), {
+      error: "Fotos, Videos und Interviews kannst Du erst ab 21 Jahren erlauben. Schalte die Erlaubnis aus und bestätige erneut.",
+    });
+    assert.deepEqual(await mapSchiedsrichterBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, "REQ-SCHIEDSRICHTER-008"), noFloor), {
+      error: MEDIEN_NOCH_NICHT,
     });
   });
 

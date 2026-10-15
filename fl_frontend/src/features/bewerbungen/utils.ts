@@ -199,12 +199,19 @@ export function mapBewerbungSubmitRefusal(
   }
 }
 
-// The switch rather than the date is the repair: the page offers it from the served age, so only a
-// browser clock disagreeing with the backend's day shows it below that age, and switching it off repairs that.
+// The switch rather than the date is the repair: each confirmation page offers it from the served age
+// on the browser's German day, so only a clock disagreeing with the backend's shows it below that age.
 const MEDIEN_AUSSCHALTEN = "Schalte die Erlaubnis aus und bestätige erneut.";
 
-/** The contact page's media refusal where the link's view serves no floor to name. */
+/** A confirmation page's media refusal where the link's view serves no floor to name. */
 export const MEDIEN_NOCH_NICHT = `Fotos, Videos und Interviews kannst Du mit diesem Geburtsdatum noch nicht erlauben. ${MEDIEN_AUSSCHALTEN}`;
+
+/** Every confirmation page's media refusal, at the floor its link's view serves, or naming none where it went unread. */
+export const medienNochNicht = (medienMindestalter: number | null): string =>
+  medienMindestalter === null ? MEDIEN_NOCH_NICHT : `${medienZuJung(medienMindestalter)} ${MEDIEN_AUSSCHALTEN}`;
+
+/** The contact page's age refusal where the link's view serves no floor to name: both bounds, as `alterAusserhalb` names them. */
+export const GEBURTSDATUM_AUSSERHALB = "Mit diesem Geburtsdatum bist Du für Deine Bestätigung zu jung oder zu alt. Prüfe das Geburtsdatum.";
 
 /** What one refused confirmation asks its caller to do. `nachlesen` is answered by a read, never by this mapper. */
 export type EinwilligungRefusal = {
@@ -221,7 +228,11 @@ export type EinwilligungRefusal = {
  * `mindestalter` comes from the token's own view: a number of this mapper's own would be wrong for
  * two of the three seats.
  */
-export function mapEinwilligungRefusal(error: unknown, mindestalter: number, medienMindestalter: number | null): EinwilligungRefusal | null {
+export function mapEinwilligungRefusal(
+  error: unknown,
+  mindestalter: number | null,
+  medienMindestalter: number | null,
+): EinwilligungRefusal | null {
   if (!isRefusal(error)) return null;
 
   switch (error.serverErrorCode) {
@@ -253,13 +264,13 @@ export function mapEinwilligungRefusal(error: unknown, mindestalter: number, med
     case "REQ-BEWERBUNG-011":
       return { nachlesen: true };
     // The one refusal that spends no token, so it lands on the field and the typed date survives it;
-    // a `zustand` here would swap a live form for a dead-link panel.
+    // a `zustand` here would swap a live form for a dead-link panel. A view that went unread names no floor.
     case "REQ-BEWERBUNG-012":
-      return { fieldErrors: { geburtsdatum: alterAusserhalb(mindestalter) } };
+      return { fieldErrors: { geburtsdatum: mindestalter === null ? GEBURTSDATUM_AUSSERHALB : alterAusserhalb(mindestalter) } };
     // Spends nothing either, and the typed date survives it; a toast, the switch rendering no error of its own.
     // The floor is the view's as `mindestalter` is, so a view that went unread names none.
     case "REQ-EINWILLIGUNG-002":
-      return { error: medienMindestalter === null ? MEDIEN_NOCH_NICHT : `${medienZuJung(medienMindestalter)} ${MEDIEN_AUSSCHALTEN}` };
+      return { error: medienNochNicht(medienMindestalter) };
     // The panel the view opens a barred link on, so a ban entered while the form stood open leaves no
     // form either: the page offers no Widerspruch to a barred address (`docs/frontend/spec.md :: I516`).
     case "REQ-BEWERBUNG-020":

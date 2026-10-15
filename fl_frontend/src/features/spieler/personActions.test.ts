@@ -185,7 +185,7 @@ describe("a pupil's own consent write", () => {
     setSubject(person({ spieler: [{ spieler_id: KEY.spieler_id }] }));
     calls.length = 0;
 
-    for (const boden of [0, 17.5]) assert.equal((await patchSpielerEinwilligungAction(boden, WAHL)).success, false);
+    for (const boden of [0, -1, 17.5]) assert.equal((await patchSpielerEinwilligungAction(boden, WAHL)).success, false);
     assert.deepEqual(calls, [], "a malformed floor reached the backend");
   });
 });
