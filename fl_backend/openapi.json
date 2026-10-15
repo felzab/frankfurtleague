@@ -14215,38 +14215,47 @@
           },
           "spieler": {
             "type": "integer",
+            "minimum": 0.0,
             "title": "Spieler"
           },
           "saison_spieler": {
             "type": "integer",
+            "minimum": 0.0,
             "title": "Saison Spieler"
           },
           "schiedsrichter": {
             "type": "integer",
+            "minimum": 0.0,
             "title": "Schiedsrichter"
           },
           "spiele": {
             "type": "integer",
+            "minimum": 0.0,
             "title": "Spiele"
           },
           "kontakt_sitze": {
             "type": "integer",
+            "minimum": 0.0,
             "title": "Kontakt Sitze"
           },
           "registrierungen": {
             "type": "integer",
+            "minimum": 0.0,
             "title": "Registrierungen"
           },
           "adresswechsel": {
             "type": "integer",
+            "minimum": 0.0,
             "title": "Adresswechsel"
           },
           "berechtigungen": {
             "type": "integer",
+            "minimum": 0.0,
             "title": "Berechtigungen"
           },
           "drosselung": {
             "type": "integer",
+            "minimum": 0.0,
             "title": "Drosselung"
           }
         },
@@ -21113,6 +21122,7 @@
           },
           "adresswechsel": {
             "type": "integer",
+            "minimum": 0.0,
             "title": "Adresswechsel"
           },
           "verwaltung": {

@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, StringConstraints
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from app.api.berechtigungen.schemas import FLUtcInstant, FLVerwaltung
 
@@ -139,19 +139,19 @@ class FLErasure(BaseModel):
     Records alone: an emptied log row is no record of the person's, and two passes may reach one.
     """
 
-    spieler: int
-    saison_spieler: int
-    schiedsrichter: int
+    spieler: int = Field(ge=0)
+    saison_spieler: int = Field(ge=0)
+    schiedsrichter: int = Field(ge=0)
     # The fixtures moved onto the ghost, which stay as the league's record of the match.
-    spiele: int
+    spiele: int = Field(ge=0)
     # Per seat, as `app/api/kontakte/schemas.py :: FLKontaktErasureResponse` counts them: one row seats one person twice.
-    kontakt_sitze: int
-    registrierungen: int
+    kontakt_sitze: int = Field(ge=0)
+    registrierungen: int = Field(ge=0)
     # Another referee's or pupil's pending address change, removed alone: that row is the old address's person's.
-    adresswechsel: int
+    adresswechsel: int = Field(ge=0)
     # The person's own grants, a dead spelling of their address among them.
-    berechtigungen: int
-    drosselung: int
+    berechtigungen: int = Field(ge=0)
+    drosselung: int = Field(ge=0)
 
 
 class FLErasureResponse(FLErasure, BaseAPIResponse):
@@ -206,7 +206,7 @@ class FLSelbstErasureAnsicht(BaseModel):
     bewerbungen: list[FLSelbstErasureBewerbung]
     registrierungen: list[FLSelbstErasureRegistrierung]
     # A count and no name: each is a pending change on another address's referee or pupil row.
-    adresswechsel: int
+    adresswechsel: int = Field(ge=0)
 
 
 class FLSelbstErasureAnsichtResponse(FLSelbstErasureAnsicht, BaseAPIResponse):
