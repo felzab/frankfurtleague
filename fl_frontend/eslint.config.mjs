@@ -901,8 +901,9 @@ const readsOff = (name) =>
   ].join(", ");
 
 /**
- * A search query in a URL (`docs/frontend/spec.md :: I680`), by the name `q` alone: one under another
- * name passes. Another host's `?q=` is refused on purpose; `has` and `delete` stay free to strip an old one.
+ * A search query in a URL (`docs/frontend/spec.md :: I680`) by the name `q`; one under another name is
+ * the page sweep's to catch. Another host's `?q=` is refused on purpose; `has` and `delete` stay free to
+ * strip an old one.
  */
 const SEARCH_IN_URL = {
   selector: [
@@ -931,7 +932,10 @@ const SEARCH_BAR_HOME = {
   exempt: ["src/shared/components/ui/AdminCrudSearch.tsx", "src/features/spiele/components/views/SpielsucheView.tsx"],
 };
 
-/** The other three spellings of a search box; a plain input or a text field used as one passes. */
+/**
+ * The other three spellings of a search box. A plain input or a text field used as one passes here,
+ * and `fl_frontend/src/app/typedText.test.ts` fails it once its text reaches a URL.
+ */
 const SEARCH_FIELD_HOME = {
   selector: [
     `:matches(ImportDeclaration, ExportNamedDeclaration, ExportAllDeclaration)[source.value=/${packageUnder("@heroui/react/search-field")}/]`,
