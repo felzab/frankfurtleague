@@ -755,8 +755,9 @@ page.
 
 **A referee whose row was dropped has nothing left to erase, and their fixtures hold no name**:
 [section 12](#12-deleting-this-seasons-player-records-and-resetting-the-action-log)'s drop empties it
-as it repoints them at the ghost, which refuses an erasure itself (`REQ-ANONYMISE-004`), and redacts
-the log's images of them as an erasure does. Where the
+as it repoints them at the ghost, which refuses an erasure itself (`REQ-ANONYMISE-004`), and empties
+the log's images of them, a fixture's image whole where an erasure repoints its booking alone
+(`docs/backend/spec.md :: I212`, `:: I213`). Where the
 person has registered again since, erase the new row under „Daten löschen“ in that referee's own
 editor.
 
@@ -890,9 +891,9 @@ dashboard rather than here.
 log.** Every recorded write appends a row carrying the actor, the route, the collection, the
 operation and the image of what the write replaced or removed
 ([`../glossary.md`](../glossary.md#aktion--one-recorded-write-and-what-it-replaced-or-removed)), read
-at `/bereich/admin/aktionen`. A row whose values an erasure destroyed is emptied in place and stamped
-(`docs/backend/spec.md :: I42`), so what survives an erasure is that the write happened and not what
-it held.
+at `/bereich/admin/aktionen`. An erasure overwrites the values it destroys inside each image and
+stamps the row (`docs/backend/spec.md :: I42`, `:: I671`), so what survives it is that the write
+happened and what it held of anybody else.
 
 **Then, in this order:** contain it; establish which people and which categories are affected, from
 the two records above; report inside the 72 hours with what is established and what is not — a report
@@ -1228,12 +1229,13 @@ decide whether the one pasted is right:
 - **Afterwards no fixture names an id with no referee row behind it, no fixture booked to the ghost
   holds a name, and exactly one ghost stands.** Read one of those fixtures on the site; its referee
   reads „anonym“.
-- **The log's images of them go too, as an erasure's do.** Every `aktionen` row holding a dropped
+- **The log's images of them go too, more of each than an erasure takes.** Every `aktionen` row holding a dropped
   referee's image, their own rows' and the `spiele` rows' naming them, takes
   `fl_backend/app/core/recording.py :: build_redaction_update` under one stamp, found by
   `fl_backend/app/core/recording.py :: build_redaction_filter` and
   `fl_backend/app/api/schiedsrichter/services.py :: build_booked_image_filter`; otherwise the log
-  keeps their contact fields for its twelve months.
+  keeps their contact fields for its twelve months. An erasure instead repoints a `spiele` image's
+  booking and keeps the match's earlier states (`:: booked_image_edits`).
 
 A fixture still to be played at that moment sits on the ghost and surfaces as a retired booking
 until a referee is assigned
@@ -1281,8 +1283,8 @@ does not look erased, and each role's guard reads something the restore took awa
   and for an administrator their grant's revoke below, the account sweep deletes each within the
   hour, a barred address's apart (section 5).
 
-**The log's redactions came back as well**, so re-running each erasure is also what re-empties the
-images it had stamped ([`../backend/spec.md`](../backend/spec.md#2-invariants) I42, I212).
+**The log's redactions came back as well**, so re-running each erasure is also what redoes the
+redactions it had stamped ([`../backend/spec.md`](../backend/spec.md#2-invariants) I42, I671, I212).
 
 **Then re-run every grant and ban change made inside the window**, which the restore undid as it
 undid the erasures, and which nothing re-runs:

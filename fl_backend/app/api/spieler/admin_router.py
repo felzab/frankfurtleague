@@ -230,7 +230,7 @@ async def erase_spieler(
     Erase a player: the person, their squad rows, and their values in the log.
 
     HARD and refused until retirement (`REQ-PURGE-001`); the soft `DELETE` stays.
-    No log row is dropped: images are emptied in place and stamped (`docs/backend/spec.md :: I42`).
+    No log row is dropped: images are emptied in place and stamped (`docs/backend/spec.md :: I671`).
     """
 
     async def erase_the_person_and_their_record(session: AsyncClientSession) -> FLSpielerErasureResponse:

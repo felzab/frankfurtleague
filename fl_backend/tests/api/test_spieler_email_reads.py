@@ -25,6 +25,7 @@ from app.core.collections import Collection
 from app.core.drosselung import get_drossel
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from tests import documents
+from tests.actor_tokens import FRESH_STEP_UP_CHECK
 from tests.bans import ban_list
 from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
@@ -216,6 +217,7 @@ async def the_erasure_preview(database: AsyncDatabase, client: AsyncMongoClient,
         spieler_collection=database[Collection.SPIELER],
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
         berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
+        sperrliste=ban_list(database),
         db=client,
         config=build_test_config(),
     )
@@ -244,6 +246,7 @@ async def the_erasure(database: AsyncDatabase, client: AsyncMongoClient, registr
             )
         },
         sperrliste=ban_list(database),
+        refuse_unconfirmed=FRESH_STEP_UP_CHECK,
         db=client,
         config=build_test_config(),
         germany_now=NOW,

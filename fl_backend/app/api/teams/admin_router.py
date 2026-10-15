@@ -20,7 +20,8 @@ from app.api.einladungen.services import (
     find_team_in_saison_refusal,
 )
 from app.api.einwilligung.services import find_fassung_refusal
-from app.api.kontakte.services import contact_block_image_edits
+from app.api.kontakte.crud import clear_seats, redact_seats_in_documents
+from app.api.kontakte.services import SEAT_FIELDS, build_accepted_application_pipeline, contact_block_image_edits, seated_people
 from app.api.registrierungen.services import saison_nimmt_registrierungen_an
 from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.saisons.crud import pull_saison_id_and_rules
@@ -98,6 +99,7 @@ from app.core.crud import (
 )
 from app.core.dependencies import (
     AktionenCollection,
+    BewerbungenCollection,
     DBClient,
     EinladungenCollection,
     SaisonsCollection,
@@ -743,6 +745,7 @@ async def replace_saison_team(
     saisons_collection: SaisonsCollection,
     spiele_collection: SpieleCollection,
     saison_spieler_collection: SaisonSpielerCollection,
+    bewerbungen_collection: BewerbungenCollection,
     aktionen_collection: AktionenCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
@@ -765,12 +768,22 @@ async def replace_saison_team(
     async def hand_the_row_over(session: AsyncClientSession) -> FLReplaceSaisonTeamResponse:
         """The whole replacement: judge, rewrite the fixtures, then the row. Everything it decides on is read in-session."""
 
-        # For the 404 alone, and deliberately NOT a read of the club it names: a replacement repairs
-        # a row whose `team_id` resolves to no `teams` document, so nothing here may require one.
-        await pull_one_from_db(
+        # For the 404 and the people leaving with the row, and deliberately NOT a read of the club it
+        # names: a replacement repairs a row whose `team_id` resolves to no `teams` document, so nothing
+        # here may require one.
+        outgoing_raw = await pull_one_from_db(
             collection=saison_teams_collection,
             db_filter={"saison_id": saison_id, "team_id": team_id},
-            projection=["_id"],
+            projection=[f"kontakte.{slot}.{field}" for slot in KONTAKT_ROLLEN for field in SEAT_FIELDS],
+            session=session,
+        )
+        outgoing, outgoing_names = seated_people(outgoing_raw)
+
+        # The club's accepted application seated them first, and the row's page promises them deletion
+        # at once (`app/shared/einwilligung.py :: _BESTAETIGUNGSSEITE_SAISON`), so their seats there go too.
+        applications = await aggregate_many_from_db(
+            collection=bewerbungen_collection,
+            pipeline=build_accepted_application_pipeline(saison_id=saison_id, team_id=team_id),
             session=session,
         )
 
@@ -830,7 +843,7 @@ async def replace_saison_team(
             db_filter={"saison_id": saison_id, "team_id": team_id},
             # `austritt` cleared: left standing it marks the INCOMING club withdrawn to
             # `REQ-SWAP-006` and `_may_hold_a_platz`; the exit survives in the logged pre-image. The
-            # colour, the contacts and their links leave with the OUTGOING school (`docs/backend/spec.md :: I50`).
+            # colour, the contacts and their links leave with the OUTGOING school (`docs/backend/spec.md :: I137`, `:: I567`).
             update={"$set": {**incoming_side, "austritt": None, "trikot_farbe": None, "kontakte": None, "bestaetigungen": None}},
             session=session,
             return_document=ReturnDocument.AFTER,
@@ -844,6 +857,20 @@ async def replace_saison_team(
             judge=contact_block_image_edits,
             stamp=log_stamp(germany_now),
             session=session,
+        )
+
+        # By address and by name, the application being reached by document
+        # (`docs/backend/spec.md :: I673`): it spells an address the editor corrected on the row the old
+        # way. Its other people keep their seats.
+        await clear_seats(bewerbungen_collection, applications, outgoing, session, names=outgoing_names)
+        await redact_seats_in_documents(
+            aktionen_collection=aktionen_collection,
+            documents=[(Collection.BEWERBUNGEN, [application["_id"] for application in applications])],
+            identifiers=outgoing,
+            links=True,
+            stamp=log_stamp(germany_now),
+            session=session,
+            names=outgoing_names,
         )
 
         # Ausgetragen, not moved: the players did not transfer, and a row left standing would name a

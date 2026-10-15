@@ -102,7 +102,7 @@ async def _grant_and_its_record(
 async def verwaltung_of(*, berechtigungen_collection: AsyncCollection, adresse: str) -> tuple[FLVerwaltung, datetime, datetime | None] | None:
     """The tier this address holds, and when the grant and the tier took effect, or `None`.
 
-    No dead-row check: its one caller folds an address the address rule admitted, and a row equal to
+    No dead-row check: each caller folds an address the address rule admitted, and a row equal to
     that is live (`docs/backend/spec.md :: I453`).
     """
 

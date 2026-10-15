@@ -204,9 +204,9 @@ or secret file names `fl_backend/app/core/config.py :: get_config` prints.
 | `SRV-BOOT-002` | The secret file `backend_mongodb_uri` yielded no server to connect to                                                                                                                                 |
 | `SRV-BOOT-003` | The server refused to authenticate the credentials in `backend_mongodb_uri`                                                                                                                           |
 | `SRV-BOOT-004` | The database constraints could not be applied                                                                                                                                                         |
-| `SRV-BOOT-005` | A warning, and the boot goes on: `berechtigungen` holds no live grant, so nobody can enter the administration                                                                                         |
-| `SRV-BOOT-006` | A warning, and the boot goes on: no live grant is an `owner` grant, so every grant is within an administrator's reach                                                                                 |
-| `SRV-BOOT-007` | A warning, and the boot goes on: grants whose address is empty, unfolded or refused by the address rule admit nobody; the line counts them and names none                                             |
+| `SRV-BOOT-005` | A warning that refuses nothing: `berechtigungen` holds no live grant, so nobody can enter the administration                                                                                          |
+| `SRV-BOOT-006` | A warning that refuses nothing: no live grant is an `owner` grant, so every grant is within an administrator's reach                                                                                  |
+| `SRV-BOOT-007` | A warning that refuses nothing: grants whose address is empty, unfolded or refused by the address rule admit nobody; the line counts them and names none                                              |
 | `FE-BOOT-001`  | A frontend environment variable failed validation; the line names the variables and no value                                                                                                          |
 | `FE-BOOT-003`  | The actor's signing key file is missing, unreadable or holds no Ed25519 private key, so the frontend will not start; the line names the path and never the contents                                   |
 | `FE-BOOT-004`  | A frontend secret file could not be read, or holds a value the schema refuses, so the frontend will not start; the line names the files, with the errno where the read failed, and never the contents |
@@ -215,7 +215,7 @@ The first three `SRV-BOOT-*` rows are one decision — `db.py :: _refusal_for`, 
 cause's sentence with its code — so a fourth cause added there takes a fourth row here. **The three
 warnings refuse nothing** (`fl_backend/app/core/db.py :: warn_about_the_grants`), written at boot
 and again once an erasure that took a grant commits
-(`fl_backend/app/api/identitaet/crud.py :: after_the_erasure_commits`): the public site needs no
+(`fl_backend/app/api/identitaet/crud.py :: ErasureJournal`): the public site needs no
 administrator, and a state only a Playground paste repairs is no reason to take it down.
 
 ## 4. Forwarded codes

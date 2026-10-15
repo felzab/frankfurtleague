@@ -70,6 +70,9 @@ DISARMED: Mapping[tuple[str, str], Disarmed] = {
     **{("REQ-DATE-004", operation): NO_SPANS for operation in CREATE_AND_DRAW},
     ("REQ-ENTER-001", "PATCH /teams/{team_id}/saisons/{saison_id}"): A_MOVE_IS_NO_ENTRY,
     ("REQ-SCHIEDSRICHTER-006", "POST /schiedsrichter/{schiedsrichter_id}/reactivate"): A_PREDICATE,
+    ("REQ-PURGE-004", "GET /identitaet/selbst/erasure/ansicht"): Disarmed(
+        "the preview reads whether the press would refuse, and refuses nothing itself", None
+    ),
     **{(code, DRAW): DRAW_TWIN for code in ("REQ-RULES-008", "REQ-RULES-010", "REQ-DATE-005")},
 }
 

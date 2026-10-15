@@ -308,6 +308,7 @@ async def replace(client: AsyncMongoClient, handles: Mapping[Collection, Any]) -
         saisons_collection=handles[Collection.SAISONS],
         spiele_collection=handles[Collection.SPIELE],
         saison_spieler_collection=handles[Collection.SAISON_SPIELER],
+        bewerbungen_collection=handles[Collection.BEWERBUNGEN],
         aktionen_collection=handles[Collection.AKTIONEN],
         db=client,
         today=RETIRED_ON,
