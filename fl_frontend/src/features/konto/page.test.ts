@@ -67,7 +67,7 @@ describe("the account page", () => {
   });
 
   /* The section is the administrator's lane's to fill, so a lapsed administrator verdict is sent on to
-     that lane's step, as the landing sends it, rather than shown an empty section. */
+     a fresh sign-in or its passkey step, as the landing sends it, rather than shown an empty section. */
   it("sends an address holding a grant whose administrator verdict lapsed to the admin subtree", async () => {
     setSubject(MIT_ZUGANG);
     const { thrown } = await callPage(KontoPage, NO_PROPS);
