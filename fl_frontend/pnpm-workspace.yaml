@@ -49,3 +49,8 @@ minimumReleaseAgeExclude:
   - "@better-auth/prisma-adapter@1.7.10"
   - "@better-auth/telemetry@1.7.10"
   - better-auth@1.7.10
+patchedDependencies:
+  # Logs the adapter's failed-abort line through the configured logger, not the console it uses outside
+  # an endpoint, where a passkey removal runs (`docs/frontend/spec.md :: I678`). Delete once a release
+  # does so itself; the upstream issue is to be filed.
+  "@better-auth/mongo-adapter@1.7.10": patches/@better-auth__mongo-adapter@1.7.10.patch
