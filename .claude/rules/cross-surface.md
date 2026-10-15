@@ -47,7 +47,7 @@ paths:
 
 - A backend refusal and its German are three sites. `fl_backend/app/core/domain.py` declares the rule
   and its code; a mapper in the feature slice words it for the save, and where the replayed
-  endpoint declares refusals the undo route words it again in its own replay table. The frontend
+  endpoint declares refusals the undo action words it again in its own replay table. The frontend
   reads a refusal by its code, and the backend answers it at the status its rule's check chose, so a
   code either path leaves unmapped falls through, at any status, to the shared fallback in
   `fl_frontend/src/shared/utils/actionError.ts`, which names no reason and sends the admin to a retry

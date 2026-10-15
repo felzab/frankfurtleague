@@ -228,7 +228,6 @@ Longest-prefix match. Order in the file is irrelevant; specificity decides.
 | `= /api/bestaetigung/schiedsrichter/adresse` | `frontend:3000` | Next route handler, a confirmed referee's address link — its sibling's pair and burst, and `client_max_body_size 8k`                                                                                 |
 | `= /api/mail/zustellung`                     | `frontend:3000` | Next route handler, the mail provider's delivery webhook — paired `limit_req` `zone=zustellung burst=300` and `zone=zustellung48 burst=3000`, and `client_max_body_size 8k`                          |
 | the `/` twins                                | `frontend:3000` | Each metered exact-match path above has a trailing-slash twin carrying its canonical's zones, and its body cap where the canonical sets one                                                          |
-| `/api/admin/`                                | `frontend:3000` | The page-owned editors' undo handlers, and the server-action pair `zone=action burst=30` and `zone=action48 burst=300`                                                                               |
 | `= /api/v0/system/is_live`                   | `backend:8000`  | The liveness probe, and the only backend endpoint the edge exposes — `Cache-Control: no-store` (I13, §3)                                                                                             |
 | `= /signin`                                  | `frontend:3000` | Paired `limit_req` — `zone=signin burst=3` and `zone=signin48 burst=30`                                                                                                                              |
 | `/_next/static/`                             | `frontend:3000` | `Cache-Control: public, max-age=31536000, immutable`, and the server-action pair, which meters no GET                                                                                                |
@@ -243,9 +242,8 @@ what meets it.
 
 **Every route handler in the App Router tree is accounted for against these locations, public or
 not**: either an exact-match location carrying `limit_req`, or a prefix location covering it with a
-reason recorded at `scripts/checks/check_public_routes.py :: REASONS` — `/api/admin/` for the
-page-owned undo handlers, `/api/auth` for the sign-in library's catch-all. **A handler under a
-dynamic segment is unmeterable unless a prefix covers it**, an exact match being unable to name the
+reason recorded at `scripts/checks/check_public_routes.py :: REASONS`, `/api/auth` for the sign-in
+library's catch-all. **A handler under a dynamic segment is unmeterable unless a prefix covers it**, an exact match being unable to name the
 URLs a catch-all answers. The accounting is total rather than aimed at the public handlers alone because no predicate
 selects those: `fl_frontend/src/app/api/client-error/route.ts` is public and does not go through
 `fl_frontend/src/shared/utils/publicRoute.ts :: handlePublicRequest`. A
@@ -332,9 +330,8 @@ form content type, which is every post Next 16.3.8 runs as an action. Next takes
 an action too, which nginx cannot tell from none, so the edge passes the header only where it holds
 a value (`nginx/shared/site.conf :: Next-Action`). Every other request's key is
 empty, so no page load or asset is metered; the pair is rated above any administrator's run of
-saves. `/api/admin/` carries it too, an action posted there reaching Next as well, and so does
-`/_next/static/`, where a POST reaches no action (a 405 whose render fails as a 500, driven against
-Next 16.3.6 on 2026-09-27) but costs that render. **That
+saves. `/_next/static/` carries it too, where a POST reaches no action (a 405 whose render fails as
+a 500, driven against Next 16.3.6 on 2026-09-27) but costs that render. **That
 makes one directive count differently on the two stacks**: `nginx/local/local.conf` serves HTTP/1.1, so
 the one line in `nginx/shared/site.conf` bounds whole connections locally.
 
