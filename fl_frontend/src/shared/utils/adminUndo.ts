@@ -65,8 +65,11 @@ export function refusedReplay(error: unknown, refusals: Readonly<Record<string, 
 export function partlyRestored(error: unknown, refusals: Readonly<Record<string, string>>, restoredHalf: string): ActionFailure {
   const reason = replayRefusal(error, refusals) ?? answerThrow(error);
   if (typeof reason !== "string" && reason.outcome === "unknown") throw error;
+  // No form stands behind an undo to mark the fields a refusal names, so the sentence for the rest is
+  // the answer, never the form's own.
+  const sentence = typeof reason === "string" ? reason : (reason.unplacedError ?? reason.error);
 
-  return { success: false, error: `${typeof reason === "string" ? reason : reason.error} ${restoredHalf}`, outcome: "partial" };
+  return { success: false, error: `${sentence} ${restoredHalf}`, outcome: "partial" };
 }
 
 /**

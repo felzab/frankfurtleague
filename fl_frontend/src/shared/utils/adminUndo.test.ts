@@ -14,6 +14,8 @@ const { invalidatesOnWrite, FORBIDDEN_BY_REFUSAL } = await import("./adminMutati
 const { AENDERUNG_STEHT_WEITERHIN } = await import("./actionError.ts");
 const { APIBadStatusError } = await import("@/core/errors.ts");
 const { recordWriteSent } = await import("@/core/requestScope.ts");
+const { bodyField } = await import("@/shared/testing/refusedPayload.ts");
+const { UNKNOWN_REFUSAL } = await import("./refusal.ts");
 
 /** The ruling's words for an undo nobody can tell landed. */
 const RUECKNAHME_UNKLAR = "Ob die Änderung zurückgenommen wurde, ist unklar. Lade die Seite neu und prüfe sie.";
@@ -29,8 +31,8 @@ const undo = (replay: () => Promise<UndoOutcome>) =>
     return replay();
   });
 
-/** A replayed endpoint's failure, answered as `apiClient` raises it. */
-const failed = (statusCode: number, serverErrorCode: string) =>
+/** A replayed endpoint's failure, answered as `apiClient` raises it, naming the body fields `refusedFields` names. */
+const failed = (statusCode: number, serverErrorCode: string, refusedFields: ReturnType<typeof bodyField>[] = []) =>
   new APIBadStatusError({
     message: "refused",
     url: "http://backend:8000/api/v0/x",
@@ -40,6 +42,7 @@ const failed = (statusCode: number, serverErrorCode: string) =>
     traceId: "ab".repeat(16),
     statusCode,
     serverErrorCode,
+    refusedFields,
   });
 
 const TABLE = { "REQ-TEST-001": "Die Rücknahme wurde nicht ausgeführt." };
@@ -66,6 +69,17 @@ describe("what the undo spine clears behind each answer", () => {
       assert.equal(answer.success ? undefined : answer.outcome, "partial", `${String(second.serverErrorCode)} was not marked partly restored`);
       assert.ok(!answer.success && answer.error.endsWith(` ${HALF}`), `${String(second.serverErrorCode)} names no half that went back`);
       assert.deepEqual(cleared(), ["updateTag probe", "refresh"], `${String(second.serverErrorCode)} left the restored half's reads standing`);
+    }
+  });
+
+  /* No form stands behind an undo, so the marks a refusal puts on the fields it names have no box: the
+     sentence for the rest is the answer, never the form's „Überprüfe Deine Eingaben.“ */
+  it("answers a second write refused over fields in the sentence no box takes, then the half that went back", async () => {
+    const shown = { "REQ-TEST-002": UNKNOWN_REFUSAL, "REQ-VAL-001": "Einzelne Angaben wurden nicht übernommen. Lade die Seite neu." };
+    for (const [code, sentence] of Object.entries(shown)) {
+      const answer = await undo(async () => partlyRestored(failed(422, code, [bodyField(["gruppe"])]), TABLE, HALF));
+
+      assert.deepEqual(answer, { success: false, error: `${sentence} ${HALF}`, outcome: "partial" }, code);
     }
   });
 
