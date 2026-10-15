@@ -14,7 +14,7 @@ import { leserichtungHrefFromRoute, parseLeserichtung, umgekehrt } from "@/share
 import type { NextPageProps } from "@/shared/types/types";
 
 // Not async, so the chrome never waits on the list. No write at all: a registration is decided by its
-// team, and what an administrator cures is on the contacts and season editors each row links to.
+// team, and each row links to that team's contacts editor, where an administrator cures its seats.
 export default function AdminRegistrierungenPage(props: NextPageProps) {
   return (
     <AdminCrudShell
