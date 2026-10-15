@@ -402,10 +402,11 @@ Every ruling below is the sign-up flow as it stands for the next season.
 - **A referee's pending new address goes with that referee's erasure, and its own holder's request
   is answered by removing it.** Until it confirms, that mailbox owns nothing of the row, so
   its holder is not the person the referee's erasure is about: the holder's own erasure removes the
-  block alone and leaves the row standing (`docs/backend/spec.md :: I668`), and the link's own decline
-  or `DELETE /schiedsrichter/{schiedsrichter_id}/adresswechsel` removes the address, and takes it out
-  of every image the action log holds of the referee, since every write on the row while the change
-  stood, a re-send included, filed one carrying it (`docs/backend/spec.md :: I562`).
+  block alone and leaves the row standing (`docs/backend/spec.md :: I668`). That erasure, the link's
+  own decline and `DELETE /schiedsrichter/{schiedsrichter_id}/adresswechsel` each remove the address
+  and take it out of every image the action log holds of the referee, since every write on the row
+  while the change stood, a re-send included, filed one carrying it (`docs/backend/spec.md :: I562`,
+  `:: I670`).
   The rest of each image stays, the referee's own earlier consent states among it, as a contact
   person's Widerspruch leaves the people beside them theirs (`docs/backend/spec.md :: I42`). A save
   replacing the pending address with another mailbox's takes it out the same way, the replaced

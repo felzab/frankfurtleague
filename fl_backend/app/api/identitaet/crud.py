@@ -8,6 +8,7 @@ from pydantic import SecretStr
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
+from app.api.aktionen.crud import redact_address_in_images
 from app.api.berechtigungen.erasure import erase_grants_and_authorship_in_session
 from app.api.identitaet.lookup import RecordCollections
 from app.api.identitaet.schemas import FLAnmeldung, FLErasure, FLSubjekt, FLSubjektSchiedsrichter, FLSubjektSitz, FLSubjektSpieler
@@ -487,6 +488,9 @@ ERASURE_STEPS: Final[tuple[ErasureStep, ...]] = (
     ),
     ErasureStep(reaches=frozenset({Collection.DROSSELUNG}), personengruppe=None, run=erase_counts_in_session),
     ErasureStep(reaches=frozenset({Collection.AKTIONEN}), personengruppe=None, run=unattribute_in_session),
+    # LAST: every step before it files images still holding the address. No kind's alone: in the pupil
+    # scope it would take a standing referee's or administrator's address out of their own images.
+    ErasureStep(reaches=frozenset({Collection.AKTIONEN}), personengruppe=None, run=redact_address_in_images),
 )
 
 
@@ -642,6 +646,9 @@ async def erase_everything(
         await unattribute_in_session(
             aktionen_collection=aktionen_collection, identifier=identifier, pseudonym=subject.pseudonym, session=session
         )
+
+    if _runs(redact_address_in_images, scope):
+        await redact_address_in_images(aktionen_collection=aktionen_collection, identifier=identifier, stamp=stamp, session=session)
 
     return FLErasure(
         spieler=spieler,

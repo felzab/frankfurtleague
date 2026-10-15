@@ -39,6 +39,8 @@ OTHER_ADMIN = "rainald.kesselflick@example.com"
 GRANTEE = "gunhild.zwirbel@example.com"
 REFEREE_NOW = "hiltrud.neupost@example.org"
 REFEREE_STORED = "ortrun.altpost@example.org"
+PUPIL_NOW = "wendelin.neupost@example.org"
+PUPIL_STORED = "walburga.altpost@example.org"
 
 STAMP = "2026-04-01T10:30:00+00:00"
 GRANTED_AT = datetime(2026, 1, 5, tzinfo=UTC)
@@ -51,6 +53,8 @@ BEWERBUNG = ObjectId("6890a1b2c3d4e5f607840021")
 REGISTRIERUNG = ObjectId("6890a1b2c3d4e5f607840031")
 READDRESSED_REFEREE = ObjectId("6890a1b2c3d4e5f607840041")
 PENDING_REFEREE = ObjectId("6890a1b2c3d4e5f607840042")
+READDRESSED_PUPIL = ObjectId("6890a1b2c3d4e5f607840043")
+PENDING_PUPIL = ObjectId("6890a1b2c3d4e5f607840044")
 TEAM = ObjectId("6890a1b2c3d4e5f607840051")
 
 ENTSCHEIDUNG = {"getroffen_am": "2026-03-01", "von": ERASED, "grund": "Zu spät eingereicht"}
@@ -119,6 +123,21 @@ async def a_league_holding_their_images(database: AsyncDatabase, client: AsyncMo
     # An unconfirmed referee's address corrected to another mailbox, which the referee step does not reach.
     await patched(database, Collection.SCHIEDSRICHTER, READDRESSED_REFEREE, {"$set": {"kontakt.email": REFEREE_NOW}})
     await patched(database, Collection.SCHIEDSRICHTER, PENDING_REFEREE, {"$unset": {ADRESSWECHSEL_FELD: ""}})
+    # The referees' twins among the pupils, whose rows the pupil step does not reach either.
+    await database[Collection.SPIELER].insert_many(
+        [
+            documents.spieler_document(READDRESSED_PUPIL, "Wendelin", "Kesselring", email=ERASED_AS_TYPED),
+            documents.spieler_document(
+                PENDING_PUPIL,
+                "Walburga",
+                "Fadenbach",
+                email=PUPIL_STORED,
+                **{ADRESSWECHSEL_FELD: compose_adresswechsel(email=ERASED, token_hash="v" * 64, today="2026-03-01")},
+            ),
+        ]
+    )
+    await patched(database, Collection.SPIELER, READDRESSED_PUPIL, {"$set": {"email": PUPIL_NOW}})
+    await patched(database, Collection.SPIELER, PENDING_PUPIL, {"$unset": {ADRESSWECHSEL_FELD: ""}})
     async with client.start_session() as session:
         await delete_many_from_db(collection=database[Collection.BERECHTIGUNGEN], db_filter={"_id": THEIR_GRANT}, session=session)
         await delete_many_from_db(collection=database[Collection.SPERRLISTE], db_filter={"_id": ban["_id"]}, session=session)
@@ -203,7 +222,7 @@ def test_no_image_holds_the_address_afterwards(mongo_replica_set_url: str):
     assert held_before == {str(collection) for collection in IMAGE_ADDRESSES}, "a store's image was never seeded holding the address"
     assert ERASED not in str(log).lower()
     # One row per store holding the address, each stamped once and counted once.
-    assert counts == [len([row for row in log if row["redacted_at"] == STAMP])] == [8]
+    assert counts == [len([row for row in log if row["redacted_at"] == STAMP])] == [10]
 
 
 @pytest.mark.db
@@ -226,6 +245,10 @@ def test_each_image_keeps_everything_but_the_address(mongo_replica_set_url: str)
     assert (readdressed["kontakt"]["email"], readdressed["name"]) == (None, "Hiltrud Kesselring")
     pending = image_of(log, Collection.SCHIEDSRICHTER, PENDING_REFEREE)["before"]
     assert (pending[ADRESSWECHSEL_FELD], pending["kontakt"]["email"]) == (None, REFEREE_STORED)
+    readdressed_pupil = image_of(log, Collection.SPIELER, READDRESSED_PUPIL)["before"]
+    assert (readdressed_pupil["email"], readdressed_pupil["vorname"]) == (None, "Wendelin")
+    pending_pupil = image_of(log, Collection.SPIELER, PENDING_PUPIL)["before"]
+    assert (pending_pupil[ADRESSWECHSEL_FELD], pending_pupil["email"]) == (None, PUPIL_STORED)
 
 
 @pytest.mark.db
@@ -244,5 +267,5 @@ def test_a_second_run_finds_nothing_left_to_take(mongo_replica_set_url: str):
 
     _, log, counts = after_the_pass(mongo_replica_set_url, runs=2)
 
-    assert counts == [8, 0]
+    assert counts == [10, 0]
     assert {row["redacted_at"] for row in log if row["redacted_at"] is not None} == {STAMP}

@@ -3,9 +3,10 @@ API · a person's erasure through the registry, held against the whole database 
 
 One address holds a pupil row in a live squad, a seat on a season row and on an application beside
 two bystanders, a referee row booked on a played fixture, a pending and a declined registration,
-another referee's and another pupil's pending address change, a day's counts, the only `owner` grant,
-records made as an administrator and as a seat holder, and log rows written as a person and as an
-administrator. Every case asks what is left, so a step removed from the registry fails here.
+another referee's and another pupil's pending address change, a pupil row corrected away from the
+address, a day's counts, the only `owner` grant, records made as an administrator and as a seat
+holder, and log rows written as a person and as an administrator. Every case asks what is left, so a
+step removed from the registry fails here.
 """
 
 import functools
@@ -128,6 +129,8 @@ DECIDED_BY_THEM_OID = ObjectId("6890a1b2c3d4e5f607b00075")
 DECLINED_BY_THEM_OID = ObjectId("6890a1b2c3d4e5f607b00076")
 # Another pupil, moving to the person's address: the row is theirs until the change is confirmed.
 MOVING_PUPIL_OID = ObjectId("6890a1b2c3d4e5f607b00081")
+# A pupil once entered under the person's address and corrected to another: the row is the other's.
+READDRESSED_PUPIL_OID = ObjectId("6890a1b2c3d4e5f607b00082")
 
 REFEREE_NAME = f"{VORNAME} {NACHNAME}"
 PAYMENT = 25
@@ -307,6 +310,9 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
             adresswechsel=compose_adresswechsel(email=TYPED, token_hash=hash_token("her-new-address"), today="2026-03-29"),
         )
     )
+    await database[Collection.SPIELER].insert_one(
+        spieler_document(READDRESSED_PUPIL_OID, "Hartwig", "Hartwig-Muster", email=TYPED, einwilligung=einwilligung)
+    )
 
     # The history: every image the log holds of the person is one of these edits'.
     await edited(database, Collection.SAISON_TEAMS, (await the_one(database, Collection.SAISON_TEAMS))["_id"], {"$set": {"gruppe": "B"}})
@@ -316,6 +322,11 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
     await edited(database, Collection.SPIELE, THEIR_SPIEL_OID, {"$set": {"uhrzeit": "15:00:00"}})
     for registrierung_id in (PENDING_OID, DECLINED_OID):
         await edited(database, Collection.REGISTRIERUNGEN, registrierung_id, {"$set": {"nummer": "11"}})
+    # Images of rows the person's steps never reach, each holding the address: two pending changes, and
+    # a pupil's address as it stood before its correction.
+    await edited(database, Collection.SCHIEDSRICHTER, OTHER_REFEREE_OID, {"$set": {"schule": "Goethe-Gymnasium"}})
+    await edited(database, Collection.SPIELER, MOVING_PUPIL_OID, {"$set": {"einwilligung.medien": False}})
+    await edited(database, Collection.SPIELER, READDRESSED_PUPIL_OID, {"$set": {"email": "hartwig@example.com"}})
 
     # Written AS the person: their own record as a pupil, and another pupil's squad row as a seat holder.
     await acting(
@@ -662,7 +673,7 @@ class TestTheSentinels:
 
         pupils, referees = on_a_league(mongo_replica_set_url, body)
 
-        assert sorted(row["_id"] for row in pupils) == [GHOST_SPIELER_ID, MOVING_PUPIL_OID]
+        assert sorted(row["_id"] for row in pupils) == sorted([GHOST_SPIELER_ID, MOVING_PUPIL_OID, READDRESSED_PUPIL_OID])
         assert referees == [{"_id": GHOST_SCHIEDSRICHTER_ID}]
 
 
@@ -738,7 +749,7 @@ class TestOneTransaction:
 
         # On the code, so this cannot pass because something else failed before any write.
         assert code == DOCUMENT_VALIDATION_FAILED
-        assert counts == {"berechtigungen": 2, "spieler": 3, "saison_spieler": 2, "schiedsrichter": 2, "registrierungen": 3, "drosselung": 4}
+        assert counts == {"berechtigungen": 2, "spieler": 4, "saison_spieler": 2, "schiedsrichter": 2, "registrierungen": 3, "drosselung": 4}
         assert (seat, pending, their_rows, stamped, on_the_ghost) == (TYPED, TYPED, 2, 0, 0)
         # And no journal line nor floor warning: an erasure rolled back is no erasure a replay may repeat.
         assert not [record for record in caplog.records if record.getMessage().startswith(ERASURE_JOURNAL_LINE)]

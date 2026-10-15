@@ -81,10 +81,10 @@ async def erase_selbst(
     address, pending or declined; another referee's or pupil's pending address change naming this address, that row itself
     standing; every grant the address holds, an `owner` grant and the last two among them, every administrator being told it
     ended; and the person's day counts. Emptied: every contact seat the address holds on a team's season row and on an
-    application of any status, the row and its other seats standing. The log images of those records are emptied. Every
-    record the person made as an administrator or decided as a seat holder -- a grant, a ban, an invitation, an
-    application's or a registration's decision -- and every log row they wrote name a fixed marker in their place, this
-    erasure's own rows included.
+    application of any status, the row and its other seats standing. Every record the person made as an administrator or
+    decided as a seat holder -- a grant, a ban, an invitation, an application's or a registration's decision -- and every
+    log row they wrote name a fixed marker in their place, this erasure's own rows included. The log images of the removed
+    records are emptied, and every other image holding the address loses it, the people beside them keeping theirs.
 
     An address holding nothing is answered with every count zero rather than refused. The 404 and the 409 answer only a
     database changed by hand under the request. The sign-in account is not touched here: deleting it is the caller's, once
