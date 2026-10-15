@@ -5,7 +5,7 @@ Here rather than beside `app/core/recording.py :: build_image_redactions`: a red
 through `app/core/crud.py`, which imports that module, so the call would close a cycle there.
 """
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from functools import partial
 from typing import Any
 
@@ -30,12 +30,34 @@ async def redact_images_in_session(
 ) -> int:
     """Overwrite what `judge` finds of the departing person in every image the selected rows hold, and answer how many rows changed."""
 
+    rows = await read_imaged_rows(aktionen_collection=aktionen_collection, db_filter=db_filter, session=session)
+
+    return await redact_rows_in_session(aktionen_collection=aktionen_collection, rows=rows, judge=judge, stamp=stamp, session=session)
+
+
+async def read_imaged_rows(
+    *, aktionen_collection: AsyncCollection, db_filter: Mapping[str, Any], session: AsyncClientSession
+) -> list[Mapping[str, Any]]:
+    """The selected rows still holding an image, each projected to it."""
+
     # Unbounded: a capped read leaves an image holding them that nothing selects again.
-    rows = await aggregate_many_from_db(
+    return await aggregate_many_from_db(
         collection=aktionen_collection,
         pipeline=[{"$match": {**db_filter, "before": {"$ne": None}}}, {"$project": {"before": 1}}],
         session=session,
     )
+
+
+async def redact_rows_in_session(
+    *,
+    aktionen_collection: AsyncCollection,
+    # Read by `read_imaged_rows` in this same session, so the overwrite meets the images it judged.
+    rows: Sequence[Mapping[str, Any]],
+    judge: Callable[[Mapping[str, Any]], ImageEdits],
+    stamp: str,
+    session: AsyncClientSession,
+) -> int:
+    """Overwrite what `judge` finds of the departing person in each of these rows' images, and answer how many rows changed."""
 
     changed = 0
     for ids, update in build_image_redactions(rows, judge=judge, at=stamp):

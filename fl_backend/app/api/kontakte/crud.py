@@ -5,7 +5,7 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.aktionen.crud import redact_images_in_session
+from app.api.aktionen.crud import read_imaged_rows, redact_images_in_session, redact_rows_in_session
 from app.api.kontakte.services import (
     PersonName,
     build_clearing_update,
@@ -15,7 +15,7 @@ from app.api.kontakte.services import (
     seat_image_edits,
 )
 from app.core.collections import Collection
-from app.core.crud import aggregate_many_from_db, patch_one_in_db
+from app.core.crud import patch_one_in_db
 from app.core.recording import RedactionTarget, build_redaction_filter
 from app.shared.folding import sign_in_identifier
 
@@ -115,20 +115,14 @@ async def redact_seats_in_documents(
 ) -> int:
     """The departing person's seats out of every log image of documents the caller reached by id, and how many rows changed."""
 
-    db_filter = build_redaction_filter(documents)
-
     # Read whole before any image is judged: a name is theirs wherever ANY image of the document
     # seats it at their address, the write's own pre-image included.
-    imaged = await aggregate_many_from_db(
-        collection=aktionen_collection,
-        pipeline=[{"$match": {**db_filter, "before": {"$ne": None}}}, {"$project": {"before._id": 1, "before.kontakte": 1}}],
-        session=session,
-    )
-    found = departing_names(imaged, identifiers)
+    rows = await read_imaged_rows(aktionen_collection=aktionen_collection, db_filter=build_redaction_filter(documents), session=session)
+    found = departing_names(rows, identifiers)
 
-    return await redact_images_in_session(
+    return await redact_rows_in_session(
         aktionen_collection=aktionen_collection,
-        db_filter=db_filter,
+        rows=rows,
         judge=lambda image: seat_image_edits(image, identifiers, links=links, names=found.get(image.get("_id"), frozenset()) | names),
         stamp=stamp,
         session=session,
