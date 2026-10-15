@@ -19,7 +19,7 @@ const LINK_UNGUELTIG =
 
 /**
  * Completes a mailed deletion link, the league's records before the account (`docs/frontend/spec.md ::
- * I_NEW_S9-AUTH_2`). The person-record spine sends the actor the backend's person route reads, and refuses
+ * I675`). The person-record spine sends the actor the backend's person route reads, and refuses
  * sessions the library itself would accept.
  */
 export async function loescheKontoAction(token: string): Promise<ActionResult> {

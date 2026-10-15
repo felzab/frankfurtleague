@@ -3521,10 +3521,10 @@ async function erasureRefused(): Promise<Error> {
 }
 
 /* The library completes a deletion through the hook alone, so every case below drives the in-process call
-   the press makes (`docs/frontend/spec.md :: I_NEW_S9-AUTH_2`). */
+   the press makes (`docs/frontend/spec.md :: I675`). */
 describe("a person's own account deletion", () => {
   /* The library's own link deletes on a GET, which a mail scanner's fetch would set off: the mail spells
-     the interstitial's link from the token instead (`docs/frontend/spec.md :: I_NEW_S9-AUTH_1`). */
+     the interstitial's link from the token instead (`docs/frontend/spec.md :: I674`). */
   it("mails a link to the interstitial carrying the stored token, never the library's deleting URL, and deletes nothing", async () => {
     const email = "loeschlink@example.org";
     const { cookie, row } = await signIn(email);
@@ -3562,7 +3562,7 @@ describe("a person's own account deletion", () => {
   });
 
   /* Asked and refused: a case passing where the hook never ran -- no session, another account's token --
-     would leave the same rows standing (`docs/frontend/spec.md :: I_NEW_S9-AUTH_2`). */
+     would leave the same rows standing (`docs/frontend/spec.md :: I675`). */
   it("leaves the account and its passkeys standing where the backend refuses the erasure, having asked it", async () => {
     const person = await seedAccount("verweigert-loeschung@example.org");
     const refusal = await erasureRefused();

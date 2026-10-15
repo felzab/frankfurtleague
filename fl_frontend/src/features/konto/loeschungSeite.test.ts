@@ -46,7 +46,7 @@ async function start(searchParams: Record<string, string>): Promise<LoeschungSta
   return body.props.start;
 }
 
-describe("what the deletion link's interstitial opens on (`docs/frontend/spec.md :: I_NEW_S9-AUTH_4`)", () => {
+describe("what the deletion link's interstitial opens on (`docs/frontend/spec.md :: I677`)", () => {
   it("opens a link carrying no token on the incomplete link's panel, reading nothing", async () => {
     setSubject(person());
 

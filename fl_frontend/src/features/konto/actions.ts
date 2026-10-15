@@ -89,7 +89,7 @@ const LOESCHLINK_UNTERWEGS =
 
 /**
  * Mails the holder a link to delete their account. The account page's guard without the step-up window
- * (`docs/frontend/spec.md :: I_NEW_S9-AUTH_3`): the link goes to the session's own mailbox, and completing it
+ * (`docs/frontend/spec.md :: I676`): the link goes to the session's own mailbox, and completing it
  * takes that mailbox and the signed-in session both.
  */
 export async function fordereKontoLoeschungAnAction(): Promise<ActionResult> {

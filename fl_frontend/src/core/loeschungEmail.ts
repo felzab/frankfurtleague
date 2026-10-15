@@ -29,7 +29,7 @@ export const LOESCHUNG_PATH = "/loeschung";
 
 /**
  * The one place the deletion link is spelled, from the token alone and never the library's own `url`,
- * which deletes on a GET (`docs/frontend/spec.md :: I_NEW_S9-AUTH_1`). `token` is the name
+ * which deletes on a GET (`docs/frontend/spec.md :: I674`). `token` is the name
  * `nginx/shared/http.conf :: $credential_free_uri` redacts.
  */
 export function loeschungsLink(origin: string, token: string): string {

@@ -788,7 +788,7 @@ const userOptions = {
 
 /**
  * Mails the interstitial's link, spelled from the token: the library's own `url` deletes on a GET
- * (`docs/frontend/spec.md :: I_NEW_S9-AUTH_1`). The library swallows a throw from here, logging it.
+ * (`docs/frontend/spec.md :: I674`). The library swallows a throw from here, logging it.
  */
 async function sendDeletionLink({ user, token }: { user: { email: string }; token: string }): Promise<void> {
   try {
@@ -816,7 +816,7 @@ const ownErasure = new AsyncLocalStorage<() => Promise<unknown>>();
 
 /**
  * Runs after the library has checked the token against the signed-in user and before it deletes anything:
- * an account never goes while the league's records of its address stand (`docs/frontend/spec.md :: I_NEW_S9-AUTH_2`).
+ * an account never goes while the league's records of its address stand (`docs/frontend/spec.md :: I675`).
  */
 async function eraseBeforeTheAccount(user: { id: string; email: string }): Promise<void> {
   const erase = ownErasure.getStore();
@@ -1846,7 +1846,7 @@ export async function deleteOwnAccount(
 /**
  * Deletes every sign-in-store row of the account `identifier` names in one transaction, and the address's
  * pending rows where it holds none; answers whether an account was there. Its callers erase the league's
- * records first (`docs/frontend/spec.md :: I_NEW_S9-AUTH_2`).
+ * records first (`docs/frontend/spec.md :: I675`).
  */
 export async function deleteAccountFor(identifier: string): Promise<boolean> {
   const folded = asSignInIdentifier(identifier);

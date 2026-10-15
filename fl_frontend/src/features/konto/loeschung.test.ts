@@ -198,7 +198,7 @@ describe("a person's own account deletion, from the account page's press to the 
   });
 
   /* The link goes to the session's own mailbox, so a session past the step-up window still asks for one
-     (`docs/frontend/spec.md :: I_NEW_S9-AUTH_3`). */
+     (`docs/frontend/spec.md :: I676`). */
   it("mails the link from a session signed in past the step-up window", async () => {
     const { cookie, row } = await sessionByCode(auth, store, "spaeter@example.org");
     row.createdAt = new Date(Date.now() - 3 * HOUR_MS);

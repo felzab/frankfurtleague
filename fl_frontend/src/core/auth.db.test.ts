@@ -688,7 +688,7 @@ async function heldOf({ userId, pending }: { userId: string; pending: readonly s
 }
 
 /* The Mongo adapter turns the helper's `in` and `starts_with` into a query of its own, which the memory store
-   never shows: a row they miss stands here and nowhere else (`docs/frontend/spec.md :: I_NEW_S9-AUTH_2`). */
+   never shows: a row they miss stands here and nowhere else (`docs/frontend/spec.md :: I675`). */
 describe("an account deleted, against a real database", () => {
   it("leaves nothing of the address once its own link completes, and nothing of anybody else's goes", async () => {
     const { runWithRequestScope } = await import("./requestScope.ts");

@@ -31,7 +31,7 @@ export type LoeschungAnsicht = Omit<FLSelbstErasureAnsichtResponse, "acknowledge
 
 /**
  * What the page opens on. The token rides only where a press can spend it: a browser holding no session
- * completes nothing here, and is sent to sign in and open the link again (`docs/frontend/spec.md :: I_NEW_S9-AUTH_4`).
+ * completes nothing here, and is sent to sign in and open the link again (`docs/frontend/spec.md :: I677`).
  */
 export type LoeschungStart =
   { zustand: "bereit"; token: string; email: string; ansicht: LoeschungAnsicht } | { zustand: "anmelden" } | { zustand: "unvollstaendig" };
