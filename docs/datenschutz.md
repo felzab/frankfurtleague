@@ -442,7 +442,11 @@ Every ruling below is the sign-up flow as it stands for the next season.
   name matches as well and that person confirmed their record
   (`fl_backend/app/api/registrierungen/services.py :: seite_of` over `:: persons_named`), the one
   place a shared mailbox would otherwise show one pupil another's answers and leave their own
-  consent unasked. Ruled 2026-09-27.
+  consent unasked. Ruled 2026-09-27. Inside the one season row or application a Widerspruch
+  answers, one name is one person as well: that row's log images lose every seat holding a name the
+  person's address held there, so an address corrected in a later save takes its earlier seat with
+  it (`docs/backend/spec.md :: I672`). An image found by what it holds alone stays matched on the
+  address. Ruled 2026-10-15.
 - **An administrator's address is stored as their grant, in plain, and so is the address of
   whoever granted it.** `berechtigungen` holds the grant and `berechtigungen_angekuendigt` what the
   other administrators were told of it, and every administrator is served both addresses. The outbox

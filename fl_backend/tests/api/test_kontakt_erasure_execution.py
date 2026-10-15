@@ -19,6 +19,7 @@ from app.api.kontakte.schemas import FLKontaktErasureAnsichtResponse, FLKontaktE
 from app.api.kontakte.services import (
     build_clearing_update,
     contact_block_image_edits,
+    departing_names,
     find_matching_slots,
     same_address,
     seat_image_edits,
@@ -863,10 +864,33 @@ class TestTheSeatJudgesReadWhateverAnImageHolds:
         image = {"_id": BEWERBUNG_OID, "kontakte": kontakte}
 
         assert find_matching_slots(image, "ida@example.com") == ()
-        assert seat_image_edits(image, ("ida@example.com",), links=True) == {}
+        assert seat_image_edits(image, ("ida@example.com",), links=True, names={("ida", "musterfrau")}) == {}
 
     def test_an_image_recorded_before_links_existed_gains_no_links_block(self):
         assert contact_block_image_edits({"kontakte": {"trainer": {"email": "ida@example.com"}}}) == {"kontakte": None}
+
+    def test_a_name_reaches_no_document_but_the_one_whose_images_seat_it_at_their_address(self):
+        """A namesake elsewhere is somebody else; the one-address rule's reach is the whole log, a name's one document."""
+
+        named = {"vorname": "Klara", "nachname": "Musterfrau"}
+        theirs = {"_id": BEWERBUNG_OID, "kontakte": {"stellvertretung": {**named, "email": "klara@example.com"}}}
+        namesake = {"_id": OTHER_BEWERBUNG_OID, "kontakte": {"stellvertretung": {**named, "email": "klara@example.org"}}}
+
+        assert departing_names([{"before": theirs}, {"before": [namesake]}], {"klara@example.com"}) == {
+            BEWERBUNG_OID: frozenset({("klara", "musterfrau")})
+        }
+
+    def test_a_seat_holding_no_name_lends_none_to_match_by(self):
+        """Match a blank name and every other unnamed seat of the document goes with theirs."""
+
+        unnamed = {"vorname": "", "nachname": ""}
+        image = {
+            "_id": BEWERBUNG_OID,
+            "kontakte": {"trainer": {**unnamed, "email": "x@example.com"}, "ansprechperson": {**unnamed, "email": "y@example.com"}},
+        }
+        assert departing_names([{"before": image}], {"x@example.com"}) == {}
+        # Handed a blank name all the same, the judge still matches no unnamed seat by it.
+        assert seat_image_edits(image, ("x@example.com",), links=False, names={("", "")}) == {"kontakte.trainer": None}
 
 
 PADDED_ROW_OIDS = {email: ObjectId(f"6890a1b2c3d4e5f60781{7000 + index:04d}") for index, email in enumerate(PADDED_SPELLINGS)}

@@ -6,7 +6,8 @@ from typing import Any
 from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.collections import Collection
 from app.core.crud import literal_pattern
-from app.shared.folding import canonical_address, sign_in_identifier, trimmed_pattern
+from app.core.recording import row_images
+from app.shared.folding import canonical_address, person_name_key, sign_in_identifier, trimmed_pattern
 
 
 def same_address(identifier: str) -> Mapping[str, Any]:
@@ -143,14 +144,60 @@ def _emptied_seats(image: Mapping[str, Any], slots: Set[str], *, links: bool) ->
     return edits
 
 
-def seat_image_edits(image: Mapping[str, Any], identifiers: Iterable[str], *, links: bool) -> dict[str, None]:
+# A seat's name as `app/shared/folding.py :: person_name_key` compares it, first name and surname apart.
+PersonName = tuple[str, str]
+
+
+def seat_name(seat: Any) -> PersonName | None:
+    """`None` where either half is blank: a blank name is nobody's, and matching it would empty every unnamed seat."""
+
+    if not isinstance(seat, Mapping):
+        return None
+
+    name = (person_name_key(seat.get("vorname")), person_name_key(seat.get("nachname")))
+
+    return name if all(name) else None
+
+
+def departing_names(rows: Iterable[Mapping[str, Any]], identifiers: Set[str]) -> dict[Any, frozenset[PersonName]]:
+    """Per document, by the `_id` its images carry, every name its log images seat these addresses under.
+
+    Each write's own pre-image is among them, so the live seat's name always is.
+    """
+
+    names: dict[Any, set[PersonName]] = {}
+    for row in rows:
+        for _, image in row_images(row):
+            if not isinstance(image, Mapping):
+                continue
+
+            slots = {slot for identifier in identifiers for slot in find_matching_slots(image, identifier)}
+            # Each slot was found in a block `find_matching_slots` has checked is a mapping.
+            held = (seat_name(image["kontakte"][slot]) for slot in slots)
+            names.setdefault(image.get("_id"), set()).update(name for name in held if name is not None)
+
+    return {document: frozenset(held) for document, held in names.items() if held}
+
+
+def seat_image_edits(
+    image: Mapping[str, Any], identifiers: Iterable[str], *, links: bool, names: Set[PersonName] = frozenset()
+) -> dict[str, None]:
     """The seats these people hold in one log image, emptied as the live write empties them.
 
     On the fold, image by image: a slot somebody else held keeps them, their earlier states being
     their consent trail.
     """
 
-    return _emptied_seats(image, {slot for identifier in identifiers for slot in find_matching_slots(image, identifier)}, links=links)
+    slots = {slot for identifier in identifiers for slot in find_matching_slots(image, identifier)}
+
+    # By name too where the caller reached the document by id: one address is one person, and inside
+    # one document so is one name, so a corrected address takes its earlier seat. `names` comes from
+    # that document's images (`departing_names`).
+    kontakte = image.get("kontakte")
+    if names and isinstance(kontakte, Mapping):
+        slots |= {slot for slot in KONTAKT_ROLLEN if seat_name(kontakte.get(slot)) in names}
+
+    return _emptied_seats(image, slots, links=links)
 
 
 def contact_block_image_edits(image: Mapping[str, Any]) -> dict[str, None]:

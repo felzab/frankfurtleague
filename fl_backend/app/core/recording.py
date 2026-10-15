@@ -215,6 +215,18 @@ def build_redaction_update(*, at: str) -> Mapping[str, Any]:
 ImageEdits = Mapping[str, Any]
 
 
+def row_images(row: Mapping[str, Any]) -> list[tuple[str, Any]]:
+    """Each image one log row holds, with the path addressing it.
+
+    By index where `before` is an array, a `delete_many` row's: a dotted path naming no index is
+    refused inside one.
+    """
+
+    before = row.get("before")
+
+    return [(f"before.{index}", image) for index, image in enumerate(before)] if isinstance(before, list) else [("before", before)]
+
+
 def build_image_redactions(
     rows: Sequence[Mapping[str, Any]], *, judge: Callable[[Mapping[str, Any]], ImageEdits], at: str
 ) -> list[tuple[list[Any], Mapping[str, Any]]]:
@@ -225,12 +237,11 @@ def build_image_redactions(
 
     grouped: dict[frozenset[tuple[str, Any]], list[Any]] = {}
     for row in rows:
-        before = row.get("before")
-        # Addressed by index: a `delete_many` row's images are an array, and a dotted path naming no
-        # index is refused inside one.
-        images = [(f"before.{index}", image) for index, image in enumerate(before)] if isinstance(before, list) else [("before", before)]
         edits = frozenset(
-            (f"{prefix}.{path}", value) for prefix, image in images if isinstance(image, Mapping) for path, value in judge(image).items()
+            (f"{prefix}.{path}", value)
+            for prefix, image in row_images(row)
+            if isinstance(image, Mapping)
+            for path, value in judge(image).items()
         )
         # Unstamped where no image names them: this redaction stamps the rows it took a value from, where
         # `build_redaction_update` stamps every row naming a document, an insert's included.

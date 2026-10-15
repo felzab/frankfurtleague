@@ -1,4 +1,4 @@
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping, Sequence, Set
 from typing import Any, NamedTuple
 
 from pymongo import ReturnDocument
@@ -9,10 +9,12 @@ from app.api.aktionen.crud import redact_images_in_session
 from app.api.kontakte.services import (
     build_clearing_update,
     build_seat_images_filter,
+    departing_names,
     find_matching_slots,
     seat_image_edits,
 )
-from app.core.crud import patch_one_in_db
+from app.core.crud import aggregate_many_from_db, patch_one_in_db
+from app.core.recording import RedactionTarget, build_redaction_filter
 
 
 async def _clear_each(collection: AsyncCollection, rows: Sequence[Mapping[str, Any]], identifier: str, session: AsyncClientSession) -> int:
@@ -72,3 +74,35 @@ async def erase_kontaktperson_in_session(
     )
 
     return SeatsCleared(kontakt_slots=cleared_slots, redacted_aktionen=redacted)
+
+
+async def redact_seats_in_documents(
+    *,
+    aktionen_collection: AsyncCollection,
+    documents: Sequence[RedactionTarget],
+    # Folded (`app/shared/folding.py :: sign_in_identifier`): every image is judged on the fold.
+    identifiers: Set[str],
+    links: bool,
+    stamp: str,
+    session: AsyncClientSession,
+) -> int:
+    """The departing person's seats out of every log image of documents the caller reached by id, and how many rows changed."""
+
+    db_filter = build_redaction_filter(documents)
+
+    # Read whole before any image is judged: a name is theirs wherever ANY image of the document
+    # seats it at their address, the write's own pre-image included.
+    imaged = await aggregate_many_from_db(
+        collection=aktionen_collection,
+        pipeline=[{"$match": {**db_filter, "before": {"$ne": None}}}, {"$project": {"before._id": 1, "before.kontakte": 1}}],
+        session=session,
+    )
+    names = departing_names(imaged, identifiers)
+
+    return await redact_images_in_session(
+        aktionen_collection=aktionen_collection,
+        db_filter=db_filter,
+        judge=lambda image: seat_image_edits(image, identifiers, links=links, names=names.get(image.get("_id"), frozenset())),
+        stamp=stamp,
+        session=session,
+    )

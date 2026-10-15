@@ -773,6 +773,31 @@ class TestTheLinkConfirms:
             assert entry["before"]["bestaetigungen"]["stellvertretung"] is not None
         assert second_save["before"]["kontakte"]["trainer"]["telefon"] == TELEFON["Ida"]
 
+    def test_a_widerspruch_takes_the_seat_its_person_held_under_an_address_since_corrected(self, mongo_replica_set_url: str):
+        """Match on the address alone and this fails: the mistyped address is in one image only, beside her name and number."""
+
+        mistyped = {**THREE, "stellvertretung": {**person("Klara"), "email": "klara@exmaple.com"}}
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
+            await save(database, mistyped)
+            corrected = await save(database, THREE)
+            link = next(mint for mint in corrected.bestaetigungen if "stellvertretung" in mint.rollen)
+            await answer(database, link.token, antwort="abgelehnt")
+
+            return (
+                await database[Collection.AKTIONEN]
+                .find({"collection": str(Collection.SAISON_TEAMS), "document_id": ROW_OID})
+                .sort("_id", 1)
+                .to_list(length=None)
+            )
+
+        _, second_save, _ = on_a_league(mongo_replica_set_url, body)
+
+        kontakte = second_save["before"]["kontakte"]
+        assert (kontakte["stellvertretung"], second_save["redacted_at"]) == (None, REDACTED_AT)
+        # Nobody else shares her name, so the two beside her keep their seats in that image.
+        assert (kontakte["trainer"]["vorname"], kontakte["ansprechperson"]["vorname"]) == ("Ida", "Jonas")
+
     def test_a_widerspruch_is_taken_over_an_image_of_an_older_shape_in_the_rows_log(self, mongo_replica_set_url: str):
         """Read a seat without checking its shape and this answers 500: the redaction judges every image the row ever filed."""
 
