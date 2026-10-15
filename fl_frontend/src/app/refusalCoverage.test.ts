@@ -62,7 +62,7 @@ const ANSWERED_BY: Readonly<Record<string, Mapper>> = {
   "DELETE /berechtigungen/{berechtigung_id}": berechtigungen.mapEntziehenRefusal,
   "PATCH /berechtigungen/{berechtigung_id}": berechtigungen.mapStufeRefusal,
   "POST /bewerbungen": bewerbungUtils.mapBewerbungSubmitRefusal,
-  "POST /bewerbungen/einwilligung": (error) => bewerbungUtils.mapEinwilligungRefusal(error, BEWERBUNG_MIN_ALTER),
+  "POST /bewerbungen/einwilligung": (error) => bewerbungUtils.mapEinwilligungRefusal(error, BEWERBUNG_MIN_ALTER, MEDIEN_MIN_ALTER),
   "POST /bewerbungen/einwilligung/ansicht": bewerbungUtils.mapEinwilligungAnsichtRefusal,
   "POST /bewerbungen/{bewerbung_id}/annehmen": (error) => bewerbungen.mapTriageRefusal(error, "neue_schule"),
   "POST /bewerbungen/{bewerbung_id}/ablehnen": (error) => bewerbungen.mapTriageRefusal(error, null),
