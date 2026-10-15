@@ -33,6 +33,7 @@ const ROW: AdminAktionRow = {
   db_filter: null,
   modified_count: null,
   redacted_at: null,
+  anlass: null,
   stand_gesichert: true,
 };
 
@@ -281,5 +282,16 @@ describe("what a redacted row says it lost", () => {
     const teilweise: AdminAktionRow = { ...ROW, redacted_at: "2026-04-01T10:30:00+00:00", stand_gesichert: true };
 
     assert.deepEqual(badges(teilweise), ["Einzelne Werte gelöscht am 01.04.2026", "Einzelne Werte gelöscht am 01.04.2026"]);
+  });
+});
+
+describe("the request an erasure answered", () => {
+  /* The rows an administrator's erasure filed lost the person's values, so the request is what says why they
+     changed; every other row carries none. Counted per layout, the table and the cards each rendering one. */
+  it("reads on every row that carries it, and on no other", () => {
+    const anlass = "E-Mail vom 12.10.2026, Betreff Löschung";
+
+    assert.equal(textOf(view({ aktionen: [{ ...ROW, anlass: anlass }] })).split(`Anlass: ${anlass}`).length - 1, 2);
+    assert.doesNotMatch(textOf(view()), /Anlass:/, "a row no erasure filed reads a request");
   });
 });
