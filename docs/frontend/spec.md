@@ -2049,16 +2049,9 @@ holds whether a conditional block renders or not
   more than one row of that column, so a table holding them at all clips its own payload. A card
   keeps the identity block as its head and puts the rest in a grid, every cell headed by the fact it
   holds, so no heading over the list can disagree with the block beneath it; a cell whose payload an
-  even split would clip spans more than one track. The card lists are:
-  - `fl_frontend/src/features/teams/components/collections/AdminKontakteList.tsx`
-  - `fl_frontend/src/features/bewerbungen/components/collections/AdminBewerbungenList.tsx`
-  - `fl_frontend/src/features/registrierungen/components/collections/AdminRegistrierungenList.tsx`
-  - `fl_frontend/src/features/registrierungen/components/collections/RegistrierungenList.tsx`
-  - `fl_frontend/src/features/berechtigungen/components/collections/AdminBerechtigungenList.tsx`
-  - `fl_frontend/src/features/sperrliste/components/collections/AdminSperrlisteList.tsx`
-  - `fl_frontend/src/features/spieler/components/collections/KaderList.tsx`
-  - `fl_frontend/src/features/spieltage/components/collections/AdminSpieltageList.tsx`, whose
-    sectioned shape the contacts' and the applications' lists follow
+  even split would clip spans more than one track. A card list is a `<ul>` whose every item is drawn
+  with `fl_frontend/src/shared/components/ui/card.ts :: card`, as
+  `fl_frontend/src/features/bewerbungen/components/collections/AdminBewerbungenList.tsx` draws one.
 - **A required mark appears only on a form that creates something**; the rule at
   `fl_frontend/src/app/globals.css :: data-required-marks` carries why.
 - **Every field-shaped control resolves to one height**
