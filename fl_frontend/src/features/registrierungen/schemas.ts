@@ -18,7 +18,13 @@ import {
   LinkAntwortTextVersionSchema,
 } from "@/features/spieler/schemas";
 import { KONTAKT_NAME_MAX_LENGTH, KONTAKT_NAME_ZU_LANG } from "@/features/teams/constants";
-import { CustomDateStringSchema, CustomObjectIdStringSchema, KontaktEmailSchema, PersonNameSchema } from "@/shared/schemas";
+import {
+  CustomDateStringSchema,
+  CustomObjectIdStringSchema,
+  FLBewerbungZustellungSchema,
+  KontaktEmailSchema,
+  PersonNameSchema,
+} from "@/shared/schemas";
 import { getGermanTodayStr } from "@/shared/utils/date";
 
 import { alterAusserhalb, EINWILLIGUNG_UMFANG_OPTIONS } from "./constants";
@@ -364,3 +370,57 @@ export const FLRegistrierungSelbstEinwilligungResponseSchema = BaseAPIResponseSc
   nachweis_stand: FLEinwilligungStandSchema,
 });
 export type FLRegistrierungSelbstEinwilligungResponse = z.infer<typeof FLRegistrierungSelbstEinwilligungResponseSchema>;
+
+/** Mirrors `FLRegistrierungBestaetigung`: the confirmation link's bookkeeping, and no hash of it. */
+export const FLRegistrierungBestaetigungSchema = z.object({
+  verschickt_am: CustomDateStringSchema,
+  erinnert_am: CustomDateStringSchema.nullable(),
+  frist: CustomDateStringSchema,
+  // Null on every fresh link: nothing is known yet about the message it went out in.
+  zustellung: FLBewerbungZustellungSchema.nullable(),
+});
+export type FLRegistrierungBestaetigung = z.infer<typeof FLRegistrierungBestaetigungSchema>;
+
+/** Mirrors `FLRegistrierungEntscheidungZeile`: a decline as the list serves it, its decider withheld where barred. */
+export const FLRegistrierungEntscheidungZeileSchema = z.object({
+  getroffen_am: CustomDateStringSchema,
+  von: z.string().nullable(),
+  grund: z.string().nullable(),
+  von_gesperrt: z.boolean(),
+});
+export type FLRegistrierungEntscheidungZeile = z.infer<typeof FLRegistrierungEntscheidungZeileSchema>;
+
+/**
+ * Mirrors `FLRegistrierung`, the administrator's row: it carries the address and the birthdate, so it
+ * stays on the server, and the admin list hands its view the rows
+ * `fl_frontend/src/features/registrierungen/utils.ts :: buildAdminRegistrierungRows` builds.
+ */
+export const FLRegistrierungSchema = z.object({
+  id: CustomObjectIdStringSchema,
+  saison_id: z.string(),
+  team_id: CustomObjectIdStringSchema,
+  einladung_id: CustomObjectIdStringSchema,
+  eingereicht_am: CustomDateStringSchema,
+  status: z.enum(["eingereicht", "abgelehnt"]),
+  vorname: z.string(),
+  nachname: z.string(),
+  email: z.string(),
+  position: FLSpielerPositionSchema.nullable(),
+  nummer: z.string().nullable(),
+  stufe: FLSpielerStufeSchema.nullable(),
+  geburtsdatum: CustomDateStringSchema.nullable(),
+  einwilligung: FLRegistrierungEinwilligungSchema.nullable(),
+  bestaetigung: FLRegistrierungBestaetigungSchema.nullable(),
+  entscheidung: FLRegistrierungEntscheidungZeileSchema.nullable(),
+  // Composed by the read, never derived here: two readers deriving it differently is how an
+  // unconfirmed pupil reads as confirmed.
+  bestaetigt: z.boolean(),
+});
+export type FLRegistrierung = z.infer<typeof FLRegistrierungSchema>;
+
+export const FLRegistrierungenListResponseSchema = BaseAPIResponseSchema.extend({
+  registrierungen: z.array(FLRegistrierungSchema),
+  // False where more rows exist than one read serves: the page then says so and offers the other end.
+  vollstaendig: z.boolean(),
+});
+export type FLRegistrierungenListResponse = z.infer<typeof FLRegistrierungenListResponseSchema>;

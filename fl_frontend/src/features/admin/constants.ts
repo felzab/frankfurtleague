@@ -3,6 +3,7 @@ import Calendar from "@gravity-ui/icons/Calendar";
 import ClockArrowRotateLeft from "@gravity-ui/icons/ClockArrowRotateLeft";
 import Envelope from "@gravity-ui/icons/Envelope";
 import ExclamationShape from "@gravity-ui/icons/ExclamationShape";
+import Hourglass from "@gravity-ui/icons/Hourglass";
 import Key from "@gravity-ui/icons/Key";
 import Magnifier from "@gravity-ui/icons/Magnifier";
 import MapPin from "@gravity-ui/icons/MapPin";
@@ -31,6 +32,8 @@ export const ADMIN_SIDEMENU_ICONS = {
   MapPin,
   // The triage's glyph: an in-tray of applications waiting to be worked down.
   Tray,
+  // Registrations waiting on their team, never the in-tray: nothing on that page is the administrator's to work down.
+  Hourglass,
   // The season's glyph, never a calendar — that is the Spieltage entry's below.
   Sliders,
   Calendar,
@@ -176,6 +179,16 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
           lead: "Wer für die Teams der gewählten Saison erreichbar ist.",
           // True of every seat on every row, so it is said here rather than on one of them.
           points: [{ term: "Diese Kontaktdaten", detail: "bleiben in der Verwaltung und erscheinen nirgends öffentlich." }],
+        },
+      },
+      {
+        id: "registrierungen",
+        label: "Registrierungen",
+        iconName: "Hourglass",
+        hint: {
+          lead: "Wer sich bei einem Team registriert hat und auf dessen Entscheidung wartet, über alle Saisons.",
+          // What an admin comes here to do and cannot: the decision has no control on this page.
+          note: "Über eine Registrierung entscheidet das Team.",
         },
       },
       {
