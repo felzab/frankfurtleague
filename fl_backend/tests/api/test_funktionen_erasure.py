@@ -110,8 +110,12 @@ TELEFON = "+49 69 7771234"
 GEBURTSDATUM = "2008-07-14"
 PSEUDONYM = akteur_pseudonym(IDENTIFIER, schluessel=CONFIG.sperrliste_schluessel)
 
+# The submission digests of two applications the person holds a seat on, the second predating the confirmation block.
+THEIR_DIGEST = "digest-7f3a1c-mit-block"
+THEIR_BLOCKLESS_DIGEST = "digest-7f3a1c-ohne-block"
+
 # Distinctive, so a hit in a whole-database scan is never coincidence: every value the person holds.
-THEIR_VALUES = (VORNAME, NACHNAME, IDENTIFIER, "7771234", GEBURTSDATUM, PSEUDONYM)
+THEIR_VALUES = (VORNAME, NACHNAME, IDENTIFIER, "7771234", GEBURTSDATUM, PSEUDONYM, THEIR_DIGEST, THEIR_BLOCKLESS_DIGEST)
 
 # The people beside them, each asserted still present so a database emptied wholesale fails.
 BYSTANDER_VALUES = ("Quillhilde", "Bramblewick", "Wraxlington", "kraus.bernd@example.com")
@@ -124,6 +128,7 @@ OTHER_PUPIL_OID = ObjectId("6890a1b2c3d4e5f607b00012")
 REFEREE_OID = ObjectId("6890a1b2c3d4e5f607b00021")
 OTHER_REFEREE_OID = ObjectId("6890a1b2c3d4e5f607b00022")
 BEWERBUNG_OID = ObjectId("6890a1b2c3d4e5f607b00031")
+BLOCKLESS_BEWERBUNG_OID = ObjectId("6890a1b2c3d4e5f607b00032")
 PENDING_OID = ObjectId("6890a1b2c3d4e5f607b00041")
 DECLINED_OID = ObjectId("6890a1b2c3d4e5f607b00042")
 SPIELTAG_OID = ObjectId("6890a1b2c3d4e5f607b00051")
@@ -257,6 +262,18 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
             eingereicht_am="2026-03-10",
             bestaetigungsfrist="2026-04-10",
             schule=neue_schule_document("Neue", "NE"),
+            idempotenz_fingerabdruck=THEIR_DIGEST,
+        )
+    )
+    await database[Collection.BEWERBUNGEN].insert_one(
+        bewerbung_document(
+            BLOCKLESS_BEWERBUNG_OID,
+            SAISON_ID,
+            "eingereicht",
+            kontakte=kontakte_document(ansprechperson=their_seat()),
+            eingereicht_am="2026-02-10",
+            schule=neue_schule_document("Alte", "AL"),
+            idempotenz_fingerabdruck=THEIR_BLOCKLESS_DIGEST,
         )
     )
     einwilligung = eigene_einwilligung_document(text_version="v1", bestaetigt_am="2026-03-02")
@@ -533,15 +550,19 @@ async def erased_in_scope(database: AsyncDatabase, client: AsyncMongoClient, sco
 class TestNothingOfTheirsIsLeftAnywhere:
     """The witness for reach: the whole database rendered as text, each collection named where a value survives."""
 
-    def test_no_value_of_theirs_survives_and_every_bystanders_does(self, mongo_replica_set_url: str):
+    @pytest.mark.parametrize("holding_a_grant", [False, True], ids=["holding no grant", "holding an administration grant"])
+    def test_no_value_of_theirs_survives_and_every_bystanders_does(self, mongo_replica_set_url: str, holding_a_grant: bool):
         """Catches a step removed from the registry, and a store none of them reaches -- the pseudonym's included.
 
-        Every value is asserted present before, so a seed that stopped writing one fails rather than passing.
+        Every value is asserted present before, so a seed that stopped writing one fails rather than passing. With a grant,
+        its row, its announced row and the notice the erasure queues of it are inside the scan too.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            if holding_a_grant:
+                await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
             before = await where_held(database, *THEIR_VALUES)
-            response = await erased_over_http(mongo_replica_set_url)
+            response = await erased_over_http(mongo_replica_set_url, headers=by_passkey(TYPED))
 
             return before, response.status_code, await where_held(database, *THEIR_VALUES, *BYSTANDER_VALUES)
 
@@ -550,7 +571,8 @@ class TestNothingOfTheirsIsLeftAnywhere:
         assert all(before[value] for value in THEIR_VALUES), before
         assert status == 200
         assert {value: after[value] for value in THEIR_VALUES} == dict.fromkeys(THEIR_VALUES, [])
-        assert all(after[value] for value in BYSTANDER_VALUES), after
+        # In the log too: a pass emptying a shared image whole would take the people beside them with it.
+        assert {value: "aktionen" in after[value] for value in BYSTANDER_VALUES} == dict.fromkeys(BYSTANDER_VALUES, True), after
 
     def test_each_kind_is_counted_as_it_went(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -563,7 +585,7 @@ class TestNothingOfTheirsIsLeftAnywhere:
             "saison_spieler": 1,
             "schiedsrichter": 1,
             "spiele": 1,
-            "kontakt_sitze": 2,
+            "kontakt_sitze": 3,
             "registrierungen": 2,
             "adresswechsel": 2,
             "berechtigungen": 0,
@@ -741,10 +763,10 @@ class TestTheSentinelIsNobodyToErase:
 
 
 class TestOneTransaction:
-    """A failure at the LAST write takes every step back: an erasure half done reports one that did not happen."""
+    """A failure at a late write takes every step back: an erasure half done reports one that did not happen."""
 
     def test_a_refused_last_write_leaves_everything_as_it_stood(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
-        """The validator refuses the marker on a person's row, which only the log's step writes, after every other step."""
+        """The validator refuses the marker on a person's row, which only the log's step writes, after every step but the address pass."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database.command(
@@ -1211,7 +1233,9 @@ class TestThePreview:
         assert answer["sitze"] == [
             {"saison_id": SAISON_ID, "team_name": "Heim-Schule", "rolle": "ansprechperson", "vorname": VORNAME, "nachname": NACHNAME}
         ]
-        assert answer["bewerbungen"] == [{"saison_id": SAISON_ID, "rolle": "trainer", "vorname": VORNAME, "nachname": NACHNAME}]
+        assert sorted(answer["bewerbungen"], key=lambda entry: entry["rolle"]) == [
+            {"saison_id": SAISON_ID, "rolle": rolle, "vorname": VORNAME, "nachname": NACHNAME} for rolle in ("ansprechperson", "trainer")
+        ]
         assert answer["registrierungen"] == [{"saison_id": SAISON_ID, "team_name": "Heim-Schule", "vorname": VORNAME, "nachname": NACHNAME}] * 2
         assert (answer["adresswechsel"], answer["verwaltung"], answer["letzter_inhaber"]) == (2, "administration", False)
         assert "@" not in response.text and GEBURTSDATUM not in response.text
