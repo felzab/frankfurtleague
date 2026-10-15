@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import { useFacetSelection } from "../../hooks/useFacetSelection";
 import { useFuzzySearch } from "../../hooks/useFuzzySearch";
@@ -97,7 +97,8 @@ export function AdminCrudView<TItem extends { id: string }>({
   const selection = useFacetSelection(facets);
   const [deleting, setDeleting] = useState<{ item: TItem; landing: ReturnType<typeof focusAfterWrite> } | null>(null);
   // Read as the row's control opens the dialog, which takes the focus off that control the moment it opens.
-  const openRetirement = (item: TItem, pressed: Element) => setDeleting({ item, landing: focusAfterWrite(pressed) });
+  // One identity across renders: the memoised table skips the bar's own keystroke render only while every prop holds.
+  const openRetirement = useCallback((item: TItem, pressed: Element) => setDeleting({ item, landing: focusAfterWrite(pressed) }), []);
 
   const hasFacets = facets.length > 0;
 
