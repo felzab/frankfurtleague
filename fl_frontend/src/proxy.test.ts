@@ -234,7 +234,7 @@ describe("which addresses the proxy is run on", () => {
       assert.equal(matched(url), true, `${url} runs no proxy`);
     }
     // The route handlers write their own cookies, and a public page reads no session.
-    for (const url of ["http://localhost:3000/", "http://localhost:3000/api/signin/code", "http://localhost:3000/api/admin/spiele/undo"]) {
+    for (const url of ["http://localhost:3000/", "http://localhost:3000/api/signin/code", "http://localhost:3000/api/bestaetigung/kontakt"]) {
       assert.equal(matched(url), false, `${url} runs the proxy`);
     }
   });

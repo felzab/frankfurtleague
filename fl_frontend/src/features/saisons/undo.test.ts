@@ -1,15 +1,16 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 import { publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { saisonRules } from "@/shared/testing/saisonRules.ts";
-import { assertEachRefusalCloses, doubleRouteRequest, revalidatedTags, unacknowledged, undo } from "@/shared/testing/undoRoutes.ts";
+import { assertEachRefusalCloses, droppedTags, unacknowledged } from "@/shared/testing/undoActions.ts";
 
-/* The real route and the mutation it replays through, called: the request it runs in and the backend client are the doubles. */
-doubleRouteRequest();
+/* The real action and the mutation it replays through, called: the request it runs in and the backend client are the doubles. */
+doubleActionRequest();
 const { answerWith, calls } = doubleApiAnswers(() => Promise.resolve(replayed(1)));
-const { POST } = await import("./route.ts");
+const { undoAdminSaisonEditAction } = await import("./actions.ts");
 
 /** What `fl_frontend/src/features/saisons/mutations.ts :: patchSaison` sends, as the backend's own routes spell it. */
 const REPLAY_OPERATION = "PATCH /saisons/{saison_id}";
@@ -27,23 +28,20 @@ const replayed = (acknowledged: 0 | 1) => ({
 
 describe("the season save's undo", () => {
   it("replays the stored season", async () => {
-    const answer = await undo(POST, BODY);
+    const answer = await undoAdminSaisonEditAction(BODY);
 
-    assert.equal(answer.success, true, String(answer.error));
+    assert.equal(answer.success, true, JSON.stringify(answer));
     const { id, ...season } = BODY;
     assert.deepEqual(requestsOf(calls), [{ endpoint: `/saisons/${id}`, method: "PATCH", body: season }]);
-    // The caches the replay moves, which the undo spine drops with no staleness tolerated.
-    assert.deepEqual(revalidatedTags(), [
-      ["saisons", { expire: 0 }],
-      ["teams", { expire: 0 }],
-    ]);
+    // The caches the replay moves, which the spine drops at once.
+    assert.deepEqual(droppedTags(), ["saisons", "teams"]);
   });
 
   it("words every refusal the replayed endpoint publishes, closing on the change standing once", async () => {
     await assertEachRefusalCloses({
       codes: publishedRefusals(REPLAY_OPERATION),
       refuse: (code) => answerWith(() => Promise.reject(refusedOn(REPLAY_OPERATION, code))),
-      press: () => undo(POST, BODY),
+      press: () => undoAdminSaisonEditAction(BODY),
     });
   });
 
@@ -51,6 +49,6 @@ describe("the season save's undo", () => {
   it("answers an unacknowledged replay as of unknown outcome, sending the admin to the season", async () => {
     answerWith(() => Promise.resolve(replayed(0)));
 
-    assert.deepEqual(await undo(POST, BODY), unacknowledged("Die Rücknahme wurde abgebrochen. Prüfe die Saisondaten."));
+    assert.deepEqual(await undoAdminSaisonEditAction(BODY), unacknowledged("Die Rücknahme wurde abgebrochen. Prüfe die Saisondaten."));
   });
 });

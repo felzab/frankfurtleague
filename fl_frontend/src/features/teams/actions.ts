@@ -1,7 +1,10 @@
 "use server";
 
+import z from "zod";
+
 import { toActionErrorResult } from "@/shared/utils/actionError";
 import { invalidatesOnWrite, runAdminMutation } from "@/shared/utils/adminMutation";
+import { refusedReplay, runAdminUndo, UNDO_UNREADABLE } from "@/shared/utils/adminUndo";
 import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
@@ -15,6 +18,7 @@ import {
   mapShorthandRefusal,
   SHORTHAND_TAKEN_ON_CREATE,
   SHORTHAND_TAKEN_ON_EDIT,
+  TEAM_REPLAY_REFUSALS,
 } from "./refusals";
 import {
   FLCreateTeamFormPayloadSchema,
@@ -28,6 +32,7 @@ import {
 import { describeReplacementUmfang } from "./utils";
 
 import type { ActionFailure, ActionResult } from "@/shared/types/types";
+import type { UndoOutcome } from "@/shared/utils/adminUndo";
 import type {
   FLDeleteTeamPayload,
   FLPatchTeamPayload,
@@ -332,5 +337,64 @@ export async function replaceSaisonTeamAction(
       // between point at the outgoing club.
       message: `${replacement.name} spielt jetzt in Gruppe ${replacement.gruppe}. ${umfang} Für ${replacement.name} ist in dieser Saison kein Austritt eingetragen.`,
     };
+  });
+}
+
+const TeamUndoSchema = z
+  .object({
+    club: FLPatchTeamPayloadSchema.optional(),
+    saison: FLPatchSaisonTeamPayloadSchema.optional(),
+  })
+  .refine((body) => body.club !== undefined || body.saison !== undefined, {
+    error: "Nothing to restore",
+  });
+
+/** What closes a refusal where the club half went back first, which the change standing would deny. */
+const CLUB_HALF_RESTORED = "Nur die Stammdaten wurden zurückgesetzt.";
+
+export async function undoAdminTeamEditAction(rawPayload: z.input<typeof TeamUndoSchema>): Promise<UndoOutcome> {
+  return runAdminUndo("undoAdminTeamEditAction", async () => {
+    const validated = TeamUndoSchema.safeParse(rawPayload);
+    if (!validated.success) return { success: false, error: UNDO_UNREADABLE };
+    const { club, saison } = validated.data;
+
+    invalidatesOnWrite("teams", "spiele");
+    if (saison !== undefined) {
+      invalidateSeasonScoped("teams", saison.saison_id);
+      invalidateSeasonScoped("spiele", saison.saison_id);
+    }
+
+    if (club !== undefined) {
+      let operation;
+      try {
+        operation = await patchTeam(club);
+      } catch (error) {
+        // First of the two halves, so nothing is restored yet.
+        return refusedReplay(error, TEAM_REPLAY_REFUSALS);
+      }
+
+      if (!operation.acknowledged) return { unclear: "Die Rücknahme wurde abgebrochen. Prüfe die Teamdaten." };
+    }
+
+    if (saison !== undefined) {
+      let operation;
+      try {
+        operation = await patchSaisonTeam(saison);
+      } catch (error) {
+        return club === undefined ? refusedReplay(error, TEAM_REPLAY_REFUSALS) : refusedReplay(error, TEAM_REPLAY_REFUSALS, CLUB_HALF_RESTORED);
+      }
+
+      if (!operation.acknowledged) {
+        // The first half may already be restored; reported rather than papered over.
+        return {
+          unclear:
+            club === undefined
+              ? "Die Rücknahme wurde abgebrochen. Prüfe die Saison-Zugehörigkeit."
+              : `${CLUB_HALF_RESTORED} Prüfe die Saison-Zugehörigkeit.`,
+        };
+      }
+    }
+
+    return {};
   });
 }

@@ -19,7 +19,7 @@ import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarnin
 import { unansweredAction } from "@/shared/utils/actionError";
 import { offerUndo } from "@/shared/utils/undoDispatch";
 
-import { patchAdminSpielDataAction } from "../../../actions";
+import { patchAdminSpielDataAction, undoAdminSpielEditAction } from "../../../actions";
 import { admitsShootOut, applyDraftToSpiel, deriveSpielDraftStatus } from "../../../draftStatus";
 import { buildPatchSpielDataPayloadSchema, FLPatchSpielDataPayloadSchema } from "../../../schemas";
 import { collectKnockoutTeamIds, collectSpieltagTeamOccupancy, isFirstKnockoutRound, listDependentSpiele, toStoredSide } from "../../../utils";
@@ -380,11 +380,10 @@ export function AdminEditSpielDataForm({
         const affected = [...(res.voidedFixtures ?? []), ...(res.releasedFixtures ?? [])];
 
         offerUndo({
-          endpoint: "/api/admin/spiele/undo",
           // Every fixture from the SAVE's own answer, in the order it reported them: the props this
           // render was served are older than the save, so an undo built from them would revert a field
           // another writer moved.
-          body: { paarungen: res.priorPaarungen ?? [], saison_id: spielData.saison_id },
+          undo: () => undoAdminSpielEditAction({ paarungen: res.priorPaarungen ?? [], saison_id: spielData.saison_id }),
           message: res.message,
           fallback: "Die Spieldaten wurden aktualisiert.",
           warn: affected.length > 0,

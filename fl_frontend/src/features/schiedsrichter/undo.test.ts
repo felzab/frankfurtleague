@@ -3,18 +3,19 @@ import { describe, it } from "node:test";
 
 import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
+import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 import { publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
-import { assertEachRefusalCloses, doubleRouteRequest, revalidatedTags, unacknowledged } from "@/shared/testing/undoRoutes.ts";
+import { assertEachRefusalCloses, droppedTags, unacknowledged } from "@/shared/testing/undoActions.ts";
 
 import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
 
 /** What `fl_frontend/src/features/schiedsrichter/mutations.ts :: patchSchiedsrichter` sends, as the backend's own routes spell it. */
 const REPLAY_OPERATION = "PATCH /schiedsrichter/{schiedsrichter_id}";
 
-/* The real route, the mutation it replays through and the link mailer, called: the request it runs in, the
+/* The real action, the mutation it replays through and the link mailer, called: the request it runs in, the
    backend client and the mailer are the doubles. */
-doubleRouteRequest();
+doubleActionRequest();
 const mail = doubleSendMail();
 // The origin the link is minted on, which the real config reads from an environment this run has not got.
 registerDoubles({
@@ -38,7 +39,7 @@ const calls = client.calls;
 const answerWith = (next: () => Promise<unknown>): void =>
   client.answerWith((call) => (reportsDelivery(call) ? Promise.resolve(REPORTED) : next()));
 
-const { POST } = await import("./route.ts");
+const { undoAdminSchiedsrichterEditAction } = await import("./actions.ts");
 
 const SCHIEDSRICHTER_ID = "6890a1b2c3d4e5f607800001";
 
@@ -63,22 +64,18 @@ const WARTEND = {
   adresswechsel: { email: "neu@example.de", verschickt_am: "2026-10-01", frist: "2026-10-15", zustellung: null },
 };
 
-function aRequest(body: unknown, headers: Record<string, string> = {}) {
-  return { headers: new Headers(headers), json: async () => body } as unknown as Parameters<typeof POST>[0];
-}
-
-const bodyOf = async (request: Parameters<typeof POST>[0]): Promise<{ success: boolean; message?: string; error?: string; warn?: boolean }> => {
-  return (await (await POST(request)).json()) as { success: boolean; message?: string; error?: string; warn?: boolean };
-};
+/** The sentence an answer carries, success or not, which a case matches against. */
+const said = (answer: Awaited<ReturnType<typeof undoAdminSchiedsrichterEditAction>>): string =>
+  answer.success ? answer.message : answer.error;
 
 describe("the referee save's undo", () => {
   it("replays the stored values and drops the fixture cache", async () => {
-    const answer = await bodyOf(aRequest(REQUEST));
+    const answer = await undoAdminSchiedsrichterEditAction(REQUEST);
 
     assert.equal(answer.success, true);
     const { id, ...stored } = BODY;
     assert.deepEqual(requestsOf(calls), [{ endpoint: `/schiedsrichter/${id}`, method: "PATCH", body: stored }]);
-    assert.deepEqual(revalidatedTags(), [["spiele", { expire: 0 }]]);
+    assert.deepEqual(droppedTags(), ["spiele"]);
   });
 
   /* The replay puts the earlier address back, which the endpoint reads as a correction and mints
@@ -94,14 +91,14 @@ describe("the referee save's undo", () => {
       }),
     );
 
-    const answer = await bodyOf(aRequest(REQUEST));
+    const answer = await undoAdminSchiedsrichterEditAction(REQUEST);
 
     assert.equal(answer.success, true);
     assert.deepEqual(
       mail.sent.map(({ to }) => to),
       ["alt@example.de"],
     );
-    assert.match(answer.message ?? "", /Der Bestätigungslink ging an alt@example\.de\./);
+    assert.match(said(answer), /Der Bestätigungslink ging an alt@example\.de\./);
   });
 
   /* The replay reads the row before it writes, so an administrator who corrected the address again
@@ -117,13 +114,13 @@ describe("the referee save's undo", () => {
       }),
     );
 
-    const answer = await bodyOf(aRequest(REQUEST));
+    const answer = await undoAdminSchiedsrichterEditAction(REQUEST);
 
     assert.deepEqual(
       mail.sent.map(({ to }) => to),
       ["inzwischen@example.de"],
     );
-    assert.match(answer.message ?? "", /ging an inzwischen@example\.de\./);
+    assert.match(said(answer), /ging an inzwischen@example\.de\./);
   });
 
   /* A committed restore that cost something: the standard sentence stands and the cost follows it,
@@ -140,15 +137,15 @@ describe("the referee save's undo", () => {
       }),
     );
 
-    const answer = await bodyOf(aRequest(REQUEST));
+    const answer = await undoAdminSchiedsrichterEditAction(REQUEST);
 
     assert.equal(answer.success, true);
-    assert.equal(answer.warn, true);
-    assert.match(answer.message ?? "", /konnte nicht an alt@example\.de zugestellt werden/);
+    assert.equal(answer.success && answer.warn, true);
+    assert.match(said(answer), /konnte nicht an alt@example\.de zugestellt werden/);
   });
 
   it("mails nothing where the replay minted nothing", async () => {
-    await bodyOf(aRequest(REQUEST));
+    await undoAdminSchiedsrichterEditAction(REQUEST);
 
     assert.deepEqual(mail.sent, []);
   });
@@ -157,7 +154,7 @@ describe("the referee save's undo", () => {
     const answers = await assertEachRefusalCloses({
       codes: publishedRefusals(REPLAY_OPERATION),
       refuse: (code) => answerWith(() => Promise.reject(refusedOn(REPLAY_OPERATION, code))),
-      press: () => bodyOf(aRequest(REQUEST)),
+      press: () => undoAdminSchiedsrichterEditAction(REQUEST),
     });
 
     assert.match(answers.get("REQ-SCHIEDSRICHTER-007") ?? "", /Sperrliste/, "the blocked address is worded as something else");
@@ -169,7 +166,7 @@ describe("the referee save's undo", () => {
       Promise.resolve({ acknowledged: 0, updated_document: STORED, fanned_out_to_spiele: 0, bestaetigung: null, adresswechsel: null }),
     );
 
-    const answer = await bodyOf(aRequest(REQUEST));
+    const answer = await undoAdminSchiedsrichterEditAction(REQUEST);
 
     assert.deepEqual(answer, unacknowledged("Die Rücknahme wurde abgebrochen. Prüfe die Schiedsrichterdaten."));
   });
@@ -180,10 +177,10 @@ describe("the referee save's undo", () => {
       Promise.resolve({ acknowledged: 1, updated_document: WARTEND, fanned_out_to_spiele: 0, bestaetigung: null, adresswechsel: null }),
     );
 
-    const answer = await bodyOf(aRequest({ ...REQUEST, adresswechsel_gespeichert: true }));
+    const answer = await undoAdminSchiedsrichterEditAction({ ...REQUEST, adresswechsel_gespeichert: true });
 
     assert.equal(answer.success, true);
-    assert.match(answer.message ?? "", /Die neue E-Mail-Adresse wartet weiter auf Bestätigung/);
+    assert.match(said(answer), /Die neue E-Mail-Adresse wartet weiter auf Bestätigung/);
   });
 
   it("says nothing of a waiting address where the undone save moved something else", async () => {
@@ -191,15 +188,9 @@ describe("the referee save's undo", () => {
       Promise.resolve({ acknowledged: 1, updated_document: WARTEND, fanned_out_to_spiele: 0, bestaetigung: null, adresswechsel: null }),
     );
 
-    const answer = await bodyOf(aRequest(REQUEST));
+    const answer = await undoAdminSchiedsrichterEditAction(REQUEST);
 
     assert.equal(answer.success, true);
-    assert.doesNotMatch(answer.message ?? "", /wartet weiter/);
-  });
-
-  it("turns a cross-site caller away without replaying anything", async () => {
-    await bodyOf(aRequest(REQUEST, { "sec-fetch-site": "cross-site" }));
-
-    assert.deepEqual(calls, []);
+    assert.doesNotMatch(said(answer), /wartet weiter/);
   });
 });

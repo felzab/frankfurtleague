@@ -11,8 +11,8 @@ import type { ZustellAnlass } from "@/features/bewerbungen/zustellung";
 import type { LinkVersand } from "@/features/zustellung/notifications";
 import type { FLKontaktMint } from "./schemas";
 
-// Outside `actions.ts`, which is `"use server"` and whose every export is a callable endpoint: the
-// undo route mints links too, and a helper it could not import would leave those tokens unmailed.
+// Outside `actions.ts`, which is `"use server"` and whose every export is a callable endpoint: exported
+// there, this would mail a link to whatever address a caller hands it, past every guard.
 /**
  * Never thrown from: the seat's link is written and the token spent by the time this runs, so a caller
  * told otherwise would report a mint that happened as one that did not.
