@@ -17,8 +17,10 @@ from typing import Annotated, Final
 
 from fastapi import Depends
 from pymongo import ReturnDocument
+from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
+from app.core.crud import literal_pattern
 from app.core.db import get_drosselung_collection
 from app.core.dependencies import get_germany_now
 from app.core.exceptions import DrosselungException
@@ -57,6 +59,12 @@ def sekunden_bis_tagesende(germany_now: datetime) -> int:
     return math.ceil(tagesende(germany_now).timestamp() - germany_now.timestamp())
 
 
+def _count_prefix(funktion: AktorFunktion, pseudonym: str) -> str:
+    """A count's key up to its day, spelled once for the count and for the erasure removing every day of it."""
+
+    return f"{funktion}:{pseudonym}:"
+
+
 def get_drossel(
     drosselung_collection: Annotated[AsyncCollection, Depends(get_drosselung_collection)],
     germany_now: Annotated[datetime, Depends(get_germany_now)],
@@ -79,7 +87,7 @@ def get_drossel(
         # Outside the write's transaction: a write refused after this spends its unit, and one person's
         # concurrent writes never conflict over their count.
         gezaehlt = await drosselung_collection.find_one_and_update(
-            {"_id": f"{actor.funktion}:{actor.pseudonym}:{germany_now.date().isoformat()}"},
+            {"_id": f"{_count_prefix(actor.funktion, actor.pseudonym)}{germany_now.date().isoformat()}"},
             {"$inc": {"n": 1}, "$setOnInsert": {"ablauf": tagesende(germany_now)}},
             projection={"_id": False, "n": True},
             upsert=True,
@@ -113,3 +121,24 @@ async def gedrosselt(drossel: Drossel) -> None:
     """Count every call of the route declaring it, before its handler runs."""
 
     await drossel()
+
+
+async def erase_counts_in_session(
+    *,
+    drosselung_collection: AsyncCollection,
+    # The erased person's `app/core/security.py :: akteur_pseudonym`, the key every count of theirs carries.
+    pseudonym: str,
+    # REQUIRED: removed outside the erasure's transaction, the counts go even where the erasure rolls
+    # back, handing a person who still stands a fresh day.
+    session: AsyncClientSession,
+) -> int:
+    """Remove every count this person holds, of each kind of person and every day, answering how many."""
+
+    # By the key's prefix rather than today's and yesterday's keys: a day the TTL monitor has not yet
+    # reached is still the person's pseudonym, however late the monitor runs.
+    erased = await drosselung_collection.delete_many(
+        {"$or": [{"_id": {"$regex": f"^{literal_pattern(_count_prefix(funktion, pseudonym))}"}} for funktion in TAGESBUDGETS]},
+        session=session,
+    )
+
+    return erased.deleted_count

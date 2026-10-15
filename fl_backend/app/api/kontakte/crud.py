@@ -1,21 +1,18 @@
 from collections.abc import Mapping, Sequence
-from typing import Any
+from typing import Any, NamedTuple
 
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.aktionen.crud import redact_images_in_session
-from app.api.kontakte.schemas import FLKontaktErasureResponse
 from app.api.kontakte.services import (
     build_clearing_update,
-    build_matching_rows_pipeline,
     build_seat_images_filter,
     find_matching_slots,
-    rows_naming,
     seat_image_edits,
 )
-from app.core.crud import aggregate_many_from_db, patch_one_in_db
+from app.core.crud import patch_one_in_db
 
 
 async def _clear_each(collection: AsyncCollection, rows: Sequence[Mapping[str, Any]], identifier: str, session: AsyncClientSession) -> int:
@@ -37,6 +34,11 @@ async def _clear_each(collection: AsyncCollection, rows: Sequence[Mapping[str, A
     return cleared
 
 
+class SeatsCleared(NamedTuple):
+    kontakt_slots: int
+    redacted_aktionen: int
+
+
 async def erase_kontaktperson_in_session(
     *,
     saison_teams_collection: AsyncCollection,
@@ -44,25 +46,17 @@ async def erase_kontaktperson_in_session(
     aktionen_collection: AsyncCollection,
     # Folded (`app/shared/folding.py :: sign_in_identifier`): every match below compares the fold.
     identifier: str,
+    # The rows naming the address in a seat, of every status, each carrying its seats' addresses and its
+    # `bestaetigungen`, read unbounded in the caller's transaction BEFORE any clearing: a cleared row stops matching.
+    saison_team_rows: Sequence[Mapping[str, Any]],
+    bewerbung_rows: Sequence[Mapping[str, Any]],
     # The caller's, so several erasures in one transaction redact under one instant.
     stamp: str,
     # REQUIRED, so a caller forgetting it is a TypeError rather than writes committing one by one
-    # (`docs/backend/spec.md :: I42`).
+    # (`docs/backend/spec.md :: I52`).
     session: AsyncClientSession,
-) -> FLKontaktErasureResponse:
-    """Find, then clear, then redact. Everything judged is read in-session, so a retry re-reads it."""
-
-    # BOTH reads before either write, and unbounded: the `$set` below stops the address matching,
-    # and a capped read would leave rows holding the person with nothing left to find them by
-    # (`app/api/spieler/crud.py :: erase_person_in_session` does the same).
-    saison_team_rows = rows_naming(
-        await aggregate_many_from_db(collection=saison_teams_collection, pipeline=build_matching_rows_pipeline(identifier), session=session),
-        identifier,
-    )
-    bewerbung_rows = rows_naming(
-        await aggregate_many_from_db(collection=bewerbungen_collection, pipeline=build_matching_rows_pipeline(identifier), session=session),
-        identifier,
-    )
+) -> SeatsCleared:
+    """Clear, then redact, the rows the caller read in-session, so a retry re-reads them."""
 
     cleared_slots = await _clear_each(saison_teams_collection, saison_team_rows, identifier, session)
     cleared_slots += await _clear_each(bewerbungen_collection, bewerbung_rows, identifier, session)
@@ -77,9 +71,4 @@ async def erase_kontaktperson_in_session(
         session=session,
     )
 
-    return FLKontaktErasureResponse(
-        cleared_saison_teams=len(saison_team_rows),
-        cleared_bewerbungen=len(bewerbung_rows),
-        cleared_kontakt_slots=cleared_slots,
-        redacted_aktionen=redacted,
-    )
+    return SeatsCleared(kontakt_slots=cleared_slots, redacted_aktionen=redacted)

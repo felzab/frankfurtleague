@@ -1,4 +1,4 @@
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from pymongo.asynchronous.client_session import AsyncClientSession
@@ -6,6 +6,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.aktionen.crud import redact_images_in_session
 from app.api.schiedsrichter.services import (
+    ADRESSWECHSEL_FELD,
     booked_image_edits,
     build_assignment_filter,
     build_booked_image_filter,
@@ -20,6 +21,26 @@ from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.shared.schemas.custom import CustomObjectId
 
 
+async def ensure_ghost_schiedsrichter(
+    *,
+    schiedsrichter_collection: AsyncCollection,
+    # REQUIRED: written outside the erasure's transaction, the ghost would stand where the repoint it
+    # exists for rolled back.
+    session: AsyncClientSession,
+) -> Mapping[str, Any]:
+    """The ghost's document, written where none stands; called once before the first referee of a transaction goes."""
+
+    # Written here rather than at a deploy step, so an erasure can never repoint a fixture at a
+    # row nothing holds -- which `REQ-BOOKING-001` would then read as an unknown referee and
+    # `GET /spiele/action_required` would report as nothing at all.
+    ghost = await schiedsrichter_collection.find_one({"_id": GHOST_SCHIEDSRICHTER_ID}, session=session)
+    if ghost is None:
+        ghost = build_ghost_schiedsrichter()
+        await post_one_to_db(collection=schiedsrichter_collection, document=ghost, session=session)
+
+    return ghost
+
+
 async def erase_referee_in_session(
     *,
     schiedsrichter_collection: AsyncCollection,
@@ -30,10 +51,13 @@ async def erase_referee_in_session(
     # so several erasures in one transaction redact under one instant.
     stamp: str,
     # REQUIRED, so a caller forgetting it is a TypeError rather than writes committing one by one
-    # (`docs/backend/spec.md :: I42`).
+    # (`docs/backend/spec.md :: I52`).
     session: AsyncClientSession,
-) -> Mapping[str, Any]:
-    """Delete the referee, repoint their fixtures at the ghost and redact the log, answering the ghost's document."""
+) -> int:
+    """Delete the referee, repoint their fixtures at the ghost and redact the log, answering how many fixtures moved.
+
+    The ghost must stand already: `ensure_ghost_schiedsrichter` writes it once per transaction, ahead of every referee.
+    """
 
     # In-session, so the 404 for an id already erased is decided on the snapshot the delete
     # below writes, and a rival rename conflicts rather than landing between them. Projected
@@ -45,15 +69,7 @@ async def erase_referee_in_session(
         session=session,
     )
 
-    # Written here rather than at a deploy step, so an erasure can never repoint a fixture at a
-    # row nothing holds -- which `REQ-BOOKING-001` would then read as an unknown referee and
-    # `GET /spiele/action_required` would report as nothing at all.
-    ghost = await schiedsrichter_collection.find_one({"_id": GHOST_SCHIEDSRICHTER_ID}, session=session)
-    if ghost is None:
-        ghost = build_ghost_schiedsrichter()
-        await post_one_to_db(collection=schiedsrichter_collection, document=ghost, session=session)
-
-    await patch_many_in_db(
+    repointed = await patch_many_in_db(
         collection=spiele_collection,
         db_filter=build_assignment_filter(schiedsrichter_id),
         update=build_ghost_repoint(),
@@ -87,4 +103,35 @@ async def erase_referee_in_session(
         session=session,
     )
 
-    return ghost
+    return repointed.modified_count
+
+
+async def remove_pending_addresses_in_session(
+    *,
+    schiedsrichter_collection: AsyncCollection,
+    # Rows whose pending block names the erased address and whose stored address does not: each is the
+    # old address's person's until the change is confirmed, so the block alone goes.
+    schiedsrichter_ids: Sequence[CustomObjectId],
+    # REQUIRED, so a caller forgetting it is a TypeError rather than writes committing one by one
+    # (`docs/backend/spec.md :: I52`).
+    session: AsyncClientSession,
+) -> int:
+    """Remove each row's pending address change, answering how many.
+
+    The row's log images still carry the address: the erasure's pass over other documents' images, run after this, takes it out of them.
+    """
+
+    # No write for none: a fan-out matching nothing still files a log row.
+    if not schiedsrichter_ids:
+        return 0
+
+    # A fan-out and by ids alone: it files no image of the block it removes, and its filter, kept as
+    # text, names nobody (`docs/backend/spec.md :: I48`).
+    removed = await patch_many_in_db(
+        collection=schiedsrichter_collection,
+        db_filter={"_id": {"$in": list(schiedsrichter_ids)}},
+        update={"$unset": {ADRESSWECHSEL_FELD: ""}},
+        session=session,
+    )
+
+    return removed.modified_count

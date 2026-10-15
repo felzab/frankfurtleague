@@ -78,7 +78,7 @@ DEAD_GRANT = BootWarning(
 
 
 async def warn_about_the_grants(berechtigungen_collection: AsyncCollection) -> None:
-    """Name at boot a list that admits nobody, protects nobody, or holds a row no request matches.
+    """Name a list that admits nobody, protects nobody, or holds a row no request matches: at boot, and after an erasure took a grant.
 
     Counts alone reach the line and never an address: the log outlives the grants it describes.
     """

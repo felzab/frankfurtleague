@@ -95,6 +95,12 @@ IMAGE_ADDRESSES: Final[Mapping[DbCollection, tuple[ImageAddress, ...]]] = Mappin
             ImageAddress("kontakt.email", "kontakt.email", None),
             ImageAddress(f"{ADRESSWECHSEL_FELD}.email", ADRESSWECHSEL_FELD, None),
         ),
+        # The referee row's twin: a row since re-addressed, and another pupil's pending change, whose block
+        # carries the referee's field name.
+        DbCollection.SPIELER: (
+            ImageAddress("email", "email", None),
+            ImageAddress(f"{ADRESSWECHSEL_FELD}.email", ADRESSWECHSEL_FELD, None),
+        ),
     }
 )
 

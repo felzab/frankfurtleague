@@ -1,9 +1,13 @@
+from collections.abc import Sequence
+from typing import NamedTuple
+
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.saisons.schemas import FLSaisonRules
-from app.api.spieler.schemas import FLSpielerErasureResponse, FLSpielerRolle
+from app.api.spieler.schemas import FLSpielerRolle
 from app.api.spieler.services import (
+    build_ghost_spieler,
     build_live_rolle_filter,
     build_live_squad_filter,
     build_spieler_filter,
@@ -11,8 +15,17 @@ from app.api.spieler.services import (
     find_squad_rolle_refusal,
 )
 from app.core.collections import Collection
-from app.core.crud import aggregate_many_from_db, anchor_in_db, erase_many_from_db, patch_many_in_db, pull_one_from_db, refuse
+from app.core.crud import (
+    aggregate_many_from_db,
+    anchor_in_db,
+    erase_many_from_db,
+    patch_many_in_db,
+    post_one_to_db,
+    pull_one_from_db,
+    refuse,
+)
 from app.core.recording import build_redaction_filter, build_redaction_update
+from app.core.sentinels import GHOST_SPIELER_ID
 from app.shared.schemas.custom import CustomObjectId
 
 
@@ -120,6 +133,25 @@ async def refuse_a_taken_rolle(
     refuse(find_squad_rolle_refusal(rolle=rolle, taken=taken))
 
 
+async def ensure_ghost_spieler(
+    *,
+    spieler_collection: AsyncCollection,
+    # REQUIRED: written outside the erasure's transaction, the sentinel would stand where the erasure
+    # it was written for rolled back.
+    session: AsyncClientSession,
+) -> None:
+    """Write the sentinel where none stands, so no reference to an erased pupil is ever repointed at a row nothing holds."""
+
+    if await spieler_collection.find_one({"_id": GHOST_SPIELER_ID}, projection={"_id": 1}, session=session) is None:
+        await post_one_to_db(collection=spieler_collection, document=build_ghost_spieler(), session=session)
+
+
+class PersonErased(NamedTuple):
+    spieler: int
+    saison_spieler: int
+    redacted_aktionen: int
+
+
 async def erase_person_in_session(
     *,
     spieler_collection: AsyncCollection,
@@ -129,10 +161,14 @@ async def erase_person_in_session(
     # The caller's, so several erasures in one transaction redact under one instant.
     stamp: str,
     # REQUIRED, so a caller forgetting it is a TypeError rather than writes committing one by one
-    # (`docs/backend/spec.md :: I42`).
+    # (`docs/backend/spec.md :: I52`).
     session: AsyncClientSession,
-) -> FLSpielerErasureResponse:
+) -> PersonErased:
     """Remove the person and their squad rows, then redact the log. Whether they may be erased is the caller's to judge."""
+
+    # Through the by-id filter, before any write: the removals below key on the bare id, so the
+    # sentinel handed in by any caller would go, and every reference repointed at it would dangle.
+    await pull_one_from_db(collection=spieler_collection, db_filter=build_spieler_filter(spieler_id), projection={"_id": 1}, session=session)
 
     # Read BEFORE the removal and unbounded: a log row names a squad row by its own `_id`, which
     # nothing can recover once the row is gone, so a capped read would leave the rows it dropped
@@ -146,7 +182,7 @@ async def erase_person_in_session(
     # The squad rows first: the public read `$lookup`s outward from the person, so a row left
     # behind is orphaned invisibly rather than surfacing as a fault somebody would notice.
     erased_rows = await erase_many_from_db(collection=saison_spieler_collection, db_filter={"spieler_id": spieler_id}, session=session)
-    await erase_many_from_db(collection=spieler_collection, db_filter={"_id": spieler_id}, session=session)
+    erased_person = await erase_many_from_db(collection=spieler_collection, db_filter={"_id": spieler_id}, session=session)
 
     # Last, and it passes over the two rows the removals above just recorded: those carry a
     # filter and a count and no `document_id`, so the erasure stays legible as an action.
@@ -160,8 +196,33 @@ async def erase_person_in_session(
         session=session,
     )
 
-    return FLSpielerErasureResponse(
-        spieler_id=spieler_id,
-        erased_saison_spieler=erased_rows.deleted_count,
-        redacted_aktionen=redacted.modified_count,
+    return PersonErased(
+        spieler=erased_person.deleted_count, saison_spieler=erased_rows.deleted_count, redacted_aktionen=redacted.modified_count
     )
+
+
+async def remove_pending_pupil_addresses_in_session(
+    *,
+    spieler_collection: AsyncCollection,
+    # Rows whose pending block names the erased address and whose stored address does not: each is the
+    # old address's person's until the change is confirmed, so the block alone goes.
+    spieler_ids: Sequence[CustomObjectId],
+    # REQUIRED, so a caller forgetting it is a TypeError rather than writes committing one by one
+    # (`docs/backend/spec.md :: I52`).
+    session: AsyncClientSession,
+) -> int:
+    """Remove each pupil row's pending address change, answering how many.
+
+    The row's log images still carry the address: the erasure's pass over other documents' images, run after this, takes it out of them.
+    """
+
+    # No write for none: a fan-out matching nothing still files a log row.
+    if not spieler_ids:
+        return 0
+
+    # A fan-out and by ids alone: its filter, kept as text, names nobody (`docs/backend/spec.md :: I48`).
+    removed = await patch_many_in_db(
+        collection=spieler_collection, db_filter={"_id": {"$in": list(spieler_ids)}}, update={"$unset": {"adresswechsel": ""}}, session=session
+    )
+
+    return removed.modified_count

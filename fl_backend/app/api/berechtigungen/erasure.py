@@ -132,8 +132,10 @@ async def erase_grants_and_authorship_in_session(
     bewerbungen_collection: AsyncCollection,
     registrierungen_collection: AsyncCollection,
     einladungen_collection: AsyncCollection,
-    # Its collection takes the marker on every ban the person entered, and it answers which other
-    # address in a queued notice is barred (`docs/backend/spec.md :: I462`).
+    # By name, as every collection a write reaches: the duplicate-key trace resolves a collection by
+    # its parameter's spelling, never through the ban list's attribute.
+    sperrliste_collection: AsyncCollection,
+    # Answers which other address in a queued notice is barred (`docs/backend/spec.md :: I462`).
     sperrliste: BanList,
     # Folded (`app/shared/folding.py :: sign_in_identifier`).
     identifier: str,
@@ -210,7 +212,7 @@ async def erase_grants_and_authorship_in_session(
     marked = await _mark_authored(berechtigungen_collection, "erteilt_von", identifier, session)
     marked += await _mark_authored(bewerbungen_collection, "entscheidung.von", identifier, session)
     marked += await _mark_authored(registrierungen_collection, "entscheidung.von", identifier, session)
-    marked += await _mark_authored(sperrliste.sperrliste_collection, "erstellt_von", identifier, session)
+    marked += await _mark_authored(sperrliste_collection, "erstellt_von", identifier, session)
     marked += await _mark_authored(einladungen_collection, "erstellt_von", identifier, session)
 
     return ErasedGrantsAndAuthorship(
