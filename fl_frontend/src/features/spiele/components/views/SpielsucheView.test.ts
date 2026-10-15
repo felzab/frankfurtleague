@@ -2,13 +2,13 @@ import "@/shared/testing/dom.ts";
 import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, it, mock } from "node:test";
 
-import { createElement as h } from "react";
+import { act, createElement as h } from "react";
 
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 
-import { underNext } from "@/shared/testing/nextContexts.ts";
+import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { formatSpielDatum } from "@/shared/utils/format.ts";
 
 import type { FLSpiel } from "../../schemas.ts";
@@ -72,6 +72,11 @@ const ADMIN: ViewProps = {
 
 const renderView = (query: string, props: ViewProps = ADMIN) => render(underNext(h(SpielsucheView, props), { search: query }));
 
+/** What a reader types into the bar, which the view holds and the URL never carries. */
+const typeQuery = (query: string): void => {
+  fireEvent.change(screen.getByRole("searchbox", { name: "Spiele suchen" }), { target: { value: query } });
+};
+
 const PROMPT = "Suche nach einem Spiel oder setze einen Filter.";
 
 describe("a link naming a value no fixture of the season holds", () => {
@@ -120,9 +125,42 @@ describe("the sentence under the bar", () => {
 
   // Every other list closes its empty sentence with a full stop.
   it("names the search that found nothing, closed like every other list's sentence", () => {
-    renderView("q=zzzzzz");
+    renderView("");
+    typeQuery("zzzzzz");
 
     screen.getByText("Keine Spiele für „zzzzzz“.");
+  });
+});
+
+describe("the query a reader types", () => {
+  /* The search reaches a referee's name, and a URL is a request line the edge keeps, a history entry
+     and a `Referer` (`docs/frontend/spec.md :: I680`). */
+  it("finds by what is typed and writes no URL", async () => {
+    // Every timer held to the case's own clock, so a write owed after any debounce is flushed below.
+    mock.timers.enable({ apis: ["setTimeout"] });
+    try {
+      const before = window.location.href;
+      const { router, seen } = recordingRouter();
+      render(underNext(h(SpielsucheView, ADMIN), { router: router }));
+
+      typeQuery("Collina");
+      assert.ok(screen.queryAllByText("FC Alpha").length > 0, "the referee's fixture was not found, so the absence below proves nothing");
+      await act(async () => {
+        mock.timers.runAll();
+      });
+
+      assert.deepEqual([...seen.replaced, ...seen.pushed], [], "the bar navigated, which is the request line nginx logs");
+      assert.equal(window.location.href, before, "the bar wrote the query into the browser's history");
+    } finally {
+      mock.timers.reset();
+    }
+  });
+
+  /* The read half: a link or a bookmark carrying `?q=` is no way into a search. */
+  it("finds nothing by a query the URL carries", () => {
+    renderView("q=Collina");
+
+    screen.getByText(PROMPT);
   });
 });
 
@@ -140,7 +178,8 @@ describe("the date a typed query is matched against", () => {
 
   /** Which of the two fixtures a typed query leaves on screen. */
   const found = (query: string): string[] => {
-    const { unmount } = renderView(new URLSearchParams({ q: query }).toString(), { ...ADMIN, spiele: [MAERZ, NOVEMBER] });
+    const { unmount } = renderView("", { ...ADMIN, spiele: [MAERZ, NOVEMBER] });
+    typeQuery(query);
     const shown = ["FC Alpha", "TSV Gamma"].filter((team) => screen.queryAllByText(team).length > 0);
     unmount();
 

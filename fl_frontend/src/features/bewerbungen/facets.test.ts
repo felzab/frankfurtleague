@@ -1,3 +1,6 @@
+import "@/shared/testing/dom.ts";
+import "@/shared/testing/renderTest.ts";
+
 import assert from "node:assert/strict";
 import { existsSync, readdirSync } from "node:fs";
 import path from "node:path";
@@ -6,11 +9,12 @@ import { pathToFileURL } from "node:url";
 
 import { createElement as h } from "react";
 
+import { fireEvent, render, within } from "@testing-library/react";
+
 import { KONTAKT_ROLLEN } from "@/features/teams/constants";
 import { TEAM_FACETS, TEAMS_ANY_SAISON_QUERY } from "@/features/teams/facets";
 import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
-import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 import { applyFacets, countFacetOptions, isFacetOptionReachable, readFacetSelection } from "@/shared/utils/facets.ts";
 
 import { BEWERBUNGEN_FACETS, BEWERBUNGEN_STATUS_PARAM, bewerbungenQueueFacetCounts, bewerbungenQueueTerms } from "./facets.ts";
@@ -400,6 +404,8 @@ describe("the season parameter this list owns", () => {
 /* Reached with `await import` and never a static import beside the harness: the JSX compile step is
    registered as `renderTest` evaluates, and a static import resolves before that. */
 const { AdminBewerbungenView } = await import("./components/views/AdminBewerbungenView.tsx");
+const { AdminCrudSearch } = await import("@/shared/components/ui/AdminCrudSearch.tsx");
+const { AdminCrudShell } = await import("@/shared/components/ui/AdminCrudShell.tsx");
 
 /** Whose seat an application's one named person sits in, and how that person is found again. */
 const SEATED: Record<KontaktRolle, { team: string; nachname: string; email: string }> = {
@@ -427,23 +433,26 @@ const SEAT_ROWS = KONTAKT_ROLLEN.map(({ value }, index): AdminBewerbungRow => {
   };
 });
 
-/** The teams the triage list shows for a query typed into its search, every facet of the read turned off. */
+/** The teams the triage list shows for a query typed into the shell's bar, every facet of the read turned off. */
 function foundBy(query: string): string[] {
-  const shown = textOf(
-    renderTree(
-      underNext(
-        h(AdminBewerbungenView, {
+  const { container, unmount } = render(
+    underNext(
+      h(AdminCrudShell, {
+        search: h(AdminCrudSearch, { searchLabel: "Bewerbungen suchen", searchPlaceholder: "Bewerbungen suchen" }),
+        children: h(AdminBewerbungenView, {
           bewerbungen: SEAT_ROWS,
           anzahlJeStatus: { eingereicht: SEAT_ROWS.length, angenommen: 0, abgelehnt: 0 },
           anzahlJeSaisonbezug: { diese_saison: SEAT_ROWS.length, andere_saison: 0 },
           dublettenSchluessel: [],
           richtung: "desc",
         }),
-        { search: new URLSearchParams({ q: query, saisonbezug: "", status: "" }) },
-      ),
+      }),
+      { search: new URLSearchParams({ saisonbezug: "", status: "" }) },
     ),
-    " ",
   );
+  if (query !== "") fireEvent.change(within(container).getByRole("searchbox", { name: "Bewerbungen suchen" }), { target: { value: query } });
+  const shown = container.textContent ?? "";
+  unmount();
 
   return Object.values(SEATED)
     .map(({ team }) => team)
