@@ -75,7 +75,11 @@ const ANSWERED_BY: Readonly<Record<string, Mapper>> = {
   "PATCH /teams/{team_id}/saisons/{saison_id}/kontakte": kontakte.mapKontakteRefusal,
   "POST /teams/{team_id}/saisons/{saison_id}/kontakte/{seat}/bestaetigung/einladen": kontakte.mapEinladenRefusal,
   "POST /registrierungen": registrierungen.mapRegistrierungSubmitRefusal,
-  "POST /registrierungen/bestaetigung": (error) => registrierungen.mapBestaetigungRefusal(error, async () => REGISTRIERUNG_MIN_ALTER),
+  "POST /registrierungen/bestaetigung": (error) =>
+    registrierungen.mapBestaetigungRefusal(error, async () => ({
+      mindestalter: REGISTRIERUNG_MIN_ALTER,
+      medien_mindestalter: MEDIEN_MIN_ALTER,
+    })),
   "POST /registrierungen/einladung/ansicht": registrierungen.mapRegistrierungAnsichtRefusal,
   "POST /registrierungen/bestaetigung/ansicht": registrierungen.mapRegistrierungAnsichtRefusal,
   "GET /registrierungen/kader/{team_id}/{saison_id}": TEAM_FORBIDDEN_PANEL,
@@ -95,7 +99,10 @@ const ANSWERED_BY: Readonly<Record<string, Mapper>> = {
   "POST /schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen": schiedsrichter.mapEinladenRefusal,
   "POST /schiedsrichter/{schiedsrichter_id}/anonymisieren": schiedsrichter.mapAnonymiseRefusal,
   "POST /schiedsrichter/bestaetigung": (error) =>
-    schiedsrichterQueries.mapSchiedsrichterBestaetigungRefusal(error, async () => SCHIEDSRICHTER_MIN_ALTER),
+    schiedsrichterQueries.mapSchiedsrichterBestaetigungRefusal(error, async () => ({
+      mindestalter: SCHIEDSRICHTER_MIN_ALTER,
+      medien_mindestalter: MEDIEN_MIN_ALTER,
+    })),
   "POST /schiedsrichter/bestaetigung/ansicht": schiedsrichterQueries.mapSchiedsrichterAnsichtRefusal,
   "POST /schiedsrichter/{schiedsrichter_id}/adresswechsel/einladen": schiedsrichter.mapAdresswechselRefusal,
   "POST /schiedsrichter/adresswechsel": schiedsrichterQueries.mapSchiedsrichterAdresswechselRefusal,

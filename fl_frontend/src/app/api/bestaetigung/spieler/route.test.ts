@@ -176,6 +176,21 @@ describe("the pupil's confirmation handler", () => {
     assert.equal(ansichten(), 1, "the floor was not read off the link's own view");
   });
 
+  /* The switch is offered from the served age on the browser's day, so a clock disagreeing with the
+     backend's sends this: the sentence names the view's floor, 21 being no floor served today. */
+  it("answers a media yes below the age at the media floor the link's view serves", async () => {
+    schreibAntwort = () => refusedOn(WRITE_OPERATION, "REQ-REGISTRIERUNG-010");
+    ansichtAntwort = () => ({ ...ANSICHT, medien_mindestalter: 21 });
+
+    const answer = await bodyOf(aRequest(gueltigerKoerper));
+
+    assert.deepEqual(answer.body, {
+      success: false,
+      error: "Fotos, Videos und Interviews kannst Du erst ab 21 Jahren erlauben. Schalte die Erlaubnis aus und bestätige erneut.",
+    });
+    assert.equal(ansichten(), 1, "the floor was not read off the link's own view");
+  });
+
   /* The panel the view opens a barred link on, so a ban entered while the form stood open leaves no
      form behind. */
   it("answers a barred address with the barred panel, in place of the form", async () => {
