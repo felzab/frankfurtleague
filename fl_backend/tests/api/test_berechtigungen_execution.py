@@ -1248,7 +1248,10 @@ class TestTheClaim:
         assert rows and all(NEU not in str(row) for row in rows)
 
     def test_a_barred_acting_administrator_is_withheld_while_the_change_stays_the_applications(self, mongo_replica_set_url: str):
-        """Withheld and flagged, `urheber` still `anwendung`: a barred actor never reads as a database edit."""
+        """Withheld and flagged, `urheber` still `anwendung`: a barred actor never reads as a database edit.
+
+        `gesperrt` is the grant address's alone, so the grant ANNA made reads it false beside her flag.
+        """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[tuple[str, str | None, bool, str, bool]]:
             await told(database, client)
@@ -1262,7 +1265,7 @@ class TestTheClaim:
             ]
 
         assert on_a_league(mongo_replica_set_url, body) == [
-            ("erteilt", None, True, "anwendung", True),
+            ("erteilt", None, True, "anwendung", False),
             ("entzogen", OWNER, False, "anwendung", True),
         ]
 

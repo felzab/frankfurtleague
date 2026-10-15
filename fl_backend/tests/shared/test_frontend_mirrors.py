@@ -36,6 +36,7 @@ from app.core.actor_token import (
 from app.core.config import INTERNAL_API_KEY_CHARACTERS
 from app.core.logging import NEEDS_QUOTING
 from app.core.middlewares import TRACEPARENT
+from app.core.recording import ERASED_ACTOR_MARKER
 from app.core.routing import OBJECT_ID_REGEX
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.shared.folding import league_address
@@ -447,29 +448,41 @@ def test_every_constant_a_module_says_it_mirrors_is_declared_here(module: str):
     assert claimed <= declared, f"{module} claims {sorted(claimed - declared)}, which this register does not pair with anything"
 
 
-# The one mirrored value that is not a number, so the integer machinery above cannot reach it: a
-# STRING the frontend compares a booking's referee id against to tell the ghost from a person
-# (`fl_backend/app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`).
+class Sentinel(NamedTuple):
+    module: str
+    name: str
+    declared: str
+    # The literal's whole spelling, so one respelled in another shape is refused rather than compared.
+    shape: str
+
+
+# The mirrored values that are not numbers, so the integer machinery above cannot reach them: each a
+# STRING the frontend compares a served value against to tell an erased person from a person.
 MIRRORED_SENTINELS: Final = (
-    (
-        "features/schiedsrichter/constants.ts",
-        "GHOST_SCHIEDSRICHTER_ID",
-        str(GHOST_SCHIEDSRICHTER_ID),
-    ),
+    # A booking's referee id (`fl_backend/app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`): hex, its
+    # leading zeroes load-bearing.
+    Sentinel("features/schiedsrichter/constants.ts", "GHOST_SCHIEDSRICHTER_ID", str(GHOST_SCHIEDSRICHTER_ID), "[0-9a-f]{24}"),
+    # A record's actor (`fl_backend/app/core/recording.py :: ERASED_ACTOR_MARKER`).
+    Sentinel("core/erasedActor.ts", "ERASED_ACTOR_MARKER", ERASED_ACTOR_MARKER, "[A-Z]+"),
 )
 
 
-@pytest.mark.parametrize(("module", "name", "declared"), MIRRORED_SENTINELS, ids=lambda value: value if isinstance(value, str) else "")
-def test_every_mirrored_sentinel_agrees_on_the_value(module: str, name: str, declared: str):
-    """A frontend comparing the wrong 24 characters tells an administrator that nobody was erased, or that everybody was.
+@pytest.mark.parametrize("sentinel", MIRRORED_SENTINELS, ids=lambda sentinel: sentinel.name)
+def test_every_mirrored_sentinel_agrees_on_the_value(sentinel: Sentinel):
+    """A frontend comparing the wrong characters tells an administrator that nobody was erased, or that everybody was."""
 
-    Read as a quoted string: the id is hex and its leading zeroes are load-bearing.
-    """
+    found = re.search(rf'^export const {sentinel.name} = "({sentinel.shape})";$', _source(sentinel.module), re.MULTILINE)
 
-    found = re.search(rf'^export const {name} = "([0-9a-f]{{24}})";$', _source(module), re.MULTILINE)
+    assert found is not None, f"{sentinel.module} no longer exports {sentinel.name} as a bare string of {sentinel.shape}"
+    assert found[1] == sentinel.declared, f"{sentinel.name} disagrees with the backend's sentinel"
 
-    assert found is not None, f"{module} no longer exports {name} as a bare lowercase-hex string"
-    assert found[1] == declared, f"{name} disagrees with the backend's sentinel"
+
+def test_the_erasure_marker_is_no_address_and_no_pseudonym_and_the_log_serves_it_whole():
+    """Each a way the marker would name somebody, or reach the log page cut short to a prefix nothing compares equal."""
+
+    assert "@" not in ERASED_ACTOR_MARKER, "an address can equal the marker"
+    assert set(ERASED_ACTOR_MARKER) - set(string.hexdigits), "a pseudonym, which is hex, can equal the marker"
+    assert len(ERASED_ACTOR_MARKER) <= bounds.AKTEUR_PSEUDONYM_SHOWN, "the log serves a person actor's marker cut short"
 
 
 class ModelBound(NamedTuple):

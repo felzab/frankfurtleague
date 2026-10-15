@@ -13,6 +13,7 @@ import {
   stuffSignatureDelimiter,
   textFooter,
 } from "./emailShell";
+import { ERASED_ACTOR_MARKER } from "./erasedActor";
 
 export type BerechtigungEmail = { subject: string; html: string; text: string };
 
@@ -32,19 +33,31 @@ const OHNE_VERWALTUNG = "Diese Änderung wurde nicht in der Verwaltung vorgenomm
 /** What a reader does with the notice, and the whole of why every holder is sent it. */
 const WARNSATZ = "Wenn Du diese Änderung nicht erwartet hast, melde Dich sofort bei den anderen Administratorinnen und Administratoren.";
 
-/** One change as the notice states it; `adresse` null is a barred address, which the notice never names. */
+/** Why a grant's address is withheld, the notice naming neither a barred address nor an erased person's. */
+export type Vorenthalten = { readonly vorenthalten: "gesperrt" | "geloescht" };
+
+/** One change as the notice states it. */
 export type Zugangsaenderung =
-  | { readonly art: "erteilt" | "geaendert"; readonly adresse: string | null; readonly inhaber: boolean }
-  | { readonly art: "entzogen"; readonly adresse: string | null };
+  | { readonly art: "erteilt" | "geaendert"; readonly adresse: string | Vorenthalten; readonly inhaber: boolean }
+  | { readonly art: "entzogen"; readonly adresse: string | Vorenthalten };
 
 /**
  * Who made the change and when, or `null` where it was made in the database directly. `von` is null for an
- * administrator since barred, whose address the notice never names.
+ * administrator since barred, and `ERASED_ACTOR_MARKER` for one erased since, neither of whom the notice names.
  */
 export type Urheber = { readonly von: string | null; readonly am: string | null } | null;
 
+/** A withheld grant address, in the subject's place. An erased person's is named by nothing, not even that state. */
+const OHNE_ADRESSE: Readonly<Record<Vorenthalten["vorenthalten"], string>> = {
+  gesperrt: "Eine gesperrte Adresse",
+  geloescht: "Eine nicht genannte Adresse",
+};
+
 /** The acting administrator where a ban withholds them. */
 const GESPERRTER_URHEBER = "einer gesperrten Adresse";
+
+/** The acting administrator where they have been erased since. */
+const UNGENANNTER_URHEBER = "einer nicht genannten Adresse";
 
 function zeitText(instant: string): string {
   return new Date(instant).toLocaleString("de-DE", { timeZone: ZEITZONE, dateStyle: "long", timeStyle: "short" });
@@ -53,31 +66,35 @@ function zeitText(instant: string): string {
 /** The change's sentence, the address marked up by `wer` so the two parts each take their own form. */
 function aenderungsSatz(aenderung: Zugangsaenderung, wer: (adresse: string) => string): string {
   const { adresse } = aenderung;
+  const subjekt = typeof adresse === "string" ? wer(adresse) : OHNE_ADRESSE[adresse.vorenthalten];
 
   switch (aenderung.art) {
     case "erteilt": {
       // An `owner` grant says so: the application grants none, so one is always a change made in the database.
       const zugang = aenderung.inhaber ? "hat jetzt Zugang zur Verwaltung als Inhaber." : "hat jetzt Zugang zur Verwaltung.";
-      return `${adresse === null ? "Eine gesperrte Adresse" : wer(adresse)} ${zugang}`;
+      return `${subjekt} ${zugang}`;
     }
     case "entzogen":
-      return adresse === null
-        ? "Eine gesperrte Adresse hat keinen Zugang zur Verwaltung mehr."
-        : `${wer(adresse)} hat keinen Zugang zur Verwaltung mehr.`;
-    case "geaendert": {
-      const subjekt = adresse === null ? "Eine gesperrte Adresse" : wer(adresse);
+      return `${subjekt} hat keinen Zugang zur Verwaltung mehr.`;
+    case "geaendert":
       return aenderung.inhaber
         ? `${subjekt} ist jetzt Inhaber der Verwaltung.`
         : `${subjekt} ist nicht mehr Inhaber der Verwaltung und behält den Zugang.`;
-    }
   }
+}
+
+/** The acting administrator in the notice's words, never a barred address or the erasure's marker. */
+function urheberName(von: string | null, wer: (adresse: string) => string): string {
+  if (von === null) return GESPERRTER_URHEBER;
+
+  return von === ERASED_ACTOR_MARKER ? UNGENANNTER_URHEBER : wer(von);
 }
 
 /** The second sentence: who made it and when, or where a change nobody in the application made came from. */
 function urheberSatz(urheber: Urheber, wer: (adresse: string) => string): string {
   if (urheber === null) return OHNE_VERWALTUNG;
 
-  const von = urheber.von === null ? GESPERRTER_URHEBER : wer(urheber.von);
+  const von = urheberName(urheber.von, wer);
   return urheber.am === null ? `Geändert von ${von}.` : `Geändert von ${von} am ${wer(zeitText(urheber.am))}.`;
 }
 

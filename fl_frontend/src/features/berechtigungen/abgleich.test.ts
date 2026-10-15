@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
+import { ERASED_ACTOR_MARKER } from "@/core/erasedActor.ts";
 import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
@@ -41,6 +42,7 @@ const aenderung = (fields: Record<string, unknown> = {}) => ({
   geaendert_von_gesperrt: false,
   geaendert_am: "2026-09-27T01:00:00Z",
   gesperrt: false,
+  geloescht: false,
   aufgegeben: false,
   ...fields,
 });
@@ -153,6 +155,31 @@ describe("one pass over the claimed changes", () => {
     assert.deepEqual(stamps(), [{ beanspruchung: "claim-1", ids: [OUTBOX_A] }]);
   });
 
+  /* The erasure's own notice, as a person erasing themselves leaves it: the address and its maker both
+     withheld, neither barred. Read off the null alone, it tells every holder of a ban nobody entered. */
+  it("mails the holders alone for an erased person's grant, naming nobody and no ban", async () => {
+    claim = claimOf([
+      aenderung({
+        art: "entzogen",
+        jetzt: null,
+        vorher: { adresse: null, verwaltung: "owner" },
+        geloescht: true,
+        geaendert_von: ERASED_ACTOR_MARKER,
+      }),
+    ]);
+
+    await runBerechtigungenAbgleich();
+
+    assert.deepEqual(mail.sent.map((sent) => sent.to).sort(), [...HOLDERS].sort());
+    for (const sent of mail.sent) {
+      assert.ok(sent.text.includes("Eine nicht genannte Adresse hat keinen Zugang zur Verwaltung mehr."));
+      assert.ok(sent.text.includes("Geändert von einer nicht genannten Adresse"));
+      assert.ok(!sent.text.includes("gesperrt"), "an erased person is told as barred");
+      assert.ok(!sent.text.includes(ERASED_ACTOR_MARKER), "the marker reached the notice");
+    }
+    assert.deepEqual(stamps(), [{ beanspruchung: "claim-1", ids: [OUTBOX_A] }]);
+  });
+
   /* The takeover a holder of the database's credentials would make: one grant's address edited from A
      to B, answered as A's removal and B's grant. Every holder, B among them, is told both; A its own loss. */
   it("tells an address repointed in the database as the old address's loss and the new one's grant", async () => {
@@ -239,7 +266,7 @@ describe("one pass over the claimed changes", () => {
 
   /* The case round 3 split out: a null actor on a change made in the application is a barred administrator. */
   it("tells a barred administrator's change as theirs, never as a database edit", async () => {
-    claim = claimOf([aenderung({ geaendert_von: null, geaendert_von_gesperrt: true, gesperrt: true })]);
+    claim = claimOf([aenderung({ geaendert_von: null, geaendert_von_gesperrt: true })]);
 
     await runBerechtigungenAbgleich();
 
