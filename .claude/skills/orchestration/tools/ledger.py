@@ -9,6 +9,7 @@ silent zero reads exactly like a report with nothing in it.
 
     bank <register> <report> [--from <agent id>] [--none] [--as <name>]
     route <register> <agent> <row>… [--reroute]
+    close <register> <status> <evidence> <row>… [--reclose]
     open <register> [--unclosed]
 
 `--from` saves the agent's final message from its transcript as `<report>` once it has banked,
@@ -25,6 +26,7 @@ import json
 import os
 import re
 import sys
+from collections.abc import Collection
 from pathlib import Path
 from typing import Final
 
@@ -34,10 +36,13 @@ LABEL_RE: Final = re.compile(r"^\s{0,3}(?:#{1,6}\s+|[-*+]\s+|\d+[.)]\s+|\|\s*)?(
 # Other ways a report numbers its findings, counted when no label is found.
 OTHER_SHAPE_RE: Final = re.compile(r"^\s{0,3}(?:(?:#{1,6}\s+)?(?:\*\*|__)\d+[.)]|\|\s*\d+\s*\|)")
 SUMMARY_CHARS: Final = 160
-# The Status cell's whole vocabulary, which `register-template.md` cites: a word outside it is a row
-# no command can judge, so `open --unclosed` prints it and `route` refuses it.
+# The Status cell's whole vocabulary, which `register-template.md` cites. A word outside it is a row
+# no command can judge, unclosed to one reader and closed to another, so every command reading the
+# ledger refuses it.
 STATUSES: Final = ("OPEN", "ROUTED", "FIXED", "RULED", "HANDOFF", "NOT A DEFECT", "MOOT")
 CLOSED: Final = frozenset({"FIXED", "RULED", "HANDOFF", "NOT A DEFECT", "MOOT"})
+# A word of the vocabulary opening the cell and ending there, so `OPENED` is no OPEN.
+STATUS_RE: Final = re.compile(rf"^(?P<word>{'|'.join(map(re.escape, STATUSES))})(?!\w)")
 CELL_SPLIT_RE: Final = re.compile(r"(?<!\\)\|")
 CODE_SPAN_RE: Final = re.compile(r"`([^`]+)`")
 AGENT_ID_RE: Final = re.compile(r"^[A-Za-z0-9]+$")
@@ -63,8 +68,13 @@ def other_shapes(report: str) -> int:
     return sum(1 for line in report.splitlines() if OTHER_SHAPE_RE.match(line))
 
 
+def _escaped(text: str) -> str:
+    """The text as one table cell: on one line, and no pipe in it splitting the row."""
+    return " ".join(text.split()).replace("|", "\\|")
+
+
 def _cell(text: str) -> str:
-    text = " ".join(text.split()).replace("|", "\\|")
+    text = _escaped(text)
     return text if len(text) <= SUMMARY_CHARS else text[: SUMMARY_CHARS - 1] + "…"
 
 
@@ -90,7 +100,8 @@ def _cells(line: str) -> list[str]:
 def status(cells: list[str]) -> str:
     """The row's status word from the vocabulary, or the cell's first word where it names none."""
     cell = cells[3].upper() if len(cells) == 5 else ""
-    return next((word for word in STATUSES if cell.startswith(word)), (cell.split() or [""])[0])
+    word = STATUS_RE.match(cell)
+    return word["word"] if word else (cell.split() or [""])[0]
 
 
 def owner(cells: list[str]) -> str:
@@ -105,12 +116,26 @@ def _write(path: Path, lines: list[str]) -> None:
     os.replace(spare, path)
 
 
-def _rows(register: Path) -> tuple[list[str], dict[str, int]]:
+def _rows(register: Path, mending: Collection[str] = ()) -> tuple[list[str], dict[str, int]]:
+    """The register's lines and each ledger row's index, refused while a row outside `mending` has no status to judge."""
     lines = register.read_bytes().decode("utf-8").split("\n")
     end, heading = _ledger_rows(lines)
     # Past the table's header and separator rows.
     first = next(k for k in range(heading + 1, end + 1) if lines[k].startswith("|")) + 2
-    return lines, {cells[0]: k for k in range(first, end + 1) if len(cells := _cells(lines[k])) == 5}
+    at: dict[str, int] = {}
+    unjudged: list[str] = []
+    for k in range(first, end + 1):
+        cells = _cells(lines[k])
+        # A row of another width has no status cell to judge, and skipped it would read as no row at all.
+        if len(cells) != 5:
+            unjudged.append(f"`{lines[k][:60]}` has {len(cells)} cells, not 5")
+            continue
+        at[cells[0]] = k
+        if status(cells) not in STATUSES and cells[0] not in mending:
+            unjudged.append(f"{cells[0]} is `{cells[3]}`, no word of {', '.join(STATUSES)}")
+    if unjudged:
+        raise ValueError("; ".join(unjudged) + ": set each with `close <status> <evidence> <row>… --reclose`, or mend it by hand")
+    return lines, at
 
 
 def _spans(text: str) -> set[str]:
@@ -146,7 +171,7 @@ def bank_text(register: Path, text: str, report_name: str, declared_none: bool =
             + "; pass --none for a report with no finding"
         )
     source = name or report_name.removesuffix(".md").removesuffix("-report")
-    lines = register.read_bytes().decode("utf-8").split("\n")
+    lines, _ = _rows(register)
     end, heading = _ledger_rows(lines)
     # Every report numbers from F1, so a second report under a banked name would bank only the labels
     # past the first one's highest and drop the rest in silence.
@@ -214,7 +239,7 @@ def route(register: Path, agent: str, rows: list[str], reroute: bool = False) ->
         if held == "ROUTED" and not reroute:
             refused.append(f"{row} is routed to {by} already: one finding, one owner (--reroute moves it)")
         elif held not in ("OPEN", "ROUTED"):
-            # A closed row, or a status no command knows, carries evidence a route would overwrite.
+            # A closed row carries evidence a route would overwrite.
             refused.append(f"{row} is {cells[3]}, which only an OPEN row leaves by a route")
         else:
             note = cells[4].split(";", 1)[1].strip() if held == "ROUTED" and ";" in cells[4] else cells[4] if held == "OPEN" else ""
@@ -228,15 +253,48 @@ def route(register: Path, agent: str, rows: list[str], reroute: bool = False) ->
     return moved
 
 
-def close(register: Path, rows: list[str], evidence: str, by: set[str]) -> list[str]:
+def _closed(cells: list[str], word: str, evidence: str) -> str:
+    """The row set to `word` with its evidence, keeping after `was` what it held before."""
+    held = [cells[4]] if status(cells) in ("OPEN", "ROUTED") else [cells[3], cells[4]]
+    before = "; ".join(cell for cell in held if cell)
+    cells[3:5] = [f"{word} ({_escaped(evidence)})", f"was {before}" if before else ""]
+    return "| " + " | ".join(cells) + " |"
+
+
+def close(register: Path, word: str, evidence: str, rows: list[str], reclose: bool = False) -> list[str]:
+    """Each row set to the closing status `word` with the evidence, all or none; the rows closed."""
+    if word not in CLOSED:
+        raise ValueError(f"`{word}` is no closing status: one of {', '.join(held for held in STATUSES if held in CLOSED)}")
+    if not _escaped(evidence):
+        raise ValueError("a row closes on its evidence, and the evidence is empty")
+    rows = list(dict.fromkeys(rows))
+    # A row whose word no command knows is what `--reclose` exists to mend, so naming it lifts the refusal.
+    lines, at = _rows(register, mending=rows)
+    refused = []
+    for row in rows:
+        if row not in at:
+            refused.append(f"{row} is no ledger row")
+            continue
+        cells = _cells(lines[at[row]])
+        if status(cells) in ("OPEN", "ROUTED") or reclose:
+            lines[at[row]] = _closed(cells, word, evidence)
+        else:
+            # Its evidence would go, and a second verdict on a closed row is a decision to say aloud.
+            refused.append(f"{row} is `{cells[3]}` already: --reclose closes it again")
+    if refused:
+        raise ValueError("; ".join(refused))
+    _write(register, lines)
+    return rows
+
+
+def close_routed(register: Path, rows: list[str], evidence: str, by: set[str]) -> list[str]:
     """Each named row ROUTED to one of `by`, the names of one agent, set FIXED with the evidence; the rows closed."""
     lines, at = _rows(register)
     closed = []
     for row in rows:
         cells = _cells(lines[at[row]]) if row in at else []
         if cells and status(cells) == "ROUTED" and owner(cells) in by:
-            cells[3:5] = [f"FIXED ({evidence})", f"was {cells[4]}"]
-            lines[at[row]] = "| " + " | ".join(cells) + " |"
+            lines[at[row]] = _closed(cells, "FIXED", evidence)
             closed.append(row)
     if closed:
         _write(register, lines)
@@ -268,6 +326,12 @@ def _parser() -> argparse.ArgumentParser:
     routing.add_argument("agent")
     routing.add_argument("rows", nargs="+")
     routing.add_argument("--reroute", action="store_true")
+    closing = commands.add_parser("close")
+    closing.add_argument("register", type=Path)
+    closing.add_argument("status", help=f"one of {', '.join(word for word in STATUSES if word in CLOSED)}, quoted where it is several words")
+    closing.add_argument("evidence")
+    closing.add_argument("rows", nargs="+")
+    closing.add_argument("--reclose", action="store_true", help="close again a row no longer OPEN or ROUTED")
     opening = commands.add_parser("open")
     opening.add_argument("register", type=Path)
     opening.add_argument("--unclosed", action="store_true")
@@ -292,6 +356,10 @@ def main(argv: list[str]) -> int:
         if args.command == "route":
             for row in route(args.register, args.agent, args.rows, args.reroute):
                 print(f"ROUTED {row} to {args.agent}")
+            return 0
+        if args.command == "close":
+            for row in close(args.register, args.status, args.evidence, args.rows, args.reclose):
+                print(f"{args.status} {row}")
             return 0
         rows = open_rows(args.register, args.unclosed)
         for row in rows:

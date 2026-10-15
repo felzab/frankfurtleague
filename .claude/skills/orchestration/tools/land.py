@@ -262,7 +262,7 @@ def land(register: Path, branch: str) -> int:
     bodies = git("log", "--format=%B", "HEAD^1..HEAD^2")
     named = sorted({row.rstrip(".") for found in ROWS_FIXED_RE.findall(bodies) for row in re.split(r"[,\s]+", found) if row.rstrip(".")})
     agent = owners(held, branch)
-    closed = ledger.close(register, named, merge, agent)
+    closed = ledger.close_routed(register, named, merge, agent)
     for row in closed:
         print(f"FIXED {row} by {merge}")
     if unclosed := sorted(set(named) - set(closed)):

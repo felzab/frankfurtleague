@@ -338,16 +338,47 @@ def _set(register: Path, row: str, held: str, owner: str = "") -> None:
 
 
 def test_open_unclosed_prints_every_row_no_closed_status_ends(tmp_path: Path) -> None:
-    """The ending proved every row closed with `open`, which passed over ROUTED rows and statuses no command knows."""
-    register = _banked(tmp_path, ("A-report.md", "F1 one\n\nF2 two\n\nF3 three\n\nF4 four\n"))
+    """The ending proved every row closed with `open`, which passes over ROUTED rows."""
+    register = _banked(tmp_path, ("A-report.md", "F1 one\n\nF3 three\n\nF4 four\n"))
     ledger.route(register, "FIXER", ["A-F1"])
-    _set(register, "A-F2", "ENDING")
     _set(register, "A-F3", "NOT A DEFECT", "the test drives it")
     _set(register, "A-F4", "FIXED (abc1234)")
     unclosed = _run("ledger", "open", str(register), "--unclosed")
     assert unclosed.returncode == 1
-    assert [line.split(" | ")[0] for line in unclosed.stdout.splitlines()] == ["| A-F1", "| A-F2"]
+    assert [line.split(" | ")[0] for line in unclosed.stdout.splitlines()] == ["| A-F1"]
     assert _run("ledger", "open", str(register)).returncode == 0
+
+
+@pytest.mark.parametrize(
+    "args",
+    [("open",), ("open", "--unclosed"), ("route", "FIXER", "A-F2"), ("close", "MOOT", "its evidence", "A-F2"), ("bank", "B-report.md")],
+    ids=["open", "open --unclosed", "route", "close of another row", "bank"],
+)
+def test_a_status_no_command_knows_is_refused_by_every_command_reading_the_ledger(tmp_path: Path, args: tuple[str, ...]) -> None:
+    """A helper wrote `CLOSED` over finished rows: `open --unclosed` printed them all and `open` read them as closed."""
+    register = _banked(tmp_path, ("A-report.md", "F1 one\n\nF2 two\n"))
+    _set(register, "A-F1", "CLOSED", "its evidence")
+    (tmp_path / "B-report.md").write_bytes(b"F1 one\n")
+    before = register.read_bytes()
+    done = _run("ledger", args[0], str(register), *(str(tmp_path / arg) if arg.endswith(".md") else arg for arg in args[1:]))
+    assert done.returncode == 2 and "A-F1 is `CLOSED`" in done.stderr and "--reclose" in done.stderr, done.stderr
+    assert done.stdout == "" and register.read_bytes() == before
+    mended = _run("ledger", "close", str(register), "MOOT", "its evidence", "A-F1", "--reclose")
+    assert mended.returncode == 0, mended.stderr
+    assert _run("ledger", "open", str(register), "--unclosed").stdout.split(" | ")[0] == "| A-F2"
+
+
+@pytest.mark.parametrize(
+    ("held", "said"),
+    [("OPENED", "A-F1 is `OPENED`"), ("FIXED (abc1234) | stray", "has 6 cells, not 5")],
+    ids=["a word a status opens", "a row of six cells"],
+)
+def test_a_status_cell_naming_no_status_whole_is_refused(tmp_path: Path, held: str, said: str) -> None:
+    """Read by its opening letters `OPENED` was OPEN, and a row an unescaped pipe widened was no row at all."""
+    register = _banked(tmp_path, ("A-report.md", "F1 one\n"))
+    _set(register, "A-F1", held)
+    done = _run("ledger", "open", str(register), "--unclosed")
+    assert done.returncode == 2 and said in done.stderr, done.stderr
 
 
 def test_a_row_has_one_owner_until_it_is_rerouted(tmp_path: Path) -> None:
@@ -376,7 +407,7 @@ def test_a_routed_row_carrying_a_note_routes_to_its_owner_again(tmp_path: Path) 
 
 @pytest.mark.parametrize(
     ("row", "held", "said"),
-    [("A-F9", "OPEN", "is no ledger row"), ("A-F1", "MOOT", "only an OPEN row"), ("A-F1", "ENDING", "only an OPEN row")],
+    [("A-F9", "OPEN", "is no ledger row"), ("A-F1", "MOOT", "only an OPEN row"), ("A-F1", "ENDING", "A-F1 is `ENDING`")],
     ids=["no such row", "a closed row", "a status no command knows"],
 )
 def test_a_route_naming_a_row_it_cannot_take_moves_none(tmp_path: Path, row: str, held: str, said: str) -> None:
@@ -385,6 +416,46 @@ def test_a_route_naming_a_row_it_cannot_take_moves_none(tmp_path: Path, row: str
     before = register.read_bytes()
     done = _run("ledger", "route", str(register), "FIXER-1", "A-F2", row)
     assert done.returncode == 2 and said in done.stderr
+    assert register.read_bytes() == before
+
+
+def _row(register: Path, row: str) -> list[str]:
+    """One row's cells as the ledger splits them, an escaped pipe kept inside its cell."""
+    return next(cells for line in register.read_bytes().decode("utf-8").splitlines() if (cells := ledger._cells(line))[:1] == [row])
+
+
+def test_close_sets_open_and_routed_rows_to_a_closing_status_and_its_evidence(tmp_path: Path) -> None:
+    """Rows closed by hand took a word outside the vocabulary; evidence holding a pipe would split its row."""
+    register = _banked(tmp_path, ("A-report.md", "F1 one\n\nF2 two\n\nF3 three\n"))
+    ledger.route(register, "FIXER", ["A-F1"])
+    done = _run("ledger", "close", str(register), "NOT A DEFECT", "the test | drives it\nalready", "A-F1", "A-F2")
+    assert done.returncode == 0, done.stderr
+    assert done.stdout.splitlines() == ["NOT A DEFECT A-F1", "NOT A DEFECT A-F2"]
+    assert _row(register, "A-F1")[3:] == ["NOT A DEFECT (the test \\| drives it already)", "was FIXER"]
+    assert _row(register, "A-F2")[3:] == ["NOT A DEFECT (the test \\| drives it already)", ""]
+    assert [line.split(" | ")[0] for line in _run("ledger", "open", str(register), "--unclosed").stdout.splitlines()] == ["| A-F3"]
+    again = _run("ledger", "close", str(register), "MOOT", "the plan moved", "A-F1", "--reclose")
+    assert again.returncode == 0, again.stderr
+    assert _row(register, "A-F1")[3:] == ["MOOT (the plan moved)", "was NOT A DEFECT (the test \\| drives it already); was FIXER"]
+
+
+@pytest.mark.parametrize(
+    ("word", "evidence", "rows", "said"),
+    [
+        ("CLOSED", "e", ("A-F2",), "`CLOSED` is no closing status"),
+        ("ROUTED", "e", ("A-F2",), "`ROUTED` is no closing status"),
+        ("MOOT", " \n ", ("A-F2",), "the evidence is empty"),
+        ("MOOT", "e", ("A-F2", "A-F9"), "A-F9 is no ledger row"),
+        ("MOOT", "e", ("A-F2", "A-F1"), "A-F1 is `FIXED (abc1234)` already: --reclose"),
+    ],
+    ids=["a word outside the vocabulary", "a word that closes nothing", "no evidence", "no such row", "a closed row"],
+)
+def test_a_close_it_cannot_make_closes_none(tmp_path: Path, word: str, evidence: str, rows: tuple[str, ...], said: str) -> None:
+    register = _banked(tmp_path, ("A-report.md", "F1 one\n\nF2 two\n"))
+    _set(register, "A-F1", "FIXED (abc1234)", "was FIXER")
+    before = register.read_bytes()
+    done = _run("ledger", "close", str(register), word, evidence, *rows)
+    assert done.returncode == 2 and said in done.stderr, done.stderr
     assert register.read_bytes() == before
 
 
@@ -1041,6 +1112,15 @@ def test_a_checkout_holding_changes_is_refused(tmp_path: Path) -> None:
     _agent_commit(root, "Docs: A note", NOTE)
     write(root, "stray.txt", "uncommitted\n")
     assert "land from a clean tree" in _refused(root)
+
+
+def test_a_ledger_holding_a_status_no_command_knows_is_refused_before_the_merge(tmp_path: Path) -> None:
+    """Met first at the closing of rows, the refusal would come after the merge commit."""
+    root = _repo(tmp_path)
+    _agent_commit(root, "Docs: A note", NOTE)
+    _set(_banked(tmp_path, ("A-report.md", "F1 one\n")), "A-F1", "CLOSED")
+    said = _refused(root)
+    assert "cannot be read" in said and "A-F1 is `CLOSED`" in said
 
 
 def test_a_name_that_is_no_branch_is_refused(tmp_path: Path) -> None:
