@@ -779,9 +779,8 @@ describe("an account deleted, against a real database", () => {
     assert.deepEqual(await heldOf(bystander), { user: 1, sessions: 1, passkeys: 1, pending: 5 });
   });
 
-  /* The helper reaches the passkeys and the pending rows ahead of the library's user-row delete, because both
-     deletion paths find an account by that row: past a failure there, the row stands for them to find, and
-     nothing they could no longer reach is left (`docs/frontend/spec.md :: I675`). */
+  /* Both deletion paths find an account by its user row, so the helper goes first: a failure at that row
+     leaves it for them to find, and no passkey past their reach (`docs/frontend/spec.md :: I675`). */
   it("leaves the user row alone where the library's delete of it fails, its passkeys and pending rows gone", async () => {
     const { runWithRequestScope } = await import("./requestScope.ts");
     const person = await seedAccount("nutzerzeile-db@example.org");
