@@ -391,6 +391,7 @@ SYSTEM_WRITES = [
     ("/api/v0/identitaet/subjekt", "POST"),
     ("/api/v0/identitaet/anmeldung", "POST"),
     ("/api/v0/identitaet/gesperrt", "POST"),
+    ("/api/v0/identitaet/referenzen", "POST"),
     # The grants' reconciliation: the read's reason above for the one, and the stamp is recorded
     # under `SYSTEM` because a change made in the database directly had no administrator.
     ("/api/v0/berechtigungen/abgleich", "POST"),

@@ -241,6 +241,7 @@ const {
 } = await import("./auth.ts");
 const { buildCodeEmail, CODE_VALIDITY_MINUTES } = await import("./authEmail.ts");
 const { holdsOwnersTier } = await import("./verwaltung.ts");
+const { getSubjectSession } = await import("./subject.ts");
 const { proxy } = await import("../proxy.ts");
 const { NextRequest } = await import("next/server");
 
@@ -546,6 +547,10 @@ describe("what the mounted HTTP surface answers", () => {
     // The credential id beside it, which would let a code session name a passkey's sessions as its own.
     await assert.rejects(() => auth.api.updateSession({ body: { passkeyCredentialId: CREDENTIAL_ID }, headers }));
     assert.equal(row.passkeyCredentialId, undefined, "the request wrote a credential id onto a code session");
+    // The idle mark beside them, which cleared would hand an idle administrator's session back its lane.
+    Reflect.set(row, "adminLapsed", true);
+    await assert.rejects(() => auth.api.updateSession({ body: { adminLapsed: false }, headers }));
+    assert.equal(Reflect.get(row, "adminLapsed"), true, "the request cleared the idle mark");
 
     assert.equal(row.authFactor, "code", "the request rewrote the factor, so every guard below proves nothing");
   });
@@ -869,6 +874,21 @@ describe("the administrator's idle hour across the proxy's slide", () => {
   it("serves a session slid a minute short of an hour idle, so the mark is the window and not every slide", async () => {
     assert.ok(await slidThenJudged(HOUR_MS - MINUTE_MS));
   });
+
+  /* The hook marks any session an hour idle, a person's too: the mark narrows the administrator's lane
+     alone, so a person guard reading it would refuse every person returning after an hour. */
+  it("leaves a person's session the slide marked to every guard of the person lane", async () => {
+    const { cookie, row } = await signIn(PERSON_EMAIL);
+    refreshedAgo(row, 2 * HOUR_MS);
+
+    await proxy(new NextRequest("http://localhost:3000/bereich/konto", { headers: { cookie } }));
+    assert.equal(Reflect.get(row, "adminLapsed"), true, "the slide left no mark, so the case proves nothing");
+
+    arriveAs(cookie);
+    assert.ok(await getKontoSession(), "the account guard refused a person's marked session");
+    assert.ok(await getSubjectSession(), "the person guard refused a person's marked session");
+    assert.equal(await getSignInDestination(), "/bereich");
+  });
 });
 
 describe("a grant the backend cannot answer for", () => {
@@ -1056,7 +1076,7 @@ describe("a grant on a barred address", () => {
   });
 });
 
-describe("the second factor, judged at the same guard", () => {
+describe("the administrator's passkey sign-in, judged at the same guard", () => {
   it("refuses a granted session the mailbox alone made, and sends it to the passkey page", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     assert.equal(row.authFactor, "code", "the mailbox factor's own verification did not stamp it");
@@ -1555,8 +1575,8 @@ describe("which sessions may enrol a passkey, and how many rows they may leave",
     assert.deepEqual(await getPasskeyStep(), { step: "assert", email: ADMIN_EMAIL });
   });
 
-  /* The hole the second factor would otherwise leave open: a mailbox alone reaches a code-borne
-     session, and the plugin gates both enrolment paths on freshness and nothing else. */
+  /* The hole a mailbox alone would otherwise open: it reaches a code-borne session, and the plugin
+     gates both enrolment paths on freshness and nothing else. */
   it("refuses both enrolment paths to a code-borne administrator who already holds one, writing no second row", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     const held = aPasskeyFor(row.userId);

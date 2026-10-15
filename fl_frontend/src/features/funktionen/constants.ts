@@ -156,3 +156,9 @@ export const TEAM_SIDEMENU_STRUCTURE: SidemenuStructure<TeamIconName> = [{ categ
 export function teamStructureFor(seats: readonly TeamSeat[]): SidemenuStructure<TeamIconName> {
   return seats.length === 0 ? [] : TEAM_SIDEMENU_STRUCTURE;
 }
+
+/**
+ * The most addresses one references read judges, mirroring the backend's `REFERENZEN_ADRESSEN_MAX`
+ * (`fl_backend/app/shared/schemas/bounds.py`): a larger batch is refused whole, every pass alike.
+ */
+export const REFERENZEN_ADRESSEN_MAX = 250;

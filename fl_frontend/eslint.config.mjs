@@ -901,14 +901,17 @@ const readsOff = (name) =>
   ].join(", ");
 
 /**
- * A search query in a URL, which the access log keeps (`docs/frontend/spec.md :: I680`). By the name
- * `q` alone: one held under another name passes, so the two bans below give every search box a holder.
+ * A search query in a URL (`docs/frontend/spec.md :: I680`) by the name `q`; one under another name is
+ * the page sweep's to catch. Another host's `?q=` is refused on purpose; `has` and `delete` stay free to
+ * strip an old one.
  */
 const SEARCH_IN_URL = {
   selector: [
-    String.raw`CallExpression[callee.property.name=/^(?:get|getAll|has|set|append|delete)$/] > :matches(Literal[value="q"], TemplateLiteral[expressions.length=0][quasis.0.value.cooked="q"]).arguments:first-child`,
+    String.raw`CallExpression[callee.property.name=/^(?:get|getAll|set|append)$/] > :matches(Literal[value="q"], TemplateLiteral[expressions.length=0][quasis.0.value.cooked="q"]).arguments:first-child`,
     inLiteral(String.raw`[?&]q=`),
     'NewExpression[callee.name="URLSearchParams"] Property:matches([key.name="q"], [key.value="q"])',
+    // Next's URL-object `href`.
+    'Property[key.name="query"] > ObjectExpression.value > Property:matches([key.name="q"], [key.value="q"])',
     // A page's parameters, off the prop or what awaiting it gave.
     'MemberExpression:matches([property.name="q"], [property.value="q"]):matches([object.name=/^(?:searchParams|params)$/], [object.type="AwaitExpression"])',
     'VariableDeclarator:matches([init.name=/^(?:searchParams|params)$/], [init.type="AwaitExpression"]) > ObjectPattern.id > Property:matches([key.name="q"], [key.value="q"])',
@@ -929,7 +932,10 @@ const SEARCH_BAR_HOME = {
   exempt: ["src/shared/components/ui/AdminCrudSearch.tsx", "src/features/spiele/components/views/SpielsucheView.tsx"],
 };
 
-/** Every other way to draw a search box, so a list cannot route around the one above. */
+/**
+ * The other three spellings of a search box. A plain input or a text field used as one passes here,
+ * and `fl_frontend/src/app/typedText.test.ts` fails it once its text reaches a URL.
+ */
 const SEARCH_FIELD_HOME = {
   selector: [
     `:matches(ImportDeclaration, ExportNamedDeclaration, ExportAllDeclaration)[source.value=/${packageUnder("@heroui/react/search-field")}/]`,
@@ -1284,6 +1290,7 @@ const SCOPED_BANS = [
         "src/features/bewerbungen/actions.ts",
         "src/features/bewerbungen/notifications.ts",
         "src/features/bewerbungen/sweep.ts",
+        "src/features/funktionen/sweep.ts",
         "src/features/sperrliste/actions.ts",
         "src/features/zustellung/notifications.ts",
       ],

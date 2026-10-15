@@ -1,9 +1,7 @@
 import { FieldError } from "@heroui/react/field-error";
 
-import { AdminCreateSpielortForm } from "@/features/spielorte/components/forms/AdminCreateSpielortForm";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { FIELD_COUNT_INPUT_CLASSES, FIELD_ERROR_CLASSES, FIELD_GROUP_CLASSES } from "@/shared/components/ui/formFieldStyles";
-import { FormModal } from "@/shared/components/ui/FormModal";
 import { NumberField } from "@/shared/components/ui/NumberField";
 
 import { ExpectedMarker } from "./ExpectedMarker";
@@ -22,19 +20,31 @@ import type { FLSpielort } from "@/features/spielorte/schemas";
  */
 type SpielortAngebot = Pick<FLSpielort, "id" | "name" | "maps_link" | "default_mietpreis">;
 
+/** One mapping for a pick and for the editor's create dialog, so a venue created there books what a picked one would. */
+export const toOrtDraft = (venue: SpielortAngebot): FLSpielOrtFieldDraft => ({
+  spielort_id: venue.id,
+  name: venue.name,
+  maps_link: venue.maps_link,
+  mietpreis: venue.default_mietpreis,
+});
+
 /**
  * The price is subordinate to the choice rather than its peer, hence 2fr/1fr. Prefilled from the
  * venue's `default_mietpreis` and then editable, what a fixture cost being the fixture's property.
  */
 export function FormSpielortSection({
   spielorte,
+  created,
   ortPayload,
   onOrtChange,
+  onRequestCreate,
   onValidateFields,
 }: {
   spielorte: FLSpielort[];
+  created: FLSpielort[];
   ortPayload: FLSpielOrtFieldDraft | null;
   onOrtChange: (payload: FLSpielOrtFieldDraft | null) => void;
+  onRequestCreate: () => void;
   onValidateFields: (paths: readonly string[]) => void;
 }) {
   // The venue this fixture ALREADY holds, where the list offers it nowhere: the default read drops
@@ -54,18 +64,9 @@ export function FormSpielortSection({
         ];
 
   // The picker hands over the resolved record: looking it up against `spielorte` would miss one
-  // just created in the modal, a silent failure behind a success toast.
+  // just created in the dialog, a silent failure behind a success toast.
   const handleOrtChange = (resolvedOrt: SpielortAngebot | null) => {
-    onOrtChange(
-      resolvedOrt
-        ? {
-            spielort_id: resolvedOrt.id,
-            name: resolvedOrt.name,
-            maps_link: resolvedOrt.maps_link,
-            mietpreis: resolvedOrt.default_mietpreis,
-          }
-        : null,
-    );
+    onOrtChange(resolvedOrt ? toOrtDraft(resolvedOrt) : null);
   };
 
   // `null` is an emptied field, not a zero price. `Math.round` because a decimal is typable, the
@@ -90,21 +91,12 @@ export function FormSpielortSection({
         fieldPath="ort.spielort_id"
         placeholder="z.B. Sportpark Nord"
         items={[...held, ...spielorte]}
+        created={created}
         selectedId={ortPayload?.spielort_id ?? null}
         onSelect={handleOrtChange}
         createLabel="Neuen Spielort anlegen"
         emptyStateText="Dieser Spielort existiert noch nicht."
-        renderCreateModal={({ isOpen, onClose, onCreated }) => (
-          <FormModal
-            isOpen={isOpen}
-            onClose={onClose}
-            heading="Spielort anlegen">
-            <AdminCreateSpielortForm
-              onClose={onClose}
-              onCreated={onCreated}
-            />
-          </FormModal>
-        )}
+        onRequestCreate={onRequestCreate}
       />
 
       <NumberField

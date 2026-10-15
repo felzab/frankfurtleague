@@ -30,9 +30,22 @@ export const failedWrite = (endpoint: string): APIBadStatusError =>
 /** An undo's answer where its replay's write went unacknowledged, which may still have landed. */
 export const unacknowledged = (error: string): UndoOutcome => ({ success: false, error, outcome: "unknown" });
 
+/** A refusal by a rule no replay table words, as `apiClient` raises one. */
+const unwordedRule = (): APIBadStatusError =>
+  new APIBadStatusError({
+    message: "refused",
+    url: "http://backend:8000/api/v0/x",
+    endpoint: "/x",
+    method: "PATCH",
+    readOnly: false,
+    traceId: "ab".repeat(16),
+    statusCode: 409,
+    serverErrorCode: "REQ-UNCLAIMED-000",
+  });
+
 /**
- * Every code's answer a reason closed once on `closing`: a code the action's table leaves unmapped
- * falls through to the shared sentence, which says nothing of what became of the change.
+ * Every code's answer a reason closed once on `closing`, and never the spine's answer to a rule no table
+ * words, which closes on the change standing too: a code the table leaves unmapped differs in that alone.
  */
 export async function assertEachRefusalCloses({
   codes,
@@ -47,6 +60,10 @@ export async function assertEachRefusalCloses({
   /** What became of the change; a replay of two writes that restored the first names that half instead. */
   closing?: string;
 }): Promise<Map<string, string>> {
+  // Imported late: the spine reaches the sign-in store, which the caller's doubles stand in for first.
+  const { runAdminUndo } = await import("@/shared/utils/adminUndo.ts");
+  const fallback = await runAdminUndo("assertEachRefusalCloses", () => Promise.reject(unwordedRule()));
+  assert.equal(fallback.success, false, "the spine restored nothing yet answered a success");
   const answers = new Map<string, string>();
 
   for (const code of codes) {
@@ -55,6 +72,7 @@ export async function assertEachRefusalCloses({
     const error = answer.success ? "" : answer.error;
 
     assert.equal(answer.success, false, `${code} resolved as a restore`);
+    assert.notEqual(error, fallback.success ? "" : fallback.error, `${code} is answered as a rule no table words`);
     assert.ok(error.endsWith(` ${closing}`), `${code} closes on something else: ${error}`);
     assert.match(error.slice(0, -closing.length - 1), /\S\.$/, `${code} names no reason before what became of the change`);
     assert.equal(error.split(closing).length, 2, `${code} states what became of the change twice`);

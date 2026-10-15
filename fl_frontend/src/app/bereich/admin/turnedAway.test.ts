@@ -27,7 +27,7 @@ import type { PageStep } from "@/shared/testing/pageHarness.ts";
 
 /* Nobody signed in, and each module called without the layouts above it: the router renders a page
    segment whatever a layout's guard decides, and a soft navigation renders no layout at all. */
-const { setRefusal } = doubleActionRequest({ session: null });
+const { setRefusal, setSession } = doubleActionRequest({ session: null });
 
 // The consent registry's own answers, so a base-tier read beside a page's first admin read settles as it would.
 answerReadsWith((endpoint, schema, params) =>
@@ -132,23 +132,55 @@ describe("every admin segment module called alone, for a session that is no admi
     assert.deepEqual(rendered, [], "these pages rendered for a session that is no administrator's");
   });
 
-  /* An excuse holds only while its page answers its 404 and nothing else, having read nothing. */
-  it("excuses only pages that answer their 404 before any read", () => {
-    const answered = Object.keys(ANSWERED_BEFORE_ANY_READ).map((file) => {
-      const found = VISITS.get(file);
-      return {
-        file,
-        digests: found?.thrown.map((error) => (error as { digest?: unknown } | null)?.digest) ?? "no such page",
-        reads: found?.reads.map(({ endpoint }) => endpoint) ?? [],
-      };
+  /* An excuse holds only while its page answers its 404 and nothing else, having read nothing. Visited
+     as an administrator too: an admin read a page swallows sends nothing for a refused session. */
+  it("excuses only pages that answer their 404 before any read, for an administrator too", async () => {
+    const excused = Object.keys(ANSWERED_BEFORE_ANY_READ);
+    const answeredBy = (file: string, found: Visit | undefined) => ({
+      file,
+      digests: found?.thrown.map((error) => (error as { digest?: unknown } | null)?.digest) ?? "no such page",
+      reads: found?.reads.map(({ endpoint }) => endpoint) ?? [],
     });
+    const refused = excused.map((file) => answeredBy(file, VISITS.get(file)));
+    setSession({ user: { email: "vorstand@example.org" } });
+    const admitted: ReturnType<typeof answeredBy>[] = [];
+    for (const file of excused) {
+      const page = PAGES.find((candidate) => label(candidate) === file);
+      admitted.push(answeredBy(file, page === undefined ? undefined : await visit(page, true)));
+    }
 
+    const expected = excused.map((file) => ({ file, digests: [NOT_FOUND], reads: [] }));
+    assert.deepEqual({ refused, admitted }, { refused: expected, admitted: expected });
+  });
+
+  /* The shell's slots rest on the layout's guards (`docs/frontend/spec.md :: I122`): the switcher
+     renders nothing for a refused session, so each guard must turn it away itself. */
+  it("turns that session away at every guard the admin layout mounts", async () => {
+    const { AdminAuthGuard } = await import("@/features/admin/components/providers/AdminAuthGuard.tsx");
+    const layout = SEGMENTS.find((file) => label(file) === "layout.tsx");
+    assert.ok(layout !== undefined, "no admin layout was found");
+    const { default: Layout } = (await import(pathToFileURL(layout).href)) as SegmentModule;
+    const guards = mounted(Layout({ params: Promise.resolve({}), children: h("p", null, "Seite") }), AdminAuthGuard);
+
+    assert.ok(guards > 0, "the admin layout mounts no guard, so the case below proves nothing");
     assert.deepEqual(
-      answered,
-      Object.keys(ANSWERED_BEFORE_ANY_READ).map((file) => ({ file, digests: [NOT_FOUND], reads: [] })),
+      VISITS.get("layout.tsx")?.targets,
+      Array.from({ length: guards }, () => SIGN_IN_LANDING),
     );
   });
 });
+
+/** How many elements of `type` a tree holds, read through every prop, as a slot is an element-valued prop. */
+function mounted(node: unknown, type: unknown, depth = 0): number {
+  if (depth > 40 || node === null || typeof node !== "object") return 0;
+  if (Array.isArray(node)) return node.reduce((sum: number, child: unknown) => sum + mounted(child, type, depth + 1), 0);
+  const element = node as { type?: unknown; props?: Record<string, unknown> };
+  if (element.props === undefined) return 0;
+
+  return (
+    (element.type === type ? 1 : 0) + Object.values(element.props).reduce((sum: number, value) => sum + mounted(value, type, depth + 1), 0)
+  );
+}
 
 const UNREAD = "UnreadGrantError";
 
@@ -164,21 +196,23 @@ describe("every admin segment module called alone, for a grant the backend left 
      boundary, whose retry keeps the administrator in place, where a sign-in meets the same unread grant. */
   it("throws it to the admin boundary from the layout and every page but the excused, redirecting none", async () => {
     setRefusal("unread");
-    const answers = new Map<string, string[]>();
-    for (const page of PAGES) answers.set(label(page), (await visit(page, true)).thrown.map(answerOf));
-    for (const segment of SEGMENTS) answers.set(label(segment), (await visit(segment, false)).thrown.map(answerOf));
+    const answers = new Map<string, { answered: string[]; isPage: boolean }>();
+    for (const page of PAGES) answers.set(label(page), { answered: (await visit(page, true)).thrown.map(answerOf), isPage: true });
+    for (const segment of SEGMENTS)
+      answers.set(label(segment), { answered: (await visit(segment, false)).thrown.map(answerOf), isPage: false });
 
-    const otherwise = [...answers].flatMap(([file, answered]) =>
+    const otherwise = [...answers].flatMap(([file, { answered }]) =>
       answered
         .filter((answer) => answer !== UNREAD && !(answer === NOT_FOUND && ANSWERED_BEFORE_ANY_READ[file] !== undefined))
         .map((answer) => `${file} :: ${answer}`),
     );
+    // Pages alone, as the refused session's floor: a template or a slot's default may read nothing at all.
     const unanswered = [...answers]
-      .filter(([file, answered]) => ANSWERED_BEFORE_ANY_READ[file] === undefined && !answered.includes(UNREAD))
+      .filter(([file, { answered, isPage }]) => isPage && ANSWERED_BEFORE_ANY_READ[file] === undefined && !answered.includes(UNREAD))
       .map(([file]) => file);
 
     assert.deepEqual(otherwise, [], "these modules answered an unread grant otherwise");
     assert.deepEqual(unanswered, [], "these modules rendered for an unread grant");
-    assert.ok(answers.get("layout.tsx")?.includes(UNREAD), "the admin layout was not visited, so its guard was not judged");
+    assert.ok(answers.get("layout.tsx")?.answered.includes(UNREAD), "the admin layout did not throw it, or was not visited");
   });
 });

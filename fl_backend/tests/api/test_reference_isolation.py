@@ -27,13 +27,13 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.admin_router import annehmen_bewerbung
 from app.api.bewerbungen.schemas import FLAnnehmenBewerbungPayload
-from app.api.schiedsrichter.admin_router import anonymise_schiedsrichter, delete_schiedsrichter, patch_schiedsrichter
+from app.api.schiedsrichter.admin_router import delete_schiedsrichter, patch_schiedsrichter
 from app.api.schiedsrichter.schemas import FLPatchSchiedsrichterPayload
 from app.api.schiedsrichter.services import REFEREE_STILL_ASSIGNED
 from app.api.spiele.admin_router import patch_spiel_data, patch_spiele_paarungen
 from app.api.spiele.schemas import FLPatchSpielDataPayload, FLPatchSpielePaarungenPayload, unplayed_filter
 from app.api.spiele.services import BOOKING_UNKNOWN_RESOURCE, FIXTURE_DOUBLE_BOOKED
-from app.api.spieler.admin_router import erase_spieler, post_saison_spieler
+from app.api.spieler.admin_router import post_saison_spieler
 from app.api.spieler.schemas import FLPostSaisonSpielerPayload
 from app.api.spielorte.admin_router import delete_spielort, patch_spielort
 from app.api.spielorte.schemas import FLPatchSpielortPayload
@@ -48,6 +48,7 @@ from tests import documents
 from tests.actor_tokens import FRESH_STEP_UP_CHECK
 from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.erasure import erased
 from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
 from tests.payloads import spiel_patch_body
 from tests.worker import worker_database
@@ -82,8 +83,9 @@ REFEREE = ObjectId("6890a1b2c3d4e5f608280004")
 SECOND_FIXTURE = ObjectId("6890a1b2c3d4e5f608280005")
 THIRD_FIXTURE = ObjectId("6890a1b2c3d4e5f608280006")
 
-# Retired, so the erasure takes them (`REQ-PURGE-001`), and seeded by the one case entering them.
+# Seeded by the one case entering them, under the address their erasure is keyed on.
 PERSON = ObjectId("6890a1b2c3d4e5f608290001")
+PERSON_EMAIL = "quillhilde.brackenmoor@example.com"
 
 SEED_MAPS_LINK = "Sportplatz Ostpark, Hanauer Landstraße 12a, 60314 Frankfurt am Main, Deutschland"
 
@@ -345,14 +347,9 @@ async def retire_the_referee(client: AsyncMongoClient, handles: Mapping[Collecti
 
 
 async def erase_the_referee(client: AsyncMongoClient, handles: Mapping[Collection, Any]) -> Any:
-    return await anonymise_schiedsrichter(
-        schiedsrichter_id=REFEREE,
-        schiedsrichter_collection=handles[Collection.SCHIEDSRICHTER],
-        spiele_collection=handles[Collection.SPIELE],
-        aktionen_collection=handles[Collection.AKTIONEN],
-        db=client,
-        germany_now=ERASED_AT,
-    )
+    (referee,) = LEAGUE[Collection.SCHIEDSRICHTER]
+
+    return await erased(handles, client, referee["kontakt"]["email"], germany_now=ERASED_AT)
 
 
 RENAMED_CLUB = ("Schule Neuwerk", "NW")
@@ -742,7 +739,7 @@ class TestARetirementLandingMidBookingIsJudgedAgain:
             async with a_clean_database(mongo_replica_set_url, DATABASE_NAME) as (client, database):
                 handles = await a_seeded_league(database, None)
                 await database[Collection.SPIELER].insert_one(
-                    documents.spieler_document(PERSON, "Quillhilde", "Brackenmoor", inactive_since=RETIRED_ON)
+                    documents.spieler_document(PERSON, "Quillhilde", "Brackenmoor", email=PERSON_EMAIL)
                 )
                 erasures: list[str] = []
 
@@ -818,14 +815,7 @@ async def enter_the_person(client: AsyncMongoClient, handles: Mapping[Collection
 
 
 async def erase_the_person(client: AsyncMongoClient, handles: Mapping[Collection, Any]) -> Any:
-    return await erase_spieler(
-        spieler_id=PERSON,
-        spieler_collection=handles[Collection.SPIELER],
-        saison_spieler_collection=handles[Collection.SAISON_SPIELER],
-        aktionen_collection=handles[Collection.AKTIONEN],
-        db=client,
-        germany_now=NOW,
-    )
+    return await erased(handles, client, PERSON_EMAIL, germany_now=NOW)
 
 
 async def erased_standing(database: AsyncDatabase) -> tuple[bool, ObjectId | None]:

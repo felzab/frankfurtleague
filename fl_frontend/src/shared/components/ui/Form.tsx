@@ -49,6 +49,9 @@ export function Form({
         validationBehavior="aria"
         onSubmit={(event) => {
           event.preventDefault();
+          // A portal moves the DOM and not React's tree, through which a submit still bubbles into any
+          // form rendering this one (`docs/frontend/spec.md :: I711`).
+          event.stopPropagation();
           onSubmit();
         }}>
         {/* The form's default button until hydration, and disabled: the browser then ignores an Enter no

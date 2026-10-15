@@ -67,4 +67,12 @@ describe("the search a reader types a date into", () => {
     assert.ok(!carriesEveryDate({ a: { b: "12.03.2026" } }, ["a.c"], ["12.03.2026"]));
     assert.ok(!carriesEveryDate({ a: null }, ["a.b"], ["12.03.2026"]), "a null on the path is walked into");
   });
+
+  /* A key reading what a card prints is asked for the printed value, not walked as a path. */
+  it("reads a date off a key that derives the value its card prints", () => {
+    const tag = { name: "tag", getFn: (row: { stored: string }) => row.stored.split("-").reverse().join(".") };
+
+    assert.ok(carriesEveryDate({ stored: "2026-03-12" }, [tag], ["12.03.2026"]));
+    assert.ok(!carriesEveryDate({ stored: "2026-03-12" }, [tag], ["2026-03-12"]), "the stored spelling answered for the printed one");
+  });
 });

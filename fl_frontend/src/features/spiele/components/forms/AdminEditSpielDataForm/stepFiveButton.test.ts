@@ -68,8 +68,10 @@ const SECTIONS: [string, ReactNode][] = [
     underProviders(
       h(FormSpielortSection, {
         spielorte: [],
+        created: [],
         ortPayload: { spielort_id: "6890a1b2c3d4e5f607800021", name: "Turnhalle Riedberg", maps_link: "Riedberg", mietpreis: 40 },
         onOrtChange: () => {},
+        onRequestCreate: () => {},
         onValidateFields: () => {},
       }),
     ),
@@ -79,8 +81,10 @@ const SECTIONS: [string, ReactNode][] = [
     underProviders(
       h(FormSchiedsrichterSection, {
         schiedsrichter: [],
+        created: [],
         schiedsrichterPayload: { schiedsrichter_id: "6890a1b2c3d4e5f607800022", name: "Pierluigi Collina", payment: 20 },
         onSchiedsrichterChange: () => {},
+        onRequestCreate: () => {},
         onValidateFields: () => {},
       }),
     ),

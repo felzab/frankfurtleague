@@ -35,8 +35,6 @@ from app.api.bewerbungen.services import (
 )
 from app.api.einwilligung.services import FASSUNG_UNZULAESSIG
 from app.api.identitaet.crud import funktionen_of
-from app.api.kontakte.admin_router import erase_kontaktperson
-from app.api.kontakte.schemas import FLKontaktErasurePayload
 from app.api.saisons.admin_router import activate_saison
 from app.api.teams.admin_router import einladen_kontakt, patch_saison_team_kontakte, replace_saison_team
 from app.api.teams.schemas import FLPatchSaisonTeamKontaktePayload, FLReplaceSaisonTeamPayload, kontakte_stand_of
@@ -59,6 +57,7 @@ from tests.app_client import app_client
 from tests.bans import ban_list, ban_through_the_route
 from tests.config import ADMIN_KEY, ADMINISTRATORS, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.erasure import erased
 from tests.isolation import InterleavedCollection
 from tests.plans import plans_of_sent_reads
 from tests.records import record_collections
@@ -929,14 +928,7 @@ class TestARowsPeopleLeavingTakeTheirLinks:
     def test_an_erased_person_s_link_opens_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             response = await save(database, THREE)
-            await erase_kontaktperson(
-                erasure_data=FLKontaktErasurePayload.model_validate({"email": "jonas@example.com"}),
-                saison_teams_collection=database[Collection.SAISON_TEAMS],
-                bewerbungen_collection=database[Collection.BEWERBUNGEN],
-                aktionen_collection=database[Collection.AKTIONEN],
-                db=database.client,
-                germany_now=NOW,
-            )
+            await erased(database, database.client, "jonas@example.com", germany_now=NOW)
 
             return await refused(ansicht(database, response.bestaetigungen[1].token))
 

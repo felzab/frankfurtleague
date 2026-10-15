@@ -20,7 +20,6 @@ from app.api.bewerbungen.services import hash_token
 from app.api.identitaet.router import get_anmeldung
 from app.api.identitaet.schemas import FLSubjektPayload
 from app.api.schiedsrichter.admin_router import (
-    anonymise_schiedsrichter,
     delete_adresswechsel,
     einladen_adresswechsel,
     einladen_schiedsrichter,
@@ -59,6 +58,7 @@ from tests.app_client import app_client
 from tests.bans import ban_list, ban_through_the_route
 from tests.config import ADMIN_KEY, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.erasure import erased
 from tests.records import record_collections
 from tests.whole_database import where_held
 from tests.worker import worker_database
@@ -797,14 +797,7 @@ class TestTheErasure:
                 db=database,
                 db_client=client,
             )
-            await anonymise_schiedsrichter(
-                schiedsrichter_id=SCHIEDSRICHTER_OID,
-                schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-                spiele_collection=database[Collection.SPIELE],
-                aktionen_collection=database[Collection.AKTIONEN],
-                db=client,
-                germany_now=NOW,
-            )
+            await erased(database, client, EMAIL, germany_now=NOW)
 
             return await where_held(database, NEW_EMAIL)
 

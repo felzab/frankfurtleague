@@ -10,6 +10,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import DuplicateKeyError, OperationFailure
 
 from app.api.bewerbungen.services import hash_token
+from app.api.identitaet.schemas import FLErasureResponse
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.schiedsrichter.admin_router import (
     anonymise_schiedsrichter,
@@ -56,6 +57,7 @@ from tests.actor_tokens import FRESH_STEP_UP_CHECK
 from tests.bans import ban_list
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.documents import rules_document, saison_document, spiel_document
+from tests.erasure import erased
 from tests.payloads import spiel_patch_body
 from tests.worker import worker_database
 
@@ -440,6 +442,14 @@ def on_a_league(url: str, body: Body, *, mutates_schema: bool = False) -> Any:
     return on_the_seed_loop(_run())
 
 
+async def erase_the_referee(
+    database: AsyncDatabase, client: AsyncMongoClient, schiedsrichter_id: ObjectId = SCHIEDSRICHTER_OID
+) -> FLErasureResponse:
+    """The registry's erasure of the address the referee's history left them holding: the erasure is keyed on a mailbox, never on an id."""
+
+    return await erased(database, client, KONTAKT[schiedsrichter_id]["email"], germany_now=NOW)
+
+
 async def call_anonymisation(
     database: AsyncDatabase, client: AsyncMongoClient, schiedsrichter_id: ObjectId = SCHIEDSRICHTER_OID
 ) -> FLSchiedsrichterWriteResponse:
@@ -533,14 +543,14 @@ def index_names(plan: Any) -> set[str]:
     return found
 
 
-def after_anonymising(url: str) -> tuple[FLSchiedsrichterWriteResponse, dict[Any, Mapping[str, Any]], list[Mapping[str, Any]]]:
-    """The echo, the whole collection and the whole log together: one seeded database serves all three."""
+def after_erasing(url: str) -> tuple[dict[Any, Mapping[str, Any]], list[Mapping[str, Any]]]:
+    """The whole collection and the whole log together: one seeded database serves both."""
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        response = await call_anonymisation(database, client)
+        await erase_the_referee(database, client)
         log = await database[Collection.AKTIONEN].find().sort("_id", 1).to_list(length=None)
 
-        return response, await stored_referees(database), log
+        return await stored_referees(database), log
 
     return on_a_league(url, body)
 
@@ -549,7 +559,7 @@ def after_anonymising(url: str) -> tuple[FLSchiedsrichterWriteResponse, dict[Any
 def test_the_referees_document_is_gone(mongo_replica_set_url: str):
     """The case the endpoint exists for. Kills nulling the row in place, and a transaction that never commits."""
 
-    _, referees, _ = after_anonymising(mongo_replica_set_url)
+    referees, _ = after_erasing(mongo_replica_set_url)
 
     assert SCHIEDSRICHTER_OID not in referees
     # The control, without which emptying the whole collection would pass.
@@ -560,7 +570,7 @@ def test_the_referees_document_is_gone(mongo_replica_set_url: str):
 def test_the_ghost_is_written_where_no_ghost_stood(mongo_replica_set_url: str):
     """Kills leaving the seed to a deploy step: a repoint onto a row nothing holds is a reference no rule and no report can resolve."""
 
-    _, referees, _ = after_anonymising(mongo_replica_set_url)
+    referees, _ = after_erasing(mongo_replica_set_url)
     ghost = referees[GHOST_SCHIEDSRICHTER_ID]
 
     assert (ghost["name"], ghost["schule"]) == (None, None)
@@ -572,8 +582,8 @@ def test_a_second_erasure_reuses_the_one_ghost(mongo_replica_set_url: str):
     """Kills writing a fresh sentinel per run, which would leave one nameless row per erased person and refuse the second on the name index."""
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        await call_anonymisation(database, client, SCHIEDSRICHTER_OID)
-        await call_anonymisation(database, client, OTHER_SCHIEDSRICHTER_OID)
+        await erase_the_referee(database, client, SCHIEDSRICHTER_OID)
+        await erase_the_referee(database, client, OTHER_SCHIEDSRICHTER_OID)
 
         return await stored_referees(database), await stored_fixtures(database)
 
@@ -581,18 +591,6 @@ def test_a_second_erasure_reuses_the_one_ghost(mongo_replica_set_url: str):
 
     assert list(referees) == [GHOST_SCHIEDSRICHTER_ID]
     assert {row["schiedsrichter"]["schiedsrichter_id"] for row in fixtures.values()} == {GHOST_SCHIEDSRICHTER_ID}
-
-
-@pytest.mark.db
-def test_the_echo_carries_the_ghost_rather_than_the_person(mongo_replica_set_url: str):
-    """Kills answering with the pre-image, which would serve the name and the contact details this call exists to destroy."""
-
-    response, _, _ = after_anonymising(mongo_replica_set_url)
-    echoed = response.updated_document
-
-    assert echoed.id == GHOST_SCHIEDSRICHTER_ID
-    assert (echoed.name, echoed.schule) == (None, None)
-    assert (echoed.kontakt.telefon, echoed.kontakt.email) == (None, None)
 
 
 async def listed_ids(database: AsyncDatabase) -> list[ObjectId]:
@@ -618,7 +616,7 @@ def test_the_ghost_is_off_the_list_an_administrator_works_from(mongo_replica_set
     """
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        await call_anonymisation(database, client)
+        await erase_the_referee(database, client)
 
         return await listed_ids(database)
 
@@ -637,7 +635,7 @@ def test_the_single_read_answers_for_neither_the_erased_referee_nor_the_ghost(mo
     """
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        await call_anonymisation(database, client)
+        await erase_the_referee(database, client)
 
         answers = []
         for schiedsrichter_id in (SCHIEDSRICHTER_OID, GHOST_SCHIEDSRICHTER_ID):
@@ -699,7 +697,7 @@ def test_no_write_endpoint_reaches_the_ghost(mongo_replica_set_url: str, press: 
     """
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        await call_anonymisation(database, client)
+        await erase_the_referee(database, client)
         # One of the ghost's fixtures put back among those still to be played, which is what a
         # bracket resolution leaves: the retirement would otherwise refuse 409 before it reads the
         # row and the 404 below would never be reached.
@@ -762,12 +760,12 @@ def test_an_ordinary_retired_referee_is_still_brought_back(mongo_replica_set_url
     assert on_a_league(mongo_replica_set_url, body) is None
 
 
-def after_anonymising_one_fixture_left_to_play(url: str) -> tuple[dict[Any, Mapping[str, Any]], dict[Any, Mapping[str, Any]]]:
+def after_erasing_one_fixture_left_to_play(url: str) -> tuple[dict[Any, Mapping[str, Any]], dict[Any, Mapping[str, Any]]]:
     """One league holding a played fixture and an unplayed one, so the two halves are read off a single run."""
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         await one_of_their_fixtures_left_to_play(database)
-        await call_anonymisation(database, client)
+        await erase_the_referee(database, client)
 
         return await stored_fixtures(database), await stored_referees(database)
 
@@ -781,7 +779,7 @@ def test_an_unplayed_fixture_does_not_stop_the_erasure_and_takes_the_ghost(mongo
     Kills consulting that refusal here, and kills leaving an erased person named on work still to come.
     """
 
-    fixtures, referees = after_anonymising_one_fixture_left_to_play(mongo_replica_set_url)
+    fixtures, referees = after_erasing_one_fixture_left_to_play(mongo_replica_set_url)
 
     assert SCHIEDSRICHTER_OID not in referees
     # Still owing a result, so this cannot pass on an erasure that composed one instead.
@@ -793,7 +791,7 @@ def test_an_unplayed_fixture_does_not_stop_the_erasure_and_takes_the_ghost(mongo
 def test_the_played_fixture_beside_it_takes_the_ghost_too(mongo_replica_set_url: str):
     """Kills a repoint narrowed to what is still to be played: a match that was played records that somebody officiated it and what it cost."""
 
-    fixtures, _ = after_anonymising_one_fixture_left_to_play(mongo_replica_set_url)
+    fixtures, _ = after_erasing_one_fixture_left_to_play(mongo_replica_set_url)
 
     assert fixtures[PLAYED_SPIEL_OID]["schiedsrichter"] == REPOINTED_BOOKING
 
@@ -804,7 +802,7 @@ def test_a_cancelled_fixture_takes_the_ghost(mongo_replica_set_url: str):
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         await one_of_their_fixtures_left_to_play(database, sonderereignis=A_CANCELLATION)
-        await call_anonymisation(database, client)
+        await erase_the_referee(database, client)
 
         return await stored_fixtures(database)
 
@@ -819,7 +817,7 @@ def test_another_referees_fixture_keeps_its_assignment(mongo_replica_set_url: st
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         await database[Collection.SPIELE].update_one({"_id": OTHER_SPIEL_OID}, {"$set": {"ergebnis": None}})
-        await call_anonymisation(database, client)
+        await erase_the_referee(database, client)
 
         return await stored_fixtures(database)
 
@@ -832,9 +830,9 @@ def test_another_referees_fixture_keeps_its_assignment(mongo_replica_set_url: st
     }
 
 
-def fixtures_after_anonymising(url: str) -> dict[Any, Mapping[str, Any]]:
+def fixtures_after_erasing(url: str) -> dict[Any, Mapping[str, Any]]:
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        await call_anonymisation(database, client)
+        await erase_the_referee(database, client)
 
         return await stored_fixtures(database)
 
@@ -849,7 +847,7 @@ def test_every_fixture_they_officiated_is_repointed(mongo_replica_set_url: str):
     it reached.
     """
 
-    fixtures = fixtures_after_anonymising(mongo_replica_set_url)
+    fixtures = fixtures_after_erasing(mongo_replica_set_url)
 
     assert [fixtures[spiel_id]["schiedsrichter"] for spiel_id in SPIEL_OIDS[SCHIEDSRICHTER_OID]] == [REPOINTED_BOOKING] * 2
 
@@ -860,7 +858,7 @@ def test_a_closed_seasons_fixture_is_repointed_as_well(mongo_replica_set_url: st
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         await an_archived_fixture(database)
-        await call_anonymisation(database, client)
+        await erase_the_referee(database, client)
 
         return await stored_fixtures(database)
 
@@ -876,7 +874,7 @@ def test_the_fee_the_match_agreed_survives_the_repoint(mongo_replica_set_url: st
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         await database[Collection.SPIELE].update_one({"_id": PLAYED_SPIEL_OID}, {"$set": {"schiedsrichter.payment": 45}})
-        await call_anonymisation(database, client)
+        await erase_the_referee(database, client)
 
         return await stored_fixtures(database)
 
@@ -894,7 +892,7 @@ def test_the_written_fixture_is_read_back_by_both_tiers_rather_than_refused(mong
     Both models, because the base tier reduces the surname where the admin tier serves it whole.
     """
 
-    fixtures = fixtures_after_anonymising(mongo_replica_set_url)
+    fixtures = fixtures_after_erasing(mongo_replica_set_url)
     booking = fixtures[PLAYED_SPIEL_OID]["schiedsrichter"]
 
     assert FLSpielSchiedsrichterFieldPublic.model_validate(booking).name is None
@@ -905,7 +903,7 @@ def test_the_written_fixture_is_read_back_by_both_tiers_rather_than_refused(mong
 def test_the_other_referee_keeps_their_contact_details(mongo_replica_set_url: str):
     """Kills a write that ignores its filter: the cases above all pass for one that empties the collection."""
 
-    _, referees, _ = after_anonymising(mongo_replica_set_url)
+    referees, _ = after_erasing(mongo_replica_set_url)
 
     assert referees[OTHER_SCHIEDSRICHTER_OID]["kontakt"] == KONTAKT[OTHER_SCHIEDSRICHTER_OID]
 
@@ -919,7 +917,7 @@ def test_the_removal_files_no_image_of_the_person(mongo_replica_set_url: str):
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         seeded = {row["_id"] for row in await log_rows_naming(database, SCHIEDSRICHTER_OID)}
-        await call_anonymisation(database, client)
+        await erase_the_referee(database, client)
         rows = database[Collection.AKTIONEN].find({"collection": str(Collection.SCHIEDSRICHTER), "operation": "erase_many"})
 
         return seeded, await rows.to_list(length=None)
@@ -940,7 +938,7 @@ def test_every_log_row_naming_them_is_emptied_and_stamped(mongo_replica_set_url:
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         seeded = await log_rows_naming(database, SCHIEDSRICHTER_OID)
-        await call_anonymisation(database, client)
+        await erase_the_referee(database, client)
 
         return seeded, await log_rows_naming(database, SCHIEDSRICHTER_OID)
 
@@ -960,7 +958,7 @@ def test_no_value_of_theirs_survives_anywhere_in_the_log(mongo_replica_set_url: 
     referee's values are asserted present, or a log emptied wholesale would pass.
     """
 
-    _, _, log = after_anonymising(mongo_replica_set_url)
+    _, log = after_erasing(mongo_replica_set_url)
     rendered = str(log)
     theirs = (REFEREE_NAMES[SCHIEDSRICHTER_OID], *FORMER_KONTAKT[SCHIEDSRICHTER_OID].values(), *KONTAKT[SCHIEDSRICHTER_OID].values())
 
@@ -988,7 +986,7 @@ def test_every_fixture_image_holding_their_name_is_repointed_and_stamped(mongo_r
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         seeded = await fixture_log_rows(database)
-        await call_anonymisation(database, client)
+        await erase_the_referee(database, client)
 
         return seeded, await fixture_log_rows(database)
 
@@ -1035,7 +1033,7 @@ def test_an_image_of_a_fixture_since_reassigned_is_repointed_too(mongo_replica_s
             },
             return_document=ReturnDocument.BEFORE,
         )
-        await call_anonymisation(database, client)
+        await erase_the_referee(database, client)
 
         return [row for row in await fixture_log_rows(database) if row["document_id"] == reassigned]
 
@@ -1060,7 +1058,7 @@ def test_every_image_in_the_array_a_removal_files_is_repointed_too(mongo_replica
         # Through the helper the undraw uses, which is what files the array rather than one row each.
         async with client.start_session() as session:
             await delete_many_from_db(collection=database[Collection.SPIELE], db_filter={"_id": {"$in": list(removed)}}, session=session)
-        await call_anonymisation(database, client)
+        await erase_the_referee(database, client)
 
         rows = database[Collection.AKTIONEN].find({"collection": str(Collection.SPIELE), "operation": "delete_many"})
 
@@ -1108,7 +1106,7 @@ def test_the_other_referees_log_rows_keep_their_images(mongo_replica_set_url: st
     """Kills a filter matching on `collection` alone, which would empty every referee's rows at once."""
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        await call_anonymisation(database, client)
+        await erase_the_referee(database, client)
 
         return await log_rows_naming(database, OTHER_SCHIEDSRICHTER_OID)
 
@@ -1127,7 +1125,7 @@ def test_the_redaction_writes_no_row_of_its_own(mongo_replica_set_url: str):
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         before_count = await database[Collection.AKTIONEN].count_documents({})
-        await call_anonymisation(database, client)
+        await erase_the_referee(database, client)
 
         return (
             before_count,
@@ -1174,7 +1172,7 @@ def test_a_refused_redaction_takes_the_removal_back(mongo_replica_set_url: str):
         await a_validator_refusing_the_redaction(database)
 
         with pytest.raises(OperationFailure) as failure:
-            await call_anonymisation(database, client)
+            await erase_the_referee(database, client)
 
         return failure.value.code, await stored_referees(database), await log_rows_naming(database, SCHIEDSRICHTER_OID)
 
@@ -1196,7 +1194,7 @@ def test_a_refused_redaction_takes_the_repoint_back(mongo_replica_set_url: str):
         await a_validator_refusing_the_redaction(database)
 
         with pytest.raises(OperationFailure) as failure:
-            await call_anonymisation(database, client)
+            await erase_the_referee(database, client)
 
         return failure.value.code, await stored_fixtures(database)
 
@@ -1230,7 +1228,7 @@ class TestTheNameRuleReachesEveryRow:
         """What the widening buys: a sentinel written twice, which would split the erased fixtures across two rows nobody can tell apart."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
-            await call_anonymisation(database, client)
+            await erase_the_referee(database, client)
             try:
                 await database[Collection.SCHIEDSRICHTER].insert_one({**build_ghost_schiedsrichter(), "_id": ObjectId()})
             except DuplicateKeyError:

@@ -8,7 +8,7 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.identitaet.crud import find_anmeldung, find_subjekt
+from app.api.identitaet.crud import find_anmeldung, find_subjekt, unreferenced_of
 from app.api.identitaet.person_router import erase_selbst, get_erasure_ansicht
 from app.api.konto.router import get_einwilligungen
 from app.api.registrierungen.einwilligung_router import get_bestaetigung_ansicht
@@ -107,6 +107,20 @@ async def the_subject_read(database: AsyncDatabase, client: AsyncMongoClient, re
 
 async def the_gate_read(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
     return await find_anmeldung(FOLDED_EMAIL, record_collections(database))
+
+
+async def the_references_read(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
+    # The league's owner, without whom the read refuses before its answer (`docs/backend/spec.md :: I712`).
+    await database[Collection.BERECHTIGUNGEN].insert_one(
+        {"_id": ObjectId(), "adresse": ANNA, "verwaltung": "owner", "erteilt_von": "PLAYGROUND", "erteilt_am": NOW}
+    )
+
+    return await unreferenced_of(
+        [FOLDED_EMAIL],
+        record_collections(database),
+        berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
+        sperrliste=ban_list(database),
+    )
 
 
 async def the_confirmation_view(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
@@ -276,6 +290,7 @@ class TestEveryAddressReadUsesTheIndex:
         [
             the_subject_read,
             the_gate_read,
+            the_references_read,
             the_confirmation_view,
             the_pending_read,
             the_admission,

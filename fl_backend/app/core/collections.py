@@ -32,9 +32,9 @@ class Collection(StrEnum):
     #: What every admin write did, and what it replaced. The one collection nothing here references
     #: and nothing references back (`fl_backend/app/core/recording.py`).
     AKTIONEN = "aktionen"
-    #: A row survives its person's erasure deliberately (`docs/backend/spec.md :: I268`): it yields
-    #: no address without the key, so it is neither their document to delete nor a shell of nulls.
-    #: Its author's leaves the marker (`:: I660`).
+    #: A row survives the erasure of the person it bars (`docs/backend/spec.md :: I268`): keyed, it is
+    #: neither their document to delete nor a shell of nulls. Its author's erasure leaves the marker
+    #: (`:: I660`).
     SPERRLISTE = "sperrliste"
     #: One minted registration link per row. It names a team, a season and the administrator who
     #: minted it, whose erasure leaves the row standing with the marker in their place

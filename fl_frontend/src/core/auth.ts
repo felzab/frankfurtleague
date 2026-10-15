@@ -343,9 +343,9 @@ class RemovalOutsideTransaction extends Error {
 }
 
 /**
- * The write every removal of one administrator's passkeys makes, inside the transaction holding its
- * count and its delete: the database refuses the second of two, where the count alone admits both
- * (`docs/frontend/spec.md :: I341`).
+ * The write every removal of an administrator's passkeys makes inside its transaction: where the count
+ * alone admits two removals, the database refuses the second's write and the adapter re-runs it on the
+ * first's commit (`docs/frontend/spec.md :: I341`).
  */
 async function claimAccount(adapter: Pick<DBTransactionAdapter, "update">, userId: string): Promise<void> {
   // Any field of the account's own row conflicts; `updatedAt` is one the row already carries, so the
@@ -935,6 +935,7 @@ const authOptions = (origin: URL, client: MongoClient) =>
           // read before this write is judged instead, so a session the administrator's window refused stays
           // refused (`docs/frontend/spec.md :: I658`).
           before: async (data, ctx) => {
+            // Only a write moving `updatedAt` erases the gap; any other leaves the stamp to judge by.
             if (data.updatedAt === undefined) return;
             const prior = ctx?.context.session?.session;
             // No row to judge is no window kept, as `withinLifetime` reads an unreadable stamp.
@@ -967,8 +968,8 @@ const authOptions = (origin: URL, client: MongoClient) =>
         // `fl_frontend/src/core/logFormat.ts :: serializeError` writes with its message and stack.
         const raised = args.find((argument) => argument instanceof Error);
 
-        // One authenticator enrolled twice at once by enrolments that sign nobody in: the credential index refuses the
-        // second row. A set-up that signs in conflicts inside a transaction the adapter retries, and the retry is refused 404.
+        // A second row for a credential the index holds: one authenticator enrolled twice at once without signing in, or
+        // a credential another account holds. Set-ups of one authenticator at once conflict in a transaction retried to a 404.
         if (message.startsWith(REGISTRATION_FAILED) && isDuplicateCredential(raised)) {
           logger.warn("auth.passkey_enrolment_conflict", { error_code: "FE-AUTH-005" });
           return;

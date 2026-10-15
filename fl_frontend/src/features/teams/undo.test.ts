@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
-import { publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
+import { publishedRefusals, refusedOn, unpublishedOn } from "@/shared/testing/publishedRefusals.ts";
 import { assertEachRefusalCloses, droppedTags, failedWrite, refreshes, unacknowledged } from "@/shared/testing/undoActions.ts";
 
 /* The real action and the mutations it replays through, called: the request it runs in and the backend client are the doubles. */
@@ -117,15 +117,25 @@ describe("the team save's undo", () => {
   it("clears the caches and reads the page again where the junction fails after the club half went back", async () => {
     answerWith(({ endpoint }) => (endpoint === JUNCTION_PATH ? Promise.reject(failedWrite(endpoint)) : Promise.resolve(replayed(endpoint, 1))));
 
-    const answer = await undoAdminTeamEditAction({ club: CLUB, saison: SAISON });
-
-    assert.equal(answer.success ? undefined : answer.outcome, "partial", "the half that went back is not said to stand");
-    assert.ok(
-      !answer.success && answer.error.endsWith(" Nur die Stammdaten wurden zurückgesetzt."),
-      "the answer does not name the half that went back",
-    );
-    assert.equal(answer.success, false, "a junction that failed was reported as restored");
+    // The server's reason, then the half that went back, never a retry: the offer pressed is gone.
+    assert.deepEqual(await undoAdminTeamEditAction({ club: CLUB, saison: SAISON }), {
+      success: false,
+      error: "Der Server hat mit einem Fehler geantwortet. Nur die Stammdaten wurden zurückgesetzt.",
+      outcome: "partial",
+    });
     assert.deepEqual(droppedTags(), ["teams", "spiele", `teams:saison_id:${SAISON.saison_id}`, `spiele:saison_id:${SAISON.saison_id}`]);
     assert.equal(refreshes(), 1, "the page keeps the club data the undo already put back");
+  });
+
+  /* A rule no table words has no reason to name, so the answer names the half that cannot go back. */
+  it("names the season entry where a rule no table words refuses it after the club half went back", async () => {
+    const refusal = unpublishedOn(JUNCTION_OPERATION, "REQ-UNCLAIMED-000", 409);
+    answerWith(({ endpoint }) => (endpoint === JUNCTION_PATH ? Promise.reject(refusal) : Promise.resolve(replayed(endpoint, 1))));
+
+    assert.deepEqual(await undoAdminTeamEditAction({ club: CLUB, saison: SAISON }), {
+      success: false,
+      error: "Die Saison-Zugehörigkeit lässt sich so nicht mehr zurücksetzen. Nur die Stammdaten wurden zurückgesetzt.",
+      outcome: "partial",
+    });
   });
 });
