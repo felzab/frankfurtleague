@@ -137,6 +137,9 @@ export function abgewiesenerVersand(): { error?: string; fieldErrors?: FieldErro
   return { fieldErrors: { email: MAIL_ABGEWIESEN } };
 }
 
+/** `alterAusserhalb` where the link's view serves no floor to name: both bounds, never a number of its own. */
+const ALTER_AUSSERHALB_UNGELESEN = "Mit diesem Geburtsdatum bist Du zu jung oder zu alt. Prüfe Dein Geburtsdatum.";
+
 /** What one refused confirmation asks its caller to do. */
 export type BestaetigungRefusal = { error?: string; fieldErrors?: FieldErrors; unplacedError?: string; zustand?: SpielerLinkZustand };
 
@@ -186,9 +189,8 @@ export async function mapBestaetigungRefusal(
     case "REQ-REGISTRIERUNG-007": {
       const floor = (await ansicht())?.mindestalter ?? null;
 
-      // Unworded rather than guessed: a sentence naming a floor this link was not minted under
-      // sends the person to correct a date that was right.
-      return floor === null ? null : { fieldErrors: { geburtsdatum: alterAusserhalb(floor) } };
+      // A view that went unread names no floor: one guessed could send the person to correct a date that was right.
+      return { fieldErrors: { geburtsdatum: floor === null ? ALTER_AUSSERHALB_UNGELESEN : alterAusserhalb(floor) } };
     }
     default:
       return null;

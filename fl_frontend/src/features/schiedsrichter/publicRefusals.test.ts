@@ -72,10 +72,12 @@ describe("what one refused confirmation asks the referee's page to show", () => 
     assert.notEqual(alterAusserhalb(MINDESTALTER), kontaktSatz(MINDESTALTER));
   });
 
-  it("leaves the age refusal unworded where the floor could not be read", async () => {
+  it("puts the age refusal on the date naming no age where the floor could not be read", async () => {
     // A sentence naming a floor this link was not minted under sends the person to correct a date
-    // that was right, so nothing is better than a guess.
-    assert.equal(await mapSchiedsrichterBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, "REQ-SCHIEDSRICHTER-005"), noFloor), null);
+    // that was right, so it names none, on the field all the same.
+    assert.deepEqual(await mapSchiedsrichterBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, "REQ-SCHIEDSRICHTER-005"), noFloor), {
+      fieldErrors: { geburtsdatum: "Mit diesem Geburtsdatum bist Du zu jung oder zu alt. Prüfe Dein Geburtsdatum." },
+    });
   });
 
   it("puts a body refusal naming a field on that field's box, with the mail's link for a box the page lacks", async () => {

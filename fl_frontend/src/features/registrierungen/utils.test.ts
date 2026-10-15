@@ -251,9 +251,11 @@ describe("what one refused confirmation shows", () => {
   });
 
   /* A sentence naming a floor this link was not minted under sends the person to correct a date that
-     was right, so an unreadable link leaves the refusal unworded. */
-  it("words nothing where the floor could not be read", async () => {
-    assert.equal(await mapBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, "REQ-REGISTRIERUNG-007"), floorOf(null).lesen), null);
+     was right, so an unreadable link's refusal names none, on the field all the same. */
+  it("puts the age refusal on the date naming no age where the floor could not be read", async () => {
+    assert.deepEqual(await mapBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, "REQ-REGISTRIERUNG-007"), floorOf(null).lesen), {
+      fieldErrors: { geburtsdatum: "Mit diesem Geburtsdatum bist Du zu jung oder zu alt. Prüfe Dein Geburtsdatum." },
+    });
   });
 
   /* The page offers the media switch from the served age on the browser's German day, so a clock

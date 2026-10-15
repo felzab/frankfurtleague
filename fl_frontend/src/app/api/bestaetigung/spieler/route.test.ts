@@ -203,18 +203,17 @@ describe("the pupil's confirmation handler", () => {
   });
 
   /* A sentence naming a floor this link was not minted under sends the person to correct a date
-     that was right, so an unreadable view leaves the refusal unworded. */
-  it("words nothing where the link's own view could not be read", async () => {
+     that was right, so an unreadable view's refusal names none, on the field all the same. */
+  it("puts the age refusal on the date naming no age where the link's own view could not be read", async () => {
     schreibAntwort = () => refusedOn(WRITE_OPERATION, "REQ-REGISTRIERUNG-007");
     ansichtAntwort = () => new Error("the backend did not answer");
 
     const answer = await bodyOf(aRequest(gueltigerKoerper));
-    const body = answer.body as { success: boolean; fieldErrors?: Record<string, string> };
 
-    // Rethrown by the mapper's `null` and answered by the public spine, so the page raises its own
-    // failure rather than showing a floor nobody minted this link under.
-    assert.equal(body.success, false);
-    assert.equal(body.fieldErrors?.["geburtsdatum"], undefined, "a floor the read never answered reached the field anyway");
+    assert.deepEqual(answer.body, {
+      success: false,
+      fieldErrors: { geburtsdatum: "Mit diesem Geburtsdatum bist Du zu jung oder zu alt. Prüfe Dein Geburtsdatum." },
+    });
   });
 
   it("refuses a body no schema admits without reaching the endpoint", async () => {
