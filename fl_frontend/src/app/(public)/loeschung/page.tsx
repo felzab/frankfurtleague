@@ -55,8 +55,9 @@ async function LoeschungContent(props: NextPageProps) {
   if (verwaltend !== null && !verwaltend.hasPasskey) return <LoeschungView start={{ zustand: "ohnePasskey" }} />;
 
   // Uncaught: without the list the page cannot say what goes, so a failed read reaches the error boundary.
-  const { spieler, schiedsrichter, sitze, bewerbungen, registrierungen, adresswechsel, verwaltung } = await getLoeschungAnsicht();
-  const ansicht = { spieler, schiedsrichter, sitze, bewerbungen, registrierungen, adresswechsel, verwaltung };
+  const { spieler, schiedsrichter, sitze, bewerbungen, registrierungen, adresswechsel, verwaltung, letzter_inhaber } =
+    await getLoeschungAnsicht();
+  const ansicht = { spieler, schiedsrichter, sitze, bewerbungen, registrierungen, adresswechsel, verwaltung, letzter_inhaber };
 
   return (
     <LoeschungView

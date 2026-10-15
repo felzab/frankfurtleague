@@ -1368,6 +1368,10 @@ carries the address. Ask when they tried and read that window
   hour, so this one was sent nothing (`docs/frontend/spec.md :: I442`). The five count every request,
   a stranger's and one the gate refused included, so an address can be capped with nothing mailed;
   retries during a backend outage spend a person's hour the same way.
+- `auth.deletion_link_capped`, an info line carrying `bound`: a signed-in person asked for an account
+  deletion link past their address's five mails of the hour, codes and links counted together
+  (`address`), or past every address's hundred (`total`), so nothing was minted or mailed and the
+  press read as sent (`docs/frontend/spec.md :: I713`). A link they already hold stands for its day.
 - `auth.code_mail_total_capped` under `FE-AUTH-008`: a hundred codes had been mailed across every
   address inside the hour (`docs/frontend/spec.md :: I447`), so nobody was sent one; a code a
   person already held still stands, bar a send racing the hundredth. Only admitted addresses count,

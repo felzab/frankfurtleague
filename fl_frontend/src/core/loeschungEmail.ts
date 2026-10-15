@@ -24,8 +24,8 @@ import type { Aktion } from "./emailShell";
  */
 export const LOESCHUNG_LINK_GUELTIG_STUNDEN = 24;
 
-/** A segment of its own, so `fl_frontend/src/app/robots.ts` and the sitemap's withheld list answer it by name. */
-export const LOESCHUNG_PATH = "/loeschung";
+/** A segment of its own, which `fl_frontend/src/app/robots.ts` disallows and the sitemap's withheld list names. */
+const LOESCHUNG_PATH = "/loeschung";
 
 /**
  * The one place the deletion link is spelled, from the token alone and never the library's own `url`,

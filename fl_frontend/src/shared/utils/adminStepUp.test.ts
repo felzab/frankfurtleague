@@ -603,6 +603,8 @@ describe("a write the backend refuses for want of a recent confirmation", () => 
   it("is driven for every operation publishing it", () => {
     const publishing = publishedOperations()
       .filter(({ answers }) => answers.some(({ code }) => code === "REQ-AUTH-009"))
+      // A person's route meets it on the person record spine, which `fl_frontend/src/app/protocolCoverage.test.ts :: RECORD_ROUTES` asks.
+      .filter(({ answers }) => !answers.some(({ code }) => code === "REQ-AUTH-008"))
       .map(({ operation }) => operation);
 
     assert.deepEqual(publishing.sort(), Object.keys(CONFIRMED_BY_THE_BACKEND).sort());

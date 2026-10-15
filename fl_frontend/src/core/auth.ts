@@ -107,6 +107,12 @@ const MAIL_TOTAL_IDENTIFIER = `${MAIL_ROW_PREFIX}every-address`;
 /** The library's own prefix for an outstanding deletion token's row, whose value is the account's user id. */
 const DELETE_TOKEN_ROW_PREFIX = "delete-account-";
 
+/** The one path that mails a deletion link, without a token, and completes one with it, both called in process. */
+const DELETE_USER_PATH = "/delete-user";
+
+/** The library's answer to a mailed link, which a capped request answers too (`better-auth/api :: deleteUser`). */
+const DELETION_LINK_SENT = "Verification email sent";
+
 // The per-address cap lets a flood grow with every member's address, and codes spending the
 // provider's quota stop every other mail the league sends. Set well above an hour of real sign-ins.
 const CODE_MAIL_TOTAL_LIMIT = 100;
@@ -620,6 +626,34 @@ async function unlessUnsettled(settle: () => Promise<void>): Promise<void> {
   }
 }
 
+/** Whether a `/delete-user` body asks for a link, as the library reads it: any token it holds completes one instead. */
+function asksForDeletionLink(body: unknown): boolean {
+  const token: unknown = typeof body === "object" && body !== null ? Reflect.get(body, "token") : undefined;
+  return !token;
+}
+
+/**
+ * Whether a deletion link would mail past its address's hour or every address's: counted on the code's own
+ * rows, so one bound holds every mail sent at the person's own request (`docs/frontend/spec.md :: I713`).
+ */
+async function deletionLinkCapped(context: BoundContext, email: string): Promise<boolean> {
+  const capped = (bound: "address" | "total"): true => {
+    logger.info("auth.deletion_link_capped", { bound: bound });
+    return true;
+  };
+
+  // In the code send's order: the total read first, writing nothing, then each count.
+  if (await mailTotalReached(context)) return capped("total");
+
+  const perAddress = await boundIdentifier(MAIL_ROW_PREFIX, email, context.secret);
+  if ((await withinBound(context, perAddress, CODE_MAIL_LIMIT, CODE_MAIL_WINDOW_HOURS * HOUR_MS)) === null) return capped("address");
+  if ((await withinBound(context, MAIL_TOTAL_IDENTIFIER, CODE_MAIL_TOTAL_LIMIT, CODE_MAIL_WINDOW_HOURS * HOUR_MS)) === null) {
+    return capped("total");
+  }
+
+  return false;
+}
+
 /** The address a sign-in code is asked for, or `null` for a send of any other type. */
 function codeSendAddress(body: unknown): string | null {
   const type: unknown = typeof body === "object" && body !== null ? Reflect.get(body, "type") : undefined;
@@ -801,6 +835,14 @@ async function sendDeletionLink({ user, token }: { user: { email: string }; toke
 /** Named, because the library's failure line records an error's name and nothing else. */
 class DeletionWithoutErasure extends Error {
   override name = "DeletionWithoutErasure";
+}
+
+/** The library's answer to a link it completed (`better-auth/api :: deleteUser`), its one answer that deletes. */
+const ACCOUNT_DELETED = "User deleted";
+
+/** A deletion the library answered with something other than a deletion, which no caller may read as one. */
+class DeletionNotAnswered extends Error {
+  override name = "DeletionNotAnswered";
 }
 
 // Our own dependency injection, never a compensation for the library: the hook takes no per-call
@@ -1023,6 +1065,15 @@ const authOptions = (origin: URL, client: MongoClient) =>
           logger.info("auth.code_mail_capped");
           // The plugin's own answer to a send, so a capped one reads as a mailed one.
           return ctx.json({ success: true });
+        }
+
+        // Ahead of the library, which mints the token row before its sender runs: capped, nothing is minted or
+        // mailed and the answer reads as mailed, as a capped code send's does. No session is the library's to refuse.
+        if (ctx.path === DELETE_USER_PATH && asksForDeletionLink(ctx.body)) {
+          const asking = await getSessionFromCtx(ctx);
+          if (asking !== null && (await deletionLinkCapped(ctx.context, asking.user.email))) {
+            return ctx.json({ success: true, message: DELETION_LINK_SENT });
+          }
         }
 
         // Both arms: an in-process assertion answered by another account's passkey is no less that account's.
@@ -1840,8 +1891,13 @@ export async function deleteOwnAccount(
   requestHeaders: Headers,
   eraseRecords: () => Promise<unknown>,
 ): Promise<OwnAccountDeletion> {
+  // The library reads an empty token as a request for a new link, which it would mint and mail: no link at all.
+  if (token === "") return "linkRefused";
+
   try {
-    await ownErasure.run(eraseRecords, () => auth.api.deleteUser({ body: { token: token }, headers: requestHeaders }));
+    const answer = await ownErasure.run(eraseRecords, () => auth.api.deleteUser({ body: { token: token }, headers: requestHeaders }));
+    // The library's own word for a deletion, never the absence of a throw: its one other answer mails a link.
+    if (answer.message !== ACCOUNT_DELETED) throw new DeletionNotAnswered();
     return "deleted";
   } catch (failed) {
     // The library's own refusals alone: a token spent, lapsed or another account's -- spent all the same
@@ -1852,9 +1908,9 @@ export async function deleteOwnAccount(
 }
 
 /**
- * Deletes every sign-in-store row of the account `identifier` names in one transaction, and the address's
- * pending rows where it holds none; answers whether an account was there. Its callers erase the league's
- * records first (`docs/frontend/spec.md :: I675`).
+ * Every sign-in-store row of the account `identifier` names, in one transaction, and the address's pending
+ * rows; answers whether an account was there. Its callers first establish the league holds nothing of the
+ * address, erased or unreferenced (`docs/frontend/spec.md :: I675`).
  */
 export async function deleteAccountFor(identifier: string): Promise<boolean> {
   const folded = asSignInIdentifier(identifier);

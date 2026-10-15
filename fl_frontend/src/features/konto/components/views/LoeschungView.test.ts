@@ -38,7 +38,16 @@ const BEREIT: LoeschungStart = {
   zustand: "bereit",
   token: TOKEN,
   email: "vorstand@example.org",
-  ansicht: { spieler: [], schiedsrichter: [], sitze: [], bewerbungen: [], registrierungen: [], adresswechsel: 0, verwaltung: "owner" },
+  ansicht: {
+    spieler: [],
+    schiedsrichter: [],
+    sitze: [],
+    bewerbungen: [],
+    registrierungen: [],
+    adresswechsel: 0,
+    verwaltung: "owner",
+    letzter_inhaber: false,
+  },
 };
 
 const MINUTE_MS = 60 * 1000;
