@@ -105,6 +105,11 @@ SAISON_ID_LENGTH: Final = 4
 LIST_LIMIT_DEFAULT: Final = 1024
 LIST_LIMIT_MAX: Final = 1024
 
+# The most addresses one references call judges, about a millisecond each: 250 took a median of 0.24 s
+# over 400 season rows and 2,000 pupils (a local server, 2026-10-15), far inside
+# `app/core/middlewares.py :: REQUEST_DEADLINE_S` on a slower one.
+REFERENZEN_ADRESSEN_MAX: Final = 250
+
 # How long the action log keeps a row, counted from the write it recorded. Seconds because that is
 # the unit `create_index(expireAfterSeconds=)` takes, and a plain year because the database counts
 # no calendar months.
@@ -127,6 +132,10 @@ AKTEUR_PSEUDONYM_SHOWN: Final = 8
 # days, which is the window a mistyped address is caught in: this link waits on an adult with no
 # second route in.
 SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE: Final = 14
+
+# How long a pupil's new address has to confirm its link; a re-send restarts it. The referee's figure
+# and its own constant, for the floors' reason below: the two links wait on different people.
+SPIELER_ADRESSWECHSEL_FRIST_TAGE: Final = 14
 
 # The age a referee consents at. Its own constant rather than the application contact's, though the
 # numbers agree: the two floors are separate judgements, so raising one must not silently raise the

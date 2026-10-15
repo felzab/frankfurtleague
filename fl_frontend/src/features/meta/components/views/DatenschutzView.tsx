@@ -203,7 +203,7 @@ const FRISTEN = [
     daten: "Anmeldung: E-Mail-Adresse, Anmeldecode, Sitzung und Passkey",
     // Each figure read off the constant the sign-in enforces, never typed: a copy typed here is a
     // promise nothing keeps.
-    frist: `Ein Anmeldecode gilt ${ZAHLWORT[CODE_VALIDITY_MINUTES]} Minuten und wird danach gelöscht; das gilt auch für eine Adresse, die jemand ohne Konto in das Anmeldeformular einträgt. Falsch eingegebene Codes zählen wir ${String(CODE_FAILURE_WINDOW_HOURS)} Stunden lang, angeforderte Codes ${EINE_STUNDE[CODE_MAIL_WINDOW_HOURS]} lang, beides unter einem unlesbaren Schlüssel statt unter der Adresse; eine erfolgreiche Anmeldung löscht die gezählten Fehlversuche. Eine Sitzung endet, wenn sie ${String(PERSON_LEERLAUF_TAGE)} Tage lang nicht genutzt wurde, spätestens aber ${String(PERSON_WINDOW_DAYS)} Tage nach der Anmeldung. Für die Verwaltung gilt sie nach ${NACH_EINER_STUNDE[ADMIN_IDLE_HOURS]} ohne Nutzung nicht mehr, spätestens aber ${String(ADMIN_WINDOW_HOURS)} Stunden nach der Anmeldung. Zu einer Sitzung, die mit einem Passkey begonnen hat, speichern wir, welcher Passkey das war. Zu jedem Passkey speichern wir, wann er zuletzt benutzt wurde, und den Namen, den Du ihm gibst. Adresse und Passkeys bleiben, solange das Konto besteht, und werden auf Wunsch gelöscht`,
+    frist: `Ein Anmeldecode gilt ${ZAHLWORT[CODE_VALIDITY_MINUTES]} Minuten und wird danach gelöscht; das gilt auch für eine Adresse, die jemand ohne Konto in das Anmeldeformular einträgt. Falsch eingegebene Codes zählen wir ${String(CODE_FAILURE_WINDOW_HOURS)} Stunden lang, angeforderte Codes ${EINE_STUNDE[CODE_MAIL_WINDOW_HOURS]} lang, beides unter einem unlesbaren Schlüssel statt unter der Adresse; eine erfolgreiche Anmeldung löscht die gezählten Fehlversuche. Eine Sitzung endet, wenn sie ${String(PERSON_LEERLAUF_TAGE)} Tage lang nicht genutzt wurde, spätestens aber ${String(PERSON_WINDOW_DAYS)} Tage nach der Anmeldung. Für die Verwaltung gilt sie nach ${NACH_EINER_STUNDE[ADMIN_IDLE_HOURS]} ohne Nutzung nicht mehr, spätestens aber ${String(ADMIN_WINDOW_HOURS)} Stunden nach der Anmeldung. Zu einer Sitzung, die mit einem Passkey begonnen hat, speichern wir, welcher Passkey das war. Zu jedem Passkey speichern wir, wann er zuletzt benutzt wurde, und den Namen, den Du ihm gibst. Adresse und Passkeys bleiben, solange das Konto besteht. Das Konto löschen wir auf Wunsch und von selbst, sobald zu Deiner Adresse kein Eintrag der Liga, kein Zugang zur Verwaltung und keine Sperre mehr bestehen`,
   },
   {
     daten: "Änderungsprotokoll: Änderungen der Verwaltung und Änderungen angemeldeter Personen",
@@ -609,9 +609,9 @@ export function DatenschutzView() {
               Ein Sitzungs-Cookie für angemeldete Personen. Es entsteht erst bei der Anmeldung und hält die Sitzung. Das Cookie selbst läuft ab,
               wenn die Sitzung {SESSION_EXPIRES_IN_DAYS} Tage lang nicht genutzt wurde. Bei jedem Aufruf prüfen wir zusätzlich, ob die Anmeldung
               nicht länger als {PERSON_WINDOW_DAYS} Tage her ist, und verlangen danach eine neue Anmeldung. Für den Zugang zur Verwaltung
-              verlangen wir sie schon nach {NACH_EINER_STUNDE[ADMIN_IDLE_HOURS]} ohne Nutzung, spätestens aber {ADMIN_WINDOW_HOURS} Stunden nach
-              der Anmeldung. Wer sich nicht anmeldet, bekommt es nie. Rechtsgrundlage für die Anmeldung ist Art. 6 Abs. 1 lit. f DSGVO; unser
-              berechtigtes Interesse ist, dass nur Du Deinen Bereich und nur berechtigte Personen die Verwaltung erreichen.
+              verlangen wir sie spätestens nach {NACH_EINER_STUNDE[ADMIN_IDLE_HOURS]} ohne Nutzung, spätestens aber {ADMIN_WINDOW_HOURS} Stunden
+              nach der Anmeldung. Wer sich nicht anmeldet, bekommt es nie. Rechtsgrundlage für die Anmeldung ist Art. 6 Abs. 1 lit. f DSGVO;
+              unser berechtigtes Interesse ist, dass nur Du Deinen Bereich und nur berechtigte Personen die Verwaltung erreichen.
             </li>
             {/* Typed: `@better-auth/passkey` (1.7.7, read 2026-10-03) sets this cookie's life to its `MAX_AGE_IN_SECONDS`,
                 300, which it neither exports nor takes as an option, and moves it without us. */}

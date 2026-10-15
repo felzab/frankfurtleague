@@ -1,7 +1,6 @@
 import { buildBewerbungVollstaendigEmail, buildBewerbungWiderspruchEmail } from "@/core/bewerbungEmail";
 import { frontend_config } from "@/core/config";
 import { logger } from "@/core/logging";
-import { BEWERBUNG_MIN_ALTER } from "@/features/bewerbungen/constants";
 import { postEinwilligung } from "@/features/bewerbungen/mutations";
 import { rollenText, rolleText, sendBewerbungMail } from "@/features/bewerbungen/notifications";
 import { getEinwilligungAnsicht } from "@/features/bewerbungen/queries";
@@ -97,7 +96,7 @@ export async function POST(request: NextRequest) {
         );
 
         // The refusal belongs under the field or on the dead-link panel, not on the error page.
-        const refusal = mapEinwilligungRefusal(error, ansicht?.mindestalter ?? BEWERBUNG_MIN_ALTER, ansicht?.medien_mindestalter ?? null);
+        const refusal = mapEinwilligungRefusal(error, ansicht?.mindestalter ?? null, ansicht?.medien_mindestalter ?? null);
         if (refusal === null) throw error;
 
         // Destructured rather than spread whole: `nachlesen` is this handler's instruction, and the

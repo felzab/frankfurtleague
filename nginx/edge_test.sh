@@ -216,6 +216,7 @@ done
 #   LEAK|<url>         neither sentinel may appear on the access line
 #   LEAK-REF|<referer> as LEAK, with the URL on a Referer header
 #   KEEP|<url>|<text>  <text> MUST appear; the controls below carry why
+#   KEEP-REF|<referer>|<text> as KEEP, with the URL on a Referer header
 
 CASES=(
   # The pages a mailed link lands on, each served by `location /`: pins against narrowing the map,
@@ -255,10 +256,19 @@ CASES=(
   "LEAK-REF|http://localhost/x/token=${TOK}"
   "LEAK-REF|http://localhost/signin?token=a%20b${TOK}"
 
+  # A typed search query, which no page writes (`docs/frontend/spec.md :: I680`): an address in the
+  # first parameter, a name past another, and the page a visitor came from.
+  "LEAK|${BASE}/bereich/admin/sperrliste?q=${EM}"
+  "LEAK|${BASE}/dashboard/spielsuche?saison_id=abc&q=${TOK}"
+  "LEAK-REF|http://localhost/dashboard/spielsuche?q=${TOK}"
+
   # Controls. Each is a query an operator reads off this line, and a redaction wide enough to eat
   # them is a different defect rather than a fix.
   "KEEP|${BASE}/signin?error=Verification|error=Verification"
-  "KEEP|${BASE}/api/bewerbung/kuerzel?q=ABC|q=ABC"
+  "KEEP|${BASE}/api/bewerbung/kuerzel?shorthand=ABC|shorthand=ABC"
+  # A parameter whose name merely ends in `q`, which the one-letter arm must not reach.
+  "KEEP|${BASE}/teams?saison_id=abc&seq=2|seq=2"
+  "KEEP-REF|http://localhost/teams?saison_id=abc&seq=2|seq=2"
   "KEEP|${BASE}/teams?saison_id=abc&shorthand=FCB|shorthand=FCB"
   "KEEP|${BASE}/bereich/admin/spiele?saison_id=abc|saison_id=abc"
 
@@ -288,7 +298,7 @@ for case_line in "${CASES[@]}"; do
   REQUESTS+=( -s -o /dev/null --path-as-is --max-time 5 -H "Host: localhost" -A "${MARKER}/${_n}" )
   case "$verb" in
     LEAK|KEEP)  REQUESTS+=( "$subject" ) ;;
-    LEAK-REF)   REQUESTS+=( -H "Referer: ${subject}" "${BASE}/teams" ) ;;
+    LEAK-REF|KEEP-REF)  REQUESTS+=( -H "Referer: ${subject}" "${BASE}/teams" ) ;;
     *)          die "nginx/edge_test.sh: unknown verb '${verb}' in its own table." ;;
   esac
 done
@@ -355,9 +365,9 @@ for case_line in "${CASES[@]}"; do
         FAILURES=$(( FAILURES + 1 ))
       fi
       ;;
-    KEEP)
+    KEEP|KEEP-REF)
       if [[ "$logged" != *"$expected"* ]]; then
-        fail "KEEP ${subject}"
+        fail "${verb} ${subject}"
         detail "expected ${expected} on the access line, nginx wrote: ${logged}"
         FAILURES=$(( FAILURES + 1 ))
       fi

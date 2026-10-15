@@ -17,7 +17,6 @@ import {
   SPIELER_CRUD_COPY,
 } from "@/features/spieler/constants";
 import { judgeRowReturn } from "@/features/spieler/utils";
-import { TEAMS_ANY_SAISON_QUERY } from "@/features/teams/facets";
 import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/AdminCrudEmpty";
 import {
   CELL_EDGE_CLASSES,
@@ -189,9 +188,8 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
   );
 
   /**
-   * The club's NAME is the way to its list, as the public league table already makes one pressable
-   * (`fl_frontend/src/features/teams/components/views/SaisontabelleView.tsx`). A squad row can name a
-   * club the season does not hold, so the link turns that facet off.
+   * The club's NAME is the way to its editor, keyed on the id: a squad row can name a club the season
+   * does not hold, and a link never carries a search query (`docs/frontend/spec.md :: I680`).
    */
   const renderTeam = (spieler: AdminSpielerRow) => {
     const row = spieler.selected;
@@ -204,7 +202,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
 
     return (
       <Link
-        href={withSaisonId(`/bereich/admin/teams?q=${encodeURIComponent(row.teamName)}&${TEAMS_ANY_SAISON_QUERY}`, selectedFromUrl)}
+        href={withSaisonId(`/bereich/admin/teams/${row.team_id}`, selectedFromUrl)}
         className={`${textLink({ tone: "muted" })} max-w-full min-w-0 truncate fluid-xs`}>
         {row.teamName}
       </Link>

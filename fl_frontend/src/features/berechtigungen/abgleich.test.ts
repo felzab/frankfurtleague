@@ -172,7 +172,9 @@ describe("one pass over the claimed changes", () => {
 
     assert.deepEqual(mail.sent.map((sent) => sent.to).sort(), [...HOLDERS].sort());
     for (const sent of mail.sent) {
-      assert.ok(sent.text.includes("Eine nicht genannte Adresse hat keinen Zugang zur Verwaltung mehr."));
+      assert.ok(
+        sent.text.includes("Eine nicht genannte Adresse ist nicht mehr Inhaberin oder Inhaber der Verwaltung und hat keinen Zugang mehr."),
+      );
       assert.ok(sent.text.includes("Geändert von einer nicht genannten Adresse"));
       assert.ok(!sent.text.includes("gesperrt"), "an erased person is told as barred");
       assert.ok(!sent.text.includes(ERASED_ACTOR_MARKER), "the marker reached the notice");
@@ -221,7 +223,7 @@ describe("one pass over the claimed changes", () => {
     await runBerechtigungenAbgleich();
 
     assert.ok(mail.sent.length > 0);
-    assert.ok(mail.sent.every((sent) => sent.text.includes("neu@schule.de hat jetzt Zugang zur Verwaltung als Inhaber.")));
+    assert.ok(mail.sent.every((sent) => sent.text.includes("neu@schule.de hat jetzt Zugang zur Verwaltung als Inhaberin oder Inhaber.")));
   });
 
   it("tells a change of tier as the tier the address now holds", async () => {
@@ -239,7 +241,7 @@ describe("one pass over the claimed changes", () => {
     await runBerechtigungenAbgleich();
 
     assert.deepEqual(mail.sent.map((sent) => sent.to).sort(), [...HOLDERS].sort());
-    assert.ok(mail.sent.every((sent) => sent.text.includes("vorstand@schule.de ist jetzt Inhaber der Verwaltung.")));
+    assert.ok(mail.sent.every((sent) => sent.text.includes("vorstand@schule.de ist jetzt Inhaberin oder Inhaber der Verwaltung.")));
   });
 
   /* An owner's tier change made on the grants page: the address keeps its access, and the acting owner who made
@@ -258,7 +260,7 @@ describe("one pass over the claimed changes", () => {
 
     assert.deepEqual(mail.sent.map((sent) => sent.to).sort(), [...HOLDERS].sort());
     for (const { text } of mail.sent) {
-      assert.ok(text.includes("vorstand@schule.de ist nicht mehr Inhaber der Verwaltung und behält den Zugang."));
+      assert.ok(text.includes("vorstand@schule.de ist nicht mehr Inhaberin oder Inhaber der Verwaltung und behält den Zugang."));
       assert.ok(text.includes("Geändert von inhaber@schule.de"));
       assert.ok(!text.includes("direkt in der Datenbank"));
     }

@@ -10,14 +10,11 @@ import {
   DIREKT_IN_DER_DATENBANK,
   ERTEILT_AM_LABEL,
   ERTEILT_VON_LABEL,
-  GESPERRTE_ADRESSE,
+  erteiltVonAnzeige,
   INHABER_LABEL,
-  PLAYGROUND_MARKER,
-  vonOderGesperrt,
 } from "@/features/berechtigungen/constants";
 import { AdminCrudEmptyCard } from "@/shared/components/ui/AdminCrudEmpty";
 import { IDENTITY_HEAD_CLASSES, IDENTITY_NAME_CLASSES, IDENTITY_ROW_CLASSES, IDENTITY_STACK_CLASSES } from "@/shared/components/ui/adminTable";
-import { Leer } from "@/shared/components/ui/Angabe";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 import { focusRow, focusSection } from "@/shared/utils/focusAfterWrite";
@@ -49,8 +46,7 @@ function erteiltTag(stamp: string): string {
 
 /** Who granted it, as every admin card names an actor, and a paste naming nobody by its origin. */
 function ErteiltVon({ erteilt_von, erteilt_von_gesperrt }: FLBerechtigungZeile) {
-  const von = vonOderGesperrt(erteilt_von, erteilt_von_gesperrt);
-  if (von === PLAYGROUND_MARKER || von === "") return DIREKT_IN_DER_DATENBANK;
+  if (erteiltVonAnzeige(erteilt_von, erteilt_von_gesperrt) === DIREKT_IN_DER_DATENBANK) return DIREKT_IN_DER_DATENBANK;
 
   return (
     <VonOderGesperrt
@@ -100,8 +96,13 @@ export const AdminBerechtigungenList = memo(function AdminBerechtigungenList({
             />
             <div className={IDENTITY_STACK_CLASSES}>
               <div className={IDENTITY_HEAD_CLASSES}>
-                {/* A barred address is withheld on every route, so the row names the state instead. */}
-                <span className={IDENTITY_NAME_CLASSES}>{berechtigung.adresse ?? <Leer>{GESPERRTE_ADRESSE}</Leer>}</span>
+                {/* A barred address is withheld on every route, so the row names the state instead, as its search reads it. */}
+                <span className={IDENTITY_NAME_CLASSES}>
+                  <VonOderGesperrt
+                    von={berechtigung.adresse}
+                    gesperrt={berechtigung.gesperrt}
+                  />
+                </span>
                 {berechtigung.verwaltung === "owner" && <span className={labelBadge("info")}>{INHABER_LABEL}</span>}
               </div>
             </div>

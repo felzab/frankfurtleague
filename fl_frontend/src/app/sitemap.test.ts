@@ -9,6 +9,7 @@ import { pathToFileURL } from "node:url";
 import { SITE_URL } from "@/core/brand";
 import { registerRenderingNothing } from "@/core/exportingModule.ts";
 
+import robots from "./robots.ts";
 import sitemap from "./sitemap.ts";
 
 import type { Metadata } from "next";
@@ -32,6 +33,7 @@ const WITHHELD = [
   "/registrierung",
   "/bestaetigung/spieler",
   "/bestaetigung/spieler/adresse",
+  "/loeschung",
 ];
 
 /** A segment in parentheses organises files and names no path. */
@@ -105,5 +107,25 @@ describe("what the sitemap hands a crawler", () => {
       const { metadata } = (await import(pathToFileURL(withheld.file).href)) as { metadata?: Metadata };
       assert.deepEqual(metadata?.robots, { index: false, follow: false }, `${route} is withheld here and indexable anyway`);
     }
+  });
+});
+
+describe("what robots.txt turns a crawler back from before the fetch", () => {
+  /* A noindex is read only once the page is fetched, and a token page is fetched with its live token: each such
+     page keeps `no-referrer` for that token, which is what selects the pages read here. */
+  it("disallows every page whose link carries a token, the account deletion's among them", async () => {
+    const disallowed = [[robots().rules].flat().find((rule) => rule.userAgent === "*")?.disallow ?? []].flat();
+    const tokenPages: string[] = [];
+    for (const page of FOUND) {
+      const { metadata } = (await import(pathToFileURL(page.file).href)) as { metadata?: Metadata };
+      if (metadata?.referrer === "no-referrer") tokenPages.push(page.route);
+    }
+
+    assert.ok(tokenPages.includes("/loeschung"), "the walk found no token page, or not the deletion's, so this case reads nothing");
+    assert.deepEqual(
+      tokenPages.filter((route) => !disallowed.some((prefix) => route.startsWith(prefix))),
+      [],
+      "a page whose link carries a token is offered to every crawler",
+    );
   });
 });

@@ -27,6 +27,7 @@ const AUTHORIZES_NOBODY: ReadonlySet<string> = new Set(["auth :: handleSignIn", 
 const ACCOUNT_ACTIONS: ReadonlySet<string> = new Set([
   "konto :: endAndereAnmeldungenAction",
   "konto :: endAnmeldungAction",
+  "konto :: fordereKontoLoeschungAnAction",
   "konto :: pruefeInhaberAction",
   "konto :: sendeBestaetigungscodeAction",
   "passkeys :: readPasskeyStandAction",

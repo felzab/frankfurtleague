@@ -103,11 +103,14 @@ MIRRORED_BOUNDS: Final = (
     Mirror("features/spiele/constants.ts", "NOTIZ_MAX_LENGTH", "SPIEL_NOTIZ_MAX_LENGTH"),
     Mirror("features/spiele/constants.ts", "PAARUNGEN_MAX", "LIST_LIMIT_DEFAULT"),
     Mirror("features/berechtigungen/constants.ts", "ANKUENDIGUNGEN_MAX", "LIST_LIMIT_DEFAULT"),
+    # The account sweep's batch: a larger one is refused whole, every pass alike, and nothing is deleted.
+    Mirror("features/funktionen/constants.ts", "REFERENZEN_ADRESSEN_MAX", "REFERENZEN_ADRESSEN_MAX"),
     Mirror("features/saisons/constants.ts", "SAISON_ID_LENGTH", "SAISON_ID_LENGTH"),
     Mirror("features/bewerbungen/constants.ts", "BEWERBUNG_TOKEN_MAX_LENGTH", "BEWERBUNG_TOKEN_MAX_LENGTH"),
     Mirror("features/sperrliste/constants.ts", "SPERRLISTE_GRUND_MAX_LENGTH", "SPERRLISTE_GRUND_MAX_LENGTH"),
     Mirror("features/schiedsrichter/constants.ts", "SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE", "SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE"),
     Mirror("features/registrierungen/constants.ts", "REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE", "REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE"),
+    Mirror("features/spieler/constants.ts", "SPIELER_ADRESSWECHSEL_FRIST_TAGE", "SPIELER_ADRESSWECHSEL_FRIST_TAGE"),
     # These three mirror the published notice's sentences and never a payload schema: each confirmation
     # view and each account entry states its floors as it was served them.
     Mirror("features/registrierungen/constants.ts", "REGISTRIERUNG_MIN_ALTER", "REGISTRIERUNG_MIN_ALTER_JAHRE"),

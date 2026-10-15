@@ -131,6 +131,17 @@ tells one from a pass that found nothing to do: it answers the day the last pass
 none ever has ([`docs/backend/spec.md`](../backend/spec.md) I189). [`runbooks.md`](runbooks.md) §9
 is the call.
 
+**It runs the account sweep too, on a timer and a switch of its own.**
+`fl_frontend/src/instrumentation-node.ts :: registerOnNode` arms
+`fl_frontend/src/features/funktionen/sweep.ts :: armKontoSweep` under a production build with
+`KONTO_SWEEP` on, on the same schedule, a minute after start and then hourly: an operator stops
+account deletion without stopping the retention clocks, and a slow retention pass delays none of
+it. A pass deletes the sign-in account of every address no record references
+([`docs/frontend/spec.md`](../frontend/spec.md) I699), and a pass repeated costs nothing, an
+account already gone being counted as such. Nothing stores that a pass ran, so its completion line
+in the frontend's log is the answer ([`docs/frontend/spec.md`](../frontend/spec.md) I700;
+[`runbooks.md`](runbooks.md) §9 reads it).
+
 **Note:** `API_VERSION` is a constant of the code rather than a setting
 ([`docs/backend/spec.md`](../backend/spec.md) §1.5), so bumping it is a code change — and the
 version is spelled again outside the code, at sites a commit does not all reach. §4 names the sites
@@ -493,9 +504,10 @@ because `fl_frontend/.env` also reaches the frontend container, where a path wri
 turn the frontend away from the secret's mount (I472) and its boot refuses.
 
 **A line naming a value `secrets/` holds, or the retired administrator list `ALLOWED_ADMIN_EMAILS`,
-refuses a deploy or a local start before its first compose call** (I548), at exit 2, naming each
+refuses a deploy or a local start before its first compose call** (I548), at exit 2, finding each
 such line in any letter case and any form compose reads a name in — `NAME=value`, the YAML-style
-`NAME: value` and a bare pass-through name — and never its value: compose would hand it to the
+`NAME: value` and a bare pass-through name — and giving it by number and the list's own spelling
+of the name, never the line's and never its value: compose would hand it to the
 container as a variable, which `docker inspect` prints (I508). `deploy.sh --status` and
 `local.sh --down` create no container and ask compose without it. This check is the only one such a
 line meets: the deploy stops here before the pulled images' own name checks run, and the local stack
@@ -525,10 +537,11 @@ unclosed quote, a quoted escape, `NAME:`, a byte-order mark, an unspaced `#`, a 
 the check holds one shape rather than a parser chasing each reader's quirks. **No line, a comment
 included, holds a carriage return before its end, U+2028, U+2029 or a NUL byte**: python-dotenv
 ends a line at the carriage return and `@next/env` at all three, so a comment carrying one declares
-a name for them and none for compose, and the shell's own reader drops a NUL unseen. The refusal
-lists each line by file and number, and by name only where the line opens with an upper-case
-`NAME=` or `NAME:` and no quote stands above it, since a bare word, a lower-case one or a line under
-a quote may be a key's data; never by value. The credential check runs first and reads a name in
+a name for them and none for compose, and the shell's own reader drops a NUL unseen. **No refusal
+over these files prints anything a line holds**: a pasted key's line may be any shape, an
+upper-case `NAME=` or `NAME:` included, so each refused line is given by file and number alone, and
+a name is printed only as a settings schema or the credential list spells it — this one, the
+credential check and either image's name check alike. The credential check runs first and reads a name in
 every form compose does (I548), so a credential's line is refused as a line to delete before this
 check would have it rewritten; the two run as one, `scripts/lib/_lib.sh :: judge_env_files`.
 **`./scripts/ops/deploy.sh --check-env` runs every check the deploy makes of these files without
@@ -539,9 +552,10 @@ check and before the daemon is asked anything, ending 0 where none refuses.
 config**, `docker-compose.local.yml :: local_mongodb_uri`, mounted where each reads its login: it
 names the stack's `mongo` service and holds no credential, so no machine needs a login to run it and
 no run is left aimed at the wrong cluster (I508).
-The same override sets `BEWERBUNG_SWEEP` off and `APP_ENV` to `local`, and hands the frontend no
-key to the mail provider. The database is a copy of production, so
-an armed pass here deletes real applications and stamps real rows; `APP_ENV` is what keeps the
+The same override sets `BEWERBUNG_SWEEP` and `KONTO_SWEEP` off and `APP_ENV` to `local`, and hands
+the frontend no key to the mail provider. The database is a copy of production, so
+an armed pass here deletes real applications and stamps real rows, and an armed account sweep
+deletes every account signed in here that no record references; `APP_ENV` is what keeps the
 notices it raises off the people those rows name, each landing in the sink instead but one to an
 address the ban list holds, which is filed nowhere ([`docs/frontend/spec.md`](../frontend/spec.md)
 I228, I541). One checked-in line is what a developer
@@ -593,14 +607,17 @@ container as variables (`scripts/ops/deploy.sh :: check_env_names`): it is mount
 throwaway container with no network, as the whole of what compose hands the service. A name the
 backend does not declare, a value it will not accept and a required variable the file omits all
 refuse the deploy at exit 2 with nothing recreated, and a check that could not be made is an
-advisory (I181, [`runbooks.md`](runbooks.md) §1).
+advisory (I181, [`runbooks.md`](runbooks.md) §1). Either image's refusal keeps the rule I487's
+paragraph states: an undeclared name goes by the number of each line declaring it, with a count
+(`fl_backend/app/core/config.py :: read_environment`,
+`fl_frontend/scripts/check-environment-names.mjs :: undeclaredLines`).
 
 **The pulled frontend image is asked the same of `fl_frontend/.env`, and answers about names
 alone**
 (`scripts/ops/deploy.sh :: check_frontend_env_names`): the image carries the schema's key sets
 rather than the schema, emitted at build from
 `fl_frontend/src/core/config.ts :: DECLARED_ENVIRONMENT_NAMES` and `:: REQUIRED_ENVIRONMENT_NAMES`,
-so a name it does not declare and a required name the file omits each refuse at exit 2
+so a name it does not declare, by line number, and a required name the file omits each refuse at exit 2
 with nothing recreated while every value, an empty one included, stays the boot gate's (I183). **The omitted half is the one
 no reader over the file's own names can reach**: an undeclared line is one somebody wrote, a missing
 one is a line nobody did, so without it a release that makes a new name required deploys green and
@@ -634,7 +651,10 @@ settings class.
 **What that check accepts is what the container receives.** The preflight parses each package's
 file as python-dotenv does, and the running container gets it parsed as Compose does; I487 has
 refused, before either runs, every line the two could read apart, so a name and a value the
-preflight accepted are the ones the container will see.
+preflight accepted are the ones the container will see. Compose cuts an unquoted value at its
+line's end and at a spaced `#`, trims trailing space and substitutes at a `$` alone, none of which
+an admitted line holds (compose-go v2.7.1, the release Docker Compose 2.38 builds on: its dotenv
+parser's extractVarValue and its template package, which move without us; read 2026-10-15).
 
 **Each service's own boot then judges its settings and secret files before the recreate** (I510),
 in a one-off container `docker compose run` starts as the stack starts the service — its variables,
@@ -1350,15 +1370,15 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | I18  | A rate-limit key is the visitor's own network, never the tunnel connector's address, and no prefix splits across two keys (§1.3)                                              | `nginx/shared/http.conf :: map $remote_addr $client_net` and `:: map $remote_addr $client_net48`, `nginx/shared/http.conf :: set_real_ip_from` and `:: real_ip_header`; trust held by `scripts/checks/check_compose_model.py :: trusted_connector`, keys unenforced                                     |
 | I133 | The catch-all makes a Next route handler reachable the moment it exists, its OWN authorization the only guard in front of it (§1.3)                                           | unenforced — `nginx/shared/site.conf :: location /` is a prefix matching everything, and nothing sweeps a new route handler for its guard                                                                                                                                                               |
 | I134 | FastAPI's `/docs`, `/redoc` and `/openapi.json` are served by the app but reachable from no edge route, so nothing off this host meets them (I13)                             | unenforced — `fl_backend/app/main.py :: create_app` sets no `docs_url`, `nginx/shared/site.conf` names no `/docs` location, and nothing checks either                                                                                                                                                   |
-| I149 | One `frontend` service, declared once, and no replica count is what lets the retention sweep hold one timer per process with no lease                                         | unenforced — `docker-compose.yml` declares the service and the local file merges into it; nothing refuses a second or a `deploy.replicas`                                                                                                                                                               |
+| I149 | One `frontend` service, declared once, and no replica count lets the retention and account sweeps each hold one timer per process, with no lease                              | unenforced — `docker-compose.yml` declares the service and the local file merges into it; nothing refuses a second or a `deploy.replicas`                                                                                                                                                               |
 | I174 | Production declares no database service; the managed cluster is the one store, and `mongo` is declared in `docker-compose.local.yml` alone                                    | `scripts/checks/check_compose_model.py :: PRODUCTION_SERVICES`, over the model `docker compose config` renders                                                                                                                                                                                          |
 | I176 | Every refusal-register row is spelled in its area's tree, and every code a tree spells has a row unless `RULES` declares it (§1.6)                                            | gate check `error-codes`, over `scripts/checks/docs_gate/error_codes.py :: CODE_RE`; `fl_backend/tests/core/test_domain.py` holds the codes raised under `app/api/` to `domain.py :: RULES`, the protocol codes excused by name                                                                         |
 | I177 | A Cloudflare challenge may meet a top-level navigation and never a server action's POST or an `/api/*` route, which cannot render an interstitial (§1.3)                      | unenforced — nothing in this repository can read a Cloudflare rule                                                                                                                                                                                                                                      |
 | I178 | Preflight judges each frontend secret's value by the frontend's own boot, and the signing key's pair besides (I473); the tunnel token, for presence alone                     | `scripts/lib/_lib.sh :: require_file`, `:: check_frontend_boot_config` and `:: check_actor_key`; the frontend's values are `fl_frontend/src/core/config.ts :: validated`'s                                                                                                                              |
-| I179 | A startup refusal names the failing variables or secret files, or a failure type where no variable was judged, and never a value                                              | `fl_backend/app/core/config.py :: get_config` and `fl_frontend/src/core/config.ts :: refuseInvalidEnvironment`; `fl_backend/tests/core/test_config.py :: TestTheNamesOnlyErrorPath`, `:: TestTheStartupPing`, `:: TestTheSecretFiles` and `fl_frontend/src/core/config.test.ts` assert no value appears |
-| I181 | The pulled backend image reads `fl_backend/.env` in preflight, refusing at exit 2 any name or value `read_environment` rejects, missing ones included                         | `scripts/ops/deploy.sh :: check_env_names`, whose refusal and advisory arms `scripts/tests/test_deploy_streams.py` drives, the snippet run for real                                                                                                                                                     |
+| I179 | A startup refusal names the failing variables or secret files, an undeclared name by line number, or a failure type, and never a value                                        | `fl_backend/app/core/config.py :: get_config` and `fl_frontend/src/core/config.ts :: refuseInvalidEnvironment`; `fl_backend/tests/core/test_config.py :: TestTheNamesOnlyErrorPath`, `:: TestTheStartupPing`, `:: TestTheSecretFiles` and `fl_frontend/src/core/config.test.ts` assert no value appears |
+| I181 | The pulled backend image reads `fl_backend/.env` in preflight, refusing at exit 2 what `read_environment` rejects, missing ones included; an undeclared one by line number    | `scripts/ops/deploy.sh :: check_env_names`, whose refusal and advisory arms `scripts/tests/test_deploy_streams.py` drives, the snippet run for real                                                                                                                                                     |
 | I182 | Every file under `fl_frontend/src/app/` answering a URL is accounted for: a handler against the edge's locations, a metadata convention against its recorded decision         | `scripts/checks/check_public_routes.py :: METADATA` and `:: METADATA_IMAGES`, driven red in `scripts/tests/test_check_public_routes.py`; a reserved name it cannot place refuses                                                                                                                        |
-| I183 | In preflight the pulled frontend image reads `fl_frontend/.env`, refusing at exit 2 undeclared or missing required names; values stay the boot gate's                         | `scripts/ops/deploy.sh :: check_frontend_env_names` over the key sets `fl_frontend/scripts/emit-environment-names.mjs` writes into the image; driven by `scripts/tests/test_deploy_env_names.py`, `fl_frontend/scripts/check-environment-names.test.mjs` and `fl_frontend/src/core/config.test.ts`      |
+| I183 | The frontend image refuses `fl_frontend/.env` at exit 2 for a missing required name, or an undeclared one by line number alone; values are the boot's                         | `scripts/ops/deploy.sh :: check_frontend_env_names` over the key sets `fl_frontend/scripts/emit-environment-names.mjs` writes into the image; driven by `scripts/tests/test_deploy_env_names.py`, `fl_frontend/scripts/check-environment-names.test.mjs` and `fl_frontend/src/core/config.test.ts`      |
 | I352 | Nothing the edge writes to its container's stdout or stderr names a visitor; every line that does lands in a host file `docs/ops/runbooks.md` §7 rotates                      | `nginx/edge_test.sh`, serving `nginx/local/local.conf`, whose logging directives are `nginx/shared/http.conf`'s, which `nginx/prod/prod.conf` includes too                                                                                                                                              |
 | I353 | A published build is `main`'s tip, and every job that ran in its own push run of `verify` passed, the wall-clock budget step alone excepted                                   | `scripts/checks/check_publish_verdict.py`, which `.github/workflows/publish.yml` runs before building, after its ref check; `scripts/tests/test_check_publish_verdict.py` drives every refusal and holds the budget and advisory step names to `.github/workflows/verify.yml`                           |
 | I354 | The commit hook commits no file's unstaged half, writes no partly staged file's working copy, and never stashes, hides or resets the working tree (§1.6)                      | `scripts/tests/test_pre_commit_format.py`                                                                                                                                                                                                                                                               |

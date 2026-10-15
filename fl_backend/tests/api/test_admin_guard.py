@@ -95,6 +95,9 @@ PUBLIC_WRITES = [
     # A referee's address link, on a base-tier router of its own for the same reason.
     ("/api/v0/schiedsrichter/adresswechsel/ansicht", "post"),
     ("/api/v0/schiedsrichter/adresswechsel", "post"),
+    # A pupil's address link, its own base-tier router for the referee's link's reason.
+    ("/api/v0/spieler/adresswechsel/ansicht", "post"),
+    ("/api/v0/spieler/adresswechsel", "post"),
     # A pupil's own confirmation link, on a third base-tier router under the registration prefix:
     # the token is the whole credential, so the guard here would have no session to check.
     ("/api/v0/registrierungen/bestaetigung/ansicht", "post"),
@@ -123,6 +126,7 @@ SYSTEM_WRITES = [
     ("/api/v0/identitaet/subjekt", "post"),
     ("/api/v0/identitaet/anmeldung", "post"),
     ("/api/v0/identitaet/gesperrt", "post"),
+    ("/api/v0/identitaet/referenzen", "post"),
     # The grants' reconciliation, one call reading and one stamping: the frontend's timer holds no
     # session, and a change made in the database directly has no administrator to attribute it to.
     ("/api/v0/berechtigungen/abgleich", "post"),
@@ -235,6 +239,8 @@ PERSON_OPERATIONS: frozenset[tuple[str, str]] = frozenset(
         ("/api/v0/teams/{team_id}/saisons/{saison_id}/person/einwilligung", "patch"),
         ("/api/v0/bewerbungen/{bewerbung_id}/person/einwilligung", "patch"),
         ("/api/v0/registrierungen/selbst/{registrierung_id}/einwilligung", "patch"),
+        ("/api/v0/identitaet/selbst/erasure", "post"),
+        ("/api/v0/identitaet/selbst/erasure/ansicht", "get"),
     }
 )
 

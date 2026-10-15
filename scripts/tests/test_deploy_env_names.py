@@ -84,10 +84,11 @@ def _run(body: str, **overrides: str) -> tuple[int, str, _Fixture]:
 
 def test_a_name_the_frontend_does_not_declare_refuses_with_nothing_recreated() -> None:
     """Exit 3 is the reader's own answer for the refusal, and nothing else may be graded as one."""
-    code, output, _ = _run(FRONTEND_ARM, FL_DEPLOY_RUN_RC="3", FL_DEPLOY_RUN_SAYS="Undeclared environment variables: AUTH_URL_")
+    code, output, _ = _run(FRONTEND_ARM, FL_DEPLOY_RUN_RC="3", FL_DEPLOY_RUN_SAYS="Undeclared environment variables on 1 line(s): 3")
 
     assert code == 2, output
-    assert "AUTH_URL_" in output, output
+    assert "Undeclared environment variables on 1 line(s): 3" in output, output
+    assert "counts lines of fl_frontend/.env, the file to open" in output, output
     assert "the frontend refuses this host's fl_frontend/.env" in output, output
     assert "NOTHING has been recreated" in output, output
 

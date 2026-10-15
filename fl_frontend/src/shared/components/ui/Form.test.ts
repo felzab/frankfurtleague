@@ -6,7 +6,8 @@ import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
-import { fireEvent, render } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { createPortal } from "react-dom";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { formWiring } from "@/shared/testing/formWiring.ts";
@@ -27,6 +28,26 @@ describe("the shared form", () => {
 
     assert.equal(fireEvent.submit(form), false, "the browser's own submit went ahead");
     assert.equal(ran, 1, "the handler did not run exactly once");
+  });
+
+  /* A portal moves the form out of the host's DOM, not out of React's tree, which still bubbles its
+     submit to the host (`docs/frontend/spec.md :: I711`). A bare host lends no form context, so only
+     the bubbling is tested. */
+  it("submits only itself from inside a portal", () => {
+    let hostRan = 0;
+    let ownRan = 0;
+    render(
+      h(
+        "form",
+        { onSubmit: () => void (hostRan += 1) },
+        createPortal(h(Form, { onSubmit: () => void (ownRan += 1), wiring: formWiring(), "aria-label": "Im Dialog" }), document.body),
+      ),
+    );
+
+    fireEvent.submit(screen.getByRole("form", { name: "Im Dialog" }));
+
+    assert.equal(ownRan, 1, "the portalled form's own handler did not run exactly once");
+    assert.equal(hostRan, 0, "the portalled form's submit reached the form rendering it");
   });
 
   /* The markup a browser holds before hydration, when no handler catches an Enter: its own submit

@@ -263,3 +263,23 @@ describe("who a row names", () => {
     assert.ok(!textOf(html).includes(ERASED_ACTOR_MARKER), "the marker reached the page");
   });
 });
+
+describe("what a redacted row says it lost", () => {
+  /* The table and the cards render one badge each, so a phrase is counted against the rows that carry it. */
+  const badges = (row: AdminAktionRow): string[] => textOf(view({ aktionen: [row] })).match(/(Einzelne )?Werte gelöscht am [\d.]+/g) ?? [];
+
+  /* A removal of the person's own record took the whole copy. */
+  it("says the values went where no copy of the record stands", () => {
+    const geleert: AdminAktionRow = { ...ROW, redacted_at: "2026-04-01T10:30:00+00:00", stand_gesichert: false };
+
+    assert.deepEqual(badges(geleert), ["Werte gelöscht am 01.04.2026", "Werte gelöscht am 01.04.2026"]);
+  });
+
+  /* A record three people share keeps the other two in its copy, so „Werte gelöscht“ alone would say
+     their states went too. */
+  it("says single values went where the copy stands with one person's values taken out", () => {
+    const teilweise: AdminAktionRow = { ...ROW, redacted_at: "2026-04-01T10:30:00+00:00", stand_gesichert: true };
+
+    assert.deepEqual(badges(teilweise), ["Einzelne Werte gelöscht am 01.04.2026", "Einzelne Werte gelöscht am 01.04.2026"]);
+  });
+});

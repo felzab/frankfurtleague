@@ -152,6 +152,20 @@ describe("the contact seat's confirmation handler", () => {
     assert.deepEqual(answer.body, { success: false, fieldErrors: { geburtsdatum: alterAusserhalb(18) } });
   });
 
+  /* A view that could not be read serves no floor, and one of the handler's own would be wrong for a
+     Vertretung seat, which asks a higher one than the Trainer's. */
+  it("puts the age refusal on the date naming no age where the link's view cannot be read", async () => {
+    schreibAntwort = () => aRefusal("REQ-BEWERBUNG-012");
+    ansichtAntwort = () => new Error("the view went unanswered");
+
+    const answer = await bodyOf(aRequest(gueltigerKoerper));
+
+    assert.deepEqual(answer.body, {
+      success: false,
+      fieldErrors: { geburtsdatum: "Mit diesem Geburtsdatum bist Du für Deine Bestätigung zu jung oder zu alt. Prüfe das Geburtsdatum." },
+    });
+  });
+
   /* Spends nothing, as the age refusal does: the form stays, and the sentence names the switch that repairs
      it and the floor the link's view serves, 21 being no floor served today. */
   it("answers the media refusal at the media floor the link's view serves, keeping the form", async () => {

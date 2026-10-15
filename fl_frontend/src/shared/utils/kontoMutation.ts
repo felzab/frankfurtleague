@@ -42,8 +42,8 @@ export function confirmedUntil(served: KontoSession): ConfirmedUntil {
 }
 
 /**
- * The account page's guard without the step-up window, for the one press that renews it: the code a
- * holder confirms with must be sendable from a session already past the window.
+ * The account page's guard without the step-up window, for a press that only mails the holder's own
+ * mailbox: the code that renews the window, and the deletion link (`docs/frontend/spec.md :: I676`).
  */
 export async function runKontoStepUp<T extends { success: boolean }>(
   mutationName: string,

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { KONTAKT_EMAIL } from "@/core/brand.ts";
+import { MEDIEN_NOCH_NICHT } from "@/features/bewerbungen/utils.ts";
 import { nummerPayload } from "@/features/spieler/utils.ts";
 import { answerShown, DUPLICATE_KEY, publishedRefusals, refusedOn, unpublishedOn } from "@/shared/testing/publishedRefusals.ts";
 import { bodyField, refusedPayload } from "@/shared/testing/refusedPayload.ts";
@@ -189,14 +190,17 @@ describe("what one refused submission shows", () => {
   });
 });
 
-/** The floor a link's own read answered, as the handler hands it: resolved only where the age is refused. */
-const floorOf = (jahre: number | null) => {
+/**
+ * The floors a link's own read answered, as the handler hands them: resolved only where an age is refused,
+ * `null` where the read failed. The media floor is one no link is served today.
+ */
+const floorOf = (jahre: number | null, medienJahre = 21) => {
   let gelesen = 0;
 
   return {
     lesen: async () => {
       gelesen += 1;
-      return Promise.resolve(jahre);
+      return Promise.resolve(jahre === null ? null : { mindestalter: jahre, medien_mindestalter: medienJahre });
     },
     gelesen: () => gelesen,
   };
@@ -247,18 +251,22 @@ describe("what one refused confirmation shows", () => {
   });
 
   /* A sentence naming a floor this link was not minted under sends the person to correct a date that
-     was right, so an unreadable link leaves the refusal unworded. */
-  it("words nothing where the floor could not be read", async () => {
-    assert.equal(await mapBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, "REQ-REGISTRIERUNG-007"), floorOf(null).lesen), null);
+     was right, so an unreadable link's refusal names none, on the field all the same. */
+  it("puts the age refusal on the date naming no age where the floor could not be read", async () => {
+    assert.deepEqual(await mapBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, "REQ-REGISTRIERUNG-007"), floorOf(null).lesen), {
+      fieldErrors: { geburtsdatum: "Mit diesem Geburtsdatum bist Du zu jung oder zu alt. Prüfe Dein Geburtsdatum." },
+    });
   });
 
-  /* Only a page older than the media rule sends a yes below the media age: the answer is a drifted
-     client's, never a panel or a field calling a right date wrong. */
-  it("answers a media yes below the media age with the mail's link a stale page needs", async () => {
-    const mapped = await mapBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, "REQ-REGISTRIERUNG-010"), floorOf(16).lesen);
-
-    assert.deepEqual(mapped, { error: ANTWORT_NEU_OEFFNEN });
-    assert.deepEqual(mapped, await mapBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, "REQ-VAL-001"), floorOf(16).lesen));
+  /* The page offers the media switch from the served age on the browser's German day, so a clock
+     disagreeing with the backend's sends a yes below it, which a reopened link would offer again. */
+  it("answers a media yes below the media age at the floor the link answered, switching it off, and naming none unread", async () => {
+    assert.deepEqual(await mapBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, "REQ-REGISTRIERUNG-010"), floorOf(16).lesen), {
+      error: "Fotos, Videos und Interviews kannst Du erst ab 21 Jahren erlauben. Schalte die Erlaubnis aus und bestätige erneut.",
+    });
+    assert.deepEqual(await mapBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, "REQ-REGISTRIERUNG-010"), floorOf(null).lesen), {
+      error: MEDIEN_NOCH_NICHT,
+    });
   });
 
   /* No page of ours sends choices its page does not ask, the label check refusing a mismatched page first. */

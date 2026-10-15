@@ -49,7 +49,7 @@ const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
  * The „Stand“ and the words it dates, frozen together: a reader told nothing changed since that day
  * has been misled by any edit that left the date standing.
  */
-const FASSUNG = { stand: "15. Oktober 2026", digest: "a6bfff2d859b5fd6b7dd5c4cd2b716d46eb0739c61f82a5a67ed25a96f7c708c" } as const;
+const FASSUNG = { stand: "16. Oktober 2026", digest: "2c2d368d450d2207e7f3ce7b0b35f6de0e8459a20440683037f9183082f92691" } as const;
 
 /** Every word the page renders but its date, so moving the date alone never passes for moving the words. */
 const wortlautDigest = (): string =>
@@ -258,6 +258,16 @@ describe("the privacy notice's retention table", () => {
     );
   });
 
+  /* Stated in advance because the account sweep mails nothing when it deletes one: this sentence is
+     the whole of what a person is told about it. */
+  it("says the account goes on its own once no league record, grant or ban holds the address", () => {
+    assert.ok(
+      ANGABEN.get("Anmeldung: E-Mail-Adresse, Anmeldecode, Sitzung und Passkey")?.endsWith(
+        "Adresse und Passkeys bleiben, solange das Konto besteht. Das Konto löschen wir auf Wunsch und von selbst, sobald zu Deiner Adresse kein Eintrag der Liga, kein Zugang zur Verwaltung und keine Sperre mehr bestehen",
+      ),
+    );
+  });
+
   it("names what it keeps of each passkey beyond the key itself", () => {
     assert.ok(
       ANGABEN.get("Anmeldung: E-Mail-Adresse, Anmeldecode, Sitzung und Passkey")?.includes(
@@ -311,7 +321,7 @@ describe("the privacy notice states the sign-in's session figures at the constan
 
   it("in the cookie section", () => {
     assert.ok(SEITE.includes(`Das Cookie selbst läuft ab, wenn die Sitzung ${LEERLAUF} wurde.`));
-    assert.ok(SEITE.includes(`Für den Zugang zur Verwaltung verlangen wir sie schon ${VERWALTUNG}, ${VERWALTUNG_SPAETESTENS}`));
+    assert.ok(SEITE.includes(`Für den Zugang zur Verwaltung verlangen wir sie spätestens ${VERWALTUNG}, ${VERWALTUNG_SPAETESTENS}`));
   });
 });
 

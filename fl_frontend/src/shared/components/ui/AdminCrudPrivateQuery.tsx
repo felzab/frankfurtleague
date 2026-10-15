@@ -1,22 +1,17 @@
 "use client";
 
-import { createContext, useContext, useMemo, useState } from "react";
-
-import { useDebouncedUrlQuery } from "../../hooks/useDebouncedUrlQuery";
-import { useUrlQuery } from "../../hooks/useUrlQuery";
+import { createContext, useContext, useDeferredValue, useMemo, useState } from "react";
 
 import type { ReactNode } from "react";
 
-/** What the URL holds on every other admin list, held in the page instead. */
 type PrivateQuery = { value: string; set: (value: string) => void };
 
-/** `null` is the ordinary admin list, where the two halves below meet through `?q=` as they always have. */
+/** `null` outside the shell, which holds every admin search, and never a fallback to the URL (`docs/frontend/spec.md :: I680`). */
 const PrivateQueryContext = createContext<PrivateQuery | null>(null);
 
 /**
- * Mounted by `AdminCrudShell` around both halves of the search, for a resource an administrator
- * would type a person's address into. Held here, that value reaches no request line, so neither
- * nginx's access log nor `aktionen.request` can keep it.
+ * Mounted by `AdminCrudShell` around both halves of every admin search. Held here, the query reaches
+ * no request line, so nginx's access log cannot keep it.
  */
 export function AdminCrudPrivateQuery({ children }: { children: ReactNode }) {
   const [value, setValue] = useState("");
@@ -26,15 +21,10 @@ export function AdminCrudPrivateQuery({ children }: { children: ReactNode }) {
   return <PrivateQueryContext.Provider value={held}>{children}</PrivateQueryContext.Provider>;
 }
 
-/**
- * The bar's half. Both hooks run on every render because a hook cannot be called on a condition, and
- * the URL one is told whether it may write: its effect IS the navigation a private page must not make.
- */
 export function useCrudSearchField(): { inputValue: string; setInputValue: (value: string) => void } {
   const held = useContext(PrivateQueryContext);
-  const url = useDebouncedUrlQuery({ writesTheUrl: held === null });
-
-  if (held === null) return { inputValue: url.inputValue, setInputValue: url.setInputValue };
+  // Loud rather than a bar typing into nothing: outside the shell nothing would hold what is typed.
+  if (held === null) throw new Error("AdminCrudSearch renders inside AdminCrudShell, which holds what it types.");
 
   return { inputValue: held.value, setInputValue: held.set };
 }
@@ -44,8 +34,7 @@ export function useCrudSearchField(): { inputValue: string; setInputValue: (valu
  * joined by nothing else, which is why the held value travels as context rather than as a prop.
  */
 export function useCrudListQuery(): string {
-  const held = useContext(PrivateQueryContext);
-  const fromUrl = useUrlQuery();
-
-  return held?.value ?? fromUrl;
+  // Deferred, so a keystroke commits the bar before a table thousands of rows long re-renders behind it.
+  // A list with no holder has no bar either, and reads no query.
+  return useDeferredValue(useContext(PrivateQueryContext)?.value ?? "");
 }

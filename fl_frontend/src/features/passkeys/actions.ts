@@ -25,10 +25,7 @@ import type { ActionResult, QueryResult } from "@/shared/types/types";
  */
 const LETZTER_PASSKEY = "Der letzte Passkey lässt sich nicht löschen.";
 
-/**
- * A change that met another to the holder's passkeys or sessions (`docs/frontend/spec.md :: I312`), or
- * addressed a row another change took away or that was never the holder's: a stale list either way.
- */
+/** A change addressing a row another change took away, or one that was never the holder's: a stale list either way. */
 const GLEICHZEITIG_GEAENDERT = buildRefusal({
   reason: "Gleichzeitig wurde an Deinen Passkeys oder Anmeldungen etwas geändert",
   repair: LADE_DIE_SEITE_NEU,
@@ -51,7 +48,7 @@ export async function removePasskeyAction(id: string): Promise<ActionResult<{ di
     const removal = await removePasskey({ id: served.user.id, verwaltung: served.verwaltung }, id);
 
     if (removal === "last") return { success: false, error: LETZTER_PASSKEY };
-    if (removal === "absent" || removal === "conflict") return { success: false, error: GLEICHZEITIG_GEAENDERT };
+    if (removal === "absent") return { success: false, error: GLEICHZEITIG_GEAENDERT };
 
     await notifyPasskeyRemoved(served.user.email);
 

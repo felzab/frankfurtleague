@@ -132,3 +132,69 @@ export type FLEinwilligungFassung = z.infer<typeof FLEinwilligungFassungSchema>;
 export const FLEinwilligungFassungResponseSchema = BaseAPIResponseSchema.extend({ fassung: FLEinwilligungFassungSchema });
 
 export const FLEinwilligungSeitenResponseSchema = BaseAPIResponseSchema.extend({ laufende_fassungen: z.record(z.string(), z.string()) });
+
+/**
+ * What an erasure removed of one person, as record counts by store and never an echo of the person: anything
+ * of theirs answered back is a fresh copy of what was destroyed. `POST /identitaet/selbst/erasure` answers it.
+ */
+export const FLErasureResponseSchema = BaseAPIResponseSchema.extend({
+  spieler: z.int(),
+  saison_spieler: z.int(),
+  schiedsrichter: z.int(),
+  // Fixtures moved to the erased referee's sentinel rather than deleted.
+  spiele: z.int(),
+  kontakt_sitze: z.int(),
+  registrierungen: z.int(),
+  adresswechsel: z.int(),
+  berechtigungen: z.int(),
+  drosselung: z.int(),
+});
+export type FLErasureResponse = z.infer<typeof FLErasureResponseSchema>;
+
+/** A pupil record the erasure would reach, by the name it carries. */
+export const FLSelbstErasureSpielerSchema = z.object({ vorname: z.string(), nachname: z.string().nullable() });
+
+/** A referee record the erasure would reach, by the name it carries where it carries one. */
+export const FLSelbstErasureSchiedsrichterSchema = z.object({ name: z.string().nullable() });
+
+/** One contact seat on a season's team row, per seat, as `FLSubjektSitzSchema` lists them. */
+export const FLSelbstErasureSitzSchema = z.object({
+  saison_id: z.string(),
+  team_name: z.string(),
+  rolle: FLSubjektSitzSchema.shape.rolle,
+  vorname: z.string(),
+  nachname: z.string(),
+});
+
+/** One contact seat on an application, whatever its status. */
+export const FLSelbstErasureBewerbungSchema = z.object({
+  saison_id: z.string(),
+  rolle: FLSubjektSitzSchema.shape.rolle,
+  vorname: z.string(),
+  nachname: z.string(),
+});
+
+/** One registration, whatever its status. */
+export const FLSelbstErasureRegistrierungSchema = z.object({
+  saison_id: z.string(),
+  // Null where no season row names the team.
+  team_name: z.string().nullable(),
+  vorname: z.string(),
+  nachname: z.string(),
+});
+
+/**
+ * What `GET /identitaet/selbst/erasure/ansicht` answers: every record the erasure would reach before it
+ * runs, by kind and by name, and never the address or a birthdate.
+ */
+export const FLSelbstErasureAnsichtResponseSchema = BaseAPIResponseSchema.extend({
+  spieler: z.array(FLSelbstErasureSpielerSchema),
+  schiedsrichter: z.array(FLSelbstErasureSchiedsrichterSchema),
+  sitze: z.array(FLSelbstErasureSitzSchema),
+  bewerbungen: z.array(FLSelbstErasureBewerbungSchema),
+  registrierungen: z.array(FLSelbstErasureRegistrierungSchema),
+  // Another referee's pending change to this mailbox, which names no person to show.
+  adresswechsel: z.int(),
+  verwaltung: FLSubjektResponseSchema.shape.verwaltung,
+});
+export type FLSelbstErasureAnsichtResponse = z.infer<typeof FLSelbstErasureAnsichtResponseSchema>;

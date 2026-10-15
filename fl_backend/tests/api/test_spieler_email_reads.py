@@ -8,7 +8,8 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.identitaet.crud import find_anmeldung, find_subjekt
+from app.api.identitaet.crud import find_anmeldung, find_subjekt, unreferenced_of
+from app.api.identitaet.person_router import erase_selbst, get_erasure_ansicht
 from app.api.konto.router import get_einwilligungen
 from app.api.registrierungen.einwilligung_router import get_bestaetigung_ansicht
 from app.api.registrierungen.person_router import aufnehmen, get_offene_registrierungen
@@ -18,13 +19,15 @@ from app.api.registrierungen.schemas import (
     FLRegistrierungBestaetigungAnsichtPayload,
 )
 from app.api.saisons.cache import invalidate_saison_cache
-from app.api.spieler.schemas import FLSpielerSelbstEinwilligungPayload
+from app.api.spieler.admin_router import post_adresswechsel
+from app.api.spieler.schemas import FLSpielerAdresswechselPayload, FLSpielerSelbstEinwilligungPayload
 from app.api.spieler.selbst_router import get_selbst, patch_einwilligung
 from app.core.collections import Collection
 from app.core.drosselung import get_drossel
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from tests import documents
 from tests.bans import ban_list
+from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.plans import plans_of_sent_reads
 from tests.records import record_collections
@@ -105,6 +108,20 @@ async def the_subject_read(database: AsyncDatabase, client: AsyncMongoClient, re
 
 async def the_gate_read(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
     return await find_anmeldung(FOLDED_EMAIL, record_collections(database))
+
+
+async def the_references_read(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
+    # The league's owner, without whom the read refuses before its answer (`docs/backend/spec.md :: I712`).
+    await database[Collection.BERECHTIGUNGEN].insert_one(
+        {"_id": ObjectId(), "adresse": ANNA, "verwaltung": "owner", "erteilt_von": "PLAYGROUND", "erteilt_am": NOW}
+    )
+
+    return await unreferenced_of(
+        [FOLDED_EMAIL],
+        record_collections(database),
+        berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
+        sperrliste=ban_list(database),
+    )
 
 
 async def the_confirmation_view(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
@@ -191,6 +208,67 @@ async def the_own_record_press(database: AsyncDatabase, client: AsyncMongoClient
     )
 
 
+async def the_erasure_preview(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
+    return await get_erasure_ansicht(
+        identifier=FOLDED_EMAIL,
+        saison_teams_collection=database[Collection.SAISON_TEAMS],
+        bewerbungen_collection=database[Collection.BEWERBUNGEN],
+        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        spieler_collection=database[Collection.SPIELER],
+        registrierungen_collection=database[Collection.REGISTRIERUNGEN],
+        berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
+        db=client,
+        config=build_test_config(),
+    )
+
+
+async def the_erasure(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
+    return await erase_selbst(
+        identifier=FOLDED_EMAIL,
+        **{
+            f"{collection}_collection": database[collection]
+            for collection in (
+                Collection.SPIELER,
+                Collection.SAISON_SPIELER,
+                Collection.SAISON_TEAMS,
+                Collection.BEWERBUNGEN,
+                Collection.SCHIEDSRICHTER,
+                Collection.SPIELE,
+                Collection.REGISTRIERUNGEN,
+                Collection.DROSSELUNG,
+                Collection.AKTIONEN,
+                Collection.BERECHTIGUNGEN,
+                Collection.BERECHTIGUNGEN_ANGEKUENDIGT,
+                Collection.BERECHTIGUNGEN_POSTAUSGANG,
+                Collection.EINLADUNGEN,
+                Collection.SPERRLISTE,
+            )
+        },
+        sperrliste=ban_list(database),
+        db=client,
+        config=build_test_config(),
+        germany_now=NOW,
+    )
+
+
+async def the_address_change_request(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
+    """The holder check, shared with the re-send, the link's view and its confirmation (`app/api/spieler/crud.py :: another_pupil_holds`)."""
+
+    holder = await database[Collection.SPIELER].find_one({"vorname": "Thessaly"}, projection={"_id": 1})
+    assert holder is not None
+
+    return await post_adresswechsel(
+        spieler_id=holder["_id"],
+        adresswechsel_data=FLSpielerAdresswechselPayload.model_validate({"email": "thessaly.neu@beispielschule.de"}),
+        spieler_collection=database[Collection.SPIELER],
+        sperrliste=ban_list(database),
+        aktionen_collection=database[Collection.AKTIONEN],
+        db=client,
+        today=TODAY,
+        germany_now=NOW,
+    )
+
+
 def names_an_address(command: Mapping[str, Any]) -> bool:
     """Whether a `spieler` find or aggregate matches on a stored address, rather than on an id or on no address at all."""
 
@@ -231,12 +309,16 @@ class TestEveryAddressReadUsesTheIndex:
         [
             the_subject_read,
             the_gate_read,
+            the_references_read,
             the_confirmation_view,
             the_pending_read,
             the_admission,
             the_account_read,
             the_own_record_read,
             the_own_record_press,
+            the_erasure_preview,
+            the_erasure,
+            the_address_change_request,
         ],
         ids=lambda reader: reader.__name__,
     )

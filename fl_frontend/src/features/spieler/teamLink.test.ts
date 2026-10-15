@@ -9,39 +9,27 @@ import { createElement as h } from "react";
 import { render, screen, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
-import { TEAM_FACETS } from "@/features/teams/facets";
-import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
+import { FLSaisonSchema } from "@/features/saisons/schemas.ts";
+import { FLTeamWithMembershipsSchema } from "@/features/teams/schemas";
+import { doubleActionRequest, doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
-import { applyFacets, readFacetSelection } from "@/shared/utils/facets";
+import { answer, answerReadsWith, EMPTIEST_ANSWER, pageBody, saisonFields } from "@/shared/testing/pageHarness.ts";
 
 import type { AdminTeamRow } from "@/features/teams/types";
+import type { ReactElement } from "react";
 import type { AdminSpielerRow } from "./types.ts";
 
 doubleEveryAction();
+// An administrator's session, which every admin-tier read the club editor makes resolves its actor from.
+doubleActionRequest();
 
 const { AdminSpielerTable } = await import("./components/collections/AdminSpielerTable.tsx");
 const { AdminTeamsTable } = await import("@/features/teams/components/collections/AdminTeamsTable.tsx");
+const { default: AdminTeamEditPage } = await import("@/app/bereich/admin/teams/[team_id]/page.tsx");
 
 const TEAM_NAME = "Carl-Schurz-Schule";
-const SAISON_ID = "68b0f1c2d3e4a5b6c7d8e9f0";
+const SAISON_ID = "2526";
 const TEAM_ID = "68b0f1c2d3e4a5b6c7d8e9a1";
-
-/** As the club list builds a row: `selected` is the SELECTED season's junction data, absent for a club it does not hold. */
-function club(id: string, inSaison: boolean): AdminTeamRow {
-  return {
-    id,
-    name: TEAM_NAME,
-    full_name: TEAM_NAME,
-    shorthand: "CSS",
-    inactive_since: null,
-    selected: inSaison ? { gruppe: "A", austritt: null } : null,
-    isRetireable: false,
-    publicSaisonId: inSaison ? SAISON_ID : null,
-  };
-}
-
-const INSIDE = club("inside", true);
-const OUTSIDE = club("outside", false);
 
 /** A player whose squad row this season names the club, which is the row the link is drawn on. */
 const SPIELER: AdminSpielerRow = {
@@ -87,54 +75,66 @@ function squadRowLink(): string {
 
 const HREF = squadRowLink();
 
-const query = (href: string): URLSearchParams => new URLSearchParams(href.slice(href.indexOf("?") + 1));
+/* A club replacement takes a club out of the season and leaves the squad rows naming it: the club
+   behind the link holds no row of the season the link carries. */
+answerReadsWith((endpoint, schema, params) => {
+  if (endpoint === "/saisons/list/admin") {
+    return answer(schema, endpoint, { saisons: [answer(FLSaisonSchema, endpoint, saisonFields(SAISON_ID, "active"))] });
+  }
+  if (endpoint === "/teams/memberships") {
+    const club = answer(FLTeamWithMembershipsSchema, endpoint, {
+      id: TEAM_ID,
+      name: TEAM_NAME,
+      shorthand: "CS",
+      full_name: TEAM_NAME,
+      address: { strasse: "Am Sportpark", hausnummer: "1", plz: "60435", stadtteil: "Nordend", stadt: "Frankfurt am Main" },
+      memberships: [],
+    });
+    return answer(schema, endpoint, { teams: [club] });
+  }
+  return EMPTIEST_ANSWER(endpoint, schema, params);
+});
 
-/** The club list's own two stages, in its order: the facets narrow, and the search field narrows what they left. */
-const shown = (href: string, rows: AdminTeamRow[]): AdminTeamRow[] =>
-  applyFacets(rows, TEAM_FACETS, readFacetSelection(TEAM_FACETS, query(href)));
-
-describe("the squad row's link into the club list", () => {
-  it("points into the club list", () => {
-    assert.ok(HREF.startsWith("/bereich/admin/teams?"), `the club's name links to ${HREF}`);
+describe("the squad row's link to its club", () => {
+  /* The club's id and the season, and nothing a reader typed: a search query in a link is a request
+     line the edge logs (`docs/frontend/spec.md :: I680`). */
+  it("opens the club's own editor, keyed on the club and the season alone", () => {
+    assert.equal(HREF, `/bereich/admin/teams/${TEAM_ID}?saison_id=${SAISON_ID}`);
   });
 
-  /* The defect this closes: a club replacement takes a club out of the season and leaves the squad
-     rows naming it, so the one link that exists to reach it landed on an empty list. */
-  it("reaches a club the selected season no longer holds", () => {
-    assert.deepEqual(
-      shown(HREF, [INSIDE, OUTSIDE]).map((team) => team.id),
-      ["inside", "outside"],
-      "the link narrows the club list to the selected season",
+  /* The season's list of clubs holds no replaced club, so a link into that list would reach nothing:
+     the editor at the link's address has to open the club all the same. */
+  it("reaches a club the selected season does not hold", async () => {
+    const address = new URL(HREF, "http://localhost");
+    const body = await pageBody(AdminTeamEditPage, {
+      params: Promise.resolve({ team_id: address.pathname.split("/").at(-1) ?? "" }),
+      searchParams: Promise.resolve(Object.fromEntries(address.searchParams)),
+    });
+    const view = (body.props as { children: ReactElement<{ team: { id: string }; saison: { membership: unknown } }> }).children;
+
+    assert.equal(view.props.team.id, TEAM_ID, "the link's address opens another club, or none");
+    assert.equal(
+      view.props.saison.membership,
+      null,
+      "the club the case opens still holds the season, so it proves nothing about a replaced one",
     );
-  });
-
-  it("still reaches a club the selected season holds", () => {
-    assert.deepEqual(
-      shown(HREF, [INSIDE]).map((team) => team.id),
-      ["inside"],
-    );
-  });
-
-  /* What the parameter above has to outrank. Asserted here so the link's reason is pinned beside the
-     link, rather than left to whoever next reads the facet's default. */
-  it("carries the parameter because the list's own default narrows to the season", () => {
-    assert.deepEqual(
-      shown(`/bereich/admin/teams?q=${encodeURIComponent(TEAM_NAME)}&saison_id=${SAISON_ID}`, [INSIDE, OUTSIDE]).map((team) => team.id),
-      ["inside"],
-    );
-  });
-
-  /* `name` is one of the club list's search keys, so the field it lands in shows the club's own name
-     and a reader can widen the result from there. */
-  it("hands the search field the club's name unencoded", () => {
-    assert.equal(query(HREF).get("q"), TEAM_NAME);
   });
 
   /* The reverse link keys on the club's id and the season's clubs are that facet's options, so a club
      outside the season drops out and the player list widens instead of emptying. */
   it("leaves the club's own link back to the players keyed on the club and the season", async () => {
+    const club: AdminTeamRow = {
+      id: TEAM_ID,
+      name: TEAM_NAME,
+      full_name: TEAM_NAME,
+      shorthand: "CSS",
+      inactive_since: null,
+      selected: { gruppe: "A", austritt: null },
+      isRetireable: false,
+      publicSaisonId: SAISON_ID,
+    };
     render(
-      underNext(h(AdminTeamsTable, { filteredTeams: [{ ...INSIDE, id: TEAM_ID }], emptiness: "none", setDeletingTeam: () => undefined }), {
+      underNext(h(AdminTeamsTable, { filteredTeams: [club], emptiness: "none", setDeletingTeam: () => undefined }), {
         search: `saison_id=${SAISON_ID}`,
       }),
     );

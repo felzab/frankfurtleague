@@ -900,6 +900,61 @@ const readsOff = (name) =>
     `ObjectPattern > Property > TemplateLiteral.key > TemplateElement[value.cooked=${name}]`,
   ].join(", ");
 
+/**
+ * A search query in a URL (`docs/frontend/spec.md :: I680`) by the name `q`; one under another name is
+ * the page sweep's to catch. Another host's `?q=` is refused on purpose; `has` and `delete` stay free to
+ * strip an old one.
+ */
+const SEARCH_IN_URL = {
+  selector: [
+    String.raw`CallExpression[callee.property.name=/^(?:get|getAll|set|append)$/] > :matches(Literal[value="q"], TemplateLiteral[expressions.length=0][quasis.0.value.cooked="q"]).arguments:first-child`,
+    inLiteral(String.raw`[?&]q=`),
+    'NewExpression[callee.name="URLSearchParams"] Property:matches([key.name="q"], [key.value="q"])',
+    // Next's URL-object `href`.
+    'Property[key.name="query"] > ObjectExpression.value > Property:matches([key.name="q"], [key.value="q"])',
+    // A page's parameters, off the prop or what awaiting it gave.
+    'MemberExpression:matches([property.name="q"], [property.value="q"]):matches([object.name=/^(?:searchParams|params)$/], [object.type="AwaitExpression"])',
+    'VariableDeclarator:matches([init.name=/^(?:searchParams|params)$/], [init.type="AwaitExpression"]) > ObjectPattern.id > Property:matches([key.name="q"], [key.value="q"])',
+  ].join(", "),
+  message:
+    "A typed search query never rides a URL, which the access log, the history and every Referer keep: hold it in the page, as AdminCrudShell does (docs/frontend/spec.md :: I680).",
+};
+
+/** The search box, rendered only where a holder keeps what is typed in the page. */
+const SEARCH_BAR_HOME = {
+  selector: [
+    `:matches(ImportDeclaration, ExportNamedDeclaration, ExportAllDeclaration)[source.value=/${moduleNamed("SearchBar")}/]`,
+    loadOf(moduleNamed("SearchBar")),
+  ].join(", "),
+  message:
+    "A list's search field is AdminCrudSearch, whose query the shell holds in the page: a SearchBar rendered anywhere else has no holder keeping its query out of the URL (docs/frontend/spec.md :: I680).",
+  // The match search's bar and list are one component, which holds the query itself.
+  exempt: ["src/shared/components/ui/AdminCrudSearch.tsx", "src/features/spiele/components/views/SpielsucheView.tsx"],
+};
+
+/**
+ * The other three spellings of a search box. A plain input or a text field used as one passes here,
+ * and `fl_frontend/src/app/typedText.test.ts` fails it once its text reaches a URL.
+ */
+const SEARCH_FIELD_HOME = {
+  selector: [
+    `:matches(ImportDeclaration, ExportNamedDeclaration, ExportAllDeclaration)[source.value=/${packageUnder("@heroui/react/search-field")}/]`,
+    loadOf(packageUnder("@heroui/react/search-field")),
+    'JSXAttribute[name.name="type"]:matches([value.value="search"], [value.expression.value="search"])',
+    'JSXAttribute[name.name="role"]:matches([value.value="searchbox"], [value.expression.value="searchbox"])',
+  ].join(", "),
+  message:
+    "A search box is SearchBar: HeroUI's search field, an input of type search and a searchbox role belong to it and to the pickers this ban exempts, whose filters never leave their form (docs/frontend/spec.md :: I680).",
+  exempt: [
+    "src/shared/components/ui/SearchBar.tsx",
+    // A facet's own option filter, and three pickers narrowing the options of one field.
+    "src/shared/components/ui/FilterPanel.tsx",
+    "src/features/bewerbungen/components/forms/BewerbungForm/FormSchuleSection.tsx",
+    "src/features/spiele/components/forms/AdminEditSpielDataForm/FormTeamPicker.tsx",
+    "src/features/spiele/components/forms/AdminEditSpielDataForm/PickOrCreateAutocomplete.tsx",
+  ],
+};
+
 const SOURCE_BANS = [
   {
     // A test's router double counts `seen.back` and destructures `back` off itself, which the
@@ -1087,6 +1142,9 @@ const SOURCE_BANS = [
     tests: true,
   },
   STALE_ADMIN_BAN,
+  SEARCH_IN_URL,
+  SEARCH_BAR_HOME,
+  SEARCH_FIELD_HOME,
   {
     // The target itself, or the text its leftmost operand opens on; one ancestor outside a leading slot,
     // a call's argument or a ternary's branch, takes the text out of the lead.
@@ -1232,6 +1290,7 @@ const SCOPED_BANS = [
         "src/features/bewerbungen/actions.ts",
         "src/features/bewerbungen/notifications.ts",
         "src/features/bewerbungen/sweep.ts",
+        "src/features/funktionen/sweep.ts",
         "src/features/sperrliste/actions.ts",
         "src/features/spieler/notifications.ts",
         "src/features/zustellung/notifications.ts",

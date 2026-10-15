@@ -16,8 +16,6 @@ import { AdminCrudShell } from "@/shared/components/ui/AdminCrudShell";
 export default function AdminAdministratorenPage() {
   return (
     <AdminCrudShell
-      // The box takes an address, and this segment is dynamic: a `?q=` here is a request line nginx logs.
-      privateQuery
       search={
         <AdminCrudSearch
           searchLabel={BERECHTIGUNGEN_CRUD_COPY.searchLabel}

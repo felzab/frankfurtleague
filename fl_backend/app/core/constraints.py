@@ -355,6 +355,23 @@ _SCHIEDSRICHTER_ADRESSWECHSEL = _object(
     },
 )
 
+# A pupil's new address waiting on its own mailbox. Spelled out rather than assigned
+# `_SCHIEDSRICHTER_ADRESSWECHSEL`, for `_SAISON_REGISTRIERUNG`'s reason: one name over both blocks
+# would let a widening of either widen the other silently.
+_SPIELER_ADRESSWECHSEL = _object(
+    nullable=True,
+    required=("email", "token_hash", "verschickt_am", "frist"),
+    properties={
+        "email": {"bsonType": "string"},
+        "token_hash": {"bsonType": "string"},
+        "verschickt_am": {"bsonType": "string"},
+        # STORED for `_SCHIEDSRICHTER_BESTAETIGUNG`'s reason.
+        "frist": {"bsonType": "string"},
+        # Out of `required` for `_BEWERBUNG_BESTAETIGUNG`'s reason.
+        "zustellung": _ZUSTELLUNG,
+    },
+)
+
 # A seat's link on a team's season row. Never `_BEWERBUNG_BESTAETIGUNG`: no reminder chases these
 # links, so a second hash and a reminder stamp are keys nothing writes, and each link carries its own
 # deadline.
@@ -469,7 +486,7 @@ _BERECHTIGUNG_AENDERUNGEN = ["erteilt", "entzogen", "geaendert"]
 _BERECHTIGUNG_URHEBER = ["anwendung", "datenbank"]
 _BERECHTIGUNG_VORENTHALTEN = ["gesperrt", "geloescht"]
 
-# One grant's state in an outbox row; the address null where it was barred when queued.
+# One grant's state in an outbox row; the address null where it was barred or its holder erased.
 _BERECHTIGUNG_STAND = _object(
     nullable=True,
     required=("adresse", "verwaltung"),
@@ -720,6 +737,9 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 # `app/shared/folding.py :: sign_in_identifier` folds it, which is the form the
                 # sign-in seam's equality compares against.
                 "email": {"bsonType": _STRING_OR_NULL},
+                # A delivery carrier (`app/api/zustellung/services.py :: ZIEL_PFADE`). Out of `required`:
+                # only a pupil whose address an administrator asked to move carries one, until its mailbox answers.
+                "adresswechsel": _SPIELER_ADRESSWECHSEL,
                 # The person has left the LEAGUE; leaving one squad retires the junction row below.
                 "inactive_since": _INACTIVE_SINCE,
             },
@@ -1117,7 +1137,8 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "vorher": _BERECHTIGUNG_STAND,
                 "geaendert_von": {"bsonType": _STRING_OR_NULL},
                 "geaendert_am": {"bsonType": ["date", "null"]},
-                # Why the row's addresses are withheld; a null address never says it by itself.
+                # Why the grant's address is withheld, which its null never says by itself; a null actor
+                # does, as a ban (`docs/backend/spec.md :: I661`).
                 "vorenthalten": {"bsonType": _STRING_OR_NULL, "enum": [*_BERECHTIGUNG_VORENTHALTEN, None]},
                 "erfasst_am": {"bsonType": "date"},
                 # Required as keys and null until a pass claims the row: the claim asks for a null
@@ -1336,6 +1357,13 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         "schiedsrichter_adresswechsel_token_hash",
         (("adresswechsel.token_hash", ASCENDING),),
         "the referee address page's lookup, driven by strangers",
+    ),
+    # PLAIN for the referee's above's reason.
+    SupportIndex(
+        Collection.SPIELER,
+        "spieler_adresswechsel_token_hash",
+        (("adresswechsel.token_hash", ASCENDING),),
+        "the pupil address page's lookup, driven by strangers",
     ),
     # Not a unique one, though a hash collides with nothing: a revoked row keeps its hash, so the
     # key holds as many rows as the team has been reissued links.

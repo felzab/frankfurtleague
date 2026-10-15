@@ -205,6 +205,9 @@ except Exception as unexpected:
 # One mount, one user and one filter for either package's reader: the two judge different things and
 # each says so itself, but a second copy of this is how one arm's mount drifts from the other's.
 read_env_names() {
+  # Off, so a trace never prints what the container said before `redact_uri_credentials` reads it.
+  local -
+  set +x
   local package="$1" image="$2"; shift 2
   local rc=0 said=""
   # The caller's own identity, never the image's user, whose uid this host does not have: the files
@@ -229,11 +232,11 @@ check_env_names() {
   read_env_names fl_backend "$IMAGE_BACKEND" python -c "$ENV_NAME_CHECK" "$ENV_MOUNTS" || rc=$?
   if (( rc == 3 )); then
     refuse "the backend refuses this host's fl_backend/.env, and the line above is its own answer: the
-variables it could not accept, or the type of a read that failed before it reached one. No value is
-printed either way, and which remedy the line asks for is read off the names it carries. A name the
-backend declares is a value to correct; any other name is a line to delete or a field to add to the
-settings class, nothing in that class reading such a name -- so it reads as omitted and the shipped
-default serves production.
+variables it declares and could not accept, by name; the lines declaring a name it does not, by
+number alone; or the type of a read that failed before it reached one. No value is printed, and no
+name the backend does not declare. A named variable is a value to correct; a numbered line is one
+to open, then delete or answer with a field in the settings class, nothing in that class reading
+its name -- so it reads as omitted and the shipped default serves production.
 NOTHING has been recreated, and the site is untouched."
   elif (( rc )); then
     # An advisory rather than a refusal: this reads a file the running stack never reads, so a check
@@ -252,9 +255,10 @@ check_frontend_env_names() {
   local rc=0
   read_env_names fl_frontend "$IMAGE_FRONTEND" node check-environment-names.mjs "${ENV_MOUNTS}/.env" || rc=$?
   if (( rc == 3 )); then
-    refuse "the frontend refuses this host's fl_frontend/.env, and the line above names the variables.
-An undeclared name is one nothing in the schema reads, so the line reads as omitted and the shipped
-default serves production -- delete it, correct its spelling, or declare it in the schema. A missing
+    refuse "the frontend refuses this host's fl_frontend/.env, and the lines above give each undeclared
+variable by its line number alone, never by name, and each missing one by name. An undeclared name
+is one nothing in the schema reads, so the line reads as omitted and the shipped default serves
+production -- open the line, then delete it, correct its spelling, or declare it in the schema. A missing
 name is one the frontend requires that the file omits, which the boot gate would meet instead,
 after the recreate and behind an edge already answering 502 -- write it into the file with its
 value. Whether a value, an empty one included, is accepted is the boot gate's to judge, in the step

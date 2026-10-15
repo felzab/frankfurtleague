@@ -24,6 +24,7 @@ const { default: KontoPage } = await import("@/app/bereich/(persoenlich)/konto/p
 const { KontoPanel } = await import("@/shared/components/ui/KontoPanel.tsx");
 const { SicherheitSection } = await import("./components/views/SicherheitSection.tsx");
 const { EinwilligungSection } = await import("./components/views/EinwilligungSection.tsx");
+const { KontoLoeschenSection } = await import("./components/views/KontoLoeschenSection.tsx");
 const { SicherheitPanel } = await import("./components/views/SicherheitPanel.tsx");
 const { AdminShell } = await import("@/features/admin/components/ui/AdminShell.tsx");
 const { PersonShell } = await import("@/features/funktionen/components/ui/PersonShell.tsx");
@@ -54,16 +55,17 @@ const kontoLinks = (html: string): string[] => [...html.matchAll(/<a [^>]*href="
 describe("the account page", () => {
   /* One page per person, reached whatever they hold: a person whose every record is unconfirmed still
      has a sign-in, and so passkeys and devices to manage. */
-  it("hands the panel the person's address, the security section and the consent section, a Funktion held or none", async () => {
+  it("hands the panel the person's address, the security, consent and deletion sections, a Funktion held or none", async () => {
     setSubject(OHNE_FUNKTION);
 
     const body = await pageBody(KontoPage, NO_PROPS);
 
     assert.equal(body.type, KontoPanel);
-    const props = body.props as { email: string; sicherheit: { type: unknown }; einwilligung: { type: unknown } };
+    const props = body.props as { email: string; sicherheit: { type: unknown }; einwilligung: { type: unknown }; loeschung: { type: unknown } };
     assert.equal(props.email, "pia@example.org");
     assert.equal(props.sicherheit.type, SicherheitSection);
     assert.equal(props.einwilligung.type, EinwilligungSection);
+    assert.equal(props.loeschung.type, KontoLoeschenSection);
   });
 
   /* The section is the administrator's lane's to fill, so a lapsed administrator verdict is sent on to
@@ -82,7 +84,7 @@ describe("the account page", () => {
   });
 
   it("draws the address under a panel heading and carries no second h1", () => {
-    const html = renderTree(h(KontoPanel, { email: "pia@example.org", sicherheit: null, einwilligung: null }));
+    const html = renderTree(h(KontoPanel, { email: "pia@example.org", sicherheit: null, einwilligung: null, loeschung: null }));
 
     assert.equal([...html.matchAll(/<h1/g)].length, 0, "the panel carries an h1 beside the bar's");
     // Headed „Anmeldung“: „Zugang“ names the administration grant alone.
@@ -778,5 +780,16 @@ describe("the account page's consent section", () => {
   /* A slot nothing maps, a page naming one the section never fills, fails the render loudly. */
   it("fails the render for a slot nothing maps", () => {
     assert.throws(() => bestaetigteWorte(publishedFassung("2026-09-spielerseite-3"), {}), /has no value for/);
+  });
+});
+
+describe("the account page's deletion section", () => {
+  /* Every stamped page tells its reader to delete their data „über {loeschung}“, so the control a reader looks
+     for there carries that constant's own words. */
+  it("names its control by the words every stamped page promises it under", () => {
+    const html = renderTree(underNext(h(KontoLoeschenSection)));
+
+    const buttons = [...html.matchAll(/<button[^>]*>([\s\S]*?)<\/button>/g)].map(([, inner]) => textOf(inner ?? "", " ").trim());
+    assert.ok(buttons.includes(FESTE_WERTE.loeschung), `the section's controls read ${JSON.stringify(buttons)}`);
   });
 });

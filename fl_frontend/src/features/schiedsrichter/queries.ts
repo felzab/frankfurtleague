@@ -2,6 +2,7 @@ import { cache } from "react";
 
 import { apiClient } from "@/core/api";
 import { isRecordMissing } from "@/core/errors";
+import { medienNochNicht } from "@/features/bewerbungen/utils";
 import { isRefusal, isRuleRefusal, refusedPayloadAnswer } from "@/shared/utils/actionError";
 import { runAdminRead } from "@/shared/utils/adminRead";
 import { runPersonRead } from "@/shared/utils/personRead";
@@ -80,15 +81,18 @@ export type SchiedsrichterBestaetigungRefusal = {
   zustand?: SchiedsrichterLinkZustand;
 };
 
-// A thunk, never a number: the floor is read for the age arm alone, and a caller resolving it first
+/** `alterAusserhalb` where the link's view serves no floor to name: both bounds, never a number of its own. */
+const ALTER_AUSSERHALB_UNGELESEN = "Mit diesem Geburtsdatum bist Du zu jung oder zu alt. Prüfe Dein Geburtsdatum.";
+
+// A thunk, never the floors: they are read for the two age arms alone, and a caller resolving them first
 // answers every arm naming the link's state out of a second read, which finds nothing to read.
 /**
- * `null` where the code is none of these. The floor comes from the token's own read: a number of
+ * `null` where the code is none of these. The floors come from the token's own read: a number of
  * this mapper's own would be a second copy of one the endpoint alone decides.
  */
 export async function mapSchiedsrichterBestaetigungRefusal(
   error: unknown,
-  mindestalter: () => Promise<number | null>,
+  ansicht: () => Promise<{ readonly mindestalter: number; readonly medien_mindestalter: number } | null>,
 ): Promise<SchiedsrichterBestaetigungRefusal | null> {
   if (!isRefusal(error)) return null;
 
@@ -98,10 +102,10 @@ export async function mapSchiedsrichterBestaetigungRefusal(
     case "REQ-VAL-002":
     case "REQ-VAL-001":
       return refusedPayloadAnswer(error, ANTWORT_NEU_OEFFNEN);
-    // The page offers no media switch below the served age, so only a page older than that rule
-    // sends this answer, and its repair is the refused payload's.
+    // The switch is offered from the served age on the browser's day, so a clock disagreeing with the
+    // backend's sends this, which a reopened link would offer again: switching it off is the repair.
     case "REQ-SCHIEDSRICHTER-008":
-      return { error: ANTWORT_NEU_OEFFNEN };
+      return { error: medienNochNicht((await ansicht())?.medien_mindestalter ?? null) };
     // The backend's judgement of the label (`docs/backend/spec.md :: I550`): a page opened before a
     // deploy moved it posts words other than those the backend runs, and only the mail's link reopens it.
     case "REQ-EINWILLIGUNG-001":
@@ -118,11 +122,10 @@ export async function mapSchiedsrichterBestaetigungRefusal(
     // The one refusal that spends nothing, so it lands on the field and the typed date survives it;
     // a `zustand` here would swap a live form for a dead-link panel.
     case "REQ-SCHIEDSRICHTER-005": {
-      const floor = await mindestalter();
+      const floor = (await ansicht())?.mindestalter ?? null;
 
-      // Unworded rather than guessed: a sentence naming a floor this link was not minted under
-      // sends the person to correct a date that was right.
-      return floor === null ? null : { fieldErrors: { geburtsdatum: alterAusserhalb(floor) } };
+      // A view that went unread names no floor: one guessed could send the person to correct a date that was right.
+      return { fieldErrors: { geburtsdatum: floor === null ? ALTER_AUSSERHALB_UNGELESEN : alterAusserhalb(floor) } };
     }
     default:
       return null;

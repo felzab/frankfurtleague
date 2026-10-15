@@ -1,16 +1,22 @@
+import "@/shared/testing/dom.ts";
+import "@/shared/testing/renderTest.ts";
+
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
+import { fireEvent, render, within } from "@testing-library/react";
+
 import { underNext } from "@/shared/testing/nextContexts.ts";
-import { renderTree } from "@/shared/testing/renderTest.ts";
 
 import type { Facet } from "@/shared/utils/facets.ts";
 import type { CrudEmptiness } from "./AdminCrudView.tsx";
 
 /* Reached with `await import` and never a static import beside the harness, which registers the JSX
    compile step as it evaluates (`docs/frontend/spec.md` §1.9). */
+const { AdminCrudSearch } = await import("./AdminCrudSearch.tsx");
+const { AdminCrudShell } = await import("./AdminCrudShell.tsx");
 const { AdminCrudView } = await import("./AdminCrudView.tsx");
 
 type Row = { id: string; art: string };
@@ -41,32 +47,42 @@ const GEFILTERT: Facet<Row> = {
   read: (row) => [row.art],
 };
 
-/** The value the region hands its table, rendered as the slot's whole markup so nothing else can answer. */
+/**
+ * The value the region hands its table, rendered as the slot's whole content so nothing else can answer.
+ * `query` is the URL, which carries the facets; `typed` goes into the shell's bar, as an administrator's does.
+ */
 function emptinessOf({
   items,
   facets,
   query = "",
+  typed = "",
   readNarrowedByRoute,
 }: {
   items: Row[];
   facets: readonly Facet<Row>[];
   query?: string;
+  typed?: string;
   readNarrowedByRoute?: boolean;
 }): CrudEmptiness {
-  const html = renderTree(
+  const { container, unmount } = render(
     underNext(
-      h(AdminCrudView<Row>, {
-        items: items,
-        searchKeys: SEARCH_KEYS,
-        facets: facets,
-        readNarrowedByRoute: readNarrowedByRoute,
-        renderTable: ({ emptiness }) => h("output", null, emptiness),
+      h(AdminCrudShell, {
+        search: h(AdminCrudSearch, { searchLabel: "Suchen", searchPlaceholder: "Suchen" }),
+        children: h(AdminCrudView<Row>, {
+          items: items,
+          searchKeys: SEARCH_KEYS,
+          facets: facets,
+          readNarrowedByRoute: readNarrowedByRoute,
+          renderTable: ({ emptiness }) => h("output", null, emptiness),
+        }),
       }),
       { search: query },
     ),
   );
+  if (typed !== "") fireEvent.change(within(container).getByRole("searchbox", { name: "Suchen" }), { target: { value: typed } });
 
-  const found = /<output>(none|filtered|searched)<\/output>/.exec(html)?.[1];
+  const found = /^(none|filtered|searched)$/.exec(container.querySelector("output")?.textContent ?? "")?.[1];
+  unmount();
   assert.ok(found !== undefined, "the region handed its table no emptiness at all");
 
   return found as CrudEmptiness;
@@ -110,7 +126,7 @@ describe("an empty read, which no stage on the page emptied", () => {
   /* Facets narrow before the search, so a typed query does not take the message from the narrowing
      that had already left nothing. */
   it("stays the narrowing's with a query typed as well", () => {
-    assert.equal(emptinessOf({ items: [], facets: [GELESEN], query: "stand=erledigt&q=zorbanax" }), "filtered");
+    assert.equal(emptinessOf({ items: [], facets: [GELESEN], query: "stand=erledigt", typed: "zorbanax" }), "filtered");
   });
 });
 
@@ -122,7 +138,7 @@ describe("a read that served rows", () => {
 
   /* The server's narrowing served these rows, so it is not what emptied the list below them. */
   it("blames the search, never the read's own narrowing, for a query matching none of them", () => {
-    assert.equal(emptinessOf({ items: ROWS, facets: [GELESEN], query: "q=zorbanax", readNarrowedByRoute: true }), "searched");
+    assert.equal(emptinessOf({ items: ROWS, facets: [GELESEN], typed: "zorbanax", readNarrowedByRoute: true }), "searched");
   });
 
   it("blames the facet that removed every row it served", () => {

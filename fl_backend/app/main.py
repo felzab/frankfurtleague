@@ -27,6 +27,7 @@ from app.api.bewerbungen.router import router as bewerbungen_router
 from app.api.bewerbungen.sweep_router import router as bewerbungen_sweep_router
 from app.api.bewerbungen.zustellung_router import router as bewerbungen_zustellung_router
 from app.api.einwilligung.router import router as einwilligung_router
+from app.api.identitaet.person_router import router as identitaet_person_router
 from app.api.identitaet.router import router as identitaet_router
 from app.api.kontakte.admin_router import router as kontakte_admin_router
 from app.api.konto.router import router as konto_router
@@ -47,6 +48,7 @@ from app.api.sperrliste.admin_router import router as sperrliste_admin_router
 from app.api.spiele.admin_router import router as spiele_admin_router
 from app.api.spiele.router import router as spiele_router
 from app.api.spieler.admin_router import router as spieler_admin_router
+from app.api.spieler.adresswechsel_router import router as spieler_adresswechsel_router
 from app.api.spieler.person_router import router as spieler_person_router
 from app.api.spieler.router import router as spieler_router
 from app.api.spieler.selbst_router import router as spieler_selbst_router
@@ -144,6 +146,7 @@ PUBLIC_ROUTERS = (
     registrierungen_einwilligung_router,
     schiedsrichter_bestaetigung_router,
     schiedsrichter_adresswechsel_router,
+    spieler_adresswechsel_router,
 )
 # Its own group for the same reason: system-tier operations the application makes to itself, which
 # neither tuple above describes. A POST that stores nothing sits here too, both guard sheets listing
@@ -168,6 +171,7 @@ PERSON_ROUTERS = (
     registrierungen_selbst_router,
     schiedsrichter_person_router,
     konto_router,
+    identitaet_person_router,
 )
 
 # Spelled as `fl_frontend/src/core/api.ts :: FetchOptions` spells its `authType`, the value being

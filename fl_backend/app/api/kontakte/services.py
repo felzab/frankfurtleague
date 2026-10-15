@@ -1,12 +1,13 @@
 """API · what an erasure of one contact person has to reach, spelled apart from the request."""
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence, Set
 from typing import Any
 
 from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.collections import Collection
 from app.core.crud import literal_pattern
-from app.shared.folding import sign_in_identifier, trimmed_pattern
+from app.core.recording import row_images
+from app.shared.folding import canonical_address, person_name_key, sign_in_identifier, trimmed_pattern
 
 
 def same_address(identifier: str) -> Mapping[str, Any]:
@@ -18,7 +19,25 @@ def same_address(identifier: str) -> Mapping[str, Any]:
 
     # `i` because the identifier is lower-cased and a stored address need not be: a payload keeps the
     # local part's case.
-    return {"$regex": trimmed_pattern(literal_pattern(identifier)), "$options": "i"}
+    spellings = (identifier, *_unicode_spelling(identifier))
+    return {"$regex": trimmed_pattern("|".join(literal_pattern(spelling) for spelling in spellings)), "$options": "i"}
+
+
+def _unicode_spelling(identifier: str) -> tuple[str, ...]:
+    """The identifier with its punycode domain decoded: a hand-typed row may store it so, and the fold claims it."""
+
+    local, at, domain = identifier.rpartition("@")
+    if not at or "xn--" not in domain:
+        return ()
+
+    try:
+        decoded = canonical_address(identifier).rpartition("@")[2]
+        # A label decoding to a lone surrogate is one the driver cannot send.
+        decoded.encode("utf-8")
+    except ValueError:
+        return ()
+
+    return (f"{local}@{decoded}",) if decoded != domain else ()
 
 
 def rows_possibly_naming(identifier: str) -> Mapping[str, Any]:
@@ -66,25 +85,32 @@ def build_matching_seats_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     ]
 
 
-def build_orphaned_images_pipeline(identifier: str) -> list[Mapping[str, Any]]:
-    """The log rows that may still HOLD this person; `images_holding` decides.
+def build_accepted_application_pipeline(*, saison_id: str, team_id: Any) -> list[Mapping[str, Any]]:
+    """The club's accepted application for a season, projected to what the clearing judges and `bestaetigungen`.
 
-    A swap orphans the pre-image carrying the address out, past `build_redaction_filter`'s ids; the
-    log's retention (`app/core/constraints.py :: TTL_INDEXES`) expires a row long after the erasure
-    is owed.
+    Every one, unbounded: a capped read would leave an application holding the outgoing people that
+    nothing reaches again.
     """
 
     return [
-        {
-            "$match": {
-                # `collection` first, the one half of this an index serves: `aktionen_target` is a
-                # prefix match here, and nothing indexes inside `before`.
-                "collection": {"$in": [str(Collection.SAISON_TEAMS), str(Collection.BEWERBUNGEN)]},
-                "$or": [{f"before.kontakte.{slot}.email": same_address(identifier)} for slot in KONTAKT_ROLLEN],
-            }
-        },
-        {"$project": {f"before.kontakte.{slot}.email": 1 for slot in KONTAKT_ROLLEN}},
+        {"$match": {"saison_id": saison_id, "team_id": team_id, "status": "angenommen"}},
+        {"$project": {**{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in SEAT_FIELDS}, "bestaetigungen": 1}},
     ]
+
+
+def build_seat_images_filter(identifier: str) -> Mapping[str, Any]:
+    """Log rows whose images may seat this person; `seat_image_edits` decides.
+
+    By what an image holds, never by row id: a swap orphans an image carrying the address out, and
+    the log keeps it its whole retention (`app/core/constraints.py :: TTL_INDEXES`).
+    """
+
+    return {
+        # `collection` first, the one half of this an index serves: `aktionen_target` is a prefix
+        # match here, and nothing indexes inside `before`.
+        "collection": {"$in": [str(Collection.SAISON_TEAMS), str(Collection.BEWERBUNGEN)]},
+        "$or": [{f"before.kontakte.{slot}.email": same_address(identifier)} for slot in KONTAKT_ROLLEN],
+    }
 
 
 def find_matching_slots(row: Mapping[str, Any], identifier: str) -> tuple[str, ...]:
@@ -94,11 +120,15 @@ def find_matching_slots(row: Mapping[str, Any], identifier: str) -> tuple[str, .
     person's seat on the first person's request.
     """
 
-    kontakte = row.get("kontakte") or {}
+    # Every shape checked before it is read: a log image is whatever a row held when its write ran,
+    # and a person's Widerspruch must not answer 500 over an older one.
+    kontakte = row.get("kontakte")
+    seats = [kontakte.get(slot) for slot in KONTAKT_ROLLEN] if isinstance(kontakte, Mapping) else [None] * len(KONTAKT_ROLLEN)
+    emails = [seat.get("email") if isinstance(seat, Mapping) else None for seat in seats]
 
-    # `str` around it because the slot is declared `bsonType: "string"` and nothing narrower, so what
-    # sits there is only as trustworthy as whatever wrote the row.
-    return tuple(slot for slot in KONTAKT_ROLLEN if sign_in_identifier(str((kontakte.get(slot) or {}).get("email") or "")) == identifier)
+    named = zip(KONTAKT_ROLLEN, emails, strict=True)
+
+    return tuple(slot for slot, email in named if isinstance(email, str) and sign_in_identifier(email) == identifier)
 
 
 def rows_naming(rows: Sequence[Mapping[str, Any]], identifier: str) -> list[Mapping[str, Any]]:
@@ -110,14 +140,109 @@ def rows_naming(rows: Sequence[Mapping[str, Any]], identifier: str) -> list[Mapp
     return [row for row in rows if find_matching_slots(row, identifier)]
 
 
-def images_holding(rows: Sequence[Mapping[str, Any]], identifier: str) -> list[Any]:
-    """The ids of the log rows whose pre-image names this person; a `delete_many` row's `before` is a list of images."""
+def _emptied_seats(image: Mapping[str, Any], slots: Set[str], *, links: bool) -> dict[str, None]:
+    if not slots:
+        return {}
 
-    def images_of(row: Mapping[str, Any]) -> list[Any]:
-        before = row.get("before")
-        return before if isinstance(before, list) else [before]
+    edits: dict[str, None] = {f"kontakte.{slot}": None for slot in slots}
+    # Where the live write takes the link with the seat, and only where the image holds the block: a
+    # Widerspruch keeps it, its day recorded on it.
+    if links and isinstance(image.get("bestaetigungen"), Mapping):
+        edits.update({f"bestaetigungen.{slot}": None for slot in slots})
 
-    return [row["_id"] for row in rows if any(find_matching_slots(image, identifier) for image in images_of(row) if isinstance(image, Mapping))]
+    # The submission digest was taken over every seat's details, theirs among them.
+    if "idempotenz_fingerabdruck" in image:
+        edits["idempotenz_fingerabdruck"] = None
+
+    return edits
+
+
+# A seat's name as `app/shared/folding.py :: person_name_key` compares it, first name and surname apart.
+PersonName = tuple[str, str]
+
+
+def seat_name(seat: Any) -> PersonName | None:
+    """`None` where either half is blank: a blank name is nobody's, and matching it would empty every unnamed seat."""
+
+    if not isinstance(seat, Mapping):
+        return None
+
+    name = (person_name_key(seat.get("vorname")), person_name_key(seat.get("nachname")))
+
+    return name if all(name) else None
+
+
+def departing_names(rows: Iterable[Mapping[str, Any]], identifiers: Set[str]) -> dict[Any, frozenset[PersonName]]:
+    """Per document, by the `_id` its images carry, every name its log images seat these addresses under.
+
+    Each write's own pre-image is among them, so the live seat's name always is.
+    """
+
+    names: dict[Any, set[PersonName]] = {}
+    for row in rows:
+        for _, image in row_images(row):
+            if not isinstance(image, Mapping):
+                continue
+
+            slots = {slot for identifier in identifiers for slot in find_matching_slots(image, identifier)}
+            # Each slot was found in a block `find_matching_slots` has checked is a mapping.
+            held = (seat_name(image["kontakte"][slot]) for slot in slots)
+            names.setdefault(image.get("_id"), set()).update(name for name in held if name is not None)
+
+    return {document: frozenset(held) for document, held in names.items() if held}
+
+
+def departing_slots(row: Mapping[str, Any], identifiers: Iterable[str], names: Set[PersonName] = frozenset()) -> tuple[str, ...]:
+    """The slots these people hold in one row or log image, by address on the fold and by any name handed in."""
+
+    slots = {slot for identifier in identifiers for slot in find_matching_slots(row, identifier)}
+
+    # By name only inside a document the caller reached by id (`docs/backend/spec.md :: I672`), where
+    # one name is one person, so a corrected address takes its seat; the replacement hands in the
+    # outgoing row's names.
+    kontakte = row.get("kontakte")
+    if names and isinstance(kontakte, Mapping):
+        slots |= {slot for slot in KONTAKT_ROLLEN if seat_name(kontakte.get(slot)) in names}
+
+    return tuple(slot for slot in KONTAKT_ROLLEN if slot in slots)
+
+
+def seated_people(row: Mapping[str, Any]) -> tuple[frozenset[str], frozenset[PersonName]]:
+    """Every address a row seats, on the fold, and every name: who leaves with the row when another club takes its place."""
+
+    kontakte = row.get("kontakte")
+    seats = (
+        [seat for seat in (kontakte.get(slot) for slot in KONTAKT_ROLLEN) if isinstance(seat, Mapping)] if isinstance(kontakte, Mapping) else []
+    )
+    addresses = frozenset(sign_in_identifier(seat["email"]) for seat in seats if isinstance(seat.get("email"), str))
+
+    return addresses, frozenset(name for name in map(seat_name, seats) if name is not None)
+
+
+def seat_image_edits(
+    image: Mapping[str, Any], identifiers: Iterable[str], *, links: bool, names: Set[PersonName] = frozenset()
+) -> dict[str, None]:
+    """The seats these people hold in one log image, emptied as the live write empties them.
+
+    On the fold, image by image: a slot somebody else held keeps them, their earlier states being
+    their consent trail.
+    """
+
+    return _emptied_seats(image, set(departing_slots(image, identifiers, names)), links=links)
+
+
+def contact_block_image_edits(image: Mapping[str, Any]) -> dict[str, None]:
+    """One season row image's contacts and links, emptied as the write clearing them empties them.
+
+    Every person the row ever seated goes, earlier holders included, and a declined seat's link with
+    them; nothing else does.
+    """
+
+    blocks = {key: image.get(key) for key in ("kontakte", "bestaetigungen")}
+    held = any(isinstance(block, Mapping) and any(isinstance(block.get(slot), Mapping) for slot in KONTAKT_ROLLEN) for block in blocks.values())
+
+    # The fields the image holds alone: one recorded before links existed gains no `bestaetigungen`.
+    return {key: None for key, block in blocks.items() if block is not None} if held else {}
 
 
 def build_clearing_update(slots: Sequence[str], *, bestaetigungen: bool = False) -> Mapping[str, Any]:
@@ -134,9 +259,7 @@ def build_clearing_update(slots: Sequence[str], *, bestaetigungen: bool = False)
     if bestaetigungen:
         cleared.update({f"bestaetigungen.{slot}": None for slot in slots})
 
-        # An application's submission digest was taken over this person's details too, and a hash of
-        # personal data is still personal data (`docs/backend/spec.md :: I346`). A season row holds
-        # none, so the `$unset` there removes nothing.
-        return {"$set": cleared, "$unset": {"idempotenz_fingerabdruck": ""}}
-
-    return {"$set": cleared}
+    # Whatever the block: the submission digest was taken over this person's details too, and a hash
+    # of personal data is personal data (`docs/backend/spec.md :: I346`). An `$unset` creates nothing
+    # where none is held.
+    return {"$set": cleared, "$unset": {"idempotenz_fingerabdruck": ""}}

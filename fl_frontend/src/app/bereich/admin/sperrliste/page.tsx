@@ -13,9 +13,6 @@ import { AdminCrudShell } from "@/shared/components/ui/AdminCrudShell";
 export default function AdminSperrlistePage() {
   return (
     <AdminCrudShell
-      // The one box this page offers is the box an administrator asking „ist die gesperrt?“ types an
-      // address into, and this segment is dynamic: a `?q=` here is a request line nginx logs.
-      privateQuery
       search={
         <AdminCrudSearch
           searchLabel={SPERRLISTE_CRUD_COPY.searchLabel}

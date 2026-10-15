@@ -6,6 +6,7 @@ from fastapi import APIRouter, Body, Depends
 from pymongo import ASCENDING, ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
+from app.api.aktionen.crud import redact_images_in_session
 from app.api.bewerbungen.schemas import (
     DELETIONS_LISTED_PER_PASS,
     FLBewerbungSweepAngekuendigtPayload,
@@ -43,6 +44,7 @@ from app.api.bewerbungen.services import (
     undecided_erasure_is_due,
     vorname_of,
 )
+from app.api.kontakte.services import contact_block_image_edits
 from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
 from app.core.collections import Collection
@@ -100,7 +102,7 @@ async def _club_names(
 async def _redact(
     *, aktionen_collection: AktionenCollection, collection: Collection, ids: Sequence[Any], stamp: str, session: AsyncClientSession
 ) -> int:
-    """Every log row naming the removed documents, emptied and stamped -- the erasure's second half (`docs/backend/spec.md :: I42`)."""
+    """Every log row naming the removed documents, emptied and stamped -- the erasure's second half (`docs/backend/spec.md :: I671`)."""
 
     if not ids:
         return 0
@@ -414,7 +416,7 @@ async def sweep_saison(
         taken = junction_rows[:BLOCKS_CLEARED_PER_PASS]
 
         # `patch_one_in_db` per row and never `patch_many_in_db`, which records no `document_id`: the
-        # redaction below must match the rows it logs (`app/api/kontakte/crud.py :: _clear_each`).
+        # redaction below must match the rows it logs (`app/api/kontakte/crud.py :: clear_seats`).
         cleared: list[Any] = []
         for row in taken:
             await patch_one_in_db(
@@ -427,8 +429,14 @@ async def sweep_saison(
                 return_document=ReturnDocument.BEFORE,
             )
             cleared.append(row["_id"])
-        redacted = await _redact(
-            aktionen_collection=aktionen_collection, collection=Collection.SAISON_TEAMS, ids=cleared, stamp=stamp, session=session
+        # The block alone leaves the row's images, as it leaves the row: its exit record and every
+        # earlier state are the season's, not the people's.
+        redacted = await redact_images_in_session(
+            aktionen_collection=aktionen_collection,
+            db_filter=build_redaction_filter([(Collection.SAISON_TEAMS, cleared)]),
+            judge=contact_block_image_edits,
+            stamp=stamp,
+            session=session,
         )
 
         return len(cleared), redacted

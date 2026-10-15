@@ -145,7 +145,8 @@ How each surface keeps its stream to one format:
   `message` read `$credential_free_uri` rather than `$request_uri`, and `referer` reads
   `$logged_referer` rather than `$http_referer`: each is the raw value except on any query carrying
   a `token` or an `email` parameter — the spelling every minted link's token and every mailed
-  address takes — where a literal stands in (L11).
+  address takes — or a `q` parameter, a typed search query's, which no page writes
+  (`docs/frontend/spec.md :: I680`), where a literal stands in (L11).
   The **error log is the one deliberate exception**: the open-source build this stack pins offers
   no format for it but plain text. `error_log`'s `json` parameter and `error_log_tag` (both 1.29.8)
   are commercial-subscription features, which `nginx:1.31-alpine` refuses as `invalid log level
@@ -299,6 +300,7 @@ On Windows, redirecting the backend command's output needs `PYTHONUTF8=1` —
 | A log line carries personal data                         | A handler logged a rejected value rather than the field that carried it                                                                      | Log the field NAME; the value belongs in neither the message nor an extra (L9)                                                                                                                                |
 | A confirmation link's token appears in nginx's error log | Every line nginx writes about a request repeats the request line, query string and `Referer` — L11 governs the access line alone (section 4) | Accepted: it answers once, until its flow's `fl_backend/app/shared/schemas/bounds.py` deadline; the host alone holds the log, eight days at most (1.2)                                                        |
 | An invitation link's token appears in nginx's error log  | The same lines as the row above; every pupil of a team registers through its one invitation, so the link is multi-use by design              | Accepted: it stays live whenever its season's registration window runs, until revoked (`fl_backend/app/api/einladungen/services.py :: find_live_einladung_filter`); the host alone holds the log              |
+| An old search query appears in nginx's error log         | The same lines, on a URL an old bookmark still carries                                                                                       | Accepted: no page writes `q` (`docs/frontend/spec.md :: I680`), so only an old URL brings one; the host alone holds the log (1.2)                                                                             |
 | A stored action holds a submitted value                  | L9 binds the log stream; the action log is a collection and keeps values on purpose                                                          | Working as intended — a restore replays the document a write replaced, and a person's erasure destroys the values those rows hold ([`docs/backend/spec.md`](../backend/spec.md) I42)                          |
 
 ## 4. Known-open
@@ -319,4 +321,6 @@ On Windows, redirecting the backend command's output needs `PYTHONUTF8=1` —
 | A host redacted out of a URI that carried no credential                                | Accepted — a diagnostic loss on a line that hid nothing; bounding the match to spare it lets a real credential through ([`docs/ops/spec.md`](../ops/spec.md) §1.7)           |
 | A URI spelling `token=` or `email=` loses its whole logged query                       | Accepted — losing that query is the point, and `fl_frontend/src/core/edgeRedaction.ts :: assertRedactedAtTheEdge` is asked of every minter's own link (L11)                  |
 | A percent-encoded parameter name defeats both request-line arms                        | Accepted — `$request_uri` is never decoded, and a case per minter holds its parameter to the edge's map (`fl_frontend/src/core/edgeRedaction.ts`), so none is encoded (L11)  |
+| A URI spelling `q=` loses its whole logged query                                       | Accepted — that query is a search, and no page writes one (`docs/frontend/spec.md :: I680`), so the loss is rare                                                             |
+| A `q` behind an encoded name or an encoded `?` reaches the access line in clear        | Accepted — no page writes `q`: the frontend is the control, and the edge only a backstop (`docs/frontend/spec.md :: I680`)                                                   |
 | Cloudflare logs the request line at its own edge                                       | Accepted — TLS terminates there, so the URL reaches Cloudflare unredacted (L11); below the Enterprise plan no setting bounds what it retains                                 |

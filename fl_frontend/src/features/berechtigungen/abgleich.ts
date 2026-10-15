@@ -174,11 +174,12 @@ async function ankuendigen(aenderung: FLBerechtigungAenderung, empfaenger: reado
  * removal and the new address's grant, so a `geaendert` is a change of tier alone.
  */
 function zugangsaenderung(aenderung: FLBerechtigungAenderung): Zugangsaenderung {
-  // The served reason and never the null alone: an erased holder's address is withheld as a barred one's is.
+  // `geloescht` read rather than the null: an erased holder's address is withheld as a barred one's is, and
+  // every other withheld grant address is a barred one's (`docs/backend/spec.md :: I661`).
   const ohneAdresse: Vorenthalten = { vorenthalten: aenderung.geloescht ? "geloescht" : "gesperrt" };
-  if (aenderung.art === "entzogen") return { art: "entzogen", adresse: aenderung.vorher?.adresse ?? ohneAdresse };
+  const stand = aenderung.art === "entzogen" ? aenderung.vorher : aenderung.jetzt;
 
-  return { art: aenderung.art, adresse: aenderung.jetzt?.adresse ?? ohneAdresse, inhaber: aenderung.jetzt?.verwaltung === "owner" };
+  return { art: aenderung.art, adresse: stand?.adresse ?? ohneAdresse, inhaber: stand?.verwaltung === "owner" };
 }
 
 /** Read off `urheber`, never off a null actor: a barred administrator's change is no database edit. */

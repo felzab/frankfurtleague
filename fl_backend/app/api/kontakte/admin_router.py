@@ -12,7 +12,7 @@ from app.api.kontakte.schemas import (
     FLKontaktErasureResponse,
     FLKontaktSitz,
 )
-from app.api.kontakte.services import build_matching_seats_pipeline, find_matching_slots
+from app.api.kontakte.services import build_matching_rows_pipeline, build_matching_seats_pipeline, find_matching_slots, rows_naming
 from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db
 from app.core.dependencies import AktionenCollection, BewerbungenCollection, DBClient, SaisonTeamsCollection, get_germany_now
@@ -98,13 +98,38 @@ async def erase_kontaktperson(
     """
 
     async def clear_the_person_and_their_record(session: AsyncClientSession) -> FLKontaktErasureResponse:
-        return await erase_kontaktperson_in_session(
+        """Find, then clear. Everything judged is read in-session, so a retry re-reads it."""
+
+        identifier = sign_in_identifier(str(erasure_data.email))
+        # BOTH reads before either write, and unbounded: a cleared row stops matching, and a capped
+        # read would leave rows holding the person with nothing left to find them by.
+        saison_team_rows = rows_naming(
+            await aggregate_many_from_db(
+                collection=saison_teams_collection, pipeline=build_matching_rows_pipeline(identifier), session=session
+            ),
+            identifier,
+        )
+        bewerbung_rows = rows_naming(
+            await aggregate_many_from_db(collection=bewerbungen_collection, pipeline=build_matching_rows_pipeline(identifier), session=session),
+            identifier,
+        )
+
+        cleared = await erase_kontaktperson_in_session(
             saison_teams_collection=saison_teams_collection,
             bewerbungen_collection=bewerbungen_collection,
             aktionen_collection=aktionen_collection,
-            identifier=sign_in_identifier(str(erasure_data.email)),
+            identifier=identifier,
+            saison_team_rows=saison_team_rows,
+            bewerbung_rows=bewerbung_rows,
             stamp=log_stamp(germany_now),
             session=session,
+        )
+
+        return FLKontaktErasureResponse(
+            cleared_saison_teams=len(saison_team_rows),
+            cleared_bewerbungen=len(bewerbung_rows),
+            cleared_kontakt_slots=cleared.kontakt_slots,
+            redacted_aktionen=cleared.redacted_aktionen,
         )
 
     # ONE transaction over all of it (`docs/backend/spec.md :: I42`): rows cleared while the log
