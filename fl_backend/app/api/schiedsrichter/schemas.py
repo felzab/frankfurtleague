@@ -348,3 +348,11 @@ class FLSchiedsrichterSelbstEinwilligungResponse(BaseAPIResponse):
     einwilligung: FLEinwilligung
     # For `app/api/spieler/schemas.py :: FLSpielerSelbstEinwilligungResponse`'s reason.
     nachweis_stand: FLEinwilligungStand
+
+
+class FLSchiedsrichterAdresswechselSweepResponse(BaseAPIResponse):
+    """One call's share of the pending addresses whose link lapsed: how many went, and how many are still due."""
+
+    entfernt: int
+    # A change whose removal failed among them: it stays due, so a caller looping on this alone never ends.
+    verbleibend: int

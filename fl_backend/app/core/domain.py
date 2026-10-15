@@ -1157,8 +1157,9 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Editability.CONTROL_ONLY,
         "no payload carries the block. The save that moves a confirmed referee's address writes it WHOLE, replacing a pending "
         "one, and `POST /schiedsrichter/{schiedsrichter_id}/adresswechsel/einladen` replaces it whole for the same address, "
-        "each answering the raw token once; `DELETE /schiedsrichter/{schiedsrichter_id}/adresswechsel` removes it, and so does "
-        "either answer its person gives through `POST /schiedsrichter/adresswechsel`. The three delivery endpoints write its "
+        "each answering the raw token once; `DELETE /schiedsrichter/{schiedsrichter_id}/adresswechsel` removes it, and so do "
+        "either answer its person gives through `POST /schiedsrichter/adresswechsel` and, the day after its link lapses, "
+        "`POST /schiedsrichter/sweep/adresswechsel`. The three delivery endpoints write its "
         "delivery state as they write `bestaetigung`'s, on the system key alone",
         "app.api.schiedsrichter.services.compose_korrektur_update",
     ),

@@ -586,6 +586,20 @@ def build_pending_adresswechsel_filter(schiedsrichter_id: Any) -> Mapping[str, A
     return {**build_referee_filter(schiedsrichter_id), ADRESSWECHSEL_FELD: {"$type": "object"}}
 
 
+def build_lapsed_adresswechsel_filter(*, today: str, schiedsrichter_id: Any = None) -> Mapping[str, Any]:
+    """Every real referee, retired or not, whose pending change's link lapsed before `today`; given an id, that one alone.
+
+    `$lt` as `link_is_over` reads the deadline, its own day still taking the link. The validator requires the block's `frist`.
+    """
+
+    lapsed = {f"{ADRESSWECHSEL_FELD}.frist": {"$lt": today}}
+
+    if schiedsrichter_id is None:
+        return build_real_referees_filter({ADRESSWECHSEL_FELD: {"$type": "object"}, **lapsed})
+
+    return {**build_pending_adresswechsel_filter(schiedsrichter_id), **lapsed}
+
+
 def save_drops_a_pending_address(*, stored: Mapping[str, Any], payload_email: str) -> bool:
     """Whether this save replaces a pending address with another mailbox's, dropping an address nobody proved.
 

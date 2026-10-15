@@ -29,6 +29,7 @@ from app.api.bewerbungen.zustellung_router import router as bewerbungen_zustellu
 from app.api.einwilligung.router import router as einwilligung_router
 from app.api.identitaet.person_router import router as identitaet_person_router
 from app.api.identitaet.router import router as identitaet_router
+from app.api.identitaet.sweep_router import router as identitaet_sweep_router
 from app.api.kontakte.admin_router import router as kontakte_admin_router
 from app.api.konto.router import router as konto_router
 from app.api.registrierungen.einwilligung_router import router as registrierungen_einwilligung_router
@@ -44,6 +45,7 @@ from app.api.schiedsrichter.adresswechsel_router import router as schiedsrichter
 from app.api.schiedsrichter.bestaetigung_router import router as schiedsrichter_bestaetigung_router
 from app.api.schiedsrichter.person_router import router as schiedsrichter_person_router
 from app.api.schiedsrichter.router import router as schiedsrichter_router
+from app.api.schiedsrichter.sweep_router import router as schiedsrichter_sweep_router
 from app.api.sperrliste.admin_router import router as sperrliste_admin_router
 from app.api.spiele.admin_router import router as spiele_admin_router
 from app.api.spiele.router import router as spiele_router
@@ -156,6 +158,8 @@ SYSTEM_ROUTERS = (
     zustellung_router,
     identitaet_router,
     berechtigungen_sweep_router,
+    identitaet_sweep_router,
+    schiedsrichter_sweep_router,
 )
 # Its own group, as the two above are: a signed-in person's routers read and write on the admin key
 # with a person's binder in place of `bind_actor`, which no tuple above describes. A sweep walking

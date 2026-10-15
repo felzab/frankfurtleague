@@ -646,8 +646,8 @@ as them.
   save keeps the address on file and holds the new one as a pending change with a link of its own;
   the address moves only once its holder confirms there, so until then the referee still signs in,
   and is written to, at the address on file (`docs/backend/spec.md :: I559`). Re-send its
-  link when it lapses, or discard it when the request turns out to be wrong; a lapsed change is
-  the yearly deletion's to remove, which is not built yet, so until it is the change stands
+  link before it lapses, or discard it when the request turns out to be wrong: the day after its
+  link lapses the hourly pass removes the change, and the new address is then entered again
   ([`../datenschutz.md`](../datenschutz.md#6-retention-is-bounded-where-a-bound-was-chosen)).
   Their consent link is not re-minted — the record is already given. **Once the change confirms,
   the old address's sign-in account stays behind**, the confirmation touching no sign-in row, and

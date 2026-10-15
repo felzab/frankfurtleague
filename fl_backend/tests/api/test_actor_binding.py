@@ -395,6 +395,9 @@ SYSTEM_WRITES = [
     # under `SYSTEM` because a change made in the database directly had no administrator.
     ("/api/v0/berechtigungen/abgleich", "POST"),
     ("/api/v0/berechtigungen/abgleich/angekuendigt", "POST"),
+    # Recorded under `SYSTEM`: the rule and the clock delete, never the administrator whose press may run one.
+    ("/api/v0/identitaet/loeschung/lauf", "POST"),
+    ("/api/v0/schiedsrichter/sweep/adresswechsel", "POST"),
 ]
 
 # The writes a signed-in person makes on the admin key, binding one of `PERSON_ACTOR_BINDERS` in
