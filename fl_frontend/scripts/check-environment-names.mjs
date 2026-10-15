@@ -1,78 +1,31 @@
 import { readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 
-const ASSIGNMENT = /^[ \t]*([A-Za-z_][A-Za-z0-9_]*)[ \t]*=/;
-
-// Compose's pass-through form, which declares the name and carries no value of its own.
-const PASSTHROUGH = /^[ \t]*([A-Za-z_][A-Za-z0-9_]*)[ \t]*$/;
+// `scripts/lib/_lib.sh :: ENV_LINE_RE` spelled again, `scripts/tests/test_deploy_streams.py` holding
+// the two to one verdict per line: a deploy's preflight refuses every other line before this runs.
+const STRICT_LINE = /^([A-Za-z_][A-Za-z0-9_]*)=[\]A-Za-z0-9_.~:/?[@!&()*+,;=%-]*$/;
 
 // Where `fl_frontend/Dockerfile` puts the key sets the builder emitted from the schema. The file to
 // judge has no default: the deploy hands the package's own `.env`, mounted read-only
 // (`scripts/ops/deploy.sh :: check_frontend_env_names`, `:: read_env_names`).
 export const DECLARED_NAMES_FILE = "/app/environment-names.json";
 
-/** A backslash escapes either quote, the single one included: compose documents `VAR='Let\'s go!'`, and closing on that quote reads the value's next line as a declaration. */
-function endOfQuoted(value, quote, from) {
-  for (let index = from; index < value.length; index += 1) {
-    if (value[index] === "\\") {
-      index += 1;
-      continue;
-    }
-    if (value[index] === quote) return index + 1;
-  }
-  return -1;
-}
-
-// Narrower than compose deliberately: `export KEY=`, `KEY: value`, a BOM and a name outside
-// `ASSIGNMENT` all land in `unreadable`, which answers the advisory rather than the refusal
-// (`docs/ops/spec.md` §1.5).
-/**
- * A quoted value running past its own line is skipped whole: compose accepts one, and a `KEY=value`
- * written inside it is that value's data rather than a declaration.
- */
+/** Each line outside `STRICT_LINE`, a BOM-led first line among them, is `unreadable`: the advisory rather than the refusal (`docs/ops/spec.md` §1.5). */
 export function scanNames(text) {
   const names = new Set();
-  const assigned = new Set();
   const unreadable = [];
-  let open = "";
-  let openedAt = 0;
 
-  text.split(/\r?\n/).forEach((line, index) => {
-    if (open !== "") {
-      if (endOfQuoted(line, open, 0) >= 0) open = "";
-      return;
-    }
+  text.split("\n").forEach((raw, index) => {
+    // One carriage return, the line terminator `_lib.sh` drops too, so the two count alike.
+    const line = raw.endsWith("\r") ? raw.slice(0, -1) : raw;
+    if (/^[ \t]*$/.test(line) || line.startsWith("#")) return;
 
-    const trimmed = line.trim();
-    if (trimmed === "" || trimmed.startsWith("#")) return;
-
-    const declaration = ASSIGNMENT.exec(line);
-    if (declaration !== null) {
-      names.add(declaration[1]);
-      assigned.add(declaration[1]);
-      const value = line.slice(declaration[0].length).trimStart();
-      const quote = value[0];
-      if ((quote === '"' || quote === "'") && endOfQuoted(value, quote, 1) < 0) {
-        open = quote;
-        openedAt = index + 1;
-      }
-      return;
-    }
-
-    const passed = PASSTHROUGH.exec(line);
-    if (passed !== null) {
-      names.add(passed[1]);
-      return;
-    }
-
-    unreadable.push(index + 1);
+    const declaration = STRICT_LINE.exec(line);
+    if (declaration === null) unreadable.push(index + 1);
+    else names.add(declaration[1]);
   });
 
-  // Compose refuses a file whose quote never closes; swallowed here, it would answer 0 over a file
-  // whose every name below this line went unread.
-  if (open !== "") unreadable.push(openedAt);
-
-  return { names: [...names].sort(), assigned: [...assigned].sort(), unreadable };
+  return { names: [...names].sort(), unreadable };
 }
 
 /** A `NEXT_PUBLIC_` name is judged here like any other: the client schema declares none, so one in the file reaches no bundle. */
@@ -81,13 +34,8 @@ export function undeclaredNames(found, declared) {
   return found.filter((name) => !known.has(name));
 }
 
-/**
- * A required name the file gives no value. A bare pass-through takes its value from the environment
- * compose resolves, which holds none on a deploy (`docs/ops/spec.md` §1.5), so the variable never
- * reaches the container.
- */
-function missingNames(valued, required) {
-  const present = new Set(valued);
+function missingNames(found, required) {
+  const present = new Set(found);
   return required.filter((name) => !present.has(name));
 }
 
@@ -99,7 +47,7 @@ function report(argv) {
     return 4;
   }
   const sets = JSON.parse(readFileSync(declaredFile, "utf8"));
-  const { names, assigned, unreadable } = scanNames(readFileSync(file, "utf8"));
+  const { names, unreadable } = scanNames(readFileSync(file, "utf8"));
 
   // Judged before the names are, and answered with line numbers rather than lines: a file this
   // cannot read whole is a file whose undeclared names would be guesses, and every line holds a value.
@@ -109,7 +57,7 @@ function report(argv) {
   }
 
   const undeclared = undeclaredNames(names, sets.declared);
-  const missing = missingNames(assigned, sets.required);
+  const missing = missingNames(names, sets.required);
   if (undeclared.length === 0 && missing.length === 0) return 0;
 
   // Both lines where both apply: one run of the preflight is one visit to the host, and a remedy
