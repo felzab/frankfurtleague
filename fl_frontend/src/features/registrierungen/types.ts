@@ -3,6 +3,22 @@ import type { FLSpielerPosition, FLSpielerStufe } from "@/features/spieler/schem
 import type { FLEinladungAnsichtResponse, FLEinwilligungUmfang, FLRegistrierungBestaetigungAnsichtResponse } from "./schemas";
 
 /**
+ * One pending registration on the administrator's list: the pupil's name and the four facts the list
+ * shows, and nothing else of the row, so the address and the birthdate never reach the browser.
+ */
+export type AdminRegistrierungRow = {
+  id: string;
+  vorname: string;
+  nachname: string;
+  team_id: string;
+  // Null where the club read knows no team of this id: the card says so rather than showing the id.
+  teamName: string | null;
+  saison_id: string;
+  stufe: FLSpielerStufe | null;
+  bestaetigt: boolean;
+};
+
+/**
  * What the registration page opens on. The token rides only with an invite a submission can still
  * spend: a shut window and a dead link are both read-only states, and a link handed onward from
  * either buys nothing.

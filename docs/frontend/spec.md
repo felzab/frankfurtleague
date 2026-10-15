@@ -2044,17 +2044,21 @@ holds whether a conditional block renders or not
   `fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts` pins.
 - **A collection whose row is a line is a table; one whose row is a RECORD is a card list at every
   width** (I237). `fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts` derives the tables
-  from the tree and holds each floor under the narrowest content column a viewport gives; the card
-  lists are
-  `fl_frontend/src/features/teams/components/collections/AdminKontakteList.tsx`,
-  `fl_frontend/src/features/bewerbungen/components/collections/AdminBewerbungenList.tsx` and
-  `fl_frontend/src/features/spieltage/components/collections/AdminSpieltageList.tsx`, whose
-  sectioned shape the other two follow. Three seats
+  from the tree and holds each floor under the narrowest content column a viewport gives. A club's three seats
   of free text, and an application's date, confirmation count, marks and contact address, each need
   more than one row of that column, so a table holding them at all clips its own payload. A card
   keeps the identity block as its head and puts the rest in a grid, every cell headed by the fact it
   holds, so no heading over the list can disagree with the block beneath it; a cell whose payload an
-  even split would clip spans more than one track.
+  even split would clip spans more than one track. The card lists are:
+  - `fl_frontend/src/features/teams/components/collections/AdminKontakteList.tsx`
+  - `fl_frontend/src/features/bewerbungen/components/collections/AdminBewerbungenList.tsx`
+  - `fl_frontend/src/features/registrierungen/components/collections/AdminRegistrierungenList.tsx`
+  - `fl_frontend/src/features/registrierungen/components/collections/RegistrierungenList.tsx`
+  - `fl_frontend/src/features/berechtigungen/components/collections/AdminBerechtigungenList.tsx`
+  - `fl_frontend/src/features/sperrliste/components/collections/AdminSperrlisteList.tsx`
+  - `fl_frontend/src/features/spieler/components/collections/KaderList.tsx`
+  - `fl_frontend/src/features/spieltage/components/collections/AdminSpieltageList.tsx`, whose
+    sectioned shape the contacts' and the applications' lists follow
 - **A required mark appears only on a form that creates something**; the rule at
   `fl_frontend/src/app/globals.css :: data-required-marks` carries why.
 - **Every field-shaped control resolves to one height**

@@ -1,5 +1,21 @@
 import { BEWERBUNG_MAX_ALTER } from "@/features/bewerbungen/constants";
 
+// Its own module: every export of a `"use client"` view becomes a client reference, which the page cannot read.
+export const REGISTRIERUNGEN_CRUD_COPY = {
+  // The pupil's name and the team are what a card shows, so they are what the bar can reach: no address.
+  searchLabel: "Registrierungen suchen",
+  searchPlaceholder: "z.B. Erika Mustermann oder Goethe-Gymnasium",
+  // Two rather than three: the page declares no facet, so `filtered` is reachable by no press.
+  emptyForQuery: "Keine Registrierungen für diese Suche.",
+  emptyOverall: "Es gibt keine offenen Registrierungen.",
+} as const;
+
+/**
+ * Both states of the pupil's own confirmation carry a mark: with one state marked alone, a mark that
+ * failed to render would read as the other.
+ */
+export const BESTAETIGT_MARKE = { ja: "Bestätigt", nein: "Noch nicht bestätigt" } as const;
+
 /**
  * The pupil's confirmation deadline, mirrored from `fl_backend/app/shared/schemas/bounds.py`.
  *

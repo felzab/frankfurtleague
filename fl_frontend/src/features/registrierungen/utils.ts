@@ -7,9 +7,10 @@ import { ANTWORT_NEU_OEFFNEN, FASSUNG_NEU_OEFFNEN, REGISTRIERUNG_NEU_OEFFNEN } f
 
 import { alterAusserhalb, REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE } from "./constants";
 
+import type { NamedTeam } from "@/features/bewerbungen/types";
 import type { FieldErrors } from "@/shared/utils/validation";
-import type { FLEinladungAnsichtResponse, FLPostRegistrierungPayload } from "./schemas";
-import type { RegistrierungFormDraft, SpielerLinkZustand } from "./types";
+import type { FLEinladungAnsichtResponse, FLPostRegistrierungPayload, FLRegistrierung } from "./schemas";
+import type { AdminRegistrierungRow, RegistrierungFormDraft, SpielerLinkZustand } from "./types";
 
 /**
  * Which state the invite puts the registration page in.
@@ -187,6 +188,26 @@ export async function mapBestaetigungRefusal(error: unknown, mindestalter: () =>
     default:
       return null;
   }
+}
+
+/**
+ * The administrator's list as its view receives it. Field by field and never a spread of the row: the
+ * served row carries the pupil's address and birthdate, and a field the backend adds would ride
+ * along to the browser unseen.
+ */
+export function buildAdminRegistrierungRows(registrierungen: readonly FLRegistrierung[], teams: readonly NamedTeam[]): AdminRegistrierungRow[] {
+  const teamNamen = new Map(teams.map((team) => [team.id, team.name]));
+
+  return registrierungen.map((registrierung) => ({
+    id: registrierung.id,
+    vorname: registrierung.vorname,
+    nachname: registrierung.nachname,
+    team_id: registrierung.team_id,
+    teamName: teamNamen.get(registrierung.team_id) ?? null,
+    saison_id: registrierung.saison_id,
+    stufe: registrierung.stufe,
+    bestaetigt: registrierung.bestaetigt,
+  }));
 }
 
 /** The registrations page with nothing pending: a decided queue and one nobody joined read alike. */
