@@ -353,11 +353,22 @@ def test_the_snippet_answers_3_naming_the_variables_and_never_a_rejected_value()
     # The application is installed wherever this scope runs, CI's job included, so an import failure
     # here is the case failing, never the advisory arm the case below pins.
     assert "snippet=3" in output, output
-    assert "A_NAME_NOTHING_DECLARES" in output, output
+    assert "Undeclared environment variables on 1 line(s): 1" in output, output
+    assert "A_NAME_NOTHING_DECLARES" not in output, output
     assert "a value no case reads" not in output, output
     # The fixture's file declares nothing the backend requires either, so a missing required variable
     # reaches exit 3 beside the undeclared name -- both remedies the deploy's refusal words.
     assert "DB_BASE_NAME" in output, output
+
+
+def test_the_snippet_numbers_a_key_s_line_keeping_the_dotenv_shape_and_never_names_it() -> None:
+    """The backend's own refusal, read in its image as the deploy reads it: a name the settings do not declare is the file's text."""
+    code, output, _ = _run(f"{_written('fl_backend/.env', 'KEYDATAvxq==\n')}{SNIPPET}", PYTHONPATH=(REPO_ROOT / "fl_backend").as_posix())
+
+    assert code == 0, output
+    assert "snippet=3" in output, output
+    assert "Undeclared environment variables on 1 line(s): 1" in output, output
+    assert "vxq" not in output.lower(), output
 
 
 # A backend environment the settings accept, its public key a pair's of the case's own, and the five
