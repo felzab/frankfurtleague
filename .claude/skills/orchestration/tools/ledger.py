@@ -2,8 +2,8 @@
 
 A finding routed from memory drops out while its report sits banked, so `bank` writes one OPEN row
 per `F<n>` label, `route` moves rows to one owner and refuses a second, and the ending runs
-`open --unclosed` until it prints nothing. A report with no label banks nothing and says so, since a
-silent zero reads exactly like a report with nothing in it.
+`open --unclosed` until it exits 0. A report with no label banks nothing and says so, since a silent
+zero reads exactly like a report with nothing in it.
 
     uv run --project fl_backend --frozen python .claude/skills/orchestration/tools/ledger.py <command>
 

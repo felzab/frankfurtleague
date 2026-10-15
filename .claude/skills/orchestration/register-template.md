@@ -90,8 +90,8 @@ act on is taken in one announced exclusive window, the fleet stopped, other load
 
 ## The ending -- enumerated before the last wave goes out
 <The last wave landed, its audit and its fix; every slice ticked to a landed commit; every
-`I_NEW_*` invariant row renumbered and every expected-red row closed; `ledger.py open` printing
-nothing; the full gate; the draft pull request's body; every check's conclusion; the owner's
+`I_NEW_*` invariant row renumbered and every expected-red row closed; `ledger.py open --unclosed`
+exiting 0; the full gate; the draft pull request's body; every check's conclusion; the owner's
 deploy steps; the handoff and its independent audit; the starter.>
 
 ## Decisions taken by the owner
