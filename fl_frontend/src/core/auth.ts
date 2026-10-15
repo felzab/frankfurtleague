@@ -1864,6 +1864,10 @@ export async function deleteAccountFor(identifier: string): Promise<boolean> {
 
   try {
     return await adapter.transaction(async (held) => {
+      // Cleared on every run, for `removePasskey`'s reason: the adapter runs this again after a transient
+      // commit failure, and a throw from that run rolled back like the first run's would.
+      committing = false;
+
       // A store opening no transaction hands the adapter back, and a failure part-way would leave an
       // account missing its sessions or its passkeys: refused rather than run piecemeal.
       if (held === adapter) throw new RemovalOutsideTransaction();

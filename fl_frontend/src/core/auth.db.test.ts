@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { after, beforeEach, describe, it } from "node:test";
 
+import { MongoServerError } from "mongodb";
+
 import {
   ADMIN_EMAIL,
   Barrier,
@@ -73,6 +75,12 @@ const wrapCollection = (name: string, collection: object): object =>
           return (value as Method).apply(target, args);
         };
       }
+      if (name === "account" && prop === "deleteMany") {
+        return async (...args: unknown[]) => {
+          await deletingAccounts();
+          return (value as Method).apply(target, args);
+        };
+      }
       return bound(target, value);
     },
   });
@@ -87,7 +95,8 @@ const wrapDb = (db: object): object =>
     },
   });
 
-/* The real client, held where a request makes its first write after its judgement: the passkey row. */
+/* The real client, held where a request makes its first write after its judgement: the passkey row. Each
+   transaction's commit asks `atCommit` first. */
 const DB_DOUBLE = overridingModule(PRODUCTION_DB, {
   signInStore: (db) => {
     productionClient = (db.signInStore as () => object)();
@@ -95,12 +104,31 @@ const DB_DOUBLE = overridingModule(PRODUCTION_DB, {
       get(target, prop) {
         const value: unknown = Reflect.get(target, prop, target);
         if (prop === "db") return (name: string, options?: unknown) => wrapDb((value as Method).call(target, name, options) as object);
+        if (prop === "startSession") {
+          return (...args: unknown[]) => {
+            const session = (value as Method).apply(target, args) as HeldSession;
+            const commit = session.commitTransaction.bind(session);
+            session.commitTransaction = async () => {
+              await atCommit(session);
+              return commit();
+            };
+            return session;
+          };
+        }
         return bound(target, value);
       },
     });
     return () => wrapped;
   },
 });
+
+type HeldSession = { commitTransaction: () => Promise<unknown>; abortTransaction: () => Promise<unknown> };
+
+/** What runs as a transaction's commit is asked for, before it is sent. */
+let atCommit: (session: HeldSession) => Promise<unknown> = async () => undefined;
+
+/** What runs as an account's sign-in rows are deleted inside a deletion's transaction. */
+let deletingAccounts: () => Promise<unknown> = async () => undefined;
 
 const LOGGING_DOUBLE = {
   logger: {
@@ -212,6 +240,8 @@ beforeEach(async () => {
   counting.disarm();
   warnings.length = 0;
   consuming = async () => undefined;
+  atCommit = async () => undefined;
+  deletingAccounts = async () => undefined;
   await authDb().dropDatabase();
 
   // Production's indexes under every case, so the library is driven over what it meets there.
@@ -723,5 +753,37 @@ describe("an account deleted, against a real database", () => {
 
     assert.deepEqual(await heldOf(person), { user: 0, sessions: 0, passkeys: 0, pending: 0 });
     assert.deepEqual(await heldOf(bystander), { user: 1, sessions: 1, passkeys: 1, pending: 5 });
+  });
+
+  /* The first run's commit fails transiently and writes nothing, so the adapter runs the deletion again; that
+     run fails before its commit, and the caller is told of the rollback it is rather than an unknown outcome. */
+  it("answers a rollback where the run retried after a transient commit failure fails, and deletes nothing", async () => {
+    const { RolledBackError } = await import("./errors.ts");
+    const person = await seedAccount("konto-zweiter-lauf-db@example.org");
+    let commits = 0;
+    atCommit = async (session) => {
+      commits += 1;
+      if (commits > 1) return;
+      // The server's answer to a commit whose transaction it already dropped, as across a failover.
+      // Built rather than raised by the server: the test container refuses `configureFailPoint`.
+      await session.abortTransaction();
+      throw new MongoServerError({
+        message: "planted: the transaction was gone at its commit",
+        code: 251,
+        codeName: "NoSuchTransaction",
+        errorLabels: ["TransientTransactionError"],
+      });
+    };
+    let runs = 0;
+    deletingAccounts = async () => {
+      runs += 1;
+      if (runs > 1) throw new Error("planted: the retried run fails");
+    };
+
+    const answer = await deleteAccountFor("konto-zweiter-lauf-db@example.org").catch((failed: unknown) => failed);
+
+    assert.equal(runs, 2, "the adapter ran the deletion once, so no retry followed a commit");
+    assert.ok(answer instanceof RolledBackError, `the caller was told ${String(answer)} rather than of a rollback`);
+    assert.deepEqual(await heldOf(person), { user: 1, sessions: 1, passkeys: 1, pending: 5 });
   });
 });
