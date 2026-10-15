@@ -20,6 +20,7 @@ from app.api.spieler.schemas import (
     FLSpielerWithMemberships,
 )
 from app.api.spieler.services import (
+    build_spieler_filter,
     build_spieler_memberships_pipeline,
     find_erasure_refusal,
     find_squad_refusal,
@@ -153,7 +154,7 @@ async def patch_spieler(
     async def rewrite_the_player(session: AsyncClientSession) -> Mapping[str, Any]:
         return await patch_one_in_db(
             collection=spieler_collection,
-            db_filter={"_id": spieler_id},
+            db_filter=build_spieler_filter(spieler_id),
             update={"$set": spieler_data.model_dump(mode="json")},
             session=session,
             return_document=ReturnDocument.AFTER,
@@ -180,7 +181,7 @@ async def delete_spieler(
     """Retire a player. SOFT: it stamps `inactive_since`, and their squad rows are LEFT ALONE."""
 
     async def retire_the_player(session: AsyncClientSession) -> Mapping[str, Any]:
-        return await set_inactive_since(collection=spieler_collection, db_filter={"_id": spieler_id}, when=today, session=session)
+        return await set_inactive_since(collection=spieler_collection, db_filter=build_spieler_filter(spieler_id), when=today, session=session)
 
     async with transaction_session(db) as session:
         updated_raw = await session.with_transaction(retire_the_player)
@@ -202,7 +203,7 @@ async def reactivate_spieler(
     """Clear `inactive_since`: the PERSON is back in the league. A squad row they left is revived by its own reactivate."""
 
     async def bring_the_person_back(session: AsyncClientSession) -> Mapping[str, Any]:
-        return await set_inactive_since(collection=spieler_collection, db_filter={"_id": spieler_id}, when=None, session=session)
+        return await set_inactive_since(collection=spieler_collection, db_filter=build_spieler_filter(spieler_id), when=None, session=session)
 
     async with transaction_session(db) as session:
         updated_raw = await session.with_transaction(bring_the_person_back)

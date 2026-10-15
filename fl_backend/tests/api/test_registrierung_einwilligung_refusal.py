@@ -28,6 +28,7 @@ from app.api.registrierungen.services import (
     compose_bestaetigung,
     compose_confirmation_update,
     compose_person,
+    compose_person_update,
     find_already_confirmed_refusal,
     find_alter_refusal,
     find_expired_token_refusal,
@@ -572,6 +573,34 @@ class TestWhatAReturningAdmissionWrites:
 
         with pytest.raises(ValueError, match="no choice"):
             compose_person(spieler_id="a-new-id", registrierung_raw=self.RETURNING, adresse="quillhilde@example.com")
+
+
+class TestAPersonIsNeverWrittenNameless:
+    """The `spieler` validator admits a null forename and record for the erased pupils' sentinel, so these guards are a person's last ones."""
+
+    NEW = {
+        "vorname": "Quillhilde",
+        "nachname": "Brackenmoor",
+        "geburtsdatum": "2009-05-09",
+        "einwilligung": {"umfang": "intern", "medien": False, "bestaetigt_am": TODAY, "datum": TODAY, "text_version": RETURNING_LABEL},
+    }
+
+    # Whitespace among them: `person_name_key` folds it to the empty key the sentinel's null name also folds to.
+    @pytest.mark.parametrize("vorname", [None, "", "   "], ids=("null", "empty", "whitespace"))
+    def test_neither_composer_writes_a_person_with_no_forename(self, vorname: Any):
+        nameless = {**self.NEW, "vorname": vorname}
+
+        with pytest.raises(ValueError, match="no forename"):
+            compose_person(spieler_id="a-new-id", registrierung_raw=nameless, adresse="quillhilde@example.com")
+        with pytest.raises(ValueError, match="no forename"):
+            compose_person_update(registrierung_raw=nameless, gespeichert=self.NEW["einwilligung"], adresse="quillhilde@example.com")
+
+    @pytest.mark.parametrize("registrierung_raw", [NEW, TestWhatAReturningAdmissionWrites.RETURNING], ids=("new page", "returning page"))
+    def test_a_matched_person_holding_no_record_is_admitted_into_by_neither_page(self, registrierung_raw: Mapping[str, Any]):
+        """The returning page is the load-bearing case: renewing nothing, it would leave the person standing with no record."""
+
+        with pytest.raises(ValueError, match="no consent record"):
+            compose_person_update(registrierung_raw=registrierung_raw, gespeichert=None, adresse="quillhilde@example.com")
 
 
 def antwort(**overrides: Any) -> dict[str, Any]:

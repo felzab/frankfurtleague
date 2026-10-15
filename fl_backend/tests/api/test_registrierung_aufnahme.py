@@ -14,6 +14,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.bewerbungen.services import hash_token
 from app.api.identitaet.services import FUNKTION_NICHT_GEHALTEN
 from app.api.konto.services import compose_person_move
+from app.api.registrierungen.crud import persons_without_an_address
 from app.api.registrierungen.einwilligung_router import get_bestaetigung_ansicht, post_bestaetigung
 from app.api.registrierungen.person_router import ablehnen, aufnehmen, get_offene_registrierungen
 from app.api.registrierungen.schemas import (
@@ -37,10 +38,11 @@ from app.api.registrierungen.services import (
 from app.api.saisons.cache import invalidate_saison_cache
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.api.spieler.admin_router import erase_spieler
-from app.api.spieler.services import SQUAD_FULL
+from app.api.spieler.services import SQUAD_FULL, build_ghost_spieler
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
+from app.core.sentinels import GHOST_SPIELER_ID
 from app.main import create_app
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.einwilligung_nachweis import nachweis_stand_of
@@ -842,6 +844,40 @@ class TestThePersonAnAdmissionNames:
             registrierung_id = await seed(database, registrierung_document())
             before = await snapshot(database)
             code = await refused(admit(database, client, registrierung_id, spieler_id=named["_id"]))
+
+            return code, before, await snapshot(database)
+
+        code, before, after = on_a_league(mongo_replica_set_url, body)
+
+        assert code == REGISTRIERUNG_PERSON_NICHT_BENANNT
+        assert after == before
+
+
+class TestTheSentinelIsNobodyToAdmit:
+    """Its null names fold to the empty key a whitespace name folds to, so its id alone keeps a hand-edited registration off it.
+
+    Admitted into, it would take that registration's name onto every erased pupil's surviving entry.
+    """
+
+    WHITESPACE: Mapping[str, Any] = {"vorname": "   ", "nachname": "   "}
+
+    def test_it_is_never_among_the_persons_a_name_may_propose(self, mongo_replica_set_url: str):
+        addressless = ObjectId()
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SPIELER].insert_many([build_ghost_spieler(), a_stored_person(addressless, email=None)])
+
+            return [row["_id"] for row in await persons_without_an_address(spieler_collection=database[Collection.SPIELER], session=None)]
+
+        # The control is the addressless person beside it, whom a read matching nothing would drop too.
+        assert on_a_league(mongo_replica_set_url, body) == [addressless]
+
+    def test_a_registration_naming_it_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SPIELER].insert_one(build_ghost_spieler())
+            registrierung_id = await seed(database, registrierung_document(**self.WHITESPACE))
+            before = await snapshot(database)
+            code = await refused(admit(database, client, registrierung_id, spieler_id=GHOST_SPIELER_ID))
 
             return code, before, await snapshot(database)
 

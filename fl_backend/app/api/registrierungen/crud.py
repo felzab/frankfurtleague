@@ -19,6 +19,7 @@ from app.api.registrierungen.services import (
     build_offene_filter,
     build_registrierungen_sort,
 )
+from app.api.spieler.services import build_real_spieler_filter
 from app.core.crud import aggregate_many_from_db, pull_one_from_db
 from app.shared.folding import sign_in_identifier
 
@@ -107,9 +108,10 @@ async def persons_without_an_address(*, spieler_collection: AsyncCollection, ses
     and nothing else creates one, so this set only shrinks.
     """
 
+    # Never the sentinel, addressless too: proposed and confirmed, it would take a name onto every erased pupil's entry.
     return await aggregate_many_from_db(
         collection=spieler_collection,
-        pipeline=[{"$match": {"email": None}}, {"$project": {field: 1 for field in PERSON_FIELDS}}],
+        pipeline=[{"$match": {"email": None, **build_real_spieler_filter()}}, {"$project": {field: 1 for field in PERSON_FIELDS}}],
         session=session,
     )
 

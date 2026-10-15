@@ -44,6 +44,7 @@ from app.api.registrierungen.services import (
 from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
 from app.api.spieler.crud import refuse_a_full_squad
+from app.api.spieler.services import build_spieler_filter
 from app.api.spieltage.crud import nachnominierung_laeuft_in
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -250,7 +251,7 @@ async def aufnehmen(
         # Before a namesake is read: the team's answer cannot stand in for the person the pupil confirmed as.
         refuse(find_person_fehlt_refusal(registrierung_raw=registrierung_raw, adresse_raw=adresse_raw))
         benannt_raw = (
-            await spieler_collection.find_one({"_id": aufnahme_data.spieler_id}, session=session)
+            await spieler_collection.find_one(build_spieler_filter(aufnahme_data.spieler_id), session=session)
             if adresse_raw is None and aufnahme_data.spieler_id is not None
             else None
         )

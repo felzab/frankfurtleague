@@ -473,7 +473,9 @@ def test_a_conforming_document_is_accepted(mongo_url: str, collection: str):
         # Declaring `spielplan` at all is what buys this: `_object` emits no `additionalProperties`,
         # so an undeclared key of any type would have been accepted.
         ("saisons", valid_document("saisons", spielplan="2026-08-21"), "a watermark stored as a bare string"),
-        ("spieler", valid_document("spieler", vorname=None), "a player with no first name"),
+        # The key and not its value: a null forename is the erased pupils' sentinel's, refused for a
+        # person where one is written (`app/api/registrierungen/services.py :: compose_person`).
+        ("spieler", {k: v for k, v in valid_documents()["spieler"].items() if k != "vorname"}, "a player with no first-name key"),
         ("teams", {k: v for k, v in valid_documents()["teams"].items() if k != "full_name"}, "a missing required field"),
         # `saison_teams` is the one collection the mirror apparatus skips, so its `required` tuple is
         # hand-maintained and these two cases are the only thing standing under it.
