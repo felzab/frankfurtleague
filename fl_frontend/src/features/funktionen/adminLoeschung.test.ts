@@ -42,6 +42,7 @@ const refused = (serverErrorCode: string): APIBadStatusError =>
   });
 
 const ID = "68c1f0a2b3c4d5e6f7a8b9c0";
+const PUPIL_ID = "68c1f0a2b3c4d5e6f7a8b9c1";
 const ADRESSE = "Ada.Byron@Example.org";
 const ANLASS = "E-Mail vom 12.10.2026, Betreff Löschung meiner Daten";
 const ARMED = "Ja, Person endgültig löschen";
@@ -54,6 +55,7 @@ const NICHTS_GESPEICHERT = {
   bewerbungen: [],
   registrierungen: [],
   adresswechsel: [],
+  spieler_adresswechsel: [],
   verwaltung: null,
 };
 
@@ -65,6 +67,7 @@ const EIN_EINTRAG_JE_ART = {
   bewerbungen: [{ bewerbung_id: ID, saison_id: "2027", rolle: "ansprechperson", vorname: "Grace", nachname: "Meier" }],
   registrierungen: [{ registrierung_id: ID, saison_id: "2026", team_id: ID, team_name: "SG Alpha", vorname: "Lena", nachname: "Meier" }],
   adresswechsel: [{ schiedsrichter_id: ID }],
+  spieler_adresswechsel: [{ spieler_id: PUPIL_ID }],
   verwaltung: "owner",
 } satisfies Omit<FLErasureAnsichtResponse, "acknowledged">;
 
@@ -90,11 +93,11 @@ afterEach(() => {
 });
 
 /** The page as its route renders it for an administrator, under a router recording every navigation. */
-async function renderPage(next: Record<string, unknown> = {}) {
+async function renderPage(next: Record<string, unknown> = {}, search = "") {
   answering(next);
   const { router, seen } = recordingRouter();
   const body = await pageBody(AdminLoeschungPage, { params: Promise.resolve({}), searchParams: Promise.resolve({}) });
-  render(underNext(body, { router, pathname: "/bereich/admin/loeschung" }));
+  render(underNext(body, { router, pathname: "/bereich/admin/loeschung", search }));
 
   return { seen, user: userEvent.setup() };
 }
@@ -212,6 +215,23 @@ describe("the reveal the arming read answers", () => {
     const zeilen = within(screen.getByRole("alert")).getAllByRole("listitem");
     assert.equal(zeilen.length, ARTEN.length + 1, "a kind the read answered has no line");
     assert.match(zeilen.at(-1)?.textContent ?? "", /^Das Konto der Adresse/);
+  });
+
+  /* A pending change names nobody, so its line opens the record it waits on, on the season the shell shows. */
+  it("opens each pending address change's own record, a referee's and a pupil's, keeping the season", async () => {
+    const ansicht = {
+      ...NICHTS_GESPEICHERT,
+      adresswechsel: EIN_EINTRAG_JE_ART.adresswechsel,
+      spieler_adresswechsel: EIN_EINTRAG_JE_ART.spieler_adresswechsel,
+    };
+    const { user } = await renderPage({ readErasureAnsichtAction: { success: true, ansicht: ansicht } }, "saison_id=2026");
+    await typeRequest(user);
+    await arm(user);
+
+    const ziele = within(screen.getByRole("alert"))
+      .getAllByRole("link")
+      .map((link) => link.getAttribute("href"));
+    assert.deepEqual(ziele, [`/bereich/admin/schiedsrichter/${ID}?saison_id=2026`, `/bereich/admin/spieler/${PUPIL_ID}?saison_id=2026`]);
   });
 
   /* The operator's own address: the backend refuses the reveal too, so the page says so before anyone confirms. */

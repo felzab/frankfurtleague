@@ -48,6 +48,7 @@ const ANSICHT = {
   bewerbungen: [],
   registrierungen: [],
   adresswechsel: [],
+  spieler_adresswechsel: [],
   verwaltung: null,
 };
 

@@ -1239,7 +1239,16 @@ const LANDINGS: Record<string, Landing> = {
     answers: {
       readErasureAnsichtAction: {
         success: true,
-        ansicht: { spieler: [], schiedsrichter: [], sitze: [], bewerbungen: [], registrierungen: [], adresswechsel: [], verwaltung: null },
+        ansicht: {
+          spieler: [],
+          schiedsrichter: [],
+          sitze: [],
+          bewerbungen: [],
+          registrierungen: [],
+          adresswechsel: [],
+          spieler_adresswechsel: [],
+          verwaltung: null,
+        },
       },
       eraseAufAnfrageAction: { success: true, konto: "geloescht", gespeichert: true, message: "Gelöscht." },
     },

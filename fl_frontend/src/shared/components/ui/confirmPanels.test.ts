@@ -314,7 +314,16 @@ const PANELS: Record<string, Arming[]> = {
         Promise.resolve({
           success: true,
           message: "Gelöscht.",
-          ansicht: { spieler: [], schiedsrichter: [], sitze: [], bewerbungen: [], registrierungen: [], adresswechsel: [], verwaltung: null },
+          ansicht: {
+            spieler: [],
+            schiedsrichter: [],
+            sitze: [],
+            bewerbungen: [],
+            registrierungen: [],
+            adresswechsel: [],
+            spieler_adresswechsel: [],
+            verwaltung: null,
+          },
           konto: "geloescht",
           gespeichert: true,
         }),
