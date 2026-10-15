@@ -86,6 +86,10 @@ _BEWERBUNG_STATUS = ["eingereicht", "angenommen", "abgelehnt"]
 # write counts, which bypass `app/core/crud.py` (`app/core/drosselung.py`).
 _LOGGED_COLLECTIONS = [str(name) for name in Collection if name not in {Collection.AKTIONEN, Collection.DROSSELUNG}]
 
+# Mirrors `app/core/recording.py :: LoggedAct`, hand-copied as the literals below are: a row's
+# `collection` for an act that writes none of the application's own.
+_LOGGED_ACTS = ["anmeldungen"]
+
 # Mirrors `app/core/recording.py :: Operation`, `:: Actor.kind`, `:: PersonActor.kind` and
 # `:: AktorFunktion`, hand-copied. `tests/core/test_constraints.py` pins each against the recording
 # literal too, so a member added to one alone fails rather than reaching a stored row.
@@ -943,7 +947,7 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 # staying optional (`docs/ops/runbooks.md` §2 has that order and what it costs).
                 "trace_id": {"bsonType": "string"},
                 "request": _AKTION_REQUEST,
-                "collection": {"bsonType": "string", "enum": _LOGGED_COLLECTIONS},
+                "collection": {"bsonType": "string", "enum": [*_LOGGED_COLLECTIONS, *_LOGGED_ACTS]},
                 "operation": {"bsonType": "string", "enum": _AKTION_OPERATIONS},
                 # Whatever the recorded collection uses for its `_id`: an objectId everywhere but
                 # `saisons`, whose is the season string. An array is `delete_many`'s removed ids,

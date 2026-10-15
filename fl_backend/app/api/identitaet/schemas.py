@@ -353,3 +353,15 @@ class FLErasureAnsicht(BaseModel):
 class FLErasureAnsichtResponse(FLErasureAnsicht, BaseAPIResponse):
     # The tier of the live grant the address holds, which the erasure removes with the rest.
     verwaltung: FLVerwaltung | None
+
+
+class FLAbmeldungPayload(BaseModel):
+    """The mailbox whose every session the page ends next, looked up as the erasure looks one up."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    email: ErasureAdresse
+
+
+class FLAbmeldungResponse(BaseAPIResponse):
+    """The envelope alone: the log row it filed names no address to answer with."""

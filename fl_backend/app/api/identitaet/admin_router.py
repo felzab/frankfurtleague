@@ -9,7 +9,14 @@ from pymongo.asynchronous.collection import AsyncCollection
 from app.api.berechtigungen.crud import read_berechtigungen, read_the_announced
 from app.api.berechtigungen.services import lebendige
 from app.api.identitaet.crud import JEDE_PERSONENGRUPPE, ErasureJournal, erase_everything, resolve_subject
-from app.api.identitaet.schemas import FLErasureAnsichtPayload, FLErasureAnsichtResponse, FLErasurePayload, FLErasureResponse
+from app.api.identitaet.schemas import (
+    FLAbmeldungPayload,
+    FLAbmeldungResponse,
+    FLErasureAnsichtPayload,
+    FLErasureAnsichtResponse,
+    FLErasurePayload,
+    FLErasureResponse,
+)
 from app.api.identitaet.services import (
     build_kader_pipeline,
     build_season_team_pipeline,
@@ -19,7 +26,7 @@ from app.api.identitaet.services import (
 )
 from app.api.sperrliste.lookup import SperrlisteLookup
 from app.core.config import API_VERSION, BackendConfig, get_app_config
-from app.core.crud import aggregate_many_from_db, refuse
+from app.core.crud import aggregate_many_from_db, post_one_to_db, refuse
 from app.core.db import get_drosselung_collection
 from app.core.dependencies import (
     AktionenCollection,
@@ -39,7 +46,7 @@ from app.core.dependencies import (
     get_germany_now,
 )
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE, stores_nothing
-from app.core.recording import anlass_var, log_stamp
+from app.core.recording import act_row, anlass_var, log_stamp
 from app.core.security import (
     bind_actor,
     get_actor_auth_time,
@@ -252,3 +259,43 @@ async def erase_auf_anfrage(
             anlass_var.reset(anlass)
 
     return answer
+
+
+@router.post("/abmeldung", response_model=FLAbmeldungResponse, summary="Log the ending of every session an address holds")
+async def post_abmeldung(
+    abmeldung_data: Annotated[FLAbmeldungPayload, Body()],
+    aktionen_collection: AktionenCollection,
+    berechtigungen_collection: BerechtigungenCollection,
+    berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
+    db: DBClient,
+    operator: str = Depends(get_actor_email),
+    auth_time: int = Depends(get_actor_auth_time),
+) -> FLAbmeldungResponse:
+    """
+    File one log row saying that this administrator ended every session of an address, and when, before the caller ends them.
+
+    ADMIN TIER. The sessions live in the sign-in store, which the caller holds and this backend does not, so the row is the
+    whole of what this writes: collection `anmeldungen`, operation `delete_many`, the administrator as actor, and no address,
+    filter, image or count. Nothing bars the address and nothing is mailed; a person signs in again as before.
+
+    Refused as the erasure is, so a refused call ends no session: the administrator's own address (`REQ-PURGE-003`), an
+    address holding an `owner` grant unless the administrator holds an owner's power (`REQ-PURGE-005`), and with a 422 an
+    address under the reserved `invalid` domain.
+    """
+
+    identifier = sign_in_identifier(abmeldung_data.email)
+    akteur = sign_in_identifier(operator)
+    refuse(find_eigene_adresse_refusal(identifier=identifier, akteur=akteur))
+
+    async def log_the_act(session: AsyncClientSession) -> None:
+        grants = await read_berechtigungen(berechtigungen_collection=berechtigungen_collection, session=session)
+        announced = await read_the_announced(berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection, session=session)
+        refuse(find_inhaber_adresse_refusal(identifier=identifier, akteur=akteur, auth_time=auth_time, grants=grants, announced=announced))
+
+        await post_one_to_db(collection=aktionen_collection, document=act_row("anmeldungen", operation="delete_many"), session=session)
+
+    # In a transaction for its judge: an administrator revoked meanwhile files nothing, and `REQ-PURGE-005` holds at the write.
+    async with transaction_session(db) as session:
+        await session.with_transaction(log_the_act)
+
+    return FLAbmeldungResponse()

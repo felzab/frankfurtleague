@@ -12,7 +12,7 @@ from pydantic import BaseModel, EmailStr, TypeAdapter, ValidationError
 from pydantic.warnings import UnsupportedFieldAttributeWarning
 
 import app
-from app.api.identitaet.schemas import FLErasureAnsichtPayload, FLErasurePayload
+from app.api.identitaet.schemas import FLAbmeldungPayload, FLErasureAnsichtPayload, FLErasurePayload
 from app.core.config import API_VERSION
 from app.core.exception_handlers import DATABASE_FAILED, PAYLOAD_REFUSED, UNKNOWN_OUTCOME
 from app.shared.schemas.bounds import KONTAKT_EMAIL_MAX_LENGTH
@@ -203,10 +203,11 @@ class TestEveryAddressPayloadHoldsTheSameRule:
         assert local_part not in raised.value.errors()[0]["msg"]
 
 
-# The reveal's payload and the erasure's, which takes the same lookup beside the request it answers.
+# The reveal's payload, the erasure's, which takes the same lookup beside the request it answers, and the sign-out's.
 ERASURE_PAYLOADS: Mapping[str, Callable[[str], Any]] = {
     "the reveal": lambda email: FLErasureAnsichtPayload(email=email),
     "the erasure": lambda email: FLErasurePayload(email=email, anlass="Mail vom 30.03.2026"),
+    "the sign-out": lambda email: FLAbmeldungPayload(email=email),
 }
 
 

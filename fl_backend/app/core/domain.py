@@ -2265,7 +2265,7 @@ RULES: tuple[Rule, ...] = (
     Rule(
         code="REQ-PURGE-003",
         status=HTTPStatus.FORBIDDEN,
-        operation="POST /identitaet/erasure/ansicht · POST /identitaet/erasure",
+        operation="POST /identitaet/erasure/ansicht · POST /identitaet/erasure · POST /identitaet/abmeldung",
         aggregate="Berechtigung",
         summary="an administrator's route on a mailbox refuses the mailbox they act as, their own account page serving it",
         implemented_by="app.api.identitaet.services.find_eigene_adresse_refusal",
@@ -2274,11 +2274,11 @@ RULES: tuple[Rule, ...] = (
     Rule(
         code="REQ-PURGE-005",
         status=HTTPStatus.FORBIDDEN,
-        operation="POST /identitaet/erasure/ansicht · POST /identitaet/erasure",
+        operation="POST /identitaet/erasure/ansicht · POST /identitaet/erasure · POST /identitaet/abmeldung",
         aggregate="Berechtigung",
         summary=(
             "an address holding a live `owner` grant is acted on by an administrator's route only for an actor holding an"
-            " owner's power, read where the route reads the address's records"
+            " owner's power, judged on the grants that route reads"
         ),
         implemented_by="app.api.identitaet.services.find_inhaber_adresse_refusal",
         tested_by="tests/api/test_erasure_auf_anfrage.py::TestAnOwnersAddress",

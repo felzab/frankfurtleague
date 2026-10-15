@@ -95,6 +95,7 @@ from app.core.constraints import (
     _AKTOR,
     _AKTOR_FUNKTIONEN,
     _AKTOR_KINDS,
+    _LOGGED_ACTS,
     COLLECTION_VALIDATORS,
     SUPPORT_INDEXES,
     TTL_INDEXES,
@@ -102,7 +103,7 @@ from app.core.constraints import (
     _apply_concurrently,
     diagnose_failure,
 )
-from app.core.recording import Actor, AktorFunktion, Operation, PersonActor
+from app.core.recording import Actor, AktorFunktion, LoggedAct, Operation, PersonActor
 from app.shared.einwilligung_nachweis import WAHLEN
 from app.shared.schemas.addresses import FLAddress
 from app.shared.schemas.einwilligung import FLEinwilligungBeleg, FLEinwilligungNachweis, FLEinwilligungNachweise
@@ -288,8 +289,8 @@ MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...],
         Collection.AKTIONEN,
         (),
         "collection",
-        # A day's write count is never logged (`app/core/drosselung.py`).
-        tuple(c.value for c in Collection if c not in {Collection.AKTIONEN, Collection.DROSSELUNG}),
+        # A day's write count is never logged (`app/core/drosselung.py`); a logged act writes no collection of its own.
+        tuple(c.value for c in Collection if c not in {Collection.AKTIONEN, Collection.DROSSELUNG}) + get_args(LoggedAct),
         False,
     ),
     (Collection.SAISONS, (), "status", get_args(FLSaisonStatus), False),
@@ -753,6 +754,7 @@ RECORDED_LITERALS: list[tuple[str, tuple[object, ...], list[str]]] = [
     ("Operation", get_args(Operation), _AKTION_OPERATIONS),
     ("Actor.kind | PersonActor.kind", get_args(Actor.__annotations__["kind"]) + get_args(PersonActor.__annotations__["kind"]), _AKTOR_KINDS),
     ("AktorFunktion", get_args(AktorFunktion), _AKTOR_FUNKTIONEN),
+    ("LoggedAct", get_args(LoggedAct), _LOGGED_ACTS),
 ]
 
 

@@ -88,6 +88,7 @@ CONFIG = config_for(DATABASE_NAME)
 
 PATH = f"/api/v{API_VERSION}/identitaet/erasure"
 ANSICHT_PATH = f"{PATH}/ansicht"
+ABMELDUNG_PATH = f"/api/v{API_VERSION}/identitaet/abmeldung"
 
 # The suite's owner, and an administrator holding no owner's power, who presses unless a case says otherwise.
 OWNER, OPERATOR = ADMINISTRATORS[0], ADMINISTRATORS[1]
@@ -363,7 +364,11 @@ class TestTheRegistryRunsWhole:
 class TestTheirOwnAddress:
     """`REQ-PURGE-003`: an administrator's own address goes through their account page, or through another administrator."""
 
-    @pytest.mark.parametrize(("path", "body"), [(ANSICHT_PATH, ansicht_of), (PATH, erasure_of)], ids=["the reveal", "the erasure"])
+    @pytest.mark.parametrize(
+        ("path", "body"),
+        [(ANSICHT_PATH, ansicht_of), (PATH, erasure_of), (ABMELDUNG_PATH, ansicht_of)],
+        ids=["the reveal", "the erasure", "the sign-out"],
+    )
     def test_it_is_refused_in_other_capitals_and_between_spaces_and_nothing_is_written(
         self, mongo_replica_set_url: str, path: str, body: Callable[[str], dict[str, str]]
     ):
@@ -377,7 +382,11 @@ class TestTheirOwnAddress:
 
         assert (response.status_code, response.json()["error_code"], untouched) == (403, EIGENE_ADRESSE, True)
 
-    @pytest.mark.parametrize(("path", "body"), [(ANSICHT_PATH, ansicht_of), (PATH, erasure_of)], ids=["the reveal", "the erasure"])
+    @pytest.mark.parametrize(
+        ("path", "body"),
+        [(ANSICHT_PATH, ansicht_of), (PATH, erasure_of), (ABMELDUNG_PATH, ansicht_of)],
+        ids=["the reveal", "the erasure", "the sign-out"],
+    )
     def test_another_administrators_address_is_not_refused(self, mongo_replica_set_url: str, path: str, body: Callable[[str], dict[str, str]]):
         async def run(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             return await posted(mongo_replica_set_url, path, body(ANOTHER_ADMINISTRATOR))
@@ -389,7 +398,11 @@ class TestTheirOwnAddress:
 class TestAnOwnersAddress:
     """`REQ-PURGE-005`: judged inside the erasure's transaction, and in the reveal's snapshot."""
 
-    @pytest.mark.parametrize(("path", "body"), [(ANSICHT_PATH, ansicht_of), (PATH, erasure_of)], ids=["the reveal", "the erasure"])
+    @pytest.mark.parametrize(
+        ("path", "body"),
+        [(ANSICHT_PATH, ansicht_of), (PATH, erasure_of), (ABMELDUNG_PATH, ansicht_of)],
+        ids=["the reveal", "the erasure", "the sign-out"],
+    )
     def test_an_administrator_holding_no_owners_power_is_refused_and_nothing_is_written(
         self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture, path: str, body: Callable[[str], dict[str, str]]
     ):
@@ -695,6 +708,61 @@ class TestRowsNoMailboxNames:
         assert (erased["spieler"], erased["schiedsrichter"], pupils, referees) == (0, 0, 1, 1)
 
 
+@pytest.mark.db
+class TestTheSignOut:
+    """`docs/backend/spec.md :: I689`: one row naming who ended an address's sessions and when, never the address."""
+
+    def test_it_files_one_row_naming_the_operator_and_the_act_and_writes_nothing_else(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            before = await everything_in(database)
+            response = await posted(mongo_replica_set_url, ABMELDUNG_PATH, ansicht_of())
+            after = await everything_in(database)
+            async with app_client(mongo_replica_set_url, app=_app(), now=NOW) as http:
+                served = await http.get(
+                    f"/api/v{API_VERSION}/aktionen", params={"collection": "anmeldungen"}, headers=SignedActor(OPERATOR, ADMIN_KEY)
+                )
+
+            return response, before, after, served.json()
+
+        response, before, after, served = on_a_league(mongo_replica_set_url, body)
+        filed = [row for row in after[Collection.AKTIONEN] if row not in before[Collection.AKTIONEN]]
+
+        assert (response.status_code, response.json()) == (200, {"acknowledged": 1})
+        # The actor's grant takes its anchor's count, which any judged write adds and nobody reads.
+        assert unanchored(after, besides=Collection.AKTIONEN) == unanchored(before, besides=Collection.AKTIONEN)
+        assert [{key: row[key] for key in ROW_KEYS} for row in filed] == [
+            {
+                "actor": {"kind": "admin_session", "email": OPERATOR},
+                "request": {"method": "POST", "path": ABMELDUNG_PATH},
+                "collection": "anmeldungen",
+                "operation": "delete_many",
+                "document_id": None,
+                "db_filter": None,
+                "before": None,
+                "modified_count": None,
+                "redacted_at": None,
+                "anlass": None,
+            }
+        ]
+        assert IDENTIFIER not in str(filed).lower()
+        # The log's own read serves it under the act's name.
+        assert [aktion["collection"] for aktion in served["aktionen"]] == ["anmeldungen"]
+
+
+def unanchored(collections: Mapping[str, list[Any]], *, besides: str) -> dict[str, list[Any]]:
+    """Every collection but `besides`, each grant without its anchor's count."""
+
+    return {
+        name: [{key: value for key, value in row.items() if key != ANCHOR_FIELD} for row in rows]
+        for name, rows in collections.items()
+        if name != besides
+    }
+
+
+# What a sign-out's row holds besides its clock and trace.
+ROW_KEYS = ("actor", "request", "collection", "operation", "document_id", "db_filter", "before", "modified_count", "redacted_at", "anlass")
+
+
 # --- Refused at the box, before any read: the default tier's, the server answering nothing.
 
 # The control's answer: a body past validation, whose first database call meets the unanswered server.
@@ -747,7 +815,7 @@ class TestTheAnlassIsRefusedAtTheBox:
 class TestThePlaceholderIsRefusedAtTheBox:
     """Every referee row stored without an address shares one placeholder, so a lookup of it would reach them all at once."""
 
-    @pytest.mark.parametrize("path", [ANSICHT_PATH, PATH], ids=["the reveal", "the erasure"])
+    @pytest.mark.parametrize("path", [ANSICHT_PATH, PATH, ABMELDUNG_PATH], ids=["the reveal", "the erasure", "the sign-out"])
     @pytest.mark.parametrize(
         "email", [PLACEHOLDER, f"  {PLACEHOLDER.upper()} ", "jemand@schule.INVALID"], ids=["as stored", "folding to it", "any mailbox under it"]
     )
@@ -758,7 +826,7 @@ class TestThePlaceholderIsRefusedAtTheBox:
             [["email"]],
         )
 
-    @pytest.mark.parametrize("path", [ANSICHT_PATH, PATH], ids=["the reveal", "the erasure"])
+    @pytest.mark.parametrize("path", [ANSICHT_PATH, PATH, ABMELDUNG_PATH], ids=["the reveal", "the erasure", "the sign-out"])
     def test_an_address_merely_naming_the_word_reaches_the_database(self, path: str):
         """The control, and the boundary: the domain is refused, never a mailbox spelling `invalid` elsewhere."""
 

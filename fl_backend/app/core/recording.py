@@ -130,13 +130,51 @@ async def record_write(
         # write. What a redaction did is recoverable from the erasure row that caused it.
         return
 
+    row = _row(
+        collection=str(collection.name),
+        operation=operation,
+        document_id=document_id,
+        db_filter=_stringify_filter(db_filter) if db_filter is not None else None,
+        before=_stored_image(before),
+        modified_count=modified_count,
+    )
+
+    # The target's own database handle, not an injected one: that is what keeps this module off
+    # `app/core/db.py`'s import path and out of a cycle.
+    await collection.database[Collection.AKTIONEN].insert_one(row, session=session)
+
+
+# An act the log records that writes none of the application's collections: an administrator's ending
+# of an address's sessions writes the sign-in store, which this backend holds no handle on.
+LoggedAct = Literal["anmeldungen"]
+
+
+def act_row(act: LoggedAct, *, operation: Operation) -> dict[str, Any]:
+    """A logged act's row, built as a recorded write's is, naming no document, filter, image or count.
+
+    Inserted by the caller through `app/core/crud.py :: post_one_to_db`, which marks the write sent and
+    records nothing for the log's own collection.
+    """
+
+    return _row(collection=act, operation=operation, document_id=None, db_filter=None, before=None, modified_count=None)
+
+
+def _row(
+    *,
+    collection: str,
+    operation: Operation,
+    document_id: Any,
+    db_filter: dict[str, str] | None,
+    before: dict[str, Any] | list[dict[str, Any]] | None,
+    modified_count: int | None,
+) -> dict[str, Any]:
     actor = actor_var.get()
     request = request_var.get()
 
     # One instant for both stamps: read twice, a row's two clocks straddle a second boundary.
     moment = datetime.now(UTC)
 
-    row: dict[str, Any] = {
+    return {
         "at": log_stamp(moment),
         # A BSON date because a TTL index expires on one alone, skipping a string in silence, which
         # is why `at` cannot carry the retention (`app/core/constraints.py :: TTL_INDEXES`).
@@ -146,21 +184,17 @@ async def record_write(
         # caused them are one action on the page instead of forty only because they share it.
         "trace_id": trace_id_var.get(),
         "request": {"method": request[0], "path": request[1]} if request is not None else None,
-        "collection": str(collection.name),
+        "collection": collection,
         "operation": operation,
         "document_id": document_id,
-        "db_filter": _stringify_filter(db_filter) if db_filter is not None else None,
-        "before": _stored_image(before),
+        "db_filter": db_filter,
+        "before": before,
         "modified_count": modified_count,
         # Set when a write destroying a person's values overwrites theirs here. Null means the image
         # still holds what it recorded (`docs/backend/spec.md :: I42`, `:: I671`).
         "redacted_at": None,
         "anlass": anlass_var.get(),
     }
-
-    # The target's own database handle, not an injected one: that is what keeps this module off
-    # `app/core/db.py`'s import path and out of a cycle.
-    await collection.database[Collection.AKTIONEN].insert_one(row, session=session)
 
 
 def _stored_image(before: Mapping[str, Any] | Sequence[Mapping[str, Any]] | None) -> dict[str, Any] | list[dict[str, Any]] | None:
