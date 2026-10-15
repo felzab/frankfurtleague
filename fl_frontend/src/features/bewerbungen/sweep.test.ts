@@ -983,8 +983,10 @@ describe("the two halves after the season loop", () => {
       { acknowledged: 1, entfernt: 2, verbleibend: 1 },
       { acknowledged: 1, entfernt: 1, verbleibend: 0 },
       { acknowledged: 1, entfernt: 4, verbleibend: 4 },
+      { acknowledged: 1, entfernt: 0, verbleibend: 0 },
     ]);
-    laufAnswer = inTurn([gelaufen(3, 2), gelaufen(2, 0), gelaufen(4, 4)]);
+    // Each list closes on nobody due, so a loop that ignores the stop fails on its count rather than hanging.
+    laufAnswer = inTurn([gelaufen(3, 2), gelaufen(2, 0), gelaufen(4, 4), gelaufen(0, 0)]);
 
     await runBewerbungSweep();
 

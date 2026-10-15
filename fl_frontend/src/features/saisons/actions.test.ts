@@ -548,12 +548,15 @@ const gelaufen = (spieler: number, verbleibend: number, seit: string | null = "2
   verbleibend: verbleibend,
 });
 
-/** The activation landing, then each deletion call answered by the next of `laeufe`, the last repeating. */
+/**
+ * The activation landing, then each deletion call answered by the next of `laeufe` and every later one with nobody
+ * due: a loop that ignores its stop then fails on what it says rather than hanging the file.
+ */
 function aktivierungUndLaeufe(...laeufe: (() => Promise<unknown>)[]): void {
   let lauf = 0;
   answerWith((call) => {
     if (call.endpoint !== LAUF) return Promise.resolve(landed(call));
-    const antwort = laeufe[Math.min(lauf, laeufe.length - 1)] ?? (() => Promise.resolve(gelaufen(0, 0)));
+    const antwort = laeufe[lauf] ?? (() => Promise.resolve(gelaufen(0, 0)));
     lauf += 1;
     return antwort();
   });
