@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { beforeEach, describe, it } from "node:test";
 
-import { MongoServerError } from "mongodb";
+import { MongoOperationTimeoutError, MongoServerError } from "mongodb";
 
 import {
   ADMIN_EMAIL,
@@ -466,8 +466,8 @@ describe("the sessions a removal ends, against a real database (`docs/frontend/s
     );
   });
 
-  /* The commit landed and its answer did not: the rows say the removal stands, and nobody can tell
-     that from the throw, so a failure's title would send the administrator to remove it again. */
+  /* The commit landed and the client timed out before its answer came back: nobody can tell from the
+     timeout that the removal stands, so a failure's title would send the administrator to remove it again. */
   it("answers the outcome as unknown where the commit's own answer is lost, the removal standing", async () => {
     const other = await steppedUpAdmin(REMOVED);
     const own = await steppedUpAdmin();
@@ -475,7 +475,7 @@ describe("the sessions a removal ends, against a real database (`docs/frontend/s
     assert.ok(first);
     requestHeaders = new Headers({ ...ORIGIN, cookie: own.cookie });
     committed = async () => {
-      throw new Error("planted: the commit's answer lost");
+      throw new MongoOperationTimeoutError("planted: the time ran out before the commit's answer came back");
     };
 
     const answer = await removePasskeyAction(first);
