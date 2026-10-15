@@ -533,10 +533,10 @@ async def erase_everything(
     # REQUIRED: the caller's transaction, every step committing together or none (`docs/backend/spec.md :: I52`).
     session: AsyncClientSession,
 ) -> FLErasure:
-    """Erase every record of this folded address the scope reaches in the caller's transaction, answering the counts.
+    """Erase every record of this folded address the scope reaches, in the caller's transaction.
 
-    The subject is read HERE, in the callback, so a retry after a conflict re-reads it; once committed the caller hands the
-    counts to `after_the_erasure_commits`.
+    The subject is read HERE, so a retry after a conflict re-reads it. Once committed, the caller passes the counts to
+    `after_the_erasure_commits`, never before.
     """
 
     subject = await resolve_subject(
@@ -670,10 +670,9 @@ ERASURE_JOURNAL_LINE: Final = "A person's records were erased"
 async def after_the_erasure_commits(
     identifier: str, erased: FLErasure, *, schluessel: SecretStr, berechtigungen_collection: AsyncCollection
 ) -> None:
-    """What every erasure route does once its transaction has committed, and never inside it: a rolled-back attempt erased nobody.
+    """Every erasure route calls this once its transaction has committed, never inside it: a rolled-back attempt erased nobody.
 
-    One INFO journal line names the address by its keyed hash, never by itself: a restore reaches no log line, so a replay
-    asks it which mailboxes were erased since a backup. Where a grant went, the boot's own warning names what is left.
+    Its journal line names the address by keyed hash alone; a restore replays from it the erasures made since the backup.
     """
 
     fl_logger.info(f"{ERASURE_JOURNAL_LINE}: {loeschung_journal_hash(identifier, schluessel=schluessel)}")

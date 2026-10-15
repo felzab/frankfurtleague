@@ -787,10 +787,10 @@ class TestTheJournal:
         assert expected != PSEUDONYM
 
     def test_an_attempt_rolled_back_at_its_commit_writes_no_line(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
-        """Catches `after_the_erasure_commits` moved into the callback, where it runs before a commit that can still fail.
+        """Catches `after_the_erasure_commits` moved into the callback, ahead of a commit that can still fail.
 
-        The refused commit carries the transient label, so the driver runs the erasure again and that attempt commits: one line
-        and one warning, the rolled-back attempt's none.
+        The refusal is transient, so the driver reruns the erasure and the rerun commits: one line and one warning, none of the
+        first attempt's.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
