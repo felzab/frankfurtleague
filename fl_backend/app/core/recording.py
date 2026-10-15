@@ -35,6 +35,11 @@ SYSTEM_ACTOR_EMAIL = "SYSTEM"
 # because it is one: the public form authenticates no person, so no address is held.
 PUBLIC_ACTOR_EMAIL = "PUBLIC"
 
+# Stands where an erased person was a record's actor: fixed, never their keyed pseudonym, which
+# singles them out. No `@` and non-hex letters, so no address or pseudonym equals it; within
+# `AKTEUR_PSEUDONYM_SHOWN` characters, so a log row shows it whole.
+ERASED_ACTOR_MARKER = "ERASED"
+
 
 @dataclass(frozen=True)
 class Actor:
