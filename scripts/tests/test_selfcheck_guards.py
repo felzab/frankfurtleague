@@ -390,7 +390,14 @@ def test_every_shape_the_call_site_reader_once_mis_lexed(tmp_path: Path) -> None
 # Each pin check, the manifest spelling its pin, the image line naming a tag, the pin, and a release
 # the pin does not admit. The Python row's pin names a series, which a release inside it satisfies.
 PIN_CHECKS: Final[dict[str, tuple[str, Callable[[str], str], str, str]]] = {
-    "check_uv_pin": ('required-version = "==0.12.19"\n', lambda tag: f"FROM ghcr.io/astral-sh/uv:{tag}@sha256:0 AS uv\n", "0.12.19", "0.12.20"),
+    # Another step's `version:` comes first: a reader not scoped to the setup-uv step pins 9.9.9.
+    "check_uv_pin": (
+        '    - uses: other/action@0\n      with:\n        version: "9.9.9"\n'
+        '    - uses: astral-sh/setup-uv@0 # v1\n      with:\n        version: "0.12.19"\n',
+        lambda tag: f"FROM ghcr.io/astral-sh/uv:{tag}@sha256:0 AS uv\n",
+        "0.12.19",
+        "0.12.20",
+    ),
     "check_node_pin": (
         '{\n  "version": "1.0.0",\n  "devEngines": {\n    "runtime": {\n      "name": "node",\n      "version": "26.10.0"\n    }\n  }\n}\n',
         lambda tag: f"FROM node:{tag}-trixie-slim@sha256:0 AS base\n",

@@ -1061,6 +1061,16 @@ process.exit(said.hookEventName === "SessionStart" && pointers && /REGISTER-one\
   if [[ "$messages_said" == *'"additionalContext":"The messages hook found no uv'* ]]; then
     info 'messages hook: no uv — told to the coordinator'
   else note_fail "messages hook: with no uv it must tell the coordinator, got '${messages_said:0:200}'"; fi
+  # A uv refusing to start reg.py, as it does under a `required-version` it does not meet, reaches no
+  # line of reg.py, so only the hook can say so.
+  mkdir -p "${SELFCHECK_TMP}/refusing-uv"
+  printf '#!/usr/bin/env bash\nexit 2\n' > "${SELFCHECK_TMP}/refusing-uv/uv"
+  chmod +x "${SELFCHECK_TMP}/refusing-uv/uv"
+  messages_said="$(printf '%s' '{"session_id":"probe-1","tool_name":"SendMessage","tool_input":{"to":"W","message":"x"}}' |
+    PATH="${SELFCHECK_TMP}/refusing-uv:${PATH}" "$BASH" "$MESSAGES_HOOK" 2>&1)" || messages_said="exit $? ${messages_said}"
+  if [[ "$messages_said" == *"\"additionalContext\":\"The messages hook's uv run exited 2"* ]]; then
+    info 'messages hook: uv refusing to start — told to the coordinator'
+  else note_fail "messages hook: with uv refusing to start it must tell the coordinator, got '${messages_said:0:200}'"; fi
   if ! command -v uv >/dev/null 2>&1; then
     if [[ -n "${GITHUB_ACTIONS:-}" ]]; then note_fail "uv is absent, and this is CI, which installs it for every python scope"
     else note_skip "the messages hook's probe did not run: uv is absent, and the hook records through it"; fi
@@ -1294,12 +1304,20 @@ judge_pin() { # $1 what is pinned · $2 exact, or series · $3 the manifest · $
   fi
 }
 
-check_uv_pin() { # $1 the manifest · $2 the Dockerfile
+check_uv_pin() { # $1 the action installing CI's uv · $2 the Dockerfile
   local pin
   local -a tags
-  pin="$(sed -n 's/^required-version = "==\([0-9][^"]*\)"/\1/p' "$1")"
+  # Scoped to the setup-uv step's own inputs: another step's `version:` names something else.
+  pin="$(awk '
+    /uses:[[:space:]]*astral-sh\/setup-uv@/ { step = 1; next }
+    step && /^[[:space:]]*-[[:space:]]/ { exit }
+    step && match($0, /^[[:space:]]*version:[[:space:]]*"[0-9][^"]*"/) {
+      pin = substr($0, RSTART, RLENGTH); sub(/^[[:space:]]*version:[[:space:]]*"/, "", pin); sub(/"$/, "", pin)
+      print pin; exit
+    }
+  ' "$1")"
   mapfile -t tags < <(sed -n 's|^FROM ghcr.io/astral-sh/uv:\([^ @]*\)[@ ].*|\1|p' "$2")
-  judge_pin uv exact "$1" "$2" "uv sync refuses the pair, so the backend image cannot build" "$pin" "${tags[@]}"
+  judge_pin uv exact "$1" "$2" "move the one the bot left behind, which after a Dependabot image bump is setup-uv's version" "$pin" "${tags[@]}"
 }
 
 check_node_pin() { # $1 the manifest · $2 the Dockerfile
@@ -1335,9 +1353,9 @@ check_python_series() { # $1 the .python-version file · $2 the Dockerfile
 }
 
 step "15. The uv version is one number in two files"
-# A bot moves one and not the other, and `uv sync` then refuses outright, so the backend image
-# stops building on every branch at once — including branches that touched neither file.
-check_uv_pin fl_backend/pyproject.toml fl_backend/Dockerfile
+# Dependabot's docker ecosystem moves the image's tag alone, and with no publication date to wait
+# on, so this refusal is also the only age gate that release meets (`docs/ops/spec.md :: I_NEW_OPS-FOLD_1`).
+check_uv_pin .github/actions/backend-toolchain/action.yml fl_backend/Dockerfile
 
 step "16. The Node version is one number in two files"
 # pnpm downloads the pinned Node for the checkout and CI, and the image runs its base's own, so a
