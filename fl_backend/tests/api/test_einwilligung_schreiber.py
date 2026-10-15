@@ -321,6 +321,8 @@ NOT_DRIVEN_HERE: Final = frozenset(
         "app/api/registrierungen/services.py::compose_person",
         # A registration is submitted with no block: its pupil's confirmation writes one.
         "app/api/registrierungen/services.py::compose_registrierung",
+        # The erased pupils' sentinel holds no block: nobody stands behind it to have been asked.
+        "app/api/spieler/services.py::build_ghost_spieler",
         # Builders the writes above call.
         "app/api/bewerbungen/services.py::compose_einwilligung",
         "app/api/schiedsrichter/services.py::compose_einwilligung",

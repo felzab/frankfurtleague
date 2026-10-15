@@ -949,6 +949,12 @@ def nummern_im_kader(rows: Iterable[Mapping[str, Any]]) -> frozenset[str]:
 
 
 def _person_fields(*, registrierung_raw: Mapping[str, Any], adresse: str) -> dict[str, Any]:
+    # Here and not in the `spieler` validator, which admits a null forename for the erased pupils'
+    # sentinel alone: every person the admission writes passes here, and the administrator's edit
+    # requires one by its payload.
+    if not person_name_key(registrierung_raw.get("vorname")):
+        raise ValueError("a registration carrying no forename names no person")
+
     return {
         **{field: registrierung_raw[field] for field in (*PERSON_IDENTITY_FIELDS, "geburtsdatum")},
         "email": adresse,
@@ -970,15 +976,19 @@ def compose_person_update(*, registrierung_raw: Mapping[str, Any], gespeichert: 
     """
 
     fields = _person_fields(registrierung_raw=registrierung_raw, adresse=adresse)
+    # Only the sentinel stores a null record, so a matched person holding none is that row or a hand
+    # edit: renewing fails on the dotted paths below, and leaving it keeps a person nobody asked.
+    if not isinstance(gespeichert, Mapping):
+        raise ValueError("a matched person holding no consent record is no person to admit")
+
     if not traegt_wahlen(registrierung_raw["einwilligung"]):
         # Not one key of the block, its label and day included: they name the last confirmation that
         # asked its choices (`docs/backend/spec.md :: I611`).
         return {"$set": fields}
 
-    # A matched person always holds a block, the validator requiring one, so the dotted paths are viable.
     erneuert = compose_erneuert(
         pfad="einwilligung",
-        gespeichert=gespeichert if isinstance(gespeichert, Mapping) else {},
+        gespeichert=gespeichert,
         erneuert=registrierung_raw["einwilligung"],
         stamp=log_stamp,
     )

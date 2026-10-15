@@ -125,6 +125,11 @@ class FLSpieler(_SpielerPerson, _SaisonSpielerWritable):
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
 
+    # Widened on this declared shape alone, as the validator is, for the erased pupils' sentinel
+    # (`app/core/sentinels.py :: GHOST_SPIELER_ID`). Every served model keeps the forename required:
+    # no read serves the sentinel, so a null reaching one is that exclusion failing.
+    vorname: CustomNonEmptyString | None
+
     # Defaulted where the junction requires them (the stored row the marker, the writable block the
     # role): a squad row written before either field existed still has to be describable, and a
     # model that 422s describes it as impossible.
@@ -135,9 +140,10 @@ class FLSpieler(_SpielerPerson, _SaisonSpielerWritable):
     inactive_since: CustomOptionalDateString
     # Defaulted for `rolle`'s reason above, over a person stored before the field existed.
     geburtsdatum: CustomOptionalDateString = None
-    # No default, unlike every defaulted field above: every stored row carries one after the
-    # backfill, and a default here would let a row with no consent read back as though it had been asked.
-    einwilligung: FLEinwilligung
+    # No default, unlike every defaulted field above: a default would let a row with no consent read
+    # back as though it had been asked. Nullable for `vorname`'s reason, the sentinel being nobody who
+    # could have agreed to anything.
+    einwilligung: FLEinwilligung | None
     # Stored as `app/shared/folding.py :: sign_in_identifier` folds it and never as it was typed: the
     # seam joining a signed-in person to this row is an equality on the stored value, and a raw write
     # breaks it silently.

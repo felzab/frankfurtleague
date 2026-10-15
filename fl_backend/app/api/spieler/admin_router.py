@@ -7,7 +7,7 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.saisons.cache import dropping_the_saison_cache
-from app.api.spieler.crud import erase_person_in_session, refuse_a_full_squad, refuse_a_taken_rolle
+from app.api.spieler.crud import erase_person_in_session, pull_a_person_to_enter, refuse_a_full_squad, refuse_a_taken_rolle
 from app.api.spieler.schemas import (
     FLPatchSaisonSpielerPayload,
     FLPatchSpielerPayload,
@@ -20,6 +20,7 @@ from app.api.spieler.schemas import (
     FLSpielerWithMemberships,
 )
 from app.api.spieler.services import (
+    build_spieler_filter,
     build_spieler_memberships_pipeline,
     find_erasure_refusal,
     find_squad_refusal,
@@ -153,7 +154,7 @@ async def patch_spieler(
     async def rewrite_the_player(session: AsyncClientSession) -> Mapping[str, Any]:
         return await patch_one_in_db(
             collection=spieler_collection,
-            db_filter={"_id": spieler_id},
+            db_filter=build_spieler_filter(spieler_id),
             update={"$set": spieler_data.model_dump(mode="json")},
             session=session,
             return_document=ReturnDocument.AFTER,
@@ -180,7 +181,7 @@ async def delete_spieler(
     """Retire a player. SOFT: it stamps `inactive_since`, and their squad rows are LEFT ALONE."""
 
     async def retire_the_player(session: AsyncClientSession) -> Mapping[str, Any]:
-        return await set_inactive_since(collection=spieler_collection, db_filter={"_id": spieler_id}, when=today, session=session)
+        return await set_inactive_since(collection=spieler_collection, db_filter=build_spieler_filter(spieler_id), when=today, session=session)
 
     async with transaction_session(db) as session:
         updated_raw = await session.with_transaction(retire_the_player)
@@ -202,7 +203,7 @@ async def reactivate_spieler(
     """Clear `inactive_since`: the PERSON is back in the league. A squad row they left is revived by its own reactivate."""
 
     async def bring_the_person_back(session: AsyncClientSession) -> Mapping[str, Any]:
-        return await set_inactive_since(collection=spieler_collection, db_filter={"_id": spieler_id}, when=None, session=session)
+        return await set_inactive_since(collection=spieler_collection, db_filter=build_spieler_filter(spieler_id), when=None, session=session)
 
     async with transaction_session(db) as session:
         updated_raw = await session.with_transaction(bring_the_person_back)
@@ -270,6 +271,7 @@ async def erase_spieler(
 async def post_saison_spieler(
     spieler_id: CustomRouteObjectId,
     saison_spieler_data: Annotated[FLPostSaisonSpielerPayload, Body()],
+    spieler_collection: SpielerCollection,
     saison_spieler_collection: SaisonSpielerCollection,
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
@@ -280,14 +282,17 @@ async def post_saison_spieler(
     """
     Put a player in a team's squad for a season.
 
-    One row per player per season: moving a player is a PATCH of `team_id`, and a repeat is a 409
-    even where the row is retired (`docs/backend/spec.md :: I20`). A squad holds each `rolle` once
-    (`REQ-SQUAD-004`). `ist_nachnominiert` is derived here and never taken from the body: it is true
-    from the first day of the season's matchday 1, and false while that matchday is undated.
+    404 where no player has this id. One row per player per season: moving a player is a PATCH of
+    `team_id`, and a repeat is a 409 even where the row is retired (`docs/backend/spec.md :: I20`). A
+    squad holds each `rolle` once (`REQ-SQUAD-004`). `ist_nachnominiert` is derived here and never
+    taken from the body: it is true from the first day of the season's matchday 1, and false while
+    that matchday is undated.
     """
 
     async def add_the_player(session: AsyncClientSession) -> dict[str, Any]:
         """Judge, then write the row. Everything judged is read in-session, the squad's own count inside `refuse_a_full_squad`."""
+
+        await pull_a_person_to_enter(spieler_collection=spieler_collection, spieler_id=spieler_id, session=session)
 
         # The club has to be in the season, and that fact lives in another collection.
         team_in_saison = (

@@ -122,6 +122,7 @@ async def a_pupil_with_a_history(database: AsyncDatabase, *, vorname: str, team_
             saison_spieler_data=FLPostSaisonSpielerPayload(
                 saison_id=saison_id, team_id=team_id, nummer=worn, position="Angriff", stufe="Q2", rolle=None
             ),
+            spieler_collection=database[Collection.SPIELER],
             saison_spieler_collection=database[Collection.SAISON_SPIELER],
             saison_teams_collection=database[Collection.SAISON_TEAMS],
             saisons_collection=database[Collection.SAISONS],

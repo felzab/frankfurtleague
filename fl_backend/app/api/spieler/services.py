@@ -7,6 +7,7 @@ from app.api.spieler.schemas import FLSpielerFilterParams, FLSpielerRolle
 from app.core.collections import Collection
 from app.core.crud import build_query, build_sort
 from app.core.exceptions import WriteRefusal
+from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SPIELER_ID
 from app.shared.einwilligung import is_confirmed
 from app.shared.schemas.custom import CustomObjectId
 
@@ -99,6 +100,42 @@ def public_person(*, vorname: str | None, nachname: str | None, einwilligung: Ma
     return PublicPerson(vorname=vorname, nachname=public_initial(nachname))
 
 
+def build_ghost_spieler() -> dict[str, Any]:
+    """The row an erased pupil's surviving entries are repointed to, as written.
+
+    Nameless and recordless, as the validator admits for this row alone: a name here is published on
+    every such entry, and a fabricated record is counted as consent.
+    """
+
+    return {
+        "_id": GHOST_SPIELER_ID,
+        "vorname": None,
+        "nachname": None,
+        "einwilligung": None,
+        "inactive_since": GHOST_INACTIVE_SINCE,
+    }
+
+
+# The one term excluding the sentinel, spelled once for the collection reads and the by-id filter.
+_NOT_THE_GHOST: Mapping[str, Any] = {"$ne": GHOST_SPIELER_ID}
+
+
+def build_real_spieler_filter() -> Mapping[str, Any]:
+    """Every person somebody stands behind, which is the whole collection but the sentinel."""
+
+    return {"_id": dict(_NOT_THE_GHOST)}
+
+
+def build_spieler_filter(spieler_id: Any) -> Mapping[str, Any]:
+    """One real person by id, nothing for the sentinel.
+
+    Shared by every route naming a person by id: reached by any, the sentinel takes a name onto every
+    erased pupil's entry or a squad row of its own.
+    """
+
+    return {"_id": {"$eq": spieler_id, **_NOT_THE_GHOST}}
+
+
 def build_spieler_pipeline(filters: FLSpielerFilterParams, withheld_saison_ids: Sequence[str] = ()) -> list[Mapping[str, Any]]:
     """`withheld_saison_ids` are the seasons whose rows this read may not serve.
 
@@ -106,7 +143,8 @@ def build_spieler_pipeline(filters: FLSpielerFilterParams, withheld_saison_ids: 
     across seasons is the one supplying them (`app/api/spieler/router.py`).
     """
 
-    pipeline: list[Mapping[str, Any]] = []
+    # First, ahead of the loose join below, which keeps a person holding no squad row.
+    pipeline: list[Mapping[str, Any]] = [{"$match": build_real_spieler_filter()}]
 
     # Terms are NAMED, never excluded: a field added to the filter model would otherwise reach the
     # junction `$match` unreviewed, and a term the response withholds is an inference channel.
@@ -182,11 +220,12 @@ def build_spieler_pipeline(filters: FLSpielerFilterParams, withheld_saison_ids: 
 def build_spieler_memberships_pipeline() -> list[Mapping[str, Any]]:
     """Every player with every squad row they hold.
 
-    UNLIKE `build_spieler_pipeline`: no filters, no `$unwind`, no strict join. Sorted by FORENAME
+    UNLIKE `build_spieler_pipeline`: no caller's filters, no `$unwind`, no strict join. Sorted by FORENAME
     then surname, and MongoDB sorts a null `nachname` first.
     """
 
     return [
+        {"$match": build_real_spieler_filter()},
         {
             "$lookup": {
                 "from": Collection.SAISON_SPIELER,
@@ -436,7 +475,8 @@ def build_selbst_pupil_filter(identifier: str) -> Mapping[str, Any]:
     The `$type` term is the unique index's partial filter, which an equality alone does not imply.
     """
 
-    return {"email": {"$eq": identifier, "$type": "string"}}
+    # The sentinel by id although it holds no address: a hand edit can give it one, and the id is what names it nobody.
+    return {"email": {"$eq": identifier, "$type": "string"}, **build_real_spieler_filter()}
 
 
 def build_selbst_pupil_pipeline(identifier: str) -> list[Mapping[str, Any]]:

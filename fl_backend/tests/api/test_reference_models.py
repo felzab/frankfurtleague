@@ -188,7 +188,7 @@ class TestSpieler:
     def test_accepts_a_valid_spieler(self, spieler):
         assert FLSpieler.model_validate(spieler()).vorname == "Max"
 
-    # A player must have a first name; the rest fills in over time, and the frontend mirrors the split.
+    # An empty forename is no name: the erased pupils' sentinel stores null, and nothing stores "".
     def test_requires_a_first_name(self, spieler):
         with pytest.raises(ValidationError):
             FLSpieler.model_validate(spieler(vorname=""))
@@ -260,7 +260,9 @@ class TestEinwilligung:
     def test_accepts_a_collected_consent(self, spieler, einwilligung):
         collected = einwilligung(umfang="kader_oeffentlich", erteilt_von="erziehungsberechtigt")
 
-        assert FLSpieler.model_validate(spieler(einwilligung=collected)).einwilligung.umfang == "kader_oeffentlich"
+        einwilligung = FLSpieler.model_validate(spieler(einwilligung=collected)).einwilligung
+
+        assert einwilligung is not None and einwilligung.umfang == "kader_oeffentlich"
 
     @pytest.mark.parametrize("field", ["umfang", "datum", "bestaetigt_am"])
     def test_requires_every_key(self, einwilligung, field, assert_rejects):

@@ -706,11 +706,15 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
             required=("_id", "vorname", "nachname", "einwilligung", "inactive_since"),
             properties={
                 "_id": {"bsonType": "objectId"},
-                "vorname": {"bsonType": "string"},
+                # This and `einwilligung` nullable for the erased pupils' sentinel
+                # (`app/core/sentinels.py :: GHOST_SPIELER_ID`), never an `anyOf` on its id, which is no
+                # type or enum; a person is held to both where written
+                # (`app/api/registrierungen/services.py :: compose_person`).
+                "vorname": {"bsonType": _STRING_OR_NULL},
                 "nachname": {"bsonType": _STRING_OR_NULL},
                 # Out of `required` for `saisons.spielplan`'s reason.
                 "geburtsdatum": {"bsonType": _STRING_OR_NULL},
-                "einwilligung": _EINWILLIGUNG,
+                "einwilligung": {**_EINWILLIGUNG, "bsonType": ["object", "null"]},
                 # Out of `required` for `saisons.spielplan`'s reason. Stored as
                 # `app/shared/folding.py :: sign_in_identifier` folds it, which is the form the
                 # sign-in seam's equality compares against.
