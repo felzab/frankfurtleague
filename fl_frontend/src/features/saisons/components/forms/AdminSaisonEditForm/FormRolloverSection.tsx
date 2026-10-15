@@ -28,11 +28,48 @@ import { formatSpielDatum, PLACEHOLDER } from "@/shared/utils/format";
 import { rolloverBlockedReason } from "./blockedReasons";
 
 import type { FLSaisonStatus } from "@/features/saisons/schemas";
-import type { SaisonRolloverContext } from "@/features/saisons/types";
+import type { SaisonLoeschungVorschau, SaisonRolloverContext } from "@/features/saisons/types";
 import type { SaisonBanner } from "./banners";
 
 /** How many unfinished fixtures the panel names before it stops listing and starts counting. */
 const LISTED_OFFENE_SPIELE = 8;
+
+/**
+ * Whom the press deletes, or with the switch off whom it would: the count is what an operator reads before
+ * turning the switch on (`docs/ops/runbooks.md` §9).
+ */
+function LoeschungsZeile({ loeschung: { abgeschlosseneSaisonId: seit, spieler, eingeschaltet } }: { loeschung: SaisonLoeschungVorschau }) {
+  if (eingeschaltet && spieler === 1) {
+    return (
+      <>
+        Mit der Umstellung wird eine Person gelöscht, die seit Saison <strong>{seit}</strong> in keinem Kader steht und keine offene
+        Registrierung hat.
+      </>
+    );
+  }
+  if (eingeschaltet) {
+    return (
+      <>
+        Mit der Umstellung werden {spieler} Spielerinnen und Spieler gelöscht, die seit Saison <strong>{seit}</strong> in keinem Kader stehen
+        und keine offene Registrierung haben.
+      </>
+    );
+  }
+  if (spieler === 1) {
+    return (
+      <>
+        Die jährliche Löschung ist ausgeschaltet. Eingeschaltet würde die Umstellung eine Person löschen, die seit Saison{" "}
+        <strong>{seit}</strong> in keinem Kader steht und keine offene Registrierung hat.
+      </>
+    );
+  }
+  return (
+    <>
+      Die jährliche Löschung ist ausgeschaltet. Eingeschaltet würde die Umstellung {spieler} Spielerinnen und Spieler löschen, die seit Saison{" "}
+      <strong>{seit}</strong> in keinem Kader stehen und keine offene Registrierung haben.
+    </>
+  );
+}
 
 /**
  * The rollover, on `POST /saisons/{saison_id}/activate`. **A confirmation step rather than an undo**,
@@ -68,6 +105,8 @@ export function FormRolloverSection({
   const isFinishedSaison = saisonStatus === "past";
   const offene = rollover.offeneSpiele;
   const outgoing = rollover.outgoingSaisonId;
+  // Nobody due is said nowhere: a line counting zero reads as a deletion about to happen.
+  const loeschung = rollover.loeschung !== null && rollover.loeschung.spieler > 0 ? rollover.loeschung : null;
 
   const blockedReason = rolloverBlockedReason({
     hasDrawnSpiele,
@@ -152,6 +191,12 @@ export function FormRolloverSection({
               )}
             </p>
 
+            {loeschung !== null && (
+              <p className="muted-hint">
+                <LoeschungsZeile loeschung={loeschung} />
+              </p>
+            )}
+
             <InlineBanners
               banners={banners}
               spot="umstellung"
@@ -225,6 +270,14 @@ export function FormRolloverSection({
                     ? `Saison ${saisonId} wird sofort öffentlich als laufende Saison angezeigt.`
                     : `Saison ${outgoing} ist danach abgeschlossen, und ${saisonId} wird sofort öffentlich als laufende Saison angezeigt. Es gibt in der Verwaltung keinen Weg zurück.`}
                 </p>
+                {/* The switch's word alone: with it off, this press deletes nobody, whatever the count above says it would. */}
+                {loeschung?.eingeschaltet === true && (
+                  <p className="fluid-xxs leading-normal font-medium text-foreground">
+                    {loeschung.spieler === 1
+                      ? "Dabei wird eine Person endgültig gelöscht."
+                      : `Dabei werden ${String(loeschung.spieler)} Spielerinnen und Spieler endgültig gelöscht.`}
+                  </p>
+                )}
               </ConfirmReveal>
             )}
 

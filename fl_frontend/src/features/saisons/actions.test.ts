@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { describe, it } from "node:test";
+import { beforeEach, describe, it } from "node:test";
 
+import { registerDoubles } from "@/core/exportingModule.ts";
 import { withoutPythonComments } from "@/core/pythonComments.ts";
-import { cacheCalls, doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
+import { cacheCalls, doubleActionRequest, loggedLines } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 import { answerShown, assertEachAnswered, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { saisonRules } from "@/shared/testing/saisonRules.ts";
@@ -15,11 +16,31 @@ import { mapActivateRefusal, mapRulesRefusal, mapSaisonIdRefusal, mapSpielplanRe
 import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
 import type { FLSaisonRules } from "./schemas.ts";
 
+/** The deletion's switch as the doubled config answers it, which a case sets: off where it sets nothing, as production. */
+let loeschungSwitch: string | undefined = "off";
+
 /* The real actions and their mutations, called: the request they run in and the backend client are the doubles. */
 doubleActionRequest();
+// A getter, so a case can move the switch the one loaded module reads.
+registerDoubles({
+  modules: {
+    "core/config.ts": {
+      frontend_config: {
+        get LOESCHUNG_SWEEP() {
+          return loeschungSwitch;
+        },
+      },
+    },
+  },
+});
 const { answerWith, calls } = doubleApiAnswers();
 const { activateSaisonAction, generateSpielplanAction, patchSaisonAction, postSaisonAction, swapGruppenAction, undrawSpielplanAction } =
   await import("./actions.ts");
+const { APIBadStatusError, APINetworkError } = await import("@/core/errors.ts");
+
+beforeEach(() => {
+  loeschungSwitch = "off";
+});
 
 const CREATE_OPERATION = "POST /saisons";
 const EDIT_OPERATION = "PATCH /saisons/{saison_id}";
@@ -507,5 +528,202 @@ describe("the German each widened refusal renders", () => {
   /* The pre-flight's own case compares the same declaration by calling. */
   it("answers the undated-matchday refusal with the declaration the closed press reads", () => {
     assert.equal(mapActivateRefusal(refusedOn(ACTIVATE_OPERATION, "REQ-ACTIVATE-004")), SPIELTAGE_UNDATED);
+  });
+});
+
+const LAUF = "/identitaet/loeschung/lauf";
+
+/** The activation's own message where it closed one season, as `landed` answers it. */
+const AKTIVIERT = `Saison ${SAISON_ID} ist jetzt aktiv. Die vorherige Saison ist abgeschlossen.`;
+
+/** One call of the deletion: whom it erased, and who is still due after it. */
+const gelaufen = (spieler: number, verbleibend: number, seit: string | null = "2025") => ({
+  acknowledged: 1,
+  abgeschlossene_saison_id: seit,
+  spieler: spieler,
+  saison_spieler: spieler * 2,
+  registrierungen: 0,
+  uebersprungen: 0,
+  fehlgeschlagen: 0,
+  verbleibend: verbleibend,
+});
+
+/** The activation landing, then each deletion call answered by the next of `laeufe`, the last repeating. */
+function aktivierungUndLaeufe(...laeufe: (() => Promise<unknown>)[]): void {
+  let lauf = 0;
+  answerWith((call) => {
+    if (call.endpoint !== LAUF) return Promise.resolve(landed(call));
+    const antwort = laeufe[Math.min(lauf, laeufe.length - 1)] ?? (() => Promise.resolve(gelaufen(0, 0)));
+    lauf += 1;
+    return antwort();
+  });
+}
+
+const laeufe = (): number => calls.filter(({ endpoint }) => endpoint === LAUF).length;
+
+/** The message of a press the action answered as saved, or a failure naming what it answered instead. */
+async function umgestellt(): Promise<string> {
+  const result = await activateSaisonAction({ id: SAISON_ID });
+  assert.equal(result.success, true, `the activation answered ${JSON.stringify(result)}`);
+  return result.success ? (result.message ?? "") : "";
+}
+
+describe("the deletion the activation runs", () => {
+  beforeEach(() => {
+    loeschungSwitch = "on";
+  });
+
+  /* The spine drops the tags once the body settles: a run behind the answer lands after the drop, and a squad page
+     names deleted pupils for days. One list reads the order rather than assuming it. */
+  it("runs after the activation until nobody is due, every tag dropped after the last run's answer", async () => {
+    const order: string[] = [];
+    let gelesen = 0;
+    const nachtragen = (): void => {
+      for (const { name, args } of cacheCalls.slice(gelesen)) order.push(`${name}(${args.join(", ")})`);
+      gelesen = cacheCalls.length;
+    };
+    const laeufeAntworten = [gelaufen(2, 1), gelaufen(1, 0)];
+    answerWith(async (call) => {
+      nachtragen();
+      if (call.endpoint !== LAUF) {
+        order.push(`${call.method ?? "GET"} ${call.endpoint}`);
+        return landed(call);
+      }
+      const antwort = laeufeAntworten.shift() ?? gelaufen(0, 0);
+      // A turn of the event loop before the answer lands, so a drop that does not wait on it runs first.
+      await new Promise((resolve) => setImmediate(resolve));
+      order.push(`answered ${call.endpoint}`);
+      return antwort;
+    });
+
+    const message = await umgestellt();
+    nachtragen();
+
+    assert.deepEqual(order, [
+      `POST /saisons/${SAISON_ID}/activate`,
+      `answered ${LAUF}`,
+      `answered ${LAUF}`,
+      "updateTag(saisons)",
+      "updateTag(spiele)",
+      "updateTag(spieltage)",
+      "updateTag(teams)",
+      "updateTag(spieler)",
+      "refresh()",
+    ]);
+    assert.equal(message, `${AKTIVIERT} 3 Spielerinnen und Spieler ohne Kadereintrag seit Saison 2025 wurden gelöscht.`);
+  });
+
+  it("calls nothing more and answers as before where the switch is off", async () => {
+    loeschungSwitch = "off";
+    aktivierungUndLaeufe(() => Promise.resolve(gelaufen(2, 0)));
+
+    assert.equal(await umgestellt(), AKTIVIERT);
+    assert.equal(laeufe(), 0, "the switch reads off and the press deleted");
+  });
+
+  it("deletes nobody where the activation was refused or not acknowledged", async () => {
+    answerWith((call) =>
+      call.endpoint === LAUF ? Promise.resolve(gelaufen(1, 0)) : Promise.reject(refusedOn(ACTIVATE_OPERATION, "REQ-ACTIVATE-001")),
+    );
+    assert.equal((await activateSaisonAction({ id: SAISON_ID })).success, false);
+
+    answerWith((call) => Promise.resolve(call.endpoint === LAUF ? gelaufen(1, 0) : { ...landed(call), acknowledged: 0 }));
+    assert.equal((await activateSaisonAction({ id: SAISON_ID })).success, false);
+
+    assert.equal(laeufe(), 0, "a season that did not turn active had its pupils deleted");
+  });
+
+  /* The activation is saved and stays so: answered as failed, the administrator presses again and a stale page
+     refuses, or answers a rollover nobody repeated. */
+  for (const [fall, fehler] of [
+    [
+      "a run the backend answers 500",
+      () =>
+        new APIBadStatusError({
+          message: "API returned a bad status.",
+          url: "http://backend:8000",
+          statusCode: 500,
+          serverErrorCode: "DB-FAIL-001",
+          endpoint: LAUF,
+          method: "POST",
+          readOnly: false,
+          traceId: "t".repeat(32),
+        }),
+    ],
+    [
+      "a run the network broke off",
+      () =>
+        new APINetworkError({
+          message: "Request failed.",
+          url: "http://backend:8000",
+          method: "POST",
+          readOnly: false,
+          traceId: "t".repeat(32),
+          isTimeout: false,
+        }),
+    ],
+  ] as const) {
+    it(`answers the activation saved after ${fall}, says what the hourly pass finishes, and still drops the tags`, async () => {
+      aktivierungUndLaeufe(
+        () => Promise.resolve(gelaufen(1, 4)),
+        () => Promise.reject(fehler()),
+      );
+
+      const message = await umgestellt();
+
+      assert.equal(
+        message,
+        `${AKTIVIERT} Eine Spielerin oder ein Spieler ohne Kadereintrag seit Saison 2025 wurde gelöscht. ` +
+          "Die Löschung ist nicht vollständig durchgelaufen. Was noch aussteht, löscht der nächste stündliche Durchlauf.",
+      );
+      assert.ok(
+        cacheCalls.some(({ name, args }) => name === "updateTag" && args[0] === "spieler"),
+        "the deletion that did land left the squad pages naming its pupils",
+      );
+      assert.deepEqual(
+        loggedLines.filter(({ message: line }) => line === "loeschung.umstellung_failed"),
+        [{ level: "error", message: "loeschung.umstellung_failed", meta: { error_code: "FE-SWEEP-001", name: fehler().name } }],
+      );
+    });
+  }
+
+  /* A person whose erasure fails stays due, and every call meets them again: the run ends on the call erasing
+     nobody. The answers bound the run, so a loop on `verbleibend` alone fails here rather than hanging. */
+  it("ends the run on a call that erased nobody, and says what remains", async () => {
+    aktivierungUndLaeufe(
+      () => Promise.resolve(gelaufen(2, 3)),
+      () => Promise.resolve(gelaufen(0, 3)),
+      () => Promise.resolve(gelaufen(0, 3)),
+      () => Promise.resolve(gelaufen(0, 0)),
+    );
+
+    const message = await umgestellt();
+
+    assert.equal(laeufe(), 2, "the run went on past a call that erased nobody");
+    assert.equal(
+      message,
+      `${AKTIVIERT} 2 Spielerinnen und Spieler ohne Kadereintrag seit Saison 2025 wurden gelöscht. 3 weitere Löschungen stehen noch aus.`,
+    );
+  });
+
+  it("words one deleted pupil and one remaining in the singular", async () => {
+    aktivierungUndLaeufe(
+      () => Promise.resolve(gelaufen(1, 1)),
+      () => Promise.resolve(gelaufen(0, 1)),
+    );
+
+    assert.equal(
+      await umgestellt(),
+      `${AKTIVIERT} Eine Spielerin oder ein Spieler ohne Kadereintrag seit Saison 2025 wurde gelöscht. Eine weitere Löschung steht noch aus.`,
+    );
+  });
+
+  /* No season `past`, as on the league's first activation: nobody is due, and a sentence counting zero reads as a
+     deletion that went wrong. */
+  it("adds nothing to the message where nobody was due", async () => {
+    aktivierungUndLaeufe(() => Promise.resolve(gelaufen(0, 0, null)));
+
+    assert.equal(await umgestellt(), AKTIVIERT);
+    assert.equal(laeufe(), 1);
   });
 });

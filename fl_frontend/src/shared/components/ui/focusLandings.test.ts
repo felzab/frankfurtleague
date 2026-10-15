@@ -415,7 +415,7 @@ const rollover = (saisonStatus: "future" | "active") =>
   h(FormRolloverSection, {
     saisonId: "2026",
     saisonStatus,
-    rollover: { outgoingSaisonId: null, offeneSpiele: [], hasUndatierteSpieltage: false },
+    rollover: { outgoingSaisonId: null, offeneSpiele: [], hasUndatierteSpieltage: false, loeschung: null },
     hasDrawnSpiele: true,
     onBeforeActivate: () => true,
     banners: [],

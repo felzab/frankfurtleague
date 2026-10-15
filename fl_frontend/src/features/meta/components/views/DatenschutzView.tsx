@@ -182,7 +182,7 @@ const FRISTEN = [
     daten:
       "Neue E-Mail-Adresse einer Schiedsrichterin oder eines Schiedsrichters, solange sie nicht bestätigt ist, dazu ihr Link als unlesbarer Schlüssel mit Versanddatum und Frist",
     frist:
-      "Bis die Adresse über ihren Link bestätigt oder abgelehnt wird oder die Verwaltung die Änderung verwirft; mit dem Eintrag wird sie gelöscht. Ihr Link gilt so lange wie der Bestätigungslink des Eintrags und wird durch jeden neuen ersetzt. Ist er abgelaufen, löschen wir die Adresse bei der jährlichen Löschung nach dem Ende der Registrierungsfrist",
+      "Bis die Adresse über ihren Link bestätigt oder abgelehnt wird oder die Verwaltung die Änderung verwirft; mit dem Eintrag wird sie gelöscht. Ihr Link gilt so lange wie der Bestätigungslink des Eintrags und wird durch jeden neuen ersetzt. Ist er abgelaufen, löschen wir die Adresse am Tag danach",
   },
   {
     daten: "Gesperrte E-Mail-Adresse, als unlesbarer Schlüssel, dazu der Grund, das Datum und die eintragende Person aus der Verwaltung",
@@ -220,7 +220,7 @@ const FRISTEN = [
   {
     daten: "Daten von Spielerinnen, Spielern und Schiedsrichtern",
     frist:
-      "Bei Spielerinnen und Spielern: solange die Teilnahme läuft, und darüber hinaus bis zu einer Löschung auf Wunsch; am Ende dieser Saison löschen wir einmalig die Daten aller Spielerinnen und Spieler. Bei Schiedsrichterinnen und Schiedsrichtern: bis die Verwaltung den Eintrag endgültig löscht, von sich aus oder weil Du es verlangst",
+      "Bei Spielerinnen und Spielern: bis zum Ende der Saison nach ihrer letzten Saison im Kader. Mit dem Beginn der Saison danach löschen wir ihre Daten, außer sie stehen wieder in einem Kader oder haben eine offene Registrierung. Auf Wunsch löschen wir früher. Am Ende dieser Saison löschen wir einmalig die Daten aller Spielerinnen und Spieler. Bei Schiedsrichterinnen und Schiedsrichtern: bis die Verwaltung den Eintrag endgültig löscht, von sich aus oder weil Du es verlangst",
   },
 ];
 

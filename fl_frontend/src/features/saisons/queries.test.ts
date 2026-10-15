@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
 import { beginRenderPass, itOpensAScopeThatMemoizes, serveServerReactTo } from "@/core/cacheScope.ts";
+import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
 
@@ -11,16 +12,27 @@ const FEATURE_URL = pathToFileURL(import.meta.dirname).href + "/";
 
 // An administrator's session: every admin-tier read resolves its actor from it before it is sent
 // (`fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`).
-doubleActionRequest();
+const { setSession } = doubleActionRequest();
+
+/** Every cache declaration a read made, which the request's own double answers by recording nothing. */
+const declared: string[] = [];
+// Registered after the request's doubles, so its `next/cache` answers before theirs.
+registerDoubles({
+  specifiers: {
+    "next/cache": { cacheTag: () => void declared.push("cacheTag"), cacheLife: () => void declared.push("cacheLife") },
+  },
+});
 
 // Replaced at the module boundary rather than the season code being reshaped to admit a seam: the
 // real client reaches a backend no test process runs, at a base URL no test run holds.
 /** Every request the doubled client was asked for, cumulative across every pass in this file. */
-const reads = doubleApiClient(() => ({ saisons: [{ id: "2526" }] }));
+const reads = doubleApiClient(({ endpoint }) =>
+  endpoint.endsWith("/loeschung/vorschau") ? { acknowledged: 1, abgeschlossene_saison_id: "2526", spieler: 4 } : { saisons: [{ id: "2526" }] },
+);
 
 serveServerReactTo((parentURL) => parentURL.startsWith(FEATURE_URL));
 
-const { getAdminSaisons } = await import("./queries.ts");
+const { getAdminSaisons, getLoeschungVorschau } = await import("./queries.ts");
 const { resolveSaisonId } = await import("./resolvers.ts");
 
 const adminReads = (): number => reads.filter(({ endpoint }) => endpoint === "/saisons/list/admin").length;
@@ -57,5 +69,38 @@ describe("the admin season list across a render pass", () => {
     const fetched = adminReads() - before;
     assert.notEqual(fetched, 0, "a new request was served the previous request's admin list");
     assert.equal(fetched, 1, "the admin season list went to the backend twice in one render pass");
+  });
+});
+
+describe("the deletion count the season page reads", () => {
+  /* Cached, the count keys on the season id alone: every administrator shares one slot, and a count from before
+     another season's activation names people already gone. */
+  it("is read on the admin tier in every pass, declaring no cache", async () => {
+    const before = reads.length;
+
+    beginRenderPass();
+    await getLoeschungVorschau("2627");
+    beginRenderPass();
+    await getLoeschungVorschau("2627");
+
+    assert.deepEqual(
+      reads.slice(before).map(({ endpoint, authType }) => [endpoint, authType]),
+      [
+        ["/saisons/2627/loeschung/vorschau", "admin"],
+        ["/saisons/2627/loeschung/vorschau", "admin"],
+      ],
+    );
+    assert.deepEqual(declared, [], "the administrator's count is declared into a cache every caller shares");
+  });
+
+  /* The admin tier's guard, which the page's layout does not give a page's own read (`docs/frontend/spec.md :: I122`). */
+  it("sends nothing for a session holding no administrator", async () => {
+    setSession(null);
+    const before = reads.length;
+
+    beginRenderPass();
+    await assert.rejects(getLoeschungVorschau("2627"));
+
+    assert.equal(reads.length, before, "the count was read for a session the guard turns away");
   });
 });

@@ -7,6 +7,7 @@ import { describe, it } from "node:test";
 import { createElement as h } from "react";
 
 import { render, screen } from "@testing-library/react";
+import { userEvent } from "@testing-library/user-event";
 
 import { SPIELTAGE_UNDATED } from "@/features/saisons/constants.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
@@ -29,7 +30,7 @@ const SAISON_ID = "2026";
 const OPEN: RolloverProps = {
   saisonId: SAISON_ID,
   saisonStatus: "future",
-  rollover: { outgoingSaisonId: null, offeneSpiele: [], hasUndatierteSpieltage: false },
+  rollover: { outgoingSaisonId: null, offeneSpiele: [], hasUndatierteSpieltage: false, loeschung: null },
   hasDrawnSpiele: true,
   onBeforeActivate: () => true,
   banners: [],
@@ -93,4 +94,80 @@ describe("the rollover panel's blocked states", () => {
     assert.equal(screen.getByRole("button", { name: `Auf Saison ${SAISON_ID} umstellen` }).getAttribute("aria-disabled"), null);
     unmount();
   });
+});
+
+/** The planned season with an incumbent to close, and whom its activation's deletion counts. */
+const mitLoeschung = (spieler: number, eingeschaltet: boolean): RolloverProps => ({
+  ...OPEN,
+  rollover: { ...OPEN.rollover, outgoingSaisonId: "2025", loeschung: { abgeschlosseneSaisonId: "2025", spieler, eingeschaltet } },
+});
+
+/** Every paragraph of the panel speaking of a deletion, as a reader meets it. */
+const loeschungsZeilen = (): string[] =>
+  screen
+    .queryAllByText((_, element) => element?.tagName === "P" && /gelöscht|Löschung/.test(element.textContent))
+    .map((element) => element.textContent);
+
+describe("the count beside the rollover press", () => {
+  /* What the operator reads before turning the switch on, and before pressing: counts only, never a name. */
+  for (const [spieler, eingeschaltet, satz] of [
+    [
+      3,
+      true,
+      "Mit der Umstellung werden 3 Spielerinnen und Spieler gelöscht, die seit Saison 2025 in keinem Kader stehen und keine offene Registrierung haben.",
+    ],
+    [1, true, "Mit der Umstellung wird eine Person gelöscht, die seit Saison 2025 in keinem Kader steht und keine offene Registrierung hat."],
+    [
+      3,
+      false,
+      "Die jährliche Löschung ist ausgeschaltet. Eingeschaltet würde die Umstellung 3 Spielerinnen und Spieler löschen, die seit Saison 2025 " +
+        "in keinem Kader stehen und keine offene Registrierung haben.",
+    ],
+    [
+      1,
+      false,
+      "Die jährliche Löschung ist ausgeschaltet. Eingeschaltet würde die Umstellung eine Person löschen, die seit Saison 2025 in keinem " +
+        "Kader steht und keine offene Registrierung hat.",
+    ],
+  ] as const) {
+    it(`states ${String(spieler)} ${eingeschaltet ? "to be deleted" : "the switched-off press would delete"} in the body`, () => {
+      const { unmount } = render(panel(mitLoeschung(spieler, eingeschaltet)));
+
+      assert.deepEqual(loeschungsZeilen(), [satz]);
+      unmount();
+    });
+  }
+
+  /* Nothing happens, so nothing is said: a line counting zero reads as a deletion about to happen, and the page has
+     no season to count from where none closes. */
+  it("says nothing where nobody is due or the activation closes no season", () => {
+    for (const props of [OPEN, mitLoeschung(0, true), mitLoeschung(0, false)]) {
+      const { unmount } = render(panel(props));
+
+      assert.deepEqual(loeschungsZeilen(), []);
+      unmount();
+    }
+  });
+
+  /* The confirmation repeats the count on the switch's word alone: with it off, the press deletes nobody. */
+  for (const [spieler, eingeschaltet, satz] of [
+    [3, true, "Dabei werden 3 Spielerinnen und Spieler endgültig gelöscht."],
+    [1, true, "Dabei wird eine Person endgültig gelöscht."],
+    [3, false, null],
+  ] as const) {
+    it(`${satz === null ? "promises no deletion" : "states the deletion"} in the confirmation with ${String(spieler)} due and the switch ${eingeschaltet ? "on" : "off"}`, async () => {
+      const user = userEvent.setup();
+      const { unmount } = render(panel(mitLoeschung(spieler, eingeschaltet)));
+
+      await user.click(screen.getByRole("button", { name: `Auf Saison ${SAISON_ID} umstellen` }));
+      await screen.findByRole("button", { name: `Ja, auf ${SAISON_ID} umstellen` });
+      const bestaetigung = [...screen.getByRole("alert").querySelectorAll("p")].map((absatz) => absatz.textContent);
+
+      assert.deepEqual(
+        bestaetigung.filter((absatz) => absatz.includes("gelöscht")),
+        satz === null ? [] : [satz],
+      );
+      unmount();
+    });
+  }
 });

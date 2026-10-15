@@ -378,7 +378,7 @@ const PANELS: Record<string, Arming[]> = {
           el(C.rollover, {
             saisonId: "2026",
             saisonStatus: "future",
-            rollover: { outgoingSaisonId: null, offeneSpiele: [], hasUndatierteSpieltage: false },
+            rollover: { outgoingSaisonId: null, offeneSpiele: [], hasUndatierteSpieltage: false, loeschung: null },
             hasDrawnSpiele: true,
             onBeforeActivate: () => true,
             banners: [],

@@ -48,7 +48,7 @@ const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
  * The „Stand“ and the words it dates, frozen together: a reader told nothing changed since that day
  * has been misled by any edit that left the date standing.
  */
-const FASSUNG = { stand: "15. Oktober 2026", digest: "563a34ff1b6f5cdde6e3809d1f588609eb86e06c225bdba22ed2c05d92073b5c" } as const;
+const FASSUNG = { stand: "15. Oktober 2026", digest: "98b54ce2118866b3837f6b7945c6f1bef1f53e502c411a80f6afad5b6afb4d75" } as const;
 
 /** Every word the page renders but its date, so moving the date alone never passes for moving the words. */
 const wortlautDigest = (): string =>
@@ -197,8 +197,9 @@ describe("the privacy notice's retention table", () => {
     );
   });
 
-  /* The address may be a stranger's, so its retention is stated with the clock that ends it once its link has lapsed. */
-  it("gives a referee's unconfirmed new address its retention and the removal once its link has lapsed", () => {
+  /* The address may be a stranger's, so its retention is stated with the clock that ends it once its link has lapsed:
+     the hourly pass removes it the day after (`fl_frontend/src/features/bewerbungen/sweep.ts :: runBewerbungSweep`). */
+  it("gives a referee's unconfirmed new address its retention and the removal the day after its link lapsed", () => {
     assert.equal(
       ANGABEN.get(
         "Neue E-Mail-Adresse einer Schiedsrichterin oder eines Schiedsrichters, solange sie nicht bestätigt ist, dazu ihr " +
@@ -206,7 +207,7 @@ describe("the privacy notice's retention table", () => {
       ),
       "Bis die Adresse über ihren Link bestätigt oder abgelehnt wird oder die Verwaltung die Änderung verwirft; mit dem Eintrag " +
         "wird sie gelöscht. Ihr Link gilt so lange wie der Bestätigungslink des Eintrags und wird durch jeden neuen ersetzt. Ist er abgelaufen," +
-        " löschen wir die Adresse bei der jährlichen Löschung nach dem Ende der Registrierungsfrist",
+        " löschen wir die Adresse am Tag danach",
     );
   });
 
@@ -709,8 +710,20 @@ describe("the privacy notice's publication and retention rows keep their ruled b
     );
   });
 
-  /* A referee kept only while taking part would close the cell on „bis zu einer Löschung auf Wunsch“,
-     words the players' half carries too, so the referee half is read by its own words and the end apart. */
+  /* The season-after rule, which activating a season runs: a cell keeping a pupil while taking part alone would
+     promise a deletion nothing triggers (`fl_frontend/src/features/saisons/actions.ts :: activateSaisonAction`). */
+  it("keeps a pupil until the season after their last squad season ends, and once resets every pupil", () => {
+    assert.equal(
+      ANGABEN.get("Daten von Spielerinnen, Spielern und Schiedsrichtern"),
+      "Bei Spielerinnen und Spielern: bis zum Ende der Saison nach ihrer letzten Saison im Kader. Mit dem Beginn der Saison danach " +
+        "löschen wir ihre Daten, außer sie stehen wieder in einem Kader oder haben eine offene Registrierung. Auf Wunsch löschen wir " +
+        "früher. Am Ende dieser Saison löschen wir einmalig die Daten aller Spielerinnen und Spieler. Bei Schiedsrichterinnen und " +
+        "Schiedsrichtern: bis die Verwaltung den Eintrag endgültig löscht, von sich aus oder weil Du es verlangst",
+    );
+  });
+
+  /* A referee kept only while taking part would close the cell on „bis zu einer Löschung auf Wunsch“, so the referee
+     half is read by its own words and the end apart. */
   it("keeps a referee until the entry is deleted rather than only while taking part", () => {
     const zeile = ANGABEN.get("Daten von Spielerinnen, Spielern und Schiedsrichtern") ?? "";
 

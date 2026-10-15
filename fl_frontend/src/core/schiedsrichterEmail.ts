@@ -163,9 +163,9 @@ export interface SchiedsrichterAdresswechselData {
 }
 
 // For the holder of a mailbox an administrator mistyped. No „ignoriere“: ignoring leaves the address
-// stored, and the page takes the decline past the link's deadline too.
+// stored until the hourly pass removes it, the day after the link lapses.
 const adresseIgnorierSatz =
-  "Ist das nicht Deine Adresse? Dann wähle auf der Seite „Das ist nicht meine Adresse“, auch wenn der Link schon abgelaufen ist; wir entfernen sie dann sofort.";
+  "Ist das nicht Deine Adresse? Dann wähle auf der Seite „Das ist nicht meine Adresse“. Wir entfernen sie dann sofort. Tust Du nichts, löschen wir sie am Tag nach Ablauf des Links.";
 
 /**
  * The link to a confirmed referee's new address. It asks nothing but whether the mailbox is theirs:
