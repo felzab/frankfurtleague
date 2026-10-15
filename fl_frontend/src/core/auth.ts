@@ -318,22 +318,12 @@ async function refuseEnrolment(
   if (credentialID !== undefined && held.some((row) => row.credentialID === credentialID)) throw APIError.fromStatus("NOT_FOUND");
 }
 
-// The server's code for a write refused over another transaction's write to the same document; the
-// driver exports no name for it.
-const WRITE_CONFLICT = 112;
-
-// The server's code for an insert a unique index refused; the driver exports no name for it either.
+// The server's code for an insert a unique index refused; the driver exports no name for it.
 const DUPLICATE_KEY = 11000;
 
 /** A second row for a credential `fl_frontend/src/core/authIndexes.ts` already holds one of. */
 function isDuplicateCredential(failed: unknown): boolean {
   return failed instanceof MongoServerError && failed.code === DUPLICATE_KEY && "credentialID" in (failed.keyPattern ?? {});
-}
-
-function isWriteConflict(failed: unknown): boolean {
-  // The code, not the `TransientTransactionError` label: the driver labels a lost connection and a
-  // stepped-down primary that way too, and neither is another change to these passkeys.
-  return failed instanceof MongoServerError && failed.code === WRITE_CONFLICT;
 }
 
 /** Named, because the library's failure line records an error's name and nothing else. */
@@ -735,8 +725,9 @@ const LIBRARY_EVENTS: readonly (readonly [string, string])[] = [
   ["Invalid errorCallbackURL", "auth.callback_refused"],
   ["Invalid newUserCallbackURL", "auth.callback_refused"],
   ["Blocked cross-site navigation login attempt", "auth.cross_site_login_blocked"],
-  // The adapter's own line, `fl_frontend/patches/@better-auth__mongo-adapter@1.7.7.patch` (`docs/frontend/spec.md :: I537`).
-  ["Transaction left open", "auth.transaction_left_open"],
+  // The adapter's line for an abort after a failed commit that failed too, which leaves the transaction
+  // open on the server (`@better-auth/mongo-adapter :: abortTransactionCommand`, `docs/frontend/spec.md :: I537`).
+  ["Failed to abort a MongoDB transaction", "auth.transaction_left_open"],
 ];
 
 const LIBRARY_EVENT_UNKNOWN = "auth.library_failed";
@@ -899,9 +890,9 @@ const authOptions = (origin: URL, client: MongoClient) =>
         // `fl_frontend/src/core/logFormat.ts :: serializeError` writes with its message and stack.
         const raised = args.find((argument) => argument instanceof Error);
 
-        // One authenticator enrolled twice at once: the credential index refuses the second row, inside a set-up's
-        // transaction as a write conflict. Any conflict there maps here, so a write added to that transaction joins it.
-        if (message.startsWith(REGISTRATION_FAILED) && (isDuplicateCredential(raised) || isWriteConflict(raised))) {
+        // One authenticator enrolled twice at once by enrolments that sign nobody in: the credential index refuses the
+        // second row. A set-up that signs in conflicts inside a transaction the adapter retries, and the retry is refused 404.
+        if (message.startsWith(REGISTRATION_FAILED) && isDuplicateCredential(raised)) {
           logger.warn("auth.passkey_enrolment_conflict", { error_code: "FE-AUTH-005" });
           return;
         }
@@ -1159,9 +1150,9 @@ const authOptions = (origin: URL, client: MongoClient) =>
 
       passkeyLastUse(),
 
-      // No `customSession` while its read answers a store that does not answer as no session: until a
-      // release lets that failure throw, `projected` below builds the guards' copy over the library's
-      // own read (`docs/frontend/spec.md :: I519`).
+      // No `customSession`: it reshapes `/get-session`, which `DISABLED_PATHS` closes to every browser, so
+      // `readLibrarySession` would be its one reader, and `projected` below already builds that reader's
+      // copy over the library's own read (`docs/frontend/spec.md :: I198`).
 
       // Last, which the library warns about: it copies a response's `set-cookie` into Next's store.
       nextCookies(),
@@ -1260,7 +1251,7 @@ export async function passkeysOf(userId: string): Promise<Passkey[]> {
 }
 
 /** What a removal found inside its transaction, each answered differently by the one caller. */
-type PasskeyRemoval = "removed" | "last" | "absent" | "conflict";
+type PasskeyRemoval = "removed" | "last" | "absent";
 
 /**
  * One transaction around the count, the claim, the delete and the sign-out: two removals started
@@ -1276,24 +1267,22 @@ export async function removePasskey(holder: { readonly id: string; readonly verw
 
   try {
     return await adapter.transaction(async (held) => {
+      // Cleared on every run: the adapter runs this again after a commit that failed transiently, and
+      // a throw from that run rolled back like the first run's would.
+      committing = false;
       const outcome = await removeInside(held);
       committing = true;
       return outcome;
     });
   } catch (failed) {
-    // Tested on the whole transaction rather than on the claim alone: another device refreshing or
-    // ending its own session meets the sign-out above the same way.
-    if (!isWriteConflict(failed)) throw committing ? failed : new RolledBackError(failed);
-
-    // The line is the record: the holder is refused, and nothing else notes that the removal met a
-    // change to their passkeys or sessions.
-    logger.warn("auth.passkey_removal_conflict", { error_code: "FE-AUTH-005" });
-    return "conflict";
+    // No conflict reaches here as one: the adapter retries a write conflict on a fresh snapshot, which
+    // answers the other change's result, until the client's `timeoutMS` turns it into a timeout.
+    throw committing ? failed : new RolledBackError(failed);
   }
 
   async function removeInside(
     held: Pick<DBTransactionAdapter, "findOne" | "count" | "update" | "delete" | "deleteMany">,
-  ): Promise<Exclude<PasskeyRemoval, "conflict">> {
+  ): Promise<PasskeyRemoval> {
     // The adapter hands itself back where it opens no transaction, and there the claim below
     // conflicts with nothing: refused rather than admitted unguarded.
     if (held === adapter) throw new RemovalOutsideTransaction();

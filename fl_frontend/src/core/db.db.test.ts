@@ -349,8 +349,8 @@ describe("the sign-in store's client bounds every operation it sends (`docs/fron
     const otp = await auth.api.createVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" } });
     logged.length = 0;
 
-    // Two bounds: the abort the client sends after a failed commit takes one of its own
-    // (`fl_frontend/patches/@better-auth__mongo-adapter@1.7.7.patch`).
+    // Two bounds: the abort the adapter sends after a failed commit takes one of its own
+    // (`@better-auth/mongo-adapter :: abortTransactionCommand`).
     const outcome = await relay.hangFrom("commitTransaction", () =>
       settledWithin(OPERATION_BOUND * 2, "the hung commit", () =>
         auth.api.signInEmailOTP({ body: { email: ADMIN_EMAIL, otp }, headers: new Headers(ORIGIN), returnHeaders: true }),
