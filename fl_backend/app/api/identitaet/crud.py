@@ -696,7 +696,7 @@ async def after_the_erasure_commits(
 async def unreferenced_of(
     identifiers: Sequence[str], records: RecordCollections, *, berechtigungen_collection: AsyncCollection, sperrliste: BanList
 ) -> list[str]:
-    """Which of these addresses no record references and no ban holds (`docs/backend/spec.md :: I_NEW_S11-BE_1`).
+    """Which of these addresses no record references and no ban holds (`docs/backend/spec.md :: I698`).
 
     Each collection is read once for the whole batch rather than once per address, which is what
     `app/shared/schemas/bounds.py :: REFERENZEN_ADRESSEN_MAX` is measured against.

@@ -424,7 +424,7 @@ def find_letzter_inhaber_erasure_refusal(*, identifier: str, grants: Iterable[Ma
 
 
 # --- The REFERENCES: wider than the own records and than the sign-in gate alike
-# (`docs/backend/spec.md :: I_NEW_S11-BE_1`). Each selection is the one its record's own reads take
+# (`docs/backend/spec.md :: I698`). Each selection is the one its record's own reads take
 # for one address, asked for a batch.
 
 # An `$or` of those filters rather than one pattern taking every address, which costs a twelfth as
@@ -480,7 +480,7 @@ def referenced_addresses(
     registrierung_rows: Iterable[Mapping[str, Any]],
     grant_rows: Iterable[Mapping[str, Any]],
 ) -> frozenset[str]:
-    """Every address, on the sign-in fold, that one of these records names (`docs/backend/spec.md :: I_NEW_S11-BE_1`)."""
+    """Every address, on the sign-in fold, that one of these records names (`docs/backend/spec.md :: I698`)."""
 
     stored = (
         *(seat_address(row, slot) for row in seat_rows for slot in KONTAKT_ROLLEN),
