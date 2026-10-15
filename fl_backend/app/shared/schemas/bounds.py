@@ -133,6 +133,10 @@ AKTEUR_PSEUDONYM_SHOWN: Final = 8
 # second route in.
 SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE: Final = 14
 
+# How long a pupil's new address has to confirm its link; a re-send restarts it. The referee's figure
+# and its own constant, for the floors' reason below: the two links wait on different people.
+SPIELER_ADRESSWECHSEL_FRIST_TAGE: Final = 14
+
 # The age a referee consents at. Its own constant rather than the application contact's, though the
 # numbers agree: the two floors are separate judgements, so raising one must not silently raise the
 # other.

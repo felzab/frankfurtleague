@@ -48,6 +48,7 @@ from app.api.sperrliste.admin_router import router as sperrliste_admin_router
 from app.api.spiele.admin_router import router as spiele_admin_router
 from app.api.spiele.router import router as spiele_router
 from app.api.spieler.admin_router import router as spieler_admin_router
+from app.api.spieler.adresswechsel_router import router as spieler_adresswechsel_router
 from app.api.spieler.person_router import router as spieler_person_router
 from app.api.spieler.router import router as spieler_router
 from app.api.spieler.selbst_router import router as spieler_selbst_router
@@ -145,6 +146,7 @@ PUBLIC_ROUTERS = (
     registrierungen_einwilligung_router,
     schiedsrichter_bestaetigung_router,
     schiedsrichter_adresswechsel_router,
+    spieler_adresswechsel_router,
 )
 # Its own group for the same reason: system-tier operations the application makes to itself, which
 # neither tuple above describes. A POST that stores nothing sits here too, both guard sheets listing

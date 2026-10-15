@@ -401,19 +401,19 @@ Every ruling below is the sign-up flow as it stands for the next season.
   (`REQ-RETIRE-004`) has nothing left to refuse. A fixture played or called off keeps its booking
   and its own `payment` under the ghost: that is the league's record of the match, not of the
   person. A person who officiates again is entered as a new referee.
-- **A referee's pending new address goes with that referee's erasure, and its own holder's request
-  is answered by removing it.** Until it confirms, that mailbox owns nothing of the row, so
-  its holder is not the person the referee's erasure is about: the holder's own erasure removes the
-  block alone and leaves the row standing (`docs/backend/spec.md :: I668`). That erasure, the link's
-  own decline and `DELETE /schiedsrichter/{schiedsrichter_id}/adresswechsel` each remove the address
-  and take it out of every image the action log holds of the referee, since every write on the row
-  while the change stood, a re-send included, filed one carrying it (`docs/backend/spec.md :: I562`,
-  `:: I670`).
-  The rest of each image stays, the referee's own earlier consent states among it, as a contact
+- **A referee's or a pupil's pending new address goes with that person's erasure, and its own
+  holder's request is answered by removing it.** Until it confirms, that mailbox owns nothing of the
+  row, so its holder is not the person the row's erasure is about: the holder's own erasure removes
+  the block alone and leaves the row standing (`docs/backend/spec.md :: I668`). That erasure, the
+  link's own decline and `DELETE /schiedsrichter/{schiedsrichter_id}/adresswechsel` or
+  `DELETE /spieler/{spieler_id}/adresswechsel` each remove the address and take it out of every image
+  the action log holds of the row, since every write on it while the change stood, a re-send
+  included, filed one carrying it (`docs/backend/spec.md :: I562`, `:: I670`).
+  The rest of each image stays, the person's own earlier consent states among it, as a contact
   person's Widerspruch leaves the people beside them theirs (`docs/backend/spec.md :: I42`). A save
-  replacing the pending address with another mailbox's takes it out the same way, the replaced
-  address being one nobody proved either. `POST /kontakte/erasure` reaches no referee row, a pending
-  address included.
+  or a request replacing the pending address with another mailbox's takes it out the same way, the
+  replaced address being one nobody proved either. `POST /kontakte/erasure` reaches neither row, a
+  pending address included.
 - **An erasure keyed on an email address names what it reaches.** Every seat the address holds is
   its one person's (the entry below), and each is listed for confirmation before the write — by name
   and by the season it sits in, read through `POST /kontakte/erasure/ansicht` rather than inferred on
@@ -700,6 +700,11 @@ Every ruling below is the sign-up flow as it stands for the next season.
   not built yet, so until it is a lapsed change stands, marked as lapsed to the administrator, who
   can discard it; the published notice already states the removal
   (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-10-06.
+- **A pupil's pending new address stands until its holder confirms or declines it, an administrator
+  replaces or discards it, or the pupil is erased with it, and it is removed the day after its link
+  lapses** (`fl_backend/app/core/domain.py :: FIELD_POLICIES`), for the referee's reason above. Its
+  link lasts fourteen days and a re-send restarts them
+  (`fl_backend/app/shared/schemas/bounds.py :: SPIELER_ADRESSWECHSEL_FRIST_TAGE`). Ruled 2026-10-15.
 - **A ban on an email address is kept for five full seasons after the one it was entered under, and
   the person it bars is told so at the moment it is entered where the address holds an account; an
   address holding none is mailed nothing** (`docs/frontend/spec.md :: I517`). Ruled 2026-09-27.
