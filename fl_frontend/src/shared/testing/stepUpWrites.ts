@@ -285,7 +285,6 @@ export const STEP_UP_CALLERS: Readonly<Record<string, Readonly<Record<string, St
   },
   "features/kontakte/components/forms/AdminKontakteEditForm/FormKontaktEinladen.tsx": { einladeKontaktAction: "one-press" },
   "features/kontakte/components/forms/AdminKontakteEditForm/FormKontakteLoeschenSection.tsx": { patchSaisonTeamKontakteAction: "two-press" },
-  "features/kontakte/components/forms/AdminKontakteEditForm/FormKontaktErasure.tsx": { eraseKontaktpersonAction: "two-press" },
   "features/saisons/components/forms/AdminCreateSaisonForm.tsx": { postSaisonAction: "create" },
   "features/saisons/components/forms/AdminSaisonEditForm/FormEinladungVersandSection.tsx": { postEinladungVersandAction: "two-press" },
   "features/saisons/components/forms/AdminSaisonEditForm/FormRolloverSection.tsx": { activateSaisonAction: "two-press" },
@@ -300,9 +299,6 @@ export const STEP_UP_CALLERS: Readonly<Record<string, Readonly<Record<string, St
     patchSchiedsrichterAction: "one-press",
     undoAdminSchiedsrichterEditAction: "undo",
   },
-  "features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormAnonymisierenSection.tsx": {
-    anonymiseSchiedsrichterAction: "two-press",
-  },
   "features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormBestaetigungSection.tsx": {
     einladeSchiedsrichterAction: "one-press",
   },
@@ -315,7 +311,6 @@ export const STEP_UP_CALLERS: Readonly<Record<string, Readonly<Record<string, St
   "features/berechtigungen/components/forms/AdminCreateBerechtigungForm.tsx": { postBerechtigungAction: "create" },
   "features/berechtigungen/components/forms/AdminBerechtigungEntziehenPanel.tsx": { deleteBerechtigungAction: "two-press" },
   "features/berechtigungen/components/forms/AdminBerechtigungStufePanel.tsx": { patchBerechtigungAction: "two-press" },
-  "features/spieler/components/forms/AdminSpielerEditForm/FormLoeschenSection.tsx": { eraseSpielerAction: "two-press" },
   "features/teams/components/forms/AdminTeamEditForm/FormEinladungSection.tsx": {
     postEinladungAction: "two-press",
     deleteEinladungAction: "two-press",

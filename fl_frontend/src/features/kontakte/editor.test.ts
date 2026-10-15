@@ -66,7 +66,7 @@ const { raised: toasts } = doubleToasts();
 // (`fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`).
 doubleActionRequest();
 
-/** Each navigation a control makes, which both destructive controls and both ways out are judged by. */
+/** Each navigation a control makes, which the destructive control and both ways out are judged by. */
 const { router, seen } = recordingRouter();
 
 beforeEach(() => {
@@ -135,7 +135,6 @@ const bannersFor = (state: Partial<Parameters<typeof buildKontakteBanners>[0]>):
     ...state,
   });
 
-/** One stored seat. The ADDRESS is what decides whether that seat offers the person's erasure. */
 /** A number per person: two seats sharing one are refused as one person entered twice. */
 const TELEFON: Record<string, string> = { Ada: "069 501", Grace: "069 502", Alan: "069 503" };
 
@@ -155,20 +154,12 @@ const BLOCK: FLSaisonTeamKontakte = {
   trainer_ist_zugleich: null,
 };
 
-/** The same three without an address, so no seat offers the erasure and its own rule stays out. */
-const BLOCK_WITHOUT_ADDRESS: FLSaisonTeamKontakte = {
-  ...BLOCK,
-  trainer: seatPerson("Ada", "Byron", ""),
-  ansprechperson: seatPerson("Grace", "Hopper", ""),
-  stellvertretung: seatPerson("Alan", "Turing", ""),
-};
-
 /** Three empty seats: what an erasure leaves, and the state neither surface may explain. */
 const BLOCK_EMPTY: FLSaisonTeamKontakte = { trainer: null, ansprechperson: null, stellvertretung: null, trainer_ist_zugleich: null };
 
 /**
- * The three contexts the editor's own subtree reads and no prop carries: the router both destructive
- * controls hold, the query the way out rides, and the status each field label looks itself up in.
+ * The three contexts the editor's own subtree reads and no prop carries: the router the destructive
+ * control holds, the query the way out rides, and the status each field label looks itself up in.
  */
 const editorElement = (node: ReactNode, kontakte: FLSaisonTeamKontakte | null): ReactNode =>
   underNext(
@@ -263,14 +254,6 @@ async function saved(): Promise<void> {
   await settle();
 }
 
-/** Until the read an armed press is confirmed over has released it, for `saved`'s reason. */
-async function armedReady(armed: string): Promise<void> {
-  await act(answered);
-  await waitFor(() =>
-    assert.notEqual(screen.getByRole("button", { name: armed }).getAttribute("data-pending"), "true", "the read is still running"),
-  );
-}
-
 /** Until a destructive write has answered with its toast, so its answer lands inside the case that pressed it. */
 async function toastedSince(before: number): Promise<void> {
   await act(answered);
@@ -315,15 +298,6 @@ const unconfirmed = (vorname: string, nachname: string, email: string): FLKontak
   email,
   einwilligung: { ...ADA.einwilligung, erfasst_von: "administrativ", bestaetigt_am: null },
 });
-
-/** Three people and one address among them, so the page offers exactly one person's erasure. */
-const ONE_ADDRESS: FLSaisonTeamKontakte = { ...BLOCK_WITHOUT_ADDRESS, ansprechperson: seatPerson("Grace", "Hopper", "grace@example.org") };
-
-/** What the erasure's arming read answers: one seat, in a season this page does not show. */
-const ERASURE_READ = {
-  success: true,
-  ansicht: { acknowledged: 1, saison_teams: [{ saison_id: "2425", rolle: "trainer", vorname: "Grace", nachname: "Hopper" }], bewerbungen: [] },
-};
 
 /** The editor page's address: the club the answers below hold, in the season they hold it in. */
 const PAGE_PROPS = { params: Promise.resolve({ team_id: OBJECT_ID }), searchParams: Promise.resolve({ saison_id: "2526" }) };
@@ -1450,9 +1424,7 @@ describe("how the editor divides one person from the next", () => {
   /* The lighter rule stays where it belongs: INSIDE a person, between their details and the
      Kenntnisnahme. One depth, one drawing. */
   it("keeps exactly one rule inside a seat, for the Kenntnisnahme", () => {
-    /* No address in any seat, so none offers the person's erasure: that control draws its own rule
-       from its own file, and what this case is about is the division inside one person. */
-    for (const { body } of seatCards(sectionMarkup(BLOCK_WITHOUT_ADDRESS))) {
+    for (const { body } of seatCards(sectionMarkup(BLOCK))) {
       const seatRules = [...body.matchAll(RULE_CLASS)].map((found) => found[0]);
 
       assert.equal(seatRules.length, 1, `the seat draws ${String(seatRules.length)} rules where the Kenntnisnahme needs one`);
@@ -1465,110 +1437,45 @@ describe("how the editor divides one person from the next", () => {
     /* Counted over the whole section as well: a rule drawn BETWEEN the cards sits inside no seat's body,
        so every count above passes while the two depths are back to being drawn alike. */
     assert.equal(
-      [...sectionMarkup(BLOCK_WITHOUT_ADDRESS).matchAll(RULE_CLASS)].length,
-      seatCards(sectionMarkup(BLOCK_WITHOUT_ADDRESS)).length,
+      [...sectionMarkup(BLOCK).matchAll(RULE_CLASS)].length,
+      seatCards(sectionMarkup(BLOCK)).length,
       "the section draws a rule outside a seat",
     );
   });
 });
 
-describe("what the two destructive controls do to the page", () => {
-  /* Both write on the server and then re-read the page, so an unsaved draft would be diffed against a
+describe("what the season's clearing does to the page", () => {
+  /* It writes on the server and then re-reads the page, so an unsaved draft would be diffed against a
      baseline that moved underneath it. Every one-way control here guards the same way. */
-  it("refuses to write over unsaved work, on both", async () => {
+  it("refuses to write over unsaved work", async () => {
     const user = userEvent.setup({ delay: null });
-    render(editorElement(viewElement(ONE_ADDRESS), ONE_ADDRESS));
+    render(editorElement(viewElement(BLOCK), BLOCK));
     await user.type(screen.getAllByRole("textbox", { name: "Telefon" })[0] ?? assert.fail("the seats render no telephone box"), "2");
 
-    await user.click(screen.getByRole("button", { name: "Kontaktperson löschen" }));
     await user.click(screen.getByRole("button", { name: "Kontakte löschen" }));
 
     assert.deepEqual(
       toasts.map(({ variant, title, description }) => [variant, title, description]),
-      [
-        ["warning", "Erst speichern", DRAFT_DISCARDED],
-        ["warning", "Erst speichern", DRAFT_DISCARDED],
-      ],
-      "a destructive control pressed over an unsaved draft does not say why it refused",
+      [["warning", "Erst speichern", DRAFT_DISCARDED]],
+      "the clearing pressed over an unsaved draft does not say why it refused",
     );
-    assert.equal(screen.queryAllByRole("button", { name: /^Ja, / }).length, 0, "a destructive control armed over an unsaved draft");
-    assert.deepEqual(calls, [], "a destructive control asked or wrote over an unsaved draft");
+    assert.equal(screen.queryAllByRole("button", { name: /^Ja, / }).length, 0, "the clearing armed over an unsaved draft");
+    assert.deepEqual(calls, [], "the clearing wrote over an unsaved draft");
   });
 
   /* The row is the team BEING IN the season, so clearing its contacts cannot remove it. Navigating to
      a list that still shows the entry would read as a failed delete. */
-  it("stays on the page and leaves the re-read to the action, on both", async () => {
-    for (const [resting, armed] of [
-      ["Kontaktperson löschen", "Ja, Kontaktperson endgültig löschen"],
-      ["Kontakte löschen", "Ja, Kontakte dieser Saison endgültig löschen"],
-    ] as const) {
-      const user = userEvent.setup({ delay: null });
-      const { unmount } = render(editorElement(viewElement(ONE_ADDRESS), ONE_ADDRESS));
-      answerWith(() => Promise.resolve(ERASURE_READ));
-      const before = toasts.length;
-      await pressTwice(user, {
-        resting,
-        armed,
-        whileArmed: async () => {
-          await armedReady(armed);
-          answerWith(() => Promise.resolve({ success: true, cleared: 1, message: "Gelöscht." }));
-        },
-      });
-      await toastedSince(before);
-      await settle();
-
-      // The re-read comes back with the action's own answer, so a second one from here re-renders nothing new.
-      assert.deepEqual([seen.refresh, seen.pushed, seen.replaced], [0, [], []], `${resting} leaves the page, or reads it a second time`);
-      unmount();
-    }
-  });
-
-  /* On a page showing one season, an erasure without its reach spelled out reads as clearing this seat.
-     The ADDRESS keys both the read and the write; the list itself is
-     `fl_frontend/src/features/kontakte/components/forms/AdminKontakteEditForm/FormKontaktReveal.test.ts`'s. */
-  it("reads whom the address holds before the write can be confirmed", async () => {
-    const user = userEvent.setup({ delay: null });
-    render(editorElement(viewElement(ONE_ADDRESS), ONE_ADDRESS));
-    answerWith(() => Promise.resolve(ERASURE_READ));
-    const before = toasts.length;
-
-    await pressTwice(user, {
-      resting: "Kontaktperson löschen",
-      armed: "Ja, Kontaktperson endgültig löschen",
-      whileArmed: async () => {
-        await armedReady("Ja, Kontaktperson endgültig löschen");
-        assert.ok(document.body.textContent.includes("Saison 2425 · Trainer"), "the armed panel names none of the seats the write would clear");
-        answerWith(() => Promise.resolve({ success: true, cleared: 1, message: "Gelöscht." }));
-      },
-    });
-    await toastedSince(before);
-
-    assert.deepEqual(calls, [
-      { action: "readKontaktErasureAnsichtAction", payload: { email: "grace@example.org" } },
-      { action: "eraseKontaktpersonAction", payload: { email: "grace@example.org" } },
-    ]);
-  });
-
-  /* The season's own delete sends a reader who wants a person gone everywhere to a control by name, and
-     a name that control does not carry sends them looking for nothing. */
-  it("names the person's erasure by the words its control carries", async () => {
+  it("stays on the page and leaves the re-read to the action", async () => {
     const user = userEvent.setup({ delay: null });
     render(editorElement(viewElement(BLOCK), BLOCK));
-    const erasure =
-      screen
-        .getAllByRole("heading", { level: 4 })
-        .map((heading) => heading.textContent.trim())
-        .find((title) => title.endsWith("löschen")) ?? "";
+    answerWith(() => Promise.resolve({ success: true, message: "Gelöscht." }));
+    const before = toasts.length;
+    await pressTwice(user, { resting: "Kontakte löschen", armed: "Ja, Kontakte dieser Saison endgültig löschen" });
+    await toastedSince(before);
+    await settle();
 
-    assert.notEqual(erasure, "", "no seat renders the person's erasure, so the name below is compared to nothing");
-
-    // Behind a press: the sentence naming it stands in the clear section's hint, which is an overlay.
-    await user.click(screen.getByRole("button", { name: "Hinweis zum Löschen der Kontakte" }));
-
-    assert.ok(
-      screen.getByRole("dialog").textContent.includes(`„${erasure}“`),
-      `the season's delete sends the reader to a control not called „${erasure}“`,
-    );
+    // The re-read comes back with the action's own answer, so a second one from here re-renders nothing new.
+    assert.deepEqual([seen.refresh, seen.pushed, seen.replaced], [0, [], []], "the clearing leaves the page, or reads it a second time");
   });
 });
 

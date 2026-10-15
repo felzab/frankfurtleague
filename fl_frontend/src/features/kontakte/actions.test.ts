@@ -3,7 +3,6 @@ import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
-import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
 import { FLSaisonSchema } from "@/features/saisons/schemas.ts";
 import { FLTeamWithMembershipsSchema } from "@/features/teams/schemas.ts";
 import { submitDecision } from "@/shared/hooks/useDraftFieldErrors";
@@ -14,12 +13,10 @@ import { underNext } from "@/shared/testing/nextContexts.ts";
 import { answer, answerReadsWith, EMPTIEST_ANSWER, OBJECT_ID, renderPage, saisonFields } from "@/shared/testing/pageHarness.ts";
 import { renderTree } from "@/shared/testing/renderTest";
 
-import { deriveKontakteDraftStatus } from "./kontakteDraftStatus.ts";
 import { FLPatchSaisonTeamKontaktePayloadSchema } from "./schemas.ts";
-import { describeKontaktErasureUmfang, mirrorKontakte, toKontaktePayload } from "./utils.ts";
+import { mirrorKontakte, toKontaktePayload } from "./utils.ts";
 
 import type { FLKontaktperson, FLSaisonTeamKontakte } from "@/features/teams/schemas";
-import type { FLKontaktErasureResponse } from "./schemas.ts";
 
 // An administrator's session: every admin-tier read resolves its actor from it before it is sent
 // (`fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`).
@@ -29,8 +26,6 @@ doubleEveryAction();
 
 /* Reached with `await import` and never a static import beside the harness: the JSX compile step is
    registered as `renderTest` evaluates, and a static import resolves before that. */
-const { FormKontakteSection } = await import("./components/forms/AdminKontakteEditForm/FormKontakteSection.tsx");
-const { DraftStatusProvider } = await import("@/shared/components/ui/DraftStatusContext.tsx");
 const { default: AdminKontaktePage } = await import("@/app/bereich/admin/kontakte/page.tsx");
 
 /** A number per person: two seats sharing one are refused as one person entered twice. */
@@ -52,44 +47,6 @@ const BLOCK: FLSaisonTeamKontakte = {
   stellvertretung: person("Alan", "Turing", "alan@example.org"),
   trainer_ist_zugleich: null,
 };
-
-/** The same three with no address, which is the one state the write has no key for. */
-const BLOCK_WITHOUT_ADDRESS: FLSaisonTeamKontakte = {
-  ...BLOCK,
-  trainer: person("Ada", "Byron", ""),
-  ansprechperson: person("Grace", "Hopper", ""),
-  stellvertretung: person("Alan", "Turing", ""),
-};
-
-/** The seats under every context they read: the router, the query the way out rides, the draft status. */
-const sectionMarkup = (kontakte: FLSaisonTeamKontakte): string =>
-  renderTree(
-    underNext(
-      h(DraftStatusProvider, {
-        status: deriveKontakteDraftStatus({ stored: { kontakte }, draft: { kontakte }, fieldErrors: {} }),
-        children: h(FormKontakteSection, {
-          laufendesLabel: publishedLaufendeFassung("bewerbung").text_version,
-          value: kontakte,
-          stored: kontakte,
-          bestaetigungen: null,
-          teamId: "507f1f77bcf86cd799439011",
-          saisonId: "2526",
-          nimmtLinks: true,
-          isMember: true,
-          teamHref: "/bereich/admin/teams/t1?saison_id=2526",
-          banners: [],
-          onChange: () => undefined,
-          onFieldLeft: () => undefined,
-          isDirty: false,
-          onValidateSelection: () => undefined,
-        }),
-      }),
-      { search: "saison_id=2526" },
-    ),
-  );
-
-/** One rendered seat per entry, cut at the next seat's own title. */
-const seatPanels = (html: string): string[] => html.split("<h2").slice(1);
 
 /** The list page at the address naming the season `BLOCK` is held in. */
 const listPage = () =>
@@ -121,130 +78,7 @@ answerReadsWith((endpoint, schema, params) => {
 /** The list page resolved whole, its table and every row in it. */
 const LIST_MARKUP = await renderPage(listPage());
 
-/** One response, spelled once so a report case names only the figures it is about. */
-function erasure(counts: Partial<Omit<FLKontaktErasureResponse, "acknowledged">>): FLKontaktErasureResponse {
-  return {
-    acknowledged: 1,
-    cleared_saison_teams: 0,
-    cleared_bewerbungen: 0,
-    cleared_kontakt_slots: 0,
-    redacted_aktionen: 0,
-    ...counts,
-  };
-}
-
-describe("the report the toast carries", () => {
-  /* An address naming nobody is an ordinary outcome rather than a failure: it is what the admin
-     presses when they are not sure the person was ever recorded. */
-  it("reports both counts, each with its own zero and its own singular", () => {
-    assert.equal(
-      describeKontaktErasureUmfang(erasure({})),
-      "Zu dieser E-Mail-Adresse war nichts gespeichert. Im Änderungsprotokoll gab es dazu keinen Eintrag.",
-    );
-    assert.equal(
-      describeKontaktErasureUmfang(erasure({ cleared_saison_teams: 1, cleared_kontakt_slots: 1, redacted_aktionen: 1 })),
-      "Ein Kontakteintrag wurde geleert, in einer Saison-Zugehörigkeit und keiner Bewerbung. " +
-        "Bei einem Eintrag im Änderungsprotokoll ist kein gesicherter Stand mehr hinterlegt.",
-    );
-    assert.equal(
-      describeKontaktErasureUmfang(
-        erasure({ cleared_saison_teams: 2, cleared_bewerbungen: 3, cleared_kontakt_slots: 5, redacted_aktionen: 12 }),
-      ),
-      "5 Kontakteinträge wurden geleert, in 2 Saison-Zugehörigkeiten und 3 Bewerbungen. " +
-        "Bei 12 Einträgen im Änderungsprotokoll ist kein gesicherter Stand mehr hinterlegt.",
-    );
-  });
-
-  /* GELEERT, never deleted: no log row is dropped, only the values one held. */
-  it("claims of the log only what is true of a row that lost nothing", () => {
-    const report = describeKontaktErasureUmfang(erasure({ cleared_saison_teams: 1, cleared_kontakt_slots: 1, redacted_aktionen: 4 }));
-
-    // `build_redaction_filter` is not narrowed to rows holding an image, so a row recording an insert
-    // is stamped and counted while losing nothing. „geleert“ and „gelöscht“ are both false of it.
-    assert.match(report, /Bei 4 Einträgen im Änderungsprotokoll ist kein gesicherter Stand mehr hinterlegt\./);
-    assert.doesNotMatch(report, /Einträge im Änderungsprotokoll wurden geleert/, "the report empties a row that held nothing");
-    assert.doesNotMatch(report, /Einträge im Änderungsprotokoll (wurden )?gelöscht/, "the report deletes a log row, and none is dropped");
-    // The slots really are nulled, so the contact half keeps the verb the log half may not have.
-    assert.match(
-      describeKontaktErasureUmfang(erasure({ cleared_kontakt_slots: 2, cleared_saison_teams: 1 })),
-      /Kontakteinträge wurden geleert/,
-    );
-  });
-
-  /* A person swapped out of every seat clears no slot while the log still names them. As two
-     sentences the pair contradicts itself, so the whole string is what this pins. */
-  it("reports a cleared log beside no cleared slot as one coherent sentence", () => {
-    assert.equal(
-      describeKontaktErasureUmfang(erasure({ redacted_aktionen: 1 })),
-      "Zu dieser E-Mail-Adresse war kein aktueller Kontakteintrag gespeichert, nur noch ein Eintrag im Änderungsprotokoll, " +
-        "und dort ist jetzt kein gesicherter Stand mehr hinterlegt.",
-    );
-    assert.equal(
-      describeKontaktErasureUmfang(erasure({ redacted_aktionen: 4 })),
-      "Zu dieser E-Mail-Adresse war kein aktueller Kontakteintrag gespeichert, nur noch 4 Einträge im Änderungsprotokoll, " +
-        "und dort ist jetzt kein gesicherter Stand mehr hinterlegt.",
-    );
-    // The claim the old wording made, and the one the pair cannot both hold.
-    assert.doesNotMatch(
-      describeKontaktErasureUmfang(erasure({ redacted_aktionen: 1 })),
-      /war nichts gespeichert/,
-      "the report denies a person the change log still named",
-    );
-    // „geleert“ and „gelöscht“ stay false of a log row here too: a row recording an insert is stamped
-    // while losing nothing.
-    assert.doesNotMatch(describeKontaktErasureUmfang(erasure({ redacted_aktionen: 4 })), /Änderungsprotokoll (wurden |wurde )?gel(eert|öscht)/);
-  });
-
-  /* A toast description stands on its own, with no figures beside it to carry the grammar. */
-  it("writes whole sentences rather than a telegraphic list", () => {
-    const reports = [
-      describeKontaktErasureUmfang(erasure({})),
-      describeKontaktErasureUmfang(erasure({ cleared_saison_teams: 1, cleared_kontakt_slots: 1, redacted_aktionen: 1 })),
-      describeKontaktErasureUmfang(erasure({ cleared_bewerbungen: 3, cleared_kontakt_slots: 3, redacted_aktionen: 9 })),
-    ];
-
-    for (const report of reports) {
-      assert.match(report, /^[A-ZÄÖÜ0-9]/, "the report opens lower-case");
-      for (const sentence2 of report.split(". ")) assert.match(sentence2, /\b(wurde|wurden|war|gab|ist)\b/, `„${sentence2}“ carries no verb`);
-      // The endpoint withholds the person, and a report is the one place a copy could creep back in.
-      assert.doesNotMatch(report, /@/, "the report names an address");
-    }
-  });
-});
-
-describe("where the control stands", () => {
-  /* Keyed on the ADDRESS across every season and both collections, and the applications it also
-     reaches appear on no row of the list, so a reader has to see whose data it is while reading what
-     it takes. */
-  it("stands inside the panel of the person it erases, never on the list", () => {
-    // One offer per seat, each naming the person that seat holds and no other.
-    assert.deepEqual(
-      seatPanels(sectionMarkup(BLOCK)).map((seat) => /<strong>([^<]*)<\/strong>/.exec(seat)?.[1] ?? ""),
-      ["Grace Hopper", "Alan Turing", "Ada Byron"],
-      "a seat offers the erasure of somebody it does not hold, or offers none",
-    );
-    // The control: the list rendered the person whose erasure it must not offer.
-    assert.ok(LIST_MARKUP.includes("Hopper"), "the list renders no row, so the absence below proves nothing");
-    assert.ok(!LIST_MARKUP.includes("Kontaktperson löschen"), "the erasure is on the list, detached from the person");
-  });
-
-  /* The claim points two seats at one record. Offered on both, the same person would read as two, and
-     the second press would erase somebody already gone. */
-  it("offers it on the seat that holds the person, never on the mirrored copy", () => {
-    const offers = (kontakte: FLSaisonTeamKontakte): boolean[] =>
-      seatPanels(sectionMarkup(kontakte)).map((seat) => seat.includes("Kontaktperson löschen"));
-
-    assert.deepEqual(offers(BLOCK), [true, true, true], "a seat holding a person offers no erasure, so the absences below prove nothing");
-    // The Trainer IS the named seat's person here, so a second offer would erase somebody already gone.
-    assert.deepEqual(
-      offers({ ...BLOCK, trainer_ist_zugleich: "ansprechperson" }),
-      [true, true, false],
-      "the mirrored seat offers its own erasure",
-    );
-    // The address is the whole key, so a seat holding none can offer nothing to erase.
-    assert.deepEqual(offers(BLOCK_WITHOUT_ADDRESS), [false, false, false], "a seat with no address offers an erasure keyed on nothing");
-  });
-
+describe("the list page", () => {
   /* One `h1` per page and the shell owns it; the heading LEVEL is `PanelHeading`'s and pinned there. */
   it("raises no heading the shell already owns", () => {
     // The control: a page rendering no row at all would satisfy the absence below unread.

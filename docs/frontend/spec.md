@@ -49,7 +49,7 @@
 | `aktionen`        |   ✅    |     —     |    —    |   ✅    | Read-only: the backend writes the log on every recorded write, never this slice, and facets it by the actor's origin                                                                               |
 | `system`          |   ✅    |     —     |    —    |   ✅    | Read-only                                                                                                                                                                                          |
 | `admin`           |   ✅    |     —     |   ✅    |    —    | Aggregator                                                                                                                                                                                         |
-| `kontakte`        |    —    |    ✅     |   ✅    |   ✅    | Three contact seats on a season's junction row; an erasure keyed on an address rather than on a row                                                                                                |
+| `kontakte`        |    —    |    ✅     |   ✅    |   ✅    | Three contact seats on a season's junction row, saved and cleared whole, and each seat's confirmation link                                                                                         |
 | `sperrliste`      |   ✅    |    ✅     |   ✅    |   ✅    | A create and a removal, never an edit: a ban holds no address to correct, and its removal is a hard delete                                                                                         |
 | `berechtigungen`  |   ✅    |    ✅     |   ✅    |   ✅    | A grant, an owner's revoke and an owner's tier change, never an address's edit, and the pass mailing every change to who administers                                                               |
 | `einladungen`     |   ✅    |    ✅     |   ✅    |   ✅    | One live registration link per team and season, and one press that mails every admitted team; no edit — a reissue revokes and mints                                                                |
@@ -548,7 +548,6 @@ the other refuses.
 | `undoAdminSchiedsrichterEditAction`     | schiedsrichter  | `spiele`                                                                                       |
 | `deleteSchiedsrichterAction`            | schiedsrichter  | **nothing**                                                                                    |
 | `reactivateSchiedsrichterAction`        | schiedsrichter  | **nothing**                                                                                    |
-| `anonymiseSchiedsrichterAction`         | schiedsrichter  | `spiele` — the repointed booking fans into every fixture the erased referee held               |
 | `einladeSchiedsrichterAction`           | schiedsrichter  | **nothing** — no cached read holds a referee's confirmation link                               |
 | `einladeAdresswechselAction`            | schiedsrichter  | **nothing** — no cached read holds a pending address                                           |
 | `verwirfAdresswechselAction`            | schiedsrichter  | **nothing** — no cached read holds a pending address                                           |
@@ -562,7 +561,6 @@ the other refuses.
 | `replaceSaisonTeamAction`               | teams           | `spiele`, `teams`, `spieler`, + `spiele:saison_id:{id}`, `teams:saison_id:{id}`                |
 | `patchSpielerAction`                    | spieler         | `spieler`                                                                                      |
 | `deleteSpielerAction`                   | spieler         | `spieler`                                                                                      |
-| `eraseSpielerAction`                    | spieler         | `spieler`                                                                                      |
 | `reactivateSpielerAction`               | spieler         | `spieler`                                                                                      |
 | `postSaisonSpielerAction`               | spieler         | `spieler`                                                                                      |
 | `patchSaisonSpielerAction`              | spieler         | `spieler`                                                                                      |
@@ -599,8 +597,6 @@ the other refuses.
 | `postEinladungVersandAction`            | einladungen     | **nothing** — no cached read holds an invitation                                               |
 | `patchSaisonTeamKontakteAction`         | kontakte        | **nothing** — the only read carrying the block is `getTeamMemberships`, which is React `cache` |
 | `undoAdminKontakteEditAction`           | kontakte        | **nothing** — as its save                                                                      |
-| `eraseKontaktpersonAction`              | kontakte        | **nothing** — no cached read holds a contact person                                            |
-| `readKontaktErasureAnsichtAction`       | kontakte        | **nothing** — it writes nothing                                                                |
 | `einladeKontaktAction`                  | kontakte        | **nothing** — no cached read holds a seat's confirmation link                                  |
 | `postSperreAction`                      | sperrliste      | **nothing** — no cached read holds a ban                                                       |
 | `deleteSperreAction`                    | sperrliste      | **nothing** — no cached read holds a ban                                                       |
@@ -677,13 +673,9 @@ the whole body** (`fl_backend/tests/api/test_payload_strictness.py`), which is w
 one place per slice.
 
 **Every resource with write endpoints has an action calling them**, each dispatched from a
-page-owned editor — `kontakte`'s erasure from inside the seat holding the person it erases, keyed on
-an ADDRESS rather than on the seat it stands in, so it reaches every season's junction row, every
-application and the log
-(`fl_backend/app/api/kontakte/admin_router.py :: erase_kontaktperson`). **These of its writes are
-irreversible** — a pupil's erasure, a referee's anonymisation, a contact person's erasure, the
-replacement of a club on a season's junction row, the draw's `replace`, the undraw beside it, the
-rollover's close of the outgoing season and the triage's decisions
+page-owned editor. **These of its writes are irreversible** — the replacement of a club on a
+season's junction row, the draw's `replace`, the undraw beside it, the rollover's close of the
+outgoing season and the triage's decisions
 ([`docs/backend/spec.md`](../backend/spec.md#11-endpoint-inventory)). Each destroys or hands on
 what nothing here can put back, so each confirms in place behind I37's shared escalation and none
 offers an undo. **The triage's decisions hand on rather than destroy**: each mails the school as it
@@ -1753,7 +1745,8 @@ alike:**
   second press. A control that leaves the page is I68's and stays disabled while it goes, and a press
   that WRITES and only then leaves is pending rather than disabled: react-aria hands `useHover` the
   pending flag beside the disabled one, so I68's hover ends either way, and only `isPending` keeps the
-  focus the press was made with (`fl_frontend/src/features/spieler/components/forms/AdminSpielerEditForm/FormLoeschenSection.tsx`).
+  focus the press was made with (an editor's save,
+  `fl_frontend/src/shared/components/ui/FormActionBar.tsx :: FormActionBar`).
 - **A panel's action closed until the reader picks, types or changes something, or by a condition
   standing on the page, carries that reason in the `refusal` mode of
   `fl_frontend/src/shared/components/ui/Hint.tsx :: Hint`**, laid over the button, and never in a

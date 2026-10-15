@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { patchSaisonSpielerAction, patchSpielerAction, undoAdminSpielerEditAction } from "@/features/spieler/actions";
-import { kaderName, rolleLabel } from "@/features/spieler/constants";
+import { rolleLabel } from "@/features/spieler/constants";
 import { FLPatchSaisonSpielerPayloadSchema, FLPatchSpielerPayloadSchema } from "@/features/spieler/schemas";
 import { deriveSpielerDraftStatus } from "@/features/spieler/spielerDraftStatus";
 import { judgeRowReturn, nummerPayload } from "@/features/spieler/utils";
@@ -29,7 +29,6 @@ import { buildSpielerBanners } from "./banners";
 import { FormAustragenSection } from "./FormAustragenSection";
 import { FormEinwilligungSection } from "./FormEinwilligungSection";
 import { FormKaderSection } from "./FormKaderSection";
-import { FormLoeschenSection } from "./FormLoeschenSection";
 import { FormPersonSection } from "./FormPersonSection";
 
 import type {
@@ -60,7 +59,6 @@ export function AdminSpielerEditForm({
   istFassungBekannt,
   saison,
   teams,
-  membershipCount,
   pageHeader,
 }: {
   spieler: { id: string; vorname: string; nachname: string | null; inactive_since: string | null; geburtsdatum: string | null };
@@ -72,8 +70,6 @@ export function AdminSpielerEditForm({
   saison: SpielerSaisonMembership;
   /** The selected season's teams, for the picker and for reading a `team_id` as a name. */
   teams: readonly SpielerTeamOption[];
-  /** Squad rows across EVERY season, retired ones included: what the erasure would take with it. */
-  membershipCount: number;
   pageHeader: EditPageHeaderContent;
 }) {
   const router = useRouter();
@@ -386,16 +382,6 @@ export function AdminSpielerEditForm({
               banners={banners}
             />
           )}
-
-          {/* Last on the page, the position the season editor's rollover holds: the one control here
-              that no later edit reverses, and the only one that removes rather than retires. Always
-              rendered — closed, it is where the admin reads that retirement comes first. */}
-          <FormLoeschenSection
-            spielerId={spieler.id}
-            fullName={kaderName(spieler)}
-            isRetired={spieler.inactive_since !== null}
-            membershipCount={membershipCount}
-          />
         </EditFormLayout>
 
         <FormActionBar

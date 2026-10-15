@@ -67,7 +67,6 @@ const renderEditor = () =>
           },
         },
         teams: [TEAM],
-        membershipCount: 1,
         pageHeader: { title: "Lena Meier" },
       }),
     ),

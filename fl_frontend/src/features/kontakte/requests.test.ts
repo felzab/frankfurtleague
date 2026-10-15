@@ -4,7 +4,7 @@ import { beforeEach, describe, it } from "node:test";
 import { cacheCalls, doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 
-import type { FLKontaktErasureResponse, FLPatchSaisonTeamKontaktePayload } from "./schemas.ts";
+import type { FLPatchSaisonTeamKontaktePayload } from "./schemas.ts";
 
 /* The real actions over their real `mutations.ts`: the client they send through, the session and the
    request are the doubles. A file of its own, `actions.test.ts` and `editor.test.ts` replacing this
@@ -12,28 +12,13 @@ import type { FLKontaktErasureResponse, FLPatchSaisonTeamKontaktePayload } from 
 const VORSTAND = { user: { email: "vorstand@example.org" } };
 const { setSession } = doubleActionRequest({ session: VORSTAND });
 
-const { calls: sent } = doubleApiAnswers(async ({ endpoint }) => {
-  if (endpoint === "/kontakte/erasure") return ERASURE;
-  if (endpoint === "/kontakte/erasure/ansicht") return { acknowledged: 1, saison_teams: [], bewerbungen: [] };
-  return blockAnswer;
-});
+const { calls: sent } = doubleApiAnswers(async () => blockAnswer);
 
-const { eraseKontaktpersonAction, patchSaisonTeamKontakteAction, readKontaktErasureAnsichtAction } = await import("./actions.ts");
+const { patchSaisonTeamKontakteAction } = await import("./actions.ts");
 const { ADMIN_FORBIDDEN } = await import("@/shared/utils/adminMutation.ts");
-const { describeKontaktErasureUmfang } = await import("./utils.ts");
 
 const TEAM_ID = "507f1f77bcf86cd799439011";
 const SAISON_ID = "2526";
-const ADDRESS = "ada@example.org";
-
-/** Counts naming no person, as the endpoint answers them. */
-const ERASURE: FLKontaktErasureResponse = {
-  acknowledged: 1,
-  cleared_saison_teams: 1,
-  cleared_bewerbungen: 2,
-  cleared_kontakt_slots: 3,
-  redacted_aktionen: 4,
-};
 
 /** The block's own answer: the seats as stored and the token of the block this save left. */
 let blockAnswer: Record<string, unknown> = {};
@@ -51,47 +36,6 @@ beforeEach(() => {
     kontakte_stand: "a1b2",
     bestaetigungen: [],
   };
-});
-
-describe("the contacts' writes", () => {
-  it("reach each published path and method, the confirmation read marked a read", async () => {
-    await readKontaktErasureAnsichtAction({ email: ADDRESS });
-    await eraseKontaktpersonAction({ email: ADDRESS });
-    await patchSaisonTeamKontakteAction(CLEARED);
-
-    assert.deepEqual(requestsOf(sent), [
-      { endpoint: "/kontakte/erasure/ansicht", method: "POST", body: { email: ADDRESS }, readOnly: true },
-      { endpoint: "/kontakte/erasure", method: "POST", body: { email: ADDRESS } },
-      { endpoint: `/teams/${TEAM_ID}/saisons/${SAISON_ID}/kontakte`, method: "PATCH", body: { kontakte: null, kontakte_stand: "9f2c" } },
-    ]);
-  });
-});
-
-describe("what the person's erasure sends", () => {
-  /* The address travels in the BODY. A path or a query segment would file it in the access log, in
-     nginx's log and in `aktionen.request.path` — three fresh copies of the value being destroyed. */
-  it("sends the address in the body, to the erasure endpoint, as a POST", async () => {
-    await eraseKontaktpersonAction({ email: ADDRESS });
-
-    assert.deepEqual(requestsOf(sent), [{ endpoint: "/kontakte/erasure", method: "POST", body: { email: ADDRESS } }]);
-  });
-
-  /* The response carries counts and no person, and nothing on this side may put one back. */
-  it("reports the counts and never the address", async () => {
-    const result = await eraseKontaktpersonAction({ email: ADDRESS });
-
-    assert.equal(result.success, true, JSON.stringify(result));
-    assert.equal("message" in result ? result.message : undefined, describeKontaktErasureUmfang(ERASURE));
-    assert.ok(!JSON.stringify(result).includes(ADDRESS), "the action's answer carries the address it erased");
-  });
-
-  /* `POST /kontakte/erasure` refuses NOTHING, so an address matching nobody succeeds and clears zero:
-     the count is what lets the panel tell a miss from a deletion. */
-  it("counts what an erasure cleared", async () => {
-    const result = await eraseKontaktpersonAction({ email: ADDRESS });
-
-    assert.equal("cleared" in result ? result.cleared : undefined, ERASURE.cleared_kontakt_slots + ERASURE.redacted_aktionen);
-  });
 });
 
 describe("what the season's contacts save sends", () => {
@@ -149,17 +93,13 @@ describe("what the season's contacts save sends", () => {
   });
 });
 
-describe("what the contacts writes clear", () => {
+describe("what the contacts save clears", () => {
   /* No cached read holds a contact person: the memberships read is admin-tier and memoised per render
-     pass, the public team reads carry no `kontakte`, and the applications and the log are uncached. */
-  it("moves no tag, and re-reads the page each write stands on", async () => {
-    await eraseKontaktpersonAction({ email: ADDRESS });
+     pass, the public team reads carry no `kontakte`, and the log is uncached. */
+  it("moves no tag, and re-reads the page the save stands on", async () => {
     await patchSaisonTeamKontakteAction(CLEARED);
 
-    assert.equal(sent.length, 2, "a write never reached the client, so what it clears is judged over nothing");
-    assert.deepEqual(cacheCalls, [
-      { name: "refresh", args: [] },
-      { name: "refresh", args: [] },
-    ]);
+    assert.equal(sent.length, 1, "the save never reached the client, so what it clears is judged over nothing");
+    assert.deepEqual(cacheCalls, [{ name: "refresh", args: [] }]);
   });
 });

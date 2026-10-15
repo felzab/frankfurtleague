@@ -88,7 +88,7 @@ export function FormKontakteLoeschenSection({
               lead: "Leert alle drei Kontaktpersonen dieser Saison-Zugehörigkeit.",
               points: [
                 { term: "Andere Saisons", text: "behalten ihre eigenen Kontaktpersonen, die hier nicht berührt werden." },
-                { term: "Eine Person überall entfernen", text: "geht über „Kontaktperson löschen“ in deren eigenem Abschnitt." },
+                { term: "Eine Person überall entfernen", text: "geht über „Löschung auf Anfrage“ in der Verwaltung." },
               ],
             }}
           />

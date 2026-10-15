@@ -208,7 +208,6 @@ const spielerEditor = (inactiveSince: string | null, inKader = true) =>
       membership: inKader ? { ...SQUAD, inactive_since: null } : null,
     },
     teams: SAISON_TEAMS,
-    membershipCount: 1,
   });
 
 const TEAM_RECORD = {
@@ -465,10 +464,6 @@ const kontakteEditor = (kontakte: Kontakte | null) =>
     }),
   });
 const MIT_GRACE: Kontakte = { trainer: null, ansprechperson: GRACE, stellvertretung: null, trainer_ist_zugleich: null };
-const ERASURE_READ = {
-  success: true,
-  ansicht: { acknowledged: 1, saison_teams: [{ saison_id: "2025", rolle: "trainer", vorname: "Grace", nachname: "Meier" }], bewerbungen: [] },
-};
 
 const sperre = (id: string, erstellt_am: string) => ({
   id,
@@ -1081,14 +1076,6 @@ const LANDINGS: Record<string, Landing> = {
     after: () => kontakteEditor(null),
     remount: true,
     lands: () => openStop("Kontakte löschen"),
-  },
-  "a person's erasure, on the emptied seat's heading": {
-    answers: { readKontaktErasureAnsichtAction: ERASURE_READ, eraseKontaktpersonAction: { success: true, cleared: 1, message: "Gelöscht." } },
-    before: () => kontakteEditor(MIT_GRACE),
-    press: (user) => pressTwice(user, { resting: "Kontaktperson löschen", armed: "Ja, Kontaktperson endgültig löschen" }),
-    after: () => kontakteEditor({ ...MIT_GRACE, ansprechperson: null }),
-    remount: true,
-    lands: () => heading("Ansprechperson"),
   },
   /* Each of these is drawn anew closed, waiting on the picks it was pressed with: its overlay is the stop. */
   "a season's group swap, on its control drawn anew": {
