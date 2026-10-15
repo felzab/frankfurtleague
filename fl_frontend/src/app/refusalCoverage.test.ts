@@ -197,18 +197,25 @@ const SRC = path.resolve(import.meta.dirname, "..");
 /** Every server action module, where each page-owned editor's undo replays through its table. */
 const ACTION_MODULES = serverActionModules(20);
 
-/** The page-owned editors whose undo replays a save, a floor under the modules found replaying one. */
+/** The page-owned editors' undos, a floor under the actions found running on `runAdminUndo`. */
 const UNDO_FLOOR = 8;
+
+/**
+ * Each undo replaying through no table of its own, by `<module> :: <export>`, and why: one answered by
+ * the shared fallback alone names no reason and sends the admin to a retry the same rule refuses.
+ */
+const REPLAYS_THROUGH_NO_TABLE: Readonly<Record<string, string>> = {};
 
 function relativeTo(file: string, root = SRC): string {
   return path.relative(root, file).split(path.sep).join("/");
 }
 
 /**
- * Each table `file` hands `refusedReplay` or `replayRefusal`, read off its syntax tree, as the module
- * it imports the table from exports it: `undefined` for one no import reaches, a table of the module's own.
+ * Each undo `file` exports, found by its `runAdminUndo` call, with every table it hands a replay's
+ * wording, read off its syntax tree as its module exports it: `undefined` for a table no import reaches,
+ * one of the module's own.
  */
-async function replayTablesOf(file: string): Promise<{ name: string; table: unknown }[]> {
+async function undosOf(file: string): Promise<{ undo: string; tables: { name: string; table: unknown }[] }[]> {
   const source = ts.createSourceFile(file, readFileSync(file, "utf8"), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   const imported = new Map<string, { module: string; name: string }>();
   for (const statement of source.statements) {
@@ -221,39 +228,67 @@ async function replayTablesOf(file: string): Promise<{ name: string; table: unkn
       imported.set(element.name.text, { module: resolved, name: (element.propertyName ?? element.name).text });
   }
 
-  const passed: string[] = [];
-  const visit = (node: ts.Node): void => {
-    if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && /^(?:refusedReplay|replayRefusal)$/.test(node.expression.text)) {
-      passed.push(node.arguments[1]?.getText(source) ?? "");
-    }
-    ts.forEachChild(node, visit);
+  /** Whether `node` calls the function `name` anywhere below it, and the table each such call hands on. */
+  const callsOf = (node: ts.Node, name: RegExp): string[] => {
+    const found: string[] = [];
+    const visit = (child: ts.Node): void => {
+      if (ts.isCallExpression(child) && ts.isIdentifier(child.expression) && name.test(child.expression.text)) {
+        found.push(child.arguments[1]?.getText(source) ?? "");
+      }
+      ts.forEachChild(child, visit);
+    };
+    visit(node);
+    return found;
   };
-  visit(source);
+
+  const undos = source.statements.flatMap((statement) =>
+    ts.isFunctionDeclaration(statement) && statement.name !== undefined && callsOf(statement, /^runAdminUndo$/).length > 0
+      ? [
+          {
+            undo: `${relativeTo(file)} :: ${statement.name.text}`,
+            passed: callsOf(statement, /^(?:refusedReplay|replayRefusal|partlyRestored)$/),
+          },
+        ]
+      : [],
+  );
 
   return Promise.all(
-    passed.map(async (name) => {
-      const from = imported.get(name);
-      if (from === undefined) return { name, table: undefined };
-      const exports = (await import(pathToFileURL(`${from.module}.ts`).href)) as Record<string, unknown>;
-      return { name, table: exports[from.name] };
-    }),
+    undos.map(async ({ undo, passed }) => ({
+      undo,
+      tables: await Promise.all(
+        passed.map(async (name) => {
+          const from = imported.get(name);
+          if (from === undefined) return { name, table: undefined };
+          const exports = (await import(pathToFileURL(`${from.module}.ts`).href)) as Record<string, unknown>;
+          return { name, table: exports[from.name] };
+        }),
+      ),
+    })),
   );
 }
 
 describe("every undo's replay table", () => {
-  /* Read off the action modules rather than this table, so a table an undo replays through and this
-     file leaves out, or one a module keeps to itself, fails here instead of going unjudged. */
-  it("is judged here, each one an undo replays through", async () => {
-    const replayed = (await Promise.all(ACTION_MODULES.map(async (file) => ({ file, tables: await replayTablesOf(file) })))).flatMap(
-      ({ file, tables }) => tables.map(({ name, table }) => ({ module: relativeTo(file), name, table })),
-    );
-    const replaying = new Set(replayed.map(({ module }) => module)).size;
+  /* Read off each undo, found by its spine call, rather than this table: an undo with no table, a table
+     this file leaves out, or one a module keeps to itself fails here instead of going unjudged. */
+  it("is judged here, and every undo replays through one", async () => {
+    const undos = (await Promise.all(ACTION_MODULES.map(undosOf))).flat();
+    const replayed = undos.flatMap(({ undo, tables }) => tables.map(({ name, table }) => ({ undo, name, table })));
 
-    assert.ok(replaying >= UNDO_FLOOR, `${String(replaying)} action modules replay a table, under this sweep's floor of ${String(UNDO_FLOOR)}`);
+    assert.ok(undos.length >= UNDO_FLOOR, `${String(undos.length)} undos found, under this sweep's floor of ${String(UNDO_FLOOR)}`);
     assert.deepEqual(
-      replayed.filter(({ table }) => !REPLAYED.some(([judged]) => judged === table)).map(({ module, name }) => `${module}: ${name}`),
+      undos.filter(({ undo, tables }) => tables.length === 0 && !Object.hasOwn(REPLAYS_THROUGH_NO_TABLE, undo)).map(({ undo }) => undo),
+      [],
+      "an undo replaying through no table of its own, which the shared fallback alone answers",
+    );
+    assert.deepEqual(
+      replayed.filter(({ table }) => !REPLAYED.some(([judged]) => judged === table)).map(({ undo, name }) => `${undo}: ${name}`),
       [],
       "a replay table this file does not judge",
+    );
+    // An exemption outliving its undo would excuse the next one written under its name.
+    assert.deepEqual(
+      Object.keys(REPLAYS_THROUGH_NO_TABLE).filter((undo) => !undos.some((found) => found.undo === undo)),
+      [],
     );
   });
 
