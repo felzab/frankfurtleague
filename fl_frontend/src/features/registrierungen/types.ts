@@ -3,13 +3,15 @@ import type { FLSpielerPosition, FLSpielerStufe } from "@/features/spieler/schem
 import type { FLEinladungAnsichtResponse, FLEinwilligungUmfang, FLRegistrierungBestaetigungAnsichtResponse } from "./schemas";
 
 /**
- * One pending registration on the administrator's list: the pupil's name and the four facts the list
- * shows, and nothing else of the row, so the address and the birthdate never reach the browser.
+ * One pending registration on the administrator's list: what its card shows, and nothing else of the
+ * row, so the address and the birthdate never reach the browser.
  */
 export type AdminRegistrierungRow = {
   id: string;
   vorname: string;
   nachname: string;
+  // The day the read orders by, so a cut-short list's end can be told from its card.
+  eingereicht_am: string;
   team_id: string;
   // Null where the club read knows no team of this id: the card says so rather than showing the id.
   teamName: string | null;

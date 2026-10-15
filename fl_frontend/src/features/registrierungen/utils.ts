@@ -202,6 +202,7 @@ export function buildAdminRegistrierungRows(registrierungen: readonly FLRegistri
     id: registrierung.id,
     vorname: registrierung.vorname,
     nachname: registrierung.nachname,
+    eingereicht_am: registrierung.eingereicht_am,
     team_id: registrierung.team_id,
     teamName: teamNamen.get(registrierung.team_id) ?? null,
     saison_id: registrierung.saison_id,
