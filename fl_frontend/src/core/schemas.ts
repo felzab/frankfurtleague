@@ -134,10 +134,10 @@ export const FLEinwilligungFassungResponseSchema = BaseAPIResponseSchema.extend(
 export const FLEinwilligungSeitenResponseSchema = BaseAPIResponseSchema.extend({ laufende_fassungen: z.record(z.string(), z.string()) });
 
 /**
- * What `POST /identitaet/selbst/erasure` erased of the signed-in person, as record counts by store and
- * never an echo of the person: anything of theirs answered back is a fresh copy of what was destroyed.
+ * What an erasure removed of one person, as record counts by store and never an echo of the person: anything
+ * of theirs answered back is a fresh copy of what was destroyed. `POST /identitaet/selbst/erasure` answers it.
  */
-export const FLSelbstErasureResponseSchema = BaseAPIResponseSchema.extend({
+export const FLErasureResponseSchema = BaseAPIResponseSchema.extend({
   spieler: z.int(),
   saison_spieler: z.int(),
   schiedsrichter: z.int(),
@@ -146,9 +146,10 @@ export const FLSelbstErasureResponseSchema = BaseAPIResponseSchema.extend({
   kontakt_sitze: z.int(),
   registrierungen: z.int(),
   adresswechsel: z.int(),
+  berechtigungen: z.int(),
   drosselung: z.int(),
 });
-export type FLSelbstErasureResponse = z.infer<typeof FLSelbstErasureResponseSchema>;
+export type FLErasureResponse = z.infer<typeof FLErasureResponseSchema>;
 
 /** A pupil record the erasure would reach, by the name it carries. */
 export const FLSelbstErasureSpielerSchema = z.object({ vorname: z.string(), nachname: z.string().nullable() });
