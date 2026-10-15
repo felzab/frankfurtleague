@@ -2,6 +2,7 @@ import ast
 import functools
 import importlib
 from collections.abc import Iterator, Mapping
+from itertools import combinations
 from pathlib import Path
 from types import ModuleType
 from typing import Any, get_args, get_origin
@@ -9,10 +10,14 @@ from typing import Any, get_args, get_origin
 import pytest
 from pydantic import BaseModel
 
-from app.api.identitaet.crud import ERASURE_STEPS, erase_everything
+from app.api.aktionen.crud import redact_address_in_images
+from app.api.berechtigungen.erasure import erase_grants_and_authorship_in_session
+from app.api.identitaet.crud import ERASURE_STEPS, JEDE_PERSONENGRUPPE, _runs, erase_everything
 from app.api.saisons.schemas import FLSaison
+from app.api.schiedsrichter.crud import remove_pending_addresses_in_session
 from app.api.schiedsrichter.schemas import FLSchiedsrichter
 from app.api.spiele.schemas import FLSpiel
+from app.api.spieler.crud import remove_pending_pupil_addresses_in_session
 from app.api.spieler.schemas import FLSpieler
 from app.api.spielorte.schemas import FLSpielort
 from app.api.spieltage.schemas import FLSpieltag
@@ -607,6 +612,31 @@ def test_the_registry_runs_every_step_by_name_in_its_declared_order():
     )
 
     assert list(dict.fromkeys(name for _, name in called)) == [step.run.__name__ for step in ERASURE_STEPS]
+
+
+# The steps whose writes leave the address in images no step of theirs redacts: another record the person made or names.
+_LEAVING_THE_ADDRESS_IN_IMAGES = (
+    erase_grants_and_authorship_in_session,
+    remove_pending_addresses_in_session,
+    remove_pending_pupil_addresses_in_session,
+)
+
+
+def test_no_scope_runs_a_step_leaving_the_address_in_an_image_without_the_address_pass():
+    """Every scope `erase_everything` could be handed, so a step moved into a narrower one fails before any caller asks for that scope.
+
+    Running without the pass, such a step leaves the address in the images its writes filed.
+    """
+
+    scopes = [frozenset(scope) for size in range(len(JEDE_PERSONENGRUPPE) + 1) for scope in combinations(sorted(JEDE_PERSONENGRUPPE), size)]
+    unredacted = [
+        sorted(scope)
+        for scope in scopes
+        if any(_runs(run, scope) for run in _LEAVING_THE_ADDRESS_IN_IMAGES) and not _runs(redact_address_in_images, scope)
+    ]
+
+    assert any(_runs(redact_address_in_images, scope) for scope in scopes), "no scope runs the pass, so the comparison holds of nothing"
+    assert unredacted == []
 
 
 def test_the_document_publisher_is_the_one_application_module_reading_the_domain_model():

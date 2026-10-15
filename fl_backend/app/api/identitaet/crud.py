@@ -440,21 +440,23 @@ class ErasureStep:
     """One member of the erasure: the collections it writes, whose records they are, and the function `erase_everything` calls by name."""
 
     reaches: frozenset[Collection]
-    # `None` for a step reaching what is no kind of person's own record, which runs in the full scope alone.
+    # `None` for a step reaching no kind of person's own record: the full scope alone runs it. Every step
+    # leaving the address in another record's images is one, so no scope runs it without the address pass.
     personengruppe: Personengruppe | None
     run: Callable[..., Awaitable[Any]]
 
 
 # In the order `erase_everything` runs them: every step reaching a person's references before the
-# step removing the person, and the log's actor last, after every write the steps filed under them.
+# step removing the person, the log's actor after every write the steps filed under them, and the
+# address pass after every image they filed.
 ERASURE_STEPS: Final[tuple[ErasureStep, ...]] = (
     ErasureStep(
         reaches=frozenset({Collection.SAISON_TEAMS, Collection.BEWERBUNGEN, Collection.AKTIONEN}),
         personengruppe="kontakt",
         run=erase_kontaktperson_in_session,
     ),
-    ErasureStep(reaches=frozenset({Collection.SCHIEDSRICHTER}), personengruppe="schiedsrichter", run=remove_pending_addresses_in_session),
-    # No kind's alone: the pupil row it waits on is another address's, so the pupil scope leaves it.
+    # No kind's alone, either of them: the row each waits on is another address's.
+    ErasureStep(reaches=frozenset({Collection.SCHIEDSRICHTER}), personengruppe=None, run=remove_pending_addresses_in_session),
     ErasureStep(reaches=frozenset({Collection.SPIELER}), personengruppe=None, run=remove_pending_pupil_addresses_in_session),
     ErasureStep(
         reaches=frozenset({Collection.SCHIEDSRICHTER, Collection.SPIELE, Collection.AKTIONEN}),
