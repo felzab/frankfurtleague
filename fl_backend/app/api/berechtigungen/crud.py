@@ -215,7 +215,8 @@ async def withhold_in_the_outbox(*, berechtigungen_postausgang_collection: Async
             await patch_many_in_db(
                 collection=berechtigungen_postausgang_collection,
                 db_filter={"_id": {"$in": ids}},
-                update={"$set": {"geaendert_von": None, "vorenthalten": "gesperrt"}},
+                # No reason: it is the grant address's, and a null actor on an application's change says it alone.
+                update={"$set": {"geaendert_von": None}},
                 session=session,
             )
 

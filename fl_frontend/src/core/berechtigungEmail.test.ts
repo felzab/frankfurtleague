@@ -6,6 +6,7 @@ import { registerDoubles } from "./exportingModule.ts";
 registerDoubles();
 
 const { buildBerechtigungEmail } = await import("./berechtigungEmail.ts");
+const { ERASED_ACTOR_MARKER } = await import("./erasedActor.ts");
 
 const ORIGIN = "http://localhost:3000";
 
@@ -65,17 +66,50 @@ describe("the notice a change to who administers sends", () => {
 
   /* A barred address leaves the ban list on no route, the notice included. */
   it("names no address for a barred one, in either part", () => {
-    const mail = buildBerechtigungEmail({ art: "erteilt", adresse: null, inhaber: false }, null, ORIGIN);
+    const mail = buildBerechtigungEmail({ art: "erteilt", adresse: { vorenthalten: "gesperrt" }, inhaber: false }, null, ORIGIN);
 
     assert.ok(mail.text.includes("Eine gesperrte Adresse hat jetzt Zugang zur Verwaltung."));
     assert.ok(mail.html.includes("Eine gesperrte Adresse hat jetzt Zugang zur Verwaltung."));
+  });
+
+  /* The erasure's own notice: told as barred, every holder would read a ban nobody entered. */
+  it("names an erased person's grant by no address and no ban, in each art and in either part", () => {
+    const geloescht = { vorenthalten: "geloescht" } as const;
+    const saetze = [
+      [{ art: "entzogen", adresse: geloescht }, "Eine nicht genannte Adresse hat keinen Zugang zur Verwaltung mehr."],
+      [{ art: "erteilt", adresse: geloescht, inhaber: false }, "Eine nicht genannte Adresse hat jetzt Zugang zur Verwaltung."],
+      [{ art: "geaendert", adresse: geloescht, inhaber: true }, "Eine nicht genannte Adresse ist jetzt Inhaber der Verwaltung."],
+    ] as const;
+
+    for (const [aenderung, satz] of saetze) {
+      const mail = buildBerechtigungEmail(aenderung, { von: "vorstand@schule.de", am: AM }, ORIGIN);
+      for (const part of [mail.text, mail.html]) {
+        assert.ok(part.includes(satz), `the erased grant is not told as ${satz}`);
+        assert.ok(!part.includes("gesperrt"), "an erased person's grant is told as barred");
+      }
+    }
+  });
+
+  /* The marker names nobody, and printed it would read as an address. */
+  it("names an administrator erased since by no address and no ban, in either part", () => {
+    const mail = buildBerechtigungEmail(
+      { art: "erteilt", adresse: "neu@schule.de", inhaber: false },
+      { von: ERASED_ACTOR_MARKER, am: AM },
+      ORIGIN,
+    );
+
+    for (const part of [mail.text, mail.html]) {
+      assert.ok(part.includes("Geändert von einer nicht genannten Adresse am 15. Januar 2026"), "the erased actor is not told neutrally");
+      assert.ok(!part.includes(ERASED_ACTOR_MARKER), "the marker reached the notice");
+      assert.ok(!part.includes("gesperrt"), "an erased administrator is told as barred");
+    }
   });
 
   /* The application grants no `owner`, so one is a change in the database, and the one a holder most
      needs told as such. */
   it("names an `owner` grant as the owner's, barred or not", () => {
     const benannt = buildBerechtigungEmail({ art: "erteilt", adresse: "neu@schule.de", inhaber: true }, null, ORIGIN);
-    const gesperrt = buildBerechtigungEmail({ art: "erteilt", adresse: null, inhaber: true }, null, ORIGIN);
+    const gesperrt = buildBerechtigungEmail({ art: "erteilt", adresse: { vorenthalten: "gesperrt" }, inhaber: true }, null, ORIGIN);
 
     for (const part of [benannt.text, benannt.html]) assert.ok(part.includes("hat jetzt Zugang zur Verwaltung als Inhaber."));
     assert.ok(benannt.text.includes("neu@schule.de hat jetzt Zugang zur Verwaltung als Inhaber."));

@@ -10,6 +10,7 @@ import Person from "@gravity-ui/icons/Person";
 
 import { Table } from "@heroui/react/table";
 
+import { ERASED_ACTOR_MARKER } from "@/core/erasedActor";
 import { VonOderGesperrt } from "@/features/berechtigungen/components/ui/VonOderGesperrt";
 import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/AdminCrudEmpty";
 import {
@@ -101,7 +102,12 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
           />
           <span className="min-w-0 truncate fluid-sm font-semibold text-foreground">
             {actor.kind === "person_session" ? (
-              personAkteurLabel(actor)
+              // Erased since, the row names a state rather than a person, in the empty grade the barred arm takes.
+              actor.pseudonym === ERASED_ACTOR_MARKER ? (
+                <Leer>{personAkteurLabel(actor)}</Leer>
+              ) : (
+                personAkteurLabel(actor)
+              )
             ) : (
               <VonOderGesperrt
                 von={actor.email}

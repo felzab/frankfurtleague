@@ -467,7 +467,7 @@ _REGISTRIERUNG_STATUS = ["eingereicht", "abgelehnt"]
 _VERWALTUNG = ["owner", "administration"]
 _BERECHTIGUNG_AENDERUNGEN = ["erteilt", "entzogen", "geaendert"]
 _BERECHTIGUNG_URHEBER = ["anwendung", "datenbank"]
-_BERECHTIGUNG_VORENTHALTEN = ["gesperrt"]
+_BERECHTIGUNG_VORENTHALTEN = ["gesperrt", "geloescht"]
 
 # One grant's state in an outbox row; the address null where it was barred when queued.
 _BERECHTIGUNG_STAND = _object(

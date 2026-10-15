@@ -10,7 +10,7 @@ import { versandAusfallOf } from "@/core/versandAusfall";
 
 import { postBerechtigungenAbgleich, postBerechtigungenAngekuendigt } from "./mutations";
 
-import type { Urheber, Zugangsaenderung } from "@/core/berechtigungEmail";
+import type { Urheber, Vorenthalten, Zugangsaenderung } from "@/core/berechtigungEmail";
 import type { FLBerechtigungAenderung } from "./schemas";
 
 /**
@@ -174,9 +174,11 @@ async function ankuendigen(aenderung: FLBerechtigungAenderung, empfaenger: reado
  * removal and the new address's grant, so a `geaendert` is a change of tier alone.
  */
 function zugangsaenderung(aenderung: FLBerechtigungAenderung): Zugangsaenderung {
-  if (aenderung.art === "entzogen") return { art: "entzogen", adresse: aenderung.vorher?.adresse ?? null };
+  // The served reason and never the null alone: an erased holder's address is withheld as a barred one's is.
+  const ohneAdresse: Vorenthalten = { vorenthalten: aenderung.geloescht ? "geloescht" : "gesperrt" };
+  if (aenderung.art === "entzogen") return { art: "entzogen", adresse: aenderung.vorher?.adresse ?? ohneAdresse };
 
-  return { art: aenderung.art, adresse: aenderung.jetzt?.adresse ?? null, inhaber: aenderung.jetzt?.verwaltung === "owner" };
+  return { art: aenderung.art, adresse: aenderung.jetzt?.adresse ?? ohneAdresse, inhaber: aenderung.jetzt?.verwaltung === "owner" };
 }
 
 /** Read off `urheber`, never off a null actor: a barred administrator's change is no database edit. */

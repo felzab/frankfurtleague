@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { ERASED_ACTOR_MARKER } from "@/core/erasedActor.ts";
+import { GELOESCHTE_PERSON } from "@/features/berechtigungen/constants.ts";
+
 import { AKTION_HERKUNFT_LABELS, AKTOR_FUNKTION_LABELS, AKTOR_HERKUNFT } from "./constants.ts";
 import { FLAktorPersonSchema, FLAktorSchema } from "./schemas.ts";
 import { describeAktionDatensatz, formatAktionZeitpunkt, herkunftOfAktor, labelForCollection, personAkteurLabel } from "./utils.ts";
@@ -135,5 +138,13 @@ describe("personAkteurLabel", () => {
 
     assert.deepEqual(labels, ["Kontakt · 3f9a07c2", "Spieler · 3f9a07c2", "Schiedsrichter · 3f9a07c2"]);
     assert.equal(new Set(Object.values(AKTOR_FUNKTION_LABELS)).size, FLAktorPersonSchema.shape.funktion.options.length);
+  });
+
+  /* The redacted actor of a person erased since: the marker read as a pseudonym's start would name somebody. */
+  it("names a person erased since in the admin cards' words, keeping the Funktion", () => {
+    assert.equal(
+      personAkteurLabel({ kind: "person_session", pseudonym: ERASED_ACTOR_MARKER, funktion: "spieler" }),
+      `Spieler · ${GELOESCHTE_PERSON}`,
+    );
   });
 });
