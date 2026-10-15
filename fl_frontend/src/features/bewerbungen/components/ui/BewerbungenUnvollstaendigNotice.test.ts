@@ -13,8 +13,8 @@ const { Callout } = await import("@/shared/components/ui/Callout.tsx");
 
 const markup = (props: BewerbungenUnvollstaendig): string => renderMarkup(BewerbungenUnvollstaendigNotice, props);
 
-const NEWEST: BewerbungenUnvollstaendig = { richtung: "desc", umkehrHref: "?q=schule&order=asc" };
-const OLDEST: BewerbungenUnvollstaendig = { richtung: "asc", umkehrHref: "?q=schule&order=desc" };
+const NEWEST: BewerbungenUnvollstaendig = { richtung: "desc", umkehrHref: "?saisonbezug=andere_saison&order=asc" };
+const OLDEST: BewerbungenUnvollstaendig = { richtung: "asc", umkehrHref: "?saisonbezug=andere_saison&order=desc" };
 
 /** The class list of the outermost element, which is where `Callout` puts its severity. */
 const rootClass = (html: string): string => /^<div class="([^"]*)"/.exec(html)?.[1] ?? "";
@@ -50,11 +50,11 @@ describe("the notice a truncated queue carries", () => {
 
   it("reverses the read through a real link that says what it does", () => {
     const newest = anchor(markup(NEWEST));
-    assert.equal(newest.href, "?q=schule&order=asc", "the link drops the search text or the order");
+    assert.equal(newest.href, "?saisonbezug=andere_saison&order=asc", "the link drops the narrowing or the order");
     assert.equal(newest.name, "Lade die ältesten zuerst");
 
     const oldest = anchor(markup(OLDEST));
-    assert.equal(oldest.href, "?q=schule&order=desc");
+    assert.equal(oldest.href, "?saisonbezug=andere_saison&order=desc");
     assert.equal(oldest.name, "Lade die neuesten zuerst");
 
     // An `aria-label` here would replace the visible words with something a speaking user cannot read back.

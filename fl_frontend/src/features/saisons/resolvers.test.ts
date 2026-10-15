@@ -93,8 +93,8 @@ describe("which season an address names", () => {
   /* `SaisonSelector` matches the raw parameter, so an id only a trim finds would name a season on the
      page and none in the header. */
   it("strips a padded id rather than trimming it", async () => {
-    await assert.rejects(resolveSaisonId(Promise.resolve({ saison_id: " 2026", q: "x" }), "admin"), (error: unknown) => {
-      assert.equal((error as { digest?: string }).digest?.split(";")[2], "?q=x");
+    await assert.rejects(resolveSaisonId(Promise.resolve({ saison_id: " 2026", gruppe: "A" }), "admin"), (error: unknown) => {
+      assert.equal((error as { digest?: string }).digest?.split(";")[2], "?gruppe=A");
       return true;
     });
   });

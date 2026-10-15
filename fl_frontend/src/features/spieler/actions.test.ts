@@ -774,7 +774,7 @@ describe("REQ-SQUAD-003 before the press", () => {
     ]);
     const body = await pageBody(AdminSpielerPage, {
       params: Promise.resolve({}),
-      searchParams: Promise.resolve({ saison_id: SAISON_ID, q: "Lena" }),
+      searchParams: Promise.resolve({ saison_id: SAISON_ID, team: OTHER_TEAM.teamId }),
     });
 
     assert.deepEqual(fullIn(body), { [STORED_TEAM.teamId]: true, [OTHER_TEAM.teamId]: false });

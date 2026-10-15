@@ -161,7 +161,7 @@ describe("the facets a fixture list is narrowed by", () => {
      `fl_frontend/src/shared/utils/facets.test.ts` holds every discovered slice to the same three. */
   it("gives every facet a parameter of its own, and none another control already spends", () => {
     const params = ADMIN_FACETS.map((facet) => facet.param);
-    const claimed = params.filter((param) => ["q", "saison_id", "section"].includes(param));
+    const claimed = params.filter((param) => ["order", "saison_id", "section"].includes(param));
 
     assert.equal(new Set(params).size, params.length, `two facets share a parameter: ${params.join(", ")}`);
     assert.deepEqual(claimed, [], `a facet claims a parameter another control spends: ${claimed.join(", ")}`);

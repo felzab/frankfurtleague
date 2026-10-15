@@ -157,7 +157,7 @@ describe("readFacetSelection", () => {
   });
 
   it("ignores an empty parameter and every parameter that is not a facet", () => {
-    assert.deepEqual(readFacetSelection(FACETS, new URLSearchParams("gruppe=&q=helm&saison_id=2026")), {});
+    assert.deepEqual(readFacetSelection(FACETS, new URLSearchParams("gruppe=&order=asc&saison_id=2026")), {});
   });
 
   it("answers with a facet's default while its parameter is absent", () => {
@@ -381,11 +381,11 @@ describe("every facet set in the app", () => {
     );
   });
 
-  it("never claims a parameter the search field or the season selector already owns", () => {
-    // `q`, `saison_id` and `section` belong to the search field, the season selector and the
+  it("never claims a parameter the read order or the season selector already owns", () => {
+    // `order`, `saison_id` and `section` belong to the read order's control, the season selector and the
     // action-required strip. A facet claiming one fights a control on the same page, invisibly until
     // somebody filters.
-    const reserved = new Set(["q", "saison_id", "section"]);
+    const reserved = new Set(["order", "saison_id", "section"]);
 
     for (const [name, facets] of discovered) {
       for (const facet of facets) {
