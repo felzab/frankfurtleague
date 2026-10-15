@@ -441,20 +441,24 @@ Every ruling below is the sign-up flow as it stands for the next season.
   whoever granted it.** `berechtigungen` holds the grant and `berechtigungen_angekuendigt` what the
   other administrators were told of it, and every administrator is served both addresses. The outbox
   `berechtigungen_postausgang` holds a changed grant's address, and the acting administrator's,
-  until a pass has mailed it, and no barred address at all: a ban withholds it in every row still
-  queued (`docs/backend/spec.md :: I462`). Each change is mailed to every holder and to the address
-  it names, carrying that address and the administrator who made it; a barred address it names by
-  its state alone (`docs/frontend/spec.md :: I455`). A revoke removes the grant and its announced row
+  until a pass has mailed it, and no barred or erased address at all: a ban withholds it in every row
+  still queued (`docs/backend/spec.md :: I462`), and so does an erasure (`:: I659`). Each change is
+  mailed to every holder and to the address it names, carrying that address and the administrator who
+  made it; a barred address it names by its state alone, and an erased person's not at all
+  (`docs/frontend/spec.md :: I455`). A revoke removes the grant and its announced row
   at once (`docs/backend/spec.md :: I451`); the log keeps the removed grant's image, the address in
   it, for its twelve months, as it keeps every administrator's write, and no image of an announced or
-  outbox row the revoke or a pass removes (`docs/backend/spec.md :: I465`). No erasure route reaches a
-  grant: the revoke is the route, and an `owner` grant is made an administrator's first
-  (`docs/backend/spec.md :: I436`). **A restore from a snapshot undoes a revoke made after it**: the
+  outbox row the revoke or a pass removes (`docs/backend/spec.md :: I465`). An erasure removes every
+  grant the address holds and its announced row with no image, an `owner` grant included, and queues
+  the notice that it ended (`docs/backend/spec.md :: I436`, `:: I659`); otherwise the revoke is the
+  route, and an `owner` grant is made an administrator's first. **A restore from a snapshot undoes a revoke made after it**: the
   grant comes back with its announced row, so no notice says it stands again, and the address is
   admitted again until the revoke is run once more
-  ([`ops/runbooks.md`](ops/runbooks.md#13-after-a-restore-from-a-snapshot)). **The granter's address outlives both**: `erteilt_von` keeps it on
-  every grant they made, through their own revoke and their erasure, served to every administrator
-  while those grants stand and the ban list does not hold it (`docs/backend/spec.md :: I452`).
+  ([`ops/runbooks.md`](ops/runbooks.md#13-after-a-restore-from-a-snapshot)). **The granter's address outlives their revoke and not their
+  erasure**: `erteilt_von` keeps it on every grant they made, served to every administrator while
+  those grants stand and the ban list does not hold it (`docs/backend/spec.md :: I452`), until their
+  erasure replaces it, as on every ban, invite and decision they made, with a marker naming nobody
+  (`:: I660`).
 - **The administrator's own email on every log row stays, outside every redaction.** The log
   exists to say who did what; the asymmetry is deliberate and is stated at the invariant once it
   leaves here (`docs/backend/spec.md :: I42` is the redaction it sits beside, and `:: I48` what a
@@ -546,10 +550,11 @@ Every ruling below is the sign-up flow as it stands for the next season.
   no field and derivable from no row without that key, so the row is neither that person's own
   document to delete nor a shell of nulls left where one stood, which is why it survives a request
   that reaches everything else (`docs/backend/spec.md :: I268`). **The row is pseudonymised personal
-  data rather than none** — this controller holds the key that re-identifies it — and two people are
-  in it past their own erasure: the person barred, whom the free-text reason may name outright, and
-  the administrator, whose own address stands in `erstellt_von` in plain. The basis for keeping
-  either is what [section 11](#11-open-and-owed-a-decision) asks the Datenschutzexperte to confirm.
+  data rather than none** — this controller holds the key that re-identifies it — and the person
+  barred is in it past their own erasure, whom the free-text reason may name outright. The
+  administrator who entered it stands in `erstellt_von` in plain until their own erasure gives the
+  row a marker naming nobody (`docs/backend/spec.md :: I660`). The basis for keeping either is what
+  [section 11](#11-open-and-owed-a-decision) asks the Datenschutzexperte to confirm.
   **It is bounded by the league's own calendar** and removed without anybody asking at the season
   activation [section 6](#6-retention-is-bounded-where-a-bound-was-chosen) names; an administrator
   may lift it earlier. **Either removal keeps a copy in the action log** — the hash, the key label,
@@ -657,9 +662,9 @@ Every ruling below is the sign-up flow as it stands for the next season.
   (`fl_backend/app/api/registrierungen/services.py :: saison_nimmt_registrierungen_an`), so a window
   moved after the link was minted moves the link with it. The entry names a team and a season and no
   SUBJECT — an unkeyed hash of the link value, which yields the link itself to nobody, the day it
-  was minted, and the administrator who minted it, whose address is held in plain and outlives any
-  erasure as the ban list's does. **Nothing deletes one**: no erasure reaches it, no clock removes
-  it, and a replaced entry is kept precisely so a delivery event about the message that carried its
+  was minted, and the administrator who minted it, whose address is held in plain until their own
+  erasure gives the entry a marker naming nobody (`docs/backend/spec.md :: I660`). **Nothing deletes
+  one**: no erasure removes it, no clock does, and a replaced entry is kept precisely so a delivery event about the message that carried its
   link still has somewhere to land (`docs/glossary.md :: Einladung`). The published notice says the
   same — the link ends, the entry stays (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-09-21.
 - **A referee's confirmation record and link go with the referee's row, which is bound to no season
@@ -853,10 +858,10 @@ the `Entry` column carries a token only where one still resolves in that file.
   2026-09-22, which move without us. Which plan this zone is on is recorded nowhere in this
   repository. The host's bound is a file outside it ([`ops/runbooks.md`](ops/runbooks.md) §7), so a
   claim that it was honoured rests on reading the host rather than on a report.
-- **The ban list's surviving row is kept about two people past their own erasure, for the
-  Datenschutzexperte**: the person barred, pseudonymised and possibly named by the reason, and the
-  entering administrator in plain ([section 5](#5-erasure-reaches-everyone-who-asks)). The basis
-  for keeping any of it is legitimate interest in refusing a re-registration the league has already
+- **The ban list's surviving row is kept about the person barred past their erasure, for the
+  Datenschutzexperte**: pseudonymised and possibly named by the reason, beside the entering
+  administrator in plain until that administrator's own erasure
+  ([section 5](#5-erasure-reaches-everyone-who-asks)). The basis for keeping any of it is legitimate interest in refusing a re-registration the league has already
   declined — a refusal the ban's own create, the public registration, every referee write that
   mints a confirmation link and every confirmation press perform
   ([`backend/spec.md`](backend/spec.md#11-endpoint-inventory)).

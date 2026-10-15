@@ -17,10 +17,12 @@ import pytest
 from bson import ObjectId
 from fastapi import FastAPI
 from pymongo import AsyncMongoClient
+from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.berechtigungen.admin_router import delete_berechtigung, get_berechtigungen, patch_berechtigung, post_berechtigung
+from app.api.berechtigungen.erasure import erase_grants_and_authorship_in_session
 from app.api.berechtigungen.schemas import (
     FLBerechtigungAbgleichResponse,
     FLBerechtigungAngekuendigtPayload,
@@ -46,7 +48,7 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import ANCHOR_FIELD, WritesSent, writes_sent_var
 from app.core.exceptions import ActorForbiddenException, DocumentNotFoundException, WriteRefusalException
-from app.core.recording import SYSTEM_ACTOR, Actor, actor_var
+from app.core.recording import ERASED_ACTOR_MARKER, SYSTEM_ACTOR, Actor, actor_var
 from app.core.security import ACTOR_HEADER, ACTOR_NOT_ADMIN, ACTOR_TOKEN_REFUSED, admin_judge, get_grant_lookup
 from app.core.transactions import actor_judge_var
 from app.main import create_app
@@ -1298,6 +1300,56 @@ class TestTheClaim:
             (BERND_ID, "erteilt", "datenbank", None, False, NEU, None),
         ]
         assert later == []
+
+    def test_an_erased_holders_notices_are_answered_as_erased_and_never_as_barred(self, mongo_replica_set_url: str):
+        """Her grant's end withheld under `geloescht`, the grant she made by the marker: no flag says barred.
+
+        The served contract is `docs/backend/spec.md :: I661`.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[list[tuple[Any, ...]], str]:
+            await told(database, client)
+            await grant(database, client, als=ANNA)
+
+            async def step(session: AsyncClientSession) -> Any:
+                return await erase_grants_and_authorship_in_session(
+                    berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
+                    berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
+                    berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
+                    bewerbungen_collection=database[Collection.BEWERBUNGEN],
+                    registrierungen_collection=database[Collection.REGISTRIERUNGEN],
+                    einladungen_collection=database[Collection.EINLADUNGEN],
+                    sperrliste=ban_list(database),
+                    identifier=ANNA,
+                    geaendert_von=OWNER,
+                    now=NOW,
+                    session=session,
+                )
+
+            async with client.start_session() as session:
+                await session.with_transaction(step)
+            answer = await claimed(database, client)
+
+            return [
+                (
+                    change.art,
+                    change.jetzt.adresse if change.jetzt else None,
+                    change.vorher.adresse if change.vorher else None,
+                    change.geaendert_von,
+                    change.geaendert_von_gesperrt,
+                    change.gesperrt,
+                    change.geloescht,
+                )
+                for change in answer.aenderungen
+            ], answer.model_dump_json()
+
+        changes, served = on_a_league(mongo_replica_set_url, body)
+
+        assert changes == [
+            ("erteilt", NEU, None, ERASED_ACTOR_MARKER, False, False, False),
+            ("entzogen", None, None, OWNER, False, False, True),
+        ]
+        assert ANNA not in served
 
 
 async def gefunden_am(database: AsyncDatabase) -> dict[ObjectId, Any]:
