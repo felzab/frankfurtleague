@@ -83,18 +83,21 @@ async function answerOfEveryAction(): Promise<{ answers: Map<string, unknown>; e
   return { answers, exempted };
 }
 
-/** `adminLane` for every administrator's action, the account page's actions answering by their own guard. */
-const expectedOf = (answers: Map<string, unknown>, adminLane: string): Map<string, unknown> =>
+/**
+ * `adminLane` for every administrator's action, `undoLane` for an undo, the account page's actions
+ * answering by their own guard.
+ */
+const expectedOf = (
+  answers: Map<string, unknown>,
+  adminLane: string,
+  undoLane = `${adminLane} ${AENDERUNG_STEHT_WEITERHIN}`,
+): Map<string, unknown> =>
   new Map(
     [...answers.keys()].map((action) => [
       action,
       {
         success: false,
-        error: ACCOUNT_ACTIONS.has(action)
-          ? KONTO_FORBIDDEN
-          : UNDO_ACTIONS.has(action)
-            ? `${adminLane} ${AENDERUNG_STEHT_WEITERHIN}`
-            : adminLane,
+        error: ACCOUNT_ACTIONS.has(action) ? KONTO_FORBIDDEN : UNDO_ACTIONS.has(action) ? undoLane : adminLane,
       },
     ]),
   );
@@ -126,6 +129,14 @@ describe("every admin server action", () => {
     setRefusal("unread");
     const { answers } = await answerOfEveryAction();
 
-    assert.deepEqual(answers, expectedOf(answers, "Dein Zugang zur Verwaltung ließ sich gerade nicht prüfen. Versuche es erneut."));
+    // An undo offers no retry: the offer pressed is gone.
+    assert.deepEqual(
+      answers,
+      expectedOf(
+        answers,
+        "Dein Zugang zur Verwaltung ließ sich gerade nicht prüfen. Versuche es erneut.",
+        "Dein Zugang zur Verwaltung ließ sich gerade nicht prüfen. Die Änderung steht weiterhin.",
+      ),
+    );
   });
 });

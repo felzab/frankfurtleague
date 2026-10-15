@@ -4,7 +4,7 @@ import z from "zod";
 
 import { isFreshlySignedIn } from "@/core/auth";
 import { invalidatesOnWrite, refusalResult, refuseUnconfirmed, runAdminMutation } from "@/shared/utils/adminMutation";
-import { refusedReplay, runAdminUndo, UNDO_UNREADABLE } from "@/shared/utils/adminUndo";
+import { refusedReplay, restored, runAdminUndo, unclearReplay, UNDO_UNREADABLE } from "@/shared/utils/adminUndo";
 import { buildRefusal, LADE_DIE_SEITE_NEU, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
@@ -244,7 +244,7 @@ export async function undoAdminSchiedsrichterEditAction(
       return refusedReplay(error, SCHIEDSRICHTER_REPLAY_REFUSALS);
     }
 
-    if (!operation.acknowledged) return { unclear: "Die Rücknahme wurde abgebrochen. Prüfe die Schiedsrichterdaten." };
+    if (!operation.acknowledged) return unclearReplay("Die Rücknahme wurde abgebrochen. Prüfe die Schiedsrichterdaten.");
 
     // A confirmed referee's address never moved on the save, so the replay asks the earlier address
     // again only where that change was confirmed since; unmailed, that link reaches nobody.
@@ -258,18 +258,18 @@ export async function undoAdminSchiedsrichterEditAction(
         anlass: "erneut",
       });
 
-      return { cost: describeAdresswechselMail(wechsel.email, wechselVersand) };
+      return restored(describeAdresswechselMail(wechsel.email, wechselVersand));
     }
 
     // The replay leaves a pending address standing, its link already in that mailbox, the discard
     // being the editor's control. Said only after undoing the save that left it: an undone fee edit
     // has nothing to do with it.
-    if (adresswechsel_gespeichert && operation.updated_document.adresswechsel !== null) return { cost: ADRESSWECHSEL_WARTET_WEITER };
+    if (adresswechsel_gespeichert && operation.updated_document.adresswechsel !== null) return restored(ADRESSWECHSEL_WARTET_WEITER);
 
     // The replay puts the earlier address back, which the endpoint reads as a correction and mints
     // for: unmailed, that token exists in the database alone and the referee's own link is dead.
     const mint = operation.bestaetigung;
-    if (mint === null) return {};
+    if (mint === null) return restored();
 
     const versand = await mailSchiedsrichterLink({
       operation: "undoAdminSchiedsrichterEditAction",
@@ -283,7 +283,7 @@ export async function undoAdminSchiedsrichterEditAction(
 
     // A cost either way: the undo silently replaced a live link, which is a fact about the person
     // rather than about the rows it put back.
-    return { cost: describeLinkMail(mint.email, versand) };
+    return restored(describeLinkMail(mint.email, versand));
   });
 }
 

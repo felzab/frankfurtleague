@@ -4,7 +4,7 @@ import z from "zod";
 
 import { toActionErrorResult } from "@/shared/utils/actionError";
 import { invalidatesOnWrite, runAdminMutation } from "@/shared/utils/adminMutation";
-import { refusedReplay, runAdminUndo, UNDO_UNREADABLE } from "@/shared/utils/adminUndo";
+import { partlyRestored, refusedReplay, restored, runAdminUndo, unclearReplay, UNDO_UNREADABLE } from "@/shared/utils/adminUndo";
 import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
@@ -373,7 +373,7 @@ export async function undoAdminTeamEditAction(rawPayload: z.input<typeof TeamUnd
         return refusedReplay(error, TEAM_REPLAY_REFUSALS);
       }
 
-      if (!operation.acknowledged) return { unclear: "Die Rücknahme wurde abgebrochen. Prüfe die Teamdaten." };
+      if (!operation.acknowledged) return unclearReplay("Die Rücknahme wurde abgebrochen. Prüfe die Teamdaten.");
     }
 
     if (saison !== undefined) {
@@ -381,20 +381,21 @@ export async function undoAdminTeamEditAction(rawPayload: z.input<typeof TeamUnd
       try {
         operation = await patchSaisonTeam(saison);
       } catch (error) {
-        return club === undefined ? refusedReplay(error, TEAM_REPLAY_REFUSALS) : refusedReplay(error, TEAM_REPLAY_REFUSALS, CLUB_HALF_RESTORED);
+        return club === undefined
+          ? refusedReplay(error, TEAM_REPLAY_REFUSALS)
+          : partlyRestored(error, TEAM_REPLAY_REFUSALS, CLUB_HALF_RESTORED);
       }
 
       if (!operation.acknowledged) {
         // The first half may already be restored; reported rather than papered over.
-        return {
-          unclear:
-            club === undefined
-              ? "Die Rücknahme wurde abgebrochen. Prüfe die Saison-Zugehörigkeit."
-              : `${CLUB_HALF_RESTORED} Prüfe die Saison-Zugehörigkeit.`,
-        };
+        return unclearReplay(
+          club === undefined
+            ? "Die Rücknahme wurde abgebrochen. Prüfe die Saison-Zugehörigkeit."
+            : `${CLUB_HALF_RESTORED} Prüfe die Saison-Zugehörigkeit.`,
+        );
       }
     }
 
-    return {};
+    return restored();
   });
 }

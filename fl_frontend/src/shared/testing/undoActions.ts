@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 
+import { APIBadStatusError } from "@/core/errors.ts";
 import { AENDERUNG_STEHT_WEITERHIN, KONFLIKT_MIT_BESTEHENDEM } from "@/shared/utils/actionError.ts";
 
 import { cacheCalls } from "./actionDoubles.ts";
@@ -9,6 +10,22 @@ import type { UndoOutcome } from "@/shared/utils/adminUndo.ts";
 
 /** Every tag the undo's spine dropped, in the order it dropped them. */
 export const droppedTags = (): unknown[] => cacheCalls.filter(({ name }) => name === "updateTag").map(({ args }) => args[0]);
+
+/** How often the spine or the action asked Next to read the page again since the case began. */
+export const refreshes = (): number => cacheCalls.filter(({ name }) => name === "refresh").length;
+
+/** A write's definite failure as `apiClient` raises it: the server answered 500 having written nothing (`DB-FAIL-001`). */
+export const failedWrite = (endpoint: string): APIBadStatusError =>
+  new APIBadStatusError({
+    message: "failed",
+    url: `http://backend:8000/api/v0${endpoint}`,
+    endpoint,
+    method: "PATCH",
+    readOnly: false,
+    traceId: "ab".repeat(16),
+    statusCode: 500,
+    serverErrorCode: "DB-FAIL-001",
+  });
 
 /** An undo's answer where its replay's write went unacknowledged, which may still have landed. */
 export const unacknowledged = (error: string): UndoOutcome => ({ success: false, error, outcome: "unknown" });

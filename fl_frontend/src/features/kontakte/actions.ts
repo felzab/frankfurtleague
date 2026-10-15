@@ -5,7 +5,7 @@ import { getLaufendesLabel } from "@/core/einwilligung";
 import { describeLinkMail } from "@/features/schiedsrichter/notifications";
 import { getTeamMemberships } from "@/features/teams/queries";
 import { refuseUnconfirmed, runAdminMutation } from "@/shared/utils/adminMutation";
-import { refusedReplay, replayRefusal, runAdminUndo, UNDO_UNREADABLE } from "@/shared/utils/adminUndo";
+import { refusedReplay, replayRefusal, restored, runAdminUndo, unclearReplay, UNDO_UNREADABLE } from "@/shared/utils/adminUndo";
 import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
@@ -181,10 +181,10 @@ export async function undoAdminKontakteEditAction(rawPayload: FLPatchSaisonTeamK
       operation = await patchSaisonTeamKontakte({ ...validated.data, kontakte });
     } catch (error) {
       const stale = replayRefusal(error, STALE_BLOCK_REFUSAL);
-      return stale === undefined ? refusedReplay(error, KONTAKTE_REPLAY_REFUSALS) : { refusal: stale };
+      return stale === undefined ? refusedReplay(error, KONTAKTE_REPLAY_REFUSALS) : { success: false, error: stale };
     }
 
-    if (!operation.acknowledged) return { unclear: "Die Rücknahme wurde abgebrochen. Prüfe die Kontaktdaten." };
+    if (!operation.acknowledged) return unclearReplay("Die Rücknahme wurde abgebrochen. Prüfe die Kontaktdaten.");
 
     // The replay puts an earlier person back on a seat, which the endpoint reads as newly seating
     // them and mints for: unmailed, that token exists in the database alone and the seat never confirms.
@@ -204,7 +204,7 @@ export async function undoAdminKontakteEditAction(rawPayload: FLPatchSaisonTeamK
 
     // A cost either way: the undo mailed a person, which is a fact about them rather than about the
     // rows it put back.
-    return versandSatz === null ? {} : { cost: versandSatz };
+    return restored(versandSatz ?? undefined);
   });
 }
 

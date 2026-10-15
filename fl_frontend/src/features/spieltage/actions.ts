@@ -1,7 +1,7 @@
 "use server";
 
 import { invalidatesOnWrite, refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
-import { refusedReplay, runAdminUndo, UNDO_UNREADABLE } from "@/shared/utils/adminUndo";
+import { refusedReplay, restored, runAdminUndo, unclearReplay, UNDO_UNREADABLE } from "@/shared/utils/adminUndo";
 import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
@@ -58,6 +58,6 @@ export async function undoAdminSpieltagEditAction(rawPayload: FLPatchSpieltagPay
       return refusedReplay(error, SPIELTAG_REPLAY_REFUSALS);
     }
 
-    return operation.acknowledged ? {} : { unclear: "Die Rücknahme wurde abgebrochen. Prüfe den Spieltag." };
+    return operation.acknowledged ? restored() : unclearReplay("Die Rücknahme wurde abgebrochen. Prüfe den Spieltag.");
   });
 }

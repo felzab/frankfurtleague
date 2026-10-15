@@ -1,6 +1,9 @@
+import { refresh } from "next/cache";
+
 import { AENDERUNG_STEHT_WEITERHIN, isRefusal, RUECKNAHME_UNKLAR } from "./actionError";
-import { FORBIDDEN_BY_REFUSAL, runAdminMutation } from "./adminMutation";
+import { BERECHTIGUNG_UNGELESEN, FORBIDDEN_BY_REFUSAL, runAdminMutation } from "./adminMutation";
 import { buildRefusal, LADE_DIE_SEITE_NEU } from "./refusal";
+import { answerThrow } from "./writeOutcome";
 
 import type { AdminRefusal } from "@/core/auth";
 import type { ActionFailure } from "@/shared/types/types";
@@ -12,34 +15,29 @@ const UNDO_RESTORED = "Die Änderung wurde zurückgenommen.";
 export const UNDO_UNREADABLE = buildRefusal({ reason: "Die Rücknahme wurde nicht ausgeführt", repair: LADE_DIE_SEITE_NEU });
 
 /**
- * The sentence an action turned away for the same reason is answered, and that the change stands: one
- * table, so the save and its undo never word one condition two ways.
+ * The sentence an action turned away for the same reason is answered, one table wording the save and its
+ * undo alike, then that the change stands. Never the unread grant's retry: the offer pressed is gone.
  */
-const undoTurnedAway = (reason: AdminRefusal): string => `${FORBIDDEN_BY_REFUSAL[reason]} ${AENDERUNG_STEHT_WEITERHIN}`;
-
-/**
- * What one slice's replay answers: why it did not commit, that nobody can tell whether it did, or
- * what a commit cost.
- *
- * Fields rather than a string meaning failure: a replay can land and still owe the admin a sentence.
- */
-export type UndoReport = {
-  /** The German refusal where the restore did not fully commit; absent where it did. */
-  refusal?: string;
-  /**
-   * The German where the replay's write went unacknowledged, which may still have landed: answered as
-   * of unknown outcome, so the offer titles it unclear rather than refused.
-   */
-  unclear?: string;
-  /**
-   * What a committed restore moved beyond the rows it put back. Present, it follows the standard
-   * sentence and grades the toast a warning, so a replay with collateral does not read as a clean undo.
-   */
-  cost?: string;
-};
+const undoTurnedAway = (reason: AdminRefusal): string =>
+  `${reason === "unread" ? BERECHTIGUNG_UNGELESEN : FORBIDDEN_BY_REFUSAL[reason]} ${AENDERUNG_STEHT_WEITERHIN}`;
 
 /** What an undo answers the offer that sent it: the restore, graded by what it cost, or why it did not land. */
 export type UndoOutcome = { success: true; message: string; warn: boolean } | ActionFailure;
+
+/**
+ * A replay committed whole. `cost` is what it moved beyond the rows it put back, which follows the
+ * standard sentence and grades the toast a warning, so a replay with collateral does not read as a clean undo.
+ */
+export function restored(cost?: string): UndoOutcome {
+  // The standard sentence FIRST: the undo landed, and what it cost is the second fact rather than a
+  // replacement for the first.
+  return { success: true, message: cost === undefined ? UNDO_RESTORED : `${UNDO_RESTORED} ${cost}`, warn: cost !== undefined };
+}
+
+/** A replay's write went unacknowledged and may still have landed, so its slice's sentence is titled unclear. */
+export function unclearReplay(sentence: string): ActionFailure {
+  return { success: false, error: sentence, outcome: "unknown" };
+}
 
 /**
  * The sentence a slice's own table words for the refusal its replay met, at whatever status its rule
@@ -51,44 +49,44 @@ export function replayRefusal(error: unknown, refusals: Readonly<Record<string, 
   return code == null || !Object.hasOwn(refusals, code) ? undefined : refusals[code];
 }
 
-/**
- * The table's reason, then what became of the change, which a cause alone leaves the admin guessing;
- * `closing` is the half that went back where a replay of two writes had restored the first.
- */
-export function refusedReplay(error: unknown, refusals: Readonly<Record<string, string>>, closing = AENDERUNG_STEHT_WEITERHIN): UndoReport {
+/** A replay of one write its table refuses: the table's reason, then that the change stands. */
+export function refusedReplay(error: unknown, refusals: Readonly<Record<string, string>>): ActionFailure {
   const reason = replayRefusal(error, refusals);
   if (reason === undefined) throw error;
 
-  return { refusal: `${reason} ${closing}` };
+  return { success: false, error: `${reason} ${AENDERUNG_STEHT_WEITERHIN}` };
+}
+
+/**
+ * A replay's second write failing after its first went back: the table's reason, or the spine's own
+ * answer to a definite failure, then `restoredHalf`. A failure that may have landed is rethrown, for the
+ * spine to answer as unclear.
+ */
+export function partlyRestored(error: unknown, refusals: Readonly<Record<string, string>>, restoredHalf: string): ActionFailure {
+  const reason = replayRefusal(error, refusals) ?? answerThrow(error);
+  if (typeof reason !== "string" && reason.outcome === "unknown") throw error;
+
+  return { success: false, error: `${typeof reason === "string" ? reason : reason.error} ${restoredHalf}`, outcome: "partial" };
 }
 
 /**
  * The spine every page-owned editor's undo action runs on, which is `runAdminMutation`'s: each action
- * keeps its parse, its tags, its step-up and its replay, and answers a failure ahead of the replay or
- * the replay's report.
+ * keeps its parse, its tags, its step-up and its replay, and answers what became of it.
  */
-export async function runAdminUndo(
-  mutationName: string,
-  fn: (session: AdminSession) => Promise<UndoReport | ActionFailure>,
-): Promise<UndoOutcome> {
+export async function runAdminUndo(mutationName: string, fn: (session: AdminSession) => Promise<UndoOutcome>): Promise<UndoOutcome> {
+  let answered: UndoOutcome | undefined;
   const answer = await runAdminMutation(mutationName, { stepUp: false, turnedAway: undoTurnedAway }, async (session) => {
-    const ran = await fn(session);
-    // `success` tells the spine only that the replay ran, so it drops the tags and re-reads the page
-    // wherever a write went out: a replay refused part-way leaves rows standing (`docs/frontend/spec.md` §1.3).
-    return "success" in ran ? ran : { success: true as const, report: ran };
+    answered = await fn(session);
+    return answered;
   });
 
-  if (!answer.success) {
-    // Only the spine answers an unknown outcome here, in the shared reader's sentence for an unclear
-    // save, where this write took a change back.
-    return answer.outcome === "unknown" ? { ...answer, error: RUECKNAHME_UNKLAR } : answer;
-  }
+  if (answer.success) return answer;
+  // The spine's own unknown outcome, a throw's or a lost answer's, is its own object worded for a save;
+  // the body's carries the slice's sentence.
+  if (answer.outcome === "unknown" && answer !== answered) return { ...answer, error: RUECKNAHME_UNKLAR };
+  // The spine drops the tags behind a half that went back and leaves the page to the action
+  // (`docs/frontend/spec.md :: I233`).
+  if (answer.outcome === "partial") refresh();
 
-  const { refusal, unclear, cost } = answer.report;
-  if (unclear !== undefined) return { success: false, error: unclear, outcome: "unknown" };
-  if (refusal !== undefined) return { success: false, error: refusal };
-
-  // The standard sentence FIRST and the cost after it: the undo landed, and what it cost is the
-  // second fact rather than a replacement for the first.
-  return { success: true, message: cost === undefined ? UNDO_RESTORED : `${UNDO_RESTORED} ${cost}`, warn: cost !== undefined };
+  return answer;
 }

@@ -4,7 +4,7 @@ import { describe, it } from "node:test";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 import { publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
-import { assertEachRefusalCloses, droppedTags, unacknowledged } from "@/shared/testing/undoActions.ts";
+import { assertEachRefusalCloses, droppedTags, failedWrite, refreshes, unacknowledged } from "@/shared/testing/undoActions.ts";
 
 /* The real action and the mutations it replays through, called: the request it runs in and the backend client are the doubles. */
 doubleActionRequest();
@@ -110,5 +110,22 @@ describe("the team save's undo", () => {
       await undoAdminTeamEditAction({ club: CLUB, saison: SAISON }),
       unacknowledged("Nur die Stammdaten wurden zurückgesetzt. Prüfe die Saison-Zugehörigkeit."),
     );
+  });
+
+  /* The club half stands behind a junction that failed outright, so the caches that half moved are
+     dropped and the page read again, as they are behind a refused junction. */
+  it("clears the caches and reads the page again where the junction fails after the club half went back", async () => {
+    answerWith(({ endpoint }) => (endpoint === JUNCTION_PATH ? Promise.reject(failedWrite(endpoint)) : Promise.resolve(replayed(endpoint, 1))));
+
+    const answer = await undoAdminTeamEditAction({ club: CLUB, saison: SAISON });
+
+    assert.equal(answer.success ? undefined : answer.outcome, "partial", "the half that went back is not said to stand");
+    assert.ok(
+      !answer.success && answer.error.endsWith(" Nur die Stammdaten wurden zurückgesetzt."),
+      "the answer does not name the half that went back",
+    );
+    assert.equal(answer.success, false, "a junction that failed was reported as restored");
+    assert.deepEqual(droppedTags(), ["teams", "spiele", `teams:saison_id:${SAISON.saison_id}`, `spiele:saison_id:${SAISON.saison_id}`]);
+    assert.equal(refreshes(), 1, "the page keeps the club data the undo already put back");
   });
 });

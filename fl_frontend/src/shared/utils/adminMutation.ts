@@ -25,7 +25,7 @@ import type { FieldErrors } from "./validation";
 export const ADMIN_FORBIDDEN = "Deine Sitzung hat keine Administratorrechte. Melde Dich neu an.";
 
 /** A grant the backend did not answer: nothing ran, and a sign-in would meet the same unread grant. */
-const BERECHTIGUNG_UNGELESEN = "Dein Zugang zur Verwaltung ließ sich gerade nicht prüfen.";
+export const BERECHTIGUNG_UNGELESEN = "Dein Zugang zur Verwaltung ließ sich gerade nicht prüfen.";
 
 /** What an admin write answers where the guard could not read the grant. */
 const BERECHTIGUNG_UNGELESEN_ERNEUT = `${BERECHTIGUNG_UNGELESEN} ${VERSUCHE_ES_ERNEUT_SATZ}`;
