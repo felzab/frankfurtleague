@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
+import { registerDoubles } from "@/core/exportingModule.ts";
 import { FLSelbstErasureAnsichtResponseSchema } from "@/core/schemas.ts";
 import { person } from "@/core/subjectFixtures.ts";
 import { doubleEveryAction, doubleSubjectLookup } from "@/shared/testing/actionDoubles.ts";
@@ -11,10 +12,25 @@ import { answerReadsWith, clearSteps, EMPTIEST_ANSWER, pageBody, readsOf, steps 
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
 import type { ReactElement } from "react";
-import type { LoeschungAnsicht, LoeschungStart } from "./components/views/LoeschungView.tsx";
+import type { GrantHolderStepUp, LoeschungAnsicht, LoeschungStart } from "./components/views/LoeschungView.tsx";
+import type { GrantHolderReading } from "./loeschungStepUp.ts";
 
 const { setSubject } = doubleSubjectLookup();
 doubleEveryAction();
+
+/** What the grant holder's session read answers, and how often the page asked it since the case began. */
+let grantHolder: GrantHolderReading | null = null;
+let grantReads = 0;
+
+/* The read takes the sign-in store, which a page suite does not load: the session it reads is that store's
+   own suite's to prove. */
+registerDoubles({
+  modules: {
+    "features/konto/loeschungStepUp.ts": {
+      readGrantHolderStepUp: () => ((grantReads += 1), Promise.resolve(grantHolder)),
+    },
+  },
+});
 
 /* Reached with `await import` and never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { default: LoeschungPage } = await import("@/app/(public)/loeschung/page.tsx");
@@ -33,18 +49,25 @@ const ANSICHT: LoeschungAnsicht = {
   verwaltung: "administration",
 };
 
+/** A grant holder past every window, as the read serves one. */
+const PAST_EVERY_WINDOW: GrantHolderStepUp = { freshUntil: null, enrolmentUntil: null, servedAt: 0, holderId: "inhaberin" };
+
 /** What the page hands its view for `searchParams`, the read answered with `ANSICHT`. */
-async function start(searchParams: Record<string, string>): Promise<LoeschungStart> {
+async function opened(searchParams: Record<string, string>): Promise<{ start: LoeschungStart; stepUp?: GrantHolderStepUp | null }> {
   clearSteps();
+  grantReads = 0;
   answerReadsWith((endpoint, schema, params) =>
     endpoint === "/identitaet/selbst/erasure/ansicht" ? { acknowledged: 1, ...ANSICHT } : EMPTIEST_ANSWER(endpoint, schema, params),
   );
   const body = (await pageBody(LoeschungPage, { params: Promise.resolve({}), searchParams: Promise.resolve(searchParams) })) as ReactElement<{
     start: LoeschungStart;
+    stepUp?: GrantHolderStepUp | null;
   }>;
 
-  return body.props.start;
+  return body.props;
 }
+
+const start = async (searchParams: Record<string, string>): Promise<LoeschungStart> => (await opened(searchParams)).start;
 
 describe("what the deletion link's interstitial opens on (`docs/frontend/spec.md :: I677`)", () => {
   it("opens a link carrying no token on the incomplete link's panel, reading nothing", async () => {
@@ -63,16 +86,34 @@ describe("what the deletion link's interstitial opens on (`docs/frontend/spec.md
     assert.deepEqual(readsOf(steps), []);
   });
 
-  it("asks an address holding a grant to sign in by its passkey where its session came by mail", async () => {
+  /* The press asks for the passkey in the page, so a session the mailbox made is no reason to send a grant
+     holder away to sign in (`docs/frontend/spec.md :: I707`). */
+  it("hands a grant holder's press its passkey prompt, whichever factor signed the session in", async () => {
     setSubject(person({ verwaltung: "administration", berechtigt_seit: "2026-01-01T00:00:00Z" }, false));
+    grantHolder = { stepUp: PAST_EVERY_WINDOW, hasPasskey: true };
 
-    assert.deepEqual(await start({ token: TOKEN }), { zustand: "anmelden" });
+    assert.deepEqual(await opened({ token: TOKEN }), {
+      start: { zustand: "bereit", token: TOKEN, email: "pia@example.org", ansicht: ANSICHT },
+      stepUp: PAST_EVERY_WINDOW,
+    });
   });
 
-  it("hands a signed-in person the records the backend's erasure would reach, with the link's token", async () => {
+  it("sends a grant holder holding no passkey to set one up, reading nothing", async () => {
+    setSubject(person({ verwaltung: "owner", berechtigt_seit: "2026-01-01T00:00:00Z", inhaber_seit: "2026-01-01T00:00:00Z" }, false));
+    grantHolder = { stepUp: PAST_EVERY_WINDOW, hasPasskey: false };
+
+    assert.deepEqual(await start({ token: TOKEN }), { zustand: "ohnePasskey" });
+    assert.deepEqual(readsOf(steps), []);
+  });
+
+  it("hands a signed-in person the records the backend's erasure would reach, with the link's token, asking for no passkey", async () => {
     setSubject(person());
 
-    assert.deepEqual(await start({ token: TOKEN }), { zustand: "bereit", token: TOKEN, email: "pia@example.org", ansicht: ANSICHT });
+    assert.deepEqual(await opened({ token: TOKEN }), {
+      start: { zustand: "bereit", token: TOKEN, email: "pia@example.org", ansicht: ANSICHT },
+      stepUp: null,
+    });
+    assert.equal(grantReads, 0, "a person's page read a grant holder's session");
   });
 });
 
@@ -115,10 +156,12 @@ describe("what the interstitial restates before the press", () => {
     assert.equal([...html(BEREIT).matchAll(/<li[ >]/g)].length, kinds.length + 1);
   });
 
-  it("offers a browser holding no session the sign-in and no press", () => {
-    const markup = html({ zustand: "anmelden" });
+  for (const zustand of ["anmelden", "ohnePasskey"] as const) {
+    it(`offers ${zustand === "anmelden" ? "a browser holding no session" : "a grant holder holding no passkey"} the sign-in and no press`, () => {
+      const markup = html({ zustand: zustand });
 
-    assert.ok(!textOf(markup, " ").includes("Konto endgültig löschen"), "a page with no session offers the press");
-    assert.match(markup, /href="\/signin"/);
-  });
+      assert.ok(!textOf(markup, " ").includes("Konto endgültig löschen"), "a page that cannot complete offers the press");
+      assert.match(markup, /href="\/signin"/);
+    });
+  }
 });

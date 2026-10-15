@@ -1,10 +1,11 @@
 "use server";
 
+import { refresh } from "next/cache";
 import { headers } from "next/headers";
 
 import { deleteOwnAccount, getKontoSession } from "@/core/auth";
 import { recordWriteSent } from "@/core/requestScope";
-import { invalidatesOnWrite, refusalResult } from "@/shared/utils/adminMutation";
+import { invalidatesOnWrite, refusalResult, stepUpRequired } from "@/shared/utils/adminMutation";
 import { enrolmentUntil } from "@/shared/utils/kontoMutation";
 import { runPersonRecordMutation } from "@/shared/utils/personMutation";
 import { VALIDATION_FAILED } from "@/shared/utils/validation";
@@ -17,10 +18,6 @@ import type { ActionResult } from "@/shared/types/types";
 /** What the library's refusal of a link means to its holder, the token being spent before it was refused. */
 const LINK_UNGUELTIG =
   "Dieser Link lässt sich nicht mehr verwenden: Er ist abgelaufen, wurde schon verwendet oder gehört zu einem anderen Konto. Fordere auf Deiner Kontoseite einen neuen an.";
-
-/** A grant holder past the passkey window, refused before the link is spent, so the same link still works. */
-const PASSKEY_ERNEUT =
-  "Mit Zugang zur Verwaltung löschst Du Dein Konto nur direkt nach einer Anmeldung mit Deinem Passkey. Melde Dich erneut mit Deinem Passkey an und öffne dann den Link aus der E-Mail.";
 
 /**
  * Completes a mailed deletion link, the league's records before the account (`docs/frontend/spec.md ::
@@ -35,11 +32,15 @@ export async function loescheKontoAction(token: string): Promise<ActionResult> {
     // Unconditional: the erasure reaches a squad and a fixture whatever this person turns out to hold.
     invalidatesOnWrite("spieler", "spiele");
 
-    // A grant goes with the account, so a grant holder is held to a revoke's window, a passkey sign-in of
-    // the enrolment's minutes (`docs/frontend/spec.md :: I707`), judged before the library spends the link.
+    // A grant goes with the account, so a grant holder is held to a revoke's window, a passkey confirmation
+    // of the enrolment's minutes (`docs/frontend/spec.md :: I707`), judged before the library spends the link.
     if (subject.subjekt.verwaltung !== null) {
       const verwaltend = await getKontoSession();
-      if (verwaltend === null || enrolmentUntil(verwaltend) === null) return { success: false, error: PASSKEY_ERNEUT };
+      if (verwaltend === null || enrolmentUntil(verwaltend) === null) {
+        // The page's figures read again, so its next press asks first (`docs/frontend/spec.md :: I433`).
+        refresh();
+        return stepUpRequired();
+      }
     }
 
     // The token is spent in the sign-in store, written past the API client, whatever the press comes to.

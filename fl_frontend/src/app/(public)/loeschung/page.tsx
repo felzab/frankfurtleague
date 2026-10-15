@@ -3,6 +3,7 @@ import { connection } from "next/server";
 
 import { getSubjectSession } from "@/core/subject";
 import { LoeschungView } from "@/features/konto/components/views/LoeschungView";
+import { readGrantHolderStepUp } from "@/features/konto/loeschungStepUp";
 import { getLoeschungAnsicht } from "@/features/konto/queries";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { openGraphFor } from "@/shared/utils/metadata";
@@ -45,12 +46,22 @@ async function LoeschungContent(props: NextPageProps) {
   // No return destination rides the sign-in (`.claude/rules/frontend.md`'s auth clause): the person opens
   // the mailed link again once signed in.
   const subject = await getSubjectSession();
-  // A granted address signs in by its passkey first, the press refusing a session its mailbox made.
-  if (subject === null || (subject.subjekt.verwaltung !== null && !subject.admin)) return <LoeschungView start={{ zustand: "anmelden" }} />;
+  if (subject === null) return <LoeschungView start={{ zustand: "anmelden" }} />;
+
+  // A grant holder's press asks for the passkey first, whichever factor made the session
+  // (`docs/frontend/spec.md :: I707`).
+  const verwaltend = subject.subjekt.verwaltung === null ? null : await readGrantHolderStepUp();
+  if (subject.subjekt.verwaltung !== null && verwaltend === null) return <LoeschungView start={{ zustand: "anmelden" }} />;
+  if (verwaltend !== null && !verwaltend.hasPasskey) return <LoeschungView start={{ zustand: "ohnePasskey" }} />;
 
   // Uncaught: without the list the page cannot say what goes, so a failed read reaches the error boundary.
   const { spieler, schiedsrichter, sitze, bewerbungen, registrierungen, adresswechsel, verwaltung } = await getLoeschungAnsicht();
   const ansicht = { spieler, schiedsrichter, sitze, bewerbungen, registrierungen, adresswechsel, verwaltung };
 
-  return <LoeschungView start={{ zustand: "bereit", token: token, email: subject.email, ansicht: ansicht }} />;
+  return (
+    <LoeschungView
+      start={{ zustand: "bereit", token: token, email: subject.email, ansicht: ansicht }}
+      stepUp={verwaltend?.stepUp ?? null}
+    />
+  );
 }

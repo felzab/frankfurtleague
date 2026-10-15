@@ -685,7 +685,8 @@ const NOT_ADMINISTRATORS: Readonly<Record<string, string>> = {
   [M.passkey]: "the passkey list, which asks through the account page's own confirmation",
   [M.andereAbmelden]: "the account page's sign-out of other devices, which asks through that page's own confirmation",
   [M.kontoLoeschen]: "the account page's deletion link, which mails the holder's own mailbox and holds no step-up window",
-  [M.loeschung]: "the deletion link's interstitial, a person's own press on their own link",
+  [M.loeschung]:
+    "the deletion link's interstitial, a person's own press on their own link, a grant holder's asking through the page's own window",
   [M.registrierungen]: "a seat holder's decision on the person lane, which holds no administrator's step-up window",
 };
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { startTransition, useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -16,15 +16,22 @@ import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
 import { DISPLAY_HEADING_CLASSES } from "@/shared/components/ui/displayType";
 import { ctaButton } from "@/shared/components/ui/formButtons";
+import { StepUpContext } from "@/shared/components/ui/stepUp";
 import { textLink } from "@/shared/components/ui/textLink";
+import { useConfirmationWindows } from "@/shared/hooks/useConfirmationWindows";
+import { usePasskeyStepUp } from "@/shared/hooks/usePasskeyStepUp";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 
+import { pruefeInhaberAction } from "../../actions";
 import { loescheKontoAction } from "../../personActions";
 import { registrierungTitel, schiedsrichterTitel, sitzTitel, SPIELER_TITEL } from "../forms/EinwilligungForm/kontoWorte";
 
 import type { FLSelbstErasureAnsichtResponse } from "@/core/schemas";
+import type { StepUp } from "@/shared/components/ui/stepUp";
+import type { ConfirmedUntil } from "@/shared/hooks/useConfirmationWindows";
+import type { ReactNode } from "react";
 
 /** Every record the erasure would reach, as the backend answered it, the transport's own field left behind. */
 export type LoeschungAnsicht = Omit<FLSelbstErasureAnsichtResponse, "acknowledged">;
@@ -34,13 +41,23 @@ export type LoeschungAnsicht = Omit<FLSelbstErasureAnsichtResponse, "acknowledge
  * completes nothing here, and is sent to sign in and open the link again (`docs/frontend/spec.md :: I677`).
  */
 export type LoeschungStart =
-  { zustand: "bereit"; token: string; email: string; ansicht: LoeschungAnsicht } | { zustand: "anmelden" } | { zustand: "unvollstaendig" };
+  | { zustand: "bereit"; token: string; email: string; ansicht: LoeschungAnsicht }
+  | { zustand: "anmelden" }
+  | { zustand: "ohnePasskey" }
+  | { zustand: "unvollstaendig" };
+
+/**
+ * A grant holder's windows as the page's render read them, with whose session that was: a confirmation
+ * made once it has ended can sign another account in (`docs/frontend/spec.md :: I428`).
+ */
+export type GrantHolderStepUp = ConfirmedUntil & { readonly holderId: string };
 
 type Stand = LoeschungStart | { zustand: "geloescht" };
 
 const TITEL: Readonly<Record<Stand["zustand"], string>> = {
   bereit: "Konto löschen",
   anmelden: "Konto löschen",
+  ohnePasskey: "Konto löschen",
   unvollstaendig: "Konto löschen",
   geloescht: "Konto gelöscht",
 };
@@ -80,12 +97,64 @@ function Weiter({ href, children }: { href: string; children: string }) {
   );
 }
 
-/** The interstitial a mailed deletion link opens: it restates what goes, and only a signed-in press destroys it. */
-export function LoeschungView({ start }: { start: LoeschungStart }) {
+/** A person's figures: no window, and no holder for a prompt to check, since nothing here asks. */
+const KEIN_FENSTER: GrantHolderStepUp = { freshUntil: null, enrolmentUntil: null, servedAt: 0, holderId: "" };
+
+/**
+ * The passkey prompt a grant holder's press asks through, built as the administrator's shell builds its
+ * own (`fl_frontend/src/features/admin/components/providers/AdminStepUpProvider.tsx`) over the account
+ * page's holder check, this page being the account's.
+ */
+function GrantHolderStepUpProvider({ served, children }: { served: GrantHolderStepUp | null; children: ReactNode }) {
+  const windows = useConfirmationWindows(served ?? KEIN_FENSTER);
+
+  const { holderId } = served ?? KEIN_FENSTER;
+  const istInhaber = useCallback(async () => {
+    const holder = await pruefeInhaberAction(holderId);
+    return holder.success && holder.gleich;
+  }, [holderId]);
+  const { stepUp: prompt } = usePasskeyStepUp(istInhaber);
+
+  // Memoised by hand: the React Compiler is deliberately off, and the armed press reads this.
+  const stepUp = useMemo<StepUp>(
+    () => ({
+      isStale: windows.isStale,
+      confirm: async () => {
+        if (!(await prompt())) return false;
+
+        // Wrapped: the press awaits this inside its transition, and React leaves an update after an
+        // `await` outside it.
+        startTransition(windows.confirmed);
+        return true;
+      },
+    }),
+    [windows, prompt],
+  );
+
+  // No page for a person's press, which then asks nothing (`fl_frontend/src/shared/hooks/useStepUp.ts`).
+  return <StepUpContext.Provider value={served === null ? undefined : stepUp}>{children}</StepUpContext.Provider>;
+}
+
+/**
+ * The interstitial a mailed deletion link opens: it restates what goes, and only a signed-in press destroys
+ * it. `stepUp` is a grant holder's, whose press asks for the passkey first (`docs/frontend/spec.md :: I707`).
+ */
+export function LoeschungView({ start, stepUp = null }: { start: LoeschungStart; stepUp?: GrantHolderStepUp | null }) {
+  // Mounted for a person too: the refresh after a grant holder's deletion renders no grant, and a provider
+  // dropped there would remount the view, losing its answer.
+  return (
+    <GrantHolderStepUpProvider served={stepUp}>
+      <LoeschungInhalt start={start} />
+    </GrantHolderStepUpProvider>
+  );
+}
+
+function LoeschungInhalt({ start }: { start: LoeschungStart }) {
   const router = useRouter();
   const [stand, setStand] = useState<Stand>(start);
   const { ergebnisRef, beantwortet } = useLinkSeite(stand.zustand);
-  const twoPress = useTwoPressConfirm();
+  // Asks only under the provider above: a person's press, holding no grant, is held to no window.
+  const twoPress = useTwoPressConfirm({ stepUp: "enrolment" });
 
   const loesche = (token: string) => {
     twoPress.press(async () => {
@@ -165,6 +234,18 @@ export function LoeschungView({ start }: { start: LoeschungStart }) {
         <BestaetigungErgebnis tone="hinweis">
           <p className={ABSATZ_CLASSES}>
             Melde Dich zuerst an und öffne den Link aus der E-Mail danach erneut. Erst dann kannst Du die Löschung hier bestätigen.
+          </p>
+          <Weiter href="/signin">Zur Anmeldung</Weiter>
+        </BestaetigungErgebnis>
+      )}
+
+      {/* The sign-in page offers a signed-in visitor its sign-out, and the next sign-in by code sends a granted
+          address to set its passkey up (`fl_frontend/src/core/auth.ts :: destinationOf`). */}
+      {stand.zustand === "ohnePasskey" && (
+        <BestaetigungErgebnis tone="hinweis">
+          <p className={ABSATZ_CLASSES}>
+            Mit Zugang zur Verwaltung bestätigst Du die Löschung mit Deinem Passkey, und Du hast noch keinen eingerichtet. Melde Dich ab und neu
+            an, richte dabei Deinen Passkey ein und öffne dann den Link aus der E-Mail erneut.
           </p>
           <Weiter href="/signin">Zur Anmeldung</Weiter>
         </BestaetigungErgebnis>
