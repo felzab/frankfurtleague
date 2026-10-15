@@ -285,7 +285,6 @@ export const STEP_UP_CALLERS: Readonly<Record<string, Readonly<Record<string, St
   },
   "features/kontakte/components/forms/AdminKontakteEditForm/FormKontaktEinladen.tsx": { einladeKontaktAction: "one-press" },
   "features/kontakte/components/forms/AdminKontakteEditForm/FormKontakteLoeschenSection.tsx": { patchSaisonTeamKontakteAction: "two-press" },
-  "features/kontakte/components/forms/AdminKontakteEditForm/FormKontaktErasure.tsx": { eraseKontaktpersonAction: "two-press" },
   "features/saisons/components/forms/AdminCreateSaisonForm.tsx": { postSaisonAction: "create" },
   "features/saisons/components/forms/AdminSaisonEditForm/FormEinladungVersandSection.tsx": { postEinladungVersandAction: "two-press" },
   "features/saisons/components/forms/AdminSaisonEditForm/FormRolloverSection.tsx": { activateSaisonAction: "two-press" },

@@ -123,7 +123,7 @@ export function endstand(staende: readonly SitzBestaetigung[]): string | null {
 /**
  * What stands where a name would. The two ways a seat empties read differently because the league
  * did different things: a person declined their own entry, or asked to be forgotten
- * (`fl_frontend/src/features/kontakte/components/forms/AdminKontakteEditForm/FormKontaktErasure.tsx`).
+ * (`fl_backend/app/api/kontakte/services.py :: build_clearing_update`).
  */
 function leerSatz(stand: Stand): string {
   return stand.art === "geloescht" ? "Auf eigenen Wunsch gelöscht" : "Niemand mehr in der Bewerbung";

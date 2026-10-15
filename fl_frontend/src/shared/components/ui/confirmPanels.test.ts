@@ -130,7 +130,6 @@ const M = {
   bestaetigung: "features/bewerbungen/components/views/BestaetigungFormPanel.tsx",
   saisonVorbei: "features/bewerbungen/components/views/BestaetigungSaisonVorbei.tsx",
   kontakteLoeschen: "features/kontakte/components/forms/AdminKontakteEditForm/FormKontakteLoeschenSection.tsx",
-  kontaktErasure: "features/kontakte/components/forms/AdminKontakteEditForm/FormKontaktErasure.tsx",
   passkey: "features/passkeys/components/ui/PasskeyKarteView.tsx",
   andereAbmelden: "features/konto/components/ui/AndereAbmelden.tsx",
   einladungVersand: "features/saisons/components/forms/AdminSaisonEditForm/FormEinladungVersandSection.tsx",
@@ -152,7 +151,6 @@ const C = {
   bestaetigung: await component(M.bestaetigung, "BestaetigungFormPanel"),
   saisonVorbei: await component(M.saisonVorbei, "BestaetigungSaisonVorbei"),
   kontakteLoeschen: await component(M.kontakteLoeschen, "FormKontakteLoeschenSection"),
-  kontaktErasure: await component(M.kontaktErasure, "FormKontaktErasure"),
   passkey: await component(M.passkey, "PasskeyKarteView"),
   andereAbmelden: await component(M.andereAbmelden, "AndereAbmelden"),
   einladungVersand: await component(M.einladungVersand, "FormEinladungVersandSection"),
@@ -290,14 +288,6 @@ const PANELS: Record<string, Arming[]> = {
     {
       render: () => underNext(el(C.kontakteLoeschen, { teamId: "t1", saisonId: "2526", hasStored: true, stand: "9f2c", isDirty: false })),
       resting: "Kontakte löschen",
-    },
-  ],
-  [M.kontaktErasure]: [
-    {
-      render: () => underNext(el(C.kontaktErasure, { email: "ada@example.org", fullName: "Ada Byron", isDirty: false })),
-      // The read the arming makes, answered: unanswered, it closes the armed control on its refusal.
-      answer: () => Promise.resolve({ success: true, message: "Gelöscht.", ansicht: { saison_teams: [], bewerbungen: [] } }),
-      resting: "Kontaktperson löschen",
     },
   ],
   [M.passkey]: [
