@@ -337,9 +337,9 @@ class RemovalOutsideTransaction extends Error {
 }
 
 /**
- * The write every removal of one administrator's passkeys makes, inside the transaction holding its
- * count and its delete: the database refuses the second of two, where the count alone admits both
- * (`docs/frontend/spec.md :: I341`).
+ * The write every removal of an administrator's passkeys makes inside its transaction: where the count
+ * alone admits two removals, the database refuses the second's write and the adapter re-runs it on the
+ * first's commit (`docs/frontend/spec.md :: I341`).
  */
 async function claimAccount(adapter: Pick<DBTransactionAdapter, "update">, userId: string): Promise<void> {
   // Any field of the account's own row conflicts; `updatedAt` is one the row already carries, so the
