@@ -82,7 +82,7 @@ DEP002 = ["tzdata", "uvicorn"]
 [tool.uv]
 # The floor stays at or below the uv Dependabot relocks with (0.12.18, read 2026-10-15), which fails
 # outside this range; the ceiling stops before the next minor release, the only kind that may change
-# the lockfile's schema (`docs/ops/spec.md :: I_NEW_OPS-FOLD_1`).
+# the lockfile's schema (`docs/ops/spec.md :: I657`).
 required-version = ">=0.12.18,<0.14"
 # A release younger than a day is left out of every resolution, the day `.github/dependabot.yml`'s
 # cooldown waits. Relative, so it moves with the clock rather than freezing the graph at a date.

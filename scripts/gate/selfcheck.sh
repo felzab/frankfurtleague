@@ -1354,7 +1354,7 @@ check_python_series() { # $1 the .python-version file · $2 the Dockerfile
 
 step "15. The uv version is one number in two files"
 # Dependabot's docker ecosystem moves the image's tag alone, and with no publication date to wait
-# on, so this refusal is also the only age gate that release meets (`docs/ops/spec.md :: I_NEW_OPS-FOLD_1`).
+# on, so this refusal is also the only age gate that release meets (`docs/ops/spec.md :: I657`).
 check_uv_pin .github/actions/backend-toolchain/action.yml fl_backend/Dockerfile
 
 step "16. The Node version is one number in two files"
