@@ -13,6 +13,7 @@ import datetime
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
 from pathlib import Path
@@ -974,9 +975,15 @@ def test_a_landing_closes_only_the_rows_routed_to_its_agent_that_a_rows_fixed_li
     assert f"FIXED A-F11 by {merge}" in done.stdout
     assert "not ROUTED to WORKER, a1b2c3, so left as they stand: A-F2, A-F3" in done.stdout
     # A fixer's body naming finding numbers rather than rows left its rows ROUTED with nothing said.
-    assert "still ROUTED to WORKER, a1b2c3 with no `Rows fixed:` line closing them: A-F1, A-F4" in done.stdout.splitlines()
+    said = done.stdout.splitlines()
+    assert "still ROUTED to WORKER, a1b2c3 with no `Rows fixed:` line closing them: A-F1, A-F4" in said
     assert _status(register, "A-F11") == [f"FIXED ({merge})", "was WORKER"]
     assert [_status(register, row)[0] for row in ("A-F1", "A-F2", "A-F3", "A-F4")] == ["ROUTED", "ROUTED", "OPEN", "ROUTED"]
+    # The template sends those rows' FIXED through the command the warning prints, so it must run as printed.
+    printed = next(line for line in said if line.startswith("  each this merge fixed closes with: "))
+    command = shlex.split(printed.split(": ", 1)[1])
+    assert command[:2] == ["ledger.py", "close"] and _run("ledger", *command[1:]).returncode == 0
+    assert [_status(register, row) for row in ("A-F1", "A-F4")] == [[f"FIXED ({merge})", "was WORKER"]] * 2
     assert "a standing action waits on this landing: WORKER lands B2c" in done.stdout
     assert "B1" not in done.stdout and "OTHER lands" not in done.stdout
 
