@@ -905,8 +905,8 @@ const authOptions = (origin: URL, client: MongoClient) =>
         // `fl_frontend/src/core/logFormat.ts :: serializeError` writes with its message and stack.
         const raised = args.find((argument) => argument instanceof Error);
 
-        // One authenticator enrolled twice at once by enrolments that sign nobody in: the credential index refuses the
-        // second row. A set-up that signs in conflicts inside a transaction the adapter retries, and the retry is refused 404.
+        // A second row for a credential the index holds: one authenticator enrolled twice at once without signing in, or
+        // a credential another account holds. Set-ups of one authenticator at once conflict in a transaction retried to a 404.
         if (message.startsWith(REGISTRATION_FAILED) && isDuplicateCredential(raised)) {
           logger.warn("auth.passkey_enrolment_conflict", { error_code: "FE-AUTH-005" });
           return;
