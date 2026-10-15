@@ -784,105 +784,70 @@ $2}"; }
 require_dir()  { [[ -d "$1" ]] || refuse "Missing required directory: $1${2:+
 $2}"; }
 
-# A backslash escapes either quote, as `fl_frontend/scripts/check-environment-names.mjs :: endOfQuoted`
-# reads one: closing on an escaped quote reads the value's next line as a declaration.
-quote_closes() { # $1 the text, $2 the quote, $3 the index to read from
-  local text="$1" quote="$2" i="$3"
-  while (( i < ${#text} )); do
-    if [[ "${text:i:1}" == "\\" ]]; then
-      i=$(( i + 2 ))
-      continue
-    fi
-    [[ "${text:i:1}" == "$quote" ]] && return 0
-    i=$(( i + 1 ))
-  done
-  return 1
-}
+# The one line every reader takes alike (`docs/ops/spec.md :: I487`): a value of RFC 3986's URL
+# characters less `#`, `$` and `'`, some reader's comment, substitution and quote. A character
+# joins only once every reader takes it literally.
+ENV_LINE_RE='^[A-Za-z_][A-Za-z0-9_]*=[]A-Za-z0-9_.~:/?[@!&()*+,;=%-]*$'
 
-# One reading of an environment file as compose's parser finds it, for every check over the file,
-# so a form one check learns the other reads: `ENV_DECL_*` per declaration, `ENV_DATA_*` per later
-# line of a quoted value, `ENV_BOM`, `ENV_UNCLOSED_*`.
-env_declarations() { # $1 the file
-  local line number=0 name="" value open=""
-  ENV_DECL_NUMBER=(); ENV_DECL_NAME=(); ENV_DECL_FORM=(); ENV_DECL_VALUE=()
-  ENV_DATA_NUMBER=(); ENV_DATA_NAME=(); ENV_DATA_TEXT=()
-  ENV_BOM=0; ENV_UNCLOSED_AT=""; ENV_UNCLOSED_NAME=""
+# A name in any form compose reads one from -- `NAME=`, `NAME:` or a bare `NAME`, behind an optional
+# `export` -- so a credential's line is named however it is spelled.
+ENV_NAME_RE='^[[:space:]]*(export[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*([=:]|$)'
+
+# Every line neither blank nor a comment, as `ENV_LINE_*`: its number, the name `ENV_NAME_RE` reads
+# past a byte-order mark, whether it keeps `ENV_LINE_RE`, and whether it holds a quote. Never a value.
+env_lines() { # $1 the file
+  # C, so a range admits ASCII alone whatever the host's locale.
+  local LC_ALL=C line number=0 name kept quoted
+  ENV_LINE_NUMBER=(); ENV_LINE_NAME=(); ENV_LINE_KEPT=(); ENV_LINE_QUOTED=(); ENV_BOM=0
   while IFS= read -r line || [[ -n "$line" ]]; do
     number=$(( number + 1 ))
+    # The line's terminator, which every reader drops with the newline.
     line="${line%$'\r'}"
+    if [[ "$line" =~ ^[[:blank:]]*$ || "$line" == '#'* ]]; then continue; fi
+    name=""; kept=0; quoted=0
+    if [[ "$line" =~ $ENV_LINE_RE ]]; then kept=1; fi
+    if [[ "$line" == *[\"\'\`]* ]]; then quoted=1; fi
     if (( number == 1 )) && [[ "$line" == $'\xEF\xBB\xBF'* ]]; then
       ENV_BOM=1
       line="${line#$'\xEF\xBB\xBF'}"
     fi
-    # A quoted value's later lines are its data and declare nothing, `word:` and `word=` among them.
-    if [[ -n "$open" ]]; then
-      ENV_DATA_NUMBER+=("$number"); ENV_DATA_NAME+=("$name"); ENV_DATA_TEXT+=("$line")
-      if quote_closes "$line" "$open" 0; then open=""; fi
-      continue
-    fi
-    [[ "$line" =~ ^[[:space:]]*(export[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*([=:]|$) ]] || continue
-    name="${BASH_REMATCH[2]}"
-    value="${line:${#BASH_REMATCH[0]}}"
-    value="${value#"${value%%[![:space:]]*}"}"
-    ENV_DECL_NUMBER+=("$number"); ENV_DECL_NAME+=("$name"); ENV_DECL_FORM+=("${BASH_REMATCH[3]}"); ENV_DECL_VALUE+=("$value")
-    if [[ "$value" == [\"\']* ]] && ! quote_closes "$value" "${value:0:1}" 1; then
-      open="${value:0:1}"; ENV_UNCLOSED_AT="$number"; ENV_UNCLOSED_NAME="$name"
-    fi
+    if [[ "$line" =~ $ENV_NAME_RE ]]; then name="${BASH_REMATCH[2]}"; fi
+    ENV_LINE_NUMBER+=("$number"); ENV_LINE_NAME+=("$name"); ENV_LINE_KEPT+=("$kept"); ENV_LINE_QUOTED+=("$quoted")
   done < "$1"
-  if [[ -z "$open" ]]; then ENV_UNCLOSED_AT=""; ENV_UNCLOSED_NAME=""; fi
 }
 
-# Compose and each package's dev server read an environment file, five spellings apart
-# (`docs/ops/spec.md :: I487`). Judged as text before a start's first compose call; names and line
-# numbers only, never a value.
-check_env_spellings() { # $1 the file
-  local i name value
-  local -a wrong=()
-  env_declarations "$1"
-  # Compose, python-dotenv and Next's reader drop a byte-order mark; `parseEnv` reads it into the
-  # first name and the deploy's frontend checker cannot parse the line.
-  if (( ENV_BOM )); then
-    wrong+=("line 1 opens with a byte-order mark, which some readers take as part of the first name")
-  fi
-  for i in "${!ENV_DECL_NUMBER[@]}"; do
-    name="${ENV_DECL_NAME[i]}"; value="${ENV_DECL_VALUE[i]}"
-    # Compose takes `NAME:value` in every spacing, Next's reader only with a space after the colon;
-    # python-dotenv and `parseEnv` skip it, and the deploy's frontend checker cannot parse it.
-    if [[ "${ENV_DECL_FORM[i]}" == ":" ]]; then
-      wrong+=("line ${ENV_DECL_NUMBER[i]}: ${name} is written with a colon, which compose reads as NAME=value and python-dotenv skips")
-    elif [[ "${ENV_DECL_FORM[i]}" == "=" ]]; then
-      if [[ "$value" == *'$'* ]]; then
-        wrong+=("line ${ENV_DECL_NUMBER[i]}: ${name} holds a \$, which each reader substitutes its own way")
-      elif [[ "$value" == '`'* ]]; then
-        wrong+=("line ${ENV_DECL_NUMBER[i]}: ${name} opens with a backtick, which only Next's reader takes as a quote")
-      elif [[ "$value" == [\"\']* && "$value" == *\\* ]]; then
-        wrong+=("line ${ENV_DECL_NUMBER[i]}: ${name} holds a backslash inside quotes, which each reader decodes its own way")
-      elif [[ "$value" != [\"\']* && ( "$value" == '#'* || "$value" =~ [^[:space:]]# ) ]]; then
-        wrong+=("line ${ENV_DECL_NUMBER[i]}: ${name} holds a # with no space before it, where Next's reader alone ends the value")
-      fi
-    fi
+# Judged as text before a start's first compose call, and by `deploy.sh --check-env` alone. Every
+# file named is read before the refusal, so one visit to a host corrects them all.
+check_env_spellings() { # $@ the files
+  local file i name named
+  local -a wrong=() marked=()
+  for file in "$@"; do
+    env_lines "$file"
+    if (( ENV_BOM )); then marked+=("  ${file}"); fi
+    named=1
+    for i in "${!ENV_LINE_NUMBER[@]}"; do
+      name="${ENV_LINE_NAME[i]:-(no name)}"
+      # A quote may open a value running on over the lines below it, whose data -- a key's among
+      # them -- would read as a name, so no line after one is named.
+      if (( ! named )); then name="(no name)"; fi
+      if (( ! ENV_LINE_KEPT[i] )); then wrong+=("  ${file} ${name}:${ENV_LINE_NUMBER[i]}"); fi
+      if (( ENV_LINE_QUOTED[i] )); then named=0; fi
+    done
   done
-  # A quoted value's later lines, judged for what the readers decode.
-  for i in "${!ENV_DATA_NUMBER[@]}"; do
-    if [[ "${ENV_DATA_TEXT[i]}" == *'$'* ]]; then
-      wrong+=("line ${ENV_DATA_NUMBER[i]}: ${ENV_DATA_NAME[i]}'s quoted value holds a \$, which each reader substitutes its own way")
-    elif [[ "${ENV_DATA_TEXT[i]}" == *\\* ]]; then
-      wrong+=("line ${ENV_DATA_NUMBER[i]}: ${ENV_DATA_NAME[i]}'s quoted value holds a backslash, which each reader decodes its own way")
-    fi
-  done
-  # Read as closed, every line below it would have gone unjudged.
-  if [[ -n "$ENV_UNCLOSED_AT" ]]; then
-    wrong+=("line ${ENV_UNCLOSED_AT}: ${ENV_UNCLOSED_NAME}'s quoted value never closes")
-  fi
-  if (( ${#wrong[@]} )); then
-    refuse "$1 holds a value its readers would not agree on, so the service and its dev server would
-each be handed a different one:
-$(printf '  %s\n' "${wrong[@]}")
-In a URL, write the character percent-encoded (\$ as %24, # as %23); any other value, generate
-again without it. A trailing comment counts too: move it to a line of its own. A line written with
-a colon is written NAME=value instead. A byte-order mark goes by saving the file as UTF-8 without one.
+  (( ${#wrong[@]} )) || return 0
+  refuse "${#wrong[@]} line(s) are not NAME=VALUE in the characters every reader of these files takes
+alike, so compose and a dev server could each be handed a different value. Each is named as file,
+name:line, and never with its value:
+$(printf '%s\n' "${wrong[@]}")${marked[0]:+
+These open with a byte-order mark, which some readers take into the first name; save each as UTF-8
+without one:
+$(printf '%s\n' "${marked[@]}")}
+Write each as NAME=VALUE with nothing around the =: no quotes, no spaces, no comment after the
+value, and a value of letters, digits and _ - . ~ : / ? [ ] @ ! & ( ) * + , ; = % alone. In a URL,
+write # as %23, \$ as %24 and ' as %27; any other value, generate again without the character. A
+comment is a line of its own opening with #. A line after a quote is named by its number alone,
+the quote possibly opening a value that runs over it.
 NOTHING was asked of compose or of either service."
-  fi
 }
 
 # The actor token's signing key: where the host holds it, and where compose mounts it for the frontend
@@ -1035,8 +1000,8 @@ refuse_credential_lines() { # $@ the environment files
   local -a held found=()
   for file in "$@"; do
     held=()
-    env_declarations "$file"
-    for name in "${ENV_DECL_NAME[@]}"; do
+    env_lines "$file"
+    for name in "${ENV_LINE_NAME[@]}"; do
       for moved in "${MOVED_ENV_NAMES[@]}" "${RETIRED_ENV_NAMES[@]}"; do
         if [[ "${name^^}" == "$moved" ]]; then held+=("$name"); fi
       done

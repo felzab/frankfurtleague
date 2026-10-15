@@ -46,6 +46,12 @@ the machine is outside the repository. What it does tell you:
   2 before compose is asked anything**, naming the line and never its value
   (`scripts/lib/_lib.sh :: refuse_credential_lines`): delete it, a credential being its file's (§16)
   and the administrator list read by nothing.
+- **A line of either `.env` that is not blank, a `#` comment or an unquoted `NAME=VALUE` refuses the
+  deploy at exit 2 before compose is asked anything** ([`spec.md`](spec.md) I487), each line named
+  by file, name and number and never by value: rewrite it with no quote, no space and no comment
+  after the value, a URL writing `#`, `$` and `'` as `%23`, `%24` and `%27`.
+  **`./scripts/ops/deploy.sh --check-env` runs that check alone**, after the pull and before the
+  deploy, changing nothing and ending 0 where no line is refused.
 - **A `.env` beside the compose file refuses every run at exit 2 before compose is asked anything**,
   `--status` included (`scripts/lib/_lib.sh :: refuse_compose_dotenv`). Git ignores the name, so
   `git status` never shows it; move it out of the checkout, keeping it only if it holds something
@@ -68,8 +74,8 @@ the machine is outside the repository. What it does tell you:
   variables and never a value — so the remedy is read off the names: **delete an undeclared line,
   correct a rejected value, or declare the name in the settings class**. A check that could not be made at all is an advisory the deploy goes on
   past. It does not catch a misspelling whose value is EMPTY, which the settings reader drops before
-  the check judges it ([`../backend/spec.md`](../backend/spec.md) §1.5); a spelling the two parsers
-  read differently was refused before either image was asked ([`spec.md`](spec.md) I487).
+  the check judges it ([`../backend/spec.md`](../backend/spec.md) §1.5); a line the two parsers
+  could read differently was refused before either image was asked ([`spec.md`](spec.md) I487).
 - **The pulled frontend image is asked the same of `fl_frontend/.env`**
   (`scripts/ops/deploy.sh :: check_frontend_env_names`), and answers about names alone: **a name the
   frontend does not declare, and a name it requires that the file gives no value, each refuse the

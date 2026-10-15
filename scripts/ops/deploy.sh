@@ -10,6 +10,7 @@
 #   ./scripts/ops/deploy.sh                    deploy the current :latest tag of both packages
 #   ./scripts/ops/deploy.sh sha-1a2b3c4        deploy, or ROLL BACK to, one published build
 #   ./scripts/ops/deploy.sh --status           report what is running and what the edge serves, change nothing
+#   ./scripts/ops/deploy.sh --check-env        list each .env line a deploy would refuse, by name and number, change nothing
 #   ./scripts/ops/deploy.sh --verbose          stream each command's own output instead of capturing it
 #   ./scripts/ops/deploy.sh --help
 
@@ -54,11 +55,12 @@ EDGE_IMAGE_SERVICES=(nginx cloudflared)
 # settings class takes from the directory it is built in.
 ENV_MOUNTS="/run/fl-env"
 
-PIN=""; STATUS_ONLY=0
+PIN=""; STATUS_ONLY=0; ENV_ONLY=0
 # shellcheck disable=SC2034  # the --verbose arm assigns VERBOSE for _lib.sh's `quietly`
 for arg in "$@"; do
   case "$arg" in
     --status)  STATUS_ONLY=1 ;;
+    --check-env) ENV_ONLY=1 ;;
     --verbose) VERBOSE=1 ;;
     --help|-h) usage ;;
     # 2 throughout this block, never `die`'s 1: an argument this script cannot read is "the input
@@ -77,6 +79,11 @@ if (( STATUS_ONLY )) && [[ -n "$PIN" ]]; then
 To deploy ${PIN}, drop --status."
 fi
 
+if (( ENV_ONLY )) && { [[ -n "$PIN" ]] || (( STATUS_ONLY )); }; then
+  refuse "--check-env reads the two .env files and nothing else; it takes neither a tag nor --status.
+Run it alone, then the deploy or the report you meant."
+fi
+
 # Validated with the other argument handling: without it the registry answers "manifest unknown"
 # after a platform and Docker check, instead of a sentence naming the problem.
 if [[ -n "$PIN" && ! "$PIN" =~ $PIN_RE ]]; then
@@ -86,6 +93,19 @@ See what is available:  ./scripts/ops/deploy.sh --status"
 fi
 
 require_platform linux
+
+# Before the daemon is asked anything, so a host's files can be judged ahead of the deploy that
+# would refuse them, with nothing started, stopped or pulled.
+if (( ENV_ONLY )); then
+  section "environment files"
+  step "Each line of fl_frontend/.env and fl_backend/.env, as the preflight judges it"
+  require_file "fl_frontend/.env"
+  require_file "fl_backend/.env"
+  check_env_spellings "fl_frontend/.env" "fl_backend/.env"
+  ok "0 lines refused: every line is a comment, blank, or NAME=VALUE in the characters every reader takes alike"
+  finish
+fi
+
 require_docker
 require_file "$COMPOSE"
 refuse_compose_dotenv
