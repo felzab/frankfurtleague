@@ -216,9 +216,15 @@ async def get_referenzen(
     - a grant in `berechtigungen` holds it, as stored, before the comparison has seen it too;
     - a standing ban holds it.
 
+    A pending address change holds nothing: its address admits no sign-in until it is confirmed, and the address it replaces
+    stays on the record until then.
+
     That is wider than what `POST /identitaet/anmeldung` admits a sign-in on, so no account answered here is one the sign-in
     would admit again: an unconfirmed seat on a `past` season and an unconfirmed retired record keep an account the gate admits
     no sign-in for, until the block is cleared or the row removed.
+
+    The whole batch is refused, `REQ-REFERENZEN-001`, while no live grant in `berechtigungen` is an `owner`'s. A league always
+    holds one, so such a database is empty or another one, and answering from it would call every address unreferenced.
 
     Each address is compared as `POST /identitaet/subjekt` compares one, on the sign-in fold, and answered in the spelling it was
     asked in, once however often it was asked. An address today's address rule refuses is answered never rather than refused: no

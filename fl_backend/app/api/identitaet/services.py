@@ -12,7 +12,7 @@ from typing import Any, Literal
 
 from bson import ObjectId
 
-from app.api.berechtigungen.services import OWNER
+from app.api.berechtigungen.services import OWNER, lebendige
 from app.api.bewerbungen.services import build_eigene_bewerbung_filter
 from app.api.identitaet.schemas import FLSelbstErasureAnsicht, FLSubjekt, FLSubjektSitz
 from app.api.kontakte.services import rows_possibly_naming, same_address
@@ -485,6 +485,8 @@ def referenced_addresses(
     stored = (
         *(seat_address(row, slot) for row in seat_rows for slot in KONTAKT_ROLLEN),
         *(seat_address(row, slot) for row in bewerbung_rows for slot in KONTAKT_ROLLEN),
+        # The row's own address and never a pending change's: that admits no sign-in until confirmed, and
+        # the address it replaces stays here till then (`docs/backend/spec.md :: I560`).
         *map(referee_address, referee_rows),
         *map(pupil_address, pupil_rows),
         # The one kind narrowed to its pupil's confirmation, as the gate narrows it. The row's own fold
@@ -520,4 +522,23 @@ def unreferenced(identifiers: Iterable[str], *, referenced: Collection[str], ges
             for identifier in identifiers
             if can_judge(identifier) and sign_in_identifier(identifier) not in referenced and identifier not in gesperrt
         )
+    )
+
+
+# Refused rather than answered: a league always holds a live `owner` (`docs/backend/spec.md :: I479`),
+# so grants holding none were read from an empty or foreign database, which would answer every address
+# unreferenced (`docs/backend/spec.md :: I712`).
+KEIN_INHABER = "REQ-REFERENZEN-001"
+
+
+def find_kein_inhaber_refusal(grant_rows: Sequence[Mapping[str, Any]]) -> WriteRefusal | None:
+    """`REQ-REFERENZEN-001`: no live grant is an `owner`'s, live as every reader of a grant reads one."""
+
+    if any(grant.get("verwaltung") == OWNER for grant in lebendige(grant_rows)):
+        return None
+
+    return WriteRefusal(
+        error_code=KEIN_INHABER,
+        status=HTTPStatus.CONFLICT,
+        message="the grants hold no live owner, so the database read is not the league's and no address is judged unreferenced",
     )

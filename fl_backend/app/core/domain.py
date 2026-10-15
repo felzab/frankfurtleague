@@ -2290,6 +2290,15 @@ RULES: tuple[Rule, ...] = (
         tested_by="tests/api/test_funktionen_erasure.py::TestTheLastOwner",
     ),
     Rule(
+        code="REQ-REFERENZEN-001",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /identitaet/referenzen",
+        aggregate="Berechtigung",
+        summary="no address is judged unreferenced while no live grant is an `owner`'s, the database read then being no league's",
+        implemented_by="app.api.identitaet.services.find_kein_inhaber_refusal",
+        tested_by="tests/api/test_identitaet_referenzen_execution.py::TestALeagueWithoutAnOwner",
+    ),
+    Rule(
         code="REQ-SPERRLISTE-001",
         status=HTTPStatus.CONFLICT,
         operation="POST /sperrliste",
