@@ -7,7 +7,7 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.saisons.cache import dropping_the_saison_cache
-from app.api.spieler.crud import refuse_a_full_squad, refuse_a_taken_rolle
+from app.api.spieler.crud import erase_person_in_session, refuse_a_full_squad, refuse_a_taken_rolle
 from app.api.spieler.schemas import (
     FLPatchSaisonSpielerPayload,
     FLPatchSpielerPayload,
@@ -25,13 +25,10 @@ from app.api.spieler.services import (
     find_squad_refusal,
 )
 from app.api.spieltage.crud import nachnominierung_laeuft_in
-from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import (
     GERMAN_COLLATION,
     aggregate_many_from_db,
-    erase_many_from_db,
-    patch_many_in_db,
     patch_one_in_db,
     post_one_to_db,
     pull_one_from_db,
@@ -50,7 +47,7 @@ from app.core.dependencies import (
     get_germany_now,
 )
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
-from app.core.recording import build_redaction_filter, build_redaction_update, log_stamp
+from app.core.recording import log_stamp
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin, verify_actor_is_admin, verify_step_up
 from app.core.transactions import transaction_session
@@ -236,7 +233,7 @@ async def erase_spieler(
     """
 
     async def erase_the_person_and_their_record(session: AsyncClientSession) -> FLSpielerErasureResponse:
-        """Judge, then remove both collections and redact the log. Everything judged is read in-session."""
+        """Judge, then erase. Everything judged is read in-session."""
 
         stored_raw = await pull_one_from_db(
             collection=spieler_collection,
@@ -246,36 +243,13 @@ async def erase_spieler(
         )
         refuse(find_erasure_refusal(inactive_since=stored_raw.get("inactive_since")))
 
-        # Read BEFORE the removal and unbounded: a log row names a squad row by its own `_id`, which
-        # nothing can recover once the row is gone, so a capped read would leave the rows it dropped
-        # holding this person's values with no way left to find them.
-        squad_rows = await aggregate_many_from_db(
-            collection=saison_spieler_collection,
-            pipeline=[{"$match": {"spieler_id": spieler_id}}, {"$project": {"_id": 1}}],
-            session=session,
-        )
-
-        # The squad rows first: the public read `$lookup`s outward from the person, so a row left
-        # behind is orphaned invisibly rather than surfacing as a fault somebody would notice.
-        erased_rows = await erase_many_from_db(collection=saison_spieler_collection, db_filter={"spieler_id": spieler_id}, session=session)
-        await erase_many_from_db(collection=spieler_collection, db_filter={"_id": spieler_id}, session=session)
-
-        # Last, and it passes over the two rows the removals above just recorded: those carry a
-        # filter and a count and no `document_id`, so the erasure stays legible as an action.
-        redacted = await patch_many_in_db(
-            collection=aktionen_collection,
-            db_filter=build_redaction_filter(
-                # The squad branch is empty where the person held no row, which matches nothing.
-                [(Collection.SPIELER, [spieler_id]), (Collection.SAISON_SPIELER, [row["_id"] for row in squad_rows])]
-            ),
-            update=build_redaction_update(at=log_stamp(germany_now)),
-            session=session,
-        )
-
-        return FLSpielerErasureResponse(
+        return await erase_person_in_session(
+            spieler_collection=spieler_collection,
+            saison_spieler_collection=saison_spieler_collection,
+            aktionen_collection=aktionen_collection,
             spieler_id=spieler_id,
-            erased_saison_spieler=erased_rows.deleted_count,
-            redacted_aktionen=redacted.modified_count,
+            stamp=log_stamp(germany_now),
+            session=session,
         )
 
     # ONE transaction over all THREE (`docs/backend/spec.md :: I42`): a person removed while the log

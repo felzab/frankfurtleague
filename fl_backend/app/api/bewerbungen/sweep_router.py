@@ -414,7 +414,7 @@ async def sweep_saison(
         taken = junction_rows[:BLOCKS_CLEARED_PER_PASS]
 
         # `patch_one_in_db` per row and never `patch_many_in_db`, which records no `document_id`: the
-        # redaction below must match the rows it logs (`app/api/kontakte/admin_router.py :: _clear_each`).
+        # redaction below must match the rows it logs (`app/api/kontakte/crud.py :: _clear_each`).
         cleared: list[Any] = []
         for row in taken:
             await patch_one_in_db(

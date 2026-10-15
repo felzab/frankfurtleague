@@ -24,6 +24,7 @@ from tests.core.app_source import (
     WRITE_HELPERS,
     app_declares,
     bounds_its_field,
+    callback_carriers,
     callee,
     carries_session,
     crud_helpers_taking_a_session,
@@ -528,12 +529,19 @@ class TestEveryWriteInsideATransactionCarriesIt:
     """
 
     def test_the_sweep_reads_every_callback_and_sees_a_write_in_each(self):
-        """The floor: a callback whose writes the sweep cannot see passes the clause below while carrying anything at all."""
+        """The floor: a callback whose writes the sweep cannot see passes the clauses below while carrying anything at all.
+
+        A write in a helper handed the callback's session counts, which is where each erasure step keeps its own.
+        """
 
         callbacks = transactional_callbacks(SESSION_TAKING_HELPERS)
 
         assert callbacks
-        assert [callback.where for callback in callbacks if not callback.writes] == []
+        assert [
+            callback.where
+            for callback in callbacks
+            if not callback.writes and not any(carrier.writes for carrier in callback_carriers(callback.where))
+        ] == []
 
     def test_no_write_inside_one_is_left_off_its_session(self):
         """Drop `session=` from the `$unset` in `undraw_spielplan` and this fails.
@@ -548,6 +556,16 @@ class TestEveryWriteInsideATransactionCarriesIt:
             for helper, carries in callback.writes
             if not carries
         ]
+
+        assert loose == []
+
+    def test_no_write_a_helper_makes_is_left_off_the_session_it_was_handed(self):
+        """Drop `session=` from the clearing patch in `app/api/kontakte/crud.py :: _clear_each` and this fails; the clause above does not.
+
+        That slot then stays cleared when the redaction after it aborts, an erasure reporting nothing while half done.
+        """
+
+        loose = [f"{carrier.where} writes with {write}" for carrier in session_carriers() for write, carries in carrier.writes if not carries]
 
         assert loose == []
 
