@@ -1292,6 +1292,24 @@ class TestTheClaim:
             ("entzogen", OWNER, "gesperrt", True, False),
         ]
 
+    def test_a_reason_stored_beside_a_present_grant_address_answers_no_flag(self, mongo_replica_set_url: str):
+        """A `gesperrt` stored beside a present grant address explains nothing of that grant, whichever write left it there."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[tuple[Any, bool, bool, bool]]:
+            await told(database, client)
+            stand = FLBerechtigungStand(adresse=NEU, verwaltung="administration")
+            row = compose_postausgang(
+                berechtigung_id=ObjectId(), art="erteilt", jetzt=stand, vorher=None, geaendert_von=ANNA, now=NOW, gesperrt={ANNA}
+            )
+            await database[Collection.BERECHTIGUNGEN_POSTAUSGANG].insert_one({**row, "vorenthalten": "gesperrt"})
+
+            return [
+                (change.jetzt.adresse if change.jetzt else None, change.gesperrt, change.geloescht, change.geaendert_von_gesperrt)
+                for change in (await claimed(database, client)).aenderungen
+            ]
+
+        assert on_a_league(mongo_replica_set_url, body) == [(NEU, False, False, True)]
+
     def test_an_address_repointed_in_the_database_is_announced_as_one_removal_and_one_grant(self, mongo_replica_set_url: str):
         """One id, a new address: every notice names whose access ended as well as whose began, and a second claim finds nothing."""
 
