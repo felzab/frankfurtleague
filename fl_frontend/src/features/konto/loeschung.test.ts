@@ -97,10 +97,15 @@ const { loescheKontoAction } = await import("./personActions.ts");
 const { KONTO_FORBIDDEN } = await import("@/shared/utils/kontoMutation.ts");
 const { stepUpRequired } = await import("@/shared/utils/adminMutation.ts");
 const { readGrantHolderStepUp } = await import("./loeschungStepUp.ts");
-const { LETZTE_INHABERIN } = await import("./refusals.ts");
+const { LETZTE_INHABERIN, mapLoeschungRefusal } = await import("./refusals.ts");
+const { toActionErrorResult } = await import("@/shared/utils/actionError.ts");
+const { assertEachAnswered } = await import("@/shared/testing/publishedRefusals.ts");
 const { auth } = await import("@/core/auth.ts");
 
 const HOUR_MS = 60 * 60 * 1000;
+
+/** What every failure past the spend adds but the link's own refusal, as the action spells it. */
+const LINK_VERBRAUCHT = "Dieser Link ist dabei verbraucht worden. Für einen neuen Versuch fordere auf Deiner Kontoseite einen neuen an.";
 
 beforeEach(() => {
   store.passkey.length = 0;
@@ -167,6 +172,54 @@ describe("a person's own account deletion, from the account page's press to the 
 
     assert.equal(erasures.length, 1, "the backend was never asked, so the refusal proves nothing");
     assert.match(answer.success ? "" : answer.error, /Diese E-Mail-Adresse ist gesperrt/);
+    assert.ok(
+      !answer.success && answer.error.endsWith(` ${LINK_VERBRAUCHT}`),
+      "the refusal asks for no new link, though the press spent this one",
+    );
+    assert.deepEqual(heldOf(row.userId), { user: 1, passkeys: 1 });
+  });
+
+  /* `fl_frontend/src/app/refusalCoverage.test.ts` hands this proof to the slice: each published refusal, at its
+     own status and another, reaches the action's own mapper, and every press spends a link, so each act mints
+     its own. */
+  it("answers each published refusal of the erasure through its own mapper, adding the new link the spent one needs", async () => {
+    let erasureRefused: Promise<void> = Promise.resolve();
+    let acts = 0;
+
+    await assertEachAnswered({
+      operation: "POST /identitaet/selbst/erasure",
+      // The write double's refusal, as the fetch double answers it: the API client raises it again from the body.
+      refuseWith: (next) => {
+        erasureRefused = next().then(
+          () => assert.fail("the refusal the assertion handed in answered"),
+          (refusal: { serverErrorCode?: string; statusCode: number }) => {
+            erasureAnswer = () =>
+              Response.json({ error_code: refusal.serverErrorCode, trace_id: "0".repeat(32) }, { status: refusal.statusCode });
+          },
+        );
+      },
+      act: async () => {
+        await erasureRefused;
+        acts += 1;
+        const { token } = await mitLink(`verweigert-${String(acts)}@example.org`);
+        return loescheKontoAction(token);
+      },
+      mapped: (refusal) => `${mapLoeschungRefusal(refusal)?.error ?? toActionErrorResult(refusal).error} ${LINK_VERBRAUCHT}`,
+    });
+
+    assert.ok(acts > 0, "the document publishes no refusal on the erasure, so nothing was asked");
+  });
+
+  /* An answer lost past the spend reads as a write of unknown outcome, whose own words invite a retry the
+     spent link cannot take. */
+  it("answers an erasure whose answer was lost with the new link the spent one needs", async () => {
+    const { row, token } = await mitLink("verloren@example.org");
+    erasureAnswer = () => Response.json({ error_code: "DB-CONN-001", trace_id: "0".repeat(32) }, { status: 503 });
+
+    const answer = await loescheKontoAction(token);
+
+    assert.equal(erasures.length, 1, "the backend was never asked, so the answer proves nothing");
+    assert.ok(!answer.success && answer.error.endsWith(` ${LINK_VERBRAUCHT}`), JSON.stringify(answer));
     assert.deepEqual(heldOf(row.userId), { user: 1, passkeys: 1 });
   });
 
@@ -301,10 +354,7 @@ describe("a person's own account deletion, from the account page's press to the 
     const answer = await loescheKontoAction(token);
 
     assert.equal(erasures.length, 1, "the backend was never asked, so the refusal proves nothing");
-    assert.equal(
-      answer.success ? "" : answer.error,
-      `${LETZTE_INHABERIN} Dieser Link ist dabei verbraucht worden. Fordere danach auf Deiner Kontoseite einen neuen an.`,
-    );
+    assert.equal(answer.success ? "" : answer.error, `${LETZTE_INHABERIN} ${LINK_VERBRAUCHT}`);
     assert.deepEqual(heldOf(row.userId), { user: 1, passkeys: 1 });
     assert.ok(
       !store.verification.some((held) => held.identifier === `delete-account-${token}`),
@@ -322,7 +372,7 @@ describe("a person's own account deletion, from the account page's press to the 
     const answer = await loescheKontoAction(token);
 
     assert.equal(erasures.length, 1, "the backend was never asked, so the refusal proves nothing");
-    assert.deepEqual(answer, stepUpRequired());
+    assert.deepEqual(answer, { ...stepUpRequired(), error: `${stepUpRequired().error} ${LINK_VERBRAUCHT}` });
     assert.ok(
       cacheCalls.some(({ name }) => name === "refresh"),
       "the page's figures were not read again, so its next press would send unasked (`docs/frontend/spec.md :: I493`)",
@@ -347,6 +397,7 @@ describe("a person's own account deletion, from the account page's press to the 
     const answer = await loescheKontoAction("kein-gemailter-link");
 
     assert.match(answer.success ? "" : answer.error, /Fordere auf Deiner Kontoseite einen neuen an\./);
+    assert.ok(!answer.success && !answer.error.includes(LINK_VERBRAUCHT), "the link's own refusal says twice that a new one is needed");
     assert.deepEqual(erasures, []);
     assert.deepEqual(heldOf(row.userId), { user: 1, passkeys: 1 });
   });

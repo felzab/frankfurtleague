@@ -8,12 +8,12 @@ import { isRefusal } from "@/shared/utils/actionError";
 export const LETZTE_INHABERIN =
   "Du bist die letzte Person, der die Verwaltung gehört. Mache zuerst eine andere Person aus der Verwaltung zur Inhaberin oder zum Inhaber, dann kannst Du Dein Konto löschen.";
 
-/** The backend refuses after the library spent the link, when two owners pressed at once. */
-const LINK_VERBRAUCHT = "Dieser Link ist dabei verbraucht worden. Fordere danach auf Deiner Kontoseite einen neuen an.";
-
-/** `null` where the refusal is something else, which the shared reader answers. */
+/**
+ * `null` where the refusal is something else, which the shared reader answers. The backend refuses the last
+ * owner after the library spent the link, two owners having pressed at once, which the action's answer adds.
+ */
 export function mapLoeschungRefusal(error: unknown): { error: string } | null {
   if (!isRefusal(error)) return null;
 
-  return error.serverErrorCode === "REQ-PURGE-004" ? { error: `${LETZTE_INHABERIN} ${LINK_VERBRAUCHT}` } : null;
+  return error.serverErrorCode === "REQ-PURGE-004" ? { error: LETZTE_INHABERIN } : null;
 }

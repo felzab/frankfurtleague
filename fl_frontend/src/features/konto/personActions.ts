@@ -20,13 +20,19 @@ import type { ActionResult } from "@/shared/types/types";
 const LINK_UNGUELTIG =
   "Dieser Link lässt sich nicht mehr verwenden: Er ist abgelaufen, wurde schon verwendet oder gehört zu einem anderen Konto. Fordere auf Deiner Kontoseite einen neuen an.";
 
+/** Every other failure once the library may have spent the link, whose next press would meet `LINK_UNGUELTIG`. */
+const LINK_VERBRAUCHT = "Dieser Link ist dabei verbraucht worden. Für einen neuen Versuch fordere auf Deiner Kontoseite einen neuen an.";
+
 /**
  * Completes a mailed deletion link, the league's records before the account (`docs/frontend/spec.md ::
  * I675`). The person-record spine sends the actor the backend's person route reads, and refuses
  * sessions the library itself would accept.
  */
 export async function loescheKontoAction(token: string): Promise<ActionResult> {
-  return runPersonRecordMutation("loescheKontoAction", async (subject) => {
+  // Whether the press reached the library, which may spend the link, and whether the library refused the link itself.
+  const link = { spent: false, refused: false };
+
+  const answer = await runPersonRecordMutation("loescheKontoAction", async (subject) => {
     // A server action's argument is whatever a caller posted, and this one reaches the sign-in store.
     if (typeof token !== "string" || token === "") return { success: false, error: VALIDATION_FAILED };
 
@@ -53,6 +59,7 @@ export async function loescheKontoAction(token: string): Promise<ActionResult> {
 
     // The token is spent in the sign-in store, written past the API client, whatever the press comes to.
     recordWriteSent();
+    link.spent = true;
 
     let outcome;
     try {
@@ -63,8 +70,16 @@ export async function loescheKontoAction(token: string): Promise<ActionResult> {
       if (refusal !== null) return refusalResult(refusal);
       throw error;
     }
-    if (outcome === "linkRefused") return { success: false, error: LINK_UNGUELTIG };
+    if (outcome === "linkRefused") {
+      link.refused = true;
+      return { success: false, error: LINK_UNGUELTIG };
+    }
 
     return { success: true, message: "Dein Konto und Deine Angaben sind gelöscht." };
   });
+
+  // Past the spend every answer but a deletion leaves a link the next press cannot take, which the spine's
+  // own words, a retry's or a reload's, would hide.
+  if (answer.success || !link.spent || link.refused) return answer;
+  return { ...answer, error: `${answer.error} ${LINK_VERBRAUCHT}` };
 }
