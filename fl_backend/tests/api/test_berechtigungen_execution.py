@@ -1271,6 +1271,27 @@ class TestTheClaim:
             ("entzogen", OWNER, False, "anwendung", True),
         ]
 
+    def test_a_ban_entered_here_on_a_notices_actor_stores_no_reason_for_its_grant(self, mongo_replica_set_url: str):
+        """The route's own withholding, where the case above seeds its ban: the stored reason is the grant address's alone."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[tuple[str, Any, Any, bool, bool]]:
+            await told(database, client)
+            await grant(database, client, als=ANNA)
+            await revoke(database, client, ANNA_ID)
+            await ban(database, client, ANNA, als=BERND)
+            stored = await queued(database)
+            answer = await claimed(database, client)
+
+            return [
+                (row["art"], row["geaendert_von"], row["vorenthalten"], change.gesperrt, change.geaendert_von_gesperrt)
+                for row, change in zip(stored, answer.aenderungen, strict=True)
+            ]
+
+        assert on_a_league(mongo_replica_set_url, body) == [
+            ("erteilt", None, None, False, True),
+            ("entzogen", OWNER, "gesperrt", True, False),
+        ]
+
     def test_an_address_repointed_in_the_database_is_announced_as_one_removal_and_one_grant(self, mongo_replica_set_url: str):
         """One id, a new address: every notice names whose access ended as well as whose began, and a second claim finds nothing."""
 
