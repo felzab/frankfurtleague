@@ -963,6 +963,8 @@ def test_a_landing_closes_only_the_rows_routed_to_its_agent_that_a_rows_fixed_li
     merge = git(root, "rev-parse", "--short", "HEAD")
     assert f"FIXED A-F11 by {merge}" in done.stdout
     assert "not ROUTED to WORKER, a1b2c3, so left as they stand: A-F2, A-F3" in done.stdout
+    # A fixer's body naming finding numbers rather than rows left its rows ROUTED with nothing said.
+    assert "still ROUTED to WORKER, a1b2c3 with no `Rows fixed:` line closing them: A-F1, A-F4" in done.stdout.splitlines()
     assert _status(register, "A-F11") == [f"FIXED ({merge})", "was WORKER"]
     assert [_status(register, row)[0] for row in ("A-F1", "A-F2", "A-F3", "A-F4")] == ["ROUTED", "ROUTED", "OPEN", "ROUTED"]
     assert "a standing action waits on this landing: WORKER lands B2c" in done.stdout

@@ -6,7 +6,8 @@ in a generated document is answered by regenerating it from the merged code, one
 table by row key where a column names one row, and any other aborts the merge and goes back to the
 agent. A merge touching `fl_backend/` regenerates both documents either way: two branches each
 carrying a current document can merge cleanly into one that is not. A row a merged body names in its
-`Rows fixed:` line closes as FIXED by the merge where it is ROUTED to the branch's agent.
+`Rows fixed:` line closes as FIXED by the merge where it is ROUTED to the branch's agent, and every
+row still ROUTED to that agent is named.
 
     uv run --project fl_backend --frozen python .claude/skills/orchestration/tools/land.py <register> <branch>
 
@@ -265,9 +266,13 @@ def land(register: Path, branch: str) -> int:
     closed = ledger.close_routed(register, named, merge, agent)
     for row in closed:
         print(f"FIXED {row} by {merge}")
+    who = ", ".join(sorted(agent)) or "an agent this tool can name"
     if unclosed := sorted(set(named) - set(closed)):
-        who = ", ".join(sorted(agent)) or "an agent this tool can name"
         print(f"named fixed by the merged commits and not ROUTED to {who}, so left as they stand: {', '.join(unclosed)}")
+    # A body naming its report's finding numbers rather than its rows leaves them ROUTED once the fix
+    # lands; a warning only, since a row can stay its agent's for a later round.
+    if still := ledger.routed(register, agent):
+        print(f"still ROUTED to {who} with no `Rows fixed:` line closing them: {', '.join(still)}")
     for trigger in standing(held, agent | {branch}):
         print(f"a standing action waits on this landing: {trigger}")
     return 0

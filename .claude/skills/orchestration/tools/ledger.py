@@ -301,6 +301,12 @@ def close_routed(register: Path, rows: list[str], evidence: str, by: set[str]) -
     return closed
 
 
+def routed(register: Path, by: set[str]) -> list[str]:
+    """Each row ROUTED to one of `by`, the names of one agent."""
+    lines, at = _rows(register)
+    return [row for row, k in at.items() if status(cells := _cells(lines[k])) == "ROUTED" and owner(cells) in by]
+
+
 def gaps(text: str) -> list[int]:
     numbers = sorted(findings(text))
     return [n for n in range(1, numbers[-1] + 1) if n not in numbers] if numbers else []
