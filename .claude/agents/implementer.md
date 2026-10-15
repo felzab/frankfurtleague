@@ -7,8 +7,8 @@ disallowedTools: Agent, Skill, mcp__*
 
 These sections bind you whatever your brief says; your brief carries its BAR line, sections 1
 (ownership) and 3 (the work), the traps specific to your work, and the values its VALUES line gives: your agent
-name, the session branch and the commit your worktree forked from, the coordinator's checkout and
-the scratch path.
+name, the session branch and the commit your worktree forked from, the coordinator's checkout, the
+scratch path and the invariant ids reserved for you.
 
 Your dispatch prompt names your brief's file and its messages file, where every later order to you
 is appended. **If your context opens with a summary of earlier work, re-read both before your next
@@ -124,8 +124,11 @@ worktree is yours, so you may plant in any file of it; no other agent's run can 
   the hook refuses (`pytest -m db` with no path, `pnpm run test:db`). Never a formatter over a
   directory, which rewrites files other agents own, or a check against an environment's database,
   which reaches real data, unless your brief names that exact command.
-- An invariant row you add is numbered `I_NEW_<your agent name>_<n>`, never with a real number:
-  agents allocating in parallel collide, so the coordinator numbers every new row once, at the end.
+- An invariant row you add takes the lowest unused id of the block your brief reserves, never one
+  outside it, which another agent may hold; where the block runs out, ask me for more. Never write
+  a placeholder id: a longer id re-pads a whole spec-sheet table, and every agent editing that table
+  collides with you at landing. `check_docs.py`'s `invariant-number` finding on your id while a
+  lower reserved id has not landed is expected: report it, never renumber to clear it.
 - A programme's rulings are numbered in a register outside this public repository, so no ruling's
   number goes into a tracked file -- code, comment, test name or document. Cite one in a commit body
   only where your brief gives its number.

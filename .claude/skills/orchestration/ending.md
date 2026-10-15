@@ -6,11 +6,12 @@ Run once, in this order, when what remains is the last wave plus this list.
    whole round the ending still holds.
 2. Re-run the start's enumeration and tick every slice to a landed commit. Close every findings-ledger
    row (`ledger.py open --unclosed` exits 0; a refusal prints no row either) and every
-   expected-red row. Renumber every `I_NEW_*` invariant placeholder once, as one rename across the tree: agents number a new spec-sheet
-   invariant `I_NEW_<agent name>_<n>` so that parallel allocations cannot collide, and code comments,
-   tests and generated documents cite it too. Each takes its real number everywhere
-   `git grep -n I_NEW_` lists it, a generated document regenerated rather than edited, until that
-   command prints nothing and `scripts/checks/check_docs.py` exits 0.
+   expected-red row. Close the gaps unused reserved invariant ids left, listing the unused ones from
+   the register's "Invariant ids reserved" column with `git grep -nw` on each.
+   `scripts/checks/check_docs.py` takes a branch's new rows as one run from one past the highest id
+   at the fork, so each id above a gap moves down into it, everywhere `git grep -nw` lists it, code
+   comments, tests and a generated document included, the last regenerated rather than edited,
+   until `check_docs.py` exits 0. An id of the same width re-pads no table.
 3. Run `./scripts/gate/verify.sh`, every scope, over a tree that has stopped moving. The branch is
    stable only once the last fix is committed, the gate is green, no live agent can still return a
    finding, and every worktree row is closed.
