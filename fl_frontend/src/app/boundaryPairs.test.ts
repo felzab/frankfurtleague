@@ -57,7 +57,7 @@ const SAISON = "2526";
 /** A digest, so the boundary renders the line it carries one on and reports nothing a second time. */
 const CRASH = Object.assign(new globalThis.Error("kaputt"), { digest: "PROBE-DIGEST" });
 
-type Boundary = (props: { error: Error & { digest?: string }; reset: () => void }) => ReactNode;
+type Boundary = (props: { error: Error & { digest?: string }; retry: () => void }) => ReactNode;
 
 /** A segment the address fills in, taken here by a probe value as the reader's address fills it. */
 const DYNAMIC = /^\[(\w+)\]$/;
@@ -83,7 +83,7 @@ async function markupOf(file: string): Promise<string> {
       h(ShellSaisonQueryProvider, {
         keepsSaisonQuery: true,
         /* A not-found boundary takes the crash props and ignores them, so one reader reaches both kinds. */
-        children: h(Render, { error: CRASH, reset: () => undefined }),
+        children: h(Render, { error: CRASH, retry: () => undefined }),
       }),
       { search: `saison_id=${SAISON}`, pathname: "/nirgendwo", params: paramsOf(path.dirname(file)) },
     ),
