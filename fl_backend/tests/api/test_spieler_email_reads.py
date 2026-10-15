@@ -110,6 +110,11 @@ async def the_gate_read(database: AsyncDatabase, client: AsyncMongoClient, regis
 
 
 async def the_references_read(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
+    # The league's owner, without whom the read refuses before its answer (`docs/backend/spec.md :: I712`).
+    await database[Collection.BERECHTIGUNGEN].insert_one(
+        {"_id": ObjectId(), "adresse": ANNA, "verwaltung": "owner", "erteilt_von": "PLAYGROUND", "erteilt_am": NOW}
+    )
+
     return await unreferenced_of(
         [FOLDED_EMAIL],
         record_collections(database),

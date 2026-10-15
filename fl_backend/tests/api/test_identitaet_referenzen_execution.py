@@ -8,6 +8,7 @@ from bson import ObjectId
 from fastapi import FastAPI
 from pymongo.asynchronous.database import AsyncDatabase
 
+from app.api.identitaet.services import KEIN_INHABER
 from app.api.spieler.services import build_ghost_spieler
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -44,9 +45,11 @@ STAMP = "2026-01-20"
 # One mailbox per kind of record, each held by that record alone, so an arm the read drops answers
 # exactly its own address.
 SITZ_VERGANGEN = "sitz.vergangen@schule.de"
+SITZ_VERGANGEN_OFFEN = "sitz.vergangen.offen@schule.de"
 SITZ_OFFEN = "sitz.offen@schule.de"
 SITZ_AUSGETRETEN = "sitz.ausgetreten@schule.de"
 BEWERBUNG_OFFEN = "bewerbung.offen@schule.de"
+BEWERBUNG_UNBESTAETIGT = "bewerbung.unbestaetigt@schule.de"
 SPIELER_EHEMALIG = "spieler.ehemalig@schule.de"
 SPIELER_OFFEN = "spieler.offen@schule.de"
 PFEIFE_RUHESTAND = "pfeife.ruhestand@schule.de"
@@ -57,32 +60,39 @@ GESPERRT = "gerda.gesperrt@schule.de"
 # judgement keeps it out of the answer.
 UNBEURTEILBAR = "jürgen@schule.de"
 
-GELEERT = "gisela.geleert@schule.de"
+REGISTRIERT_OFFEN = "rita.offen@schule.de"
+ABGELAUFEN = "arno.abgelaufen@schule.de"
 GEIST_SCHIEDSRICHTER = "geist.pfeife@schule.de"
 GEIST_SPIELER = "geist.spieler@schule.de"
 # Asked as an account may store it, so the answer is shown to keep the asker's spelling.
 NIEMAND = "Niemand.Hier@Example.COM"
 
-TEAM_OIDS = [ObjectId(f"6890a1b2c3d4e5f6079900{n:02d}") for n in range(1, 6)]
+# The league's owner, asked about nowhere: what lets the read answer at all.
+INHABERIN = "olga.inhaberin@schule.de"
+
+TEAM_OIDS = [ObjectId(f"6890a1b2c3d4e5f6079900{n:02d}") for n in range(1, 5)]
 GRANT_OID = ObjectId("6890a1b2c3d4e5f607990051")
 
 # One pass's batch, as the sweep sends it, one address in it twice. The past seat and the registration
 # store theirs as typed, and the retired pupil is asked in capitals against a row storing the fold.
 ASKED = [
     SITZ_VERGANGEN,
+    SITZ_VERGANGEN_OFFEN,
     SITZ_OFFEN,
     SITZ_AUSGETRETEN,
-    GELEERT,
     NIEMAND,
     BEWERBUNG_OFFEN,
+    BEWERBUNG_UNBESTAETIGT,
     "Spieler.Ehemalig@Schule.DE",
     SPIELER_OFFEN,
     PFEIFE_RUHESTAND,
     GEIST_SCHIEDSRICHTER,
     GEIST_SPIELER,
     REGISTRIERT,
+    REGISTRIERT_OFFEN,
     VERWALTUNG,
     GESPERRT,
+    ABGELAUFEN,
     UNBEURTEILBAR,
     NIEMAND,
 ]
@@ -102,15 +112,49 @@ def _referee(oid: Any, email: str, name: str, **fields: Any) -> dict[str, Any]:
     )
 
 
-async def _seed(database: AsyncDatabase) -> None:
+def _registrierung(email: str, *, confirmed: bool) -> dict[str, Any]:
+    return registrierung_document(
+        ObjectId(),
+        email,
+        saison_id=ACTIVE_SAISON,
+        team_id=TEAM_OIDS[0],
+        vorname="Rita",
+        nachname="Registriert",
+        token=email,
+        eingereicht_am="2026-01-02",
+        frist="2026-01-09",
+        position="Mittelfeld",
+        nummer="17",
+        stufe="Q1",
+        bestaetigt=None
+        if not confirmed
+        else {
+            "geburtsdatum": "2009-05-04",
+            "umfang": "intern",
+            "medien": False,
+            "text_version": "2026-09",
+            "today": "2026-01-03",
+            "am": "2026-01-03T08:00:00+00:00",
+        },
+    )
+
+
+async def _seed(database: AsyncDatabase, *, inhaberin: str | None) -> None:
+    """`inhaberin` is the `owner` grant's address as stored, or `None` for a league whose grants hold no owner."""
+
     await database[Collection.SAISONS].insert_many([saison_document(PAST_SAISON, "past"), saison_document(ACTIVE_SAISON, "active")])
     await database[Collection.SAISON_TEAMS].insert_many(
         [
-            _row(TEAM_OIDS[0], PAST_SAISON, "SV", kontakte=kontakte_document(trainer=_seat("Sitz.Vergangen@Schule.de"))),
-            # As the season-and-one clock leaves a block: no seat, and nothing of who held one.
-            _row(TEAM_OIDS[1], PAST_SAISON, "SG", kontakte=None, bestaetigungen=None),
-            _row(TEAM_OIDS[2], ACTIVE_SAISON, "SO", kontakte=kontakte_document(trainer=_seat(SITZ_OFFEN, bestaetigt_am=None))),
-            _row(TEAM_OIDS[3], ACTIVE_SAISON, "SW", austritt=dict(AUSTRITT), kontakte=kontakte_document(trainer=_seat(SITZ_AUSGETRETEN))),
+            _row(
+                TEAM_OIDS[0],
+                PAST_SAISON,
+                "SV",
+                kontakte=kontakte_document(
+                    trainer=_seat("Sitz.Vergangen@Schule.de"), ansprechperson=_seat(SITZ_VERGANGEN_OFFEN, bestaetigt_am=None)
+                ),
+            ),
+            _row(TEAM_OIDS[1], ACTIVE_SAISON, "SO", kontakte=kontakte_document(trainer=_seat(SITZ_OFFEN, bestaetigt_am=None))),
+            _row(TEAM_OIDS[2], ACTIVE_SAISON, "SW", austritt=dict(AUSTRITT), kontakte=kontakte_document(trainer=_seat(SITZ_AUSGETRETEN))),
         ]
     )
     await database[Collection.BEWERBUNGEN].insert_one(
@@ -118,7 +162,7 @@ async def _seed(database: AsyncDatabase) -> None:
             ObjectId(),
             ACTIVE_SAISON,
             "eingereicht",
-            kontakte=kontakte_document(trainer=_seat(BEWERBUNG_OFFEN)),
+            kontakte=kontakte_document(trainer=_seat(BEWERBUNG_OFFEN), ansprechperson=_seat(BEWERBUNG_UNBESTAETIGT, bestaetigt_am=None)),
             eingereicht_am="2026-01-01",
             bestaetigungsfrist="2026-01-15",
             schule=neue_schule_document("Bewerberschule", "BW"),
@@ -139,31 +183,10 @@ async def _seed(database: AsyncDatabase) -> None:
             _referee(GHOST_SCHIEDSRICHTER_ID, GEIST_SCHIEDSRICHTER, "D. Geist"),
         ]
     )
-    await database[Collection.REGISTRIERUNGEN].insert_one(
-        registrierung_document(
-            ObjectId(),
-            "Rita.Registriert@Schule.de",
-            saison_id=ACTIVE_SAISON,
-            team_id=TEAM_OIDS[4],
-            vorname="Rita",
-            nachname="Registriert",
-            token="rita-registriert",
-            eingereicht_am="2026-01-02",
-            frist="2026-01-09",
-            position="Mittelfeld",
-            nummer="17",
-            stufe="Q1",
-            bestaetigt={
-                "geburtsdatum": "2009-05-04",
-                "umfang": "intern",
-                "medien": False,
-                "text_version": "2026-09",
-                "today": "2026-01-03",
-                "am": "2026-01-03T08:00:00+00:00",
-            },
-        )
+    await database[Collection.REGISTRIERUNGEN].insert_many(
+        [_registrierung("Rita.Registriert@Schule.de", confirmed=True), _registrierung(REGISTRIERT_OFFEN, confirmed=False)]
     )
-    await database[Collection.SPERRLISTE].insert_one(ban_document(GESPERRT, bis=ACTIVE_SAISON))
+    await database[Collection.SPERRLISTE].insert_many([ban_document(GESPERRT, bis=ACTIVE_SAISON), ban_document(ABGELAUFEN, bis=PAST_SAISON)])
     granted = datetime(2026, 1, 1, tzinfo=UTC)
     await database[Collection.BERECHTIGUNGEN].insert_one(
         {"_id": GRANT_OID, "adresse": VERWALTUNG, "verwaltung": "administration", "erteilt_von": "PLAYGROUND", "erteilt_am": granted}
@@ -173,11 +196,22 @@ async def _seed(database: AsyncDatabase) -> None:
     await database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT].insert_one(
         {"_id": GRANT_OID, "adresse": "verena.vorher@schule.de", "verwaltung": "administration", "angekuendigt_am": granted}
     )
+    if inhaberin is not None:
+        await database[Collection.BERECHTIGUNGEN].insert_one(
+            {"_id": ObjectId(), "adresse": inhaberin, "verwaltung": "owner", "erteilt_von": "PLAYGROUND", "erteilt_am": granted}
+        )
 
 
 @functools.cache
 def _served() -> FastAPI:
     return create_app(config_for(DATABASE_NAME))
+
+
+async def _ask(url: str, identifiers: list[str]) -> tuple[int, Mapping[str, Any]]:
+    async with app_client(url, app=_served()) as http:
+        response = await http.post(PATH, headers=SYSTEM_AUTH, json={"identifiers": identifiers})
+
+    return response.status_code, response.json()
 
 
 @functools.cache
@@ -189,11 +223,9 @@ def answered(url: str) -> tuple[int, Mapping[str, Any]]:
 
     async def _run() -> tuple[int, Mapping[str, Any]]:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_, database):
-            await _seed(database)
-            async with app_client(url, app=_served()) as http:
-                response = await http.post(PATH, headers=SYSTEM_AUTH, json={"identifiers": ASKED})
+            await _seed(database, inhaberin=INHABERIN)
 
-            return response.status_code, response.json()
+            return await _ask(url, ASKED)
 
     return on_the_seed_loop(_run())
 
@@ -204,9 +236,11 @@ class TestWhatKeepsAnAccount:
         "email",
         [
             pytest.param(SITZ_VERGANGEN, id="a past season's block not yet cleared"),
+            pytest.param(SITZ_VERGANGEN_OFFEN, id="an unconfirmed seat on a past season"),
             pytest.param(SITZ_OFFEN, id="an unconfirmed seat on the running season, which the gate admits"),
             pytest.param(SITZ_AUSGETRETEN, id="a withdrawn team's seat"),
             pytest.param(BEWERBUNG_OFFEN, id="a pending application's confirmed seat"),
+            pytest.param(BEWERBUNG_UNBESTAETIGT, id="a pending application's unconfirmed seat"),
             pytest.param("Spieler.Ehemalig@Schule.DE", id="a retired pupil, asked in capitals"),
             pytest.param(SPIELER_OFFEN, id="an unconfirmed live pupil, which the gate admits"),
             pytest.param(PFEIFE_RUHESTAND, id="a retired referee"),
@@ -216,7 +250,7 @@ class TestWhatKeepsAnAccount:
             pytest.param(UNBEURTEILBAR, id="an address no ban can be keyed under"),
         ],
     )
-    def test_an_address_a_record_or_a_ban_holds_is_never_answered(self, mongo_replica_set_url: str, email: str):
+    def test_an_address_a_record_grant_or_ban_holds_is_never_answered(self, mongo_replica_set_url: str, email: str):
         status, body = answered(mongo_replica_set_url)
 
         assert status == 200, body
@@ -224,14 +258,52 @@ class TestWhatKeepsAnAccount:
 
 
 @pytest.mark.db
-class TestTheAnswer:
-    def test_the_rest_of_the_batch_is_answered_once_each_in_the_spelling_asked(self, mongo_replica_set_url: str):
-        """The premise of every case above, which an empty answer would pass.
+class TestWhatLetsAnAccountGo:
+    @pytest.mark.parametrize(
+        "email",
+        [
+            pytest.param(REGISTRIERT_OFFEN, id="a pending registration its pupil has not confirmed"),
+            pytest.param(ABGELAUFEN, id="a ban whose last season has passed"),
+            pytest.param(GEIST_SCHIEDSRICHTER, id="the referee placeholder, by its id"),
+            pytest.param(GEIST_SPIELER, id="the pupil placeholder, by its id"),
+            pytest.param(NIEMAND, id="nothing at all"),
+        ],
+    )
+    def test_an_address_nothing_holds_is_answered(self, mongo_replica_set_url: str, email: str):
+        status, body = answered(mongo_replica_set_url)
 
-        The cleared block and the two placeholders each hold nothing, the placeholders by their ids alone.
-        """
+        assert status == 200, body
+        assert email in body["unreferenziert"]
 
+    def test_the_answer_holds_each_once_in_the_spelling_asked_and_nothing_else(self, mongo_replica_set_url: str):
         assert answered(mongo_replica_set_url) == (
             200,
-            {"acknowledged": 1, "unreferenziert": [GELEERT, NIEMAND, GEIST_SCHIEDSRICHTER, GEIST_SPIELER]},
+            {"acknowledged": 1, "unreferenziert": [NIEMAND, GEIST_SCHIEDSRICHTER, GEIST_SPIELER, REGISTRIERT_OFFEN, ABGELAUFEN]},
         )
+
+
+@pytest.mark.db
+class TestALeagueWithoutAnOwner:
+    """An empty or foreign database answers every address unreferenced, and the sweep would delete every account on it."""
+
+    @pytest.mark.parametrize(
+        "seeded",
+        [
+            pytest.param(False, id="an empty database"),
+            pytest.param(True, id="a league whose only owner row no request matches"),
+        ],
+    )
+    def test_the_whole_batch_is_refused(self, mongo_replica_set_url: str, seeded: bool):
+        """The second case holds an administrator's live grant and an owner's dead one: only a live `owner` lets the read answer."""
+
+        async def _run() -> tuple[int, Mapping[str, Any]]:
+            async with a_clean_database(mongo_replica_set_url, DATABASE_NAME, constraints=True) as (_, database):
+                if seeded:
+                    await _seed(database, inhaberin=INHABERIN.capitalize())
+
+                return await _ask(mongo_replica_set_url, [NIEMAND, SITZ_OFFEN])
+
+        status, body = on_the_seed_loop(_run())
+
+        assert (status, body["error_code"]) == (409, KEIN_INHABER), body
+        assert "unreferenziert" not in body

@@ -36,6 +36,7 @@ from app.api.identitaet.services import (
     eigene_eintraege,
     eigene_sitze,
     find_funktion_refusal,
+    find_kein_inhaber_refusal,
     folds_to,
     grants_a_panel,
     ist_eigener_schiedsrichter,
@@ -723,6 +724,9 @@ async def unreferenced_of(
         adressen_gesperrt(sperrliste, judged),
     )
     seat_rows, bewerbung_rows, referee_rows, pupil_rows, registrierung_rows, grant_rows = rows
+
+    # Before any address is judged: the whole batch answers nothing rather than all of it unreferenced.
+    refuse(find_kein_inhaber_refusal(grant_rows))
 
     referenced = referenced_addresses(
         seat_rows=seat_rows,
