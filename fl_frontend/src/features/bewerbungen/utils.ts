@@ -211,7 +211,7 @@ export const medienNochNicht = (medienMindestalter: number | null): string =>
   medienMindestalter === null ? MEDIEN_NOCH_NICHT : `${medienZuJung(medienMindestalter)} ${MEDIEN_AUSSCHALTEN}`;
 
 /** The contact page's age refusal where the link's view serves no floor to name: both bounds, as `alterAusserhalb` names them. */
-export const GEBURTSDATUM_AUSSERHALB = "Mit diesem Geburtsdatum bist Du für Deine Bestätigung zu jung oder zu alt. Prüfe das Geburtsdatum.";
+const GEBURTSDATUM_AUSSERHALB = "Mit diesem Geburtsdatum bist Du für Deine Bestätigung zu jung oder zu alt. Prüfe das Geburtsdatum.";
 
 /** What one refused confirmation asks its caller to do. `nachlesen` is answered by a read, never by this mapper. */
 export type EinwilligungRefusal = {
