@@ -393,6 +393,17 @@ def akteur_pseudonym(identifier: str, *, schluessel: SecretStr) -> str:
     return hmac.new(derive_sub_key(schluessel, AKTEUR_PSEUDONYM_VERSION), identifier.encode("utf-8"), hashlib.sha256).hexdigest()
 
 
+# The erasure journal's label, a third beside the ban list's and the log's: under either of theirs the
+# journal's hash would equal a ban row's digest or an erased person's log pseudonym.
+LOESCHUNG_JOURNAL_VERSION: Final = "loeschung-v1"
+
+
+def loeschung_journal_hash(identifier: str, *, schluessel: SecretStr) -> str:
+    """What the erasure journal records for a person: a keyed hash of the folded identifier, so a replay can hash a candidate address alike."""
+
+    return hmac.new(derive_sub_key(schluessel, LOESCHUNG_JOURNAL_VERSION), identifier.encode("utf-8"), hashlib.sha256).hexdigest()
+
+
 def person_actor_binder(funktion: AktorFunktion) -> Callable[..., AsyncIterator[str]]:
     """Build the binder a person's router declares, fixing the Funktion its writes are recorded under.
 

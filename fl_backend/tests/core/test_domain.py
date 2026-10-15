@@ -9,6 +9,7 @@ from typing import Any, get_args, get_origin
 import pytest
 from pydantic import BaseModel
 
+from app.api.identitaet.crud import ERASURE_STEPS, erase_everything
 from app.api.saisons.schemas import FLSaison
 from app.api.schiedsrichter.schemas import FLSchiedsrichter
 from app.api.spiele.schemas import FLSpiel
@@ -555,6 +556,57 @@ def test_every_declaration_carries_its_reason():
             assert policy.condition.strip(), f"{policy.collection}.{policy.field} is {policy.editability} and says nothing about when"
     for entry in UNENFORCED:
         assert entry.reason.strip(), f"'{entry.subject}' is unenforced and states no reason"
+
+
+# The collections a person's own document sits in, whose references an erasure owes a step.
+PERSON_COLLECTIONS = frozenset({Collection.SPIELER, Collection.SCHIEDSRICHTER})
+
+REFERENCES_TO_A_PERSON = [reference for reference in REFERENCES if reference.target in PERSON_COLLECTIONS]
+
+
+def _steps_reaching(collection: Collection) -> list[int]:
+    return [index for index, step in enumerate(ERASURE_STEPS) if collection in step.reaches]
+
+
+def test_every_reference_to_a_person_has_an_erasure_step_reaching_its_source():
+    """A reference to a person no step reaches outlives their erasure, naming a document that is gone.
+
+    Programme 3's lineups, scorers and cards each add a row here, and fail until a step reaches them.
+    """
+
+    assert REFERENCES_TO_A_PERSON, "no reference targets a person, so the comparison below holds of nothing"
+    assert [f"{reference.source}.{reference.fields[0]}" for reference in REFERENCES_TO_A_PERSON if not _steps_reaching(reference.source)] == []
+
+
+def test_a_cascade_onto_a_persons_references_runs_before_the_person_goes():
+    """A step reaching a cascading reference AFTER the person's removal finds no person to repoint from, and answers zero."""
+
+    cascading = [reference for reference in REFERENCES_TO_A_PERSON if reference.on_target_removed is Action.CASCADE]
+    late = [
+        f"{reference.source}.{reference.fields[0]}"
+        for reference in cascading
+        if min(_steps_reaching(reference.source), default=len(ERASURE_STEPS)) > max(_steps_reaching(reference.target))
+    ]
+
+    assert cascading, "no reference cascades onto a person, so the comparison below holds of nothing"
+    assert late == []
+
+
+def test_the_registry_runs_every_step_by_name_in_its_declared_order():
+    """`ERASURE_STEPS` is the population every case here reads: a step called but undeclared, or declared but never called, misleads them all.
+
+    By name, never through the tuple: the transaction sweeps follow a session handed on by a bare name alone.
+    """
+
+    names = {step.run.__name__ for step in ERASURE_STEPS}
+    # In source order: `ast.walk` visits breadth-first.
+    called = sorted(
+        (node.lineno, node.func.id)
+        for node in ast.walk(declared(erase_everything))
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in names
+    )
+
+    assert list(dict.fromkeys(name for _, name in called)) == [step.run.__name__ for step in ERASURE_STEPS]
 
 
 def test_the_document_publisher_is_the_one_application_module_reading_the_domain_model():

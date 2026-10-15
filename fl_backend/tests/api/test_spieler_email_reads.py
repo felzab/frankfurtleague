@@ -9,6 +9,7 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.identitaet.crud import find_anmeldung, find_subjekt
+from app.api.identitaet.person_router import erase_selbst, get_erasure_ansicht
 from app.api.konto.router import get_einwilligungen
 from app.api.registrierungen.einwilligung_router import get_bestaetigung_ansicht
 from app.api.registrierungen.person_router import aufnehmen, get_offene_registrierungen
@@ -25,6 +26,7 @@ from app.core.drosselung import get_drossel
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from tests import documents
 from tests.bans import ban_list
+from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.plans import plans_of_sent_reads
 from tests.records import record_collections
@@ -191,6 +193,43 @@ async def the_own_record_press(database: AsyncDatabase, client: AsyncMongoClient
     )
 
 
+async def the_erasure_preview(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
+    return await get_erasure_ansicht(
+        identifier=FOLDED_EMAIL,
+        saison_teams_collection=database[Collection.SAISON_TEAMS],
+        bewerbungen_collection=database[Collection.BEWERBUNGEN],
+        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        spieler_collection=database[Collection.SPIELER],
+        registrierungen_collection=database[Collection.REGISTRIERUNGEN],
+        berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
+        db=client,
+        config=build_test_config(),
+    )
+
+
+async def the_erasure(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
+    return await erase_selbst(
+        identifier=FOLDED_EMAIL,
+        **{
+            f"{collection}_collection": database[collection]
+            for collection in (
+                Collection.SPIELER,
+                Collection.SAISON_SPIELER,
+                Collection.SAISON_TEAMS,
+                Collection.BEWERBUNGEN,
+                Collection.SCHIEDSRICHTER,
+                Collection.SPIELE,
+                Collection.REGISTRIERUNGEN,
+                Collection.DROSSELUNG,
+                Collection.AKTIONEN,
+            )
+        },
+        db=client,
+        config=build_test_config(),
+        germany_now=NOW,
+    )
+
+
 def names_an_address(command: Mapping[str, Any]) -> bool:
     """Whether a `spieler` find or aggregate matches on a stored address, rather than on an id or on no address at all."""
 
@@ -237,6 +276,8 @@ class TestEveryAddressReadUsesTheIndex:
             the_account_read,
             the_own_record_read,
             the_own_record_press,
+            the_erasure_preview,
+            the_erasure,
         ],
         ids=lambda reader: reader.__name__,
     )

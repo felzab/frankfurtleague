@@ -308,9 +308,9 @@ AGGREGATES: tuple[Aggregate, ...] = (
             "rather than documents, so it is in no boundary with what those writes changed, and it is raised outside their "
             "transaction, a write refused after it was counted spending its unit as surely as one that commits, and a retried "
             "attempt none more. Its key names the "
-            "day, so a new day is a new row rather than a reset, and nothing but the TTL index removes one. It names the "
-            "person by the action log's pseudonym and never an address, and no erasure reaches it: it outlives one at most "
-            "until the German midnight ending its day plus the TTL monitor's lag (`docs/backend/spec.md :: I619`)."
+            "day, so a new day is a new row rather than a reset, and the TTL index removes it once that day has ended. It "
+            "names the person by the action log's pseudonym and never an address, so the person's erasure removes every "
+            "count of theirs, whatever its day, in its own transaction (`docs/backend/spec.md :: I619`)."
         ),
     ),
 )
@@ -367,10 +367,11 @@ REFERENCES: tuple[Reference, ...] = (
             "Read at the write when NEWLY assigned, or kept on a fixture the save puts back among those still to be "
             "played, as the venue beside it is, and refused where no row holds it or the row it holds is retired; "
             "retiring the referee is refused from the other side for the reason the venue's is (`REQ-RETIRE-004`). "
-            "The anonymisation is the one removal an endpoint performs, and it CASCADES rather than being refused: a request "
+            "The erasure is the one removal, run by the administrator's anonymisation and by a person's own erasure alike "
+            "(`app/api/schiedsrichter/crud.py :: erase_referee_in_session`), and it CASCADES rather than being refused: a request "
             "to be forgotten is not something a booking may block, so the row is deleted and every fixture naming it is "
             "repointed at the ghost in the same transaction, each keeping its own `payment`. The once-only drop of "
-            "never-asked referees repoints the same way, emptying the name as the anonymisation does. The ghost is "
+            "never-asked referees repoints the same way, emptying the name as the erasure does. The ghost is "
             "permanently retired, so a fixture holding it takes no new booking and is refused a save putting it back "
             "among those still to be played; one a bracket resolution or a Spieltag release reopens keeps it and is "
             "reported as a retired booking, exactly as a merely retired referee is. Erasing the ghost itself is refused "

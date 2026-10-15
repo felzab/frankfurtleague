@@ -9,8 +9,8 @@ live in, `app/core/recording.py` is the log's companion insert -- the pairing ga
 outside its transaction by design (`docs/backend/spec.md :: I617`), so none of the three is swept.
 
 What the sweep proves is exactly that no endpoint composes a second write outside a transaction.
-Whether a write inside a callback carries `session=` is beyond a lexical read, and stays with the
-comment at each read and the isolation suite.
+Whether a write inside a callback carries `session=` is
+`fl_backend/tests/core/test_write_shapes.py :: TestEveryWriteInsideATransactionCarriesIt`'s.
 """
 
 import ast
@@ -155,11 +155,11 @@ assert ENDPOINTS, "no route-decorated function found under app/ -- the endpoint 
 assert any(record.write_sites for named in FUNCTIONS.values() for record in named), (
     "no function under app/ makes a write -- the write detector, not the handlers, is the likely cause"
 )
-_ERASURE_CALLBACK = next(
-    record for record in FUNCTIONS.get("erase_the_person_and_their_record", []) if record.module.startswith("app/api/spieler/")
-)
-assert len(_bare_write_sites(_ERASURE_CALLBACK, set())) >= 2, (
-    "the erasure's transaction callback no longer counts as multi-write -- the transitive counter, not the erasure, is the likely cause"
+# The registry writes nothing of its own: every write it makes is a step's, so it counts only as far
+# as the counter follows calls.
+_ERASURE_REGISTRY = next(record for record in FUNCTIONS.get("erase_everything", []) if record.module.startswith("app/api/identitaet/"))
+assert len(_bare_write_sites(_ERASURE_REGISTRY, set())) >= 2, (
+    "the erasure registry no longer counts as multi-write -- the transitive counter, not the erasure, is the likely cause"
 )
 
 

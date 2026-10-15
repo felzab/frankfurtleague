@@ -27,6 +27,7 @@ from app.api.bewerbungen.router import router as bewerbungen_router
 from app.api.bewerbungen.sweep_router import router as bewerbungen_sweep_router
 from app.api.bewerbungen.zustellung_router import router as bewerbungen_zustellung_router
 from app.api.einwilligung.router import router as einwilligung_router
+from app.api.identitaet.person_router import router as identitaet_person_router
 from app.api.identitaet.router import router as identitaet_router
 from app.api.kontakte.admin_router import router as kontakte_admin_router
 from app.api.konto.router import router as konto_router
@@ -168,6 +169,7 @@ PERSON_ROUTERS = (
     registrierungen_selbst_router,
     schiedsrichter_person_router,
     konto_router,
+    identitaet_person_router,
 )
 
 # Spelled as `fl_frontend/src/core/api.ts :: FetchOptions` spells its `authType`, the value being

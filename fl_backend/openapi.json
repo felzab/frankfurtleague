@@ -9335,6 +9335,92 @@
         "x-fl-tier": "admin"
       }
     },
+    "/api/v0/identitaet/selbst/erasure": {
+      "post": {
+        "summary": "Erase every record the signed-in address holds",
+        "description": "Erase every record the signed-in address holds, at once and as one write, and answer how many of each kind went.\n\nPERSON TIER, refusing nothing about the person: no precondition stands in front of a person's own request, a pupil in a\nlive squad and a referee booked on a fixture still to be played included. Nothing is counted against the person's day.\n\nRemoved: the pupil record and every squad row it holds, so the team reads one player fewer; the referee record, every\nfixture it was booked on moving to the one row that holds no person and keeping its own fee; every registration at the\naddress, pending or declined; another referee's pending address change naming this address, that referee's row itself\nstanding; and the person's day counts. Emptied: every contact seat the address holds on a team's season row and on an\napplication of any status, the row and its other seats standing. The log images of those records are emptied, and every\nlog row the person wrote, as a person or as an administrator, names a fixed marker in their place, this erasure's own\nrows included.\n\nAn address holding nothing is answered with every count zero rather than refused. The 404 and the 409 answer only a\ndatabase changed by hand under the request. The sign-in account is not touched here: deleting it is the caller's, once\nthis has answered.",
+        "operationId": "erase_selbst_api_v0_identitaet_selbst_erasure_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSelbstErasureResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/404.DB-COMMON-001"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.DB-COMMON-002"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-008"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "admin"
+      }
+    },
+    "/api/v0/identitaet/selbst/erasure/ansicht": {
+      "get": {
+        "summary": "Show what an erasure of the signed-in address would remove",
+        "description": "Answer what `POST /identitaet/selbst/erasure` would remove for the signed-in address, by kind and by name.\n\nRead through that erasure's own selections, so it names every record the erasure reaches, an unconfirmed seat, a retired\nrow and a declined registration among them, and no other. No address and no birthdate is answered. A pending address\nchange on another address's referee row is counted and not named, that row not being this address's until the change is\nconfirmed. `verwaltung` is the grant the address holds, or null.",
+        "operationId": "get_erasure_ansicht_api_v0_identitaet_selbst_erasure_ansicht_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSelbstErasureAnsichtResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-008"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "admin"
+      }
+    },
     "/": {
       "get": {
         "summary": "Root",
@@ -20916,6 +21002,295 @@
         ],
         "title": "FLSchiedsrichterWriteResponse",
         "description": "Shared by delete and anonymisieren.\n\nThe retirement answers with the referee as they now stand; the erasure answers with the ghost,\nthe row it named being gone (`app/api/schiedsrichter/admin_router.py :: anonymise_schiedsrichter`)."
+      },
+      "FLSelbstErasureAnsichtResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "spieler": {
+            "items": {
+              "$ref": "#/components/schemas/FLSelbstErasureSpieler"
+            },
+            "type": "array",
+            "title": "Spieler"
+          },
+          "schiedsrichter": {
+            "items": {
+              "$ref": "#/components/schemas/FLSelbstErasureSchiedsrichter"
+            },
+            "type": "array",
+            "title": "Schiedsrichter"
+          },
+          "sitze": {
+            "items": {
+              "$ref": "#/components/schemas/FLSelbstErasureSitz"
+            },
+            "type": "array",
+            "title": "Sitze"
+          },
+          "bewerbungen": {
+            "items": {
+              "$ref": "#/components/schemas/FLSelbstErasureBewerbung"
+            },
+            "type": "array",
+            "title": "Bewerbungen"
+          },
+          "registrierungen": {
+            "items": {
+              "$ref": "#/components/schemas/FLSelbstErasureRegistrierung"
+            },
+            "type": "array",
+            "title": "Registrierungen"
+          },
+          "adresswechsel": {
+            "type": "integer",
+            "title": "Adresswechsel"
+          },
+          "verwaltung": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "owner",
+                  "administration"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verwaltung"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spieler",
+          "schiedsrichter",
+          "sitze",
+          "bewerbungen",
+          "registrierungen",
+          "adresswechsel",
+          "verwaltung"
+        ],
+        "title": "FLSelbstErasureAnsichtResponse"
+      },
+      "FLSelbstErasureBewerbung": {
+        "properties": {
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "rolle": {
+            "type": "string",
+            "enum": [
+              "trainer",
+              "ansprechperson",
+              "stellvertretung"
+            ],
+            "title": "Rolle"
+          },
+          "vorname": {
+            "type": "string",
+            "title": "Vorname"
+          },
+          "nachname": {
+            "type": "string",
+            "title": "Nachname"
+          }
+        },
+        "type": "object",
+        "required": [
+          "saison_id",
+          "rolle",
+          "vorname",
+          "nachname"
+        ],
+        "title": "FLSelbstErasureBewerbung",
+        "description": "One seat on an application, of any status."
+      },
+      "FLSelbstErasureRegistrierung": {
+        "properties": {
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "team_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team Name"
+          },
+          "vorname": {
+            "type": "string",
+            "title": "Vorname"
+          },
+          "nachname": {
+            "type": "string",
+            "title": "Nachname"
+          }
+        },
+        "type": "object",
+        "required": [
+          "saison_id",
+          "team_name",
+          "vorname",
+          "nachname"
+        ],
+        "title": "FLSelbstErasureRegistrierung",
+        "description": "One registration, pending or declined."
+      },
+      "FLSelbstErasureResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "spieler": {
+            "type": "integer",
+            "title": "Spieler"
+          },
+          "saison_spieler": {
+            "type": "integer",
+            "title": "Saison Spieler"
+          },
+          "schiedsrichter": {
+            "type": "integer",
+            "title": "Schiedsrichter"
+          },
+          "spiele": {
+            "type": "integer",
+            "title": "Spiele"
+          },
+          "kontakt_sitze": {
+            "type": "integer",
+            "title": "Kontakt Sitze"
+          },
+          "registrierungen": {
+            "type": "integer",
+            "title": "Registrierungen"
+          },
+          "adresswechsel": {
+            "type": "integer",
+            "title": "Adresswechsel"
+          },
+          "drosselung": {
+            "type": "integer",
+            "title": "Drosselung"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spieler",
+          "saison_spieler",
+          "schiedsrichter",
+          "spiele",
+          "kontakt_sitze",
+          "registrierungen",
+          "adresswechsel",
+          "drosselung"
+        ],
+        "title": "FLSelbstErasureResponse"
+      },
+      "FLSelbstErasureSchiedsrichter": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "FLSelbstErasureSchiedsrichter"
+      },
+      "FLSelbstErasureSitz": {
+        "properties": {
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "team_name": {
+            "type": "string",
+            "title": "Team Name"
+          },
+          "rolle": {
+            "type": "string",
+            "enum": [
+              "trainer",
+              "ansprechperson",
+              "stellvertretung"
+            ],
+            "title": "Rolle"
+          },
+          "vorname": {
+            "type": "string",
+            "title": "Vorname"
+          },
+          "nachname": {
+            "type": "string",
+            "title": "Nachname"
+          }
+        },
+        "type": "object",
+        "required": [
+          "saison_id",
+          "team_name",
+          "rolle",
+          "vorname",
+          "nachname"
+        ],
+        "title": "FLSelbstErasureSitz",
+        "description": "One seat on a team's season row, named as the row names it."
+      },
+      "FLSelbstErasureSpieler": {
+        "properties": {
+          "vorname": {
+            "type": "string",
+            "title": "Vorname"
+          },
+          "nachname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nachname"
+          }
+        },
+        "type": "object",
+        "required": [
+          "vorname",
+          "nachname"
+        ],
+        "title": "FLSelbstErasureSpieler"
       },
       "FLSitzBestaetigt": {
         "properties": {
