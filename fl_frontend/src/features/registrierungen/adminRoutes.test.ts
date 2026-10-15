@@ -153,6 +153,13 @@ function karte(page: Document, name: string): Element {
 const hrefsOf = (card: Element): string[] => [...new Set([...card.querySelectorAll("a[href]")].map((link) => link.getAttribute("href")!))];
 
 describe("the administrator's list of pending registrations", () => {
+  /* An async default would hold the search bar behind the whole read. */
+  it("returns its chrome synchronously", () => {
+    const returned: unknown = (AdminRegistrierungenPage as (props: ReturnType<typeof pageProps>) => unknown)(pageProps({}));
+
+    assert.equal(returned instanceof Promise, false, "the page awaits its data before the chrome renders");
+  });
+
   /* A dropped `status` lists declined rows beside the pending ones, and every read below would still answer. */
   it("asks for the pending rows of every season, from the end the address names", async () => {
     const queueReads = () => readsOf(steps).filter(({ endpoint }) => endpoint === "/registrierungen");
