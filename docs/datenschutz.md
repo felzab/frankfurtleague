@@ -773,7 +773,8 @@ Every ruling below is the sign-up flow as it stands for the next season.
   ([section 5](#5-erasure-reaches-everyone-who-asks)), which lets one figure answer both the
   access-log question and the erasure question. Nothing is shipped to a collector: that would
   lengthen retention and add a processor receiving visitors' addresses. That the access line carries
-  no credential is a separate guarantee, held by `nginx/edge_test.sh` in the gate's ops scope.
+  no credential and no typed search query is a separate guarantee, held by `nginx/edge_test.sh` in
+  the gate's ops scope (`docs/frontend/spec.md :: I680`).
   Ruled 2026-09-06, re-ruled 2026-09-07.
 
 ## 7. Processors and third parties

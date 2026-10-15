@@ -4,9 +4,8 @@ import { useCrudSearchField } from "./AdminCrudPrivateQuery";
 import { SearchBar } from "./SearchBar";
 
 /**
- * Its own client island in the shell's header row, so that row renders immediately. Where it meets `AdminCrudView` is
- * the shell's to decide: the debounced `?q=` on every ordinary list, and a held value on a page that passes
- * `privateQuery`.
+ * Its own client island in the shell's header row, so that row renders immediately. It meets `AdminCrudView` through
+ * the query the shell holds, never through the URL (`docs/frontend/spec.md :: I680`).
  */
 export function AdminCrudSearch({
   searchLabel,

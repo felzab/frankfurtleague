@@ -255,10 +255,18 @@ CASES=(
   "LEAK-REF|http://localhost/x/token=${TOK}"
   "LEAK-REF|http://localhost/signin?token=a%20b${TOK}"
 
+  # A typed search query, which no page writes (`docs/frontend/spec.md :: I680`): an address in the
+  # first parameter, a name past another, and the page a visitor came from.
+  "LEAK|${BASE}/bereich/admin/sperrliste?q=${EM}"
+  "LEAK|${BASE}/dashboard/spielsuche?saison_id=abc&q=${TOK}"
+  "LEAK-REF|http://localhost/dashboard/spielsuche?q=${TOK}"
+
   # Controls. Each is a query an operator reads off this line, and a redaction wide enough to eat
   # them is a different defect rather than a fix.
   "KEEP|${BASE}/signin?error=Verification|error=Verification"
-  "KEEP|${BASE}/api/bewerbung/kuerzel?q=ABC|q=ABC"
+  "KEEP|${BASE}/api/bewerbung/kuerzel?shorthand=ABC|shorthand=ABC"
+  # A parameter whose name merely ends in `q`, which the one-letter arm must not reach.
+  "KEEP|${BASE}/teams?saison_id=abc&seq=2|seq=2"
   "KEEP|${BASE}/teams?saison_id=abc&shorthand=FCB|shorthand=FCB"
   "KEEP|${BASE}/bereich/admin/spiele?saison_id=abc|saison_id=abc"
 

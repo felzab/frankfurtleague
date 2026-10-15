@@ -37,7 +37,7 @@ const TONE = "info";
 
 export function allowedCalls(): void {
   router.push("/teams");
-  router.replace(`${pathname}?q=1`);
+  router.replace(`${pathname}?gruppe=1`);
   redirect("https://example.org");
   // The target is the first argument alone; the second is the history mode.
   redirect("/teams", "replace");

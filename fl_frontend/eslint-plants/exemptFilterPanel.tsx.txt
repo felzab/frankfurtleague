@@ -1,0 +1,7 @@
+// Linted as src/shared/components/ui/FilterPanel.tsx.
+// A facet's option filter, which never leaves its panel, and every other ban still reaches it, shared's own included.
+import { SearchField } from "@heroui/react/search-field";
+import { SearchBar } from "./SearchBar"; // expect: search-bar
+
+export const FILTERS = [SearchField, SearchBar];
+export const SLICE = import("@/features/teams/facets"); // expect: layer-shared-load

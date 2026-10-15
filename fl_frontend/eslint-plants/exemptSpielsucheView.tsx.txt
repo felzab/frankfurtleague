@@ -1,0 +1,15 @@
+// Linted as src/features/spiele/components/views/SpielsucheView.tsx.
+// The match search, whose bar and list are one component holding the query, and every other ban still reaches it.
+"use client";
+
+import { SearchBar } from "@/shared/components/ui/SearchBar";
+
+declare const router: { replace: (to: string) => void };
+declare const pathname: string;
+declare const typed: string;
+
+export const BAR = <SearchBar label="Spiele suchen" placeholder="Spiele suchen" value={typed} onChange={() => undefined} />;
+export const BOX = <input type="search" aria-label="Spiele suchen" />; // expect: search-field
+export function write(): void {
+  router.replace(`${pathname}?q=${typed}`); // expect: search-in-url
+}
