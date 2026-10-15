@@ -8,7 +8,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.aktionen.crud import redact_images_in_session
 from app.api.bewerbungen.services import mint_token
-from app.api.schiedsrichter.crud import erase_referee_in_session
+from app.api.schiedsrichter.crud import ensure_ghost_schiedsrichter, erase_referee_in_session
 from app.api.schiedsrichter.schemas import (
     FLPatchSchiedsrichterPayload,
     FLPatchSchiedsrichterResponse,
@@ -655,7 +655,8 @@ async def anonymise_schiedsrichter(
     refuse(find_ghost_erasure_refusal(schiedsrichter_id=schiedsrichter_id))
 
     async def erase_the_referee(session: AsyncClientSession) -> FLSchiedsrichterWriteResponse:
-        ghost = await erase_referee_in_session(
+        ghost = await ensure_ghost_schiedsrichter(schiedsrichter_collection=schiedsrichter_collection, session=session)
+        await erase_referee_in_session(
             schiedsrichter_collection=schiedsrichter_collection,
             spiele_collection=spiele_collection,
             aktionen_collection=aktionen_collection,

@@ -813,6 +813,15 @@ def build_eigene_registrierung_filter(identifier: str) -> Mapping[str, Any]:
     return {"status": SUBMITTED, "email": same_address(identifier)}
 
 
+def build_erasure_registrierung_filter(identifier: str) -> Mapping[str, Any]:
+    """Every registration that may be this address's, of every status: a declined row holds the same person until its month is out.
+
+    A pre-filter, as `build_eigene_registrierung_filter` is, the caller's fold deciding.
+    """
+
+    return {"email": same_address(identifier)}
+
+
 def find_unbestaetigt_refusal(*, einwilligung: Any) -> WriteRefusal | None:
     """`REQ-REGISTRIERUNG-013`: the pupil has not answered their own link, so nobody may admit them yet.
 

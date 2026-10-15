@@ -204,6 +204,7 @@ async def erased(database: AsyncDatabase, client: AsyncMongoClient, *, geaendert
             bewerbungen_collection=database[Collection.BEWERBUNGEN],
             registrierungen_collection=database[Collection.REGISTRIERUNGEN],
             einladungen_collection=database[Collection.EINLADUNGEN],
+            sperrliste_collection=database[Collection.SPERRLISTE],
             sperrliste=ban_list(database),
             identifier=ERIKA,
             geaendert_von=geaendert_von,

@@ -308,9 +308,9 @@ AGGREGATES: tuple[Aggregate, ...] = (
             "rather than documents, so it is in no boundary with what those writes changed, and it is raised outside their "
             "transaction, a write refused after it was counted spending its unit as surely as one that commits, and a retried "
             "attempt none more. Its key names the "
-            "day, so a new day is a new row rather than a reset, and nothing but the TTL index removes one. It names the "
-            "person by the action log's pseudonym and never an address, and no erasure reaches it: it outlives one at most "
-            "until the German midnight ending its day plus the TTL monitor's lag (`docs/backend/spec.md :: I619`)."
+            "day, so a new day is a new row rather than a reset, and the TTL index removes it once that day has ended. It "
+            "names the person by the action log's pseudonym and never an address, so the person's erasure removes every "
+            "count of theirs, whatever its day, in its own transaction (`docs/backend/spec.md :: I619`)."
         ),
     ),
 )
@@ -367,10 +367,11 @@ REFERENCES: tuple[Reference, ...] = (
             "Read at the write when NEWLY assigned, or kept on a fixture the save puts back among those still to be "
             "played, as the venue beside it is, and refused where no row holds it or the row it holds is retired; "
             "retiring the referee is refused from the other side for the reason the venue's is (`REQ-RETIRE-004`). "
-            "The anonymisation is the one removal an endpoint performs, and it CASCADES rather than being refused: a request "
+            "The erasure is the one removal, run by the administrator's anonymisation and by a person's own erasure alike "
+            "(`app/api/schiedsrichter/crud.py :: erase_referee_in_session`), and it CASCADES rather than being refused: a request "
             "to be forgotten is not something a booking may block, so the row is deleted and every fixture naming it is "
             "repointed at the ghost in the same transaction, each keeping its own `payment`. The once-only drop of "
-            "never-asked referees repoints the same way, emptying the name as the anonymisation does. The ghost is "
+            "never-asked referees repoints the same way, emptying the name as the erasure does. The ghost is "
             "permanently retired, so a fixture holding it takes no new booking and is refused a save putting it back "
             "among those still to be played; one a bracket resolution or a Spieltag release reopens keeps it and is "
             "reported as a retired booking, exactly as a merely retired referee is. Erasing the ghost itself is refused "
@@ -504,12 +505,14 @@ REFERENCES: tuple[Reference, ...] = (
         target=Collection.SPIELER,
         on_reference_created=Action.RESTRICT,
         on_target_change=Action.NO_ACTION,
-        on_target_removed=Action.NO_ACTION,
+        on_target_removed=Action.CASCADE,
         note=(
             "An administrator's entry reads the person the path names and answers 404 where no row holds the id, the erased "
             "pupils' sentinel included, anchoring the person so an erasure landing beside it conflicts "
             "(`app/api/spieler/crud.py :: pull_a_person_to_enter`); an admission writes the person its row names. "
-            "Retiring the person leaves every squad row intact -- the seasons they played still happened."
+            "The person's erasure removes every squad row naming them in its own transaction and repoints none, a squad being "
+            "a live list (`app/api/spieler/crud.py :: erase_person_in_session`); retiring the person changes neither side, "
+            "and the seasons they played still happened."
         ),
     ),
     Reference(
@@ -2276,6 +2279,15 @@ RULES: tuple[Rule, ...] = (
         summary="a player still in the league is not erased, retirement being the step that comes first",
         implemented_by="app.api.spieler.services.find_erasure_refusal",
         tested_by="tests/api/test_spieler_erasure_execution.py::TestTheErasureIsRefusedUntilTheyAreRetired",
+    ),
+    Rule(
+        code="REQ-PURGE-004",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /identitaet/selbst/erasure",
+        aggregate="Berechtigung",
+        summary="the last live, unbarred `owner` does not erase themselves until another administrator is made an owner",
+        implemented_by="app.api.identitaet.services.find_letzter_inhaber_erasure_refusal",
+        tested_by="tests/api/test_funktionen_erasure.py::TestTheLastOwner",
     ),
     Rule(
         code="REQ-SPERRLISTE-001",

@@ -753,6 +753,9 @@ class TestAWriteTheDeadlineCutIsNotCalledFailed:
         assert {site for site in outside if not site.startswith(f"{CRUD_MODULE} :: ")} == {
             "app/core/recording.py :: record_write",
             "app/core/drosselung.py :: drosseln",
+            # An erasure's removal of the person's counts, inside the erasure's transaction, so a cut
+            # removal commits nothing and "failed" is the truth.
+            "app/core/drosselung.py :: erase_counts_in_session",
         }
 
     def test_the_method_does_not_decide_it(self):

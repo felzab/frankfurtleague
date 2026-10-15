@@ -244,13 +244,17 @@ async def erase_spieler(
         )
         refuse(find_erasure_refusal(inactive_since=stored_raw.get("inactive_since")))
 
-        return await erase_person_in_session(
+        erased = await erase_person_in_session(
             spieler_collection=spieler_collection,
             saison_spieler_collection=saison_spieler_collection,
             aktionen_collection=aktionen_collection,
             spieler_id=spieler_id,
             stamp=log_stamp(germany_now),
             session=session,
+        )
+
+        return FLSpielerErasureResponse(
+            spieler_id=spieler_id, erased_saison_spieler=erased.saison_spieler, redacted_aktionen=erased.redacted_aktionen
         )
 
     # ONE transaction over all THREE (`docs/backend/spec.md :: I42`): a person removed while the log

@@ -212,8 +212,10 @@ or secret file names `fl_backend/app/core/config.py :: get_config` prints.
 
 The first three `SRV-BOOT-*` rows are one decision — `db.py :: _refusal_for`, which pairs each
 cause's sentence with its code — so a fourth cause added there takes a fourth row here. **The three
-warnings refuse nothing** (`fl_backend/app/core/db.py :: warn_about_the_grants`): the public site
-needs no administrator, and a state only a Playground paste repairs is no reason to take it down.
+warnings refuse nothing** (`fl_backend/app/core/db.py :: warn_about_the_grants`), written at boot
+and again once an erasure that took a grant commits
+(`fl_backend/app/api/identitaet/crud.py :: after_the_erasure_commits`): the public site needs no
+administrator, and a state only a Playground paste repairs is no reason to take it down.
 
 ## 4. Forwarded codes
 
