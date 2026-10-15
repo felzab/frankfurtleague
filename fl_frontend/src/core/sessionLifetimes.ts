@@ -5,14 +5,17 @@ const DAY_MS = 24 * HOUR_MS;
 export type Lifetime = { readonly idle: number; readonly absolute: number };
 
 // Here rather than in `fl_frontend/src/core/auth.ts`, which enforces them: the privacy notice states
-// these figures too, and importing them from there would load Better Auth into the page. Mirrored in
-// `fl_backend/app/shared/schemas/bounds.py`, whose actor check refuses a token older than it.
+// these figures too, and importing them from there would load Better Auth into the page.
+
+// NIST SP 800-63B-4 §2.2.3 (read 2026-10-15): the overall timeout "SHOULD be no more than 24 hours at
+// AAL2", the level a passkey sign-in meets. Mirrored in `fl_backend/app/shared/schemas/bounds.py`, whose
+// actor check refuses a token older than it.
 export const ADMIN_WINDOW_HOURS = 24;
 
+// The same section: "The inactivity timeout SHOULD be no more than 1 hour." Judged by the frontend
+// alone, which holds the only record of use.
 export const ADMIN_IDLE_HOURS = 1;
 
-// NIST SP 800-63B-4 §2.2.3 at AAL2, which a passkey sign-in meets (read 2026-10-15): an overall
-// timeout of at most 24 hours, and an inactivity timeout of at most one hour.
 export const ADMIN_LIFETIME: Lifetime = { idle: ADMIN_IDLE_HOURS * HOUR_MS, absolute: ADMIN_WINDOW_HOURS * HOUR_MS };
 
 // A person's cap, from the sign-in however recently the session was used. Mirrored in
