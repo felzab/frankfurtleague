@@ -18,7 +18,7 @@ import { underNext } from "@/shared/testing/nextContexts.ts";
 import { assertEachAnswered, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { toActionErrorResult } from "@/shared/utils/actionError.ts";
 
-import { mapAdresseRefusal, mapAnsichtRefusal } from "./refusals.ts";
+import { mapAnsichtRefusal, mapSperreRefusal } from "./refusals.ts";
 import { FLPostSperrlistePayloadSchema } from "./schemas.ts";
 
 import type { MailOutcome } from "@/core/mailDouble.ts";
@@ -156,7 +156,7 @@ describe("the create's refusals", () => {
       operation: CREATE_OPERATION,
       refuseWith: answerWith,
       act: anAddressIsBanned,
-      mapped: mapAdresseRefusal,
+      mapped: mapSperreRefusal,
     });
     assert.deepEqual(mail.sent, [], "a refused ban mailed the address it refused");
   });
@@ -408,7 +408,7 @@ describe("what the address holds, read before the ban (`docs/frontend/spec.md ::
   /* The ban refuses an address holding a grant (`REQ-SPERRLISTE-003`): said on its box before anyone works through a
      list for a ban that cannot follow, in the words the ban's own refusal takes. */
   it("answers an address holding a grant of either tier on the address box, as the ban would", async () => {
-    const asTheBan = mapAdresseRefusal(refusedOn(CREATE_OPERATION, "REQ-SPERRLISTE-003"));
+    const asTheBan = mapSperreRefusal(refusedOn(CREATE_OPERATION, "REQ-SPERRLISTE-003"));
 
     for (const verwaltung of ["administration", "owner"]) {
       answerAnsicht = () => Promise.resolve({ ...ANSICHT, verwaltung });
@@ -428,7 +428,7 @@ describe("what the address holds, read before the ban (`docs/frontend/spec.md ::
 
     assert.deepEqual(
       result.success ? result : result.fieldErrors,
-      mapAdresseRefusal(refusedOn(CREATE_OPERATION, "REQ-SPERRLISTE-001"))?.fieldErrors,
+      mapSperreRefusal(refusedOn(CREATE_OPERATION, "REQ-SPERRLISTE-001"))?.fieldErrors,
     );
   });
 

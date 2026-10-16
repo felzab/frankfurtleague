@@ -43,7 +43,7 @@ registerDoubles({
    compile step as it evaluates (`docs/frontend/spec.md` §1.9). */
 const { default: AdminSperrlistePage } = await import("@/app/bereich/admin/sperrliste/page.tsx");
 const { SPERRE_ANSICHT_COPY, SPERRE_ERFOLG, SPERRE_PRESS } = await import("./constants.ts");
-const { mapAdresseRefusal } = await import("./refusals.ts");
+const { mapSperreRefusal } = await import("./refusals.ts");
 const { IN_NEUEM_TAB } = await import("@/shared/components/ui/NewTabLink.tsx");
 const { BLOCKED_SUBMIT_TITLE } = await import("@/shared/hooks/useDraftFieldErrors.ts");
 
@@ -476,7 +476,7 @@ describe("the ban's refusals, placed (`docs/frontend/spec.md :: I724`)", () => {
       ["the reader's own address", () => Promise.reject(refusedOn("POST /identitaet/erasure/ansicht", "REQ-PURGE-003"))],
       ["an owner's address", () => Promise.reject(refusedOn("POST /identitaet/erasure/ansicht", "REQ-PURGE-005"))],
     ];
-    const verwaltung = mapAdresseRefusal(refusedOn(CREATE_OPERATION, "REQ-SPERRLISTE-003"))?.fieldErrors?.email ?? "unworded";
+    const verwaltung = mapSperreRefusal(refusedOn(CREATE_OPERATION, "REQ-SPERRLISTE-003"))?.fieldErrors?.email ?? "unworded";
 
     for (const [fall, gelesen] of answers) {
       antwort = gelesen;
@@ -496,7 +496,7 @@ describe("the ban's refusals, placed (`docs/frontend/spec.md :: I724`)", () => {
      the box says so in that refusal's words before anyone works through a list for nothing. */
   it("marks an address barred already before the press, arming nothing", async () => {
     antwort = () => Promise.resolve({ ...BESTAND, gesperrt: true });
-    const schon = mapAdresseRefusal(refusedOn(CREATE_OPERATION, "REQ-SPERRLISTE-001"))?.fieldErrors?.email ?? "unworded";
+    const schon = mapSperreRefusal(refusedOn(CREATE_OPERATION, "REQ-SPERRLISTE-001"))?.fieldErrors?.email ?? "unworded";
     const { dialog, user } = await oeffnen();
 
     await zeigen(dialog, user);
@@ -511,7 +511,7 @@ describe("the ban's refusals, placed (`docs/frontend/spec.md :: I724`)", () => {
   /* The read cannot tell a ban entered after it or a league with no season running: those land after the press, the
      address's on its box and the league's in the toast, the reveal closing over them. */
   it("lands a refusal the read cannot foresee where the ban's own answer puts it", async (t) => {
-    const fehler = (code: string) => mapAdresseRefusal(refusedOn(CREATE_OPERATION, code));
+    const fehler = (code: string) => mapSperreRefusal(refusedOn(CREATE_OPERATION, code));
     t.mock.timers.enable({ apis: ["Date"] });
 
     sperre = () => Promise.reject(refusedOn(CREATE_OPERATION, "REQ-SPERRLISTE-001"));

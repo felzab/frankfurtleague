@@ -14,7 +14,7 @@ import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { SPERRE_ERFOLG } from "./constants";
 import { deleteSperre, postSperre } from "./mutations";
-import { mapAdresseRefusal, mapAnsichtRefusal, schonGesperrtAmFeld, verwaltungAmFeld } from "./refusals";
+import { mapAnsichtRefusal, mapSperreRefusal, schonGesperrtAmFeld, verwaltungAmFeld } from "./refusals";
 import { FLPostSperrlistePayloadSchema, FLSperrlisteKeyPayloadSchema } from "./schemas";
 
 import type { FLErasureAnsichtResponse } from "@/features/funktionen/schemas";
@@ -143,12 +143,12 @@ export async function postSperreAction(rawPayload: FLPostSperrlistePayload): Pro
       };
     }
 
-    // The refusal belongs on the box that holds the address, not on the error page.
+    // The refusal belongs on the box holding the value it refuses, not on the error page.
     let postOperation;
     try {
       postOperation = await postSperre(validated.data);
     } catch (error) {
-      const refusal = mapAdresseRefusal(error);
+      const refusal = mapSperreRefusal(error);
       if (refusal) return refusalResult(refusal);
       throw error;
     }
