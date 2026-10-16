@@ -1,6 +1,7 @@
 "use server";
 
 import { deleteAccountFor, endSessionsOfAddress } from "@/core/auth";
+import { RolledBackError } from "@/core/errors";
 import { logger } from "@/core/logging";
 import { invalidatesOnWrite, refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
 import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
@@ -15,7 +16,7 @@ import type { ActionResult, QueryResult } from "@/shared/types/types";
 import type { FLAbmeldungPayload, FLErasureAnsichtPayload, FLErasureAnsichtResponse, FLErasurePayload } from "./schemas";
 
 /** What became of the address's sign-in account once its league records were gone. */
-export type KontoNachLoeschung = "geloescht" | "keines" | "nichtGeloescht";
+export type KontoNachLoeschung = "geloescht" | "keines" | "nichtGeloescht" | "unklar";
 
 /** Whether the erasure removed or emptied anything, read off every count it answers, one added later included. */
 const loeschteEtwas = ({ acknowledged: _umschlag, ...anzahlen }: FLErasureResponse): boolean =>
@@ -23,7 +24,7 @@ const loeschteEtwas = ({ acknowledged: _umschlag, ...anzahlen }: FLErasureRespon
 
 /**
  * The account's deletion, once the backend has answered. A failure leaves the records gone and the account standing,
- * which a repeat completes: an emptied address is answered with every count zero rather than refused.
+ * or past a failed commit perhaps not, which a repeat completes: an emptied address is answered with zeros rather than refused.
  */
 async function kontoLoeschen(email: string): Promise<KontoNachLoeschung> {
   try {
@@ -34,7 +35,8 @@ async function kontoLoeschen(email: string): Promise<KontoNachLoeschung> {
       error_code: "FE-AUTH-012",
       name: failed instanceof Error ? failed.name : "unknown",
     });
-    return "nichtGeloescht";
+    // Rolled back, the account stands; any other failure came from the commit, which may have landed.
+    return failed instanceof RolledBackError ? "nichtGeloescht" : "unklar";
   }
 }
 
@@ -48,6 +50,9 @@ function loeschungSatz(konto: KontoNachLoeschung, gespeichert: boolean, spiele: 
 
   if (konto === "nichtGeloescht") {
     return `Die Daten sind gelöscht, das Konto der Adresse aber nicht. Lösche die Adresse erneut, dann wird auch das Konto gelöscht.${folge}`;
+  }
+  if (konto === "unklar") {
+    return `Die Daten sind gelöscht. Ob auch das Konto der Adresse gelöscht wurde, ist unklar. Lösche die Adresse erneut, dann wird ein verbliebenes Konto auch gelöscht.${folge}`;
   }
   // Never „nichts gespeichert“: the log and the address's authorship were rewritten anyway, and no count says what they held.
   if (!gespeichert && konto === "keines") {

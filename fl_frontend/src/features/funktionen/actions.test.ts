@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { APIBadStatusError, APINetworkError } from "@/core/errors.ts";
+import { APIBadStatusError, APINetworkError, RolledBackError } from "@/core/errors.ts";
 import { registerDoubles } from "@/core/exportingModule.ts";
 import { cacheCalls, doubleActionRequest, loggedLines } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
@@ -169,8 +169,8 @@ describe("the erasure on request", () => {
 
   /* The records are gone and the account stands, which a repeat completes: the backend answers an emptied
      address with zeros. The line names the failure and never the address. */
-  it("tells the administrator the account stands where its deletion failed, logging no address", async () => {
-    request.failAccountDeletion(new Error(`deletion of ${ADRESSE} failed`));
+  it("tells the administrator the account stands where its deletion rolled back, logging no address", async () => {
+    request.failAccountDeletion(new RolledBackError(new Error(`deletion of ${ADRESSE} failed`)));
 
     const result = await erase();
 
@@ -180,6 +180,17 @@ describe("the erasure on request", () => {
     const zeile = loggedLines.find(({ meta }) => (meta as { error_code?: string } | undefined)?.error_code === "FE-AUTH-012");
     assert.ok(zeile !== undefined, "the failed deletion was logged under no code");
     assert.doesNotMatch(JSON.stringify(loggedLines).toLowerCase(), /ada\.byron@example\.org/, "an address reached the log stream");
+  });
+
+  /* A failure past the callback came from the commit, which may have landed: a result saying the account stands may
+     be false. The repeat completes either way. */
+  it("calls the account's fate unclear where its deletion failed at the commit", async () => {
+    request.failAccountDeletion(new Error(`commit for ${ADRESSE} failed`));
+
+    const result = await erase();
+
+    assert.equal("konto" in result ? result.konto : undefined, "unklar");
+    assert.match("message" in result ? result.message : "", /ist unklar\. Lösche die Adresse erneut/);
   });
 
   /* No count covers the log's and the authorship's rewrite, which reach an address holding no record too: an answer
