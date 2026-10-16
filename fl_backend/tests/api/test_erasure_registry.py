@@ -7,6 +7,7 @@ one `find` after the commit, and the aggregates `:: resolve_subject` sends.
 
 import asyncio
 import logging
+from dataclasses import fields
 from typing import Any, cast
 
 import pytest
@@ -14,7 +15,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.errors import NetworkTimeout
 
-from app.api.identitaet.crud import ERASURE_JOURNAL_EVENT, ErasureJournal, resolve_subject
+from app.api.identitaet.crud import ERASURE_JOURNAL_EVENT, ErasureJournal, Subject, resolve_subject
 from app.api.identitaet.schemas import FLErasure
 from app.core.exception_handlers import DATABASE_FAILED
 from tests.config import build_test_config
@@ -78,7 +79,14 @@ class _Counted:
         return _NoRows()
 
 
-def test_the_pupil_scope_reads_no_other_kind_and_a_step_reading_one_raises():
+# Every kind `Subject` holds but the two the pupil scope reads, so a kind it gains is held here too.
+UNREAD_IN_THE_PUPIL_SCOPE = sorted(
+    {field.name.removeprefix("_") for field in fields(Subject) if field.name.startswith("_")} - {"spieler", "registrierungen"}
+)
+
+
+@pytest.mark.parametrize("kind", UNREAD_IN_THE_PUPIL_SCOPE)
+def test_the_pupil_scope_reads_no_other_kind_and_a_step_reading_one_raises(kind: str):
     """Catches a kind read for no step, and a kind left unread answered as an empty list, on which a step erases nothing."""
 
     collections = {name: _Counted() for name in ("saison_teams", "bewerbungen", "schiedsrichter", "spieler", "registrierungen")}
@@ -102,4 +110,4 @@ def test_the_pupil_scope_reads_no_other_kind_and_a_step_reading_one_raises():
     }
     assert (subject.spieler, subject.registrierungen) == ([], [])
     with pytest.raises(RuntimeError):
-        _ = subject.saison_teams
+        getattr(subject, kind)
