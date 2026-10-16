@@ -44,6 +44,9 @@ const SWEEP_OPERATION = "bewerbungSweep";
 type SweepFailure =
   "bewerbung.sweep_failed" | "registrierung.sweep_failed" | "schiedsrichter.adresswechsel_sweep_failed" | "loeschung.sweep_failed";
 
+/** The rows each season half's calls passed over in one pass, summed over the seasons that answered. */
+type Uebergangen = { bewerbung: number; registrierung: number };
+
 /** What a message calls a seat whose person is gone — declined or erased, and outstanding either way. */
 const SEAT_OHNE_NAMEN = "Ohne Namen";
 
@@ -146,15 +149,28 @@ async function sweepAlleSaisons(): Promise<void> {
     return;
   }
 
+  const uebergangen: Uebergangen = { bewerbung: 0, registrierung: 0 };
   // Season by season and never in parallel: the sweep is on the clock of a day, and one slow pass
   // costs nothing, where a fan-out would put every season's mail on the transport at once.
   for (const saisonId of saisonIds) {
     try {
-      await sweepSaison(saisonId);
+      await sweepSaison(saisonId, uebergangen);
     } catch (error) {
       logSweepFailure("bewerbung.sweep_failed", error, saisonId);
     }
   }
+
+  logSeasonsPass("bewerbung.sweep_pass", uebergangen.bewerbung);
+  logSeasonsPass("registrierung.sweep_pass", uebergangen.registrierung);
+}
+
+/**
+ * A warning where a season half's calls passed rows over: their day moves whatever their clocks did, so only this
+ * count tells a clock failing on every row from a healthy one.
+ */
+function logSeasonsPass(event: "bewerbung.sweep_pass" | "registrierung.sweep_pass", fehlgeschlagen: number): void {
+  if (fehlgeschlagen === 0) logger.info(event, { fehlgeschlagen: fehlgeschlagen });
+  else logger.warn(event, { error_code: "FE-SWEEP-001", fehlgeschlagen: fehlgeschlagen });
 }
 
 /**
@@ -163,9 +179,9 @@ async function sweepAlleSaisons(): Promise<void> {
  * A shared `try` holds the registrations past their deadline every hour the application half fails
  * (`docs/backend/spec.md :: I294`).
  */
-async function sweepSaison(saisonId: string): Promise<void> {
+async function sweepSaison(saisonId: string, uebergangen: Uebergangen): Promise<void> {
   try {
-    await sweepBewerbungen(saisonId);
+    await sweepBewerbungen(saisonId, uebergangen);
   } catch (error) {
     logSweepFailure("bewerbung.sweep_failed", error, saisonId);
   }
@@ -173,15 +189,17 @@ async function sweepSaison(saisonId: string): Promise<void> {
   // Its own event beside the application's: one line for both halves cannot say which stopped, and
   // that is the question `docs/ops/runbooks.md` section 9 sends an operator to the logs with.
   try {
-    await sweepRegistrierungen(saisonId);
+    await sweepRegistrierungen(saisonId, uebergangen);
   } catch (error) {
     logSweepFailure("registrierung.sweep_failed", error, saisonId);
   }
 }
 
 /** The application's own clocks: the endpoint takes one season because a retention removal's filter names one (`docs/backend/spec.md :: I150`). */
-async function sweepBewerbungen(saisonId: string): Promise<void> {
-  const { erinnerungen, loeschungen } = await postBewerbungSweep(saisonId);
+async function sweepBewerbungen(saisonId: string, uebergangen: Uebergangen): Promise<void> {
+  const { erinnerungen, loeschungen, fehlgeschlagen } = await postBewerbungSweep(saisonId);
+  // Added as each call answers, so a later call that throws keeps the earlier counts.
+  uebergangen.bewerbung += fehlgeschlagen;
 
   // Stamped by the call above and mailed here: a failed send costs one person one reminder, where
   // mailing first would re-send every day until the address worked.
@@ -198,17 +216,22 @@ async function sweepBewerbungen(saisonId: string): Promise<void> {
 
   // Mail, then stamp: the floor is one notice repeated once, where stamping first would erase an
   // application nobody was told about. That is the worse failure, so the order is this way round.
-  if (zugestellt.length > 0) await postBewerbungSweepAngekuendigt(saisonId, { bewerbung_ids: zugestellt });
+  if (zugestellt.length > 0) {
+    uebergangen.bewerbung += (await postBewerbungSweepAngekuendigt(saisonId, { bewerbung_ids: zugestellt })).fehlgeschlagen;
+  }
 
   // Everything announced: the ids just stamped, and those a previous pass announced and then failed
   // to erase. The endpoint re-judges each, so one that has stopped qualifying is skipped.
   const angekuendigt = [...loeschungen.filter((kandidat) => kandidat.angekuendigt).map((kandidat) => kandidat.bewerbung_id), ...zugestellt];
-  if (angekuendigt.length > 0) await postBewerbungSweepLoeschen(saisonId, { bewerbung_ids: angekuendigt });
+  if (angekuendigt.length > 0) {
+    uebergangen.bewerbung += (await postBewerbungSweepLoeschen(saisonId, { bewerbung_ids: angekuendigt })).fehlgeschlagen;
+  }
 }
 
 /** The registration's clocks, one season at a time: the erasures are done before this answers, and what comes back is what to mail. */
-async function sweepRegistrierungen(saisonId: string): Promise<void> {
-  const { erinnerungen, benachrichtigt } = await postRegistrierungSweep(saisonId);
+async function sweepRegistrierungen(saisonId: string, uebergangen: Uebergangen): Promise<void> {
+  const { erinnerungen, benachrichtigt, fehlgeschlagen } = await postRegistrierungSweep(saisonId);
+  uebergangen.registrierung += fehlgeschlagen;
 
   // Stamped by the call above and mailed here, as the application's reminder is: a failed send costs
   // one pupil one reminder, where mailing first would re-send every hour until the address worked.

@@ -1195,14 +1195,32 @@ follow it, so a throw after that stamp leaves a fresh application date beside a 
 one just as a failed registration call would.
 
 **A row either pass cannot write is passed over and named, and the date still moves.** The
-backend's line names the application, the registration or the season row by id and the error's
-class, never a person's values: `DB-FAIL-001` is a write the database refused, `SRV-FAIL-001` a
-failure it did not raise, such as a hand-edited deadline or an empty first name the answer cannot
-carry, and `DB-FAIL-002` a commit whose outcome is unknown, which the next pass judges afresh. The
-rest of that clock's rows go, and the named one stays due: every later pass names it again until
-its record is repaired ([`../backend/spec.md`](../backend/spec.md#2-invariants) I720). A warning
-that the database deadline passed taking a clock's rows apart is the call answering what it had
-done, and the next pass goes on.
+backend's line names the application, the registration or the season row by id, the error's class
+and what locates it, never a person's values: `DB-FAIL-001` is a write the database refused, with
+the properties its validator refused; `SRV-VAL-001` a stored value the answer cannot carry, such as
+a hand-edited deadline or an empty first name, with the fields refused; and `SRV-FAIL-001` any other
+failure, with the file, line and function it was raised in. The rest of that clock's rows go, and
+the named one stays due: every later pass names it again until its record is repaired
+([`../backend/spec.md`](../backend/spec.md#2-invariants) I720). **An application whose
+announcement stamp is passed over is mailed its deletion notice again each day**, and stands past
+its fourteen days until the stamp lands or its season is `past`.
+
+**A fresh date beside a `bewerbung.sweep_pass` or `registrierung.sweep_pass` warning is a clock
+passing rows over, not a pass that ran clean.** A clock failing on every row still moves its date,
+so this count is the only sign of it. Each pass writes one line for each half, its `fehlgeschlagen`
+summing the rows that half's clocks passed over across every season: `INFO` at zero, and a warning
+under `FE-SWEEP-001` above it. The backend's lines then name each row, as above:
+
+    docker compose logs --since 2h frontend | grep -E 'bewerbung.sweep_pass|registrierung.sweep_pass'
+
+**A clock owing a message answers what it had done when the deadline stops it taking rows apart;
+every other clock fails the call.** The clocks owing one are the two reminder clocks and the
+registrations' season's end. For them a warning that the database deadline passed, or that it held
+no further attempt, is the call answering every half that committed, and the next pass goes on;
+where the warning names a commit unanswered, under `DB-FAIL-002`, the rows it names may have been
+written with nobody told, and a later pass meets again only those it did not write. Any other clock
+the deadline stops there fails its call with the date left stale, as a failure the dates above
+report.
 
 **The two halves after the seasons stamp no day, so their own lines are the record.** Every pass
 ends by removing the referees' and the pupils' pending addresses whose link lapsed before today,
@@ -1226,14 +1244,15 @@ while it refreshes, and keeps an entry nobody asks for up to a week, so a delete
 reach a visitor for up to a week after the deletion.
 
 **A pupil counted `fehlgeschlagen` stays due, and every later pass meets them again.** The
-backend's `DB-FAIL-001` line names that pupil's id and the error's class, never an address: the
-erasure's write was refused, and the next pass tries again; a `SRV-FAIL-001` line naming them the
-same way is a failure the database did not raise, which the class and that pupil's record locate
-for a fix. Find the record the write was refused
-on and repair it, and the pass after deletes the pupil. `DB-FAIL-002` means the commit's outcome is
-unknown; the next pass judges the pupil afresh, so it needs nothing from you. A warning saying the
-database deadline passed at a pupil or at an address change is the call stopping in time rather
-than a refusal: the pass goes on from the next call, and it needs nothing from you either.
+backend's line names that pupil's id, the error's class and what locates it, never an address:
+under `DB-FAIL-001` the properties a validator refused the erasure's write on, under `SRV-VAL-001`
+the fields a model refused, and under `SRV-FAIL-001` the file, line and function a failure the
+database did not raise came from. Find the record it points to and repair it, and the pass after
+deletes the pupil. A warning saying the database deadline
+passed at a pupil or at an address change is the call stopping in time rather than a refusal: the
+pass goes on from the next call, and it needs nothing from you. Where it adds that the erasure or
+the removal went unanswered, under `DB-FAIL-002`, that one's outcome is unknown, and the next pass
+judges it afresh.
 
 **A `SRV-VAL-001` warning naming pupils left out of the deletion is a stored address no request
 matches** — empty, not in the form sign-in folds it to, or refused by the address rule, which only

@@ -941,6 +941,9 @@ class FLBewerbungSweepResponse(BaseAPIResponse):
     ohne_entscheidung_geloescht: int
     kontaktbloecke_geleert: int
     redigierte_aktionen: int
+    # One sum over every clock rather than a count a clock: the line logging each row names its clock
+    # (`docs/backend/spec.md :: I720`).
+    fehlgeschlagen: int
 
 
 # `/angekuendigt` stamps the list in ONE transaction at two commands a row, each the round trip plus
@@ -960,6 +963,7 @@ class FLBewerbungSweepAngekuendigtPayload(BaseModel):
 class FLBewerbungSweepAngekuendigtResponse(BaseAPIResponse):
     saison_id: str
     angekuendigt: int
+    fehlgeschlagen: int
 
 
 class FLBewerbungSweepLoeschenPayload(BaseModel):
@@ -974,6 +978,7 @@ class FLBewerbungSweepLoeschenResponse(BaseAPIResponse):
     saison_id: str
     geloescht: int
     redigierte_aktionen: int
+    fehlgeschlagen: int
 
 
 class FLBewerbungSweepSaisonsResponse(BaseAPIResponse):

@@ -141,7 +141,7 @@ const ANMELDUNGEN_NICHT_BEENDET = "Laufende Anmeldungen der Adresse konnten nich
 
 /**
  * Ends every session of an address without barring it and without a mail (`docs/frontend/spec.md :: I687`). No
- * step-up: a session ended is repaired by signing in again, as the ban's own sign-out is.
+ * step-up: a session ended this way is repaired by signing in again, and a ban's is not (`docs/frontend/spec.md :: I727`).
  */
 export async function endAnmeldungenAction(rawPayload: FLAbmeldungPayload): Promise<ActionResult<{ konto: boolean }>> {
   return runAdminMutation("endAnmeldungenAction", async () => {
