@@ -523,13 +523,23 @@ HEADER_PATHS=()
 # Set for a location whose `proxy_pass` names the backend: nothing answers as `backend` here, so
 # what it hands upstream is not read.
 declare -A TO_BACKEND=()
+# The status a location answers itself with, forwarding nothing: graded on that status and on Next
+# never seeing the request, rather than on the headers it would hand upstream.
+declare -A REFUSED_WITH=()
+# Whether the location being read added a path, so a named location's `return` marks none.
+_probed=0
 while IFS= read -r location_line; do
   if [[ "$location_line" =~ ^[[:space:]]*proxy_pass[[:space:]]+http://backend: ]]; then
     TO_BACKEND[$(( ${#HEADER_PATHS[@]} - 1 ))]=1
     continue
   fi
+  if (( _probed )) && [[ "$location_line" =~ ^[[:space:]]*return[[:space:]]+(4[0-9][0-9])\; ]]; then
+    REFUSED_WITH[$(( ${#HEADER_PATHS[@]} - 1 ))]="${BASH_REMATCH[1]}"
+    continue
+  fi
   [[ "$location_line" =~ ^[[:space:]]*location[[:space:]]+(.*)[[:space:]]*\{ ]] || continue
   location_args="${BASH_REMATCH[1]%"${BASH_REMATCH[1]##*[![:space:]]}"}"
+  _probed=1
   case "$location_args" in
     "= "*) HEADER_PATHS+=( "${location_args#= }" ) ;;
     /*/) HEADER_PATHS+=( "${location_args}probe" ) ;;
@@ -537,7 +547,7 @@ while IFS= read -r location_line; do
     /*) HEADER_PATHS+=( "${location_args}/probe" ) ;;
     # Reached through `error_page` alone, never a path: the server-action pair below asks it with a
     # request the edge refuses.
-    @*) ;;
+    @*) _probed=0 ;;
     # A regex location answers no path this can derive, and probing around it would call the file
     # covered while one of its locations went unasked.
     *) refuse "nginx/shared/site.conf declares 'location ${location_args}', whose path this probe cannot derive." ;;
@@ -562,11 +572,33 @@ for _i in "${!HEADER_PATHS[@]}"; do
     -H "Next-Action: ${CLIENT_ACTION}" "${BASE}${HEADER_PATHS[_i]}" )
 done
 curl "${HEADER_REQUESTS[@]}" || true
+REFUSED_FAILURES=0
+# A refusing location's answer, its headers read already: its own status, and none of the headers the
+# stub adds, any of which means the request reached Next.
+grade_refused() { # $1 what the request was, $2 its header file, $3 the status the location returns
+  local status_line=""
+  if [[ -f "$2" ]]; then IFS= read -r status_line < "$2" || true; fi
+  status_line="${status_line%$'\r'}"
+  if [[ "$status_line" != "HTTP/"*" $3"* ]]; then
+    fail "REFUSED $1"
+    detail "expected the edge's own $3, it answered '${status_line}'"
+    REFUSED_FAILURES=$(( REFUSED_FAILURES + 1 ))
+  fi
+  if [[ -n "${SENT[x-seen-traceparent]:-}" ]]; then
+    fail "REFUSED $1"
+    detail "the request reached Next through the edge, which handed it '${SENT_VALUE[x-seen-traceparent]}'"
+    REFUSED_FAILURES=$(( REFUSED_FAILURES + 1 ))
+  fi
+}
 UPSTREAM_READ=0
 for _i in "${!HEADER_PATHS[@]}"; do
   read_headers "${SCRATCH}/headers-${_i}"
   grade_security_headers "${HEADER_PATHS[_i]}"
   [[ -z "${TO_BACKEND[$_i]:-}" ]] || continue
+  if [[ -n "${REFUSED_WITH[$_i]:-}" ]]; then
+    grade_refused "${HEADER_PATHS[_i]}" "${SCRATCH}/headers-${_i}" "${REFUSED_WITH[$_i]}"
+    continue
+  fi
   UPSTREAM_READ=$(( UPSTREAM_READ + 1 ))
   seen_trace="${SENT_VALUE[x-seen-traceparent]:-}"
   if [[ ! "$seen_trace" =~ ^00-[0-9a-f]{32}-[0-9a-f]{16}-01$ || "$seen_trace" == *"$CLIENT_TRACE"* ]]; then
@@ -585,6 +617,32 @@ for _i in "${!HEADER_PATHS[@]}"; do
     detail "expected Next-Action ${CLIENT_ACTION} at Next, Next received '${SENT_VALUE[x-seen-next-action]:-}'"
     HEADER_FAILURES=$(( HEADER_FAILURES + 1 ))
   fi
+done
+
+# --- the paths the edge refuses outright ------------------------------------------------------------
+
+# Each posted as its one caller posts it, a key and a body, under every spelling nginx resolves before
+# choosing a location: a spelling the refusal missed would fall to `location /` and reach Next.
+REFUSED_LABELS=()
+REFUSED_STATUS=()
+REFUSED_REQUESTS=()
+for _i in "${!REFUSED_WITH[@]}"; do
+  refused_path="${HEADER_PATHS[_i]}"
+  refused_rest="${refused_path#/}"
+  for spelling in "/${refused_path}" "/${refused_rest%%/*}/./${refused_rest#*/}" \
+    "/$(printf '%%%02X' "'${refused_rest:0:1}")${refused_rest:1}" "${refused_path}?tags=spieler"; do
+    if (( ${#REFUSED_LABELS[@]} > 0 )); then REFUSED_REQUESTS+=( --next ); fi
+    REFUSED_LABELS+=( "$spelling" )
+    REFUSED_STATUS+=( "${REFUSED_WITH[$_i]}" )
+    REFUSED_REQUESTS+=( -s -o /dev/null -D "${SCRATCH}/refused-${#REFUSED_LABELS[@]}" --path-as-is --max-time 5
+      -H "Host: localhost" -X POST -H "Authorization: Bearer fl-edge-key-probe" -H "Content-Type: application/json"
+      --data '{"tags":["spieler"]}' "${BASE}${spelling}" )
+  done
+done
+if (( ${#REFUSED_REQUESTS[@]} > 0 )); then curl "${REFUSED_REQUESTS[@]}" || true; fi
+for _j in "${!REFUSED_LABELS[@]}"; do
+  read_headers "${SCRATCH}/refused-$(( _j + 1 ))"
+  grade_refused "POST ${REFUSED_LABELS[_j]}" "${SCRATCH}/refused-$(( _j + 1 ))" "${REFUSED_STATUS[_j]}"
 done
 
 # --- an empty Next-Action, as Next would receive it --------------------------------------------------
@@ -865,13 +923,14 @@ if [[ "$WWW_STATUS" != 301 || "${SENT_VALUE[location]:-}" != "https://frankfurtl
 fi
 grade_security_headers "www.frankfurtleague.de"
 
-if (( HEADER_FAILURES + ACTION_FAILURES + CONTROL_FAILURES > 0 )); then
-  die "${HEADER_FAILURES} header, ${ACTION_FAILURES} server-action and ${CONTROL_FAILURES} Control API cases failed.
+if (( HEADER_FAILURES + REFUSED_FAILURES + ACTION_FAILURES + CONTROL_FAILURES > 0 )); then
+  die "${HEADER_FAILURES} header, ${REFUSED_FAILURES} refusal, ${ACTION_FAILURES} server-action and ${CONTROL_FAILURES} Control API cases failed.
 Each is what nginx SENT or ANSWERED, or what reached Next through it."
 fi
 
 ok "${#CASES[@]} redaction cases clean, no visitor in the container's own streams,
 ${#HEADER_PATHS[@]} paths and the www redirect each sending the security headers once as written,
-${UPSTREAM_READ} of those paths handing Next the edge's own traceparent and no X-FL-Actor, an empty
+${UPSTREAM_READ} of those paths handing Next the edge's own traceparent and no X-FL-Actor,
+${#REFUSED_WITH[@]} refused at the edge and still refused under ${#REFUSED_LABELS[@]} other spellings, an empty
 Next-Action handed to no one, server
 actions metered on their own pair and nothing else metered by it, refused in plain text an action reads, and the Control API applying a reload, refusing a bad one, dumping the checkout and closed to the worker"
