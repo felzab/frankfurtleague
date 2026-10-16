@@ -60,6 +60,8 @@ FASSUNG_DIGESTS: Final[Mapping[str, str]] = {
     "2026-10-bestaetigungsseite-verwaltung": "783c9d3c23d444371ac861d1d30cf2ec9412f5c0f8f6a9f526ea8ad51710a709",
     "2026-10-bestaetigungsseite-saison": "f336b66db9ad01b1636f0eda72d48a8f0e851960e8851a302e6c3a547cf460b5",
     "2026-10-spielerseite-wiederkehrend": "3f77c8bf080b11a7609697ffdab2712d1b4502a5229736b5d94950e6154952e8",
+    "2026-10-spielerseite-5": "67c3db041790712b7c649b1ff10a8800a2e69d1260250b7e769ffe727ffa4d29",
+    "2026-10-spielerseite-wiederkehrend-2": "c0376112b6f66667be76115d12e879590ef2233fcd92ac890a524f9317349c51",
 }
 
 
@@ -295,6 +297,44 @@ FASSUNG_STAMMDATEN: Final[Mapping[str, tuple[str, date, tuple[str, ...] | None]]
             "klickHinweise",
         ),
     ),
+    "2026-10-spielerseite-5": (
+        "bestaetigung_spieler",
+        date(2026, 10, 16),
+        (
+            "worum",
+            "gespeichert",
+            "geburtsdatum",
+            "wer",
+            "veroeffentlichung",
+            "medien",
+            "rechtsgrundlage",
+            "frist",
+            "widerruf",
+            "art21",
+            "klickIdentitaet",
+            "klickAlter",
+            "klickEinwilligung",
+            "klickHinweise",
+        ),
+    ),
+    "2026-10-spielerseite-wiederkehrend-2": (
+        "bestaetigung_spieler_wiederkehrend",
+        date(2026, 10, 16),
+        (
+            "worum",
+            "gespeichert",
+            "geburtsdatum",
+            "wer",
+            "einwilligungen",
+            "rechtsgrundlage",
+            "frist",
+            "widerruf",
+            "art21",
+            "klickIdentitaet",
+            "klickAlter",
+            "klickHinweise",
+        ),
+    ),
 }
 
 
@@ -423,16 +463,22 @@ class TestTheRegistryOfWordings:
         assert not [key for key, text in saison.absaetze_nach_schluessel.items() if "Bewerbung" in text]
         assert (saison.schalter, dict(saison.bedienelemente)) == (bewerbung.schalter, dict(bewerbung.bedienelemente))
 
-    def test_the_pupil_page_changed_its_retention_paragraph_alone(self):
+    def test_the_pupil_page_changed_its_retention_paragraph_and_its_identity_line_alone(self):
         """The running pupil label is the earlier one but for when a registration goes, which the notice states the same way."""
 
         earlier = FASSUNGEN["2026-09-spielerseite-3"].absaetze_nach_schluessel
         running = FASSUNGEN[LAUFENDE_FASSUNGEN["bestaetigung_spieler"]].absaetze_nach_schluessel
         assert earlier is not None and running is not None
 
-        assert {key for key, text in running.items() if earlier.get(key) != text} == {"frist"}
+        assert {key for key, text in running.items() if earlier.get(key) != text} == {"frist", "klickIdentitaet"}
         assert "bis in der nächsten Saison die Registrierung geschlossen ist" not in running["frist"]
         assert "einen Monat nach der Entscheidung" in running["frist"]
+
+    @pytest.mark.parametrize("seite", ["bestaetigung_spieler", "bestaetigung_spieler_wiederkehrend"])
+    def test_no_pupil_page_names_the_pupil_to_whoever_opens_its_link(self, seite: Seite):
+        """Its link went to an address nobody has confirmed, which behind a typo is a stranger's, so no paragraph has a name to fill."""
+
+        assert not [text for text in FASSUNGEN[LAUFENDE_FASSUNGEN[seite]].absaetze if "{vorname}" in text]
 
     def test_the_returning_pupils_page_keeps_the_pupil_pages_words_but_where_they_ask_a_choice_or_the_birthdate(self):
         """One registration under one set of rules: a sentence reworded on one page alone would tell two pupils two rules.

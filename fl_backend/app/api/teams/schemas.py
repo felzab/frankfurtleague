@@ -798,9 +798,9 @@ class FLKontaktMint(BaseModel):
     # As this transaction stored it, never a caller's earlier read: the link has to reach the person it seats.
     email: str
     frist: CustomDateString
-    # What the mail names, read in the same transaction as the address: the person's first name as
-    # seated, and the club under the name it carries in that season, the link's own page saying the same.
-    vorname: str
+    # What the mail names, read in the same transaction as the address: the club under its name in
+    # that season, as the link's page names it. Never the person's name, which a mail to an
+    # unconfirmed address withholds.
     schule: str
     # The row's state in the same transaction, so the mail asks what the link's page takes: a closed
     # row's link takes the Widerspruch alone (`docs/backend/spec.md :: I570`).
