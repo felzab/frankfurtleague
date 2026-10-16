@@ -62,8 +62,15 @@ if [[ "${1:-}" == "compose" ]]; then
       case ":${FL_DEPLOY_NO_CONTAINER:-}:" in *":${last}:"*) exit 0 ;; esac
       printf 'cid-%s\\n' "$last"; exit 0 ;;
     *" logs "*)
+      printf 'logs %s\\n' "$last" >> "${FL_DEPLOY_CALLS}"
       case ":${FL_DEPLOY_LOGS_FAIL:-}:" in *":${last}:"*) exit "${FL_DEPLOY_LOGS_RC:-1}" ;; esac
       printf '%s line one\\n%s line two\\n' "$last" "$last"; exit 0 ;;
+    *" stop "*)
+      printf 'stop %s\\n' "${*:5}" >> "${FL_DEPLOY_CALLS}"
+      exit "${FL_DEPLOY_STOP_RC:-0}" ;;
+    *" start "*)
+      printf 'start %s\\n' "${*:5}" >> "${FL_DEPLOY_CALLS}"
+      exit "${FL_DEPLOY_START_RC:-0}" ;;
     *" config "*)
       printf '%s\\n' "$@" > "${FL_DEPLOY_ARGV}"
       # On BOTH streams: without --quiet this subcommand prints the resolved configuration, every
@@ -113,6 +120,10 @@ class _Fixture:
         (self.checkout / ".env").write_bytes(b"A_NAME_NOTHING_DECLARES=a value no case reads\n")
         self.argv = self.root / "argv.txt"
         self.ps_argv = self.root / "ps-argv.txt"
+        self.calls = self.root / "calls.txt"
+
+    def called(self) -> list[str]:
+        return self.calls.read_text(encoding="utf-8").splitlines() if self.calls.exists() else []
 
 
 def _run(body: str, **overrides: str) -> tuple[int, str, _Fixture]:
@@ -129,6 +140,7 @@ def _run(body: str, **overrides: str) -> tuple[int, str, _Fixture]:
     environment["PATH"] = str(stubs) + os.pathsep + environment["PATH"]
     environment["FL_DEPLOY_ARGV"] = str(fixture.argv)
     environment["FL_DEPLOY_PS_ARGV"] = str(fixture.ps_argv)
+    environment["FL_DEPLOY_CALLS"] = str(fixture.calls)
     environment.update(overrides)
     script = fixture.root / "parent.sh"
     lines = (
@@ -143,11 +155,13 @@ def _run(body: str, **overrides: str) -> tuple[int, str, _Fixture]:
         f'LOG_STAMP="{STAMP}"',
         "COPIED_STREAMS=0",
         "ATTEMPTED_STREAMS=0",
+        "STOPPED_SERVICES=()",
         'IMAGE_BACKEND="backend-image"',
         *(_assignment(name) for name in ENV_ASSIGNMENTS),
         _lifted("service_cid"),
         _lifted("check_compose_config"),
         _lifted("copy_streams"),
+        _lifted("start_again_and_refuse"),
         _lifted("read_env_names"),
         _lifted("check_env_names"),
         body,
@@ -164,7 +178,7 @@ def _copies(fixture: _Fixture) -> list[str]:
 # --- the copy taken before each recreate -------------------------------------------------------------
 
 COUNTS: Final = 'printf "copied=%s attempted=%s\\n" "$COPIED_STREAMS" "$ATTEMPTED_STREAMS"'
-BEFORE: Final = f'copy_streams "" refuse "NOTHING has been recreated." ; {COUNTS}'
+BEFORE: Final = f'copy_streams "" start_again_and_refuse "NOTHING has been recreated." ; {COUNTS}'
 FAILED: Final = f'copy_streams "-failed" warn "The rollback goes on without it." ; {COUNTS}'
 
 
@@ -176,13 +190,34 @@ def test_the_copy_before_the_recreate_names_one_file_per_running_service() -> No
     assert _copies(fixture) == [f"{STAMP}-backend.log", f"{STAMP}-frontend.log"], output
 
 
+def test_every_container_is_stopped_before_its_stream_is_read() -> None:
+    """A line written between the copy and the recreate, an erasure's journal line among them, is otherwise in no file."""
+    code, output, fixture = _run(BEFORE)
+
+    assert code == 0, output
+    assert fixture.called() == ["stop frontend backend", "logs frontend", "logs backend"], output
+
+
 def test_a_service_with_no_container_is_skipped_rather_than_written_empty() -> None:
-    """A first deploy has nothing to copy, and an empty file would read as a build that logged nothing."""
+    """A first deploy has nothing to copy, and an empty file would read as a build that logged nothing.
+
+    Nor is anything stopped: a `stop` naming no service stops the whole project, the edge included.
+    """
     code, output, fixture = _run(BEFORE, FL_DEPLOY_NO_CONTAINER="frontend:backend")
 
     assert code == 0, output
     assert "copied=0" in output, output
     assert _copies(fixture) == [], output
+    assert fixture.called() == [], output
+
+
+def test_a_stop_that_fails_warns_and_takes_the_copy_all_the_same() -> None:
+    """A copy without the stop lacks only the lines of the seconds before the recreate, and the recreate stops the containers anyway."""
+    code, output, fixture = _run(BEFORE, FL_DEPLOY_STOP_RC="5")
+
+    assert code == 0, output
+    assert "could not stop the containers before their copy (exit 5)" in output, output
+    assert _copies(fixture) == [f"{STAMP}-backend.log", f"{STAMP}-frontend.log"], output
 
 
 def test_the_rollbacks_copy_carries_the_suffix_beside_the_same_stamp() -> None:
@@ -214,6 +249,24 @@ def test_a_copy_that_fails_before_the_recreate_refuses_with_nothing_left_behind(
     assert "NOTHING has been recreated" in output, output
     assert "(exit 7)" in output, output
     assert _copies(fixture) == [f"{STAMP}-frontend.log"], output
+
+
+def test_a_refused_copy_starts_the_stopped_containers_again() -> None:
+    """Left stopped, the site stays down, and a re-run's `ps` lists neither container, so its copy skips both streams."""
+    code, output, fixture = _run(BEFORE, FL_DEPLOY_LOGS_FAIL="frontend", FL_DEPLOY_LOGS_RC="7")
+
+    assert code == 2, output
+    assert fixture.called()[-1] == "start frontend backend", output
+    assert "were started again" in output, output
+
+
+def test_a_start_that_fails_after_a_refused_copy_says_the_site_is_down() -> None:
+    code, output, fixture = _run(BEFORE, FL_DEPLOY_LOGS_FAIL="backend", FL_DEPLOY_LOGS_RC="7", FL_DEPLOY_START_RC="1")
+
+    assert code == 2, output
+    assert "could NOT be started again (exit 1)" in output, output
+    assert "docker compose -f docker-compose.yml start frontend backend" in output, output
+    assert "were started again" not in output, output
 
 
 def test_the_same_failure_inside_the_rollback_warns_and_copies_the_other_service() -> None:
@@ -268,7 +321,7 @@ def test_the_two_call_sites_differ_in_the_suffix_and_in_the_verb_alone() -> None
     """
     calls = re.findall(r"^\s*copy_streams (\"[^\"]*\") (\w+) ", DEPLOY.read_text(encoding="utf-8"), re.MULTILINE)
 
-    assert calls == [('"-failed"', "warn"), ('""', "refuse")], calls
+    assert calls == [('"-failed"', "warn"), ('""', "start_again_and_refuse")], calls
 
 
 # --- the environment file, read by the build about to run --------------------------------------------
