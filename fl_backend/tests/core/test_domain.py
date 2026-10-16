@@ -2,6 +2,7 @@ import ast
 import functools
 import importlib
 from collections.abc import Iterator, Mapping
+from importlib.util import resolve_name
 from itertools import combinations
 from pathlib import Path
 from types import ModuleType
@@ -39,7 +40,7 @@ from app.core.domain import (
 from app.core.exceptions import WriteRefusal
 from app.main import PROTOCOL_CODES, PROTOCOL_FAMILIES_EXTENSION, create_app, refusal_family
 from tests.config import build_test_config
-from tests.core.app_source import Declaration, api_routes, declared, module_of, parsed, resolve_callee, scoped_calls
+from tests.core.app_source import SESSION_TYPE_MODULE, Declaration, api_routes, declared, module_of, parsed, resolve_callee, scoped_calls
 from tests.openapi_document import build_document
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
@@ -132,15 +133,23 @@ def _names_referenced(node: ast.AST) -> frozenset[str]:
     )
 
 
+def _module_imported_from(file: Path, node: ast.ImportFrom) -> str:
+    # A module's package and an `__init__.py`'s package are both the path without its last part.
+    package = ".".join(file.relative_to(BACKEND_ROOT).with_suffix("").parts[:-1])
+
+    return resolve_name("." * node.level + (node.module or ""), package)
+
+
 @functools.cache
 def _import_origins(file: Path) -> Mapping[str, tuple[str, str]]:
     """Each `from x import y` name in the file, as `(module, symbol)`, so a value resolves without importing the file."""
 
     origins: dict[str, tuple[str, str]] = {}
     for node in ast.walk(parsed(file)):
-        if isinstance(node, ast.ImportFrom) and node.module:
+        if isinstance(node, ast.ImportFrom):
+            module = _module_imported_from(file, node)
             for alias in node.names:
-                origins[alias.asname or alias.name] = (node.module, alias.name)
+                origins[alias.asname or alias.name] = (module, alias.name)
 
     return origins
 
@@ -148,15 +157,13 @@ def _import_origins(file: Path) -> Mapping[str, tuple[str, str]]:
 def _modules_imported(file: Path, tree: ast.Module | None = None) -> frozenset[str]:
     """Every module the file imports, and every name it imports from one read as a submodule, relative levels resolved against its package."""
 
-    # A module's package and an `__init__.py`'s package are both the path without its last part.
-    package = file.relative_to(BACKEND_ROOT).with_suffix("").parts[:-1]
     found: set[str] = set()
     for node in ast.walk(tree or parsed(file)):
         if isinstance(node, ast.Import):
             found.update(alias.name for alias in node.names)
         elif isinstance(node, ast.ImportFrom):
-            base = ".".join((*package[: len(package) - node.level + 1], *([node.module] if node.module else []))) if node.level else node.module
-            found.add(base or "")
+            base = _module_imported_from(file, node)
+            found.add(base)
             found.update(f"{base}.{alias.name}" for alias in node.names)
 
     return frozenset(found)
@@ -511,6 +518,15 @@ def test_every_rule_is_tested_where_it_says(rule):
 
     assert class_name in declared, f"{rule.code} cites {rule.tested_by}, and that file declares {sorted(declared)}"
     assert _test_class_asserts_code(rule.tested_by, rule.code), f"{rule.tested_by} never asserts on {rule.code}"
+
+
+def test_a_cited_class_asserting_on_a_relatively_imported_name_is_read():
+    """A rule may cite a class under `tests/api/`, whose suites import their siblings relatively.
+
+    Read as a top-level module, such a name raises rather than resolving.
+    """
+
+    assert _test_class_asserts_code("tests/core/cited_relatively.py::TestAssertsOnARelativelyImportedName", SESSION_TYPE_MODULE)
 
 
 # No separate check that a `RULES` row claims no `UNENFORCED` subject: the pairing below executes
