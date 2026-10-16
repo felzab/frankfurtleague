@@ -3,7 +3,7 @@ import "server-only";
 import { frontend_config } from "@/core/config";
 import { logger } from "@/core/logging";
 import { sendMail } from "@/core/mail";
-import { markOutcomeUnknown } from "@/core/requestScope";
+import { runAnsweringOwnCut } from "@/core/requestScope";
 import {
   buildSchiedsrichterAdresswechselEmail,
   buildSchiedsrichterAdresswechselHinweisEmail,
@@ -17,7 +17,7 @@ import { formatSpielDatum } from "@/shared/utils/format";
 import { schiedsrichterVorname } from "./constants";
 
 import type { ZustellAnlass } from "@/features/bewerbungen/zustellung";
-import type { LinkVersand } from "@/shared/utils/linkVersand";
+import type { HinweisVersand, LinkVersand } from "@/shared/utils/linkVersand";
 import type { FLSchiedsrichterAdresswechselMint, FLSchiedsrichterMint } from "./schemas";
 
 // Outside `actions.ts`, which is `"use server"` and whose every export is a callable endpoint: exported
@@ -60,7 +60,7 @@ export async function mailSchiedsrichterLink({
 }
 
 /** How the two messages of an address change ended: the link to the new address and the notice to the stored one. */
-export type AdresswechselVersand = { link: LinkVersand; hinweis: LinkVersand | null };
+export type AdresswechselVersand = { link: LinkVersand; hinweis: HinweisVersand | null };
 
 /**
  * Never thrown from, for `mailSchiedsrichterLink`'s reason. The notice goes out beside the link and
@@ -101,26 +101,26 @@ export async function mailSchiedsrichterAdresswechsel({
   return { link: link, hinweis: hinweis };
 }
 
-async function sendeHinweis(adresse: string, vorname: string, operation: string): Promise<LinkVersand> {
+async function sendeHinweis(adresse: string, vorname: string, operation: string): Promise<HinweisVersand> {
   try {
     // Through the ban list like every message (`fl_frontend/src/core/mail.ts :: sendMail`), and
-    // untagged: a delivery event about it is acknowledged and recorded nowhere.
-    await sendMail({ to: adresse, ...buildSchiedsrichterAdresswechselHinweisEmail({ origin: frontend_config.AUTH_URL, vorname: vorname }) });
+    // untagged: a delivery event about it is acknowledged and recorded nowhere. A cut or a lost answer here
+    // is its own doubt, never the request's (`docs/frontend/spec.md :: I372`).
+    await runAnsweringOwnCut(() =>
+      sendMail({ to: adresse, ...buildSchiedsrichterAdresswechselHinweisEmail({ origin: frontend_config.AUTH_URL, vorname: vorname }) }),
+    );
     return "gesendet";
   } catch (error) {
     // The fan-out's own reading, so this lone send ends in the words a link mail's do.
     const ausfall = versandAusfallOf(error);
     if (ausfall === "gesperrt" || ausfall === "zurueckgehalten") return ausfall;
-    // A send that broke off unanswered may have landed, so the request is of unknown outcome, as the
-    // fan-out marks it (`docs/frontend/spec.md :: I366`); reported as not sent, as `linkVersandOf` reports it.
-    if (ausfall === "ungewiss") markOutcomeUnknown();
     // Name only, never the error, which carries the address (`docs/logging/spec.md :: L9`).
     logger.error("schiedsrichter.adresshinweis_failed", undefined, {
       error_code: "FE-MAIL-002",
       name: error instanceof Error ? error.name : undefined,
       operation: operation,
     });
-    return "fehlgeschlagen";
+    return ausfall;
   }
 }
 
@@ -136,7 +136,11 @@ export function describeAdresswechselMail(email: string, versand: AdresswechselV
           : `Der Link zur Bestätigung konnte nicht an ${email} verschickt werden. Melde Dich selbst bei der Person.`;
   // Said only where it did not go: the notice is a courtesy, and its arrival is not the administrator's to act on.
   const hinweis =
-    versand.hinweis === "fehlgeschlagen" ? " Der Hinweis an die bisherige Adresse ging nicht raus. Sag der Person selbst Bescheid." : "";
+    versand.hinweis === "ungewiss"
+      ? " Ob der Hinweis an die bisherige Adresse angekommen ist, ist unklar. Sag der Person selbst Bescheid."
+      : versand.hinweis === "fehlgeschlagen"
+        ? " Der Hinweis an die bisherige Adresse ging nicht raus. Sag der Person selbst Bescheid."
+        : "";
 
   return `${link}${hinweis}`;
 }
