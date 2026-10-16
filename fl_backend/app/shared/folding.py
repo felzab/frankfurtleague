@@ -3,6 +3,7 @@ import unicodedata
 from typing import Any, Final
 
 from email_validator import EmailNotValidError, ValidatedEmail, validate_email
+from pydantic_core import Url, ValidationError
 
 # ECMAScript's `WhiteSpace` and `LineTerminator`, never `str.strip()`'s set, which takes U+0085 and
 # leaves U+FEFF: the two ends would part on a character nobody can see. Code points rather than an
@@ -18,14 +19,24 @@ _TRIMMED: Final = "".join(
 _ASCII_LOWER: Final = str.maketrans("ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")
 
 
+# The ASCII a URL parser reads as structure, which `fl_frontend/src/core/emailAddress.ts :: EMAIL_HOST_CHARS_REGEX`
+# keeps out of a host beside every separator, control and format character: parsed, a host holding one answers a
+# name nobody typed.
+_NOT_IN_A_HOST: Final = frozenset("!\"#$%&'()*+,/:;<=>?@[\\]^_`{|}~")
+
+
 def _ascii_domain(domain: str) -> str | None:
-    """The domain as `league_address` converts it, or `None` where that refuses it."""
+    """The domain as the URL Standard's parser hosts it, pydantic-core's `Url` as the frontend's `new URL`, or `None` where it cannot.
+
+    Never `league_address`'s conversion, which refuses a special-use or dotless domain and so leaves it unconverted here alone.
+    """
+
+    if not domain or any(character in _NOT_IN_A_HOST or unicodedata.category(character)[0] in "ZC" for character in domain):
+        return None
 
     try:
-        # Inside a stand-in address: `validate_email` is the library's one public entry, and the
-        # local part `x` passes each of its rules, so the domain is all it judges.
-        return validate_email(f"x@{domain}", allow_smtputf8=False, check_deliverability=False).ascii_domain
-    except EmailNotValidError:
+        return Url(f"https://{domain}").host
+    except ValidationError:
         return None
 
 

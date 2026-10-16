@@ -4,6 +4,7 @@
     { "value": "SCHIRI@Platzhalter.INVALID", "refused": true },
     { "value": "schiri@invalid", "refused": true },
     { "value": "  schiri@platzhalter.invalid  ", "refused": true },
+    { "value": "schiri@platzhalter.ｉｎｖａｌｉｄ", "refused": true },
     { "value": "ada@noinvalid.example", "refused": false },
     { "value": "ada@invalid.example", "refused": false },
     { "value": "invalid@schule.de", "refused": false },
