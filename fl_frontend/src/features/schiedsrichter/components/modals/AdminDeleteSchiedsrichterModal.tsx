@@ -13,7 +13,7 @@ export function AdminDeleteSchiedsrichterModal({
   onClose,
   onRetired,
 }: {
-  schiedsrichterData: FLSchiedsrichter | null;
+  schiedsrichterData: Pick<FLSchiedsrichter, "id" | "name"> | null;
   isOpen: boolean;
   onClose: () => void;
   onRetired: () => void;
@@ -22,8 +22,8 @@ export function AdminDeleteSchiedsrichterModal({
 
   if (!schiedsrichter) return null;
 
-  // The list is this modal's only caller and it serves no erased person and never the ghost, so a
-  // missing name here is what a hand-write left and never the erasure's doing.
+  // Neither caller, the list nor the editor, serves an erased person or the ghost, so a missing name
+  // here is what a hand-write left and never the erasure's doing.
   const nennung = schiedsrichter.name ?? SCHIEDSRICHTER_OHNE_NAMEN_LABEL;
 
   return (

@@ -201,7 +201,7 @@ and `:: "a pupil page holding a typed new address"` hold each page to it. A pres
 entry reads the page again, a reload after its rejection dropping no more than its success would.
 **On a page keyed by its record, such a press refuses while another of the page's panels holds
 unsaved typing**, since its landing re-keys the page and drops that typing unasked. Beside a
-page-owned editor these are the header's reactivation, a club's season entry and group swap, a
+page-owned editor these are the header's reactivation and retirement, a club's season entry and group swap, a
 pupil's squad entry, a squad row's removal and return, a referee's invitation, a referee's or
 pupil's waiting address's re-send and discard,
 and a season's rollover. On an application they are both

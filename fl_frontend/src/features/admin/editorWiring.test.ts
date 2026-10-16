@@ -902,6 +902,8 @@ type RecordMove = {
   /** The control's name at rest, and its armed name where it confirms before it writes. */
   press: string;
   armed?: string;
+  /** The two presses of the dialog the press opens, which writes. */
+  dialog?: { resting: string; armed: string };
   /** The action the press writes through. */
   write: string;
 };
@@ -934,6 +936,17 @@ const RECORD_MOVES: Record<string, RecordMove> = {
     type: (user) => typeInto(user, box("Name"), "Pia Kraft-Meier"),
     press: "Reaktivieren",
     write: "reactivateSchiedsrichterAction",
+  },
+  "the referee's retirement": {
+    render: async () => {
+      const { AdminSchiedsrichterEditView } = await import("@/features/schiedsrichter/components/views/AdminSchiedsrichterEditView.tsx");
+
+      return renderEditor(h(AdminSchiedsrichterEditView, { istFassungBekannt: true, schiedsrichter: SCHIEDSRICHTER, inactiveSince: null }));
+    },
+    type: (user) => typeInto(user, box("Name"), "Pia Kraft-Meier"),
+    press: "Stilllegen",
+    dialog: { resting: "Stilllegen", armed: "Ja, stilllegen" },
+    write: "deleteSchiedsrichterAction",
   },
   "the referee's invitation": {
     render: async () => {
@@ -1158,9 +1171,14 @@ async function readied(user: UserEvent, move: RecordMove): Promise<HTMLElement> 
 }
 
 /** The press, through its confirmation where it asks one, and whatever it started settling. */
-async function pressThrough(user: UserEvent, { press, armed }: RecordMove): Promise<void> {
+async function pressThrough(user: UserEvent, { press, armed, dialog }: RecordMove): Promise<void> {
   if (armed === undefined) await user.click(screen.getByRole("button", { name: press }));
   else await pressTwice(user, { resting: press, armed });
+  // Found rather than got: the dialog opens as the press's state commits.
+  if (dialog !== undefined) {
+    await screen.findByRole("alertdialog");
+    await pressTwice(user, dialog);
+  }
   await act(answered);
 }
 
