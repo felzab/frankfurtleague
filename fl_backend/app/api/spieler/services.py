@@ -750,12 +750,11 @@ def compose_spieler_adresswechsel_antwort(*, antwort: str, email: Any) -> Mappin
 
 
 def spieler_adresswechsel_zustand_of(
-    *, wechsel: Mapping[str, Any], today: str, gesperrt: bool, ersetzte_gesperrt: bool, vergeben: bool
+    *, wechsel: Mapping[str, Any], today: str, gesperrt: bool, ersetzte_gesperrt: bool, keine_adresse: bool, vergeben: bool
 ) -> FLSpielerAdresswechselZustand:
-    """What the link shows, ranked as the referee's twin ranks it (`app/api/schiedsrichter/services.py :: adresswechsel_zustand_of`).
+    """What the link shows, ranked as its referee twin (`app/api/schiedsrichter/services.py :: adresswechsel_zustand_of`).
 
-    A replaced address the ban list holds and a new one another pupil holds read alike, so the link's
-    holder learns neither.
+    The three unconfirmable causes read alike; the press's own codes part them, merged only at the edge.
     """
 
     if gesperrt:
@@ -764,7 +763,7 @@ def spieler_adresswechsel_zustand_of(
     if spieler_link_is_over(frist=wechsel.get("frist"), today=today):
         return "abgelaufen"
 
-    return "nicht_bestaetigbar" if ersetzte_gesperrt or vergeben else "gueltig"
+    return "nicht_bestaetigbar" if ersetzte_gesperrt or keine_adresse or vergeben else "gueltig"
 
 
 # An INCLUSION, for `app/api/schiedsrichter/services.py :: BESTAETIGUNG_ANSICHT_FIELDS`' reason. Both
