@@ -144,15 +144,20 @@ describe("a press of the address change's link nobody can tell landed", () => {
   }
 });
 
-describe("a re-send whose link did not go out", () => {
+describe("a re-send whose link or notice did not go out", () => {
   /* Graded as the pupil's twin and the editor's save grade it, failed or held back by the ban list: the
-     earlier link is dead either way. */
-  for (const [versand, title] of [
-    ["fehlgeschlagen", "Link nicht verschickt"],
-    ["gesperrt", "Link zurückgehalten"],
+     earlier link is dead either way. A failed notice asks the administrator to tell the person, so it is a
+     warning naming the notice (`docs/frontend/spec.md :: I737`); one held back asks nothing. */
+  for (const [versand, hinweis, variant, title] of [
+    ["fehlgeschlagen", null, "warning", "Link nicht verschickt"],
+    ["gesperrt", null, "warning", "Link zurückgehalten"],
+    ["gesendet", "fehlgeschlagen", "warning", "Link gesendet, Hinweis nicht verschickt"],
+    ["gesperrt", "fehlgeschlagen", "warning", "Link zurückgehalten, Hinweis nicht verschickt"],
+    ["fehlgeschlagen", "fehlgeschlagen", "warning", "Link und Hinweis nicht verschickt"],
+    ["gesendet", "gesperrt", "success", "Link gesendet"],
   ] as const) {
-    it(`is a warning titled „${title}“ where the link is ${versand}, never a sent link`, async () => {
-      answerWith(() => Promise.resolve({ success: true, message: "Nicht raus.", versand: versand }));
+    it(`is titled „${title}“ where the link is ${versand} and the notice ${String(hinweis)}`, async () => {
+      answerWith(() => Promise.resolve({ success: true, message: "Nicht raus.", versand: versand, hinweis: hinweis }));
       const before = toasts.length;
       const { unmount } = render(
         underNext(
@@ -172,7 +177,7 @@ describe("a re-send whose link did not go out", () => {
       await waitFor(() =>
         assert.deepEqual(
           toasts.slice(before).map((shown) => [shown.variant, shown.title]),
-          [["warning", title]],
+          [[variant, title]],
         ),
       );
       unmount();

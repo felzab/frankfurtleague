@@ -28,6 +28,14 @@ export function versandWarnt(versand: LinkVersand | undefined): boolean {
   return versand !== undefined && versandGrad(versand) !== "gesendet";
 }
 
+/**
+ * Whether an address change's notice to the stored address failed, which its sentence asks the administrator to make
+ * good by hand: one held back, or none stored, asks nothing (`docs/frontend/spec.md :: I737`).
+ */
+export function hinweisFehlt(hinweis: LinkVersand | null | undefined): boolean {
+  return hinweis !== null && hinweis !== undefined && versandGrad(hinweis) === "fehlgeschlagen";
+}
+
 /** A failed link outranks one held back, so a write sending several reports the one its administrator must act on. */
 const RANG: Readonly<Record<VersandGrad, number>> = { gesendet: 0, abgelegt: 1, fehlgeschlagen: 2 };
 

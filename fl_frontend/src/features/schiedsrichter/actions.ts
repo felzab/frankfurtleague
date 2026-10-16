@@ -115,6 +115,7 @@ export async function patchSchiedsrichterAction(
     updated_document?: FLSchiedsrichter;
     versandSatz?: string;
     versand?: LinkVersand;
+    hinweis?: LinkVersand | null;
     adresswechselGespeichert?: boolean;
   }>
 > {
@@ -198,6 +199,7 @@ export async function patchSchiedsrichterAction(
             : undefined,
       // One save mints the consent link or the address change's, never both.
       versand: versand ?? wechselVersand?.link,
+      hinweis: wechselVersand?.hinweis ?? null,
       // The backend's own word that THIS save left a new address waiting, for the undo to tell apart
       // from a save that moved only the fee while an earlier change waited.
       adresswechselGespeichert: wechsel !== null,
@@ -356,7 +358,7 @@ export async function einladeSchiedsrichterAction(
 /** A fresh link to the pending address, mailed with a fresh notice to the stored one: the earlier link is dead either way. */
 export async function einladeAdresswechselAction(
   rawPayload: FLSchiedsrichterAdresswechselEinladenPayload,
-): Promise<ActionResult<{ versand: LinkVersand }>> {
+): Promise<ActionResult<{ versand: LinkVersand; hinweis: LinkVersand | null }>> {
   return runAdminMutation("einladeAdresswechselAction", { stepUp: true }, async () => {
     const validated = FLSchiedsrichterAdresswechselEinladenPayloadSchema.safeParse(rawPayload);
 
@@ -397,6 +399,7 @@ export async function einladeAdresswechselAction(
       success: true,
       message: `${describeAdresswechselMail(wechsel.email, versand)} Der vorherige Link gilt nicht mehr.`,
       versand: versand.link,
+      hinweis: versand.hinweis,
     };
   });
 }

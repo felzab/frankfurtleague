@@ -1,7 +1,7 @@
 import "client-only";
 
 import { appToast } from "./appToast";
-import { versandGrad } from "./linkVersand";
+import { hinweisFehlt, versandGrad } from "./linkVersand";
 
 import type { LinkVersand, VersandGrad } from "./linkVersand";
 
@@ -29,6 +29,22 @@ export const LINK_TITEL: VersandTitel = {
   fehlgeschlagen: "Link nicht verschickt",
   abgelegt: "Link zurückgehalten",
 };
+
+/** An address change's titles where its notice to the stored address failed, the body asking the administrator to tell the person. */
+const LINK_OHNE_HINWEIS_TITEL: VersandTitel = {
+  gesendet: "Link gesendet, Hinweis nicht verschickt",
+  fehlgeschlagen: "Link und Hinweis nicht verschickt",
+  abgelegt: "Link zurückgehalten, Hinweis nicht verschickt",
+};
+
+/** An address change's toast: its link's, and a warning titled for the notice too where that failed (`docs/frontend/spec.md :: I737`). */
+export function meldeAdresswechselVersand(
+  { versand, hinweis }: { versand: LinkVersand; hinweis?: LinkVersand | null },
+  description: string,
+): void {
+  if (hinweisFehlt(hinweis)) appToast.warning(LINK_OHNE_HINWEIS_TITEL[versandGrad(versand)], { description });
+  else meldeLinkVersand(versand, LINK_TITEL, description);
+}
 
 /** The toast of a write that landed and sent a link: a success only where the link went out (`docs/frontend/spec.md :: I725`). */
 export function meldeLinkVersand(versand: LinkVersand, titel: VersandTitel, description: string): void {

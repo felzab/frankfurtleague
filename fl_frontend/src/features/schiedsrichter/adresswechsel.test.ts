@@ -143,6 +143,17 @@ describe("the save moving a confirmed referee's address", () => {
     );
   });
 
+  /* The editor grades its toast on it (`docs/frontend/spec.md :: I737`): the sentence asks the administrator to tell the
+     person, which a clean save would contradict. */
+  it("reports a notice to the address in force that did not leave, beside a link that did", async () => {
+    mail.answerWith(({ to }) => (to === BISHER ? "refused" : "accepted"));
+
+    const res = await patchSchiedsrichterAction(ENTWURF);
+
+    assert.deepEqual(res.success ? [res.versand, res.hinweis] : [], ["gesendet", "fehlgeschlagen"]);
+    assert.match(res.success ? (res.versandSatz ?? "") : "", /Sag der Person selbst Bescheid/);
+  });
+
   it("reports a link that did not leave as failed, and says to reach the person", async () => {
     mail.answerWith(({ to }) => (to === NEU ? "refused" : "accepted"));
 
@@ -177,6 +188,14 @@ describe("the pending address change's two controls", () => {
     assert.equal(refused.success && refused.versand, "fehlgeschlagen");
     assert.match(refused.success ? (refused.message ?? "") : "", /Melde Dich selbst bei der Person/);
     assert.equal(barred.success && barred.versand, "gesperrt");
+  });
+
+  it("reports a re-send's notice to the address in force that did not leave", async () => {
+    mail.answerWith(({ to }) => (to === BISHER ? "refused" : "accepted"));
+
+    const res = await einladeAdresswechselAction({ id: SCHIEDSRICHTER_ID });
+
+    assert.deepEqual(res.success ? [res.versand, res.hinweis] : [], ["gesendet", "fehlgeschlagen"]);
   });
 
   it("answers a barred pending address in the ban list's words and mails nothing", async () => {
