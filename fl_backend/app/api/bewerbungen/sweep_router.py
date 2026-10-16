@@ -75,13 +75,13 @@ router = APIRouter(
     dependencies=[Depends(verify_access_system), Depends(bind_system_actor)],
 )
 
-# Both shares at two commands a row beside the 24 of the worst call erasing one page per clock
+# Both shares at two commands a row beside the 28 of the worst call erasing one page per clock
 # (`tests/api/test_bewerbung_sweep_refusal.py :: test_a_full_share_finishes_inside_the_deadline_at_the_round_trip_its_comment_names`):
 # 264 commands at a 36 ms round trip plus 1.35 ms take 9.86 s of `app/core/middlewares.py :: REQUEST_DEADLINE_S`.
-REMINDERS_PER_PASS: Final = 60
+REMINDERS_PER_PASS: Final = 59
 
 # A season at the capacity its rules allow holds more junction rows than this, and takes more passes.
-BLOCKS_CLEARED_PER_PASS: Final = 60
+BLOCKS_CLEARED_PER_PASS: Final = 59
 
 
 async def _club_names(
@@ -200,9 +200,11 @@ async def sweep_saison(
     404 where no season has the id. Idempotent per day once every share has been taken: a run after that writes nothing,
     though it logs the count of withheld seats again.
 
-    A season whose id is not a four-digit year fails the whole pass rather than running the four clocks that do not need a
-    successor: the accepted clock and the contact block read the season after this one, and a pass that skipped them quietly
-    would leave both stopped for ever with nothing anywhere saying so.
+    The accepted clock and the contact block run once a later season has ended while this one is not `active`, the moment the
+    season-after rule stops keeping this season's pupils: a running season keeps both, and a later season planned and never run
+    holds neither back. A season whose id is not a four-digit year fails the whole pass rather than running the four clocks
+    that need no later season, because a pass that skipped those two quietly would leave both stopped for ever with nothing
+    anywhere saying so.
 
     One thing here reaches past this season: the day is stamped on every season not already carrying it, and `GET /bewerbungen/sweep`
     answers it. So a day's first call records the day and the rest of that day's calls record nothing.
@@ -213,10 +215,16 @@ async def sweep_saison(
     saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["status"])
     saison_status = saison_raw.get("status")
 
-    # The earliest season from the next year on, never that year's alone: a year the league skips would
-    # hold this season's accepted applications and contact blocks for ever.
-    naechste_raw = await saisons_collection.find_one({"_id": {"$gte": next_saison_id(saison_id)}}, {"status": 1}, sort=[("_id", ASCENDING)])
-    next_saison_status = naechste_raw.get("status") if naechste_raw is not None else None
+    # Ahead of the guard below, so an id that is no year fails the running season's pass too.
+    spaetere_ab = next_saison_id(saison_id)
+    # Ended once any later season has while this one is not `active`, as a squad row's pupil goes
+    # (`docs/backend/spec.md :: I715`): the next year's season alone may be skipped, or planned and never run.
+    beendete_raw = (
+        None
+        if saison_status == "active"
+        else await saisons_collection.find_one({"_id": {"$gte": spaetere_ab}, "status": "past"}, {"status": 1})
+    )
+    next_saison_status = beendete_raw.get("status") if beendete_raw is not None else None
 
     stamp = log_stamp(germany_now)
     # Outside the reminder's transaction, whose callback may run again, as the correction reads it

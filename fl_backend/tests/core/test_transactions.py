@@ -215,6 +215,27 @@ def _isolated(rows: _Rows, *, owes: bool = False) -> tuple[list[tuple[int, int, 
     )
 
 
+class _RefusedOnSomeAttempts:
+    """A share clock whose judge refuses row 1 on the driver's attempts named alone, `_Client(attempts=2)` running it twice."""
+
+    def __init__(self, refused_on: set[int]) -> None:
+        self.standing = list(range(PAGE + 1))
+        self.refused_on = refused_on
+        self.attempts = 0
+
+    async def remind(self, _: Any, batch: Batch) -> list[int]:
+        self.attempts += 1
+        attempt = self.attempts
+        rows = await batch.saw(_page(self.standing, batch))
+
+        def judge(row: Mapping[str, Any]) -> None:
+            if row["_id"] == 1 and attempt in self.refused_on:
+                raise _FailedInTheCallback
+
+        taken = batch.took([row for row, _ in batch.judged(rows, judge)][: batch.share])
+        return [row["_id"] for row in taken]
+
+
 class TestARowFailingAloneIsPassedOver:
     """`docs/backend/spec.md :: I720` over doubles, for the failures no row carries, which no database case reaches cheaply."""
 
@@ -267,6 +288,23 @@ class TestARowFailingAloneIsPassedOver:
         [(logged_code, logged)] = [(getattr(record, "error_code", None), record.getMessage()) for record in caplog.records]
         # The record's value reaches no line: a line about an erasure would outlive it.
         assert (logged_code, re.fullmatch(line, logged) is not None, A_STORED_VALUE in logged) == (code, True, False), logged
+
+    def test_a_row_failing_on_a_page_after_a_committed_one_is_passed_over_alone_too(self):
+        """The first page commits whole before row 5 fails: a drain taking apart only its first page raises the whole pass here."""
+
+        rows = _Rows(2 * PAGE + 1, lambda read: _FailedInTheCallback() if 5 in read else None)
+
+        erased, _, passed = asyncio.run(
+            drain(
+                db=cast(AsyncMongoClient, _Client()),
+                page_of=lambda session, batch: session.with_transaction(rows.erase, batch),
+                page=PAGE,
+                what="Row",
+                clock="test",
+            )
+        )
+
+        assert (rows.read[0], erased, rows.standing, passed) == ([0, 1, 2, 3], 2 * PAGE, [5], [5])
 
     @pytest.mark.parametrize("owes", [True, False], ids=("owing a message", "owing none"))
     def test_a_deadline_is_never_halved_and_is_answered_only_where_a_committed_half_owes_a_message(self, owes: bool):
@@ -371,6 +409,35 @@ class TestARowFailingAloneIsPassedOver:
             )
 
         assert reads == [0, 1]
+
+    @pytest.mark.parametrize(
+        ("refused_on", "answered"),
+        [
+            pytest.param({2}, ([[0, 2, 3]], [1]), id="on the retry alone"),
+            pytest.param({1}, ([[0, 1, 2, 3]], []), id="on the first attempt alone"),
+        ],
+    )
+    def test_a_retry_passes_over_only_the_rows_it_refused_itself(
+        self, caplog: pytest.LogCaptureFixture, refused_on: set[int], answered: tuple[list[list[int]], list[int]]
+    ):
+        """The second case is load-bearing: kept from the attempt before, a refusal the retry did not repeat counts and logs a written row."""
+
+        clock = _RefusedOnSomeAttempts(refused_on)
+
+        with caplog.at_level(logging.ERROR, logger=fl_logger.name):
+            result = asyncio.run(
+                run_isolated(
+                    db=cast(AsyncMongoClient, _Client(attempts=2)),
+                    batch=Batch(share=PAGE + 1),
+                    attempt=lambda session, batch: session.with_transaction(clock.remind, batch),
+                    moved=len,
+                    owes=True,
+                    what="Row",
+                    clock="test",
+                )
+            )
+
+        assert (result, len(caplog.records)) == (answered, len(answered[1]))
 
     def test_a_refusal_the_request_answers_is_raised_rather_than_halved(self):
         """A judge's (`docs/backend/spec.md :: I575`), which every half meets too: halved, the call would answer 200 for an actor it refuses."""
