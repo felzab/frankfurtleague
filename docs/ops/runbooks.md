@@ -1241,8 +1241,9 @@ report.
 ends by removing the referees' and the pupils' pending addresses whose link lapsed before today,
 and, where `LOESCHUNG_SWEEP` reads `on`, by deleting the pupils the season-after rule makes due.
 Each writes one line per pass holding its counts and no person —
-`schiedsrichter.adresswechsel_sweep_pass` and `loeschung.sweep_pass`, both at `INFO`, so a
-`LOG_LEVEL` above `INFO` drops them — and a half that threw files
+`schiedsrichter.adresswechsel_sweep_pass` and `loeschung.sweep_pass`, at `INFO` where the pass left
+no row due, which a `LOG_LEVEL` above `INFO` drops, and as a warning where it left rows due — and a
+half that threw files
 `schiedsrichter.adresswechsel_sweep_failed` or `loeschung.sweep_failed` under `FE-SWEEP-001`
 besides.
 
@@ -1324,7 +1325,8 @@ failure left for the next pass, never naming an address:
 reads the switch once as it boots, and it ships `on`, so the sweep runs wherever the file sets none.
 
 **No `konto.sweep_completed` line in two hours means no pass completed, or the line went
-unwritten.** A `LOG_LEVEL` above `INFO` drops it, the line being `INFO`; otherwise `KONTO_SWEEP` is
+unwritten.** A `LOG_LEVEL` above `INFO` drops it where no failure left an account for the next
+pass, the line then being `INFO`, while a pass leaving one warns; otherwise `KONTO_SWEEP` is
 off, the build is not a production one, or the timer stopped, which recreating the frontend service
 re-arms. A `konto.sweep_failed` line says the sign-in store could not be listed. A
 `konto.sweep_skipped` line says a tick found the previous pass still running, and one in every hour
