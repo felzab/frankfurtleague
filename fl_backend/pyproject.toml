@@ -169,6 +169,19 @@ ignore = ["B008"]
 # The module that transport is defined in, which the entry above never matches: ruff reads the path an
 # import spells, and an entry for a module bans every module under it.
 "httpx2._transports".msg = "Serve the app in process through `tests/app_client.py :: app_client`; a transport of your own is a copy of it."
+# `logging`'s root writers and the root logger itself: a root record is no child of ours, so
+# `app/core/logging.py :: ForwardedFailureFilter` codes it as a library's failure, hiding a missing
+# code. Ruff flags the attribute and the import alike.
+"logging.critical".msg = "Write through `fl_logger`: the root logger's records are coded as a library's forwarded failure."
+"logging.debug".msg = "Write through `fl_logger`: the root logger's records are coded as a library's forwarded failure."
+"logging.error".msg = "Write through `fl_logger`: the root logger's records are coded as a library's forwarded failure."
+"logging.exception".msg = "Write through `fl_logger`: the root logger's records are coded as a library's forwarded failure."
+"logging.fatal".msg = "Write through `fl_logger`: the root logger's records are coded as a library's forwarded failure."
+"logging.info".msg = "Write through `fl_logger`: the root logger's records are coded as a library's forwarded failure."
+"logging.log".msg = "Write through `fl_logger`: the root logger's records are coded as a library's forwarded failure."
+"logging.warn".msg = "Write through `fl_logger`: the root logger's records are coded as a library's forwarded failure."
+"logging.warning".msg = "Write through `fl_logger`: the root logger's records are coded as a library's forwarded failure."
+"logging.root".msg = "Write through `fl_logger`: the root logger's records are coded as a library's forwarded failure."
 
 [tool.ruff.format]
 quote-style = "double"
