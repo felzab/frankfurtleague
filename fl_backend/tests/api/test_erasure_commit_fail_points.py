@@ -107,9 +107,10 @@ def test_no_other_module_configures_the_fail_point():
     Two routes reach it: spelling the fail point, and importing this module, whose helpers configure it unspelled.
     """
 
-    paths = sorted(TESTS_ROOT.rglob("*.py"))
-    spelling = [path.relative_to(TESTS_ROOT).as_posix() for path in paths if FAIL_POINT in path.read_text(encoding="utf-8")]
-    importing = [path.relative_to(TESTS_ROOT).as_posix() for path in paths if THIS_MODULE in _modules_imported(path)]
+    texts = {path.relative_to(TESTS_ROOT).as_posix(): (path, path.read_text(encoding="utf-8")) for path in sorted(TESTS_ROOT.rglob("*.py"))}
+    spelling = [name for name, (_, text) in texts.items() if FAIL_POINT in text]
+    # Parsed only where the module's own name is spelled, as every import of it spells it.
+    importing = [name for name, (path, text) in texts.items() if Path(__file__).stem in text and THIS_MODULE in _modules_imported(path)]
 
     assert (spelling, importing) == ([Path(__file__).relative_to(TESTS_ROOT).as_posix()], [])
 
