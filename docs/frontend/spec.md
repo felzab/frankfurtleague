@@ -736,7 +736,9 @@ takes those values out of the log as it takes them out of the record
   the person's own deletion page (`fl_frontend/src/features/konto/components/views/LoeschungView.tsx`) and
   in the mail carrying its link (`fl_frontend/src/core/loeschungEmail.ts`);
 - the outgoing club's contacts in a team's replacement, whose hand-over itself keeps its pre-image
-  (`fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/FormTeamErsatzSection.tsx`).
+  (`fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/FormTeamErsatzSection.tsx`);
+- the pupils a season's activation deletes, whose closing of the outgoing season keeps its pre-image
+  (`fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/FormRolloverSection.tsx`).
 
 **Each is a whole sentence of its own**, because folding the qualifier into
 the object beside it is what let one promise grow into a family of wordings nobody could sort.
