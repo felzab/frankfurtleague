@@ -15,6 +15,7 @@ from pydantic import BaseModel, StringConstraints, TypeAdapter, ValidationError
 
 from app.api.aktionen.schemas import HERKUNFT_JE_KIND
 from app.api.bewerbungen import schemas as bewerbungen_schemas
+from app.api.identitaet.schemas import ADRESSE_UNTER_INVALID, ANLASS_HOLDS_AN_ADDRESS, ErasureAdresse, FLErasurePayload
 from app.api.identitaet.services import grants_a_panel
 from app.api.saisons.schemas import FLSaisonStatus, TeamsPerGroup
 from app.api.spiele.schemas import MAX_QUALIFIERS
@@ -1649,6 +1650,38 @@ def test_the_panel_table_names_every_season_status_once():
 @pytest.mark.parametrize(("saison_status", "grants"), _panel_grants(), ids=lambda value: str(value))
 def test_a_seat_s_season_grants_the_panel_the_shared_table_says(saison_status: FLSaisonStatus, grants: bool):
     assert grants_a_panel(saison_status) is grants
+
+
+# The erasure's two refusals of a typed value are spelled once per tier, and the API's sentence reaches its log
+# line alone, so this table is the only comparison the two predicates get: the frontend's box runs it too.
+ERASURE_REFUSALS: Final = Path(__file__).resolve().parent / "erasure_refusals.json"
+
+
+def _erasure_refusals(field: str) -> list[tuple[str, bool]]:
+    return [(row["value"], row["refused"]) for row in json.loads(ERASURE_REFUSALS.read_bytes().decode("utf-8"))[field]]
+
+
+def _refusals(adapter: TypeAdapter[Any], value: Any) -> list[str]:
+    """Each refusal's message, none for a value taken."""
+
+    try:
+        adapter.validate_python(value)
+    except ValidationError as error:
+        return [str(detail["msg"]) for detail in error.errors()]
+
+    return []
+
+
+@pytest.mark.parametrize(("email", "refused"), _erasure_refusals("email"))
+def test_the_erasure_lookup_refuses_the_placeholder_domain_where_the_shared_table_says(email: str, refused: bool):
+    assert [ADRESSE_UNTER_INVALID in message for message in _refusals(TypeAdapter(ErasureAdresse), email)] == ([True] if refused else [])
+
+
+@pytest.mark.parametrize(("anlass", "refused"), _erasure_refusals("anlass"))
+def test_the_erasure_refuses_an_address_in_its_anlass_where_the_shared_table_says(anlass: str, refused: bool):
+    payload = {"email": "ada@example.org", "anlass": anlass}
+
+    assert [ANLASS_HOLDS_AN_ADDRESS in message for message in _refusals(TypeAdapter(FLErasurePayload), payload)] == ([True] if refused else [])
 
 
 def test_the_actor_token_verifier_reads_the_contract_the_frontend_mints_to():

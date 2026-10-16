@@ -291,7 +291,7 @@ async def sweep_registrierungen(
             pull_many_from_db(
                 collection=registrierungen_collection,
                 db_filter=batch.within(build_erinnerung_filter(saison_id=saison_id, today=today)),
-                projection=["status", "einwilligung", "bestaetigung", "vorname", "email", "team_id"],
+                projection=["status", "einwilligung", "bestaetigung", "email", "team_id"],
                 limit=SWEEP_PAGE + 1,
                 # Earliest deadline first, so the pupil the unconfirmed clock takes soonest is reminded
                 # first; `_id` makes the page the same page whichever plan the server picks.
@@ -315,7 +315,6 @@ async def sweep_registrierungen(
                 registrierung_id=row["_id"],
                 saison_id=saison_id,
                 team=team_names.get(row.get("team_id"), _TEAM_UNBEKANNT),
-                vorname=str(row.get("vorname") or ""),
                 email=str(row.get("email") or ""),
                 token=raw,
             )

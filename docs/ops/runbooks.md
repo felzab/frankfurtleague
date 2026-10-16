@@ -824,7 +824,8 @@ holding no address waits for that section's pupil reset at the end of this seaso
 person nothing. **Erasing an administrator's address tells every
 administrator, as a revoke does**: the grant's end goes out with the other changes of access, the
 notice naming no address (`docs/backend/spec.md :: I659`). On the same page „Überall abmelden“ ends
-every session of an address without erasing or barring it.
+every session of an address without erasing or barring it; past the step-up window its second press
+asks the passkey first, as the ban's does (`docs/frontend/spec.md :: I748`).
 
 **Answer as soon as what you need is gathered, and where it will take longer say so in the first
 reply rather than after it.** Where the answer needs the Datenschutzexperte, the person is told that

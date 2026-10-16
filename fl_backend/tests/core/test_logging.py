@@ -7,6 +7,7 @@ import sys
 import pytest
 from pydantic import SecretStr
 
+from app.core import logging as app_logging
 from app.core.config import INTERNAL_API_KEY_LENGTH, SPERRLISTE_KEY_MIN_LENGTH, BackendConfig
 from app.core.exceptions import DUPLICATE_KEY
 from app.core.logging import (
@@ -141,23 +142,33 @@ class TestForwardedFailureFilter:
         assert ForwardedFailureFilter().filter(make_record(level=logging.ERROR, logger_name="uvicorn.error")) is True
 
 
-def _reaches_get_logger(node: ast.expr, names: set[str]) -> bool:
-    return (isinstance(node, ast.Attribute) and node.attr == "getLogger") or (isinstance(node, ast.Name) and node.id in names)
+# What makes a logger in `logging` itself, each called under any name a module binds it to. A logger's
+# own `getChild` makes one too, read separately below because its receiver decides the name.
+LOGGER_FACTORIES = ("getLogger", "Logger")
+
+# The variable `app/core/logging.py` binds the application's logger to, the one receiver whose child is
+# named under `FL_LOGGER_NAME`.
+FL_LOGGER_VARIABLE = "fl_logger"
+assert getattr(app_logging, FL_LOGGER_VARIABLE) is fl_logger, f"app/core/logging.py no longer binds {FL_LOGGER_VARIABLE}"
 
 
-def _get_logger_names(tree: ast.AST) -> set[str]:
-    """Every bare name one module can reach `logging.getLogger` through: the plain import's, an `as` alias, and a name assigned from either.
+def _reaches(node: ast.expr, factory: str, names: set[str]) -> bool:
+    return (isinstance(node, ast.Attribute) and node.attr == factory) or (isinstance(node, ast.Name) and node.id in names)
+
+
+def _factory_names(tree: ast.AST, factory: str) -> set[str]:
+    """Every bare name one module can reach `logging.<factory>` through: the plain import's, an `as` alias, and a name assigned from either.
 
     Repeated until the set stops growing, so a name assigned from an alias binds the way the alias did.
     """
 
-    names = {"getLogger"}
+    names = {factory}
     while True:
         found = set(names)
         for node in ast.walk(tree):
             if isinstance(node, ast.ImportFrom) and node.module == "logging":
-                found |= {alias.asname or alias.name for alias in node.names if alias.name == "getLogger"}
-            elif isinstance(node, ast.Assign) and _reaches_get_logger(node.value, found):
+                found |= {alias.asname or alias.name for alias in node.names if alias.name == factory}
+            elif isinstance(node, ast.Assign) and _reaches(node.value, factory, found):
                 found |= {target.id for target in node.targets if isinstance(target, ast.Name)}
 
         if found == names:
@@ -165,26 +176,41 @@ def _get_logger_names(tree: ast.AST) -> set[str]:
         names = found
 
 
-def _get_logger_calls(tree: ast.AST) -> list[ast.Call]:
-    """Every `logging.getLogger(...)` one module makes, under whichever of its own names it spells the call."""
+def _logger_calls(tree: ast.AST) -> list[ast.Call]:
+    """Every call one module makes that creates a logger, under whichever of its own names it spells the call."""
 
-    names = _get_logger_names(tree)
+    names = {factory: _factory_names(tree, factory) for factory in LOGGER_FACTORIES}
 
-    return [node for node in ast.walk(tree) if isinstance(node, ast.Call) and _reaches_get_logger(node.func, names)]
+    return [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and (
+            any(_reaches(node.func, factory, bound) for factory, bound in names.items())
+            or (isinstance(node.func, ast.Attribute) and node.func.attr == "getChild")
+        )
+    ]
+
+
+def _a_child_of_ours(call: ast.Call) -> bool:
+    return isinstance(call.func, ast.Attribute) and isinstance(call.func.value, ast.Name) and call.func.value.id == FL_LOGGER_VARIABLE
 
 
 class TestTheApplicationsOneLogger:
-    def test_the_application_creates_exactly_one_logger(self):
-        """`ForwardedFailureFilter` decides by a record's logger NAME, so a second logger under `app/` would be coded as a library's."""
+    def test_every_logger_the_application_creates_is_named_under_its_own(self):
+        """`ForwardedFailureFilter` decides by a record's logger NAME, so a logger under `app/` named otherwise is coded as a library's.
+
+        A child of another receiver, or a `Logger` built outside the hierarchy, carries a name of its own.
+        """
         calls = [
             (path.relative_to(APP_ROOT.parent).as_posix(), call)
             for path in sorted(APP_ROOT.rglob("*.py"))
-            for call in _get_logger_calls(parsed(path))
+            for call in _logger_calls(parsed(path))
         ]
 
-        assert [where for where, _ in calls] == ["app/core/logging.py"]
-        [(_, call)] = calls
-        assert [ast.unparse(argument) for argument in call.args] == ["FL_LOGGER_NAME"]
+        assert [(where, ast.unparse(call)) for where, call in calls if not _a_child_of_ours(call)] == [
+            ("app/core/logging.py", "logging.getLogger(FL_LOGGER_NAME)")
+        ]
 
     @pytest.mark.parametrize(
         ("source", "found"),
@@ -194,12 +220,15 @@ class TestTheApplicationsOneLogger:
             ("from logging import getLogger as g\ng('x')\n", 1),
             ("import logging\nmint = logging.getLogger\nmint('x')\n", 1),
             ("from logging import getLogger as g\nmint = g\nmint('x')\n", 1),
+            ("import logging\nlogging.root.getChild('x')\n", 1),
+            ("import logging\nlogging.Logger('x')\n", 1),
+            ("from logging import Logger as L\nL('x')\n", 1),
             ("import logging\nlogging.info('x')\n", 0),
         ],
     )
-    def test_the_walk_reads_a_second_logger_under_every_spelling(self, source, found):
-        """A spelling the walk passes over is a second logger the case above then reports nothing about."""
-        assert len(_get_logger_calls(ast.parse(source))) == found
+    def test_the_walk_reads_a_logger_made_under_every_spelling(self, source, found):
+        """A spelling the walk passes over is a logger the case above then reports nothing about."""
+        assert len(_logger_calls(ast.parse(source))) == found
 
     def test_that_logger_is_the_one_the_filter_treats_as_ours(self):
         assert fl_logger.name == FL_LOGGER_NAME

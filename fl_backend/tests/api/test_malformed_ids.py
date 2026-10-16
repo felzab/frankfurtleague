@@ -1,18 +1,21 @@
 import asyncio
 import re
 from collections.abc import Mapping
-from typing import Any
+from typing import Annotated, Any
 
 import pymongo
 import pytest
+from bson import ObjectId
+from fastapi.dependencies.models import Dependant
 from httpx2 import Response
+from pydantic import TypeAdapter
 
 from app.core.exception_handlers import DATABASE_FAILED, NO_ROUTE, PAYLOAD_REFUSED
-from app.core.routing import CONVERTOR_NAME, OBJECT_ID_REGEX
-from app.main import create_app
+from app.core.routing import CONVERTOR_NAME, OBJECT_ID_REGEX, ObjectIdConvertor
+from app.main import create_app, document_routes
 from tests.app_client import app_client
 from tests.config import BASE_AUTH, UNANSWERED_DEADLINE_S, UNANSWERED_URI, build_test_config
-from tests.core.app_source import api_routes
+from tests.core.app_source import api_routes, application
 from tests.openapi_document import build_document
 
 HEX_ID = "6890a1b2c3d4e5f607182930"
@@ -95,3 +98,28 @@ def test_every_objectid_path_parameter_publishes_the_pattern_its_convertor_match
 
     assert convertor_named and published == convertor_named
     assert not any(re.fullmatch(OBJECT_ID_REGEX, malformed) for malformed in MALFORMED_IDS)
+
+
+def _path_fields(dependant: Dependant) -> dict[str, Any]:
+    """Every path parameter an operation reads, its dependencies' among them, by name."""
+
+    fields = {field.name: field for field in dependant.path_params}
+    for dependency in dependant.dependencies:
+        fields.update(_path_fields(dependency))
+
+    return fields
+
+
+def test_every_objectid_path_parameter_reaches_its_handler_as_an_object_id():
+    """The case above passes a `str` there, its pattern published off the convertor, and every lookup by that id then misses."""
+
+    reached: list[tuple[str, str, type]] = []
+    for route in document_routes(application()):
+        fields = _path_fields(route.dependant)
+        for name, convertor in route.convertors.items():
+            if isinstance(convertor, ObjectIdConvertor):
+                info = fields[name].field_info
+                annotation = Annotated[info.annotation, *info.metadata] if info.metadata else info.annotation
+                reached.append((route.path_format, name, type(TypeAdapter(annotation).validate_python(HEX_ID))))
+
+    assert reached and [(path, name) for path, name, handed in reached if handed is not ObjectId] == []

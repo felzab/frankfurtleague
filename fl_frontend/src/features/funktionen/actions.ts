@@ -149,11 +149,11 @@ export async function eraseAufAnfrageAction(
 const ANMELDUNGEN_NICHT_BEENDET = "Laufende Anmeldungen der Adresse konnten nicht beendet werden.";
 
 /**
- * Ends every session of an address without barring it and without a mail (`docs/frontend/spec.md :: I687`). No
- * step-up: a session ended this way is repaired by signing in again, and a ban's is not (`docs/frontend/spec.md :: I727`).
+ * Ends every session of an address without barring it and without a mail (`docs/frontend/spec.md :: I687`). A step-up
+ * write: nothing brings an ended session back, and unasked, a stolen session could sign administrators out again and again.
  */
 export async function endAnmeldungenAction(rawPayload: FLAbmeldungPayload): Promise<ActionResult<{ konto: boolean }>> {
-  return runAdminMutation("endAnmeldungenAction", async () => {
+  return runAdminMutation("endAnmeldungenAction", { stepUp: true }, async () => {
     const validated = FLAbmeldungPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
