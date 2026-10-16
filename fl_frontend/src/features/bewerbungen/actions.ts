@@ -292,6 +292,7 @@ const nichtVerschickt = (message: string): Zustellung => ({ versand: "fehlgeschl
  * that stands: a refused send is a message to try again rather than a write that did not happen.
  */
 async function sendeBestaetigungErneut({
+  operation,
   bewerbungId,
   saisonId,
   person,
@@ -300,6 +301,8 @@ async function sendeBestaetigungErneut({
   token,
   ohneLink,
 }: {
+  /** The press this send belongs to, which every failure line below names. */
+  operation: string;
   bewerbungId: string;
   saisonId: string;
   person: { vorname: string; email: string };
@@ -324,7 +327,7 @@ async function sendeBestaetigungErneut({
     logger.error("bewerbung.mail_failed", undefined, {
       error_code: "FE-MAIL-002",
       name: error instanceof Error ? error.name : undefined,
-      operation: "einwilligungErneutSendenAction",
+      operation: operation,
     });
 
     return nichtVerschickt(ohneLink);
@@ -341,7 +344,7 @@ async function sendeBestaetigungErneut({
   const sitzeText = rollenText(sitze);
 
   const outcome = await sendBewerbungMail({
-    operation: "einwilligungErneutSendenAction",
+    operation: operation,
     // No idempotency key: the token in this message is minted per press, and a key reused over a
     // changed body is refused rather than collapsed.
     auftrag: { bewerbungId: bewerbungId, anlass: "erneut" },
@@ -412,6 +415,7 @@ export async function einwilligungErneutSendenAction(rawPayload: FLEinwilligungE
     // and its deadline, and no cached read holds an application — both triage reads are uncached.
 
     const zustellung = await sendeBestaetigungErneut({
+      operation: "einwilligungErneutSendenAction",
       bewerbungId: validated.data.id,
       saisonId: bewerbung.saison_id,
       // The address and the seats the WRITE matched, never the read above: a correction landing
@@ -477,6 +481,7 @@ export async function kontaktEmailKorrigierenAction(
     let zustellung;
     try {
       zustellung = await sendeBestaetigungErneut({
+        operation: "kontaktEmailKorrigierenAction",
         bewerbungId: validated.data.id,
         saisonId: bewerbung.saison_id,
         // The address the write just stored, never the one the read still holds: the message the
@@ -544,6 +549,7 @@ export async function besetzeKontaktSitzAction(rawPayload: FLBewerbungKontaktSit
     let zustellung;
     try {
       zustellung = await sendeBestaetigungErneut({
+        operation: "besetzeKontaktSitzAction",
         bewerbungId: validated.data.id,
         saisonId: gelesen.bewerbung.saison_id,
         person: { vorname: validated.data.vorname, email: validated.data.email },

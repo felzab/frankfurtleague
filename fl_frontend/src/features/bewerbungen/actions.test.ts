@@ -1236,3 +1236,38 @@ describe("the person seated where one stepped out", () => {
     assert.deepEqual(cacheCalls, REFRESH_ALONE, "the reseat clears a cached read its endpoint does not move");
   });
 });
+
+/* The three repairs share one send, and a failure line naming another press sends whoever reads the
+   stream to the wrong action. */
+describe("the failure lines of the three repairs' shared send", () => {
+  const REPAIRS = [
+    { operation: "einwilligungErneutSendenAction", press: () => einwilligungErneutSendenAction(ERNEUT), wrote: erneutGeschrieben },
+    { operation: "kontaktEmailKorrigierenAction", press: () => kontaktEmailKorrigierenAction(KORREKTUR), wrote: korrigiert },
+    { operation: "besetzeKontaktSitzAction", press: () => besetzeKontaktSitzAction(SITZ), wrote: besetzt },
+  ] as const;
+
+  /** The operation each `bewerbung.mail_failed` line of the case names. */
+  const failedUnder = (): unknown[] =>
+    logged.filter(([line]) => line === "bewerbung.mail_failed").map(([, , fields]) => (fields as { operation?: unknown }).operation);
+
+  for (const { operation, press, wrote } of REPAIRS) {
+    it(`names ${operation} where its message was refused`, async () => {
+      answerMailWith(() => "refused");
+      readWith(() => Promise.resolve(VOR_DER_REPARATUR));
+      answerWith(() => Promise.resolve(wrote()));
+
+      await press();
+
+      assert.deepEqual(failedUnder(), [operation], "the refused send logs under another press");
+    });
+
+    it(`names ${operation} where the read after its write failed`, async () => {
+      readAcrossTheWrite(VOR_DER_REPARATUR, new Error("the read after the write answered nothing"));
+      answerWith(() => Promise.resolve(wrote()));
+
+      await press();
+
+      assert.deepEqual(failedUnder(), [operation], "the failed read logs under another press");
+    });
+  }
+});
