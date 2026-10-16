@@ -32,7 +32,6 @@ export function EntityForm<TDraft, TPayload = TDraft, TSaved extends object = ob
   successMessage,
   warning,
   onClose,
-  onSaved,
   marksRequired = false,
   stepUp: due = false,
 }: {
@@ -64,11 +63,6 @@ export function EntityForm<TDraft, TPayload = TDraft, TSaved extends object = ob
    */
   warning?: { title: string; when: (saved: TSaved & { success: true; message: string }) => boolean };
   onClose: () => void;
-  /**
-   * Handed a save in place of closing, inside the save's own transition: a caller switching the dialog to a second
-   * state from its `onSubmit` instead races this form's toast and close.
-   */
-  onSaved?: (saved: TSaved & { success: true; message: string }) => void;
   /**
    * The required asterisks, and only a form that creates something sets it. It governs the marks alone: the
    * fields are required either way, by the schema this form submits.
@@ -125,8 +119,7 @@ export function EntityForm<TDraft, TPayload = TDraft, TSaved extends object = ob
           const warnTitle = warning !== undefined && warning.when(res) ? warning.title : null;
           const title = warnTitle ?? successMessage;
           (warnTitle === null ? appToast.success : appToast.warning)(title, { description: res.message === title ? undefined : res.message });
-          if (onSaved === undefined) onClose();
-          else onSaved(res);
+          onClose();
         });
       }),
     );
