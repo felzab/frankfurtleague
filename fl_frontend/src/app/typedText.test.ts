@@ -2,6 +2,7 @@ import "@/shared/testing/dom.ts";
 import "@/shared/testing/pageHarness.ts";
 
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it, mock } from "node:test";
 import { pathToFileURL } from "node:url";
@@ -10,6 +11,7 @@ import { act, createElement as h, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { cleanup, fireEvent, render, within } from "@testing-library/react";
+import ts from "typescript";
 
 import { einwilligungAnswer } from "@/core/einwilligungDocument.ts";
 import { registerDoubles } from "@/core/exportingModule.ts";
@@ -19,6 +21,7 @@ import { FLSaisonSchema } from "@/features/saisons/schemas.ts";
 import { FLTeamSchema } from "@/features/teams/schemas.ts";
 import { doubleActionRequest, doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { laufendeKontaktFassung } from "@/shared/testing/einwilligungAnswers.ts";
+import { parseModule } from "@/shared/testing/jsxReader.ts";
 import { membershipAnswer } from "@/shared/testing/membershipFixtures.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import {
@@ -763,22 +766,62 @@ function isByDesign(trace: Trace, design: ByDesign | undefined): boolean {
   return to.origin === at.origin && to.pathname.startsWith(at.pathname);
 }
 
-/** The search box each page holding one must show the sweep: a render reaching no field fails here by name. */
+/**
+ * The search label each page mounting `AdminCrudShell` passes its bar, read off the page's source: a page whose render
+ * ends before the bar types into nothing, and must still fail by name.
+ */
+async function shellSearches(): Promise<Record<string, string>> {
+  const searches: Record<string, string> = {};
+  for (const page of PAGES) {
+    const source = parseModule(page, readFileSync(page, "utf8"));
+    const imported = new Map<string, string>();
+    for (const statement of source.statements) {
+      if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) continue;
+      const bindings = statement.importClause?.namedBindings;
+      if (bindings === undefined || !ts.isNamedImports(bindings)) continue;
+      for (const element of bindings.elements) imported.set(element.name.text, statement.moduleSpecifier.text);
+    }
+    if (!imported.has("AdminCrudShell")) continue;
+
+    const labels: ts.Expression[] = [];
+    const walk = (node: ts.Node): void => {
+      if (ts.isJsxAttribute(node) && node.name.getText(source) === "searchLabel" && node.initializer !== undefined) {
+        labels.push(
+          ts.isJsxExpression(node.initializer) && node.initializer.expression !== undefined ? node.initializer.expression : node.initializer,
+        );
+      }
+      ts.forEachChild(node, walk);
+    };
+    walk(source);
+    const [given] = labels;
+    assert.ok(
+      labels.length === 1 && given !== undefined,
+      `${label(page)} mounts AdminCrudShell with ${String(labels.length)} search labels, not one`,
+    );
+    if (ts.isStringLiteral(given)) {
+      searches[label(page)] = given.text;
+      continue;
+    }
+    // A slice's copy constant, as every admin list names its bar: `SPIELER_CRUD_COPY.searchLabel`.
+    const owner = ts.isPropertyAccessExpression(given) && ts.isIdentifier(given.expression) ? given.expression.text : undefined;
+    const from = owner === undefined ? undefined : imported.get(owner);
+    assert.ok(owner !== undefined && from !== undefined, `${label(page)} names its search label in a form this sweep cannot read`);
+    const copy = (await import(from)) as Record<string, Record<string, unknown>>;
+    const searchLabel = copy[owner]?.[(given as ts.PropertyAccessExpression).name.text];
+    assert.equal(typeof searchLabel, "string", `${label(page)}'s search label read no text off ${from}`);
+    searches[label(page)] = searchLabel as string;
+  }
+  return searches;
+}
+
+/**
+ * The search box each page holding one must show the sweep: a render reaching no field fails here by name. The admin
+ * lists' are read off their pages; these three hold a search of their own.
+ */
 const SEARCHES: Readonly<Record<string, string>> = {
+  ...(await shellSearches()),
   "(public)/bewerbung/[saison_id]/page.tsx": "Schule suchen",
-  "bereich/admin/administratoren/page.tsx": "Zugänge suchen",
-  "bereich/admin/aktionen/page.tsx": "Änderungen suchen",
-  "bereich/admin/bewerbungen/page.tsx": "Bewerbungen suchen",
-  "bereich/admin/kontakte/page.tsx": "Kontakte suchen",
-  "bereich/admin/registrierungen/page.tsx": "Registrierungen suchen",
-  "bereich/admin/saisons/page.tsx": "Saisons suchen",
-  "bereich/admin/schiedsrichter/page.tsx": "Schiedsrichter suchen",
-  "bereich/admin/sperrliste/page.tsx": "Sperren suchen",
-  "bereich/admin/spieler/page.tsx": "Spieler suchen",
-  "bereich/admin/spielorte/page.tsx": "Spielorte suchen",
   "bereich/admin/spielsuche/page.tsx": "Spiele suchen",
-  "bereich/admin/spieltage/page.tsx": "Spieltage suchen",
-  "bereich/admin/teams/page.tsx": "Teams suchen",
   "dashboard/spielsuche/page.tsx": "Spiele suchen",
 };
 
