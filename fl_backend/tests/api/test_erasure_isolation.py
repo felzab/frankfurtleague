@@ -22,9 +22,10 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.berechtigungen.admin_router import post_berechtigung
 from app.api.berechtigungen.schemas import FLPostBerechtigungPayload
-from app.api.bewerbungen.admin_router import korrigiere_kontakt_email
-from app.api.bewerbungen.schemas import FLBewerbungKontaktEmailPayload
-from app.api.bewerbungen.services import hash_token
+from app.api.bewerbungen.admin_router import besetze_kontakt_sitz, korrigiere_kontakt_email
+from app.api.bewerbungen.public_router import post_bewerbung
+from app.api.bewerbungen.schemas import FLBewerbungKontaktEmailPayload, FLBewerbungKontaktSitzPayload, FLPostBewerbungPayload
+from app.api.bewerbungen.services import compose_decline_update, hash_token
 from app.api.registrierungen.public_router import post_registrierung
 from app.api.registrierungen.schemas import FLPostRegistrierungPayload
 from app.api.schiedsrichter.admin_router import patch_schiedsrichter, post_schiedsrichter
@@ -83,6 +84,9 @@ BEWERBUNG_OID = ObjectId("6890a1b2c3d4e5f607e10003")
 PUPIL_OID = ObjectId("6890a1b2c3d4e5f607e10004")
 REFEREE_OID = ObjectId("6890a1b2c3d4e5f607e10005")
 REGISTRATION_OID = ObjectId("6890a1b2c3d4e5f607e10006")
+STEPPED_OUT_OID = ObjectId("6890a1b2c3d4e5f607e10007")
+
+OPEN_WINDOW = {"offen": True, "von": "2026-03-01", "bis": "2026-04-30"}
 
 REFEREE_NAME = "Bernd Kraus"
 TELEFON = "+49 69 5550202"
@@ -108,13 +112,13 @@ class GrantsReadThenRival(InterleavedCollection):
 
 
 async def a_league(database: AsyncDatabase) -> None:
-    """A season open to registrations, a club entered seatless with its live link, an application, a pupil and an unconfirmed referee.
+    """A season open to both windows, a club entered seatless with its live link, two applications, a pupil and an unconfirmed referee.
 
     Nothing here holds the erased address: what the case's writer commits is all of it.
     """
 
     await database[Collection.SAISONS].insert_one(
-        saison_document(SAISON_ID, "active", registrierung={"offen": True, "von": "2026-03-01", "bis": "2026-04-30"})
+        saison_document(SAISON_ID, "active", registrierung=dict(OPEN_WINDOW), bewerbung=dict(OPEN_WINDOW))
     )
     await database[Collection.TEAMS].insert_one(team_document(TEAM_OID, "Lindenschule", "LS"))
     await database[Collection.SAISON_TEAMS].insert_one(saison_team_document(SAISON_ID, TEAM_OID, "Lindenschule", "LS", kontakte=None))
@@ -144,6 +148,25 @@ async def a_league(database: AsyncDatabase) -> None:
             bestaetigungsfrist="2026-04-10",
             schule=neue_schule_document("Neue", "NE"),
         )
+    )
+    await database[Collection.BEWERBUNGEN].insert_one(
+        bewerbung_document(
+            STEPPED_OUT_OID,
+            SAISON_ID,
+            "eingereicht",
+            kontakte=kontakte_document(
+                ansprechperson=kontaktperson_document("Quintessa"),
+                stellvertretung=kontaktperson_document("Brunhilde"),
+                trainer=kontaktperson_document("Ottokar"),
+            ),
+            eingereicht_am="2026-03-10",
+            bestaetigungsfrist="2026-04-10",
+            schule=neue_schule_document("Ander", "AN"),
+        )
+    )
+    # As the Stellvertretung's own Widerspruch leaves it, the one state a seat is filled again from.
+    await database[Collection.BEWERBUNGEN].update_one(
+        {"_id": STEPPED_OUT_OID}, compose_decline_update(seats=["stellvertretung"], today="2026-03-20")
     )
     await database[Collection.SPIELER].insert_one(spieler_document(PUPIL_OID, "Wraxlington", "Muster", email="wraxlington@example.com"))
     await database[Collection.SCHIEDSRICHTER].insert_one(
@@ -195,6 +218,67 @@ async def a_seat_on_the_application(database: AsyncDatabase, client: AsyncMongoC
         bewerbung_id=BEWERBUNG_OID,
         seat="ansprechperson",
         email_data=FLBewerbungKontaktEmailPayload(email=TYPED),
+        bewerbungen_collection=database[Collection.BEWERBUNGEN],
+        sperrliste=ban_list(database),
+        adressanker_collection=database[Collection.ADRESSANKER],
+        db=client,
+        today=TODAY,
+    )
+
+
+def _applying(vorname: str, email: str, telefon: str) -> dict[str, Any]:
+    return {
+        "vorname": vorname,
+        "nachname": "Quillfeather",
+        "email": email,
+        "telefon": telefon,
+        "einwilligung": {"text_version": LAUFENDE_FASSUNGEN["bewerbung"], "erteilt": True},
+    }
+
+
+async def an_application(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+    return await post_bewerbung(
+        bewerbung_data=FLPostBewerbungPayload.model_validate(
+            {
+                "saison_id": SAISON_ID,
+                "team_id": None,
+                "schule": neue_schule_document("Zorbanax", "ZQ", schulform="gesamtschule"),
+                "kontakte": {
+                    "trainer": _applying("Wigbert", "wigbert@example.com", "+49 69 5550101"),
+                    "ansprechperson": _applying("Zorbanax", TYPED, TELEFON),
+                    "stellvertretung": _applying("Fridolin", "fridolin@example.com", "+49 69 5550303"),
+                    "trainer_ist_zugleich": None,
+                },
+                "trikot": {"vorhandener_satz": "keiner", "wunschfarbe": "rot"},
+                "kader": {"voraussichtliche_groesse": 14, "gute_spieler": 3},
+                "stufengroesse": 90,
+            }
+        ),
+        idempotency_key=None,
+        bewerbungen_collection=database[Collection.BEWERBUNGEN],
+        saisons_collection=database[Collection.SAISONS],
+        teams_collection=database[Collection.TEAMS],
+        saison_teams_collection=database[Collection.SAISON_TEAMS],
+        sperrliste=ban_list(database),
+        adressanker_collection=database[Collection.ADRESSANKER],
+        db=client,
+        today=TODAY,
+    )
+
+
+async def a_seat_filled_on_the_application(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+    return await besetze_kontakt_sitz(
+        bewerbung_id=STEPPED_OUT_OID,
+        seat="stellvertretung",
+        sitz_data=FLBewerbungKontaktSitzPayload.model_validate(
+            {
+                "vorname": "Zorbanax",
+                "nachname": "Quillfeather",
+                "email": TYPED,
+                "telefon": TELEFON,
+                "text_version": LAUFENDE_FASSUNGEN["bewerbung"],
+            }
+        ),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         sperrliste=ban_list(database),
         adressanker_collection=database[Collection.ADRESSANKER],
@@ -280,6 +364,8 @@ WRITERS: dict[str, tuple[Rival, str]] = {
     "a grant": (a_grant, "berechtigungen"),
     "a contact seat on a season row": (a_seat_on_the_season_row, "kontakt_sitze"),
     "a contact seat on an application": (a_seat_on_the_application, "kontakt_sitze"),
+    "a contact seat filled on an application": (a_seat_filled_on_the_application, "kontakt_sitze"),
+    "an application": (an_application, "kontakt_sitze"),
     "a registration": (a_registration, "registrierungen"),
     "a pupil's pending address change": (a_pending_pupil_address, "adresswechsel"),
     "a referee": (a_referee, "schiedsrichter"),
@@ -388,7 +474,7 @@ class TestAPersonsOwnWriteInsideTheirErasureGoesWithIt:
 
 
 class TestAnAdministratorsOwnWriteInsideTheirErasureGoesWithIt:
-    """Held by the administrator's judge, which anchors the actor's grant (`docs/backend/spec.md :: I438`) the erasure removes."""
+    """Held by the administrator's judge, which anchors the actor's grant (`docs/backend/spec.md :: I450`) the erasure removes."""
 
     def test_the_log_row_they_wrote_names_them_no_more(self, mongo_replica_set_url: str):
         """Remove the anchor in `app/core/security.py :: admin_judge` and the venue's log row keeps the erased administrator's address."""

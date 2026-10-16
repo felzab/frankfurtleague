@@ -715,9 +715,10 @@ async def patch_saison_team_kontakte(
             session=session,
             return_document=ReturnDocument.AFTER,
         )
-        # The addresses entering here, which an erasure of one running now never read (`docs/backend/spec.md :: I719`).
+        # The addresses entering here, which an erasure of one running now never read (`docs/backend/spec.md :: I719`): the
+        # newly seated alone, a kept seat's being on this row, which that erasure writes already.
         await anchor_the_addresses(
-            seat_adressen(kontakte=kontakte, seats=KONTAKT_ROLLEN),
+            [adresse for seats in owed for adresse in seat_adressen(kontakte=kontakte, seats=seats)],
             adressanker_collection=adressanker_collection,
             schluessel=sperrliste.schluessel,
             session=session,
