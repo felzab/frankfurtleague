@@ -124,12 +124,22 @@ const CONFIG_DOUBLE = {
 
 const INDEXES_DOUBLE = { buildAuthIndexes: () => Promise.resolve() };
 
+/** Each loopback drop the pass asked for, with how many deletion calls had run by then. */
+const drops: { tags: readonly string[]; laufCalls: number }[] = [];
+
+// The loopback call reaches a server no test process runs; its pairing with the route is the route's own suite's.
+const REVALIDATION_DOUBLE = {
+  revalidateOverLoopback: async (tags: readonly string[]) =>
+    void drops.push({ tags: tags, laufCalls: apiCalls().filter(({ endpoint }) => endpoint === LAUF).length }),
+};
+
 registerDoubles({
   modules: {
     "core/logging.ts": LOGGING_DOUBLE,
     "core/config.ts": CONFIG_DOUBLE,
     // A production boot builds the sign-in store's indexes too, over a client this suite never configures.
     "core/authIndexes.ts": INDEXES_DOUBLE,
+    "core/revalidation.ts": REVALIDATION_DOUBLE,
   },
 });
 
@@ -242,6 +252,7 @@ beforeEach(() => {
   events.length = 0;
   logs.length = 0;
   lines.length = 0;
+  drops.length = 0;
   refused.clear();
   withheld.clear();
   // Appended as the send happens, so a send and the calls around it stay in the order they ran.
@@ -1168,6 +1179,40 @@ describe("the two halves after the season loop", () => {
 
     assert.deepEqual(halves(), [ADRESSWECHSEL, LAUF]);
   });
+
+  /* An activation's call its deadline cut deletes in the backend after the press dropped the tag, and no pass's count
+     shows those pupils, so the drop follows the pass's last call whatever the pass did. */
+  const ARMED_PASSES = [
+    ["that deleted nobody", () => gelaufen(0, 0)],
+    ["that deleted pupils", () => gelaufen(3, 0)],
+    [
+      "whose call threw",
+      () => {
+        throw new Error("the deletion was refused");
+      },
+    ],
+  ] as const;
+
+  for (const [what, answer] of ARMED_PASSES) {
+    it(`drops the squad cache once, after the last deletion call, on an armed pass ${what}`, async () => {
+      loeschungSwitch = "on";
+      laufAnswer = answer;
+
+      await runBewerbungSweep();
+
+      assert.deepEqual(drops, [{ tags: ["spieler"], laufCalls: 1 }]);
+    });
+  }
+
+  for (const schalter of ["off", undefined]) {
+    it(`drops no cache while the switch reads ${String(schalter)}`, async () => {
+      loeschungSwitch = schalter;
+
+      await runBewerbungSweep();
+
+      assert.deepEqual(drops, []);
+    });
+  }
 
   /* Neither half takes a season, so a season list the backend could not answer leaves both to run. */
   it("runs both halves where the season list could not be read", async () => {
