@@ -996,7 +996,7 @@ import(pathToFileURL(reader).href).then(({ refusal }) => {
   # `-n` runs nothing of a script alone: an interactive shell ignores it, and a `-c` line is judged.
   expect_refused Bash 'bash -in scripts/gate/verify.sh'
   expect_refused Bash "bash -n -c 'pnpm test'"
-  expect_refused Bash 'bash -n -c "$(pnpm test)"'
+  expect_refused Bash "bash -n -c \"\$(pnpm test)\""
   # A shell's long options, `--` and an option's name are read past to the script they run.
   expect_refused Bash 'bash --norc scripts/gate/verify.sh'
   expect_refused Bash 'bash --rcfile x.rc scripts/gate/verify.sh'
@@ -1020,9 +1020,9 @@ import(pathToFileURL(reader).href).then(({ refusal }) => {
   suite_tick='`'
   expect_refused Bash "echo ${suite_tick}pnpm test${suite_tick}"
   # Inside double quotes a substitution still runs, in both shells.
-  expect_refused Bash 'echo "$(pnpm test)"'
+  expect_refused Bash "echo \"\$(pnpm test)\""
   expect_refused Bash "echo \"${suite_tick}pnpm test${suite_tick}\""
-  expect_refused PowerShell 'echo "$(pnpm test)"'
+  expect_refused PowerShell "echo \"\$(pnpm test)\""
   expect_refused Bash '(cd fl_frontend && pnpm test)'
   expect_refused Bash '{ pnpm test; }'
   expect_refused Bash 'bash -c "cd fl_frontend && pnpm test"'
