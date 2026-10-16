@@ -22,7 +22,7 @@ from app.core.collections import Collection
 from app.core.db import NO_OWNER
 from app.core.exception_handlers import DATABASE_FAILED, UNKNOWN_OUTCOME
 from app.core.journal import JOURNAL_TOKEN
-from app.core.security import loeschung_journal_hash
+from app.core.security import akteur_pseudonym, loeschung_journal_hash
 from app.core.transactions import UNKNOWN_COMMIT_RESULT
 from tests.whole_database import where_held
 
@@ -210,7 +210,8 @@ class TestAnErasureOnRequest:
             refused, erased = on_the_administrators_league(mongo_replica_set_url, body)
 
         assert journal_lines(caplog) == [
-            f"{JOURNAL_TOKEN} {loeschung_journal_hash(IDENTIFIER, schluessel=REQUEST_CONFIG.sperrliste_schluessel)} loeschung"
+            f"{JOURNAL_TOKEN} {loeschung_journal_hash(IDENTIFIER, schluessel=REQUEST_CONFIG.sperrliste_schluessel)} loeschung "
+            f"pseudonym={akteur_pseudonym(IDENTIFIER, schluessel=REQUEST_CONFIG.sperrliste_schluessel)}"
         ]
         # The premise last: one commit refused, so the line above is the rerun's alone.
         assert (refused, erased) == ([WRITE_CONFLICT, None], 1)
@@ -237,7 +238,8 @@ class TestAnErasureOnRequest:
         # The premise first, so a failure names its cause: one commit ran, its answer was lost, and the erasure landed.
         assert (commits, labelled, after) == ([MAX_TIME_EXPIRED], True, {IDENTIFIER: []})
         assert journal_lines(caplog) == [
-            f"{JOURNAL_TOKEN} {loeschung_journal_hash(IDENTIFIER, schluessel=REQUEST_CONFIG.sperrliste_schluessel)} loeschung"
+            f"{JOURNAL_TOKEN} {loeschung_journal_hash(IDENTIFIER, schluessel=REQUEST_CONFIG.sperrliste_schluessel)} loeschung "
+            f"pseudonym={akteur_pseudonym(IDENTIFIER, schluessel=REQUEST_CONFIG.sperrliste_schluessel)}"
         ]
 
 

@@ -485,12 +485,7 @@ async def unattribute_in_session(
     The row keeps its kind, route, instant and image, saying an action happened and not by whom.
     """
 
-    as_person = await patch_many_in_db(
-        collection=aktionen_collection,
-        db_filter={"actor.pseudonym": pseudonym},
-        update={"$set": {"actor.pseudonym": ERASED_ACTOR_MARKER}},
-        session=session,
-    )
+    as_person = await unattribute_pseudonym_in_session(aktionen_collection=aktionen_collection, pseudonym=pseudonym, session=session)
 
     # Read then judged on the fold, as every stored address is: the pre-filter reads every mailbox sharing the local part.
     candidates = await aggregate_many_from_db(
@@ -505,7 +500,20 @@ async def unattribute_in_session(
         session=session,
     )
 
-    return as_person.modified_count + as_administrator.modified_count
+    return as_person + as_administrator.modified_count
+
+
+async def unattribute_pseudonym_in_session(*, aktionen_collection: AsyncCollection, pseudonym: str, session: AsyncClientSession) -> int:
+    """The marker on every log row the person wrote signed in, by their pseudonym alone: what a restore's replay reaches without the address."""
+
+    marked = await patch_many_in_db(
+        collection=aktionen_collection,
+        db_filter={"actor.pseudonym": pseudonym},
+        update={"$set": {"actor.pseudonym": ERASED_ACTOR_MARKER}},
+        session=session,
+    )
+
+    return marked.modified_count
 
 
 async def erase_pupil_actor_in_session(
@@ -815,7 +823,11 @@ class ErasureJournal[Erased: FLErasure]:
             self._journal()
 
     def _journal(self) -> None:
-        line = JournalLine(person_hash=loeschung_journal_hash(self._identifier, schluessel=self._schluessel), art="loeschung")
+        line = JournalLine(
+            person_hash=loeschung_journal_hash(self._identifier, schluessel=self._schluessel),
+            art="loeschung",
+            pseudonym=akteur_pseudonym(self._identifier, schluessel=self._schluessel),
+        )
         journal_logger.info(line.text())
 
     async def _warn_about_the_grants(self) -> None:

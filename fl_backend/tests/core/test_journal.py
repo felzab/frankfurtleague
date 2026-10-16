@@ -21,12 +21,15 @@ from app.core.logging import FL_LOGGER_NAME, JOURNAL_LOGGER_SUFFIX
 from app.core.transactions import UNKNOWN_COMMIT_RESULT
 
 PERSON = "a" * 64
+PSEUDONYM = "c" * 64
 RECORD = ObjectId("6890a1b2c3d4e5f607860001")
 AM = "2026-10-15T10:00:00+00:00"
 JOURNAL_LOGGER = f"{FL_LOGGER_NAME}.{JOURNAL_LOGGER_SUFFIX}"
 
 LINES = {
-    "an erasure": JournalLine(person_hash=PERSON, art="loeschung"),
+    "an erasure": JournalLine(person_hash=PERSON, art="loeschung", pseudonym=PSEUDONYM),
+    # As every erasure was journalled before the line named its pseudonym.
+    "an older erasure": JournalLine(person_hash=PERSON, art="loeschung"),
     "a withdrawal": JournalLine(
         person_hash=PERSON,
         art="widerruf",
@@ -47,7 +50,8 @@ LINES = {
 
 def test_an_erasure_is_spelled_as_the_export_and_the_restore_read_it():
     """Written out rather than composed: a change to the line's spelling is a change to every day file's."""
-    assert LINES["an erasure"].text() == f"{JOURNAL_TOKEN} {PERSON} loeschung"
+    assert LINES["an erasure"].text() == f"{JOURNAL_TOKEN} {PERSON} loeschung pseudonym={PSEUDONYM}"
+    assert LINES["an older erasure"].text() == f"{JOURNAL_TOKEN} {PERSON} loeschung"
     assert LINES["a withdrawal"].text() == (
         f"{JOURNAL_TOKEN} {PERSON} widerruf spieler/{RECORD} am={AM} text_version=2026-10-konto-spieler umfang=intern medien=false"
     )
@@ -59,10 +63,10 @@ def test_every_act_reads_back_as_it_was_written(line: JournalLine):
 
 
 @pytest.mark.parametrize("line", LINES.values(), ids=LINES.keys())
-def test_the_replay_names_a_line_without_its_person(line: JournalLine):
-    """The action log outlives the day files by eleven months, so the row naming a replay carries no keyed hash of anybody."""
-    assert PERSON not in line.text(with_person=False)
-    assert line.text(with_person=False).startswith(f"{JOURNAL_TOKEN} {line.art}")
+def test_the_replay_names_a_line_by_its_act_alone(line: JournalLine):
+    """The log outlives the day files by eleven months, so a replay's row names no keyed hash; nor the token, which reads as an erasure."""
+    assert line.act().startswith(line.art)
+    assert PERSON not in line.act() and PSEUDONYM not in line.act() and JOURNAL_TOKEN not in line.act()
 
 
 def test_a_message_of_another_kind_is_no_line():
@@ -91,6 +95,10 @@ def test_a_message_of_another_kind_is_no_line():
         pytest.param(f"{JOURNAL_TOKEN} {PERSON} adresswechsel_abgelehnt nirgends/{RECORD} am={AM}", id="no collection the database holds"),
         pytest.param(f"{JOURNAL_TOKEN} {PERSON} adresswechsel_abgelehnt spieler/{'z' * 24} am={AM}", id="an id of no hex"),
         pytest.param(f"{JOURNAL_TOKEN} {PERSON} adresswechsel_abgelehnt spieler/abcdefghijkl am={AM}", id="an id twelve letters long"),
+        pytest.param(
+            f"{JOURNAL_TOKEN} {PERSON} adresswechsel_abgelehnt spieler/{RECORD} am={AM} pseudonym={PSEUDONYM}", id="a choice naming a pseudonym"
+        ),
+        pytest.param(f"{JOURNAL_TOKEN} {PERSON} loeschung pseudonym=anna@example.com", id="an address for the pseudonym"),
         pytest.param(f"{JOURNAL_TOKEN} {PERSON} adresswechsel_abgelehnt spieler/{RECORD} am={AM} wer=ich", id="a value no act carries"),
     ],
 )
