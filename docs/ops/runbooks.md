@@ -1192,12 +1192,18 @@ backend's line names the application, the registration or the season row by id, 
 and what locates it, never a person's values: `DB-FAIL-001` is a write the database refused, with
 the properties its validator refused; `SRV-VAL-001` a stored value the answer cannot carry, such as
 a hand-edited deadline or an empty first name, with the fields refused; and `SRV-FAIL-001` any other
-failure, with the file, line and function it was raised in. The rest of that clock's rows go, and the named one stays due: every later pass names it
-again until its record is repaired ([`../backend/spec.md`](../backend/spec.md#2-invariants) I720).
-A warning that the database deadline passed taking a clock's rows apart is the call answering what
-it had done, and the next pass goes on. Where that warning names a commit unanswered, under
-`DB-FAIL-002`, the rows it names may have been written with nobody told: a later pass meets again
-only those it did not write.
+failure, with the file, line and function it was raised in. The rest of that clock's rows go, and
+the named one stays due: every later pass names it again until its record is repaired
+([`../backend/spec.md`](../backend/spec.md#2-invariants) I720).
+
+**A clock owing a message answers what it had done when the deadline stops it taking rows apart;
+every other clock fails the call.** The clocks owing one are the two reminder clocks and the
+registrations' season's end. For them a warning that the database deadline passed, or that it held
+no further attempt, is the call answering every half that committed, and the next pass goes on;
+where the warning names a commit unanswered, under `DB-FAIL-002`, the rows it names may have been
+written with nobody told, and a later pass meets again only those it did not write. Any other clock
+the deadline stops there fails its call with the date left stale, as a failure the dates above
+report.
 
 **The two halves after the seasons stamp no day, so their own lines are the record.** Every pass
 ends by removing the referees' and the pupils' pending addresses whose link lapsed before today,

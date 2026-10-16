@@ -1181,7 +1181,7 @@ class TestOneRowHoldsBackNoOther:
         ]
 
     def test_a_reminder_the_answer_cannot_carry(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
-        """The stamp is written before the answer's model refuses the deadline, so the transaction is taken apart, not the row skipped."""
+        """A deadline the answer's model refuses before any stamp is written, so the row is passed over and nothing taken apart."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.BEWERBUNGEN].insert_one(application(SECOND_OID, bestaetigungsfrist="2026-04-1"))
@@ -1199,11 +1199,38 @@ class TestOneRowHoldsBackNoOther:
             ("ERROR", STORED_DATA_INVALID, f"Application {SECOND_OID} was passed over by the reminder clock: {REFUSED_DEADLINE}")
         ]
 
-    def test_a_pass_whose_every_reminder_fails_still_records_its_day(self, mongo_replica_set_url: str):
-        """Every half that commits stamps the day, so only a pass none commits needs the day stamped alone."""
+    def test_a_refused_reminder_stamp(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+        """An application stored before a field its validator requires: the reminder's stamp is refused under strict validation.
+
+        Both carry a barred mailbox, which the share leaves out: its count stays the whole page's once the share is taken apart.
+        """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.BEWERBUNGEN].update_one({"_id": REMIND_OID}, {"$set": {"bestaetigungsfrist": "2026-04-1"}})
+            invalid = {key: value for key, value in application(SECOND_OID).items() if key != "trikot"}
+            await database[Collection.BEWERBUNGEN].insert_one(invalid, bypass_document_validation=True)
+            await database[Collection.SPERRLISTE].insert_one(ban_document("bramblewick@example.com", bis=STANDING))
+            # Inside: the level outside is whatever an earlier test on this worker left.
+            with caplog.at_level(logging.INFO, logger=FL_LOGGER_NAME):
+                answer = await sweep(database, client)
+            refused = await stored(database, SECOND_OID)
+            assert refused is not None
+
+            return reminded(answer), [seat["erinnert_am"] for seat in refused["bestaetigungen"].values()]
+
+        answered, stamps = on_a_league(mongo_replica_set_url, body)
+
+        assert (answered, stamps) == ({REMIND_OID}, [None, None, None])
+        refusal = "OperationFailure, code 121: [{'loc': 'trikot', 'type': 'required', 'msg': 'property is missing'}]"
+        assert passed_over(caplog) == [("ERROR", DATABASE_FAILED, f"Application {SECOND_OID} was passed over by the reminder clock: {refusal}")]
+        assert [record.getMessage() for record in caplog.records if "withheld" in record.getMessage()] == [
+            f"Reminders withheld from barred addresses in season {SAISON_ID}: 2 mailbox(es)"
+        ]
+
+    def test_a_pass_whose_every_reminder_fails_still_records_its_day(self, mongo_replica_set_url: str):
+        """Every half that commits stamps the day, so only a pass none commits needs the day stamped alone: every stamp refused here."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.BEWERBUNGEN].update_many({}, {"$unset": {"trikot": ""}}, bypass_document_validation=True)
             answer = await sweep(database, client)
 
             return answer.erinnerungen, (await get_sweep_saisons(saisons_collection=database[Collection.SAISONS])).sweep_gelaufen_am
@@ -1555,6 +1582,59 @@ class TestEachPerRowLoopCostsTheRoundTripsItsShareIsSizedAt:
         few, twice = on_a_league(mongo_replica_set_url, body)
 
         assert (twice - few) / FEW == ROUND_TRIPS_A_ROW
+
+    @pytest.mark.parametrize(
+        "refused",
+        [
+            pytest.param(lambda row: {**row, "bestaetigungsfrist": "2026-04-1"}, id="a deadline the answer refuses"),
+            pytest.param(
+                lambda row: {
+                    **row,
+                    "bestaetigungen": {seat: {**entry, "verschickt_am": "2026-03-1x"} for seat, entry in row["bestaetigungen"].items()},
+                },
+                id="a send date no judge can read",
+            ),
+        ],
+    )
+    def test_a_reminder_the_code_refuses_costs_only_the_write_it_skips(
+        self, mongo_replica_set_url: str, refused: Callable[[dict[str, Any]], dict[str, Any]]
+    ):
+        """Taken apart instead, the share spends a failed attempt and its halves on the row (`docs/backend/spec.md :: I728`)."""
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[int, int]:
+            async def counted(rows: list[dict[str, Any]]) -> int:
+                await database[Collection.BEWERBUNGEN].delete_many({})
+                await database[Collection.BEWERBUNGEN].insert_many(rows)
+                await database[Collection.SAISONS].update_many({}, {"$set": {"sweep_gelaufen_am": TODAY}})
+
+                return await commands_sent(mongo_replica_set_url, sweep)
+
+            rows = [application(numbered(position)) for position in range(FEW)]
+            return await counted(rows), await counted([*rows[:-1], refused(rows[-1])])
+
+        carryable, with_one_refused = on_a_league(mongo_replica_set_url, body)
+
+        assert carryable - with_one_refused == ROUND_TRIPS_A_ROW
+
+    def test_a_decision_date_no_judge_can_read_costs_its_clock_no_command(self, mongo_replica_set_url: str):
+        """Every command a drain spends taking a page apart is one the reminder share after it has not got."""
+
+        unreadable = application(SECOND_OID, status="abgelehnt", entscheidung={"getroffen_am": "2026-02-1x", "von": "admin", "grund": None})
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[int, int, Mapping[str, Any] | None, Mapping[str, Any] | None]:
+            async def counted(rows: list[dict[str, Any]]) -> int:
+                await database[Collection.BEWERBUNGEN].delete_many({})
+                await database[Collection.BEWERBUNGEN].insert_many(rows)
+                await database[Collection.SAISONS].update_many({}, {"$set": {"sweep_gelaufen_am": TODAY}})
+
+                return await commands_sent(mongo_replica_set_url, sweep)
+
+            without, beside = await counted(the_corpus()), await counted([*the_corpus(), unreadable])
+            return without, beside, await stored(database, SECOND_OID), await stored(database, DECLINED_OID)
+
+        without, beside, kept, erased = on_a_league(mongo_replica_set_url, body)
+
+        assert (beside, kept is not None, erased) == (without, True, None)
 
     def test_a_cleared_contact_block(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[int, int]:

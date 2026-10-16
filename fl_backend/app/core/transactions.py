@@ -2,7 +2,7 @@ import asyncio
 import contextvars
 import time
 import traceback
-from collections.abc import AsyncIterator, Awaitable, Callable, Mapping, Sequence
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterable, Mapping, Sequence
 from contextlib import AbstractAsyncContextManager, asynccontextmanager, nullcontext
 from contextvars import ContextVar
 from typing import Any, Final
@@ -157,9 +157,9 @@ class StalledPage(ValueError):
 
 
 class Batch:
-    """Which rows one transaction of a sweep's clock may take, and the ids its read answered.
+    """One transaction of a sweep's clock: which rows it may take, and what its last attempt read, took and passed over.
 
-    A failed transaction's ids are what `isolate` halves (`docs/backend/spec.md :: I720`).
+    `isolate` halves what a failed one took, or its whole read where it took nothing yet (`docs/backend/spec.md :: I728`).
     """
 
     def __init__(self, *, among: Sequence[Any] | None = None, passed: Sequence[Any] = (), share: int | None = None) -> None:
@@ -168,6 +168,11 @@ class Batch:
         # The rows the transaction may still write where its clock takes a share, `None` where it takes the page.
         self.share = share
         self.ids: list[Any] = []
+        self.taken: list[Any] | None = None
+        self.refused: list[tuple[Any, Exception]] = []
+        # The reminder clocks' mailboxes a ban kept back, counted over the attempt's whole read: halves of a
+        # failed share read only the rows it took, so a count summed over them would miss every one.
+        self.withheld = 0
 
     def within(self, db_filter: Mapping[str, Any]) -> Mapping[str, Any]:
         """The clock's own filter, narrowed to a half of a failed read, or to the read without the rows passed over."""
@@ -186,12 +191,56 @@ class Batch:
     async def saw[Row: Mapping[str, Any]](self, read: Awaitable[list[Row]]) -> list[Row]:
         """The attempt's read, which every clock's callback makes first, its ids recorded once it answers."""
 
-        # Emptied before the read: the driver runs the callback again on a transient error, and an
-        # attempt failing in its read would otherwise be halved over the ids an earlier attempt read.
-        self.ids = []
+        # Begun afresh before the read: the driver runs the callback again on a transient error, and an
+        # attempt failing in its read would otherwise be halved over what an earlier attempt read.
+        self.ids, self.taken, self.refused, self.withheld = [], None, [], 0
         rows = await read
         self.ids = [row["_id"] for row in rows]
         return rows
+
+    def judged[Row: Mapping[str, Any], T](self, rows: Iterable[Row], judge: Callable[[Row], T]) -> list[tuple[Row, T]]:
+        """Each row beside what `judge` answers for it; one it raises on is passed over in place, nothing written.
+
+        Its stored data fails in code alone, so no attempt is taken apart for it (`docs/backend/spec.md :: I728`).
+        """
+
+        answered: list[tuple[Row, T]] = []
+        for row in rows:
+            try:
+                answered.append((row, judge(row)))
+            # Any class, as `isolate` would halve any; not `BaseException`, so a cancellation still ends the call.
+            except Exception as refusal:
+                self.refused.append((row["_id"], refusal))
+
+        return answered
+
+    def took[Row: Mapping[str, Any]](self, rows: list[Row]) -> list[Row]:
+        """The rows the attempt writes, which are all a failure after it can be carried by."""
+
+        self.taken = [row["_id"] for row in rows]
+        return rows
+
+    @property
+    def suspects(self) -> list[Any]:
+        """The rows a failure of this attempt can be carried by: those it took, or its whole read where it failed before taking any."""
+
+        return self.ids if self.taken is None else self.taken
+
+
+def _settled(batch: Batch, *, what: str, clock: str) -> list[Any]:
+    """The rows an attempt passed over in place, each logged once that attempt is over: a retried one began its record afresh."""
+
+    for row_id, refusal in batch.refused:
+        log_passed(what=what, row_id=row_id, clock=clock, failure=refusal)
+
+    return [row_id for row_id, _ in batch.refused]
+
+
+def _deadline_left() -> float | None:
+    """What is left of the request's deadline, `None` outside a request."""
+
+    deadline = request_deadline_var.get()
+    return None if deadline is None else deadline - time.monotonic()
 
 
 def carried_by_a_row(failure: Exception) -> bool:
@@ -235,78 +284,115 @@ def log_passed(*, what: str, row_id: Any, clock: str, failure: Exception) -> Non
 async def isolate[T](
     *,
     db: AsyncMongoClient,
+    failed: Batch,
     failure: Exception,
-    ids: Sequence[Any],
     # The caller's `session.with_transaction(<callback>, batch)`, for `drain`'s `page_of`'s reason.
     attempt: Callable[[JudgedSession, Batch], Awaitable[T]],
     moved: Callable[[T], int],
-    share: int | None,
     owes: bool,
     what: str,
     clock: str,
+    # How long the failed attempt ran: the first measure of what one more costs.
+    spent: float,
 ) -> tuple[list[T], list[Any]]:
-    """Each half of a failed transaction's rows in a transaction of its own, down to each row failing alone.
+    """Each half of a failed transaction's rows run on its own, down to each row failing alone, which is logged and left standing.
 
-    That row is logged and left standing (`docs/backend/spec.md :: I720`). Answers what committed,
-    and the ids passed over.
+    `docs/backend/spec.md :: I720`. Answers what committed and the ids passed over, in place or alone.
     """
 
     committed: list[T] = []
     passed: list[Any] = []
-    remaining = share
+    remaining = failed.share
     # The rows of the attempt the deadline cut, which may have been written where its commit went unanswered.
     cut: list[Any] = []
+    longest = spent
+    stopped = False
 
-    async def split(part: Sequence[Any], failed: Exception) -> None:
-        if len(part) == 1:
-            log_passed(what=what, row_id=part[0], clock=clock, failure=failed)
-            passed.append(part[0])
+    async def split(batch: Batch, failed_with: Exception) -> None:
+        passed.extend(_settled(batch, what=what, clock=clock))
+        # The rows the attempt took and no other: one it read and judged in place, or left past its share, carries nothing.
+        suspects = batch.suspects
+        if len(suspects) == 1:
+            log_passed(what=what, row_id=suspects[0], clock=clock, failure=failed_with)
+            passed.append(suspects[0])
             return
 
-        middle = len(part) // 2
-        for half in (part[:middle], part[middle:]):
+        middle = len(suspects) // 2
+        for half in (suspects[:middle], suspects[middle:]):
             await run(half)
 
     async def run(part: Sequence[Any]) -> None:
-        nonlocal remaining
+        nonlocal remaining, longest, stopped
         # A share the halves have already filled: the rows after it stay due for the next pass.
-        if remaining == 0:
+        if remaining == 0 or stopped:
             return
 
+        # Once a half owing a message has committed, no attempt the deadline would cut: cut, its commit could go
+        # unanswered. The longest attempt yet stands for the next, a half reading no more than the attempt before it.
+        left = _deadline_left()
+        if owes and committed and left is not None and left < longest:
+            stopped = True
+            return
+
+        batch = Batch(among=part, share=remaining)
+        started = time.monotonic()
         try:
             async with transaction_session(db) as session:
-                result = await attempt(session, Batch(among=part, share=remaining))
-        except Exception as failed:
-            if not carried_by_a_row(failed):
-                cut[:] = part
+                result = await attempt(session, batch)
+        except Exception as failed_with:
+            longest = max(longest, time.monotonic() - started)
+            if not carried_by_a_row(failed_with) or not batch.suspects:
+                cut[:] = part if batch.taken is None else batch.taken
                 raise
-            await split(part, failed)
+            await split(batch, failed_with)
             return
 
+        longest = max(longest, time.monotonic() - started)
+        passed.extend(_settled(batch, what=what, clock=clock))
         committed.append(result)
         if remaining is not None:
             remaining -= moved(result)
 
     try:
-        await split(ids, failure)
-    except PyMongoError as stopped:
+        await split(failed, failure)
+    except Exception as stop:
         # Answered rather than raised once a half owing a message has committed (`docs/backend/spec.md :: I323`).
-        if not stopped.timeout or not owes or not committed:
+        if not owes or not committed:
             raise
-        # The label survives the driver's own timeout: an unanswered commit is retried until the deadline and raised as one.
-        if stopped.has_error_label("UnknownTransactionCommitResult"):
-            fl_logger.warning(
-                f"Database deadline passed taking the {clock} clock's rows apart, the commit of {what} {', '.join(map(str, cut))} "
-                "unanswered: those may have been written with nobody told, the call answers what else committed, and the rest stay due",
-                extra={"error_code": UNKNOWN_OUTCOME},
-            )
-        else:
-            fl_logger.warning(
-                f"Database deadline passed taking the {clock} clock's rows apart: the call answers what committed, and the rest stay due",
-                extra={"error_code": DATABASE_FAILED},
-            )
+        _log_stopped(stop, what=what, clock=clock, cut=cut)
+
+    if stopped:
+        fl_logger.warning(
+            f"The request's deadline holds no further attempt taking the {clock} clock's rows apart: the call answers what committed, "
+            "and the rest stay due",
+            extra={"error_code": DATABASE_FAILED},
+        )
 
     return committed, passed
+
+
+def _log_stopped(stop: Exception, *, what: str, clock: str, cut: Sequence[Any]) -> None:
+    """The warning of an isolation owing a message that stopped once a half had committed."""
+
+    if not (isinstance(stop, PyMongoError) and stop.timeout):
+        code, diagnosis = diagnosis_of(stop)
+        fl_logger.warning(
+            f"Taking the {clock} clock's rows apart stopped at a failure no row carries ({diagnosis}): the call answers what committed, "
+            "and the rest stay due",
+            extra={"error_code": code},
+        )
+    # The label survives the driver's own timeout: an unanswered commit is retried until the deadline and raised as one.
+    elif stop.has_error_label("UnknownTransactionCommitResult"):
+        fl_logger.warning(
+            f"Database deadline passed taking the {clock} clock's rows apart, the commit of {what} {', '.join(map(str, cut))} "
+            "unanswered: those may have been written with nobody told, the call answers what else committed, and the rest stay due",
+            extra={"error_code": UNKNOWN_OUTCOME},
+        )
+    else:
+        fl_logger.warning(
+            f"Database deadline passed taking the {clock} clock's rows apart: the call answers what committed, and the rest stay due",
+            extra={"error_code": DATABASE_FAILED},
+        )
 
 
 async def run_isolated[T](
@@ -322,17 +408,29 @@ async def run_isolated[T](
 ) -> tuple[list[T], list[Any]]:
     """`attempt` over `batch` in one transaction, taken apart by `isolate` where that fails: what committed, and the ids passed over."""
 
+    started = time.monotonic()
     try:
         async with transaction_session(db) as session:
-            return [await attempt(session, batch)], []
+            result = await attempt(session, batch)
     except Exception as failure:
-        # Nothing read: the failure came before any row, and halving nothing would swallow it.
-        if not batch.ids or not carried_by_a_row(failure):
+        # Nothing read or nothing taken: the failure came before any row or after every one the attempt
+        # wrote, and halving none would swallow it.
+        if not batch.suspects or not carried_by_a_row(failure):
             raise
 
         return await isolate(
-            db=db, failure=failure, ids=batch.ids, attempt=attempt, moved=moved, share=batch.share, owes=owes, what=what, clock=clock
+            db=db,
+            failed=batch,
+            failure=failure,
+            attempt=attempt,
+            moved=moved,
+            owes=owes,
+            what=what,
+            clock=clock,
+            spent=time.monotonic() - started,
         )
+
+    return [result], _settled(batch, what=what, clock=clock)
 
 
 async def drain(
@@ -346,33 +444,37 @@ async def drain(
     page: int,
     what: str,
     clock: str,
-) -> tuple[int, int]:
-    """A full page is erased and read again: the population filling it is the one only the erasure shrinks (`docs/backend/spec.md :: I295`)."""
+) -> tuple[int, int, list[Any]]:
+    """A full page is erased and read again: the population filling it is the one only the erasure shrinks (`docs/backend/spec.md :: I295`).
+
+    Answers what it erased, what it redacted, and the ids it passed over.
+    """
 
     erased_total, redacted_total = 0, 0
     passed: list[Any] = []
     while True:
         # Without the rows passed over, or a page of them would be read, and fail, for ever.
         batch = Batch(passed=passed)
+        started = time.monotonic()
         try:
             async with transaction_session(db) as session:
                 read, erased, redacted = await page_of(session, batch)
         except Exception as failure:
-            # Nothing read: the failure came before any row, and halving nothing would swallow it.
-            if not batch.ids or not carried_by_a_row(failure):
+            # Nothing read or nothing taken, as `run_isolated` reads it.
+            if not batch.suspects or not carried_by_a_row(failure):
                 raise
 
             # Owing nothing, so a deadline is raised as it was before the halving.
             committed, left = await isolate(
                 db=db,
+                failed=batch,
                 failure=failure,
-                ids=batch.ids,
                 attempt=page_of,
                 moved=lambda page_erased: page_erased[1],
-                share=None,
                 owes=False,
                 what=what,
                 clock=clock,
+                spent=time.monotonic() - started,
             )
             read = len(batch.ids)
             erased = sum(result[1] for result in committed)
@@ -383,11 +485,13 @@ async def drain(
                 raise
 
             passed.extend(left)
+        else:
+            passed.extend(_settled(batch, what=what, clock=clock))
 
         erased_total += erased
         redacted_total += redacted
         if read <= page:
-            return erased_total, redacted_total
+            return erased_total, redacted_total, passed
 
 
 def refuse_a_stalled_page(*, read: int, moved: int, page: int, clock: str, saison_id: str) -> None:

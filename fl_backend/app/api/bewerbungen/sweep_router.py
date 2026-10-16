@@ -47,6 +47,7 @@ from app.api.bewerbungen.services import (
 from app.api.kontakte.services import contact_block_image_edits
 from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
+from app.api.teams.schemas import FLKontaktRolle
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import erase_many_from_db, patch_many_in_db, patch_one_in_db, pull_many_from_db, pull_one_from_db
@@ -258,10 +259,17 @@ async def sweep_saison(
                 session=session,
             )
         )
-        ids = [row["_id"] for row in rows if undecided_erasure_is_due(bewerbung_raw=row, saison_status=saison_status)]
-        if not ids:
+        taken = batch.took(
+            [
+                row
+                for row, due in batch.judged(rows, lambda row: undecided_erasure_is_due(bewerbung_raw=row, saison_status=saison_status))
+                if due
+            ]
+        )
+        if not taken:
             return len(rows), 0, 0
 
+        ids = [row["_id"] for row in taken]
         result = await erase_many_from_db(
             collection=bewerbungen_collection, db_filter={"saison_id": saison_id, "_id": {"$in": ids}}, session=session
         )
@@ -271,10 +279,10 @@ async def sweep_saison(
 
         return len(rows), result.deleted_count, redacted
 
-    async def remind(session: AsyncClientSession, batch: Batch) -> tuple[list[FLBewerbungSweepErinnerung], int]:
+    async def remind(session: AsyncClientSession, batch: Batch) -> list[FLBewerbungSweepErinnerung]:
         """Stamp, mint, stamp the run, then hand back, as the pass's last transaction. Read in-session, so a retry re-judges.
 
-        Also answers how many mailboxes on the page a ban kept from their reminder, for the log line.
+        Counts on the batch how many mailboxes on the page a ban kept from their reminder, for the log line.
         """
 
         rows = await batch.saw(
@@ -288,17 +296,16 @@ async def sweep_saison(
                 session=session,
             )
         )
-        per_row = [
-            (
-                row,
-                [
-                    (email, reminder_link_groups(kontakte=row.get("kontakte"), bestaetigungen=row.get("bestaetigungen"), seats=held))
-                    for email, held in group_seats_by_mailbox(kontakte=row.get("kontakte"), seats=seats)
-                ],
-            )
-            for row in rows
-            if (seats := reminder_seats(bewerbung_raw=row, today=today))
-        ]
+
+        def mailboxes_of(row: Mapping[str, Any]) -> list[tuple[str, list[list[FLKontaktRolle]]]]:
+            kontakte, bestaetigungen = row.get("kontakte"), row.get("bestaetigungen")
+
+            return [
+                (email, reminder_link_groups(kontakte=kontakte, bestaetigungen=bestaetigungen, seats=held))
+                for email, held in group_seats_by_mailbox(kontakte=kontakte, seats=reminder_seats(bewerbung_raw=row, today=today))
+            ]
+
+        per_row = [(row, mailboxes) for row, mailboxes in batch.judged(rows, mailboxes_of) if mailboxes]
         # Asked over the whole page before the share is cut: nothing of a ban is stored, so a barred row
         # stays due, and a share cut first would fill with the same barred rows on every pass.
         gesperrt = await adressen_gesperrt(
@@ -307,57 +314,58 @@ async def sweep_saison(
             massgebliche_saison_id=massgebliche_saison_id,
             session=session,
         )
-        withheld = sum(1 for _, mailboxes in per_row for email, _ in mailboxes if email in gesperrt)
-        reachable = [(row, [(email, gruppen) for email, gruppen in mailboxes if email not in gesperrt]) for row, mailboxes in per_row]
+        batch.withheld = sum(1 for _, mailboxes in per_row for email, _ in mailboxes if email in gesperrt)
+        reachable = {row["_id"]: [(email, gruppen) for email, gruppen in mailboxes if email not in gesperrt] for row, mailboxes in per_row}
+        chased = [row for row, _ in per_row if reachable[row["_id"]]]
+        club_names = await _club_names(teams_collection=teams_collection, rows=chased, session=session)
 
-        # The rows past the share stay due and unstamped, so the next pass takes them: a stamped
-        # seat leaves the filter, so a full page is drained by the passes that follow.
-        taken = [(row, mailboxes) for row, mailboxes in reachable if mailboxes][: batch.share]
-        refuse_a_stalled_page(read=len(rows), moved=len(taken), page=SWEEP_PAGE, clock="reminder", saison_id=saison_id)
-        club_names = await _club_names(teams_collection=teams_collection, rows=[row for row, _ in taken], session=session)
-
-        erinnerungen: list[FLBewerbungSweepErinnerung] = []
-        for row, per_mailbox in taken:
+        def reminder_of(row: Mapping[str, Any]) -> tuple[list[FLBewerbungSweepErinnerung], dict[str, str]]:
+            per_mailbox = reachable[row["_id"]]
             gruppen_alle = [gruppe for _, gruppen in per_mailbox for gruppe in gruppen]
             # Minted per LINK rather than per seat: a token for a seat riding another's link is a
             # credential nobody is sent, live on the wire and in the document until the deadline.
             minted = {gruppe[0]: mint_token() for gruppe in gruppen_alle}
+            erinnerungen = [
+                FLBewerbungSweepErinnerung(
+                    bewerbung_id=row["_id"],
+                    saison_id=saison_id,
+                    schule=schule_name(bewerbung_raw=row, club_names=club_names),
+                    bestaetigungsfrist=str(row["bestaetigungsfrist"]),
+                    email=email,
+                    seats=[
+                        FLBewerbungSweepSeat(
+                            rollen=list(gruppe),
+                            vorname=vorname_of(kontakte=row.get("kontakte"), seat=gruppe[0]) or "",
+                            token=minted[gruppe[0]][0],
+                        )
+                        for gruppe in gruppen
+                    ],
+                )
+                for email, gruppen in per_mailbox
+            ]
 
+            return erinnerungen, {seat: minted[gruppe[0]][1] for gruppe in gruppen_alle for seat in gruppe}
+
+        # Answers built before any stamp, the share cut from the rows they carry: a refused row writes nothing
+        # and costs no second attempt (`docs/backend/spec.md :: I728`), and the rows past the share stay due.
+        taken = batch.judged(chased, reminder_of)[: batch.share]
+        batch.took([row for row, _ in taken])
+        refuse_a_stalled_page(read=len(rows), moved=len(taken), page=SWEEP_PAGE, clock="reminder", saison_id=saison_id)
+
+        for row, (_, hashes) in taken:
             # The stamp lands before the caller can mail: a crash between the two costs one reminder,
             # where the other order would repeat it every day until the address works.
             await patch_one_in_db(
                 collection=bewerbungen_collection,
                 db_filter={"_id": row["_id"]},
-                update=compose_erinnerung_update(
-                    hashes={seat: minted[gruppe[0]][1] for gruppe in gruppen_alle for seat in gruppe},
-                    bestaetigungen=row.get("bestaetigungen"),
-                    today=today,
-                ),
+                update=compose_erinnerung_update(hashes=hashes, bestaetigungen=row.get("bestaetigungen"), today=today),
                 session=session,
                 return_document=ReturnDocument.BEFORE,
             )
-            for email, gruppen in per_mailbox:
-                erinnerungen.append(
-                    FLBewerbungSweepErinnerung(
-                        bewerbung_id=row["_id"],
-                        saison_id=saison_id,
-                        schule=schule_name(bewerbung_raw=row, club_names=club_names),
-                        bestaetigungsfrist=str(row["bestaetigungsfrist"]),
-                        email=email,
-                        seats=[
-                            FLBewerbungSweepSeat(
-                                rollen=list(gruppe),
-                                vorname=vorname_of(kontakte=row.get("kontakte"), seat=gruppe[0]) or "",
-                                token=minted[gruppe[0]][0],
-                            )
-                            for gruppe in gruppen
-                        ],
-                    )
-                )
 
         await stamp_the_run(session)
 
-        return erinnerungen, withheld
+        return [erinnerung for _, (erinnerungen, _) in taken for erinnerung in erinnerungen]
 
     async def erase_declined(session: AsyncClientSession, batch: Batch) -> tuple[int, int, int]:
         """The one-month clock: erase, then redact the rows that still hold the people. Read in-session, so a retry re-judges."""
@@ -375,11 +383,13 @@ async def sweep_saison(
                 session=session,
             )
         )
-        ids = [row["_id"] for row in rows if decline_erasure_is_due(bewerbung_raw=row, today=today)]
-        if not ids:
-            refuse_a_stalled_page(read=len(rows), moved=0, page=SWEEP_PAGE, clock="decline", saison_id=saison_id)
+        # Judged row by row: a decision date a hand edit left unreadable is passed over in place, and the rest of the page goes.
+        taken = batch.took([row for row, due in batch.judged(rows, lambda row: decline_erasure_is_due(bewerbung_raw=row, today=today)) if due])
+        if not taken:
+            refuse_a_stalled_page(read=len(rows), moved=len(batch.refused), page=SWEEP_PAGE, clock="decline", saison_id=saison_id)
             return len(rows), 0, 0
 
+        ids = [row["_id"] for row in taken]
         # The filter names the season and the ids and nothing else: it is stored as text, and any
         # other key would preserve what this call destroys (`docs/backend/spec.md :: I48`).
         result = await erase_many_from_db(
@@ -403,10 +413,19 @@ async def sweep_saison(
                 session=session,
             )
         )
-        ids = [row["_id"] for row in rows if acceptance_erasure_is_due(bewerbung_raw=row, next_saison_status=next_saison_status)]
-        if not ids:
+        taken = batch.took(
+            [
+                row
+                for row, due in batch.judged(
+                    rows, lambda row: acceptance_erasure_is_due(bewerbung_raw=row, next_saison_status=next_saison_status)
+                )
+                if due
+            ]
+        )
+        if not taken:
             return len(rows), 0, 0
 
+        ids = [row["_id"] for row in taken]
         result = await erase_many_from_db(
             collection=bewerbungen_collection, db_filter={"saison_id": saison_id, "_id": {"$in": ids}}, session=session
         )
@@ -431,7 +450,7 @@ async def sweep_saison(
             )
         )
         # A cleared row leaves the filter, so the rows past the share are the next pass's.
-        taken = junction_rows[: batch.share]
+        taken = batch.took(junction_rows[: batch.share])
 
         # `patch_one_in_db` per row and never `patch_many_in_db`, which records no `document_id`: the
         # redaction below must match the rows it logs (`app/api/kontakte/crud.py :: clear_seats`).
@@ -467,7 +486,7 @@ async def sweep_saison(
     # has ended leaves nobody to chase, and a notice about an application this pass erased is a
     # notice about nothing.
     if season_has_ended(saison_status=saison_status):
-        ohne_entscheidung, redacted_undecided = await drain(
+        ohne_entscheidung, redacted_undecided, _ = await drain(
             db=db,
             page_of=lambda session, batch: session.with_transaction(erase_the_undecided, batch),
             page=SWEEP_PAGE,
@@ -475,7 +494,7 @@ async def sweep_saison(
             clock="season's end",
         )
 
-    abgelehnte, redacted_declined = await drain(
+    abgelehnte, redacted_declined, _ = await drain(
         db=db,
         page_of=lambda session, batch: session.with_transaction(erase_declined, batch),
         page=SWEEP_PAGE,
@@ -485,7 +504,7 @@ async def sweep_saison(
 
     angenommene, geleert, redacted_accepted = 0, 0, 0
     if season_after_has_ended(next_saison_status=next_saison_status):
-        angenommene, redacted_accepted = await drain(
+        angenommene, redacted_accepted, _ = await drain(
             db=db,
             page_of=lambda session, batch: session.with_transaction(erase_accepted, batch),
             page=SWEEP_PAGE,
@@ -547,11 +566,12 @@ async def sweep_saison(
 
     # The run's day is a season write, which the cache serves.
     with dropping_the_saison_cache():
+        share = Batch(share=REMINDERS_PER_PASS)
         reminded, _ = await run_isolated(
             db=db,
-            batch=Batch(share=REMINDERS_PER_PASS),
+            batch=share,
             attempt=lambda session, batch: session.with_transaction(remind, batch),
-            moved=lambda answered: len({erinnerung.bewerbung_id for erinnerung in answered[0]}),
+            moved=lambda answered: len({erinnerung.bewerbung_id for erinnerung in answered}),
             owes=True,
             what="Application",
             clock="reminder",
@@ -561,13 +581,12 @@ async def sweep_saison(
             async with transaction_session(db) as session:
                 await session.with_transaction(stamp_the_run)
 
-    erinnerungen = [erinnerung for answered, _ in reminded for erinnerung in answered]
-    withheld = sum(count for _, count in reminded)
+    erinnerungen = [erinnerung for answered in reminded for erinnerung in answered]
 
     # After the commit, so a retried transaction writes no second line. A count and never an id: a
     # line naming the application would tie it to the ban for as long as the log is kept.
-    if withheld:
-        fl_logger.info(f"Reminders withheld from barred addresses in season {saison_id}: {withheld} mailbox(es)")
+    if share.withheld:
+        fl_logger.info(f"Reminders withheld from barred addresses in season {saison_id}: {share.withheld} mailbox(es)")
 
     return FLBewerbungSweepResponse(
         saison_id=saison_id,
@@ -622,10 +641,16 @@ async def angekuendigt_bewerbungen(
             )
         )
 
-        stamped = 0
-        for row in rows:
-            if not deletion_is_due(bewerbung_raw=row, today=today) or deletion_was_announced(bewerbung_raw=row):
-                continue
+        taken = batch.took(
+            [
+                row
+                for row, unstamped in batch.judged(
+                    rows, lambda row: deletion_is_due(bewerbung_raw=row, today=today) and not deletion_was_announced(bewerbung_raw=row)
+                )
+                if unstamped
+            ]
+        )
+        for row in taken:
             # `patch_one_in_db` per row and never `patch_many_in_db`, which records no `document_id`:
             # the erasure that follows names these ids, and its log rows have to be findable by them.
             await patch_one_in_db(
@@ -635,9 +660,8 @@ async def angekuendigt_bewerbungen(
                 session=session,
                 return_document=ReturnDocument.BEFORE,
             )
-            stamped += 1
 
-        return stamped
+        return len(taken)
 
     stamped, _ = await run_isolated(
         db=db,
@@ -694,9 +718,19 @@ async def loeschen_bewerbungen(
         )
         # Announced as well as due: an unannounced id here is a caller that skipped the stamp, and
         # erasing it would destroy an application whose people were never told.
-        ids = [row["_id"] for row in rows if deletion_is_due(bewerbung_raw=row, today=today) and deletion_was_announced(bewerbung_raw=row)]
-        if not ids:
+        taken = batch.took(
+            [
+                row
+                for row, announced in batch.judged(
+                    rows, lambda row: deletion_is_due(bewerbung_raw=row, today=today) and deletion_was_announced(bewerbung_raw=row)
+                )
+                if announced
+            ]
+        )
+        if not taken:
             return 0, 0
+
+        ids = [row["_id"] for row in taken]
 
         result = await erase_many_from_db(
             collection=bewerbungen_collection, db_filter={"saison_id": saison_id, "_id": {"$in": ids}}, session=session

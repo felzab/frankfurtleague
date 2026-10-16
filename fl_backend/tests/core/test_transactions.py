@@ -112,7 +112,7 @@ class TestAFullPageIsRunAgain:
             handed.append(session)
             return pages[len(handed) - 1]
 
-        erased, redacted = asyncio.run(
+        erased, redacted, _ = asyncio.run(
             drain(
                 db=cast(AsyncMongoClient, client),
                 page_of=lambda session, batch: session.with_transaction(erase_a_page, batch),
@@ -173,6 +173,15 @@ def _refused_by_the_answer() -> ValidationError:
     raise AssertionError("the answer took a value its pattern refuses")
 
 
+async def _page(standing: list[int], batch: Batch) -> list[dict[str, int]]:
+    """The rows standing under the filter `Batch.within` builds over a clock's empty one, read as the server reads it."""
+
+    terms = [term["_id"] for term in batch.within({}).get("$and", [])[1:]]
+    admitted = [row for row in standing if all(row in term.get("$in", [row]) and row not in term.get("$nin", ()) for term in terms)]
+
+    return [{"_id": row} for row in admitted[: PAGE + 1]]
+
+
 class _Rows:
     """The rows a clock's transaction reads, one past `PAGE` under its batch's term, raising whatever `raises` answers for what it read."""
 
@@ -181,15 +190,8 @@ class _Rows:
         self.raises = raises
         self.read: list[list[int]] = []
 
-    async def _page(self, batch: Batch) -> list[dict[str, int]]:
-        # The filter `Batch.within` builds over this clock's empty one, read as the server reads it.
-        terms = [term["_id"] for term in batch.within({}).get("$and", [])[1:]]
-        admitted = [row for row in self.standing if all(row in term.get("$in", [row]) and row not in term.get("$nin", ()) for term in terms)]
-
-        return [{"_id": row} for row in admitted[: PAGE + 1]]
-
     async def erase(self, _: Any, batch: Batch) -> tuple[int, int, int]:
-        rows = [row["_id"] for row in await batch.saw(self._page(batch))]
+        rows = [row["_id"] for row in await batch.saw(_page(self.standing, batch))]
         self.read.append(rows)
         if (failure := self.raises(rows)) is not None:
             raise failure
@@ -249,7 +251,7 @@ class TestARowFailingAloneIsPassedOver:
         rows = _Rows(2 * PAGE + 1, lambda read: failure() if 1 in read else None)
 
         with caplog.at_level(logging.ERROR, logger=fl_logger.name):
-            erased, _ = asyncio.run(
+            erased, _, passed = asyncio.run(
                 drain(
                     db=cast(AsyncMongoClient, _Client()),
                     page_of=lambda session, batch: session.with_transaction(rows.erase, batch),
@@ -259,7 +261,7 @@ class TestARowFailingAloneIsPassedOver:
                 )
             )
 
-        assert (erased, rows.standing) == (2 * PAGE, [1])
+        assert (erased, rows.standing, passed) == (2 * PAGE, [1], [1])
         # The page after the one it failed in, read without it: read with it, it fails that page whole again.
         assert rows.read[-1] == [4, 5, 6]
         [(logged_code, logged)] = [(getattr(record, "error_code", None), record.getMessage()) for record in caplog.records]
@@ -389,6 +391,110 @@ class TestABatchNarrowsTheClocksOwnFilter:
         own = {"_id": {"$in": [1, 2]}, "status": "eingereicht"}
 
         assert Batch(passed=[3]).within(own) == {"$and": [own, {"_id": {"$nin": [3]}}]}
+
+
+class _Share:
+    """A share clock's transaction: it passes `refused` over in place, takes the rest up to its share, and fails writing `failing`."""
+
+    def __init__(self, count: int, *, refused: int, failing: int) -> None:
+        self.standing = list(range(count))
+        self.refused = refused
+        self.failing = failing
+        self.read: list[list[int]] = []
+
+    async def remind(self, _: Any, batch: Batch) -> list[int]:
+        rows = [row["_id"] for row in await batch.saw(_page(self.standing, batch))]
+        self.read.append(rows)
+        taken = [row for row, _ in batch.judged([{"_id": row} for row in rows], self._judge)][: batch.share]
+        batch.took(taken)
+        if any(row["_id"] == self.failing for row in taken):
+            raise OperationFailure("refused", 121)
+
+        return [row["_id"] for row in taken]
+
+    def _judge(self, row: Mapping[str, Any]) -> None:
+        if row["_id"] == self.refused:
+            raise _FailedInTheCallback
+
+
+def _a_share(clock: _Share, *, share: int, owes: bool = True) -> tuple[list[list[int]], list[Any]]:
+    return asyncio.run(
+        run_isolated(
+            db=cast(AsyncMongoClient, _Client()),
+            batch=Batch(share=share),
+            attempt=lambda session, batch: session.with_transaction(clock.remind, batch),
+            moved=len,
+            owes=owes,
+            what="Row",
+            clock="test",
+        )
+    )
+
+
+class TestAShareIsTakenApartOverTheRowsItTook:
+    """`docs/backend/spec.md :: I728`: halving its whole read would re-read the page past the share, at its share's cost."""
+
+    def test_the_halves_read_no_row_passed_over_in_place_or_left_past_the_share(self, caplog: pytest.LogCaptureFixture):
+        """Row 0 is passed over in place, rows 1 and 2 are the share, row 3 is past it, and writing row 2 fails."""
+
+        clock = _Share(PAGE + 1, refused=0, failing=2)
+
+        with caplog.at_level(logging.ERROR, logger=fl_logger.name):
+            answered = _a_share(clock, share=2)
+
+        assert answered == ([[1]], [0, 2])
+        assert clock.read == [[0, 1, 2, 3], [1], [2]]
+        # Each logged once, the row passed over in place by the attempt that judged it.
+        assert sorted(record.getMessage().split(" was ")[0] for record in caplog.records) == ["Row 0", "Row 2"]
+
+    def test_a_row_passed_over_in_place_is_answered_beside_a_committed_share(self):
+        assert _a_share(_Share(3, refused=1, failing=-1), share=4) == ([[0, 2]], [1])
+
+
+class TestAnIsolationOwingAMessageStopsWithinTheDeadline:
+    """`docs/backend/spec.md :: I323`: once a half owing a message has committed, the call answers it whatever stops the rest."""
+
+    @staticmethod
+    def _owing(rows: _Rows, *, deadline_s: float | None) -> tuple[list[tuple[int, int, int]], list[Any]]:
+        token = request_deadline_var.set(None if deadline_s is None else time.monotonic() + deadline_s)
+        try:
+            return _isolated(rows, owes=True)
+        finally:
+            request_deadline_var.reset(token)
+
+    def test_no_attempt_starts_that_the_deadline_left_cannot_hold(self, caplog: pytest.LogCaptureFixture):
+        """Started anyway, the deadline cuts it, and a cut commit may land with its answer lost."""
+
+        rows = _Rows(4, lambda read: OperationFailure("refused", 121) if 3 in read else None)
+
+        with caplog.at_level(logging.WARNING, logger=fl_logger.name):
+            answered = self._owing(rows, deadline_s=-1.0)
+
+        assert (answered, rows.read) == (([(2, 2, 0)], []), [[0, 1, 2, 3], [0, 1]])
+        assert [(record.levelname, getattr(record, "error_code", None)) for record in caplog.records] == [("WARNING", DATABASE_FAILED)]
+
+    def test_the_same_isolation_inside_its_deadline_takes_every_half(self):
+        """The control: with time left, the halves after the first are run, and the failing row alone is passed over."""
+
+        rows = _Rows(4, lambda read: OperationFailure("refused", 121) if 3 in read else None)
+
+        assert self._owing(rows, deadline_s=None) == ([(2, 2, 0), (1, 1, 0)], [3])
+
+    def test_a_failure_no_row_carries_after_a_committed_half_is_answered_rather_than_raised(self, caplog: pytest.LogCaptureFixture):
+        """Raised, the call would answer an error in place of the messages the committed half owes."""
+
+        refusal = ActorForbiddenException(error_code=ACTOR_NOT_ADMIN, message="refused", jti="jti")
+
+        def raises(read: list[int]) -> Exception | None:
+            if read == [0, 1, 2, 3]:
+                return OperationFailure("refused", 121)
+            return refusal if 2 in read else None
+
+        with caplog.at_level(logging.WARNING, logger=fl_logger.name):
+            answered = self._owing(_Rows(4, raises), deadline_s=None)
+
+        assert answered == ([(2, 2, 0)], [])
+        assert [getattr(record, "error_code", None) for record in caplog.records] == [UNHANDLED_CRASH]
 
 
 def _run_judged(actor: Actor | PersonActor, judge: Any, *, attempts: int = 1, fails: bool = False, client: _Client | None = None) -> list[str]:

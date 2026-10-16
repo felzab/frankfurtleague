@@ -199,28 +199,44 @@ async def sweep_registrierungen(
                 session=session,
             )
         )
-        taken = [row for row in rows if undecided_erasure_is_due(registrierung_raw=row, saison_status=saison_status)]
-        if not taken:
-            refuse_a_stalled_page(read=len(rows), moved=0, page=SWEEP_PAGE, clock="season's end", saison_id=saison_id)
-            await stamp_the_run(session)
-            return [], 0, 0, True
+        due = [
+            row
+            for row, is_due in batch.judged(rows, lambda row: undecided_erasure_is_due(registrierung_raw=row, saison_status=saison_status))
+            if is_due
+        ]
 
         # The note goes to the pupils who confirmed and to nobody else: an unconfirmed address is one
         # the league could not reach at all, and the message would go to whoever was mistyped.
-        told = [row for row in taken if registrierung_ist_bestaetigt(einwilligung=row.get("einwilligung"))]
-        team_names = await _team_names(teams_collection=teams_collection, rows=told, session=session)
-        benachrichtigt = [
-            FLRegistrierungSweepBenachrichtigung(
+        def told(row: Mapping[str, Any]) -> bool:
+            return registrierung_ist_bestaetigt(einwilligung=row.get("einwilligung"))
+
+        team_names = await _team_names(teams_collection=teams_collection, rows=[row for row in due if told(row)], session=session)
+
+        def notiz_of(row: Mapping[str, Any]) -> FLRegistrierungSweepBenachrichtigung | None:
+            if not told(row):
+                return None
+
+            return FLRegistrierungSweepBenachrichtigung(
                 registrierung_id=row["_id"],
                 saison_id=saison_id,
                 team=team_names.get(row.get("team_id"), _TEAM_UNBEKANNT),
                 vorname=str(row.get("vorname") or ""),
                 email=str(row.get("email") or ""),
             )
-            for row in told
-        ]
 
-        ids = [row["_id"] for row in taken]
+        # Each note built before anything is erased: a pupil the answer cannot carry stays, never erased untold.
+        taken = batch.judged(due, notiz_of)
+        batch.took([row for row, _ in taken])
+        benachrichtigt = [notiz for _, notiz in taken if notiz is not None]
+        if not taken:
+            # Rows passed over in place move the page: the next one is read without them.
+            refuse_a_stalled_page(read=len(rows), moved=len(batch.refused), page=SWEEP_PAGE, clock="season's end", saison_id=saison_id)
+            last = len(rows) <= SWEEP_PAGE
+            if last:
+                await stamp_the_run(session)
+            return [], 0, 0, last
+
+        ids = [row["_id"] for row, _ in taken]
         result = await erase_many_from_db(
             collection=registrierungen_collection, db_filter={"saison_id": saison_id, "_id": {"$in": ids}}, session=session
         )
@@ -246,11 +262,15 @@ async def sweep_registrierungen(
                 session=session,
             )
         )
-        ids = [row["_id"] for row in rows if bestaetigung_erasure_is_due(registrierung_raw=row, today=today)]
-        if not ids:
-            refuse_a_stalled_page(read=len(rows), moved=0, page=SWEEP_PAGE, clock="deadline", saison_id=saison_id)
+        taken = batch.took(
+            [row for row, due in batch.judged(rows, lambda row: bestaetigung_erasure_is_due(registrierung_raw=row, today=today)) if due]
+        )
+        if not taken:
+            # Rows passed over in place move the page: the drain reads the next one without them.
+            refuse_a_stalled_page(read=len(rows), moved=len(batch.refused), page=SWEEP_PAGE, clock="deadline", saison_id=saison_id)
             return len(rows), 0, 0
 
+        ids = [row["_id"] for row in taken]
         # The filter names the season and the ids and nothing else: it is stored as text, and any
         # other key would preserve what this call destroys (`docs/backend/spec.md :: I48`).
         result = await erase_many_from_db(
@@ -260,10 +280,10 @@ async def sweep_registrierungen(
 
         return len(rows), result.deleted_count, redacted
 
-    async def remind(session: AsyncClientSession, batch: Batch) -> tuple[list[FLRegistrierungSweepErinnerung], int]:
+    async def remind(session: AsyncClientSession, batch: Batch) -> list[FLRegistrierungSweepErinnerung]:
         """Stamp, mint, stamp the run, then hand back, as the pass's last transaction. Read in-session, so a retry re-judges.
 
-        Also answers how many registrations on the page a ban kept from their reminder, for the log line.
+        Counts on the batch how many registrations on the page a ban kept from their reminder, for the log line.
         """
 
         rows = await batch.saw(
@@ -278,24 +298,35 @@ async def sweep_registrierungen(
                 session=session,
             )
         )
-        due = [row for row in rows if erinnerung_is_due(registrierung_raw=row, today=today)]
+        due = [row for row, is_due in batch.judged(rows, lambda row: erinnerung_is_due(registrierung_raw=row, today=today)) if is_due]
         # Asked over the whole page before the share is cut: nothing of a ban is stored, so a barred row
         # stays due, and a share cut first would fill with the same barred rows on every pass.
         gesperrt = await adressen_gesperrt(
             sperrliste, [str(row["email"]) for row in due if row.get("email")], massgebliche_saison_id=massgebliche_saison_id, session=session
         )
         reachable = [row for row in due if not (row.get("email") and str(row["email"]) in gesperrt)]
-        withheld = len(due) - len(reachable)
+        batch.withheld = len(due) - len(reachable)
+        team_names = await _team_names(teams_collection=teams_collection, rows=reachable, session=session)
 
-        # The rows past the share stay due and unstamped, so the next pass takes them: a reminded row
-        # leaves the filter, so a full page is drained by the passes that follow.
-        taken = reachable[: batch.share]
-        refuse_a_stalled_page(read=len(rows), moved=len(taken), page=SWEEP_PAGE, clock="reminder", saison_id=saison_id)
-        team_names = await _team_names(teams_collection=teams_collection, rows=taken, session=session)
-
-        erinnerungen: list[FLRegistrierungSweepErinnerung] = []
-        for row in taken:
+        def erinnerung_of(row: Mapping[str, Any]) -> tuple[FLRegistrierungSweepErinnerung, str]:
             raw, token_hash = mint_token()
+            erinnerung = FLRegistrierungSweepErinnerung(
+                registrierung_id=row["_id"],
+                saison_id=saison_id,
+                team=team_names.get(row.get("team_id"), _TEAM_UNBEKANNT),
+                vorname=str(row.get("vorname") or ""),
+                email=str(row.get("email") or ""),
+                token=raw,
+            )
+            return erinnerung, token_hash
+
+        # Answers built before any stamp, the share cut from the rows they carry: a refused row writes nothing
+        # and costs no second attempt (`docs/backend/spec.md :: I728`), and the rows past the share stay due.
+        taken = batch.judged(reachable, erinnerung_of)[: batch.share]
+        batch.took([row for row, _ in taken])
+        refuse_a_stalled_page(read=len(rows), moved=len(taken), page=SWEEP_PAGE, clock="reminder", saison_id=saison_id)
+
+        for row, (_, token_hash) in taken:
             # The stamp lands before the caller can mail: a crash between the two costs one reminder,
             # where the other order would repeat it every day until the address worked.
             await patch_one_in_db(
@@ -305,20 +336,10 @@ async def sweep_registrierungen(
                 session=session,
                 return_document=ReturnDocument.BEFORE,
             )
-            erinnerungen.append(
-                FLRegistrierungSweepErinnerung(
-                    registrierung_id=row["_id"],
-                    saison_id=saison_id,
-                    team=team_names.get(row.get("team_id"), _TEAM_UNBEKANNT),
-                    vorname=str(row.get("vorname") or ""),
-                    email=str(row.get("email") or ""),
-                    token=raw,
-                )
-            )
 
         await stamp_the_run(session)
 
-        return erinnerungen, withheld
+        return [erinnerung for _, (erinnerung, _) in taken]
 
     async def erase_declined(session: AsyncClientSession, batch: Batch) -> tuple[int, int, int]:
         """The one-month clock: erase, then redact. Read in-session, so a retry re-judges."""
@@ -332,11 +353,15 @@ async def sweep_registrierungen(
                 session=session,
             )
         )
-        ids = [row["_id"] for row in rows if decline_erasure_is_due(registrierung_raw=row, today=today)]
-        if not ids:
-            refuse_a_stalled_page(read=len(rows), moved=0, page=SWEEP_PAGE, clock="decline", saison_id=saison_id)
+        # Judged row by row: a decision date a hand edit left unreadable is passed over in place, and the rest of the page goes.
+        taken = batch.took(
+            [row for row, due in batch.judged(rows, lambda row: decline_erasure_is_due(registrierung_raw=row, today=today)) if due]
+        )
+        if not taken:
+            refuse_a_stalled_page(read=len(rows), moved=len(batch.refused), page=SWEEP_PAGE, clock="decline", saison_id=saison_id)
             return len(rows), 0, 0
 
+        ids = [row["_id"] for row in taken]
         result = await erase_many_from_db(
             collection=registrierungen_collection, db_filter={"saison_id": saison_id, "_id": {"$in": ids}}, session=session
         )
@@ -347,7 +372,7 @@ async def sweep_registrierungen(
     # FIRST, and every other drain before the pass's last transaction: what that transaction hands
     # back is owed a message, and a failure after it would answer this request with an error instead
     # (`docs/backend/spec.md :: I323`).
-    abgelehnte, redacted_declined = await drain(
+    abgelehnte, redacted_declined, _ = await drain(
         db=db,
         page_of=lambda session, batch: session.with_transaction(erase_declined, batch),
         page=SWEEP_PAGE,
@@ -364,22 +389,25 @@ async def sweep_registrierungen(
         # The season's end takes every row the two clocks in the other arm read, so a link minted
         # for one of them would be a credential nobody can spend.
         if season_has_ended(saison_status=saison_status):
+            passed_at_the_end: list[Any] = []
             # Its own loop rather than `app/core/transactions.py :: drain`, which stops only at a short
             # page: this clock also stops at the first page owing somebody a message.
             while True:
                 # Accepted: this commit going unanswered erases a page and loses whom it owed a
                 # message (`docs/backend/spec.md :: "An unanswered commit owing a message"`).
-                pages, _ = await run_isolated(
+                pages, passed = await run_isolated(
                     db=db,
-                    batch=Batch(),
+                    # Without the rows passed over, as `drain` reads its pages.
+                    batch=Batch(passed=passed_at_the_end),
                     attempt=lambda session, batch: session.with_transaction(erase_the_undecided, batch),
                     moved=lambda page: page[1],
                     owes=True,
                     what="Registration",
                     clock="season's end",
                 )
-                for told, erased, redacted, _ in pages:
-                    benachrichtigt.extend(told)
+                passed_at_the_end.extend(passed)
+                for notizen, erased, redacted, _ in pages:
+                    benachrichtigt.extend(notizen)
                     ohne_entscheidung += erased
                     redacted_undecided += redacted
                 # Every half of a page taken apart reads under the page and so ends the call, having
@@ -390,7 +418,7 @@ async def sweep_registrierungen(
                 if all(last for *_, last in pages):
                     break
         else:
-            unbestaetigt, redacted_unconfirmed = await drain(
+            unbestaetigt, redacted_unconfirmed, _ = await drain(
                 db=db,
                 page_of=lambda session, batch: session.with_transaction(erase_the_unconfirmed, batch),
                 page=SWEEP_PAGE,
@@ -398,11 +426,12 @@ async def sweep_registrierungen(
                 clock="deadline",
             )
 
+            share = Batch(share=REMINDERS_PER_PASS)
             reminded, _ = await run_isolated(
                 db=db,
-                batch=Batch(share=REMINDERS_PER_PASS),
+                batch=share,
                 attempt=lambda session, batch: session.with_transaction(remind, batch),
-                moved=lambda answered: len(answered[0]),
+                moved=len,
                 owes=True,
                 what="Registration",
                 clock="reminder",
@@ -411,13 +440,12 @@ async def sweep_registrierungen(
             if not reminded:
                 async with transaction_session(db) as session:
                     await session.with_transaction(stamp_the_run)
-            erinnerungen = [erinnerung for answered, _ in reminded for erinnerung in answered]
-            withheld = sum(count for _, count in reminded)
+            erinnerungen = [erinnerung for answered in reminded for erinnerung in answered]
 
             # After the commit, so a retried transaction writes no second line. A count and never an id:
             # a line naming the registration would tie it to the ban for as long as the log is kept.
-            if withheld:
-                fl_logger.info(f"Reminders withheld from barred addresses in season {saison_id}: {withheld} registration(s)")
+            if share.withheld:
+                fl_logger.info(f"Reminders withheld from barred addresses in season {saison_id}: {share.withheld} registration(s)")
 
     return FLRegistrierungSweepResponse(
         saison_id=saison_id,
