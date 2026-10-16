@@ -394,8 +394,9 @@ Every ruling below is the sign-up flow as it stands for the next season.
   row, so no set of fixtures singles a person out. No erasure reaches the ghost: each selects the
   records an address holds, and the ghost holds none.
 - **The address route answers every request, because no write stores a pupil or referee row
-  without an address.** A pupil row is written only by an admission, which gives it the
-  registration's address, and a referee's create and save each require one. Every erasure is keyed
+  without an address.** A pupil row is created only by an admission, which gives it the
+  registration's address, and only a confirmed address change moves that address; a referee's
+  create and save each require one. Every erasure is keyed
   on a mailbox, so the rows stored without one before are reached by none: a pupil row from before
   the registration flow, and a referee row holding one placeholder under the reserved `.invalid`
   domain, which the administrator's erasure and its reveal refuse before any read, since it would
@@ -526,9 +527,10 @@ Every ruling below is the sign-up flow as it stands for the next season.
   its row is refreshed (`fl_frontend/src/core/auth.ts :: SESSION_UPDATE_AGE_SECONDS`), and the
   account page shows that as „Zuletzt aktiv“ beside each sign-in
   (`fl_frontend/src/features/konto/sicherheit.ts`). A `user` row's `updatedAt` records when that account last changed or last
-  had a passkey removed (`fl_frontend/src/core/auth.ts :: claimAccount`), and where a ban
-  ended the account's sessions, the row keeps when it did (`fl_frontend/src/core/auth.ts :: endSessionsOfAddress`), so that no session made before it
-  is served again once the ban is lifted. An administrator may end an address's sessions without a ban, mailing nobody; the action
+  had a passkey removed (`fl_frontend/src/core/auth.ts :: claimAccount`), and where a ban or an
+  administrator's sign-out ended the account's sessions, the row keeps when it did
+  (`fl_frontend/src/core/auth.ts :: endSessionsOfAddress`), so that no session made before it is
+  served again, not even once a ban is lifted. The sign-out bars nothing and mails nobody; the action
   log keeps who did it and when, and never the address (`docs/backend/spec.md :: I689`). **A session and a sign-in code each carry an expiry set at that
   configuration, and the expiry bounds the credential rather than the row**: the library drops a
   session row when its holder presents the stale cookie and leaves it standing where nobody comes
@@ -579,8 +581,8 @@ Every ruling below is the sign-up flow as it stands for the next season.
   ([section 6](#6-retention-is-bounded-where-a-bound-was-chosen)), and no erasure reaches it. Until
   the person's erasure an administrator can match the prefix to their rows on the log page; after it
   those rows name the marker, and the prefix matches nothing there (`docs/backend/spec.md :: I665`).
-- **An erasure itself writes one keyed hash of the address, which the database removes at its next
-  expiry pass.** The address's anchor (`docs/glossary.md :: Adressanker`) holds a keyed hash of the
+- **An erasure itself writes the address's anchor, which the database removes at its next expiry
+  pass.** The anchor (`docs/glossary.md :: Adressanker`) holds a keyed hash of the
   folded address under a label of its own, a counter and the instant of its last write, and no
   address. Every transaction an address enters the records through writes it, a signed-in person's
   own write writes theirs, and the address's erasure writes it too, which is what makes a record
@@ -913,6 +915,14 @@ Framework list, both read on 2026-09-22.
 | WhatsApp (consumer app)          | Phone numbers and messages of the people the league writes to there one by one, and of anyone who writes to it that way                                                                                                                                              | **None for the consumer app**; the consent text discloses the channel. Accepted for now, as a known gap                                                                                                                                                                                        | Ireland (WhatsApp Ireland Limited), with its onward transfer to the United States on the Framework                       |
 | Instagram (the league's account) | The photographs, videos and interviews the league publishes on its account, each on the pictured person's own consent from eighteen                                                                                                                                  | **None**; Meta runs the platform under its own terms as a controller of its own; whether the league shares control of anything is open ([section 11](#11-open-and-owed-a-decision))                                                                                                            | Not committed; Meta Platforms, Inc. in the United States stands on the Framework list, its re-certification under review |
 
+**Resend keeps every message it sends for the league, with its delivery events and its logs, for
+thirty days, and its backups up to seven days longer**, on its Free, Pro and Scale plans alike, an
+Enterprise plan's period being agreed apart; which plan this account is on is recorded nowhere in
+this repository. Mirrored from https://resend.com/security/gdpr and https://resend.com/security,
+which move without us; read 2026-10-16. No erasure reaches those copies, the deletion link's mail
+and a ban's notice with its reason among them, and the published notice states the period
+(`DatenschutzView.tsx :: FRISTEN`).
+
 **Nothing is left to sign for Resend, Cloudflare and MongoDB Atlas.** Ruled 2026-09-02. What is
 owed:
 
@@ -1084,9 +1094,10 @@ the `Entry` column carries a token only where one still resolves in that file.
   whether publishing those names until the drop rests on that basis; and whether that exemption
   carries the unmet duty to inform them, with the published notice as the measure it asks, or the
   rows holding a real address are mailed their link before the drop.
-- **An administrator's address on every invite entry, and the delivery state beside it, kept with
-  no clock, for the Datenschutzexperte.** An invite entry holds the administrator who minted it in
-  plain, and nothing deletes the entry
+- **An administrator's address on every invite entry until their own erasure, and the delivery
+  state beside it with no clock, for the Datenschutzexperte.** An invite entry holds the
+  administrator who minted it in plain until their own erasure gives it a marker naming nobody
+  (`docs/backend/spec.md :: I660`), and nothing deletes the entry
   ([section 6](#6-retention-is-bounded-where-a-bound-was-chosen),
   `fl_backend/app/api/einladungen/services.py :: compose_einladung`); the delivery state of the
   message that carried its link stays on it too, past the erasure of the contact person it was mailed
@@ -1094,7 +1105,8 @@ the `Entry` column carries a token only where one still resolves in that file.
   Widerspruch is the same kind of record: on an application and on a team's season row it keeps the
   delivery state of the message the person answered, past their leaving the seat, until its
   application or row goes ([section 6](#6-retention-is-bounded-where-a-bound-was-chosen)). The
-  questions to put: whether the invite's address and delivery state may be kept without a bound, and
+  questions to put: whether the invite's address may be kept until its administrator's erasure and
+  its delivery state without a bound, and
   whether a delivery record the provider can join back to an address, on an invite or on a declined
   seat's entry, is still that person's data.
 - **One act per choice as the proof of a consent, for the Datenschutzexperte.** What demonstrates a

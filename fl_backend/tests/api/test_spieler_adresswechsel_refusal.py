@@ -104,19 +104,18 @@ class TestTheAnswer:
 
 
 class TestWhatALeakedLinkLearns:
-    """`READ-PUPIL-005`: the holder of a leaked link learns a first name, a state and a deadline, never either address."""
+    """`READ-PUPIL-005`: the holder of a leaked link learns a state and a deadline, never a name or either address."""
 
-    def test_the_view_declares_exactly_the_three_names_it_may_answer(self):
-        assert set(FLSpielerAdresswechselAnsichtResponse.model_fields) - {"acknowledged"} == {"zustand", "vorname", "frist"}
+    def test_the_view_declares_exactly_the_two_fields_it_may_answer(self):
+        assert set(FLSpielerAdresswechselAnsichtResponse.model_fields) - {"acknowledged"} == {"zustand", "frist"}
 
     def test_the_answer_echoes_the_press_alone(self):
         assert set(FLSpielerAdresswechselAntwortResponse.model_fields) - {"acknowledged"} == {"antwort"}
 
-    def test_the_read_projects_no_hash_and_no_surname(self):
+    def test_the_read_projects_no_hash_and_no_name(self):
         """The two addresses are read for the ban list and the holder check, the response model being what keeps them off the answer."""
 
         assert set(SPIELER_ADRESSWECHSEL_ANSICHT_FIELDS) == {
-            "vorname",
             "email",
             f"{SPIELER_ADRESSWECHSEL_FELD}.email",
             f"{SPIELER_ADRESSWECHSEL_FELD}.frist",

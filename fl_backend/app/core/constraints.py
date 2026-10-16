@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from functools import partial
 from typing import Any, TypedDict
 
+from pydantic import TypeAdapter, ValidationError
 from pymongo import ASCENDING, DESCENDING, AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
@@ -13,6 +14,7 @@ from app.core.collections import Collection
 from app.core.config import MONGODB_URI_FILE, get_config  # noqa: TID251
 from app.core.sentinels import GHOST_SPIELER_ID
 from app.shared.schemas.bounds import AKTION_RETENTION_SECONDS
+from app.shared.schemas.custom import CustomDateString, CustomNonEmptyString, CustomOptionalDateString
 
 # Handled rather than re-raised: creating the collection with the validator attached reaches the
 # same end state.
@@ -1765,6 +1767,97 @@ async def report_nameless_persons(db: AsyncDatabase) -> RelationReport:
     )
 
 
+@dataclass(frozen=True)
+class ServedValues:
+    """Every stored value of one collection that the models serving it refuse and its validator admits."""
+
+    collection: Collection
+    rule: str
+    # Each dotted path under its model's own type, so the report refuses exactly what a read does.
+    types: Mapping[str, TypeAdapter[Any]]
+
+
+# A validator holds types and enums alone (`.claude/rules/backend.md` db), so a hand edit can store an
+# empty name or a day no calendar holds, and a list serving that row answers 500 for every row
+# (`SRV-VAL-001`).
+SERVED_VALUES: tuple[ServedValues, ...] = (
+    # GET /registrierungen serves every row.
+    ServedValues(
+        collection=Collection.REGISTRIERUNGEN,
+        rule="a registration's names and address are non-empty and its dates calendar days (registrierungen)",
+        types={
+            "eingereicht_am": TypeAdapter(CustomDateString),
+            "vorname": TypeAdapter(CustomNonEmptyString),
+            "nachname": TypeAdapter(CustomNonEmptyString),
+            "email": TypeAdapter(CustomNonEmptyString),
+            "geburtsdatum": TypeAdapter(CustomOptionalDateString),
+            "einwilligung.datum": TypeAdapter(CustomOptionalDateString),
+            "einwilligung.bestaetigt_am": TypeAdapter(CustomOptionalDateString),
+            "bestaetigung.verschickt_am": TypeAdapter(CustomDateString),
+            "bestaetigung.erinnert_am": TypeAdapter(CustomOptionalDateString),
+            "bestaetigung.frist": TypeAdapter(CustomDateString),
+            "entscheidung.getroffen_am": TypeAdapter(CustomDateString),
+            "entscheidung.von": TypeAdapter(CustomNonEmptyString),
+        },
+    ),
+    # GET /spieler/memberships serves every pupil.
+    ServedValues(
+        collection=Collection.SPIELER,
+        rule="a pupil's forename is non-empty and their dates calendar days (spieler)",
+        types={
+            # Null is the sentinel's, and `NAMELESS_PERSON_RULE`'s anywhere else.
+            "vorname": TypeAdapter(CustomNonEmptyString | None),
+            "inactive_since": TypeAdapter(CustomOptionalDateString),
+            "geburtsdatum": TypeAdapter(CustomOptionalDateString),
+            "einwilligung.datum": TypeAdapter(CustomOptionalDateString),
+            "einwilligung.bestaetigt_am": TypeAdapter(CustomOptionalDateString),
+            "adresswechsel.verschickt_am": TypeAdapter(CustomDateString),
+            "adresswechsel.frist": TypeAdapter(CustomDateString),
+        },
+    ),
+    # Joined into GET /spieler/memberships, each pupil's squad entries.
+    ServedValues(
+        collection=Collection.SAISON_SPIELER,
+        rule="a squad entry's retirement is a calendar day (saison_spieler)",
+        types={"inactive_since": TypeAdapter(CustomOptionalDateString)},
+    ),
+)
+
+
+def _refuses(adapter: TypeAdapter[Any], document: Mapping[str, Any], path: str) -> bool:
+    value: Any = document
+    for step in path.split("."):
+        # A parent stored null, or a key stored nowhere: the validator's own report names a missing key.
+        if not isinstance(value, Mapping) or step not in value:
+            return False
+        value = value[step]
+
+    try:
+        adapter.validate_python(value)
+    except ValidationError:
+        return True
+
+    return False
+
+
+async def report_unservable_values(db: AsyncDatabase) -> list[RelationReport]:
+    """Count, per read, the documents holding a value it refuses, writing nothing; each example names its fields."""
+
+    reports: list[RelationReport] = []
+
+    for served in SERVED_VALUES:
+        holding = {"$or": [{path: {"$exists": True}} for path in served.types]}
+        offenders: list[Mapping[str, Any]] = []
+
+        async for document in db[served.collection].find(holding, dict.fromkeys(served.types, 1)):
+            if refused := [path for path, adapter in served.types.items() if _refuses(adapter, document, path)]:
+                offenders.append({"_id": document["_id"], "fields": refused})
+
+        reports.append(RelationReport(rule=served.rule, groups=len(offenders), examples=offenders[:5]))
+
+    return reports
+
+
 async def probe_collmod_privilege(db: AsyncDatabase) -> str:
     """Answer whether this connection may run `collMod`, writing nothing.
 
@@ -1956,6 +2049,15 @@ async def _run(check: bool) -> int:
         if nameless.groups:
             blocking += nameless.groups
             print(f"          first offenders: {nameless.examples}")
+
+        # Counted for the same reason: one such value answers every row of the list serving it 500.
+        print("\n  Values the validators admit and a whole-list read refuses")
+        for unservable in await report_unservable_values(database):
+            marker = "ok " if unservable.groups == 0 else "FAIL"
+            print(f"    {marker}  {unservable.rule:<46} {unservable.groups:>4}")
+            if unservable.groups:
+                blocking += unservable.groups
+                print(f"          first offenders: {unservable.examples}")
 
         print("\n  Clean — safe to apply.\n" if blocking == 0 else "\n  NOT clean. Correct the data above before applying.\n")
         return 0 if blocking == 0 else 1
