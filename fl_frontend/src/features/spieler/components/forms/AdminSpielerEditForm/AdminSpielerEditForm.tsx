@@ -443,6 +443,7 @@ function SpielerEditForm({
             onValidateSelection={validateTeamSelection}
             spielerId={spieler.id}
             banners={banners}
+            isDirty={isDirty}
           />
 
           {/* Only where a row exists: there is nothing to take out of a squad the player is not in,
