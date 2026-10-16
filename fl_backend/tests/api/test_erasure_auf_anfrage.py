@@ -31,7 +31,7 @@ from app.api.spieler.services import build_ghost_spieler
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import ANCHOR_FIELD, patch_one_in_db
-from app.core.db import NO_OWNER, get_spieler_collection
+from app.core.db import NO_OWNER, get_aktionen_collection, get_spieler_collection
 from app.core.exception_handlers import DATABASE_FAILED, PAYLOAD_REFUSED, UNKNOWN_OUTCOME
 from app.core.recording import Actor
 from app.core.security import ACTOR_NOT_ADMIN, get_recent_confirmation_check, loeschung_journal_hash
@@ -595,6 +595,14 @@ class PupilsMeetingARival(InterleavedCollection):
         return await self._collection.delete_many(*args, **kwargs)
 
 
+class TheSignOutsRowMeetingARival(InterleavedCollection):
+    """The sign-out's one log row, a rival write to the grants committing first: inside the attempt, once per attempt."""
+
+    async def insert_one(self, *args: Any, **kwargs: Any) -> Any:
+        await self.run_the_rival()
+        return await self._collection.insert_one(*args, **kwargs)
+
+
 @pytest.mark.db
 class TestAnAdministratorRevokedMidRequest:
     """`docs/backend/spec.md :: I575` on this route: the transaction's judge, never the check before the handler, meets the revoke."""
@@ -793,6 +801,46 @@ class TestTheSignOut:
         assert IDENTIFIER not in str(filed).lower()
         # The log's own read serves it under the act's name.
         assert [aktion["collection"] for aktion in served["aktionen"]] == ["anmeldungen"]
+
+    def test_a_promotion_landing_inside_it_is_refused_by_its_retry(self, mongo_replica_set_url: str):
+        """The promotion anchors every grant, the actor's among them, which the sign-out's judge anchors last: the retry judges again.
+
+        Judged once ahead of the transaction instead, the row is filed and the caller ends an owner's sessions.
+        """
+
+        promotions: list[int] = []
+        racing: list[TheSignOutsRowMeetingARival] = []
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
+            served = _app()
+            async with app_client(mongo_replica_set_url, app=served, now=NOW) as http:
+
+                async def promote() -> None:
+                    answered = await http.patch(
+                        f"/api/v{API_VERSION}/berechtigungen/{THEIR_GRANT_OID}",
+                        json={"verwaltung": "owner"},
+                        headers=SignedActor(OWNER, ADMIN_KEY),
+                    )
+                    promotions.append(answered.status_code)
+
+                async def log() -> AsyncCollection:
+                    racing.append(TheSignOutsRowMeetingARival(served.state.db_client[DATABASE_NAME][Collection.AKTIONEN], promote))
+                    return cast(AsyncCollection, racing[-1])
+
+                served.dependency_overrides[get_aktionen_collection] = log
+                try:
+                    response = await http.post(ABMELDUNG_PATH, json=ansicht_of(), headers=SignedActor(OPERATOR, ADMIN_KEY))
+                finally:
+                    del served.dependency_overrides[get_aktionen_collection]
+
+            return response, await filed_by(database, ABMELDUNG_PATH)
+
+        response, filed = on_a_league(mongo_replica_set_url, body)
+
+        assert (response.status_code, response.json().get("error_code"), promotions, filed) == (403, INHABER_ADRESSE, [200], [])
+        # The premise last: the first attempt passed its judgement and reached the row, and the retry was refused before it.
+        assert sum(collection.passes for collection in racing) == 1
 
 
 def unanchored(collections: Mapping[str, list[Any]], *, besides: str) -> dict[str, list[Any]]:
