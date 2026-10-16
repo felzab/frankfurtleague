@@ -8,16 +8,8 @@ import { refusedReplay, restored, runAdminUndo, unclearReplay, UNDO_UNREADABLE }
 import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
-import {
-  activateSaison,
-  generateSpielplan,
-  loeschungLaufen,
-  patchSaison,
-  postLoeschungLauf,
-  postSaison,
-  swapGruppen,
-  undrawSpielplan,
-} from "./mutations";
+import { loeschungLaufen } from "./loeschung";
+import { activateSaison, generateSpielplan, patchSaison, postLoeschungLauf, postSaison, swapGruppen, undrawSpielplan } from "./mutations";
 import {
   mapActivateRefusal,
   mapRulesRefusal,
@@ -40,7 +32,7 @@ import { describeSpielplanUmfang } from "./utils";
 import type { FLSaisonRulesDraft, SaisonCreateDraft } from "@/features/saisons/types";
 import type { ActionResult } from "@/shared/types/types";
 import type { UndoOutcome } from "@/shared/utils/adminUndo";
-import type { LoeschungLauf } from "./mutations";
+import type { LoeschungLauf } from "./loeschung";
 import type {
   FLActivateSaisonPayload,
   FLActivateSaisonResponse,
