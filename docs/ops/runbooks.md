@@ -1389,9 +1389,12 @@ pass read while the stream or a deploy copy still held it:
     systemctl status frankfurtleague-journal.service
     ls -l /var/log/frankfurtleague/*-erasure-journal.log
 
-**A run that ended at 2 could not read the backend's stream**, and its status says so: the deploy
-copies' lines reached the day files all the same, and the stream's own lines reach theirs at the
-next pass that reads it, whichever day they fall on, unless the size cap rotates them away first.
+**A run that ended at 2 says why in its status, and only one of its reasons wrote anything.** Where
+the backend's stream alone could not be read, the deploy copies' lines reached the day files all the
+same, and the stream's own lines reach theirs at the next pass that reads it, whichever day they fall
+on, unless the size cap rotates them away first. Where the directory could not be written or the
+logs could not be read at all, no day file was written, and the next pass that can writes every line
+the stream and the copies still hold (`scripts/ops/export_journal.sh :: export_days`).
 
 ## 10. The mail provider's dashboard
 
