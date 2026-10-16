@@ -1341,13 +1341,13 @@ in the product replays one
 promise is kept. Two things a restore is contemplated for: a hand-run migration that succeeded against
 a mistyped path (§2), and a mistaken erasure, for which the snapshot window is the only route back.
 
-**Before restoring, let nothing call `POST /identitaet/loeschung/lauf` until every step below is
-done.** The run deletes each pupil the season-after rule makes due under the restored state, a
-returning pupil whose admission the snapshot predates among them, and nothing brings one back. Re-enter
-the squad rows and registrations written since the snapshot, activate again a season whose activation
-it predates, and only then let the run go on. Its deletions are re-derived rather than replayed: it
-journals none ([`../backend/spec.md`](../backend/spec.md#2-invariants) I691), so the steps below never
-list them.
+**Before restoring, switch `LOESCHUNG_SWEEP` off (§9), and switch it on again only once every step
+below is done:** until then nothing may call `POST /identitaet/loeschung/lauf`. The run deletes each
+pupil the season-after rule makes due under the restored state, a returning pupil whose admission
+the snapshot predates among them, and nothing brings one back. Re-enter the squad rows and
+registrations written since the snapshot, and activate again a season whose activation it predates,
+the switch still off. Its deletions are re-derived rather than replayed: it journals none
+([`../backend/spec.md`](../backend/spec.md#2-invariants) I691), so the steps below never list them.
 
 **The action log cannot be the list, because the restore rolls it back too.** Everything written
 between the snapshot and the restore is gone, the log's own rows about the erasures inside that window

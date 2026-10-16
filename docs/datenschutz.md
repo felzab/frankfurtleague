@@ -826,10 +826,15 @@ Every ruling below is the sign-up flow as it stands for the next season.
 - **A timer in the frontend process is what turns those clocks from an intention into a mechanism**
   (`fl_frontend/src/features/bewerbungen/sweep.ts :: armBewerbungSweep`, calling
   `fl_backend/app/api/bewerbungen/sweep_router.py :: sweep_saison` and
-  `fl_backend/app/api/registrierungen/sweep_router.py :: sweep_registrierungen` per season). A pass
-  that reminds nobody and deletes nothing records the day it ran exactly as a busy one does, and
-  `GET /bewerbungen/sweep` answers the day each half last ran (`docs/backend/spec.md :: I189`), so a
-  claim that a period was honoured rests on a date rather than on reading the data.
+  `fl_backend/app/api/registrierungen/sweep_router.py :: sweep_registrierungen` per season, then
+  `fl_backend/app/api/schiedsrichter/sweep_router.py :: sweep_adresswechsel` and, where
+  `LOESCHUNG_SWEEP` is on, `fl_backend/app/api/identitaet/sweep_router.py :: post_loeschung_lauf`).
+  A season's two sweeps record the day they ran, one that reminds nobody and deletes nothing exactly
+  as a busy one does, and `GET /bewerbungen/sweep` answers the day each last ran
+  (`docs/backend/spec.md :: I189`), so a claim that one of their periods was honoured rests on a
+  date rather than on reading the data. The lapsed addresses' removal and the pupils' deletion
+  stamp no day: their record is the line each writes per pass in the frontend's log
+  ([`ops/runbooks.md`](ops/runbooks.md#9-checking-that-the-retention-sweep-has-run) §9).
 - **Access logs stay on the host and are kept for at most eight days. The application logs are
   bounded by size while they run, and by thirty days as the copy each deploy makes.** The access
   log is a file on the host rather than a stream inside the nginx container — it carries the
