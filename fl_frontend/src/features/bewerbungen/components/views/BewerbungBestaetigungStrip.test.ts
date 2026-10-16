@@ -46,6 +46,8 @@ const ran = (action: string): number => calls.filter((call) => call.action === a
 /** What one severity was titled, in the order the strip raised it. */
 const titles = (variant: string): string[] => raised.filter((toast) => toast.variant === variant).map((toast) => toast.title);
 
+const warningBodies = (): unknown[] => raised.filter((toast) => toast.variant === "warning").map((toast) => toast.description);
+
 beforeEach(() => {
   calls.length = 0;
   raised.length = 0;
@@ -383,7 +385,12 @@ describe("the address correction", () => {
     // Its own title rather than the editors' „Änderung nicht gespeichert“, which a sentence-only
     // refusal would otherwise reach through the hook's default raise.
     assert.deepEqual(titles("danger"), ["Adresse nicht korrigiert"]);
-    assert.deepEqual(titles("warning"), ["Link nicht zugestellt", "Link zurückgehalten"]);
+    assert.deepEqual(titles("warning"), ["Adresse korrigiert, Link nicht verschickt", "Adresse korrigiert, Link zurückgehalten"]);
+    // The server's sentence is the body at every grade (`docs/frontend/spec.md` §1.12): the action words its own failed send.
+    assert.deepEqual(warningBodies(), [
+      "Der Link ging nicht raus.",
+      "Der neue Link ging nicht raus, weil die Adresse auf der Sperrliste steht.",
+    ]);
     assert.deepEqual(titles("success"), ["Adresse korrigiert"]);
   });
 });
@@ -500,7 +507,7 @@ describe("a write whose answer never arrives", () => {
   /* The mint stands whichever way the send went, so a link that failed or that the ban list held back is
      a warning titled for what happened, never the press's sent title. */
   for (const [versand, title] of [
-    ["fehlgeschlagen", "Link nicht zugestellt"],
+    ["fehlgeschlagen", "Link nicht verschickt"],
     ["gesperrt", "Link zurückgehalten"],
   ] as const) {
     it(`reports a re-sent link that is ${versand} as a warning titled „${title}“`, async () => {
@@ -716,7 +723,12 @@ describe("seating another person where one stepped out", () => {
 
     assert.deepEqual(titles("danger"), ["Rolle nicht neu besetzt"]);
     // Its own titles rather than the correction's: the two outcomes differ in what stands afterwards.
-    assert.deepEqual(titles("warning"), ["Rolle besetzt, Link nicht zugestellt", "Rolle besetzt, Link zurückgehalten"]);
+    assert.deepEqual(titles("warning"), ["Rolle besetzt, Link nicht verschickt", "Rolle besetzt, Link zurückgehalten"]);
+    // The server's sentence is the body at every grade (`docs/frontend/spec.md` §1.12): the action words its own failed send.
+    assert.deepEqual(warningBodies(), [
+      "Der Link ging nicht raus.",
+      "Der neue Link ging nicht raus, weil die Adresse auf der Sperrliste steht.",
+    ]);
     assert.deepEqual(titles("success"), ["Rolle neu besetzt"]);
   });
 });

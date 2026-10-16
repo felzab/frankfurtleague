@@ -18,7 +18,7 @@ import { underNext } from "@/shared/testing/nextContexts.ts";
 import { assertEachAnswered, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { toActionErrorResult } from "@/shared/utils/actionError.ts";
 
-import { mapAdresseRefusal, mapAnsichtRefusal } from "./refusals.ts";
+import { mapAnsichtRefusal, mapSperreRefusal } from "./refusals.ts";
 import { FLPostSperrlistePayloadSchema } from "./schemas.ts";
 
 import type { MailOutcome } from "@/core/mailDouble.ts";
@@ -156,7 +156,7 @@ describe("the create's refusals", () => {
       operation: CREATE_OPERATION,
       refuseWith: answerWith,
       act: anAddressIsBanned,
-      mapped: mapAdresseRefusal,
+      mapped: mapSperreRefusal,
     });
     assert.deepEqual(mail.sent, [], "a refused ban mailed the address it refused");
   });
@@ -220,7 +220,7 @@ describe("the message the barred person is sent", () => {
     // the administrator reads differs.
     assert.deepEqual(events, ["post", "mail", "refresh"]);
     assert.notEqual("message" in result ? result.message : undefined, SPERRE_ERFOLG);
-    assert.match(String("message" in result ? result.message : ""), /nicht zugestellt/);
+    assert.match(String("message" in result ? result.message : ""), /nicht verschickt/);
   });
 
   /* Outside production every send is withheld, and a ban reporting that as a failed notice shows a
@@ -296,14 +296,14 @@ describe("the toast of each way the ban's sign-out and notice ended", () => {
       () => request.holdNoAccount(),
       ["success", SPERRE_ERFOLG, "Die Sperre steht. Die Adresse hat kein Konto, deshalb wurde sie nicht benachrichtigt."],
     ],
-    ["the notice was refused", () => sendWith("refused"), mitFolgen("Die Benachrichtigung an die Adresse konnte nicht zugestellt werden.")],
+    ["the notice was refused", () => sendWith("refused"), mitFolgen("Die Benachrichtigung an die Adresse konnte nicht verschickt werden.")],
     ["the notice's connection broke off", () => sendWith("lost"), mitFolgen("Ob die Benachrichtigung angekommen ist, ist unklar.")],
     ["this deployment withheld the notice", () => sendWith("withheld"), mitFolgen(ZURUECKGEHALTEN)],
     [
       "the sessions could not be ended",
       () => request.failSignOut(new Error("the store answered nothing")),
       mitFolgen(
-        "Laufende Anmeldungen der Adresse konnten nicht beendet werden. Die Benachrichtigung an die Adresse konnte nicht zugestellt werden.",
+        "Laufende Anmeldungen der Adresse konnten nicht beendet werden. Die Benachrichtigung an die Adresse konnte nicht verschickt werden.",
       ),
     ],
   ];
@@ -355,7 +355,7 @@ describe("the barred address's live sign-ins", () => {
     assert.equal(result.success, true);
     assert.equal(
       "message" in result ? result.message : undefined,
-      "Die Sperre steht. Laufende Anmeldungen der Adresse konnten nicht beendet werden. Die Benachrichtigung an die Adresse konnte nicht zugestellt werden.",
+      "Die Sperre steht. Laufende Anmeldungen der Adresse konnten nicht beendet werden. Die Benachrichtigung an die Adresse konnte nicht verschickt werden.",
     );
     assert.deepEqual(events, ["post", "refresh"], "a failed sign-out stopped the refresh, or a notice went on a guess");
   });
@@ -408,7 +408,7 @@ describe("what the address holds, read before the ban (`docs/frontend/spec.md ::
   /* The ban refuses an address holding a grant (`REQ-SPERRLISTE-003`): said on its box before anyone works through a
      list for a ban that cannot follow, in the words the ban's own refusal takes. */
   it("answers an address holding a grant of either tier on the address box, as the ban would", async () => {
-    const asTheBan = mapAdresseRefusal(refusedOn(CREATE_OPERATION, "REQ-SPERRLISTE-003"));
+    const asTheBan = mapSperreRefusal(refusedOn(CREATE_OPERATION, "REQ-SPERRLISTE-003"));
 
     for (const verwaltung of ["administration", "owner"]) {
       answerAnsicht = () => Promise.resolve({ ...ANSICHT, verwaltung });
@@ -428,7 +428,7 @@ describe("what the address holds, read before the ban (`docs/frontend/spec.md ::
 
     assert.deepEqual(
       result.success ? result : result.fieldErrors,
-      mapAdresseRefusal(refusedOn(CREATE_OPERATION, "REQ-SPERRLISTE-001"))?.fieldErrors,
+      mapSperreRefusal(refusedOn(CREATE_OPERATION, "REQ-SPERRLISTE-001"))?.fieldErrors,
     );
   });
 

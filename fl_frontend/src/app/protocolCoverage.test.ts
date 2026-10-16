@@ -17,9 +17,10 @@ doubleActionRequest({ subject: person({ sitze: [sitz()] }) });
 
 const { NextRequest } = await import("next/server");
 const { refusedOn, unpublishedOn } = await import("@/shared/testing/publishedRefusals.ts");
-const { GESPERRT_KEINE_AENDERUNG, HEUTE_GENUG_GEAENDERT, ZUGANG_WEG } = await import("@/shared/utils/actionError.ts");
+const { AENDERUNG_STEHT_WEITERHIN, GESPERRT_KEINE_AENDERUNG, HEUTE_GENUG_GEAENDERT, ZUGANG_WEG } =
+  await import("@/shared/utils/actionError.ts");
 const { runAdminMutation, stepUpRequired } = await import("@/shared/utils/adminMutation.ts");
-const { runAdminUndo } = await import("@/shared/utils/adminUndo.ts");
+const { runAdminUndo, UNDO_UNBESTAETIGT } = await import("@/shared/utils/adminUndo.ts");
 const { runPersonMutation, runPersonRecordMutation } = await import("@/shared/utils/personMutation.ts");
 const { handlePublicRequest } = await import("@/shared/utils/publicRoute.ts");
 
@@ -44,7 +45,8 @@ const unclaimedBeside = (code: string): string => code.replace(/\d{3}$/, "000");
  * the class no reader names gets, or nobody, a system caller logging what it is refused.
  */
 type Answer =
-  | { readonly kind: "worded"; readonly words: string; readonly because: string }
+  // `undo` where the undo spine says it otherwise: its offer is gone once pressed, so it says the change stands.
+  | { readonly kind: "worded"; readonly words: string; readonly undo?: string; readonly because: string }
   | { readonly kind: "fallback"; readonly because: string }
   | { readonly kind: "nobody"; readonly because: string };
 
@@ -73,6 +75,7 @@ const ANSWERED: Readonly<Record<string, Answer>> = {
   "REQ-AUTH-006": {
     kind: "worded",
     words: ZUGANG_WEG,
+    undo: `${ZUGANG_WEG} ${AENDERUNG_STEHT_WEITERHIN}`,
     because: "the grant went between the guard and the call, so a retry and a sign-in meet the same refusal",
   },
   "REQ-AUTH-007": {
@@ -89,6 +92,7 @@ const ANSWERED: Readonly<Record<string, Answer>> = {
   "REQ-AUTH-009": {
     kind: "worded",
     words: stepUpRequired().error,
+    undo: UNDO_UNBESTAETIGT,
     because: "the page's next press asks for the confirmation the backend wants (`docs/frontend/spec.md :: I493`)",
   },
   "REQ-VAL-001": {
@@ -237,7 +241,9 @@ describe("every published credential, request-validation and day-ceiling code ag
       const unclaimed =
         answer.kind === "worded" ? null : await shownBySpines(tier, person, unpublishedOn(operation, unclaimedBeside(code), status));
       for (const [spine, words] of Object.entries(shown)) {
-        assert.equal(words, answer.kind === "worded" ? answer.words : unclaimed?.[spine], `${key}, on ${spine}: ${answer.because}`);
+        const expected: unknown =
+          answer.kind !== "worded" ? unclaimed?.[spine] : spine === "the undo spine" ? (answer.undo ?? answer.words) : answer.words;
+        assert.equal(words, expected, `${key}, on ${spine}: ${answer.because}`);
       }
       driven.add(code);
     }

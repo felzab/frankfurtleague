@@ -422,6 +422,36 @@ describe("the passkey the erasure's press asks for", () => {
     assert.deepEqual(asked, [], "an address holding no grant was held to the enrolment's window");
     assert.equal(sent("eraseAufAnfrageAction").length, 1);
   });
+
+  /* A grant written between the arming read and the press: the server refuses for want of the enrolment's window,
+     and the next arming reads the address again, so its press asks rather than meeting that refusal again. */
+  it("asks for it on the next press where a grant written since the read was refused", async (t) => {
+    const { asked, stepUp } = gate();
+    const { user } = await renderPage(
+      { eraseAufAnfrageAction: { success: false, error: "Bestätige zuerst, dass Du es bist.", stepUp: true } },
+      "",
+      stepUp,
+    );
+    await typeRequest(user);
+    t.mock.timers.enable({ apis: ["Date"] });
+    await arm(user);
+    await user.type(await screen.findByRole("textbox", { name: BESTAETIGUNG }), ADRESSE);
+    t.mock.timers.tick(DOUBLE_PRESS_MS);
+    await user.click(screen.getByRole("button", { name: ARMED }));
+    await act(answered);
+    assert.deepEqual(asked, [], "the press over a read naming no grant asked, so the press below proves nothing");
+
+    answering({ readErasureAnsichtAction: { success: true, ansicht: { ...NICHTS_GESPEICHERT, verwaltung: "administration" } } });
+    await screen.findByRole("button", { name: "Person löschen" });
+    await arm(user);
+    await user.type(await screen.findByRole("textbox", { name: BESTAETIGUNG }), ADRESSE);
+    t.mock.timers.tick(DOUBLE_PRESS_MS);
+    await user.click(screen.getByRole("button", { name: STEP_UP_LABEL }));
+    await act(answered);
+
+    assert.deepEqual(asked, ["prompt"], "the next press was let through on the step-up's window over a grant holder's address");
+    assert.equal(sent("eraseAufAnfrageAction").length, 2);
+  });
 });
 
 describe("the reveal the arming read answers", () => {

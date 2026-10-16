@@ -23,7 +23,7 @@ import { LINK_ERNEUT_OHNE_ANTWORT, LINK_UNKLAR } from "@/shared/utils/actionErro
 import { appToast } from "@/shared/utils/appToast";
 import { benannt } from "@/shared/utils/benannt";
 import { focusAfterWrite, focusSection } from "@/shared/utils/focusAfterWrite";
-import { LINK_TITEL, meldeLinkVersand } from "@/shared/utils/linkVersandToast";
+import { meldeAdresswechselVersand } from "@/shared/utils/linkVersandToast";
 import { pressLinkWrite } from "@/shared/utils/linkWrite";
 
 import type { FLSchiedsrichterAdresswechsel } from "@/features/schiedsrichter/schemas";
@@ -85,7 +85,7 @@ export function FormAdresswechselSection({
 
     landing.landed();
     // Graded as the editor's save grades its link: the earlier link is dead whichever way this one went.
-    if ("versand" in res) meldeLinkVersand(res.versand, LINK_TITEL, res.message);
+    if ("versand" in res) meldeAdresswechselVersand(res, res.message);
     else appToast.success("Änderung verworfen", { description: res.message });
   };
 

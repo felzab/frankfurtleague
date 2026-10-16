@@ -133,7 +133,7 @@ export function describeAdresswechselMail(email: string, versand: AdresswechselV
         ? ZURUECKGEHALTEN
         : versand.link === "gesperrt"
           ? "Der Link zur neuen Adresse ging nicht raus, weil sie auf der Sperrliste steht."
-          : `Der Link zur Bestätigung konnte nicht an ${email} zugestellt werden. Melde Dich selbst bei der Person.`;
+          : `Der Link zur Bestätigung konnte nicht an ${email} verschickt werden. Melde Dich selbst bei der Person.`;
   // Said only where it did not go: the notice is a courtesy, and its arrival is not the administrator's to act on.
   const hinweis =
     versand.hinweis === "fehlgeschlagen" ? " Der Hinweis an die bisherige Adresse ging nicht raus. Sag der Person selbst Bescheid." : "";
@@ -148,5 +148,5 @@ export function describeLinkMail(email: string, versand: LinkVersand): string {
   // Naming no address, as every barred send's report names none (`docs/frontend/spec.md :: I542`).
   if (versand === "gesperrt") return "Der Bestätigungslink ging nicht raus, weil die Adresse auf der Sperrliste steht.";
 
-  return `Der Bestätigungslink konnte nicht an ${email} zugestellt werden. Melde Dich selbst bei der Person.`;
+  return `Der Bestätigungslink konnte nicht an ${email} verschickt werden. Melde Dich selbst bei der Person.`;
 }

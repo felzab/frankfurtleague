@@ -33,7 +33,7 @@ export const schonGesperrtAmFeld = (): { fieldErrors: FieldErrors } => ({ fieldE
 const NAME_IM_GRUND = "Ein Wort im Grund gleicht einem Namen der Person. Beschreibe den Vorfall mit anderen Worten und ohne Namen.";
 
 /** `null` where the refusal is something else. Each lands on the box holding the value it refuses, the address or the reason. */
-export function mapAdresseRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
+export function mapSperreRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
   if (!isRefusal(error)) return null;
 
   // Both codes: the rule refuses a second ban and `uniq_sperrliste_adresse_hash` refuses it again

@@ -408,6 +408,7 @@ const PANELS: Record<string, Arming[]> = {
             },
           ],
           message: "Gesendet.",
+          versendet: ["gesendet"],
         }),
       resting: "Links an alle Teams senden",
     },

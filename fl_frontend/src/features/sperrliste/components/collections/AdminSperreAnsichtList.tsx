@@ -124,11 +124,13 @@ function eintraegeDer<Art extends keyof SperreAnsicht>(art: Art, ansicht: Sperre
 export function AdminSperreAnsichtList({ ansicht }: { ansicht: SperreAnsicht }) {
   const saisonHref = useSaisonHref();
   const eintraege = (Object.keys(EINTRAEGE) as (keyof SperreAnsicht)[]).flatMap((art) => eintraegeDer(art, ansicht, saisonHref));
-  // The lead promises an edit, which no administrator makes of a registration; one its team declined already has nothing
-  // left for the ban to end, so it is said only where one is still pending.
-  const lead = ansicht.registrierungen.some(({ status }) => status !== "abgelehnt")
-    ? `${SPERRE_ANSICHT_COPY.lead} ${SPERRE_ANSICHT_COPY.registrierungen}`
-    : SPERRE_ANSICHT_COPY.lead;
+  // The edit is asked only where a record has a tool for it. No administrator edits a registration, and a declined one
+  // has nothing left for the ban to end: its sentence stands only where one is pending.
+  const lead = [
+    SPERRE_ANSICHT_COPY.lead,
+    ...(eintraege.some(({ verweise }) => verweise.length > 0) ? [SPERRE_ANSICHT_COPY.bearbeiten] : []),
+    ...(ansicht.registrierungen.some(({ status }) => status !== "abgelehnt") ? [SPERRE_ANSICHT_COPY.registrierungen] : []),
+  ].join(" ");
 
   return (
     <div className="flex w-full flex-col gap-y-2">
