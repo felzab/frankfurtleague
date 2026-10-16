@@ -49,7 +49,7 @@ const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
  * The „Stand“ and the words it dates, frozen together: a reader told nothing changed since that day
  * has been misled by any edit that left the date standing.
  */
-const FASSUNG = { stand: "16. Oktober 2026", digest: "843613056aa173380047648248ef5c9a3037034c88faa6b7a3f99fc142992432" } as const;
+const FASSUNG = { stand: "16. Oktober 2026", digest: "cb81dd55f3b5bdd46c17382d79c439fa69b99ae51ec669131bc09d7408259ef0" } as const;
 
 /** Every word the page renders but its date, so moving the date alone never passes for moving the words. */
 const wortlautDigest = (): string =>
@@ -182,6 +182,21 @@ describe("the privacy notice's retention table", () => {
         "im Kadereintrag; lehnt es sie ab, löschen wir sie einen Monat nach der Entscheidung, und mit ihr Datum, Grund und " +
         "E-Mail-Adresse der Person aus dem Team, die abgelehnt hat. Ist bis zum Ende der Saison nicht " +
         "entschieden, löschen wir sie dann",
+    );
+  });
+
+  /* A journal line keeps the person's address as keyed hashes alone, and its envelope's trace id joins it to the access
+     log's line, which holds the visitor's address (`docs/datenschutz.md` §6): the row says both. */
+  it("names everything a journal line holds, the address only as unreadable keys and the ids joining it to the access log", () => {
+    assert.ok(
+      ANGABEN.has(
+        "Vermerk eines Schritts, den Du veranlasst hast: einer Löschung auf Wunsch, eines Widerrufs Deiner Einwilligung, Deines " +
+          "Widerspruchs als Kontaktperson oder der Ablehnung einer neuen E-Mail-Adresse. Deine E-Mail-Adresse steht darin nur als " +
+          "unlesbarer Schlüssel, bei einer Löschung als zwei solche Schlüssel. Außerdem enthält er die Art des Schritts und den " +
+          "Zeitpunkt, bei den übrigen Schritten den betroffenen Eintrag, bei einem Widerruf die Fassung des Textes und die Antworten, " +
+          "die er setzt, bei einem Widerspruch die Rollen, die er leert, und Kennungen der Anfrage, über die er sich dem Eintrag im " +
+          "Zugriffsprotokoll zuordnen lässt",
+      ),
     );
   });
 
