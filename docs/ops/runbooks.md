@@ -1957,5 +1957,8 @@ refills from the season the backend still holds, and keeps that for another day.
 
 **Any other status dropped nothing.** `401` is a key the server did not boot with: a rewritten
 `secrets/internal_api_key_system` is read once, as the container starts
-([section 16](#16-the-secret-files)). `422` is a tag off the list. `404` is the edge's answer, so the
-call reached nginx rather than the server inside the container, or the image predates the route.
+([section 16](#16-the-secret-files)). `422` is a tag off the list. `404` is the server inside the
+container, which the call reaches without passing nginx, answering a route its image predates:
+deploy the running build again by the tag `./scripts/ops/deploy.sh --status` names, which starts a
+new frontend holding no cached entry, its cache living in the server's memory
+([section 1](#1-the-server) names the builds never to deploy by tag).
