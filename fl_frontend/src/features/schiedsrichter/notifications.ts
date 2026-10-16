@@ -17,7 +17,7 @@ import { formatSpielDatum } from "@/shared/utils/format";
 import { schiedsrichterVorname } from "./constants";
 
 import type { ZustellAnlass } from "@/features/bewerbungen/zustellung";
-import type { LinkVersand } from "@/features/zustellung/notifications";
+import type { LinkVersand } from "@/shared/utils/linkVersand";
 import type { FLSchiedsrichterAdresswechselMint, FLSchiedsrichterMint } from "./schemas";
 
 // Outside `actions.ts`, which is `"use server"` and whose every export is a callable endpoint: exported

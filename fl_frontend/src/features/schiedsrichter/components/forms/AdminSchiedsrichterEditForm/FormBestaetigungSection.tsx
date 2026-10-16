@@ -32,6 +32,7 @@ import { appToast } from "@/shared/utils/appToast";
 import { benannt } from "@/shared/utils/benannt";
 import { focusAfterWrite, focusSection } from "@/shared/utils/focusAfterWrite";
 import { formatSpielDatum } from "@/shared/utils/format";
+import { BESTAETIGUNGSLINK_TITEL, meldeLinkVersand } from "@/shared/utils/linkVersandToast";
 import { pressLinkWrite } from "@/shared/utils/linkWrite";
 
 import type { FLSchiedsrichterBestaetigung } from "@/features/schiedsrichter/schemas";
@@ -183,9 +184,8 @@ export function FormBestaetigungSection({
     }
 
     landing.landed();
-    // A warning where the link did not leave, as the editor's save grades it: the earlier link is dead either way.
-    if (res.versandFehlgeschlagen === true) appToast.warning("Bestätigungslink nicht gesendet", { description: res.message });
-    else appToast.success("Bestätigungslink gesendet", { description: res.message });
+    // Graded as the editor's save grades its link: the earlier link is dead whichever way this one went.
+    meldeLinkVersand(res.versand, BESTAETIGUNGSLINK_TITEL, res.message);
   };
 
   return (

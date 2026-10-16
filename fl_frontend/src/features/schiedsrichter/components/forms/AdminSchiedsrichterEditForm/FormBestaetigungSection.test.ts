@@ -297,7 +297,7 @@ describe("the control that sends the link", () => {
   });
 
   it("sends the referee's id and nothing else", async () => {
-    answerWith(() => Promise.resolve({ success: true, message: "gesendet" }));
+    answerWith(() => Promise.resolve({ success: true, message: "gesendet", versand: "gesendet" }));
     render(panel({ bestaetigung: BLOCK }));
 
     await userEvent.setup().click(screen.getByRole("button", { name: BESTAETIGUNG_ERNEUT }));
@@ -323,21 +323,29 @@ describe("the control that sends the link", () => {
     );
   });
 
-  /* The earlier link is dead either way, so a link that did not leave is a warning, as the editor's save grades it. */
-  it("grades a re-send whose link did not leave a warning", async () => {
-    answerWith(() => Promise.resolve({ success: true, message: "Nicht zugestellt.", versandFehlgeschlagen: true }));
-    render(panel({ bestaetigung: BLOCK }));
+  /* The earlier link is dead either way, so a link that did not go out, failed or held back by the ban
+     list, is a warning titled for what happened, as the editor's save grades it. */
+  for (const [versand, title] of [
+    ["fehlgeschlagen", "Bestätigungslink nicht zugestellt"],
+    ["gesperrt", "Bestätigungslink zurückgehalten"],
+  ] as const) {
+    it(`grades a re-send whose link is ${versand} a warning titled „${title}“`, async () => {
+      answerWith(() => Promise.resolve({ success: true, message: "Nicht raus.", versand: versand }));
+      const { unmount } = render(panel({ bestaetigung: BLOCK }));
+      const before = toasts.length;
 
-    await userEvent.setup().click(screen.getByRole("button", { name: BESTAETIGUNG_ERNEUT }));
-    await act(answered);
+      await userEvent.setup().click(screen.getByRole("button", { name: BESTAETIGUNG_ERNEUT }));
+      await act(answered);
 
-    await waitFor(() =>
-      assert.deepEqual(
-        toasts.map((raised) => [raised.variant, raised.title]),
-        [["warning", "Bestätigungslink nicht gesendet"]],
-      ),
-    );
-  });
+      await waitFor(() =>
+        assert.deepEqual(
+          toasts.slice(before).map((raised) => [raised.variant, raised.title]),
+          [["warning", title]],
+        ),
+      );
+      unmount();
+    });
+  }
 
   /* Thrown in transport or answered so by the API, nobody can tell whether the link went out: one
      toast of unknown outcome either way. */
@@ -371,7 +379,7 @@ describe("the control that sends the link", () => {
      reads the page again only where nobody can tell whether one did. */
   it("reads the page again only after a send nobody can tell landed", async () => {
     const answers: Record<string, () => Promise<unknown>> = {
-      sent: () => Promise.resolve({ success: true, message: "gesendet" }),
+      sent: () => Promise.resolve({ success: true, message: "gesendet", versand: "gesendet" }),
       refused: () => Promise.resolve({ success: false, error: "Diese Person ist stillgelegt" }),
       thrown: unclear.thrown?.answer ?? assert.fail("no thrown arm"),
       answered: unclear.answered?.answer ?? assert.fail("no answered arm"),

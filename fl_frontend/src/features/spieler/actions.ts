@@ -42,6 +42,7 @@ import {
 
 import type { ActionResult } from "@/shared/types/types";
 import type { UndoOutcome } from "@/shared/utils/adminUndo";
+import type { LinkVersand } from "@/shared/utils/linkVersand";
 import type {
   FLDeleteSpielerPayload,
   FLPatchSpielerPayload,
@@ -136,7 +137,7 @@ export async function reactivateSpielerAction(
  */
 export async function beantrageSpielerAdresswechselAction(
   rawPayload: FLSpielerAdresswechselPayload,
-): Promise<ActionResult<{ versandFehlgeschlagen?: boolean }>> {
+): Promise<ActionResult<{ versand: LinkVersand }>> {
   return runAdminMutation("beantrageSpielerAdresswechselAction", { stepUp: true }, async () => {
     const validated = FLSpielerAdresswechselPayloadSchema.safeParse(rawPayload);
 
@@ -171,7 +172,7 @@ export async function beantrageSpielerAdresswechselAction(
       // The address the mint names, never the one typed: a rival request landing between the two
       // replaced the mailbox the credential was made for.
       message: describeSpielerAdresswechselMail(wechsel.email, versand),
-      versandFehlgeschlagen: versand.link === "fehlgeschlagen",
+      versand: versand.link,
     };
   });
 }
@@ -179,7 +180,7 @@ export async function beantrageSpielerAdresswechselAction(
 /** A fresh link to the pending address, mailed with a fresh notice to the stored one: the earlier link is dead either way. */
 export async function einladeSpielerAdresswechselAction(
   rawPayload: FLSpielerAdresswechselEinladenPayload,
-): Promise<ActionResult<{ versandFehlgeschlagen?: boolean }>> {
+): Promise<ActionResult<{ versand: LinkVersand }>> {
   return runAdminMutation("einladeSpielerAdresswechselAction", { stepUp: true }, async () => {
     const validated = FLSpielerAdresswechselEinladenPayloadSchema.safeParse(rawPayload);
 
@@ -213,7 +214,7 @@ export async function einladeSpielerAdresswechselAction(
       // Said whichever way the send went: the previous link is dead either way, which is the fact an
       // administrator has to act on when the message did not leave.
       message: `${describeSpielerAdresswechselMail(wechsel.email, versand)} Der vorherige Link gilt nicht mehr.`,
-      versandFehlgeschlagen: versand.link === "fehlgeschlagen",
+      versand: versand.link,
     };
   });
 }

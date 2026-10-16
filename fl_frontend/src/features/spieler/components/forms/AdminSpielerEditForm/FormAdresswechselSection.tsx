@@ -22,6 +22,7 @@ import { useStepUp } from "@/shared/hooks/useStepUp";
 import { LINK_ERNEUT_OHNE_ANTWORT, LINK_UNKLAR } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { focusAfterWrite, focusSection } from "@/shared/utils/focusAfterWrite";
+import { LINK_TITEL, meldeLinkVersand } from "@/shared/utils/linkVersandToast";
 import { pressLinkWrite } from "@/shared/utils/linkWrite";
 
 import type { FLSpielerAdresswechsel } from "@/features/spieler/schemas";
@@ -32,6 +33,9 @@ export const ADRESSWECHSEL_VERWERFEN = "Änderung verwerfen";
 
 /** Unlike a re-send, a second discard of a change already gone is refused, so the page, reloaded, decides. */
 const VERWERFEN_OHNE_ANTWORT = "Prüfe die Verbindung und lade die Seite neu. Wartet die neue Adresse dann noch, verwirf die Änderung erneut.";
+
+/** Either write's answer, named: inferred from the two, it takes the first alone. */
+type Antwort = Awaited<ReturnType<typeof einladeSpielerAdresswechselAction>> | Awaited<ReturnType<typeof verwirfSpielerAdresswechselAction>>;
 
 /**
  * Shown only while a pupil's new address waits on its mailbox, the referee's twin
@@ -59,7 +63,7 @@ export function FormAdresswechselSection({
   // Both writes mint or void a link to an address.
   const schreibe = async (art: "senden" | "verwerfen") => {
     const landing = focusAfterWrite();
-    const res = await pressLinkWrite({
+    const res = await pressLinkWrite<Antwort>({
       isDirty,
       stepUp,
       router,
@@ -76,10 +80,9 @@ export function FormAdresswechselSection({
     }
 
     landing.landed();
-    // A warning where the link did not leave, as the request's press grades it: the earlier link is dead either way.
-    if ("versandFehlgeschlagen" in res && res.versandFehlgeschlagen === true)
-      appToast.warning("Link nicht gesendet", { description: res.message });
-    else appToast.success(art === "senden" ? "Link gesendet" : "Änderung verworfen", { description: res.message });
+    // Graded as the request's press grades its link: the earlier link is dead whichever way this one went.
+    if ("versand" in res) meldeLinkVersand(res.versand, LINK_TITEL, res.message);
+    else appToast.success("Änderung verworfen", { description: res.message });
   };
 
   return (

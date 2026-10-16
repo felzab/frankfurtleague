@@ -205,7 +205,13 @@ describe("what the save tells the administrator about the message it sent", () =
      the one surface that can say so: the page it returns to shows no send. */
   it("carries the send's own sentence into the undo offer", async () => {
     answerWith(() =>
-      Promise.resolve({ success: true, updated_document: null, message: "Schiedsrichter bearbeitet", versandSatz: VERSAND_SATZ }),
+      Promise.resolve({
+        success: true,
+        updated_document: null,
+        message: "Schiedsrichter bearbeitet",
+        versandSatz: VERSAND_SATZ,
+        versand: "gesendet",
+      }),
     );
 
     const user = userEvent.setup();
@@ -226,36 +232,40 @@ describe("what the save tells the administrator about the message it sent", () =
     );
   });
 
-  /* A link that did not leave is collateral rather than a clean save: the referee has no working
-     link, and nobody else is told. */
-  it("grades a failed send a warning", async () => {
-    answerWith(() =>
-      Promise.resolve({
-        success: true,
-        updated_document: null,
-        message: "Schiedsrichter bearbeitet",
-        versandSatz: VERSAND_SATZ,
-        versandFehlgeschlagen: true,
-      }),
-    );
+  /* A link that did not go out, failed or held back by the ban list, is collateral rather than a clean
+     save: the referee has no working link, and nobody else is told. */
+  for (const versand of ["fehlgeschlagen", "gesperrt"] as const) {
+    it(`grades a save whose link is ${versand} a warning`, async () => {
+      answerWith(() =>
+        Promise.resolve({
+          success: true,
+          updated_document: null,
+          message: "Schiedsrichter bearbeitet",
+          versandSatz: VERSAND_SATZ,
+          versand: versand,
+        }),
+      );
 
-    const user = userEvent.setup();
-    renderEditor();
-    // The save bar is closed on a clean draft, so the press needs a change to commit — and one the
-    // rail raises no blocking banner over, which would open the confirmation dialog instead.
-    await user.type(screen.getByRole("textbox", { name: /Schule/ }), "n");
-    await user.click(screen.getAllByRole("button", { name: "Speichern" })[0]!);
-    // The write runs inside a transition, so the press returns before the offer is raised.
-    await act(answered);
-    await waitFor(() => {
-      assert.ok(toasts.length > 0, "the save raised no toast at all");
+      const user = userEvent.setup();
+      const { unmount } = renderEditor();
+      const before = toasts.length;
+      // The save bar is closed on a clean draft, so the press needs a change to commit — and one the
+      // rail raises no blocking banner over, which would open the confirmation dialog instead.
+      await user.type(screen.getByRole("textbox", { name: /Schule/ }), "n");
+      await user.click(screen.getAllByRole("button", { name: "Speichern" })[0]!);
+      // The write runs inside a transition, so the press returns before the offer is raised.
+      await act(answered);
+      await waitFor(() => {
+        assert.ok(toasts.length > before, "the save raised no toast at all");
+      });
+
+      assert.deepEqual(
+        toasts.slice(before).map((raised) => [raised.variant, raised.title]),
+        [["warning", "Mit Folgen gespeichert"]],
+      );
+      unmount();
     });
-
-    assert.deepEqual(
-      toasts.map((raised) => [raised.variant, raised.title]),
-      [["warning", "Mit Folgen gespeichert"]],
-    );
-  });
+  }
 
   it("falls back to the editor's own sentence where the save mailed nothing", async () => {
     answerWith(() => Promise.resolve({ success: true, updated_document: null, message: "Schiedsrichter bearbeitet" }));

@@ -44,6 +44,7 @@ import type { FLSchiedsrichterPayloadDraft } from "@/features/schiedsrichter/sch
 import type { FLKontakt } from "@/shared/schemas";
 import type { ActionResult } from "@/shared/types/types";
 import type { UndoOutcome } from "@/shared/utils/adminUndo";
+import type { LinkVersand } from "@/shared/utils/linkVersand";
 import type {
   FLPatchSchiedsrichterPayload,
   FLPostSchiedsrichterPayload,
@@ -106,13 +107,13 @@ export async function postSchiedsrichterAction(
 export async function patchSchiedsrichterAction(
   // The DRAFT shape: an emptied money field submits `null`, which the schema below makes a field error.
   rawPayload: FLSchiedsrichterPayloadDraft<FLPatchSchiedsrichterPayload>,
-  // A flag beside the message rather than a sentence the caller parses: the editor grades the toast
-  // a warning on it, and the save landed either way.
+  // The send's outcome beside the message rather than a sentence the caller parses: the editor grades
+  // the toast on it, and the save landed either way.
 ): Promise<
   ActionResult<{
     updated_document?: FLSchiedsrichter;
     versandSatz?: string;
-    versandFehlgeschlagen?: boolean;
+    versand?: LinkVersand;
     adresswechselGespeichert?: boolean;
   }>
 > {
@@ -194,7 +195,8 @@ export async function patchSchiedsrichterAction(
           : wechsel !== null && wechselVersand !== null
             ? describeAdresswechselMail(wechsel.email, wechselVersand)
             : undefined,
-      versandFehlgeschlagen: versand === "fehlgeschlagen" || wechselVersand?.link === "fehlgeschlagen",
+      // One save mints the consent link or the address change's, never both.
+      versand: versand ?? wechselVersand?.link,
       // The backend's own word that THIS save left a new address waiting, for the undo to tell apart
       // from a save that moved only the fee while an earlier change waited.
       adresswechselGespeichert: wechsel !== null,
@@ -291,7 +293,7 @@ const EINTRAG_WEG = buildRefusal({ reason: "Diesen Eintrag gibt es nicht mehr", 
  */
 export async function einladeSchiedsrichterAction(
   rawPayload: FLSchiedsrichterEinladenPayload,
-): Promise<ActionResult<{ versandFehlgeschlagen?: boolean }>> {
+): Promise<ActionResult<{ versand: LinkVersand }>> {
   return runAdminMutation("einladeSchiedsrichterAction", { stepUp: true }, async () => {
     const validated = FLSchiedsrichterEinladenPayloadSchema.safeParse(rawPayload);
 
@@ -345,7 +347,7 @@ export async function einladeSchiedsrichterAction(
       // Said whichever way the send went: the previous link is dead either way, which is the fact an
       // administrator has to act on when the message did not leave.
       message: `${describeLinkMail(mint.email, versand)} Der vorherige Link gilt nicht mehr.`,
-      versandFehlgeschlagen: versand === "fehlgeschlagen",
+      versand: versand,
     };
   });
 }
@@ -353,7 +355,7 @@ export async function einladeSchiedsrichterAction(
 /** A fresh link to the pending address, mailed with a fresh notice to the stored one: the earlier link is dead either way. */
 export async function einladeAdresswechselAction(
   rawPayload: FLSchiedsrichterAdresswechselEinladenPayload,
-): Promise<ActionResult<{ versandFehlgeschlagen?: boolean }>> {
+): Promise<ActionResult<{ versand: LinkVersand }>> {
   return runAdminMutation("einladeAdresswechselAction", { stepUp: true }, async () => {
     const validated = FLSchiedsrichterAdresswechselEinladenPayloadSchema.safeParse(rawPayload);
 
@@ -393,7 +395,7 @@ export async function einladeAdresswechselAction(
     return {
       success: true,
       message: `${describeAdresswechselMail(wechsel.email, versand)} Der vorherige Link gilt nicht mehr.`,
-      versandFehlgeschlagen: versand.link === "fehlgeschlagen",
+      versand: versand.link,
     };
   });
 }
@@ -472,9 +474,9 @@ export async function deleteSchiedsrichterAction(
  */
 export async function reactivateSchiedsrichterAction(
   rawPayload: FLSchiedsrichterKeyPayload,
-  // The save's flag, for the save's reason: the reactivation landed either way, and the row grades
-  // its toast a warning where the link it minted did not leave.
-): Promise<ActionResult<{ updated_document?: FLSchiedsrichter; versandFehlgeschlagen?: boolean }>> {
+  // The send's outcome, for the save's reason: the reactivation landed either way, and the row grades
+  // its toast on the link it minted.
+): Promise<ActionResult<{ updated_document?: FLSchiedsrichter; versand?: LinkVersand }>> {
   return runAdminMutation("reactivateSchiedsrichterAction", async (session) => {
     const validated = FLSchiedsrichterKeyPayloadSchema.safeParse(rawPayload);
 
@@ -524,7 +526,7 @@ export async function reactivateSchiedsrichterAction(
       success: true,
       updated_document: reactivateOperation.updated_document,
       message: mint === null || versand === null ? "Schiedsrichter reaktiviert" : describeLinkMail(mint.email, versand),
-      versandFehlgeschlagen: versand === "fehlgeschlagen",
+      versand: versand ?? undefined,
     };
   });
 }
