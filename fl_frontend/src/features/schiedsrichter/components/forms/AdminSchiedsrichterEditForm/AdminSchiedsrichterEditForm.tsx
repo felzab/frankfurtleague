@@ -23,6 +23,7 @@ import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarnin
 import { unansweredAction } from "@/shared/utils/actionError";
 import { fieldStatus } from "@/shared/utils/draftStatus";
 import { focusSection } from "@/shared/utils/focusAfterWrite";
+import { versandWarnt } from "@/shared/utils/linkVersand";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { offerUndo } from "@/shared/utils/undoDispatch";
 
@@ -231,9 +232,9 @@ export function AdminSchiedsrichterEditForm({
           offerUndo({
             undo: () => undoAdminSchiedsrichterEditAction({ ...undoPayload, adresswechsel_gespeichert: res.adresswechselGespeichert === true }),
             message: gespeichertesSatz === "" ? undefined : gespeichertesSatz,
-            // A save that mailed nothing is clean; one whose link did not leave is graded a warning, the
+            // A save that mailed nothing is clean; one whose link did not go out is graded a warning, the
             // referee having no working link and nobody else being told.
-            warn: res.versandFehlgeschlagen === true,
+            warn: versandWarnt(res.versand),
             fallback: "Die Schiedsrichterdaten wurden aktualisiert.",
             // Judged here and not left to the undo action: the shared spine can only answer a body the
             // schema refuses with a reload nothing would change.

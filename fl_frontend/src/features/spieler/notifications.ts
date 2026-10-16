@@ -11,7 +11,7 @@ import { linkVersandOf, sendZielMail } from "@/features/zustellung/notifications
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import type { ZustellAnlass } from "@/features/bewerbungen/zustellung";
-import type { LinkVersand } from "@/features/zustellung/notifications";
+import type { LinkVersand } from "@/shared/utils/linkVersand";
 import type { FLSpielerAdresswechselMint } from "./schemas";
 
 /** How an address change's two messages ended: the link to the new address and the notice to the stored one. */

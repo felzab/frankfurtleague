@@ -738,6 +738,19 @@ describe("the editor's shape", () => {
     );
   });
 
+  /* A seat whose link did not go out, failed or held back by the ban list, holds no working link and
+     nobody else is told, so the save is collateral rather than clean. */
+  for (const versand of ["fehlgeschlagen", "gesperrt"] as const) {
+    it(`grades a save whose link is ${versand} a warning`, async () => {
+      await saveOver(BLOCK, { ...SAVED, versandSatz: "Der Bestätigungslink ging nicht raus.", versand: versand });
+
+      assert.deepEqual(
+        toasts.map(({ variant, title, description }) => [variant, title, description]),
+        [["warning", "Mit Folgen gespeichert", "Der Bestätigungslink ging nicht raus."]],
+      );
+    });
+  }
+
   /** A telephone saved over `BLOCK` past the step-up window, the save answering `answered`, then its undo pressed. */
   async function undoPastTheWindow(answered: FLSaisonTeamKontakte): Promise<string[]> {
     const prompts: string[] = [];

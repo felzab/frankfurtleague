@@ -118,7 +118,7 @@ describe("the save moving a confirmed referee's address", () => {
     const res = await patchSchiedsrichterAction(ENTWURF);
 
     assert.equal(res.success, true);
-    assert.equal(res.success && res.versandFehlgeschlagen, false);
+    assert.equal(res.success && res.versand, "gesendet");
     assert.doesNotMatch(res.success ? (res.versandSatz ?? "") : "", /Hinweis an die bisherige Adresse/);
   });
 
@@ -143,12 +143,12 @@ describe("the save moving a confirmed referee's address", () => {
     );
   });
 
-  it("grades a link that did not leave a warning, and says to reach the person", async () => {
+  it("reports a link that did not leave as failed, and says to reach the person", async () => {
     mail.answerWith(({ to }) => (to === NEU ? "refused" : "accepted"));
 
     const res = await patchSchiedsrichterAction(ENTWURF);
 
-    assert.equal(res.success && res.versandFehlgeschlagen, true);
+    assert.equal(res.success && res.versand, "fehlgeschlagen");
     assert.match(res.success ? (res.versandSatz ?? "") : "", /Melde Dich selbst bei der Person/);
   });
 });
@@ -167,16 +167,16 @@ describe("the pending address change's two controls", () => {
     assert.match(res.success ? (res.message ?? "") : "", /Der vorherige Link gilt nicht mehr\./);
   });
 
-  /* As the pupil's re-send marks it: a barred link is filed, and only a refused one is graded a warning. */
-  it("marks a re-sent link that did not leave, and a barred one not", async () => {
+  /* As the pupil's re-send reports it: a barred link is filed rather than failed (`docs/frontend/spec.md :: I542`). */
+  it("reports a re-sent link that did not leave as failed, and a barred one as barred", async () => {
     mail.answerWith(({ to }) => (to === NEU ? "refused" : "accepted"));
     const refused = await einladeAdresswechselAction({ id: SCHIEDSRICHTER_ID });
     mail.answerWith(({ to }) => (to === NEU ? "barred" : "accepted"));
     const barred = await einladeAdresswechselAction({ id: SCHIEDSRICHTER_ID });
 
-    assert.equal(refused.success && refused.versandFehlgeschlagen, true);
+    assert.equal(refused.success && refused.versand, "fehlgeschlagen");
     assert.match(refused.success ? (refused.message ?? "") : "", /Melde Dich selbst bei der Person/);
-    assert.equal(barred.success && barred.versandFehlgeschlagen, false);
+    assert.equal(barred.success && barred.versand, "gesperrt");
   });
 
   it("answers a barred pending address in the ban list's words and mails nothing", async () => {

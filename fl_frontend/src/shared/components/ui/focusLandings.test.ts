@@ -996,7 +996,7 @@ const LANDINGS: Record<string, Landing> = {
     lands: () => screen.getByRole("button", { name: "Link erneut senden: Stellvertretung" }),
   },
   "a seat's corrected address, on the pencil that opened the box": {
-    answers: { kontaktEmailKorrigierenAction: { success: true, verschickt: true, message: "Korrigiert." } },
+    answers: { kontaktEmailKorrigierenAction: { success: true, versand: "gesendet", message: "Korrigiert." } },
     before: () => bewerbungPage(MIT_OFFENEN_SITZEN),
     press: async (user) => {
       await user.click(screen.getByRole("button", { name: "Adresse korrigieren: Bernd Meier" }));
@@ -1032,7 +1032,7 @@ const LANDINGS: Record<string, Landing> = {
   },
   /* No other seat can be reseated, so the strip's heading takes the focus once the declined seat is filled. */
   "a reseated seat, on the strip's heading": {
-    answers: { besetzeKontaktSitzAction: { success: true, verschickt: true, message: "Besetzt." } },
+    answers: { besetzeKontaktSitzAction: { success: true, versand: "gesendet", message: "Besetzt." } },
     before: () => bewerbungPage(MIT_OFFENEN_SITZEN),
     press: async (user) => {
       await user.click(screen.getByRole("button", { name: "Neu besetzen: Trainer" }));

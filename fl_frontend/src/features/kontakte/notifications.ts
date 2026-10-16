@@ -8,7 +8,7 @@ import { linkVersandOf, sendZielMail } from "@/features/zustellung/notifications
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import type { ZustellAnlass } from "@/features/bewerbungen/zustellung";
-import type { LinkVersand } from "@/features/zustellung/notifications";
+import type { LinkVersand } from "@/shared/utils/linkVersand";
 import type { FLKontaktMint } from "./schemas";
 
 // Outside `actions.ts`, which is `"use server"` and whose every export is a callable endpoint: exported

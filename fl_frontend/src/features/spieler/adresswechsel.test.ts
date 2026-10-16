@@ -153,20 +153,20 @@ describe("the request for a pupil's new address", () => {
     const res = await beantrageSpielerAdresswechselAction({ id: SPIELER_ID, email: GETIPPT });
 
     assert.equal(res.success, true);
-    assert.equal(res.success && res.versandFehlgeschlagen, false);
+    assert.equal(res.success && res.versand, "gesendet");
     assert.doesNotMatch(res.success ? (res.message ?? "") : "", /Hinweis an die bisherige Adresse/);
   });
 
   /* A withheld or barred link was filed rather than lost (`docs/frontend/spec.md :: I228`, `:: I542`). */
-  it("reads a barred link as filed, naming no address, and grades only a refused one a warning", async () => {
+  it("reads a barred link as filed, naming no address, and a refused one as failed", async () => {
     mail.answerWith(({ to }) => (to === NEU ? "barred" : "accepted"));
     const barred = await beantrageSpielerAdresswechselAction({ id: SPIELER_ID, email: GETIPPT });
     mail.answerWith(({ to }) => (to === NEU ? "refused" : "accepted"));
     const refused = await beantrageSpielerAdresswechselAction({ id: SPIELER_ID, email: GETIPPT });
 
-    assert.equal(barred.success && barred.versandFehlgeschlagen, false);
+    assert.equal(barred.success && barred.versand, "gesperrt");
     assert.doesNotMatch(barred.success ? (barred.message ?? "") : "", /@/);
-    assert.equal(refused.success && refused.versandFehlgeschlagen, true);
+    assert.equal(refused.success && refused.versand, "fehlgeschlagen");
     assert.match(refused.success ? (refused.message ?? "") : "", /Melde Dich selbst bei der Person/);
   });
 

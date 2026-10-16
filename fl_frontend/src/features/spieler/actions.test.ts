@@ -33,10 +33,10 @@ import type { AdminSpielerRow, SpielerSaisonMembership, SpielerTeamOption } from
 const SPIELER_ID = "68c1f0a2b3c4d5e6f7a8b9c0";
 const SAISON_ID = "2026";
 
-/* Every write answers as landed; this file still reads the real module's text. */
+/* Every write answers as landed, a link press's with its link sent; this file still reads the real module's text. */
 const { calls, answered, answerWith } = doubleActions({
   modules: ["/src/features/spieler/actions.ts"],
-  answer: () => Promise.resolve({ success: true, message: "Gespeichert.", spieler_id: SPIELER_ID }),
+  answer: () => Promise.resolve({ success: true, message: "Gespeichert.", spieler_id: SPIELER_ID, versand: "gesendet" }),
 });
 
 /* A hook, not a first line in each case: one that throws before its own reset leaves the array

@@ -62,20 +62,18 @@ describe("what a reactivation tells the reader", () => {
     assert.deepEqual(raised[0]?.description, "Nummer, Rolle, Position und Stufe sind wiederhergestellt.");
   });
 
-  /* The return landed and the link it minted did not leave: graded as the save grades the same send,
-     since the person holds no working link and no other surface says so. */
-  it("warns where the row came back and its link did not leave", async () => {
-    await press(async () => ({
-      success: true,
-      message: "Der Bestätigungslink konnte nicht an a@b.de zugestellt werden.",
-      versandFehlgeschlagen: true,
-    }));
+  /* The return landed and its link failed or was held back by the ban list: graded as the save grades
+     the same send, since the person holds no working link and nothing else says so. */
+  for (const versand of ["fehlgeschlagen", "gesperrt"] as const) {
+    it(`warns where the row came back and its link is ${versand}`, async () => {
+      await press(async () => ({ success: true, message: "Der Bestätigungslink ging nicht raus.", versand: versand }));
 
-    assert.deepEqual(
-      raised.map(({ variant, title, description }) => ({ variant, title, description })),
-      [{ variant: "warning", title: "Mit Folgen reaktiviert", description: "Der Bestätigungslink konnte nicht an a@b.de zugestellt werden." }],
-    );
-  });
+      assert.deepEqual(
+        raised.map(({ variant, title, description }) => ({ variant, title, description })),
+        [{ variant: "warning", title: "Mit Folgen reaktiviert", description: "Der Bestätigungslink ging nicht raus." }],
+      );
+    });
+  }
 
   /* The edge cutting the request rejects the action after the row may have come back, and a
      rejection left to the hook's transition replaces the page with the error page. */

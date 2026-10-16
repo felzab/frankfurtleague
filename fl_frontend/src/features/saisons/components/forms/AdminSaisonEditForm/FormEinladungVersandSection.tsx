@@ -22,9 +22,11 @@ import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { rejectedWrite, unansweredRead } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { nichtHinterlegt } from "@/shared/utils/format";
+import { meldeLinkVersand } from "@/shared/utils/linkVersandToast";
 
 import type { FLEinladungVersandGrund, FLEinladungVersandVorschauZeile } from "@/features/einladungen/schemas";
 import type { EinladungVersandErgebnis } from "@/features/einladungen/types";
+import type { VersandTitel } from "@/shared/utils/linkVersandToast";
 
 /** The ruling's own words, copied rather than reworded: a label a visitor navigates by is nobody's here to choose. */
 const SENDEN_LABEL = "Links an alle Teams senden";
@@ -104,6 +106,13 @@ function zustellSatz(zeile: EinladungVersandErgebnis): string {
   return gesamt === 1 ? "An die Adresse gesendet" : `An alle ${String(gesamt)} Adressen gesendet`;
 }
 
+/** One press writes to many teams, so a link that did not go out is one team's among others that did. */
+const REGISTRIERUNGSLINKS_TITEL: VersandTitel = {
+  gesendet: "Registrierungslinks gesendet",
+  fehlgeschlagen: "Nicht alle Registrierungslinks zugestellt",
+  abgelegt: "Nicht alle Registrierungslinks gesendet",
+};
+
 /**
  * What the re-send costs, said before the press rather than after it. **A stored link is a hash**,
  * so there is nothing to send a second time: re-sending mints, and the link that team already holds
@@ -157,7 +166,9 @@ export function FormEinladungVersandSection({
       // Dropped rather than kept: the rows it held were true before this write, and the skips it
       // listed have just moved.
       setVorschau(null);
-      appToast.success("Registrierungslinks gesendet", { description: res.message });
+      // Graded by the worst team this press meant to write to; none at all is no grade, only a fact.
+      if (res.versand === undefined) appToast.info("Keine Registrierungslinks gesendet", { description: res.message });
+      else meldeLinkVersand(res.versand, REGISTRIERUNGSLINKS_TITEL, res.message);
     });
   };
 

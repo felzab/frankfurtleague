@@ -31,6 +31,7 @@ import { useSaveShortcut } from "@/shared/hooks/useSaveShortcut";
 import { useStepUp } from "@/shared/hooks/useStepUp";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { unansweredAction } from "@/shared/utils/actionError";
+import { versandWarnt } from "@/shared/utils/linkVersand";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { offerUndo } from "@/shared/utils/undoDispatch";
 
@@ -204,9 +205,9 @@ export function AdminKontakteEditForm({
             // The link's own sentence in place of the save's: where the save mailed somebody, dropping
             // it leaves an administrator with no record that a message was sent at all.
             message: res.versandSatz ?? res.message,
-            // One whose link did not leave is graded a warning: the seat holds no working link and
+            // One whose link did not go out is graded a warning: the seat holds no working link and
             // nobody else is told.
-            warn: res.versandFehlgeschlagen === true,
+            warn: versandWarnt(res.versand),
             fallback: "Die Kontakte wurden aktualisiert.",
             unrestorable,
             // Clearing the block, or putting back a person this save replaced or removed, is a step-up write the undo

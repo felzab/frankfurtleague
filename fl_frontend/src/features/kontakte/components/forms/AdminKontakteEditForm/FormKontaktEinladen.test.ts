@@ -58,19 +58,26 @@ describe("the contact seat's link control", () => {
     );
   });
 
-  /* The seat's earlier link is dead either way, so a link that did not leave is a warning, as the editor's save grades it. */
-  it("grades a send whose link did not leave a warning", async () => {
-    answerWith(() => Promise.resolve({ success: true, message: "Nicht zugestellt.", versandFehlgeschlagen: true }));
-    render(control());
+  /* The seat's earlier link is dead either way, so a link that did not go out, failed or held back by the
+     ban list, is a warning titled for what happened, as the editor's save grades it. */
+  for (const [versand, title] of [
+    ["fehlgeschlagen", "Bestätigungslink nicht zugestellt"],
+    ["gesperrt", "Bestätigungslink zurückgehalten"],
+  ] as const) {
+    it(`grades a send whose link is ${versand} a warning titled „${title}“`, async () => {
+      answerWith(() => Promise.resolve({ success: true, message: "Nicht raus.", versand: versand }));
+      const { unmount } = render(control());
 
-    await userEvent.setup().click(screen.getByRole("button", { name: "Bestätigungslink senden: Ansprechperson" }));
-    await act(answered);
+      await userEvent.setup().click(screen.getByRole("button", { name: "Bestätigungslink senden: Ansprechperson" }));
+      await act(answered);
 
-    await waitFor(() =>
-      assert.deepEqual(
-        toasts.map((raised) => [raised.variant, raised.title]),
-        [["warning", "Bestätigungslink nicht gesendet"]],
-      ),
-    );
-  });
+      await waitFor(() =>
+        assert.deepEqual(
+          toasts.map((raised) => [raised.variant, raised.title]),
+          [["warning", title]],
+        ),
+      );
+      unmount();
+    });
+  }
 });

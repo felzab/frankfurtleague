@@ -6,6 +6,7 @@ import { describeLinkMail } from "@/features/schiedsrichter/notifications";
 import { getTeamMemberships } from "@/features/teams/queries";
 import { refuseUnconfirmed, runAdminMutation } from "@/shared/utils/adminMutation";
 import { refusedReplay, replayRefusal, restored, runAdminUndo, unclearReplay, UNDO_UNREADABLE } from "@/shared/utils/adminUndo";
+import { schlechtesterVersand } from "@/shared/utils/linkVersand";
 import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
@@ -19,6 +20,7 @@ import { mitLaufenderFassung } from "./utils";
 import type { FLSaisonTeamKontakte } from "@/features/teams/schemas";
 import type { ActionResult } from "@/shared/types/types";
 import type { UndoOutcome } from "@/shared/utils/adminUndo";
+import type { LinkVersand } from "@/shared/utils/linkVersand";
 import type { KontaktVersand } from "./notifications";
 import type { FLKontaktEinladenPayload, FLPatchSaisonTeamKontaktePayload, FLPatchSaisonTeamKontakteResponse } from "./schemas";
 
@@ -34,9 +36,9 @@ export async function patchSaisonTeamKontakteAction(
   // Composed by the caller: the editor's own guard refuses a body before this is reached, and a
   // field no control renders is a block with no repair.
   rawPayload: FLPatchSaisonTeamKontaktePayload,
-  // A flag beside the sentence rather than one the caller parses: the editor grades its toast a
-  // warning on it, and the save landed either way.
-): Promise<ActionResult<{ saison_team?: KontakteGespeichert; versandSatz?: string; versandFehlgeschlagen?: boolean }>> {
+  // The send's outcome beside the sentence rather than one the caller parses: the editor grades its
+  // toast on it, and the save landed either way.
+): Promise<ActionResult<{ saison_team?: KontakteGespeichert; versandSatz?: string; versand?: LinkVersand }>> {
   return runAdminMutation("patchSaisonTeamKontakteAction", async (session) => {
     const validated = FLPatchSaisonTeamKontaktePayloadSchema.safeParse(rawPayload);
 
@@ -107,7 +109,7 @@ export async function patchSaisonTeamKontakteAction(
       // Its own field rather than folded into the message: the editor hands this to the undo offer,
       // and a save that mailed nothing has no sentence to hand it.
       versandSatz: describeKontaktVersand(versendet) ?? undefined,
-      versandFehlgeschlagen: versendet.some(({ versand }) => versand === "fehlgeschlagen"),
+      versand: schlechtesterVersand(versendet.map(({ versand }) => versand)),
     };
   });
 }
@@ -172,7 +174,7 @@ export async function undoAdminKontakteEditAction(rawPayload: FLPatchSaisonTeamK
  * A fresh link for one unconfirmed seat, the seat's earlier one opening nothing afterwards. **Always a
  * step-up write**: every call mints a bearer link.
  */
-export async function einladeKontaktAction(rawPayload: FLKontaktEinladenPayload): Promise<ActionResult<{ versandFehlgeschlagen?: boolean }>> {
+export async function einladeKontaktAction(rawPayload: FLKontaktEinladenPayload): Promise<ActionResult<{ versand: LinkVersand }>> {
   return runAdminMutation("einladeKontaktAction", { stepUp: true }, async () => {
     const validated = FLKontaktEinladenPayloadSchema.safeParse(rawPayload);
 
@@ -212,7 +214,7 @@ export async function einladeKontaktAction(rawPayload: FLKontaktEinladenPayload)
       // The address the MINT read in its own transaction, never one the page showed: a save landing
       // between the two moved the mailbox the credential was made for.
       message: describeLinkMail(mint.email, versand),
-      versandFehlgeschlagen: versand === "fehlgeschlagen",
+      versand: versand,
     };
   });
 }
