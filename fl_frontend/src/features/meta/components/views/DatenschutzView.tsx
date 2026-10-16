@@ -230,11 +230,12 @@ const FRISTEN = [
     frist: "Begrenzt durch eine feste Gesamtgröße; die bei jeder Auslieferung angelegte Kopie wird nach 30 Tagen gelöscht",
   },
   {
-    daten: "Vermerk einer Löschung auf Wunsch: Deine E-Mail-Adresse als unlesbarer Schlüssel und der Zeitpunkt",
+    daten:
+      "Vermerk eines Schritts, den Du veranlasst hast: einer Löschung auf Wunsch, eines Widerrufs Deiner Einwilligung, Deines Widerspruchs als Kontaktperson oder der Ablehnung einer neuen E-Mail-Adresse. Er enthält Deine E-Mail-Adresse als unlesbaren Schlüssel, die Art des Schritts, den betroffenen Eintrag und den Zeitpunkt",
     // The line stands in the application log as every line does, and the day file ages from its last write
     // (`docs/ops/runbooks.md` §7), so the row names both and no flat period.
     frist:
-      "Wie das Betriebsprotokoll der Anwendung, in dem er steht, und außerdem in einer eigenen Datei je Tag, die wir 30 Tage nach ihrer letzten Änderung löschen. Damit können wir die Löschung erneut ausführen, falls wir eine Sicherungskopie der Datenbank einspielen, die Deine Daten noch enthält",
+      "Wie das Betriebsprotokoll der Anwendung, in dem er steht, und außerdem in einer eigenen Datei je Tag, die wir 30 Tage nach ihrer letzten Änderung löschen. Damit können wir den Schritt erneut ausführen, falls wir eine Sicherungskopie der Datenbank einspielen, die älter ist als er",
   },
   { daten: "Sicherungskopien der Datenbank", frist: "Etwa acht Tage" },
   // Resend's own period, mirrored in `docs/datenschutz.md` §7 with the day it was read: no erasure of ours reaches it.

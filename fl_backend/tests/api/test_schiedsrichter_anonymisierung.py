@@ -52,6 +52,7 @@ from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
 from app.shared.schemas.kontakt import FLKontakt, FLKontaktPayload
 from tests.actor_tokens import FRESH_STEP_UP_CHECK
 from tests.bans import ban_list
+from tests.config import build_test_config
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.documents import rules_document, saison_document, spiel_document
 from tests.erasure import erased
@@ -370,6 +371,7 @@ async def a_referee_with_a_history(database: AsyncDatabase, client: AsyncMongoCl
         sperrliste=ban_list(database),
         aktionen_collection=database[Collection.AKTIONEN],
         db=client,
+        config=build_test_config(),
         today=TODAY,
         germany_now=NOW,
     )

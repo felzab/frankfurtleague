@@ -27,7 +27,7 @@ from conftest import BASH, REPO_ROOT, base_env, declared, lift_assignment, lift_
 SCRIPTS: Final = Path(__file__).resolve().parent.parent
 LIB: Final = SCRIPTS / "lib" / "_lib.sh"
 EXPORT: Final = SCRIPTS / "ops" / "export_journal.sh"
-CRUD: Final = REPO_ROOT / "fl_backend" / "app" / "api" / "identitaet" / "crud.py"
+JOURNAL: Final = REPO_ROOT / "fl_backend" / "app" / "core" / "journal.py"
 RUNBOOKS: Final = REPO_ROOT / "docs" / "ops" / "runbooks.md"
 
 YESTERDAY: Final = "2026-10-15"
@@ -59,11 +59,11 @@ exit 1
 # Each argument `<epoch>:<message>`, one line per argument, through the backend's own formatter.
 FORMAT: Final = """
 import logging, sys
-from app.api.identitaet.crud import ERASURE_JOURNAL_EVENT
+from app.core.journal import JOURNAL_TOKEN
 from app.core.logging import JSONFormatter
 for spec in sys.argv[1:]:
     created, message = spec.split(":", 1)
-    message = message.replace("JOURNAL", ERASURE_JOURNAL_EVENT)
+    message = message.replace("JOURNAL", JOURNAL_TOKEN)
     record = logging.LogRecord("frankfurtleague.loeschung", logging.INFO, "crud.py", 1, message, None, None)
     record.created = float(created)
     print(JSONFormatter().format(record))
@@ -166,7 +166,7 @@ def _run(fixture: _Fixture, *, log_dir: Path | None = None, **overrides: str) ->
 
 def test_the_token_selected_on_is_the_one_the_backend_writes() -> None:
     """A renamed constant otherwise leaves every later erasure out of the files a restore replays."""
-    assert lift_assignment(EXPORT, "JOURNAL_TOKEN") == f'JOURNAL_TOKEN="{declared(CRUD, "ERASURE_JOURNAL_EVENT")}"'
+    assert lift_assignment(EXPORT, "JOURNAL_TOKEN") == f'JOURNAL_TOKEN="{declared(JOURNAL, "JOURNAL_TOKEN")}"'
 
 
 def test_the_days_written_reach_no_further_back_than_the_directory_is_aged() -> None:

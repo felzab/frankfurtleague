@@ -199,6 +199,7 @@ async def the_own_record_press(database: AsyncDatabase, client: AsyncMongoClient
         db=client,
         # A withdrawal: the ceiling counts a grant alone, so this press spends nothing.
         drossel=get_drossel(drosselung_collection=database[Collection.DROSSELUNG], germany_now=NOW),
+        config=build_test_config(),
         today=TODAY,
         germany_now=NOW,
     )

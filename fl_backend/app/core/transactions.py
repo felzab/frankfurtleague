@@ -37,6 +37,9 @@ ABORT_GRACE_S: Final = 1.0
 # or the commit having landed.
 NOTHING_LEFT_OPEN: Final = frozenset({251, 256})
 
+# The driver's label on a commit whose answer was lost: the write may have landed.
+UNKNOWN_COMMIT_RESULT: Final = "UnknownTransactionCommitResult"
+
 
 def _abort_budget() -> float:
     """What is left of the request's grace, or a whole grace outside a request."""
@@ -382,7 +385,7 @@ def _log_stopped(stop: Exception, *, what: str, clock: str, cut: Sequence[Any]) 
             extra={"error_code": code},
         )
     # The label survives the driver's own timeout: an unanswered commit is retried until the deadline and raised as one.
-    elif stop.has_error_label("UnknownTransactionCommitResult"):
+    elif stop.has_error_label(UNKNOWN_COMMIT_RESULT):
         fl_logger.warning(
             f"Database deadline passed taking the {clock} clock's rows apart, the commit of {what} {', '.join(map(str, cut))} "
             "unanswered: those may have been written with nobody told, the call answers what else committed, and the rest stay due",

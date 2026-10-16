@@ -10,6 +10,8 @@ from collections.abc import Collection, Mapping, Sequence
 from http import HTTPStatus
 from typing import Any, Final
 
+from bson import ObjectId
+
 from app.api.bewerbungen.services import bewerbung_schule, build_eigene_bewerbung_filter, mindestalter_for, saison_schule
 from app.api.einwilligung.services import find_fassung_refusal, medien_angeboten
 from app.api.identitaet.schemas import FLSubjektSitz
@@ -18,7 +20,9 @@ from app.api.kontakte.services import rows_possibly_naming
 from app.api.registrierungen.services import build_eigene_registrierung_filter, traegt_wahlen
 from app.api.schiedsrichter.services import vorname_of
 from app.api.teams.schemas import KONTAKT_ROLLEN
+from app.core.collections import Collection as DbCollection
 from app.core.exceptions import WriteRefusal
+from app.core.journal import JournalLine
 from app.core.recording import log_stamp
 from app.shared.einwilligung import Seite
 from app.shared.einwilligung_nachweis import WAHLEN, FLEinwilligungWahl, compose_wahlen, ist_erteilt, nachweis_stand_of
@@ -93,6 +97,40 @@ def compose_sitz_move(
         )
 
     return {"$set": gesetzt} if gesetzt else None
+
+
+def widerruf_line(
+    *,
+    person_hash: str,
+    collection: DbCollection,
+    record_id: ObjectId,
+    bloecke: Sequence[Mapping[str, Any]],
+    gewaehlt: Mapping[FLEinwilligungWahl, Any],
+    am: str,
+    text_version: str,
+) -> JournalLine | None:
+    """The journal line of a press, naming each choice it moved off a grant on any of `bloecke`; `None` where it withdrew none.
+
+    A grant is never journalled: a restore taking one back leaves the person less exposed, never more.
+    """
+
+    widerrufen: dict[FLEinwilligungWahl, Any] = {
+        wahl: wert
+        for wahl, wert in gewaehlt.items()
+        if not ist_erteilt(wahl, wert) and any(ist_erteilt(wahl, block.get(wahl)) for block in bloecke)
+    }
+    if not widerrufen:
+        return None
+
+    return JournalLine(
+        person_hash=person_hash,
+        art="widerruf",
+        collection=collection,
+        record_id=record_id,
+        am=am,
+        text_version=text_version,
+        wahlen=widerrufen,
+    )
 
 
 def find_erteilung_refusal(*, zugelassen: bool) -> WriteRefusal | None:

@@ -27,7 +27,7 @@ from pymongo.errors import OperationFailure
 
 from app.api.bewerbungen.services import hash_token
 from app.api.einladungen.services import compose_einladung, compose_widerruf_update
-from app.api.identitaet.crud import ERASURE_JOURNAL_EVENT, ERASURE_STEPS, JEDE_PERSONENGRUPPE, erase_everything
+from app.api.identitaet.crud import ERASURE_STEPS, JEDE_PERSONENGRUPPE, erase_everything
 from app.api.identitaet.services import LETZTER_INHABER_ERASURE
 from app.api.registrierungen.person_router import aufnehmen
 from app.api.registrierungen.schemas import FLRegistrierungAufnehmenPayload
@@ -41,6 +41,7 @@ from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db
 from app.core.db import NO_OWNER
 from app.core.exceptions import DocumentNotFoundException
+from app.core.journal import JOURNAL_TOKEN
 from app.core.logging import setup_custom_logger
 from app.core.recording import ERASED_ACTOR_MARKER, Actor, PersonActor, actor_var
 from app.core.security import ACTOR_HEADER, akteur_pseudonym, loeschung_journal_hash
@@ -931,7 +932,7 @@ class TestOneTransaction:
         assert counts == {"berechtigungen": 2, "spieler": 5, "saison_spieler": 2, "schiedsrichter": 4, "registrierungen": 4, "drosselung": 4}
         assert (seat, pending, their_rows, stamped, on_the_ghost) == (TYPED, TYPED, 2, 0, 0)
         # And no journal line nor floor warning: an erasure rolled back is no erasure a replay may repeat.
-        assert not [record for record in caplog.records if record.getMessage().startswith(ERASURE_JOURNAL_EVENT)]
+        assert not [record for record in caplog.records if record.getMessage().startswith(JOURNAL_TOKEN)]
         assert NO_OWNER.error_code not in [getattr(record, "error_code", None) for record in caplog.records]
 
 
@@ -959,11 +960,11 @@ class TestTheJournal:
         with caplog.at_level(logging.INFO):
             status = on_a_league(mongo_replica_set_url, body)
 
-        lines = [record.getMessage() for record in caplog.records if record.getMessage().startswith(ERASURE_JOURNAL_EVENT)]
+        lines = [record.getMessage() for record in caplog.records if record.getMessage().startswith(JOURNAL_TOKEN)]
         expected = loeschung_journal_hash(IDENTIFIER, schluessel=CONFIG.sperrliste_schluessel)
 
         assert status == 200
-        assert lines == [f"{ERASURE_JOURNAL_EVENT} {expected}"]
+        assert lines == [f"{JOURNAL_TOKEN} {expected} loeschung"]
         # Its own label: under the log's, the journal would name the very pseudonym the erasure removed.
         assert expected != PSEUDONYM
 
@@ -985,7 +986,7 @@ class TestTheJournal:
                 setup_custom_logger(CONFIG)
 
         status = on_a_league(mongo_replica_set_url, body)
-        lines = [record.getMessage() for record in caplog.records if record.getMessage().startswith(ERASURE_JOURNAL_EVENT)]
+        lines = [record.getMessage() for record in caplog.records if record.getMessage().startswith(JOURNAL_TOKEN)]
 
         assert (status, len(lines)) == (200, 1)
 
@@ -1015,7 +1016,7 @@ class TestTheLastOwner:
             outcome, untouched = on_a_league(mongo_replica_set_url, body)
 
         assert (outcome, untouched) == (LETZTER_INHABER_ERASURE, True)
-        assert not [record for record in caplog.records if record.getMessage().startswith(ERASURE_JOURNAL_EVENT)]
+        assert not [record for record in caplog.records if record.getMessage().startswith(JOURNAL_TOKEN)]
 
     def test_a_barred_second_owner_is_no_owner_to_leave_behind(self, mongo_replica_set_url: str):
         """Counted as a demotion counts: a barred owner admits nobody, so it could make nobody an owner."""

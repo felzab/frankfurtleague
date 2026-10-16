@@ -767,6 +767,7 @@ class TestThePersonAnAdmissionNames:
                 identifier=FOLDED_EMAIL,
                 registrierungen_collection=database[Collection.REGISTRIERUNGEN],
                 db=client,
+                config=build_test_config(),
                 germany_now=WITHDRAWN_AT,
             )
             await admit(database, client, registrierung_id)

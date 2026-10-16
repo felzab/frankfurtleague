@@ -1530,39 +1530,64 @@ the switch still off. Its deletions are re-derived rather than replayed: it jour
 ([`../backend/spec.md`](../backend/spec.md#2-invariants) I691), so the steps below never list them.
 
 **The action log cannot be the list, because the restore rolls it back too; the erasure journal is.**
-Everything written between the snapshot and the restore is gone, the log's own rows about the
-erasures inside that window included. Every erasure a person or an administrator asked for left one
-line in the backend's stream naming the address by a keyed hash, whether its commit landed or lost
-its answer ([`../backend/spec.md`](../backend/spec.md#2-invariants) I666), and §7's day files keep
-those lines outside the database for thirty days. Run the export once more, which reads every
-journal line the backend's stream and the deploy copies of those thirty days still hold into the day
-files, then read every line of the day files from the snapshot's day on whose `timestamp` falls
-after the snapshot:
+Everything written between the snapshot and the restore is gone, the log's own rows about it
+included. Every erasure a person or an administrator asked for left one line in the backend's
+stream, and so did every consent a person withdrew, every Widerspruch made through a seat's link and
+every address change declined through its link, each naming its person by a keyed hash alone,
+whether its commit landed or lost its answer ([`../backend/spec.md`](../backend/spec.md#2-invariants)
+I666, I745). §7's day files keep those lines outside the database for thirty days. Run the export
+once more, which reads every journal line the backend's stream and the deploy copies of those thirty
+days still hold into the day files:
 
     sudo systemctl start frankfurtleague-journal.service
-    cat /var/log/frankfurtleague/<day>-erasure-journal.log
-
-**A hash names nobody until an address is hashed to it.** Fold every address the restored database
-and the restored `auth` database hold as `fl_backend/app/shared/folding.py :: sign_in_identifier`
-folds it, then hash the fold as `fl_backend/app/core/security.py :: loeschung_journal_hash` does,
-under its label and `secrets/sperrliste_schluessel`: the erasure routes journal the fold, and a
-registration or a contact seat keeps its address unfolded, so a hash of the stored spelling matches
-no line. Each address whose hash a line after the snapshot carries is a person whose erasure the
-restore undid. The paste that does it belongs in the operator's
-own checklist and in no file here, as the ban list's lookup does (§5). A line whose commit lost its
-answer may name an erasure that never landed, and running it again wrongs nobody, the person having
-asked for it. **Read the mail thread beside the journal** for every request that arrived by mail: a
-line the stream's size cap rotated away before any pass read it, and no deploy copied, is in no day
-file (§7). **The key can never be rotated**: it is the ban list's, and a replacement leaves every
-journal line matchable by nothing (§5).
 
 **`python -m app.core.constraints --check` BEFORE anything else** (§2). A snapshot taken before a
 constraint landed restores rows the current validators reject, and the validators are attached strict,
-so such a row refuses any erasure below that writes over it rather than removing it.
+so such a row refuses any erasure or replay below that writes over it rather than removing it.
 
-**Then run each of those erasures again on „Löschung auf Anfrage“, with the address its hash
-matched.** A restored row does not look erased, and each role's guard reads something the restore
-took away:
+**Then list what the lines ask for, giving the snapshot's moment written down above, in UTC:**
+
+    ./scripts/ops/replay_journal.sh 2026-10-15T03:00:00Z
+
+It hands the day files from the snapshot's day on to the backend's container, which reads every line
+written after that moment and matches it against the restored database under the journal's key
+(`fl_backend/app/api/identitaet/wiederherstellung.py`), so **the key is never typed, and no address
+and no key is printed**. It refuses a snapshot's day the export wrote no file for. Each line is
+listed by its act and its record, never by its person:
+
+- **An erasure** is followed by every collection, document and field holding its address, or by
+  "held nowhere". Every stored spelling is matched, folded as the sign-in folds it: a registration
+  or a contact seat keeps its address as typed. The `auth` database is not read, an account whose
+  address no league record holds going with the account sweep within the hour (§5).
+- **A choice** reads `to replay`; `already done` where the restored record already stands as the
+  choice left it; `left for review` where none of the record's addresses matches the line's hash,
+  a pupil's address changed since the snapshot or a seat filled by somebody else; or `no such record`
+  where the restore holds no record of that id, which then needs nothing.
+
+It exits 0 once nothing is left, and 1 while an erasure is to run, a choice to replay, a record to
+review or a line it could not read.
+
+**Then replay the choices: the same command with `--apply`.** Each choice standing to be replayed is
+judged again in a transaction of its own and written through the body its person's own press ran,
+its evidence stamped with the instant on its line, the moment the person acted and never the
+replay's ([`../backend/spec.md`](../backend/spec.md#2-invariants) I746). The action log records each
+under the system, its call reading `REPLAY` and the line without its person, and a second run writes
+nothing. **A record left for review is written by nothing**: read it beside the person's mail thread
+and settle it by hand, the listing going on to name it since its hash matches nothing the record
+holds. Two things no line restores: a grant made after a journalled withdrawal is in no journal, so
+the choice stays withdrawn, the safe side, until its person grants it again on the account page; and
+a Widerspruch's replay mails nobody, its submitter having been told when it was made.
+
+A line whose commit lost its answer may name an act that never landed, and running it again wrongs
+nobody, the person having asked for it. **Read the mail thread beside the journal** for every request
+that arrived by mail: a line the stream's size cap rotated away before any pass read it, and no deploy
+copied, is in no day file (§7). **The key can never be rotated**: it is the ban list's, and a
+replacement leaves every journal line matchable by nothing (§5).
+
+**Then run each listed erasure again on „Löschung auf Anfrage“, with the address one of its
+listed records shows** on the page §5's table names for that collection: keyed on the address, the
+erasure reaches every other record listed. A restored row does not look erased, and each role's
+guard reads something the restore took away:
 
 - **A referee.** The whole row is back, with its name, school and contact members, and every fixture
   the erasure had repointed names them again in place of the ghost, so nothing reads as erased and
@@ -1604,14 +1629,18 @@ undid the erasures, and which nothing re-runs:
   at `/bereich/admin/sperrliste`, which mails the person again, and lift the others there; the mail
   thread that asked for each is the record, the log having rolled back with it.
 
-**Two consequences more.** The retention sweep repairs itself, its clocks being
-stored dates — but a deletion notice already sent whose stamp the restore took back is sent a second
-time, that sweep mailing before it erases ([`../backend/spec.md`](../backend/spec.md#2-invariants)
-I151). And **a person's own write inside the window comes back undone with nothing to name it**: a
-consent withdrawn on the account page, a seat's Widerspruch and a declined address change are in
-neither the journal nor the mailbox, and the log that recorded them rolled back, so nothing here
-re-runs them, and a withdrawn publication consent stands again until its person withdraws it once
-more.
+**One consequence more.** The retention sweep repairs itself, its clocks being stored dates — but a
+deletion notice already sent whose stamp the restore took back is sent a second time, that sweep
+mailing before it erases ([`../backend/spec.md`](../backend/spec.md#2-invariants) I151).
+
+**Then list once more**: nothing may be left but the records for review you settled by hand,
+and with none of those it exits 0.
+
+**Last, once every step above is done, run [section 20](#20-after-a-hand-edit-in-mongodb)'s call.** A
+restore drops no cache tag, so the public pages go on serving what they cached before it, the people
+erased again and the publication consents withdrawn again above among them, until each entry
+expires. A drop made before the erasures and the replay refills the caches from the rows they are
+about to take.
 
 ## 14. The `auth` database's indexes
 

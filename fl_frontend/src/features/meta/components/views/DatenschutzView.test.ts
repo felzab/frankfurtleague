@@ -49,7 +49,7 @@ const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
  * The „Stand“ and the words it dates, frozen together: a reader told nothing changed since that day
  * has been misled by any edit that left the date standing.
  */
-const FASSUNG = { stand: "16. Oktober 2026", digest: "f41cc1e8cfdef309614558bdac5ebfba90d9f6548c7f935527207c8a0621627d" } as const;
+const FASSUNG = { stand: "16. Oktober 2026", digest: "193ad6c32c3f51220f1ac1a90eb1670152651ef1d9448a9f59e974d0e0439653" } as const;
 
 /** Every word the page renders but its date, so moving the date alone never passes for moving the words. */
 const wortlautDigest = (): string =>
