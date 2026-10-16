@@ -3,7 +3,9 @@ from pathlib import Path
 from typing import Final, NamedTuple
 
 import pytest
+from pydantic import TypeAdapter
 
+from app.api.identitaet.schemas import ErasureAdresse
 from app.shared.folding import canonical_address, league_address, mailbox_key, sign_in_identifier
 
 # One table both suites run their own rule and fold over (`fl_frontend/src/core/emailAddress.test.ts`
@@ -59,6 +61,17 @@ def test_a_payload_stores_each_row_as_the_table_records(row: Row):
 @pytest.mark.parametrize("row", ROWS, ids=lambda row: row.case)
 def test_the_fold_answers_each_row_as_the_table_records(row: Row):
     assert sign_in_identifier(row.typed) == row.folded
+
+
+ERASURE_LOOKUP: Final = TypeAdapter(ErasureAdresse)
+
+
+# Every row but those the lookup refuses for the placeholder's reserved domain, judged on the fold as it judges them.
+@pytest.mark.parametrize("row", [row for row in ROWS if row.folded.rpartition(".")[2] != "invalid"], ids=lambda row: row.case)
+def test_the_erasure_lookup_asks_for_the_mailbox_the_row_folds_to(row: Row):
+    """The page ends the sign-in account its own trimmed box folds to: a lookup trimming otherwise erases another mailbox's records."""
+
+    assert sign_in_identifier(ERASURE_LOOKUP.validate_python(row.typed)) == row.folded
 
 
 @pytest.mark.parametrize("row", [row for row in ROWS if row.stored is not None], ids=lambda row: row.case)
