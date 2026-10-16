@@ -1083,12 +1083,16 @@ x /var/log/frankfurtleague/nginx
 erasure a person or an administrator asks for leaves one line in the backend's stream
 ([`../backend/spec.md`](../backend/spec.md#2-invariants) I666), and a restore runs each of them again
 from those lines (§13). The stream loses them at the next recreate, or sooner once its size cap
-rotates them away; the day files keep them for this directory's thirty days.
-`scripts/ops/export_journal.sh` unions the lines of yesterday and today, read from the stream and
-from every deploy copy above, into what each day's file already holds, so no pass drops a line an
-earlier one copied. **It runs hourly rather than once a day because the size cap can rotate a busy
-day's lines away before a daily pass reads them**; a line still goes unread where more than the
-cap's worth of backend log is written inside one hour. Substitute `<checkout>` as above, and
+rotates them away; the day files keep them for this directory's thirty days, each file dated to its
+newest line, so the thirty count from the erasure rather than from the pass that copied it. **Every
+pass reads every day of those thirty that the stream or a deploy copy above still holds**
+(`scripts/ops/export_journal.sh :: JOURNAL_DAYS`) and unions each day's lines into what its file
+already holds, so no pass drops a line an earlier one copied, and a line a pass missed — the stream
+unreadable for a day, the timer installed after the first erasure — reaches its file at the first
+pass reading a source that still holds it. **It runs hourly rather than once a day because the size
+cap can rotate a busy day's lines away before a daily pass reads them**; a line still goes unread
+where the cap rotates it away before any pass reads the stream and no deploy copied it, as more than
+the cap's worth of backend log written inside one hour does. Substitute `<checkout>` as above, and
 `<user>` with the user owning the checkout and `/var/log/frankfurtleague`, a member of the `docker`
 group: the script reads the stream through `docker compose` and needs nothing of root.
 
@@ -1293,16 +1297,19 @@ which `DB_BASE_NAME` in `fl_backend/.env` names, or the `owner` grant is gone; t
 `SRV-BOOT-005` or `SRV-BOOT-006` in both cases. Repair the setting, or write the `owner` grant as
 [section 3](#3-granting-or-revoking-admin-access) says.
 
-**The erasure journal's export answers in its file names** (§7): every pass writes the day files of
-yesterday and today, an empty one for a day with no erasure, so a day missing from the listing is a
-day no pass ran:
+**The erasure journal's export answers in its unit's status and its file names** (§7): the status
+says when the last pass ran and how it ended, and every pass writes a file for each day of the last
+thirty that the backend's logs hold a line of, an empty one where no erasure fell. The backend logs
+every request at `INFO`, its own health probe's among them, so at the default `LOG_LEVEL_APP` every
+day it ran has a file, today's from that day's first pass, and a day missing among them is one no
+pass read while the stream or a deploy copy still held it:
 
-    ls -l /var/log/frankfurtleague/*-erasure-journal.log
     systemctl status frankfurtleague-journal.service
+    ls -l /var/log/frankfurtleague/*-erasure-journal.log
 
 **A run that ended at 2 could not read the backend's stream**, and its status says so: the deploy
-copies' lines reached the day files all the same, and the stream's own lines wait for the next pass,
-which takes them while the stream still holds them.
+copies' lines reached the day files all the same, and the stream's own lines reach theirs at the
+next pass that reads it, whichever day they fall on, unless the size cap rotates them away first.
 
 ## 10. The mail provider's dashboard
 
@@ -1461,9 +1468,10 @@ Everything written between the snapshot and the restore is gone, the log's own r
 erasures inside that window included. Every erasure a person or an administrator asked for left one
 line in the backend's stream naming the address by a keyed hash, whether its commit landed or lost
 its answer ([`../backend/spec.md`](../backend/spec.md#2-invariants) I666), and §7's day files keep
-those lines outside the database for thirty days. Copy in the lines written since the last hourly
-pass, then read every line of the day files from the snapshot's day on whose `timestamp` falls after
-the snapshot:
+those lines outside the database for thirty days. Run the export once more, which reads every
+journal line the backend's stream and the deploy copies of those thirty days still hold into the day
+files, then read every line of the day files from the snapshot's day on whose `timestamp` falls
+after the snapshot:
 
     sudo systemctl start frankfurtleague-journal.service
     cat /var/log/frankfurtleague/<day>-erasure-journal.log
@@ -1476,9 +1484,9 @@ carries is a person whose erasure the restore undid. The paste that does it belo
 own checklist and in no file here, as the ban list's lookup does (§5). A line whose commit lost its
 answer may name an erasure that never landed, and running it again wrongs nobody, the person having
 asked for it. **Read the mail thread beside the journal** for every request that arrived by mail: a
-line the stream's size cap rotated away before an hourly pass read it is in no day file (§7). **The
-key can never be rotated**: it is the ban list's, and a replacement leaves every journal line
-matchable by nothing (§5).
+line the stream's size cap rotated away before any pass read it, and no deploy copied, is in no day
+file (§7). **The key can never be rotated**: it is the ban list's, and a replacement leaves every
+journal line matchable by nothing (§5).
 
 **`python -m app.core.constraints --check` BEFORE anything else** (§2). A snapshot taken before a
 constraint landed restores rows the current validators reject, and the validators are attached strict,

@@ -13,10 +13,11 @@ Invariants:
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 import sys
 import time
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, timedelta
 from functools import cache
 from pathlib import Path
 from typing import Final
@@ -27,9 +28,21 @@ SCRIPTS: Final = Path(__file__).resolve().parent.parent
 LIB: Final = SCRIPTS / "lib" / "_lib.sh"
 EXPORT: Final = SCRIPTS / "ops" / "export_journal.sh"
 CRUD: Final = REPO_ROOT / "fl_backend" / "app" / "api" / "identitaet" / "crud.py"
+RUNBOOKS: Final = REPO_ROOT / "docs" / "ops" / "runbooks.md"
 
 YESTERDAY: Final = "2026-10-15"
 TODAY: Final = "2026-10-16"
+
+
+def _journal_days() -> int:
+    found = re.fullmatch(r'JOURNAL_DAYS="(\d+)"', lift_assignment(EXPORT, "JOURNAL_DAYS"))
+    assert found is not None, "scripts/ops/export_journal.sh :: JOURNAL_DAYS is no longer a count of days"
+    return int(found.group(1))
+
+
+# The oldest day a pass writes, worked out here rather than read off the script, and the day before it.
+FIRST: Final = (date.fromisoformat(TODAY) - timedelta(days=_journal_days() - 1)).isoformat()
+BEFORE: Final = (date.fromisoformat(FIRST) - timedelta(days=1)).isoformat()
 
 # `logs` hands back the case's stream, or fails as the case asks; every argv is recorded.
 STUB: Final = """#!/usr/bin/env bash
@@ -65,9 +78,11 @@ def _epoch(moment: str) -> float:
 SPECS: Final = {
     "yesterday": (f"{YESTERDAY}T12:00:00", "JOURNAL aaa"),
     "today": (f"{TODAY}T09:00:00", "JOURNAL bbb"),
-    "before": ("2026-10-14T23:59:59", "JOURNAL ccc"),
+    "before": (f"{BEFORE}T23:59:59", "JOURNAL ccc"),
     "not the journal": (f"{YESTERDAY}T12:00:01", "A request answered"),
     "yesterday later": (f"{YESTERDAY}T18:00:00", "JOURNAL ddd"),
+    "first": (f"{FIRST}T00:00:00", "JOURNAL eee"),
+    "a week ago": ("2026-10-09T07:30:00", "JOURNAL fff"),
 }
 
 
@@ -113,13 +128,16 @@ class _Fixture:
     def stream(self, *lines: str) -> None:
         self.live.write_bytes("".join(f"{entry}\n" for entry in lines).encode())
 
+    def path(self, day: str) -> Path:
+        return self.logs / f"{day}-erasure-journal.log"
+
     def day(self, day: str) -> list[str] | None:
-        path = self.logs / f"{day}-erasure-journal.log"
+        path = self.path(day)
         return path.read_bytes().decode().splitlines() if path.exists() else None
 
 
 def _run(fixture: _Fixture, *, log_dir: Path | None = None, **overrides: str) -> tuple[int, str]:
-    """`_lib.sh`, the lifted export and a stand-in `docker`, over yesterday and today."""
+    """`_lib.sh`, the lifted export and a stand-in `docker`, writing up to today."""
     assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
     stubs = fixture.root / "stubs"
     stubs.mkdir(exist_ok=True)
@@ -135,9 +153,10 @@ def _run(fixture: _Fixture, *, log_dir: Path | None = None, **overrides: str) ->
         f'cd "{fixture.checkout.as_posix()}"',
         lift_assignment(EXPORT, "COMPOSE"),
         lift_assignment(EXPORT, "JOURNAL_TOKEN"),
+        lift_assignment(EXPORT, "JOURNAL_DAYS"),
         f'LOG_DIR="{(log_dir or fixture.logs).as_posix()}"',
         lift_function(EXPORT, "export_days"),
-        f"export_days {YESTERDAY} {TODAY}",
+        f"export_days {TODAY}",
         "",
     )
     done = run_shell(BASH, write_shell(fixture.root / "parent.sh", "\n".join(lines)), env=environment, cwd=fixture.checkout)
@@ -149,16 +168,27 @@ def test_the_token_selected_on_is_the_one_the_backend_writes() -> None:
     assert lift_assignment(EXPORT, "JOURNAL_TOKEN") == f'JOURNAL_TOKEN="{declared(CRUD, "ERASURE_JOURNAL_EVENT")}"'
 
 
-def test_each_journal_line_of_the_stream_lands_in_the_file_of_its_own_day_and_nothing_else_does() -> None:
+def test_the_days_written_reach_no_further_back_than_the_directory_is_aged() -> None:
+    """A day file the age bound removed would be written afresh from a copy still holding its lines, and kept that long again."""
+    aged = re.search(r"^e /var/log/frankfurtleague - - - m:(\d+)d$", RUNBOOKS.read_text(encoding="utf-8"), re.MULTILINE)
+
+    assert aged is not None, "docs/ops/runbooks.md carries no tmpfiles line aging /var/log/frankfurtleague by mtime"
+    assert _journal_days() <= int(aged.group(1)), (_journal_days(), aged.group(0))
+
+
+def test_every_journal_line_the_stream_holds_lands_in_the_file_of_its_own_day_and_nothing_else_does() -> None:
+    """Any day of the window, not only the last two: a pass that missed a day takes it from the next one that reads it."""
     fixture = _Fixture()
-    fixture.stream(line("before"), line("yesterday"), line("not the journal"), line("today"))
+    fixture.stream(line("before"), line("first"), line("a week ago"), line("yesterday"), line("not the journal"), line("today"))
 
     code, output = _run(fixture)
 
     assert code == 0, output
+    assert fixture.day(BEFORE) is None, output
+    assert fixture.day(FIRST) == [line("first")], output
+    assert fixture.day("2026-10-09") == [line("a week ago")], output
     assert fixture.day(YESTERDAY) == [line("yesterday")], output
     assert fixture.day(TODAY) == [line("today")], output
-    assert fixture.day("2026-10-14") is None, output
 
 
 def test_the_stream_is_asked_from_the_first_days_midnight_and_without_a_prefix() -> None:
@@ -168,34 +198,37 @@ def test_the_stream_is_asked_from_the_first_days_midnight_and_without_a_prefix()
 
     assert code == 0, output
     argv = fixture.argv.read_bytes().decode().splitlines()
-    assert argv[argv.index("--since") + 1] == f"{YESTERDAY}T00:00:00Z", argv
+    assert argv[argv.index("--since") + 1] == f"{FIRST}T00:00:00Z", argv
     assert "--no-log-prefix" in argv and argv[-1] == "backend", argv
 
 
 def test_every_backend_copy_a_deploy_left_is_read_with_its_prefix_stripped() -> None:
     """A recreate discards the stream, so a line written before a deploy survives only in its copy."""
     fixture = _Fixture()
-    fixture.write("2026-10-16T101500-backend.log", _copied(line("yesterday"), f"{YESTERDAY}T12:00:00"))
+    fixture.write(
+        "2026-10-16T101500-backend.log", _copied(line("a week ago"), "2026-10-09T07:30:00"), _copied(line("yesterday"), f"{YESTERDAY}T12:00:00")
+    )
     fixture.write("2026-10-16T101500-backend-failed.log", _copied(line("today"), f"{TODAY}T09:00:00"))
     fixture.write("2026-10-16T101500-frontend.log", _copied(line("yesterday later"), f"{YESTERDAY}T18:00:00"))
 
     code, output = _run(fixture)
 
     assert code == 0, output
+    assert fixture.day("2026-10-09") == [line("a week ago")], output
     assert fixture.day(YESTERDAY) == [line("yesterday")], output
     assert fixture.day(TODAY) == [line("today")], output
 
 
 def test_a_copy_written_before_the_first_day_is_not_read() -> None:
     fixture = _Fixture()
-    stale = fixture.write("2026-10-14T080000-backend.log", _copied(line("yesterday"), f"{YESTERDAY}T12:00:00"))
-    before = _epoch("2026-10-14T08:00:00")
+    stale = fixture.write(f"{BEFORE}T080000-backend.log", _copied(line("yesterday"), f"{YESTERDAY}T12:00:00"))
+    before = _epoch(f"{BEFORE}T08:00:00")
     os.utime(stale, (before, before))
 
     code, output = _run(fixture)
 
     assert code == 0, output
-    assert fixture.day(YESTERDAY) == [], output
+    assert fixture.day(YESTERDAY) is None, output
 
 
 def test_a_line_no_source_holds_any_more_stays_in_its_file_beside_the_new_ones() -> None:
@@ -210,17 +243,30 @@ def test_a_line_no_source_holds_any_more_stays_in_its_file_beside_the_new_ones()
     assert fixture.day(YESTERDAY) == [line("yesterday"), line("yesterday later")], output
 
 
-def test_a_day_with_no_erasure_still_gets_its_file_which_is_how_a_pass_is_seen_to_have_run() -> None:
+def test_a_day_the_logs_hold_gets_its_file_with_no_erasure_and_a_day_they_do_not_hold_gets_none() -> None:
+    """An empty file says the logs held that day and no erasure fell on it; a missing one, that no pass read any line of it."""
     fixture = _Fixture()
+    fixture.stream(line("not the journal"))
 
     code, output = _run(fixture)
 
     assert code == 0, output
-    assert fixture.day(YESTERDAY) == [] and fixture.day(TODAY) == [], output
+    assert fixture.day(YESTERDAY) == [], output
+    assert fixture.day(TODAY) is None, output
+
+
+def test_a_file_that_gains_a_line_is_dated_to_its_newest_line() -> None:
+    """The age bound reads a file's mtime, so a line a late pass copies is kept from its erasure and not from that pass."""
+    fixture = _Fixture()
+    fixture.stream(line("yesterday later"), line("yesterday"))
+
+    code, output = _run(fixture)
+
+    assert code == 0, output
+    assert fixture.path(YESTERDAY).stat().st_mtime == _epoch(f"{YESTERDAY}T18:00:00"), output
 
 
 def test_a_pass_adding_nothing_leaves_the_file_untouched() -> None:
-    """The age bound reads a file's mtime, so it counts from the last line the day gained."""
     fixture = _Fixture()
     held = fixture.write(f"{YESTERDAY}-erasure-journal.log", line("yesterday"))
     fixture.stream(line("yesterday"))
@@ -233,6 +279,17 @@ def test_a_pass_adding_nothing_leaves_the_file_untouched() -> None:
     assert held.stat().st_mtime == before, output
 
 
+def test_a_pass_leaves_nothing_in_the_directory_but_the_day_files() -> None:
+    """Its working files hold journal lines, under a name no reader of the directory looks for."""
+    fixture = _Fixture()
+    fixture.stream(line("yesterday"), line("today"))
+
+    code, output = _run(fixture)
+
+    assert code == 0, output
+    assert sorted(path.name for path in fixture.logs.iterdir()) == [f"{YESTERDAY}-erasure-journal.log", f"{TODAY}-erasure-journal.log"], output
+
+
 def test_a_stream_that_cannot_be_read_still_lets_the_copies_through_and_refuses() -> None:
     """2, which systemd records as the unit failing: the stream's own lines wait for the next pass."""
     fixture = _Fixture()
@@ -243,6 +300,8 @@ def test_a_stream_that_cannot_be_read_still_lets_the_copies_through_and_refuses(
     assert code == 2, output
     assert "could not be read (docker compose logs exit 1)" in output, output
     assert fixture.day(YESTERDAY) == [line("yesterday")], output
+    assert fixture.day(TODAY) is None, output
+    assert not any(path.name.startswith(".journal-") for path in fixture.logs.iterdir()), output
 
 
 def test_a_missing_directory_refuses_before_anything_is_written() -> None:
