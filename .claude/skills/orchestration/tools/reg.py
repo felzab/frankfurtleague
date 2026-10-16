@@ -65,6 +65,9 @@ REBUILT_DIRS: Final = frozenset({"node_modules", ".venv", ".next", "__pycache__"
 REBUILT_FILE_RE: Final = re.compile(r"\.(?:pyc|tsbuildinfo)$|^(?:next-env\.d\.ts|\.eslintcache)$")
 # The harness copies the checkout's own into every worktree it makes.
 LOCAL_SETTINGS: Final = ".claude/settings.local.json"
+# How each command moves a row another owner holds, named in its refusal: `--reroute` is `ledger.py route`'s alone.
+TAKES_MOVES: Final = "`--takes {by}` moves every row {by} holds once it is a queue or a finished agent"
+REROUTE_MOVES: Final = "a `Reroute: {by}: {row}` line in the message moves it"
 
 
 def append(register: Path, text: str, now: datetime.datetime | None = None) -> str:
@@ -254,23 +257,25 @@ def dispatch(
 
 
 def _take_rows(register: Path, lines: list[str], name: str, rows: list[str], takes: str | None, said: list[str]) -> list[str]:
-    """The brief's rows and every row routed to `takes` routed to the agent in `lines`; each refusal."""
+    """Every row routed to `takes` and the brief's rows routed to the agent in `lines`; each refusal."""
     if not rows and takes is None:
         return []
     at = ledger.rows_at(lines, register)
     ledger.check_owner(lines, name)
-    moved, refused = ledger.route_lines(lines, at, name, rows)
+    moved: list[str] = []
+    refused: list[str] = []
     if takes is not None:
         # A live fixer's rows are in flight: taken in silence, two agents would fix one finding.
         if takes != name and (state := _live_state(lines, takes)):
             raise ValueError(f"{takes} is a {state} agent: its rows stay with it until it reports")
         held = [row for row, k in at.items() if ledger.status(cells := ledger.cells(lines[k])) == "ROUTED" and ledger.owner(cells) == takes]
-        taken, more = ledger.route_lines(lines, at, name, held, reroute=True, held_by=takes)
-        moved, refused = moved + taken, refused + more
+        moved, refused = ledger.route_lines(lines, at, name, held, reroute=True, held_by=takes)
         if not held:
             said.append(f"no row is routed to {takes}")
-    said += [f"ROUTED {row} to {name}" for row in moved]
-    return refused
+    # After the queue's: a row the brief names that `--takes` moved is the agent's by then, and no refusal.
+    more, refusals = ledger.route_lines(lines, at, name, rows, moves=TAKES_MOVES)
+    said += [f"ROUTED {row} to {name}" for row in moved + more]
+    return refused + refusals
 
 
 def _live_state(lines: list[str], name: str) -> str | None:
@@ -372,7 +377,7 @@ def record(payload: dict[str, object], plans: Path, now: datetime.datetime | Non
         if not rows:
             continue
         try:
-            refused += ledger.route_each(registers[0], name, rows, reroute=held_by is not None, held_by=held_by)[1]
+            refused += ledger.route_each(registers[0], name, rows, reroute=held_by is not None, held_by=held_by, moves=REROUTE_MOVES)[1]
         except Exception as failed:
             refused.append(str(failed))
     if refused:

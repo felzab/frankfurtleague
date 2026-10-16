@@ -993,7 +993,8 @@ def test_rows_routed_elsewhere_are_told_and_the_message_still_recorded(tmp_path:
     plans, register, messages = _fleet(tmp_path)
     ledger.route(register, "OTHER", ["A-F1"])
     said = reg.record(_sent("WORKER", "Fix it.\nRows: A-F1"), plans)
-    assert said is not None and "routed to OTHER already" in said
+    # Each tool names its own way to move the row: `--reroute` is a flag of `ledger.py route` alone.
+    assert said is not None and "routed to OTHER already" in said and "a `Reroute: OTHER: A-F1` line" in said and "--reroute" not in said
     assert "Fix it." in messages.read_bytes().decode("utf-8") and _status(register, "A-F1") == ["ROUTED", "OTHER"]
 
 
@@ -1068,9 +1069,13 @@ def test_dispatch_routes_its_briefs_rows_one_by_one_and_takes_a_queues_rows(tmp_
     done = _run("reg", "dispatch", str(register), "NEWBIE", "--brief", str(brief))
     assert done.returncode == 0 and "ROUTED A-F1 to NEWBIE" in done.stdout, done.stderr
     assert "not routed: A-F2 is routed to OTHER already" in done.stderr
+    assert "`--takes OTHER` moves every row OTHER holds" in done.stderr and "--reroute" not in done.stderr
     assert _status(register, "A-F1") == ["ROUTED", "NEWBIE"] and _status(register, "A-F2") == ["ROUTED", "OTHER"]
     ledger.route(register, "owner", ["A-F1"], reroute=True)
-    assert _run("reg", "dispatch", str(register), "LATER", "--takes", "owner").returncode == 0
+    # The brief names a row the queue holds: `--takes` moves it, and nothing says it was not routed.
+    brief = _brief(tmp_path, "LATER", "Rows: A-F1.")
+    taken = _run("reg", "dispatch", str(register), "LATER", "--brief", str(brief), "--takes", "owner")
+    assert taken.returncode == 0 and taken.stderr == "" and taken.stdout.count("ROUTED A-F1 to LATER") == 1, (taken.stdout, taken.stderr)
     assert _status(register, "A-F1") == ["ROUTED", "LATER"]
 
 

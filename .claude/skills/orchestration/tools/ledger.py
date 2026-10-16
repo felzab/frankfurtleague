@@ -448,9 +448,18 @@ def check_owner(lines: list[str], agent: str) -> None:
 
 
 def route_lines(
-    lines: list[str], at: dict[str, int], agent: str, rows: list[str], reroute: bool = False, held_by: str | None = None
+    lines: list[str],
+    at: dict[str, int],
+    agent: str,
+    rows: list[str],
+    reroute: bool = False,
+    held_by: str | None = None,
+    moves: str = "--reroute moves it",
 ) -> tuple[list[str], list[str]]:
-    """Each row `lines` can move ROUTED to the agent there; the rows moved, and a refusal per row it cannot."""
+    """Each row `lines` can move ROUTED to the agent there; the rows moved, and a refusal per row it cannot.
+
+    `moves` names the calling tool's own way to move a row another owner holds, `{by}` and `{row}` filled.
+    """
     refused, moved = [], []
     for row in rows:
         if row not in at:
@@ -463,7 +472,7 @@ def route_lines(
         elif word == "ROUTED" and by == agent:
             continue
         elif word == "ROUTED" and not reroute:
-            refused.append(f"{row} is routed to {by} already: one finding, one owner (--reroute moves it)")
+            refused.append(f"{row} is routed to {by} already: one finding, one owner ({moves.format(by=by, row=row)})")
         elif word in CLOSED:
             # A closed row carries evidence a route would overwrite.
             refused.append(f"{row} is {held[3]}, which only an OPEN row leaves by a route")
@@ -495,13 +504,15 @@ def route(register: Path, agent: str, rows: list[str], reroute: bool = False) ->
     return update(register, edit)
 
 
-def route_each(register: Path, agent: str, rows: list[str], reroute: bool = False, held_by: str | None = None) -> tuple[list[str], list[str]]:
+def route_each(
+    register: Path, agent: str, rows: list[str], reroute: bool = False, held_by: str | None = None, moves: str = "--reroute moves it"
+) -> tuple[list[str], list[str]]:
     """Each row the agent can take ROUTED to it, one refused row never holding back the rest; the rows moved and the refusals."""
 
     def edit(lines: list[str]) -> tuple[list[str], list[str]]:
         at = rows_at(lines, register, mending=rows if reroute else ())
         check_owner(lines, agent)
-        return route_lines(lines, at, agent, rows, reroute, held_by)
+        return route_lines(lines, at, agent, rows, reroute, held_by, moves)
 
     return update(register, edit)
 
