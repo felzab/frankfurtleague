@@ -1,14 +1,17 @@
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
+from types import TracebackType
 from typing import Any, Final, Literal, get_args
 
 from bson import ObjectId
 from pydantic import SecretStr
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
+from pymongo.errors import PyMongoError
 
 from app.api.aktionen.crud import redact_address_in_images
+from app.api.berechtigungen.crud import read_berechtigungen
 from app.api.berechtigungen.erasure import erase_grants_and_authorship_in_session
 from app.api.identitaet.lookup import RecordCollections
 from app.api.identitaet.schemas import FLAnmeldung, FLErasure, FLSubjekt, FLSubjektSchiedsrichter, FLSubjektSitz, FLSubjektSpieler
@@ -17,6 +20,7 @@ from app.api.identitaet.services import (
     awaits_confirmation,
     behaltene_saison_ids,
     build_bewerbung_pipeline,
+    build_bewerbung_references_pipeline,
     build_erasure_pupil_pipeline,
     build_erasure_referee_pipeline,
     build_erasure_registrierung_pipeline,
@@ -26,12 +30,18 @@ from app.api.identitaet.services import (
     build_pending_address_pipeline,
     build_pending_pupil_address_pipeline,
     build_pupil_pipeline,
+    build_pupil_references_pipeline,
     build_referee_pipeline,
+    build_referee_references_pipeline,
     build_registrierung_pipeline,
+    build_registrierung_references_pipeline,
     build_seat_pipeline,
+    build_seat_references_pipeline,
+    can_judge,
     eigene_eintraege,
     eigene_sitze,
     find_funktion_refusal,
+    find_kein_inhaber_refusal,
     folds_to,
     grants_a_panel,
     ist_eigener_schiedsrichter,
@@ -43,9 +53,11 @@ from app.api.identitaet.services import (
     pending_addresses_of,
     pupil_address,
     referee_address,
+    referenced_addresses,
     seat_is_confirmed,
     seats_naming,
     statuses_of,
+    unreferenced,
 )
 from app.api.kontakte.crud import erase_kontaktperson_in_session
 from app.api.kontakte.services import rows_naming, same_address
@@ -53,7 +65,7 @@ from app.api.registrierungen.crud import erase_registrierungen_in_session
 from app.api.registrierungen.services import build_eigene_registrierung_filter
 from app.api.saisons.schemas import FLSaisonStatus
 from app.api.schiedsrichter.crud import ensure_ghost_schiedsrichter, erase_referee_in_session, remove_pending_addresses_in_session
-from app.api.sperrliste.lookup import BanList
+from app.api.sperrliste.lookup import BanList, adressen_gesperrt
 from app.api.spieler.crud import ensure_ghost_spieler, erase_person_in_session, remove_pending_pupil_addresses_in_session
 from app.api.spieler.services import build_spieler_filter
 from app.core.collections import Collection
@@ -61,7 +73,7 @@ from app.core.concurrency import gather_cancelling
 from app.core.crud import aggregate_many_from_db, patch_many_in_db, refuse
 from app.core.db import warn_about_the_grants
 from app.core.drosselung import erase_counts_in_session
-from app.core.logging import fl_logger
+from app.core.logging import journal_logger
 from app.core.recording import ERASED_ACTOR_MARKER, SYSTEM_ACTOR_EMAIL
 from app.core.security import akteur_pseudonym, loeschung_journal_hash
 from app.shared.einwilligung import is_confirmed
@@ -102,8 +114,8 @@ Rows = list[Mapping[str, Any]]
 def _reads(identifier: str, records: RecordCollections) -> tuple[tuple[AsyncCollection, Rows], ...]:
     """The three record reads a Funktion stands on, in the order every lookup unpacks them.
 
-    Unbounded, as `app/api/kontakte/admin_router.py`'s are: a capped list reads as a person holding
-    fewer records rather than as a truncated answer.
+    Unbounded, as `resolve_subject`'s are: a capped list reads as a person holding fewer records
+    rather than as a truncated answer.
     """
 
     return (
@@ -448,8 +460,8 @@ class ErasureStep:
     """One member of the erasure: the collections it writes, whose records they are, and the function `erase_everything` calls by name."""
 
     reaches: frozenset[Collection]
-    # `None` for a step reaching no kind of person's own record: the full scope alone runs it. Every step
-    # leaving the address in another record's images is one, so no scope runs it without the address pass.
+    # `None` for a step serving no one kind of person: the full scope alone runs it. Every step leaving
+    # the address in another record's images is one, so no scope runs it without the address pass.
     personengruppe: Personengruppe | None
     run: Callable[..., Awaitable[Any]]
 
@@ -498,8 +510,8 @@ ERASURE_STEPS: Final[tuple[ErasureStep, ...]] = (
     ),
     ErasureStep(reaches=frozenset({Collection.DROSSELUNG}), personengruppe=None, run=erase_counts_in_session),
     ErasureStep(reaches=frozenset({Collection.AKTIONEN}), personengruppe=None, run=unattribute_in_session),
-    # LAST: every step before it files images still holding the address. No kind's alone: in the pupil
-    # scope it would take a standing referee's or administrator's address out of their own images.
+    # LAST: images filed before the erasure hold the address, and the seat clearing files more. No kind's
+    # alone: in the pupil scope it would take a standing referee's or administrator's address out of their own images.
     ErasureStep(reaches=frozenset({Collection.AKTIONEN}), personengruppe=None, run=redact_address_in_images),
 )
 
@@ -545,8 +557,8 @@ async def erase_everything(
 ) -> FLErasure:
     """Erase every record of this folded address the scope reaches, in the caller's transaction.
 
-    The subject is read HERE, so a retry after a conflict re-reads it. Once committed, the caller passes the counts to
-    `after_the_erasure_commits`, never before.
+    The subject is read HERE, so a retry after a conflict re-reads it. The caller runs its transaction inside an
+    `ErasureJournal`, which journals once it commits.
     """
 
     subject = await resolve_subject(
@@ -673,23 +685,100 @@ async def erase_everything(
     )
 
 
-# What every erasure journal line opens with, so the host's daily export finds the day's lines by it.
-ERASURE_JOURNAL_LINE: Final = "A person's records were erased"
+# What every erasure journal line opens with: a token rather than a sentence, so the host's daily
+# export matches the day's lines by it whatever wording surrounds it.
+ERASURE_JOURNAL_EVENT: Final = "loeschung-journal"
+
+# The driver's label on a commit whose answer was lost: the erasure may have landed.
+UNKNOWN_COMMIT_RESULT: Final = "UnknownTransactionCommitResult"
 
 
-async def after_the_erasure_commits(
-    identifier: str, erased: FLErasure, *, schluessel: SecretStr, berechtigungen_collection: AsyncCollection
-) -> None:
-    """Every erasure route calls this once its transaction has committed, never inside it: a rolled-back attempt erased nobody.
+class ErasureJournal[Erased: FLErasure]:
+    """Entered around every erasure route's transaction block: the journal and the warnings follow its commit.
 
-    Its journal line names the address by keyed hash alone; a restore replays from it the erasures made since the backup.
+    Outside the block, whose abort a failure meets first (`docs/backend/spec.md :: I539`); never in the callback, where a
+    rolled-back attempt would be journalled.
     """
 
-    fl_logger.info(f"{ERASURE_JOURNAL_LINE}: {loeschung_journal_hash(identifier, schluessel=schluessel)}")
+    def __init__(self, identifier: str, *, schluessel: SecretStr, berechtigungen_collection: AsyncCollection) -> None:
+        self._identifier = identifier
+        self._schluessel = schluessel
+        self._berechtigungen_collection = berechtigungen_collection
+        self._erased: Erased | None = None
 
-    # The floor of two holds against no erasure (`docs/backend/spec.md :: I435`): the boot's warnings name what is left.
-    if erased.berechtigungen:
-        await warn_about_the_grants(berechtigungen_collection)
+    async def __aenter__(self) -> ErasureJournal[Erased]:
+        return self
+
+    def took(self, erased: Erased) -> Erased:
+        """The transaction's answer, handed on as it arrives."""
+
+        self._erased = erased
+
+        return erased
+
+    async def __aexit__(self, kind: type[BaseException] | None, failure: BaseException | None, traceback: TracebackType | None) -> None:
+        if failure is None:
+            if self._erased is None:
+                raise RuntimeError("an erasure route left its journal without handing it the transaction's answer")
+            self._journal()
+            # It fires on a list left holding no live grant, no owner or a dead row, never on one merely a
+            # grant short: the ended grant's queued notice is what tells the other administrators.
+            if self._erased.berechtigungen:
+                await warn_about_the_grants(self._berechtigungen_collection)
+        # A lost answer, never a refusal (which raises before any commit): it may have landed, and replaying an
+        # erasure the person asked for wrongs nobody. Unwarned: the warning's read would meet the deadline that
+        # lost the answer.
+        elif isinstance(failure, PyMongoError) and failure.has_error_label(UNKNOWN_COMMIT_RESULT):
+            self._journal()
+
+    def _journal(self) -> None:
+        journal_logger.info(f"{ERASURE_JOURNAL_EVENT} {loeschung_journal_hash(self._identifier, schluessel=self._schluessel)}")
+
+
+async def unreferenced_of(
+    identifiers: Sequence[str], records: RecordCollections, *, berechtigungen_collection: AsyncCollection, sperrliste: BanList
+) -> list[str]:
+    """Which of these addresses no record references and no ban holds (`docs/backend/spec.md :: I698`).
+
+    Each collection is read once for the whole batch rather than once per address, which is what
+    `app/shared/schemas/bounds.py :: REFERENZEN_ADRESSEN_MAX` is measured against.
+    """
+
+    judged = [identifier for identifier in identifiers if can_judge(identifier)]
+    folded = sorted({sign_in_identifier(identifier) for identifier in judged})
+
+    # No address, no read: an empty `$or` is a query the server refuses.
+    if not folded:
+        return []
+
+    rows, gesperrt = await gather_cancelling(
+        gather_cancelling(
+            aggregate_many_from_db(collection=records.saison_teams_collection, pipeline=build_seat_references_pipeline(folded)),
+            aggregate_many_from_db(collection=records.bewerbungen_collection, pipeline=build_bewerbung_references_pipeline(folded)),
+            aggregate_many_from_db(collection=records.schiedsrichter_collection, pipeline=build_referee_references_pipeline(folded)),
+            aggregate_many_from_db(collection=records.spieler_collection, pipeline=build_pupil_references_pipeline(folded)),
+            aggregate_many_from_db(collection=records.registrierungen_collection, pipeline=build_registrierung_references_pipeline(folded)),
+            # Every row as stored, never `app/api/berechtigungen/crud.py :: verwaltung_of`: a grant edited in
+            # the database is in effect for nobody until the comparison sees it, and its account outlasts that.
+            read_berechtigungen(berechtigungen_collection=berechtigungen_collection),
+        ),
+        adressen_gesperrt(sperrliste, judged),
+    )
+    seat_rows, bewerbung_rows, referee_rows, pupil_rows, registrierung_rows, grant_rows = rows
+
+    # Before any address is judged: the whole batch answers nothing rather than all of it unreferenced.
+    refuse(find_kein_inhaber_refusal(grant_rows))
+
+    referenced = referenced_addresses(
+        seat_rows=seat_rows,
+        bewerbung_rows=bewerbung_rows,
+        referee_rows=referee_rows,
+        pupil_rows=pupil_rows,
+        registrierung_rows=registrierung_rows,
+        grant_rows=grant_rows,
+    )
+
+    return unreferenced(identifiers, referenced=referenced, gesperrt=gesperrt)
 
 
 # --- The SEASON-AFTER RULE's two readers (`docs/backend/spec.md :: I690`): one outside any transaction

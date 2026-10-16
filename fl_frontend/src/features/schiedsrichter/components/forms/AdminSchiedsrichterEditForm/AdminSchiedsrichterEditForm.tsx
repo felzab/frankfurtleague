@@ -21,7 +21,6 @@ import { useSaveShortcut } from "@/shared/hooks/useSaveShortcut";
 import { useStepUp } from "@/shared/hooks/useStepUp";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { unansweredAction } from "@/shared/utils/actionError";
-import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
 import { fieldStatus } from "@/shared/utils/draftStatus";
 import { focusSection } from "@/shared/utils/focusAfterWrite";
 import { buildRefusal } from "@/shared/utils/refusal";
@@ -29,7 +28,6 @@ import { offerUndo } from "@/shared/utils/undoDispatch";
 
 import { buildSchiedsrichterBanners } from "./banners";
 import { FormAdresswechselSection } from "./FormAdresswechselSection";
-import { FormAnonymisierenSection } from "./FormAnonymisierenSection";
 import { FormBestaetigungSection } from "./FormBestaetigungSection";
 import { FormHonorarSection } from "./FormHonorarSection";
 import { FormKontaktSection } from "./FormKontaktSection";
@@ -321,19 +319,6 @@ export function AdminSchiedsrichterEditForm({
             einwilligung={schiedsrichter.einwilligung}
             istFassungBekannt={istFassungBekannt}
             geburtsdatum={schiedsrichter.geburtsdatum}
-          />
-
-          {/* Last on the page, the position the season editor's rollover holds: the one control here
-              that writes on press and that no later edit reverses. The STORED contact record, never
-              the draft — this clears what is saved. */}
-          <FormAnonymisierenSection
-            schiedsrichterId={schiedsrichter.id}
-            name={schiedsrichter.name}
-            schule={schiedsrichter.schule}
-            kontakt={schiedsrichter.kontakt}
-            // The page keys this view on the STORED record, so the write's refresh remounts the form
-            // onto the cleared one — an unsaved draft would go with it.
-            onBeforeAnonymise={() => guardAgainstDraft(isDirty, DRAFT_DISCARDED)}
           />
         </EditFormLayout>
 

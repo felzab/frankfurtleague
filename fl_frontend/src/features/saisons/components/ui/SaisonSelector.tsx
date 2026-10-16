@@ -14,6 +14,7 @@ import { useMounted } from "@/shared/hooks/useMounted";
 import { useNavigationClosedOverlay } from "@/shared/hooks/useNavigationClosedOverlay";
 import { benannt } from "@/shared/utils/benannt";
 import { formatSpielDatum } from "@/shared/utils/format";
+import { withoutSearchQuery } from "@/shared/utils/searchQuery";
 
 import type { Key } from "@heroui/react/rac";
 import type { SaisonSelectorOption } from "../../types";
@@ -48,7 +49,7 @@ export function SaisonSelector({ saisons, defaultSaison }: { saisons: SaisonSele
     if (!key) return;
 
     const selectedId = key.toString();
-    const params = new URLSearchParams(searchParams.toString());
+    const params = withoutSearchQuery(new URLSearchParams(searchParams.toString()));
 
     // The default season is what an address naming none resolves to, so it is the ABSENCE of the
     // parameter rather than a value. Keeps the common URL clean and shareable.

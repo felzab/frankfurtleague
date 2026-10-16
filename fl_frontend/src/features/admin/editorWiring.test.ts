@@ -178,7 +178,6 @@ const spielerProps = (over: { inactiveSince?: string; rowInactiveSince?: string 
     membership: { ...SPIELER_MEMBERSHIP, inactive_since: over.rowInactiveSince ?? null },
   },
   teams: [TEAM_A, TEAM_B],
-  membershipCount: 1,
 });
 
 const TEAM = {

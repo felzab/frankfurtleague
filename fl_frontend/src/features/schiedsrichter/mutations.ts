@@ -15,7 +15,6 @@ import {
 } from "./schemas";
 
 import type {
-  FLAnonymiseSchiedsrichterPayload,
   FLPatchSchiedsrichterPayload,
   FLPatchSchiedsrichterResponse,
   FLPostSchiedsrichterPayload,
@@ -69,15 +68,6 @@ export async function deleteSchiedsrichter({ id }: FLSchiedsrichterKeyPayload): 
 // retirement a state rather than a disappearance.
 export async function reactivateSchiedsrichter({ id }: FLSchiedsrichterKeyPayload): Promise<FLSchiedsrichterReactivateResponse> {
   return apiClient<FLSchiedsrichterReactivateResponse>(`/schiedsrichter/${id}/reactivate`, FLSchiedsrichterReactivateResponseSchema, {
-    method: "POST",
-    authType: "admin",
-  });
-}
-
-// Deletes the row and repoints every fixture that named them at the ghost, in one transaction. The
-// echoed document is the GHOST: the person's row is gone, so no caller may read one back off this.
-export async function anonymiseSchiedsrichter({ id }: FLAnonymiseSchiedsrichterPayload): Promise<FLSchiedsrichterWriteResponse> {
-  return apiClient<FLSchiedsrichterWriteResponse>(`/schiedsrichter/${id}/anonymisieren`, FLSchiedsrichterWriteResponseSchema, {
     method: "POST",
     authType: "admin",
   });

@@ -1,15 +1,21 @@
 "use client";
 
+import { vonOderGesperrt } from "@/features/berechtigungen/constants";
 import { AdminCrudView } from "@/shared/components/ui/AdminCrudView";
 import { Callout } from "@/shared/components/ui/Callout";
 
 import { AdminSperrlisteList } from "../collections/AdminSperrlisteList";
 
 import type { FLSperrlisteZeile } from "@/features/sperrliste/schemas";
+import type { SearchKey } from "@/shared/hooks/useFuzzySearch";
 
 /* Module scope: a fresh array here would defeat useFuzzySearch's memo on every render. No address
-   among the keys, a stored ban holding none. */
-const SEARCH_KEYS = ["grund", "erstellt_von"] as const;
+   among the keys, a stored ban holding none; the author is read as its card prints it
+   (`docs/frontend/spec.md :: I681`). */
+const SEARCH_KEYS: readonly SearchKey<FLSperrlisteZeile>[] = [
+  "grund",
+  { name: "erstellt_von", getFn: (eintrag) => vonOderGesperrt(eintrag.erstellt_von, eintrag.erstellt_von_gesperrt) },
+];
 
 /**
  * **No `renderDeleteModal`**: removing a ban is confirmed on the row itself, through the shared

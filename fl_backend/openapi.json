@@ -4550,67 +4550,6 @@
         "x-fl-tier": "admin"
       }
     },
-    "/api/v0/spieler/{spieler_id}/erasure": {
-      "delete": {
-        "summary": "Erase a Spieler (hard delete)",
-        "description": "Erase a player: the person, their squad rows, and their values in the log.\n\nHARD and refused until retirement (`REQ-PURGE-001`); the soft `DELETE` stays.\nNo log row is dropped: images are emptied in place and stamped (`docs/backend/spec.md :: I42`).",
-        "operationId": "erase_spieler_api_v0_spieler__spieler_id__erasure_delete",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "spieler_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Spieler Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSpielerErasureResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "$ref": "#/components/responses/404.DB-COMMON-001"
-          },
-          "422": {
-            "$ref": "#/components/responses/422.REQ-VAL-001"
-          },
-          "default": {
-            "$ref": "#/components/responses/default"
-          },
-          "400": {
-            "$ref": "#/components/responses/400.REQ-AUTH-005"
-          },
-          "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009"
-          },
-          "403": {
-            "$ref": "#/components/responses/403.REQ-AUTH-006"
-          },
-          "409": {
-            "$ref": "#/components/responses/409.REQ-PURGE-001"
-          },
-          "503": {
-            "$ref": "#/components/responses/503.DB-CONN-001"
-          }
-        },
-        "x-fl-tier": "admin"
-      }
-    },
     "/api/v0/spieler/{spieler_id}/saisons": {
       "post": {
         "summary": "Add a Spieler to a squad",
@@ -5754,67 +5693,6 @@
         "x-fl-tier": "admin"
       }
     },
-    "/api/v0/schiedsrichter/{schiedsrichter_id}/anonymisieren": {
-      "post": {
-        "summary": "Anonymise a Schiedsrichter",
-        "description": "Delete the referee's document and repoint every fixture that named them at the ghost.\n\nThe row does not survive, and nothing on it is nulled in place: the fixtures keep their own\n`payment` and read from then on as officiated by nobody. It cannot be undone, and an id already\nerased answers 404. Erasing the ghost itself is refused (`REQ-ANONYMISE-004`).\n\n**The response carries the ghost rather than the person**: the row the path named is gone, and\nanswering an erasure with the name and contact details it just destroyed would serve them once\nmore. `updated_document.id` is therefore the ghost's, which is what those fixtures now name.\n\n**The repointed fixtures inherit the ghost's retirement**, so one still to be played is reported\nby `GET /spiele/action_required` as a retired booking until somebody assigns a referee to it, and\na save putting a played or called-off one back among those still to be played is refused it\n(`REQ-BOOKING-001`).",
-        "operationId": "anonymise_schiedsrichter_api_v0_schiedsrichter__schiedsrichter_id__anonymisieren_post",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "schiedsrichter_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Schiedsrichter Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSchiedsrichterWriteResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "$ref": "#/components/responses/404.DB-COMMON-001"
-          },
-          "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-ANONYMISE-004"
-          },
-          "422": {
-            "$ref": "#/components/responses/422.REQ-VAL-001"
-          },
-          "default": {
-            "$ref": "#/components/responses/default"
-          },
-          "400": {
-            "$ref": "#/components/responses/400.REQ-AUTH-005"
-          },
-          "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009"
-          },
-          "403": {
-            "$ref": "#/components/responses/403.REQ-AUTH-006"
-          },
-          "503": {
-            "$ref": "#/components/responses/503.DB-CONN-001"
-          }
-        },
-        "x-fl-tier": "admin"
-      }
-    },
     "/api/v0/aktionen": {
       "get": {
         "summary": "List recorded admin actions",
@@ -6375,16 +6253,16 @@
         "x-fl-tier": "admin"
       }
     },
-    "/api/v0/kontakte/erasure/ansicht": {
+    "/api/v0/identitaet/erasure/ansicht": {
       "post": {
-        "summary": "Show whom an erasure would reach",
-        "description": "Answer who stands in every seat `POST /kontakte/erasure` would clear for this address, by name and season.\n\nStores nothing, and takes that write's own payload: a confirmation cannot then be shown for one address and performed for another.",
-        "operationId": "get_kontakt_erasure_ansicht_api_v0_kontakte_erasure_ansicht_post",
+        "summary": "Show what an erasure of an address would reach",
+        "description": "Answer what `POST /identitaet/erasure` would reach for this address, by kind, by name and by the ids a page links each record by.\n\nADMIN TIER. Takes that erasure's own payload address and reads through its own selections in one snapshot, so it names\nevery record the erasure removes or empties, an unconfirmed seat, a retired row, a pupil's every squad row and a declined\nregistration among them, and no other. Another address's referee or pupil row holding a pending change to this address is\nnamed by its id, the change going and the row standing. No address and no birthdate is answered. `verwaltung` is the\ntier of the live grant the address holds, or null. Stores nothing.\n\nRefused as the erasure is: the administrator's own address (`REQ-PURGE-003`), an address holding an `owner` grant unless\nthe administrator holds an owner's power (`REQ-PURGE-005`), and with a 422 before any read, an address under the reserved\n`invalid` domain, where every referee row stored without an address shares one placeholder.",
+        "operationId": "get_erasure_ansicht_auf_anfrage_api_v0_identitaet_erasure_ansicht_post",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FLKontaktErasurePayload"
+                "$ref": "#/components/schemas/FLErasureAnsichtPayload"
               }
             }
           },
@@ -6396,7 +6274,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLKontaktErasureAnsichtResponse"
+                  "$ref": "#/components/schemas/FLErasureAnsichtResponse"
                 }
               }
             }
@@ -6414,7 +6292,7 @@
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
           },
           "403": {
-            "$ref": "#/components/responses/403.REQ-AUTH-006"
+            "$ref": "#/components/responses/403.REQ-AUTH-006.REQ-PURGE-003.REQ-PURGE-005"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -6429,16 +6307,16 @@
         "x-fl-stores-nothing": true
       }
     },
-    "/api/v0/kontakte/erasure": {
+    "/api/v0/identitaet/erasure": {
       "post": {
-        "summary": "Erase a Kontaktperson's records",
-        "description": "Clear one contact person from every season's junction row, every application, and the log.\n\nThe SLOT is nulled, never the block, so the others keep their records. `POST` and not\n`DELETE`: RFC 9110 §9.3.5 gives a `DELETE` body no semantics.",
-        "operationId": "erase_kontaktperson_api_v0_kontakte_erasure_post",
+        "summary": "Erase every record an address holds, on that person's request",
+        "description": "Erase every record an address holds, on a request that person made by mail, at once and as one write, and answer how many of each kind went.\n\nADMIN TIER, a step-up write. It runs the erasure `POST /identitaet/selbst/erasure` runs and refuses nothing about the\nperson's own state: a pupil in a live squad and a referee booked on a fixture still to be played are erased on one pass.\nTwo refusals are about who asks. The administrator's own address is refused (`REQ-PURGE-003`): their account page\nserves it, or another administrator. An address holding a live `owner` grant is refused unless the administrator holds\nan owner's power, signed in since becoming one (`REQ-PURGE-005`), judged inside the write. Erasing another\nadministrator's address removes their grant, whatever grants remain, and asks what a revoke asks: an address holding a live\ngrant is erased from a sign-in `ENROLMENT_WINDOW_MINUTES` old at most, every other from one inside the step-up window,\nelse `REQ-AUTH-009`. An address under the reserved `invalid` domain is refused 422 before any read: every referee row\nstored without an address shares one placeholder there.\n\n`anlass` names the request the erasure answers, and every log row the erasure files carries it; no other row does. The\ngrant notice names this administrator as ending the person's grant. An address holding nothing is answered with every\ncount zero. The 404 and the 409 answer only a database changed by hand under the request. The sign-in account is not\ntouched here: deleting it is the caller's, once this has answered.",
+        "operationId": "erase_auf_anfrage_api_v0_identitaet_erasure_post",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FLKontaktErasurePayload"
+                "$ref": "#/components/schemas/FLErasurePayload"
               }
             }
           },
@@ -6450,13 +6328,16 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLKontaktErasureResponse"
+                  "$ref": "#/components/schemas/FLErasureResponse"
                 }
               }
             }
           },
           "404": {
             "$ref": "#/components/responses/404.DB-COMMON-001"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.DB-COMMON-002"
           },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
@@ -6471,7 +6352,60 @@
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009"
           },
           "403": {
-            "$ref": "#/components/responses/403.REQ-AUTH-006"
+            "$ref": "#/components/responses/403.REQ-AUTH-006.REQ-PURGE-003.REQ-PURGE-005"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "admin"
+      }
+    },
+    "/api/v0/identitaet/abmeldung": {
+      "post": {
+        "summary": "Log the ending of every session an address holds",
+        "description": "File one log row saying that this administrator ended every session of an address, and when, before the caller ends them.\n\nADMIN TIER. The sessions live in the sign-in store, which the caller holds and this backend does not, so the row is the\nwhole of what this writes: collection `anmeldungen`, operation `delete_many`, the administrator as actor, and no address,\nfilter, image or count. Nothing bars the address and nothing is mailed; a person signs in again as before.\n\nRefused as the erasure is, so a refused call ends no session: the administrator's own address (`REQ-PURGE-003`), an\naddress holding an `owner` grant unless the administrator holds an owner's power (`REQ-PURGE-005`), and with a 422 an\naddress under the reserved `invalid` domain.",
+        "operationId": "post_abmeldung_api_v0_identitaet_abmeldung_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLAbmeldungPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLAbmeldungResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005.REQ-VAL-002"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006.REQ-PURGE-003.REQ-PURGE-005"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -8155,7 +8089,7 @@
     "/api/v0/identitaet/subjekt": {
       "post": {
         "summary": "Say which league records one mailbox holds",
-        "description": "Answer which confirmed contact seats, pupil records and referee records the league holds for one mailbox.\n\nStores nothing, and a POST all the same: the identifier travels in the body so that no path or query carries an address into an\naccess line, which is `POST /kontakte/erasure/ansicht`'s reason too.\n\nThe address is folded to the sign-in identifier -- trimmed, its domain in punycode, its ASCII letters lower-cased -- on arrival\nand compared in that form, so `Anna.Mueller@Schule.de` in a contact seat answers for `anna.mueller@schule.de`, and a domain\nasked as `müller.de` for the `xn--mller-kva.de` a record stores. `ß` is not folded to `ss`, so `poststrasse.de` and `poststraße.de`\nare two domains here as they are at sign-in. A `spieler` row is joined by equality instead, that field storing the folded form already.\n\nA contact seat and a referee record store the address as its payload wrote it -- the local part as typed, the domain in punycode --\nso both are read in two steps: the database narrows to the rows holding the identifier whatever the case of its letters, and the\nfold decides on each candidate's own stored value.\n\nNeither collection stores a folded copy beside the address it holds: a second copy on two collections has to be kept true by\nevery writer that touches either.\n\nA record is answered only once its own person has confirmed it -- a seat's `einwilligung.bestaetigt_am`, judged per seat, and the\nsame stamp on a pupil's and a referee's consent record, an empty stamp confirming nothing -- and only while its row is live: a\nretired pupil or referee is answered nothing, and so is the placeholder every erased referee's fixtures name. A seat on a season\nits team withdrew from, by disqualification or withdrawal alike, is answered nothing either; its seats on other seasons stand.\nA seat on a `past` season is still answered, carrying its `saison_status`: which seasons grant a panel is each caller's to decide.\n\n`unbestaetigt` is true exactly where the mailbox holds records that could grant a panel -- a live pupil or referee row, or a seat\non an `active` or `future` season -- and none of them is confirmed, so an unconfirmed person is told apart from one the league\nholds nothing for. A seat on a `past` season counts toward neither answer: confirming it would open nothing.\n\n`gesperrt` says whether the address is on the ban list, judged as a sign-up is: the address in any spelling that folds to the same\nmailbox, and a ban only while the running season is within its bound. It narrows none of the records beside it.\n\n`verwaltung` is the grant the mailbox holds in `berechtigungen` -- `owner`, `administration`, or null for none -- matched on the\nfolded identifier alone, the one spelling a grant is stored in. It is the one stored answer here: whether a person is an\nadministrator is decided by a grant rather than derived from a league record, and it narrows none of the records beside it. A\npromotion to `owner` made in the database is answered `administration` until `POST /berechtigungen/abgleich` finds it.\n\n`berechtigt_seit` is when that grant took effect, null exactly where `verwaltung` is: the moment `POST /berechtigungen/abgleich`\nfirst found a grant made in the database directly, the grant's own `erteilt_am` for one made through the application, and for one\nmade in the database that no call to that endpoint has read yet, its `erteilt_am` or the moment its id was generated, whichever is\nlater. A row changed in the database after that endpoint read it -- an address changed in place, a spelling no request matched\nmade one that does, a row put back after its removal was found -- is no grant, `verwaltung` null, until that endpoint finds the\nchange. A tier change leaves it standing. An admin-tier request from a sign-in older than it is refused.\n\n`inhaber_seit` is when the `owner` tier took effect, null exactly where `verwaltung` is not `owner`: the moment the tier change\nmade the grant an owner's, or that endpoint found a promotion made in the database, and never earlier than `berechtigt_seit`. A\nsign-in older than it administers and holds no owner's power, so the revoke and the tier change it asks for are refused. A\ndemotion takes the tier at once.\n\nEach list may be empty and each may hold more than one entry: one person holds seats at two clubs, and nothing enforces one pupil\nrecord per address.\nAn address the league holds nothing for is answered with three empty lists and `unbestaetigt` false rather than a 404.",
+        "description": "Answer which confirmed contact seats, pupil records and referee records the league holds for one mailbox.\n\nStores nothing, and a POST all the same: the identifier travels in the body so that no path or query carries an address into an\naccess line, which is `POST /identitaet/erasure/ansicht`'s reason too.\n\nThe address is folded to the sign-in identifier -- trimmed, its domain in punycode, its ASCII letters lower-cased -- on arrival\nand compared in that form, so `Anna.Mueller@Schule.de` in a contact seat answers for `anna.mueller@schule.de`, and a domain\nasked as `müller.de` for the `xn--mller-kva.de` a record stores. `ß` is not folded to `ss`, so `poststrasse.de` and `poststraße.de`\nare two domains here as they are at sign-in. A `spieler` row is joined by equality instead, that field storing the folded form already.\n\nA contact seat and a referee record store the address as its payload wrote it -- the local part as typed, the domain in punycode --\nso both are read in two steps: the database narrows to the rows holding the identifier whatever the case of its letters, and the\nfold decides on each candidate's own stored value.\n\nNeither collection stores a folded copy beside the address it holds: a second copy on two collections has to be kept true by\nevery writer that touches either.\n\nA record is answered only once its own person has confirmed it -- a seat's `einwilligung.bestaetigt_am`, judged per seat, and the\nsame stamp on a pupil's and a referee's consent record, an empty stamp confirming nothing -- and only while its row is live: a\nretired pupil or referee is answered nothing, and so is the placeholder every erased referee's fixtures name. A seat on a season\nits team withdrew from, by disqualification or withdrawal alike, is answered nothing either; its seats on other seasons stand.\nA seat on a `past` season is still answered, carrying its `saison_status`: which seasons grant a panel is each caller's to decide.\n\n`unbestaetigt` is true exactly where the mailbox holds records that could grant a panel -- a live pupil or referee row, or a seat\non an `active` or `future` season -- and none of them is confirmed, so an unconfirmed person is told apart from one the league\nholds nothing for. A seat on a `past` season counts toward neither answer: confirming it would open nothing.\n\n`gesperrt` says whether the address is on the ban list, judged as a sign-up is: the address in any spelling that folds to the same\nmailbox, and a ban only while the running season is within its bound. It narrows none of the records beside it.\n\n`verwaltung` is the grant the mailbox holds in `berechtigungen` -- `owner`, `administration`, or null for none -- matched on the\nfolded identifier alone, the one spelling a grant is stored in. It is the one stored answer here: whether a person is an\nadministrator is decided by a grant rather than derived from a league record, and it narrows none of the records beside it. A\npromotion to `owner` made in the database is answered `administration` until `POST /berechtigungen/abgleich` finds it.\n\n`berechtigt_seit` is when that grant took effect, null exactly where `verwaltung` is: the moment `POST /berechtigungen/abgleich`\nfirst found a grant made in the database directly, the grant's own `erteilt_am` for one made through the application, and for one\nmade in the database that no call to that endpoint has read yet, its `erteilt_am` or the moment its id was generated, whichever is\nlater. A row changed in the database after that endpoint read it -- an address changed in place, a spelling no request matched\nmade one that does, a row put back after its removal was found -- is no grant, `verwaltung` null, until that endpoint finds the\nchange. A tier change leaves it standing. An admin-tier request from a sign-in older than it is refused.\n\n`inhaber_seit` is when the `owner` tier took effect, null exactly where `verwaltung` is not `owner`: the moment the tier change\nmade the grant an owner's, or that endpoint found a promotion made in the database, and never earlier than `berechtigt_seit`. A\nsign-in older than it administers and holds no owner's power, so the revoke and the tier change it asks for are refused. A\ndemotion takes the tier at once.\n\nEach list may be empty and each may hold more than one entry: one person holds seats at two clubs, and nothing enforces one pupil\nrecord per address.\nAn address the league holds nothing for is answered with three empty lists and `unbestaetigt` false rather than a 404.",
         "operationId": "get_subjekt_api_v0_identitaet_subjekt_post",
         "requestBody": {
           "content": {
@@ -8291,6 +8225,60 @@
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-003"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "system",
+        "x-fl-stores-nothing": true
+      }
+    },
+    "/api/v0/identitaet/referenzen": {
+      "post": {
+        "summary": "Say which of these sign-in addresses no record references",
+        "description": "Answer which of the addresses asked about no league record references, so the sign-in account each names may be deleted.\n\nStores nothing, and a POST for `POST /identitaet/subjekt`'s reason: the addresses travel in the body.\n\nAn address is referenced, and so never answered, while any of these holds:\n\n- a contact seat on any season row holds it, a `past` season's and a withdrawn team's included, confirmed or not;\n- a contact seat on a pending application holds it, confirmed or not;\n- a pupil or referee record holds it, confirmed or not and live or retired; the placeholder every erased referee's fixtures\n  name and the one every erased pupil's entries name hold nothing;\n- a pending registration holds it that its pupil confirmed;\n- a grant in `berechtigungen` holds it, as stored, before the comparison has seen it too;\n- a standing ban holds it.\n\nA pending address change holds nothing: its address admits no sign-in until it is confirmed, and the address it replaces\nstays on the record until then.\n\nThat is wider than what `POST /identitaet/anmeldung` admits a sign-in on, so no account answered here is one the sign-in\nwould admit again: an unconfirmed seat on a `past` season and an unconfirmed retired record keep an account the gate admits\nno sign-in for, until the block is cleared or the row removed.\n\nThe whole batch is refused, `REQ-REFERENZEN-001`, while no live grant in `berechtigungen` is an `owner`'s. A league always\nholds one, so such a database is empty or another one, and answering from it would call every address unreferenced.\n\nEach address is compared as `POST /identitaet/subjekt` compares one, on the sign-in fold, and answered in the spelling it was\nasked in, once however often it was asked. An address today's address rule refuses is answered never rather than refused: no\nban can be keyed under it, so whether a ban made under an older rule holds it is unknown, and one refusal would refuse the\nwhole batch. A batch past its published ceiling is refused whole.",
+        "operationId": "get_referenzen_api_v0_identitaet_referenzen_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLReferenzenPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLReferenzenResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-VAL-002"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-003"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.REQ-REFERENZEN-001"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -9469,7 +9457,7 @@
     "/api/v0/identitaet/selbst/erasure": {
       "post": {
         "summary": "Erase every record the signed-in address holds",
-        "description": "Erase every record the signed-in address holds, at once and as one write, and answer how many of each kind went.\n\nPERSON TIER, refusing one person alone: the last live, unbarred `owner` of the administration, until another administrator\nis made one (`REQ-PURGE-004`), since nobody else could ever make an owner again. No other precondition stands in front of\na person's own request, a pupil in a live squad and a referee booked on a fixture still to be played included. Nothing is\ncounted against the person's day.\n\nRemoved: the pupil record and every squad row it holds, so the team reads one player fewer; the referee record, every\nfixture it was booked on moving to the one row that holds no person and keeping its own fee; every registration at the\naddress, pending or declined; another referee's or pupil's pending address change naming this address, that row itself\nstanding; every grant the address holds, an `owner` grant and the last two among them, every administrator being told it\nended; and the person's day counts. Emptied: every contact seat the address holds on a team's season row and on an\napplication of any status, the row and its other seats standing. Every record the person made as an administrator or\ndecided as a seat holder -- a grant, a ban, an invitation, an application's or a registration's decision -- and every\nlog row they wrote name a fixed marker in their place, this erasure's own rows included. The log images of the removed\nrecords are emptied, and every other image holding the address loses it, the people beside them keeping theirs.\n\nAn address holding nothing is answered with every count zero rather than refused. The 404 and the 409 answer only a\ndatabase changed by hand under the request. The sign-in account is not touched here: deleting it is the caller's, once\nthis has answered.",
+        "description": "Erase every record the signed-in address holds, at once and as one write, and answer how many of each kind went.\n\nPERSON TIER. The last live, unbarred `owner` of the administration is refused until another administrator is made one\n(`REQ-PURGE-004`), since nobody else could ever make an owner again; a person holding a live grant erases it with the rest\nfrom a passkey sign-in `ENROLMENT_WINDOW_MINUTES` old at most, as a revoke asks, else `REQ-AUTH-009`. No other\nprecondition stands in front of a person's own request, a pupil in a live squad and a referee booked on a fixture still\nto be played included. Nothing is counted against the person's day.\n\nRemoved: the pupil record and every squad row it holds, so the team reads one player fewer; the referee record, every\nfixture it was booked on moving to the one row that holds no person and keeping its own fee; every registration at the\naddress, pending or declined; another referee's or pupil's pending address change naming this address, that row itself\nstanding; every grant the address holds, an `owner` grant and the last two among them, every administrator being told it\nended; and the person's day counts. Emptied: every contact seat the address holds on a team's season row and on an\napplication of any status, the row and its other seats standing. Every record the person made as an administrator or\ndecided as a seat holder -- a grant, a ban, an invitation, an application's or a registration's decision -- and every\nlog row they wrote name a fixed marker in their place, this erasure's own rows included. The log images of the removed\nrecords are emptied, and every other image holding the address loses it, the people beside them keeping theirs.\n\nAn address holding nothing is answered with every count zero rather than refused. The 409 answers only a database\nchanged by hand, a second nameless referee meeting the ghost's name index. The 404 is published for the steps' reads by\nid, which no request can meet: every id comes from the subject read in the same snapshot. The sign-in account is not\ntouched here: deleting it is the caller's, once this has answered.",
         "operationId": "erase_selbst_api_v0_identitaet_selbst_erasure_post",
         "responses": {
           "200": {
@@ -9495,7 +9483,7 @@
             "$ref": "#/components/responses/400.REQ-AUTH-005"
           },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009"
           },
           "403": {
             "$ref": "#/components/responses/403.REQ-AUTH-008"
@@ -9515,7 +9503,7 @@
     "/api/v0/identitaet/selbst/erasure/ansicht": {
       "get": {
         "summary": "Show what an erasure of the signed-in address would remove",
-        "description": "Answer what `POST /identitaet/selbst/erasure` would remove for the signed-in address, by kind and by name.\n\nRead through that erasure's own selections, so it names every record the erasure reaches, an unconfirmed seat, a retired\nrow and a declined registration among them, and no other. No address and no birthdate is answered. A pending address\nchange on another address's referee or pupil row is counted and not named, that row not being this address's until the\nchange is confirmed. `verwaltung` is the grant the address holds, or null.",
+        "description": "Answer what `POST /identitaet/selbst/erasure` would remove for the signed-in address, by kind and by name.\n\nRead through that erasure's own selections in one snapshot, so it names every record of the person's own the erasure\nremoves or empties, an unconfirmed seat, a retired row and a declined registration among them, and no other. No address\nand no birthdate is answered. A pending address change on another address's referee or pupil row is counted and not\nnamed, that row not being this address's until the change is confirmed. Reached and not named: what the person made or\ndecided for others, their day counts and their log rows. `verwaltung` is the tier of the live grant the address holds,\nor null; a dead spelling of the address, which admits nobody, goes with the erasure unnamed.\n\n`letzter_inhaber` says whether the press would be refused `REQ-PURGE-004` as the grants stand at this read: the address\nholds the last live `owner` grant, a barred owner counting as none. Read outside the press's transaction, it is advisory;\nthe press judges again, and its answer alone decides.",
         "operationId": "get_erasure_ansicht_api_v0_identitaet_selbst_erasure_ansicht_get",
         "responses": {
           "200": {
@@ -9655,6 +9643,39 @@
           "updated_document"
         ],
         "title": "FLAblehnenBewerbungResponse"
+      },
+      "FLAbmeldungPayload": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "pattern": "@",
+            "title": "Email"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "email"
+        ],
+        "title": "FLAbmeldungPayload",
+        "description": "The mailbox whose every session the page ends next, looked up as the erasure looks one up."
+      },
+      "FLAbmeldungResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          }
+        },
+        "type": "object",
+        "title": "FLAbmeldungResponse",
+        "description": "The envelope alone: the log row it filed names no address to answer with."
       },
       "FLActivateSaisonResponse": {
         "properties": {
@@ -9872,6 +9893,17 @@
               }
             ],
             "title": "Redacted At"
+          },
+          "anlass": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Anlass"
           }
         },
         "type": "object",
@@ -10002,6 +10034,17 @@
               }
             ],
             "title": "Redacted At"
+          },
+          "anlass": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Anlass"
           },
           "before": {
             "anyOf": [
@@ -14333,6 +14376,385 @@
         ],
         "title": "FLEinwilligungStandPayload"
       },
+      "FLErasureAnsichtAdresswechsel": {
+        "properties": {
+          "schiedsrichter_id": {
+            "type": "string",
+            "title": "Schiedsrichter Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "schiedsrichter_id"
+        ],
+        "title": "FLErasureAnsichtAdresswechsel",
+        "description": "Another address's referee row whose pending change names this one: the change goes and the row stands."
+      },
+      "FLErasureAnsichtBewerbung": {
+        "properties": {
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "rolle": {
+            "type": "string",
+            "enum": [
+              "trainer",
+              "ansprechperson",
+              "stellvertretung"
+            ],
+            "title": "Rolle"
+          },
+          "vorname": {
+            "type": "string",
+            "title": "Vorname"
+          },
+          "nachname": {
+            "type": "string",
+            "title": "Nachname"
+          },
+          "bewerbung_id": {
+            "type": "string",
+            "title": "Bewerbung Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "saison_id",
+          "rolle",
+          "vorname",
+          "nachname",
+          "bewerbung_id"
+        ],
+        "title": "FLErasureAnsichtBewerbung"
+      },
+      "FLErasureAnsichtKader": {
+        "properties": {
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "team_id": {
+            "type": "string",
+            "title": "Team Id"
+          },
+          "team_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "saison_id",
+          "team_id",
+          "team_name"
+        ],
+        "title": "FLErasureAnsichtKader",
+        "description": "One squad row of a pupil the erasure reaches."
+      },
+      "FLErasureAnsichtPayload": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "pattern": "@",
+            "title": "Email"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "email"
+        ],
+        "title": "FLErasureAnsichtPayload",
+        "description": "The mailbox the reveal is read for, in the BODY for `FLSubjektPayload`'s reason."
+      },
+      "FLErasureAnsichtRegistrierung": {
+        "properties": {
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "team_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team Name"
+          },
+          "vorname": {
+            "type": "string",
+            "title": "Vorname"
+          },
+          "nachname": {
+            "type": "string",
+            "title": "Nachname"
+          },
+          "registrierung_id": {
+            "type": "string",
+            "title": "Registrierung Id"
+          },
+          "team_id": {
+            "type": "string",
+            "title": "Team Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "saison_id",
+          "team_name",
+          "vorname",
+          "nachname",
+          "registrierung_id",
+          "team_id"
+        ],
+        "title": "FLErasureAnsichtRegistrierung"
+      },
+      "FLErasureAnsichtResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "spieler": {
+            "items": {
+              "$ref": "#/components/schemas/FLErasureAnsichtSpieler"
+            },
+            "type": "array",
+            "title": "Spieler"
+          },
+          "schiedsrichter": {
+            "items": {
+              "$ref": "#/components/schemas/FLErasureAnsichtSchiedsrichter"
+            },
+            "type": "array",
+            "title": "Schiedsrichter"
+          },
+          "sitze": {
+            "items": {
+              "$ref": "#/components/schemas/FLErasureAnsichtSitz"
+            },
+            "type": "array",
+            "title": "Sitze"
+          },
+          "bewerbungen": {
+            "items": {
+              "$ref": "#/components/schemas/FLErasureAnsichtBewerbung"
+            },
+            "type": "array",
+            "title": "Bewerbungen"
+          },
+          "registrierungen": {
+            "items": {
+              "$ref": "#/components/schemas/FLErasureAnsichtRegistrierung"
+            },
+            "type": "array",
+            "title": "Registrierungen"
+          },
+          "adresswechsel": {
+            "items": {
+              "$ref": "#/components/schemas/FLErasureAnsichtAdresswechsel"
+            },
+            "type": "array",
+            "title": "Adresswechsel"
+          },
+          "spieler_adresswechsel": {
+            "items": {
+              "$ref": "#/components/schemas/FLErasureAnsichtSpielerAdresswechsel"
+            },
+            "type": "array",
+            "title": "Spieler Adresswechsel"
+          },
+          "verwaltung": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "owner",
+                  "administration"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verwaltung"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spieler",
+          "schiedsrichter",
+          "sitze",
+          "bewerbungen",
+          "registrierungen",
+          "adresswechsel",
+          "spieler_adresswechsel",
+          "verwaltung"
+        ],
+        "title": "FLErasureAnsichtResponse"
+      },
+      "FLErasureAnsichtSchiedsrichter": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "schiedsrichter_id": {
+            "type": "string",
+            "title": "Schiedsrichter Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "schiedsrichter_id"
+        ],
+        "title": "FLErasureAnsichtSchiedsrichter"
+      },
+      "FLErasureAnsichtSitz": {
+        "properties": {
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "team_name": {
+            "type": "string",
+            "title": "Team Name"
+          },
+          "rolle": {
+            "type": "string",
+            "enum": [
+              "trainer",
+              "ansprechperson",
+              "stellvertretung"
+            ],
+            "title": "Rolle"
+          },
+          "vorname": {
+            "type": "string",
+            "title": "Vorname"
+          },
+          "nachname": {
+            "type": "string",
+            "title": "Nachname"
+          },
+          "team_id": {
+            "type": "string",
+            "title": "Team Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "saison_id",
+          "team_name",
+          "rolle",
+          "vorname",
+          "nachname",
+          "team_id"
+        ],
+        "title": "FLErasureAnsichtSitz"
+      },
+      "FLErasureAnsichtSpieler": {
+        "properties": {
+          "vorname": {
+            "type": "string",
+            "title": "Vorname"
+          },
+          "nachname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nachname"
+          },
+          "spieler_id": {
+            "type": "string",
+            "title": "Spieler Id"
+          },
+          "kader": {
+            "items": {
+              "$ref": "#/components/schemas/FLErasureAnsichtKader"
+            },
+            "type": "array",
+            "title": "Kader"
+          }
+        },
+        "type": "object",
+        "required": [
+          "vorname",
+          "nachname",
+          "spieler_id",
+          "kader"
+        ],
+        "title": "FLErasureAnsichtSpieler"
+      },
+      "FLErasureAnsichtSpielerAdresswechsel": {
+        "properties": {
+          "spieler_id": {
+            "type": "string",
+            "title": "Spieler Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spieler_id"
+        ],
+        "title": "FLErasureAnsichtSpielerAdresswechsel",
+        "description": "Another address's pupil row whose pending change names this one, for `FLErasureAnsichtAdresswechsel`'s reason."
+      },
+      "FLErasurePayload": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "pattern": "@",
+            "title": "Email"
+          },
+          "anlass": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
+            "title": "Anlass"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "email",
+          "anlass"
+        ],
+        "title": "FLErasurePayload",
+        "description": "The mailbox, and the request the erasure answers, which every log row the erasure files keeps."
+      },
       "FLErasureResponse": {
         "properties": {
           "acknowledged": {
@@ -14346,38 +14768,47 @@
           },
           "spieler": {
             "type": "integer",
+            "minimum": 0.0,
             "title": "Spieler"
           },
           "saison_spieler": {
             "type": "integer",
+            "minimum": 0.0,
             "title": "Saison Spieler"
           },
           "schiedsrichter": {
             "type": "integer",
+            "minimum": 0.0,
             "title": "Schiedsrichter"
           },
           "spiele": {
             "type": "integer",
+            "minimum": 0.0,
             "title": "Spiele"
           },
           "kontakt_sitze": {
             "type": "integer",
+            "minimum": 0.0,
             "title": "Kontakt Sitze"
           },
           "registrierungen": {
             "type": "integer",
+            "minimum": 0.0,
             "title": "Registrierungen"
           },
           "adresswechsel": {
             "type": "integer",
+            "minimum": 0.0,
             "title": "Adresswechsel"
           },
           "berechtigungen": {
             "type": "integer",
+            "minimum": 0.0,
             "title": "Berechtigungen"
           },
           "drosselung": {
             "type": "integer",
+            "minimum": 0.0,
             "title": "Drosselung"
           }
         },
@@ -14988,99 +15419,6 @@
         "title": "FLKontaktEinladenResponse",
         "description": "A fresh link for one seat, and its pair where the Trainer holds both; the old link then opens nothing."
       },
-      "FLKontaktErasureAnsichtResponse": {
-        "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
-          "saison_teams": {
-            "items": {
-              "$ref": "#/components/schemas/FLKontaktSitz"
-            },
-            "type": "array",
-            "title": "Saison Teams"
-          },
-          "bewerbungen": {
-            "items": {
-              "$ref": "#/components/schemas/FLKontaktSitz"
-            },
-            "type": "array",
-            "title": "Bewerbungen"
-          }
-        },
-        "type": "object",
-        "required": [
-          "saison_teams",
-          "bewerbungen"
-        ],
-        "title": "FLKontaktErasureAnsichtResponse",
-        "description": "Whom `POST /kontakte/erasure` would reach, and nothing it would destroy.\n\nThe two lists are the two collections the write clears, kept apart because an application is a\nrequest to join and a junction row is a season already played."
-      },
-      "FLKontaktErasurePayload": {
-        "properties": {
-          "email": {
-            "type": "string",
-            "maxLength": 254,
-            "pattern": "@",
-            "title": "Email"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "email"
-        ],
-        "title": "FLKontaktErasurePayload",
-        "description": "Which person is asking to be forgotten, named by the one field that joins their records.\n\nA contact block carries no id and nothing joins one season's Trainer to the next season's, so\nthe address IS the identity here."
-      },
-      "FLKontaktErasureResponse": {
-        "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
-          "cleared_saison_teams": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Cleared Saison Teams"
-          },
-          "cleared_bewerbungen": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Cleared Bewerbungen"
-          },
-          "cleared_kontakt_slots": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Cleared Kontakt Slots"
-          },
-          "redacted_aktionen": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Redacted Aktionen"
-          }
-        },
-        "type": "object",
-        "required": [
-          "cleared_saison_teams",
-          "cleared_bewerbungen",
-          "cleared_kontakt_slots",
-          "redacted_aktionen"
-        ],
-        "title": "FLKontaktErasureResponse",
-        "description": "What the erasure reached, and NOT an echo of the person.\n\n`app/api/spieler/schemas.py :: FLSpielerErasureResponse`'s reason, binding harder here: the\nrequest named an address, so echoing anything of theirs returns a copy of what was destroyed."
-      },
       "FLKontaktKenntnisnahme": {
         "properties": {
           "umfang": {
@@ -15274,40 +15612,6 @@
           "email"
         ],
         "title": "FLKontaktPayload"
-      },
-      "FLKontaktSitz": {
-        "properties": {
-          "saison_id": {
-            "type": "string",
-            "title": "Saison Id"
-          },
-          "rolle": {
-            "type": "string",
-            "enum": [
-              "trainer",
-              "ansprechperson",
-              "stellvertretung"
-            ],
-            "title": "Rolle"
-          },
-          "vorname": {
-            "type": "string",
-            "title": "Vorname"
-          },
-          "nachname": {
-            "type": "string",
-            "title": "Nachname"
-          }
-        },
-        "type": "object",
-        "required": [
-          "saison_id",
-          "rolle",
-          "vorname",
-          "nachname"
-        ],
-        "title": "FLKontaktSitz",
-        "description": "One seat the address holds.\n\nPer seat and not per person: one person holds seats in several seasons, and one row seats them\ntwice where `trainer_ist_zugleich` says so, so a list keyed on the name hides both cases."
       },
       "FLKontaktperson": {
         "properties": {
@@ -18181,6 +18485,52 @@
           "created_id"
         ],
         "title": "FLPostTeamResponse"
+      },
+      "FLReferenzenPayload": {
+        "properties": {
+          "identifiers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 250,
+            "minItems": 1,
+            "title": "Identifiers"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "identifiers"
+        ],
+        "title": "FLReferenzenPayload",
+        "description": "The sign-in addresses a pass of the account sweep asks about."
+      },
+      "FLReferenzenResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "unreferenziert": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Unreferenziert"
+          }
+        },
+        "type": "object",
+        "required": [
+          "unreferenziert"
+        ],
+        "title": "FLReferenzenResponse",
+        "description": "Which of them nothing references, and nothing of the records that reference the others."
       },
       "FLRefusedField": {
         "properties": {
@@ -21317,7 +21667,7 @@
           "updated_document"
         ],
         "title": "FLSchiedsrichterWriteResponse",
-        "description": "Shared by delete and anonymisieren.\n\nThe retirement answers with the referee as they now stand; the erasure answers with the ghost,\nthe row it named being gone (`app/api/schiedsrichter/admin_router.py :: anonymise_schiedsrichter`)."
+        "description": "The referee as a retirement or a discarded address change leaves them."
       },
       "FLSelbstErasureAnsichtResponse": {
         "properties": {
@@ -21367,6 +21717,7 @@
           },
           "adresswechsel": {
             "type": "integer",
+            "minimum": 0.0,
             "title": "Adresswechsel"
           },
           "verwaltung": {
@@ -21383,6 +21734,10 @@
               }
             ],
             "title": "Verwaltung"
+          },
+          "letzter_inhaber": {
+            "type": "boolean",
+            "title": "Letzter Inhaber"
           }
         },
         "type": "object",
@@ -21393,7 +21748,8 @@
           "bewerbungen",
           "registrierungen",
           "adresswechsel",
-          "verwaltung"
+          "verwaltung",
+          "letzter_inhaber"
         ],
         "title": "FLSelbstErasureAnsichtResponse"
       },
@@ -23159,39 +23515,6 @@
         "title": "FLSpielerAdminSingleResponse",
         "description": "The same player echoed back to the admin who just wrote them, with their whole name.\n\n`inactive_since` rides here alone: it IS the answer `DELETE` and `reactivate` give, and no public\nsurface renders a pupil's leaving date."
       },
-      "FLSpielerErasureResponse": {
-        "properties": {
-          "acknowledged": {
-            "type": "integer",
-            "enum": [
-              0,
-              1
-            ],
-            "title": "Acknowledged",
-            "default": 1
-          },
-          "spieler_id": {
-            "type": "string",
-            "title": "Spieler Id"
-          },
-          "erased_saison_spieler": {
-            "type": "integer",
-            "title": "Erased Saison Spieler"
-          },
-          "redacted_aktionen": {
-            "type": "integer",
-            "title": "Redacted Aktionen"
-          }
-        },
-        "type": "object",
-        "required": [
-          "spieler_id",
-          "erased_saison_spieler",
-          "redacted_aktionen"
-        ],
-        "title": "FLSpielerErasureResponse",
-        "description": "What the erasure removed, and NOT an echo of the person.\n\nA response repeating their names or their consent record would be a fresh copy of exactly what\nwas erased, handed back over the wire."
-      },
       "FLSpielerKontext": {
         "properties": {
           "vorname": {
@@ -24323,7 +24646,7 @@
           "saison_status"
         ],
         "title": "FLSubjektSitz",
-        "description": "One contact seat the mailbox holds on a season's junction row.\n\nPer seat and never per person, as `app/api/kontakte/schemas.py :: FLKontaktSitz` is: one row\nseats one person twice where `trainer_ist_zugleich` says so."
+        "description": "One contact seat the mailbox holds on a season's junction row.\n\nPer seat and never per person, as the erasure's `FLSelbstErasureSitz` is: one row seats one\nperson twice where `trainer_ist_zugleich` says so."
       },
       "FLSubjektSpieler": {
         "properties": {
@@ -25628,6 +25951,31 @@
           }
         }
       },
+      "403.REQ-AUTH-006.REQ-PURGE-003.REQ-PURGE-005": {
+        "description": "Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-AUTH-006",
+                        "REQ-PURGE-003",
+                        "REQ-PURGE-005"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
       "403.REQ-AUTH-008": {
         "description": "Forbidden",
         "content": {
@@ -26021,30 +26369,6 @@
                         "REQ-ACTIVATE-002",
                         "REQ-ACTIVATE-003",
                         "REQ-ACTIVATE-004"
-                      ]
-                    }
-                  }
-                }
-              ]
-            }
-          }
-        }
-      },
-      "409.DB-COMMON-002.REQ-ANONYMISE-004": {
-        "description": "Conflict",
-        "content": {
-          "application/json": {
-            "schema": {
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/FLFailureBody"
-                },
-                {
-                  "properties": {
-                    "error_code": {
-                      "enum": [
-                        "DB-COMMON-002",
-                        "REQ-ANONYMISE-004"
                       ]
                     }
                   }
@@ -26818,7 +27142,7 @@
           }
         }
       },
-      "409.REQ-PURGE-001": {
+      "409.REQ-REFERENZEN-001": {
         "description": "Conflict",
         "content": {
           "application/json": {
@@ -26831,7 +27155,7 @@
                   "properties": {
                     "error_code": {
                       "enum": [
-                        "REQ-PURGE-001"
+                        "REQ-REFERENZEN-001"
                       ]
                     }
                   }

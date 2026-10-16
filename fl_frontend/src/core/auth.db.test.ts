@@ -81,6 +81,12 @@ const wrapCollection = (name: string, collection: object): object =>
           return (value as Method).apply(target, args);
         };
       }
+      if (name === "user" && prop === "deleteOne") {
+        return async (...args: unknown[]) => {
+          await deletingUser();
+          return (value as Method).apply(target, args);
+        };
+      }
       return bound(target, value);
     },
   });
@@ -129,6 +135,9 @@ let atCommit: (session: HeldSession) => Promise<unknown> = async () => undefined
 
 /** What runs as an account's sign-in rows are deleted inside a deletion's transaction. */
 let deletingAccounts: () => Promise<unknown> = async () => undefined;
+
+/** What runs as a user row is deleted, by the library or by a deletion's transaction. */
+let deletingUser: () => Promise<unknown> = async () => undefined;
 
 const LOGGING_DOUBLE = {
   logger: {
@@ -242,6 +251,7 @@ beforeEach(async () => {
   consuming = async () => undefined;
   atCommit = async () => undefined;
   deletingAccounts = async () => undefined;
+  deletingUser = async () => undefined;
   await authDb().dropDatabase();
 
   // Production's indexes under every case, so the library is driven over what it meets there.
@@ -388,6 +398,30 @@ describe("a passkey setup that signs in, against a real database", () => {
     assert.equal(sent.length - mailedBefore, 1);
     const factors = (await sessionRows()).map(({ authFactor }) => authFactor).sort();
     assert.deepEqual(factors, ["code", "passkey"], "the refused setup minted a session or ended its caller's");
+  });
+
+  /* The enrolment guard reads the caller's own rows alone, so a credential another account holds reaches
+     the insert, where the index refuses it as a duplicate no retry clears. */
+  it("refuses a setup naming a credential another account holds as the plugin's failure, on the conflict's warning", async () => {
+    const administrator = await offer(await signIn(ADMIN_EMAIL));
+    assert.equal((await verify(administrator, AUTHENTICATOR_A)).status, 200, "the administrator holds no passkey, so nothing is named twice");
+    gateAnswer = { sitze: [SITZ], gesperrt: false, konto: true };
+    const person = await offer(await signIn("zweites-konto@example.org"));
+    warnings.length = 0;
+    const mailedBefore = sent.length;
+
+    const refused = await verify(person, AUTHENTICATOR_A, { createSession: true });
+
+    assert.deepEqual(
+      {
+        status: refused.status,
+        logged: [warnings, errors],
+        notices: sent.length - mailedBefore,
+        rows: (await passkeyRows()).length,
+        factors: (await sessionRows()).map(({ authFactor }) => authFactor),
+      },
+      { status: 500, logged: [["auth.passkey_enrolment_conflict"], []], notices: 0, rows: 1, factors: ["code", "code"] },
+    );
   });
 });
 
@@ -665,7 +699,7 @@ describe("a session only read, against a real database (`docs/frontend/spec.md :
   });
 });
 
-/** One signed-in address with every row the store keeps of it: a session, a passkey, a live code, a failed guess, a mail's count and a deletion token. */
+/** One signed-in address with every row the store keeps of it: a session, a passkey, a live code, a failed guess, three mails' counts and a deletion token. */
 async function seedAccount(email: string): Promise<{ cookie: string; userId: string; pending: string[]; token: string }> {
   gateAnswer = { sitze: [SITZ], gesperrt: false, konto: true };
   const cookie = await signIn(email);
@@ -701,7 +735,7 @@ async function seedAccount(email: string): Promise<{ cookie: string; userId: str
   const pending = (await authDb().collection("verification").find({}).toArray())
     .filter((row) => !before.has(String(row._id)) && row.identifier !== "sign-in-mail-every-address")
     .map((row) => String(row.identifier));
-  assert.equal(pending.length, 5, `the seeding left ${String(pending.length)} pending rows, so a case reads fewer than it means to`);
+  assert.equal(pending.length, 7, `the seeding left ${String(pending.length)} pending rows, so a case reads fewer than it means to`);
 
   return { cookie, userId, pending, token: found[1] };
 }
@@ -742,7 +776,29 @@ describe("an account deleted, against a real database", () => {
 
     assert.deepEqual([answer, erased], ["deleted", 1]);
     assert.deepEqual(await heldOf(person), { user: 0, sessions: 0, passkeys: 0, pending: 0 });
-    assert.deepEqual(await heldOf(bystander), { user: 1, sessions: 1, passkeys: 1, pending: 5 });
+    assert.deepEqual(await heldOf(bystander), { user: 1, sessions: 1, passkeys: 1, pending: 7 });
+  });
+
+  /* Both deletion paths find an account by its user row, so the helper goes first: a failure at that row
+     leaves it for them to find, and no passkey past their reach (`docs/frontend/spec.md :: I675`). */
+  it("leaves the user row alone where the library's delete of it fails, its passkeys and pending rows gone", async () => {
+    const { runWithRequestScope } = await import("./requestScope.ts");
+    const person = await seedAccount("nutzerzeile-db@example.org");
+    deletingUser = () => Promise.reject(new Error("planted: the user row's delete fails"));
+
+    await assert.rejects(
+      runWithRequestScope(
+        {
+          traceId: `${"0".repeat(31)}5`,
+          spanId: `${"0".repeat(15)}5`,
+          actor: { email: "nutzerzeile-db@example.org", lane: "person", token: "doubled-person-token-not-a-credential" },
+        },
+        () => deleteOwnAccount(person.token, new Headers({ ...ORIGIN, cookie: person.cookie }), () => Promise.resolve({})),
+      ),
+      /planted: the user row's delete fails/,
+    );
+
+    assert.deepEqual(await heldOf(person), { user: 1, sessions: 0, passkeys: 0, pending: 0 });
   });
 
   it("deletes every row of an address in one transaction for the administrator's erasure and the sweep", async () => {
@@ -752,7 +808,7 @@ describe("an account deleted, against a real database", () => {
     assert.equal(await deleteAccountFor("Konto-Weg-DB@Example.org"), true);
 
     assert.deepEqual(await heldOf(person), { user: 0, sessions: 0, passkeys: 0, pending: 0 });
-    assert.deepEqual(await heldOf(bystander), { user: 1, sessions: 1, passkeys: 1, pending: 5 });
+    assert.deepEqual(await heldOf(bystander), { user: 1, sessions: 1, passkeys: 1, pending: 7 });
   });
 
   /* The first run's commit fails transiently and writes nothing, so the adapter runs the deletion again; that
@@ -784,6 +840,6 @@ describe("an account deleted, against a real database", () => {
 
     assert.equal(runs, 2, "the adapter ran the deletion once, so no retry followed a commit");
     assert.ok(answer instanceof RolledBackError, `the caller was told ${String(answer)} rather than of a rollback`);
-    assert.deepEqual(await heldOf(person), { user: 1, sessions: 1, passkeys: 1, pending: 5 });
+    assert.deepEqual(await heldOf(person), { user: 1, sessions: 1, passkeys: 1, pending: 7 });
   });
 });

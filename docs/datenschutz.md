@@ -380,9 +380,10 @@ Every ruling below is the sign-up flow as it stands for the next season.
   the least asymmetry between roles.** The mechanisms today are a person's own
   `POST /identitaet/selbst/erasure`, which reaches every record the address holds in one write
   (`docs/backend/spec.md :: I663`) and refuses only the administration's last live owner, until they
-  make another administrator an owner (`:: I479`), and the administrator's
-  `DELETE /spieler/{spieler_id}/erasure`,
-  `POST /kontakte/erasure` and `POST /schiedsrichter/{schiedsrichter_id}/anonymisieren`; the one-off drop of
+  make another administrator an owner (`:: I479`), and the administrator's `POST /identitaet/erasure`,
+  which runs that same erasure for a person who asked by mail and refuses nothing about them, only
+  the administrator's own address and an owner's address to an administrator holding no owner's power
+  (`docs/backend/spec.md :: I682`); the one-off drop of
   [section 3](#3-the-current-pupil-records-are-reset-once) empties the name on every fixture it
   repoints, so it leaves no name with no row behind it. The referee path deletes the document
   and repoints every fixture that named them at the ghost — one permanent row,
@@ -390,8 +391,15 @@ Every ruling below is the sign-up flow as it stands for the next season.
   fixture keeps a name, a school or a contact detail, closed seasons' fixtures included, and nothing
   can be written back onto the person: an edit racing the erasure
   meets the deleted row and is refused as not found. Every erased referee's fixtures share that one
-  row, so no set of fixtures singles a person out. The ghost itself may not be erased
-  (`REQ-ANONYMISE-004`).
+  row, so no set of fixtures singles a person out. No erasure reaches the ghost: each selects the
+  records an address holds, and the ghost holds none.
+- **A record holding no address of its person is reached by no erasure.** Every erasure is keyed on
+  a mailbox, so a pupil row stored without an address is reached by none, and neither is a referee
+  row stored without one: those hold one placeholder under the reserved `.invalid` domain, which the
+  administrator's erasure and its reveal refuse before any read, since it would reach every such row
+  at once (`fl_backend/app/api/identitaet/schemas.py :: refuse_the_reserved_domain`). An
+  administrator gives such a referee row the person's own address first; the pupil rows go with the
+  reset of [section 3](#3-the-current-pupil-records-are-reset-once).
 - **A referee's erasure also ends their engagement.** Booking a person after they asked to be erased
   creates fresh personal data about them, with no lawful basis standing for it. The ghost is a
   retired row no list serves and no picker names, so `REQ-BOOKING-001` refuses it every new
@@ -412,15 +420,13 @@ Every ruling below is the sign-up flow as it stands for the next season.
   The rest of each image stays, the referee's own earlier consent states among it, as a contact
   person's Widerspruch leaves the people beside them theirs (`docs/backend/spec.md :: I42`). A save
   replacing the pending address with another mailbox's takes it out the same way, the replaced
-  address being one nobody proved either. `POST /kontakte/erasure` reaches no referee row, a pending
-  address included.
-- **An erasure keyed on an email address names what it reaches.** Every seat the address holds is
-  its one person's (the entry below), and each is listed for confirmation before the write — by name
-  and by the season it sits in, read through `POST /kontakte/erasure/ansicht` rather than inferred on
-  the client
-  (`fl_frontend/src/features/kontakte/components/forms/AdminKontakteEditForm/FormKontaktReveal.tsx :: FormKontaktReveal`),
-  so a name nobody expected shows a mailbox shared against that entry before anything goes. A person
-  id across seasons is not introduced: contact persons are season-scoped by design.
+  address being one nobody proved either.
+- **An erasure keyed on an email address names what it reaches.** Every record the address holds is
+  its one person's (the entry below), and each is listed for confirmation before the write — by kind,
+  name and the season it sits in, read through the erasure's own selection rather than inferred on
+  the client (`docs/backend/spec.md :: I684`, the person's own preview `:: I669`), so a name nobody
+  expected shows a mailbox shared against that entry before anything goes. A person id across
+  seasons is not introduced: contact persons are season-scoped by design.
 - **One address is one person: enforced among pupils, and assumed across the collections.** Every
   record stored under a folded address (`fl_backend/app/shared/folding.py :: sign_in_identifier`) — a
   contact seat, a squad entry, a referee row, a grant — is that one person's, whatever Funktion it
@@ -442,7 +448,14 @@ Every ruling below is the sign-up flow as it stands for the next season.
   name matches as well and that person confirmed their record
   (`fl_backend/app/api/registrierungen/services.py :: seite_of` over `:: persons_named`), the one
   place a shared mailbox would otherwise show one pupil another's answers and leave their own
-  consent unasked. Ruled 2026-09-27.
+  consent unasked. Ruled 2026-09-27. Inside a season row or application that a Widerspruch answers
+  or a contact erasure clears, one name is one person as well: its log images lose every seat
+  holding the person's name, so an address corrected in a later save takes its earlier seat with it
+  (`docs/backend/spec.md :: I672`). Its live seats stay matched on the address alone, since the
+  person's link and the erasure's reveal both work by it. A team replacement goes further on the
+  club's accepted application for that season, where nothing stands in front of the write: the
+  outgoing people leave its live seats and its images by address or by name (`:: I673`). An image
+  found by what it holds alone stays matched on the address. Ruled 2026-10-15.
 - **An administrator's address is stored as their grant, in plain, and so is the address of
   whoever granted it.** `berechtigungen` holds the grant and `berechtigungen_angekuendigt` what the
   other administrators were told of it, and every administrator is served both addresses. The outbox
@@ -475,11 +488,15 @@ Every ruling below is the sign-up flow as it stands for the next season.
 - **The erasure of anybody who has signed in includes the sign-in store.** The `auth` database
   holds the address, sessions and sign-in codes of everyone who has signed in — an
   administrator, and a person the send gate offered one (`fl_frontend/src/core/signInGate.ts :: mayReceiveSignIn`) — and the
-  passkeys of anyone who set one up. It is inside the erasure, and it is reached by hand:
+  passkeys of anyone who set one up. It is inside the erasure: the person's own deletion and an
+  administrator's erasure delete the account at the erased address in the same request, once the
+  records are gone. An account at an earlier address of the person, which no record names once the
+  address moved, or one whose deletion failed, the account sweep deletes within the hour of nothing
+  referencing its address, as after any other erasure, a barred address keeping its account
+  ([section 6](#6-retention-is-bounded-where-a-bound-was-chosen));
   `fl_frontend/src/core/auth.ts` is where that store is configured, and
   [`ops/runbooks.md`](ops/runbooks.md#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)
-  is what names it as the place a signed-in person's own data sits and gives the step that erases it
-  there. Its collections are `user`,
+  names it as the place a signed-in person's own data sits. Its collections are `user`,
   `session`, `account`, `verification` and `passkey`. The last holds a credential's public key, its
   identifier, the counters the browser reports, when it was set up, when it last signed its holder in
   (`fl_frontend/src/core/passkeyLastUse.ts`) and any name its holder gives it on the account page
@@ -499,7 +516,8 @@ Every ruling below is the sign-up flow as it stands for the next season.
   (`fl_frontend/src/features/konto/sicherheit.ts`). A `user` row's `updatedAt` records when that account last changed or last
   had a passkey removed (`fl_frontend/src/core/auth.ts :: claimAccount`), and where a ban
   ended the account's sessions, the row keeps when it did (`fl_frontend/src/core/auth.ts :: endSessionsOfAddress`), so that no session made before it
-  is served again once the ban is lifted. **A session and a sign-in code each carry an expiry set at that
+  is served again once the ban is lifted. An administrator may end an address's sessions without a ban, mailing nobody; the action
+  log keeps who did it and when, and never the address (`docs/backend/spec.md :: I689`). **A session and a sign-in code each carry an expiry set at that
   configuration, and the expiry bounds the credential rather than the row**: the library drops a
   session row when its holder presents the stale cookie and leaves it standing where nobody comes
   back, and it consumes a code's row when the code is typed, live or expired, sweeping expired
@@ -530,20 +548,25 @@ Every ruling below is the sign-up flow as it stands for the next season.
   of the folded address as the ban list takes one, and the kind of person the write was made as,
   and the log refuses a person's row carrying an address (`docs/backend/spec.md :: I384`). Ruled
   2026-09-21. **The person's erasure reaches the pseudonym**: this controller holds the key that
-  recomputes it from the address, so every row the person wrote names a fixed marker in its place
-  from their erasure on, the rows that erasure itself writes included (`docs/backend/spec.md :: I665`).
+  recomputes it from the address, so every row the person wrote under that address names a fixed
+  marker in its place from their erasure on, the rows that erasure itself writes included
+  (`docs/backend/spec.md :: I665`). Rows written under an earlier address of theirs, confirmed and
+  since changed, keep that address's pseudonym, which the erasure cannot recompute from the address it
+  is asked for; they leave the log with its twelve months (`docs/backend/spec.md :: I119`).
 - **A signed-in person's writes are counted per day under the same pseudonym, and their erasure
-  removes every count.** The daily write ceiling
+  removes the counts.** The daily write ceiling
   (`docs/glossary.md :: Drosselung`) keeps one row per kind of person the write was made as, pseudonym and German day, holding a number and no
   address, so that one stolen or misused seat cannot write without bound; the TTL index removes it
   at that day's German midnight, plus the monitor's lag, and the person's erasure removes every
-  count of theirs at once, whatever its day (`docs/backend/spec.md :: I619`). **The ceiling's first refusal of a day also leaves one line in
+  count of theirs its own read finds, whatever its day; one a request racing the erasure writes after
+  that read goes with the TTL index (`docs/backend/spec.md :: I619`). **The ceiling's first refusal of a day also leaves one line in
   the application log**, naming the kind of person and the pseudonym's prefix the action-log page shows,
   never an address (`fl_backend/app/core/drosselung.py :: get_drossel`,
   `docs/backend/spec.md :: I618`). That line is kept as every application-log line is, by size while
   the container runs and for thirty days in the copy each deploy takes
-  ([section 6](#6-retention-is-bounded-where-a-bound-was-chosen)), and no erasure reaches it; an
-  administrator can match the prefix to the person's rows on the log page.
+  ([section 6](#6-retention-is-bounded-where-a-bound-was-chosen)), and no erasure reaches it. Until
+  the person's erasure an administrator can match the prefix to their rows on the log page; after it
+  those rows name the marker, and the prefix matches nothing there (`docs/backend/spec.md :: I665`).
 - **Backups outlive an erasure by the snapshot window, and the person is told so.** The hosting
   keeps snapshots for about eight days, taken daily — a figure mirrored from the provider's own
   console, which moves without us, as it stood on 2026-09-01. An erased person is gone from the live
@@ -570,14 +593,21 @@ Every ruling below is the sign-up flow as it stands for the next season.
   and the season it ran to, and no barred address — for the twelve
   months every stamped log row is kept (`docs/backend/spec.md :: I48`, `:: I119`), so a removed ban
   is readable at `/bereich/admin/aktionen` for that period and enforced by nothing from the moment it goes.
+- **Free text that may name a person outlives their erasure.** A fixture's note (`spiele.notiz`),
+  an application's wished opponent (`bewerbungen.wunschgegner`) and its decision's reason
+  (`bewerbungen.entscheidung.grund`), a team's reason for leaving a season
+  (`saison_teams.austritt.grund`), a registration's decision reason
+  (`registrierungen.entscheidung.grund`) and a club's description (`teams.description`) are typed
+  about others and keyed on no address, so no step reaches them: only a name could find them, and a
+  name search would take a namesake's text with it.
 - **A retired row is never removed because of its age.** A player who left a squad, a referee who
   stopped, a club that left and a past season all keep their rows; a person's row goes only by an
   erasure or by one of the two one-off removals [section 3](#3-the-current-pupil-records-are-reset-once)
-  records, this season's player reset and the drop of the referee rows standing today, and
-  self-service for requesting an erasure comes with the account tiers. The
+  records, this season's player reset and the drop of the referee rows standing today; a person
+  asks for their own erasure through `POST /identitaet/selbst/erasure`. The
   Known-open row `docs/backend/spec.md :: Nothing purges a retired row` carries this today, naming
-  `fl_backend/app/core/domain.py :: UNENFORCED` and `docs/backend/spec.md :: I12`, which holds the
-  erasure's own refusal code. An application is not a retired row and does not take this rule: its
+  `fl_backend/app/core/domain.py :: UNENFORCED` and `docs/backend/spec.md :: I12`, which holds that
+  an erasure asks no retirement first. An application is not a retired row and does not take this rule: its
   clocks are [section 6](#6-retention-is-bounded-where-a-bound-was-chosen)'s. **Datenschutzexperte
   consulted.** Ruled 2026-08 and re-confirmed 2026-09-02. For a referee I ruled on 2026-09-22 that
   the row is kept until it is deleted, by an administrator's decision or at the referee's own
@@ -589,9 +619,9 @@ Every ruling below is the sign-up flow as it stands for the next season.
 - **The log keeps storing the full prior document on every write, person-bearing rows included.**
   That copy is what a restore over the log replays, which is the log's purpose, and the
   twelve-month bound `docs/backend/spec.md :: I119` states is what answers the accumulation. Dropping the copies would remove the
-  log's value exactly where writes matter most. A person who asks for erasure still has their log
-  rows emptied and stamped inside the transaction that removes them
-  (`docs/backend/spec.md :: I42`); what the bound answers is the copies of everyone who never
+  log's value exactly where writes matter most. A person who asks for erasure still has their values
+  taken out of the log inside the transaction that removes them
+  (`docs/backend/spec.md :: I42`, `:: I671`); what the bound answers is the copies of everyone who never
   asked. The database applies it rather than a sweep in this codebase
   (`fl_backend/app/core/constraints.py :: TTL_INDEXES`), and it reaches a stamped row alone
   ([section 3](#3-the-current-pupil-records-are-reset-once)). Ruled 2026-09-02.
@@ -689,11 +719,12 @@ Every ruling below is the sign-up flow as it stands for the next season.
   new one replaces the whole block, the delivery state of the message the old link went out in
   included (`fl_backend/app/api/schiedsrichter/services.py :: compose_mint_update`).
 - **A confirmed referee's pending new address stands until its holder confirms or declines it, an
-  administrator replaces or discards it, or the referee is erased with it, and goes the day after
-  its link lapses** (`fl_backend/app/core/domain.py :: FIELD_POLICIES`,
-  `docs/backend/spec.md :: I693`): the address may be a stranger's, typed in by mistake, who never
-  asked to be stored. Its link lasts the confirmation link's fourteen days and a re-send restarts
-  them (`fl_backend/app/api/schiedsrichter/services.py :: compose_adresswechsel`). The hourly pass
+  administrator replaces or discards it, the referee is erased with it or its holder's own erasure
+  removes it alone (`docs/backend/spec.md :: I668`), and goes the day after its link lapses**
+  (`fl_backend/app/core/domain.py :: FIELD_POLICIES`, `docs/backend/spec.md :: I693`): the address
+  may be a stranger's, typed in by mistake, who never asked to be stored. Its link lasts the
+  confirmation link's fourteen days and a re-send restarts them
+  (`fl_backend/app/api/schiedsrichter/services.py :: compose_adresswechsel`). The hourly pass
   removes a lapsed one as a discard does, its address taken out of the referee's log images, a
   retired referee's alike; the published notice states the removal
   (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-10-06, its timing re-ruled 2026-10-15.
@@ -722,6 +753,17 @@ Every ruling below is the sign-up flow as it stands for the next season.
   `docs/backend/spec.md :: I480`). The announced record and the outbox row leave no image in the log
   (`docs/backend/spec.md :: I465`), while a revoked grant keeps its own under the log's twelve
   months. The published notice tabulates it (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-09-28.
+- **A sign-in account and its passkeys are kept until no league record, grant or ban holds their
+  address, and then deleted within the hour, with no message.** A record holds it as a contact seat
+  of any season or of a pending application, as a pupil or referee row, confirmed or not and live or
+  retired, or as a pending registration its pupil confirmed (`docs/backend/spec.md :: I698`). What
+  else still names the address holds nothing: the log's images, an administrator's authorship, an
+  unconfirmed or decided registration, a decided application and a pending address change. The
+  account sweep deletes the account with its sessions, passkeys and codes
+  (`docs/frontend/spec.md :: I699`), so a barred address keeps its account until the ban ends. The
+  published notice states the criterion in advance (`DatenschutzView.tsx :: FRISTEN`),
+  which is why nothing is sent after the fact: the person was told what ends the account, and a
+  message after it could reach a mailbox that has since changed hands. Ruled 2026-10-15.
 - **No open tracking and no click tracking is subscribed, and none is read.** The mail provider
   reports what became of a message's DELIVERY and nothing about what its recipient did with it: the
   six delivery events are subscribed and `email.opened` and `email.clicked` are not
@@ -751,7 +793,9 @@ Every ruling below is the sign-up flow as it stands for the next season.
   person whose details they are (`fl_backend/app/shared/einwilligung.py :: FASSUNGEN`),
   and the published notice tabulates them (`DatenschutzView.tsx :: FRISTEN`). This bounds the
   permanent record that `docs/glossary.md :: Bewerbung`
-  and `docs/backend/spec.md :: READ-CONTACT-001` describe. Ruled 2026-09-02.
+  and `docs/backend/spec.md :: READ-CONTACT-001` describe. Ruled 2026-09-02. A team replacement
+  takes the outgoing people off the club's accepted application for that season at once, as the
+  season row's page promises them (`docs/backend/spec.md :: I673`). Ruled 2026-10-15.
 - **A season's contact persons follow the accepted application's clock**: their contact block is
   cleared when the season after the one they were collected for ends, and the confirmation links
   beside it with it (`fl_backend/app/api/bewerbungen/sweep_router.py :: sweep_saison`). The consent text scopes
@@ -787,7 +831,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   lengthen retention and add a processor receiving visitors' addresses. That the access line carries
   no credential and no typed search query is a separate guarantee, held by `nginx/edge_test.sh` in
   the gate's ops scope (`docs/frontend/spec.md :: I680`).
-  Ruled 2026-09-06, re-ruled 2026-09-07.
+  Ruled 2026-09-06, re-ruled 2026-09-07; the search-query half ruled 2026-10-15.
 
 ## 7. Processors and third parties
 
@@ -968,7 +1012,7 @@ the `Entry` column carries a token only where one still resolves in that file.
   published on every fixture they officiate on the basis the notice gives for every referee; the rows
   are dropped whole, once, their past fixtures go to the ghost with the name emptied, and the drop
   empties the action log's images of them, those of their fixtures whole where an erasure repoints
-  the booking alone (`docs/backend/spec.md :: I42`)
+  the booking alone (`docs/backend/spec.md :: I212`, `:: I213`)
   ([section 3](#3-the-current-pupil-records-are-reset-once),
   [`ops/runbooks.md`](ops/runbooks.md#12-deleting-this-seasons-player-records-and-resetting-the-action-log)).
   Nothing informs these people under Art. 14: a placeholder row is

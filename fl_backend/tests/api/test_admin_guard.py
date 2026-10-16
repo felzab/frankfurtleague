@@ -117,12 +117,13 @@ SYSTEM_WRITES = [
     ("/api/v0/zustellung", "post"),
     ("/api/v0/zustellung/angenommen", "post"),
     ("/api/v0/zustellung/abgewiesen", "post"),
-    # A POST that stores nothing, listed for `ADMIN_READS`' Kontakte entry's reason: the address
+    # A POST that stores nothing, listed for `ADMIN_READS`' erasure reveal's reason: the address
     # travels in a body, so `MUTATIONS` covers it, and this exemption leaves its one guard the
     # system tier's.
     ("/api/v0/identitaet/subjekt", "post"),
     ("/api/v0/identitaet/anmeldung", "post"),
     ("/api/v0/identitaet/gesperrt", "post"),
+    ("/api/v0/identitaet/referenzen", "post"),
     # The grants' reconciliation, one call reading and one stamping: the frontend's timer holds no
     # session, and a change made in the database directly has no administrator to attribute it to.
     ("/api/v0/berechtigungen/abgleich", "post"),
@@ -156,7 +157,7 @@ ADMIN_READS = [
     ("/api/v0/bewerbungen/{bewerbung_id}", "get"),
     # A POST because the address travels in a body, so `MUTATIONS` covers it too -- and would
     # stop covering it the day somebody makes the reveal a GET.
-    ("/api/v0/kontakte/erasure/ansicht", "post"),
+    ("/api/v0/identitaet/erasure/ansicht", "post"),
     # The ban list names the administrator who entered each row, so a revert to `verify_access_base`
     # here publishes a staff address beside the reason they banned somebody (`READ-CONTACT-001`).
     ("/api/v0/sperrliste", "get"),

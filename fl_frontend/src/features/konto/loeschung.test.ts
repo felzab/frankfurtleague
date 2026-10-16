@@ -68,8 +68,19 @@ const erasures: { method: string; actor: string | null }[] = [];
 
 const ERASURE_PATH = "/api/v0/identitaet/selbst/erasure";
 
+const ANSICHT_PATH = "/api/v0/identitaet/selbst/erasure/ansicht";
+
+/** Whether the preview reads the press as the last owner's, and how often it was read since the case began. */
+let letzterInhaber = false;
+let ansichtReads = 0;
+
 globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
   const path = new URL(input instanceof Request ? input.url : String(input)).pathname;
+  if (path === ANSICHT_PATH) {
+    ansichtReads += 1;
+    const leer = { spieler: [], schiedsrichter: [], sitze: [], bewerbungen: [], registrierungen: [], adresswechsel: 0 };
+    return Promise.resolve(Response.json({ acknowledged: 1, ...leer, verwaltung: "owner", letzter_inhaber: letzterInhaber }));
+  }
   if (path === ERASURE_PATH) {
     erasures.push({ method: init?.method ?? "GET", actor: new Headers(init?.headers).get("x-fl-actor") });
     return Promise.resolve(erasureAnswer());
@@ -86,9 +97,15 @@ const { loescheKontoAction } = await import("./personActions.ts");
 const { KONTO_FORBIDDEN } = await import("@/shared/utils/kontoMutation.ts");
 const { stepUpRequired } = await import("@/shared/utils/adminMutation.ts");
 const { readGrantHolderStepUp } = await import("./loeschungStepUp.ts");
+const { LETZTE_INHABERIN, mapLoeschungRefusal } = await import("./refusals.ts");
+const { toActionErrorResult } = await import("@/shared/utils/actionError.ts");
+const { assertEachAnswered } = await import("@/shared/testing/publishedRefusals.ts");
 const { auth } = await import("@/core/auth.ts");
 
 const HOUR_MS = 60 * 60 * 1000;
+
+/** What every failure past the spend adds but the link's own refusal, as the action spells it. */
+const LINK_VERBRAUCHT = "Dieser Link ist dabei verbraucht worden. Für einen neuen Versuch fordere auf Deiner Kontoseite einen neuen an.";
 
 beforeEach(() => {
   store.passkey.length = 0;
@@ -97,6 +114,8 @@ beforeEach(() => {
   erasures.length = 0;
   HELD.clear();
   erasureAnswer = () => Response.json(ERASED);
+  letzterInhaber = false;
+  ansichtReads = 0;
 });
 
 /** Answers every guard below as one request would: the cookie they read off `headers()`. */
@@ -153,6 +172,54 @@ describe("a person's own account deletion, from the account page's press to the 
 
     assert.equal(erasures.length, 1, "the backend was never asked, so the refusal proves nothing");
     assert.match(answer.success ? "" : answer.error, /Diese E-Mail-Adresse ist gesperrt/);
+    assert.ok(
+      !answer.success && answer.error.endsWith(` ${LINK_VERBRAUCHT}`),
+      "the refusal asks for no new link, though the press spent this one",
+    );
+    assert.deepEqual(heldOf(row.userId), { user: 1, passkeys: 1 });
+  });
+
+  /* `fl_frontend/src/app/refusalCoverage.test.ts` hands this proof to the slice: each published refusal, at its
+     own status and another, reaches the action's own mapper, and every press spends a link, so each act mints
+     its own. */
+  it("answers each published refusal of the erasure through its own mapper, adding the new link the spent one needs", async () => {
+    let erasureRefused: Promise<void> = Promise.resolve();
+    let acts = 0;
+
+    await assertEachAnswered({
+      operation: "POST /identitaet/selbst/erasure",
+      // The write double's refusal, as the fetch double answers it: the API client raises it again from the body.
+      refuseWith: (next) => {
+        erasureRefused = next().then(
+          () => assert.fail("the refusal the assertion handed in answered"),
+          (refusal: { serverErrorCode?: string; statusCode: number }) => {
+            erasureAnswer = () =>
+              Response.json({ error_code: refusal.serverErrorCode, trace_id: "0".repeat(32) }, { status: refusal.statusCode });
+          },
+        );
+      },
+      act: async () => {
+        await erasureRefused;
+        acts += 1;
+        const { token } = await mitLink(`verweigert-${String(acts)}@example.org`);
+        return loescheKontoAction(token);
+      },
+      mapped: (refusal) => `${mapLoeschungRefusal(refusal)?.error ?? toActionErrorResult(refusal).error} ${LINK_VERBRAUCHT}`,
+    });
+
+    assert.ok(acts > 0, "the document publishes no refusal on the erasure, so nothing was asked");
+  });
+
+  /* An answer lost past the spend reads as a write of unknown outcome, whose own words invite a retry the
+     spent link cannot take. */
+  it("answers an erasure whose answer was lost with the new link the spent one needs", async () => {
+    const { row, token } = await mitLink("verloren@example.org");
+    erasureAnswer = () => Response.json({ error_code: "DB-CONN-001", trace_id: "0".repeat(32) }, { status: 503 });
+
+    const answer = await loescheKontoAction(token);
+
+    assert.equal(erasures.length, 1, "the backend was never asked, so the answer proves nothing");
+    assert.ok(!answer.success && answer.error.endsWith(` ${LINK_VERBRAUCHT}`), JSON.stringify(answer));
     assert.deepEqual(heldOf(row.userId), { user: 1, passkeys: 1 });
   });
 
@@ -185,12 +252,12 @@ describe("a person's own account deletion, from the account page's press to the 
   }
 
   /** A signed-in owner holding a passkey, the request arriving as their passkey session, and a link mailed to them. */
-  async function verwaltendMitLink(email: string): Promise<{ row: SessionRow; token: string }> {
+  async function verwaltendMitLink(email: string, stufe: "owner" | "administration" = "owner"): Promise<{ row: SessionRow; token: string }> {
     HELD.set(email, {
       ...NO_RECORDS,
-      verwaltung: "owner",
+      verwaltung: stufe,
       berechtigt_seit: "2026-01-01T00:00:00Z",
-      inhaber_seit: "2026-01-01T00:00:00Z",
+      inhaber_seit: stufe === "owner" ? "2026-01-01T00:00:00Z" : null,
       konto: false,
     });
     const durchPasskey = await sessionByCode(auth, store, email);
@@ -257,15 +324,71 @@ describe("a person's own account deletion, from the account page's press to the 
   });
 
   /* The backend refuses the league's last owner, whose erasure would leave the administration owned by nobody. */
-  it("leaves the last owner's account standing, in the refusal's own words, the backend having asked it", async () => {
+  /* Refused before the library spends the link (`docs/frontend/spec.md :: I708`): the same link completes once
+     another owner is made, which a refusal after the spend could not offer. */
+  it("refuses the league's last owner before the link is spent, and deletes on the same link once another owns", async () => {
     const { row, token } = await verwaltendMitLink("letzte-inhaberin@example.org");
+    letzterInhaber = true;
+
+    assert.deepEqual(await loescheKontoAction(token), { success: false, error: LETZTE_INHABERIN });
+    assert.deepEqual(erasures, [], "the erasure was asked for although the preview read the last owner");
+    assert.deepEqual(heldOf(row.userId), { user: 1, passkeys: 1 });
+    assert.ok(
+      store.verification.some((held) => held.identifier === `delete-account-${token}`),
+      "the refused press spent the link, which the owner can no longer open",
+    );
+
+    letzterInhaber = false;
+    const answer = await loescheKontoAction(token);
+
+    assert.equal(answer.success, true, JSON.stringify(answer));
+    assert.deepEqual(heldOf(row.userId), { user: 0, passkeys: 0 });
+  });
+
+  /* Two owners pressing at once both read another owner, and the backend refuses the second after its link
+     was spent: its words add that a new link is needed. */
+  it("words the backend's own last-owner refusal with the new link it needs, having asked the backend", async () => {
+    const { row, token } = await verwaltendMitLink("zweite-inhaberin@example.org");
     erasureAnswer = () => Response.json({ error_code: "REQ-PURGE-004", trace_id: "0".repeat(32) }, { status: 409 });
 
     const answer = await loescheKontoAction(token);
 
     assert.equal(erasures.length, 1, "the backend was never asked, so the refusal proves nothing");
-    assert.match(answer.success ? "" : answer.error, /Du bist die letzte Person, der die Verwaltung gehört\./);
+    assert.equal(answer.success ? "" : answer.error, `${LETZTE_INHABERIN} ${LINK_VERBRAUCHT}`);
     assert.deepEqual(heldOf(row.userId), { user: 1, passkeys: 1 });
+    assert.ok(
+      !store.verification.some((held) => held.identifier === `delete-account-${token}`),
+      "the link still stands, so the sentence asking for a new one is wrong",
+    );
+  });
+
+  /* The backend's own window refused a press the page's check admitted at the window's edge, after the library
+     spent the link: the page asks for the passkey, and its next press meets the spent link's own words. */
+  it("answers the backend's confirmation refusal as the page's passkey prompt, the page's figures read again", async () => {
+    const { row, token } = await verwaltendMitLink("verwaltung-backend-fenster@example.org");
+    erasureAnswer = () => Response.json({ error_code: "REQ-AUTH-009", trace_id: "0".repeat(32) }, { status: 401 });
+    cacheCalls.length = 0;
+
+    const answer = await loescheKontoAction(token);
+
+    assert.equal(erasures.length, 1, "the backend was never asked, so the refusal proves nothing");
+    assert.deepEqual(answer, { ...stepUpRequired(), error: `${stepUpRequired().error} ${LINK_VERBRAUCHT}` });
+    assert.ok(
+      cacheCalls.some(({ name }) => name === "refresh"),
+      "the page's figures were not read again, so its next press would send unasked (`docs/frontend/spec.md :: I493`)",
+    );
+    assert.deepEqual(heldOf(row.userId), { user: 1, passkeys: 1 });
+  });
+
+  it("reads no preview for a grant holder who owns nothing, who can be nobody's last owner", async () => {
+    const { row, token } = await verwaltendMitLink("verwaltung-ohne-inhaberschaft@example.org", "administration");
+    letzterInhaber = true;
+
+    const answer = await loescheKontoAction(token);
+
+    assert.equal(answer.success, true, JSON.stringify(answer));
+    assert.equal(ansichtReads, 0);
+    assert.deepEqual(heldOf(row.userId), { user: 0, passkeys: 0 });
   });
 
   it("refuses a link the library refuses, in words naming the fresh one, erasing nothing", async () => {
@@ -274,8 +397,32 @@ describe("a person's own account deletion, from the account page's press to the 
     const answer = await loescheKontoAction("kein-gemailter-link");
 
     assert.match(answer.success ? "" : answer.error, /Fordere auf Deiner Kontoseite einen neuen an\./);
+    assert.ok(!answer.success && !answer.error.includes(LINK_VERBRAUCHT), "the link's own refusal says twice that a new one is needed");
     assert.deepEqual(erasures, []);
     assert.deepEqual(heldOf(row.userId), { user: 1, passkeys: 1 });
+  });
+
+  /* Every press mints a token row and mails a link, so the press counts on the address's own mail bound: past
+     its fifth, it answers as sent and mints and mails nothing (`docs/frontend/spec.md :: I713`). */
+  it("answers every press past the address's fifth link as sent, minting no token row and mailing nothing", async () => {
+    const email = "loeschlink-schleife@example.org";
+    const { cookie, row } = await sessionByCode(auth, store, email);
+    arriveAs(cookie);
+
+    const answers = [];
+    for (let press = 0; press < 50; press += 1) answers.push(await fordereKontoLoeschungAnAction());
+
+    assert.ok(
+      answers.every((answer) => answer.success),
+      "a press past the bound answered apart from a sent one",
+    );
+    assert.equal(new Set(answers.map((answer) => JSON.stringify(answer))).size, 1, "a capped press answers apart from a mailed one");
+    assert.equal(mail.sent.filter((sent) => sent.to === email).length, 5, "the address was mailed past its hour's five");
+    assert.equal(
+      store.verification.filter((held) => held.identifier.startsWith("delete-account-") && held.value === row.userId).length,
+      5,
+      "a capped press minted a token row",
+    );
   });
 
   /* The link goes to the session's own mailbox, so a session past the step-up window still asks for one

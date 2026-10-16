@@ -12,7 +12,7 @@ import { createElement as h } from "react";
 import { fireEvent, render, within } from "@testing-library/react";
 
 import { KONTAKT_ROLLEN } from "@/features/teams/constants";
-import { TEAM_FACETS, TEAMS_ANY_SAISON_QUERY } from "@/features/teams/facets";
+import { TEAM_FACETS } from "@/features/teams/facets";
 import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { applyFacets, countFacetOptions, isFacetOptionReachable, readFacetSelection } from "@/shared/utils/facets.ts";
@@ -380,22 +380,25 @@ describe("the season parameter this list owns", () => {
     }
   });
 
+  /** The club list's season facet, its parameter read off it rather than spelled a second time here. */
+  const CLUB_SAISON_FACET = TEAM_FACETS.find((facet) => facet.label === SAISON_FACET?.label);
+
   it("keeps its default when the club list's season value is pasted onto this URL", () => {
-    const borrowed = TEAM_FACETS.find((facet) => facet.label === SAISON_FACET?.label)?.options ?? [];
+    const borrowed = CLUB_SAISON_FACET?.options ?? [];
     assert.notEqual(borrowed.length, 0, "the club list offers no season value to borrow");
 
     for (const option of borrowed) {
-      const selection = readFacetSelection(BEWERBUNGEN_FACETS, new URLSearchParams(`${TEAMS_ANY_SAISON_QUERY}${option.value}`));
+      const selection = readFacetSelection(BEWERBUNGEN_FACETS, new URLSearchParams({ [CLUB_SAISON_FACET?.param ?? ""]: option.value }));
 
       assert.deepEqual(selection[SAISONBEZUG_PARAM], ["diese_saison"], `\`${option.value}\` reached this list's season facet`);
       assert.deepEqual(applyFacets([...ROWS], BEWERBUNGEN_FACETS, selection), [ROWS[0]]);
     }
   });
 
-  /* The club list's own off-switch is a real query string a cross-route link writes, so it is the one
-     foreign form that arrives here by accident rather than by hand. */
+  /* The club list turns its season facet off with an empty value, which `readFacetSelection` reads as a
+     facet switched off: under the club list's name it must switch nothing of this list's off. */
   it("keeps its default when the club list's off-switch arrives here", () => {
-    const selection = readFacetSelection(BEWERBUNGEN_FACETS, new URLSearchParams(TEAMS_ANY_SAISON_QUERY));
+    const selection = readFacetSelection(BEWERBUNGEN_FACETS, new URLSearchParams({ [CLUB_SAISON_FACET?.param ?? ""]: "" }));
 
     assert.deepEqual(selection[SAISONBEZUG_PARAM], ["diese_saison"]);
   });

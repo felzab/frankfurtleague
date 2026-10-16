@@ -37,9 +37,12 @@ const WARNSATZ = "Wenn Du diese Änderung nicht erwartet hast, melde Dich sofort
 export type Vorenthalten = { readonly vorenthalten: "gesperrt" | "geloescht" };
 
 /** One change as the notice states it. */
-export type Zugangsaenderung =
-  | { readonly art: "erteilt" | "geaendert"; readonly adresse: string | Vorenthalten; readonly inhaber: boolean }
-  | { readonly art: "entzogen"; readonly adresse: string | Vorenthalten };
+export type Zugangsaenderung = {
+  readonly art: "erteilt" | "geaendert" | "entzogen";
+  readonly adresse: string | Vorenthalten;
+  // The `owner` tier the grant holds now, or held until it ended.
+  readonly inhaber: boolean;
+};
 
 /**
  * Who made the change and when, or `null` where it was made in the database directly. `von` is null for an
@@ -52,6 +55,9 @@ const OHNE_ADRESSE: Readonly<Record<Vorenthalten["vorenthalten"], string>> = {
   gesperrt: "Eine gesperrte Adresse",
   geloescht: "Eine nicht genannte Adresse",
 };
+
+/** The `owner` tier as a person of either gender holds it, never the masculine word for both. */
+const INHABER = "Inhaberin oder Inhaber";
 
 /** The acting administrator where a ban withholds them. */
 const GESPERRTER_URHEBER = "einer gesperrten Adresse";
@@ -71,15 +77,19 @@ function aenderungsSatz(aenderung: Zugangsaenderung, wer: (adresse: string) => s
   switch (aenderung.art) {
     case "erteilt": {
       // An `owner` grant says so: the application grants none, so one is always a change made in the database.
-      const zugang = aenderung.inhaber ? "hat jetzt Zugang zur Verwaltung als Inhaber." : "hat jetzt Zugang zur Verwaltung.";
+      const zugang = aenderung.inhaber ? `hat jetzt Zugang zur Verwaltung als ${INHABER}.` : "hat jetzt Zugang zur Verwaltung.";
       return `${subjekt} ${zugang}`;
     }
     case "entzogen":
-      return `${subjekt} hat keinen Zugang zur Verwaltung mehr.`;
+      // An `owner` grant's end says so: an erasure ends one with no demotion before it, and the last owner's
+      // end is the one a holder most needs told.
+      return aenderung.inhaber
+        ? `${subjekt} ist nicht mehr ${INHABER} der Verwaltung und hat keinen Zugang mehr.`
+        : `${subjekt} hat keinen Zugang zur Verwaltung mehr.`;
     case "geaendert":
       return aenderung.inhaber
-        ? `${subjekt} ist jetzt Inhaber der Verwaltung.`
-        : `${subjekt} ist nicht mehr Inhaber der Verwaltung und behält den Zugang.`;
+        ? `${subjekt} ist jetzt ${INHABER} der Verwaltung.`
+        : `${subjekt} ist nicht mehr ${INHABER} der Verwaltung und behält den Zugang.`;
   }
 }
 

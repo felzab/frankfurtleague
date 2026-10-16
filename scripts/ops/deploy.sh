@@ -205,6 +205,9 @@ except Exception as unexpected:
 # One mount, one user and one filter for either package's reader: the two judge different things and
 # each says so itself, but a second copy of this is how one arm's mount drifts from the other's.
 read_env_names() {
+  # Off, so a trace never prints what the container said before `redact_uri_credentials` reads it.
+  local -
+  set +x
   local package="$1" image="$2"; shift 2
   local rc=0 said=""
   # The caller's own identity, never the image's user, whose uid this host does not have: the files

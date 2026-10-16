@@ -3,8 +3,6 @@ import { FLBewerbungPersonEinwilligungResponseSchema } from "@/features/bewerbun
 
 import {
   FLKontaktEinladenResponseSchema,
-  FLKontaktErasureAnsichtResponseSchema,
-  FLKontaktErasureResponseSchema,
   FLPatchSaisonTeamKontakteResponseSchema,
   FLSaisonTeamPersonEinwilligungResponseSchema,
 } from "./schemas";
@@ -13,40 +11,11 @@ import type { FLBewerbungPersonEinwilligungPayload, FLBewerbungPersonEinwilligun
 import type {
   FLKontaktEinladenPayload,
   FLKontaktEinladenResponse,
-  FLKontaktErasureAnsichtResponse,
-  FLKontaktErasurePayload,
-  FLKontaktErasureResponse,
   FLPatchSaisonTeamKontaktePayload,
   FLPatchSaisonTeamKontakteResponse,
   FLSaisonTeamPersonEinwilligungPayload,
   FLSaisonTeamPersonEinwilligungResponse,
 } from "./schemas";
-
-/**
- * The address travels in the BODY, never in a path or a query: those would file it in the access
- * log, in nginx's log and in `aktionen.request.path` at once. Hence a POST, a DELETE's body having
- * no defined semantics (RFC 9110 §9.3.5).
- */
-export async function eraseKontaktperson(payload: FLKontaktErasurePayload): Promise<FLKontaktErasureResponse> {
-  return apiClient<FLKontaktErasureResponse>("/kontakte/erasure", FLKontaktErasureResponseSchema, {
-    method: "POST",
-    authType: "admin",
-    body: JSON.stringify(payload),
-  });
-}
-
-/**
- * A POST that reads, for the erasure's own reason above. It takes that write's payload rather than
- * one of its own, so a confirmation cannot be shown for one address and performed for another.
- */
-export async function readKontaktErasureAnsicht(payload: FLKontaktErasurePayload): Promise<FLKontaktErasureAnsichtResponse> {
-  return apiClient<FLKontaktErasureAnsichtResponse>("/kontakte/erasure/ansicht", FLKontaktErasureAnsichtResponseSchema, {
-    method: "POST",
-    readOnly: true,
-    authType: "admin",
-    body: JSON.stringify(payload),
-  });
-}
 
 // Both ids go in the PATH, as every junction write spells them — a backend payload model that saw
 // one refuses the whole body (frontend spec 1.3).

@@ -26,6 +26,7 @@ import { appToast } from "@/shared/utils/appToast";
 
 import { pruefeInhaberAction } from "../../actions";
 import { loescheKontoAction } from "../../personActions";
+import { LETZTE_INHABERIN } from "../../refusals";
 import { registrierungTitel, schiedsrichterTitel, sitzTitel, SPIELER_TITEL } from "../forms/EinwilligungForm/kontoWorte";
 
 import type { FLSelbstErasureAnsichtResponse } from "@/core/schemas";
@@ -191,30 +192,38 @@ function LoeschungInhalt({ start }: { start: LoeschungStart }) {
             <Wert>Zurückholen lässt sich das nicht.</Wert>
           </p>
 
-          {twoPress.isConfirming && (
-            <ConfirmReveal>
-              <p className="fluid-xxs leading-normal font-medium text-foreground">
-                Wir löschen Dein Konto und alles, was oben steht, sofort und endgültig.
-              </p>
-            </ConfirmReveal>
-          )}
+          {/* No press the action would refuse: the last owner reads why, in the refusal's own words, and the link
+              stays unspent for when another owner is made (`docs/frontend/spec.md :: I708`). */}
+          {stand.ansicht.letzter_inhaber ? (
+            <p className={ABSATZ_CLASSES}>{LETZTE_INHABERIN}</p>
+          ) : (
+            <>
+              {twoPress.isConfirming && (
+                <ConfirmReveal>
+                  <p className="fluid-xxs leading-normal font-medium text-foreground">
+                    Wir löschen Dein Konto und alles, was oben steht, sofort und endgültig.
+                  </p>
+                </ConfirmReveal>
+              )}
 
-          <ConfirmActionRow confirm={twoPress}>
-            <ConfirmPressButton
-              confirm={twoPress}
-              reason={null}
-              resting="Konto endgültig löschen"
-              armed="Ja, Konto endgültig löschen"
-              running="Löscht..."
-              icon={
-                <TrashBin
-                  className="size-4.5"
-                  aria-hidden="true"
+              <ConfirmActionRow confirm={twoPress}>
+                <ConfirmPressButton
+                  confirm={twoPress}
+                  reason={null}
+                  resting="Konto endgültig löschen"
+                  armed="Ja, Konto endgültig löschen"
+                  running="Löscht..."
+                  icon={
+                    <TrashBin
+                      className="size-4.5"
+                      aria-hidden="true"
+                    />
+                  }
+                  onPress={() => loesche(stand.token)}
                 />
-              }
-              onPress={() => loesche(stand.token)}
-            />
-          </ConfirmActionRow>
+              </ConfirmActionRow>
+            </>
+          )}
 
           {/* The library spends a link it refuses, so the way on from any refusal is a fresh one. */}
           <p className="muted-hint">

@@ -19,6 +19,7 @@ from app.api.sperrliste.lookup import BanList, SperrlisteLookup, adressen_gesper
 from app.core.actor_token import (
     ACTOR_TOKEN_MAX_LENGTH,
     COMPACT_JWS_PATTERN,
+    PASSKEY_FACTOR,
     ActorClaims,
     ActorTokenKey,
     ActorTokenRefusal,
@@ -273,6 +274,19 @@ def verify_recent_confirmation(actor: Annotated[ActorClaims, Depends(verify_admi
         raise confirmation_required(actor, ENROLMENT_WINDOW_S)
 
 
+def get_recent_confirmation_check(actor: Annotated[ActorClaims, Depends(verify_admin_actor)]) -> Callable[[], None]:
+    """`verify_recent_confirmation`'s window on the calls a handler judges to end a grant (`docs/backend/spec.md :: I489`).
+
+    A dependency for `get_step_up_check`'s reason: the document derives the refusal from the operations running it.
+    """
+
+    def refuse_unconfirmed() -> None:
+        if confirmed_before(actor, ENROLMENT_WINDOW_S):
+            raise confirmation_required(actor, ENROLMENT_WINDOW_S)
+
+    return refuse_unconfirmed
+
+
 def verify_step_up(actor: Annotated[ActorClaims, Depends(verify_admin_actor)]) -> None:
     """Refuse a write stepped up on every call from a sign-in or confirmation older than the step-up window (`docs/backend/spec.md :: I524`).
 
@@ -298,6 +312,19 @@ def get_step_up_check(actor: Annotated[ActorClaims, Depends(verify_admin_actor)]
     def refuse_unconfirmed() -> None:
         if confirmed_before(actor, STEP_UP_WINDOW_S):
             raise confirmation_required(actor, STEP_UP_WINDOW_S)
+
+    return refuse_unconfirmed
+
+
+def get_person_confirmation_check(actor: Annotated[ActorClaims, Depends(verify_person_actor)]) -> StepUpCheck:
+    """A grant holder's own erasure asks a fresh passkey, as a revoke does: the person's lane admits a sign-in by code.
+
+    The window is I489's, judged at `iat` (`docs/backend/spec.md :: I527`).
+    """
+
+    def refuse_unconfirmed() -> None:
+        if actor.amr != (PASSKEY_FACTOR,) or confirmed_before(actor, ENROLMENT_WINDOW_S):
+            raise confirmation_required(actor, ENROLMENT_WINDOW_S)
 
     return refuse_unconfirmed
 

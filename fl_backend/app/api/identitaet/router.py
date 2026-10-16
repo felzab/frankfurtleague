@@ -3,9 +3,17 @@ from typing import Annotated
 from fastapi import APIRouter, Body, Depends
 
 from app.api.berechtigungen.crud import verwaltung_of
-from app.api.identitaet.crud import find_anmeldung, find_subjekt
+from app.api.identitaet.crud import find_anmeldung, find_subjekt, unreferenced_of
 from app.api.identitaet.lookup import SubjektLookup
-from app.api.identitaet.schemas import FLAnmeldungResponse, FLGesperrtPayload, FLGesperrtResponse, FLSubjektPayload, FLSubjektResponse
+from app.api.identitaet.schemas import (
+    FLAnmeldungResponse,
+    FLGesperrtPayload,
+    FLGesperrtResponse,
+    FLReferenzenPayload,
+    FLReferenzenResponse,
+    FLSubjektPayload,
+    FLSubjektResponse,
+)
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, hash_gesperrt
 from app.core.concurrency import gather_cancelling
 from app.core.config import API_VERSION
@@ -39,7 +47,7 @@ async def get_subjekt(
     Answer which confirmed contact seats, pupil records and referee records the league holds for one mailbox.
 
     Stores nothing, and a POST all the same: the identifier travels in the body so that no path or query carries an address into an
-    access line, which is `POST /kontakte/erasure/ansicht`'s reason too.
+    access line, which is `POST /identitaet/erasure/ansicht`'s reason too.
 
     The address is folded to the sign-in identifier -- trimmed, its domain in punycode, its ASCII letters lower-cased -- on arrival
     and compared in that form, so `Anna.Mueller@Schule.de` in a contact seat answers for `anna.mueller@schule.de`, and a domain
@@ -179,3 +187,53 @@ async def get_gesperrt(gesperrt_data: Annotated[FLGesperrtPayload, Body()], sper
     gesperrt = await adressen_gesperrt(sperrliste, [gesperrt_data.email])
 
     return FLGesperrtResponse(gesperrt=bool(gesperrt))
+
+
+@router.post(
+    "/referenzen",
+    response_model=FLReferenzenResponse,
+    summary="Say which of these sign-in addresses no record references",
+    dependencies=[Depends(stores_nothing)],
+)
+async def get_referenzen(
+    referenzen_data: Annotated[FLReferenzenPayload, Body()],
+    records: SubjektLookup,
+    sperrliste: SperrlisteLookup,
+    berechtigungen_collection: BerechtigungenCollection,
+) -> FLReferenzenResponse:
+    """
+    Answer which of the addresses asked about no league record references, so the sign-in account each names may be deleted.
+
+    Stores nothing, and a POST for `POST /identitaet/subjekt`'s reason: the addresses travel in the body.
+
+    An address is referenced, and so never answered, while any of these holds:
+
+    - a contact seat on any season row holds it, a `past` season's and a withdrawn team's included, confirmed or not;
+    - a contact seat on a pending application holds it, confirmed or not;
+    - a pupil or referee record holds it, confirmed or not and live or retired; the placeholder every erased referee's fixtures
+      name and the one every erased pupil's entries name hold nothing;
+    - a pending registration holds it that its pupil confirmed;
+    - a grant in `berechtigungen` holds it, as stored, before the comparison has seen it too;
+    - a standing ban holds it.
+
+    A pending address change holds nothing: its address admits no sign-in until it is confirmed, and the address it replaces
+    stays on the record until then.
+
+    That is wider than what `POST /identitaet/anmeldung` admits a sign-in on, so no account answered here is one the sign-in
+    would admit again: an unconfirmed seat on a `past` season and an unconfirmed retired record keep an account the gate admits
+    no sign-in for, until the block is cleared or the row removed.
+
+    The whole batch is refused, `REQ-REFERENZEN-001`, while no live grant in `berechtigungen` is an `owner`'s. A league always
+    holds one, so such a database is empty or another one, and answering from it would call every address unreferenced.
+
+    Each address is compared as `POST /identitaet/subjekt` compares one, on the sign-in fold, and answered in the spelling it was
+    asked in, once however often it was asked. An address today's address rule refuses is answered never rather than refused: no
+    ban can be keyed under it, so whether a ban made under an older rule holds it is unknown, and one refusal would refuse the
+    whole batch. A batch past its published ceiling is refused whole.
+    """
+
+    return FLReferenzenResponse(
+        unreferenziert=await unreferenced_of(
+            referenzen_data.identifiers, records, berechtigungen_collection=berechtigungen_collection, sperrliste=sperrliste
+        )
+    )

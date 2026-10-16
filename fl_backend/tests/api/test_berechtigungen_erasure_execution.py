@@ -5,7 +5,6 @@ Against a replica set, the step run in a transaction of its own as the registry 
 the composers each route writes with, so a field a route stores in another shape is one these cases miss.
 """
 
-import logging
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime
 from typing import Any
@@ -21,11 +20,10 @@ from app.api.berechtigungen.erasure import ErasedGrantsAndAuthorship, erase_gran
 from app.api.berechtigungen.schemas import FLBerechtigungStand
 from app.api.berechtigungen.services import compose_postausgang
 from app.api.einladungen.services import compose_einladung
+from app.api.kontakte.services import same_address
 from app.api.registrierungen.services import compose_ablehnung_update
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.core.collections import Collection
-from app.core.db import NO_OWNER, warn_about_the_grants
-from app.core.logging import FL_LOGGER_NAME
 from app.core.recording import ERASED_ACTOR_MARKER
 from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
@@ -50,6 +48,12 @@ ERIKA = "erika.zwirbelmoos@frankfurtleague.de"
 ERIKA_TYPED = "Erika.Zwirbelmoos@FrankfurtLeague.de"
 # Another mailbox, which a pattern leaving the dot unescaped takes as hers.
 NAHE = "erikaxzwirbelmoos@frankfurtleague.de"
+# Another mailbox, a long s where hers has an s: the pattern's `i` may read it as hers, the fold does not.
+LANGES_S = ERIKA.replace("moos@", f"moo{chr(0x17F)}@")
+# Her mailbox at a Unicode domain, whose fold is punycode, and as a paste would spell it: no pattern built
+# from the fold reads the pasted spelling.
+ERIKA_UNICODE = "erika@xn--mller-kva.de"
+ERIKA_UNICODE_PASTED = "Erika@MÜLLER.de"
 # Another `owner`, erasing her as the administrator's own route will.
 DORA = "dora.inhaberin@frankfurtleague.de"
 BERND = "bernd.admin@frankfurtleague.de"
@@ -72,7 +76,7 @@ A_BARRED_GRANT_BY_HER = ObjectId("6890a1b2c3d4e5f607a20003")
 NOT_HERS = ObjectId("6890a1b2c3d4e5f607a20004")
 
 # The records she made, each in a store the step reaches, and a bystander's beside each.
-BAN_BY_HER, BAN_BY_HER_TYPED, BAN_BY_DORA, BAN_BY_NAHE = (ObjectId(f"6890a1b2c3d4e5f607a3000{n}") for n in range(1, 5))
+BAN_BY_HER, BAN_BY_HER_TYPED, BAN_BY_DORA, BAN_BY_NAHE, BAN_BY_LANGES_S = (ObjectId(f"6890a1b2c3d4e5f607a3000{n}") for n in range(1, 6))
 INVITE_BY_HER, INVITE_BY_DORA = ObjectId("6890a1b2c3d4e5f607a40001"), ObjectId("6890a1b2c3d4e5f607a40002")
 DECIDED_BY_HER, DECIDED_BY_DORA = ObjectId("6890a1b2c3d4e5f607a50001"), ObjectId("6890a1b2c3d4e5f607a50002")
 DECLINED_BY_HER, DECLINED_BY_DORA = ObjectId("6890a1b2c3d4e5f607a60001"), ObjectId("6890a1b2c3d4e5f607a60002")
@@ -166,7 +170,13 @@ async def a_league_she_administered(database: AsyncDatabase) -> None:
         [
             ban_document(f"gebannt-{number}@beispiel.de", bis=STANDING, _id=ban_id, erstellt_von=von)
             for number, (ban_id, von) in enumerate(
-                ((BAN_BY_HER, ERIKA), (BAN_BY_HER_TYPED, ERIKA_TYPED), (BAN_BY_DORA, DORA), (BAN_BY_NAHE, NAHE))
+                (
+                    (BAN_BY_HER, ERIKA),
+                    (BAN_BY_HER_TYPED, ERIKA_TYPED),
+                    (BAN_BY_DORA, DORA),
+                    (BAN_BY_NAHE, NAHE),
+                    (BAN_BY_LANGES_S, LANGES_S),
+                )
             )
         ]
     )
@@ -195,7 +205,9 @@ def on_a_league(url: str, body: Body) -> Any:
     return on_the_seed_loop(_run())
 
 
-async def erased(database: AsyncDatabase, client: AsyncMongoClient, *, geaendert_von: str = DORA) -> ErasedGrantsAndAuthorship:
+async def erased(
+    database: AsyncDatabase, client: AsyncMongoClient, *, geaendert_von: str = DORA, identifier: str = ERIKA
+) -> ErasedGrantsAndAuthorship:
     async def step(session: AsyncClientSession) -> ErasedGrantsAndAuthorship:
         return await erase_grants_and_authorship_in_session(
             berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
@@ -206,7 +218,7 @@ async def erased(database: AsyncDatabase, client: AsyncMongoClient, *, geaendert
             einladungen_collection=database[Collection.EINLADUNGEN],
             sperrliste_collection=database[Collection.SPERRLISTE],
             sperrliste=ban_list(database),
-            identifier=ERIKA,
+            identifier=identifier,
             geaendert_von=geaendert_von,
             now=NOW,
             session=session,
@@ -246,23 +258,39 @@ class TestHerGrantsGo:
         assert records == {DORA_ID, BERND_ID, CLARA_ID, NAHE_ID}
         assert (result.removed_berechtigungen, result.removed_angekuendigt) == (2, 1)
 
-    def test_the_last_owner_goes_below_the_floor_and_the_boots_warning_names_it_once_committed(
-        self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture
-    ):
-        """Neither the revoke's floor nor its owner refusal holds against an erasure (`docs/backend/spec.md :: I435`, `:: I436`)."""
+    def test_the_last_owner_goes_below_the_floor_of_two_and_the_step_refuses_neither(self, mongo_replica_set_url: str):
+        """Neither the revoke's floor nor its owner refusal holds against the step (`docs/backend/spec.md :: I435`, `:: I436`).
+
+        Whether the last owner may go is the caller's: `fl_backend/tests/api/test_funktionen_erasure.py :: TestTheLastOwner`.
+        """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[str]:
             await database[Collection.BERECHTIGUNGEN].delete_many({"_id": {"$nin": [ERIKA_ID, BERND_ID]}})
             await erased(database, client)
-            with caplog.at_level(logging.WARNING, logger=FL_LOGGER_NAME):
-                await warn_about_the_grants(database[Collection.BERECHTIGUNGEN])
 
             return [str(row["_id"]) async for row in database[Collection.BERECHTIGUNGEN].find()]
 
-        left = on_a_league(mongo_replica_set_url, body)
+        assert on_a_league(mongo_replica_set_url, body) == [str(BERND_ID)]
 
-        assert left == [str(BERND_ID)]
-        assert [getattr(record, "error_code", None) for record in caplog.records] == [NO_OWNER.error_code]
+    def test_a_grant_pasted_with_her_domain_in_unicode_goes_and_her_pasted_authorship_with_it(self, mongo_replica_set_url: str):
+        """A paste may type the domain as an address book shows it, which the pattern built from the fold never reads."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[bool, Any, dict[str, list[str]]]:
+            pasted, granted = ObjectId(), ObjectId()
+            await database[Collection.BERECHTIGUNGEN].insert_many(
+                [
+                    grant_row(pasted, ERIKA_UNICODE_PASTED, "administration", "PLAYGROUND"),
+                    grant_row(granted, "neu@frankfurtleague.de", "administration", ERIKA_UNICODE_PASTED),
+                ]
+            )
+            await erased(database, client, identifier=ERIKA_UNICODE)
+            stands = await database[Collection.BERECHTIGUNGEN].find_one({"_id": pasted}) is not None
+            row = await database[Collection.BERECHTIGUNGEN].find_one({"_id": granted})
+            assert row is not None
+
+            return stands, row["erteilt_von"], await where_held(database, "MÜLLER")
+
+        assert on_a_league(mongo_replica_set_url, body) == (False, ERASED_ACTOR_MARKER, {"MÜLLER": []})
 
 
 class TestTheNotices:
@@ -379,6 +407,7 @@ class TestTheRecordsSheMade:
         (Collection.BERECHTIGUNGEN, NAHE_ID, ("erteilt_von",), DORA),
         (Collection.SPERRLISTE, BAN_BY_DORA, ("erstellt_von",), DORA),
         (Collection.SPERRLISTE, BAN_BY_NAHE, ("erstellt_von",), NAHE),
+        (Collection.SPERRLISTE, BAN_BY_LANGES_S, ("erstellt_von",), LANGES_S),
         (Collection.EINLADUNGEN, INVITE_BY_DORA, ("erstellt_von",), DORA),
         (Collection.BEWERBUNGEN, DECIDED_BY_DORA, ("entscheidung", "von"), DORA),
         (Collection.REGISTRIERUNGEN, DECLINED_BY_DORA, ("entscheidung", "von"), DORA),
@@ -410,6 +439,16 @@ class TestTheRecordsSheMade:
             return [await self.author(database, collection, row_id, path) for collection, row_id, path, _ in self.BYSTANDERS]
 
         assert on_a_league(mongo_replica_set_url, body) == [author for _, _, _, author in self.BYSTANDERS]
+
+    def test_the_pattern_reads_the_long_s_spelling_so_the_fold_alone_keeps_that_ban(self, mongo_replica_set_url: str):
+        """The control under the case above: a server whose `i` refused the long s would let that case pass on the pattern alone."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> set[ObjectId]:
+            cursor = await database[Collection.SPERRLISTE].aggregate([{"$match": {"erstellt_von": same_address(ERIKA)}}])
+
+            return {row["_id"] for row in await cursor.to_list()}
+
+        assert BAN_BY_LANGES_S in on_a_league(mongo_replica_set_url, body)
 
 
 def test_her_address_is_held_nowhere_in_the_database_in_either_spelling(mongo_replica_set_url: str):

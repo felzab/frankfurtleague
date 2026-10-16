@@ -1,8 +1,12 @@
+import { refresh } from "next/cache";
+
+import { APIBadStatusError } from "@/core/errors";
 import { funktionenOf, isSeatAt } from "@/core/funktionen";
+import { logger } from "@/core/logging";
 import { getSubjectSession } from "@/core/subject";
 
 import { SITZ_WEG } from "./actionError";
-import { runGuardedMutation } from "./adminMutation";
+import { runGuardedMutation, stepUpRequired } from "./adminMutation";
 import { KONTO_FORBIDDEN } from "./kontoMutation";
 import { logVerweigert } from "./verweigert";
 
@@ -76,5 +80,22 @@ export async function runPersonRecordMutation<T extends { success: boolean }>(
     return subject;
   };
 
-  return runGuardedMutation(mutationName, { lane: "Person", resolve, forbidden: KONTO_FORBIDDEN }, fn);
+  return runGuardedMutation(mutationName, { lane: "Person", resolve, forbidden: KONTO_FORBIDDEN }, async (subject) => {
+    try {
+      return await fn(subject);
+    } catch (error) {
+      // A grant holder's write the backend's own window refused, one the page's check admitted at the
+      // window's edge: answered as the admin spine answers it, so the page's next press asks for the
+      // passkey (`docs/frontend/spec.md :: I493`).
+      if (!(error instanceof APIBadStatusError && error.serverErrorCode === "REQ-AUTH-009")) throw error;
+
+      logger.error(`Person mutation refused for want of a confirmation: ${mutationName}`, error, {
+        error_code: error.code,
+        server_error_code: error.serverErrorCode,
+        status: error.statusCode,
+      });
+      refresh();
+      return stepUpRequired();
+    }
+  });
 }

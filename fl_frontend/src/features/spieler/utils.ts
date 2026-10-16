@@ -101,30 +101,3 @@ export function squadIsFull(liveRows: number | undefined, maxKadergroesse: numbe
   // (`fl_backend/app/api/spieler/services.py :: find_squad_capacity_refusal`).
   return maxKadergroesse !== null && (liveRows ?? 0) >= maxKadergroesse;
 }
-
-/**
- * What one erasure removed, in whole sentences: this lands in a toast beside no figures of its own.
- * Each half carries its own zero and its own singular, and the log is spelled as EMPTIED — no row is
- * dropped there, only the values a row held.
- */
-export function describeErasureUmfang(erasedSaisonSpieler: number, redactedAktionen: number): string {
-  // Zero is a sentence rather than a figure: German counts nothing with a word, and „0 Kadereinträge“
-  // reads as a failed count.
-  const kader =
-    erasedSaisonSpieler === 0
-      ? "Kadereinträge gab es keine."
-      : erasedSaisonSpieler === 1
-        ? "Ein Kadereintrag wurde gelöscht."
-        : `${String(erasedSaisonSpieler)} Kadereinträge wurden gelöscht.`;
-
-  // „dieser Person“ rather than a pronoun: the league fields players of both genders, and a gender map
-  // beside the count would drift (`docs/frontend/spec.md` §1.12).
-  const protokoll =
-    redactedAktionen === 0
-      ? "Im Änderungsprotokoll stand nichts zu dieser Person."
-      : redactedAktionen === 1
-        ? "Ein Eintrag im Änderungsprotokoll wurde geleert."
-        : `${String(redactedAktionen)} Einträge im Änderungsprotokoll wurden geleert.`;
-
-  return `${kader} ${protokoll}`;
-}

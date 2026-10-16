@@ -72,16 +72,6 @@ export const FLSchiedsrichterKeyPayloadSchema = z.object({
 export type FLSchiedsrichterKeyPayload = z.infer<typeof FLSchiedsrichterKeyPayloadSchema>;
 
 /**
- * The ANONYMISATION's whole argument: the id in the path, no request body. Its own schema, not the
- * reversible pair's key above — a shared payload would let a caller reach the deletion while reading
- * as a retirement.
- */
-export const FLAnonymiseSchiedsrichterPayloadSchema = z.object({
-  id: CustomObjectIdStringSchema,
-});
-export type FLAnonymiseSchiedsrichterPayload = z.infer<typeof FLAnonymiseSchiedsrichterPayloadSchema>;
-
-/**
  * Mirrors the referee's link bookkeeping. No `token_hash`: the credential is written as a raw
  * document key and read only by the confirming query, so no read model carries it and neither may
  * this. No `abgelehnt_am`: this page offers no decline.
@@ -192,7 +182,7 @@ export const FLPatchSchiedsrichterResponseSchema = BaseAPIResponseSchema.extend(
 });
 export type FLPatchSchiedsrichterResponse = z.infer<typeof FLPatchSchiedsrichterResponseSchema>;
 
-/** The address link's re-send and its discard: the id in the path, no request body. One schema per control, for `FLAnonymiseSchiedsrichterPayloadSchema`'s reason. */
+/** The address link's re-send and its discard: the id in the path, no request body. One schema per control: a shared payload lets a caller reach one write while reading as another. */
 export const FLSchiedsrichterAdresswechselEinladenPayloadSchema = z.object({
   id: CustomObjectIdStringSchema,
 });
@@ -209,7 +199,7 @@ export const FLSchiedsrichterAdresswechselMintResponseSchema = BaseAPIResponseSc
 });
 export type FLSchiedsrichterAdresswechselMintResponse = z.infer<typeof FLSchiedsrichterAdresswechselMintResponseSchema>;
 
-/** The re-send's whole argument: the id in the path, no request body. Its own schema for `FLAnonymiseSchiedsrichterPayloadSchema`'s reason. */
+/** The re-send's whole argument: the id in the path, no request body. Its own schema: a shared payload lets a caller reach the mint while reading as another write. */
 export const FLSchiedsrichterEinladenPayloadSchema = z.object({
   id: CustomObjectIdStringSchema,
 });

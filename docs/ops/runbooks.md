@@ -43,12 +43,13 @@ the machine is outside the repository. What it does tell you:
   checks each before anything is pulled. What each secret file holds, who owns it and how it is
   made, is §16.
 - **A line naming a value a secret file holds, or `ALLOWED_ADMIN_EMAILS`, refuses the deploy at exit
-  2 before compose is asked anything**, naming the line and never its value
+  2 before compose is asked anything**, giving each line by file, number and the name as the list
+  spells it, never by anything the line holds
   (`scripts/lib/_lib.sh :: refuse_credential_lines`): delete it, a credential being its file's (§16)
   and the administrator list read by nothing.
 - **A line of either `.env` that is not blank, a line opening with `#`, or `NAME=VALUE` refuses the
   deploy at exit 2 before compose is asked anything** ([`spec.md`](spec.md) I487), each line listed
-  by file and number, by name where it opens with one, and never by value. Rewrite it with nothing
+  as `file:line` alone, never by anything the line holds. Rewrite it with nothing
   around the `=` and a value of letters, digits and `_ - . ~ : / ? [ ] @ ! & ( ) * + , ; = %` alone:
   no quote, no space, no comment after the value, a URL writing `#`, `$` and `'` as `%23`, `%24` and
   `%27`. No line, a comment included, may hold a carriage return before its end, U+2028, U+2029 or a
@@ -398,7 +399,9 @@ administration is shut while it is down. Each of these is easy to get wrong:
   (`docs/backend/spec.md :: I479`). The person made an owner signs in once more before acting as
   one: an older sign-in keeps administering and is offered no owner's control
   (`docs/backend/spec.md :: I534`). A demotion takes the tier at once. An `owner` is revoked only once made an administrator, and in
-  the application only an `owner` revokes (`docs/backend/spec.md :: I449`).
+  the application only an `owner` revokes (`docs/backend/spec.md :: I449`); an erasure of the
+  holder's own data removes the grant whatever its tier (`docs/backend/spec.md :: I436`), the last
+  live owner's own erasure refused (`REQ-PURGE-004`).
 - **The database is written directly for two things alone: the first owner, before anybody can sign
   in, and recovery when no owner can sign in.** Write in MongoDB Playground, never
   `mongosh`, into the `berechtigungen` collection of the application database (`DB_BASE_NAME`,
@@ -417,7 +420,8 @@ administration is shut while it is down. Each of these is easy to get wrong:
   (`docs/backend/spec.md :: I435`), the tier change to leave no owner
   (`docs/backend/spec.md :: I479`), and the Playground refuses nothing: the boot warns with
   `SRV-BOOT-005` where no grant is left and `SRV-BOOT-006` where no owner is, and serves the public
-  site either way.
+  site either way. An erasure refuses neither short of the last owner's own, and the same two
+  warnings follow its commit; nothing warns where one grant is left.
 - **A barred address is granted nothing, and a granted one is banned by nothing**
   (`docs/backend/spec.md :: I437`): lift the ban first, or revoke the grant first. A grant the
   Playground writes onto a barred address is refused by nothing and admits nobody, neither to the
@@ -570,26 +574,20 @@ One person can hold several — a referee is a pupil, and a contact person can b
 | Administrator  | The sign-in store — the `auth` database, holding the address, the sessions, the sign-in codes and the passkey — plus their address as the author of every ban, invite and application decision they made (`sperrliste.erstellt_von`, `einladungen.erstellt_von`, `bewerbungen.entscheidung.von`), and the grants: their own in `berechtigungen` and `berechtigungen_angekuendigt`, `erteilt_von` on every grant they made, and each queued notice naming them in `berechtigungen_postausgang` |
 | Anyone else    | The `auth` database's `verification` collection alone, where the address of whoever typed it into the sign-in form is held until the retention index removes the row (§14)                                                                                                                                                                                                                                                                                                                    |
 
-**Anybody who has signed in is in the sign-in store too, and an erasure reaches it only by hand.**
-A person's first sign-in writes their `user` row and a session in the `auth` database, a pupil's,
-referee's or contact person's as an administrator's is, and no erasure route touches that database.
-Read it for an access request. **Finish the erasure of anybody who has signed in with one step in the
-Atlas console**, after the route's own erasure has run:
-
-1. In the `auth` database's `user` collection, find the row whose `email` is the address as the
-   sign-in box folds it, in lower case (`fl_frontend/src/core/emailAddress.ts :: asSignInIdentifier`),
-   and do the same for **every address the record held**: a referee whose address moved by its link
-   left an account at each earlier one, which the record does not name. Read those
-   addresses off the action log's images of the referee before the route's erasure runs, which
-   empties them; a decline or a discard of a later change empties them too.
-2. Delete every row of `session`, `account` and `passkey` whose `userId` is that row's `_id`, then
-   the `user` row itself.
-3. Delete the `verification` row whose `identifier` is `sign-in-otp-` followed by that address, a
-   code still waiting to be typed.
-
-The rows counting the address's failed and requested codes carry a keyed hash nobody can compute by
-hand, and expire within a day on their own (§17); a passkey ceremony's row carries an account id
-rather than an address, and expires within five minutes.
+**Anybody who has signed in is in the sign-in store too, and no erasure leaves their account
+behind.** A person's first sign-in writes their `user` row and a session in the `auth` database, a
+pupil's, referee's or contact person's as an administrator's is. Their own deletion from the account
+page and an administrator's erasure each delete the account in the same request as the records, its
+sessions, passkeys and waiting codes with it (`fl_frontend/src/core/auth.ts :: deleteOwnAccount`,
+`:: deleteAccountFor`); after any other erasure the account sweep deletes it within the hour once
+nothing references the address ([section 9](#9-checking-that-the-retention-sweep-has-run)).
+**A barred address keeps its account**, frozen until the ban ends
+([`../datenschutz.md`](../datenschutz.md#6-retention-is-bounded-where-a-bound-was-chosen)): the
+account sweep passes it by, and a barred person cannot sign in to delete it, so an administrator's
+erasure on their request is the one thing that deletes it before then. Read the store for an access request: the `user` row whose `email` is the
+address as the sign-in box folds it, in lower case
+(`fl_frontend/src/core/emailAddress.ts :: asSignInIdentifier`), and the `session`, `account` and
+`passkey` rows whose `userId` is that row's `_id`.
 
 `/bereich/admin/aktionen` answers what was written about them and by whom, and is the only place that
 question is answered at all. **Two populations sit in that collection and only one has an expiry**:
@@ -650,17 +648,9 @@ as them.
   link lapses the hourly pass removes the change, and the new address is then entered again
   ([`../datenschutz.md`](../datenschutz.md#6-retention-is-bounded-where-a-bound-was-chosen)).
   Their consent link is not re-minted — the record is already given. **Once the change confirms,
-  the old address's sign-in account stays behind**, the confirmation touching no sign-in row, and
-  the referee's passkeys stay on it until its rows are deleted. Delete its sign-in rows by the
-  erasure's hand step above, run on the old address, once nothing else holds it, each read by the
-  address: no referee, searching `/bereich/admin/schiedsrichter`; no contact seat, searching
-  `/bereich/admin/kontakte` and `/bereich/admin/bewerbungen`; no grant, searching
-  `/bereich/admin/administratoren`; and no pupil or registration, which no page searches by address,
-  so a Playground count of `spieler` rows whose `email` is the address as
-  `fl_backend/app/shared/folding.py :: sign_in_identifier` folds it, as the pupil's correction
-  above reads it, and of `registrierungen` rows whose `email` matches it in any case, a
-  registration storing it unfolded (`docs/glossary.md :: Registrierung`). Those are the records
-  the sign-in gate admits an address for (`docs/glossary.md :: Konto`).
+  the account sweep deletes the old address's sign-in account within the hour**, the referee's
+  passkeys with it, once nothing else references that address, a ban included
+  ([section 9](#9-checking-that-the-retention-sweep-has-run)).
 - **The holder of a pending new referee address**, a mailbox an administrator's typing reached. No
   read keys on that address, by design (`docs/backend/spec.md :: I560`), so no page search
   finds the referee from it: find the row with a read-only Playground query on `schiedsrichter` for
@@ -714,7 +704,8 @@ that seat's own link, not by the person's role; a seat on a team's season row is
   rather than that an administrator removed them. **An address the ban list holds takes no second
   link** (`REQ-BEWERBUNG-019`), and the link it already holds opens on the ban's sentence alone,
   offering no Widerspruch (`docs/frontend/spec.md :: I516`): its withdrawal reaches the league's
-  mailbox and is performed by hand, through `POST /kontakte/erasure`. Once the school has named a replacement, seat them
+  mailbox and is performed by hand, on „Löschung auf Anfrage“ (`/bereich/admin/loeschung`), which erases everything the
+  address holds rather than this seat alone. Once the school has named a replacement, seat them
   from „Neu besetzen“ on that seat's row of the application's Bestätigungen panel, which sends the
   new person their own link and restarts the confirmation deadline for the whole application; it is
   acceptable again once they confirm within that new deadline. An ERASED seat offers no such control,
@@ -723,9 +714,9 @@ that seat's own link, not by the person's role; a seat on a team's season row is
 - **The seat has already answered, or the link is over.** A seat that has confirmed or already
   contradicted takes no second answer (`REQ-BEWERBUNG-011`), and a link whose deadline has passed
   (`REQ-BEWERBUNG-017`) or whose application has been decided (`REQ-BEWERBUNG-010`) takes none either —
-  each is a refusal the person meets on the page, not something to talk them through. The route is `POST /kontakte/erasure`
+  each is a refusal the person meets on the page, not something to talk them through. The route is „Löschung auf Anfrage“
   like any other.
-- **The application has been decided.** `POST /kontakte/erasure`, as above.
+- **The application has been decided.** „Löschung auf Anfrage“, as above.
 - **The seat is on a team's season row.** Its person's own link takes their Widerspruch while it
   is live, and the Widerspruch empties the seat and mails nobody, an administrator rather than a
   submitter having entered them (`docs/glossary.md :: Bestätigung`). A lost or lapsed link is sent
@@ -734,16 +725,15 @@ that seat's own link, not by the person's role; a seat on a team's season row is
   whole. It refuses an address the ban list holds (`REQ-KONTAKT-003`) and a row whose season has
   ended or whose team has left it (`REQ-KONTAKT-005`, `docs/backend/spec.md :: I570`), though a link
   such a row already holds still takes a Widerspruch. Where no live link is left, or the seat has
-  already answered, the route is `POST /kontakte/erasure`.
+  already answered, the route is „Löschung auf Anfrage“.
 
 **A pupil withdrawing the consent that publishes their name does it on their account page.**
 `PATCH /spieler/selbst/einwilligung` moves the record, and no administrator route writes it
 (`fl_backend/app/core/domain.py :: FIELD_POLICIES`). A request arriving
 by mail instead has two answers, and which one you give is the person's to choose:
 
-- **They want off the website and out of the league.** `DELETE /spieler/{spieler_id}` and then
-  `DELETE /spieler/{spieler_id}/erasure`, which is the erasure above and takes the squad rows with
-  the person.
+- **They want off the website and out of the league.** „Löschung auf Anfrage“ on the address their
+  record holds, which takes the squad rows with the person and asks no retirement first.
 - **They want their name withheld and their place kept.** Answer by pointing them to the control
   on their account page, `/bereich/konto`, which they reach by signing in with the address their
   record holds. **Nobody edits a consent block by hand**, in the console or anywhere else: a choice
@@ -766,10 +756,10 @@ page.
 
 **A referee whose row was dropped has nothing left to erase, and their fixtures hold no name**:
 [section 12](#12-deleting-this-seasons-player-records-and-resetting-the-action-log)'s drop empties it
-as it repoints them at the ghost, which refuses an erasure itself (`REQ-ANONYMISE-004`), and redacts
-the log's images of them as an erasure does. Where the
-person has registered again since, erase the new row under „Daten löschen“ in that referee's own
-editor.
+as it repoints them at the ghost, which no erasure reaches, and empties the log's images of them, a
+fixture's image whole where an erasure repoints its booking alone
+(`docs/backend/spec.md :: I212`, `:: I213`). Where the person has registered again since, erase their
+address on „Löschung auf Anfrage“.
 
 **Objection, restriction and portability have no mechanism and need none at this scale.** Answer the
 person in writing: say what is held, on what basis, and what you have done. Where a restriction is
@@ -778,16 +768,21 @@ agreed, the only reliable form it can take here is removing the data, which is t
 **Two things belong in every answer that touches a deletion.** Backups outlive it by the snapshot
 window and the person is told so
 ([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)); and an erasure is
-keyed on an email address, so it clears every seat that address holds, in every season and both
-collections. **The erasure takes the address the seat it is pressed on stores, and reaches another
-seat only where that one's address folds to the same spelling** once its capitals are lowered
+keyed on an email address, so it clears every record that address holds, in every season and every
+collection. **The erasure takes the address typed, and reaches a record only where that record's
+address folds to the same spelling** once its capitals are lowered
 (`fl_backend/app/shared/folding.py :: sign_in_identifier`). **Read the armed panel's list before
-pressing**: it names every one of those seats, by
-person and by the season or application it sits in, and the press stays shut until that list is on
-screen
-(`fl_frontend/src/features/kontakte/components/forms/AdminKontakteEditForm/FormKontaktErasure.tsx`).
-Read the counts the result reports afterwards —
-they are what say how far the write reached.
+pressing**: it names every one of those records, by kind, person and season, and the press stays shut
+until that list is on screen and the address is typed a second time
+(`fl_frontend/src/features/funktionen/components/forms/AdminLoeschungForm/FormPersonLoeschenSection.tsx`).
+Read the result afterwards: it says whether the address's account went too, and an account the
+erasure could not delete goes when the address is erased again
+([`../frontend/spec.md`](../frontend/spec.md#2-invariants) I685).
+
+**The page refuses two addresses, and says so before anyone confirms**: the administrator's own,
+which goes through their account page or another administrator, and an owner's to an administrator
+who is not one. It mails nobody, and on the same page „Überall abmelden“ ends every session of an
+address without erasing or barring it.
 
 **Answer as soon as what you need is gathered, and where it will take longer say so in the first
 reply rather than after it.** Where the answer needs the Datenschutzexperte, the person is told that
@@ -901,9 +896,9 @@ dashboard rather than here.
 log.** Every recorded write appends a row carrying the actor, the route, the collection, the
 operation and the image of what the write replaced or removed
 ([`../glossary.md`](../glossary.md#aktion--one-recorded-write-and-what-it-replaced-or-removed)), read
-at `/bereich/admin/aktionen`. A row whose values an erasure destroyed is emptied in place and stamped
-(`docs/backend/spec.md :: I42`), so what survives an erasure is that the write happened and not what
-it held.
+at `/bereich/admin/aktionen`. An erasure overwrites the values it destroys inside each image and
+stamps the row (`docs/backend/spec.md :: I42`, `:: I671`), so what survives it is that the write
+happened and what it held of anybody else.
 
 **Then, in this order:** contain it; establish which people and which categories are affected, from
 the two records above; report inside the 72 hours with what is established and what is not — a report
@@ -1112,6 +1107,22 @@ startup rather than at the backend.
 frontend service arms a fresh one, and the clocks are date-selected, so the pass that follows does
 whatever the missed days owed.
 
+**The account sweep stores no date, so its own line in the frontend's log is the answer**
+([`spec.md`](spec.md) §1.1). Every pass that completes writes one `konto.sweep_completed` line,
+counting the accounts it listed, those answered unreferenced, deleted, already gone, and those a
+failure left for the next pass, never naming an address:
+
+    docker compose logs --since 2h frontend | grep konto.sweep_
+
+**No `konto.sweep_completed` line in two hours means no pass completed, or the line went
+unwritten.** A `LOG_LEVEL` above `INFO` drops it, the line being `INFO`; otherwise `KONTO_SWEEP` is
+off, the build is not a production one, or the timer stopped, which recreating the frontend service
+re-arms. A `konto.sweep_failed` line says the sign-in store could not be listed. A
+`konto.sweep_skipped` line says a tick found the previous pass still running, and one in every hour
+says that pass is stuck, which recreating the service ends too. Every failure inside a pass is an
+`FE-SWEEP-003` line ([`../logging/error-codes.md`](../logging/error-codes.md)), and the next pass
+asks again.
+
 ## 10. The mail provider's dashboard
 
 **None of this is in the repository**, and the webhook is inert until it is done. Steps 1, 2 and 4
@@ -1183,10 +1194,9 @@ database edits: `aktionen` carries no POST and no DELETE route, and no code remo
 ([`../backend/spec.md`](../backend/spec.md#2-invariants) I119).
 
 **The log goes LAST whichever route the player half takes**, because every write through
-`fl_backend/app/core/crud.py` appends a row to it: taken through
-`DELETE /spieler/{spieler_id}/erasure` per person, the player half leaves rows this reset then has to
-take, and each of those calls is refused until that person is retired (`REQ-PURGE-001`). Which route
-the player half takes is not settled here.
+`fl_backend/app/core/crud.py` appends a row to it: taken through „Löschung auf Anfrage“ per person,
+the player half leaves rows this reset then has to take. Which route the player half takes is not
+settled here.
 
 **What the reset reaches that the retention index cannot is the rows carrying no `at_date`**, which
 nothing expires (I119), and a count of them says how many are left.
@@ -1223,12 +1233,13 @@ decide whether the one pasted is right:
 - **Afterwards no fixture names an id with no referee row behind it, no fixture booked to the ghost
   holds a name, and exactly one ghost stands.** Read one of those fixtures on the site; its referee
   reads „anonym“.
-- **The log's images of them go too, as an erasure's do.** Every `aktionen` row holding a dropped
+- **The log's images of them go too, more of each than an erasure takes.** Every `aktionen` row holding a dropped
   referee's image, their own rows' and the `spiele` rows' naming them, takes
   `fl_backend/app/core/recording.py :: build_redaction_update` under one stamp, found by
   `fl_backend/app/core/recording.py :: build_redaction_filter` and
   `fl_backend/app/api/schiedsrichter/services.py :: build_booked_image_filter`; otherwise the log
-  keeps their contact fields for its twelve months.
+  keeps their contact fields for its twelve months. An erasure instead repoints a `spiele` image's
+  booking and keeps the match's earlier states (`:: booked_image_edits`).
 
 A fixture still to be played at that moment sits on the ghost and surfaces as a retired booking
 until a referee is assigned
@@ -1261,23 +1272,22 @@ does not look erased, and each role's guard reads something the restore took awa
 
 - **A referee.** The whole row is back, with its name, school and contact members, and every fixture
   the erasure had repointed names them again in place of the ghost, so nothing reads as erased and
-  they are editable and bookable. `POST /schiedsrichter/{schiedsrichter_id}/anonymisieren` does all
-  of it again.
-- **A pupil.** The person and their squad rows are back and standing, so the erasure is refused until
-  the retirement is stamped again (`REQ-PURGE-001`): `DELETE /spieler/{spieler_id}`, then
-  `DELETE /spieler/{spieler_id}/erasure`.
-- **A contact seat.** Every seat that address held is back and filled. `POST /kontakte/erasure` is
-  keyed on the address, so the address off the thread is the whole input — and the armed panel's list
-  now names seats written since the snapshot as well, which is why section 5 says to read it before
+  they are editable and bookable. „Löschung auf Anfrage“ on the address off the thread does all of it
+  again.
+- **A pupil.** The person and their squad rows are back and standing, and „Löschung auf Anfrage“ takes
+  them again, asking no retirement first.
+- **A contact seat.** Every seat that address held is back and filled. „Löschung auf Anfrage“ is keyed
+  on the address, so the address off the thread is the whole input — and the armed panel's list now
+  names records written since the snapshot as well, which is why section 5 says to read it before
   pressing.
 - **Anybody who had signed in, whatever their role.** The `auth` database is on the same cluster
   ([`spec.md`](spec.md) I174), so a restore of the cluster brings back their `user`, `session`,
-  `account` and `passkey` rows with everything else. Run section 5's hand step in the sign-in store
-  again for each of them, after the route's erasure above; for an administrator, after their
-  grant's revoke below.
+  `account` and `passkey` rows with everything else. Once the route's erasure above has run again,
+  and for an administrator their grant's revoke below, the account sweep deletes each within the
+  hour, a barred address's apart (section 5).
 
-**The log's redactions came back as well**, so re-running each erasure is also what re-empties the
-images it had stamped ([`../backend/spec.md`](../backend/spec.md#2-invariants) I42, I212).
+**The log's redactions came back as well**, so re-running each erasure is also what redoes the
+redactions it had stamped ([`../backend/spec.md`](../backend/spec.md#2-invariants) I42, I671, I212).
 
 **Then re-run every grant and ban change made inside the window**, which the restore undid as it
 undid the erasures, and which nothing re-runs:
@@ -1361,6 +1371,10 @@ carries the address. Ask when they tried and read that window
   hour, so this one was sent nothing (`docs/frontend/spec.md :: I442`). The five count every request,
   a stranger's and one the gate refused included, so an address can be capped with nothing mailed;
   retries during a backend outage spend a person's hour the same way.
+- `auth.deletion_link_capped`, an info line carrying `bound`: a signed-in person asked for an account
+  deletion link past their address's five mails of the hour, codes and links counted together
+  (`address`), or past every address's hundred (`total`), so nothing was minted or mailed and the
+  press read as sent (`docs/frontend/spec.md :: I713`). A link they already hold stands for its day.
 - `auth.code_mail_total_capped` under `FE-AUTH-008`: a hundred codes had been mailed across every
   address inside the hour (`docs/frontend/spec.md :: I447`), so nobody was sent one; a code a
   person already held still stands, bar a send racing the hundredth. Only admitted addresses count,

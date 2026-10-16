@@ -5,12 +5,12 @@ from fastapi import APIRouter, Depends
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.berechtigungen.crud import pull_the_list_to_judge, read_berechtigungen, verwaltung_of
+from app.api.berechtigungen.crud import pull_the_list_to_judge, read_berechtigungen
 from app.api.berechtigungen.services import lebendige
-from app.api.identitaet.crud import JEDE_PERSONENGRUPPE, after_the_erasure_commits, erase_everything, resolve_subject
+from app.api.identitaet.crud import JEDE_PERSONENGRUPPE, ErasureJournal, erase_everything, resolve_subject
 from app.api.identitaet.schemas import FLErasureResponse, FLSelbstErasureAnsichtResponse
 from app.api.identitaet.services import (
-    build_registrierung_team_pipeline,
+    build_season_team_pipeline,
     compose_erasure_ansicht,
     find_letzter_inhaber_erasure_refusal,
     holds_an_owner_grant,
@@ -38,7 +38,13 @@ from app.core.dependencies import (
 )
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
 from app.core.recording import log_stamp
-from app.core.security import PERSON_ACTOR_BINDERS, KontaktIdentifier, verify_access_admin
+from app.core.security import (
+    PERSON_ACTOR_BINDERS,
+    KontaktIdentifier,
+    StepUpCheck,
+    get_person_confirmation_check,
+    verify_access_admin,
+)
 from app.core.transactions import transaction_session
 
 # `kontakt` bound, as the account page's router binds it: a person erases themselves holding no
@@ -72,6 +78,7 @@ async def erase_selbst(
     einladungen_collection: EinladungenCollection,
     sperrliste_collection: SperrlisteCollection,
     sperrliste: SperrlisteLookup,
+    refuse_unconfirmed: Annotated[StepUpCheck, Depends(get_person_confirmation_check)],
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     germany_now: datetime = Depends(get_germany_now),
@@ -79,10 +86,11 @@ async def erase_selbst(
     """
     Erase every record the signed-in address holds, at once and as one write, and answer how many of each kind went.
 
-    PERSON TIER, refusing one person alone: the last live, unbarred `owner` of the administration, until another administrator
-    is made one (`REQ-PURGE-004`), since nobody else could ever make an owner again. No other precondition stands in front of
-    a person's own request, a pupil in a live squad and a referee booked on a fixture still to be played included. Nothing is
-    counted against the person's day.
+    PERSON TIER. The last live, unbarred `owner` of the administration is refused until another administrator is made one
+    (`REQ-PURGE-004`), since nobody else could ever make an owner again; a person holding a live grant erases it with the rest
+    from a passkey sign-in `ENROLMENT_WINDOW_MINUTES` old at most, as a revoke asks, else `REQ-AUTH-009`. No other
+    precondition stands in front of a person's own request, a pupil in a live squad and a referee booked on a fixture still
+    to be played included. Nothing is counted against the person's day.
 
     Removed: the pupil record and every squad row it holds, so the team reads one player fewer; the referee record, every
     fixture it was booked on moving to the one row that holds no person and keeping its own fee; every registration at the
@@ -94,14 +102,19 @@ async def erase_selbst(
     log row they wrote name a fixed marker in their place, this erasure's own rows included. The log images of the removed
     records are emptied, and every other image holding the address loses it, the people beside them keeping theirs.
 
-    An address holding nothing is answered with every count zero rather than refused. The 404 and the 409 answer only a
-    database changed by hand under the request. The sign-in account is not touched here: deleting it is the caller's, once
-    this has answered.
+    An address holding nothing is answered with every count zero rather than refused. The 409 answers only a database
+    changed by hand, a second nameless referee meeting the ghost's name index. The 404 is published for the steps' reads by
+    id, which no request can meet: every id comes from the subject read in the same snapshot. The sign-in account is not
+    touched here: deleting it is the caller's, once this has answered.
     """
 
     async def erase_the_address(session: AsyncClientSession) -> FLErasureResponse:
-        # Before any write, and for an owner alone: no other erasure can leave the administration without one.
         grants = lebendige(await read_berechtigungen(berechtigungen_collection=berechtigungen_collection, session=session))
+        # A grant holder's grants go with the rest, so the erasure asks the passkey a revoke asks. A live
+        # row is its own fold, so equality is the fold's judgement (`docs/backend/spec.md :: I453`).
+        if any(grant["adresse"] == identifier for grant in grants):
+            refuse_unconfirmed()
+        # Before any write, and for an owner alone: no other erasure can leave the administration without one.
         if holds_an_owner_grant(identifier, grants):
             # Rereads this snapshot's rows and writes each, so two owners erasing themselves at once conflict, and
             # the one retried finds itself the last (`docs/backend/spec.md :: I438`).
@@ -136,12 +149,12 @@ async def erase_selbst(
 
         return FLErasureResponse(**erased.model_dump())
 
-    async with transaction_session(db) as session:
-        answer = await session.with_transaction(erase_the_address)
-
-    await after_the_erasure_commits(
-        identifier, answer, schluessel=config.sperrliste_schluessel, berechtigungen_collection=berechtigungen_collection
+    journal = ErasureJournal[FLErasureResponse](
+        identifier, schluessel=config.sperrliste_schluessel, berechtigungen_collection=berechtigungen_collection
     )
+    async with journal:
+        async with transaction_session(db) as session:
+            answer = journal.took(await session.with_transaction(erase_the_address))
 
     return answer
 
@@ -159,16 +172,23 @@ async def get_erasure_ansicht(
     spieler_collection: SpielerCollection,
     registrierungen_collection: RegistrierungenCollection,
     berechtigungen_collection: BerechtigungenCollection,
+    sperrliste: SperrlisteLookup,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
 ) -> FLSelbstErasureAnsichtResponse:
     """
     Answer what `POST /identitaet/selbst/erasure` would remove for the signed-in address, by kind and by name.
 
-    Read through that erasure's own selections, so it names every record the erasure reaches, an unconfirmed seat, a retired
-    row and a declined registration among them, and no other. No address and no birthdate is answered. A pending address
-    change on another address's referee or pupil row is counted and not named, that row not being this address's until the
-    change is confirmed. `verwaltung` is the grant the address holds, or null.
+    Read through that erasure's own selections in one snapshot, so it names every record of the person's own the erasure
+    removes or empties, an unconfirmed seat, a retired row and a declined registration among them, and no other. No address
+    and no birthdate is answered. A pending address change on another address's referee or pupil row is counted and not
+    named, that row not being this address's until the change is confirmed. Reached and not named: what the person made or
+    decided for others, their day counts and their log rows. `verwaltung` is the tier of the live grant the address holds,
+    or null; a dead spelling of the address, which admits nobody, goes with the erasure unnamed.
+
+    `letzter_inhaber` says whether the press would be refused `REQ-PURGE-004` as the grants stand at this read: the address
+    holds the last live `owner` grant, a barred owner counting as none. Read outside the press's transaction, it is advisory;
+    the press judges again, and its answer alone decides.
     """
 
     # A snapshot, so the preview names the records of one moment; never a transaction, a read
@@ -187,13 +207,23 @@ async def get_erasure_ansicht(
         # A registration holds its team's id alone, and the season row is what names the club that season.
         team_rows = (
             await aggregate_many_from_db(
-                collection=saison_teams_collection, pipeline=build_registrierung_team_pipeline(subject.registrierungen), session=session
+                collection=saison_teams_collection, pipeline=build_season_team_pipeline(subject.registrierungen), session=session
             )
             if subject.registrierungen
             else []
         )
-
-    grant = await verwaltung_of(berechtigungen_collection=berechtigungen_collection, adresse=identifier)
+        # The press's own judgement, on this snapshot rather than the press's: two owners can still leave between them.
+        grants = lebendige(await read_berechtigungen(berechtigungen_collection=berechtigungen_collection, session=session))
+        # A live row is its own fold, so equality is the fold's judgement (`docs/backend/spec.md :: I453`).
+        own = next((grant for grant in grants if grant["adresse"] == identifier), None)
+        letzter_inhaber = holds_an_owner_grant(identifier, grants) and (
+            find_letzter_inhaber_erasure_refusal(
+                identifier=identifier,
+                grants=grants,
+                barred=await adressen_gesperrt(sperrliste, [str(grant["adresse"]) for grant in grants], session=session),
+            )
+            is not None
+        )
 
     ansicht = compose_erasure_ansicht(
         identifier,
@@ -206,4 +236,6 @@ async def get_erasure_ansicht(
         team_rows=team_rows,
     )
 
-    return FLSelbstErasureAnsichtResponse(**ansicht.model_dump(), verwaltung=None if grant is None else grant[0])
+    return FLSelbstErasureAnsichtResponse(
+        **ansicht.model_dump(), verwaltung=None if own is None else own["verwaltung"], letzter_inhaber=letzter_inhaber
+    )

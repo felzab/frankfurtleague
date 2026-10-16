@@ -1,5 +1,4 @@
 from collections.abc import Mapping
-from datetime import datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends
@@ -7,14 +6,13 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.saisons.cache import dropping_the_saison_cache
-from app.api.spieler.crud import erase_person_in_session, pull_a_person_to_enter, refuse_a_full_squad, refuse_a_taken_rolle
+from app.api.spieler.crud import pull_a_person_to_enter, refuse_a_full_squad, refuse_a_taken_rolle
 from app.api.spieler.schemas import (
     FLPatchSaisonSpielerPayload,
     FLPatchSpielerPayload,
     FLPostSaisonSpielerPayload,
     FLSaisonSpielerResponse,
     FLSpielerAdminSingleResponse,
-    FLSpielerErasureResponse,
     FLSpielerMembershipsResponse,
     FLSpielerNachnominierungResponse,
     FLSpielerWithMemberships,
@@ -22,7 +20,6 @@ from app.api.spieler.schemas import (
 from app.api.spieler.services import (
     build_spieler_filter,
     build_spieler_memberships_pipeline,
-    find_erasure_refusal,
     find_squad_refusal,
 )
 from app.api.spieltage.crud import nachnominierung_laeuft_in
@@ -37,7 +34,6 @@ from app.core.crud import (
     set_inactive_since,
 )
 from app.core.dependencies import (
-    AktionenCollection,
     DBClient,
     SaisonsCollection,
     SaisonSpielerCollection,
@@ -45,12 +41,10 @@ from app.core.dependencies import (
     SpielerCollection,
     SpieltageCollection,
     get_german_date_str,
-    get_germany_now,
 )
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
-from app.core.recording import log_stamp
 from app.core.routing import by_id
-from app.core.security import bind_actor, verify_access_admin, verify_actor_is_admin, verify_step_up
+from app.core.security import bind_actor, verify_access_admin, verify_actor_is_admin
 from app.core.transactions import transaction_session
 from app.shared.schemas.custom import CustomRouteObjectId
 
@@ -209,60 +203,6 @@ async def reactivate_spieler(
         updated_raw = await session.with_transaction(bring_the_person_back)
 
     return _as_single(updated_raw)
-
-
-@router.delete(
-    f"{by_id('spieler_id')}/erasure",
-    response_model=FLSpielerErasureResponse,
-    summary="Erase a Spieler (hard delete)",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
-    dependencies=[Depends(verify_step_up)],
-)
-async def erase_spieler(
-    spieler_id: CustomRouteObjectId,
-    spieler_collection: SpielerCollection,
-    saison_spieler_collection: SaisonSpielerCollection,
-    aktionen_collection: AktionenCollection,
-    db: DBClient,
-    germany_now: datetime = Depends(get_germany_now),
-) -> FLSpielerErasureResponse:
-    """
-    Erase a player: the person, their squad rows, and their values in the log.
-
-    HARD and refused until retirement (`REQ-PURGE-001`); the soft `DELETE` stays.
-    No log row is dropped: images are emptied in place and stamped (`docs/backend/spec.md :: I42`).
-    """
-
-    async def erase_the_person_and_their_record(session: AsyncClientSession) -> FLSpielerErasureResponse:
-        """Judge, then erase. Everything judged is read in-session."""
-
-        stored_raw = await pull_one_from_db(
-            collection=spieler_collection,
-            db_filter={"_id": spieler_id},
-            projection=["inactive_since"],
-            session=session,
-        )
-        refuse(find_erasure_refusal(inactive_since=stored_raw.get("inactive_since")))
-
-        erased = await erase_person_in_session(
-            spieler_collection=spieler_collection,
-            saison_spieler_collection=saison_spieler_collection,
-            aktionen_collection=aktionen_collection,
-            spieler_id=spieler_id,
-            stamp=log_stamp(germany_now),
-            session=session,
-        )
-
-        return FLSpielerErasureResponse(
-            spieler_id=spieler_id, erased_saison_spieler=erased.saison_spieler, redacted_aktionen=erased.redacted_aktionen
-        )
-
-    # ONE transaction over all THREE (`docs/backend/spec.md :: I42`): a person removed while the log
-    # still holds their values reports an erasure that did not happen.
-    async with transaction_session(db) as session:
-        # `with_transaction` over a bare one -- the callback re-reads everything it judges, so a
-        # retry is safe.
-        return await session.with_transaction(erase_the_person_and_their_record)
 
 
 @router.post(

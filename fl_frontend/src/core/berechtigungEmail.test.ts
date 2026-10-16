@@ -45,7 +45,7 @@ describe("the notice a change to who administers sends", () => {
   /* The case the notice exists for: a change nobody made in the application is one only a holder of
      the database's credentials can have made, and it must not read like an ordinary one. */
   it("says where a change made outside the application came from, naming nobody", () => {
-    const mail = buildBerechtigungEmail({ art: "entzogen", adresse: "alt@schule.de" }, null, ORIGIN);
+    const mail = buildBerechtigungEmail({ art: "entzogen", adresse: "alt@schule.de", inhaber: false }, null, ORIGIN);
 
     assert.ok(mail.text.includes("alt@schule.de hat keinen Zugang zur Verwaltung mehr."));
     assert.ok(mail.text.includes("Diese Änderung wurde nicht in der Verwaltung vorgenommen, sondern direkt in der Datenbank."));
@@ -56,7 +56,7 @@ describe("the notice a change to who administers sends", () => {
   /* A barred administrator's change is no database edit: told so, it would send every holder looking for a
      paste nobody made, and the notice never names a barred address. */
   it("names a barred administrator by their state, never as the database", () => {
-    const mail = buildBerechtigungEmail({ art: "entzogen", adresse: "alt@schule.de" }, { von: null, am: AM }, ORIGIN);
+    const mail = buildBerechtigungEmail({ art: "entzogen", adresse: "alt@schule.de", inhaber: false }, { von: null, am: AM }, ORIGIN);
 
     for (const part of [mail.text, mail.html]) {
       assert.ok(part.includes("Geändert von einer gesperrten Adresse am 15. Januar 2026"), "the withheld actor is not told as barred");
@@ -76,9 +76,9 @@ describe("the notice a change to who administers sends", () => {
   it("names an erased person's grant by no address and no ban, in each art and in either part", () => {
     const geloescht = { vorenthalten: "geloescht" } as const;
     const saetze = [
-      [{ art: "entzogen", adresse: geloescht }, "Eine nicht genannte Adresse hat keinen Zugang zur Verwaltung mehr."],
+      [{ art: "entzogen", adresse: geloescht, inhaber: false }, "Eine nicht genannte Adresse hat keinen Zugang zur Verwaltung mehr."],
       [{ art: "erteilt", adresse: geloescht, inhaber: false }, "Eine nicht genannte Adresse hat jetzt Zugang zur Verwaltung."],
-      [{ art: "geaendert", adresse: geloescht, inhaber: true }, "Eine nicht genannte Adresse ist jetzt Inhaber der Verwaltung."],
+      [{ art: "geaendert", adresse: geloescht, inhaber: true }, "Eine nicht genannte Adresse ist jetzt Inhaberin oder Inhaber der Verwaltung."],
     ] as const;
 
     for (const [aenderung, satz] of saetze) {
@@ -111,17 +111,44 @@ describe("the notice a change to who administers sends", () => {
     const benannt = buildBerechtigungEmail({ art: "erteilt", adresse: "neu@schule.de", inhaber: true }, null, ORIGIN);
     const gesperrt = buildBerechtigungEmail({ art: "erteilt", adresse: { vorenthalten: "gesperrt" }, inhaber: true }, null, ORIGIN);
 
-    for (const part of [benannt.text, benannt.html]) assert.ok(part.includes("hat jetzt Zugang zur Verwaltung als Inhaber."));
-    assert.ok(benannt.text.includes("neu@schule.de hat jetzt Zugang zur Verwaltung als Inhaber."));
-    assert.ok(gesperrt.text.includes("Eine gesperrte Adresse hat jetzt Zugang zur Verwaltung als Inhaber."));
+    for (const part of [benannt.text, benannt.html]) {
+      assert.ok(part.includes("hat jetzt Zugang zur Verwaltung als Inhaberin oder Inhaber."));
+    }
+    assert.ok(benannt.text.includes("neu@schule.de hat jetzt Zugang zur Verwaltung als Inhaberin oder Inhaber."));
+    assert.ok(gesperrt.text.includes("Eine gesperrte Adresse hat jetzt Zugang zur Verwaltung als Inhaberin oder Inhaber."));
   });
 
   it("names the tier a change in the database moved, either way", () => {
     const hoch = buildBerechtigungEmail({ art: "geaendert", adresse: "a@schule.de", inhaber: true }, null, ORIGIN);
     const runter = buildBerechtigungEmail({ art: "geaendert", adresse: "a@schule.de", inhaber: false }, null, ORIGIN);
 
-    assert.ok(hoch.text.includes("a@schule.de ist jetzt Inhaber der Verwaltung."));
-    assert.ok(runter.text.includes("a@schule.de ist nicht mehr Inhaber der Verwaltung und behält den Zugang."));
+    assert.ok(hoch.text.includes("a@schule.de ist jetzt Inhaberin oder Inhaber der Verwaltung."));
+    assert.ok(runter.text.includes("a@schule.de ist nicht mehr Inhaberin oder Inhaber der Verwaltung und behält den Zugang."));
+  });
+
+  /* An erasure ends an `owner` grant with no demotion before it, so the end is the one notice the remaining
+     holders are sent of it, and read as any administrator's it hides that the tier left. */
+  it("names an `owner` grant's end as an owner's, named, barred or erased", () => {
+    const enden = (adresse: string | { vorenthalten: "gesperrt" | "geloescht" }): string =>
+      buildBerechtigungEmail({ art: "entzogen", adresse: adresse, inhaber: true }, null, ORIGIN).text;
+
+    assert.ok(enden("a@schule.de").includes("a@schule.de ist nicht mehr Inhaberin oder Inhaber der Verwaltung und hat keinen Zugang mehr."));
+    assert.ok(enden({ vorenthalten: "gesperrt" }).includes("Eine gesperrte Adresse ist nicht mehr Inhaberin oder Inhaber der Verwaltung"));
+    assert.ok(
+      enden({ vorenthalten: "geloescht" }).includes("Eine nicht genannte Adresse ist nicht mehr Inhaberin oder Inhaber der Verwaltung"),
+    );
+  });
+
+  /* People of either gender hold the `owner` tier, so no sentence names it by the masculine word alone. */
+  it("never names the `owner` tier by the masculine word alone, in any art or part", () => {
+    for (const art of ["erteilt", "geaendert", "entzogen"] as const) {
+      for (const inhaber of [true, false]) {
+        const mail = buildBerechtigungEmail({ art: art, adresse: "a@schule.de", inhaber: inhaber }, null, ORIGIN);
+        for (const part of [mail.text, mail.html]) {
+          assert.ok(!part.replaceAll("Inhaberin oder Inhaber", "").includes("Inhaber"), `${art}, owner ${String(inhaber)}: ${part}`);
+        }
+      }
+    }
   });
 
   /* The provider collapses a repeat under one key only where the body is the same byte for byte, so a

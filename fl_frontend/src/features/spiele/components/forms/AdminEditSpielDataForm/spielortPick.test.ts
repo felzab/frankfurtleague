@@ -36,8 +36,10 @@ const BOOKED: FLSpielOrtFieldDraft = {
 function pickerText(ortPayload: FLSpielOrtFieldDraft | null): string {
   const picker = h(FormSpielortSection, {
     spielorte: [],
+    created: [],
     ortPayload,
     onOrtChange: () => {},
+    onRequestCreate: () => {},
     onValidateFields: () => {},
   });
 

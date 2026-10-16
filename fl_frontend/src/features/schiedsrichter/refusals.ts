@@ -32,24 +32,6 @@ export function mapRetireRefusal(error: unknown): string | null {
   return null;
 }
 
-/**
- * The anonymisation refusal, or `null` when the refusal is something else. It lands on no field: the
- * control is a dialog rather than a form.
- */
-export function mapAnonymiseRefusal(error: unknown): string | null {
-  if (!isRefusal(error)) return null;
-
-  if (error.serverErrorCode === "REQ-ANONYMISE-004") {
-    return buildRefusal({
-      // The reader reached this by opening a link to the row every erased referee's fixtures point
-      // at, so the repair names the referee they meant rather than a way to retry this one.
-      reason: "Hinter diesem Eintrag steht keine Person, er sammelt nur die Spiele gelöschter Schiedsrichter",
-      repair: "Öffne den Schiedsrichter, dessen Daten Du löschen willst",
-    });
-  }
-  return null;
-}
-
 /** `null` where the refusal is something else. The reactivation is a row's button, so the ban is a sentence and no box's. */
 export function mapReactivateRefusal(error: unknown): string | null {
   if (!isRefusal(error)) return null;

@@ -83,7 +83,8 @@ describe("a referee's own consent write", () => {
   it("refuses a bound media floor that is no positive whole number before the backend", async () => {
     calls.length = 0;
 
-    for (const boden of [0, 17.5]) assert.equal((await patchSchiedsrichterEinwilligungAction(SCHIEDSRICHTER_ID, boden, WAHL)).success, false);
+    for (const boden of [0, -1, 17.5])
+      assert.equal((await patchSchiedsrichterEinwilligungAction(SCHIEDSRICHTER_ID, boden, WAHL)).success, false);
     assert.deepEqual(calls, [], "a malformed floor reached the backend");
   });
 

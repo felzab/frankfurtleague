@@ -209,7 +209,7 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
     if (aktion.redacted_at !== null) {
       const datum = formatAktionZeitpunkt(aktion.redacted_at).datum;
 
-      // A copy still standing lost one person's values alone: the people beside them on that record keep theirs.
+      // A copy still standing kept all the redaction did not reach: the record's own state, and anybody it left.
       return aktion.stand_gesichert ? (
         <span className={labelBadge("danger")}>Einzelne Werte gelöscht am {datum}</span>
       ) : (
@@ -234,6 +234,12 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
       </div>
       {renderDatensatz(aktion)}
       {renderStandBadge(aktion)}
+      {/* The request an erasure answered, on each row it filed: the person's own values are gone from them. */}
+      {aktion.anlass !== null && (
+        <span className="muted-meta wrap-break-word">
+          Anlass: <span className="text-foreground">{aktion.anlass}</span>
+        </span>
+      )}
       {renderAufruf(aktion)}
     </div>
   );

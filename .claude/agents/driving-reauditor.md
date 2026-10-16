@@ -42,7 +42,10 @@ other than your worktree is a wrong premise; stop and report it. No commit, no p
 what your drives need in your worktree (`pnpm install --frozen-lockfile` in `fl_frontend`,
 `uv sync --project fl_backend --dev --frozen` at the root); never link either in from another tree.
 Run git in Bash, never PowerShell. Never `./scripts/gate/verify.sh` over the whole tree: call the
-underlying tool or a scoped suite.
+underlying tool or a scoped suite. In `fl_frontend` a tool runs as `pnpm run <script>` or
+`pnpm exec <bin>`, never `npx`, which refuses whenever the machine's own Node is not the release
+`package.json`'s `devEngines` pins; tsc runs as `pnpm run typecheck`, whose `next typegen` it needs
+in a fresh worktree to fail a page breaking Next's route types.
 
 6 SUB-AGENTS. Where a question needs a fresh agent, say so and stop.
 

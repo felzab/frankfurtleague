@@ -11,10 +11,11 @@ import Medal from "@gravity-ui/icons/Medal";
 import Person from "@gravity-ui/icons/Person";
 import PersonPencil from "@gravity-ui/icons/PersonPencil";
 import Persons from "@gravity-ui/icons/Persons";
+import PersonXmark from "@gravity-ui/icons/PersonXmark";
 import Sliders from "@gravity-ui/icons/Sliders";
 import Tray from "@gravity-ui/icons/Tray";
 
-import type { SidemenuHint, SidemenuStructure } from "@/shared/types/types";
+import type { SidemenuHint, SidemenuStructure, SidemenuStructureSubOption } from "@/shared/types/types";
 import type React from "react";
 
 /**
@@ -41,6 +42,8 @@ export const ADMIN_SIDEMENU_ICONS = {
   Ban,
   // Access to the administration itself, beside the ban list's refusal of it.
   Key,
+  // A person taken out of the league whole, never the bin a single record's removal wears.
+  PersonXmark,
 } as const satisfies Record<string, React.ElementType>;
 
 export type AdminIconName = keyof typeof ADMIN_SIDEMENU_ICONS;
@@ -65,6 +68,19 @@ export const ADMIN_SHELL_UNLISTED_SECTIONS = {
     },
   },
 } as const satisfies Readonly<Record<string, { label: string; hint: SidemenuHint }>>;
+
+/** The erasure page's entry, named where another page sends a reader to it, so a rename reaches both. */
+export const LOESCHUNG_EINTRAG = {
+  id: "loeschung",
+  label: "Löschung auf Anfrage",
+  iconName: "PersonXmark",
+  hint: {
+    lead: "Alle Daten einer Person löschen, die per E-Mail darum gebeten hat.",
+    points: [{ term: "Die Adresse", detail: "gibst Du zweimal ein, zum Anzeigen und zum Bestätigen." }],
+    // What an admin comes here to do and cannot: no control on this page takes an erasure back.
+    note: "Eine Löschung lässt sich nicht zurücknehmen.",
+  },
+} as const satisfies SidemenuStructureSubOption<AdminIconName>;
 
 export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
   // Deliberately unnamed: a season is created and edited here, which makes this the subject the menu
@@ -257,6 +273,13 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
         },
       },
     ],
+  },
+
+  // Its own group rather than a row under „Protokoll“, which records what an administrator did: an erasure is a
+  // thing done, answering a person's request.
+  {
+    category_name: "Datenschutz",
+    sub_options: [LOESCHUNG_EINTRAG],
   },
 
   {
