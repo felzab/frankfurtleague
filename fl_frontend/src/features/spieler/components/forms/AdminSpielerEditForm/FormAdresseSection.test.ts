@@ -41,9 +41,8 @@ afterEach(() => {
 });
 
 describe("what the address request says of the link it sent", () => {
-  /* The request stands whichever way its link went, so a link that failed or that the ban list held
-     back is a warning titled for what happened, never a sent link; so is one whose notice to the stored
-     address failed, the administrator asked to tell the person (`docs/frontend/spec.md :: I737`). */
+  /* The request stands whichever way its link went: a failed or held-back link is a warning titled for what
+     happened, and so is a failed notice to the stored address (`docs/frontend/spec.md :: I737`). */
   for (const [versand, hinweis, variant, title] of [
     ["gesendet", "gesendet", "success", "Link gesendet"],
     ["fehlgeschlagen", "gesendet", "warning", "Link nicht verschickt"],

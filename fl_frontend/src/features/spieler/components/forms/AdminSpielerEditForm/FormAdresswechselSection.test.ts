@@ -89,9 +89,8 @@ describe("the waiting address's two controls", () => {
     });
   }
 
-  /* A link that did not go out, failed or held back by the ban list, is a warning titled for what
-     happened, as the request's press grades it: the earlier link is dead either way. So is a notice to the
-     stored address that failed, which asks the administrator to tell the person (`docs/frontend/spec.md :: I737`). */
+  /* Graded as the request's press grades it, the earlier link being dead either way: a failed or held-back link
+     is a warning titled for what happened, and so is a failed notice (`docs/frontend/spec.md :: I737`). */
   for (const [versand, hinweis, title] of [
     ["fehlgeschlagen", "gesendet", "Link nicht verschickt"],
     ["gesperrt", "gesendet", "Link zurückgehalten"],

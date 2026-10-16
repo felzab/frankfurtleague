@@ -145,9 +145,8 @@ describe("a press of the address change's link nobody can tell landed", () => {
 });
 
 describe("a re-send whose link or notice did not go out", () => {
-  /* Graded as the pupil's twin and the editor's save grade it, failed or held back by the ban list: the
-     earlier link is dead either way. A failed notice asks the administrator to tell the person, so it is a
-     warning naming the notice (`docs/frontend/spec.md :: I737`); one held back asks nothing. */
+  /* The earlier link is dead whichever way the new one went, so a failed or held-back link is a warning, and so
+     is a failed notice, named in the title (`docs/frontend/spec.md :: I737`); one held back asks nothing. */
   for (const [versand, hinweis, variant, title] of [
     ["fehlgeschlagen", null, "warning", "Link nicht verschickt"],
     ["gesperrt", null, "warning", "Link zurückgehalten"],
