@@ -631,9 +631,10 @@ as them.
 - **A pupil.** Enter the new address in the pupil editor (`POST /spieler/{spieler_id}/adresswechsel`).
   The address on file stays in force and is told a change was asked, while the new one waits with a
   link of its own; it moves only once its holder confirms there, so until then the pupil still signs
-  in at the address on file (`docs/backend/spec.md :: I701`). The ban list and another pupil already
-  holding the address each refuse the request (`docs/backend/spec.md :: I702`), and a pupil holding no
-  address takes none: an address arrives with their registration (`docs/backend/spec.md :: I703`).
+  in at the address on file (`docs/backend/spec.md :: I701`). The ban list (`REQ-SPIELER-003`) and
+  another pupil already holding the address (`docs/backend/spec.md :: I702`) each refuse the request,
+  and a pupil holding no address takes none: an address arrives with their registration
+  (`docs/backend/spec.md :: I703`).
   Re-send the link when it lapses, or discard the change when the request turns out to be wrong; a
   change whose link lapsed goes the day after
   ([`../datenschutz.md`](../datenschutz.md#6-retention-is-bounded-where-a-bound-was-chosen)).
@@ -669,7 +670,7 @@ as them.
   row with a read-only Playground query on `spieler` for `adresswechsel.email` equal to the address,
   matched in any case and projecting `_id`, `vorname` and `nachname` alone, then open that pupil's
   editor and discard the change (`DELETE /spieler/{spieler_id}/adresswechsel`), which removes the
-  address and the log's images of it (`docs/backend/spec.md :: I562`). The link's own decline does
+  address and the log's images of it (`docs/backend/spec.md :: I704`). The link's own decline does
   the same, past its deadline too.
 - **A referee who is RETIRED and has not confirmed.** Correct `kontakt.email` in the referee editor.
   The save stores the address, mails nothing and kills the old link, since a retired referee takes

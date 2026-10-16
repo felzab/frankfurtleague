@@ -123,33 +123,29 @@ class TestWhatALeakedLinkLearns:
         }
 
 
+UNCONFIRMABLE: tuple[str, ...] = ("ersetzte_gesperrt", "keine_adresse", "vergeben")
+
+
+def zustand(*, frist: Any, gesperrt: bool = False, causes: tuple[str, ...] = ()) -> str:
+    return spieler_adresswechsel_zustand_of(
+        wechsel={"frist": frist}, today=TODAY, gesperrt=gesperrt, **{cause: cause in causes for cause in UNCONFIRMABLE}
+    )
+
+
 class TestTheState:
-    """Ranked as the referee's link ranks: a ban on the link's own address, then the deadline, then the two unconfirmable causes alike."""
+    """Ranked as the referee's link ranks: a ban on the link's own address, then the deadline, then the three unconfirmable causes alike."""
 
     def test_a_ban_on_the_link_s_own_address_ranks_ahead_of_the_deadline(self):
-        assert (
-            spieler_adresswechsel_zustand_of(wechsel={"frist": "2026-01-01"}, today=TODAY, gesperrt=True, ersetzte_gesperrt=True, vergeben=True)
-            == "gesperrt"
-        )
+        assert zustand(frist="2026-01-01", gesperrt=True, causes=UNCONFIRMABLE) == "gesperrt"
 
-    @pytest.mark.parametrize(("frist", "zustand"), [(TODAY, "gueltig"), ("2026-03-31", "abgelaufen"), (None, "abgelaufen")])
-    def test_the_last_valid_day_is_the_deadline_itself(self, frist: Any, zustand: str):
-        assert (
-            spieler_adresswechsel_zustand_of(wechsel={"frist": frist}, today=TODAY, gesperrt=False, ersetzte_gesperrt=False, vergeben=False)
-            == zustand
-        )
+    @pytest.mark.parametrize(("frist", "expected"), [(TODAY, "gueltig"), ("2026-03-31", "abgelaufen"), (None, "abgelaufen")])
+    def test_the_last_valid_day_is_the_deadline_itself(self, frist: Any, expected: str):
+        assert zustand(frist=frist) == expected
 
-    @pytest.mark.parametrize(("ersetzte_gesperrt", "vergeben"), [(True, False), (False, True)], ids=["replaced-barred", "held-by-another"])
-    @pytest.mark.parametrize(("frist", "zustand"), [(TODAY, "nicht_bestaetigbar"), ("2026-03-31", "abgelaufen")])
-    def test_either_unconfirmable_cause_reads_alike_behind_the_deadline(
-        self, ersetzte_gesperrt: bool, vergeben: bool, frist: str, zustand: str
-    ):
-        assert (
-            spieler_adresswechsel_zustand_of(
-                wechsel={"frist": frist}, today=TODAY, gesperrt=False, ersetzte_gesperrt=ersetzte_gesperrt, vergeben=vergeben
-            )
-            == zustand
-        )
+    @pytest.mark.parametrize("cause", UNCONFIRMABLE)
+    @pytest.mark.parametrize(("frist", "expected"), [(TODAY, "nicht_bestaetigbar"), ("2026-03-31", "abgelaufen")])
+    def test_each_unconfirmable_cause_reads_alike_behind_the_deadline(self, cause: str, frist: str, expected: str):
+        assert zustand(frist=frist, causes=(cause,)) == expected
 
 
 class TestTheLookups:

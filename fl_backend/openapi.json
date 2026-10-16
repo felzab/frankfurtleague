@@ -4622,7 +4622,7 @@
       },
       "delete": {
         "summary": "Discard a Spieler's pending address change",
-        "description": "Discard this pupil's pending address change: the block goes, its link opens nothing, and the stored address stays.\n\n**The address goes from the action log too** (`docs/backend/spec.md :: I562`): it is taken out of every image the log holds\nof this pupil, since every write on the row while the change stood, a re-send or this discard included, filed one carrying\nan address nobody proved; the rest of each image stays. Nothing is mailed. 404 where the pupil holds no pending change, and\nfor an id no pupil holds, the sentinel's included.",
+        "description": "Discard this pupil's pending address change: the block goes, its link opens nothing, and the stored address stays.\n\n**The address goes from the action log too** (`docs/backend/spec.md :: I704`): it is taken out of every image the log holds\nof this pupil, since every write on the row while the change stood, a re-send or this discard included, filed one carrying\nan address nobody proved; the rest of each image stays. Nothing is mailed. 404 where the pupil holds no pending change, and\nfor an id no pupil holds, the sentinel's included.",
         "operationId": "delete_adresswechsel_api_v0_spieler__spieler_id__adresswechsel_delete",
         "security": [
           {
@@ -4680,7 +4680,7 @@
     "/api/v0/spieler/{spieler_id}/adresswechsel/einladen": {
       "post": {
         "summary": "Send a Spieler's pending address a fresh link",
-        "description": "Mint a fresh link for this pupil's pending address, answering the raw token once with both addresses, for the caller to mail.\n\nIt replaces the whole pending block but its address, so the previous link stops working at once and the delivery state of\nthe message it went out in goes with it. The deadline restarts from today, and a deadline already passed is no refusal:\nthe re-send is how a lapsed change is asked again.\n\nRefused where the ban list holds the pending address (`REQ-SPIELER-003`) and where another pupil has come to sign in on it\n(`REQ-SPIELER-006`). 404 where the pupil holds no pending change, and for an id no pupil holds, the sentinel's included.",
+        "description": "Mint a fresh link for this pupil's pending address, answering the raw token once with both addresses, for the caller to mail.\n\nIt replaces the whole pending block but its address, so the previous link stops working at once and the delivery state of\nthe message it went out in goes with it. The deadline restarts from today, and a deadline already passed is no refusal:\nthe re-send is how a lapsed change is asked again.\n\nRefused where the pupil has come to hold no address (`REQ-SPIELER-008`), which leaves no address for the notice, where the ban\nlist holds the pending address (`REQ-SPIELER-003`) and where another pupil has come to sign in on it (`REQ-SPIELER-006`). 404\nwhere the pupil holds no pending change, and for an id no pupil holds, the sentinel's included.",
         "operationId": "einladen_adresswechsel_api_v0_spieler__spieler_id__adresswechsel_einladen_post",
         "security": [
           {
@@ -4729,7 +4729,7 @@
             "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "409": {
-            "$ref": "#/components/responses/409.REQ-SPIELER-003.REQ-SPIELER-006"
+            "$ref": "#/components/responses/409.REQ-SPIELER-003.REQ-SPIELER-006.REQ-SPIELER-008"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -7748,7 +7748,7 @@
     "/api/v0/spieler/adresswechsel/ansicht": {
       "post": {
         "summary": "What one Spieler address link opens",
-        "description": "Answer what this token opens: the pupil's first name, the link's state and its deadline.\n\n**A first name and nothing else about the row** (`READ-PUPIL-005`): never either address, the surname or the id. A POST\nthat reads, so the token travels in a body and never in a second URL.\n\nRefuses only a token no pupil holds (`REQ-SPIELER-001`), which an answered, replaced or discarded change is too: an answer\nremoves what the link opens. An expired link is SERVED in that state rather than refused. The state is `gesperrt`, ahead\nof every other, wherever the ban list holds the address the link was mailed to, and `nicht_bestaetigbar`, behind the\ndeadline, wherever it holds the address the change would replace or another pupil signs in on the new one: each state the\nconfirmation would be refused in, the last two alike so the link tells its holder nothing about whose either address is.",
+        "description": "Answer what this token opens: the pupil's first name, the link's state and its deadline.\n\n**A first name and nothing else about the row** (`READ-PUPIL-005`): never either address, the surname or the id. A POST\nthat reads, so the token travels in a body and never in a second URL.\n\nRefuses only a token no pupil holds (`REQ-SPIELER-001`), which an answered, replaced or discarded change is too: an answer\nremoves what the link opens. An expired link is SERVED in that state rather than refused. The state is `gesperrt`, ahead\nof every other, wherever the ban list holds the address the link was mailed to, and `nicht_bestaetigbar`, behind the\ndeadline, wherever it holds the address the change would replace, the pupil holds no address, or another pupil signs in on\nthe new one: each state the confirmation would be refused in. Those three read alike here, though the press answers each by\nits own code; what keeps the link's holder from telling them apart is the edge, where `nginx/shared/site.conf` routes no\npublic call to this service and the frontend's route handler for the link's page answers all three as this one state.",
         "operationId": "get_adresswechsel_ansicht_api_v0_spieler_adresswechsel_ansicht_post",
         "requestBody": {
           "content": {
@@ -7802,7 +7802,7 @@
     "/api/v0/spieler/adresswechsel": {
       "post": {
         "summary": "Confirm or decline one Spieler's pending address",
-        "description": "Record whether the mailbox this link was sent to is the pupil's: `bestaetigt` moves their address to it, `abgelehnt` discards the change.\n\nEither answer ends the change, so the link opens nothing afterwards. The confirmation stores the address as the sign-in\ncompares it, asks no consent and writes none: the consent record stands as it was, and only `email` moves.\n\nRefuses a token no pupil holds (`REQ-SPIELER-001`), and a CONFIRMATION through a link whose deadline has passed\n(`REQ-SPIELER-002`), one mailed to an address the ban list holds now (`REQ-SPIELER-004`), one whose change would replace an\naddress the ban list holds now (`REQ-SPIELER-005`), so a barred person cannot move their record off the address the ban\nkeys on, and one to an address another pupil has come to sign in on (`REQ-SPIELER-006`). **A decline is refused none of\nthese**: it removes an address nobody proved, and it takes that address out of every image the action log holds of this\npupil, those of every write while the change stood, a re-send included. The rest of each image stays.",
+        "description": "Record whether the mailbox this link was sent to is the pupil's: `bestaetigt` moves their address to it, `abgelehnt` discards the change.\n\nEither answer ends the change, so the link opens nothing afterwards. The confirmation stores the address as the sign-in\ncompares it, asks no consent and writes none: the consent record stands as it was, and only `email` moves.\n\nRefuses a token no pupil holds (`REQ-SPIELER-001`), and a CONFIRMATION through a link whose deadline has passed\n(`REQ-SPIELER-002`), one mailed to an address the ban list holds now (`REQ-SPIELER-004`), one whose change would replace an\naddress the ban list holds now (`REQ-SPIELER-005`), so a barred person cannot move their record off the address the ban\nkeys on, one for a pupil who has come to hold no address (`REQ-SPIELER-008`), which a change corrects and never enters, and\none to an address another pupil has come to sign in on (`REQ-SPIELER-006`). **A decline is refused none of these**: it\nremoves an address nobody proved, and it takes that address out of every image the action log holds of this pupil, those of\nevery write while the change stood, a re-send included. The rest of each image stays.\n\nThe last three codes, and `DB-COMMON-002` for the race the in-session read misses, tell a caller what the view's\n`nicht_bestaetigbar` keeps alike. Only the edge keeps them from the link's holder: `nginx/shared/site.conf` routes no public\ncall to this service, and the frontend's route handler for the link's page answers all four as that one state.",
         "operationId": "post_adresswechsel_antwort_api_v0_spieler_adresswechsel_post",
         "requestBody": {
           "content": {
@@ -7826,7 +7826,7 @@
             }
           },
           "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-SPIELER-005.REQ-SPIELER-006"
+            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-SPIELER-005.REQ-SPIELER-006.REQ-SPIELER-008"
           },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
@@ -27317,7 +27317,7 @@
           }
         }
       },
-      "409.DB-COMMON-002.REQ-SPIELER-005.REQ-SPIELER-006": {
+      "409.DB-COMMON-002.REQ-SPIELER-005.REQ-SPIELER-006.REQ-SPIELER-008": {
         "description": "Conflict",
         "content": {
           "application/json": {
@@ -27332,7 +27332,8 @@
                       "enum": [
                         "DB-COMMON-002",
                         "REQ-SPIELER-005",
-                        "REQ-SPIELER-006"
+                        "REQ-SPIELER-006",
+                        "REQ-SPIELER-008"
                       ]
                     }
                   }
@@ -27918,30 +27919,6 @@
           }
         }
       },
-      "409.REQ-SPIELER-003.REQ-SPIELER-006": {
-        "description": "Conflict",
-        "content": {
-          "application/json": {
-            "schema": {
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/FLFailureBody"
-                },
-                {
-                  "properties": {
-                    "error_code": {
-                      "enum": [
-                        "REQ-SPIELER-003",
-                        "REQ-SPIELER-006"
-                      ]
-                    }
-                  }
-                }
-              ]
-            }
-          }
-        }
-      },
       "409.REQ-SPIELER-003.REQ-SPIELER-006.REQ-SPIELER-007.REQ-SPIELER-008": {
         "description": "Conflict",
         "content": {
@@ -27958,6 +27935,31 @@
                         "REQ-SPIELER-003",
                         "REQ-SPIELER-006",
                         "REQ-SPIELER-007",
+                        "REQ-SPIELER-008"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "409.REQ-SPIELER-003.REQ-SPIELER-006.REQ-SPIELER-008": {
+        "description": "Conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-SPIELER-003",
+                        "REQ-SPIELER-006",
                         "REQ-SPIELER-008"
                       ]
                     }

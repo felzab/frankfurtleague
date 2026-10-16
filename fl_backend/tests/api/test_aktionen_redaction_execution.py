@@ -262,7 +262,7 @@ def test_each_image_keeps_everything_but_the_address(mongo_replica_set_url: str)
     readdressed_pupil = image_of(log, Collection.SPIELER, READDRESSED_PUPIL)["before"]
     assert (readdressed_pupil["email"], readdressed_pupil["vorname"]) == (None, "Wendelin")
     pending_pupil = image_of(log, Collection.SPIELER, PENDING_PUPIL)["before"]
-    assert (pending_pupil[ADRESSWECHSEL_FELD], pending_pupil["email"]) == (None, PUPIL_STORED)
+    assert (pending_pupil[SPIELER_ADRESSWECHSEL_FELD], pending_pupil["email"]) == (None, PUPIL_STORED)
 
 
 @pytest.mark.db

@@ -2119,7 +2119,9 @@ RULES: tuple[Rule, ...] = (
     Rule(
         code="REQ-SPIELER-008",
         status=HTTPStatus.CONFLICT,
-        operation="POST /spieler/{spieler_id}/adresswechsel",
+        operation=(
+            "POST /spieler/{spieler_id}/adresswechsel · POST /spieler/{spieler_id}/adresswechsel/einladen · POST /spieler/adresswechsel"
+        ),
         aggregate="Spieler",
         summary="a pupil holding no address takes no address change, an address reaching them with their registration alone",
         implemented_by="app.api.spieler.services.find_keine_adresse_refusal",

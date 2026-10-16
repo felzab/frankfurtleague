@@ -45,7 +45,7 @@ FLEinwilligungQuelle = Literal["erziehungsberechtigt", "volljaehrig", "bestandsu
 
 # What a pupil's address link shows, the referee's states (`app/api/schiedsrichter/schemas.py ::
 # FLSchiedsrichterAdresswechselZustand`). `nicht_bestaetigbar` also answers a new address another pupil
-# holds, so the link's holder cannot tell that from a ban on the replaced one.
+# holds and a pupil holding none, alike with a ban on the replaced one; the press's codes part them.
 FLSpielerAdresswechselZustand = Literal["gueltig", "abgelaufen", "gesperrt", "nicht_bestaetigbar"]
 
 FLSpielerAdresswechselAntwort = Literal["bestaetigt", "abgelehnt"]
