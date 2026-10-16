@@ -79,6 +79,10 @@ const { calls } = doubled;
 const answerWith = (answer: Answer) => doubled.answerWith(mitSeiten(answer));
 const { undoAdminKontakteEditAction } = await import("./actions.ts");
 const { stepUpRequired } = await import("@/shared/utils/adminMutation.ts");
+const { UNDO_UNBESTAETIGT } = await import("@/shared/utils/adminUndo.ts");
+
+/** The step-up refusal in the undo's own words: its offer is gone once pressed, so it asks for no press first. */
+const UNDO_REFUSED = { ...stepUpRequired(), error: UNDO_UNBESTAETIGT };
 
 /** What `fl_frontend/src/features/kontakte/mutations.ts :: patchSaisonTeamKontakte` sends, as the backend's own routes spell it. */
 const REPLAY_OPERATION = "PATCH /teams/{team_id}/saisons/{saison_id}/kontakte";
@@ -142,7 +146,7 @@ describe("the contacts save's undo", () => {
   it("refuses a replay clearing the block from a session past the step-up window, and no other", async () => {
     setFresh(false);
     const clearing = await undoAdminKontakteEditAction(BODY);
-    assert.deepEqual(clearing, { ...stepUpRequired() }, "a stale session cleared a club's contacts through the undo");
+    assert.deepEqual(clearing, UNDO_REFUSED, "a stale session cleared a club's contacts through the undo");
     assert.deepEqual(calls, [], "the clearing replay reached the backend for a session past the window");
 
     const seats = { trainer: null, ansprechperson: null, stellvertretung: null, trainer_ist_zugleich: null };
@@ -238,7 +242,7 @@ describe("the contacts save's undo", () => {
     setFresh(false);
     answerWith(({ endpoint }) => Promise.resolve(endpoint === "/teams/memberships" ? { acknowledged: 1, teams: [] } : replayed(1)));
 
-    assert.deepEqual(await undoAdminKontakteEditAction(ZURUECK), { ...stepUpRequired() });
+    assert.deepEqual(await undoAdminKontakteEditAction(ZURUECK), UNDO_REFUSED);
     assert.deepEqual(
       requestsOf(calls).filter(({ method }) => method !== undefined),
       [],

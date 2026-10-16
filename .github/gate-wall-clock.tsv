@@ -659,6 +659,44 @@
 # an upper bound. The row carries `-` for its reference, so the check moves no figure and answers to
 # the budget alone.
 #
+# `docs` gained a check: `copy-semicolon` costs 101-106 ms a sweep against 27-30 ms for `copy-term`
+# over the same 22,744 spans of 894 files, nine interleaved rounds after one warm run, each rule
+# called over spans read once as the copy sweep reads them; the whole sweep took 769-788 ms. Measured
+# locally on 2026-10-16 on a sixteen-core Windows machine at 63 percent CPU from a fleet of agent
+# sessions, so upper bounds. It sits far inside the floor the `docs` row carries, and no row moves.
+#
+# `frontend` gained four syntax bans in `fl_frontend/eslint.config.mjs`, `:: SEARCH_IN_URL`,
+# `:: SEARCH_BAR_HOME`, `:: SEARCH_FIELD_HOME` and the `_blank` target among `:: SOURCE_BANS`, and
+# the `local/search-in-page-parameters` rule of `:: LOCAL_RULES`. eslint over `fl_frontend` at a
+# runner's four threads, with no cache, took 36.8-40.6 s with them against 37.8-41.7 s without, five
+# interleaved rounds after one warm run of each, both arms copying the config alike; the arms
+# overlap, so the additions cost less than this machine resolves. Summed over every file in one run,
+# the local rule took 29.3 ms and `no-restricted-syntax`, every ban together, 63.9 ms. Measured
+# locally on 2026-10-16 on a sixteen-core Windows machine at 53 percent CPU from a fleet of agent
+# sessions, so upper bounds. It is pooled with tsc and knip, and the row carries `-` for its
+# reference, so the additions move no figure and answer to the budget alone.
+#
+# `frontend-units` gained the test files this branch added under `fl_frontend/src`. Each run alone
+# through `test:base`, twice, they took 250.8 and 288.2 s summed. The longest were
+# `fl_frontend/src/app/typedText.test.ts` at 51.8-85.4 s, which its own commit read at 14.8-19.3 s on a
+# quieter machine, `fl_frontend/src/features/funktionen/adminLoeschung.test.ts` at 48.8-53.0 s and
+# `fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/createDialogSubmit.test.ts`
+# at 18.0-20.4 s, every other under 15 s. `fl_frontend/src/core/auth.test.ts` gained six
+# session-window boundary cases, 43-55 ms together over three runs. Measured locally on 2026-10-16 on
+# a sixteen-core Windows machine at 85 percent CPU from a fleet of agent sessions, so upper bounds
+# reading that load as much as the files. A file's shard follows its position in the sorted list, so
+# what these add to each shard against its 205 s budget, and whether a shard's reference moves past
+# its floor, is the pull request run's `frontend-units` spans to say.
+#
+# `scripts` gained a module and cases: `scripts/tests/test_export_journal.py`'s twelve cases took
+# 5.9-6.5 s by pytest's own figure, 6.8-7.3 s of wall clock, over three runs of the module alone at
+# 26 percent CPU, and the 22 cases of the eight `scripts/tests/test_orchestration_tools.py` functions
+# this branch added or widened took 8.7-14.8 s over three runs at 84 percent, against 69.9 s for that
+# module whole once. Measured locally on 2026-10-16 on a sixteen-core Windows machine carrying a
+# fleet of agent sessions, so upper bounds. Each module is one chunk under `--dist loadfile`, so the
+# job pays them only where one becomes its longest; the row carries `-` for its reference, so they
+# move no figure and answer to the budget alone.
+#
 # The total row is the sum of the seconds above it, compared the same way where it carries a floor.
 # Its floor sums each referenced row's draws, so `--stamp` cuts one only where every row holding a
 # reference was re-stamped from the one population it reads, and `--base` refuses a total floor that

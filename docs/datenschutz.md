@@ -591,8 +591,12 @@ Every ruling below is the sign-up flow as it stands for the next season.
   controller holding the key that recomputes it from the address. The TTL index removes it at the
   monitor's first pass after its last write (`fl_backend/app/core/constraints.py :: TTL_INDEXES`):
   MongoDB runs that pass every 60 seconds and a busy server may run it later still — mirrored from
-  https://www.mongodb.com/docs/manual/core/index-ttl/, which moves without us; read 2026-10-16. The
-  erasure leaves it to that index, its own write being what holds a late writer off.
+  https://www.mongodb.com/docs/manual/core/index-ttl/, which moves without us; read 2026-10-16. A
+  pass in progress also waits while a transaction holds an expired anchor, at most for the server's
+  transaction lifetime — measured on MongoDB 8.3 on 2026-10-16. The
+  erasure leaves it to that index, its own write being what holds a late writer off. The published
+  notice tabulates it, that pass's period in words (`DatenschutzView.tsx :: FRISTEN`). Ruled
+  2026-10-16.
 - **Backups outlive an erasure by the snapshot window, and the person is told so.** The hosting
   keeps snapshots for about eight days, taken daily — a figure mirrored from the provider's own
   console, which moves without us, as it stood on 2026-09-01. An erased person is gone from the live

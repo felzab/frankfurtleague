@@ -6,6 +6,7 @@ import { keyTierOf } from "@/core/keyTiers.ts";
 import { publishedOperations } from "@/core/openapiDocument.ts";
 import { person, sitz, SITZ } from "@/core/subjectFixtures.ts";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
+import { RECORD_CLAIMS } from "@/shared/testing/recordClaims.ts";
 
 import type { APIBadStatusError } from "@/core/errors.ts";
 import type { KeyTier } from "@/core/keyTiers.ts";
@@ -127,19 +128,8 @@ const READS = /^(?:GET|HEAD|OPTIONS) /;
  */
 const PERSON_ROUTES = new Set(PUBLISHED.filter(({ code }) => code === "REQ-AUTH-008").map(({ operation }) => operation));
 
-/**
- * The person routes whose actions claim the person's own record rather than a seat
- * (`fl_frontend/src/shared/utils/personActionSpine.test.ts :: CLAIMS_A_RECORD`), so their writes run
- * behind the record entry and are asked through it.
- */
-const RECORD_ROUTES: ReadonlySet<string> = new Set([
-  "PATCH /spieler/selbst/einwilligung",
-  "PATCH /registrierungen/selbst/{registrierung_id}/einwilligung",
-  "PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung",
-  "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung",
-  "PATCH /bewerbungen/{bewerbung_id}/person/einwilligung",
-  "POST /identitaet/selbst/erasure",
-]);
+/** The person routes whose actions claim the person's own record, so their writes run behind the record entry and are asked through it. */
+const RECORD_ROUTES: ReadonlySet<string> = new Set(RECORD_CLAIMS.values());
 
 const errorOf = (answer: unknown): unknown => (typeof answer === "object" && answer !== null && "error" in answer ? answer.error : answer);
 

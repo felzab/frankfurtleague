@@ -825,7 +825,8 @@ holding no address waits for that section's pupil reset at the end of this seaso
 person nothing. **Erasing an administrator's address tells every
 administrator, as a revoke does**: the grant's end goes out with the other changes of access, the
 notice naming no address (`docs/backend/spec.md :: I659`). On the same page „Überall abmelden“ ends
-every session of an address without erasing or barring it.
+every session of an address without erasing or barring it; past the step-up window its second press
+asks the passkey first, as the ban's does (`docs/frontend/spec.md :: I748`).
 
 **Answer as soon as what you need is gathered, and where it will take longer say so in the first
 reply rather than after it.** Where the answer needs the Datenschutzexperte, the person is told that
@@ -987,8 +988,10 @@ no log above outlives its bound.
 **Every deploy stops both application containers and copies their streams to
 `/var/log/frankfurtleague/` before it recreates them** (`scripts/ops/deploy.sh :: copy_streams`), one
 file per service stamped to the second, so a line written in the seconds before the recreate — an
-erasure's journal line among them (§13) — is in the copy. Where it cannot write there it starts the
-stopped containers again and refuses at exit 2 with nothing recreated.
+erasure's journal line among them (§13) — is in the copy. A container already stopped, a failed
+build's backend that exited or keeps restarting among them, is copied as well and left stopped.
+A directory it cannot write refuses at exit 2 before anything is stopped; a copy failing after the
+stop starts the containers it stopped again and refuses alike, nothing recreated either way.
 **A deploy that rolls back
 recreates the pair twice and so copies twice**, the failed build's streams taking the same stamp and a
 `-failed` suffix, so a failed deploy leaves four files that sort together (§1). The same step creates

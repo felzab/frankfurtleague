@@ -184,5 +184,29 @@
     "typed": "anna@example.org",
     "stored": "anna@example.org",
     "folded": "anna@example.org"
+  },
+  {
+    "case": "a special-use name typed in full-width letters",
+    "typed": "schiri@platzhalter.\uff49\uff4e\uff56\uff41\uff4c\uff49\uff44",
+    "stored": null,
+    "folded": "schiri@platzhalter.invalid"
+  },
+  {
+    "case": "an umlaut domain under a special-use name",
+    "typed": "anna@m\u00fcnchen.test",
+    "stored": null,
+    "folded": "anna@xn--mnchen-3ya.test"
+  },
+  {
+    "case": "an umlaut domain without a dot",
+    "typed": "anna@m\u00fcnchen",
+    "stored": null,
+    "folded": "anna@xn--mnchen-3ya"
+  },
+  {
+    "case": "an umlaut domain holding a slash a URL parser would end the host at",
+    "typed": "anna@m\u00fcnchen.de/x",
+    "stored": null,
+    "folded": "anna@m\u00fcnchen.de/x"
   }
 ]

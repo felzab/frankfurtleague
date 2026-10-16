@@ -426,26 +426,30 @@ ADDRESS_ANCHORS: frozenset[str] = frozenset(
     }
 )
 
-# Every question `app/api/sperrliste/lookup.py` puts to the ban list, and the one application helper wrapping one.
+# Every question `app/api/sperrliste/lookup.py` puts to the ban list.
 BAN_LOOKUPS: tuple[Callable[..., Any], ...] = (adressen_gesperrt, hash_gesperrt, hashes_gesperrt)
-WRAPPED_LOOKUPS = frozenset({"_any_gesperrt"})
 
 A_READ = "a read, storing nothing"
 THE_ERASURE = "the erasure's own step, its anchor written by `erase_everything`"
 THE_STORED_GRANTS = "judges the stored grants, anchoring each (I438), and stores no address they lack"
 STORED_ADDRESS = "mints or answers for the address the record already holds"
+THE_ACTORS_JUDGE = "the actor's judge, a read"
+THE_PERSONS_VERDICT = "a person's own sign-in verdict, a read"
 
 # A write asking the ban list of an address is how one storing a NEW address shows itself, a ban refusing exactly that,
 # so each such scope anchors or says why the address it writes was already the record's.
 ASKING_AND_ANCHORING_NOTHING: dict[str, str] = {
     "app/api/aktionen/admin_router.py :: _as_served": A_READ,
+    "app/api/aktionen/admin_router.py :: get_aktion_by_id": A_READ,
+    "app/api/aktionen/admin_router.py :: get_aktionen": A_READ,
     "app/api/berechtigungen/admin_router.py :: get_berechtigungen": A_READ,
     "app/api/berechtigungen/admin_router.py :: judge_and_change": THE_STORED_GRANTS,
     "app/api/berechtigungen/admin_router.py :: judge_and_revoke": THE_STORED_GRANTS,
-    "app/api/berechtigungen/crud.py :: live_unbarred_grant_in": "the actor's judge, a read",
-    "app/api/berechtigungen/crud.py :: live_unbarred_grant_since": "the actor's judge, a read",
+    "app/api/berechtigungen/crud.py :: live_unbarred_grant_in": THE_ACTORS_JUDGE,
+    "app/api/berechtigungen/crud.py :: live_unbarred_grant_since": THE_ACTORS_JUDGE,
     "app/api/berechtigungen/erasure.py :: erase_grants_and_authorship_in_session": THE_ERASURE,
     "app/api/berechtigungen/sweep_router.py :: queue_and_claim": THE_STORED_GRANTS,
+    "app/api/bewerbungen/admin_router.py :: mint_unless_gesperrt": STORED_ADDRESS,
     "app/api/bewerbungen/admin_router.py :: refuse_a_barred_address": STORED_ADDRESS,
     "app/api/bewerbungen/einwilligung_router.py :: _saison_ansicht": A_READ,
     "app/api/bewerbungen/einwilligung_router.py :: answer_for_the_person": STORED_ADDRESS,
@@ -454,13 +458,18 @@ ASKING_AND_ANCHORING_NOTHING: dict[str, str] = {
     "app/api/bewerbungen/public_router.py :: _answer_as_the_first": "a replay, which stores nothing",
     "app/api/bewerbungen/public_router.py :: _any_gesperrt": "the submission's question, its callers held here in turn",
     "app/api/bewerbungen/router.py :: _as_served": A_READ,
+    "app/api/bewerbungen/router.py :: get_bewerbung_by_id": A_READ,
+    "app/api/bewerbungen/router.py :: get_bewerbungen": A_READ,
     "app/api/bewerbungen/sweep_router.py :: remind": STORED_ADDRESS,
+    "app/api/identitaet/admin_router.py :: erase_the_address": THE_ERASURE,
     "app/api/identitaet/admin_router.py :: get_erasure_ansicht_auf_anfrage": A_READ,
+    "app/api/identitaet/crud.py :: erase_if_still_due": THE_ERASURE,
     "app/api/identitaet/person_router.py :: erase_the_address": THE_ERASURE,
     "app/api/identitaet/person_router.py :: get_erasure_ansicht": A_READ,
     "app/api/identitaet/router.py :: get_anmeldung": A_READ,
     "app/api/identitaet/router.py :: get_gesperrt": A_READ,
     "app/api/identitaet/router.py :: get_subjekt": A_READ,
+    "app/api/identitaet/sweep_router.py :: erase_the_pupil_if_still_due": THE_ERASURE,
     "app/api/registrierungen/einwilligung_router.py :: answer_for_the_pupil": STORED_ADDRESS,
     "app/api/registrierungen/einwilligung_router.py :: get_bestaetigung_ansicht": A_READ,
     "app/api/registrierungen/person_router.py :: admit_the_pupil": "copies the address of a registration it deletes, as the erasure does",
@@ -468,6 +477,8 @@ ASKING_AND_ANCHORING_NOTHING: dict[str, str] = {
     "app/api/registrierungen/router.py :: get_registrierungen": A_READ,
     "app/api/registrierungen/sweep_router.py :: remind": STORED_ADDRESS,
     "app/api/saisons/admin_router.py :: _gesperrte_empfaenger": A_READ,
+    "app/api/saisons/admin_router.py :: post_einladungen_versand": STORED_ADDRESS,
+    "app/api/saisons/admin_router.py :: preview_einladungen_versand": A_READ,
     "app/api/schiedsrichter/admin_router.py :: judge_and_mint": STORED_ADDRESS,
     "app/api/schiedsrichter/admin_router.py :: judge_and_remint_the_change": "re-mints the stored pending address",
     "app/api/schiedsrichter/admin_router.py :: reactivate_and_ask": STORED_ADDRESS,
@@ -482,7 +493,11 @@ ASKING_AND_ANCHORING_NOTHING: dict[str, str] = {
     "app/api/spieler/adresswechsel_router.py :: get_adresswechsel_ansicht": A_READ,
     "app/api/teams/admin_router.py :: get_einladung": A_READ,
     "app/api/teams/admin_router.py :: judge_and_mint": STORED_ADDRESS,
-    "app/core/security.py :: is_gesperrt": "a person's own sign-in verdict, a read",
+    "app/core/security.py :: grant_since": THE_ACTORS_JUDGE,
+    "app/core/security.py :: is_gesperrt": THE_PERSONS_VERDICT,
+    "app/core/security.py :: judging_the_administrator": THE_ACTORS_JUDGE,
+    "app/core/security.py :: verify_actor_is_admin": THE_ACTORS_JUDGE,
+    "app/core/security.py :: verify_person_is_unbarred": THE_PERSONS_VERDICT,
 }
 
 
@@ -504,12 +519,31 @@ def test_the_lookups_are_every_question_the_ban_list_module_answers():
     assert answering == {lookup.__name__ for lookup in BAN_LOOKUPS}
 
 
+def _transactional_scopes() -> frozenset[str]:
+    return frozenset(callback.where for callback in transactional_callbacks(WRITE_HELPERS)) | HOOKED_CALLERS
+
+
+def _asking_the_ban_list(transactional: frozenset[str]) -> set[str]:
+    """Every scope reaching a ban-list question: each lookup's callers, then in turn the callers of each that is no transaction's callback.
+
+    A wrapper's entry above so never hides the writes calling it, a name read as any caller spells it.
+    """
+
+    asking: set[str] = set()
+    pending = [lookup.__name__ for lookup in BAN_LOOKUPS]
+    while pending:
+        for caller in _app_callers_of(pending.pop()) - asking:
+            asking.add(caller)
+            if caller not in transactional:
+                pending.append(caller.split(" :: ")[1])
+
+    return asking
+
+
 def test_every_write_asking_the_ban_list_of_an_address_anchors_it():
     """Two listings by different routes: a new writer storing an address asks the ban list, and fails here until it anchors."""
 
-    asking = set().union(*(_app_callers_of(name) for name in {lookup.__name__ for lookup in BAN_LOOKUPS} | WRAPPED_LOOKUPS))
-
-    assert asking - _app_callers_of(anchor_the_addresses.__name__) == set(ASKING_AND_ANCHORING_NOTHING)
+    assert _asking_the_ban_list(_transactional_scopes()) - _app_callers_of(anchor_the_addresses.__name__) == set(ASKING_AND_ANCHORING_NOTHING)
 
 
 @pytest.mark.parametrize("function", [anchor_the_addresses, anchor_by_id_in_db], ids=lambda function: function.__name__)
@@ -541,7 +575,7 @@ def test_an_address_anchor_is_written_inside_a_transaction():
     By id through the fold and the key alone, so no caller anchors a spelling the erasure never writes.
     """
 
-    transactional = frozenset(callback.where for callback in transactional_callbacks(WRITE_HELPERS)) | HOOKED_CALLERS
+    transactional = _transactional_scopes()
 
     assert _app_callers_of(anchor_by_id_in_db.__name__) == {"app/core/adressanker.py :: anchor_the_addresses"}
     assert {scope for scope in ADDRESS_ANCHORS if not _held_by_a_transaction(scope, transactional)} == set()

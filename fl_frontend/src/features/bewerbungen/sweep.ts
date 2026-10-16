@@ -270,7 +270,6 @@ async function mailRegistrierungErinnerung(erinnerung: FLRegistrierungSweepErinn
     recipients: [erinnerung.email],
     buildMail: () =>
       buildRegistrierungErinnerungEmail({
-        vorname: erinnerung.vorname,
         teamName: erinnerung.team,
         saisonId: erinnerung.saison_id,
         origin: origin,

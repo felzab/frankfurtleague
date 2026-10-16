@@ -201,7 +201,6 @@ class TestTheReminderClock:
         assert document is not None
         reminded = [entry for entry in response.erinnerungen if entry.registrierung_id == REMIND_OID]
         assert [(entry.email, entry.team) for entry in reminded] == [(f"{REMIND_OID}@example.com", TEAM_NAME)]
-        assert reminded[0].vorname == "Quillhilde"
 
         bookkeeping = document["bestaetigung"]
         assert bookkeeping["token_hash"] == hash_token(reminded[0].token)
@@ -632,10 +631,10 @@ class TestOneRowHoldsBackNoOther:
         ]
 
     def test_a_reminder_the_answer_cannot_carry(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
-        """An empty first name, which the validator stores and the answer's model refuses before any stamp is written."""
+        """An empty address, which the validator stores and the answer's model refuses before any stamp is written."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.REGISTRIERUNGEN].insert_one(registrierung(SECOND_OID, vorname=""))
+            await database[Collection.REGISTRIERUNGEN].insert_one(registrierung(SECOND_OID, email=""))
             answer = await sweep(database, client)
             refused = await stored(database, SECOND_OID)
             assert refused is not None
@@ -646,7 +645,7 @@ class TestOneRowHoldsBackNoOther:
             answered, count, stamp = on_a_league(mongo_replica_set_url, body)
 
         assert (REMIND_OID in answered, SECOND_OID in answered, count, stamp) == (True, False, 1, None)
-        refusal = "ValidationError: [{'loc': 'vorname', 'type': 'string_too_short', 'msg': 'String should have at least 1 character'}]"
+        refusal = "ValidationError: [{'loc': 'email', 'type': 'string_too_short', 'msg': 'String should have at least 1 character'}]"
         assert passed_over(caplog) == [
             ("ERROR", STORED_DATA_INVALID, f"Registration {SECOND_OID} was passed over by the reminder clock: {refusal}")
         ]
@@ -892,7 +891,7 @@ class TestTheReminderClockTakesAShareEachCall:
     @pytest.mark.parametrize(
         "refused",
         [
-            pytest.param(lambda row: {**row, "vorname": ""}, id="an empty first name the answer refuses"),
+            pytest.param(lambda row: {**row, "email": ""}, id="an empty address the answer refuses"),
             pytest.param(
                 lambda row: {**row, "bestaetigung": {**row["bestaetigung"], "verschickt_am": "2026-03-1x"}}, id="a send date no judge can read"
             ),
