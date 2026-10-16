@@ -25,7 +25,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.identitaet.admin_router import erase_auf_anfrage, get_erasure_ansicht_auf_anfrage
 from app.api.identitaet.crud import ERASURE_JOURNAL_EVENT
 from app.api.identitaet.schemas import FLErasure, FLErasureAnsichtPayload, FLErasureAnsichtResponse, FLErasurePayload, FLErasureResponse
-from app.api.identitaet.services import EIGENE_ADRESSE, INHABER_ADRESSE
+from app.api.identitaet.services import EIGENE_ADRESSE, INHABER_ADRESSE, NAME_IM_ANLASS, anlass_names, find_name_im_anlass_refusal
 from app.api.schiedsrichter.services import build_ghost_schiedsrichter
 from app.api.spieler.services import build_ghost_spieler
 from app.core.collections import Collection
@@ -632,6 +632,75 @@ class TestTheAnlass:
         assert {row["anlass"] for row in filed} == {None}
 
 
+# A surname no record of the seed holds, given to one kind of the person's records at a time.
+ANOTHER_SURNAME = "Sturmvogel"
+
+# Where each kind of the person's records keeps a surname, as the seed stores it.
+SURNAME_OF: Mapping[str, tuple[Collection, Mapping[str, Any], str]] = {
+    "a pupil": (Collection.SPIELER, {"_id": PUPIL_OID}, "nachname"),
+    "a referee": (Collection.SCHIEDSRICHTER, {"_id": REFEREE_OID}, "name"),
+    "a team's seat": (Collection.SAISON_TEAMS, {"saison_id": SAISON_ID, "team_id": HOME_TEAM_OID}, "kontakte.ansprechperson.nachname"),
+    "an application's seat": (Collection.BEWERBUNGEN, {"_id": BEWERBUNG_OID}, "kontakte.trainer.nachname"),
+    "a registration": (Collection.REGISTRIERUNGEN, {"_id": PENDING_OID}, "nachname"),
+}
+
+
+@pytest.mark.db
+class TestANameInTheAnlass:
+    """`REQ-PURGE-006`, judged on the names the erasure's own subject read holds (`docs/backend/spec.md :: I721`)."""
+
+    def test_it_is_refused_inside_the_write_which_writes_nothing_and_names_nobody(
+        self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture
+    ):
+        async def run(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            before = await everything_in(database)
+            response = await posted(mongo_replica_set_url, PATH, erasure_of(anlass=f"Mail {NACHNAME} vom 30.03.2026"))
+
+            return response, before == await everything_in(database)
+
+        with caplog.at_level(logging.INFO):
+            response, untouched = on_a_league(mongo_replica_set_url, run)
+
+        assert refused_at(response) == (422, NAME_IM_ANLASS, [["anlass"]])
+        assert untouched
+        assert journal_lines(caplog) == []
+        # The premise of the line below: the refusal's own log line is among those read.
+        assert [getattr(record, "error_code", None) for record in caplog.records].count(NAME_IM_ANLASS) == 1
+        said = [response.text, *(record.getMessage() for record in caplog.records)]
+        naming = [line for line in said if VORNAME.lower() in line.lower() or NACHNAME.lower() in line.lower()]
+        assert naming == []
+
+    @pytest.mark.parametrize("kind", SURNAME_OF)
+    def test_every_kind_of_the_persons_records_lends_its_names(self, mongo_replica_set_url: str, kind: str):
+        """The seed's other records keep the person's surname, so only the kind renamed holds the one the request names."""
+
+        collection, row, field = SURNAME_OF[kind]
+
+        async def run(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            renamed = f"{VORNAME} {ANOTHER_SURNAME}" if field == "name" else ANOTHER_SURNAME
+            assert (await database[collection].update_one(row, {"$set": {field: renamed}})).modified_count == 1
+
+            return await posted(mongo_replica_set_url, PATH, erasure_of(anlass=f"Mail {ANOTHER_SURNAME} vom 30.03.2026"))
+
+        assert refused_at(on_a_league(mongo_replica_set_url, run)) == (422, NAME_IM_ANLASS, [["anlass"]])
+
+    def test_a_name_only_other_peoples_records_hold_is_erased_under(self, mongo_replica_set_url: str):
+        """Each stands in a record the subject read reaches: a seat beside the person's, and a referee and a pupil moving to the address."""
+
+        anlass = "Mail von Quillhilde, Kraus und Gwendolyn vom 30.03.2026"
+
+        async def run(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            response = await posted(mongo_replica_set_url, PATH, erasure_of(anlass=anlass))
+
+            return response.status_code, await filed_by(database, PATH)
+
+        status, filed = on_a_league(mongo_replica_set_url, run)
+
+        assert status == 200
+        assert filed, "the erasure filed no row, so the assertion below holds of nothing"
+        assert {row["anlass"] for row in filed} == {anlass}
+
+
 class PupilsMeetingARival(InterleavedCollection):
     """The pupils the erasure removes, a rival write to the grants committing first: inside the attempt, once per attempt."""
 
@@ -941,3 +1010,63 @@ class TestThePlaceholderIsRefusedAtTheBox:
 
         assert response.status_code == 500, response.json()
         assert response.json()["error_code"] in UNREACHED_DATABASE
+
+
+# --- The names `REQ-PURGE-006` refuses, judged from the subject's rows alone: the default tier's.
+
+
+def a_seat(email: str, vorname: str, nachname: str) -> dict[str, str]:
+    return {"email": email, "vorname": vorname, "nachname": nachname}
+
+
+# One record of each shape a name is stored in, and a seat beside the person's that another person holds.
+NAMES = anlass_names(
+    IDENTIFIER,
+    saison_team_rows=[
+        {
+            "kontakte": {
+                "trainer": a_seat(TYPED, "Quirin", "Müller-Lüdenscheidt"),
+                "ansprechperson": a_seat("quillhilde@example.com", "Quillhilde", "Quillhilde-Mustermann"),
+            }
+        }
+    ],
+    bewerbung_rows=[],
+    referee_rows=[{"name": "Anna von der Heide"}],
+    pupil_rows=[{"vorname": "Max", "nachname": "Müller"}],
+    registrierung_rows=[{"vorname": "Anna Lena", "nachname": "Schmidt"}],
+)
+
+
+class TestWhichWordsTheAnlassMayNotHold:
+    def test_each_name_stands_whole_and_each_of_its_words_alone_but_a_particle(self):
+        assert NAMES == {
+            *("max", "müller"),
+            *("anna von der heide", "anna", "heide"),
+            *("anna lena", "lena", "schmidt"),
+            *("quirin", "müller-lüdenscheidt", "lüdenscheidt"),
+        }
+
+    @pytest.mark.parametrize(
+        "anlass",
+        [
+            "Anfrage von max  MÜLLER per Mail vom 3.10.",
+            "Mail Müller 3.10.",
+            "Max hat am 3.10. gefragt",
+            "Mail Heide 3.10.",
+            "Lena hat am 3.10. gefragt",
+            "Betreff Löschung_Müller",
+        ],
+    )
+    def test_a_name_standing_as_a_whole_word_is_refused_on_the_box(self, anlass: str):
+        refusal = find_name_im_anlass_refusal(anlass=anlass, names=NAMES)
+
+        assert refusal is not None
+        assert (refusal.error_code, refusal.status, refusal.fields) == (NAME_IM_ANLASS, 422, (("anlass",),))
+
+    @pytest.mark.parametrize(
+        "anlass",
+        ["Anfrage per Mail vom 3.10.", "Brief aus der Müllerstraße", "Bitte um Löschung der Daten von heute"],
+        ids=["no name", "a name inside a longer word", "a particle alone"],
+    )
+    def test_no_name_standing_as_a_whole_word_passes(self, anlass: str):
+        assert find_name_im_anlass_refusal(anlass=anlass, names=NAMES) is None

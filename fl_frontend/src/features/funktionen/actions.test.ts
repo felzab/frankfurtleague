@@ -5,7 +5,7 @@ import { APIBadStatusError, APINetworkError, RolledBackError } from "@/core/erro
 import { registerDoubles } from "@/core/exportingModule.ts";
 import { cacheCalls, doubleActionRequest, loggedLines } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
-import { assertEachAnswered } from "@/shared/testing/publishedRefusals.ts";
+import { assertEachAnswered, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 
 import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
 
@@ -230,6 +230,16 @@ describe("the erasure on request", () => {
   it("answers every refusal the erasure publishes through its mapper", async () => {
     await assertEachAnswered({ operation: "POST /identitaet/erasure", refuseWith: answerWith, act: erase, mapped: mapErasureRefusal });
     assert.deepEqual(request.deletedAccounts(), [], "a refused erasure deleted an account");
+  });
+
+  /* The typed Anlass is what the rule refuses, so the sentence lands under its box rather than in a banner. */
+  it("marks the Anlass box where the backend finds a name of the person in it", async () => {
+    answerWith(() => Promise.reject(refusedOn("POST /identitaet/erasure", "REQ-PURGE-006")));
+
+    const result = await erase();
+
+    assert.deepEqual(result.success ? undefined : result.fieldErrors, { anlass: "Der Anlass darf keinen Namen der Person enthalten." });
+    assert.deepEqual(request.deletedAccounts(), [], "a refused erasure deleted the account");
   });
 });
 
