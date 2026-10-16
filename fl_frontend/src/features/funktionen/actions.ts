@@ -116,9 +116,8 @@ export async function eraseAufAnfrageAction(
       };
     }
 
-    // A grant holder's address is held to the enrolment's window, as the backend holds it (`docs/frontend/spec.md ::
-    // I714`): judged here too, so a grant written since the panel's read is refused before the backend is asked. Read
-    // only for a session past that window, the one it can refuse.
+    // A grant holder's address is held to the enrolment's window on both servers (`docs/frontend/spec.md :: I714`), so a
+    // grant written since the panel's read is refused here too. Read only for a session past that window.
     const haeltZugang = !isWithinEnrolmentWindow(session.session.createdAt) && (await verwaltungOf(validated.data.email)).verwaltung !== null;
     const unconfirmed = haeltZugang ? refuseUnconfirmed(session, "enrolment") : null;
     if (unconfirmed !== null) return unconfirmed;
