@@ -5,6 +5,11 @@ loads as the agent's system prompt and which binds whatever the brief says. A br
 parts below and never restates a standing section of the definition: the definition is that
 section's one home.
 
+A brief whose work answers findings-ledger rows, of any agent type, names them on one line opening
+`Rows:` at the start of the line, each by its ledger id: `reg.py dispatch --brief` routes them to
+the agent, naming each refusal. A brief citing a row only for context leaves it off that line, and
+a brief answering none carries no such line.
+
 ## Contents
 
 - [The implementer's brief](#the-implementers-brief)
@@ -53,6 +58,7 @@ BAR.            Done is every item met in full, nothing traded. Challenge an ite
                 An item that changes a thing's IDENTITY -- splitting a numbered row, renaming a
                 symbol -- or removes a concept carries its outward sweep in the same item: every
                 citation into a split row, and the concept's vocabulary in prose no check reads.
+Rows: <row id>, <row id>
 
 9  TRAPS.       Beyond your definition's standing list: <the traps specific to this work>
 ```

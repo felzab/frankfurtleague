@@ -103,7 +103,10 @@ cannot test is "not established", with the command that would settle it.
 14 REPORT. Your report is your FINAL MESSAGE; no length limit, no narration. Every finding -- a
 judged fix that does not hold, a new defect, something you could not drive, a wrong premise -- opens
 with its label `F<n>`, numbered once through the report: the coordinator's ledger tool writes one
-row per label and sees nothing else. In this order:
+row per label and sees nothing else. A line naming another report's finding -- a judged fix's row
+in (a) included -- names it by its ledger id as your brief or a message spells it
+(`<report>-F<n>`), never a bare `F<n>`, which the ledger banks as a finding of yours. In this
+order:
 
 - (a) per finding or fix judged: the plant, its exit code red, the restore, its exit code green, or
   why it went undriven;
