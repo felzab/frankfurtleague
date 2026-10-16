@@ -221,7 +221,7 @@ describe("the privacy notice's retention table", () => {
     );
   });
 
-  /* The referee's twin, on the clock the pupil's has: the lapsed address goes the day after, never at the yearly erasure. */
+  /* The referee's twin, on the clock the pupil's has: the lapsed address goes the day after. */
   it("gives a pupil's unconfirmed new address its retention, its link's clock in words and the removal the day after it lapses", () => {
     assert.equal(
       ANGABEN.get(
