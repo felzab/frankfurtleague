@@ -1128,8 +1128,9 @@ the `Entry` column carries a token only where one still resolves in that file.
   consent under Art. 7 (1) is the stored record: each of its choices, the publication scope and the
   media consent, keeps when its person last set it and under which wording, and a withdrawal keeps
   the grant it ended, for as long as the record stands. Only the person's own answer grants a choice
-  or stamps its evidence: their own write, on their confirmation page or their account page, or an
-  admission carrying their own registration's answer (`docs/backend/spec.md :: I613`). An act before
+  or stamps its evidence: their own write, on their confirmation page or their account page, an
+  admission carrying their own registration's answer, or a restore replaying a withdrawal of theirs at
+  the moment they made it (`docs/backend/spec.md :: I613`, `:: I746`). An act before
   those survives only in the log row its write left, whose image an erasure empties and which
   expires twelve months after the write ([section 6](#6-retention-is-bounded-where-a-bound-was-chosen)).
   The question to put: whether the latest act and the grant a withdrawal ended are proof enough,
