@@ -1830,9 +1830,12 @@ def _plant_copy_informal() -> None:
 
 
 def _plant_copy_term() -> None:
-    """The retired word, in both forms the sweep reads."""
+    """Each retired word, in the forms the sweep reads: a plural, a JSX text opening on a capital, a suffixed run-together spelling."""
     _append(COPY_SAMPLE, 'export const WER = "Die Mannschaft steht in dieser Gruppe.";')
     _append(COPY_SAMPLE, 'export const ALLE = "Alle Mannschaften stehen in der Tabelle.";')
+    _append(COPY_SAMPLE, 'export const LINK = "Öffne den Link aus Deiner E-Mail noch einmal.";')
+    _append(COPY_SAMPLE, "export function Tausch() {", "  return <p>Noch mal tauschen macht ihn rückgängig.</p>;", "}")
+    _append(COPY_SAMPLE, 'export const WIEDER = "Versuche es nochmals.";')
 
 
 def _plant_copy_semicolon() -> None:
@@ -1947,7 +1950,7 @@ CASES: Final[tuple[Case, ...]] = (
     Case("copy-formal", _fails("copy-formal", COPY_SAMPLE), _plant_copy_formal),
     Case("copy-informal", _fails("copy-informal", COPY_SAMPLE), _plant_copy_informal),
     Case("copy-semicolon", _fails("copy-semicolon", COPY_SAMPLE, COPY_SAMPLE), _plant_copy_semicolon),
-    Case("copy-term", _fails("copy-term", COPY_SAMPLE, COPY_SAMPLE), _plant_copy_term),
+    Case("copy-term", _fails("copy-term", *[COPY_SAMPLE] * 5), _plant_copy_term),
     Case("crlf-write", _fails("crlf-write", SAMPLE), _plant_text_write),
     # The corpus is walked in path order, so the twin under `docs/frontend/` is the home the two
     # copies below it are told to cite.

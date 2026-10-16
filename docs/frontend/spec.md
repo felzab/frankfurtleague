@@ -1495,6 +1495,8 @@ where a comment quotes a rendered string, which tracks it. The wording rules:
   `Mannschaft`. `Team` is neuter, and the word that has to agree often sits in the NEXT sentence,
   which no grep for the noun will find; `sideLabel` also numbers a fixture's two seats `Team`, so a
   sentence naming both says the club by name.
+- **Doing something again is „erneut“, a link reopened as much as a press retried** (my rule,
+  2026-10-16): never „noch einmal“ or „nochmal“.
 - **An empty stored field reads „Nicht hinterlegt“, whatever the field is about** (my rule,
   2026-10-07): `fl_frontend/src/shared/utils/format.ts :: NICHT_HINTERLEGT` where a label stands
   beside the value, a table's column heading included, a glyph such as `#` too, and `:: nichtHinterlegt`'s „<Feld> nicht hinterlegt“ where none does, a chip, a
@@ -1693,7 +1695,7 @@ The banner rules:
   rule above.
 
 **The rules held mechanically are the ones `scripts/checks/docs_gate/copy_rules.py` reaches** — the
-dash rule with its date-range exception, the `Mannschaft` ban, the register rules, and the semicolon
+dash rule with its date-range exception, the retired words `:: BANNED_TERMS` names, the register rules, and the semicolon
 ban with the legal sources `:: LEGAL_SOURCES` exempts by path — over every string literal and JSX
 element of `fl_frontend/src`, comments and tests excluded; it recognises a date by the name of the function
 that formats it, a coupling `copy-corpus` fails when the name stops matching, rather than letting

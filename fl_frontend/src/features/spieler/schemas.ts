@@ -494,7 +494,7 @@ export type FLSpielerSelbstEinwilligungPayload = z.infer<typeof FLSpielerSelbstE
 export const LinkAntwortTextVersionSchema = z
   .string()
   .trim()
-  .nonempty({ error: "Deine Antwort nennt keine Fassung. Öffne den Link aus Deiner E-Mail noch einmal." })
+  .nonempty({ error: "Deine Antwort nennt keine Fassung. Öffne den Link aus Deiner E-Mail erneut." })
   .max(EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH, {
     error: `Die Fassung darf höchstens ${String(EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)} Zeichen lang sein.`,
   });
