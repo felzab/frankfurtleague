@@ -22,13 +22,18 @@ LIB: Final = SCRIPTS / "lib" / "_lib.sh"
 REPLAY: Final = SCRIPTS / "ops" / "replay_journal.sh"
 
 SNAPSHOT: Final = "2026-10-15T03:00:00+00:00"
+RESTORED: Final = "2026-10-15T09:40:00Z"
 
-# `exec` records its argv and its stdin, and answers what the case asks the module to have answered.
+# The module's closing line, which a 1 carries when it is lines left rather than no listing at all.
+LEFT: Final = "\\nLeft: 0 erasures to run, 1 lines to replay, 0 records to review, 0 replays that failed.\\n"
+
+# `exec` records its argv and its stdin, and answers what the case asks the module to have printed and answered.
 STUB: Final = """#!/usr/bin/env bash
 set -u
 if [[ "${1:-}" == "compose" && " $* " == *" exec "* ]]; then
   printf '%s\\n' "$@" > "${FL_REPLAY_ARGV}"
   cat > "${FL_REPLAY_STDIN}"
+  printf '%b' "${FL_REPLAY_OUT:-}"
   exit "${FL_REPLAY_RC:-0}"
 fi
 exit 1
@@ -53,7 +58,9 @@ class _Fixture:
         return self.argv.read_bytes().decode().splitlines() if self.argv.exists() else None
 
 
-def _run(fixture: _Fixture, *arguments: str, module_rc: int = 0) -> tuple[int, str]:
+def _run(
+    fixture: _Fixture, *arguments: str, module_rc: int = 0, printed: str = "", moments: tuple[str, str] = (SNAPSHOT, RESTORED)
+) -> tuple[int, str]:
     """`_lib.sh`, the lifted replay and a stand-in `docker`."""
     assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
     stubs = fixture.root / "stubs"
@@ -61,17 +68,25 @@ def _run(fixture: _Fixture, *arguments: str, module_rc: int = 0) -> tuple[int, s
     os.chmod(write_shell(stubs / "docker", STUB), 0o755)
     environment = base_env()
     environment["PATH"] = str(stubs) + os.pathsep + environment["PATH"]
-    environment |= {"FL_REPLAY_ARGV": str(fixture.argv), "FL_REPLAY_STDIN": str(fixture.stdin), "FL_REPLAY_RC": str(module_rc)}
+    environment |= {
+        "FL_REPLAY_ARGV": str(fixture.argv),
+        "FL_REPLAY_STDIN": str(fixture.stdin),
+        "FL_REPLAY_RC": str(module_rc),
+        "FL_REPLAY_OUT": printed,
+    }
     lines = (
         "#!/usr/bin/env bash",
         f'source "{LIB.as_posix()}"',
         lift_assignment(REPLAY, "COMPOSE"),
         lift_assignment(REPLAY, "REPLAY_MODULE"),
+        lift_assignment(REPLAY, "INSTANT"),
         f'LOG_DIR="{fixture.logs.as_posix()}"',
         f'JOURNAL_LINES="{(fixture.root / "lines.txt").as_posix()}"',
+        f'REPLAY_OUTPUT="{(fixture.root / "output.txt").as_posix()}"',
         lift_function(REPLAY, "day_files"),
+        lift_function(REPLAY, "an_instant"),
         lift_function(REPLAY, "replay"),
-        f'replay "{SNAPSHOT}" {" ".join(arguments)}',
+        f'replay "{moments[0]}" "{moments[1]}" {" ".join(arguments)}',
         "",
     )
     done = run_shell(BASH, write_shell(fixture.root / "parent.sh", "\n".join(lines)), env=environment, cwd=fixture.root)
@@ -109,6 +124,8 @@ def test_the_day_files_from_the_snapshot_s_day_on_are_handed_in_oldest_first() -
         "app.api.identitaet.wiederherstellung",
         "--since",
         SNAPSHOT,
+        "--until",
+        RESTORED,
     ]
 
 
@@ -134,12 +151,37 @@ def test_a_snapshot_s_day_with_no_file_is_refused_before_the_container_is_asked(
     assert fixture.called_with() is None
 
 
-@pytest.mark.parametrize(("module_rc", "expected"), [(0, 0), (1, 1), (2, 2), (3, 3)], ids=("done", "left", "refused", "crashed"))
-def test_the_module_s_answer_keeps_the_exit_contract(module_rc: int, expected: int) -> None:
-    """1 is lines left to do, which a caller tells apart from the database the module could not read (2) and from a crash (3)."""
+@pytest.mark.parametrize(
+    ("moments", "named"),
+    [
+        pytest.param(("2026-10-15T03:00:00", RESTORED), "the snapshot's, names no offset", id="a snapshot naming no offset"),
+        pytest.param((SNAPSHOT, "2026-10-15 09:40"), "the restore's end, names no offset", id="a restore's end naming no offset"),
+        pytest.param((SNAPSHOT, "2026-10-15T05:00:00+02:00"), "is no later than the snapshot", id="a restore's end before the snapshot"),
+    ],
+)
+def test_a_window_the_module_would_read_otherwise_is_refused_before_the_container_is_asked(moments: tuple[str, str], named: str) -> None:
+    """Read without an offset, a moment is whatever the reading clock makes it, and this host's and the container's need not agree."""
     fixture = _Fixture()
     fixture.day("2026-10-15")
 
-    code, output = _run(fixture, module_rc=module_rc)
+    code, output = _run(fixture, moments=moments)
+
+    assert code == 2, output
+    assert named in output
+    assert fixture.called_with() is None
+
+
+@pytest.mark.parametrize(
+    ("module_rc", "printed", "expected"),
+    [(0, "", 0), (1, LEFT, 1), (1, "", 3), (2, "", 2), (3, "", 3)],
+    ids=("done", "left", "no listing", "refused", "crashed"),
+)
+def test_the_module_s_answer_keeps_the_exit_contract(module_rc: int, printed: str, expected: int) -> None:
+    """1 is lines left, counted on the module's closing line; a 1 without it is Compose answering for a service not
+    running, a crash (3) as the module's own is; 2 is a run the module refused."""
+    fixture = _Fixture()
+    fixture.day("2026-10-15")
+
+    code, output = _run(fixture, module_rc=module_rc, printed=printed)
 
     assert code == expected, output

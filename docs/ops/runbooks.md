@@ -1519,7 +1519,9 @@ being run again** (`fl_frontend/src/features/meta/components/views/DatenschutzVi
 how that promise is kept ([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)).
 Two things a restore is contemplated for: a hand-run migration that succeeded against a mistyped path
 (§2), and a mistaken erasure, for which the snapshot window is the only route back. Write down the
-moment the restored snapshot was taken: every step below reads from it.
+moment the restored snapshot was taken, and once the restore has completed, that moment too: the
+replay below reads the journal between the two, and an act after the second is the restored site's
+own, which stands as its person made it.
 
 **Before restoring, switch `LOESCHUNG_SWEEP` off (§9), and switch it on again only once every step
 below is done:** until then nothing may call `POST /identitaet/loeschung/lauf`. The run deletes each
@@ -1533,9 +1535,10 @@ the switch still off. Its deletions are re-derived rather than replayed: it jour
 Everything written between the snapshot and the restore is gone, the log's own rows about it
 included. Every erasure a person or an administrator asked for left one line in the backend's
 stream, and so did every consent a person withdrew, every Widerspruch made through a seat's link and
-every address change declined through its link, each naming its person by a keyed hash alone,
-whether its commit landed or lost its answer ([`../backend/spec.md`](../backend/spec.md#2-invariants)
-I666, I745). §7's day files keep those lines outside the database for thirty days. Run the export
+every address change declined through its link, each naming its person by a keyed hash and never
+by an address, an erasure's line also by the pseudonym the log keys their signed-in rows by, whether
+its commit landed or lost its answer ([`../backend/spec.md`](../backend/spec.md#2-invariants) I666,
+I745). §7's day files keep those lines outside the database for thirty days. Run the export
 once more, which reads every journal line the backend's stream and the deploy copies of those thirty
 days still hold into the day files:
 
@@ -1545,38 +1548,53 @@ days still hold into the day files:
 constraint landed restores rows the current validators reject, and the validators are attached strict,
 so such a row refuses any erasure or replay below that writes over it rather than removing it.
 
-**Then list what the lines ask for, giving the snapshot's moment written down above, in UTC:**
+**Then list what the lines ask for, giving both moments written down above, each with its offset:**
 
-    ./scripts/ops/replay_journal.sh 2026-10-15T03:00:00Z
+    ./scripts/ops/replay_journal.sh 2026-10-15T03:00:00Z 2026-10-15T09:40:00Z
 
 It hands the day files from the snapshot's day on to the backend's container, which reads every line
-written after that moment and matches it against the restored database under the journal's key
-(`fl_backend/app/api/identitaet/wiederherstellung.py`), so **the key is never typed, and no address
-and no key is printed**. It refuses a snapshot's day the export wrote no file for. Each line is
-listed by its act and its record, never by its person:
+written after the first moment and no later than the second, and matches it against the restored
+database under the journal's key (`fl_backend/app/api/identitaet/wiederherstellung.py`), so **the key
+is never typed, and no address, no hash and no key is printed**. Before the container is asked, it
+refuses a moment naming no offset, a restore's end no later than the snapshot, and a snapshot's day
+the export wrote no file for. Each line is listed by its act and its record, never by its person:
 
 - **An erasure** is followed by every collection, document and field holding its address, or by
   "held nowhere". Every stored spelling is matched, folded as the sign-in folds it: a registration
   or a contact seat keeps its address as typed. The `auth` database is not read, an account whose
-  address no league record holds going with the account sweep within the hour (§5).
+  address no league record holds going with the account sweep within the hour (§5). Held nowhere,
+  the address leaves its pseudonym: where that still marks log rows or day counts, which a restore
+  brings back with the snapshot, the listing says how many, with the rows' ids, and reads `to replay`
+  ([`../backend/spec.md`](../backend/spec.md#2-invariants) I764); a line naming no pseudonym reads
+  `nothing to run`.
 - **A choice** reads `to replay`; `already done` where the restored record already stands as the
-  choice left it; `left for review` where none of the record's addresses matches the line's hash,
-  a pupil's address changed since the snapshot or a seat filled by somebody else; or `no such record`
-  where the restore holds no record of that id, which then needs nothing.
+  choice left it, or the restored site set it since: the choice granted again by evidence later than
+  the line, the seat sent a link or the address a change on a day after the snapshot's; `left for
+review` where none of the record's addresses matches the line's hash, a pupil's address changed
+  since the snapshot or a seat filled by somebody else, or where that link or change went out on the
+  day both the snapshot and the restore fell on, which its day alone cannot place; `no such record`
+  where the restore holds no record of that id, which then needs nothing; or `its person's erasure
+has run` where the same person's erasure, held nowhere, is in the same listing.
 
-It exits 0 once nothing is left, and 1 while an erasure is to run, a choice to replay, a record to
-review or a line it could not read.
+It exits 0 once nothing is left; 1 while an erasure is to run, a line to replay, a record to review,
+a replay that failed or a line it could not read is left, each counted on its closing `Left:` line;
+2 where it judged no line, a moment refused or the container's settings or the restored database
+unreadable, naming files and never a value; and 3 or more where it crashed, a 1 ending without that
+`Left:` line among them, as Compose answers for a backend that is not running.
 
-**Then replay the choices: the same command with `--apply`.** Each choice standing to be replayed is
-judged again in a transaction of its own and written as its person's own press wrote it, the same
-update and the same log redaction, its evidence stamped with the instant on its line, the moment the person acted and never the
-replay's ([`../backend/spec.md`](../backend/spec.md#2-invariants) I746). The action log records each
-under the system, its call reading `REPLAY` and the line without its person, and a second run writes
-nothing. **A record left for review is written by nothing**: read it beside the person's mail thread
-and settle it by hand, the listing going on to name it since its hash matches nothing the record
-holds. Two things no line restores: a grant made after a journalled withdrawal is in no journal, so
-the choice stays withdrawn, the safe side, until its person grants it again on the account page; and
-a Widerspruch's replay mails nobody, its submitter having been told when it was made.
+**Then replay them: the same command with `--apply`.** Each line standing to be replayed is judged
+again in a transaction of its own. A choice is written as its person's own press wrote it, the same
+update and the same log redaction, its evidence stamped with the instant on its line, the moment the
+person acted and never the replay's ([`../backend/spec.md`](../backend/spec.md#2-invariants) I746).
+An erasure held nowhere has its pseudonym's log rows marked and its day counts erased, as the erasure
+did, the log keeping one row for them under „Pseudonyme“ (I764). The action log records each under
+the system, its call reading `REPLAY` and the line's act, record and journalling instant, never its
+person nor the journal's token, and a second run writes nothing. **A record left for review is
+written by nothing**: read it beside the person's mail thread and settle it by hand, the listing
+going on to name it since its hash matches nothing the record holds. Two things no line restores: a
+grant made after a journalled withdrawal and before the restore's end is in no journal, so the
+choice stays withdrawn, the safe side, until its person grants it again on the account page; and a
+Widerspruch's replay mails nobody, its submitter having been told when it was made.
 
 A line whose commit lost its answer may name an act that never landed, and running it again wrongs
 nobody, the person having asked for it. **Read the mail thread beside the journal** for every request

@@ -99,7 +99,7 @@ _LOGGED_COLLECTIONS = [str(name) for name in Collection if name not in {Collecti
 
 # Mirrors `app/core/recording.py :: LoggedAct`, hand-copied as the literals below are: a row's
 # `collection` for an act that writes none of the application's own.
-_LOGGED_ACTS = ["anmeldungen"]
+_LOGGED_ACTS = ["anmeldungen", "pseudonyme"]
 
 # Mirrors `app/core/recording.py :: Operation`, `:: Actor.kind`, `:: PersonActor.kind` and
 # `:: AktorFunktion`, hand-copied. `tests/core/test_constraints.py` pins each against the recording
