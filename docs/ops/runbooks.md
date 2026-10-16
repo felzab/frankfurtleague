@@ -1630,7 +1630,7 @@ did, the log keeping one row for them under „Pseudonyme“ (I764). The action 
 the system, its call reading `REPLAY` and the line's act, record and journalling instant, never its
 person nor the journal's token, and a second run writes nothing. **A record left for review is
 written by nothing**: read it beside the person's mail thread and settle it by hand, the listing
-going on to name it since its hash matches nothing the record holds. Three things no line restores:
+going on to name it since its hash matches nothing the record holds. Four things no line restores:
 
 - **A grant made after a journalled withdrawal and before the restore's end** is in no journal, so
   the choice stays withdrawn, the safe side, until its person grants it again on the account page.
@@ -1643,6 +1643,14 @@ going on to name it since its hash matches nothing the record holds. Three thing
   the window, re-send its link from the editor where the restored record still holds it pending, or
   enter the new address again where it holds none ([section 5](#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)),
   and write to the person that their change was undone and waits on their confirmation again.
+- **An address an administrator corrected inside the window**: a referee's who had not confirmed,
+  retired or not, in the referee editor, or a contact seat's through
+  `fl_backend/app/api/bewerbungen/admin_router.py :: korrigiere_kontakt_email`. No line records an
+  administrator's correction, so the tool cannot list these either: the restored record holds the
+  replaced address again, and the link the correction voided, which the mailbox it went to can
+  answer again until its deadline. The mail thread that asked for each correction is its record:
+  correct the address again as [section 5](#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)
+  says, which voids that link once more.
 
 A line whose commit lost its answer may name an act that never landed, and running it again wrongs
 nobody, the person having asked for it. **Read the mail thread beside the journal** for every request
