@@ -119,6 +119,8 @@ const FRONTEND_ONLY: Record<string, string> = {
   FLSchiedsrichterUmfang: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLSchiedsrichterAdresswechselEinladenPayload: "the address link's re-send POST takes its id from the path and has no request body",
   FLSchiedsrichterAdresswechselVerwerfenPayload: "the address change's DELETE takes its id from the path and has no request body",
+  FLSpielerAdresswechselEinladenPayload: "the pupil's address link re-send POST takes its id from the path and has no request body",
+  FLSpielerAdresswechselVerwerfenPayload: "the pupil's address change DELETE takes its id from the path and has no request body",
   FLSperrlisteKeyPayload: "the ban's DELETE takes the id from the path and has no request body",
   FLBerechtigungKeyPayload: "the grant's DELETE takes the id from the path and has no request body",
   FLVerwaltung: "a Pydantic Literal alias, inlined as an enum at each use site",
@@ -144,6 +146,7 @@ const FRONTEND_ONLY_FIELDS: Record<string, string[]> = {
   FLPatchSpielDataPayload: ["spiel_id"],
   FLPatchTeamPayload: ["id"],
   FLPatchSpielerPayload: ["id"],
+  FLSpielerAdresswechselPayload: ["id"],
   FLPatchSaisonPayload: ["id"],
   FLPatchSpieltagPayload: ["id"],
   // The season is the resource acted on, so it is the path; the control still has to know which.
@@ -340,7 +343,7 @@ const pairs = Object.entries(components).flatMap(([component, node]) => {
 });
 
 // Pinned so a component quietly dropping out of the comparison is a failure rather than a smaller run.
-const EXPECTED_PAIRS = 329;
+const EXPECTED_PAIRS = 337;
 
 describe("the published document", () => {
   it("is present and carries both sections the comparison reads", () => {

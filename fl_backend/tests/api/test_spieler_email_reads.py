@@ -19,7 +19,8 @@ from app.api.registrierungen.schemas import (
     FLRegistrierungBestaetigungAnsichtPayload,
 )
 from app.api.saisons.cache import invalidate_saison_cache
-from app.api.spieler.schemas import FLSpielerSelbstEinwilligungPayload
+from app.api.spieler.admin_router import post_adresswechsel
+from app.api.spieler.schemas import FLSpielerAdresswechselPayload, FLSpielerSelbstEinwilligungPayload
 from app.api.spieler.selbst_router import get_selbst, patch_einwilligung
 from app.core.collections import Collection
 from app.core.drosselung import get_drossel
@@ -253,6 +254,24 @@ async def the_erasure(database: AsyncDatabase, client: AsyncMongoClient, registr
     )
 
 
+async def the_address_change_request(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
+    """The holder check, shared with the re-send, the link's view and its confirmation (`app/api/spieler/crud.py :: another_pupil_holds`)."""
+
+    holder = await database[Collection.SPIELER].find_one({"vorname": "Thessaly"}, projection={"_id": 1})
+    assert holder is not None
+
+    return await post_adresswechsel(
+        spieler_id=holder["_id"],
+        adresswechsel_data=FLSpielerAdresswechselPayload.model_validate({"email": "thessaly.neu@beispielschule.de"}),
+        spieler_collection=database[Collection.SPIELER],
+        sperrliste=ban_list(database),
+        aktionen_collection=database[Collection.AKTIONEN],
+        db=client,
+        today=TODAY,
+        germany_now=NOW,
+    )
+
+
 def names_an_address(command: Mapping[str, Any]) -> bool:
     """Whether a `spieler` find or aggregate matches on a stored address, rather than on an id or on no address at all."""
 
@@ -302,6 +321,7 @@ class TestEveryAddressReadUsesTheIndex:
             the_own_record_press,
             the_erasure_preview,
             the_erasure,
+            the_address_change_request,
         ],
         ids=lambda reader: reader.__name__,
     )

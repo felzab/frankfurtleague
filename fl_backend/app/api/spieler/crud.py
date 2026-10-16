@@ -7,9 +7,11 @@ from pymongo.asynchronous.collection import AsyncCollection
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spieler.schemas import FLSpielerRolle
 from app.api.spieler.services import (
+    SPIELER_ADRESSWECHSEL_FELD,
     build_ghost_spieler,
     build_live_rolle_filter,
     build_live_squad_filter,
+    build_selbst_pupil_filter,
     build_spieler_filter,
     find_squad_capacity_refusal,
     find_squad_rolle_refusal,
@@ -133,6 +135,24 @@ async def refuse_a_taken_rolle(
     refuse(find_squad_rolle_refusal(rolle=rolle, taken=taken))
 
 
+async def another_pupil_holds(
+    *,
+    spieler_collection: AsyncCollection,
+    # Folded (`app/shared/folding.py :: sign_in_identifier`), the form `spieler.email` stores.
+    identifier: str,
+    spieler_id: CustomObjectId,
+    # The writing transaction's, so the judgement is read where the write lands; `None` for the link's view alone.
+    session: AsyncClientSession | None,
+) -> bool:
+    """Whether a pupil other than this one signs in on the address, which `REQ-SPIELER-006` refuses and the view reads as unconfirmable."""
+
+    # One holder at most, `uniq_spieler_email` being unique, so the one read is compared rather than
+    # narrowed by an `_id` term the composed filter would part from the address under `$and`.
+    holder = await spieler_collection.find_one(build_selbst_pupil_filter(identifier), projection={"_id": 1}, session=session)
+
+    return holder is not None and holder["_id"] != spieler_id
+
+
 async def ensure_ghost_spieler(
     *,
     spieler_collection: AsyncCollection,
@@ -222,7 +242,10 @@ async def remove_pending_pupil_addresses_in_session(
 
     # A fan-out and by ids alone: its filter, kept as text, names nobody (`docs/backend/spec.md :: I48`).
     removed = await patch_many_in_db(
-        collection=spieler_collection, db_filter={"_id": {"$in": list(spieler_ids)}}, update={"$unset": {"adresswechsel": ""}}, session=session
+        collection=spieler_collection,
+        db_filter={"_id": {"$in": list(spieler_ids)}},
+        update={"$unset": {SPIELER_ADRESSWECHSEL_FELD: ""}},
+        session=session,
     )
 
     return removed.modified_count

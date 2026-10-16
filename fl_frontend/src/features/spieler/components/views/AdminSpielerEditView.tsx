@@ -14,7 +14,7 @@ import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
 import { useReactivation } from "@/shared/hooks/useReactivation";
 
 import type { FLEinwilligung } from "@/features/spieler/schemas";
-import type { SpielerSaisonMembership, SpielerTeamOption } from "@/features/spieler/types";
+import type { AdminSpielerStored, SpielerSaisonMembership, SpielerTeamOption } from "@/features/spieler/types";
 
 export function AdminSpielerEditView({
   spieler,
@@ -23,7 +23,7 @@ export function AdminSpielerEditView({
   saison,
   teams,
 }: {
-  spieler: { id: string; vorname: string; nachname: string | null; inactive_since: string | null; geburtsdatum: string | null };
+  spieler: AdminSpielerStored;
   einwilligung: FLEinwilligung | null;
   /** Whether the registry holds the stored label. */
   istFassungBekannt: boolean | null;
@@ -39,6 +39,9 @@ export function AdminSpielerEditView({
   return (
     <div className={`${PAGE_RISE_CLASSES} flex min-h-0 w-full flex-1 flex-col`}>
       <AdminSpielerEditForm
+        // The player and the stored address the box's typing is measured against, never the whole record: a save moves
+        // the record, and keyed by it the typing and the save's pending exit would go with the refresh.
+        key={JSON.stringify({ id: spieler.id, email: spieler.email })}
         spieler={spieler}
         einwilligung={einwilligung}
         istFassungBekannt={istFassungBekannt}

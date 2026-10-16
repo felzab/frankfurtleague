@@ -7,7 +7,7 @@ import path from "node:path";
 import { beforeEach, describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
-import { act, createElement as h } from "react";
+import { act, createElement as h, useState } from "react";
 
 import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
@@ -84,6 +84,9 @@ const { FormSaisonSection } = await import("@/features/teams/components/forms/Ad
 const { DraftStatusProvider } = await import("@/shared/components/ui/DraftStatusContext.tsx");
 const { AdminKontakteEditForm } = await import("@/features/kontakte/components/forms/AdminKontakteEditForm/AdminKontakteEditForm.tsx");
 const { FormKontaktEinladen } = await import("@/features/kontakte/components/forms/AdminKontakteEditForm/FormKontaktEinladen.tsx");
+const { FormAdresseSection } = await import("@/features/spieler/components/forms/AdminSpielerEditForm/FormAdresseSection.tsx");
+const { FormAdresswechselSection: SpielerAdresswechselSection } =
+  await import("@/features/spieler/components/forms/AdminSpielerEditForm/FormAdresswechselSection.tsx");
 
 /** Every step-up write a module imports from any slice's actions module, read off its syntax tree. */
 function importedStepUpWrites(file: string): string[] {
@@ -225,6 +228,35 @@ const adresswechselPanel = () =>
     }),
     { router: nextRouter() },
   );
+
+const SPIELER_ID = "68c1f0a2b3c4d5e6f7a8b9c0";
+
+/** A pupil's stored address, its request one press behind „Adresse ändern“, its typing held as the editor holds it. */
+function SpielerAdresseHost() {
+  const [entwurf, setEntwurf] = useState<string | null>(null);
+  return h(FormAdresseSection, { spielerId: SPIELER_ID, email: "lena@schule.example", isDirty: false, entwurf, onEntwurfChange: setEntwurf });
+}
+
+const spielerAdresse = () => underNext(h(SpielerAdresseHost), { router: nextRouter() });
+
+/** A pupil's new address waiting on its mailbox, the referee's panel's twin. */
+const spielerAdresswechselPanel = () =>
+  underNext(
+    h(SpielerAdresswechselSection, {
+      spielerId: SPIELER_ID,
+      adresswechsel: { email: "lena@neu.example", verschickt_am: "2026-09-01", frist: "2099-12-31", zustellung: null },
+      istAbgelaufen: false,
+      isDirty: false,
+    }),
+    { router: nextRouter() },
+  );
+
+const requestAddress = async (user: User) => {
+  await user.click(screen.getByRole("button", { name: "Adresse ändern" }));
+  const box = screen.getByRole<HTMLInputElement>("textbox", { name: /Neue E-Mail-Adresse/ });
+  await user.clear(box);
+  await user.type(box, "lena@neu.example");
+};
 
 const moveAddress = async (user: User) => {
   const box = screen.getByRole<HTMLInputElement>("textbox", { name: "E-Mail" });
@@ -402,6 +434,15 @@ const DRIVES: Record<string, Drive[]> = {
   ],
   "features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormAdresswechselSection.tsx :: verwirfAdresswechselAction": [
     { render: () => adresswechselPanel(), press: "Änderung verwerfen", asks: true },
+  ],
+  "features/spieler/components/forms/AdminSpielerEditForm/FormAdresseSection.tsx :: beantrageSpielerAdresswechselAction": [
+    { render: () => spielerAdresse(), reach: requestAddress, press: "Link an neue Adresse senden", asks: true },
+  ],
+  "features/spieler/components/forms/AdminSpielerEditForm/FormAdresswechselSection.tsx :: einladeSpielerAdresswechselAction": [
+    { render: () => spielerAdresswechselPanel(), press: "Link erneut senden", asks: true },
+  ],
+  "features/spieler/components/forms/AdminSpielerEditForm/FormAdresswechselSection.tsx :: verwirfSpielerAdresswechselAction": [
+    { render: () => spielerAdresswechselPanel(), press: "Änderung verwerfen", asks: true },
   ],
   "features/teams/components/forms/AdminTeamEditForm/FormEinladungSection.tsx :: mailEinladungAction": [
     {

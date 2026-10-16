@@ -66,6 +66,7 @@ from app.api.spieler.schemas import (
     FLEinwilligungQuelle,
     FLSaisonSpielerRow,
     FLSpieler,
+    FLSpielerAdresswechsel,
     FLSpielerPosition,
     FLSpielerRolle,
     FLSpielerStufe,
@@ -197,6 +198,9 @@ MIRRORED_MODELS: list[tuple[Collection, tuple[str, ...], type[BaseModel] | tuple
     # Everything but the two names comes from the saison_spieler junction.
     (Collection.SPIELER, ("einwilligung",), FLEinwilligung, frozenset()),
     (Collection.SPIELER, (), FLSpieler, frozenset({"team_id", "stufe", "nummer", "position", "ist_nachnominiert", "rolle"})),
+    # A pupil's pending address and its delivery state, the referee's twin carrier on another collection.
+    (Collection.SPIELER, ("adresswechsel",), FLSpielerAdresswechsel, frozenset()),
+    (Collection.SPIELER, ("adresswechsel", "zustellung"), FLBewerbungZustellung, frozenset()),
     # The sub-documents of a modelless row that DO have models, so the drift check reaches them.
     (Collection.SAISON_TEAMS, ("austritt",), FLAustritt, frozenset()),
     (Collection.SAISON_TEAMS, ("kontakte",), FLSaisonTeamKontakte, frozenset()),
@@ -441,6 +445,7 @@ MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...],
     # walk still reaches each path on its own (`app/api/zustellung/services.py :: ZIEL_PFADE`).
     (Collection.SCHIEDSRICHTER, ("bestaetigung", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
     (Collection.SCHIEDSRICHTER, ("adresswechsel", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
+    (Collection.SPIELER, ("adresswechsel", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
     (Collection.EINLADUNGEN, ("versand", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
     (Collection.REGISTRIERUNGEN, ("bestaetigung", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
     (Collection.SAISON_TEAMS, ("bestaetigungen", "trainer", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
@@ -573,6 +578,7 @@ STORED_BUT_NOT_SERVED: Mapping[tuple[Collection, tuple[str, ...]], frozenset[str
     (Collection.SCHIEDSRICHTER, ("bestaetigung",)): frozenset({"token_hash"}),
     # The address link's hash, for the confirmation link's reason.
     (Collection.SCHIEDSRICHTER, ("adresswechsel",)): frozenset({"token_hash"}),
+    (Collection.SPIELER, ("adresswechsel",)): frozenset({"token_hash"}),
     # Served on a read, every live link of the season would be recoverable from an admin page. The
     # action log's pre-image of a REVOKED row serves one, safely: the hash rebuilds nothing, and
     # that operation revoked the row it imaged.

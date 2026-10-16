@@ -48,9 +48,9 @@ const SESSION_REFUSALS: ReadonlySet<unknown> = new Set([ADMIN_FORBIDDEN, `${ADMI
  */
 const EXEMPT: Readonly<Record<string, string>> = {
   "app/api/auth/[...all]/route.ts GET":
-    "the sign-in library's own surface, every mailing endpoint of which `fl_frontend/src/core/auth.test.ts :: IN_PROCESS_ONLY` and `:: DISABLED_PATHS` keep off it",
+    "the sign-in library's own surface, every mailing endpoint of which `fl_frontend/src/core/auth.test.ts :: IN_PROCESS_ONLY` and `fl_frontend/src/core/auth.ts :: DISABLED_PATHS` keep off it",
   "app/api/auth/[...all]/route.ts POST":
-    "the sign-in library's own surface, every mailing endpoint of which `fl_frontend/src/core/auth.test.ts :: IN_PROCESS_ONLY` and `:: DISABLED_PATHS` keep off it",
+    "the sign-in library's own surface, every mailing endpoint of which `fl_frontend/src/core/auth.test.ts :: IN_PROCESS_ONLY` and `fl_frontend/src/core/auth.ts :: DISABLED_PATHS` keep off it",
   "app/api/client-error/route.ts POST": "it writes one bounded log line and mails nobody",
   "app/api/signin/code/route.ts POST": "it checks a code already mailed, held to its per-address failure bound, and mails nobody",
   "app/api/mail/zustellung/route.ts POST":
@@ -60,6 +60,8 @@ const EXEMPT: Readonly<Record<string, string>> = {
   "app/api/bestaetigung/schiedsrichter/route.ts POST":
     "its credential is a link the league minted and mailed; it mails no address the request types",
   "app/api/bestaetigung/schiedsrichter/adresse/route.ts POST":
+    "its credential is a link the league minted and mailed; it mails no address the request types",
+  "app/api/bestaetigung/spieler/adresse/route.ts POST":
     "its credential is a link the league minted and mailed; it mails no address the request types",
   "app/api/bewerbung/kuerzel/route.ts GET": "a read: it writes nothing and mails nobody",
   "features/auth/actions.ts :: signOutAction": "it ends the caller's own session and mails nobody",
