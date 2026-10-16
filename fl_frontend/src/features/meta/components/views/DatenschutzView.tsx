@@ -708,8 +708,9 @@ export function DatenschutzView() {
             Das Änderungsprotokoll: Jede Änderung an den Daten der Liga wird mit dem vorherigen Stand festgehalten, damit ein Fehler
             zurückgenommen werden kann. Dieses Protokoll kann deshalb auch Deine Daten enthalten. Bei einer Löschung auf Wunsch werden Deine
             Einträge darin sofort geleert. Bittest Du uns darum, hält das Protokoll die Löschung selbst fest, mit dem Datum und der Art Deiner
-            Anfrage. Das bleibt dort wie jede andere Änderung zwölf Monate stehen. Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO; unser
-            berechtigtes Interesse ist, Fehler in den Daten der Liga erkennen und rückgängig machen zu können.
+            Anfrage. Das bleibt dort wie jede andere Änderung zwölf Monate stehen. Deinen Namen, so wie er bei uns eingetragen ist, lassen wir
+            in der Angabe zu Deiner Anfrage nicht zu. Anders geschrieben kann er dort für diese zwölf Monate stehen. Rechtsgrundlage ist Art. 6
+            Abs. 1 lit. f DSGVO; unser berechtigtes Interesse ist, Fehler in den Daten der Liga erkennen und rückgängig machen zu können.
           </p>
         </LegalSection>
 

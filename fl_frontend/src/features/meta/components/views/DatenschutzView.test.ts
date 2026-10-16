@@ -49,7 +49,7 @@ const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
  * The „Stand“ and the words it dates, frozen together: a reader told nothing changed since that day
  * has been misled by any edit that left the date standing.
  */
-const FASSUNG = { stand: "16. Oktober 2026", digest: "56cfb6649d386310194819e2717dba7f9c0ff297b707040454ce667acd79e04d" } as const;
+const FASSUNG = { stand: "16. Oktober 2026", digest: "55eceabdcdc54149019bd859b6d698fbc6f1f3f19b0da91aba1d2c087a715b55" } as const;
 
 /** Every word the page renders but its date, so moving the date alone never passes for moving the words. */
 const wortlautDigest = (): string =>
@@ -741,15 +741,17 @@ describe("the privacy notice's publication and retention rows keep their ruled b
     );
   });
 
-  /* Every log row the administrator's erasure files carries the request it answers (`docs/backend/spec.md :: I683`):
-     the emptied rows are not all the log keeps of a person's erasure. */
+  /* Every log row the administrator's erasure files carries the request it answers (`docs/backend/spec.md :: I683`),
+     which refuses the person's names only as stored (`:: I721`): the emptied rows are not all the log keeps of an erasure. */
   it("promises every erasure asked for an emptied action log, and says the log keeps the erasure with the request's date and kind", () => {
     rendert(
       "Das Änderungsprotokoll: Jede Änderung an den Daten der Liga wird mit dem vorherigen Stand festgehalten, damit ein Fehler " +
         "zurückgenommen werden kann. Dieses Protokoll kann deshalb auch Deine Daten enthalten. Bei einer Löschung auf Wunsch werden " +
         "Deine Einträge darin sofort geleert. Bittest Du uns darum, hält das Protokoll die Löschung selbst fest, mit dem Datum und " +
-        "der Art Deiner Anfrage. Das bleibt dort wie jede andere Änderung zwölf Monate stehen. Rechtsgrundlage ist Art. 6 Abs. 1 " +
-        "lit. f DSGVO; unser berechtigtes Interesse ist, Fehler in den Daten der Liga erkennen und rückgängig machen zu können.",
+        "der Art Deiner Anfrage. Das bleibt dort wie jede andere Änderung zwölf Monate stehen. Deinen Namen, so wie er bei uns " +
+        "eingetragen ist, lassen wir in der Angabe zu Deiner Anfrage nicht zu. Anders geschrieben kann er dort für diese zwölf " +
+        "Monate stehen. Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO; unser berechtigtes Interesse ist, Fehler in den Daten der " +
+        "Liga erkennen und rückgängig machen zu können.",
     );
   });
 
