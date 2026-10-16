@@ -24,7 +24,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.identitaet.admin_router import erase_auf_anfrage, get_erasure_ansicht_auf_anfrage
 from app.api.identitaet.crud import ERASURE_JOURNAL_EVENT
-from app.api.identitaet.schemas import FLErasureAnsichtPayload, FLErasureAnsichtResponse, FLErasurePayload, FLErasureResponse
+from app.api.identitaet.schemas import FLErasure, FLErasureAnsichtPayload, FLErasureAnsichtResponse, FLErasurePayload, FLErasureResponse
 from app.api.identitaet.services import EIGENE_ADRESSE, INHABER_ADRESSE
 from app.api.schiedsrichter.services import build_ghost_schiedsrichter
 from app.api.spieler.services import build_ghost_spieler
@@ -107,6 +107,13 @@ PLACEHOLDER_REFEREE_OIDS = (ObjectId("6890a1b2c3d4e5f607d00001"), ObjectId("6890
 
 # An address a hand edit gave both sentinels, which no erasure may reach through them.
 SENTINEL_ADDRESS = "von.hand@example.com"
+
+# A grant typed in the person's capitals, which admits nobody and goes with their erasure.
+DEAD_GRANT_OID = ObjectId("6890a1b2c3d4e5f607e00001")
+
+# What the erasure counts and its reveal names nothing of, as the reveal's description says: the fixtures moved onto the
+# ghost, and the day counts.
+COUNTED_AND_NOT_NAMED = ("spiele", "drosselung")
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
@@ -485,9 +492,9 @@ class TestAnOwnersAddress:
 
 @pytest.mark.db
 class TestTheReveal:
-    """`docs/backend/spec.md :: I684`: what the erasure reaches, read by its own selections, and stored nowhere."""
+    """`docs/backend/spec.md :: I684`: every record of the person's the erasure removes or empties, by its own selections, stored nowhere."""
 
-    def test_it_names_every_record_the_erasure_reaches_by_the_ids_its_links_need_and_writes_nothing(self, mongo_replica_set_url: str):
+    def test_it_names_every_record_the_erasure_removes_by_the_ids_its_links_need_and_writes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
             before = await everything_in(database)
@@ -509,26 +516,28 @@ class TestTheReveal:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
+            await a_grant(database, DEAD_GRANT_OID, TYPED, "administration")
             ansicht = (await posted(mongo_replica_set_url, ANSICHT_PATH, ansicht_of())).json()
 
             return ansicht, (await posted(mongo_replica_set_url, PATH, erasure_of())).json()
 
         ansicht, erased = on_a_league(mongo_replica_set_url, body)
-
-        assert {
+        named = {
             "spieler": len(ansicht["spieler"]),
             "saison_spieler": sum(len(spieler["kader"]) for spieler in ansicht["spieler"]),
             "schiedsrichter": len(ansicht["schiedsrichter"]),
             "kontakt_sitze": len(ansicht["sitze"]) + len(ansicht["bewerbungen"]),
             "registrierungen": len(ansicht["registrierungen"]),
             "adresswechsel": len(ansicht["adresswechsel"]) + len(ansicht["spieler_adresswechsel"]),
-            "berechtigungen": int(ansicht["verwaltung"] is not None),
-        } == {
-            key: erased[key]
-            for key in ("spieler", "saison_spieler", "schiedsrichter", "kontakt_sitze", "registrierungen", "adresswechsel", "berechtigungen")
         }
+
+        assert named == {key: erased[key] for key in named}
+        # The live grant is named by its tier, and a dead spelling beside it goes unnamed: two removed, one named.
+        assert (ansicht["verwaltung"], erased["berechtigungen"]) == ("administration", 2)
+        # Every count is compared above or one the reveal names nothing of: a count added to the answer fails here until placed.
+        assert {*named, "berechtigungen", *COUNTED_AND_NOT_NAMED} == set(FLErasure.model_fields)
         # The premise: an address holding nothing would agree on zeros.
-        assert all(erased[key] for key in ("spieler", "schiedsrichter", "kontakt_sitze", "registrierungen", "adresswechsel", "berechtigungen"))
+        assert all(erased[key] for key in FLErasure.model_fields)
 
 
 @pytest.mark.db

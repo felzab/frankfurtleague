@@ -68,7 +68,7 @@ router = APIRouter(
 @router.post(
     "/erasure/ansicht",
     response_model=FLErasureAnsichtResponse,
-    summary="Show what an erasure of an address would reach",
+    summary="Show what an erasure of an address would remove",
     dependencies=[Depends(stores_nothing)],
 )
 async def get_erasure_ansicht_auf_anfrage(
@@ -87,13 +87,16 @@ async def get_erasure_ansicht_auf_anfrage(
     auth_time: int = Depends(get_actor_auth_time),
 ) -> FLErasureAnsichtResponse:
     """
-    Answer what `POST /identitaet/erasure` would reach for this address, by kind, by name and by the ids a page links each record by.
+    Answer which of this address's records `POST /identitaet/erasure` would remove or empty, by kind, name and the ids a page links each by.
 
     ADMIN TIER. Takes that erasure's own payload address and reads through its own selections in one snapshot, so it names
-    every record the erasure removes or empties, an unconfirmed seat, a retired row, a pupil's every squad row and a declined
-    registration among them, and no other. Another address's referee or pupil row holding a pending change to this address is
-    named by its id, the change going and the row standing. No address and no birthdate is answered. `verwaltung` is the
-    tier of the live grant the address holds, or null. Stores nothing.
+    every one of them, an unconfirmed seat, a retired row, a pupil's every squad row and a declined registration among them,
+    and no other. Another address's referee or pupil row holding a pending change to this address is named by its id, the
+    change going and the row standing. Reached and not named: the fixtures booking a referee row, which move onto the
+    ghost; the grants, bans, invitations and decisions the address made for others, which name a marker in its place; its
+    day counts; its rows in the log and every log image holding it; a dead spelling of its grant, which admits nobody, and
+    each grant's announced row; and the address in every notice still queued, withheld. No address and no birthdate is answered.
+    `verwaltung` is the tier of the live grant the address holds, or null. Stores nothing.
 
     Refused as the erasure is: the administrator's own address (`REQ-PURGE-003`), an address holding an `owner` grant unless
     the administrator holds an owner's power (`REQ-PURGE-005`), and with a 422 before any read, an address under the reserved
