@@ -22,11 +22,11 @@ from tests.config import build_test_config, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import ban_document, rules_document, saison_document
 from tests.erasure import erased
-from tests.isolation import InterleavedCollection
 from tests.worker import worker_database
 
 from .test_erasure_auf_anfrage import ANOTHER_SURNAME, SURNAME_OF
 from .test_funktionen_erasure import NACHNAME, SAISON_ID, TYPED, VORNAME, a_person_holding_everything, everything_in
+from .test_sperrliste_isolation import SeasonsRunningARivalAfterTheFirstRead
 
 pytestmark = pytest.mark.db
 
@@ -573,16 +573,6 @@ class TestANameInTheGrund:
         assert [row["grund"] for row in on_a_person_holding_everything(mongo_replica_set_url, body)].count(grund) == 1
 
 
-class SeasonsMeetingARival(InterleavedCollection):
-    """The running season the ban reads and then anchors, a rival write committing between: inside the attempt, once per attempt."""
-
-    async def find_one(self, *args: Any, **kwargs: Any) -> Any:
-        found = await self._collection.find_one(*args, **kwargs)
-        await self.run_the_rival()
-
-        return found
-
-
 class TestANameARivalWritesMidBan:
     """`docs/backend/spec.md :: I726` on a retry: a rename committing inside the ban, and the retry reads it."""
 
@@ -592,7 +582,7 @@ class TestANameARivalWritesMidBan:
         The rename alone sends no retry, the ban writing no pupil row; the rival's write to the season the ban anchors does.
         """
 
-        racing: list[SeasonsMeetingARival] = []
+        racing: list[SeasonsRunningARivalAfterTheFirstRead] = []
         grund = f"Falsche Angaben, siehe {ANOTHER_SURNAME}"
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -603,7 +593,7 @@ class TestANameARivalWritesMidBan:
                 assert (await database[Collection.SAISONS].update_one({"_id": SAISON_ID}, {"$inc": {ANCHOR_FIELD: 1}})).modified_count == 1
 
             before = await rows_of(database)
-            racing.append(SeasonsMeetingARival(database[Collection.SAISONS], rival))
+            racing.append(SeasonsRunningARivalAfterTheFirstRead(database[Collection.SAISONS], rival))
             try:
                 await ban_through_the_route(database, client, email=TYPED, grund=grund, von=ADMIN, today=TODAY, saisons=racing[-1])
             except WriteRefusalException as refusal:
