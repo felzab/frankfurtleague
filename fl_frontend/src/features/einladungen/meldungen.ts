@@ -33,7 +33,7 @@ export function versandSatz(gemailt: number, teams: number): string {
   if (teams === 0) return KEINE_TEAMS;
   // Zero is the answer a local stack always gives, every send being withheld outside production
   // (`docs/frontend/spec.md :: I228`), so the shortfall is spelled rather than folded into a word.
-  if (teams === 1) return gemailt === 1 ? "Registrierungslink gesendet: an das Team." : "Registrierungslink nicht gesendet.";
+  if (teams === 1) return gemailt === 1 ? "Registrierungslink gesendet: an das Team." : "Registrierungslink nicht verschickt.";
 
   return `Registrierungslinks gesendet: ${String(gemailt)} von ${String(teams)} Teams.`;
 }

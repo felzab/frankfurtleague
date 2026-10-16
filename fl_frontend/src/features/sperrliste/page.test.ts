@@ -43,7 +43,7 @@ registerDoubles({
    compile step as it evaluates (`docs/frontend/spec.md` §1.9). */
 const { default: AdminSperrlistePage } = await import("@/app/bereich/admin/sperrliste/page.tsx");
 const { SPERRE_ANSICHT_COPY, SPERRE_ERFOLG, SPERRE_PRESS } = await import("./constants.ts");
-const { mapAdresseRefusal } = await import("./refusals.ts");
+const { mapSperreRefusal } = await import("./refusals.ts");
 const { IN_NEUEM_TAB } = await import("@/shared/components/ui/NewTabLink.tsx");
 const { BLOCKED_SUBMIT_TITLE } = await import("@/shared/hooks/useDraftFieldErrors.ts");
 
@@ -219,7 +219,8 @@ describe("what the ban's dialog shows before the ban (`docs/frontend/spec.md :: 
 
     // The registration's own sentence beside it: the lead's promise of an edit reaches no registration.
     assert.ok(
-      within(dialog).queryByText(`${SPERRE_ANSICHT_COPY.lead} ${SPERRE_ANSICHT_COPY.registrierungen}`) !== null,
+      within(dialog).queryByText(`${SPERRE_ANSICHT_COPY.lead} ${SPERRE_ANSICHT_COPY.bearbeiten} ${SPERRE_ANSICHT_COPY.registrierungen}`) !==
+        null,
       "the list stands under no lead, or one promising an edit of a registration",
     );
     assert.deepEqual(verweiseIn(dialog), [
@@ -239,9 +240,9 @@ describe("what the ban's dialog shows before the ban (`docs/frontend/spec.md :: 
     for (const [, href] of verweiseIn(dialog)) assert.ok(href !== null && !href.includes("@"), `${String(href)} carries an address`);
   });
 
-  /* The registrations list serves the pending ones alone: a link to a declined one opens a list it is not on, and the
-     sentence that a registration ends with the ban is false of one its team declined already. */
-  it("links no declined registration, names it declined, and says nothing of it ending", async () => {
+  /* The registrations list serves pending ones alone, so a declined one has no link, no tool to edit it with and nothing
+     for the ban to end: neither the edit nor the ending is said. */
+  it("links no declined registration, names it declined, and asks for no edit of it or says it ends", async () => {
     antwort = () =>
       Promise.resolve({
         ...NICHTS,
@@ -257,7 +258,11 @@ describe("what the ban's dialog shows before the ban (`docs/frontend/spec.md :: 
       within(dialog).queryByText(/^Abgelehnte Registrierung für die Saison 2026: Zorbanax Quell$/) !== null,
       "the line hides its status",
     );
-    assert.ok(within(dialog).queryByText(SPERRE_ANSICHT_COPY.lead) !== null, "a declined registration is said to end with the ban");
+    // The lead alone, matched whole: an edit sentence or the registration's own would make it a longer text.
+    assert.ok(
+      within(dialog).queryByText(SPERRE_ANSICHT_COPY.lead) !== null,
+      "a declined registration is said to end with the ban, or asked to be edited with no tool to do it",
+    );
   });
 
   /* The memberships read lists a pupil holding no squad row, and the editor opens on them: their record is what stands. */
@@ -476,7 +481,7 @@ describe("the ban's refusals, placed (`docs/frontend/spec.md :: I724`)", () => {
       ["the reader's own address", () => Promise.reject(refusedOn("POST /identitaet/erasure/ansicht", "REQ-PURGE-003"))],
       ["an owner's address", () => Promise.reject(refusedOn("POST /identitaet/erasure/ansicht", "REQ-PURGE-005"))],
     ];
-    const verwaltung = mapAdresseRefusal(refusedOn(CREATE_OPERATION, "REQ-SPERRLISTE-003"))?.fieldErrors?.email ?? "unworded";
+    const verwaltung = mapSperreRefusal(refusedOn(CREATE_OPERATION, "REQ-SPERRLISTE-003"))?.fieldErrors?.email ?? "unworded";
 
     for (const [fall, gelesen] of answers) {
       antwort = gelesen;
@@ -496,7 +501,7 @@ describe("the ban's refusals, placed (`docs/frontend/spec.md :: I724`)", () => {
      the box says so in that refusal's words before anyone works through a list for nothing. */
   it("marks an address barred already before the press, arming nothing", async () => {
     antwort = () => Promise.resolve({ ...BESTAND, gesperrt: true });
-    const schon = mapAdresseRefusal(refusedOn(CREATE_OPERATION, "REQ-SPERRLISTE-001"))?.fieldErrors?.email ?? "unworded";
+    const schon = mapSperreRefusal(refusedOn(CREATE_OPERATION, "REQ-SPERRLISTE-001"))?.fieldErrors?.email ?? "unworded";
     const { dialog, user } = await oeffnen();
 
     await zeigen(dialog, user);
@@ -511,7 +516,7 @@ describe("the ban's refusals, placed (`docs/frontend/spec.md :: I724`)", () => {
   /* The read cannot tell a ban entered after it or a league with no season running: those land after the press, the
      address's on its box and the league's in the toast, the reveal closing over them. */
   it("lands a refusal the read cannot foresee where the ban's own answer puts it", async (t) => {
-    const fehler = (code: string) => mapAdresseRefusal(refusedOn(CREATE_OPERATION, code));
+    const fehler = (code: string) => mapSperreRefusal(refusedOn(CREATE_OPERATION, code));
     t.mock.timers.enable({ apis: ["Date"] });
 
     sperre = () => Promise.reject(refusedOn(CREATE_OPERATION, "REQ-SPERRLISTE-001"));
@@ -531,6 +536,22 @@ describe("the ban's refusals, placed (`docs/frontend/spec.md :: I724`)", () => {
       [["danger", SPERRE_PRESS.nichtGesperrt, fehler("REQ-SPERRLISTE-002")?.error]],
     );
     assert.ok(within(keine.dialog).queryByRole("alert") === null, "the reveal stands over a refused ban");
+  });
+
+  /* The read never judges the reason, so the ban alone refuses a name of the address's records in it
+     (`REQ-SPERRLISTE-004`): on the reason's box, which holds the way out, never in a toast. */
+  it("lands a name in the reason on its box, raising nothing", async (t) => {
+    t.mock.timers.enable({ apis: ["Date"] });
+    sperre = () => Promise.reject(refusedOn(CREATE_OPERATION, "REQ-SPERRLISTE-004"));
+    const satz = mapSperreRefusal(refusedOn(CREATE_OPERATION, "REQ-SPERRLISTE-004"))?.fieldErrors?.grund ?? "unworded";
+    const { dialog, user } = await gezeigt();
+
+    await sperren(dialog, user, t);
+
+    assert.deepEqual(gesendet("/sperrliste"), [{ email: BARRED, grund: GRUND }], "the ban was never sent, so nothing refused it");
+    assert.deepEqual(markiert(dialog), ["Grund"]);
+    assert.ok(within(dialog).queryByText(satz) !== null, "the reason's box reads otherwise than the ban's refusal");
+    assert.deepEqual(toasts, [], "a refusal its box shows was raised as well");
   });
 });
 

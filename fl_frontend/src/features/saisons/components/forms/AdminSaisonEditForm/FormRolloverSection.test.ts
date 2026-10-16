@@ -165,8 +165,8 @@ describe("the count beside the rollover press", () => {
 
   /* The confirmation repeats the count on the switch's word alone: with it off, the press deletes nobody. */
   for (const [spieler, eingeschaltet, satz] of [
-    [3, true, "Dabei werden bis zu 3 Spielerinnen und Spieler endgültig gelöscht."],
-    [1, true, "Dabei wird höchstens eine Spielerin oder ein Spieler endgültig gelöscht."],
+    [3, true, "Dabei werden bis zu 3 Spielerinnen und Spieler gelöscht. Zurückholen lässt sich das nicht."],
+    [1, true, "Dabei wird höchstens eine Spielerin oder ein Spieler gelöscht. Zurückholen lässt sich das nicht."],
     [3, false, null],
   ] as const) {
     it(`${satz === null ? "promises no deletion" : "states the deletion"} in the confirmation with ${String(spieler)} due and the switch ${eingeschaltet ? "on" : "off"}`, async () => {

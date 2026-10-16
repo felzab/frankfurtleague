@@ -3,7 +3,9 @@
 import { deleteAccountFor, endSessionsOfAddress } from "@/core/auth";
 import { RolledBackError } from "@/core/errors";
 import { logger } from "@/core/logging";
-import { invalidatesOnWrite, refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
+import { isWithinEnrolmentWindow } from "@/core/sessionLifetimes";
+import { verwaltungOf } from "@/core/verwaltung";
+import { invalidatesOnWrite, refusalResult, refuseUnconfirmed, runAdminMutation } from "@/shared/utils/adminMutation";
 import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
@@ -99,7 +101,7 @@ export async function readErasureAnsichtAction(
 export async function eraseAufAnfrageAction(
   rawPayload: FLErasurePayload,
 ): Promise<ActionResult<{ konto: KontoNachLoeschung; gespeichert: boolean }>> {
-  return runAdminMutation("eraseAufAnfrageAction", { stepUp: true }, async () => {
+  return runAdminMutation("eraseAufAnfrageAction", { stepUp: true }, async (session) => {
     // Before anything is awaited, and whatever the address turns out to hold: an erased pupil or referee leaves two
     // cached public reads, and the spine drops a tag declared before the write even where its answer is lost.
     invalidatesOnWrite("spieler", "spiele");
@@ -113,6 +115,12 @@ export async function eraseAufAnfrageAction(
         fieldErrors: toFieldErrors(validated.error),
       };
     }
+
+    // A grant holder's address is held to the enrolment's window on both servers (`docs/frontend/spec.md :: I714`), so a
+    // grant written since the panel's read is refused here too. Read only for a session past that window.
+    const haeltZugang = !isWithinEnrolmentWindow(session.session.createdAt) && (await verwaltungOf(validated.data.email)).verwaltung !== null;
+    const unconfirmed = haeltZugang ? refuseUnconfirmed(session, "enrolment") : null;
+    if (unconfirmed !== null) return unconfirmed;
 
     // The records first: an account deleted ahead of a refused or failed erasure leaves a person whose data stands
     // and who then cannot sign in to ask again.

@@ -326,7 +326,7 @@ describe("the control that sends the link", () => {
   /* The earlier link is dead either way, so a link that did not go out, failed or held back by the ban
      list, is a warning titled for what happened, as the editor's save grades it. */
   for (const [versand, title] of [
-    ["fehlgeschlagen", "Bestätigungslink nicht zugestellt"],
+    ["fehlgeschlagen", "Bestätigungslink nicht verschickt"],
     ["gesperrt", "Bestätigungslink zurückgehalten"],
   ] as const) {
     it(`grades a re-send whose link is ${versand} a warning titled „${title}“`, async () => {

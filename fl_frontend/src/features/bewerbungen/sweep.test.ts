@@ -1228,14 +1228,20 @@ describe("the two halves after the season loop", () => {
 
     await runBewerbungSweep();
 
+    // Warnings, each half leaving rows it failed: a level above INFO would drop the line counting them.
     assert.deepEqual(
-      lines.filter(({ level, event }) => level === "info" && !SEASON_HALVES.test(event)),
+      lines.filter(({ level, event }) => level !== "error" && !SEASON_HALVES.test(event)),
       [
-        { level: "info", event: "schiedsrichter.adresswechsel_sweep_pass", fields: { entfernt: 1, verbleibend: 42 } },
         {
-          level: "info",
+          level: "warn",
+          event: "schiedsrichter.adresswechsel_sweep_pass",
+          fields: { error_code: "FE-SWEEP-001", entfernt: 1, verbleibend: 42 },
+        },
+        {
+          level: "warn",
           event: "loeschung.sweep_pass",
           fields: {
+            error_code: "FE-SWEEP-001",
             abgeschlossene_saison_id: "2526",
             spieler: 1,
             saison_spieler: 1,
@@ -1243,6 +1249,52 @@ describe("the two halves after the season loop", () => {
             uebersprungen: 0,
             fehlgeschlagen: 10,
             verbleibend: 10,
+          },
+        },
+      ],
+    );
+  });
+
+  /* Each call counts every lapsed change standing, an earlier page's failures among them, so the pass's remainder is
+     the last call's: a sum would count the first page's unreached rows as left behind. */
+  it("warns with the last call's remainder of a pass over two pages, never a sum of them", async () => {
+    adresswechselAnswer = inTurn([entfernt(2, 5, ORT_ADRESSE), entfernt(3, 1)]);
+
+    await runBewerbungSweep();
+
+    assert.deepEqual(
+      lines.filter(({ event }) => event.startsWith("schiedsrichter.")),
+      [
+        {
+          level: "warn",
+          event: "schiedsrichter.adresswechsel_sweep_pass",
+          fields: { error_code: "FE-SWEEP-001", entfernt: 5, verbleibend: 1 },
+        },
+      ],
+    );
+  });
+
+  /* A pass cut short knows no remainder, so its failures alone make the line a warning beside the half's own error. */
+  it("warns where the pupils' half is cut short after a call that failed pupils", async () => {
+    loeschungSwitch = "on";
+    laufAnswer = inTurn([{ ...gelaufen(3, 5, ORT_SPIELER), fehlgeschlagen: 2 }, gelaufen(1, 4, ORT_SPIELER), gelaufen(0, 0)]);
+
+    await runBewerbungSweep();
+
+    assert.deepEqual(
+      lines.filter(({ event }) => event === "loeschung.sweep_pass"),
+      [
+        {
+          level: "warn",
+          event: "loeschung.sweep_pass",
+          fields: {
+            error_code: "FE-SWEEP-001",
+            abgeschlossene_saison_id: "2526",
+            spieler: 4,
+            saison_spieler: 4,
+            registrierungen: 0,
+            uebersprungen: 0,
+            fehlgeschlagen: 2,
           },
         },
       ],

@@ -260,7 +260,9 @@ describe("who a row names", () => {
     const geloescht: AdminAktionRow = { ...ROW, actor: { kind: "person_session", pseudonym: ERASED_ACTOR_MARKER, funktion: "kontakt" } };
     const html = view({ aktionen: [geloescht] });
 
-    assertLeerMarkup(html, `Kontakt · ${GELOESCHTE_PERSON}`);
+    // The state muted, the kind upright: the kind is a fact about the row, which the empty grade would mark as missing.
+    assertLeerMarkup(html, GELOESCHTE_PERSON);
+    assert.ok(html.includes(`Kontakt · <span class=`), "the kind the person wrote as is gone, or muted with the state");
     assert.ok(!textOf(html).includes(ERASED_ACTOR_MARKER), "the marker reached the page");
   });
 });
