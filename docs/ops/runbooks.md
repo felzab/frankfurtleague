@@ -1591,10 +1591,19 @@ did, the log keeping one row for them under „Pseudonyme“ (I764). The action 
 the system, its call reading `REPLAY` and the line's act, record and journalling instant, never its
 person nor the journal's token, and a second run writes nothing. **A record left for review is
 written by nothing**: read it beside the person's mail thread and settle it by hand, the listing
-going on to name it since its hash matches nothing the record holds. Two things no line restores: a
-grant made after a journalled withdrawal and before the restore's end is in no journal, so the
-choice stays withdrawn, the safe side, until its person grants it again on the account page; and a
-Widerspruch's replay mails nobody, its submitter having been told when it was made.
+going on to name it since its hash matches nothing the record holds. Three things no line restores:
+
+- **A grant made after a journalled withdrawal and before the restore's end** is in no journal, so
+  the choice stays withdrawn, the safe side, until its person grants it again on the account page.
+- **A Widerspruch's replay mails nobody**, its submitter having been told when it was made.
+- **An address change its holder confirmed inside the window** is in no journal, which names nobody
+  by an address: the restored record holds the replaced address again, the change still pending
+  where the snapshot holds its request. The tool cannot list these, no line recording a
+  confirmation and the log that did having rolled back with the restore, so the administrators'
+  mail threads asking for each change are the record. For each change entered or confirmed inside
+  the window, re-send its link from the editor where the restored record still holds it pending, or
+  enter the new address again where it holds none ([section 5](#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)),
+  and write to the person that their change was undone and waits on their confirmation again.
 
 A line whose commit lost its answer may name an act that never landed, and running it again wrongs
 nobody, the person having asked for it. **Read the mail thread beside the journal** for every request
