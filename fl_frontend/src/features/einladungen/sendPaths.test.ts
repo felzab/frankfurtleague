@@ -135,7 +135,7 @@ describe("what the single invite press answers", () => {
 
     const res = await press(teamId);
 
-    assert.equal(res.success, true);
+    assert.equal(res.success && res.versand, "gesendet");
     assert.equal(sentence(res), "Der Link ist an alle 2 Adressen unterwegs.");
     assert.deepEqual(
       mail.sent.map(({ to }) => to),
@@ -152,7 +152,7 @@ describe("what the single invite press answers", () => {
 
     const res = await press(teamId);
 
-    assert.equal(res.success, true);
+    assert.equal(res.success && res.versand, "zurueckgehalten");
     assert.equal(sentence(res), ZURUECKGEHALTEN);
   });
 
@@ -177,7 +177,7 @@ describe("what the single invite press answers", () => {
 
     const res = await press(teamId);
 
-    assert.equal(res.success, true);
+    assert.equal(res.success && res.versand, "gesperrt");
     assert.equal(sentence(res), "Der Link ging an niemanden raus, weil jede Adresse auf der Sperrliste steht.");
     assert.ok(!sentence(res).includes("@"), "the answer named an address");
   });
@@ -189,7 +189,8 @@ describe("what the single invite press answers", () => {
 
     const res = await press(teamId);
 
-    assert.equal(res.success, true);
+    // One link per team, and it reached a seat.
+    assert.equal(res.success && res.versand, "gesendet");
     assert.equal(sentence(res), "Der Link ist unterwegs: 1 von 2. An eine Adresse ging nichts, weil sie auf der Sperrliste steht.");
   });
 
@@ -346,7 +347,7 @@ describe("what the season-wide press answers", () => {
 
     const res = await pressSeason([zeile("aa", "t-aa", null)]);
 
-    assert.equal(res.success, true);
+    assert.equal(res.success && res.versand, "zurueckgehalten");
     assert.deepEqual(res.success ? res.zeilen[0]?.zurueckgehalten : [], ["erika-aa@beispiel.de"]);
   });
 
@@ -359,6 +360,7 @@ describe("what the season-wide press answers", () => {
 
     const row = res.success ? res.zeilen[0] : undefined;
     assert.deepEqual([row?.zugestellt, row?.unerreichbar, row?.zurueckgehalten, row?.gesperrt], [[], [], [], 1]);
+    assert.equal(res.success && res.versand, "gesperrt");
   });
 
   it("leaves a skipped team's row empty on all three address lists", async () => {
@@ -367,6 +369,8 @@ describe("what the season-wide press answers", () => {
     const row = res.success ? res.zeilen[0] : undefined;
     assert.deepEqual([row?.zugestellt, row?.unerreichbar, row?.zurueckgehalten], [[], [], []]);
     assert.deepEqual(mail.sent, [], "a team the endpoint skipped was mailed anyway");
+    // Passed over by the rule the preview showed: no link this press meant to send, so no grade.
+    assert.equal(res.success ? res.versand : "refused", undefined);
   });
 
   /* The two rows a team was mailed nothing on and still owes a sentence about its old link: a commit of
@@ -383,5 +387,7 @@ describe("what the season-wide press answers", () => {
       ["bb", false, true],
       ["cc", false, null],
     ]);
+    // A team whose link was never minted got none, which the press's grade counts as failed.
+    assert.equal(res.success && res.versand, "fehlgeschlagen");
   });
 });
