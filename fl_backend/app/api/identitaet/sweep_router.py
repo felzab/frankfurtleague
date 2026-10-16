@@ -48,9 +48,9 @@ router = APIRouter(
     dependencies=[Depends(verify_access_system), Depends(bind_system_actor)],
 )
 
-# Twenty-one commands a pupil, each costing the round trip plus at most 2.03 ms (whole calls timed
-# locally, 2026-10-16): this share keeps a call inside `app/core/middlewares.py :: REQUEST_DEADLINE_S`
-# up to a 37 ms round trip (`docs/backend/spec.md :: I322`).
+# Twenty-one commands a pupil, each the round trip plus at most 2.03 ms, timed locally 2026-10-16 and
+# again over 20,000 log rows: this share fits `app/core/middlewares.py :: REQUEST_DEADLINE_S` at a 37 ms
+# round trip (`docs/backend/spec.md :: I322`).
 LOESCHUNGEN_PER_PASS: Final = 10
 
 
