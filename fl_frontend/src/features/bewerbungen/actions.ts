@@ -1,7 +1,5 @@
 "use server";
 
-import { refresh } from "next/cache";
-
 import { buildBewerbungAbsageEmail, buildBewerbungBestaetigungEmail, buildBewerbungZusageEmail } from "@/core/bewerbungEmail";
 import { frontend_config } from "@/core/config";
 import { APIBadStatusError } from "@/core/errors";
@@ -10,6 +8,7 @@ import { logger } from "@/core/logging";
 import { ZURUECKGEHALTEN } from "@/features/einladungen/meldungen";
 import { trikotFarbeLabel } from "@/features/teams/constants";
 import { getTeamMemberships } from "@/features/teams/queries";
+import { linkVersandOf } from "@/features/zustellung/notifications";
 import { invalidatesOnWrite, refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
 import { formatSpielDatum } from "@/shared/utils/format";
 import { buildRefusal, LADE_DIE_SEITE_NEU, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
@@ -33,6 +32,7 @@ import { bewerbungHerkunft, bewerbungTeamName, describeAufnahme } from "./utils"
 import type { BewerbungEmail } from "@/core/bewerbungEmail";
 import type { KontaktRolle } from "@/features/teams/constants";
 import type { ActionResult } from "@/shared/types/types";
+import type { LinkVersand } from "@/shared/utils/linkVersand";
 import type { BewerbungHerkunft } from "./constants";
 import type { BewerbungBetreff } from "./notifications";
 import type {
@@ -272,6 +272,12 @@ const KEIN_LINK_VERSCHICKT = buildRefusal({
   repair: VERSUCHE_ES_ERNEUT,
 });
 
+/** How a repair's link ended, in the sentence its administrator is told. */
+type Zustellung = { versand: LinkVersand; message: string };
+
+/** Where the message was never composed: the seat's previous link is spent all the same. */
+const NICHT_VERSCHICKT: Zustellung = { versand: "fehlgeschlagen", message: KEIN_LINK_VERSCHICKT };
+
 /**
  * The token is minted and the deadline moved by the time this runs, so each ANSWER reports a write
  * that stands: a refused send is a message to try again rather than a write that did not happen.
@@ -291,14 +297,14 @@ async function sendeBestaetigungErneut({
   /** Every seat this one link answers for. Phrased here rather than by each caller, so the message and the delivery record name one set. */
   sitze: readonly KontaktRolle[];
   token: string;
-}): Promise<{ verschickt: true; message: string } | { verschickt: false; error: string }> {
+}): Promise<Zustellung> {
   let frist: string | null;
 
   try {
     // Read AFTER the write: the deadline this message states is the one the re-send just set, and a
     // frontend clock reckoning fourteen days itself would disagree with the server across midnight.
     const gelesen = await getBewerbungById(bewerbungId);
-    if (gelesen === null) return { verschickt: false, error: KEIN_LINK_VERSCHICKT };
+    if (gelesen === null) return NICHT_VERSCHICKT;
 
     frist = gelesen.bewerbung.bestaetigungsfrist;
   } catch (error) {
@@ -309,7 +315,7 @@ async function sendeBestaetigungErneut({
       operation: "einwilligungErneutSendenAction",
     });
 
-    return { verschickt: false, error: KEIN_LINK_VERSCHICKT };
+    return NICHT_VERSCHICKT;
   }
 
   // Thrown rather than refused: the endpoint writes this deadline in the same update that mints the
@@ -340,21 +346,20 @@ async function sendeBestaetigungErneut({
       }),
   });
 
-  // Filed by a deployment that mails nothing, or kept from a barred address: a refusal would offer a
-  // retry no repeat can reach (`docs/frontend/spec.md :: I542`).
-  if (outcome.withheld.length > 0) return { verschickt: true, message: ZURUECKGEHALTEN };
-  if (outcome.gesperrt > 0) return { verschickt: true, message: "Der neue Link ging nicht raus, weil die Adresse auf der Sperrliste steht." };
+  const versand = linkVersandOf(outcome);
 
-  return outcome.unreachable.length === 0
-    ? { verschickt: true, message: `Der neue Link ging an ${person.email}.` }
-    : { verschickt: false, error: KEIN_LINK_VERSCHICKT };
+  // Naming no address, as every barred send's report names none (`docs/frontend/spec.md :: I542`).
+  if (versand === "gesperrt") return { versand: versand, message: "Der neue Link ging nicht raus, weil die Adresse auf der Sperrliste steht." };
+  if (versand === "zurueckgehalten") return { versand: versand, message: ZURUECKGEHALTEN };
+
+  return versand === "gesendet" ? { versand: versand, message: `Der neue Link ging an ${person.email}.` } : NICHT_VERSCHICKT;
 }
 
 /**
  * No confirmation step: a second link is undone by ignoring it, and the seat's own answer is what
  * the league acts on either way.
  */
-export async function einwilligungErneutSendenAction(rawPayload: FLEinwilligungErneutPayload): Promise<ActionResult> {
+export async function einwilligungErneutSendenAction(rawPayload: FLEinwilligungErneutPayload): Promise<ActionResult<{ versand: LinkVersand }>> {
   return runAdminMutation("einwilligungErneutSendenAction", { stepUp: true }, async () => {
     const validated = FLEinwilligungErneutPayloadSchema.safeParse(rawPayload);
 
@@ -405,15 +410,8 @@ export async function einwilligungErneutSendenAction(rawPayload: FLEinwilligungE
       token: erneutOperation.token,
     });
 
-    if (!zustellung.verschickt) {
-      // The spine refreshes a success or an unknown outcome, a throw here among them, and a refused send
-      // leaves the mint standing too: the seat's old link is spent and its deadline moved.
-      refresh();
-
-      return { success: false, error: zustellung.error };
-    }
-
-    return { success: true, message: zustellung.message };
+    // A success whichever way the send went: the mint stands, the seat's old link spent and its deadline moved.
+    return { success: true, message: zustellung.message, versand: zustellung.versand };
   });
 }
 
@@ -424,7 +422,7 @@ export async function einwilligungErneutSendenAction(rawPayload: FLEinwilligungE
  */
 export async function kontaktEmailKorrigierenAction(
   rawPayload: FLBewerbungKontaktEmailPayload,
-): Promise<ActionResult<{ verschickt?: boolean }>> {
+): Promise<ActionResult<{ versand: LinkVersand }>> {
   return runAdminMutation("kontaktEmailKorrigierenAction", { stepUp: true }, async () => {
     const validated = FLBewerbungKontaktEmailPayloadSchema.safeParse(rawPayload);
 
@@ -484,13 +482,10 @@ export async function kontaktEmailKorrigierenAction(
         name: error instanceof Error ? error.name : undefined,
         operation: "kontaktEmailKorrigierenAction",
       });
-
-      return { success: true, verschickt: false, message: KEIN_LINK_VERSCHICKT };
+      zustellung = NICHT_VERSCHICKT;
     }
 
-    return zustellung.verschickt
-      ? { success: true, verschickt: true, message: zustellung.message }
-      : { success: true, verschickt: false, message: zustellung.error };
+    return { success: true, ...zustellung };
   });
 }
 
@@ -498,7 +493,7 @@ export async function kontaktEmailKorrigierenAction(
  * **The seat stands filled whatever the message did**, as the correction's address does: a refused
  * send is a link to try again rather than a person who was never seated.
  */
-export async function besetzeKontaktSitzAction(rawPayload: FLBewerbungKontaktSitzPayload): Promise<ActionResult<{ verschickt?: boolean }>> {
+export async function besetzeKontaktSitzAction(rawPayload: FLBewerbungKontaktSitzPayload): Promise<ActionResult<{ versand: LinkVersand }>> {
   return runAdminMutation("besetzeKontaktSitzAction", { stepUp: true }, async () => {
     const validated = FLBewerbungKontaktSitzPayloadSchema.safeParse(rawPayload);
 
@@ -553,12 +548,9 @@ export async function besetzeKontaktSitzAction(rawPayload: FLBewerbungKontaktSit
         name: error instanceof Error ? error.name : undefined,
         operation: "besetzeKontaktSitzAction",
       });
-
-      return { success: true, verschickt: false, message: KEIN_LINK_VERSCHICKT };
+      zustellung = NICHT_VERSCHICKT;
     }
 
-    return zustellung.verschickt
-      ? { success: true, verschickt: true, message: zustellung.message }
-      : { success: true, verschickt: false, message: zustellung.error };
+    return { success: true, ...zustellung };
   });
 }

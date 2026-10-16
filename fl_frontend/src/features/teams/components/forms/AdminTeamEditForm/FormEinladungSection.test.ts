@@ -181,7 +181,7 @@ describe("the team's invite panel", () => {
 
     await user.click(screen.getByRole("button", { name: "Registrierungslink anlegen" }));
     await act(answered);
-    answerWith(() => Promise.resolve({ success: true, message: "Der Link ist an 2 von 2 Adressen unterwegs." }));
+    answerWith(() => Promise.resolve({ success: true, message: "Der Link ist an 2 von 2 Adressen unterwegs.", versand: "gesendet" }));
     // Found rather than got, as the mint's own case finds its link: the press appears when
     // `startMinting`'s transition ends, which no click's resolving waits for.
     const mailing = await screen.findByRole("button", { name: "Link per E-Mail senden" });
@@ -193,6 +193,28 @@ describe("the team's invite panel", () => {
     await act(answered);
     await waitFor(() => assert.equal(raised.length, before + 1));
     assert.equal(raised.at(-1)?.variant, "success");
+  });
+
+  /* The ban list or a deployment that mails nothing held the link back from every seat: no seat holds
+     it, so the press is never announced as sent. */
+  it("titles a mailed link the ban list held back as a warning, never a sent link", async () => {
+    const user = userEvent.setup();
+    answerWith(mintAntwort);
+    render(panel());
+
+    await user.click(screen.getByRole("button", { name: "Registrierungslink anlegen" }));
+    await act(answered);
+    answerWith(() => Promise.resolve({ success: true, message: "Der Link ging an niemanden raus.", versand: "gesperrt" }));
+    const mailing = await screen.findByRole("button", { name: "Link per E-Mail senden" });
+    const before = raised.length;
+    await user.click(mailing);
+    await act(answered);
+
+    await waitFor(() => assert.equal(raised.length, before + 1));
+    assert.deepEqual(
+      raised.slice(before).map((toast) => [toast.variant, toast.title]),
+      [["warning", "Registrierungslink zurückgehalten"]],
+    );
   });
 
   /* The store keeps a hash, so a reload cannot serve the value back. The panel states the row and

@@ -74,7 +74,7 @@ describe("the waiting address's two controls", () => {
     [ADRESSWECHSEL_VERWERFEN, "verwirfSpielerAdresswechselAction"],
   ] as const) {
     it(`sends ${action} for this pupil alone`, async () => {
-      answerWith(() => Promise.resolve({ success: true, message: "Gesendet." }));
+      answerWith(() => Promise.resolve({ success: true, message: "Gesendet.", versand: "gesendet" }));
       const { unmount } = render(panel(OFFEN));
       const before = calls.length;
 
@@ -89,23 +89,29 @@ describe("the waiting address's two controls", () => {
     });
   }
 
-  /* A link that did not leave is a warning, as the request's press grades it: the earlier link is dead either way. */
-  it("grades a re-send whose link did not leave a warning", async () => {
-    answerWith(() => Promise.resolve({ success: true, message: "Nicht zugestellt.", versandFehlgeschlagen: true }));
-    const before = toasts.length;
-    const { unmount } = render(panel(OFFEN));
+  /* A link that did not go out, failed or held back by the ban list, is a warning titled for what
+     happened, as the request's press grades it: the earlier link is dead either way. */
+  for (const [versand, title] of [
+    ["fehlgeschlagen", "Link nicht zugestellt"],
+    ["gesperrt", "Link zurückgehalten"],
+  ] as const) {
+    it(`grades a re-send whose link is ${versand} a warning titled „${title}“`, async () => {
+      answerWith(() => Promise.resolve({ success: true, message: "Nicht raus.", versand: versand }));
+      const before = toasts.length;
+      const { unmount } = render(panel(OFFEN));
 
-    await userEvent.setup().click(screen.getByRole("button", { name: ADRESSWECHSEL_ERNEUT }));
-    await act(answered);
+      await userEvent.setup().click(screen.getByRole("button", { name: ADRESSWECHSEL_ERNEUT }));
+      await act(answered);
 
-    await waitFor(() =>
-      assert.deepEqual(
-        toasts.slice(before).map((shown) => [shown.variant, shown.title]),
-        [["warning", "Link nicht gesendet"]],
-      ),
-    );
-    unmount();
-  });
+      await waitFor(() =>
+        assert.deepEqual(
+          toasts.slice(before).map((shown) => [shown.variant, shown.title]),
+          [["warning", title]],
+        ),
+      );
+      unmount();
+    });
+  }
 });
 
 describe("a press of the address change's link nobody can tell landed", () => {

@@ -132,7 +132,9 @@ describe("the season's bulk invite send", () => {
         assert.equal(readout("Teams"), "2");
         assert.equal(readout("E-Mails"), "3");
         assert.equal(readout("Übersprungen"), "5");
-        answerWith(() => Promise.resolve({ success: true, zeilen: [], message: "1 von 4 Teams haben ihren Link bekommen." }));
+        answerWith(() =>
+          Promise.resolve({ success: true, zeilen: [], message: "1 von 4 Teams haben ihren Link bekommen.", versand: "gesendet" }),
+        );
       },
     });
 
@@ -369,7 +371,9 @@ describe("the season's bulk invite send", () => {
           { id: SAISON_ID, erneut: true },
           "the second read described the press the switch had already moved off",
         );
-        answerWith(() => Promise.resolve({ success: true, zeilen: [], message: "4 von 4 Teams haben ihren Link bekommen." }));
+        answerWith(() =>
+          Promise.resolve({ success: true, zeilen: [], message: "4 von 4 Teams haben ihren Link bekommen.", versand: "gesendet" }),
+        );
       },
     });
 
@@ -444,6 +448,8 @@ describe("the season's bulk invite send", () => {
           Promise.resolve({
             success: true,
             message: "Registrierungslinks gesendet: 2 von 3 Teams.",
+            // The worst of its rows: the team whose mint failed got no link.
+            versand: "fehlgeschlagen",
             zeilen: [
               {
                 team_id: ID("a"),
@@ -525,7 +531,10 @@ describe("the season's bulk invite send", () => {
       isInTheFlow("Der bisherige Link dieses Teams gilt weiter. Ein neuer Versand versucht es noch einmal."),
       "nothing says the failed team keeps the link it had, so somebody will assume it lost one",
     );
-    assert.equal(raised[0]?.variant, "success");
+    assert.deepEqual(
+      raised.map((toast) => [toast.variant, toast.title]),
+      [["warning", "Nicht alle Registrierungslinks zugestellt"]],
+    );
   });
 
   /* Counted against the team's whole, so the shortfall shows, and said by count in the row's own
@@ -544,6 +553,8 @@ describe("the season's bulk invite send", () => {
           Promise.resolve({
             success: true,
             message: "Registrierungslinks gesendet: 1 von 2 Teams.",
+            // The worst of its rows: every address of the second team is barred.
+            versand: "gesperrt",
             zeilen: [
               {
                 team_id: ID("a"),
@@ -576,6 +587,11 @@ describe("the season's bulk invite send", () => {
     assert.ok(isInTheFlow("An eine Adresse ging nichts, weil sie auf der Sperrliste steht."));
     assert.ok(isInTheFlow("An 2 Adressen ging nichts, weil sie auf der Sperrliste stehen."));
     assert.equal(isInTheFlow("Nicht erreicht:"), false, "a barred address was offered for writing to by hand");
+    // A team whose link the ban list held back is no team the press wrote to: never announced as sent.
+    assert.deepEqual(
+      raised.map((toast) => [toast.variant, toast.title]),
+      [["warning", "Nicht alle Registrierungslinks gesendet"]],
+    );
   });
 
   /* The commit went out and no answer came back, so the row is true of a link revoked and of one
@@ -605,6 +621,7 @@ describe("the season's bulk invite send", () => {
           Promise.resolve({
             success: true,
             message: "Registrierungslinks gesendet: 0 von 2 Teams.",
+            versand: "fehlgeschlagen",
             zeilen: [unklar(ID("a"), "Ernst-Reuter-Schule", true), unklar(ID("f"), "Wöhlerschule", false)],
           }),
         );
@@ -656,6 +673,7 @@ describe("the season's bulk invite send", () => {
           Promise.resolve({
             success: true,
             message: "Registrierungslinks gesendet: 0 von 3 Teams.",
+            versand: "fehlgeschlagen",
             zeilen: [
               fehlgeschlagen(ID("a"), "Ernst-Reuter-Schule", true),
               fehlgeschlagen(ID("f"), "Wöhlerschule", false),

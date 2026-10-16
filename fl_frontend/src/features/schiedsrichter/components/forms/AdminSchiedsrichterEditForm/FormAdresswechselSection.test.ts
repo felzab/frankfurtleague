@@ -144,32 +144,38 @@ describe("a press of the address change's link nobody can tell landed", () => {
   }
 });
 
-describe("a re-send whose link did not leave", () => {
-  /* Graded as the pupil's twin and the editor's save grade it: the earlier link is dead either way. */
-  it("is a warning, never a sent link", async () => {
-    answerWith(() => Promise.resolve({ success: true, message: "Nicht zugestellt.", versandFehlgeschlagen: true }));
-    const before = toasts.length;
-    const { unmount } = render(
-      underNext(
-        h(FormAdresswechselSection, {
-          schiedsrichterId: "6890a1b2c3d4e5f607800001",
-          adresswechsel: OFFEN,
-          istAbgelaufen: false,
-          isDirty: false,
-        }),
-        { router: nextRouter() },
-      ),
-    );
+describe("a re-send whose link did not go out", () => {
+  /* Graded as the pupil's twin and the editor's save grade it, failed or held back by the ban list: the
+     earlier link is dead either way. */
+  for (const [versand, title] of [
+    ["fehlgeschlagen", "Link nicht zugestellt"],
+    ["gesperrt", "Link zurückgehalten"],
+  ] as const) {
+    it(`is a warning titled „${title}“ where the link is ${versand}, never a sent link`, async () => {
+      answerWith(() => Promise.resolve({ success: true, message: "Nicht raus.", versand: versand }));
+      const before = toasts.length;
+      const { unmount } = render(
+        underNext(
+          h(FormAdresswechselSection, {
+            schiedsrichterId: "6890a1b2c3d4e5f607800001",
+            adresswechsel: OFFEN,
+            istAbgelaufen: false,
+            isDirty: false,
+          }),
+          { router: nextRouter() },
+        ),
+      );
 
-    await userEvent.setup().click(screen.getByRole("button", { name: ADRESSWECHSEL_ERNEUT }));
-    await act(answered);
+      await userEvent.setup().click(screen.getByRole("button", { name: ADRESSWECHSEL_ERNEUT }));
+      await act(answered);
 
-    await waitFor(() =>
-      assert.deepEqual(
-        toasts.slice(before).map((shown) => [shown.variant, shown.title]),
-        [["warning", "Link nicht gesendet"]],
-      ),
-    );
-    unmount();
-  });
+      await waitFor(() =>
+        assert.deepEqual(
+          toasts.slice(before).map((shown) => [shown.variant, shown.title]),
+          [["warning", title]],
+        ),
+      );
+      unmount();
+    });
+  }
 });

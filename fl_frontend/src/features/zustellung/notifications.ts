@@ -13,6 +13,7 @@ import { FLZustellungAbgewiesenPayloadSchema } from "./schemas";
 import type { OutboundMail } from "@/core/mail";
 import type { FLKontaktRolle } from "@/features/bewerbungen/schemas";
 import type { ZustellAnlass } from "@/features/bewerbungen/zustellung";
+import type { LinkVersand } from "@/shared/utils/linkVersand";
 import type { FLZielJeSitz, FLZustellungZiel } from "./schemas";
 
 /**
@@ -58,13 +59,6 @@ export type ZielMailOutcome = {
    */
   gesperrt: number;
 };
-
-/**
- * How a one-recipient link mail ended. `zurueckgehalten` is a deployment that mails nothing filing it
- * (`fl_frontend/src/core/mail.ts :: MailWithheldError`), `gesperrt` the ban list keeping it from the
- * address (`:: MailBarredError`): neither is sent, and neither is a failure to warn about.
- */
-export type LinkVersand = "gesendet" | "zurueckgehalten" | "gesperrt" | "fehlgeschlagen";
 
 /** The one reading of a link mail's fan-out, so every surface reporting a link names one outcome alike. */
 export function linkVersandOf({ delivered, withheld, gesperrt }: Pick<ZielMailOutcome, "delivered" | "withheld" | "gesperrt">): LinkVersand {

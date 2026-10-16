@@ -261,29 +261,29 @@ describe("the contacts save that seats new people", () => {
     const res = await patchSaisonTeamKontakteAction(PAYLOAD);
 
     assert.equal(res.success && res.versandSatz, describeLinkMail("anna@schule.example", "gesperrt"));
-    assert.equal(res.success && res.versandFehlgeschlagen, false);
+    assert.equal(res.success && res.versand, "gesperrt");
     assert.deepEqual(zustellung, []);
   });
 
-  it("marks a link that did not leave, so the editor grades its toast a warning", async () => {
+  it("reports a link that did not leave, so the editor grades its toast a warning", async () => {
     save = () => saved([minted("Anna", "anna@schule.example", ["ansprechperson"])]);
     mail.answerWith(() => "refused");
 
     const res = await patchSaisonTeamKontakteAction(PAYLOAD);
 
     assert.equal(res.success && res.versandSatz, describeLinkMail("anna@schule.example", "fehlgeschlagen"));
-    assert.equal(res.success && res.versandFehlgeschlagen, true);
+    assert.equal(res.success && res.versand, "fehlgeschlagen");
   });
 
-  /* Outside production every send is withheld, and a warning there grades every local save as failed. */
-  it("says a withheld send once, in the deployment's words, and marks no failure", async () => {
+  /* Outside production every send is withheld: filed by the deployment, never a failure of the mailbox. */
+  it("says a withheld send once, in the deployment's words, and reports no failure", async () => {
     save = () => saved([minted("Anna", "anna@schule.example", ["ansprechperson"]), minted("Clara", "clara@schule.example", ["trainer"])]);
     mail.answerWith(() => "withheld");
 
     const res = await patchSaisonTeamKontakteAction(PAYLOAD);
 
     assert.equal(res.success && res.versandSatz, ZURUECKGEHALTEN);
-    assert.equal(res.success && res.versandFehlgeschlagen, false);
+    assert.equal(res.success && res.versand, "zurueckgehalten");
   });
 
   it("answers a save whose link broke off in transit as of unknown outcome", async () => {
@@ -388,22 +388,22 @@ describe("the re-send beside an unconfirmed seat", () => {
     });
   }
 
-  it("says so where the link did not leave, and marks it so the control grades its toast a warning", async () => {
+  it("says so where the link did not leave, and reports it so the control grades its toast a warning", async () => {
     mail.answerWith(() => "refused");
 
     const res = await einladeKontaktAction({ team_id: TEAM_ID, saison_id: "2627", rolle: "stellvertretung" });
 
     assert.equal(res.success && res.message, describeLinkMail("bernd@schule.example", "fehlgeschlagen"));
-    assert.equal(res.success && res.versandFehlgeschlagen, true);
+    assert.equal(res.success && res.versand, "fehlgeschlagen");
   });
 
-  /* Filed rather than failed, as the save marks it (`docs/frontend/spec.md :: I542`). */
-  it("marks no failure where the gate withholds a barred send", async () => {
+  /* Filed rather than failed, as the save reports it (`docs/frontend/spec.md :: I542`). */
+  it("reports no failure where the gate withholds a barred send", async () => {
     mail.answerWith(() => "barred");
 
     const res = await einladeKontaktAction({ team_id: TEAM_ID, saison_id: "2627", rolle: "stellvertretung" });
 
-    assert.equal(res.success && res.versandFehlgeschlagen, false);
+    assert.equal(res.success && res.versand, "gesperrt");
   });
 });
 
