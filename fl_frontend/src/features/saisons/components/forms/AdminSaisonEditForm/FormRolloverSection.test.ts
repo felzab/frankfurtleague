@@ -104,9 +104,7 @@ const mitLoeschung = (spieler: number, eingeschaltet: boolean): RolloverProps =>
 
 /** Every paragraph of the panel speaking of a deletion, as a reader meets it. */
 const loeschungsZeilen = (): string[] =>
-  screen
-    .queryAllByText((_, element) => element?.tagName === "P" && /gelöscht|Löschung/.test(element.textContent))
-    .map((element) => element.textContent);
+  screen.queryAllByText((_, element) => element?.tagName === "P" && /[Ll]ösch/.test(element.textContent)).map((element) => element.textContent);
 
 describe("the count beside the rollover press", () => {
   /* What the operator reads before turning the switch on, and before pressing: counts only, never a name. */
@@ -114,20 +112,25 @@ describe("the count beside the rollover press", () => {
     [
       3,
       true,
-      "Mit der Umstellung werden 3 Spielerinnen und Spieler gelöscht, die seit Saison 2025 in keinem Kader stehen und keine offene Registrierung haben.",
+      "Mit der Umstellung werden bis zu 3 Spielerinnen und Spieler ohne Kadereintrag seit Saison 2025 und ohne offene Registrierung gelöscht.",
     ],
-    [1, true, "Mit der Umstellung wird eine Person gelöscht, die seit Saison 2025 in keinem Kader steht und keine offene Registrierung hat."],
+    [
+      1,
+      true,
+      "Mit der Umstellung wird höchstens eine Spielerin oder ein Spieler ohne Kadereintrag seit Saison 2025 und ohne offene Registrierung " +
+        "gelöscht.",
+    ],
     [
       3,
       false,
-      "Die jährliche Löschung ist ausgeschaltet. Eingeschaltet würde die Umstellung 3 Spielerinnen und Spieler löschen, die seit Saison 2025 " +
-        "in keinem Kader stehen und keine offene Registrierung haben.",
+      "Die automatische Löschung ist ausgeschaltet. Eingeschaltet würde die Umstellung bis zu 3 Spielerinnen und Spieler ohne Kadereintrag " +
+        "seit Saison 2025 und ohne offene Registrierung löschen.",
     ],
     [
       1,
       false,
-      "Die jährliche Löschung ist ausgeschaltet. Eingeschaltet würde die Umstellung eine Person löschen, die seit Saison 2025 in keinem " +
-        "Kader steht und keine offene Registrierung hat.",
+      "Die automatische Löschung ist ausgeschaltet. Eingeschaltet würde die Umstellung höchstens eine Spielerin oder einen Spieler ohne " +
+        "Kadereintrag seit Saison 2025 und ohne offene Registrierung löschen.",
     ],
   ] as const) {
     it(`states ${String(spieler)} ${eingeschaltet ? "to be deleted" : "the switched-off press would delete"} in the body`, () => {
@@ -149,10 +152,21 @@ describe("the count beside the rollover press", () => {
     }
   });
 
+  /* No line also means nobody is due, and the operator reads the count before turning the switch on: a failed read
+     is said rather than left to read as nobody. */
+  it("says the count could not be read where its read failed", () => {
+    const { unmount } = render(panel({ ...OPEN, rollover: { ...OPEN.rollover, outgoingSaisonId: "2025", loeschung: "unlesbar" } }));
+
+    assert.deepEqual(loeschungsZeilen(), [
+      "Wie viele Spielerinnen und Spieler die Umstellung löschen würde, ist gerade nicht abrufbar. Lade die Seite neu, bevor Du umstellst.",
+    ]);
+    unmount();
+  });
+
   /* The confirmation repeats the count on the switch's word alone: with it off, the press deletes nobody. */
   for (const [spieler, eingeschaltet, satz] of [
-    [3, true, "Dabei werden 3 Spielerinnen und Spieler endgültig gelöscht."],
-    [1, true, "Dabei wird eine Person endgültig gelöscht."],
+    [3, true, "Dabei werden bis zu 3 Spielerinnen und Spieler endgültig gelöscht."],
+    [1, true, "Dabei wird höchstens eine Spielerin oder ein Spieler endgültig gelöscht."],
     [3, false, null],
   ] as const) {
     it(`${satz === null ? "promises no deletion" : "states the deletion"} in the confirmation with ${String(spieler)} due and the switch ${eingeschaltet ? "on" : "off"}`, async () => {

@@ -1129,20 +1129,38 @@ follow it, so a throw after that stamp leaves a fresh application date beside a 
 one just as a failed registration call would.
 
 **The two halves after the seasons stamp no day, so their own lines are the record.** Every pass
-ends by removing the referee addresses whose link lapsed before today, and, where `LOESCHUNG_SWEEP`
-reads `on`, by deleting the pupils the season-after rule makes due. Each writes one line per pass
-holding its counts and no person — `schiedsrichter.adresswechsel_sweep_pass` and
-`loeschung.sweep_pass` — and a half that threw files `schiedsrichter.adresswechsel_sweep_failed` or
-`loeschung.sweep_failed` under `FE-SWEEP-001` besides. Activating a season runs the same deletion
-first, inside the press, and files `loeschung.umstellung_failed` where a call of it failed; its
-message then tells the administrator the hourly pass finishes the rest. A pupil the pass deletes,
-rather than the press, can stand on a cached squad page for about a day: the pass drops no cache.
+ends by removing the referees' and the pupils' pending addresses whose link lapsed before today,
+and, where `LOESCHUNG_SWEEP` reads `on`, by deleting the pupils the season-after rule makes due.
+Each writes one line per pass holding its counts and no person —
+`schiedsrichter.adresswechsel_sweep_pass` and `loeschung.sweep_pass` — and a half that threw files
+`schiedsrichter.adresswechsel_sweep_failed` or `loeschung.sweep_failed` under `FE-SWEEP-001`
+besides.
+
+**Activating a season runs the same deletion first, inside the press, but only as far as the
+press's own deadline reaches** (`fl_frontend/src/core/requestScope.ts :: REQUEST_DEADLINE_MS`).
+Wherever more pupils are due than that, the deadline ends the run: the press files the warning
+`loeschung.umstellung_cut_short`, which needs nothing from you, and its message tells the
+administrator the hourly pass finishes the rest. `loeschung.umstellung_failed`, an error under
+`FE-SWEEP-001`, is a call that failed rather than ran out of time. The caches the press drops as it
+answers hold none of the pupils it deleted, but a pupil the hourly pass deletes, or the call the
+deadline cut deletes as it runs on in the backend after the press has answered, stays on a cached
+squad page until that page refreshes. Next's `days` cache profile, which the squad reads use
+(`fl_frontend/src/features/spieler/queries.ts`), still serves an entry more than a day old once
+while it refreshes, and keeps an entry nobody asks for up to a week, so a deleted pupil's name can
+reach a visitor for up to a week after the deletion.
 
 **A pupil counted `fehlgeschlagen` stays due, and every later pass meets them again.** The
 backend's `DB-FAIL-001` line names that pupil's id and the error's class, never an address: the
 erasure's write was refused, and the next pass tries again. Find the record the write was refused
 on and repair it, and the pass after deletes the pupil. `DB-FAIL-002` means the commit's outcome is
-unknown; the next pass judges the pupil afresh, so it needs nothing from you.
+unknown; the next pass judges the pupil afresh, so it needs nothing from you. A warning saying the
+database deadline passed at a pupil or at an address change is the call stopping in time rather
+than a refusal: the pass goes on from the next call, and it needs nothing from you either.
+
+**A `SRV-VAL-001` warning naming pupils left out of the deletion is a stored address no request
+matches** — empty, not in the form sign-in folds it to, or refused by the address rule, which only
+a hand edit of the record leaves ([`../backend/spec.md`](../backend/spec.md#2-invariants) I718).
+The run passes those pupils over on every pass until their address is stored in that form.
 
 **Null means no pass of that kind has ever run against this database**, which on production is one
 of the ways [`spec.md`](spec.md) §1.1 lists: `BEWERBUNG_SWEEP` off,
@@ -1150,6 +1168,12 @@ of the ways [`spec.md`](spec.md) §1.1 lists: `BEWERBUNG_SWEEP` off,
 one. `BEWERBUNG_SWEEP` arms the whole pass, so two nulls point at the frontend container's
 environment and its startup rather than at the backend. `LOESCHUNG_SWEEP` holds the pupils'
 deletion alone, in the pass and in the activation press both.
+
+**Two promises rest on `BEWERBUNG_SWEEP` and not on `LOESCHUNG_SWEEP`**: the activation press's
+message that the next hourly pass deletes what it left („Was noch aussteht, löscht der nächste
+stündliche Durchlauf“), and the word that a lapsed pending address goes the day after its link
+lapses, the address-change mails' „am Tag nach Ablauf des Links“ and the privacy notice's „am Tag
+danach“. Both are the hourly pass's to keep, so while `BEWERBUNG_SWEEP` is off neither happens.
 
 **A date more than a day old means the timer stopped**: the frontend process holds it
 ([`spec.md`](spec.md) I149), so the container is up and the timer inside it is not. Recreating the
@@ -1159,9 +1183,11 @@ on the hour that ran them, so the pass that follows does whatever the missed day
 **Turn the pupils' deletion on once, after the once-only reset (§12).** `LOESCHUNG_SWEEP` ships off,
 so neither an activation nor a pass deletes a pupil until you set it.
 
-1. Open the planned season's page and read the count beside its rollover press: how many pupils
-   activating it would delete, and which season it closes. A figure naming more people than the
-   league lost is the signal to leave the switch off and ask why.
+1. Open the planned season's page and read the count beside its rollover press: at most how many
+   pupils activating it would delete, and which season it closes. It is a bound because it counts
+   the pupils the run passes over too (`SRV-VAL-001` above). A figure naming more people than the
+   league lost is the signal to leave the switch off and ask why, and a line saying the count is not
+   available is a read that failed: reload the page until it gives a figure.
 2. Add `LOESCHUNG_SWEEP=on` to the server's `fl_frontend/.env` and deploy (§1). The frontend reads
    it once as it boots, and the season page then says the press will delete them.
 

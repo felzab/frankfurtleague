@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
 import { frontend_config } from "@/core/config";
+import { nullUnlessContractBreak } from "@/core/errors";
 import { buildReplacementContext } from "@/features/saisons/components/forms/AdminSaisonEditForm/replacementOffer";
 import { AdminSaisonEditView } from "@/features/saisons/components/views/AdminSaisonEditView";
 import { getAdminSaisons, getLoeschungVorschau } from "@/features/saisons/queries";
@@ -19,6 +20,7 @@ import { getAdminSpieltage } from "@/features/spieltage/queries";
 import { getAdminTeams, getTeamMemberships } from "@/features/teams/queries";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 
+import type { FLLoeschungVorschauResponse } from "@/features/saisons/schemas";
 import type { SaisonGruppenSwapContext, SaisonOffeneSpiel, SaisonRolloverContext, SaisonSpielplanContext } from "@/features/saisons/types";
 import type { NextPageProps } from "@/shared/types/types";
 
@@ -33,6 +35,19 @@ export default function AdminSaisonEditPage(props: NextPageProps<{ saison_id: st
       <AdminSaisonEditContent params={props.params} />
     </Suspense>
   );
+}
+
+/** The rollover panel's count: none without a season the activation closes, and the failed read said as such. */
+function loeschungsVorschau(gelesen: FLLoeschungVorschauResponse | "unlesbar" | null): SaisonRolloverContext["loeschung"] {
+  if (gelesen === null || gelesen === "unlesbar") return gelesen;
+  if (gelesen.abgeschlossene_saison_id === null) return null;
+
+  return {
+    abgeschlosseneSaisonId: gelesen.abgeschlossene_saison_id,
+    spieler: gelesen.spieler,
+    // The same comparison the press makes, so the panel never says a deletion the press skips.
+    eingeschaltet: frontend_config.LOESCHUNG_SWEEP === "on",
+  };
 }
 
 async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ saison_id: string }>["params"] }) {
@@ -58,7 +73,10 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
   const [spieltageRes, outgoingSpieleRes, loeschungRes, teamsRes, playoffSpieleRes, gruppenSpieleRes, ligaTeamsRes] = await Promise.all([
     getAdminSpieltage({ saison_id: saison.id }),
     presentsRollover ? getAdminSpiele({ saison_id: outgoingSaisonId }) : Promise.resolve(null),
-    presentsRollover ? getLoeschungVorschau(saison.id) : Promise.resolve(null),
+    // Degraded rather than awaited whole: a count the press does not need takes down no page it is pressed from.
+    presentsRollover
+      ? getLoeschungVorschau(saison.id).catch((error: unknown) => nullUnlessContractBreak(error) ?? ("unlesbar" as const))
+      : Promise.resolve(null),
     // `include_inactive` because an admin picker hiding a retired club that still holds a junction
     // row would make a swap the endpoint accepts look impossible.
     getAdminTeams({ saison_id: saison.id, include_inactive: true }),
@@ -89,21 +107,11 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
     }))
     .sort((left, right) => left.spielNr - right.spielNr);
 
-  const abgeschlosseneSaisonId = loeschungRes?.abgeschlossene_saison_id ?? null;
-
   const rollover: SaisonRolloverContext = {
     outgoingSaisonId,
     offeneSpiele,
     hasUndatierteSpieltage: holdsUndatierteSpieltage(spieltageRes.spieltage),
-    loeschung:
-      loeschungRes === null || abgeschlosseneSaisonId === null
-        ? null
-        : {
-            abgeschlosseneSaisonId: abgeschlosseneSaisonId,
-            spieler: loeschungRes.spieler,
-            // The same comparison the press makes, so the panel never says a deletion the press skips.
-            eingeschaltet: frontend_config.LOESCHUNG_SWEEP === "on",
-          },
+    loeschung: loeschungsVorschau(loeschungRes),
   };
 
   // The condition `REQ-SPIELPLAN-001`, `REQ-ACTIVATE-003` and `REQ-RULES-011` each read, derived off

@@ -2,7 +2,7 @@
 
 import { frontend_config } from "@/core/config";
 import { logger } from "@/core/logging";
-import { runAnsweringOwnCut } from "@/core/requestScope";
+import { requestOutcomeUnknown, runAnsweringOwnCut } from "@/core/requestScope";
 import { invalidatesOnWrite, refusalResult, refuseUnconfirmed, runAdminMutation } from "@/shared/utils/adminMutation";
 import { refusedReplay, restored, runAdminUndo, unclearReplay, UNDO_UNREADABLE } from "@/shared/utils/adminUndo";
 import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
@@ -217,19 +217,30 @@ export async function activateSaisonAction(rawPayload: FLActivateSaisonPayload):
 
 /**
  * AWAITED inside the action's body, so the spine drops `invalidateRollover`'s tags after the last deletion: a run
- * behind the answer lands after that drop, and a squad page names deleted pupils for days (`docs/frontend/spec.md :: I694`).
+ * behind the answer lands after that drop, and a squad page names deleted pupils for up to a week (`docs/frontend/spec.md :: I694`).
  */
 async function loeschenNachUmstellung(): Promise<string[]> {
+  let vonDerFristBeendet = false;
   // Each call answering its own cut: one the deadline ends would otherwise answer the whole press as of unknown
   // outcome, sending the administrator to check an activation that stands.
-  const lauf = await loeschungLaufen((nach) => runAnsweringOwnCut(() => postLoeschungLauf(nach)));
+  const lauf = await loeschungLaufen((nach) =>
+    runAnsweringOwnCut(async () => {
+      try {
+        return await postLoeschungLauf(nach);
+      } finally {
+        // Read inside the call's own scope, which the request's deadline alone marks: the call's own bound does not.
+        vonDerFristBeendet = requestOutcomeUnknown();
+      }
+    }),
+  );
 
-  // The name alone, as the hourly pass logs its own: no person reaches this line.
   if (lauf.abgebrochen) {
-    logger.error("loeschung.umstellung_failed", undefined, {
-      error_code: "FE-SWEEP-001",
-      name: lauf.fehler instanceof Error ? lauf.fehler.name : undefined,
-    });
+    // The name alone, as the hourly pass logs its own: no person reaches this line.
+    const felder = { error_code: "FE-SWEEP-001", name: lauf.fehler instanceof Error ? lauf.fehler.name : undefined };
+    // Below error: wherever more pupils are due than the deadline reaches, its cut is the expected end, and the
+    // hourly pass finishes them with nothing to repair.
+    if (vonDerFristBeendet) logger.warn("loeschung.umstellung_cut_short", felder);
+    else logger.error("loeschung.umstellung_failed", undefined, felder);
   }
 
   return loeschungsSaetze(lauf);

@@ -127,7 +127,9 @@ floor, a crash between a delivery and its stamp repeating that one notice once
 ([`docs/backend/spec.md`](../backend/spec.md) I156). **The pupils' deletion has a second caller and
 a second switch**: activating a season runs it first, the pass finishes what the activation left,
 and `LOESCHUNG_SWEEP`, off by default, holds both
-([`docs/frontend/spec.md`](../frontend/spec.md) I694, I695). `BEWERBUNG_SWEEP` is what turns the
+([`docs/frontend/spec.md`](../frontend/spec.md) I694, I695). That finishing, like the removal of a
+lapsed pending address, is the pass's alone, so it happens only while `BEWERBUNG_SWEEP` arms the
+timer ([`runbooks.md`](runbooks.md) §9). `BEWERBUNG_SWEEP` is what turns the
 pass off on a production build (§1.5); a `next dev` process arms nothing whatever that switch says,
 its default being on. Each of those is a way for the sweep to be absent, and `GET /bewerbungen/sweep`
 is what tells one from a pass that found nothing to do: it answers the day the last pass ran, null

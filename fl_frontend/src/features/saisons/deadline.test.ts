@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { afterEach, beforeEach, describe, it, mock } from "node:test";
 
 import { registerDoubles } from "@/core/exportingModule.ts";
-import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
+import { doubleActionRequest, loggedLines } from "@/shared/testing/actionDoubles.ts";
 import { saisonRules } from "@/shared/testing/saisonRules.ts";
 
 /* The real action, client and request scope, only their network doubled below: what is driven is the deadline
@@ -140,6 +140,26 @@ describe("an activation whose deletion the request's deadline cuts", () => {
       answer.success ? answer.message : undefined,
       "Saison 2026 ist jetzt aktiv. Die vorherige Saison ist abgeschlossen. 2 Spielerinnen und Spieler ohne Kadereintrag seit Saison " +
         "2025 wurden gelöscht. Die Löschung ist nicht vollständig durchgelaufen. Was noch aussteht, löscht der nächste stündliche Durchlauf.",
+    );
+  });
+
+  /* The press's own deadline ending the run is expected wherever more pupils are due than it reaches: filed as an
+     error, it sends the operator to repair a record nothing is wrong with. */
+  it("files the cut as a warning, never under an error", async () => {
+    loggedLines.length = 0;
+    const pressed = activateSaisonAction({ id: SAISON_ID });
+
+    await untilCall(1);
+    advance(CALL_MS);
+    await untilCall(2);
+    advance(CALL_MS);
+    await untilCall(3);
+    advance(REQUEST_DEADLINE_MS - 2 * CALL_MS);
+    await pressed;
+
+    assert.deepEqual(
+      loggedLines.filter(({ level, message }) => level !== "info" && message.startsWith("loeschung.")),
+      [{ level: "warn", message: "loeschung.umstellung_cut_short", meta: { error_code: "FE-SWEEP-001", name: "APINetworkError" } }],
     );
   });
 });

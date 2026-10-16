@@ -35,41 +35,45 @@ import type { SaisonBanner } from "./banners";
 const LISTED_OFFENE_SPIELE = 8;
 
 /**
- * Whom the press deletes, or with the switch off whom it would: the count is what an operator reads before
- * turning the switch on (`docs/ops/runbooks.md` §9).
+ * What the operator reads before turning the switch on (`docs/ops/runbooks.md` §9). Said as a bound: the count
+ * includes pupils whose stored address no request matches, whom the run passes over (`docs/backend/spec.md :: I718`).
  */
 function LoeschungsZeile({ loeschung: { abgeschlosseneSaisonId: seit, spieler, eingeschaltet } }: { loeschung: SaisonLoeschungVorschau }) {
   if (eingeschaltet && spieler === 1) {
     return (
       <>
-        Mit der Umstellung wird eine Person gelöscht, die seit Saison <strong>{seit}</strong> in keinem Kader steht und keine offene
-        Registrierung hat.
+        Mit der Umstellung wird höchstens eine Spielerin oder ein Spieler ohne Kadereintrag seit Saison <strong>{seit}</strong> und ohne offene
+        Registrierung gelöscht.
       </>
     );
   }
   if (eingeschaltet) {
     return (
       <>
-        Mit der Umstellung werden {spieler} Spielerinnen und Spieler gelöscht, die seit Saison <strong>{seit}</strong> in keinem Kader stehen
-        und keine offene Registrierung haben.
+        Mit der Umstellung werden bis zu {spieler} Spielerinnen und Spieler ohne Kadereintrag seit Saison <strong>{seit}</strong> und ohne
+        offene Registrierung gelöscht.
       </>
     );
   }
   if (spieler === 1) {
     return (
       <>
-        Die jährliche Löschung ist ausgeschaltet. Eingeschaltet würde die Umstellung eine Person löschen, die seit Saison{" "}
-        <strong>{seit}</strong> in keinem Kader steht und keine offene Registrierung hat.
+        Die automatische Löschung ist ausgeschaltet. Eingeschaltet würde die Umstellung höchstens eine Spielerin oder einen Spieler ohne
+        Kadereintrag seit Saison <strong>{seit}</strong> und ohne offene Registrierung löschen.
       </>
     );
   }
   return (
     <>
-      Die jährliche Löschung ist ausgeschaltet. Eingeschaltet würde die Umstellung {spieler} Spielerinnen und Spieler löschen, die seit Saison{" "}
-      <strong>{seit}</strong> in keinem Kader stehen und keine offene Registrierung haben.
+      Die automatische Löschung ist ausgeschaltet. Eingeschaltet würde die Umstellung bis zu {spieler} Spielerinnen und Spieler ohne
+      Kadereintrag seit Saison <strong>{seit}</strong> und ohne offene Registrierung löschen.
     </>
   );
 }
+
+/** Said rather than left out: no line also means nobody is due, and the operator reads it before turning the switch on. */
+const LOESCHUNG_UNLESBAR =
+  "Wie viele Spielerinnen und Spieler die Umstellung löschen würde, ist gerade nicht abrufbar. Lade die Seite neu, bevor Du umstellst.";
 
 /**
  * The rollover, on `POST /saisons/{saison_id}/activate`. **A confirmation step rather than an undo**,
@@ -105,8 +109,9 @@ export function FormRolloverSection({
   const isFinishedSaison = saisonStatus === "past";
   const offene = rollover.offeneSpiele;
   const outgoing = rollover.outgoingSaisonId;
+  const vorschau = rollover.loeschung;
   // Nobody due is said nowhere: a line counting zero reads as a deletion about to happen.
-  const loeschung = rollover.loeschung !== null && rollover.loeschung.spieler > 0 ? rollover.loeschung : null;
+  const loeschung = vorschau !== null && vorschau !== "unlesbar" && vorschau.spieler > 0 ? vorschau : null;
 
   const blockedReason = rolloverBlockedReason({
     hasDrawnSpiele,
@@ -196,6 +201,7 @@ export function FormRolloverSection({
                 <LoeschungsZeile loeschung={loeschung} />
               </p>
             )}
+            {vorschau === "unlesbar" && <p className="muted-hint">{LOESCHUNG_UNLESBAR}</p>}
 
             <InlineBanners
               banners={banners}
@@ -274,8 +280,8 @@ export function FormRolloverSection({
                 {loeschung?.eingeschaltet === true && (
                   <p className="fluid-xxs leading-normal font-medium text-foreground">
                     {loeschung.spieler === 1
-                      ? "Dabei wird eine Person endgültig gelöscht."
-                      : `Dabei werden ${String(loeschung.spieler)} Spielerinnen und Spieler endgültig gelöscht.`}
+                      ? "Dabei wird höchstens eine Spielerin oder ein Spieler endgültig gelöscht."
+                      : `Dabei werden bis zu ${String(loeschung.spieler)} Spielerinnen und Spieler endgültig gelöscht.`}
                   </p>
                 )}
               </ConfirmReveal>

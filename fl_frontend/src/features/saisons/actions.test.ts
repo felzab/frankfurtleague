@@ -621,13 +621,16 @@ describe("the deletion the activation runs", () => {
     assert.equal(message, `${AKTIVIERT} 3 Spielerinnen und Spieler ohne Kadereintrag seit Saison 2025 wurden gelöscht.`);
   });
 
-  it("calls nothing more and answers as before where the switch is off", async () => {
-    loeschungSwitch = "off";
-    aktivierungUndLaeufe(() => Promise.resolve(gelaufen(2, 0)));
+  /* Unset is what a skipped validation leaves: a test negating "off" would delete there. */
+  for (const schalter of ["off", undefined]) {
+    it(`calls nothing more and answers as before where the switch reads ${String(schalter)}`, async () => {
+      loeschungSwitch = schalter;
+      aktivierungUndLaeufe(() => Promise.resolve(gelaufen(2, 0)));
 
-    assert.equal(await umgestellt(), AKTIVIERT);
-    assert.equal(laeufe(), 0, "the switch reads off and the press deleted");
-  });
+      assert.equal(await umgestellt(), AKTIVIERT);
+      assert.equal(laeufe(), 0, `the switch reads ${String(schalter)} and the press deleted`);
+    });
+  }
 
   it("deletes nobody where the activation was refused or not acknowledged", async () => {
     answerWith((call) =>
@@ -670,6 +673,20 @@ describe("the deletion the activation runs", () => {
           isTimeout: false,
         }),
     ],
+    // Its own bound and not the press's deadline: a backend answering slower than its own deadline is a fault, and
+    // a warning keyed on the timeout alone would hide it (`fl_frontend/src/features/saisons/deadline.test.ts`).
+    [
+      "a run that outlasted its own bound",
+      () =>
+        new APINetworkError({
+          message: "Request failed.",
+          url: "http://backend:8000",
+          method: "POST",
+          readOnly: false,
+          traceId: "t".repeat(32),
+          isTimeout: true,
+        }),
+    ],
   ] as const) {
     it(`answers the activation saved after ${fall}, says what the hourly pass finishes, and still drops the tags`, async () => {
       aktivierungUndLaeufe(
@@ -695,10 +712,8 @@ describe("the deletion the activation runs", () => {
     });
   }
 
-  /* Ten pupils whose deletion keeps failing fill the front of the `_id` order, so the call reaching them erases
-     nobody while a due pupil stands behind them: a pass ending on that call, or reading the front again, never
-     reaches that pupil. Answered by the place each call carries, the front bounded so a loop dropping the place
-     fails here rather than hanging. */
+  /* Ten failing pupils fill the front of the `_id` order, so the call reaching them erases nobody while a due pupil
+     waits behind. The front's answer is bounded, so a loop dropping the place fails here rather than hanging. */
   it("hands each call the place the last answer named, past a call that erased nobody, until one names none", async () => {
     let vorne = 0;
     answerWith((call) => {

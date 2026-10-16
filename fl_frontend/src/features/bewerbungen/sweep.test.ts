@@ -991,17 +991,21 @@ describe("the two halves after the season loop", () => {
     return (): T => answers[Math.min(turn++, answers.length - 1)] as T;
   };
 
-  /* A lapsed address is a stranger's mailbox kept past its day: no switch holds it back, and no season reaches it. */
-  it("removes the lapsed addresses on every pass after the seasons, and deletes no pupil while the switch is off", async () => {
-    sweepAnswers({ saisonIds: ["2627"] });
+  /* A lapsed address is a stranger's mailbox kept past its day: no switch holds it back, and no season reaches it.
+     Unset is what a skipped validation leaves, where a test negating "off" would delete. */
+  for (const schalter of ["off", undefined]) {
+    it(`removes the lapsed addresses on every pass after the seasons, and deletes no pupil while the switch reads ${String(schalter)}`, async () => {
+      loeschungSwitch = schalter;
+      sweepAnswers({ saisonIds: ["2627"] });
 
-    await runBewerbungSweep();
+      await runBewerbungSweep();
 
-    assert.deepEqual(
-      apiCalls().map((call) => call.endpoint),
-      ["/bewerbungen/sweep", "/bewerbungen/sweep/2627", "/registrierungen/sweep/2627", ADRESSWECHSEL],
-    );
-  });
+      assert.deepEqual(
+        apiCalls().map((call) => call.endpoint),
+        ["/bewerbungen/sweep", "/bewerbungen/sweep/2627", "/registrierungen/sweep/2627", ADRESSWECHSEL],
+      );
+    });
+  }
 
   it("deletes the due pupils after the lapsed addresses where the switch reads on", async () => {
     loeschungSwitch = "on";
@@ -1052,9 +1056,8 @@ describe("the two halves after the season loop", () => {
   });
 
   /**
-   * Rows the backend cannot remove at the front of the `_id` order, one due row behind them: a call carrying no place
-   * reaches the front alone, the call carrying `ort` the row behind. Bounded, so a loop dropping the place ends on its
-   * fourth call rather than hanging.
+   * Answers a call carrying no place with the failing front, and the call carrying `ort` with the due row behind it.
+   * Bounded: a loop dropping the place ends on its fourth call rather than hanging.
    */
   const vorneDann = <T>(ort: string, vorne: T, dahinter: T, ende: T) => {
     let ohneOrt = 0;
