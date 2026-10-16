@@ -1,5 +1,5 @@
 """
-API · a commit the server refuses or whose answer is lost: both erasures' journal, and each sweep's unanswered line
+API · a commit refused or its answer lost: the journal of the erasures and of a person's press, and each sweep's unanswered line
 
 Every case configuring `failCommand` lives in this module: the fail point is one setting the server holds for all
 workers, so a second module configuring it on another worker would replace this one's configuration, and either case's
@@ -14,10 +14,12 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from httpx2 import AsyncClient
 from pymongo import AsyncMongoClient, monitoring
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import PyMongoError
 
+from app.api.konto.services import EINWILLIGUNG_STAND_VERALTET
 from app.core.collections import Collection
 from app.core.db import NO_OWNER
 from app.core.exception_handlers import DATABASE_FAILED, UNKNOWN_OUTCOME
@@ -33,6 +35,7 @@ from .test_erasure_auf_anfrage import on_a_league as on_the_administrators_leagu
 from .test_funktionen_erasure import IDENTIFIER, THEIR_GRANT_OID, a_grant
 from .test_funktionen_erasure import erased_by_the_handler as erased_by_the_person
 from .test_funktionen_erasure import on_a_league as on_their_league
+from .test_journal_replay import PERSON, PUPIL_OID, V, _app, _person, _withdrawal, journalled, served
 from .test_loeschung_sweep import a_due_pupil, seeded
 from .test_loeschung_sweep import numbered as pupil_numbered
 from .test_loeschung_sweep import on_a_league as on_the_pupils_league
@@ -239,6 +242,79 @@ class TestAnErasureOnRequest:
         assert journal_lines(caplog) == [
             f"{JOURNAL_TOKEN} {loeschung_journal_hash(IDENTIFIER, schluessel=REQUEST_CONFIG.sperrliste_schluessel)} loeschung"
         ]
+
+
+# The pupil's own consent page, whose withdrawal is journalled.
+CONSENT_PRESS = f"{V}/spieler/selbst/einwilligung"
+
+
+def _as_app(url: str, app_name: str) -> str:
+    """`url` for clients carrying `app_name`, the one name a configuration of the fail point reaches."""
+
+    return f"{url}{'&' if '?' in url else '?'}appName={app_name}"
+
+
+@pytest.fixture(scope="class")
+def built_before_any_case() -> None:
+    """Built before `caplog` attaches: the build's logging setup takes every handler off the root, the capture's among them."""
+
+    _app()
+
+
+@pytest.mark.db
+@pytest.mark.usefixtures("built_before_any_case")
+class TestAPersonsOwnPress:
+    """A pupil withdrawing on their own page, through the routes: the journal follows the press's commit."""
+
+    def test_a_press_whose_commit_answer_is_lost_is_journalled_all_the_same(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+        """Catches the journal left to a commit that answered: this one landed and answered only that its time ran out."""
+
+        withdrawn = {"umfang": "intern", "medien": False}
+
+        async def chosen(database: AsyncDatabase) -> dict[str, Any]:
+            stored = await database[Collection.SPIELER].find_one({"_id": PUPIL_OID})
+            assert stored is not None
+
+            return {key: stored["einwilligung"][key] for key in withdrawn}
+
+        async def steps(http: AsyncClient, database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            before = await chosen(database)
+            await client.admin.command("configureFailPoint", FAIL_POINT, mode={"times": 1}, data=UNANSWERED)
+            try:
+                with caplog.at_level(logging.INFO):
+                    response = await http.patch(CONSENT_PRESS, json=_withdrawal("konto_spieler", **withdrawn), headers=_person(PERSON))
+            finally:
+                await client.admin.command("configureFailPoint", FAIL_POINT, mode="off")
+
+            return before, await chosen(database), response.status_code, response.json()
+
+        before, after, status, body = served(_as_app(mongo_replica_set_url, LOST_COMMIT_APP), steps)
+
+        # The premise first: the commit landed, its answer lost.
+        assert (before != withdrawn, after) == (True, withdrawn)
+        assert (status, body["error_code"], len(journalled(caplog))) == (500, UNKNOWN_OUTCOME, 1)
+
+    def test_a_press_on_a_stale_stand_journals_nothing(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+        """Refused before it writes, so it leaves no line; the same page's next press, standing on the record, journals one."""
+
+        stale = {"umfang": "a" * 64, "medien": None}
+
+        async def steps(http: AsyncClient, database: AsyncDatabase, _: AsyncMongoClient) -> Any:
+            before = await database[Collection.SPIELER].find_one({"_id": PUPIL_OID})
+            withdrawal = _withdrawal("konto_spieler", umfang="intern", medien=False)
+            with caplog.at_level(logging.INFO):
+                refused = await http.patch(CONSENT_PRESS, json={**withdrawal, "nachweis_stand": stale}, headers=_person(PERSON))
+                refused_lines = len(journalled(caplog))
+                after_the_refusal = await database[Collection.SPIELER].find_one({"_id": PUPIL_OID})
+                pressed = await http.patch(CONSENT_PRESS, json=withdrawal, headers=_person(PERSON))
+
+            return (refused.status_code, refused.json()["error_code"], refused_lines, after_the_refusal == before), pressed.status_code
+
+        refusal, pressed = served(mongo_replica_set_url, steps)
+
+        assert refusal == (409, EINWILLIGUNG_STAND_VERALTET, 0, True)
+        # The control: the capture reads the line a press that lands leaves.
+        assert (pressed, len(journalled(caplog))) == (200, 1)
 
 
 async def _first_commit_unanswered(
