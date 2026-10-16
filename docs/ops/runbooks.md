@@ -1138,9 +1138,11 @@ x /var/log/frankfurtleague/nginx
 
 **The erasure journal's lines are copied into a file per day,
 `/var/log/frankfurtleague/<day>-erasure-journal.log`, by a pair of units of their own.** Every
-erasure a person or an administrator asks for leaves one line in the backend's stream
-([`../backend/spec.md`](../backend/spec.md#2-invariants) I666), and a restore runs each of them again
-from those lines (§13). The stream loses them at the next recreate, or sooner once its size cap
+erasure a person or an administrator asks for leaves one line in the backend's stream, and so does
+every consent a person withdraws on their own record, every Widerspruch made through a seat's link
+and every address change declined through its link
+([`../backend/spec.md`](../backend/spec.md#2-invariants) I666, I745); a restore runs each erasure
+again and replays each of those choices from those lines (§13). The stream loses them at the next recreate, or sooner once its size cap
 rotates them away; the day files keep them for this directory's thirty days, counted from each
 file's last change, which is what the published notice states: a pass that adds nothing to a day
 leaves its file untouched, or every day the logs still hold would start its thirty days again each
