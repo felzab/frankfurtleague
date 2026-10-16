@@ -920,7 +920,9 @@ class TestThePlaceholderIsRefusedAtTheBox:
 
     @pytest.mark.parametrize("path", [ANSICHT_PATH, PATH, ABMELDUNG_PATH], ids=["the reveal", "the erasure", "the sign-out"])
     @pytest.mark.parametrize(
-        "email", [PLACEHOLDER, f"  {PLACEHOLDER.upper()} ", "jemand@schule.INVALID"], ids=["as stored", "folding to it", "any mailbox under it"]
+        "email",
+        [PLACEHOLDER, f"  {PLACEHOLDER.upper()} ", "jemand@schule.INVALID", "jemand@invalid"],
+        ids=["as stored", "folding to it", "any mailbox under it", "the reserved name itself"],
     )
     def test_it_is_refused_on_its_fold(self, path: str, email: str):
         assert refused_at(answered_unanswered(path, erasure_of(email) if path == PATH else ansicht_of(email))) == (
