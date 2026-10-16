@@ -6,11 +6,11 @@ from typing import Annotated, Any, Literal, Union, get_args, get_origin
 
 import pytest
 from bson import ObjectId
-from pydantic import BaseModel, SecretStr, TypeAdapter, ValidationError
+from pydantic import BaseModel, Field, SecretStr, StringConstraints, TypeAdapter
 from pydantic.fields import FieldInfo
 from pymongo.errors import OperationFailure
 
-from app.api.aktionen.schemas import FLAktion, FLAktionMitStand, FLAktionRequest, FLAktorKind, FLAktorMitAdresse, FLAktorPerson
+from app.api.aktionen.schemas import FLAktion, FLAktionMitStand, FLAktionRequest, FLAktorKind, FLAktorMitAdresse, FLAktorPerson, _served_prefix
 from app.api.berechtigungen.schemas import (
     FLBerechtigung,
     FLBerechtigungAenderungArt,
@@ -47,6 +47,7 @@ from app.api.saisons.schemas import (
     FLSaisonRules,
     FLSaisonSpielplan,
     FLSaisonStatus,
+    TeamsPerGroup,
 )
 from app.api.schiedsrichter.schemas import FLSchiedsrichter, FLSchiedsrichterAdresswechsel, FLSchiedsrichterBestaetigung
 from app.api.sperrliste.schemas import FLSperrlisteEintrag
@@ -107,6 +108,7 @@ from app.core.constraints import (
 from app.core.recording import Actor, AktorFunktion, LoggedAct, Operation, PersonActor
 from app.shared.einwilligung_nachweis import WAHLEN
 from app.shared.schemas.addresses import FLAddress
+from app.shared.schemas.custom import CustomDateString, CustomObjectId, CustomOptionalString, parse_empty_string_to_none
 from app.shared.schemas.einwilligung import FLEinwilligungBeleg, FLEinwilligungNachweis, FLEinwilligungNachweise
 from app.shared.schemas.kontakt import FLKontakt
 from app.shared.schemas.zustellung import FLBewerbungZustellstand, FLBewerbungZustellung
@@ -867,45 +869,105 @@ def test_no_validator_constrains_a_range_or_a_format(collection: Collection):
         assert not out_of_scope, f"{collection} uses {sorted(out_of_scope)}, which is left to Pydantic"
 
 
-# Strings a validator holding `bsonType: string` stores: a type refusing any of them is stricter than its
-# validator, whether by length, by pattern or by calendar.
-STORED_STRINGS: tuple[str, ...] = ("", "x", "x" * 1024, "2026-02-31", "2026-02-28")
+# What a core schema refuses a value of its own type by: a length, a pattern or a range. A validator
+# holds none of them (`test_no_validator_constrains_a_range_or_a_format`).
+BOUND_KEYS: frozenset[str] = frozenset({"min_length", "max_length", "pattern", "ge", "gt", "le", "lt", "multiple_of"})
+
+# A read model's functions that refuse nothing, each reshaping what it is handed. Any other function
+# counts as a bound, since nothing short of running it says what it refuses.
+RESHAPING_FUNCTIONS: frozenset[Any] = frozenset(
+    {
+        parse_empty_string_to_none,
+        _served_prefix,
+        FLAktion._as_text.__func__,
+        FLAktion._judge_the_stored_image.__func__,
+        FLAktionMitStand._json_safe.__func__,
+    }
+)
 
 
-def refuses_a_stored_string(adapter: TypeAdapter[Any]) -> bool:
-    for stored in STORED_STRINGS:
-        try:
-            adapter.validate_python(stored)
-        except ValidationError:
-            return True
-    return False
+def bounds(schema: Mapping[str, Any]) -> bool:
+    """Whether a value this core schema's type admits can still be refused."""
+
+    kind = schema["type"]
+    # A row of its own, judged there. A function wrapping one is judged below and bounds this field.
+    if kind == "model":
+        return False
+    if kind.startswith("function-") and schema["function"]["function"] not in RESHAPING_FUNCTIONS:
+        return True
+    # Refused only where every member refuses, so an ObjectId's string branch bounds no stored ObjectId.
+    if kind == "union":
+        return all(bounds(choice[0] if isinstance(choice, tuple) else choice) for choice in schema["choices"])
+    if kind == "json-or-python":
+        return bounds(schema["python_schema"])
+
+    children = [schema[key] for key in ("schema", "items_schema") if key in schema] + list(schema.get("steps", ()))
+    return bool(BOUND_KEYS & set(schema)) or any(bounds(child) for child in children)
 
 
 def stricter_than_the_validator(collection: Collection) -> dict[str, list[Any]]:
-    """Every mirrored field of this collection that its validator stores as any string and its model refuses one of.
+    """Every stored field of this collection whose model bounds it, whatever its bsonType: a validator holds types and enums alone.
 
     Each with the core schema of every model declaring it, `FLTeam` and `FLTeamRecord` both mirroring `teams`.
     """
 
     found: dict[str, list[Any]] = {}
 
-    for mirrored, path, models, _ in MIRRORED_MODELS:
+    for mirrored, path, models, not_stored in MIRRORED_MODELS:
         if mirrored != collection:
             continue
 
-        properties = properties_at(collection, path)
         for key, declaring in stored_fields(models).items():
-            schema = properties.get(key, {})
-            spelled = schema.get("bsonType")
-            if "enum" in schema or "string" not in ({spelled} if isinstance(spelled, str) else set(spelled or ())):
+            if key in not_stored:
                 continue
 
             for _, field in declaring:
                 adapter = TypeAdapter(Annotated[field.annotation, *field.metadata] if field.metadata else field.annotation)
-                if refuses_a_stored_string(adapter):
+                if bounds(adapter.core_schema):
                     found.setdefault(".".join((*path, key)), []).append(adapter.core_schema)
 
     return found
+
+
+@pytest.mark.parametrize(
+    ("annotation", "bounded"),
+    [
+        pytest.param(Annotated[str, StringConstraints(max_length=4)], True, id="a length"),
+        pytest.param(CustomDateString, True, id="a pattern and a calendar"),
+        pytest.param(Annotated[int, Field(ge=1)], True, id="a floor"),
+        pytest.param(TeamsPerGroup | None, True, id="a range beside null"),
+        pytest.param(Annotated[list[str], Field(min_length=1)], True, id="an array's length"),
+        pytest.param(FLSpielElfmeterschiessen | None, True, id="a validator around a nested model"),
+        pytest.param(CustomOptionalString, False, id="a blank read as null"),
+        pytest.param(CustomObjectId, False, id="an ObjectId"),
+        pytest.param(FLSaisonForfeitErgebnis, False, id="a nested model, bounded at its own row"),
+        pytest.param(int | None, False, id="a type alone"),
+    ],
+)
+def test_the_bound_reader_tells_a_bound_from_a_type(annotation: Any, bounded: bool):
+    """The control: the case below holds the reader to a table one hand writes, so a shape both miss passes it."""
+
+    assert bounds(TypeAdapter(annotation).core_schema) is bounded
+
+
+def test_a_row_model_refuses_nothing_its_field_annotations_leave_out():
+    """`stricter_than_the_validator` reads annotations, which carry neither a `field_validator` nor a root row's `model_validator`.
+
+    A nested row's model validator is its parent field's, as the shoot-out's is.
+    """
+
+    unread = {
+        f"{model.__name__}.{name}"
+        for _, path, models, _ in MIRRORED_MODELS
+        for model in (models if isinstance(models, tuple) else (models,))
+        for name, decorator in {
+            **model.__pydantic_decorators__.field_validators,
+            **({} if path else model.__pydantic_decorators__.model_validators),
+        }.items()
+        if getattr(decorator.func, "__func__", decorator.func) not in RESHAPING_FUNCTIONS
+    }
+
+    assert not unread, f"{sorted(unread)} refuse on a read, and no annotation the report mirrors carries them"
 
 
 @pytest.mark.parametrize("collection", sorted(COLLECTION_VALIDATORS))
@@ -919,8 +981,23 @@ def test_every_value_a_read_model_refuses_is_reported_under_its_own_type(collect
         f"{collection}: unreported {sorted(set(expected) - set(reported))}, reported but admitted {sorted(set(reported) - set(expected))}"
     )
 
-    # Core schemas, so a pattern's text and a validator function count where no stored string tells two types apart.
-    assert not [path for path, schemas in expected.items() if any(schema != reported[path].core_schema for schema in schemas)]
+    # Core schemas, so a pattern's text and a validator function count where no stored value tells two types apart.
+    assert not [
+        path for path, schemas in expected.items() if any(validating(schema) != validating(reported[path].core_schema) for schema in schemas)
+    ]
+
+
+def validating(schema: Any) -> Any:
+    """A core schema without its `metadata`, which pydantic-core documents as unused by validation.
+
+    A `Field` inside `Annotated` adds an empty one where the same bound on a model field adds none.
+    """
+
+    if isinstance(schema, Mapping):
+        return {key: validating(value) for key, value in schema.items() if key != "metadata"}
+    if isinstance(schema, list | tuple):
+        return [validating(item) for item in schema]
+    return schema
 
 
 @pytest.mark.parametrize(
