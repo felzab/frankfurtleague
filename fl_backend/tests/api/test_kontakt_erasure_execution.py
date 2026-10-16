@@ -1,4 +1,5 @@
 import re
+import unicodedata
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
 from typing import Any
@@ -87,14 +88,11 @@ CASE_VARIANTS: tuple[str, ...] = (
     ERASED_EMAIL.upper(),
 )
 
-# Addresses the same request must leave standing. The last three are the floor under the `$regex`:
-# unanchored, or with the `.` unescaped, the pattern takes all of them.
-NEAR_MISSES: tuple[str, ...] = (
-    "wiltrudis.quastenflosser@example.org",
-    "nichtwiltrudis.quastenflosser@example.com",
-    "wiltrudis.quastenflosser@example.community",
-    "wiltrudisXquastenflosser@example.com",
-)
+# Addresses the same request must leave standing. The pattern reads those at another domain, the fold
+# refusing them; unanchored, or with the `.` unescaped, it reads the other local parts too.
+OTHER_DOMAINS: tuple[str, ...] = ("wiltrudis.quastenflosser@example.org", "wiltrudis.quastenflosser@example.community")
+OTHER_LOCAL_PARTS: tuple[str, ...] = ("nichtwiltrudis.quastenflosser@example.com", "wiltrudisXquastenflosser@example.com")
+NEAR_MISSES: tuple[str, ...] = (*OTHER_DOMAINS, *OTHER_LOCAL_PARTS)
 
 # One row per spelling, ids fixed so a failure names the spelling rather than a list position.
 CASE_ROW_OIDS = {email: ObjectId(f"6890a1b2c3d4e5f60781{3000 + index:04d}") for index, email in enumerate(CASE_VARIANTS)}
@@ -880,8 +878,8 @@ def test_an_address_that_is_only_similar_survives_the_same_request(mongo_replica
 
 
 @pytest.mark.db
-def test_the_pre_filter_reads_no_row_holding_only_a_similar_address(mongo_replica_set_url: str):
-    """The fold hides a pattern too wide from the case above; the anchors and the escaped `.` are what keep the read to one mailbox."""
+def test_the_pre_filter_reads_no_row_holding_another_local_part(mongo_replica_set_url: str):
+    """The fold hides a pattern too wide from the case above; the anchor and the escaped `.` are what keep the read to one local part."""
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         await database[Collection.SAISON_TEAMS].insert_many(
@@ -893,7 +891,7 @@ def test_the_pre_filter_reads_no_row_holding_only_a_similar_address(mongo_replic
 
     read = on_a_league(mongo_replica_set_url, body)
 
-    assert [email for email, row_id in NEAR_ROW_OIDS.items() if row_id in read] == []
+    assert [email for email in OTHER_LOCAL_PARTS if NEAR_ROW_OIDS[email] in read] == []
     assert set(CASE_ROW_OIDS.values()) <= read, "the control: a pre-filter reading nothing passes the assertion above"
 
 
@@ -901,36 +899,45 @@ def test_the_pre_filter_reads_no_row_holding_only_a_similar_address(mongo_replic
 # take every value the fold would claim. Built from code points, since both are whitespace.
 PADDED_SPELLINGS: tuple[str, ...] = (f"{chr(0x20)}{ERASED_EMAIL}", f"{ERASED_EMAIL}{chr(0xA0)}")
 
+# Domains a hand-typed row may spell otherwise than the punycode or ASCII a payload stores, each folding
+# to it under the international domain-name rules: more spellings than any pattern listing them holds.
+UNICODE_DOMAIN = "anna@xn--mller-kva.de"
+UNICODE_DOMAIN_SPELLINGS: tuple[str, ...] = (
+    "anna@müller.de",
+    unicodedata.normalize("NFD", "anna@müller.de"),
+    f"anna@müller{chr(0xFF0E)}de",
+)
+ASCII_DOMAIN_SPELLINGS: tuple[str, ...] = (
+    ERASED_EMAIL.replace("example", "".join(chr(ord(letter) + 0xFEE0) for letter in "example")),
+    ERASED_EMAIL.replace("example.com", f"example{chr(0x3002)}com"),
+    ERASED_EMAIL.replace("@e", f"@{chr(0x212F)}"),
+)
+
 
 @pytest.mark.parametrize(
     ("asked", "taken", "missed"),
     [
-        pytest.param(VARIANT_REQUEST_EMAIL, (*CASE_VARIANTS, *PADDED_SPELLINGS), NEAR_MISSES, id="one spelling"),
+        pytest.param(VARIANT_REQUEST_EMAIL, (*CASE_VARIANTS, *PADDED_SPELLINGS, *ASCII_DOMAIN_SPELLINGS), OTHER_LOCAL_PARTS, id="one spelling"),
         # Asked in Unicode, which the fold converts before the pattern is built from it.
         pytest.param(
-            "anna@MÜLLER.de",
-            ("anna@xn--mller-kva.de", "ANNA@xn--mller-kva.de"),
-            ("xanna@xn--mller-kva.de", "anna@xn--mller-kva.de.org"),
-            id="a Unicode domain asked",
+            "anna@MÜLLER.de", ("anna@xn--mller-kva.de", "ANNA@xn--mller-kva.de"), ("xanna@xn--mller-kva.de",), id="a Unicode domain asked"
         ),
-        # Asked in punycode where a hand-typed row stores the domain decoded, which the fold claims too.
-        pytest.param(
-            "anna@xn--mller-kva.de",
-            ("anna@müller.de", "ANNA@müller.de", "anna@xn--mller-kva.de"),
-            ("xanna@müller.de", "anna@müller.de.org"),
-            id="a decoded domain stored",
-        ),
+        pytest.param(UNICODE_DOMAIN, (UNICODE_DOMAIN, *UNICODE_DOMAIN_SPELLINGS), ("xanna@müller.de",), id="a Unicode domain stored otherwise"),
     ],
 )
-def test_the_pre_filter_takes_every_case_of_the_address_and_no_other_mailbox(asked: str, taken: tuple[str, ...], missed: tuple[str, ...]):
-    """The cases above pass on a pattern reaching a whole domain, the fold deciding after it.
+def test_the_pre_filter_takes_every_spelling_the_fold_claims_and_no_other_local_part(
+    asked: str, taken: tuple[str, ...], missed: tuple[str, ...]
+):
+    """Python's `re` stands in for the server's engine, the two agreeing on an escaped literal compared in ASCII.
 
-    Python's `re` stands in for the server's engine, the two agreeing on an escaped literal compared in ASCII.
+    Each spelling taken is first held to the fold's claim, so the case never asks the pattern for more.
     """
 
-    pattern = same_address(sign_in_identifier(asked))
+    identifier = sign_in_identifier(asked)
+    pattern = same_address(identifier)
     matches = re.compile(pattern["$regex"], re.IGNORECASE if pattern["$options"] == "i" else 0).search
 
+    assert [email for email in taken if sign_in_identifier(email) != identifier] == []
     assert [email for email in taken if not matches(email)] == []
     assert [email for email in missed if matches(email)] == []
 
@@ -939,12 +946,13 @@ DECODED_ROW_OID = ObjectId("6890a1b2c3d4e5f607817101")
 
 
 @pytest.mark.db
-def test_a_seat_stored_with_its_domain_decoded_is_cleared(mongo_replica_set_url: str):
-    """Pre-filter on the punycode spelling alone and this fails: the server never hands the fold the row."""
+@pytest.mark.parametrize("stored", UNICODE_DOMAIN_SPELLINGS, ids=["decoded", "decomposed", "a fullwidth full stop"])
+def test_a_seat_stored_with_its_domain_spelled_otherwise_is_cleared(mongo_replica_set_url: str, stored: str):
+    """Pre-filter on listed spellings of the domain and this fails: the server never hands the fold the row."""
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        await database[Collection.SAISON_TEAMS].insert_one(a_row_naming(DECODED_ROW_OID, "anna@müller.de"))
-        await call_erasure(database, client, "anna@xn--mller-kva.de")
+        await database[Collection.SAISON_TEAMS].insert_one(a_row_naming(DECODED_ROW_OID, stored))
+        await call_erasure(database, client, UNICODE_DOMAIN)
 
         return (await stored_rows(database))[DECODED_ROW_OID]["kontakte"]["trainer"]
 
@@ -1109,9 +1117,12 @@ def test_a_seat_asked_for_in_another_spelling_of_its_domain_is_named_and_cleared
 
 @pytest.mark.db
 def test_an_address_holding_a_nul_names_nobody_and_clears_nothing(mongo_replica_set_url: str):
-    """The payload admits the character, and a NUL reaching `$regex` raw is refused by the server as a 500."""
+    """The payload admits the character, and a NUL reaching `$regex` raw is refused by the server as a 500.
 
-    asked = f"{ERASED_EMAIL}\x00"
+    In the local part, the half the pattern carries.
+    """
+
+    asked = ERASED_EMAIL.replace("@", "\x00@")
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         return (

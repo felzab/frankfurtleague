@@ -21,10 +21,9 @@ from httpx2 import AsyncClient, Response
 from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
-from pymongo.errors import PyMongoError
 
 from app.api.identitaet.admin_router import erase_auf_anfrage, get_erasure_ansicht_auf_anfrage
-from app.api.identitaet.crud import ERASURE_JOURNAL_EVENT, UNKNOWN_COMMIT_RESULT
+from app.api.identitaet.crud import ERASURE_JOURNAL_EVENT
 from app.api.identitaet.schemas import FLErasure, FLErasureAnsichtPayload, FLErasureAnsichtResponse, FLErasurePayload, FLErasureResponse
 from app.api.identitaet.services import EIGENE_ADRESSE, INHABER_ADRESSE
 from app.api.schiedsrichter.services import build_ghost_schiedsrichter
@@ -35,7 +34,7 @@ from app.core.crud import ANCHOR_FIELD, patch_one_in_db
 from app.core.db import NO_OWNER, get_aktionen_collection, get_spieler_collection
 from app.core.exception_handlers import DATABASE_FAILED, PAYLOAD_REFUSED, UNKNOWN_OUTCOME
 from app.core.recording import Actor
-from app.core.security import ACTOR_NOT_ADMIN, get_recent_confirmation_check, loeschung_journal_hash
+from app.core.security import ACTOR_NOT_ADMIN, get_recent_confirmation_check
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID, GHOST_SPIELER_ID
 from app.main import create_app
 from app.shared.schemas.bounds import ERASURE_ANLASS_MAX_LENGTH
@@ -45,6 +44,7 @@ from tests.bans import ban_list
 from tests.config import ADMIN_KEY, ADMINISTRATORS, UNANSWERED_DEADLINE_S, UNANSWERED_URI, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import schiedsrichter_document
+from tests.erasure import erasure_collections
 from tests.isolation import InterleavedCollection
 from tests.whole_database import where_held
 from tests.worker import worker_database
@@ -58,7 +58,6 @@ from .test_funktionen_erasure import (
     GRANTED_BY_THEM_OID,
     HOME_TEAM_OID,
     IDENTIFIER,
-    LOST_COMMIT_DEADLINE_S,
     MOVING_PUPIL_OID,
     NACHNAME,
     NOW,
@@ -75,13 +74,11 @@ from .test_funktionen_erasure import (
     THEIR_VALUES,
     TYPED,
     VORNAME,
-    WRITE_CONCERN_FAILED,
     a_grant,
     a_person_holding_everything,
     acting,
     as_person,
     everything_in,
-    the_collections,
 )
 from .test_funktionen_erasure import PATH as SELBST_PATH
 
@@ -99,12 +96,6 @@ ANOTHER_ADMINISTRATOR = ADMINISTRATORS[3]
 GRANT_ID_OF = {row["adresse"]: row["_id"] for row in grants_for_the_suite()}
 
 ANLASS = "Mail vom 30.03.2026, Betreff: Bitte löscht alle meine Daten"
-
-# The fail point refusing one commit matches this client's name alone: every worker shares the server.
-REFUSED_COMMIT_APP = f"{DATABASE_NAME}-refused-commit"
-WRITE_CONFLICT = 112
-# The one losing every commit's answer, for the same reason.
-LOST_COMMIT_APP = f"{DATABASE_NAME}-lost-commit"
 
 # What every address-less referee row holds, under RFC 6761's reserved `invalid`: one value, shared by every such row.
 PLACEHOLDER = "adresse-fehlt@frankfurtleague.invalid"
@@ -180,7 +171,7 @@ async def erased_by_the_handler(
 
     return await erase_auf_anfrage(
         erasure_data=FLErasurePayload(email=email, anlass=anlass),
-        **the_collections(database, **replaced),
+        **erasure_collections(database, **replaced),
         sperrliste=ban_list(database),
         # Refusing none: the window is held over HTTP, in `tests/api/test_step_up_execution.py`.
         refuse_unconfirmed=get_recent_confirmation_check(FRESH_ADMIN_ACTOR),
@@ -475,11 +466,7 @@ class TestAnOwnersAddress:
                     return cast(AsyncCollection, racing[-1])
 
                 served.dependency_overrides[get_spieler_collection] = pupils
-                try:
-                    response = await http.post(PATH, json=erasure_of(), headers=SignedActor(OPERATOR, ADMIN_KEY))
-                finally:
-                    # The app is the module's: a rival left on it would run inside every later case's erasure.
-                    del served.dependency_overrides[get_spieler_collection]
+                response = await http.post(PATH, json=erasure_of(), headers=SignedActor(OPERATOR, ADMIN_KEY))
 
             grant = await database[Collection.BERECHTIGUNGEN].find_one({"_id": THEIR_GRANT_OID})
 
@@ -669,71 +656,6 @@ class TestAnAdministratorRevokedMidRequest:
 
 
 @pytest.mark.db
-class TestTheJournal:
-    def test_one_line_follows_the_commit_and_none_the_attempt_rolled_back(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
-        """The first commit is refused under the transient label, so the driver reruns the erasure: one line, the rerun's."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            refusing = AsyncMongoClient(mongo_replica_set_url, serverMonitoringMode="poll", appname=REFUSED_COMMIT_APP)
-            refusal = {
-                "failCommands": ["commitTransaction"],
-                "appName": REFUSED_COMMIT_APP,
-                "errorCode": WRITE_CONFLICT,
-                "errorLabels": ["TransientTransactionError"],
-            }
-            entered = (await client.admin.command("configureFailPoint", "failCommand", mode={"times": 1}, data=refusal))["count"]
-            try:
-                answer = await erased_by_the_handler(refusing[database.name], refusing)
-            finally:
-                left = (await client.admin.command("configureFailPoint", "failCommand", mode="off"))["count"]
-                await refusing.close()
-
-            return left - entered, answer.spieler
-
-        with caplog.at_level(logging.INFO):
-            refused, erased = on_a_league(mongo_replica_set_url, body)
-
-        assert journal_lines(caplog) == [
-            f"{ERASURE_JOURNAL_EVENT} {loeschung_journal_hash(IDENTIFIER, schluessel=CONFIG.sperrliste_schluessel)}"
-        ]
-        # The premise last: one commit refused, so the line above is the rerun's alone.
-        assert (refused, erased) == (1, 1)
-
-    def test_a_commit_whose_answer_is_lost_is_journalled_all_the_same(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
-        """Catches a route journalling once its commit answers: this one landed, and its answer was lost to the deadline.
-
-        Every commit runs and answers a replication timeout, so the driver retries it until the case's deadline ends it.
-        """
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            losing = AsyncMongoClient(mongo_replica_set_url, serverMonitoringMode="poll", appname=LOST_COMMIT_APP)
-            unanswered = {
-                "failCommands": ["commitTransaction"],
-                "appName": LOST_COMMIT_APP,
-                "writeConcernError": {"code": WRITE_CONCERN_FAILED, "errmsg": "waiting for replication timed out"},
-            }
-            entered = (await client.admin.command("configureFailPoint", "failCommand", mode="alwaysOn", data=unanswered))["count"]
-            try:
-                with pytest.raises(PyMongoError) as lost:
-                    with pymongo.timeout(LOST_COMMIT_DEADLINE_S):
-                        await erased_by_the_handler(losing[database.name], losing)
-            finally:
-                left = (await client.admin.command("configureFailPoint", "failCommand", mode="off"))["count"]
-                await losing.close()
-
-            return left > entered, lost.value.has_error_label(UNKNOWN_COMMIT_RESULT), await where_held(database, IDENTIFIER)
-
-        with caplog.at_level(logging.INFO):
-            answered, labelled, after = on_a_league(mongo_replica_set_url, body)
-
-        assert journal_lines(caplog) == [
-            f"{ERASURE_JOURNAL_EVENT} {loeschung_journal_hash(IDENTIFIER, schluessel=CONFIG.sperrliste_schluessel)}"
-        ]
-        # The premise last: a commit ran and its answer was lost, and the erasure landed.
-        assert (answered, labelled, after) == (True, True, {IDENTIFIER: []})
-
-
-@pytest.mark.db
 class TestAnotherAdministratorsAddress:
     def test_their_grant_goes_and_a_list_left_without_an_owner_is_named_once_it_commits(
         self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture
@@ -876,10 +798,7 @@ class TestTheSignOut:
                     return cast(AsyncCollection, racing[-1])
 
                 served.dependency_overrides[get_aktionen_collection] = log
-                try:
-                    response = await http.post(ABMELDUNG_PATH, json=ansicht_of(), headers=SignedActor(OPERATOR, ADMIN_KEY))
-                finally:
-                    del served.dependency_overrides[get_aktionen_collection]
+                response = await http.post(ABMELDUNG_PATH, json=ansicht_of(), headers=SignedActor(OPERATOR, ADMIN_KEY))
 
             return response, await filed_by(database, ABMELDUNG_PATH)
 

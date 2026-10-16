@@ -134,7 +134,7 @@ class TestTheStatusesAnActivationLeaves:
 
 # One pupil's commands on the wire, pinned by
 # `fl_backend/tests/api/test_loeschung_sweep.py :: TestOnePupilCostsTheCommandsItsShareIsSizedAt`.
-COMMANDS_A_PERSON = 24
+COMMANDS_A_PERSON = 19
 
 # The call's other commands, four on the wire and one for the pending registrations' read past the
 # driver's first batch, the page being one document; the per-command cost the largest of two windows
