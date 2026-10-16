@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { registerHooks } from "node:module";
 import path from "node:path";
 import { describe, it } from "node:test";
@@ -50,6 +50,7 @@ const {
   buildBewerbungZusageEmail,
 } = await import("./bewerbungEmail.ts");
 const { buildCodeEmail } = await import("./authEmail.ts");
+const { buildBerechtigungEmail } = await import("./berechtigungEmail.ts");
 const { buildEinladungEmail } = await import("./einladungEmail.ts");
 const { buildKontaktBestaetigungEmail } = await import("./kontaktEmail.ts");
 const { buildLoeschungEmail } = await import("./loeschungEmail.ts");
@@ -96,21 +97,19 @@ function controlSection(html: string): string {
 }
 
 /**
+ * Every mail module beside this file, each `*Email.ts` building on the shell: read off the directory,
+ * so a module written tomorrow joins the register below without anyone listing it.
+ */
+const MAIL_MODULES = readdirSync(import.meta.dirname).filter(
+  (file) => file.endsWith("Email.ts") && /from "\.\/emailShell(\.ts)?"/.test(readFileSync(path.join(import.meta.dirname, file), "utf8")),
+);
+
+/**
  * Every builder the mail modules export, read off the module namespace rather than matched in
  * their source: a name no pattern anticipates would drop out of both sides of the register at once.
  */
-const BUILT_MESSAGES = [
-  ...Object.keys(await import("./bewerbungEmail.ts")),
-  ...Object.keys(await import("./authEmail.ts")),
-  ...Object.keys(await import("./einladungEmail.ts")),
-  ...Object.keys(await import("./kontaktEmail.ts")),
-  ...Object.keys(await import("./loeschungEmail.ts")),
-  ...Object.keys(await import("./passkeyEmail.ts")),
-  ...Object.keys(await import("./registrierungEmail.ts")),
-  ...Object.keys(await import("./schiedsrichterEmail.ts")),
-  ...Object.keys(await import("./sperrlisteEmail.ts")),
-  ...Object.keys(await import("./spielerEmail.ts")),
-]
+const BUILT_MESSAGES = (await Promise.all(MAIL_MODULES.map(async (file) => Object.keys(await import(`./${file}`)))))
+  .flat()
   .filter((name) => name.startsWith("build"))
   .sort();
 
@@ -244,6 +243,12 @@ const FIXTURES: Record<string, (origin: string) => { html: string; text: string 
   buildSpielerAdresswechselEmail: (origin) =>
     buildSpielerAdresswechselEmail({ origin: origin, token: "beispiel-sieben", fristText: "05.10.2026" }),
   buildSpielerAdresswechselHinweisEmail: (origin) => buildSpielerAdresswechselHinweisEmail({ origin: origin, vorname: "Lena" }),
+  buildBerechtigungEmail: (origin) =>
+    buildBerechtigungEmail(
+      { art: "erteilt", adresse: "neu@schule.de", inhaber: false },
+      { von: "vorstand@schule.de", am: "2026-01-15T22:30:00Z" },
+      origin,
+    ),
 };
 
 /** Every message the mail modules build, so a design claim is checked against all of them rather than against one. */
