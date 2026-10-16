@@ -1208,6 +1208,15 @@ says that pass is stuck, which recreating the service ends too. Every failure in
 `FE-SWEEP-003` line ([`../logging/error-codes.md`](../logging/error-codes.md)), and the next pass
 asks again.
 
+**A `konto.referenzen_failed` line carrying `REQ-REFERENZEN-001` means the backend reads no live
+`owner` grant**, so it refuses every batch and the sweep deletes nothing, every pass alike
+([`../backend/spec.md`](../backend/spec.md#2-invariants) I712). Such a pass still writes its
+`konto.sweep_completed` line, its `fehlgeschlagen` equal to its `gelistet`, so a completion line
+alone does not say the sweep works. Either the backend reads another database than the league's,
+which `DB_BASE_NAME` in `fl_backend/.env` names, or the `owner` grant is gone; the backend's boot warns
+`SRV-BOOT-005` or `SRV-BOOT-006` in both cases. Repair the setting, or write the `owner` grant as
+[section 3](#3-granting-or-revoking-admin-access) says.
+
 ## 10. The mail provider's dashboard
 
 **None of this is in the repository**, and the webhook is inert until it is done. Steps 1, 2 and 4
