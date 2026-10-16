@@ -4,7 +4,7 @@ A typed time runs ahead of the clock, so `append` and `resume` stamp from it; te
 or stdin, since a backtick inside a double-quoted argument ran as a command and dropped words. A
 table no tool writes drifts, so `dispatch` writes the live-agent row, routes the brief's `Rows:`,
 ticks the standing action naming the brief and marks a resume RUNNING, and `message`, the messages
-hook's, records each send and routes its rows one by one.
+hook's, records each send, routes its rows one by one and marks the agent it resumes RUNNING.
 
     uv run --project fl_backend --frozen python .claude/skills/orchestration/tools/reg.py <command>
 
@@ -13,6 +13,7 @@ hook's, records each send and routes its rows one by one.
     dispatch <register> <NAME> [--id <agent id>] [--question <text>] [--brief <file>] [--takes <queue>]
     queue <register> <trigger> <brief> [--done <evidence>]
     message <plans directory>
+    pause <register> <NAME>…
     live <register>
     prune <register>
     overlap <register> (<path>… | --brief <file>)
@@ -25,6 +26,7 @@ Exit 0 done, 2 refused; `overlap` 1 while a path is shared; `prune` 1 where git 
 from __future__ import annotations
 
 import argparse
+import contextlib
 import datetime
 import io
 import json
@@ -50,11 +52,19 @@ STANDING_HEADING: Final = "## Standing actions"
 WINDOW: Final = "window"
 # A field's label ends at the first colon a space follows, so a time inside it such as 18:59 stays in it.
 FIELD_RE: Final = re.compile(r"^(?P<label>[^\n]{1,80}?):(?:[ \t]+(?P<text>.*))?$")
-SECTION_RE: Final = re.compile(r"^\s*(?:\d+\s+)?[A-Z][A-Z ]*[A-Z][.:](?:\s|$)")
-OWNERSHIP_RE: Final = re.compile(r"^\s*(?:\d+\s+)?OWNERSHIP[.:]")
-PATH_TOKEN_RE: Final = re.compile(r"(?<![\w./*@-])(?:\./)?[\w.@*-]+(?:/[\w.@*-]+)+/?")
+# The brief template's line, at a line's start, its entries parted by a comma and a space.
+OWNS_RE: Final = re.compile(r"^Owns:[ \t]*(?P<paths>.*)$", re.MULTILINE)
 AGENT_BRANCH_RE: Final = re.compile(r"^worktree-agent-(?P<id>[A-Za-z0-9]+)$")
 GLOB_CHARS: Final = frozenset("*?[")
+# The live-agent states an agent holds its rows and its worktree in; `pause` writes the second.
+LIVE_STATES: Final = ("RUNNING", "PAUSED")
+DONE_RE: Final = re.compile(r"^DONE (?P<stamp>\d{4}-\d\d-\d\d \d\d:\d\d)\b")
+# What an install, a build or a test run writes again, so a worktree holding no other ignored file
+# loses nothing with it: a `.env` file or an audit report is nowhere else.
+REBUILT_DIRS: Final = frozenset({"node_modules", ".venv", ".next", "__pycache__", ".pytest_cache", ".ruff_cache"})
+REBUILT_FILE_RE: Final = re.compile(r"\.(?:pyc|tsbuildinfo)$|^(?:next-env\.d\.ts|\.eslintcache)$")
+# The harness copies the checkout's own into every worktree it makes.
+LOCAL_SETTINGS: Final = ".claude/settings.local.json"
 
 
 def append(register: Path, text: str, now: datetime.datetime | None = None) -> str:
@@ -213,7 +223,6 @@ def dispatch(
 
     def edit(lines: list[str]) -> tuple[list[str], list[str]]:
         table, end = ledger.live_table(lines)
-        column = ledger.status_column(lines[table])
         said: list[str] = []
         first = f"{name} `{agent}`" if agent else name
         row = next((k for k in range(table + 2, end + 1) if ledger.row_name(lines[k]) == name), None)
@@ -223,12 +232,8 @@ def dispatch(
                 parts[1] = f" {first} "
                 lines[row] = "|".join(parts)
                 said.append(f"named {agent} in {name}'s live-agent row")
-            held = ledger.cells(lines[row])
-            # A finished agent sent another round is live again: its gauge and its stale-row check read this cell.
-            if agent and column < len(held) and held[column].startswith("DONE"):
-                held[column] = f"RUNNING ({ledger.stamp(now)})"
-                lines[row] = ledger.joined(held)
-                said.append(f"set {name}'s live-agent row RUNNING again: a resume")
+            if agent and (woke := _wake(lines, name, now)):
+                said.append(woke)
         else:
             width = lines[table].count("|") - 1
             made = [first, question, *[""] * max(width - 3, 0), f"RUNNING ({ledger.stamp(now)})"][:width]
@@ -257,8 +262,8 @@ def _take_rows(register: Path, lines: list[str], name: str, rows: list[str], tak
     moved, refused = ledger.route_lines(lines, at, name, rows)
     if takes is not None:
         # A live fixer's rows are in flight: taken in silence, two agents would fix one finding.
-        if takes != name and _running(lines, takes):
-            raise ValueError(f"{takes} is a RUNNING agent: its rows stay with it until it reports")
+        if takes != name and (state := _live_state(lines, takes)):
+            raise ValueError(f"{takes} is a {state} agent: its rows stay with it until it reports")
         held = [row for row, k in at.items() if ledger.status(cells := ledger.cells(lines[k])) == "ROUTED" and ledger.owner(cells) == takes]
         taken, more = ledger.route_lines(lines, at, name, held, reroute=True, held_by=takes)
         moved, refused = moved + taken, refused + more
@@ -268,11 +273,52 @@ def _take_rows(register: Path, lines: list[str], name: str, rows: list[str], tak
     return refused
 
 
-def _running(lines: list[str], name: str) -> bool:
+def _live_state(lines: list[str], name: str) -> str | None:
+    """The state of the live agent `name` names, RUNNING or PAUSED; None where it is neither."""
     table, end = ledger.live_table(lines)
     column = ledger.status_column(lines[table])
     rows = (ledger.cells(lines[k]) for k in range(table + 2, end + 1) if ledger.row_name(lines[k]) == name)
-    return any(column < len(row) and row[column].startswith("RUNNING") for row in rows)
+    return next((state for row in rows if column < len(row) for state in LIVE_STATES if row[column].startswith(state)), None)
+
+
+def _wake(lines: list[str], name: str, now: datetime.datetime | None) -> str | None:
+    """The row of `name` set RUNNING where it reads DONE or PAUSED, in `lines`; what was done."""
+    try:
+        table, end = ledger.live_table(lines)
+    except ValueError:
+        return None
+    column = ledger.status_column(lines[table])
+    for k in range(table + 2, end + 1):
+        row = ledger.cells(lines[k])
+        # A finished or paused agent sent another round is live again: the gauge and the stale-row check read this cell.
+        if ledger.row_name(lines[k]) == name and column < len(row) and row[column].startswith(("DONE", "PAUSED")):
+            row[column] = f"RUNNING ({ledger.stamp(now)})"
+            lines[k] = ledger.joined(row)
+            return f"set {name}'s live-agent row RUNNING again: a resume"
+    return None
+
+
+def pause(register: Path, names: list[str], now: datetime.datetime | None = None) -> list[str]:
+    """Each named RUNNING agent's row set PAUSED, all or none; what was done."""
+
+    def edit(lines: list[str]) -> list[str]:
+        table, end = ledger.live_table(lines)
+        column = ledger.status_column(lines[table])
+        said, refused = [], []
+        for name in dict.fromkeys(names):
+            at = [k for k in range(table + 2, end + 1) if ledger.row_name(lines[k]) == name]
+            row = ledger.cells(lines[at[0]]) if len(at) == 1 else []
+            if column >= len(row) or not row[column].startswith("RUNNING"):
+                refused.append(f"{name} is no single RUNNING live-agent row" + (f": it reads `{row[column]}`" if column < len(row) else ""))
+                continue
+            row[column] = f"PAUSED {ledger.stamp(now)}"
+            lines[at[0]] = ledger.joined(row)
+            said.append(f"{name} is PAUSED: a message resumes it, and the messages hook sets it RUNNING")
+        if refused:
+            raise ValueError("; ".join(refused))
+        return said
+
+    return ledger.update(register, edit)
 
 
 def record(payload: dict[str, object], plans: Path, now: datetime.datetime | None = None) -> str | None:
@@ -312,6 +358,12 @@ def record(payload: dict[str, object], plans: Path, now: datetime.datetime | Non
         lines += entry
 
     ledger.update(target, add)
+    # Recorded from here on: a failure past this line is said beside the record, never as a lost send.
+    said: list[str] = []
+    try:
+        ledger.update(registers[0], lambda lines: _wake(lines, name, now))
+    except Exception as failed:
+        said.append(f"its live-agent row was not set RUNNING ({type(failed).__name__}: {failed})")
     # Each line routes on its own, and each row within it: a refused row once dropped eight others with it.
     orders = [(None, _named(found)) for found in ROWS_RE.findall(text)]
     orders += [(found["owner"], _named(found["rows"])) for found in REROUTE_RE.finditer(text)]
@@ -321,9 +373,11 @@ def record(payload: dict[str, object], plans: Path, now: datetime.datetime | Non
             continue
         try:
             refused += ledger.route_each(registers[0], name, rows, reroute=held_by is not None, held_by=held_by)[1]
-        except ValueError as failed:
+        except Exception as failed:
             refused.append(str(failed))
-    return f"The message to {name} is recorded; these rows were not routed to it: {'; '.join(refused)}." if refused else None
+    if refused:
+        said.append(f"these rows were not routed to it: {'; '.join(refused)}")
+    return f"The message to {name} is recorded; {'; '.join(said)}." if said else None
 
 
 def _named(found: str) -> list[str]:
@@ -331,12 +385,15 @@ def _named(found: str) -> list[str]:
 
 
 def live(register: Path) -> list[str]:
-    """Each RUNNING live-agent row, then their count: the fleet's gauge."""
+    """Each RUNNING live-agent row, the PAUSED ones apart, and the RUNNING count last: the fleet's gauge."""
     lines = register.read_bytes().decode("utf-8").split("\n")
     table, end = ledger.live_table(lines)
     column = ledger.status_column(lines[table])
-    running = [row for k in range(table + 2, end + 1) if column < len(row := ledger.cells(lines[k])) and row[column].startswith("RUNNING")]
+    rows = [row for k in range(table + 2, end + 1) if column < len(row := ledger.cells(lines[k]))]
+    running, paused = ([row for row in rows if row[column].startswith(state)] for state in LIVE_STATES)
     said = [f"{row[0]}  {row[column]}  {ledger.escaped(row[1])[:100]}" for row in running]
+    # A paused agent spends nothing until a message resumes it, so the gauge leaves it out.
+    said += [f"{len(paused)} PAUSED, outside the gauge:", *(f"  {row[0]}  {row[column]}" for row in paused)] if paused else []
     return [*said, f"{len(running)} RUNNING"]
 
 
@@ -404,20 +461,20 @@ def matches(path: str, pattern: str) -> bool:
     return path == pattern.rstrip("/") or path.startswith(pattern.rstrip("/") + "/")
 
 
-def brief_paths(brief: Path, root: Path) -> list[str]:
-    """The repository paths a brief's OWNERSHIP section names, a token counted only where its first folder exists."""
-    lines = brief.read_bytes().decode("utf-8").splitlines()
-    start = next((k for k, line in enumerate(lines) if OWNERSHIP_RE.match(line)), None)
-    if start is None:
-        raise ValueError(f"{brief} has no OWNERSHIP section")
-    end = next((k for k in range(start + 1, len(lines)) if SECTION_RE.match(lines[k]) or lines[k].startswith("#")), len(lines))
-    tokens = (token.rstrip(".,;:)") for line in lines[start:end] for token in PATH_TOKEN_RE.findall(OWNERSHIP_RE.sub("", line)))
-    paths = list(
-        dict.fromkeys(token for token in tokens if not GLOB_CHARS & set(token.split("/")[0]) and (root / token.split("/")[0]).exists())
-    )
+def owned(brief: Path) -> list[str]:
+    """The paths a brief's `Owns:` lines name, refused where it carries none."""
+    found = OWNS_RE.findall(brief.read_bytes().decode("utf-8"))
+    paths = [entry.strip().strip("`") for line in found for entry in line.split(", ") if entry.strip().strip("`")]
     if not paths:
-        raise ValueError(f"{brief}'s OWNERSHIP section names no repository path")
-    return paths
+        # Never the OWNERSHIP prose: a path it writes relative to its package, or bare, matches nothing, silently.
+        raise ValueError(f"{brief} carries no `Owns:` line naming a path, so there is nothing to compare (brief-template.md)")
+    return list(dict.fromkeys(paths))
+
+
+def unresolved(patterns: list[str]) -> list[str]:
+    """Each pattern no tracked path answers: a file still to be made, or a path written wrong."""
+    tracked = _git("ls-files", "-z").split("\0")
+    return [pattern for pattern in patterns if not any(matches(path, pattern) for path in tracked if path)]
 
 
 def overlap(register: Path, patterns: list[str]) -> list[str]:
@@ -430,37 +487,112 @@ def overlap(register: Path, patterns: list[str]) -> list[str]:
     return shared
 
 
-def prune(register: Path) -> tuple[list[str], list[str]]:
-    """Each DONE agent's merged branch and clean worktree removed; what was done, and each removal git refused."""
+class Agent(NamedTuple):
+    name: str
+    status: str
+
+
+def _holding(lines: list[str], register: Path) -> dict[str, list[str]] | None:
+    """Each owner's ROUTED rows; None where the register holds no ledger."""
+    try:
+        ledger.table_under(lines, ledger.LEDGER_HEADING)
+    except ValueError:
+        return None
+    holding: dict[str, list[str]] = {}
+    for row, k in ledger.rows_at(lines, register).items():
+        if ledger.status(cells := ledger.cells(lines[k])) == "ROUTED":
+            holding.setdefault(ledger.owner(cells), []).append(row)
+    return holding
+
+
+def _resumed(agent: str, status: str, projects: Path) -> str | None:
+    """Why the agent's transcript says it is working again, or may be; None where it says the agent finished."""
+    found = ledger.transcripts(agent, projects)
+    if len(found) > 1:
+        return f"{len(found)} transcripts name it, so whether it was resumed is not known"
+    if not found:
+        return None
+    written = datetime.datetime.fromtimestamp(found[0].stat().st_mtime).replace(second=0, microsecond=0)
+    done = DONE_RE.match(status)
+    with contextlib.suppress(ValueError):
+        if done and written > datetime.datetime.strptime(done["stamp"], "%Y-%m-%d %H:%M"):
+            return f"its transcript was written at {written:%Y-%m-%d %H:%M}, after its DONE stamp: a resumed agent"
+    if stopped := ledger.mid_turn(*ledger.last_message(found[0])):
+        return f"its transcript ends mid-turn, in {stopped}"
+    return None
+
+
+def _rebuilt(path: str, tree: Path, root: Path) -> bool:
+    """Whether an ignored path is one an install, a build or the harness writes again."""
+    parts = PurePosixPath(path.rstrip("/")).parts
+    if REBUILT_DIRS & set(parts) or REBUILT_FILE_RE.search(parts[-1]):
+        return True
+    copy, own = tree / LOCAL_SETTINGS, root / LOCAL_SETTINGS
+    return path == LOCAL_SETTINGS and own.is_file() and copy.read_bytes() == own.read_bytes()
+
+
+def _kept(agent: str, held: Agent, tree: Worktree | None, holding: dict[str, list[str]], projects: Path, root: Path) -> str | None:
+    """Why a finished agent's branch and worktree stay; None where both can go."""
+    branch = f"worktree-agent-{agent}"
+    if not _ok("merge-base", "--is-ancestor", branch, "HEAD"):
+        return "not merged into HEAD"
+    if rows := holding.get(held.name):
+        return f"it still holds ROUTED rows, {', '.join(rows[:5])}" + (f" and {len(rows) - 5} more" if len(rows) > 5 else "")
+    if resumed := _resumed(agent, held.status, projects):
+        return resumed
+    if tree is None or not tree.path.is_dir():
+        return None
+    # `matching` names an ignored folder without walking it, where the default walks every installed package.
+    entries = [entry for entry in _git("-C", str(tree.path), "status", "--porcelain", "-z", "--ignored=matching").split("\0") if entry]
+    if any(not entry.startswith("!! ") for entry in entries):
+        return "it holds uncommitted work"
+    # `git worktree remove` takes ignored files with the tree: a `.env` file or an audit report is nowhere else.
+    if kept := [entry[3:] for entry in entries if not _rebuilt(entry[3:], tree.path, root)]:
+        return f"it holds ignored files no install or build writes again: {', '.join(kept[:5])}" + (" …" if len(kept) > 5 else "")
+    return None
+
+
+def prune(register: Path, projects: Path) -> tuple[list[str], list[str]]:
+    """Each finished agent's merged branch and clean worktree removed, each other worktree named with why; what was done, each refusal."""
     lines = register.read_bytes().decode("utf-8").split("\n")
     table, end = ledger.live_table(lines)
     column = ledger.status_column(lines[table])
-    trees = {tree.branch: tree for tree in worktrees() if tree.branch}
-    said, failed = [], []
+    agents: dict[str, Agent] = {}
     for k in range(table + 2, end + 1):
-        if column >= len(row := ledger.cells(lines[k])) or not row[column].startswith("DONE"):
-            continue
-        name = ledger.row_name(lines[k])
+        row = ledger.cells(lines[k])
         for agent in ledger.CODE_SPAN_RE.findall(ledger.first_cell(lines[k])):
-            branch = f"worktree-agent-{agent}"
-            if not _ok("show-ref", "--verify", "--quiet", f"refs/heads/{branch}"):
-                continue
-            if not _ok("merge-base", "--is-ancestor", branch, "HEAD"):
-                said.append(f"kept {branch} ({name}): not merged into HEAD")
-                continue
-            tree = trees.get(branch)
-            if tree is not None and tree.path.is_dir() and _git("-C", str(tree.path), "status", "--porcelain").strip():
-                said.append(f"kept {tree.path} ({name}): it holds uncommitted work")
-                continue
-            # A worktree whose folder is gone is pruned from git's records rather than removed.
-            steps = [("worktree", "remove", str(tree.path)) if tree.path.is_dir() else ("worktree", "prune")] if tree else []
-            for step in [*steps, ("branch", "-d", branch)]:
-                done = subprocess.run(("git", *step), capture_output=True, check=False)
-                if done.returncode != 0:
-                    failed.append(f"git {' '.join(step)} ({name}) exited {done.returncode}: {done.stderr.decode('utf-8', 'replace').strip()}")
-                    break
-            else:
-                said.append(f"removed {tree.path if tree else 'no worktree'} and {branch} ({name})")
+            agents[agent] = Agent(ledger.row_name(lines[k]), row[column] if column < len(row) else "")
+    holding = _holding(lines, register)
+    root = Path(_git("rev-parse", "--show-toplevel").strip())
+    every = worktrees()
+    trees = {tree.branch: tree for tree in every if tree.branch}
+    said = [] if holding is not None else ["no findings ledger, so no agent was kept for the rows it holds"]
+    failed: list[str] = []
+    for tree in every:
+        found = AGENT_BRANCH_RE.match(tree.branch or "")
+        if tree.branch is None:
+            said.append(f"left {tree.path}: detached at {tree.head[:9]}, so no branch names its agent")
+        elif found is None or found["id"] not in agents:
+            said.append(f"left {tree.path} ({tree.branch}): no live-agent row names it")
+        elif not (held := agents[found["id"]]).status.startswith("DONE"):
+            said.append(f"left {tree.path} ({held.name}): its row reads `{held.status}`")
+    for agent, held in agents.items():
+        branch = f"worktree-agent-{agent}"
+        if not held.status.startswith("DONE") or not _ok("show-ref", "--verify", "--quiet", f"refs/heads/{branch}"):
+            continue
+        tree = trees.get(branch)
+        if reason := _kept(agent, held, tree, holding or {}, projects, root):
+            said.append(f"kept {tree.path if tree else branch} ({held.name}): {reason}")
+            continue
+        # `remove` drops a worktree whose folder is gone as well, and `prune` would drop every other stale one with it.
+        steps = [("worktree", "remove", str(tree.path))] if tree else []
+        for step in [*steps, ("branch", "-d", branch)]:
+            done = subprocess.run(("git", *step), capture_output=True, check=False)
+            if done.returncode != 0:
+                failed.append(f"git {' '.join(step)} ({held.name}) exited {done.returncode}: {done.stderr.decode('utf-8', 'replace').strip()}")
+                break
+        else:
+            said.append(f"removed {tree.path if tree else 'no worktree'} and {branch} ({held.name})")
     return said, failed
 
 
@@ -514,12 +646,15 @@ def _parser() -> argparse.ArgumentParser:
     queueing.add_argument("--done", metavar="EVIDENCE", help="tick the row on this evidence: sent by message, or withdrawn and why")
     messaging = commands.add_parser("message")
     messaging.add_argument("plans", type=Path, help="the plans directory; the PostToolUse payload arrives on stdin")
+    pausing = commands.add_parser("pause", help="each named RUNNING agent paused under /pace, which a message resumes")
+    pausing.add_argument("register", type=Path)
+    pausing.add_argument("names", nargs="+")
     for read in ("live", "prune"):
         commands.add_parser(read).add_argument("register", type=Path)
     overlapping = commands.add_parser("overlap")
     overlapping.add_argument("register", type=Path)
     overlapping.add_argument("paths", nargs="*")
-    overlapping.add_argument("--brief", type=Path, help="the paths its OWNERSHIP section names")
+    overlapping.add_argument("--brief", type=Path, help="the paths its `Owns:` lines name")
     reading = commands.add_parser("context")
     reading.add_argument("register", type=Path)
     reading.add_argument("agents", nargs="+")
@@ -557,23 +692,29 @@ def _run(args: argparse.Namespace) -> int:
     if args.command == "queue":
         print(queue(args.register, args.trigger, args.brief, args.done))
         return 0
+    if args.command == "pause":
+        print("\n".join(pause(args.register, args.names)))
+        return 0
     if args.command == "live":
         print("\n".join(live(args.register)))
         return 0
     if args.command == "overlap":
         if bool(args.paths) == (args.brief is not None):
             raise ValueError("overlap takes paths or --brief <file>, one of the two")
-        root = Path(_git("rev-parse", "--show-toplevel").strip())
-        shared = overlap(args.register, args.paths or brief_paths(args.brief, root))
+        patterns = args.paths or owned(args.brief)
+        for pattern in unresolved(patterns):
+            print(f"{pattern} names no tracked path: compared as written, a file still to be made or a path written wrong", file=sys.stderr)
+        shared = overlap(args.register, patterns)
         print("\n".join(shared) if shared else "no live worktree changes a path of these")
         return 1 if shared else 0
+    projects = Path.home() / ".claude" / "projects"
     if args.command == "prune":
-        said, failed = prune(args.register)
+        said, failed = prune(args.register, projects)
         print("\n".join(said) if said else "nothing to prune")
         for line in failed:
             print(line, file=sys.stderr)
         return 1 if failed else 0
-    said, refused = context(args.register, args.agents, Path.home() / ".claude" / "projects")
+    said, refused = context(args.register, args.agents, projects)
     print("\n".join(said))
     for line in refused:
         print(line, file=sys.stderr)

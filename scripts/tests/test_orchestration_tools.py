@@ -14,6 +14,7 @@ import json
 import os
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 import threading
@@ -1044,6 +1045,68 @@ def test_live_lists_the_running_rows_and_their_count(tmp_path: Path) -> None:
     assert done.returncode == 0 and done.stdout.splitlines()[-1] == "4 RUNNING" and "FIXER-2" not in done.stdout
 
 
+def _live_status(register: Path, name: str) -> str:
+    return next(ledger.cells(line)[-1] for line in register.read_bytes().decode().splitlines() if ledger.row_name(line) == name)
+
+
+def test_a_paused_agent_is_counted_apart_and_a_message_resumes_it(tmp_path: Path) -> None:
+    """An agent paused under /pace read RUNNING, so the gauge counted it and the width it bounds was wrong."""
+    plans, register, _ = _fleet(tmp_path)
+    assert _run("reg", "pause", str(register), "WORKER").returncode == 0
+    assert re.fullmatch(r"PAUSED \d{4}-\d\d-\d\d \d\d:\d\d", _live_status(register, "WORKER"))
+    said = _run("reg", "live", str(register)).stdout.splitlines()
+    assert said[-1] == "4 RUNNING" and "1 PAUSED, outside the gauge:" in said and not any(line.startswith("WORKER") for line in said)
+    before = register.read_bytes()
+    again = _run("reg", "pause", str(register), "OTHER", "WORKER")
+    assert again.returncode == 2 and "WORKER is no single RUNNING live-agent row: it reads `PAUSED" in again.stderr
+    assert register.read_bytes() == before
+    assert reg.record(_sent("WORKER", "carry on"), plans) is None
+    assert _live_status(register, "WORKER").startswith("RUNNING (")
+
+
+def test_a_message_to_a_finished_agent_sets_its_row_running(tmp_path: Path) -> None:
+    """A finished agent resumed by a message stayed DONE, so the gauge and the pacing count missed it."""
+    plans, register, _ = _fleet(tmp_path)
+    register.write_bytes(register.read_bytes().replace(b"| the work | x | RUNNING |", b"| the work | x | DONE 2026-10-16 10:00 W.md |"))
+    now = datetime.datetime(2026, 10, 16, 15, 1, tzinfo=datetime.UTC)
+    assert reg.record(_sent("a1b2c3", "a new round"), plans, now) is None
+    assert _live_status(register, "WORKER") == "RUNNING (2026-10-16 15:01)"
+    assert _live_status(register, "OTHER") == "RUNNING"
+
+
+def test_a_register_write_failing_after_the_record_says_the_message_is_recorded(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The hook said a message was in no messages file after writing it there, and the coordinator sent it twice."""
+    plans, _, messages = _fleet(tmp_path)
+
+    def locked(*_: object, **__: object) -> None:
+        raise OSError("the register is locked")
+
+    monkeypatch.setattr(ledger, "route_each", locked)
+    said = reg.record(_sent("WORKER", "Fix it.\nRows: A-F1"), plans)
+    assert said == "The message to WORKER is recorded; these rows were not routed to it: the register is locked."
+    assert "Fix it." in messages.read_bytes().decode("utf-8")
+
+
+def test_a_message_to_an_agent_no_row_names_is_recorded_and_its_rows_refused(tmp_path: Path) -> None:
+    plans, register, _ = _fleet(tmp_path)
+    (tmp_path / "plans" / "prog" / "scratch" / "briefs" / "PEER-messages.md").write_bytes(b"# PEER\n")
+    said = reg.record(_sent("PEER", "Fix it.\nRows: A-F1"), plans)
+    assert said is not None and said.startswith("The message to PEER is recorded;") and "PEER is no owner" in said
+    assert _status(register, "A-F1") == ["OPEN", ""]
+
+
+def test_dispatch_takes_a_finished_agents_rows_and_never_a_paused_ones(tmp_path: Path) -> None:
+    _, register, _ = _fleet(tmp_path)
+    ledger.route(register, "FIXER-2", ["A-F1"])
+    ledger.route(register, "FIXER-1", ["A-F2"])
+    register.write_bytes(register.read_bytes().replace(b"| FIXER-2 | a fix |  | RUNNING |", b"| FIXER-2 | a fix |  | DONE 2026-10-16 x |"))
+    assert _run("reg", "pause", str(register), "FIXER-1").returncode == 0
+    taken = _run("reg", "dispatch", str(register), "NEWBIE", "--takes", "FIXER-2")
+    assert taken.returncode == 0 and _status(register, "A-F1") == ["ROUTED", "NEWBIE"], taken.stderr
+    paused = _run("reg", "dispatch", str(register), "LATER", "--takes", "FIXER-1")
+    assert paused.returncode == 2 and "FIXER-1 is a PAUSED agent" in paused.stderr
+
+
 def test_context_reads_the_last_calls_context_and_counts_the_calls(tmp_path: Path) -> None:
     """Agents resumed for a new round at 950,000 tokens of context cost a fresh agent's quota many times over."""
     env = _home(tmp_path)
@@ -2002,14 +2065,92 @@ def test_prune_removes_a_finished_agents_merged_clean_worktree_and_branch_alone(
         f"| SAVER `f00d` | q |  | {done} |",
         "| LIVE `beef` | q |  | RUNNING |",
     )
-    pruned = _run("reg", "prune", str(_agents(tmp_path, *rows)), cwd=root)
+    pruned = _run("reg", "prune", str(_agents(tmp_path, *rows)), cwd=root, env=_home(tmp_path))
     assert pruned.returncode == 0, pruned.stderr
     assert f"removed {trees['a1b2c3']} and worktree-agent-a1b2c3 (WORKER)" in pruned.stdout
-    assert "kept worktree-agent-d4e5f6 (OTHER): not merged into HEAD" in pruned.stdout
+    assert f"kept {trees['d4e5f6']} (OTHER): not merged into HEAD" in pruned.stdout
     assert f"kept {trees['f00d']} (SAVER): it holds uncommitted work" in pruned.stdout
+    assert f"left {trees['beef']} (LIVE): its row reads `RUNNING`" in pruned.stdout
     assert not trees["a1b2c3"].exists() and all(trees[agent].exists() for agent in ("d4e5f6", "f00d", "beef"))
     branches = git(root, "for-each-ref", "--format=%(refname:short)", "refs/heads/worktree-agent-*").split()
     assert branches == ["worktree-agent-beef", "worktree-agent-d4e5f6", "worktree-agent-f00d"]
+
+
+def _transcribed(tmp_path: Path, agent: str, *, ended: bool = True, written: float | None = 0.0) -> None:
+    """A finished agent's transcript, or one whose last message calls a tool; `written` sets its time, None leaving it now."""
+    _transcript(tmp_path / "home", agent, ("m1", ["F1 done\n"]))
+    path = tmp_path / "home" / ".claude" / "projects" / "proj" / "session" / "subagents" / f"agent-{agent}.jsonl"
+    if not ended:
+        call = {"message": {"id": "m1", "role": "assistant", "content": [{"type": "tool_use", "name": "Bash", "input": {}}]}}
+        path.write_bytes(path.read_bytes() + b"\n" + json.dumps(call).encode())
+    if written is not None:
+        os.utime(path, (written, written))
+
+
+def test_prune_keeps_a_finished_agent_that_works_again_holds_rows_or_holds_ignored_files(tmp_path: Path) -> None:
+    """A resumed writer passed every guard between its resume and its first edit, and its tree went with every file git ignores."""
+    agents = {"a1b2c3": "WORKER", "d4e5f6": "OTHER", "f00d": "SAVER", "beef": "KEEPER", "cafe": "CLEAN"}
+    root = _repo(tmp_path, branch="worktree-agent-a1b2c3")
+    (root / ".git" / "info").mkdir(exist_ok=True)
+    with (root / ".git" / "info" / "exclude").open("ab") as excluded:
+        excluded.write(b"\n.env*\nnode_modules/\n.claude/settings.local.json\n")
+    trees = {agent: tmp_path / f"tree-{agent}" for agent in agents}
+    for agent, tree in trees.items():
+        if agent != "a1b2c3":
+            git(root, "branch", f"worktree-agent-{agent}")
+        git(root, "worktree", "add", "-q", str(tree), f"worktree-agent-{agent}")
+    env = _home(tmp_path)
+    _transcribed(tmp_path, "a1b2c3", written=None)
+    _transcribed(tmp_path, "d4e5f6", ended=False)
+    _transcribed(tmp_path, "cafe")
+    write(trees["beef"], ".env.local", "A=1\n")
+    # The harness's copy of the checkout's own settings, and an install, go with the tree.
+    write(root, ".claude/settings.local.json", "{}\n")
+    write(trees["cafe"], ".claude/settings.local.json", "{}\n")
+    write(trees["cafe"], "node_modules/x/index.js", "")
+    register = _agents(tmp_path, *(f"| {name} `{agent}` | q |  | DONE 2020-01-01 10:00 x-report.md |" for agent, name in agents.items()))
+    (tmp_path / "A-report.md").write_bytes(b"F1 one\n")
+    ledger.bank(register, tmp_path / "A-report.md", routes=[("SAVER", [1])])
+    pruned = _run("reg", "prune", str(register), cwd=root, env=env)
+    assert pruned.returncode == 0, pruned.stderr
+    said = pruned.stdout
+    assert f"kept {trees['a1b2c3']} (WORKER): its transcript was written at" in said and "after its DONE stamp" in said
+    assert f"kept {trees['d4e5f6']} (OTHER): its transcript ends mid-turn, in a tool call" in said
+    assert f"kept {trees['f00d']} (SAVER): it still holds ROUTED rows, A-F1" in said
+    assert f"kept {trees['beef']} (KEEPER): it holds ignored files no install or build writes again: .env.local" in said
+    assert f"removed {trees['cafe']} and worktree-agent-cafe (CLEAN)" in said, said
+    assert [agent for agent, tree in trees.items() if tree.exists()] == ["a1b2c3", "d4e5f6", "f00d", "beef"]
+
+
+def test_prune_names_every_worktree_it_leaves_and_prunes_one_whose_folder_is_gone(tmp_path: Path) -> None:
+    """After a prune the text read every worktree left as a live agent's, while a detached tree and a stale row's tree stayed unnamed."""
+    root = _repo(tmp_path, branch="worktree-agent-a1b2c3")
+    git(root, "branch", "worktree-agent-d4e5f6")
+    git(root, "branch", "elsewhere")
+    loose, other, live, gone = (tmp_path / name for name in ("loose", "other", "live", "gone"))
+    git(root, "worktree", "add", "-q", "--detach", str(loose))
+    git(root, "worktree", "add", "-q", str(other), "elsewhere")
+    git(root, "worktree", "add", "-q", str(live), "worktree-agent-d4e5f6")
+    git(root, "worktree", "add", "-q", str(gone), "worktree-agent-a1b2c3")
+    shutil.rmtree(gone)
+    register = _agents(tmp_path, "| GONE `a1b2c3` | q |  | DONE 2020-01-01 10:00 x |", "| LIVE `d4e5f6` | q |  | RUNNING (2026-10-16 10:00) |")
+    pruned = _run("reg", "prune", str(register), cwd=root, env=_home(tmp_path))
+    assert pruned.returncode == 0, pruned.stderr
+    assert f"left {loose}: detached at" in pruned.stdout
+    assert f"left {other} (elsewhere): no live-agent row names it" in pruned.stdout
+    assert f"left {live} (LIVE): its row reads `RUNNING (2026-10-16 10:00)`" in pruned.stdout
+    assert f"removed {gone} and worktree-agent-a1b2c3 (GONE)" in pruned.stdout
+    assert "worktree-agent-a1b2c3" not in git(root, "branch", "--list")
+
+
+def test_prune_exits_one_naming_each_removal_git_refuses(tmp_path: Path) -> None:
+    root = _repo(tmp_path, branch="worktree-agent-a1b2c3")
+    tree = tmp_path / "tree"
+    git(root, "worktree", "add", "-q", str(tree), "worktree-agent-a1b2c3")
+    git(root, "worktree", "lock", str(tree))
+    pruned = _run("reg", "prune", str(_agents(tmp_path, "| LOCKED `a1b2c3` | q |  | DONE 2020-01-01 10:00 x |")), cwd=root, env=_home(tmp_path))
+    assert pruned.returncode == 1 and "git worktree remove" in pruned.stderr and "(LOCKED) exited" in pruned.stderr
+    assert tree.exists()
 
 
 def test_overlap_names_each_path_a_live_worktree_changes_by_commit_or_by_edit(tmp_path: Path) -> None:
@@ -2018,16 +2159,31 @@ def test_overlap_names_each_path_a_live_worktree_changes_by_commit_or_by_edit(tm
     _agent_commit(root, "Docs: A row", {"docs/spec.md": TABLE_HEAD + "| I2 | two |\n"}, branch="worktree-agent-a1b2c3")
     git(root, "worktree", "add", "-q", str(tmp_path / "tree"), "worktree-agent-a1b2c3")
     write(tmp_path / "tree", "notes.txt", "unsaved\n")
+    write(tmp_path / "tree", "fl_backend/app/schema.txt", '"a": 9')
     register = _register(tmp_path)
-    shared = _run("reg", "overlap", str(register), "docs/**", "notes.txt", "fl_backend", cwd=root)
+    shared = _run("reg", "overlap", str(register), "docs/**", "notes.txt", cwd=root)
     assert shared.returncode == 1 and shared.stdout.splitlines() == [
         "docs/spec.md  WORKER (worktree-agent-a1b2c3)",
         "notes.txt  WORKER (worktree-agent-a1b2c3)",
     ]
-    assert _run("reg", "overlap", str(register), "fl_backend", cwd=root).returncode == 0
-    brief = tmp_path / "brief.md"
-    brief.write_bytes(b"1  OWNERSHIP.   The exact files:\n                  docs/spec.md, and/or nothing else\n\n3  THE WORK.    notes.txt\n")
-    from_brief = _run("reg", "overlap", str(register), "--brief", str(brief), cwd=root)
-    assert from_brief.returncode == 1 and from_brief.stdout.splitlines() == ["docs/spec.md  WORKER (worktree-agent-a1b2c3)"]
-    brief.write_bytes(b"1  OWNERSHIP.   nothing named\n")
-    assert _run("reg", "overlap", str(register), "--brief", str(brief), cwd=root).returncode == 2
+    assert _run("reg", "overlap", str(register), "fl_backend/tests", cwd=root).returncode == 0
+
+
+def test_overlap_reads_a_briefs_owns_lines_and_names_a_path_no_file_answers(tmp_path: Path) -> None:
+    """Read from the OWNERSHIP prose, a path written relative to its package matched nothing, and overlap answered none."""
+    root = _repo(tmp_path, branch="worktree-agent-a1b2c3")
+    git(root, "worktree", "add", "-q", str(tmp_path / "tree"), "worktree-agent-a1b2c3")
+    write(tmp_path / "tree", "fl_backend/app/schema.txt", '"a": 9')
+    register, brief = _register(tmp_path), tmp_path / "brief.md"
+    brief.write_bytes(
+        b"1  OWNERSHIP.   The exact files, on the `Owns:` lines below; never app/schema.txt's neighbours.\n"
+        b"Owns: docs/spec.md, `fl_backend/app/schema.txt`\nOwns: app/extra.txt\n\n3  THE WORK.    notes.txt\n"
+    )
+    done = _run("reg", "overlap", str(register), "--brief", str(brief), cwd=root)
+    assert done.returncode == 1 and done.stdout.splitlines() == ["fl_backend/app/schema.txt  WORKER (worktree-agent-a1b2c3)"]
+    assert done.stderr.splitlines() == [
+        "app/extra.txt names no tracked path: compared as written, a file still to be made or a path written wrong"
+    ]
+    brief.write_bytes(b"1  OWNERSHIP.   fl_backend/app/schema.txt, in prose alone\n")
+    prose = _run("reg", "overlap", str(register), "--brief", str(brief), cwd=root)
+    assert prose.returncode == 2 and "carries no `Owns:` line" in prose.stderr

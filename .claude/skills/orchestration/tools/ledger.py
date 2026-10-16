@@ -700,11 +700,16 @@ def bank(
     return bank_text(register, report.read_bytes().decode("utf-8"), report.name, declared_none, name, routes, closes)
 
 
-def transcript(agent: str, projects: Path) -> Path:
-    """The agent's transcript file under the harness's projects directory."""
+def transcripts(agent: str, projects: Path) -> list[Path]:
+    """Every transcript file the harness's projects directory holds for the agent."""
     if not AGENT_ID_RE.match(agent):
         raise ValueError(f"{agent!r} is no agent id")
-    found = sorted(projects.glob(f"*/*/subagents/agent-{agent}.jsonl"))
+    return sorted(projects.glob(f"*/*/subagents/agent-{agent}.jsonl"))
+
+
+def transcript(agent: str, projects: Path) -> Path:
+    """The agent's transcript file under the harness's projects directory."""
+    found = transcripts(agent, projects)
     if len(found) != 1:
         raise ValueError(f"{len(found)} transcripts under {projects} for agent {agent}")
     return found[0]
