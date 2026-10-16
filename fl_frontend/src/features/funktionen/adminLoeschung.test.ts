@@ -29,7 +29,7 @@ const { raised } = doubleToasts();
 const { default: AdminLoeschungPage } = await import("@/app/bereich/admin/loeschung/page.tsx");
 const { FLErasureAnsichtResponseSchema } = await import("./schemas.ts");
 const { mapAbmeldungRefusal, mapErasureRefusal } = await import("./refusals.ts");
-const { StepUpContext } = await import("@/shared/components/ui/stepUp.ts");
+const { STEP_UP_LABEL, StepUpContext } = await import("@/shared/components/ui/stepUp.ts");
 
 /** A rule's refusal as the client raises one, for the mappers' own words. */
 const refused = (serverErrorCode: string): APIBadStatusError =>
@@ -276,7 +276,8 @@ describe("the passkey the erasure's press asks for", () => {
     return { asked, stepUp };
   };
 
-  const confirmed = async (verwaltung: "owner" | null, stepUp: StepUp, t: TestContext) => {
+  /** Both presses, the confirming one taken by the label it wears once the read has landed. */
+  const confirmed = async (verwaltung: "owner" | null, stepUp: StepUp, t: TestContext, armed: string) => {
     const { user } = await renderPage(
       { readErasureAnsichtAction: { success: true, ansicht: { ...NICHTS_GESPEICHERT, verwaltung } } },
       "",
@@ -287,13 +288,14 @@ describe("the passkey the erasure's press asks for", () => {
     await arm(user);
     await user.type(await screen.findByRole("textbox", { name: BESTAETIGUNG }), ADRESSE);
     t.mock.timers.tick(DOUBLE_PRESS_MS);
-    await user.click(screen.getByRole("button", { name: ARMED }));
+    await user.click(screen.getByRole("button", { name: armed }));
     await act(answered);
   };
 
-  it("asks for it within the enrolment's window where the address holds a grant", async (t) => {
+  /* The grant arrives with the reveal, after the arming: the press says it prompts before it does. */
+  it("asks for it within the enrolment's window where the address holds a grant, saying so on the press", async (t) => {
     const { asked, stepUp } = gate();
-    await confirmed("owner", stepUp, t);
+    await confirmed("owner", stepUp, t, STEP_UP_LABEL);
 
     assert.deepEqual(asked, ["prompt"], "a grant holder's erasure went out without the passkey the API holds it to");
     assert.equal(sent("eraseAufAnfrageAction").length, 1);
@@ -301,7 +303,7 @@ describe("the passkey the erasure's press asks for", () => {
 
   it("asks for nothing more than the step-up's window where the address holds none", async (t) => {
     const { asked, stepUp } = gate();
-    await confirmed(null, stepUp, t);
+    await confirmed(null, stepUp, t, ARMED);
 
     assert.deepEqual(asked, [], "an address holding no grant was held to the enrolment's window");
     assert.equal(sent("eraseAufAnfrageAction").length, 1);
