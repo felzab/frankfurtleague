@@ -1189,13 +1189,14 @@ one just as a failed registration call would.
 
 **A row either pass cannot write is passed over and named, and the date still moves.** The
 backend's line names the application, the registration or the season row by id and the error's
-class, never a person's values: `DB-FAIL-001` is a write the database refused, `SRV-FAIL-001` a
+class, never a person's values: `DB-FAIL-001` is a write the database refused, and `SRV-FAIL-001` a
 failure it did not raise, such as a hand-edited deadline or an empty first name the answer cannot
-carry, and `DB-FAIL-002` a commit whose outcome is unknown, which the next pass judges afresh. The
-rest of that clock's rows go, and the named one stays due: every later pass names it again until
-its record is repaired ([`../backend/spec.md`](../backend/spec.md#2-invariants) I720). A warning
-that the database deadline passed taking a clock's rows apart is the call answering what it had
-done, and the next pass goes on.
+carry. The rest of that clock's rows go, and the named one stays due: every later pass names it
+again until its record is repaired ([`../backend/spec.md`](../backend/spec.md#2-invariants) I720).
+A warning that the database deadline passed taking a clock's rows apart is the call answering what
+it had done, and the next pass goes on. Where that warning names a commit unanswered, under
+`DB-FAIL-002`, the rows it names may have been written with nobody told: a later pass meets again
+only those it did not write.
 
 **The two halves after the seasons stamp no day, so their own lines are the record.** Every pass
 ends by removing the referees' and the pupils' pending addresses whose link lapsed before today,
@@ -1223,10 +1224,11 @@ backend's `DB-FAIL-001` line names that pupil's id and the error's class, never 
 erasure's write was refused, and the next pass tries again; a `SRV-FAIL-001` line naming them the
 same way is a failure the database did not raise, which the class and that pupil's record locate
 for a fix. Find the record the write was refused
-on and repair it, and the pass after deletes the pupil. `DB-FAIL-002` means the commit's outcome is
-unknown; the next pass judges the pupil afresh, so it needs nothing from you. A warning saying the
-database deadline passed at a pupil or at an address change is the call stopping in time rather
-than a refusal: the pass goes on from the next call, and it needs nothing from you either.
+on and repair it, and the pass after deletes the pupil. A warning saying the database deadline
+passed at a pupil or at an address change is the call stopping in time rather than a refusal: the
+pass goes on from the next call, and it needs nothing from you. Where it adds that the erasure or
+the removal went unanswered, under `DB-FAIL-002`, that one's outcome is unknown, and the next pass
+judges it afresh.
 
 **A `SRV-VAL-001` warning naming pupils left out of the deletion is a stored address no request
 matches** — empty, not in the form sign-in folds it to, or refused by the address rule, which only

@@ -188,8 +188,10 @@ async def sweep_adresswechsel(
             uebersprungen += 1
             continue
         except PyMongoError as failure:
-            ungewiss = failure.has_error_label(UNKNOWN_COMMIT_RESULT)
+            # The only branch an unanswered commit reaches: `with_transaction` retries one until the deadline and raises
+            # it as a timeout keeping the label.
             if failure.timeout:
+                ungewiss = failure.has_error_label(UNKNOWN_COMMIT_RESULT)
                 # Below the handler's ERROR: no record is at fault, and every later change would fail the same way.
                 fl_logger.warning(
                     f"Database deadline passed at the lapsed address change of {wessen} {row['_id']}"
@@ -201,9 +203,8 @@ async def sweep_adresswechsel(
 
             # The id and the class alone, never the address this pass exists to remove.
             fl_logger.error(
-                f"The lapsed address change of {wessen} {row['_id']} was "
-                f"{'removed or not, the commit unanswered' if ungewiss else 'not removed'}: {type(failure).__name__}",
-                extra={"error_code": UNKNOWN_OUTCOME if ungewiss else DATABASE_FAILED},
+                f"The lapsed address change of {wessen} {row['_id']} was not removed: {type(failure).__name__}",
+                extra={"error_code": DATABASE_FAILED},
             )
             continue
         # Any class, or the next pass stops at this change again and holds back every one behind it

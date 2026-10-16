@@ -368,7 +368,7 @@ async def sweep_registrierungen(
             # page: this clock also stops at the first page owing somebody a message.
             while True:
                 # Accepted: this commit going unanswered erases a page and loses whom it owed a
-                # message (`docs/backend/spec.md :: "An unanswered last commit"`).
+                # message (`docs/backend/spec.md :: "An unanswered commit owing a message"`).
                 pages, _ = await run_isolated(
                     db=db,
                     batch=Batch(),

@@ -1463,17 +1463,17 @@ rather than by the handler remembering to conceal one.
   past its stop grace among them, which writes no line. `killSessions`, which would end it without the transaction number pymongo
   keeps private, is refused on the Atlas Flex tier this league runs on.
 - **A request opening several transactions can answer a failure after one of them committed.** Its
-  answer then says nothing of that commit. The sweeps run the transaction whose rows they hand back
-  last (I323), and the season's mailing answers each team's row whatever the next team's mint
-  does (I282), unless the caller's access is revoked on the way, which answers no link at all
-  (I450); every other such request leaves the committed part standing, answering `DB-FAIL-002`
-  where the deadline cut it (I321) and `DB-FAIL-001` for any other database failure.
-  An unanswered last commit is the one erasing case that ordering cannot reach: the registration
-  sweep's season-end page erases its pupils and hands back whom it owes a message in one
-  transaction, so where that commit lands unanswered the rows are gone and nothing names whom to
-  tell. An outbox written inside the erasing transaction would close it, at the cost of a collection,
-  its validator, a retention clock and an erasure reach for addresses it holds until the caller has
-  mailed them.
+  answer then says nothing of that commit. The sweeps run the transactions owing a message last and
+  answer every one that committed (I323), and the season's mailing answers each team's row whatever
+  the next team's mint does (I282), unless the caller's access is revoked on the way, which answers
+  no link at all (I450); every other such request leaves the committed part standing, answering
+  `DB-FAIL-002` where the deadline cut it (I321) and `DB-FAIL-001` for any other database failure.
+  An unanswered commit owing a message is the one erasing case that ordering cannot reach: the
+  registration sweep's season-end page, or a half of one taken apart (I720), erases its pupils and
+  hands back whom it owes a message in one transaction, so where that commit lands unanswered the
+  rows are gone and the warning names their ids, never whom to tell. An outbox written inside the
+  erasing transaction would close it, at the cost of a collection, its validator, a retention clock
+  and an erasure reach for addresses it holds until the caller has mailed them.
 - **One bracket save is one transaction whatever it moves.** `PATCH /spiele/{spiel_id}` and
   `PATCH /spiele/paarungen` (up to `fl_backend/app/shared/schemas/bounds.py :: LIST_LIMIT_DEFAULT`
   entries) must land whole, so they take no share per call as the sweeps do (I322): a save

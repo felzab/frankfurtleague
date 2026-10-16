@@ -238,8 +238,10 @@ async def post_loeschung_lauf(
                 uebersprungen += 1
                 continue
             except PyMongoError as failure:
-                ungewiss = failure.has_error_label(UNKNOWN_COMMIT_RESULT)
+                # The only branch an unanswered commit reaches: `with_transaction` retries one until the deadline and
+                # raises it as a timeout keeping the label.
                 if failure.timeout:
+                    ungewiss = failure.has_error_label(UNKNOWN_COMMIT_RESULT)
                     # Below the handler's ERROR: no record is at fault, and every later pupil would fail the same way.
                     fl_logger.warning(
                         f"Database deadline passed at pupil {row['_id']}"
@@ -250,10 +252,7 @@ async def post_loeschung_lauf(
                     break
 
                 # The id and the class alone: a line naming the pupil would outlive the erasure it reports.
-                fl_logger.error(
-                    f"Pupil {row['_id']} was {'erased or not, the commit unanswered' if ungewiss else 'not erased'}: {type(failure).__name__}",
-                    extra={"error_code": UNKNOWN_OUTCOME if ungewiss else DATABASE_FAILED},
-                )
+                fl_logger.error(f"Pupil {row['_id']} was not erased: {type(failure).__name__}", extra={"error_code": DATABASE_FAILED})
                 fehlgeschlagen += 1
                 continue
             # Any class, or the next pass stops at this pupil again and holds back everyone behind them

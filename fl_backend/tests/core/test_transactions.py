@@ -213,12 +213,6 @@ class TestARowFailingAloneIsPassedOver:
                 "Row 1 was passed over by the test clock: OperationFailure",
                 id="refused",
             ),
-            pytest.param(
-                lambda: OperationFailure("unanswered", None, {"errorLabels": ["UnknownTransactionCommitResult"]}),
-                UNKNOWN_OUTCOME,
-                "Row 1 was written or not by the test clock, its commit unanswered: OperationFailure",
-                id="its commit unanswered",
-            ),
         ],
     )
     def test_the_rest_of_its_page_goes_and_no_later_page_reads_it_again(
@@ -260,6 +254,27 @@ class TestARowFailingAloneIsPassedOver:
                 _isolated(rows, owes=owes)
 
         assert rows.read == [[0, 1, 2, 3], [0, 1], [0], [1], [2, 3]]
+
+    def test_a_commit_the_deadline_leaves_unanswered_names_the_rows_it_may_have_written(self, caplog: pytest.LogCaptureFixture):
+        """As the driver raises one, a timeout keeping the label: read as "the rest stay due", written rows whose message is lost go unnamed."""
+
+        def raises(read: list[int]) -> Exception | None:
+            if 1 in read:
+                return _FailedInTheCallback()
+            unanswered = ExecutionTimeout("unanswered", 50, {"errorLabels": ["UnknownTransactionCommitResult"]})
+            return unanswered if 2 in read else None
+
+        with caplog.at_level(logging.WARNING, logger=fl_logger.name):
+            answered = _isolated(_Rows(4, raises), owes=True)
+
+        assert answered == ([(1, 1, 0)], [1])
+        assert [(getattr(record, "error_code", None), record.getMessage()) for record in caplog.records if record.levelname == "WARNING"] == [
+            (
+                UNKNOWN_OUTCOME,
+                "Database deadline passed taking the test clock's rows apart, the commit of Row 2, 3 unanswered: those may have been "
+                "written with nobody told, the call answers what else committed, and the rest stay due",
+            )
+        ]
 
     def test_a_failure_before_any_row_was_read_is_raised_rather_than_halved(self):
         """No row to halve, so taking it apart would answer an empty success over a read that failed."""

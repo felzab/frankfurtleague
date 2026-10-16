@@ -196,13 +196,11 @@ def carried_by_a_row(failure: Exception) -> bool:
 
 def log_passed(*, what: str, row_id: Any, clock: str, failure: Exception) -> None:
     # The id and the class alone: `str(failure)` can quote the record, which a line about an erasure
-    # would then outlive.
+    # would then outlive. No unanswered commit reaches here: `with_transaction` retries one until the
+    # deadline, which `isolate` never halves.
     if isinstance(failure, PyMongoError):
-        ungewiss = failure.has_error_label("UnknownTransactionCommitResult")
         fl_logger.error(
-            f"{what} {row_id} was {'written or not' if ungewiss else 'passed over'} by the {clock} clock"
-            f"{', its commit unanswered' if ungewiss else ''}: {type(failure).__name__}",
-            extra={"error_code": UNKNOWN_OUTCOME if ungewiss else DATABASE_FAILED},
+            f"{what} {row_id} was passed over by the {clock} clock: {type(failure).__name__}", extra={"error_code": DATABASE_FAILED}
         )
         return
 
@@ -234,6 +232,8 @@ async def isolate[T](
     committed: list[T] = []
     passed: list[Any] = []
     remaining = share
+    # The rows of the attempt the deadline cut, which may have been written where its commit went unanswered.
+    cut: list[Any] = []
 
     async def split(part: Sequence[Any], failed: Exception) -> None:
         if len(part) == 1:
@@ -256,6 +256,7 @@ async def isolate[T](
                 result = await attempt(session, Batch(among=part, share=remaining))
         except Exception as failed:
             if not carried_by_a_row(failed):
+                cut[:] = part
                 raise
             await split(part, failed)
             return
@@ -270,10 +271,18 @@ async def isolate[T](
         # Answered rather than raised once a half owing a message has committed (`docs/backend/spec.md :: I323`).
         if not stopped.timeout or not owes or not committed:
             raise
-        fl_logger.warning(
-            f"Database deadline passed taking the {clock} clock's rows apart: the call answers what committed, and the rest stay due",
-            extra={"error_code": DATABASE_FAILED},
-        )
+        # The label survives the driver's own timeout: an unanswered commit is retried until the deadline and raised as one.
+        if stopped.has_error_label("UnknownTransactionCommitResult"):
+            fl_logger.warning(
+                f"Database deadline passed taking the {clock} clock's rows apart, the commit of {what} {', '.join(map(str, cut))} "
+                "unanswered: those may have been written with nobody told, the call answers what else committed, and the rest stay due",
+                extra={"error_code": UNKNOWN_OUTCOME},
+            )
+        else:
+            fl_logger.warning(
+                f"Database deadline passed taking the {clock} clock's rows apart: the call answers what committed, and the rest stay due",
+                extra={"error_code": DATABASE_FAILED},
+            )
 
     return committed, passed
 
