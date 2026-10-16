@@ -29,7 +29,7 @@ function zeilenOf(
   return [
     ...spieler.map(({ vorname, nachname, kader }) => {
       const kaderTeile = kader.map(({ team_name, saison_id }) =>
-        team_name === null ? `im Kader der Saison ${saison_id}` : `im Kader von ${team_name} (${saison_id})`,
+        team_name === null ? `im Kader der Saison ${saison_id}` : `im Kader von ${team_name}, Saison ${saison_id}`,
       );
       const person = `Spielerin oder Spieler: ${nameOf(vorname, nachname)}`;
 

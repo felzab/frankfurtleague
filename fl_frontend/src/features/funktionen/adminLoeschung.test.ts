@@ -386,8 +386,9 @@ describe("the words the page names a person in", () => {
     for (const [stand, text] of [["at rest", ruhend], ["armed", gerueckt], ...verweigert.map((satz) => ["refused", satz] as const)] as const) {
       assert.doesNotMatch(text, MASKULIN, `${stand}: the page names a person with a masculine word`);
     }
-    // The control: the reveal did name each kind, so the absence above was read over every word there is.
-    assert.match(gerueckt, /Spielerin oder Spieler: Lena Meier/);
+    // The control: the reveal did name each kind, so the absence above was read over every word there is. The
+    // squad row places its season as every other line does.
+    assert.match(gerueckt, /Spielerin oder Spieler: Lena Meier, im Kader von SG Alpha, Saison 2026/);
   });
 });
 
