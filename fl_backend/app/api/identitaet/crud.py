@@ -959,8 +959,7 @@ async def erase_if_still_due(
     if not loeschung_faellig(
         email=email,
         kader_saison_ids=[row["saison_id"] for row in kader],
-        # The pre-filter's rows, the fold deciding: its `i` ignores case beyond ASCII.
-        offene=offene_adressen(row for row in registrierungen if folds_to(row.get("email"), email)),
+        offene=offene_adressen(registrierungen),
         behalten=behalten,
     ):
         return None
