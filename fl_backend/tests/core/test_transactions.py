@@ -3,6 +3,7 @@ import asyncio
 import contextlib
 import dataclasses
 import logging
+import re
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
 from contextlib import asynccontextmanager
@@ -13,6 +14,7 @@ import anyio
 import pytest
 from bson import ObjectId
 from fastapi import FastAPI
+from pydantic import BaseModel, Field, ValidationError
 from pymongo import AsyncMongoClient, monitoring
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.errors import ExecutionTimeout, OperationFailure
@@ -22,7 +24,7 @@ from starlette.types import Message, Scope
 from app.core import security
 from app.core.collections import Collection
 from app.core.crud import WritesSent, writes_sent_var
-from app.core.exception_handlers import DATABASE_FAILED, UNHANDLED_CRASH, UNKNOWN_OUTCOME
+from app.core.exception_handlers import DATABASE_FAILED, STORED_DATA_INVALID, UNHANDLED_CRASH, UNKNOWN_OUTCOME
 from app.core.exceptions import ActorForbiddenException
 from app.core.logging import fl_logger
 from app.core.middlewares import request_deadline_var
@@ -155,6 +157,22 @@ class _FailedInTheCallback(Exception):
     """The callback's own failure."""
 
 
+# A stored value each failure below quotes in its message, as a driver's or a model's can.
+A_STORED_VALUE = "Quillhilde"
+
+
+class _Answer(BaseModel):
+    geburtsdatum: str = Field(pattern=r"^[0-9]{4}$")
+
+
+def _refused_by_the_answer() -> ValidationError:
+    try:
+        _Answer.model_validate({"geburtsdatum": A_STORED_VALUE})
+    except ValidationError as refused:
+        return refused
+    raise AssertionError("the answer took a value its pattern refuses")
+
+
 class _Rows:
     """The rows a clock's transaction reads, one past `PAGE` under its batch's term, raising whatever `raises` answers for what it read."""
 
@@ -202,16 +220,26 @@ class TestARowFailingAloneIsPassedOver:
         ("failure", "code", "line"),
         [
             pytest.param(
-                _FailedInTheCallback,
+                lambda: _FailedInTheCallback(A_STORED_VALUE),
                 UNHANDLED_CRASH,
-                "Row 1 was passed over by the test clock, the failure not the database's: _FailedInTheCallback",
-                id="not the database's",
+                r"Row 1 was passed over by the test clock: _FailedInTheCallback in erase at .+test_transactions\.py:\d+",
+                id="not the database's, located by its innermost frame",
             ),
             pytest.param(
-                lambda: OperationFailure("refused", 121),
+                lambda: OperationFailure(A_STORED_VALUE, 121, {"errInfo": {"details": {"missingProperties": ["trace_id"]}}}),
                 DATABASE_FAILED,
-                "Row 1 was passed over by the test clock: OperationFailure",
-                id="refused",
+                re.escape("Row 1 was passed over by the test clock: OperationFailure, code 121: ")
+                + re.escape("[{'loc': 'trace_id', 'type': 'required', 'msg': 'property is missing'}]"),
+                id="refused, with the properties the validator refused",
+            ),
+            pytest.param(
+                lambda: _refused_by_the_answer(),
+                STORED_DATA_INVALID,
+                re.escape("Row 1 was passed over by the test clock: ValidationError: ")
+                + re.escape(
+                    "[{'loc': 'geburtsdatum', 'type': 'string_pattern_mismatch', 'msg': \"String should match pattern '^[0-9]{4}$'\"}]"
+                ),
+                id="a stored value the answer refuses, with the fields it refused",
             ),
         ],
     )
@@ -234,7 +262,9 @@ class TestARowFailingAloneIsPassedOver:
         assert (erased, rows.standing) == (2 * PAGE, [1])
         # The page after the one it failed in, read without it: read with it, it fails that page whole again.
         assert rows.read[-1] == [4, 5, 6]
-        assert [(getattr(record, "error_code", None), record.getMessage()) for record in caplog.records] == [(code, line)]
+        [(logged_code, logged)] = [(getattr(record, "error_code", None), record.getMessage()) for record in caplog.records]
+        # The record's value reaches no line: a line about an erasure would outlive it.
+        assert (logged_code, re.fullmatch(line, logged) is not None, A_STORED_VALUE in logged) == (code, True, False), logged
 
     @pytest.mark.parametrize("owes", [True, False], ids=("owing a message", "owing none"))
     def test_a_deadline_is_never_halved_and_is_answered_only_where_a_committed_half_owes_a_message(self, owes: bool):

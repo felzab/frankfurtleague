@@ -10,6 +10,7 @@ The decisions underneath are `tests/api/test_loeschung_sweep_refusal.py`'s.
 import asyncio
 import functools
 import logging
+import re
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime
 from typing import Any
@@ -792,7 +793,12 @@ class TestOneRecordHoldsBackNobody:
         failures = [
             (record.levelname, record.getMessage()) for record in caplog.records if getattr(record, "error_code", None) == UNHANDLED_CRASH
         ]
-        assert failures == [("ERROR", f"Pupil {numbered(1)} was not erased, the failure not the database's: NotTheDatabases")]
+        # Located by the frame that raised it, and never by its message, which can quote a value.
+        [(level, line)] = failures
+        assert (level, re.fullmatch(rf"Pupil {numbered(1)} was not erased: NotTheDatabases in aggregate at .+\.py:\d+", line) is not None) == (
+            "ERROR",
+            True,
+        ), line
 
 
 # Long enough that the pupil before the stall is erased inside it on a loaded machine.

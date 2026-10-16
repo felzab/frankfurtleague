@@ -24,12 +24,12 @@ from app.core.dependencies import (
     get_german_date_str,
     get_germany_now,
 )
-from app.core.exception_handlers import DATABASE_FAILED, UNHANDLED_CRASH, UNKNOWN_OUTCOME
+from app.core.exception_handlers import DATABASE_FAILED, UNKNOWN_OUTCOME
 from app.core.exceptions import DocumentNotFoundException
 from app.core.logging import fl_logger
 from app.core.recording import log_stamp
 from app.core.security import bind_system_actor, verify_access_system
-from app.core.transactions import transaction_session
+from app.core.transactions import diagnosis_of, transaction_session
 
 # System tier and the system actor: the clock removes a lapsed address, and no administrator pressed anything.
 router = APIRouter(
@@ -187,10 +187,12 @@ async def sweep_adresswechsel(
             # The filter is the judgement: confirmed, discarded or sent a fresh link since the read, and not due.
             uebersprungen += 1
             continue
-        except PyMongoError as failure:
+        # Any class, or the next pass stops at this change again and holds back every one behind it
+        # (`docs/backend/spec.md :: I717`); not `BaseException`, so a cancellation still ends the call.
+        except Exception as failure:
             # The only branch an unanswered commit reaches: `with_transaction` retries one until the deadline and raises
             # it as a timeout keeping the label.
-            if failure.timeout:
+            if isinstance(failure, PyMongoError) and failure.timeout:
                 ungewiss = failure.has_error_label(UNKNOWN_COMMIT_RESULT)
                 # Below the handler's ERROR: no record is at fault, and every later change would fail the same way.
                 fl_logger.warning(
@@ -201,20 +203,9 @@ async def sweep_adresswechsel(
                 abgebrochen = True
                 break
 
-            # The id and the class alone, never the address this pass exists to remove.
-            fl_logger.error(
-                f"The lapsed address change of {wessen} {row['_id']} was not removed: {type(failure).__name__}",
-                extra={"error_code": DATABASE_FAILED},
-            )
-            continue
-        # Any class, or the next pass stops at this change again and holds back every one behind it
-        # (`docs/backend/spec.md :: I717`); not `BaseException`, so a cancellation still ends the call. The id and the
-        # class alone, as above.
-        except Exception as failure:
-            fl_logger.error(
-                f"The lapsed address change of {wessen} {row['_id']} was not removed, the failure not the database's: {type(failure).__name__}",
-                extra={"error_code": UNHANDLED_CRASH},
-            )
+            # The id and what locates the failure, never the address this pass exists to remove.
+            code, diagnosis = diagnosis_of(failure)
+            fl_logger.error(f"The lapsed address change of {wessen} {row['_id']} was not removed: {diagnosis}", extra={"error_code": code})
             continue
 
         entfernt += 1

@@ -1,6 +1,7 @@
 import asyncio
 import contextvars
 import time
+import traceback
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping, Sequence
 from contextlib import AbstractAsyncContextManager, asynccontextmanager, nullcontext
 from contextvars import ContextVar
@@ -8,12 +9,21 @@ from typing import Any, Final
 
 import anyio
 import pymongo
+from pydantic import ValidationError
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.client_session_shared import _EmptyServerSession
 from pymongo.errors import OperationFailure, PyMongoError
 
-from app.core.exception_handlers import DATABASE_FAILED, UNHANDLED_CRASH, UNKNOWN_OUTCOME
+from app.core.exception_handlers import (
+    DATABASE_FAILED,
+    NO_DATA_TEXT,
+    STORED_DATA_INVALID,
+    UNHANDLED_CRASH,
+    UNKNOWN_OUTCOME,
+    refused_properties_of,
+    rejected_fields_of,
+)
 from app.core.exceptions import BaseAPIException
 from app.core.logging import fl_logger
 from app.core.middlewares import request_deadline_var
@@ -194,20 +204,32 @@ def carried_by_a_row(failure: Exception) -> bool:
     return not isinstance(failure, (StalledPage, BaseAPIException)) and not (isinstance(failure, PyMongoError) and failure.timeout)
 
 
-def log_passed(*, what: str, row_id: Any, clock: str, failure: Exception) -> None:
-    # The id and the class alone: `str(failure)` can quote the record, which a line about an erasure
-    # would then outlive. No unanswered commit reaches here: `with_transaction` retries one until the
-    # deadline, which `isolate` never halves.
-    if isinstance(failure, PyMongoError):
-        fl_logger.error(
-            f"{what} {row_id} was passed over by the {clock} clock: {type(failure).__name__}", extra={"error_code": DATABASE_FAILED}
-        )
-        return
+def diagnosis_of(failure: Exception) -> tuple[str, str]:
+    """A failure's code, and what locates its cause with no value of the record it met (`docs/logging/spec.md :: L9`).
 
-    fl_logger.error(
-        f"{what} {row_id} was passed over by the {clock} clock, the failure not the database's: {type(failure).__name__}",
-        extra={"error_code": UNHANDLED_CRASH},
-    )
+    What the request's own handler logs for it, so a row passed over is found as a failed call's write is.
+    """
+
+    if isinstance(failure, PyMongoError):
+        return (
+            DATABASE_FAILED,
+            f"{type(failure).__name__}, code {getattr(failure, 'code', None)}: {refused_properties_of(failure) or NO_DATA_TEXT}",
+        )
+    if isinstance(failure, ValidationError):
+        return STORED_DATA_INVALID, f"{type(failure).__name__}: {rejected_fields_of(failure.errors()) or NO_DATA_TEXT}"
+
+    # The innermost frame rather than the message, which can quote the value the code met.
+    frames = traceback.extract_tb(failure.__traceback__)
+    where = f"{frames[-1].name} at {frames[-1].filename}:{frames[-1].lineno}" if frames else NO_DATA_TEXT
+    return UNHANDLED_CRASH, f"{type(failure).__name__} in {where}"
+
+
+def log_passed(*, what: str, row_id: Any, clock: str, failure: Exception) -> None:
+    # Never `str(failure)`: it can quote the record, which a line about an erasure would then outlive.
+    # No unanswered commit reaches here: `with_transaction` retries one until the deadline, which
+    # `isolate` never halves.
+    code, diagnosis = diagnosis_of(failure)
+    fl_logger.error(f"{what} {row_id} was passed over by the {clock} clock: {diagnosis}", extra={"error_code": code})
 
 
 async def isolate[T](

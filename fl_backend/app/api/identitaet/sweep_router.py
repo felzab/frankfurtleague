@@ -34,12 +34,12 @@ from app.core.dependencies import (
     SpielerCollection,
     get_germany_now,
 )
-from app.core.exception_handlers import DATABASE_FAILED, DUPLICATE_KEY_RESPONSE, STORED_DATA_INVALID, UNHANDLED_CRASH, UNKNOWN_OUTCOME
+from app.core.exception_handlers import DATABASE_FAILED, DUPLICATE_KEY_RESPONSE, STORED_DATA_INVALID, UNKNOWN_OUTCOME
 from app.core.exceptions import DocumentNotFoundException
 from app.core.logging import fl_logger
 from app.core.recording import log_stamp
 from app.core.security import bind_system_actor, verify_access_system
-from app.core.transactions import transaction_session
+from app.core.transactions import diagnosis_of, transaction_session
 
 # System tier and the system actor, as the application sweep's router is: the rule deletes, whichever
 # caller triggers it, and neither the hourly pass nor an activation's press holds a person's session here.
@@ -237,10 +237,12 @@ async def post_loeschung_lauf(
                 # A registry step finding its row gone: another writer was first, and the pupil is judged again next pass.
                 uebersprungen += 1
                 continue
-            except PyMongoError as failure:
+            # Any class, or the next pass stops at this pupil again and holds back everyone behind them
+            # (`docs/backend/spec.md :: I717`); not `BaseException`, so a cancellation still ends the call.
+            except Exception as failure:
                 # The only branch an unanswered commit reaches: `with_transaction` retries one until the deadline and
                 # raises it as a timeout keeping the label.
-                if failure.timeout:
+                if isinstance(failure, PyMongoError) and failure.timeout:
                     ungewiss = failure.has_error_label(UNKNOWN_COMMIT_RESULT)
                     # Below the handler's ERROR: no record is at fault, and every later pupil would fail the same way.
                     fl_logger.warning(
@@ -251,18 +253,9 @@ async def post_loeschung_lauf(
                     abgebrochen = True
                     break
 
-                # The id and the class alone: a line naming the pupil would outlive the erasure it reports.
-                fl_logger.error(f"Pupil {row['_id']} was not erased: {type(failure).__name__}", extra={"error_code": DATABASE_FAILED})
-                fehlgeschlagen += 1
-                continue
-            # Any class, or the next pass stops at this pupil again and holds back everyone behind them
-            # (`docs/backend/spec.md :: I717`); not `BaseException`, so a cancellation still ends the call. The id and
-            # the class alone, as above.
-            except Exception as failure:
-                fl_logger.error(
-                    f"Pupil {row['_id']} was not erased, the failure not the database's: {type(failure).__name__}",
-                    extra={"error_code": UNHANDLED_CRASH},
-                )
+                # The id and what locates the failure, never a value: a line naming the pupil would outlive the erasure it reports.
+                code, diagnosis = diagnosis_of(failure)
+                fl_logger.error(f"Pupil {row['_id']} was not erased: {diagnosis}", extra={"error_code": code})
                 fehlgeschlagen += 1
                 continue
 

@@ -21,7 +21,7 @@ from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db
-from app.core.exception_handlers import DATABASE_FAILED, UNHANDLED_CRASH
+from app.core.exception_handlers import DATABASE_FAILED, STORED_DATA_INVALID
 from app.core.logging import FL_LOGGER_NAME
 from app.core.recording import SYSTEM_ACTOR_EMAIL
 from app.core.transactions import StalledPage
@@ -505,6 +505,10 @@ async def refuse_the_redaction_of(database: AsyncDatabase, registrierung_id: Obj
     await database[Collection.AKTIONEN].insert_one(refusing_its_redaction(row), bypass_document_validation=True)
 
 
+# What the planted log image's refusal reads as on a passed-over line: the property its validator requires.
+REFUSED_TRACE_ID = "WriteError, code 121: [{'loc': 'trace_id', 'type': 'required', 'msg': 'property is missing'}]"
+
+
 def passed_over(caplog: pytest.LogCaptureFixture) -> list[tuple[str, str | None, str]]:
     return [
         (record.levelname, getattr(record, "error_code", None), record.getMessage())
@@ -541,7 +545,7 @@ class TestOneRowHoldsBackNoOther:
         )
         assert (DECLINED_OID in left, SECOND_OID in left) == (True, False)
         assert passed_over(caplog) == [
-            ("ERROR", DATABASE_FAILED, f"Registration {DECLINED_OID} was passed over by the decline clock: WriteError")
+            ("ERROR", DATABASE_FAILED, f"Registration {DECLINED_OID} was passed over by the decline clock: {REFUSED_TRACE_ID}")
         ]
 
     def test_a_refused_erasure_at_the_seasons_end(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
@@ -557,7 +561,7 @@ class TestOneRowHoldsBackNoOther:
         assert (answer.geloescht_ohne_entscheidung, [entry.registrierung_id for entry in answer.benachrichtigt]) == (3, [CONFIRMED_OID])
         assert (left, day) == ([REMIND_OID, OTHER_SEASON_OID], TODAY)
         assert passed_over(caplog) == [
-            ("ERROR", DATABASE_FAILED, f"Registration {REMIND_OID} was passed over by the season's end clock: WriteError")
+            ("ERROR", DATABASE_FAILED, f"Registration {REMIND_OID} was passed over by the season's end clock: {REFUSED_TRACE_ID}")
         ]
 
     def test_a_seasons_end_whose_every_erasure_fails_still_records_its_day(self, mongo_replica_set_url: str):
@@ -588,7 +592,7 @@ class TestOneRowHoldsBackNoOther:
         assert (answer.geloescht_unbestaetigt, REMIND_OID in {entry.registrierung_id for entry in answer.erinnerungen}) == (1, True)
         assert (EXPIRED_OID in left, SECOND_OID in left) == (True, False)
         assert passed_over(caplog) == [
-            ("ERROR", DATABASE_FAILED, f"Registration {EXPIRED_OID} was passed over by the deadline clock: WriteError")
+            ("ERROR", DATABASE_FAILED, f"Registration {EXPIRED_OID} was passed over by the deadline clock: {REFUSED_TRACE_ID}")
         ]
 
     def test_a_reminder_the_answer_cannot_carry(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
@@ -606,12 +610,9 @@ class TestOneRowHoldsBackNoOther:
             answered, stamp = on_a_league(mongo_replica_set_url, body)
 
         assert (REMIND_OID in answered, SECOND_OID in answered, stamp) == (True, False, None)
+        refusal = "ValidationError: [{'loc': 'vorname', 'type': 'string_too_short', 'msg': 'String should have at least 1 character'}]"
         assert passed_over(caplog) == [
-            (
-                "ERROR",
-                UNHANDLED_CRASH,
-                f"Registration {SECOND_OID} was passed over by the reminder clock, the failure not the database's: ValidationError",
-            )
+            ("ERROR", STORED_DATA_INVALID, f"Registration {SECOND_OID} was passed over by the reminder clock: {refusal}")
         ]
 
     def test_a_pass_whose_every_reminder_fails_still_records_its_day(self, mongo_replica_set_url: str):

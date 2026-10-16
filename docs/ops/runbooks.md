@@ -1188,10 +1188,11 @@ follow it, so a throw after that stamp leaves a fresh application date beside a 
 one just as a failed registration call would.
 
 **A row either pass cannot write is passed over and named, and the date still moves.** The
-backend's line names the application, the registration or the season row by id and the error's
-class, never a person's values: `DB-FAIL-001` is a write the database refused, and `SRV-FAIL-001` a
-failure it did not raise, such as a hand-edited deadline or an empty first name the answer cannot
-carry. The rest of that clock's rows go, and the named one stays due: every later pass names it
+backend's line names the application, the registration or the season row by id, the error's class
+and what locates it, never a person's values: `DB-FAIL-001` is a write the database refused, with
+the properties its validator refused; `SRV-VAL-001` a stored value the answer cannot carry, such as
+a hand-edited deadline or an empty first name, with the fields refused; and `SRV-FAIL-001` any other
+failure, with the file, line and function it was raised in. The rest of that clock's rows go, and the named one stays due: every later pass names it
 again until its record is repaired ([`../backend/spec.md`](../backend/spec.md#2-invariants) I720).
 A warning that the database deadline passed taking a clock's rows apart is the call answering what
 it had done, and the next pass goes on. Where that warning names a commit unanswered, under
@@ -1220,11 +1221,11 @@ while it refreshes, and keeps an entry nobody asks for up to a week, so a delete
 reach a visitor for up to a week after the deletion.
 
 **A pupil counted `fehlgeschlagen` stays due, and every later pass meets them again.** The
-backend's `DB-FAIL-001` line names that pupil's id and the error's class, never an address: the
-erasure's write was refused, and the next pass tries again; a `SRV-FAIL-001` line naming them the
-same way is a failure the database did not raise, which the class and that pupil's record locate
-for a fix. Find the record the write was refused
-on and repair it, and the pass after deletes the pupil. A warning saying the database deadline
+backend's line names that pupil's id, the error's class and what locates it, never an address:
+under `DB-FAIL-001` the properties a validator refused the erasure's write on, under `SRV-VAL-001`
+the fields a model refused, and under `SRV-FAIL-001` the file, line and function a failure the
+database did not raise came from. Find the record it points to and repair it, and the pass after
+deletes the pupil. A warning saying the database deadline
 passed at a pupil or at an address change is the call stopping in time rather than a refusal: the
 pass goes on from the next call, and it needs nothing from you. Where it adds that the erasure or
 the removal went unanswered, under `DB-FAIL-002`, that one's outcome is unknown, and the next pass

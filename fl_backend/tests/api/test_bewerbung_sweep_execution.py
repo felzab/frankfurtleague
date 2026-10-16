@@ -44,7 +44,7 @@ from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db
-from app.core.exception_handlers import DATABASE_FAILED, UNHANDLED_CRASH
+from app.core.exception_handlers import DATABASE_FAILED, STORED_DATA_INVALID
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from app.core.logging import FL_LOGGER_NAME
 from app.core.recording import SYSTEM_ACTOR_EMAIL
@@ -1058,6 +1058,16 @@ async def refuse_the_redaction_of(database: AsyncDatabase, collection: Collectio
     await database[Collection.AKTIONEN].insert_one(refusing_its_redaction(collection, row), bypass_document_validation=True)
 
 
+# What the planted log image's refusal reads as on a passed-over line: the property its validator requires.
+REFUSED_TRACE_ID = "WriteError, code 121: [{'loc': 'trace_id', 'type': 'required', 'msg': 'property is missing'}]"
+
+# A hand-edited deadline as the answer's model refuses it: the field and the rule, never the value.
+REFUSED_DEADLINE = (
+    "ValidationError: [{'loc': 'bestaetigungsfrist', 'type': 'string_pattern_mismatch', "
+    "'msg': \"String should match pattern '^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$'\"}]"
+)
+
+
 def passed_over(caplog: pytest.LogCaptureFixture) -> list[tuple[str, str | None, str]]:
     return [
         (record.levelname, getattr(record, "error_code", None), record.getMessage())
@@ -1091,7 +1101,7 @@ class TestOneRowHoldsBackNoOther:
         assert counts == (1, 1)
         assert (refused is not None, other) == (True, None)
         assert passed_over(caplog) == [
-            ("ERROR", DATABASE_FAILED, f"Application {REMIND_OID} was passed over by the season's end clock: WriteError")
+            ("ERROR", DATABASE_FAILED, f"Application {REMIND_OID} was passed over by the season's end clock: {REFUSED_TRACE_ID}")
         ]
 
     def test_a_refused_erasure_by_the_decline_clock(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
@@ -1110,7 +1120,7 @@ class TestOneRowHoldsBackNoOther:
         # The clocks after it ran: the drive at the fork found the reminder unstamped and the call raising every pass.
         assert (reminded(answer), [loeschung.bewerbung_id for loeschung in answer.loeschungen]) == ({REMIND_OID}, [DELETE_OID])
         assert passed_over(caplog) == [
-            ("ERROR", DATABASE_FAILED, f"Application {DECLINED_OID} was passed over by the decline clock: WriteError")
+            ("ERROR", DATABASE_FAILED, f"Application {DECLINED_OID} was passed over by the decline clock: {REFUSED_TRACE_ID}")
         ]
 
     def test_a_refused_erasure_by_the_acceptance_clock(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
@@ -1133,7 +1143,7 @@ class TestOneRowHoldsBackNoOther:
         assert counts == (1, 1)
         assert (refused is not None, other) == (True, None)
         assert passed_over(caplog) == [
-            ("ERROR", DATABASE_FAILED, f"Application {ACCEPTED_OID} was passed over by the acceptance clock: WriteError")
+            ("ERROR", DATABASE_FAILED, f"Application {ACCEPTED_OID} was passed over by the acceptance clock: {REFUSED_TRACE_ID}")
         ]
 
     def test_a_refused_contact_block(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
@@ -1151,7 +1161,7 @@ class TestOneRowHoldsBackNoOther:
         assert (answer.kontaktbloecke_geleert, reminded(answer)) == (1, {REMIND_OID})
         assert blocks == [(JUNCTION_OID, True), (SECOND_JUNCTION_OID, False)]
         assert passed_over(caplog) == [
-            ("ERROR", DATABASE_FAILED, f"Season team {JUNCTION_OID} was passed over by the contact block clock: WriteError")
+            ("ERROR", DATABASE_FAILED, f"Season team {JUNCTION_OID} was passed over by the contact block clock: {REFUSED_TRACE_ID}")
         ]
 
     def test_a_candidate_the_answer_cannot_carry(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
@@ -1167,11 +1177,7 @@ class TestOneRowHoldsBackNoOther:
 
         assert ([loeschung.bewerbung_id for loeschung in answer.loeschungen], reminded(answer)) == ([DELETE_OID], {REMIND_OID})
         assert passed_over(caplog) == [
-            (
-                "ERROR",
-                UNHANDLED_CRASH,
-                f"Application {SECOND_OID} was passed over by the deletion clock, the failure not the database's: ValidationError",
-            )
+            ("ERROR", STORED_DATA_INVALID, f"Application {SECOND_OID} was passed over by the deletion clock: {REFUSED_DEADLINE}")
         ]
 
     def test_a_reminder_the_answer_cannot_carry(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
@@ -1190,11 +1196,7 @@ class TestOneRowHoldsBackNoOther:
 
         assert (answered, stamps) == ({REMIND_OID}, [None, None, None])
         assert passed_over(caplog) == [
-            (
-                "ERROR",
-                UNHANDLED_CRASH,
-                f"Application {SECOND_OID} was passed over by the reminder clock, the failure not the database's: ValidationError",
-            )
+            ("ERROR", STORED_DATA_INVALID, f"Application {SECOND_OID} was passed over by the reminder clock: {REFUSED_DEADLINE}")
         ]
 
     def test_a_pass_whose_every_reminder_fails_still_records_its_day(self, mongo_replica_set_url: str):
@@ -1225,8 +1227,9 @@ class TestOneRowHoldsBackNoOther:
 
         assert (stamped, stamps) == (1, [TODAY, None])
         # `OperationFailure` rather than `WriteError`: the stamp is a `findAndModify`, which answers a refusal as a command error.
+        refusal = "OperationFailure, code 121: [{'loc': 'trikot', 'type': 'required', 'msg': 'property is missing'}]"
         assert passed_over(caplog) == [
-            ("ERROR", DATABASE_FAILED, f"Application {SECOND_OID} was passed over by the announcement clock: OperationFailure")
+            ("ERROR", DATABASE_FAILED, f"Application {SECOND_OID} was passed over by the announcement clock: {refusal}")
         ]
 
     def test_a_refused_erasure_of_the_announced(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
@@ -1243,7 +1246,7 @@ class TestOneRowHoldsBackNoOther:
 
         assert (erased, refused is not None, other) == (1, True, None)
         assert passed_over(caplog) == [
-            ("ERROR", DATABASE_FAILED, f"Application {DELETE_OID} was passed over by the fourteen-day clock: WriteError")
+            ("ERROR", DATABASE_FAILED, f"Application {DELETE_OID} was passed over by the fourteen-day clock: {REFUSED_TRACE_ID}")
         ]
 
 
