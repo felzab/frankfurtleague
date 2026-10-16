@@ -793,8 +793,10 @@ unconditionally on every match write.
 
 ### 1.5 Out-of-band invalidation
 
-`saisons`, `spieler` and `spieltage` are cached for a day, so an edit made **directly in MongoDB**
-is served stale until the cache expires or somebody drops it.
+`saisons`, `spieler` and `spieltage` are cached under Next's `days` profile, so an edit made
+**directly in MongoDB** is served stale until somebody drops it or a visit refreshes the entry: the
+profile's day is a revalidation and not an expiry, so the first visit a day after the entry was filled
+is still answered from it while it refreshes.
 
 Each of the three has an admin page that invalidates as it saves (declared by the action, dropped by its spine), so
 an edit made through the app is visible at once and only a hand edit goes around it — the symptom a
@@ -817,9 +819,9 @@ drop one. **A second such route, a tag past that list, or an edge location forwa
 refused** (`.claude/rules/cross-surface.md`): each hands a holder of the system key, or a stranger,
 a cache to empty that no review weighed.
 
-**A season edited by hand is the case where the daily bound costs the most**: a season decides which
+**A season edited by hand is the case where that wait costs the most**: a season decides which
 season an omitted `saison_id` means and its `rules` score the league table, so `saisons`, `spiele`,
-`spieltage`, `teams` and `spieler` all stay stale until their entries expire or all five are
+`spieltage`, `teams` and `spieler` all stay stale until a visit refreshes each entry or all five are
 dropped. I25 names what an action clears instead.
 
 ### 1.6 Deliberate duplication: the three match cards
