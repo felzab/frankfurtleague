@@ -55,9 +55,9 @@ router = APIRouter(
 # a pass that stops on a club somebody retired.
 _TEAM_UNBEKANNT = ""
 
-# Two commands a row beside the worst call's nineteen (`tests/api/test_registrierung_sweep_refusal.py :: OTHER_COMMANDS`):
-# 121 x 2 + 19 commands at a 37 ms round trip plus 1.07 ms each take 9.94 s of
-# `app/core/middlewares.py :: REQUEST_DEADLINE_S` (`docs/backend/spec.md :: I322`).
+# Two commands a row beside the nineteen of the worst call erasing one page per clock
+# (`tests/api/test_registrierung_sweep_refusal.py :: OTHER_COMMANDS`): 261 commands at a 37 ms round trip
+# plus 1.07 ms take 9.94 s of `app/core/middlewares.py :: REQUEST_DEADLINE_S` (`docs/backend/spec.md :: I322`).
 REMINDERS_PER_PASS: Final = 121
 
 

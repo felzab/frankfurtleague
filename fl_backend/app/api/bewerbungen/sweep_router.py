@@ -75,10 +75,9 @@ router = APIRouter(
     dependencies=[Depends(verify_access_system), Depends(bind_system_actor)],
 )
 
-# Two commands a row beside the worst call's 24
+# Both shares at two commands a row beside the 24 of the worst call erasing one page per clock
 # (`tests/api/test_bewerbung_sweep_refusal.py :: test_a_full_share_finishes_inside_the_deadline_at_the_round_trip_its_comment_names`):
-# both shares, 120 x 2 + 24 commands at a 36 ms round trip plus 1.35 ms each, take 9.86 s of
-# `app/core/middlewares.py :: REQUEST_DEADLINE_S`.
+# 264 commands at a 36 ms round trip plus 1.35 ms take 9.86 s of `app/core/middlewares.py :: REQUEST_DEADLINE_S`.
 REMINDERS_PER_PASS: Final = 60
 
 # A season at the capacity its rules allow holds more junction rows than this, and takes more passes.
