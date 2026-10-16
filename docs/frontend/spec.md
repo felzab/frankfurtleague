@@ -1705,7 +1705,9 @@ The banner rules:
 **The rules held mechanically are the ones `scripts/checks/docs_gate/copy_rules.py` reaches** — the
 dash rule with its date-range exception, the retired words `:: BANNED_TERMS` names, the register rules, and the semicolon
 ban with the legal sources `:: LEGAL_SOURCES` exempts by path — over every string literal and JSX
-element of `fl_frontend/src`, comments and tests excluded; it recognises a date by the name of the function
+element of `fl_frontend/src`, comments and tests excluded, and, the semicolon ban apart, over each
+consent wording under a label the branch adds to `fl_backend/app/shared/einwilligung.py :: FASSUNGEN`,
+a label already landed being frozen; it recognises a date by the name of the function
 that formats it, a coupling `copy-corpus` fails when the name stops matching, rather than letting
 the exception widen unseen. **The heading rule is held where a check can name the heading**:
 `fl_frontend/src/app/namedHeadings.test.ts` over the headings and controls it registers, and
