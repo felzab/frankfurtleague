@@ -4,13 +4,14 @@ import logging
 from collections import Counter
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
 from fastapi import FastAPI
-from pymongo import AsyncMongoClient, MongoClient, ReturnDocument, monitoring
+from pymongo import AsyncMongoClient, MongoClient, ReturnDocument
+from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen import sweep_router as sweep_router_module
@@ -40,6 +41,7 @@ from app.api.bewerbungen.sweep_router import (
     sweep_saison,
 )
 from app.api.bewerbungen.zustellung_router import angenommen_zustellung, post_zustellung
+from app.api.saisons.admin_router import activate_saison
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.collections import Collection
@@ -56,7 +58,17 @@ from tests.app_client import app_client
 from tests.bans import ban_list
 from tests.config import ADMIN_AUTH, BASE_AUTH, SYSTEM_AUTH, build_test_config
 from tests.database import a_clean_database, a_clean_database_sync, on_the_seed_loop
-from tests.documents import ban_document, kontaktperson_document, rules_document, saison_document, saison_team_document, team_document
+from tests.documents import (
+    ban_document,
+    kontaktperson_document,
+    rules_document,
+    saison_document,
+    saison_team_document,
+    spiel_document,
+    team_document,
+)
+from tests.isolation import COMMITTED, InterleavedCollection, Rival, outcome_of
+from tests.wire import commands_by_name, commands_sent
 from tests.worker import worker_database
 
 # Module level, as the other execution suites mark theirs: every test below reaches a real mongod.
@@ -1066,6 +1078,139 @@ class TestTheSeasonAndOneClock:
         on_a_league(mongo_replica_set_url, body, status="past")
 
 
+class _ThenTheRival:
+    """A cursor running the rival once its rows have arrived; `sort` and `limit` chain as the driver's do."""
+
+    def __init__(self, cursor: Any, rival: Callable[[], Awaitable[None]]) -> None:
+        self._cursor = cursor
+        self._rival = rival
+
+    def sort(self, *args: Any, **kwargs: Any) -> _ThenTheRival:
+        self._cursor = self._cursor.sort(*args, **kwargs)
+        return self
+
+    def limit(self, *args: Any, **kwargs: Any) -> _ThenTheRival:
+        self._cursor = self._cursor.limit(*args, **kwargs)
+        return self
+
+    async def to_list(self, *args: Any, **kwargs: Any) -> list[Any]:
+        rows = await self._cursor.to_list(*args, **kwargs)
+        await self._rival()
+
+        return rows
+
+
+class ActivatedAfterTheClocksRead(InterleavedCollection):
+    """The rows a clock reads first in its transaction, the season activated once that read has answered.
+
+    The transaction has read by then, so only the season's anchor can make the two conflict.
+    """
+
+    def __init__(self, collection: Any, rival: Rival, *, clocks_read: Callable[[Mapping[str, Any]], bool]) -> None:
+        async def reported() -> None:
+            self.rival_outcome = await outcome_of(rival())
+
+        super().__init__(collection, reported)
+        self.rival_outcome: str | None = None
+        self._clocks_read = clocks_read
+
+    def find(self, *args: Any, **kwargs: Any) -> Any:
+        cursor = self._collection.find(*args, **kwargs)
+        if kwargs.get("session") is None or not self._clocks_read(kwargs.get("filter") or {}):
+            return cursor
+
+        return _ThenTheRival(cursor, self.run_the_rival)
+
+
+# Far past the call's few seconds over two pages, and far short of a job's own budget.
+DRAIN_BOUND_S = 60.0
+
+
+class TestAnActivationInsideAnErasingTransactionKeepsTheSeasonsRows:
+    @pytest.mark.parametrize(
+        ("collection", "clocks_read", "expected"),
+        [
+            pytest.param(
+                Collection.BEWERBUNGEN, lambda db_filter: db_filter.get("status") == "angenommen", (0, 0, True, True), id="the accepted clock's"
+            ),
+            # The accepted clock committed first, so its applications went before the season ran.
+            pytest.param(Collection.SAISON_TEAMS, lambda _: True, (SWEEP_PAGE + 2, 0, False, True), id="the contact block's"),
+        ],
+    )
+    def test_the_season_activated_keeps_what_the_transaction_had_not_taken(
+        self,
+        mongo_replica_set_url: str,
+        collection: Collection,
+        clocks_read: Callable[[Mapping[str, Any]], bool],
+        expected: tuple[int, int, bool, bool],
+    ):
+        """`docs/backend/spec.md :: I154`: remove `pull_the_season_after`'s anchor and the planned season loses what it runs on.
+
+        Planned below a season that has ended, so the call's own read finds both clocks due.
+        """
+
+        accepted = {"status": "angenommen", "entscheidung": {"getroffen_am": "2026-03-01", "von": "admin", "grund": None}}
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            # A page and one more: a kept page answered as read drains for ever, which `DRAIN_BOUND_S` turns into a failure.
+            await database[Collection.BEWERBUNGEN].insert_many(
+                [application(numbered(position), **accepted) for position in range(SWEEP_PAGE + 1)]
+            )
+            # What makes the planned season activatable (`REQ-ACTIVATE-003`).
+            await database[Collection.SPIELE].insert_one(
+                spiel_document(spiel_id=numbered(SWEEP_PAGE + 1), saison_id=SAISON_ID, spiel_nr=1, spieltag_id=numbered(SWEEP_PAGE + 2))
+            )
+
+            async def activate() -> Any:
+                return await activate_saison(
+                    saison_id=SAISON_ID,
+                    saisons_collection=database[Collection.SAISONS],
+                    spiele_collection=database[Collection.SPIELE],
+                    spieltage_collection=database[Collection.SPIELTAGE],
+                    sperrliste_collection=database[Collection.SPERRLISTE],
+                    db=client,
+                )
+
+            interleaved = ActivatedAfterTheClocksRead(database[collection], activate, clocks_read=clocks_read)
+
+            def reaching(name: Collection) -> AsyncCollection:
+                return cast(AsyncCollection, interleaved) if name == collection else database[name]
+
+            response = await asyncio.wait_for(
+                sweep_saison(
+                    saison_id=SAISON_ID,
+                    bewerbungen_collection=reaching(Collection.BEWERBUNGEN),
+                    saison_teams_collection=reaching(Collection.SAISON_TEAMS),
+                    saisons_collection=database[Collection.SAISONS],
+                    teams_collection=database[Collection.TEAMS],
+                    aktionen_collection=database[Collection.AKTIONEN],
+                    sperrliste=ban_list(database),
+                    db=client,
+                    today=TODAY,
+                    germany_now=NOW,
+                ),
+                timeout=DRAIN_BOUND_S,
+            )
+            junction_row = await database[Collection.SAISON_TEAMS].find_one({"_id": JUNCTION_OID})
+
+            return (
+                interleaved.rival_outcome,
+                await database[Collection.SAISONS].find_one({"_id": SAISON_ID}),
+                (
+                    response.angenommene_geloescht,
+                    response.kontaktbloecke_geleert,
+                    await stored(database, ACCEPTED_OID) is not None,
+                    junction_row is not None and junction_row["kontakte"] is not None,
+                ),
+            )
+
+        outcome, activated, kept = on_a_league(mongo_replica_set_url, body, status="future", next_status="past")
+
+        # The premise first: the activation committed inside the clock's transaction.
+        assert (outcome, activated is not None and activated["status"]) == (COMMITTED, "active")
+        assert kept == expected
+
+
 class TestASeasonNobodyHas:
     def test_either_call_is_a_404_and_writes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1589,38 +1734,8 @@ class TestEachCappedClockMakesProgressAcrossPasses:
         assert standing == 0
 
 
-class _Counting(monitoring.CommandListener):
-    """Every command sent while it is on, each one a round trip."""
-
-    def __init__(self) -> None:
-        self.commands = 0
-
-    def started(self, event: monitoring.CommandStartedEvent) -> None:
-        self.commands += 1
-
-    def succeeded(self, event: monitoring.CommandSucceededEvent) -> None:
-        pass
-
-    def failed(self, event: monitoring.CommandFailedEvent) -> None:
-        pass
-
-
 # Under the driver's first batch, so a page read is one command however many rows it holds.
 FEW = 10
-
-# The update and its log row: the per-row cost each share is sized at.
-ROUND_TRIPS_A_ROW = 2
-
-
-async def commands_sent(url: str, call: Body) -> int:
-    listener = _Counting()
-    counting = AsyncMongoClient(url, event_listeners=[listener])
-    try:
-        await call(counting[DATABASE_NAME], counting)
-    finally:
-        await counting.close()
-
-    return listener.commands
 
 
 class TestEachPerRowLoopCostsTheRoundTripsItsShareIsSizedAt:
@@ -1634,13 +1749,13 @@ class TestEachPerRowLoopCostsTheRoundTripsItsShareIsSizedAt:
                 # Stamped already, so the run's own stamp costs both runs the same guard read.
                 await database[Collection.SAISONS].update_many({}, {"$set": {"sweep_gelaufen_am": TODAY}})
 
-                return await commands_sent(mongo_replica_set_url, sweep)
+                return await commands_sent(mongo_replica_set_url, DATABASE_NAME, sweep)
 
             return await counted(FEW), await counted(2 * FEW)
 
         few, twice = on_a_league(mongo_replica_set_url, body)
 
-        assert (twice - few) / FEW == ROUND_TRIPS_A_ROW
+        assert (twice - few) / FEW == budget.ROUND_TRIPS_A_ROW
 
     @pytest.mark.parametrize(
         "refused",
@@ -1666,14 +1781,14 @@ class TestEachPerRowLoopCostsTheRoundTripsItsShareIsSizedAt:
                 await database[Collection.BEWERBUNGEN].insert_many(rows)
                 await database[Collection.SAISONS].update_many({}, {"$set": {"sweep_gelaufen_am": TODAY}})
 
-                return await commands_sent(mongo_replica_set_url, sweep)
+                return await commands_sent(mongo_replica_set_url, DATABASE_NAME, sweep)
 
             rows = [application(numbered(position)) for position in range(FEW)]
             return await counted(rows), await counted([*rows[:-1], refused(rows[-1])])
 
         carryable, with_one_refused = on_a_league(mongo_replica_set_url, body)
 
-        assert carryable - with_one_refused == ROUND_TRIPS_A_ROW
+        assert carryable - with_one_refused == budget.ROUND_TRIPS_A_ROW
 
     def test_a_decision_date_no_judge_can_read_costs_its_clock_no_command(self, mongo_replica_set_url: str):
         """Every command a drain spends taking a page apart is one the reminder share after it has not got."""
@@ -1686,7 +1801,7 @@ class TestEachPerRowLoopCostsTheRoundTripsItsShareIsSizedAt:
                 await database[Collection.BEWERBUNGEN].insert_many(rows)
                 await database[Collection.SAISONS].update_many({}, {"$set": {"sweep_gelaufen_am": TODAY}})
 
-                return await commands_sent(mongo_replica_set_url, sweep)
+                return await commands_sent(mongo_replica_set_url, DATABASE_NAME, sweep)
 
             without, beside = await counted(the_corpus()), await counted([*the_corpus(), unreadable])
             return without, beside, await stored(database, SECOND_OID), await stored(database, DECLINED_OID)
@@ -1706,13 +1821,13 @@ class TestEachPerRowLoopCostsTheRoundTripsItsShareIsSizedAt:
                 )
                 await database[Collection.SAISONS].update_many({}, {"$set": {"sweep_gelaufen_am": TODAY}})
 
-                return await commands_sent(mongo_replica_set_url, sweep)
+                return await commands_sent(mongo_replica_set_url, DATABASE_NAME, sweep)
 
             return await counted(FEW), await counted(2 * FEW)
 
         few, twice = on_a_league(mongo_replica_set_url, body, status="past", next_status="past")
 
-        assert (twice - few) / FEW == ROUND_TRIPS_A_ROW
+        assert (twice - few) / FEW == budget.ROUND_TRIPS_A_ROW
 
     def test_a_stamped_announcement(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[int, int]:
@@ -1721,34 +1836,13 @@ class TestEachPerRowLoopCostsTheRoundTripsItsShareIsSizedAt:
                 await database[Collection.BEWERBUNGEN].delete_many({})
                 await database[Collection.BEWERBUNGEN].insert_many([application(row_id, bestaetigungsfrist=YESTERDAY) for row_id in ids])
 
-                return await commands_sent(mongo_replica_set_url, lambda database, client: announce(database, client, ids))
+                return await commands_sent(mongo_replica_set_url, DATABASE_NAME, lambda database, client: announce(database, client, ids))
 
             return await counted(FEW), await counted(2 * FEW)
 
         few, twice = on_a_league(mongo_replica_set_url, body)
 
-        assert (twice - few) / FEW == ROUND_TRIPS_A_ROW
-
-
-class _ByName(_Counting):
-    def __init__(self) -> None:
-        super().__init__()
-        self.names: Counter[str] = Counter()
-
-    def started(self, event: monitoring.CommandStartedEvent) -> None:
-        super().started(event)
-        self.names[event.command_name] += 1
-
-
-async def commands_by_name(url: str, call: Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]) -> tuple[Any, Counter[str]]:
-    """The call's answer and its commands, read before the close sends `endSessions`, which is no command of the call's."""
-
-    listener = _ByName()
-    counting = AsyncMongoClient(url, event_listeners=[listener])
-    try:
-        return await call(counting[DATABASE_NAME], counting), Counter(listener.names)
-    finally:
-        await counting.close()
+        assert (twice - few) / FEW == budget.ROUND_TRIPS_A_ROW
 
 
 class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
@@ -1774,7 +1868,7 @@ class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
                 ]
             )
 
-            return await commands_by_name(mongo_replica_set_url, sweep)
+            return await commands_by_name(mongo_replica_set_url, DATABASE_NAME, sweep)
 
         answer, names = on_a_league(mongo_replica_set_url, body, status="future", next_status="past")
         rows = len(reminded(answer)) + answer.kontaktbloecke_geleert
@@ -1787,7 +1881,7 @@ class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
             ids = [numbered(position) for position in range(FEW)]
             await database[Collection.BEWERBUNGEN].insert_many([application(row_id, bestaetigungsfrist=YESTERDAY) for row_id in ids])
 
-            return await commands_by_name(mongo_replica_set_url, lambda database, client: announce(database, client, ids))
+            return await commands_by_name(mongo_replica_set_url, DATABASE_NAME, lambda database, client: announce(database, client, ids))
 
         answer, names = on_a_league(mongo_replica_set_url, body)
 

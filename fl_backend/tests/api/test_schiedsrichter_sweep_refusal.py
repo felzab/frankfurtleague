@@ -13,7 +13,8 @@ from app.core.middlewares import REQUEST_DEADLINE_S
 COMMANDS_A_REFEREE = 6
 COMMANDS_A_PUPIL = 6
 
-# The call's other command, counted on the wire 2026-10-16: one aggregate, answering one document at any size.
+# The call's other command, one aggregate answering one document at any size, pinned on the wire by
+# `fl_backend/tests/api/test_schiedsrichter_sweep_execution.py :: TestTheWorstCallSendsTheCommandsItsBudgetCounts`.
 OTHER_COMMANDS = 1
 
 # The per-command cost, the largest of two windows timing whole calls locally, 2026-10-16.

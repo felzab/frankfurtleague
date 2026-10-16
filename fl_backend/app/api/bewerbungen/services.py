@@ -1640,14 +1640,17 @@ def season_has_ended(*, saison_status: Any) -> bool:
     return saison_status == "past"
 
 
-def season_after_has_ended(*, next_saison_status: Any) -> bool:
-    """The accepted clock and the contact block share one test: the season after the one applied for is `past`."""
+def season_after_has_ended(*, later_saison_status: Any) -> bool:
+    """The accepted clock and the contact block share one test: any season after the one applied for has ended.
 
-    return season_has_ended(saison_status=next_saison_status)
+    The router asks it only while the season applied for is not `active`, the rule's other half (`docs/backend/spec.md :: I154`).
+    """
+
+    return season_has_ended(saison_status=later_saison_status)
 
 
-def acceptance_erasure_is_due(*, bewerbung_raw: Mapping[str, Any], next_saison_status: Any) -> bool:
-    return bewerbung_raw.get("status") == "angenommen" and season_after_has_ended(next_saison_status=next_saison_status)
+def acceptance_erasure_is_due(*, bewerbung_raw: Mapping[str, Any], later_saison_status: Any) -> bool:
+    return bewerbung_raw.get("status") == "angenommen" and season_after_has_ended(later_saison_status=later_saison_status)
 
 
 def undecided_erasure_is_due(*, bewerbung_raw: Mapping[str, Any], saison_status: Any) -> bool:
