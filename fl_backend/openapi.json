@@ -5455,6 +5455,63 @@
         "x-fl-tier": "admin"
       }
     },
+    "/api/v0/saisons/{saison_id}/loeschung/vorschau": {
+      "get": {
+        "summary": "How many pupils activating this season would delete",
+        "description": "How many pupils `POST /identitaet/loeschung/lauf` deletes once this season is activated, and which season that activation closes.\n\nJudged by the run's own rule over the statuses the activation leaves: the season now `active` turned `past`, this one\n`active`, every other as it stands. A count and never a name, and writes nothing. It judges none of the activation's own\nrefusals, and the people it counts are those due at this moment: a squad row or a registration arriving before the run\nkeeps its pupil, and a pupil whose stored address no request matches is counted though the run passes them over.\n`abgeschlossene_saison_id` is null where no season but this one is `active`. 404 where no season holds that id.",
+        "operationId": "preview_loeschung_api_v0_saisons__saison_id__loeschung_vorschau_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "saison_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Saison Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLLoeschungVorschauResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/404.DB-COMMON-001"
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "x-fl-tier": "admin"
+      }
+    },
     "/api/v0/saisons/{saison_id}/einladungen/versand": {
       "post": {
         "summary": "Mint every admitted team a link",
@@ -8624,6 +8681,119 @@
             "HTTPBearer": []
           }
         ],
+        "x-fl-tier": "system"
+      }
+    },
+    "/api/v0/identitaet/loeschung/lauf": {
+      "post": {
+        "summary": "Delete one share of the pupils the season-after rule makes due",
+        "description": "Delete a bounded share of the pupils whose last squad season is over by a whole season, and answer what went and how many remain.\n\nThe rule, read from the seasons' stored statuses at each call: a pupil is due once they hold no squad row, live or retired,\nin the latest `past` season, in any season with a greater id or in the running one, and no registration still `eingereicht`\nat their address, compared as the sign-in folds it. While no season is `past` nobody is due, and `abgeschlossene_saison_id`\nis null. A pupil holding no address is never due: nothing else erases by a name. A pupil whose stored address no request\nmatches, empty, unfolded or refused by the address rule, is passed over and named by id in a warning: a hand correction\nleft it so, and an erasure by another spelling would remove nobody.\n\nEach pupil is deleted in a transaction of their own, which first judges them again: one who has gained a squad row or a\npending registration since this call read them, the two arriving while that transaction runs included, or whom another call\ndeleted first, is counted `uebersprungen` and left standing. Two calls at once therefore delete each pupil once. Deleted are\nthe pupil's own data alone: the pupil record, every squad row it holds and every registration at the address, a declined\none included, each with its log images. A contact seat, a referee record, a grant and anything else held at the same\naddress stand, and so do the log images naming them.\n\n**A pass is a run of calls, each handing the next the `nach` the last answered**, the first naming none; it ends at the call\nanswering `nach` null. A call reaches at most a fixed share of the due pupils after `nach`, in `_id` order, and the pass\nholds no state on the server. A pupil whose deletion the database refuses is counted `fehlgeschlagen`, logged by id and\npassed, so a failing record holds back nobody behind it in the pass; it stays due, and the next pass tries it again. Where\nthe request's deadline cuts the call, it stops at that pupil, warns once, and answers what it did; the rest stay due, and\nthe pass goes on from the next call. `verbleibend` counts the pupils due after the call, those it failed or passed over\namong them, so it is no stopping condition. No body: the call takes no season and no limit.\n\nThe 409 is published because the duplicate-key trace reaches the registry's insert of the pupils' sentinel and reads no\nhandler; this call counts that failure as any other and never answers it.",
+        "operationId": "post_loeschung_lauf_api_v0_identitaet_loeschung_lauf_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "nach",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Nach"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLLoeschungLaufResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "$ref": "#/components/responses/409.DB-COMMON-002"
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-003"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "x-fl-tier": "system"
+      }
+    },
+    "/api/v0/schiedsrichter/sweep/adresswechsel": {
+      "post": {
+        "summary": "Remove the pending referee and pupil addresses whose link lapsed",
+        "description": "Remove a bounded share of the pending addresses whose link lapsed before today in Europe/Berlin, a confirmed referee's and a pupil's.\n\nThe day after a link's deadline, the pending address goes as an administrator's discard takes it: the block and its link,\nand the address out of every log image of that referee or pupil, the rest of each image standing. The row and the address\non file stand, a retired referee's or pupil's included. The deadline's own day still takes the link, so a change lapsing\ntoday is left. Nothing is mailed.\n\nEach change is removed in a transaction of its own that judges the lapse again, so a change confirmed, discarded or sent a\nfresh link since this call read it is left standing. **A pass is a run of calls, each handing the next the `nach` the last\nanswered**, the first naming none; it ends at the call answering `nach` null. A call reaches at most a fixed share of the\nlapsed changes after `nach`, the referees' and the pupils' in one `_id` order, and the pass holds no state on the server.\nA change whose removal the database refuses is logged by its row's id and passed, so it holds back nobody behind it in the\npass; it stays lapsed, and the next pass tries it again. Where the request's deadline cuts the call, it stops at that\nchange, warns once, and answers what it did. `verbleibend` counts the lapsed changes standing after the call, so it is no\nstopping condition.",
+        "operationId": "sweep_adresswechsel_api_v0_schiedsrichter_sweep_adresswechsel_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "nach",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Nach"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSchiedsrichterAdresswechselSweepResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-003"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
         "x-fl-tier": "system"
       }
     },
@@ -16477,6 +16647,113 @@
         "title": "FLKontoSpielerEinwilligung",
         "description": "The pupil's record on the account page: its stored data and the consent the page moves."
       },
+      "FLLoeschungLaufResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "abgeschlossene_saison_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Abgeschlossene Saison Id"
+          },
+          "spieler": {
+            "type": "integer",
+            "title": "Spieler"
+          },
+          "saison_spieler": {
+            "type": "integer",
+            "title": "Saison Spieler"
+          },
+          "registrierungen": {
+            "type": "integer",
+            "title": "Registrierungen"
+          },
+          "uebersprungen": {
+            "type": "integer",
+            "title": "Uebersprungen"
+          },
+          "fehlgeschlagen": {
+            "type": "integer",
+            "title": "Fehlgeschlagen"
+          },
+          "verbleibend": {
+            "type": "integer",
+            "title": "Verbleibend"
+          },
+          "nach": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nach"
+          }
+        },
+        "type": "object",
+        "required": [
+          "abgeschlossene_saison_id",
+          "spieler",
+          "saison_spieler",
+          "registrierungen",
+          "uebersprungen",
+          "fehlgeschlagen",
+          "verbleibend",
+          "nach"
+        ],
+        "title": "FLLoeschungLaufResponse",
+        "description": "One call's share of the season-after rule: what it erased, whom it passed over, and how many are still due."
+      },
+      "FLLoeschungVorschauResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "abgeschlossene_saison_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Abgeschlossene Saison Id"
+          },
+          "spieler": {
+            "type": "integer",
+            "title": "Spieler"
+          }
+        },
+        "type": "object",
+        "required": [
+          "abgeschlossene_saison_id",
+          "spieler"
+        ],
+        "title": "FLLoeschungVorschauResponse",
+        "description": "How many pupils the run erases once this season is activated, counted and never named."
+      },
       "FLOffeneRegistrierung": {
         "properties": {
           "registrierung_id": {
@@ -21170,6 +21447,46 @@
         ],
         "title": "FLSchiedsrichterAdresswechselResponse",
         "description": "The answer recorded, and nothing of the row: a leaked link learns only what it posted."
+      },
+      "FLSchiedsrichterAdresswechselSweepResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "entfernt": {
+            "type": "integer",
+            "title": "Entfernt"
+          },
+          "verbleibend": {
+            "type": "integer",
+            "title": "Verbleibend"
+          },
+          "nach": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nach"
+          }
+        },
+        "type": "object",
+        "required": [
+          "entfernt",
+          "verbleibend",
+          "nach"
+        ],
+        "title": "FLSchiedsrichterAdresswechselSweepResponse",
+        "description": "One call's share of the pending addresses whose link lapsed, a referee's or a pupil's: how many went, and how many are still due."
       },
       "FLSchiedsrichterBestaetigung": {
         "properties": {

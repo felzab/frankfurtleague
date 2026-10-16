@@ -271,7 +271,7 @@ const saisonProps = (over: { drawn?: boolean } = {}) => ({
     bewerbung: null,
     registrierung: null,
   },
-  rollover: { outgoingSaisonId: null, offeneSpiele: [], hasUndatierteSpieltage: false },
+  rollover: { outgoingSaisonId: null, offeneSpiele: [], hasUndatierteSpieltage: false, loeschung: null },
   swap: { teams: [], playedKnockoutSpiele: 0 },
   ersatz: { rows: [], candidates: [] },
   spielplan:

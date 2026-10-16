@@ -121,15 +121,21 @@ container, none can read the traffic crossing `frankfurtleague-app` (§4).
 retention clock runs in the process that serves the site and stops when it stops. Production
 declares no replicas, so one process arms one timer (I149), and a tick finding the previous pass
 still running skips with one line rather than overlapping it. The clocks that write inside the pass
-select on dates and are idempotent,
+select on dates or on season statuses and are idempotent,
 so a redeploy, a restart and a double-arm each cost nothing; the deletion notice is idempotent to one
 floor, a crash between a delivery and its stamp repeating that one notice once
-([`docs/backend/spec.md`](../backend/spec.md) I156). `BEWERBUNG_SWEEP` is what turns it off on a
-production build (§1.5); a `next dev` process arms nothing whatever that switch says, its default
-being on. Each of those is a way for the sweep to be absent, and `GET /bewerbungen/sweep` is what
-tells one from a pass that found nothing to do: it answers the day the last pass ran, null where
-none ever has ([`docs/backend/spec.md`](../backend/spec.md) I189). [`runbooks.md`](runbooks.md) §9
-is the call.
+([`docs/backend/spec.md`](../backend/spec.md) I156). **The pupils' deletion has a second caller and
+a second switch**: activating a season runs it first, the pass finishes what the activation left,
+and `LOESCHUNG_SWEEP`, off by default, holds both
+([`docs/frontend/spec.md`](../frontend/spec.md) I694, I695). That finishing, like the removal of a
+lapsed pending address, is the pass's alone, so it happens only while `BEWERBUNG_SWEEP` arms the
+timer ([`runbooks.md`](runbooks.md) §9). `BEWERBUNG_SWEEP` is what turns the
+pass off on a production build (§1.5); a `next dev` process arms nothing whatever that switch says,
+its default being on. Each of those is a way for the sweep to be absent, and `GET /bewerbungen/sweep`
+is what tells one from a pass that found nothing to do: it answers the day the last pass ran, null
+where none ever has ([`docs/backend/spec.md`](../backend/spec.md) I189). The two halves after the
+season loop stamp no day, so their per-pass log lines are their record. [`runbooks.md`](runbooks.md)
+§9 is the call.
 
 **It runs the account sweep too, on a timer and a switch of its own.**
 `fl_frontend/src/instrumentation-node.ts :: registerOnNode` arms

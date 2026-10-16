@@ -400,3 +400,26 @@ export const FLSwapGruppenResponseSchema = BaseAPIResponseSchema.extend({
   rewritten_spiele: z.int().nonnegative(),
 });
 export type FLSwapGruppenResponse = z.infer<typeof FLSwapGruppenResponseSchema>;
+
+/**
+ * `nach` is where the pass's next call starts, null once it reached the end; `verbleibend` counts the failed and
+ * the passed-over too, so it never ends a pass. `abgeschlossene_saison_id` is null where no season is `past`.
+ */
+export const FLLoeschungLaufResponseSchema = BaseAPIResponseSchema.extend({
+  abgeschlossene_saison_id: saisonIdReference.nullable(),
+  spieler: z.int().nonnegative(),
+  saison_spieler: z.int().nonnegative(),
+  registrierungen: z.int().nonnegative(),
+  uebersprungen: z.int().nonnegative(),
+  fehlgeschlagen: z.int().nonnegative(),
+  verbleibend: z.int().nonnegative(),
+  nach: CustomObjectIdStringSchema.nullable(),
+});
+export type FLLoeschungLaufResponse = z.infer<typeof FLLoeschungLaufResponseSchema>;
+
+/** Whom activating this season would delete, counted and never named; `abgeschlossene_saison_id` is the season that activation closes. */
+export const FLLoeschungVorschauResponseSchema = BaseAPIResponseSchema.extend({
+  abgeschlossene_saison_id: saisonIdReference.nullable(),
+  spieler: z.int().nonnegative(),
+});
+export type FLLoeschungVorschauResponse = z.infer<typeof FLLoeschungVorschauResponseSchema>;

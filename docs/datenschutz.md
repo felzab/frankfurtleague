@@ -699,14 +699,23 @@ Every ruling below is the sign-up flow as it stands for the next season.
   refused. The confirmation page states the period to the person whose details they are
   (`fl_backend/app/shared/einwilligung.py :: FASSUNGEN`), and the published notice
   tabulates it (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-09-09.
-- **A pupil's own row is bounded by a condition and never by a clock.** It stands while a squad row
-  references it, and what ends it is the person's erasure, the one-off reset of
-  [section 3](#3-the-current-pupil-records-are-reset-once), or the recurring deletion the next
-  programme builds — which is released by a condition too, the next season active and its
-  registration window closed, and which selects a person no squad row references. **An erasure
-  deletes the document outright** rather than nulling its fields
-  (`docs/backend/spec.md :: I12`), so the row either stands whole or is gone and there is no third
-  state to write a clock for.
+- **A pupil's own data is bounded by a condition and never by a clock: it goes once the season after
+  their last squad season has ended.** Activating a season makes due every pupil holding no squad
+  row, live or retired, in the season it closes, in any season with a later id or in the season
+  running, and no registration still awaiting a decision at their address
+  (`docs/backend/spec.md :: I690`, `:: I715`). Once switched on, activating a season deletes them
+  and an hourly pass finishes any it left, each pupil judged again in the transaction deleting them,
+  a registration arriving meanwhile keeping them (`:: I691`, `:: I716`), and the season page counts
+  them before the press (`:: I692`). A pupil whose address was corrected by hand into a spelling no
+  request matches is passed over, and named in the log by id, until the address is corrected
+  (`:: I718`). What goes is the pupil's own data alone — the record, every squad row and every
+  registration at the address, a declined one included, each with its log images — while a contact
+  seat, a referee record or a grant at the same address stands, each bounded by its own purpose. A
+  pupil holding no address is outside the rule, the one-off reset of
+  [section 3](#3-the-current-pupil-records-are-reset-once) removing them. **An erasure deletes the
+  document outright** rather than nulling its fields (`docs/backend/spec.md :: I12`), so the row
+  either stands whole or is gone and there is no third state to write a clock for. Ruled
+  2026-10-15.
 - **A registration link stops working when the season's registration window shuts or the season
   ends, or the moment an administrator withdraws it or replaces it with a new one; the entry
   recording it is kept without a clock.** The link carries no date of its own: what decides whether
@@ -727,19 +736,19 @@ Every ruling below is the sign-up flow as it stands for the next season.
   included (`fl_backend/app/api/schiedsrichter/services.py :: compose_mint_update`).
 - **A confirmed referee's pending new address stands until its holder confirms or declines it, an
   administrator replaces or discards it, the referee is erased with it or its holder's own erasure
-  removes it alone (`docs/backend/spec.md :: I668`), and once its link has
-  lapsed the yearly deletion removes it** (`fl_backend/app/core/domain.py :: FIELD_POLICIES`): the
-  address may be a stranger's, typed in by mistake, who never asked to be stored. Its link lasts
-  the confirmation link's fourteen days and a re-send restarts them
-  (`fl_backend/app/api/schiedsrichter/services.py :: compose_adresswechsel`). The yearly deletion is
-  not built yet, so until it is a lapsed change stands, marked as lapsed to the administrator, who
-  can discard it; the published notice already states the removal
-  (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-10-06.
+  removes it alone (`docs/backend/spec.md :: I668`), and goes the day after its link lapses**
+  (`fl_backend/app/core/domain.py :: FIELD_POLICIES`, `docs/backend/spec.md :: I693`): the address
+  may be a stranger's, typed in by mistake, who never asked to be stored. Its link lasts the
+  confirmation link's fourteen days and a re-send restarts them
+  (`fl_backend/app/api/schiedsrichter/services.py :: compose_adresswechsel`). The hourly pass
+  removes a lapsed one as a discard does, its address taken out of the referee's log images, a
+  retired referee's alike; the published notice states the removal
+  (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-10-06, its timing re-ruled 2026-10-15.
 - **A pupil's pending new address stands until its holder confirms or declines it, an administrator
   replaces or discards it, the pupil is erased with it or its holder's own erasure removes it alone
   (`docs/backend/spec.md :: I668`), and it is removed the day after its link lapses**
-  (`fl_backend/app/core/domain.py :: FIELD_POLICIES`), for the referee's reason above. Its
-  link lasts fourteen days and a re-send restarts them
+  (`fl_backend/app/core/domain.py :: FIELD_POLICIES`, `docs/backend/spec.md :: I693`), for the
+  referee's reason above. Its link lasts fourteen days and a re-send restarts them
   (`fl_backend/app/shared/schemas/bounds.py :: SPIELER_ADRESSWECHSEL_FRIST_TAGE`). Ruled 2026-10-15.
 - **A ban on an email address is kept for five full seasons after the one it was entered under, and
   the person it bars is told so at the moment it is entered where the address holds an account; an
@@ -817,10 +826,15 @@ Every ruling below is the sign-up flow as it stands for the next season.
 - **A timer in the frontend process is what turns those clocks from an intention into a mechanism**
   (`fl_frontend/src/features/bewerbungen/sweep.ts :: armBewerbungSweep`, calling
   `fl_backend/app/api/bewerbungen/sweep_router.py :: sweep_saison` and
-  `fl_backend/app/api/registrierungen/sweep_router.py :: sweep_registrierungen` per season). A pass
-  that reminds nobody and deletes nothing records the day it ran exactly as a busy one does, and
-  `GET /bewerbungen/sweep` answers the day each half last ran (`docs/backend/spec.md :: I189`), so a
-  claim that a period was honoured rests on a date rather than on reading the data.
+  `fl_backend/app/api/registrierungen/sweep_router.py :: sweep_registrierungen` per season, then
+  `fl_backend/app/api/schiedsrichter/sweep_router.py :: sweep_adresswechsel` and, where
+  `LOESCHUNG_SWEEP` is on, `fl_backend/app/api/identitaet/sweep_router.py :: post_loeschung_lauf`).
+  A season's two sweeps record the day they ran, one that reminds nobody and deletes nothing exactly
+  as a busy one does, and `GET /bewerbungen/sweep` answers the day each last ran
+  (`docs/backend/spec.md :: I189`), so a claim that one of their periods was honoured rests on a
+  date rather than on reading the data. The lapsed addresses' removal and the pupils' deletion
+  stamp no day: their record is the line each writes per pass in the frontend's log
+  ([`ops/runbooks.md`](ops/runbooks.md#9-checking-that-the-retention-sweep-has-run) §9).
 - **Access logs stay on the host and are kept for at most eight days. The application logs are
   bounded by size while they run, and by thirty days as the copy each deploy makes.** The access
   log is a file on the host rather than a stream inside the nginx container — it carries the

@@ -388,3 +388,14 @@ export const FLSchiedsrichterSelbstEinwilligungResponseSchema = BaseAPIResponseS
   nachweis_stand: FLEinwilligungStandSchema,
 });
 export type FLSchiedsrichterSelbstEinwilligungResponse = z.infer<typeof FLSchiedsrichterSelbstEinwilligungResponseSchema>;
+
+/**
+ * One share of the referees' and pupils' pending addresses whose link lapsed before today. `nach` is where the
+ * pass's next call starts, null once it reached the end; `verbleibend` counts the failed too, so it never ends a pass.
+ */
+export const FLSchiedsrichterAdresswechselSweepResponseSchema = BaseAPIResponseSchema.extend({
+  entfernt: z.int().nonnegative(),
+  verbleibend: z.int().nonnegative(),
+  nach: CustomObjectIdStringSchema.nullable(),
+});
+export type FLSchiedsrichterAdresswechselSweepResponse = z.infer<typeof FLSchiedsrichterAdresswechselSweepResponseSchema>;

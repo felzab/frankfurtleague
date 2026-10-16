@@ -131,6 +131,10 @@ SYSTEM_WRITES = [
     # session, and a change made in the database directly has no administrator to attribute it to.
     ("/api/v0/berechtigungen/abgleich", "post"),
     ("/api/v0/berechtigungen/abgleich/angekuendigt", "post"),
+    # The season-after rule and the lapsed address's clock, whichever caller runs them: a timer holds
+    # no session, and an activation's press deletes nobody in the administrator's name.
+    ("/api/v0/identitaet/loeschung/lauf", "post"),
+    ("/api/v0/schiedsrichter/sweep/adresswechsel", "post"),
 ]
 
 MUTATIONS = [
@@ -163,6 +167,8 @@ ADMIN_READS = [
     # Which contact seats of which team a mailing would reach is `READ-CONTACT-001`'s subject exactly
     # as the two `bewerbungen` reads are.
     ("/api/v0/saisons/{saison_id}/einladungen/versand/vorschau", "get"),
+    # How many pupils an activation deletes, which only the person able to press it may weigh.
+    ("/api/v0/saisons/{saison_id}/loeschung/vorschau", "get"),
     # The invitation's own read serves `erstellt_von`, an administrator's address.
     ("/api/v0/teams/{team_id}/saisons/{saison_id}/einladung", "get"),
     # A registration holds a pupil's name, the address the league mailed and, once they confirm,

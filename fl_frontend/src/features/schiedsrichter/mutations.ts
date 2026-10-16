@@ -6,6 +6,7 @@ import {
   FLSchiedsrichterAdresswechselAnsichtResponseSchema,
   FLSchiedsrichterAdresswechselMintResponseSchema,
   FLSchiedsrichterAdresswechselResponseSchema,
+  FLSchiedsrichterAdresswechselSweepResponseSchema,
   FLSchiedsrichterBestaetigungAnsichtResponseSchema,
   FLSchiedsrichterBestaetigungResponseSchema,
   FLSchiedsrichterMintResponseSchema,
@@ -25,6 +26,7 @@ import type {
   FLSchiedsrichterAdresswechselMintResponse,
   FLSchiedsrichterAdresswechselPayload,
   FLSchiedsrichterAdresswechselResponse,
+  FLSchiedsrichterAdresswechselSweepResponse,
   FLSchiedsrichterAdresswechselVerwerfenPayload,
   FLSchiedsrichterBestaetigungAnsichtPayload,
   FLSchiedsrichterBestaetigungAnsichtResponse,
@@ -90,6 +92,22 @@ export async function einladeAdresswechsel({
     `/schiedsrichter/${id}/adresswechsel/einladen`,
     FLSchiedsrichterAdresswechselMintResponseSchema,
     { method: "POST", authType: "admin" },
+  );
+}
+
+/**
+ * The hourly pass's, on the system tier: a timer holds no session, and a lapsed address is the clock's to remove.
+ * `nach` is the previous call's answer.
+ */
+export async function postSchiedsrichterAdresswechselSweep(nach: string | null): Promise<FLSchiedsrichterAdresswechselSweepResponse> {
+  return apiClient<FLSchiedsrichterAdresswechselSweepResponse>(
+    "/schiedsrichter/sweep/adresswechsel",
+    FLSchiedsrichterAdresswechselSweepResponseSchema,
+    {
+      method: "POST",
+      authType: "system",
+      params: { nach: nach },
+    },
   );
 }
 
