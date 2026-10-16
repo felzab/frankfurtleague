@@ -128,7 +128,7 @@ async function sendeHinweis(adresse: string, vorname: string, operation: string)
 export function describeAdresswechselMail(email: string, versand: AdresswechselVersand): string {
   const link =
     versand.link === "gesendet"
-      ? `Der Link zur Bestätigung der neuen Adresse ging an ${email}; bis zur Bestätigung gilt die bisherige.`
+      ? `Der Link zur Bestätigung der neuen Adresse ging an ${email}. Bis zur Bestätigung gilt die bisherige.`
       : versand.link === "zurueckgehalten"
         ? ZURUECKGEHALTEN
         : versand.link === "gesperrt"
@@ -136,7 +136,7 @@ export function describeAdresswechselMail(email: string, versand: AdresswechselV
           : `Der Link zur Bestätigung konnte nicht an ${email} zugestellt werden. Melde Dich selbst bei der Person.`;
   // Said only where it did not go: the notice is a courtesy, and its arrival is not the administrator's to act on.
   const hinweis =
-    versand.hinweis === "fehlgeschlagen" ? " Der Hinweis an die bisherige Adresse ging nicht raus; sag der Person selbst Bescheid." : "";
+    versand.hinweis === "fehlgeschlagen" ? " Der Hinweis an die bisherige Adresse ging nicht raus. Sag der Person selbst Bescheid." : "";
 
   return `${link}${hinweis}`;
 }

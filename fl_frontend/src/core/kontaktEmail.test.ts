@@ -116,7 +116,7 @@ describe("the message a seated contact person is mailed", () => {
   it("states the objection in a paragraph of its own, in both parts", () => {
     assert.match(
       mail.html,
-      /<p\b[^>]*>Der Verarbeitung Deiner Angaben kannst Du jederzeit aus Gründen widersprechen, die sich aus Deiner besonderen Situation ergeben \(Art\. 21 DSGVO\); eine formlose E-Mail an <a href="mailto:[^"]+"[^>]*>[^<]+<\/a> genügt\.<\/p>/,
+      /<p\b[^>]*>Der Verarbeitung Deiner Angaben kannst Du jederzeit aus Gründen widersprechen, die sich aus Deiner besonderen Situation ergeben \(Art\. 21 DSGVO\)\. Eine formlose E-Mail an <a href="mailto:[^"]+"[^>]*>[^<]+<\/a> genügt\.<\/p>/,
       "the card carries no objection of its own",
     );
     assert.match(mail.text, /\n\nDer Verarbeitung Deiner Angaben [^\n]+ genügt\.\n\n/, "the text part carries no objection of its own");

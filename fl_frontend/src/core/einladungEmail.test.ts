@@ -16,7 +16,7 @@ const URL_ = `${ORIGIN}/registrierung?token=abc123`;
 
 const daten = { teamName: "Goethe-Gymnasium", saisonId: "2026", origin: ORIGIN, link: URL_ };
 
-const FUSS_SATZ = `Antworten an die Absenderadresse liest niemand; unsere Adresse ist ${KONTAKT_EMAIL}.`;
+const FUSS_SATZ = `Antworten an die Absenderadresse liest niemand. Unsere Adresse ist ${KONTAKT_EMAIL}.`;
 
 /** The shell's close as this branch ends on it: the block a folded delimiter line would swallow whole. */
 const TEXT_SCHLUSS = [

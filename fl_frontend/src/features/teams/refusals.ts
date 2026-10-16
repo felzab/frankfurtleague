@@ -52,7 +52,7 @@ const isEntryCode = (code: string | undefined): code is keyof typeof ENTRY_REASO
 // My wording, 2026-10-02: a retired club takes no entry until it is reactivated, so the one repair
 // names that step first.
 const ANGELEGT_ABER_STILLGELEGT =
-  "Das Team wurde angelegt, ist aber inzwischen stillgelegt und kann in keine Saison aufgenommen werden. Reaktiviere es auf seiner Seite und nimm es danach dort in eine Saison auf; ein erneutes Anlegen scheitert am Kürzel.";
+  "Das Team wurde angelegt, ist aber inzwischen stillgelegt und kann in keine Saison aufgenommen werden. Reaktiviere es auf seiner Seite und nimm es danach dort in eine Saison auf. Ein erneutes Anlegen scheitert am Kürzel.";
 
 /**
  * The team create's answer where its club stands and the entry was refused. A rule's reason alone: the
@@ -63,7 +63,7 @@ export function mapCreatedClubEntryRefusal(error: unknown): string {
   if (code === "REQ-ENTER-005") return ANGELEGT_ABER_STILLGELEGT;
 
   const reason = isEntryCode(code) ? `: ${ENTRY_REASONS[code]}.` : ".";
-  return `Das Team wurde angelegt, konnte aber nicht in die Saison aufgenommen werden${reason} Nimm es auf seiner Seite in eine Saison auf; ein erneutes Anlegen scheitert am Kürzel.`;
+  return `Das Team wurde angelegt, konnte aber nicht in die Saison aufgenommen werden${reason} Nimm es auf seiner Seite in eine Saison auf. Ein erneutes Anlegen scheitert am Kürzel.`;
 }
 
 /** The club editor's answer to an entry rule: the reason, and the repair its own page offers. */
@@ -129,7 +129,7 @@ export function mapReplacementRefusal(error: unknown): string | null {
   if (error.serverErrorCode === "REQ-REPLACE-003") {
     // PLATZ and never „spielt“ — the condition is a `saison_teams` row of ANY kind, and a withdrawn
     // club still holds one.
-    return "Das nachrückende Team hat in dieser Saison schon einen Platz. Wähle ein Team ohne Platz in dieser Saison; ein ausgeschiedenes behält seinen.";
+    return "Das nachrückende Team hat in dieser Saison schon einen Platz. Wähle ein Team ohne Platz in dieser Saison. Ein ausgeschiedenes Team behält seinen Platz.";
   }
   if (error.serverErrorCode === "REQ-REPLACE-004") {
     return "Du hast für beide Seiten dasselbe Team gewählt. Wähle als nachrückendes Team ein anderes.";

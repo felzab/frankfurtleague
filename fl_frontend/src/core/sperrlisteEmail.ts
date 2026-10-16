@@ -72,7 +72,7 @@ const GRUNDLAGE_SATZ =
  * SEPARATELY at the first communication, which this message is.
  */
 const widerspruchSatz = (kontakt: string): string =>
-  `Du kannst dieser Speicherung nach Art. 21 DSGVO widersprechen. Schreib uns dafür an ${kontakt}; dort beantworten wir auch Fragen zur Sperre.`;
+  `Du kannst dieser Speicherung nach Art. 21 DSGVO widersprechen. Schreib uns dafür an ${kontakt}. Dort beantworten wir auch Fragen zur Sperre.`;
 
 // Every refusal the ban reaches, in one sentence: a sign-in, a registration, a contact seat on an
 // application and a referee's entry. „anmelden“ is the SIGN-IN's verb and „registrieren“ the season's.
@@ -83,7 +83,7 @@ const EINLEITUNG = `Deine E-Mail-Adresse wurde von der Verwaltung der ${BRAND_NA
 const ANMELDUNGEN_SATZ = "Bestehende Anmeldungen mit dieser Adresse werden beendet.";
 
 /** What the form's hint promises the mail explains, so the two say one thing. */
-const LAPSE_SATZ = "Danach endet die Sperre von selbst; Du musst dafür nichts tun.";
+const LAPSE_SATZ = "Danach endet die Sperre von selbst. Du musst dafür nichts tun.";
 
 function aktionen(): readonly Aktion[] {
   return [{ href: `mailto:${KONTAKT_EMAIL}`, label: FRAGE_LABEL, ton: "primary" }];

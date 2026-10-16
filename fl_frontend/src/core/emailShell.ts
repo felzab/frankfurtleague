@@ -196,12 +196,12 @@ export function art21Satz(adresse: string, { mehrere = false, zweck }: { mehrere
   const angaben = zweck === undefined ? "Angaben" : `Angaben ${zweck}`;
 
   return mehrere
-    ? `Der Verarbeitung Eurer ${angaben} kann jede und jeder von Euch jederzeit aus Gründen widersprechen, die sich aus der eigenen besonderen Situation ergeben (Art. 21 DSGVO); eine formlose E-Mail an ${adresse} genügt.`
-    : `Der Verarbeitung Deiner ${angaben} kannst Du jederzeit aus Gründen widersprechen, die sich aus Deiner besonderen Situation ergeben (Art. 21 DSGVO); eine formlose E-Mail an ${adresse} genügt.`;
+    ? `Der Verarbeitung Eurer ${angaben} kann jede und jeder von Euch jederzeit aus Gründen widersprechen, die sich aus der eigenen besonderen Situation ergeben (Art. 21 DSGVO). Eine formlose E-Mail an ${adresse} genügt.`
+    : `Der Verarbeitung Deiner ${angaben} kannst Du jederzeit aus Gründen widersprechen, die sich aus Deiner besonderen Situation ergeben (Art. 21 DSGVO). Eine formlose E-Mail an ${adresse} genügt.`;
 }
 
 /** One no-reply sender carries every message (`fl_frontend/src/core/mail.ts :: MAIL_FROM`), so every close says so. */
-const ANTWORT_VOR = "Antworten an die Absenderadresse liest niemand; unsere Adresse ist ";
+const ANTWORT_VOR = "Antworten an die Absenderadresse liest niemand. Unsere Adresse ist ";
 export const ANTWORT_SATZ_TEXT = `${ANTWORT_VOR}${KONTAKT_EMAIL}.`;
 export const ANTWORT_SATZ_HTML = `${ANTWORT_VOR}${link(`mailto:${KONTAKT_EMAIL}`, KONTAKT_EMAIL)}.`;
 

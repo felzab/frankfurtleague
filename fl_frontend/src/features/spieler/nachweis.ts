@@ -28,7 +28,7 @@ function beleg({ am, text_version }: FLEinwilligungBeleg): string {
  */
 export function beschreibeNachweis(nachweis: FLEinwilligungNachweis | null, bestaetigtAm: string | null, textVersion: string | null): string {
   if (nachweis !== null) {
-    const zuvor = nachweis.erteilt_zuvor === null ? "" : `; zuvor erteilt am ${beleg(nachweis.erteilt_zuvor)}`;
+    const zuvor = nachweis.erteilt_zuvor === null ? "" : ` (zuvor erteilt am ${beleg(nachweis.erteilt_zuvor)})`;
     return `seit ${beleg(nachweis)}${zuvor}`;
   }
 

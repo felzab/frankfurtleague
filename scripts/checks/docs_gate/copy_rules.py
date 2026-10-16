@@ -18,8 +18,8 @@ from typing import Final, Literal
 
 from .kernel import REGEX_LEAD_RE, REPO_ROOT, Finding, _Lead, _read_text, _skip_regex, tracked_glob
 
-# Where a reader's German lives. The backend holds none: its refusals are mapped to German on this
-# side, and the German it spells itself is a line to the log rather than copy
+# Where a reader's German lives. The backend spells the consent wordings too, which no rule here
+# reads; its refusals are mapped to German on this side, and the rest it spells is a line to the log
 # (`fl_backend/app/api/saisons/schemas.py :: refuse_a_saison_year_outside_the_league`).
 COPY_ROOT: Final = "fl_frontend/src"
 COPY_GLOB: Final = f"{COPY_ROOT}/**/*.ts*"
@@ -54,6 +54,16 @@ INFORMAL_RE: Final = re.compile(r"(?<![\w\-/.])(?:du|dein(?:e|em|en|er|es)?|dir|
 
 # One German word per concept (§1.12): a club is a `Team`, whatever grammar the sentence prefers.
 BANNED_TERMS: Final[dict[str, str]] = {"Mannschaft": "Team"}
+
+# The semicolon rule's one exception, by path: legal text keeps the semicolons German legal drafting
+# ends an enumerated point with (§1.12). The notice and the imprint are the legal text this corpus holds.
+LEGAL_SOURCES: Final[tuple[str, ...]] = (
+    "fl_frontend/src/features/meta/components/views/DatenschutzView.tsx",
+    "fl_frontend/src/features/meta/components/views/ImpressumView.tsx",
+)
+# A character reference renders one character and closes on a semicolon, which is no clause break:
+# the loading skeletons' `&nbsp;` would otherwise fail.
+CHARACTER_REFERENCE_RE: Final = re.compile(r"&(?:#\d+|#[xX][0-9a-fA-F]+|[A-Za-z][A-Za-z0-9]*);")
 
 # A lower-case entry is no noun, so German capitalises it at a sentence's start and `(?i:)` is what
 # reads that position. A capitalised entry stays exact: folded, it would match the lower-case
@@ -483,6 +493,22 @@ def _term_findings(rel: str, span: Copy) -> list[Finding]:
     return found
 
 
+def _semicolon_findings(rel: str, span: Copy) -> list[Finding]:
+    """A semicolon in a reader's German, outside the legal sources.
+
+    A character reference is blanked to its own length rather than cut, so an offset still anchors
+    the excerpt in the span as the file spells it.
+    """
+    if rel in LEGAL_SOURCES or not is_german(span):
+        return []
+    shown = CHARACTER_REFERENCE_RE.sub(lambda match: " " * len(match.group(0)), span.text)
+    found: list[Finding] = []
+    for match in re.finditer(";", shown):
+        detail = f"a semicolon in `{span.excerpt(match.start())}` -- end the clause with a full stop (§1.12)"
+        found.append(Finding("fail", "copy-semicolon", rel, detail))
+    return found
+
+
 def check_copy_rules() -> list[Finding]:
     """§1.12's mechanically checkable half, over every rendered German string in the frontend."""
     if not (REPO_ROOT / COPY_ROOT).is_dir():
@@ -510,6 +536,7 @@ def check_copy_rules() -> list[Finding]:
             found.extend(_formal_findings(rel, span))
             found.extend(_informal_findings(rel, span))
             found.extend(_term_findings(rel, span))
+            found.extend(_semicolon_findings(rel, span))
 
     # Three ways this sweep goes quiet without anything else noticing: the tree moves, the scanner
     # stops extracting, and an exempting name outlives what it exempted.
@@ -520,4 +547,9 @@ def check_copy_rules() -> list[Finding]:
         found.append(Finding("fail", "copy-corpus", COPY_ROOT, quiet))
     for name in sorted(formatters):
         found.append(Finding("fail", "copy-corpus", COPY_ROOT, f"`{name}` exempts a date range and is called nowhere -- drop it or repoint it"))
+    read = {path.relative_to(REPO_ROOT).as_posix() for path in files}
+    for rel in LEGAL_SOURCES:
+        if rel not in read:
+            detail = f"`{rel}` is exempt as legal text and names no file read -- drop it or repoint it"
+            found.append(Finding("fail", "copy-corpus", COPY_ROOT, detail))
     return found

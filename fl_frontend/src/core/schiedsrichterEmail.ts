@@ -184,7 +184,7 @@ export function buildSchiedsrichterAdresswechselEmail({
   const url = schiedsrichterAdresswechselLink(site, token);
 
   const eintrag = `die Verwaltung der ${BRAND_NAME} hat für Deinen Eintrag als Schiedsrichterin oder Schiedsrichter diese E-Mail-Adresse eingetragen.`;
-  const gilt = "Sie gilt erst, wenn Du sie bestätigst; bis dahin schreiben wir an Deine bisherige Adresse.";
+  const gilt = "Sie gilt erst, wenn Du sie bestätigst. Bis dahin schreiben wir an Deine bisherige Adresse.";
 
   const html = renderKarte({
     titel: `${BRAND_NAME}: ${ADRESSE_UEBERSCHRIFT}`,
@@ -231,7 +231,7 @@ export function buildSchiedsrichterAdresswechselHinweisEmail({ origin, vorname }
   const name = einzeilig(vorname);
 
   const eingetragen = "die Verwaltung hat für Deinen Eintrag als Schiedsrichterin oder Schiedsrichter eine neue E-Mail-Adresse eingetragen.";
-  const gilt = "Sie gilt erst, wenn sie über den Link bestätigt ist, den wir an sie geschickt haben; bis dahin bleibt diese Adresse in Kraft.";
+  const gilt = "Sie gilt erst, wenn sie über den Link bestätigt ist, den wir an sie geschickt haben. Bis dahin bleibt diese Adresse in Kraft.";
   const nichtVeranlasst = (kontakt: string): string => `Hast Du das nicht veranlasst, schreib uns an ${kontakt}.`;
 
   const html = renderKarte({

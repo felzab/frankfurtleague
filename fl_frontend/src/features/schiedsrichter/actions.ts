@@ -425,7 +425,7 @@ export async function verwirfAdresswechselAction(
     return {
       success: true,
       updated_document: operation.updated_document,
-      message: "Der Link an die neue Adresse gilt nicht mehr; die bisherige Adresse bleibt.",
+      message: "Der Link an die neue Adresse gilt nicht mehr. Die bisherige Adresse bleibt.",
     };
   });
 }

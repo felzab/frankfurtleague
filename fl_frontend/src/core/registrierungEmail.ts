@@ -170,7 +170,7 @@ export function buildRegistrierungBestaetigungEmail(data: RegistrierungLinkEmail
 const erinnerungSaetze = ({ vorname, teamName, saisonId, fristTage }: RegistrierungLinkEmailData): readonly string[] => [
   `Hallo ${vorname}, Deine Registrierung für ${teamName} in der Saison ${saisonId} der ${BRAND_NAME} ist noch nicht bestätigt.`,
   `Die Frist von ${String(fristTage)} Tagen läuft weiter. Diese Erinnerung verschiebt sie nicht. Bestätigst Du bis dahin nicht, löschen wir die Registrierung mit allen Angaben.`,
-  "Der Link aus der ersten E-Mail funktioniert weiterhin; dieser hier genauso.",
+  "Der Link aus der ersten E-Mail funktioniert weiterhin. Dieser hier funktioniert genauso.",
 ];
 
 /**

@@ -87,7 +87,7 @@ describe("the referee's address page", () => {
     const shown = words({ zustand: "ungueltig" });
 
     assert.match(shown, /Dieser Link ist ungültig/);
-    assert.match(shown, /Hast Du die neue Adresse schon bestätigt, gilt sie bereits; sonst gilt die bisherige weiter/);
+    assert.match(shown, /Hast Du die neue Adresse schon bestätigt, gilt sie bereits\. Sonst gilt die bisherige weiter/);
     assert.doesNotMatch(shown, /Deine bisherige Adresse gilt weiter/);
     assert.doesNotMatch(shown, /Anna/);
   });

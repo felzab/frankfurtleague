@@ -1277,7 +1277,7 @@ describe("the contact person's own two choices", () => {
       "the media answer is not shown in the readouts' one wording",
     );
     assert.ok(
-      html.includes("seit 04.10.2026, 10:00 Uhr, Fassung 2026-10-konto-kontakt; zuvor erteilt am 14.03.2026, 10:00 Uhr, Fassung 1"),
+      html.includes("seit 04.10.2026, 10:00 Uhr, Fassung 2026-10-konto-kontakt (zuvor erteilt am 14.03.2026, 10:00 Uhr, Fassung 1)"),
       "the media choice reads without its own act",
     );
   });

@@ -1667,9 +1667,9 @@ speicherst`; emphasis on a verb that carries itself; and reassurance (`trotzdem`
   rule above.
 
 **The rules held mechanically are the ones `scripts/checks/docs_gate/copy_rules.py` reaches** — the
-dash rule with its date-range exception, the `Mannschaft` ban, and the register
-rules — over every string literal and JSX element of
-`fl_frontend/src`, comments and tests excluded; it recognises a date by the name of the function
+dash rule with its date-range exception, the `Mannschaft` ban, the register rules, and the semicolon
+ban with the legal sources `:: LEGAL_SOURCES` exempts by path — over every string literal and JSX
+element of `fl_frontend/src`, comments and tests excluded; it recognises a date by the name of the function
 that formats it, a coupling `copy-corpus` fails when the name stops matching, rather than letting
 the exception widen unseen. **Every other rule here holds by review**: a lint over agreement,
 register or a list's completeness would first have to know which string reaches a reader, in what

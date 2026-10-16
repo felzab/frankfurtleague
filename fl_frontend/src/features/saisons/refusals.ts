@@ -29,7 +29,7 @@ const TOO_MANY_FIXTURES =
  */
 const SPAN_BELOW_SCHEDULE =
   "Der Zeitraum dieser Saison ist zu kurz für die Spieltage, die sich aus ihren Regeln ergeben. Verlege das Enddatum nach " +
-  "hinten oder das Startdatum nach vorne; das hilft in jedem Fall.";
+  "hinten oder das Startdatum nach vorne. Das hilft in jedem Fall.";
 
 /** A stored-rules fault as the generator must report it: the rule, then where it is repaired. */
 const rulesFaultMessage = (fault: string): string => `${fault} Ändere die Zahlen im Abschnitt Regeln und speichere sie.`;
@@ -92,7 +92,7 @@ export function mapRulesRefusal(error: unknown): { error?: string; fieldErrors?:
         // toast can only hand the reader the condition to evaluate.
         error:
           "Für diese Saison sind Spiele angesetzt, deshalb sind Gruppen, Teams pro Gruppe und Qualifikanten pro Gruppe gesperrt. " +
-          "Lade die Seite neu; im Abschnitt Regeln steht dann, was sich noch ändern lässt.",
+          "Lade die Seite neu. Im Abschnitt Regeln steht dann, was sich noch ändern lässt.",
       };
     // Bare too, and for `REQ-DATE-005`'s reason rather than a freeze's: the two counts make the
     // fixture total together, so neither is the field at fault.

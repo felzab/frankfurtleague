@@ -75,7 +75,7 @@ describe("the message a banned address is sent", () => {
     }
     assert.match(
       MAIL.html,
-      /Schreib uns dafür an <a href="mailto:[^"]+"[^>]*>[^<]+<\/a>; dort beantworten wir auch Fragen zur Sperre\.<\/p>/,
+      /Schreib uns dafür an <a href="mailto:[^"]+"[^>]*>[^<]+<\/a>\. Dort beantworten wir auch Fragen zur Sperre\.<\/p>/,
       "the card's objection is an address to copy, not a link",
     );
   });

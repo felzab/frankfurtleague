@@ -66,7 +66,7 @@ export function FormAustrittSection({
             mode="reveal"
             label="Hinweis zum Austritt"
             body={{
-              lead: "Das Team scheidet aus dieser Saison aus; seine Spiele bleiben bei ihm.",
+              lead: "Das Team scheidet aus dieser Saison aus. Seine Spiele bleiben bei ihm.",
               points: [{ term: "Die Tabelle", text: "überspringt das Team bei der Platzvergabe, seine Ergebnisse bleiben gewertet." }],
             }}
           />

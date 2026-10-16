@@ -238,7 +238,7 @@ export function FormEinladungSection({
               <Callout
                 severity="warning"
                 title="Die Registrierung für diese Saison ist gerade nicht geöffnet">
-                Ein Link lässt sich trotzdem anlegen; er öffnet die Registrierung erst, wenn das Fenster läuft.
+                Ein Link lässt sich trotzdem anlegen. Er öffnet die Registrierung erst, wenn das Fenster läuft.
               </Callout>
             )}
 

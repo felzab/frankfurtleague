@@ -89,8 +89,8 @@ export const SCHIEDSRICHTER_KORREKTUR_HINWEIS =
  * administrator expecting it to move at once reads the unchanged box as a save that failed.
  */
 export const SCHIEDSRICHTER_ADRESSWECHSEL_HINWEIS =
-  "Eine geänderte E-Mail-Adresse gilt erst, wenn die Person sie über den Link bestätigt, der beim Speichern an die neue Adresse geht; " +
-  "bis dahin bleibt die bisherige, und die bisherige Adresse erfährt von der Änderung.";
+  "Eine geänderte E-Mail-Adresse gilt erst, wenn die Person sie über den Link bestätigt, der beim Speichern an die neue Adresse geht. " +
+  "Bis dahin bleibt die bisherige, und die bisherige Adresse erfährt von der Änderung.";
 
 /**
  * The two states that close the send, worded for the administrator at the control rather than left

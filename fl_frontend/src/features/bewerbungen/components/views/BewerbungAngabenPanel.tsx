@@ -267,7 +267,7 @@ export function BewerbungAngabenPanel({
             body={{
               lead: "Was die Schule sich wünscht und welche Zahlen sie schätzt.",
               points: [
-                { term: "Die Wunschfarbe", text: "bindet Dich zu nichts; die Trikotfarbe des Teams legst Du bei der Zusage fest." },
+                { term: "Die Wunschfarbe", text: "bindet Dich zu nichts: Die Trikotfarbe des Teams legst Du bei der Zusage fest." },
                 { term: "Der Wunschgegner", text: "ist frei eingetragen und muss keine Schule sein, die die Liga führt." },
               ],
             }}

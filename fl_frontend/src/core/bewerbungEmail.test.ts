@@ -156,7 +156,7 @@ const WEBSITE_SENTENCE = `Spielplan, Tabelle und Ergebnisse veröffentlichen wir
  * Spelled out for the reason above, and WHOLE: what this sentence must not promise is carried by the
  * half a substring check would drop, so „wir versuchen“ could be slipped in beside a passing assertion.
  */
-const WUNSCHGEGNER_SENTENCE = `Als Wunschgegner für den ersten Spieltag haben wir ${ZUSAGE.wunschgegner} notiert; über die Paarungen entscheidet der Spielplan.`;
+const WUNSCHGEGNER_SENTENCE = `Als Wunschgegner für den ersten Spieltag haben wir ${ZUSAGE.wunschgegner} notiert. Über die Paarungen entscheidet der Spielplan.`;
 
 /** The second control both decisions carry: one page that is a dead end for neither of their readers. */
 const LIGA_AKTION = { label: "Laufende Saison", href: `${ORIGIN}/dashboard` };
@@ -167,7 +167,7 @@ const FALLBACK_SENTENCE = "Falls der Button nicht funktioniert, kopiere diese Ad
 /* Spelled out rather than imported: a shared inbox reads one message under two floors, and these
    words are what stop a later edit personalising the number for a message two people read. */
 const ALTERS_SATZ =
-  "Trainerin oder Trainer kann sein, wer mindestens 16 Jahre alt ist; Ansprechperson oder Stellvertretung, wer mindestens 18 Jahre alt ist.";
+  "Trainerin oder Trainer kann sein, wer mindestens 16 Jahre alt ist. Ansprechperson oder Stellvertretung kann sein, wer mindestens 18 Jahre alt ist.";
 
 /** What each message states about who it reached: the two decisions reach three seats, the link messages one mailbox. */
 const RECIPIENT_SENTENCE = {
@@ -178,7 +178,7 @@ const RECIPIENT_SENTENCE = {
 };
 
 /** The closing sentences of a message that reached all three seats, which is either decision. */
-const FOOTER_SENTENCES = [RECIPIENT_SENTENCE.kontaktpersonen, "Antworten an die Absenderadresse liest niemand;"];
+const FOOTER_SENTENCES = [RECIPIENT_SENTENCE.kontaktpersonen, "Antworten an die Absenderadresse liest niemand."];
 
 /** Spelled out here for the reason above: copy checked against its own source moves with it. */
 const IGNORE_SENTENCE =
@@ -189,7 +189,7 @@ const textFooter = (empfaenger: keyof typeof RECIPIENT_SENTENCE): string =>
   [
     "-- ",
     RECIPIENT_SENTENCE[empfaenger],
-    `Antworten an die Absenderadresse liest niemand; unsere Adresse ist ${KONTAKT_EMAIL}.`,
+    `Antworten an die Absenderadresse liest niemand. Unsere Adresse ist ${KONTAKT_EMAIL}.`,
     `Datenschutzerklärung: ${ORIGIN}/datenschutz`,
     `Impressum: ${ORIGIN}/impressum`,
     `${VEREIN_NAME}, ${VEREIN_ANSCHRIFT}`,
@@ -904,8 +904,8 @@ describe("buildBewerbungBestaetigungEmail", () => {
       "Du kannst dem Eintrag auch widersprechen.",
       `Der Link ist bis zum ${FRIST} gültig und funktioniert nur einmal.`,
       "Ohne Deine Bestätigung bleibt die Bewerbung unvollständig.",
-      "Nach drei Tagen erinnern wir Dich einmal; ist die Bewerbung vierzehn Tage nach dem Versand dieses Links noch unvollständig, löschen wir sie mit allen Angaben.",
-      "Ersetzen wir später einen Link durch einen neuen, beginnt diese Frist für die ganze Bewerbung von vorn; eine Erinnerung verschiebt sie nicht.",
+      "Nach drei Tagen erinnern wir Dich einmal. Ist die Bewerbung vierzehn Tage nach dem Versand dieses Links noch unvollständig, löschen wir sie mit allen Angaben.",
+      "Ersetzen wir später einen Link durch einen neuen, beginnt diese Frist für die ganze Bewerbung von vorn. Eine Erinnerung verschiebt sie nicht.",
       LINK_EINS,
     ]) {
       assert.ok(flat(readable(mail.html)).includes(sentence), `the HTML branch lost „${sentence}“`);
@@ -970,11 +970,11 @@ describe("buildBewerbungBestaetigungEmail", () => {
       "Bitte bestätigt jeden Eintrag einzeln: Erst dann führt die Liga Euch als Kontaktpersonen.",
       `${ALTERS_SATZ} Jedem Eintrag lässt sich auch widersprechen.`,
       `Jeder Link ist bis zum ${FRIST} gültig und funktioniert nur einmal.`,
-      "Ohne Eure Bestätigungen bleibt die Bewerbung unvollständig. Nach drei Tagen erinnern wir Euch einmal;",
+      "Ohne Eure Bestätigungen bleibt die Bewerbung unvollständig. Nach drei Tagen erinnern wir Euch einmal.",
       // The two the singular block also asserts: the arms are separate literals („dieser Links“
       // against „dieses Links“), so a wording moved on one arm alone drifts exactly here.
-      "ist die Bewerbung vierzehn Tage nach dem Versand dieser Links noch unvollständig, löschen wir sie mit allen Angaben.",
-      "Ersetzen wir später einen Link durch einen neuen, beginnt diese Frist für die ganze Bewerbung von vorn; eine Erinnerung verschiebt sie nicht.",
+      "Ist die Bewerbung vierzehn Tage nach dem Versand dieser Links noch unvollständig, löschen wir sie mit allen Angaben.",
+      "Ersetzen wir später einen Link durch einen neuen, beginnt diese Frist für die ganze Bewerbung von vorn. Eine Erinnerung verschiebt sie nicht.",
       `Für Euch ist nichts zu tun: Ist die Bewerbung am ${FRIST} noch unvollständig, löschen wir Eure Angaben zusammen mit der Bewerbung. Oder widersprecht den Einträgen über die Links`,
       RECIPIENT_SENTENCE.postfach,
     ]) {
@@ -1013,11 +1013,11 @@ describe("buildBewerbungBestaetigungEmail", () => {
     for (const [daten, anrede] of [
       [
         BESTAETIGUNG,
-        "Der Verarbeitung Deiner Angaben kannst Du jederzeit aus Gründen widersprechen, die sich aus Deiner besonderen Situation ergeben \\(Art\\. 21 DSGVO\\); eine formlose E-Mail an",
+        "Der Verarbeitung Deiner Angaben kannst Du jederzeit aus Gründen widersprechen, die sich aus Deiner besonderen Situation ergeben \\(Art\\. 21 DSGVO\\)\\. Eine formlose E-Mail an",
       ],
       [
         BESTAETIGUNG_POSTFACH,
-        "Der Verarbeitung Eurer Angaben kann jede und jeder von Euch jederzeit aus Gründen widersprechen, die sich aus der eigenen besonderen Situation ergeben \\(Art\\. 21 DSGVO\\); eine formlose E-Mail an",
+        "Der Verarbeitung Eurer Angaben kann jede und jeder von Euch jederzeit aus Gründen widersprechen, die sich aus der eigenen besonderen Situation ergeben \\(Art\\. 21 DSGVO\\)\\. Eine formlose E-Mail an",
       ],
     ] as const) {
       const mail = buildBewerbungBestaetigungEmail(daten);
@@ -1258,7 +1258,7 @@ describe("buildBewerbungWiderspruchEmail", () => {
       `${who} hat dem Eintrag als Kontaktperson widersprochen.`,
       // „Diese Angaben“ stands where „seine“ or „ihre“ would, so the sentence reads for every name.
       "Diese Angaben haben wir aus der Bewerbung entfernt.",
-      `So kann die Bewerbung nicht vollständig werden; am ${FRIST} löschen wir sie.`,
+      `So kann die Bewerbung nicht vollständig werden. Am ${FRIST} löschen wir sie.`,
       "Möchte Deine Schule trotzdem mitspielen, bewirb Dich neu, mit einer anderen Person an ihrer Stelle. Frag sie vorher.",
     ]) {
       assert.ok(flat(readable(mail.html)).includes(sentence), `the HTML branch lost „${sentence}“`);

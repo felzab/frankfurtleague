@@ -225,7 +225,7 @@ export function ausgetragenSeit(inactiveSince: string): string {
  * The seat holder's austragen, which they cannot undo: the panel says who can before the press, so the
  * one-way write is never a surprise.
  */
-export const KADER_AUSTRAGEN_FOLGE = "Der Kadereintrag bleibt gespeichert; zurückholen kann ihn nur die Verwaltung.";
+export const KADER_AUSTRAGEN_FOLGE = "Der Kadereintrag bleibt gespeichert. Zurückholen kann ihn nur die Verwaltung.";
 
 /** The panel's body above the austragen control, naming the season the row leaves. */
 export function kaderAustragenHinweis(saisonId: string): string {
