@@ -167,8 +167,7 @@ export function FormPersonLoeschenSection() {
     });
   };
 
-  // Against the box, so a reveal and a confirmation for one address are never pressed while it holds another.
-  const ansicht = isConfirming && gelesen?.adresse === email.trim() ? gelesen : null;
+  const ansicht = isConfirming ? gelesen : null;
   // The names ARE the confirmation, so a press taken over the placeholder would confirm nothing.
   const isReading = isConfirming && (ansicht === null || ansicht.status === "reading");
   // A refused read alone names a reason of its own: one still running ends by itself, as the write does.
