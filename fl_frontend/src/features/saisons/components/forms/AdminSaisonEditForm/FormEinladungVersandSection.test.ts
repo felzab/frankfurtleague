@@ -133,7 +133,12 @@ describe("the season's bulk invite send", () => {
         assert.equal(readout("E-Mails"), "3");
         assert.equal(readout("Übersprungen"), "5");
         answerWith(() =>
-          Promise.resolve({ success: true, zeilen: [], message: "1 von 4 Teams haben ihren Link bekommen.", versand: "gesendet" }),
+          Promise.resolve({
+            success: true,
+            zeilen: [],
+            message: "1 von 4 Teams haben ihren Link bekommen.",
+            versendet: ["gesendet", "gesendet"],
+          }),
         );
       },
     });
@@ -249,7 +254,7 @@ describe("the season's bulk invite send", () => {
         resting: RESTING,
         armed: ARMED,
         answered,
-        whileArmed: () => answerWith(() => Promise.resolve({ success: true, zeilen: [], message: "Keine Links gesendet." })),
+        whileArmed: () => answerWith(() => Promise.resolve({ success: true, zeilen: [], message: "Keine Links gesendet.", versendet: [] })),
       });
       await act(answered);
       await waitFor(() => assert.equal(screen.getByRole("button", { name: RESTING }).getAttribute("data-pending"), null));
@@ -372,7 +377,12 @@ describe("the season's bulk invite send", () => {
           "the second read described the press the switch had already moved off",
         );
         answerWith(() =>
-          Promise.resolve({ success: true, zeilen: [], message: "4 von 4 Teams haben ihren Link bekommen.", versand: "gesendet" }),
+          Promise.resolve({
+            success: true,
+            zeilen: [],
+            message: "4 von 4 Teams haben ihren Link bekommen.",
+            versendet: ["gesendet", "gesendet", "gesendet", "gesendet"],
+          }),
         );
       },
     });
@@ -448,8 +458,8 @@ describe("the season's bulk invite send", () => {
           Promise.resolve({
             success: true,
             message: "Registrierungslinks gesendet: 2 von 3 Teams.",
-            // The worst of its rows: the team whose mint failed got no link.
-            versand: "fehlgeschlagen",
+            // Each team the press meant to write to, the team passed over for its missing contacts none of them.
+            versendet: ["gesendet", "gesendet", "fehlgeschlagen", "zurueckgehalten", "fehlgeschlagen"],
             zeilen: [
               {
                 team_id: ID("a"),
@@ -546,7 +556,7 @@ describe("the season's bulk invite send", () => {
     );
     assert.deepEqual(
       raised.map((toast) => [toast.variant, toast.title]),
-      [["warning", "Nicht alle Registrierungslinks verschickt"]],
+      [["warning", "Registrierungslinks teils nicht verschickt"]],
     );
   });
 
@@ -566,8 +576,8 @@ describe("the season's bulk invite send", () => {
           Promise.resolve({
             success: true,
             message: "Registrierungslinks gesendet: 1 von 2 Teams.",
-            // The worst of its rows: every address of the second team is barred.
-            versand: "gesperrt",
+            // Every address of the second team is barred.
+            versendet: ["gesendet", "gesperrt"],
             zeilen: [
               {
                 team_id: ID("a"),
@@ -603,9 +613,43 @@ describe("the season's bulk invite send", () => {
     // A team whose link the ban list held back is no team the press wrote to: never announced as sent.
     assert.deepEqual(
       raised.map((toast) => [toast.variant, toast.title]),
-      [["warning", "Nicht alle Registrierungslinks gesendet"]],
+      [["warning", "Registrierungslinks teils zurückgehalten"]],
     );
   });
+
+  /* The title is the grade of every team the press meant to write to or of some of them, and a season of one team says it
+     in the single press's words: „Nicht alle“ over one team, or over a local stack sending nothing, misreads both. */
+  for (const [versendet, variant, title] of [
+    [["gesendet"], "success", "Registrierungslink gesendet"],
+    [["zurueckgehalten"], "warning", "Registrierungslink zurückgehalten"],
+    [["fehlgeschlagen"], "warning", "Registrierungslink nicht verschickt"],
+    [["zurueckgehalten", "zurueckgehalten", "zurueckgehalten"], "warning", "Registrierungslinks zurückgehalten"],
+    [["fehlgeschlagen", "zurueckgehalten"], "warning", "Registrierungslinks nicht verschickt"],
+    [[], "info", "Keine Registrierungslinks gesendet"],
+  ] as const) {
+    it(`titles a press whose teams' links ended ${versendet.join(", ") || "nowhere"} „${title}“`, async () => {
+      const user = userEvent.setup();
+      answerWith(vorschauAntwort(VORSCHAU));
+      render(panel());
+
+      await pressTwice(user, {
+        resting: RESTING,
+        armed: ARMED,
+        answered,
+        whileArmed: () => {
+          answerWith(() => Promise.resolve({ success: true, zeilen: [], message: "Registrierungslink nicht verschickt.", versendet }));
+        },
+      });
+      await act(answered);
+
+      await waitFor(() =>
+        assert.deepEqual(
+          raised.map((toast) => [toast.variant, toast.title]),
+          [[variant, title]],
+        ),
+      );
+    });
+  }
 
   /* The commit went out and no answer came back, so the row is true of a link revoked and of one
      that still opens, and says nothing about a previous link to a team that held none. */
@@ -634,7 +678,7 @@ describe("the season's bulk invite send", () => {
           Promise.resolve({
             success: true,
             message: "Registrierungslinks gesendet: 0 von 2 Teams.",
-            versand: "fehlgeschlagen",
+            versendet: ["fehlgeschlagen", "fehlgeschlagen"],
             zeilen: [unklar(ID("a"), "Ernst-Reuter-Schule", true), unklar(ID("f"), "Wöhlerschule", false)],
           }),
         );
@@ -686,7 +730,7 @@ describe("the season's bulk invite send", () => {
           Promise.resolve({
             success: true,
             message: "Registrierungslinks gesendet: 0 von 3 Teams.",
-            versand: "fehlgeschlagen",
+            versendet: ["fehlgeschlagen", "fehlgeschlagen", "fehlgeschlagen"],
             zeilen: [
               fehlgeschlagen(ID("a"), "Ernst-Reuter-Schule", true),
               fehlgeschlagen(ID("f"), "Wöhlerschule", false),

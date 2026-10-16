@@ -8,7 +8,7 @@ describe("what the invite's two presses report", () => {
      sentence carrying both figures reads like there. */
   it("gives a season of one team its own sentence, reached and not reached", () => {
     assert.equal(versandSatz(1, 1), "Registrierungslink gesendet: an das Team.");
-    assert.equal(versandSatz(0, 1), "Registrierungslink nicht gesendet.");
+    assert.equal(versandSatz(0, 1), "Registrierungslink nicht verschickt.");
   });
 
   /* Above one, both figures are spelled: zero delivered is the answer every stack but production

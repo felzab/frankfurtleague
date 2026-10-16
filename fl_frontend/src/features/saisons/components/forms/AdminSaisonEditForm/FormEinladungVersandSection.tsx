@@ -22,10 +22,12 @@ import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { rejectedWrite, unansweredRead } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { nichtHinterlegt } from "@/shared/utils/format";
-import { meldeLinkVersand } from "@/shared/utils/linkVersandToast";
+import { schlechtesterVersand, versandGrad } from "@/shared/utils/linkVersand";
+import { meldeLinkVersand, REGISTRIERUNGSLINK_TITEL } from "@/shared/utils/linkVersandToast";
 
 import type { FLEinladungVersandGrund, FLEinladungVersandVorschauZeile } from "@/features/einladungen/schemas";
 import type { EinladungVersandErgebnis } from "@/features/einladungen/types";
+import type { LinkVersand } from "@/shared/utils/linkVersand";
 import type { VersandTitel } from "@/shared/utils/linkVersandToast";
 
 /** The ruling's own words, copied rather than reworded: a label a visitor navigates by is nobody's here to choose. */
@@ -106,12 +108,21 @@ function zustellSatz(zeile: EinladungVersandErgebnis): string {
   return gesamt === 1 ? "An die Adresse gesendet" : `An alle ${String(gesamt)} Adressen gesendet`;
 }
 
-/** One press writes to many teams, so a link that did not go out is one team's among others that did. */
-const REGISTRIERUNGSLINKS_TITEL: VersandTitel = {
-  gesendet: "Registrierungslinks gesendet",
-  fehlgeschlagen: "Nicht alle Registrierungslinks verschickt",
-  abgelegt: "Nicht alle Registrierungslinks gesendet",
-};
+/**
+ * One press writes to many teams, so the title says whose grade it is: one team's in its own press's words, every team's,
+ * or some teams' where a link went beside one that did not. Outside production that is none, every link held back.
+ */
+function registrierungslinksTitel(versendet: readonly LinkVersand[]): VersandTitel {
+  if (versendet.length === 1) return REGISTRIERUNGSLINK_TITEL;
+
+  const teils = versendet.some((versand) => versandGrad(versand) === "gesendet");
+
+  return {
+    gesendet: "Registrierungslinks gesendet",
+    fehlgeschlagen: teils ? "Registrierungslinks teils nicht verschickt" : "Registrierungslinks nicht verschickt",
+    abgelegt: teils ? "Registrierungslinks teils zurückgehalten" : "Registrierungslinks zurückgehalten",
+  };
+}
 
 /**
  * What the re-send costs, said before the press rather than after it. **A stored link is a hash**,
@@ -167,8 +178,9 @@ export function FormEinladungVersandSection({
       // listed have just moved.
       setVorschau(null);
       // Graded by the worst team this press meant to write to; none at all is no grade, only a fact.
-      if (res.versand === undefined) appToast.info("Keine Registrierungslinks gesendet", { description: res.message });
-      else meldeLinkVersand(res.versand, REGISTRIERUNGSLINKS_TITEL, res.message);
+      const versand = schlechtesterVersand(res.versendet);
+      if (versand === undefined) appToast.info("Keine Registrierungslinks gesendet", { description: res.message });
+      else meldeLinkVersand(versand, registrierungslinksTitel(res.versendet), res.message);
     });
   };
 

@@ -37,11 +37,10 @@ import { appToast } from "@/shared/utils/appToast";
 import { CLIPBOARD_ERROR_DETAIL, copyTextToClipboard } from "@/shared/utils/clipboard";
 import { focusAfterWrite, focusSection, focusSlot } from "@/shared/utils/focusAfterWrite";
 import { formatSpielDatum } from "@/shared/utils/format";
-import { meldeLinkVersand } from "@/shared/utils/linkVersandToast";
+import { meldeLinkVersand, REGISTRIERUNGSLINK_TITEL } from "@/shared/utils/linkVersandToast";
 
 import type { FrischeEinladung } from "@/features/einladungen/components/EinladungLinkHolder";
 import type { FLEinladungZeile } from "@/features/einladungen/schemas";
-import type { VersandTitel } from "@/shared/utils/linkVersandToast";
 import type { Key } from "@heroui/react/rac";
 
 /**
@@ -55,13 +54,6 @@ const MINT_UNKLAR = "Lade die Seite neu. Steht dort ein Link, ziehe ihn zurück 
 
 /** Where a reader goes when the browser refuses the clipboard, beside the box the value stands in. */
 const VON_HAND_KOPIEREN = "Markiere den Link im Feld darüber und kopiere ihn von Hand.";
-
-/** The mail press mints nothing, so a link that reached no seat is the press's failure and never a grade here. */
-const REGISTRIERUNGSLINK_TITEL: VersandTitel = {
-  gesendet: "Registrierungslink gesendet",
-  fehlgeschlagen: "Registrierungslink nicht verschickt",
-  abgelegt: "Registrierungslink zurückgehalten",
-};
 
 /**
  * The place the first mint's control, the managing press and the new link's copy control share: whichever

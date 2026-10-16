@@ -17,6 +17,13 @@ export const BESTAETIGUNGSLINK_TITEL: VersandTitel = {
   abgelegt: "Bestätigungslink zurückgehalten",
 };
 
+/** A team's registration link, its own press and a season's press reaching one team alike. */
+export const REGISTRIERUNGSLINK_TITEL: VersandTitel = {
+  gesendet: "Registrierungslink gesendet",
+  fehlgeschlagen: "Registrierungslink nicht verschickt",
+  abgelegt: "Registrierungslink zurückgehalten",
+};
+
 export const LINK_TITEL: VersandTitel = {
   gesendet: "Link gesendet",
   fehlgeschlagen: "Link nicht verschickt",
