@@ -1388,17 +1388,24 @@ type PasskeyRemoval = "removed" | "last" | "absent";
  * Exported for `fl_frontend/src/features/passkeys/actions.ts`, the one place a removal happens.
  */
 export async function removePasskey(holder: { readonly id: string; readonly verwaltung: boolean }, id: string): Promise<PasskeyRemoval> {
-  const { adapter } = await auth.$context;
-
   // Set once the callback has returned. A throw before that aborted a transaction that never
   // committed, so nothing was written; one after it came from the commit, whose outcome may be unknown.
   let committing = false;
 
   try {
+    // Inside the `try`, for `deleteAccountFor`'s reason: the caller has recorded its write as sent, so a failure
+    // here reads as of unknown outcome unless it is told nothing was written.
+    const { adapter } = await auth.$context;
+
     return await adapter.transaction(async (held) => {
       // Cleared on every run: the adapter runs this again after a commit that failed transiently, and
       // a throw from that run rolled back like the first run's would.
       committing = false;
+
+      // The adapter hands itself back where it opens no transaction, and there the claim below
+      // conflicts with nothing: refused rather than admitted unguarded.
+      if (held === adapter) throw new RemovalOutsideTransaction();
+
       const outcome = await removeInside(held);
       committing = true;
       return outcome;
@@ -1412,10 +1419,6 @@ export async function removePasskey(holder: { readonly id: string; readonly verw
   async function removeInside(
     held: Pick<DBTransactionAdapter, "findOne" | "count" | "update" | "delete" | "deleteMany">,
   ): Promise<PasskeyRemoval> {
-    // The adapter hands itself back where it opens no transaction, and there the claim below
-    // conflicts with nothing: refused rather than admitted unguarded.
-    if (held === adapter) throw new RemovalOutsideTransaction();
-
     // By the holder's id as well, so another account's identifier is absent rather than taken; by no
     // window, since enrolments at once can leave more rows than the cap (`docs/frontend/spec.md` §4).
     const removed = await held.findOne<{ credentialID: string }>({
@@ -1916,13 +1919,15 @@ export async function deleteOwnAccount(
  * address, erased or unreferenced (`docs/frontend/spec.md :: I675`).
  */
 export async function deleteAccountFor(identifier: string): Promise<boolean> {
-  const folded = asSignInIdentifier(identifier);
-  const { adapter, secret } = await auth.$context;
-
   // Set once the callback has returned, for `removePasskey`'s reason: a throw after it came from the commit.
   let committing = false;
 
   try {
+    // Inside the `try`: a failure reading the store's context comes before any write, and its caller tells a
+    // deletion that never ran apart from a commit that may have landed only by the error this throws.
+    const folded = asSignInIdentifier(identifier);
+    const { adapter, secret } = await auth.$context;
+
     return await adapter.transaction(async (held) => {
       // Cleared on every run, for `removePasskey`'s reason: the adapter runs this again after a transient
       // commit failure, and a throw from that run rolled back like the first run's would.

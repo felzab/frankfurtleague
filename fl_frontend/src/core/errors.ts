@@ -23,8 +23,8 @@ export function mayHaveWritten({ method, readOnly }: SentRequest): boolean {
 }
 
 /**
- * A failure its own code proves wrote nothing: thrown inside a transaction, before its commit, so the
- * transaction rolled back. A write request answers it as failed rather than as of unknown outcome.
+ * A failure its own code proves wrote nothing: thrown before a transaction's commit, inside it or before it
+ * opened. A write request answers it as failed rather than as of unknown outcome.
  */
 export class RolledBackError extends Error {
   override name = "RolledBackError";
