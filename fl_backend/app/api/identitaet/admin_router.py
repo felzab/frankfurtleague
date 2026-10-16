@@ -18,11 +18,11 @@ from app.api.identitaet.schemas import (
     FLErasureResponse,
 )
 from app.api.identitaet.services import (
-    anlass_names,
     build_erasure_kader_pipeline,
     build_season_team_pipeline,
     build_unplayed_saison_pipeline,
     compose_erasure_ansicht_auf_anfrage,
+    eigene_namen,
     find_eigene_adresse_refusal,
     find_inhaber_adresse_refusal,
     find_name_im_anlass_refusal,
@@ -225,12 +225,14 @@ async def erase_auf_anfrage(
     stored without an address shares one placeholder there.
 
     `anlass` names the request the erasure answers, and every log row the erasure files carries it; no other row does. No
-    redaction reaches it, so it is refused 422 where it holds an address, and, inside the write ahead of every step, where a
-    name the person's records hold stands in it as a whole word in any capitals or spacing (`REQ-PURGE-006`): each name
-    whole and each word of one alone, a particle such as `von` alone excepted. A common word equal to a name is refused with
-    it. The grant notice names this administrator as ending the person's grant. An address holding nothing is answered with
-    every count zero. The 404 and the 409 answer only a database changed by hand under the request. The sign-in account is
-    not touched here: deleting it is the caller's, once this has answered.
+    redaction reaches it, so it is refused 422 where it holds an address, and, inside the write ahead of the erasure's first
+    step, where it holds a name of the person's own records as a whole word or before a genitive s (`REQ-PURGE-006`): each
+    name field whole and each of its words, but a particle such as `von` before a later word of its field and any single
+    letter. Names compare as stored, capitals and spacing aside, so another spelling passes, „Weiss“ or „Mueller“ for „Weiß“
+    or „Müller“. A common word equal to a name is refused with it. The grant notice names this administrator as ending the
+    person's grant. An address holding nothing is answered with every count zero. The 404 and the 409 answer only a database
+    changed by hand under the request. The sign-in account is not touched here: deleting it is the caller's, once this has
+    answered.
     """
 
     identifier = sign_in_identifier(erasure_data.email)
@@ -258,7 +260,7 @@ async def erase_auf_anfrage(
             schluessel=config.sperrliste_schluessel,
             session=session,
         )
-        names = anlass_names(
+        names = eigene_namen(
             identifier,
             saison_team_rows=subject.saison_teams,
             bewerbung_rows=subject.bewerbungen,

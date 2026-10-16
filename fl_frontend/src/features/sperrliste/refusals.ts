@@ -20,7 +20,13 @@ export const verwaltungAmFeld = (): { fieldErrors: FieldErrors } => ({
   fieldErrors: { email: "Diese Adresse gehört zur Verwaltung und lässt sich nicht sperren." },
 });
 
-/** `null` where the refusal is something else. It lands on the ADDRESS box, the only value the create sent. */
+/**
+ * Said on the reason's box, as the erasure says one in its Anlass. The refusal names no word and takes a common word
+ * equal to a name with it, so the sentence names the way out.
+ */
+const NAME_IM_GRUND = "Ein Wort im Grund gleicht einem Namen der Person. Beschreibe den Vorfall mit anderen Worten und ohne Namen.";
+
+/** `null` where the refusal is something else. Each lands on the box holding the value it refuses, the address or the reason. */
 export function mapAdresseRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
   if (!isRefusal(error)) return null;
 
@@ -36,6 +42,8 @@ export function mapAdresseRefusal(error: unknown): { error?: string; fieldErrors
   }
 
   if (error.serverErrorCode === "REQ-SPERRLISTE-003") return verwaltungAmFeld();
+
+  if (error.serverErrorCode === "REQ-SPERRLISTE-004") return { fieldErrors: { grund: NAME_IM_GRUND } };
 
   return null;
 }

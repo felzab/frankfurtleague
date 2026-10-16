@@ -49,7 +49,7 @@ const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
  * The „Stand“ and the words it dates, frozen together: a reader told nothing changed since that day
  * has been misled by any edit that left the date standing.
  */
-const FASSUNG = { stand: "16. Oktober 2026", digest: "56cfb6649d386310194819e2717dba7f9c0ff297b707040454ce667acd79e04d" } as const;
+const FASSUNG = { stand: "16. Oktober 2026", digest: "4414133be9c77e3b4ee284a4d9243ca93872df6fb77cab047e8ae2b2f8e551eb" } as const;
 
 /** Every word the page renders but its date, so moving the date alone never passes for moving the words. */
 const wortlautDigest = (): string =>
@@ -464,6 +464,13 @@ const ERSETZT: readonly { weg: string; statt?: string }[] = [
     weg: "Das betrifft die Zugriffsprotokolle",
     statt: "Das betrifft jede Verarbeitung, für die diese Erklärung Art. 6 Abs. 1 lit. f DSGVO als Rechtsgrundlage nennt",
   },
+  // A ban's reason refuses a name of the address's own records as stored (`docs/backend/spec.md :: I726`).
+  {
+    weg: "steht darin ein Name, bleibt er mit dem Eintrag stehen",
+    statt:
+      "Einen Namen, so wie er unter der gesperrten Adresse eingetragen ist, lassen wir darin nicht zu. Ein Name, der dort " +
+      "nicht so steht, etwa anders geschrieben, kann darin stehen und bleibt dann mit dem Eintrag stehen.",
+  },
 ];
 
 describe("the privacy notice's account of the site's own protection", () => {
@@ -741,15 +748,17 @@ describe("the privacy notice's publication and retention rows keep their ruled b
     );
   });
 
-  /* Every log row the administrator's erasure files carries the request it answers (`docs/backend/spec.md :: I683`):
-     the emptied rows are not all the log keeps of a person's erasure. */
+  /* Every log row the administrator's erasure files carries the request it answers (`docs/backend/spec.md :: I683`),
+     which refuses the person's names only as stored (`:: I721`): the emptied rows are not all the log keeps of an erasure. */
   it("promises every erasure asked for an emptied action log, and says the log keeps the erasure with the request's date and kind", () => {
     rendert(
       "Das Änderungsprotokoll: Jede Änderung an den Daten der Liga wird mit dem vorherigen Stand festgehalten, damit ein Fehler " +
         "zurückgenommen werden kann. Dieses Protokoll kann deshalb auch Deine Daten enthalten. Bei einer Löschung auf Wunsch werden " +
         "Deine Einträge darin sofort geleert. Bittest Du uns darum, hält das Protokoll die Löschung selbst fest, mit dem Datum und " +
-        "der Art Deiner Anfrage. Das bleibt dort wie jede andere Änderung zwölf Monate stehen. Rechtsgrundlage ist Art. 6 Abs. 1 " +
-        "lit. f DSGVO; unser berechtigtes Interesse ist, Fehler in den Daten der Liga erkennen und rückgängig machen zu können.",
+        "der Art Deiner Anfrage. Das bleibt dort wie jede andere Änderung zwölf Monate stehen. Deinen Namen, so wie er bei uns " +
+        "eingetragen ist, lassen wir in der Angabe zu Deiner Anfrage nicht zu. Anders geschrieben kann er dort für diese zwölf " +
+        "Monate stehen. Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO; unser berechtigtes Interesse ist, Fehler in den Daten der " +
+        "Liga erkennen und rückgängig machen zu können.",
     );
   });
 

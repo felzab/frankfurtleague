@@ -7,6 +7,7 @@ so a judgement left beside a handle is one nothing stops from growing a read of 
 """
 
 import re
+import unicodedata
 from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
 from collections.abc import Set as AbstractSet
 from http import HTTPStatus
@@ -586,16 +587,42 @@ def find_inhaber_adresse_refusal(
 # refused, and the administrator rephrases it (`docs/backend/spec.md :: I721`).
 NAME_IM_ANLASS = "REQ-PURGE-006"
 
-# Matched only inside the name they stand in: alone, „der“ or „von“ would refuse most German sentences.
+# The ban's reason, by the same matcher and on its own box (`docs/backend/spec.md :: I726`). Here rather than beside the
+# ban's other codes: `app/api/sperrliste/services.py` is imported by a module this one imports.
+NAME_IM_GRUND = "REQ-SPERRLISTE-004"
+
+# Exempt only before a later word of their field that is not one: alone, „der“ or „von“ would refuse most German
+# sentences, and a surname such as a referee's „Le“ ends its field.
 NAME_PARTICLES: frozenset[str] = frozenset(
     {"von", "vom", "van", "der", "den", "de", "zu", "zur", "zum", "di", "da", "du", "la", "le", "ten", "ter", "dos"}
 )
 
-# Letters and digits, never `\w`, which counts `_` as a letter: a hyphen and `_` each end a word, as the refusal bounds one.
-_WORD = re.compile(r"[^\W_]+")
+# Letters alone, never `\w`, which takes a digit and `_` into a word: no stored name holds either, so each ends one, and
+# „Müller2“ and „Löschung_Müller“ name „Müller“.
+_LETTERS = re.compile(r"[^\W\d_]+")
+_NO_LETTER_BEFORE, _NO_LETTER_AFTER = r"(?<![^\W\d_])", r"(?![^\W\d_])"
+
+# German writes a name's genitive, and a family's plural, with a bare s, „Annas“ and „Müllers“; a name ending in one
+# of these takes an apostrophe, which already ends the word.
+_ENDS_GENITIVE_FREE = ("s", "x", "z", "ß")
+# Shorter, „da“ and „de“ would refuse „das“ and „des“.
+_GENITIVE_FLOOR = 3
 
 
-def anlass_names(
+def _named_words(whole: str) -> list[str]:
+    """`whole`'s words, a particle followed by a later word of its own that is not a particle excepted.
+
+    „anna von der heide“ names neither „von“ nor „der“ alone; „thi mai le“ names „le“.
+    """
+
+    words = _LETTERS.findall(whole)
+
+    return [
+        word for index, word in enumerate(words) if word not in NAME_PARTICLES or all(later in NAME_PARTICLES for later in words[index + 1 :])
+    ]
+
+
+def eigene_namen(
     identifier: str,
     *,
     saison_team_rows: Sequence[Mapping[str, Any]],
@@ -604,7 +631,7 @@ def anlass_names(
     pupil_rows: Iterable[Mapping[str, Any]],
     registrierung_rows: Iterable[Mapping[str, Any]],
 ) -> frozenset[str]:
-    """Every name the person's own records hold, as the reveal names each, folded: each field whole, and each of its words but a particle."""
+    """Every name the person's own records hold, as the reveal names each, folded: each field whole and each of its words (`_named_words`)."""
 
     fields = [
         *(_pupil_entry(row)[part] for row in pupil_rows for part in ("vorname", "nachname")),
@@ -617,19 +644,34 @@ def anlass_names(
         *(_referee_entry(row)["name"] for row in referee_rows),
     ]
     wholes = {person_name_key(field) for field in fields}
+    names = wholes | {word for whole in wholes for word in _named_words(whole)}
 
-    # Without the empty fold of an absent field, which would stand as a whole word everywhere.
-    return frozenset({*wholes, *(word for whole in wholes for word in _WORD.findall(whole) if word not in NAME_PARTICLES)} - {""})
+    # Without the empty fold of an absent field, which would stand as a whole word everywhere, and without one letter, an
+    # initial or the O' of an elision, which identifies nobody and would refuse „i. A.“.
+    return frozenset(name for name in names if len(name) > 1)
+
+
+def holds_a_name(text: str, names: Iterable[str]) -> bool:
+    """Whether a name of `names` stands in `text` as a whole word or words, or before a genitive s, folded as `eigene_namen` folds them."""
+
+    # Unicode's format characters (category Cf) go here alone, never from what is stored: a soft hyphen or a zero-width
+    # space pasted from a mail's subject splits a name, and `person_name_key` keeps both.
+    folded = person_name_key("".join(char for char in text if unicodedata.category(char) != "Cf"))
+
+    def pattern(name: str) -> str:
+        genitive = "s?" if len(name) >= _GENITIVE_FLOOR and not name.endswith(_ENDS_GENITIVE_FREE) else ""
+        return f"{_NO_LETTER_BEFORE}{re.escape(name)}{genitive}{_NO_LETTER_AFTER}"
+
+    return any(re.search(pattern(name), folded) for name in names)
 
 
 def find_name_im_anlass_refusal(*, anlass: str, names: Iterable[str]) -> WriteRefusal | None:
-    """`REQ-PURGE-006`: no name in `names` stands in the request as a whole word or words.
+    """`REQ-PURGE-006`: no name of the person's own records stands in the request the erasure answers (`holds_a_name`).
 
-    Both folded alike (`anlass_names`). A common word equal to a name is refused with it, and the administrator rephrases.
+    A common word equal to a name is refused with it, and the administrator rephrases.
     """
 
-    folded = person_name_key(anlass)
-    if not any(re.search(rf"(?<![^\W_]){re.escape(name)}(?![^\W_])", folded) for name in names):
+    if not holds_a_name(anlass, names):
         return None
 
     # Naming none of them: the message reaches the refusal's log line.
@@ -638,6 +680,25 @@ def find_name_im_anlass_refusal(*, anlass: str, names: Iterable[str]) -> WriteRe
         status=HTTPStatus.UNPROCESSABLE_CONTENT,
         message="the request this erasure answers names the person, and every log row the erasure files would keep that name for a year",
         fields=(("anlass",),),
+    )
+
+
+def find_name_im_grund_refusal(*, grund: str, names: Iterable[str]) -> WriteRefusal | None:
+    """`REQ-SPERRLISTE-004`: no name of the records the address holds stands in the ban's reason (`holds_a_name`).
+
+    The reason is served, mailed to the address and kept past the person's erasure. A common word equal to a name is
+    refused with it.
+    """
+
+    if not holds_a_name(grund, names):
+        return None
+
+    # Naming none of them, as the erasure's own: the message reaches the refusal's log line.
+    return WriteRefusal(
+        error_code=NAME_IM_GRUND,
+        status=HTTPStatus.UNPROCESSABLE_CONTENT,
+        message="the reason for this ban names a person the address's records hold, and the ban keeps it past that person's erasure",
+        fields=(("grund",),),
     )
 
 
