@@ -878,12 +878,22 @@ const LANDINGS: Record<string, Landing> = {
     remount: true,
     lands: () => heading("Halle A"),
   },
-  "a referee editor's reactivation, on the editor's heading": {
+  "a referee editor's reactivation, on the retirement replacing it": {
     before: () => h(AdminSchiedsrichterEditView, { istFassungBekannt: true, schiedsrichter: SR_RECORD, inactiveSince: RETIRED_ON }),
     press: (user) => user.click(screen.getByRole("button", { name: "Reaktivieren" })),
     after: () => h(AdminSchiedsrichterEditView, { istFassungBekannt: true, schiedsrichter: SR_RECORD, inactiveSince: null }),
     remount: true,
-    lands: () => heading("Pia Kraft"),
+    lands: () => screen.getByRole("button", { name: "Stilllegen" }),
+  },
+  "a referee editor's retirement in the dialog, on the reactivation replacing it": {
+    before: () => h(AdminSchiedsrichterEditView, { istFassungBekannt: true, schiedsrichter: SR_RECORD, inactiveSince: null }),
+    press: async (user) => {
+      await user.click(screen.getByRole("button", { name: "Stilllegen" }));
+      await pressTwice(user, { resting: "Stilllegen", armed: "Ja, stilllegen" });
+    },
+    after: () => h(AdminSchiedsrichterEditView, { istFassungBekannt: true, schiedsrichter: SR_RECORD, inactiveSince: RETIRED_ON }),
+    remount: true,
+    lands: () => screen.getByRole("button", { name: "Reaktivieren" }),
   },
   "a player editor's reactivation, on the editor's heading": {
     before: () => spielerEditor(RETIRED_ON),

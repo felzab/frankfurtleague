@@ -105,7 +105,9 @@ async function sweepAlleKonten(): Promise<void> {
   }
 
   // Every completed pass, nothing being stored: this line is how "has it run" is answered (`docs/frontend/spec.md :: I700`).
-  logger.info("konto.sweep_completed", zaehlung);
+  // A warning where a failure kept accounts, so a level above INFO still shows a pass that judged none.
+  if (zaehlung.fehlgeschlagen === 0) logger.info("konto.sweep_completed", zaehlung);
+  else logger.warn("konto.sweep_completed", { error_code: "FE-SWEEP-003", ...zaehlung });
 }
 
 /** One account, deleted only where the read answers its address unreferenced again, alone. */

@@ -170,6 +170,19 @@ describe("the request for a pupil's new address", () => {
     assert.match(refused.success ? (refused.message ?? "") : "", /Melde Dich selbst bei der Person/);
   });
 
+  /* The panel grades its toast on it (`docs/frontend/spec.md :: I737`): the sentence asks the administrator to tell the
+     person, which a clean press would contradict. */
+  it("reports a notice to the stored address that did not leave, beside a link that did", async () => {
+    mail.answerWith(({ to }) => (to === BISHER ? "refused" : "accepted"));
+
+    const requested = await beantrageSpielerAdresswechselAction({ id: SPIELER_ID, email: GETIPPT });
+    const resent = await einladeSpielerAdresswechselAction({ id: SPIELER_ID });
+
+    for (const res of [requested, resent]) {
+      assert.deepEqual(res.success ? [res.versand, res.hinweis] : [], ["gesendet", "fehlgeschlagen"]);
+    }
+  });
+
   it("mails nothing where the request was refused", async () => {
     request = () => refusedOn(REQUEST_OPERATION, "REQ-SPIELER-006");
 

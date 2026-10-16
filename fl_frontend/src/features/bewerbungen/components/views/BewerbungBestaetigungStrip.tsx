@@ -48,7 +48,6 @@ import { benannt } from "@/shared/utils/benannt";
 import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
 import { focusAfterWrite, focusRow, focusSection, focusSlot } from "@/shared/utils/focusAfterWrite";
 import { nichtHinterlegt } from "@/shared/utils/format";
-import { versandGrad } from "@/shared/utils/linkVersand";
 import { LINK_TITEL, meldeLinkVersand } from "@/shared/utils/linkVersandToast";
 import { pressLinkWrite } from "@/shared/utils/linkWrite";
 import { FASSUNG_UNLESBAR } from "@/shared/utils/refusal";
@@ -108,7 +107,12 @@ const BESETZUNG_OHNE_ANTWORT = "Prüfe die Verbindung und lade die Seite neu. St
 
 const ERNEUT_TITEL: VersandTitel = { ...LINK_TITEL, gesendet: "Link erneut gesendet" };
 
-const KORREKTUR_TITEL: VersandTitel = { ...LINK_TITEL, gesendet: "Adresse korrigiert" };
+/** Each says the address moved, the strip's re-send raising the bare link titles for a link alone. */
+const KORREKTUR_TITEL: VersandTitel = {
+  gesendet: "Adresse korrigiert",
+  fehlgeschlagen: "Adresse korrigiert, Link nicht verschickt",
+  abgelegt: "Adresse korrigiert, Link zurückgehalten",
+};
 
 /**
  * Its own titles, never the correction's: one title names one outcome, and these say the seat is filled
@@ -116,7 +120,7 @@ const KORREKTUR_TITEL: VersandTitel = { ...LINK_TITEL, gesendet: "Adresse korrig
  */
 const NEUBESETZUNG_TITEL: VersandTitel = {
   gesendet: "Rolle neu besetzt",
-  fehlgeschlagen: "Rolle besetzt, Link nicht zugestellt",
+  fehlgeschlagen: "Rolle besetzt, Link nicht verschickt",
   abgelegt: "Rolle besetzt, Link zurückgehalten",
 };
 
@@ -554,13 +558,7 @@ function AdresseKorrigieren({
     }
 
     schliesse(landing);
-    meldeLinkVersand(
-      res.versand,
-      KORREKTUR_TITEL,
-      versandGrad(res.versand) === "fehlgeschlagen"
-        ? "Die Adresse ist korrigiert, aber die E-Mail mit dem neuen Link ging nicht raus, und der alte Link gilt nicht mehr. Schicke den Link erneut."
-        : res.message,
-    );
+    meldeLinkVersand(res.versand, KORREKTUR_TITEL, res.message);
   };
 
   return (
@@ -745,13 +743,7 @@ function SitzNeuBesetzen({
     }
 
     schliesse(landing);
-    meldeLinkVersand(
-      res.versand,
-      NEUBESETZUNG_TITEL,
-      versandGrad(res.versand) === "fehlgeschlagen"
-        ? "Die Person steht jetzt in der Bewerbung, aber die E-Mail mit ihrem Bestätigungslink ging nicht raus. Schicke den Link erneut."
-        : res.message,
-    );
+    meldeLinkVersand(res.versand, NEUBESETZUNG_TITEL, res.message);
   };
 
   return (

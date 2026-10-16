@@ -137,7 +137,7 @@ export async function reactivateSpielerAction(
  */
 export async function beantrageSpielerAdresswechselAction(
   rawPayload: FLSpielerAdresswechselPayload,
-): Promise<ActionResult<{ versand: LinkVersand }>> {
+): Promise<ActionResult<{ versand: LinkVersand; hinweis: LinkVersand }>> {
   return runAdminMutation("beantrageSpielerAdresswechselAction", { stepUp: true }, async () => {
     const validated = FLSpielerAdresswechselPayloadSchema.safeParse(rawPayload);
 
@@ -173,6 +173,7 @@ export async function beantrageSpielerAdresswechselAction(
       // replaced the mailbox the credential was made for.
       message: describeSpielerAdresswechselMail(wechsel.email, versand),
       versand: versand.link,
+      hinweis: versand.hinweis,
     };
   });
 }
@@ -180,7 +181,7 @@ export async function beantrageSpielerAdresswechselAction(
 /** A fresh link to the pending address, mailed with a fresh notice to the stored one: the earlier link is dead either way. */
 export async function einladeSpielerAdresswechselAction(
   rawPayload: FLSpielerAdresswechselEinladenPayload,
-): Promise<ActionResult<{ versand: LinkVersand }>> {
+): Promise<ActionResult<{ versand: LinkVersand; hinweis: LinkVersand }>> {
   return runAdminMutation("einladeSpielerAdresswechselAction", { stepUp: true }, async () => {
     const validated = FLSpielerAdresswechselEinladenPayloadSchema.safeParse(rawPayload);
 
@@ -215,6 +216,7 @@ export async function einladeSpielerAdresswechselAction(
       // administrator has to act on when the message did not leave.
       message: `${describeSpielerAdresswechselMail(wechsel.email, versand)} Der vorherige Link gilt nicht mehr.`,
       versand: versand.link,
+      hinweis: versand.hinweis,
     };
   });
 }

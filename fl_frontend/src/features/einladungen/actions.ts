@@ -9,7 +9,6 @@ import { getTeamMemberships } from "@/features/teams/queries";
 import { linkVersandOf, sendZielMail } from "@/features/zustellung/notifications";
 import { refusalResult, refuseUnconfirmed, runAdminMutation } from "@/shared/utils/adminMutation";
 import { getGermanTodayStr } from "@/shared/utils/date";
-import { schlechtesterVersand } from "@/shared/utils/linkVersand";
 import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
@@ -235,7 +234,7 @@ export async function previewEinladungVersandAction(
  */
 export async function postEinladungVersandAction(
   rawPayload: FLEinladungVersandPayload,
-): Promise<ActionResult<{ zeilen: readonly EinladungVersandErgebnis[]; versand?: LinkVersand }>> {
+): Promise<ActionResult<{ zeilen: readonly EinladungVersandErgebnis[]; versendet: readonly LinkVersand[] }>> {
   return runAdminMutation("postEinladungVersandAction", { stepUp: true }, async () => {
     const validated = FLEinladungVersandPayloadSchema.safeParse(rawPayload);
 
@@ -317,7 +316,8 @@ export async function postEinladungVersandAction(
       success: true,
       zeilen: zeilen,
       message: versandSatz(gemailt, zeilen.length),
-      versand: schlechtesterVersand(versendet),
+      // Each team's own grade, the panel's title saying whether its worst is every team's or some teams'.
+      versendet: versendet,
     };
   });
 }

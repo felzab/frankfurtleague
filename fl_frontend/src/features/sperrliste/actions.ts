@@ -14,7 +14,7 @@ import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { SPERRE_ERFOLG } from "./constants";
 import { deleteSperre, postSperre } from "./mutations";
-import { mapAdresseRefusal, mapAnsichtRefusal, schonGesperrtAmFeld, verwaltungAmFeld } from "./refusals";
+import { mapAnsichtRefusal, mapSperreRefusal, schonGesperrtAmFeld, verwaltungAmFeld } from "./refusals";
 import { FLPostSperrlistePayloadSchema, FLSperrlisteKeyPayloadSchema } from "./schemas";
 
 import type { FLErasureAnsichtResponse } from "@/features/funktionen/schemas";
@@ -31,7 +31,7 @@ export type SperreAnsicht = Omit<FLErasureAnsichtResponse, "acknowledged" | "ver
 const AnsichtPayloadSchema = FLPostSperrlistePayloadSchema.pick({ email: true });
 
 const SPERRE_STEHT = "Die Sperre steht.";
-const NICHT_BENACHRICHTIGT = "Die Benachrichtigung an die Adresse konnte nicht zugestellt werden.";
+const NICHT_BENACHRICHTIGT = "Die Benachrichtigung an die Adresse konnte nicht verschickt werden.";
 const BENACHRICHTIGUNG_UNKLAR = "Ob die Benachrichtigung angekommen ist, ist unklar.";
 // Said rather than left to a clean save, which an administrator reads as the barred person mailed.
 const KEIN_KONTO = "Die Adresse hat kein Konto, deshalb wurde sie nicht benachrichtigt.";
@@ -143,12 +143,12 @@ export async function postSperreAction(rawPayload: FLPostSperrlistePayload): Pro
       };
     }
 
-    // The refusal belongs on the box that holds the address, not on the error page.
+    // The refusal belongs on the box holding the value it refuses, not on the error page.
     let postOperation;
     try {
       postOperation = await postSperre(validated.data);
     } catch (error) {
-      const refusal = mapAdresseRefusal(error);
+      const refusal = mapSperreRefusal(error);
       if (refusal) return refusalResult(refusal);
       throw error;
     }

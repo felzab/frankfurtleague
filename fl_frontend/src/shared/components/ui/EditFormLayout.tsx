@@ -25,12 +25,12 @@ export function EditFormLayout({
    * `pointerleave` follows a click that leaves, so without it the pill returns painted hovered.
    */
   isLeaving: boolean;
-  /** The editor's unsaved typing, which the reactivation's write would re-key the editor over. */
+  /** The editor's unsaved typing, which a reactivation's or a retirement's write would re-key the editor over. */
   isDirty: boolean;
   rail: ReactNode;
   children: ReactNode;
 }) {
-  const { reactivate } = header;
+  const { reactivate, retire } = header;
 
   return (
     <div className="min-h-0 w-full flex-1 scrollbar-gutter-stable overflow-y-auto px-4 pt-6 pb-10 sm:px-8">
@@ -45,6 +45,15 @@ export function EditFormLayout({
                   ...reactivate,
                   onPress: () => {
                     if (guardAgainstDraft(isDirty, DRAFT_DISCARDED)) reactivate.onPress();
+                  },
+                }
+          }
+          retire={
+            retire === undefined
+              ? undefined
+              : {
+                  onPress: (pressed) => {
+                    if (guardAgainstDraft(isDirty, DRAFT_DISCARDED)) retire.onPress(pressed);
                   },
                 }
           }
