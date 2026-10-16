@@ -56,6 +56,7 @@ from tests.documents import (
     spieler_document,
     team_document,
 )
+from tests.erasure import erasure_collections
 from tests.whole_database import where_held
 from tests.worker import worker_database
 
@@ -157,35 +158,10 @@ def on_a_league(url: str, body: Body, *, saisons: Mapping[str, str] = LEAGUE, mu
     return on_the_seed_loop(_run())
 
 
-def the_collections(database: AsyncDatabase, **replaced: Any) -> dict[str, Any]:
-    handles = {
-        f"{collection}_collection": database[collection]
-        for collection in (
-            Collection.SAISONS,
-            Collection.SPIELER,
-            Collection.SAISON_SPIELER,
-            Collection.SAISON_TEAMS,
-            Collection.BEWERBUNGEN,
-            Collection.SCHIEDSRICHTER,
-            Collection.SPIELE,
-            Collection.REGISTRIERUNGEN,
-            Collection.DROSSELUNG,
-            Collection.AKTIONEN,
-            Collection.BERECHTIGUNGEN,
-            Collection.BERECHTIGUNGEN_ANGEKUENDIGT,
-            Collection.BERECHTIGUNGEN_POSTAUSGANG,
-            Collection.EINLADUNGEN,
-            Collection.SPERRLISTE,
-        )
-    }
-
-    return {**handles, **replaced}
-
-
 async def run(database: AsyncDatabase, client: AsyncMongoClient, *, nach: Any = None, **replaced: Any) -> Any:
     return await post_loeschung_lauf(
         params=FLLoeschungLaufParams(nach=nach),
-        **the_collections(database, **replaced),
+        **erasure_collections(database, **({"saisons_collection": database[Collection.SAISONS]} | replaced)),
         sperrliste=ban_list(database),
         db=client,
         config=CONFIG,
