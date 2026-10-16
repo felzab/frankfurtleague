@@ -28,7 +28,6 @@ from pymongo.errors import OperationFailure, PyMongoError
 from app.api.bewerbungen.services import hash_token
 from app.api.einladungen.services import compose_einladung
 from app.api.identitaet.crud import ERASURE_JOURNAL_EVENT, ERASURE_STEPS, JEDE_PERSONENGRUPPE, UNKNOWN_COMMIT_RESULT, erase_everything
-from app.api.identitaet.person_router import erase_selbst
 from app.api.identitaet.services import LETZTER_INHABER_ERASURE
 from app.api.registrierungen.person_router import aufnehmen
 from app.api.registrierungen.schemas import FLRegistrierungAufnehmenPayload
@@ -48,7 +47,7 @@ from app.core.security import ACTOR_HEADER, akteur_pseudonym, loeschung_journal_
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID, GHOST_SPIELER_ID
 from app.core.transactions import transaction_session
 from app.main import create_app
-from tests.actor_tokens import ACTOR_TOKEN_CONTRACT, FRESH_STEP_UP_CHECK, SignedActor, actor_claims, sign
+from tests.actor_tokens import ACTOR_TOKEN_CONTRACT, SignedActor, actor_claims, sign
 from tests.app_client import app_client
 from tests.bans import ban_list
 from tests.config import ADMIN_KEY
@@ -70,6 +69,7 @@ from tests.documents import (
     spieler_document,
     team_document,
 )
+from tests.erasure import erased, erasure_collections
 from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
 from tests.records import record_collections
 from tests.whole_database import where_held
@@ -494,45 +494,10 @@ async def erased_over_http(url: str, *, email: str = TYPED, headers: Mapping[str
         return await http.post(PATH, headers=headers or as_person(email))
 
 
-def the_collections(database: AsyncDatabase, **replaced: Any) -> dict[str, Any]:
-    """Every collection the registry takes, as the route hands them in, any of them replaced by name."""
-
-    handles = {
-        f"{collection}_collection": database[collection]
-        for collection in (
-            Collection.SPIELER,
-            Collection.SAISON_SPIELER,
-            Collection.SAISON_TEAMS,
-            Collection.BEWERBUNGEN,
-            Collection.SCHIEDSRICHTER,
-            Collection.SPIELE,
-            Collection.REGISTRIERUNGEN,
-            Collection.DROSSELUNG,
-            Collection.AKTIONEN,
-            Collection.BERECHTIGUNGEN,
-            Collection.BERECHTIGUNGEN_ANGEKUENDIGT,
-            Collection.BERECHTIGUNGEN_POSTAUSGANG,
-            Collection.EINLADUNGEN,
-            Collection.SPERRLISTE,
-        )
-    }
-
-    return {**handles, **replaced}
-
-
 async def erased_by_the_handler(database: AsyncDatabase, client: AsyncMongoClient, *, identifier: str = IDENTIFIER, **replaced: Any) -> Any:
     """The route's own function, outside a request: what a case needs to catch the driver's failure itself."""
 
-    return await erase_selbst(
-        identifier=identifier,
-        **the_collections(database, **replaced),
-        sperrliste=ban_list(database),
-        # Refusing none: a grant holder's passkey is held over HTTP, in `TestTheGrantsLeftBehind` and the step-up suite.
-        refuse_unconfirmed=FRESH_STEP_UP_CHECK,
-        db=client,
-        config=CONFIG,
-        germany_now=NOW,
-    )
+    return await erased(database, client, identifier, germany_now=NOW, **replaced)
 
 
 async def erased_in_scope(database: AsyncDatabase, client: AsyncMongoClient, scope: frozenset[Any], **replaced: Any) -> Any:
@@ -540,7 +505,7 @@ async def erased_in_scope(database: AsyncDatabase, client: AsyncMongoClient, sco
         return await erase_everything(
             IDENTIFIER,
             scope=scope,
-            **the_collections(database, **replaced),
+            **erasure_collections(database, **replaced),
             sperrliste=ban_list(database),
             geaendert_von=IDENTIFIER,
             schluessel=CONFIG.sperrliste_schluessel,
@@ -1088,7 +1053,7 @@ class TestEachStepWritesWhatItDeclares:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
-            recorded = {name: WritesRecorded(handle, writes) for name, handle in the_collections(database).items()}
+            recorded = {name: WritesRecorded(handle, writes) for name, handle in erasure_collections(database).items()}
             await erased_in_scope(database, client, JEDE_PERSONENGRUPPE, **recorded)
 
         on_a_league(mongo_replica_set_url, body)
