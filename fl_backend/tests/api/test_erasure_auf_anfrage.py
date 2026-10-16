@@ -29,8 +29,10 @@ from app.api.identitaet.services import (
     EIGENE_ADRESSE,
     INHABER_ADRESSE,
     NAME_IM_ANLASS,
+    NAME_IM_GRUND,
     eigene_namen,
     find_name_im_anlass_refusal,
+    find_name_im_grund_refusal,
 )
 from app.api.schiedsrichter.services import build_ghost_schiedsrichter
 from app.api.spieler.services import build_ghost_spieler
@@ -1062,7 +1064,7 @@ class TestThePlaceholderIsRefusedAtTheBox:
         assert response.json()["error_code"] in UNREACHED_DATABASE
 
 
-# --- The names `REQ-PURGE-006` refuses, judged from the subject's rows alone: the default tier's.
+# --- The names `REQ-PURGE-006` and `REQ-SPERRLISTE-004` refuse, judged from the subject's rows alone: the default tier's.
 
 
 def a_seat(email: str, vorname: str, nachname: str) -> dict[str, str]:
@@ -1089,6 +1091,7 @@ NAMES = eigene_namen(
 # Each refusal the one matcher answers, with the box it names.
 REFUSALS = {
     "the erasure's request": (lambda text: find_name_im_anlass_refusal(anlass=text, names=NAMES), NAME_IM_ANLASS, "anlass"),
+    "the ban's reason": (lambda text: find_name_im_grund_refusal(grund=text, names=NAMES), NAME_IM_GRUND, "grund"),
 }
 
 

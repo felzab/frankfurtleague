@@ -605,7 +605,9 @@ Every ruling below is the sign-up flow as it stands for the next season.
   document to delete nor a shell of nulls left where one stood, which is why it survives a request
   that reaches everything else (`docs/backend/spec.md :: I268`). **The row is pseudonymised personal
   data rather than none** — this controller holds the key that re-identifies it — and the person
-  barred is in it past their own erasure, whom the free-text reason may name outright. The
+  barred is in it past their own erasure. The free-text reason refuses a name the address's own
+  records hold as stored (`docs/backend/spec.md :: I726`), so it may still name them spelled
+  otherwise, or outright where no record of the address names them. The
   administrator who entered it stands in `erstellt_von` in plain until their own erasure gives the
   row a marker naming nobody (`docs/backend/spec.md :: I660`). The basis for keeping either is what
   [section 11](#11-open-and-owed-a-decision) asks the Datenschutzexperte to confirm.
@@ -980,7 +982,8 @@ the `Entry` column carries a token only where one still resolves in that file.
   mints a confirmation link and every confirmation press perform
   ([`backend/spec.md`](backend/spec.md#11-endpoint-inventory)).
   One question to put: what an access request reaches, given that no route finds the row from the
-  address it was taken from while the reason beside it may name its subject outright. The bound is
+  address it was taken from while the reason beside it may still name its subject
+  ([section 5](#5-erasure-reaches-everyone-who-asks)). The bound is
   [section 6](#6-retention-is-bounded-where-a-bound-was-chosen)'s, and the procedure for the lookup
   is [`ops/runbooks.md`](ops/runbooks.md#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)'s.
 - **A referee's withdrawal changes no fixture page until the fixture read joins the record, for the

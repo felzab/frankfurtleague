@@ -587,6 +587,10 @@ def find_inhaber_adresse_refusal(
 # refused, and the administrator rephrases it (`docs/backend/spec.md :: I721`).
 NAME_IM_ANLASS = "REQ-PURGE-006"
 
+# The ban's reason, by the same matcher and on its own box (`docs/backend/spec.md :: I726`). Here rather than beside the
+# ban's other codes: `app/api/sperrliste/services.py` is imported by a module this one imports.
+NAME_IM_GRUND = "REQ-SPERRLISTE-004"
+
 # Exempt only before a later word of their field that is not one: alone, „der“ or „von“ would refuse most German
 # sentences, and a surname such as a referee's „Le“ ends its field.
 NAME_PARTICLES: frozenset[str] = frozenset(
@@ -676,6 +680,25 @@ def find_name_im_anlass_refusal(*, anlass: str, names: Iterable[str]) -> WriteRe
         status=HTTPStatus.UNPROCESSABLE_CONTENT,
         message="the request this erasure answers names the person, and every log row the erasure files would keep that name for a year",
         fields=(("anlass",),),
+    )
+
+
+def find_name_im_grund_refusal(*, grund: str, names: Iterable[str]) -> WriteRefusal | None:
+    """`REQ-SPERRLISTE-004`: no name of the records the address holds stands in the ban's reason (`holds_a_name`).
+
+    The reason is served, mailed to the address and kept past the person's erasure. A common word equal to a name is
+    refused with it.
+    """
+
+    if not holds_a_name(grund, names):
+        return None
+
+    # Naming none of them, as the erasure's own: the message reaches the refusal's log line.
+    return WriteRefusal(
+        error_code=NAME_IM_GRUND,
+        status=HTTPStatus.UNPROCESSABLE_CONTENT,
+        message="the reason for this ban names a person the address's records hold, and the ban keeps it past that person's erasure",
+        fields=(("grund",),),
     )
 
 

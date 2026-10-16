@@ -244,7 +244,9 @@ AGGREGATES: tuple[Aggregate, ...] = (
             "season the ban covers (`docs/backend/spec.md :: I273`), and the activation that runs past it ERASES "
             "the row rather than deleting it, so the bound is outlived by no log image either "
             "(`docs/backend/spec.md :: I274`). Anonymous it is not: `erstellt_von` is that "
-            "administrator's address in plain and `grund` is free text that may name the person barred, both served -- "
+            "administrator's address in plain and `grund` is free text, refused a name the address's records hold as "
+            "stored (`docs/backend/spec.md :: I726`) and so naming the person barred only spelled otherwise or where no "
+            "record names them, both served -- "
             "`erstellt_von` withheld where the ban list holds that administrator too (`docs/backend/spec.md :: I452`) -- "
             "and both outliving either erasure. The BARRED address alone is yielded to nobody without the key."
         ),
@@ -2443,6 +2445,15 @@ RULES: tuple[Rule, ...] = (
         summary="an address holding a grant of either tier takes no ban until the grant is revoked",
         implemented_by="app.api.sperrliste.services.find_verwaltung_refusal",
         tested_by="tests/api/test_sperrliste_execution.py::TestABanOfAnAdministratorsAddress",
+    ),
+    Rule(
+        code="REQ-SPERRLISTE-004",
+        status=HTTPStatus.UNPROCESSABLE_CONTENT,
+        operation="POST /sperrliste",
+        aggregate="Sperrliste",
+        summary="a ban's reason holds no name of the records its address holds, matched as an erasure's request is",
+        implemented_by="app.api.identitaet.services.find_name_im_grund_refusal",
+        tested_by="tests/api/test_sperrliste_execution.py::TestANameInTheGrund",
     ),
     Rule(
         code="REQ-BERECHTIGUNG-001",
