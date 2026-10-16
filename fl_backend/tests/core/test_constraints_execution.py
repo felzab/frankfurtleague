@@ -30,6 +30,7 @@ from app.core.constraints import (
     report_unservable_values,
     report_violations,
 )
+from app.shared.schemas.bounds import TEAM_DESCRIPTION_MAX_LENGTH
 from tests.config import build_test_config
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
@@ -1148,10 +1149,18 @@ def with_value(collection: str, path: str, value: Any) -> dict[str, Any]:
         pytest.param("spielorte", "address.hausnummer", "12/3", ["address.hausnummer"], id="spielorte"),
         pytest.param("spieltage", "beginn", "2026-02-30", ["beginn"], id="spieltage"),
         pytest.param("teams", "shorthand", "L", ["shorthand"], id="teams"),
+        pytest.param("berechtigungen_postausgang", "versuche", -1, ["versuche"], id="berechtigungen_postausgang"),
+        pytest.param("teams", "description", "x" * (TEAM_DESCRIPTION_MAX_LENGTH + 1), ["description"], id="a length past its ceiling"),
+        pytest.param("spieltage", "position", 0, ["position"], id="a number under its floor"),
+        pytest.param("saisons", "rules.teams_per_group", 20, ["rules.teams_per_group"], id="a number over its ceiling"),
+        pytest.param("spiele", "elfmeterschiessen", {"team1": 3, "team2": 3}, ["elfmeterschiessen"], id="a validator around a nested model"),
     ],
 )
 def test_each_collection_counts_a_value_its_read_models_refuse(mongo_url: str, collection: str, path: str, value: Any, fields: list[str]):
-    """One offender in each collection the case above leaves, on the shipped schema for its reason."""
+    """One offender in each collection the case above leaves, on the shipped schema for its reason.
+
+    And one past each kind of bound no string pattern shows: a length, a range, a validator around a nested model.
+    """
 
     async def body(database: AsyncDatabase) -> dict[str, tuple[int, list[Any]]]:
         await database[collection].insert_one(with_value(collection, path, value))

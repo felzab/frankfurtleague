@@ -5,22 +5,26 @@ from dataclasses import dataclass
 from functools import partial
 from typing import Annotated, Any, TypedDict
 
-from pydantic import StringConstraints, TypeAdapter, ValidationError
+from pydantic import Field, StringConstraints, TypeAdapter, ValidationError
 from pymongo import ASCENDING, DESCENDING, AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
+from app.api.saisons.schemas import NumberOfGroups, QualifiersPerGroup, TeamsPerGroup
+from app.api.spiele.schemas import FLSpielElfmeterschiessen
+from app.api.spieler.schemas import FLSpielerStufe
 from app.core.collections import Collection
 from app.core.config import MONGODB_URI_FILE, get_config  # noqa: TID251
 from app.core.sentinels import GHOST_SPIELER_ID
 from app.shared.schemas.addresses import HAUSNUMMER_PATTERN
-from app.shared.schemas.bounds import AKTION_RETENTION_SECONDS, SAISON_ID_LENGTH, TEAM_SHORTHAND_LENGTH
+from app.shared.schemas.bounds import AKTION_RETENTION_SECONDS, SAISON_ID_LENGTH, TEAM_DESCRIPTION_MAX_LENGTH, TEAM_SHORTHAND_LENGTH
 from app.shared.schemas.custom import (
     CustomDateString,
     CustomErgebnisString,
     CustomNonEmptyString,
     CustomOptionalDateString,
     CustomOptionalExternalUrl,
+    CustomSpielNr,
     CustomTimeString,
 )
 
@@ -1775,7 +1779,7 @@ async def report_nameless_persons(db: AsyncDatabase) -> RelationReport:
     )
 
 
-# One adapter per type a read model gives a stored string, each that model's own, so the report refuses
+# One adapter per type a read model gives a stored value, each that model's own, so the report refuses
 # exactly what a read does (`fl_backend/tests/core/test_constraints.py` holds each path's two equal).
 _NON_EMPTY = TypeAdapter(CustomNonEmptyString)
 _NON_EMPTY_OR_NULL = TypeAdapter(CustomNonEmptyString | None)
@@ -1790,6 +1794,19 @@ _SHORTHAND = TypeAdapter(Annotated[str, StringConstraints(min_length=TEAM_SHORTH
 _HAUSNUMMER = TypeAdapter(Annotated[str, StringConstraints(pattern=HAUSNUMMER_PATTERN)])
 # Restated: `app/shared/schemas/addresses.py :: FLAddress` spells its pattern inline.
 _PLZ = TypeAdapter(Annotated[str, StringConstraints(pattern=r"^[0-9]{5}$")])
+_DESCRIPTION = TypeAdapter(Annotated[str, StringConstraints(max_length=TEAM_DESCRIPTION_MAX_LENGTH)])
+# Restated where a model spells its bound inline, as `_PLZ` is.
+_Count = Annotated[int, Field(ge=0)]
+_COUNT = TypeAdapter(_Count)
+_POSITION = TypeAdapter(Annotated[int, Field(ge=1)])
+_TORE_OR_NULL = TypeAdapter(_Count | None)
+_ABOVE_ZERO = TypeAdapter(CustomSpielNr)
+_QUALIFIERS = TypeAdapter(QualifiersPerGroup)
+_GROUPS = TypeAdapter(NumberOfGroups)
+_TEAMS_PER_GROUP = TypeAdapter(TeamsPerGroup)
+_STUFEN = TypeAdapter(Annotated[list[FLSpielerStufe], Field(min_length=1)])
+# The model whole: its validator refuses a level shoot-out, which no bound on either count states.
+_SHOOTOUT_OR_NULL = TypeAdapter(FLSpielElfmeterschiessen | None)
 
 # A validator holds types and enums alone (`.claude/rules/backend.md` db), so a hand edit can store an
 # empty name or a day no calendar holds, and a list serving that row answers 500 for every row
@@ -1800,6 +1817,9 @@ SERVED_VALUES: Mapping[Collection, Mapping[str, TypeAdapter[Any]]] = {
     },
     Collection.BERECHTIGUNGEN_ANGEKUENDIGT: {
         "adresse": _NON_EMPTY,
+    },
+    Collection.BERECHTIGUNGEN_POSTAUSGANG: {
+        "versuche": _COUNT,
     },
     Collection.BEWERBUNGEN: {
         "eingereicht_am": _DAY,
@@ -1897,9 +1917,21 @@ SERVED_VALUES: Mapping[Collection, Mapping[str, TypeAdapter[Any]]] = {
         "bewerbung.bis": _DAY,
         "registrierung.von": _DAY,
         "registrierung.bis": _DAY,
+        "rules.win_points": _ABOVE_ZERO,
+        "rules.draw_points": _COUNT,
+        "rules.qualifiers_per_group": _QUALIFIERS,
+        "rules.number_of_groups": _GROUPS,
+        "rules.teams_per_group": _TEAMS_PER_GROUP,
+        "rules.max_kadergroesse": _ABOVE_ZERO,
+        "rules.forfeit_ergebnis.sieger_tore": _COUNT,
+        "rules.forfeit_ergebnis.verlierer_tore": _COUNT,
+        "rules.erlaubte_stufen": _STUFEN,
+        "spielplan.spieltage": _COUNT,
+        "spielplan.spiele": _COUNT,
     },
     Collection.SCHIEDSRICHTER: {
         "name": _NON_EMPTY_OR_NULL,
+        "default_payment": _COUNT,
         "inactive_since": _OPTIONAL_DAY,
         "geburtsdatum": _OPTIONAL_DAY,
         "bestaetigung.verschickt_am": _DAY,
@@ -1927,7 +1959,19 @@ SERVED_VALUES: Mapping[Collection, Mapping[str, TypeAdapter[Any]]] = {
         "team2.shorthand": _SHORTHAND,
         "ort.name": _NON_EMPTY,
         "ort.maps_link": _NON_EMPTY,
+        "ort.mietpreis": _COUNT,
         "schiedsrichter.name": _NON_EMPTY_OR_NULL,
+        "schiedsrichter.payment": _COUNT,
+        "spiel_nr": _ABOVE_ZERO,
+        "team1.tore": _TORE_OR_NULL,
+        "team2.tore": _TORE_OR_NULL,
+        "team1_quelle.platz": _ABOVE_ZERO,
+        "team1_quelle.spiel_nr": _ABOVE_ZERO,
+        "team2_quelle.platz": _ABOVE_ZERO,
+        "team2_quelle.spiel_nr": _ABOVE_ZERO,
+        "elfmeterschiessen": _SHOOTOUT_OR_NULL,
+        "elfmeterschiessen.team1": _COUNT,
+        "elfmeterschiessen.team2": _COUNT,
     },
     Collection.SPIELER: {
         "einwilligung.datum": _OPTIONAL_DAY,
@@ -1942,6 +1986,7 @@ SERVED_VALUES: Mapping[Collection, Mapping[str, TypeAdapter[Any]]] = {
     Collection.SPIELORTE: {
         "name": _NON_EMPTY,
         "maps_link": _NON_EMPTY,
+        "default_mietpreis": _COUNT,
         "inactive_since": _OPTIONAL_DAY,
         "address.strasse": _NON_EMPTY,
         "address.hausnummer": _HAUSNUMMER,
@@ -1952,11 +1997,13 @@ SERVED_VALUES: Mapping[Collection, Mapping[str, TypeAdapter[Any]]] = {
         "beginn": _DAY_OR_NULL,
         "ende": _DAY_OR_NULL,
         "saison_id": _SAISON_ID,
+        "position": _POSITION,
     },
     Collection.TEAMS: {
         "name": _NON_EMPTY,
         "shorthand": _SHORTHAND,
         "full_name": _NON_EMPTY,
+        "description": _DESCRIPTION,
         "website_url": _OPTIONAL_URL,
         "inactive_since": _OPTIONAL_DAY,
         "address.strasse": _NON_EMPTY,
@@ -1966,7 +2013,7 @@ SERVED_VALUES: Mapping[Collection, Mapping[str, TypeAdapter[Any]]] = {
     },
 }
 
-UNSERVABLE_VALUE_RULE = "every stored value is one its read models admit ({})"
+UNSERVABLE_VALUE_RULE = "every value its row models bound is one they admit ({})"
 
 
 def _refuses(adapter: TypeAdapter[Any], document: Mapping[str, Any], path: str) -> bool:
@@ -1992,8 +2039,10 @@ async def report_unservable_values(db: AsyncDatabase) -> dict[Collection, Relati
 
     for collection, types in SERVED_VALUES.items():
         offenders: list[Mapping[str, Any]] = []
+        # A path under another listed path is projected through it: the server refuses the pair as a path collision.
+        projection = {path: 1 for path in types if not any(path.startswith(f"{outer}.") for outer in types)}
 
-        async for document in db[collection].find({}, dict.fromkeys(types, 1)):
+        async for document in db[collection].find({}, projection):
             if refused := [path for path, adapter in types.items() if _refuses(adapter, document, path)]:
                 offenders.append({"_id": document["_id"], "fields": refused})
 
