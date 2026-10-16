@@ -708,12 +708,6 @@ def behaltene_saison_ids(statuses: Mapping[str, FLSaisonStatus]) -> frozenset[st
     return frozenset(saison_id for saison_id, status in statuses.items() if saison_id >= abgeschlossen or status == "active")
 
 
-def registrierbare_saison_ids(statuses: Mapping[str, FLSaisonStatus]) -> frozenset[str]:
-    """Every season a registration can still arrive in, as `app/api/registrierungen/services.py :: saison_nimmt_registrierungen_an` judges."""
-
-    return frozenset(saison_id for saison_id, status in statuses.items() if status != "past")
-
-
 def statuses_after_activating(statuses: Mapping[str, FLSaisonStatus], saison_id: str) -> dict[str, FLSaisonStatus]:
     """The statuses `POST /saisons/{saison_id}/activate` leaves, its refusals unjudged: the incumbent `past`, the target `active`."""
 

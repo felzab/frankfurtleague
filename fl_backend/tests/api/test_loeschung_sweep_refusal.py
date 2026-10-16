@@ -17,7 +17,6 @@ from app.api.identitaet.services import (
     loeschung_faellig,
     offene_adressen,
     ohne_passende_adresse,
-    registrierbare_saison_ids,
     statuses_after_activating,
 )
 from app.api.saisons.schemas import FLSaisonStatus
@@ -63,11 +62,6 @@ class TestTheKeptSeasons:
 
         assert behaltene_saison_ids(statuses) == {"2024", "2025", "2026"}
         assert not faellig(["2024"], statuses=statuses)
-
-    def test_every_season_a_registration_can_arrive_in_is_anchored(self):
-        """The ones not `past`, as the window judges: a registration for one conflicts with the pupil's transaction."""
-
-        assert registrierbare_saison_ids(LEAGUE) == {"2026", "2027"}
 
 
 class TestTheDueJudgement:
