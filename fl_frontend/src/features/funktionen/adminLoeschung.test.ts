@@ -47,6 +47,7 @@ const refused = (serverErrorCode: string): APIBadStatusError =>
 const ID = "68c1f0a2b3c4d5e6f7a8b9c0";
 const PUPIL_ID = "68c1f0a2b3c4d5e6f7a8b9c1";
 const ADRESSE = "Ada.Byron@Example.org";
+const ANDERE_ADRESSE = "grace.hopper@example.org";
 const ANLASS = "E-Mail vom 12.10.2026, Betreff Löschung meiner Daten";
 const ARMED = "Ja, Person endgültig löschen";
 const BESTAETIGUNG = /^Gib zur Bestätigung die Adresse/;
@@ -129,6 +130,20 @@ async function typeRequest(user: UserEvent, email = ADRESSE, anlass = ANLASS): P
   await user.type(within(erasure).getByRole("textbox", { name: "Anlass" }), anlass);
 }
 
+/** Every read the case makes held open until the case answers it, by the order the reads were made in. */
+function holdReads(): { answer: (read: number, value: unknown) => void } {
+  const held: ((value: unknown) => void)[] = [];
+  answerWith(() => new Promise((resolve) => void held.push(resolve)));
+
+  return {
+    answer: (read, value) => {
+      const release = held[read];
+      assert.ok(release !== undefined, `no read ${String(read)} was made`);
+      release(value);
+    },
+  };
+}
+
 /** The arming press and the read it makes, answered. */
 async function arm(user: UserEvent): Promise<void> {
   await user.click(screen.getByRole("button", { name: "Person löschen" }));
@@ -178,6 +193,45 @@ describe("the erasure's press", () => {
     assert.equal(screen.queryAllByRole("button", { name: "Abbrechen" }).length, 0, "the panel stayed armed over an edited address");
     assert.equal(within(panel("Person löschen")).queryAllByRole("alert").length, 0, "the reveal stands for the address before the edit");
     assert.deepEqual(sent("eraseAufAnfrageAction"), []);
+  });
+
+  /* Next sends one client's server actions one at a time, so the first arming's read answers while the second's
+     waits behind it: that answer would otherwise ask for, and erase, an address the box has stopped holding. */
+  it("never lets an earlier arming's answer stand for the address the box holds now", async () => {
+    const { user } = await renderPage();
+    const reads = holdReads();
+    await typeRequest(user);
+
+    await user.click(screen.getByRole("button", { name: "Person löschen" }));
+    await user.click(await screen.findByRole("button", { name: "Abbrechen" }));
+    const box = within(panel("Person löschen")).getByRole("textbox", { name: "E-Mail" });
+    await user.clear(box);
+    await user.type(box, ANDERE_ADRESSE);
+    await user.click(screen.getByRole("button", { name: "Person löschen" }));
+
+    await act(async () => reads.answer(0, { success: true, ansicht: NICHTS_GESPEICHERT }));
+    assert.equal(screen.queryAllByRole("textbox", { name: BESTAETIGUNG }).length, 0, "the first arming's answer asks for its address");
+
+    await act(async () => reads.answer(1, { success: true, ansicht: NICHTS_GESPEICHERT }));
+    assert.ok(await screen.findByRole("textbox", { name: `Gib zur Bestätigung die Adresse „${ANDERE_ADRESSE}“ ein` }));
+  });
+
+  /* The list the press is confirmed over is the one read for this arming: one read for an earlier arming of the
+     same address may name records the erasure no longer reaches. */
+  it("holds the press over the latest arming's read, an earlier one for the same address answered first", async () => {
+    const { user } = await renderPage();
+    const reads = holdReads();
+    await typeRequest(user);
+
+    await user.click(screen.getByRole("button", { name: "Person löschen" }));
+    await user.click(await screen.findByRole("button", { name: "Abbrechen" }));
+    await user.click(screen.getByRole("button", { name: "Person löschen" }));
+
+    await act(async () => reads.answer(0, { success: true, ansicht: NICHTS_GESPEICHERT }));
+    assert.equal(screen.queryAllByRole("textbox", { name: BESTAETIGUNG }).length, 0, "an earlier arming's read stands for this one");
+
+    await act(async () => reads.answer(1, { success: true, ansicht: NICHTS_GESPEICHERT }));
+    assert.ok(await screen.findByRole("textbox", { name: BESTAETIGUNG }));
   });
 
   /* The erasure is sent for the address the reveal was read for, then both boxes empty for the next request; no

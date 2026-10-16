@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useState } from "react";
+import { startTransition, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import PersonXmark from "@gravity-ui/icons/PersonXmark";
@@ -84,9 +84,12 @@ export function FormPersonLoeschenSection() {
   const [anlass, setAnlass] = useState("");
   const [fehler, setFehler] = useState<Fehler>({});
   const [gelesen, setGelesen] = useState<Gelesen | null>(null);
+  // Only the latest arming's read answers: Next sends one client's actions one at a time, so an earlier arming's
+  // answer lands while the latest waits. React's "ignore stale responses"
+  // (https://react.dev/learn/you-might-not-need-an-effect#fetching-data).
+  const letzteLesung = useRef(0);
 
-  // What the confirmation compares against and the write sends: the address the arming read was made for. An edit
-  // of the box disarms, so a reveal and a confirmation for one address are never pressed for another.
+  // What the confirmation compares against and the write sends: the address the arming read was made for.
   const adresse = gelesen?.adresse ?? "";
   // The API holds the erasure of an address holding a grant to the enrolment's window: the step-up's alone would
   // meet its refusal, and the next press would ask nothing again.
@@ -97,11 +100,13 @@ export function FormPersonLoeschenSection() {
   const panel = formPanel({ tone: "danger" });
 
   const readAnsicht = async (gelesenFuer: string) => {
+    const lesung = ++letzteLesung.current;
     setGelesen({ adresse: gelesenFuer, status: "reading" });
 
     // Settled, never awaited bare: outside a transition a rejected action leaves the placeholder up and the write
     // closed beneath it for good.
     const [settled] = await Promise.allSettled([readErasureAnsichtAction({ email: gelesenFuer })]);
+    if (lesung !== letzteLesung.current) return;
     const res = settled.status === "rejected" ? unansweredRead() : settled.value;
 
     if (res.success) setGelesen({ adresse: gelesenFuer, status: "read", ansicht: res.ansicht });
@@ -145,7 +150,8 @@ export function FormPersonLoeschenSection() {
     });
   };
 
-  const ansicht = isConfirming && gelesen?.adresse === adresse ? gelesen : null;
+  // Against the box, so a reveal and a confirmation for one address are never pressed while it holds another.
+  const ansicht = isConfirming && gelesen?.adresse === email.trim() ? gelesen : null;
   // The names ARE the confirmation, so a press taken over the placeholder would confirm nothing.
   const isReading = isConfirming && (ansicht === null || ansicht.status === "reading");
   // A refused read alone names a reason of its own: one still running ends by itself, as the write does.
