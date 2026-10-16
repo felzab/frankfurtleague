@@ -6,6 +6,7 @@ import { ContractBreakError, requestOf } from "@/core/errors";
 import { kontaktBestaetigungsLink } from "@/core/kontaktLink";
 import { logger } from "@/core/logging";
 import { buildRegistrierungErinnerungEmail, buildRegistrierungSaisonendeEmail } from "@/core/registrierungEmail";
+import { revalidateOverLoopback } from "@/core/revalidation";
 import { REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE } from "@/features/registrierungen/constants";
 import { postRegistrierungSweep } from "@/features/registrierungen/mutations";
 import { loeschungLaufen } from "@/features/saisons/loeschung";
@@ -127,6 +128,9 @@ async function sweepAdresswechsel(): Promise<void> {
  */
 async function sweepLoeschung(): Promise<void> {
   const lauf = await loeschungLaufen(postLoeschungLauf);
+  // On every armed pass, one deleting nobody included: an activation's call its deadline cut may delete in the backend
+  // after the press dropped this tag, and no pass's count shows those pupils (`docs/frontend/spec.md :: I743`).
+  await revalidateOverLoopback(["spieler"]);
 
   // Counts and the season the rule kept, never a person: the backend's own lines name a failed person's id.
   // A finished pass's remainder is the pupils it failed or passed over; one cut short knows only its failures.

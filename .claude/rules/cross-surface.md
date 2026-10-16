@@ -17,7 +17,7 @@ paths:
 - **db** — Add a second direct `MongoClient`
 - **openapi** — Generate the Zod mirror; compare past presence, required, nullable, type, enum or a published ceiling
 - **system** — Remove `checkIsReady`, `getSystemInfo`, or the system key
-- **cache** — Re-add a reference-data invalidation endpoint; fault sub-24h staleness
+- **cache** — Add a second invalidation endpoint beside `fl_frontend/src/app/api/revalidate/route.ts`, a tag past its base-tag allowlist, or an edge location forwarding it; fault sub-24h staleness
 - **csp** — Disable `react/no-danger`; add a second enforcing CSP
 - **logging** — Let nginx honour a client's traceparent; log outside the envelope
 - **bracket** — Store the bracket's German label; flag an override beside `quelle`

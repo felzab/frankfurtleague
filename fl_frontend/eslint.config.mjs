@@ -1315,7 +1315,12 @@ const SOURCE_BANS = [
     // write may stand, where a drop of its own after the answer misses a lost one.
     selector: `:matches(ImportDeclaration[source.value="next/cache"] > ImportSpecifier[imported.name=/^revalidate(?:Tag|Path)$/], ${readsOff("/^revalidate(?:Tag|Path)$/")})`,
     message: "Hand a route's cache tags to its spine: `invalidatesOnWrite` under fl_frontend/src/shared/utils/publicRoute.ts.",
-    exempt: ["src/shared/utils/publicRoute.ts"],
+    exempt: [
+      "src/shared/utils/publicRoute.ts",
+      // The drop is its whole work, made after the write it answers for landed elsewhere, so no write of its own can
+      // lose an answer ahead of it (`docs/frontend/spec.md :: I16`).
+      "src/app/api/revalidate/route.ts",
+    ],
   },
   {
     // Per function, so a module caching a public read beside a caller's own is held too, which the
