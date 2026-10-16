@@ -147,8 +147,8 @@ def parse_line(message: str) -> JournalLine | None:
     rest = tokens[3:]
     if rest and "=" not in rest[0]:
         collection, _, spelled_id = rest.pop(0).partition("/")
-        # The one reader of an id (`app/shared/schemas/custom.py :: parse_object_id`): bson alone would take twelve
-        # letters as a binary id, and raise its own `InvalidId` past the `ValueError` the replay counts as unreadable.
+        # The one reader of an id (`app/shared/schemas/custom.py :: parse_object_id`): bson's own constructor raises
+        # `InvalidId` past the `ValueError` the replay counts as an unreadable line.
         record_id = parse_object_id(spelled_id)
         if record_id is None:
             raise ValueError("a journal line names its record as a collection and an id")

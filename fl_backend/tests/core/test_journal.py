@@ -90,8 +90,7 @@ def test_a_message_of_another_kind_is_no_line():
         pytest.param(f"{JOURNAL_TOKEN} {PERSON} adresswechsel_abgelehnt spieler/{RECORD} am={AM} am={AM}", id="a value twice"),
         pytest.param(f"{JOURNAL_TOKEN} {PERSON} adresswechsel_abgelehnt nirgends/{RECORD} am={AM}", id="no collection the database holds"),
         pytest.param(f"{JOURNAL_TOKEN} {PERSON} adresswechsel_abgelehnt spieler/{'z' * 24} am={AM}", id="an id of no hex"),
-        # Twelve characters bson's own reader takes as a binary id, naming a record nobody wrote.
-        pytest.param(f"{JOURNAL_TOKEN} {PERSON} adresswechsel_abgelehnt spieler/abcdefghijkl am={AM}", id="an id bson reads as bytes"),
+        pytest.param(f"{JOURNAL_TOKEN} {PERSON} adresswechsel_abgelehnt spieler/abcdefghijkl am={AM}", id="an id twelve letters long"),
         pytest.param(f"{JOURNAL_TOKEN} {PERSON} adresswechsel_abgelehnt spieler/{RECORD} am={AM} wer=ich", id="a value no act carries"),
     ],
 )
