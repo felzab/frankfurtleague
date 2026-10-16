@@ -393,15 +393,18 @@ Every ruling below is the sign-up flow as it stands for the next season.
   meets the deleted row and is refused as not found. Every erased referee's fixtures share that one
   row, so no set of fixtures singles a person out. No erasure reaches the ghost: each selects the
   records an address holds, and the ghost holds none.
-- **A record holding no address of its person is reached by no erasure, and which route answers
-  that person's request is not decided.** Every erasure is keyed on a mailbox, so a pupil row stored
-  without an address is reached by none, and neither is a referee row stored without one: those hold
-  one placeholder under the reserved `.invalid` domain, which the administrator's erasure and its
-  reveal refuse before any read, since it would reach every such row at once
-  (`fl_backend/app/api/identitaet/schemas.py :: refuse_the_reserved_domain`). No write stores a row
-  of either kind, and both kinds go with the one-off removals of
-  [section 3](#3-the-current-pupil-records-are-reset-once). Until then the routes open today cost
-  the person something:
+- **The address route answers every request, because no write stores a pupil or referee row
+  without an address.** A pupil row is written only by an admission, which gives it the
+  registration's address, and a referee's create and save each require one. Every erasure is keyed
+  on a mailbox, so the rows stored without one before are reached by none: a pupil row from before
+  the registration flow, and a referee row holding one placeholder under the reserved `.invalid`
+  domain, which the administrator's erasure and its reveal refuse before any read, since it would
+  reach every such row at once (`fl_backend/app/api/identitaet/schemas.py :: refuse_the_reserved_domain`).
+  Both kinds go with the one-off removals of [section 3](#3-the-current-pupil-records-are-reset-once):
+  the referee rows immediately before the deploy whose fixture read first consults a referee's own
+  consent, the pupil rows at the end of this season. Until that pupil reset an administrator can still enter a
+  pupil row holding no address into a squad, and the reset takes that squad row too. Until the
+  removals the routes open today cost the person something:
   - **A referee row** is reached by the erasure once the person's own address is saved on it, and on
     a row still in service that save answers a confirmation link the page mails to that person before
     anything is erased (`fl_backend/app/api/schiedsrichter/admin_router.py :: patch_schiedsrichter`).
