@@ -82,6 +82,44 @@ export const HANDLUNGSBEDARF_EINTRAG = {
   },
 } as const satisfies SidemenuStructureSubOption<AdminIconName>;
 
+/** The season's matchdays, named where the season editor sends a reader to date them, so a rename reaches both. */
+export const SPIELTAGE_EINTRAG = {
+  id: "spieltage",
+  label: "Spieltage",
+  iconName: "Calendar",
+  hint: {
+    lead: "Die Spieltage der Saison.",
+    // What an admin comes here to do and cannot: this list has no create control, and the
+    // draw that makes a Spieltag is on the season page.
+    note: "Spieltage entstehen zusammen mit dem Spielplan.",
+  },
+} as const satisfies SidemenuStructureSubOption<AdminIconName>;
+
+/** The knockout rounds' entry, named where the season list says what an empty league leaves blank, so a rename reaches both. */
+export const FINALRUNDEN_EINTRAG = {
+  id: "finalrunden",
+  label: "Finalrunden",
+  iconName: "Medal",
+  hint: {
+    lead: "Die Finalrunden der Saison.",
+  },
+} as const satisfies SidemenuStructureSubOption<AdminIconName>;
+
+/** The fixture search's entry, named where the season list says what an empty league leaves blank, so a rename reaches both. */
+export const SPIELSUCHE_EINTRAG = {
+  id: "spielsuche",
+  label: "Spielsuche",
+  iconName: "Magnifier",
+  hint: {
+    lead: "Alle Spiele der Saison.",
+    points: [
+      // Herkunft is searched as the label a reader sees — „Sieger von Spiel 25“ finds the
+      // fixture fed by match 25, which no other term here would.
+      { term: "Gesucht werden kann nach", detail: "Team, Herkunft, Ort, Datum, Spielnummer und Schiedsrichter." },
+    ],
+  },
+} as const satisfies SidemenuStructureSubOption<AdminIconName>;
+
 /** The club list's entry, named where an application's refusal sends a reader to it, so a rename reaches both. */
 export const TEAMS_EINTRAG = {
   id: "teams",
@@ -173,40 +211,7 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
   // season is built from, and the Spielsuche is how one fixture in it is found.
   {
     category_name: "Spielbetrieb",
-    sub_options: [
-      {
-        id: "spieltage",
-        label: "Spieltage",
-        iconName: "Calendar",
-        hint: {
-          lead: "Die Spieltage der Saison.",
-          // What an admin comes here to do and cannot: this list has no create control, and the
-          // draw that makes a Spieltag is on the season page.
-          note: "Spieltage entstehen zusammen mit dem Spielplan.",
-        },
-      },
-      {
-        id: "finalrunden",
-        label: "Finalrunden",
-        iconName: "Medal",
-        hint: {
-          lead: "Die Finalrunden der Saison.",
-        },
-      },
-      {
-        id: "spielsuche",
-        label: "Spielsuche",
-        iconName: "Magnifier",
-        hint: {
-          lead: "Alle Spiele der Saison.",
-          points: [
-            // Herkunft is searched as the label a reader sees — „Sieger von Spiel 25“ finds the
-            // fixture fed by match 25, which no other term here would.
-            { term: "Gesucht werden kann nach", detail: "Team, Herkunft, Ort, Datum, Spielnummer und Schiedsrichter." },
-          ],
-        },
-      },
-    ],
+    sub_options: [SPIELTAGE_EINTRAG, FINALRUNDEN_EINTRAG, SPIELSUCHE_EINTRAG],
   },
 
   {

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 import Envelope from "@gravity-ui/icons/Envelope";
 
+import { TEAMS_EINTRAG } from "@/features/admin/constants";
 import { postEinladungVersandAction, previewEinladungVersandAction } from "@/features/einladungen/actions";
 import { gesperrtSatz, ZURUECKGEHALTEN } from "@/features/einladungen/meldungen";
 import { Callout } from "@/shared/components/ui/Callout";
@@ -285,7 +286,7 @@ export function FormEinladungVersandSection({
               <Callout
                 severity="info"
                 title="Diese Saison hat noch kein Team aufgenommen">
-                Nimm die Teams über die Teamseite in die Saison auf.
+                Nimm die Teams unter „{TEAMS_EINTRAG.label}“ in die Saison auf.
               </Callout>
             )}
 

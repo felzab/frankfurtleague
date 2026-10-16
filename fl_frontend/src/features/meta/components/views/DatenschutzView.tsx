@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { CODE_VALIDITY_MINUTES } from "@/core/authEmail";
 import { KONTAKT_EMAIL, VEREIN_ANSCHRIFT, VEREIN_NAME } from "@/core/brand";
+import { ORGANISATION_TITEL } from "@/core/seitenNamen";
 import { ADMIN_IDLE_HOURS, ADMIN_WINDOW_HOURS, PERSON_LIFETIME, PERSON_WINDOW_DAYS, SESSION_EXPIRES_IN_DAYS } from "@/core/sessionLifetimes";
 import { CODE_FAILURE_WINDOW_HOURS, CODE_MAIL_WINDOW_HOURS } from "@/core/signInCode";
 import {
@@ -13,14 +14,14 @@ import {
 } from "@/features/bewerbungen/constants";
 import { MEDIEN_MIN_ALTER, REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE, REGISTRIERUNG_MIN_ALTER } from "@/features/registrierungen/constants";
 import { SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE } from "@/features/schiedsrichter/constants";
-import { SPIELER_ADRESSWECHSEL_FRIST_TAGE } from "@/features/spieler/constants";
+import { SPIELER_ADRESSWECHSEL_FRIST_TAGE, SPIELER_ANONYM_LABEL } from "@/features/spieler/constants";
 import { Angabe } from "@/shared/components/ui/Angabe";
 import { card } from "@/shared/components/ui/card";
 import { DISPLAY_HEADING_CLASSES } from "@/shared/components/ui/displayType";
 import { PAGE_RISE_CLASSES } from "@/shared/components/ui/motion";
 import { textLink } from "@/shared/components/ui/textLink";
 
-import { DATENSCHUTZ_STAND, ORGANISATION_TITEL } from "../../constants";
+import { DATENSCHUTZ_STAND } from "../../constants";
 import { LegalSection } from "../ui/LegalSection";
 
 /** One legal paragraph. Spelled once because the page is nothing but paragraphs, and a copy per section drifts. */
@@ -559,9 +560,9 @@ export function DatenschutzView() {
             Wer im Kader eines Teams steht, meldet sich über den Link seines Teams selbst an und bestätigt das per E-Mail. Wer ein Spiel pfeift,
             wird von der Verwaltung eingetragen, immer mit E-Mail-Adresse, und bestätigt den Eintrag über einen Link, den wir an diese Adresse
             senden. Vorname und erster Buchstabe des Nachnamens einer Spielerin oder eines Spielers werden nur veröffentlicht, wenn für diese
-            Person eine Einwilligung dafür festgehalten ist; ohne sie steht die Person als „anonym“ im Kader. Diese Einwilligung gibst Du
-            selbst, auch wenn Du noch nicht volljährig bist. Team, Rückennummer und Position stehen in beiden Fällen dort, soweit sie angegeben
-            sind.
+            Person eine Einwilligung dafür festgehalten ist; ohne sie steht die Person als „{SPIELER_ANONYM_LABEL}“ im Kader. Diese Einwilligung
+            gibst Du selbst, auch wenn Du noch nicht volljährig bist. Team, Rückennummer und Position stehen in beiden Fällen dort, soweit sie
+            angegeben sind.
           </p>
           <p className={ABSATZ_CLASSES}>
             Bei der Registrierung trägst Du Vornamen, Nachnamen und E-Mail-Adresse ein und, wenn Du willst, Rückennummer, Position und Stufe;

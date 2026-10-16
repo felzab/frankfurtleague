@@ -74,6 +74,7 @@ class Backend(NamedTuple):
     domain: ModuleType
     constraints: ModuleType
     config: ModuleType
+    einwilligung: ModuleType
 
 
 @cache
@@ -87,7 +88,8 @@ def backend() -> Backend | str:
         del sys.modules[name]
     sys.path.insert(0, root)
     try:
-        return Backend(*(importlib.import_module(f"app.core.{name}") for name in ("domain", "constraints", "config")))
+        modules = ("app.core.domain", "app.core.constraints", "app.core.config", "app.shared.einwilligung")
+        return Backend(*(importlib.import_module(name) for name in modules))
     # Whatever stopped the import is the refusal's reason; a finding would blame a reason nobody read.
     except Exception as error:
         return f"{type(error).__name__}: {error}"

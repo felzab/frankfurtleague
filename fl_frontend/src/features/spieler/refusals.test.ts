@@ -20,7 +20,7 @@ import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
    doubles. A file of its own, `actions.test.ts` replacing this slice's actions module for the components it renders. */
 doubleActionRequest();
 const { answerWith, calls } = doubleApiAnswers();
-const { SPERRLISTE_ADRESSE_GESPERRT } = await import("@/features/sperrliste/constants.ts");
+const { SPERRLISTE_ADRESSE_GESPERRT, SPERRLISTE_ADRESSE_GESPERRT_FELD } = await import("@/features/sperrliste/constants.ts");
 const {
   beantrageSpielerAdresswechselAction,
   deleteSaisonSpielerAction,
@@ -127,15 +127,20 @@ describe("what each address write answers a refusal with", () => {
     });
   });
 
-  /* The address's own refusals land on the box holding it, which is itself the way out; the ban's
-     sentence is the ban list's, for the administrator who keeps the list. */
-  for (const [code, satz] of [
-    ["REQ-SPIELER-003", SPERRLISTE_ADRESSE_GESPERRT],
-    ["REQ-SPIELER-006", "Diese Adresse ist schon bei einer anderen Spielerin oder einem anderen Spieler hinterlegt."],
-    ["REQ-SPIELER-007", "Das ist schon die hinterlegte Adresse."],
+  /* The address's own refusals land on the box holding it. The ban's sentence is the ban list's, for
+     the administrator who keeps the list, and under the box names only the way out the box cannot
+     offer. */
+  for (const [code, satz, feld] of [
+    ["REQ-SPIELER-003", SPERRLISTE_ADRESSE_GESPERRT, SPERRLISTE_ADRESSE_GESPERRT_FELD],
+    [
+      "REQ-SPIELER-006",
+      "Diese Adresse ist schon bei einer anderen Spielerin oder einem anderen Spieler hinterlegt.",
+      "Diese Adresse ist schon bei einer anderen Spielerin oder einem anderen Spieler hinterlegt.",
+    ],
+    ["REQ-SPIELER-007", "Das ist schon die hinterlegte Adresse.", "Das ist schon die hinterlegte Adresse."],
   ] as const) {
     it(`lands the request's ${code} on the address box`, () => {
-      assert.deepEqual(mapAdresswechselAntragRefusal(refusedOn(REQUEST_OPERATION, code)), { error: satz, fieldErrors: { email: satz } });
+      assert.deepEqual(mapAdresswechselAntragRefusal(refusedOn(REQUEST_OPERATION, code)), { error: satz, fieldErrors: { email: feld } });
     });
   }
 

@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 
 import { INSTAGRAM_URL } from "@/core/brand";
+import { ABOUT_TITEL, DATENSCHUTZ_TITEL, IMPRESSUM_TITEL, KONTAKT_TITEL, ORGANISATION_TITEL } from "@/core/seitenNamen";
 import { BrandLink } from "@/shared/components/ui/BrandLink";
 import { NewTabLink } from "@/shared/components/ui/NewTabLink";
 import { skeletonBlock } from "@/shared/components/ui/skeleton";
@@ -28,16 +29,16 @@ function FooterSlotSkeleton({ width, label }: { width: string; label: string }) 
 const COLUMN_HEADING_CLASSES = "fluid-xs font-semibold tracking-wider text-foreground uppercase";
 
 const NAVIGATION_LINKS = [
-  { href: "/about", label: "About" },
-  { href: "/organisation", label: "Organisation" },
-  { href: "/kontakt", label: "Kontakt" },
+  { href: "/about", label: ABOUT_TITEL },
+  { href: "/organisation", label: ORGANISATION_TITEL },
+  { href: "/kontakt", label: KONTAKT_TITEL },
 ] as const;
 
 // A column of their own rather than the tail of Navigation: these two are reached because a reader
 // went looking for them, and the pages the site is about are not.
 const RECHTLICHES_LINKS = [
-  { href: "/impressum", label: "Impressum" },
-  { href: "/datenschutz", label: "Datenschutz" },
+  { href: "/impressum", label: IMPRESSUM_TITEL },
+  { href: "/datenschutz", label: DATENSCHUTZ_TITEL },
 ] as const;
 
 /**

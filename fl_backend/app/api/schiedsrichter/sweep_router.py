@@ -36,10 +36,10 @@ router = APIRouter(
     dependencies=[Depends(verify_access_system), Depends(bind_system_actor)],
 )
 
-# Six commands a row, each costing the round trip plus at most 1.84 ms (whole calls timed
+# Seven commands a row, each costing the round trip plus at most 1.84 ms (whole calls timed
 # locally, 2026-10-16): this share keeps a call inside `app/core/middlewares.py :: REQUEST_DEADLINE_S` up to
 # a 37 ms round trip (`docs/backend/spec.md :: I322`).
-ADRESSWECHSEL_PER_PASS: Final = 42
+ADRESSWECHSEL_PER_PASS: Final = 36
 
 # Which collection a lapsed row is read from, carried beside its id through the one page both halves share.
 SCHIEDSRICHTER, SPIELER = "schiedsrichter", "spieler"

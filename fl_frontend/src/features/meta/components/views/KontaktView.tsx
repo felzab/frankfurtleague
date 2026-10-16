@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import Envelope from "@gravity-ui/icons/Envelope";
 
+import { KONTAKT_TITEL } from "@/core/seitenNamen";
 import { BrandHero } from "@/shared/components/ui/BrandHero";
 import { BRAND_TILE_CLASSES } from "@/shared/components/ui/brandTile";
 import { card } from "@/shared/components/ui/card";
@@ -57,7 +58,7 @@ export function KontaktView({ bewerbungSlot }: { bewerbungSlot?: ReactNode }) {
   return (
     <div className={`${PAGE_RISE_CLASSES} flex w-full flex-col gap-y-8 sm:gap-y-12`}>
       <BrandHero
-        title="Kontakt"
+        title={KONTAKT_TITEL}
         lead="Wir haben immer ein offenes Ohr für Dein Anliegen. Fragen oder Anregungen zur Liga? Schreib uns. Wir melden uns schnellstmöglich bei Dir."
       />
 

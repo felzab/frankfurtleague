@@ -1,6 +1,7 @@
 import "server-only";
 
 import { KONTAKT_EMAIL, VEREIN_ANSCHRIFT, VEREIN_NAME } from "./brand";
+import { IMPRESSUM_TITEL } from "./seitenNamen";
 
 /** The league's name as every message spells it, in one place so no two messages can spell it apart. */
 export const BRAND_NAME = "Frankfurt League";
@@ -224,7 +225,7 @@ export function mailOrigin(raw: string): string {
 function rechtsSeiten(origin: string): readonly { readonly label: string; readonly href: string }[] {
   return [
     { label: "Datenschutzerklärung", href: `${origin}/datenschutz` },
-    { label: "Impressum", href: `${origin}/impressum` },
+    { label: IMPRESSUM_TITEL, href: `${origin}/impressum` },
   ];
 }
 

@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 
+import { KONTAKT_TITEL } from "@/core/seitenNamen";
 import { BewerbungOffenBand } from "@/features/bewerbungen/components/ui/BewerbungOffenBand";
 import { KontaktView } from "@/features/meta/components/views/KontaktView";
 import { openGraphFor } from "@/shared/utils/metadata";
@@ -7,7 +8,7 @@ import { openGraphFor } from "@/shared/utils/metadata";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Kontakt",
+  title: KONTAKT_TITEL,
   description: "So erreichst Du die Frankfurt League mit Fragen, Anregungen und allem Weiteren.",
   openGraph: openGraphFor("/kontakt"),
   alternates: {

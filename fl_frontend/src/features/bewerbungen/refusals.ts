@@ -1,5 +1,5 @@
 import { SPERRLISTE_EINTRAG, TEAMS_EINTRAG } from "@/features/admin/constants";
-import { SPERRLISTE_ADRESSE_GESPERRT } from "@/features/sperrliste/constants";
+import { SPERRLISTE_ADRESSE_GESPERRT_FELD } from "@/features/sperrliste/constants";
 import { mapAlreadyEnteredRefusal } from "@/features/teams/refusals";
 import { isRefusal } from "@/shared/utils/actionError";
 import { buildRefusal, LADE_DIE_SEITE_NEU } from "@/shared/utils/refusal";
@@ -173,7 +173,7 @@ export function mapKontaktEmailRefusal(error: unknown): { error?: string; fieldE
     case "REQ-BEWERBUNG-014":
       return { fieldErrors: { email: ADRESSE_SCHON_VERGEBEN } };
     case "REQ-BEWERBUNG-019":
-      return { fieldErrors: { email: SPERRLISTE_ADRESSE_GESPERRT } };
+      return { fieldErrors: { email: SPERRLISTE_ADRESSE_GESPERRT_FELD } };
     default:
       return null;
   }
@@ -198,7 +198,7 @@ export function mapKontaktSitzRefusal(error: unknown): { error?: string; fieldEr
     case "REQ-BEWERBUNG-014":
       return { fieldErrors: { email: ADRESSE_SCHON_VERGEBEN } };
     case "REQ-BEWERBUNG-019":
-      return { fieldErrors: { email: SPERRLISTE_ADRESSE_GESPERRT } };
+      return { fieldErrors: { email: SPERRLISTE_ADRESSE_GESPERRT_FELD } };
     // The backend's judgement of the label (`docs/backend/spec.md :: I550`): a page opened before a
     // deploy moved the form's label would seat the person under words other than those the backend runs.
     case "REQ-EINWILLIGUNG-001":

@@ -9,6 +9,7 @@ import { createElement as h } from "react";
 import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
+import { SPIELTAGE_EINTRAG } from "@/features/admin/constants.ts";
 import { SPIELTAGE_UNDATED } from "@/features/saisons/constants.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { closedControl } from "@/shared/testing/closedControl.ts";
@@ -79,7 +80,10 @@ describe("the rollover panel's blocked states", () => {
   it("states the undated matchdays in the body and on the control", () => {
     const { unmount } = render(panel({ ...OPEN, rollover: { ...OPEN.rollover, hasUndatierteSpieltage: true } }));
 
-    assert.equal(calloutBody("Diese Saison hat Spieltage ohne Datum"), `${SPIELTAGE_UNDATED} Trage die Daten unter Spieltage ein.`);
+    assert.equal(
+      calloutBody("Diese Saison hat Spieltage ohne Datum"),
+      `${SPIELTAGE_UNDATED} Trage die Daten unter „${SPIELTAGE_EINTRAG.label}“ ein.`,
+    );
     closedControl(`Auf Saison ${SAISON_ID} umstellen`, SPIELTAGE_UNDATED);
     unmount();
   });

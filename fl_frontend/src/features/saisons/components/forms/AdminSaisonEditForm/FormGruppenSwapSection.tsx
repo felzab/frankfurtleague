@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 import ArrowRightArrowLeft from "@gravity-ui/icons/ArrowRightArrowLeft";
 
+import { TEAMS_EINTRAG } from "@/features/admin/constants";
 import { swapGruppenAction } from "@/features/saisons/actions";
 import { findSwapPartnerRefusal } from "@/features/saisons/utils";
 import { Callout } from "@/shared/components/ui/Callout";
@@ -214,7 +215,7 @@ export function FormGruppenSwapSection({
           <Callout
             severity="info"
             title="Ein Gruppentausch braucht Teams in zwei verschiedenen Gruppen">
-            Nimm die Teams über die Teamseite in die Saison auf.
+            Nimm die Teams unter „{TEAMS_EINTRAG.label}“ in die Saison auf.
           </Callout>
         ) : !hasTwoSwappableGruppen ? (
           <Callout

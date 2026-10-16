@@ -946,10 +946,10 @@ class FLBewerbungSweepResponse(BaseAPIResponse):
     fehlgeschlagen: int
 
 
-# `/angekuendigt` stamps the list in ONE transaction at two commands a row, each the round trip plus
+# `/angekuendigt` stamps the list in ONE transaction at three commands a row, each the round trip plus
 # about 1.1 ms (from whole passes timed locally, 2026-09-23): this keeps it inside
 # `app/core/middlewares.py :: REQUEST_DEADLINE_S` up to a 38 ms round trip.
-DELETIONS_LISTED_PER_PASS: Final = 125
+DELETIONS_LISTED_PER_PASS: Final = 84
 
 
 class FLBewerbungSweepAngekuendigtPayload(BaseModel):

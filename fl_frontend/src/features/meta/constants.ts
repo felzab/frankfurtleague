@@ -1,4 +1,5 @@
 import { INSTAGRAM_HANDLE, INSTAGRAM_URL, KONTAKT_EMAIL } from "@/core/brand";
+import { ORGANISATION_TITEL } from "@/core/seitenNamen";
 
 import type { KontaktChannel, QaQuestion, TeamMember } from "./types";
 
@@ -68,9 +69,6 @@ export const KONTAKT_CHANNELS: KontaktChannel[] = [
     cta: "Profil öffnen",
   },
 ];
-
-/** The organisers' page's heading, named where a sentence sends the reader to the page, so a renamed page takes the sentence with it. */
-export const ORGANISATION_TITEL = "Organisation";
 
 export const QA_QUESTIONS: QaQuestion[] = [
   {

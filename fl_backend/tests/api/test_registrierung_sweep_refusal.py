@@ -638,9 +638,9 @@ class TestTheClocksDrain:
         assert getattr(response, counted) == OVERFLOW
 
 
-# The reminder's two commands a row, pinned on the wire by
+# The reminder's three commands a row -- the update, its read-back and its log row -- pinned on the wire by
 # `fl_backend/tests/api/test_registrierung_sweep_execution.py :: TestTheReminderClockTakesAShareEachCall`.
-ROUND_TRIPS_A_ROW = 2
+ROUND_TRIPS_A_ROW = 3
 
 # The other commands of the worst call erasing one page per clock, counted on the wire by
 # `fl_backend/tests/api/test_registrierung_sweep_execution.py :: TestTheWorstCallSendsTheCommandsItsBudgetCounts`.

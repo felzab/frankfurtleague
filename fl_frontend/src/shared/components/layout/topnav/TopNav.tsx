@@ -10,6 +10,8 @@ import { Dropdown } from "@heroui/react/dropdown";
 import { Label } from "@heroui/react/label";
 import { Separator } from "@heroui/react/separator";
 
+import { ABOUT_TITEL, DEIN_BEREICH_TITEL, KONTAKT_TITEL, ORGANISATION_TITEL, SAISONUEBERSICHT_TITEL } from "@/core/seitenNamen";
+
 import { BrandLink } from "../../ui/BrandLink";
 import { ThemeSwitch } from "../../ui/ThemeSwitch";
 import { TopNavLinksDropdown } from "./TopNavLinksDropdown";
@@ -26,7 +28,7 @@ export function TopNav() {
           <Link
             href="/dashboard"
             className="rounded-full px-4 py-1.5 fluid-sm font-semibold text-foreground transition-colors hover:bg-hover">
-            Saisonübersicht
+            {SAISONUEBERSICHT_TITEL}
           </Link>
 
           {/* To everyone, as the chrome of a public page knows no session: a visitor signed in nowhere is
@@ -34,7 +36,7 @@ export function TopNav() {
           <Link
             href="/bereich"
             className="rounded-full px-4 py-1.5 fluid-sm font-semibold text-foreground transition-colors hover:bg-hover">
-            Dein Bereich
+            {DEIN_BEREICH_TITEL}
           </Link>
         </div>
 
@@ -51,10 +53,10 @@ export function TopNav() {
             aria-label="Dashboard-Links">
             <Dropdown.Item
               id="dashboard"
-              textValue="Saisonübersicht"
+              textValue={SAISONUEBERSICHT_TITEL}
               href="/dashboard"
               className="flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors data-hovered:bg-hover">
-              <Label className="min-w-0 flex-1 fluid-sm font-semibold text-foreground">Saisonübersicht</Label>
+              <Label className="min-w-0 flex-1 fluid-sm font-semibold text-foreground">{SAISONUEBERSICHT_TITEL}</Label>
               <Eye
                 aria-hidden="true"
                 className="size-4 text-foreground-muted"
@@ -63,10 +65,10 @@ export function TopNav() {
 
             <Dropdown.Item
               id="bereich"
-              textValue="Dein Bereich"
+              textValue={DEIN_BEREICH_TITEL}
               href="/bereich"
               className="flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors data-hovered:bg-hover">
-              <Label className="min-w-0 flex-1 fluid-sm font-semibold text-foreground">Dein Bereich</Label>
+              <Label className="min-w-0 flex-1 fluid-sm font-semibold text-foreground">{DEIN_BEREICH_TITEL}</Label>
               <Person
                 aria-hidden="true"
                 className="size-4 text-foreground-muted"
@@ -79,10 +81,10 @@ export function TopNav() {
           <Dropdown.Section aria-label="Allgemeine Links">
             <Dropdown.Item
               id="about"
-              textValue="About"
+              textValue={ABOUT_TITEL}
               href="/about"
               className="flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors data-hovered:bg-hover">
-              <Label className="min-w-0 flex-1 fluid-sm font-semibold text-foreground">About</Label>
+              <Label className="min-w-0 flex-1 fluid-sm font-semibold text-foreground">{ABOUT_TITEL}</Label>
               <CircleInfo
                 aria-hidden="true"
                 className="size-4 text-foreground-muted"
@@ -91,10 +93,10 @@ export function TopNav() {
 
             <Dropdown.Item
               id="organisation"
-              textValue="Organisation"
+              textValue={ORGANISATION_TITEL}
               href="/organisation"
               className="flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors data-hovered:bg-hover">
-              <Label className="min-w-0 flex-1 fluid-sm font-semibold text-foreground">Organisation</Label>
+              <Label className="min-w-0 flex-1 fluid-sm font-semibold text-foreground">{ORGANISATION_TITEL}</Label>
               <Persons
                 aria-hidden="true"
                 className="size-4 text-foreground-muted"
@@ -103,10 +105,10 @@ export function TopNav() {
 
             <Dropdown.Item
               id="kontakt"
-              textValue="Kontakt"
+              textValue={KONTAKT_TITEL}
               href="/kontakt"
               className="flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors data-hovered:bg-hover">
-              <Label className="min-w-0 flex-1 fluid-sm font-semibold text-foreground">Kontakt</Label>
+              <Label className="min-w-0 flex-1 fluid-sm font-semibold text-foreground">{KONTAKT_TITEL}</Label>
               <At
                 aria-hidden="true"
                 className="size-4 text-foreground-muted"

@@ -118,8 +118,7 @@ export const VERTRETUNG_MIN_ALTER = 18;
 // Both bounds, never the floor alone: named for the floor, a mistyped year would answer a
 // 190-year-old date with „mindestens 16“, which is a different fault.
 export const alterAusserhalb = (mindestalter: number): string =>
-  `Für Deine Bestätigung musst Du mindestens ${String(mindestalter)} und höchstens ${String(BEWERBUNG_MAX_ALTER)} Jahre alt sein. ` +
-  `Prüfe das Geburtsdatum.`;
+  `Für Deine Bestätigung musst Du mindestens ${String(mindestalter)} und höchstens ${String(BEWERBUNG_MAX_ALTER)} Jahre alt sein.`;
 
 /**
  * The two clocks a confirmation link runs on, mirrored from `fl_backend/app/shared/schemas/bounds.py`
@@ -140,7 +139,7 @@ export const BEWERBUNG_TOKEN_MAX_LENGTH = 128;
  * `fl_backend/app/api/bewerbungen/schemas.py :: DELETIONS_LISTED_PER_PASS` and held to the
  * `maxItems` both sweep payloads publish by `fl_frontend/src/core/payloadBounds.test.ts`.
  */
-export const DELETIONS_LISTED_PER_PASS = 125;
+export const DELETIONS_LISTED_PER_PASS = 84;
 
 /**
  * The picker key standing for „meine Schule ist nicht dabei“.

@@ -460,9 +460,9 @@ class TestTheIdPayloadsTakeOnePassList:
         assert payload.model_json_schema()["properties"]["bewerbung_ids"]["maxItems"] == DELETIONS_LISTED_PER_PASS
 
 
-# The per-row loops' two commands a row, pinned on the wire by
+# The per-row loops' three commands a row -- the update, its read-back and its log row -- pinned on the wire by
 # `fl_backend/tests/api/test_bewerbung_sweep_execution.py :: TestEachPerRowLoopCostsTheRoundTripsItsShareIsSizedAt`.
-ROUND_TRIPS_A_ROW = 2
+ROUND_TRIPS_A_ROW = 3
 
 
 # Each worst call's commands beside its rows, counted on the wire by
