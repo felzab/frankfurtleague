@@ -40,10 +40,12 @@ THE CHECKS:
    | `simpler`     | A plainly simpler construction reaching the same result                                           |
    | `dead-export` | Exported and imported by nothing                                                                  |
    | `dead-config` | A config key, script, asset or dependency nothing reads                                           |
-   - `pnpm knip` is the sanctioned tool for `dead-export` and `dead-config` — run it and triage
-     its output rather than grepping from scratch, and confirm zero importers by hand before
-     reporting anything it flags. It does not see past the entries `fl_frontend/knip.json` ignores,
-     so read those files by hand.
+   - `pnpm knip` and `pnpm knip:prod` are the sanctioned tools for `dead-export` and `dead-config` —
+     run both and triage their output rather than grepping from scratch, and confirm by hand that
+     nothing but a test imports anything either flags before reporting it. The second names what only
+     tests still import, which counts as `dead-export` too. Neither sees past the entries its config
+     file ignores (`fl_frontend/knip.json`, `fl_frontend/knip.production.json`), and the second passes
+     every `*Schema` its inferred type names, so read those files by hand.
    - The shared recipes and shells (`card`, `formButton`, `ModalShell`, `EntityForm`, `EmptyState`,
      the formatters) are the enforcement layer, so the `duplicated` shape to hunt hardest is
      **bypass**: hand-written strings or components duplicating a recipe that already exists.

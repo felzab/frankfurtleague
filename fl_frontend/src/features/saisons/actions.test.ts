@@ -718,16 +718,17 @@ describe("the deletion the activation runs", () => {
     let vorne = 0;
     answerWith((call) => {
       if (call.endpoint !== LAUF) return Promise.resolve(landed(call));
-      const { nach } = call.params as { nach: string | null };
+      const { nach } = call.params as { nach?: string };
       if (nach === VORNE) return Promise.resolve(gelaufen(1, 10));
       return Promise.resolve(++vorne <= 3 ? { ...gelaufen(0, 11, VORNE), fehlgeschlagen: 10 } : gelaufen(0, 11));
     });
 
     const message = await umgestellt();
 
+    // A first call carrying no `nach` at all, never a null one: present, the server reads it as an id.
     assert.deepEqual(
       calls.filter(({ endpoint }) => endpoint === LAUF).map(({ params }) => params),
-      [{ nach: null }, { nach: VORNE }],
+      [{}, { nach: VORNE }],
     );
     assert.equal(
       message,

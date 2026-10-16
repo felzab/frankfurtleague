@@ -31,25 +31,32 @@ describe("the message a banned address is sent", () => {
     }
   });
 
+  /* The account sentence whole: its list is the account sweep's criterion (`docs/datenschutz.md :: 6`), and this
+     mail is all a barred reader is told of it. */
   it("says what is barred, why, what is kept and how to object", () => {
     for (const { name, body } of BEIDE) {
       assert.ok(body.includes("gesperrt"), `${name} does not say the address is barred`);
       assert.ok(body.includes(GRUND), `${name} does not carry the reason that was entered`);
       assert.ok(body.includes("Prüfwert Deiner Adresse"), `${name} does not say what is kept about the address`);
+      assert.ok(
+        body.includes(
+          "Dein Konto bleibt nur bestehen, solange Du unter dieser Adresse noch etwas davon bei uns hast: einen Platz als Kontaktperson eines Teams in einer Saison oder in einer Bewerbung, über die noch nicht entschieden ist, einen Eintrag als Spielerin, Spieler, Schiedsrichterin oder Schiedsrichter oder eine bestätigte Registrierung, über die das Team noch nicht entschieden hat.",
+        ),
+        `${name} does not say the account stays only while a record holds the address`,
+      );
       assert.ok(body.includes(KONTAKT_EMAIL), `${name} offers no way to object or ask`);
     }
   });
 
   /* Every act the ban refuses, the sign-in among them, and the sign-ins it ends: a reader told less
      would try the rest and meet a refusal the one message they get never named. */
-  it("names every act a ban refuses, and that live sign-ins end while the account is kept", () => {
+  it("names every act a ban refuses, and that live sign-ins end", () => {
     for (const { name, body } of BEIDE) {
       assert.ok(body.includes("weder anmelden"), `${name} does not say a sign-in is refused`);
       assert.ok(body.includes("registrieren"), `${name} does not say a registration is refused`);
       assert.ok(body.includes("Kontaktperson in einer Bewerbung"), `${name} does not say an application's contact seat is refused`);
       assert.ok(body.includes("Schiedsrichter"), `${name} does not say a referee entry is refused`);
       assert.ok(body.includes("Anmeldungen mit dieser Adresse werden beendet"), `${name} does not say live sign-ins end`);
-      assert.ok(body.includes("Dein Konto bleibt bestehen und ist gesperrt"), `${name} does not say the account is kept, frozen`);
       assert.ok(
         !body.includes("Deine Adresse selbst speichern wir nicht"),
         `${name} says the address is stored nowhere, which the account contradicts`,

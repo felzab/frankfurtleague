@@ -1,0 +1,29 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  // The production run (https://knip.dev/features/production-mode), kept out of `knip.json`: knip
+  // reads one file in either mode, and `ignoreExportsUsedInFile` there would loosen the default run
+  // as `knip.json`'s schema ignore would loosen this one.
+
+  // Production code no `start` script reaches: the image build runs the first under the third, and
+  // the deploy's preflight runs the second.
+  "entry": ["scripts/emit-environment-names.mjs!", "scripts/check-environment-names.mjs!", "scripts/tsconfig-alias-hook.mjs!"],
+  // The suite's own modules, `fl_frontend/eslint.config.mjs :: TEST_ONLY` among them, and the test
+  // runner's reporter. A module added to that list is added here too, or this run names it unused.
+  "project": [
+    "**/*.{js,cjs,mjs,jsx,ts,cts,mts,tsx}!",
+    "!src/shared/testing/**!",
+    "!src/core/{authDoubles,blankComments,cacheScope,childTestRun,edgeRedaction,einwilligungDocument,expiredTransactions,exportingModule,keyTiers,mailDouble,mailText,openapiDocument,openingTag,publishedCeilings,pythonComments,schemaModules,schemeReader,stdoutCapture,subjectFixtures,testAuthenticator,treeWalk,verdicts}.ts!",
+    "!scripts/case-count-reporter.mjs!"
+  ],
+  "ignoreIssues": {
+    // An inferred type stays beside its schema, and an alias is a component of its own. The type's
+    // `typeof` counts as its schema's use under the setting at the foot, so no unread schema that has
+    // one is named here.
+    "src/**/schemas.ts": ["types", "duplicates"],
+    // `.claude/rules/cross-surface.md`'s **system** clause keeps `checkIsReady` and `getSystemInfo`.
+    "src/features/system/queries.ts": ["exports"]
+  },
+  // An export its tests import passes while its own module uses it, and fails once nothing in
+  // production does. `@internal` would exempt it for good, after its module stops using it too.
+  "ignoreExportsUsedInFile": true
+}

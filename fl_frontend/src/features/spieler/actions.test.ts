@@ -834,7 +834,7 @@ describe("the pupil's address on the editor", () => {
   });
 
   /* Enter in the box presses the box's own control: inside the editor's form it would otherwise submit the person's draft. */
-  it("takes Enter in the box as the request's press, never as the editor's save", async () => {
+  it("takes Enter in the box as the request's press", async () => {
     await renderAdressePage({ email: GESPEICHERT, adresswechsel: null, abgelaufen: false });
     const user = userEvent.setup();
 

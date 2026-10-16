@@ -7,7 +7,7 @@ from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.collections import Collection
 from app.core.crud import literal_pattern
 from app.core.recording import row_images
-from app.shared.folding import canonical_address, person_name_key, sign_in_identifier, trimmed_pattern
+from app.shared.folding import person_name_key, sign_in_identifier, trimmed_prefix_pattern
 
 
 def same_address(identifier: str) -> Mapping[str, Any]:
@@ -17,27 +17,10 @@ def same_address(identifier: str) -> Mapping[str, Any]:
     would index: rows a league counts in hundreds, and log images nothing indexes inside.
     """
 
-    # `i` because the identifier is lower-cased and a stored address need not be: a payload keeps the
-    # local part's case.
-    spellings = (identifier, *_unicode_spelling(identifier))
-    return {"$regex": trimmed_pattern("|".join(literal_pattern(spelling) for spelling in spellings)), "$options": "i"}
-
-
-def _unicode_spelling(identifier: str) -> tuple[str, ...]:
-    """The identifier with its punycode domain decoded: a hand-typed row may store it so, and the fold claims it."""
-
-    local, at, domain = identifier.rpartition("@")
-    if not at or "xn--" not in domain:
-        return ()
-
-    try:
-        decoded = canonical_address(identifier).rpartition("@")[2]
-        # A label decoding to a lone surrogate is one the driver cannot send.
-        decoded.encode("utf-8")
-    except ValueError:
-        return ()
-
-    return (f"{local}@{decoded}",) if decoded != domain else ()
+    # Anchored on the local part and its `@`, which the fold changes by ASCII case alone (`i`): it maps a
+    # domain from more spellings than a pattern lists, so the read takes every mailbox sharing that local part.
+    local, at, _ = identifier.rpartition("@")
+    return {"$regex": trimmed_prefix_pattern(literal_pattern(local + at)), "$options": "i"}
 
 
 def rows_possibly_naming(identifier: str) -> Mapping[str, Any]:
@@ -101,9 +84,9 @@ def find_matching_slots(row: Mapping[str, Any], identifier: str) -> tuple[str, .
 
 
 def rows_naming(rows: Sequence[Mapping[str, Any]], identifier: str) -> list[Mapping[str, Any]]:
-    """The rows the pre-filter reached that the fold confirms, so no row counts, clears or redacts on the server's `i` alone.
+    """The rows the pre-filter reached that the fold confirms, so no row counts, clears or redacts on the pattern alone.
 
-    That `i` ignores case beyond ASCII (ſ for s), where the fold lowers ASCII alone.
+    The pattern reads every mailbox sharing the local part, and its `i` ignores case beyond ASCII (ſ for s).
     """
 
     return [row for row in rows if find_matching_slots(row, identifier)]

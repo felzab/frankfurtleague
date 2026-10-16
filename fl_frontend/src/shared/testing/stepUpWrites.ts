@@ -1,9 +1,12 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 import ts from "typescript";
 
+import { DECLARED_BY_DEFAULT, KEY_TIERS } from "@/core/keyTiers.ts";
 import { filesUnder, isTestFile, serverActionModules } from "@/core/treeWalk.ts";
+
+import type { KeyTier } from "@/core/keyTiers.ts";
 
 /** How an exported action declares its step-up: before its body, inside it, or not at all. */
 function declarationOf(body: ts.Node): "declared" | "conditional" | null {
@@ -61,6 +64,71 @@ function isExported(statement: ts.Statement): boolean {
   return ts.canHaveModifiers(statement) && (ts.getModifiers(statement)?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword) ?? false);
 }
 
+/** The key a client call's options argument sends on, `null` where a spread, a computed name or an unspelled tier hides it. */
+function keyOf(options: ts.Expression | undefined): KeyTier | null {
+  if (options === undefined) return DECLARED_BY_DEFAULT;
+  if (!ts.isObjectLiteralExpression(options)) return null;
+
+  let key: KeyTier | null = DECLARED_BY_DEFAULT;
+  for (const property of options.properties) {
+    // Refused rather than skipped: a hidden `authType` read as the default would take an admin write for a base one.
+    if (ts.isSpreadAssignment(property) || !(ts.isIdentifier(property.name) || ts.isStringLiteral(property.name))) return null;
+    if (property.name.text !== "authType") continue;
+    const spelled = ts.isPropertyAssignment(property) && ts.isStringLiteralLike(property.initializer) ? property.initializer.text : null;
+    key = KEY_TIERS.find((tier) => tier === spelled) ?? null;
+  }
+  return key;
+}
+
+/**
+ * The key the export `name` of `source`, a slice's mutations module, sends on, read off its client calls: `null` where it is no
+ * function, calls no client, or calls it on two keys.
+ */
+function requestKeyOf(source: ts.SourceFile | null, name: string): KeyTier | null {
+  const declaration = source?.statements.find(
+    (statement): statement is ts.FunctionDeclaration =>
+      ts.isFunctionDeclaration(statement) && isExported(statement) && statement.name?.text === name,
+  );
+  if (declaration?.body === undefined) return null;
+
+  const keys = new Set<KeyTier | null>();
+  const visit = (node: ts.Node): void => {
+    if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "apiClient")
+      keys.add(keyOf(node.arguments[2]));
+    ts.forEachChild(node, visit);
+  };
+  visit(declaration.body);
+  return keys.size === 1 ? ([...keys][0] ?? null) : null;
+}
+
+/**
+ * A step-up write's requests among `sends`: the admin key's alone, the backend stepping up the admin key's actor
+ * (`fl_backend/app/core/security.py :: verify_step_up`) while a timer sends the system key's with no session.
+ */
+export function stepUpRequestsOf(
+  sends: Iterable<string>,
+  mutationsOf: (slice: string) => ts.SourceFile | null,
+): { requests: string[]; unread: string[] } {
+  const requests: string[] = [];
+  const unread: string[] = [];
+  for (const request of sends) {
+    const [slice = "", name = ""] = request.split(" :: ");
+    const key = requestKeyOf(mutationsOf(slice), name);
+    if (key === null) unread.push(`${request} sent on a key the reader cannot read`);
+    // An unread key keeps the request, so a shape this cannot read never narrows the listing.
+    if (key === null || key === "admin") requests.push(request);
+  }
+  return { requests, unread };
+}
+
+const SOURCE_ROOT = path.resolve(import.meta.dirname, "..", "..");
+
+/** A slice's mutations module, where every request import resolves (`MUTATIONS_MODULE`), or `null` where the slice holds none. */
+function mutationsOf(slice: string): ts.SourceFile | null {
+  const file = path.join(SOURCE_ROOT, "features", slice, "mutations.ts");
+  return existsSync(file) ? ts.createSourceFile(file, readFileSync(file, "utf8"), ts.ScriptTarget.Latest, true) : null;
+}
+
 /**
  * Every server action module, by the slice its directory names, with its syntax tree: a person's write
  * is a door to a request as an administrator's is.
@@ -91,8 +159,13 @@ const DECLARED = ACTIONS.flatMap(({ declaration, ...action }) => (declaration ==
  */
 export const STEP_UP_WRITES: Readonly<Record<string, string>> = Object.fromEntries(DECLARED.map(({ name, slice }) => [name, slice]));
 
+/** Every request an action declaring a step-up sends, on any key: what the reader attributes, before the key judges it. */
+export const STEP_UP_SENDS: ReadonlySet<string> = new Set(DECLARED.flatMap(({ sends }) => sends));
+
+const STEP_UP_JUDGED = stepUpRequestsOf(STEP_UP_SENDS, mutationsOf);
+
 /** Every request a step-up write sends, as `slice :: export`: an action replaying one, an undo among them, is a second door to that write. */
-export const STEP_UP_REQUESTS: ReadonlySet<string> = new Set(DECLARED.flatMap(({ sends }) => sends));
+export const STEP_UP_REQUESTS: ReadonlySet<string> = new Set(STEP_UP_JUDGED.requests);
 
 /**
  * Every request each action declaring no step-up sends, by export: one sending a step-up write's
@@ -212,8 +285,6 @@ function reachOf(source: ts.SourceFile, ownSlice: string, read: (call: ts.Node) 
   };
 }
 
-const SOURCE_ROOT = path.resolve(import.meta.dirname, "..", "..");
-
 const relative = (file: string): string => path.relative(SOURCE_ROOT, file).split(path.sep).join("/");
 
 /** A server action module's reach, read where `ACTIONS` reads one: a direct call inside an exported function's body. */
@@ -252,6 +323,7 @@ const HELPER_SENDS = filesUnder(SOURCE_ROOT, (name) => /\.tsx?$/.test(name) && !
 export const UNREAD_SENDS: readonly string[] = [
   ...ACTION_REACH.flatMap(({ file, reach }) => reach.unread.map((why) => `${relative(file)}: ${why}`)),
   ...HELPER_SENDS,
+  ...STEP_UP_JUDGED.unread,
 ];
 
 /** Every request an action or a replay names, by the walk above: the second listing the reader's own is held to. */

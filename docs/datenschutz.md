@@ -501,7 +501,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   administrator's erasure delete the account at the erased address in the same request, once the
   records are gone. An account at an earlier address of the person, which no record names once the
   address moved, or one whose deletion failed, the account sweep deletes within the hour of nothing
-  referencing its address, as after any other erasure, a barred address keeping its account
+  referencing its address, as after any other erasure, a barred address's included
   ([section 6](#6-retention-is-bounded-where-a-bound-was-chosen));
   `fl_frontend/src/core/auth.ts` is where that store is configured, and
   [`ops/runbooks.md`](ops/runbooks.md#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)
@@ -763,7 +763,8 @@ Every ruling below is the sign-up flow as it stands for the next season.
   (`fl_frontend/src/core/sperrlisteEmail.ts`); the typed address is used for that one send and for
   ending the address's live sign-ins, and the ban's row keeps only a check value of it, so
   no second message can ever be sent about the row. Ruled 2026-09-21. **The account the address
-  signs in to keeps it**, frozen until the ban ends, and the message and the notice both say so; a
+  signs in to keeps it only while a league record holds the address**, as every account does
+  (below), the ban holding none, and the message and the notice both say so. Ruled 2026-10-16. A
   copy or a deletion of that person's data is asked for by mail to the league's contact address,
   and the league confirms the request by a mail to the barred address, which cannot sign in to ask.
   Ruled 2026-09-27.
@@ -775,15 +776,15 @@ Every ruling below is the sign-up flow as it stands for the next season.
   `docs/backend/spec.md :: I480`). The announced record and the outbox row leave no image in the log
   (`docs/backend/spec.md :: I465`), while a revoked grant keeps its own under the log's twelve
   months. The published notice tabulates it (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-09-28.
-- **A sign-in account and its passkeys are kept until no league record, grant or ban holds their
+- **A sign-in account and its passkeys are kept until no league record or grant holds their
   address, and then deleted within the hour, with no message.** A record holds it as a contact seat
   of any season or of a pending application, as a pupil or referee row, confirmed or not and live or
   retired, or as a pending registration its pupil confirmed (`docs/backend/spec.md :: I698`). What
   else still names the address holds nothing: the log's images, an administrator's authorship, an
   unconfirmed or decided registration, a decided application and a pending address change. The
   account sweep deletes the account with its sessions, passkeys and codes
-  (`docs/frontend/spec.md :: I699`), so a barred address keeps its account until the ban ends. The
-  published notice states the criterion in advance (`DatenschutzView.tsx :: FRISTEN`),
+  (`docs/frontend/spec.md :: I699`), a barred address's as any other's: a ban holds none (ruled
+  2026-10-16). The published notice states the criterion in advance (`DatenschutzView.tsx :: FRISTEN`),
   which is why nothing is sent after the fact: the person was told what ends the account, and a
   message after it could reach a mailbox that has since changed hands. Ruled 2026-10-15.
 - **No open tracking and no click tracking is subscribed, and none is read.** The mail provider

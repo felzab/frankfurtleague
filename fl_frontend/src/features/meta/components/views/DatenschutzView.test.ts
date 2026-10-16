@@ -14,7 +14,7 @@ import {
   VERTRETUNG_MIN_ALTER,
 } from "@/features/bewerbungen/constants.ts";
 import { MEDIEN_MIN_ALTER, REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE, REGISTRIERUNG_MIN_ALTER } from "@/features/registrierungen/constants.ts";
-import { SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE, SCHIEDSRICHTER_MIN_ALTER } from "@/features/schiedsrichter/constants.ts";
+import { SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE } from "@/features/schiedsrichter/constants.ts";
 import { SPERRE_DAUER_HINWEIS, SPERRE_DAUER_SAISONS } from "@/features/sperrliste/constants.ts";
 import { SPIELER_ADRESSWECHSEL_FRIST_TAGE } from "@/features/spieler/constants.ts";
 import { renderMarkup, textOf } from "@/shared/testing/renderTest";
@@ -49,7 +49,7 @@ const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
  * The „Stand“ and the words it dates, frozen together: a reader told nothing changed since that day
  * has been misled by any edit that left the date standing.
  */
-const FASSUNG = { stand: "16. Oktober 2026", digest: "c971eb69ed1f925256d137bef3903d3ebdc97e8c9f758169e29fa8b90f5603ec" } as const;
+const FASSUNG = { stand: "16. Oktober 2026", digest: "bfd7d6686355b424714c84a637273c5cc9ada2ee71ea6473a03a00135f224505" } as const;
 
 /** Every word the page renders but its date, so moving the date alone never passes for moving the words. */
 const wortlautDigest = (): string =>
@@ -114,11 +114,10 @@ describe("the privacy notice's account of a birthdate", () => {
     );
   });
 
-  it("is a sentence the three floors it merges still permit", () => {
-    assert.deepEqual(
-      { pfeifen: SCHIEDSRICHTER_MIN_ALTER, kontaktperson: BEWERBUNG_MIN_ALTER },
-      { pfeifen: REGISTRIERUNG_MIN_ALTER, kontaktperson: REGISTRIERUNG_MIN_ALTER },
-    );
+  // The referee's floor has no copy here: `fl_backend/tests/shared/test_frontend_mirrors.py :: MIRRORED_BOUNDS`
+  // holds the served one to this sentence's number.
+  it("is a sentence the contact person's floor still permits", () => {
+    assert.equal(BEWERBUNG_MIN_ALTER, REGISTRIERUNG_MIN_ALTER);
   });
 });
 
@@ -260,11 +259,20 @@ describe("the privacy notice's retention table", () => {
   });
 
   /* Stated in advance because the account sweep mails nothing when it deletes one: this sentence is
-     the whole of what a person is told about it. */
-  it("says the account goes on its own once no league record, grant or ban holds the address", () => {
+     the whole of what a person is told about it, so it names each kind the sweep counts and nothing it does not. */
+  it("says the account goes on its own once the address holds none of the records and grants that keep it", () => {
     assert.ok(
       ANGABEN.get("Anmeldung: E-Mail-Adresse, Anmeldecode, Sitzung und Passkey")?.endsWith(
-        "Adresse und Passkeys bleiben, solange das Konto besteht. Das Konto löschen wir auf Wunsch und von selbst, sobald zu Deiner Adresse kein Eintrag der Liga, kein Zugang zur Verwaltung und keine Sperre mehr bestehen",
+        "Adresse und Passkeys bleiben, solange das Konto besteht. Das Konto löschen wir auf Wunsch und von selbst, sobald Du unter Deiner Adresse nichts davon mehr bei uns hast: einen Platz als Kontaktperson eines Teams in einer Saison oder in einer Bewerbung, über die noch nicht entschieden ist, einen Eintrag als Spielerin, Spieler, Schiedsrichterin oder Schiedsrichter, eine bestätigte Registrierung, über die das Team noch nicht entschieden hat, oder einen Zugang zur Verwaltung",
+      ),
+    );
+  });
+
+  // A ban keeps no account: a barred address's goes as any other's (`docs/datenschutz.md :: 6`).
+  it("tells a barred address its account stays only as long as any other", () => {
+    assert.ok(
+      SEITE.includes(
+        "Ein Konto mit dieser Adresse bleibt wie jedes andere nur bestehen, solange es unter der Adresse noch etwas von dem gibt, was Abschnitt 13 bei der Anmeldung aufzählt. Bis die Sperre endet, kann sich damit niemand anmelden.",
       ),
     );
   });

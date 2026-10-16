@@ -167,6 +167,9 @@ const SPIELER = {
 /** A new address waiting on its mailbox, whose panel's re-send moves the record as the request does. */
 const SPIELER_ADRESSWECHSEL = { email: "lena@neu.example", verschickt_am: "2026-10-01", frist: "2099-12-31", zustellung: null };
 
+/** The referee's twin of the pupil's waiting address. */
+const SCHIEDSRICHTER_ADRESSWECHSEL = { email: "pia@neu.example", verschickt_am: "2026-10-01", frist: "2099-12-31", zustellung: null };
+
 const SPIELER_MEMBERSHIP = {
   team_id: TEAM_A.teamId,
   nummer: "10",
@@ -177,8 +180,8 @@ const SPIELER_MEMBERSHIP = {
   inactive_since: null,
 };
 
-/** The player's editor in the season its squad row stands in, and what the view hands it besides. */
-const spielerProps = (over: { inactiveSince?: string; rowInactiveSince?: string; adresswechsel?: boolean } = {}) => ({
+/** The player's editor in the season its squad row stands in unless told otherwise, and what the view hands it besides. */
+const spielerProps = (over: { inactiveSince?: string; rowInactiveSince?: string; adresswechsel?: boolean; isMember?: boolean } = {}) => ({
   spieler: {
     ...SPIELER,
     inactive_since: over.inactiveSince ?? null,
@@ -191,7 +194,7 @@ const spielerProps = (over: { inactiveSince?: string; rowInactiveSince?: string;
     saisonStatus: "active" as const,
     erlaubteStufen: ["Q1" as const],
     nachnominierungLaeuft: null,
-    membership: { ...SPIELER_MEMBERSHIP, inactive_since: over.rowInactiveSince ?? null },
+    membership: over.isMember === false ? null : { ...SPIELER_MEMBERSHIP, inactive_since: over.rowInactiveSince ?? null },
   },
   teams: [TEAM_A, TEAM_B],
 });
@@ -942,6 +945,38 @@ const RECORD_MOVES: Record<string, RecordMove> = {
     press: "Bestätigungslink senden",
     write: "einladeSchiedsrichterAction",
   },
+  "the referee's waiting address's re-send": {
+    render: async () => {
+      const { AdminSchiedsrichterEditView } = await import("@/features/schiedsrichter/components/views/AdminSchiedsrichterEditView.tsx");
+
+      return renderEditor(
+        h(AdminSchiedsrichterEditView, {
+          istFassungBekannt: true,
+          schiedsrichter: { ...SCHIEDSRICHTER, adresswechsel: SCHIEDSRICHTER_ADRESSWECHSEL },
+          inactiveSince: null,
+        }),
+      );
+    },
+    type: (user) => typeInto(user, box("Name"), "Pia Kraft-Meier"),
+    press: "Link erneut senden: Neue E-Mail-Adresse",
+    write: "einladeAdresswechselAction",
+  },
+  "the referee's waiting address's discard": {
+    render: async () => {
+      const { AdminSchiedsrichterEditView } = await import("@/features/schiedsrichter/components/views/AdminSchiedsrichterEditView.tsx");
+
+      return renderEditor(
+        h(AdminSchiedsrichterEditView, {
+          istFassungBekannt: true,
+          schiedsrichter: { ...SCHIEDSRICHTER, adresswechsel: SCHIEDSRICHTER_ADRESSWECHSEL },
+          inactiveSince: null,
+        }),
+      );
+    },
+    type: (user) => typeInto(user, box("Name"), "Pia Kraft-Meier"),
+    press: "Änderung verwerfen",
+    write: "verwirfAdresswechselAction",
+  },
   "the player's reactivation": {
     render: async () => {
       const { AdminSpielerEditView } = await import("@/features/spieler/components/views/AdminSpielerEditView.tsx");
@@ -977,6 +1012,16 @@ const RECORD_MOVES: Record<string, RecordMove> = {
     press: "Link erneut senden",
     write: "einladeSpielerAdresswechselAction",
   },
+  "the player's waiting address's discard": {
+    render: async () => {
+      const { AdminSpielerEditView } = await import("@/features/spieler/components/views/AdminSpielerEditView.tsx");
+
+      return renderEditor(h(AdminSpielerEditView, spielerProps({ adresswechsel: true })));
+    },
+    type: (user) => typeInto(user, box("Vorname"), "Lena-Marie"),
+    press: "Änderung verwerfen",
+    write: "verwirfSpielerAdresswechselAction",
+  },
   "the squad row's removal": {
     render: async () => {
       const { AdminSpielerEditView } = await import("@/features/spieler/components/views/AdminSpielerEditView.tsx");
@@ -986,6 +1031,18 @@ const RECORD_MOVES: Record<string, RecordMove> = {
     type: (user) => typeInto(user, box("Vorname"), "Lena-Marie"),
     press: "Aus Kader 2026 austragen",
     write: "deleteSaisonSpielerAction",
+  },
+  "the player's squad entry": {
+    render: async () => {
+      const { AdminSpielerEditView } = await import("@/features/spieler/components/views/AdminSpielerEditView.tsx");
+
+      return renderEditor(h(AdminSpielerEditView, spielerProps({ isMember: false })));
+    },
+    // The entry's own pick, which the draft leaves out: the player holds no squad row for it to change.
+    ready: async (_user, container) => pick(container, "team_id", TEAM_A.teamId),
+    type: (user) => typeInto(user, box("Vorname"), "Lena-Marie"),
+    press: "In Kader 2026 aufnehmen",
+    write: "postSaisonSpielerAction",
   },
   // The address box holds no draft field, yet each of these re-keys the editor over its typing.
   "the player's waiting address's re-send, over a typed new address": {
@@ -1017,6 +1074,17 @@ const RECORD_MOVES: Record<string, RecordMove> = {
     type: typeNewAddress,
     press: "Reaktivieren",
     write: "reactivateSpielerAction",
+  },
+  "the player's squad entry, over a typed new address": {
+    render: async () => {
+      const { AdminSpielerEditView } = await import("@/features/spieler/components/views/AdminSpielerEditView.tsx");
+
+      return renderEditor(h(AdminSpielerEditView, spielerProps({ isMember: false })));
+    },
+    ready: async (_user, container) => pick(container, "team_id", TEAM_A.teamId),
+    type: typeNewAddress,
+    press: "In Kader 2026 aufnehmen",
+    write: "postSaisonSpielerAction",
   },
   "the squad row's return": {
     render: async () => {

@@ -51,11 +51,6 @@ export const SCHIEDSRICHTER_RETIREMENT_CONSEQUENCE =
  */
 export const SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE = 14;
 
-// Retyped from `fl_backend/app/shared/schemas/bounds.py` for the published notice, which states the
-// floor with no answer to read it off. The confirmation page still takes the served `mindestalter`:
-// a page judging a date against this copy would refuse where the endpoint accepts.
-export const SCHIEDSRICHTER_MIN_ALTER = 16;
-
 // „intern“ is the consent text's own word for the second answer, so the chip carries it rather than
 // a paraphrase a reader would have to match to the paragraph above it.
 /** The publication question. The answers are the registry's, this choice deciding a stored field. */

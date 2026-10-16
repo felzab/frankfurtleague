@@ -23,7 +23,7 @@ const { MEDIEN_NOCH_NICHT } = await import("@/features/bewerbungen/utils.ts");
 const { bodyField, refusedPayload } = await import("@/shared/testing/refusedPayload.ts");
 const { refusedOn, unpublishedOn } = await import("@/shared/testing/publishedRefusals.ts");
 
-/** Typed rather than taken from `SCHIEDSRICHTER_MIN_ALTER`: the refusal is worded at the floor the link's read answers, the one it was minted under. */
+/** The floor the link's read answers in these fixtures: the refusal is worded at it, the one the link was minted under. */
 const MINDESTALTER = 16;
 
 /** The confirmation's write, and the link's read; a status named below is one the case moves a code to. */

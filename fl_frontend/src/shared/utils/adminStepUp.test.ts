@@ -19,7 +19,9 @@ import {
   REQUESTS_NAMED,
   STEP_UP_CALLERS,
   STEP_UP_REQUESTS,
+  STEP_UP_SENDS,
   STEP_UP_WRITES,
+  stepUpRequestsOf,
   UNDECLARED_SENDS,
   UNREAD_SENDS,
 } from "@/shared/testing/stepUpWrites.ts";
@@ -203,7 +205,7 @@ describe("an administrator write the server holds to the step-up window", () => 
   /* The case above sees what the reader attributes, and the reader reads direct calls alone: a request
      sent any other way is undeclared and unseen, so every way of naming one is held to a call it reads. */
   it("sends every request it names where the reader reads it", () => {
-    const read = new Set([...STEP_UP_REQUESTS, ...Object.values(UNDECLARED_SENDS).flat()]);
+    const read = new Set([...STEP_UP_SENDS, ...Object.values(UNDECLARED_SENDS).flat()]);
 
     assert.deepEqual(UNREAD_SENDS, []);
     assert.deepEqual([...REQUESTS_NAMED].sort(), [...read].sort(), "the walk and the reader disagree on what the tree sends");
@@ -280,6 +282,32 @@ describe("an administrator write the server holds to the step-up window", () => 
     assert.deepEqual(inQueries('export const send = async () => (await import("./mutations")).postSaisonTeam;'), [
       "./mutations imported dynamically",
     ]);
+  });
+
+  /* Over a synthetic sample, since the tree holds one request off the admin key and none whose key hides: the
+     activation's deletion run goes on the system key, which the hourly timer sends with no session to step up. */
+  it("takes a step-up action's request for a step-up write's on the admin key alone, and names one whose key it cannot read", () => {
+    const mutations = ts.createSourceFile(
+      "mutations.ts",
+      [
+        'export async function postWrite() { return apiClient("/w", S, { method: "POST", authType: "admin" }); }',
+        'export async function postLauf() { return apiClient("/l", S, { method: "POST", authType: "system" }); }',
+        'export async function postForm() { return apiClient("/f", S, { method: "POST" }); }',
+        'export async function postSpread(o: never) { return apiClient("/s", S, { method: "POST", ...o }); }',
+        'export async function postComputed(k: never) { return apiClient("/c", S, { [k]: "system" }); }',
+        'export async function postTwo() { await apiClient("/a", S, { authType: "admin" }); return apiClient("/b", S, { authType: "system" }); }',
+        "export async function laufen(lauf: () => Promise<void>) { await lauf(); }",
+      ].join("\n"),
+      ts.ScriptTarget.Latest,
+      true,
+    );
+    const request = (name: string) => `saisons :: ${name}`;
+    const unread = [...["postSpread", "postComputed", "postTwo", "laufen"].map(request), "teams :: postGone"];
+
+    assert.deepEqual(
+      stepUpRequestsOf([...["postWrite", "postLauf", "postForm"].map(request), ...unread], (slice) => (slice === "saisons" ? mutations : null)),
+      { requests: [request("postWrite"), ...unread], unread: unread.map((each) => `${each} sent on a key the reader cannot read`) },
+    );
   });
 
   /* Each export called, never its source read: an action that dropped its declaration validates the
