@@ -72,16 +72,16 @@ export class PersonReadWithoutSubjectError extends Error {
 }
 
 /**
- * A write the request's deadline refused before it was sent: nothing left, so it changed nothing, as
- * `fl_frontend/src/core/mail.ts :: MailUnsentError` says of a message. `FE-NET-001`, a call the network
- * never answered.
+ * A write the request's deadline refused before it was sent, too little being left to wait out its answer
+ * (`fl_frontend/src/core/api.ts :: WRITE_NEEDS_MS`): it changed nothing, as `fl_frontend/src/core/mail.ts ::
+ * MailUnsentError` says of a message. `FE-NET-001`, a call the network never answered.
  */
 export class ApiUnsentError extends Error {
   readonly code = "FE-NET-001";
   override name = "ApiUnsentError";
 
   constructor(method: string) {
-    super(`The request's deadline had passed before this ${method} was sent.`);
+    super(`Too little of the request's deadline was left to wait out this ${method}, so it was never sent.`);
   }
 }
 
