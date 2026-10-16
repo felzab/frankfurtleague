@@ -951,6 +951,11 @@ ASCII_DOMAIN_SPELLINGS: tuple[str, ...] = (
         pytest.param(NO_AT_IDENTIFIER, NO_AT_CLAIMED, NO_AT_UNCLAIMED, id="no @"),
         # An `@` and an empty local part: a prefix still, the domain folding beyond what a whole-value pattern spells.
         pytest.param("@x.de", ("@x.de", "@X.DE", f"@{chr(0xFF58)}.de"), ("x@x.de",), id="an empty local part"),
+        # Padded or blank as stored, which a pattern built off that spelling reads less of than its fold claims.
+        pytest.param(
+            f"{chr(0x20)}{VARIANT_REQUEST_EMAIL}{chr(0xA0)}", (*CASE_VARIANTS, *PADDED_SPELLINGS), OTHER_LOCAL_PARTS, id="a padded spelling"
+        ),
+        pytest.param(chr(0x20) * 3, ("", chr(0x20), chr(0xA0)), ("x",), id="a blank"),
     ],
 )
 def test_the_pre_filter_takes_every_spelling_the_fold_claims_and_no_other_local_part(
@@ -962,7 +967,8 @@ def test_the_pre_filter_takes_every_spelling_the_fold_claims_and_no_other_local_
     """
 
     identifier = sign_in_identifier(asked)
-    pattern = same_address(identifier)
+    # As asked, never its fold: a caller may hand on a stored value unfolded, which the pre-filter folds itself.
+    pattern = same_address(asked)
     matches = re.compile(pattern["$regex"], re.IGNORECASE if pattern["$options"] == "i" else 0).search
 
     assert [email for email in taken if sign_in_identifier(email) != identifier] == []
