@@ -917,6 +917,10 @@ import(pathToFileURL(reader).href).then(({ refusal }) => {
 });
 ' "${HOOKS_DIR}/implementer-whole-suite.mjs" "$arms" > "$answers" 2>"${SELFCHECK_TMP}/suite-driver.err" || rc=$?
     mapfile -d '' -t answered < "$answers"
+    # A split answer or a stray write shifts every answer after it, and at the last arm shows nothing.
+    if (( ${#answered[@]} > ${#SUITE_EXPECTS[@]} )); then
+      note_fail "whole-suite hook: the reader's driver gave ${#answered[@]} answers to ${#SUITE_EXPECTS[@]} arms, so the arms after the surplus read another arm's answer"
+    fi
     # Read now: an arm through the script below rewrites that script's own stderr file.
     unanswered="no answer, the reader's driver exited ${rc}: $(tr '\n' ' ' < "${SELFCHECK_TMP}/suite-driver.err")"
     for i in "${!SUITE_EXPECTS[@]}"; do
