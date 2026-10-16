@@ -72,7 +72,7 @@ from tests.documents import (
 from tests.erasure import erased, erasure_collections
 from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
 from tests.records import record_collections
-from tests.whole_database import where_held
+from tests.whole_database import where_folded_to, where_held, where_referenced
 from tests.worker import worker_database
 
 from .conftest import config_for
@@ -128,6 +128,7 @@ OTHER_PSEUDONYM = akteur_pseudonym("wraxlington@example.com", schluessel=CONFIG.
 HOME_TEAM_OID = ObjectId("6890a1b2c3d4e5f607b00001")
 OTHER_TEAM_OID = ObjectId("6890a1b2c3d4e5f607b00002")
 PUPIL_OID = ObjectId("6890a1b2c3d4e5f607b00011")
+THEIR_SQUAD_ROW_OID = ObjectId("6890a1b2c3d4e5f607b00013")
 OTHER_PUPIL_OID = ObjectId("6890a1b2c3d4e5f607b00012")
 REFEREE_OID = ObjectId("6890a1b2c3d4e5f607b00021")
 OTHER_REFEREE_OID = ObjectId("6890a1b2c3d4e5f607b00022")
@@ -153,6 +154,9 @@ DECLINED_BY_THEM_OID = ObjectId("6890a1b2c3d4e5f607b00076")
 MOVING_PUPIL_OID = ObjectId("6890a1b2c3d4e5f607b00081")
 # A pupil once entered under the person's address and corrected to another: the row is the other's.
 READDRESSED_PUPIL_OID = ObjectId("6890a1b2c3d4e5f607b00082")
+# Every record of their own the erasure removes, each id looked for in the whole database afterwards: a reference left
+# naming one names nobody.
+THEIR_RECORDS = (PUPIL_OID, THEIR_SQUAD_ROW_OID, REFEREE_OID, PENDING_OID, DECLINED_OID)
 
 REFEREE_NAME = f"{VORNAME} {NACHNAME}"
 PAYMENT = 25
@@ -288,7 +292,7 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
             spieler_document(OTHER_PUPIL_OID, "Wraxlington", "Wraxlington-Muster", email="wraxlington@example.com", einwilligung=einwilligung),
         ]
     )
-    their_row, other_row = ObjectId(), ObjectId()
+    their_row, other_row = THEIR_SQUAD_ROW_OID, ObjectId()
     await database[Collection.SAISON_SPIELER].insert_many(
         [
             saison_spieler_document(PUPIL_OID, SAISON_ID, HOME_TEAM_OID, _id=their_row, nummer="7"),
@@ -519,29 +523,45 @@ async def erased_in_scope(database: AsyncDatabase, client: AsyncMongoClient, sco
 
 
 class TestNothingOfTheirsIsLeftAnywhere:
-    """The witness for reach: the whole database rendered as text, each collection named where a value survives."""
+    """The witness for reach: the whole database read for what they held, each collection named where something survives.
+
+    Their values case-blind, their address on the fold, and their records by id.
+    """
 
     @pytest.mark.parametrize("holding_a_grant", [False, True], ids=["holding no grant", "holding an administration grant"])
     def test_no_value_of_theirs_survives_and_every_bystanders_does(self, mongo_replica_set_url: str, holding_a_grant: bool):
         """Catches a step removed from the registry, or a store none reaches, the pseudonym's included.
 
-        Each value is asserted present first, so a seed that stopped writing one fails; the grant, where held, adds its rows and
-        notice.
+        Each value and id is asserted present first, so a seed that stopped writing one fails; the grant, where held, adds its
+        rows and notice.
         """
+
+        records = (*THEIR_RECORDS, *([THEIR_GRANT_OID] if holding_a_grant else []))
+
+        async def scanned(database: AsyncDatabase, *values: str) -> tuple[dict[str, list[str]], list[str], dict[Any, list[str]]]:
+            return (
+                await where_held(database, *values, folded=True),
+                await where_folded_to(database, IDENTIFIER),
+                await where_referenced(database, *records),
+            )
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             if holding_a_grant:
                 await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
-            before = await where_held(database, *THEIR_VALUES, *BYSTANDERS_IN_THE_LOG, folded=True)
+            before = await scanned(database, *THEIR_VALUES, *BYSTANDERS_IN_THE_LOG)
             response = await erased_over_http(mongo_replica_set_url, headers=by_passkey(TYPED))
 
-            return before, response.status_code, await where_held(database, *THEIR_VALUES, *BYSTANDER_VALUES, folded=True)
+            return before, response.status_code, await scanned(database, *THEIR_VALUES, *BYSTANDER_VALUES)
 
-        before, status, after = on_a_league(mongo_replica_set_url, body)
+        (before, folded_before, ids_before), status, (after, folded_after, ids_after) = on_a_league(mongo_replica_set_url, body)
 
         assert all(before[value] for value in THEIR_VALUES), before
+        assert folded_before and all(ids_before.values()), (folded_before, ids_before)
         assert status == 200
         assert {value: after[value] for value in THEIR_VALUES} == dict.fromkeys(THEIR_VALUES, [])
+        # On the fold too, which reads a spelling no case-blind match does, whatever the local part spells.
+        assert folded_after == []
+        assert ids_after == dict.fromkeys(records, [])
         assert [value for value in BYSTANDER_VALUES if not after[value]] == []
         # In the log too: a pass emptying a shared image whole would take the people beside them with it.
         assert {value: "aktionen" in before[value] for value in BYSTANDERS_IN_THE_LOG} == dict.fromkeys(BYSTANDERS_IN_THE_LOG, True), before
