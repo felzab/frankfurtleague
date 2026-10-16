@@ -1336,6 +1336,15 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         (("collection", ASCENDING), ("operation", ASCENDING), ("actor.kind", ASCENDING)),
         "the counts the log page's three facets are told, over every recorded row",
     ),
+    # `actor.pseudonym` leads: an erasure for a person's request matches on it alone, and the pupils' pass,
+    # running for a whole season at once, on both (`app/api/identitaet/crud.py :: unattribute_in_session`,
+    # `:: erase_pupil_actor_in_session`).
+    SupportIndex(
+        Collection.AKTIONEN,
+        "aktionen_actor_pseudonym",
+        (("actor.pseudonym", ASCENDING), ("actor.funktion", ASCENDING)),
+        "the rows a person wrote, which their erasure marks inside its transaction",
+    ),
     # Each ends in the read's own sort order, `eingereicht_am` then `_id`. Measured: with the sort
     # key unindexed every request scans the collection and sorts it in memory, which is work
     # proportional to an archive an anonymous form can grow.
