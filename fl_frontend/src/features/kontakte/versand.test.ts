@@ -275,6 +275,28 @@ describe("the contacts save that seats new people", () => {
     assert.equal(res.success && res.versand, "fehlgeschlagen");
   });
 
+  /* The editor grades the save's toast off this one field, so a failed link between one that went and one the ban
+     kept back is the one reported: neither the first nor the last of them. */
+  it("reports the worst of several links the save sent", async () => {
+    save = () =>
+      saved([
+        minted("Anna", "anna@schule.example", ["ansprechperson"]),
+        minted("Bernd", "bernd@schule.example", ["stellvertretung"]),
+        minted("Clara", "clara@schule.example", ["trainer"]),
+      ]);
+    mail.answerWith(({ to }) =>
+      to === "bernd@schule.example"
+        ? "refused"
+        : to === "clara@schule.example"
+          ? "barred"
+          : { accepted: "56761188-7520-42d8-8898-ff6fc54ce618" },
+    );
+
+    const res = await patchSaisonTeamKontakteAction(PAYLOAD);
+
+    assert.equal(res.success && res.versand, "fehlgeschlagen", "a save whose later link failed was graded by another link");
+  });
+
   /* Outside production every send is withheld: filed by the deployment, never a failure of the mailbox. */
   it("says a withheld send once, in the deployment's words, and reports no failure", async () => {
     save = () => saved([minted("Anna", "anna@schule.example", ["ansprechperson"]), minted("Clara", "clara@schule.example", ["trainer"])]);

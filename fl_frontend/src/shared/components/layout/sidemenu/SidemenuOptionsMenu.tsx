@@ -18,7 +18,7 @@ import { ThemeSwitch } from "../../ui/ThemeSwitch";
 import { KONTO_SECTION } from "../shell/kontoSection";
 import { RAIL_SQUARE_HEROUI_RING_CLASSES } from "./railGutter";
 
-import type { FormState } from "@/shared/types/types";
+import type { SignOutResult } from "@/shared/types/types";
 
 /**
  * A second placement of the bar's two controls; the behaviour is shared through `useSignOut`, the appearance is not.
@@ -31,7 +31,7 @@ export function SidemenuOptionsMenu({
 }: {
   isDesktopCollapsed: boolean;
   /** Injected by the shell that has a session to end, and its presence is the gate — `shared` cannot import from `features`. */
-  onSignOut?: () => Promise<FormState>;
+  onSignOut?: () => Promise<SignOutResult>;
   /** The person's account page, the same address the bar links from `lg`; `null` in a shell no session stands behind. */
   kontoHref: string | null;
 }) {
@@ -118,7 +118,7 @@ export function SidemenuOptionsMenu({
  * Its own component only so the hook lives beside the state that resets it: arming is per-visit, and a menu reopened
  * later must not still be one press away from ending the session.
  */
-function SignOutItem({ onSignOut, isMenuOpen }: { onSignOut: () => Promise<FormState>; isMenuOpen: boolean }) {
+function SignOutItem({ onSignOut, isMenuOpen }: { onSignOut: () => Promise<SignOutResult>; isMenuOpen: boolean }) {
   const { confirm, press, disarm } = useSignOut(onSignOut);
   const [wasOpen, setWasOpen] = useState(isMenuOpen);
 

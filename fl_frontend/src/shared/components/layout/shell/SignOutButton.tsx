@@ -6,13 +6,13 @@ import { useSignOut } from "@/shared/hooks/useSignOut";
 
 import { IconTooltip } from "../../ui/IconTooltip";
 
-import type { FormState } from "@/shared/types/types";
+import type { SignOutResult } from "@/shared/types/types";
 
 /**
  * **Escaping is deliberately easy** — moving focus away or pressing Escape disarms it — which is what makes arming in
  * place safe. The behaviour is `useSignOut`'s; only the compact shape is this component's own.
  */
-export function SignOutButton({ onSignOut }: { onSignOut: () => Promise<FormState> }) {
+export function SignOutButton({ onSignOut }: { onSignOut: () => Promise<SignOutResult> }) {
   const { confirm, press, disarm } = useSignOut(onSignOut);
 
   const button = (

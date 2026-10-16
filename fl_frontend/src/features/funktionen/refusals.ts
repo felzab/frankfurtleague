@@ -1,3 +1,4 @@
+import { NACH_ERNENNUNG_NEU_ANMELDEN } from "@/features/berechtigungen/constants";
 import { isRefusal } from "@/shared/utils/actionError";
 
 import type { FieldErrors } from "@/shared/utils/validation";
@@ -9,10 +10,9 @@ const EIGENE_ADRESSE_LOESCHEN =
 const EIGENE_ADRESSE_ABMELDEN = "Deine eigenen Anmeldungen beendest Du auf Deiner Kontoseite.";
 
 /** A grant holder's address, which only an owner's press reaches, as only an owner revokes a grant. */
-const VERWALTUNG_LOESCHEN = "Diese Adresse hat Zugang zur Verwaltung. Löschen kann sie nur, wer Inhaberin oder Inhaber der Verwaltung ist.";
+const VERWALTUNG_LOESCHEN = `Diese Adresse hat Zugang zur Verwaltung. Löschen kann sie nur, wer Inhaberin oder Inhaber der Verwaltung ist. ${NACH_ERNENNUNG_NEU_ANMELDEN}`;
 
-const INHABER_ABMELDEN =
-  "Diese Adresse gehört einer Inhaberin oder einem Inhaber der Verwaltung. Abmelden kann sie nur, wer selbst Inhaberin oder Inhaber ist.";
+const INHABER_ABMELDEN = `Diese Adresse gehört einer Inhaberin oder einem Inhaber der Verwaltung. Abmelden kann sie nur, wer selbst Inhaberin oder Inhaber ist. ${NACH_ERNENNUNG_NEU_ANMELDEN}`;
 
 /** The words each of the two refusals takes on a route, keyed by code so a third reaches the shared reader. */
 function mapper(worte: Readonly<Record<string, string>>): (error: unknown) => { error: string } | null {
