@@ -342,6 +342,46 @@ describe("what a pass leaves for the next", () => {
     assert.deepEqual(stamps(), [{ beanspruchung: "claim-1", ids: [OUTBOX_A] }]);
   });
 
+  /* The provider collapses a key reused over the same body and refuses one reused over another for its day, `409
+     invalid_idempotent_request` (https://resend.com/docs/api-reference/errors, read 2026-10-16; the source moves without
+     us). An erasure committing between two passes withholds the row's address, so a key on the row alone would leave the
+     recipient the first pass lost untold. */
+  it("mails a body an erasure rewrote between two passes under a key of its own, which the provider takes", async () => {
+    const ROW = "6890a1b2c3d4e5f6071a0003";
+    const angenommen = new Map<string, string>();
+    // The provider's own rule for a key, the request that broke off having reached it.
+    const wieDerAnbieter =
+      (sonst: (sent: { to: string }) => MailOutcome) =>
+      (sent: { to: string; subject: string; html: string; text: string; idempotencyKey?: string }): MailOutcome => {
+        const body = JSON.stringify([sent.to, sent.subject, sent.html, sent.text]);
+        const frueher = angenommen.get(sent.idempotencyKey ?? "");
+        if (frueher !== undefined) return frueher === body ? "accepted" : { refused: 409, providerErrorName: "invalid_idempotent_request" };
+        angenommen.set(sent.idempotencyKey ?? "", body);
+        return sonst(sent);
+      };
+    claim = claimOf([aenderung({ id: ROW })]);
+    mail.answerWith(wieDerAnbieter((sent) => (sent.to === "vorstand@schule.de" ? "lost" : "accepted")));
+    await runBerechtigungenAbgleich();
+
+    claim = claimOf([aenderung({ id: ROW, jetzt: { adresse: null, verwaltung: "administration" }, geloescht: true })]);
+    mail.sent.length = 0;
+    lines.length = 0;
+    mail.answerWith(wieDerAnbieter(() => "accepted"));
+    await runBerechtigungenAbgleich();
+
+    assert.deepEqual(
+      mail.sent.map((sent) => sent.to),
+      ["vorstand@schule.de"],
+    );
+    assert.ok(mail.sent[0]?.text.includes("Eine nicht genannte Adresse"), "the later pass mailed the body as the first pass read it");
+    assert.deepEqual(
+      lines.filter((line) => line.event === "berechtigung.notice_failed"),
+      [],
+      "the provider refused the later pass's send",
+    );
+    assert.deepEqual(stamps().at(-1), { beanspruchung: "claim-1", ids: [ROW] }, "the row the recipient was told of stays unstamped");
+  });
+
   /* The backend counts a row's claims, so no count of this process's own gives a row up: one that did
      would restart at every deploy, and a second instance would give up on its own schedule. */
   it("keeps a row the claim has not given up, however many passes this process spent on it", async () => {

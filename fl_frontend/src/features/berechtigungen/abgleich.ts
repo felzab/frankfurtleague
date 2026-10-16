@@ -1,5 +1,7 @@
 import "server-only";
 
+import { createHash } from "node:crypto";
+
 import { buildBerechtigungEmail } from "@/core/berechtigungEmail";
 import { BERECHTIGUNG_HINWEIS, BERECHTIGUNG_TAG } from "@/core/berechtigungTag";
 import { frontend_config } from "@/core/config";
@@ -129,19 +131,25 @@ async function ankuendigen(aenderung: FLBerechtigungAenderung, empfaenger: reado
   }
 
   const message = buildBerechtigungEmail(zugangsaenderung(aenderung), urheber(aenderung), frontend_config.AUTH_URL);
+  // The body a key is reused over: an erasure or a ban committing between two passes rewrites it, and the provider refuses
+  // a key reused over another body for its day (`409 invalid_idempotent_request`), the recipient left untold.
+  const fassung = createHash("sha256")
+    .update(JSON.stringify([message.subject, message.html, message.text]))
+    .digest("hex")
+    .slice(0, 16);
 
   let alleErledigt = true;
   // A recipient an earlier pass told is not mailed again: past the provider's day its key collapses nothing.
   for (const adresse of adressen.filter((adresse) => !erreicht.has(adresse))) {
     try {
-      // Keyed on the outbox row, so a lapsed claim mailing it again reaches nobody twice inside the
-      // provider's day; the body depends on the row alone, which the provider needs to collapse it.
+      // Keyed on the outbox row and its body, so a lapsed claim mailing it again reaches nobody twice inside
+      // the provider's day; the body depends on the row alone, which the provider needs to collapse it.
       await sendMail({
         to: adresse,
         ...message,
         // A bounce is then a line an operator reads (`fl_frontend/src/app/api/mail/zustellung/route.ts`).
         tags: { [BERECHTIGUNG_TAG]: BERECHTIGUNG_HINWEIS },
-        idempotencyKey: mailIdempotencyKey(["berechtigung", aenderung.id], adresse),
+        idempotencyKey: mailIdempotencyKey(["berechtigung", aenderung.id, fassung], adresse),
       });
       erreicht.add(adresse);
     } catch (error) {
