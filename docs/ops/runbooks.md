@@ -1476,11 +1476,13 @@ after the snapshot:
     sudo systemctl start frankfurtleague-journal.service
     cat /var/log/frankfurtleague/<day>-erasure-journal.log
 
-**A hash names nobody until an address is hashed to it.** Hash every address the restored database
-and the restored `auth` database hold — the derivation
-`fl_backend/app/core/security.py :: loeschung_journal_hash` performs, label and fold included,
-under `secrets/sperrliste_schluessel` — and each address whose hash a line after the snapshot
-carries is a person whose erasure the restore undid. The paste that does it belongs in the operator's
+**A hash names nobody until an address is hashed to it.** Fold every address the restored database
+and the restored `auth` database hold as `fl_backend/app/shared/folding.py :: sign_in_identifier`
+folds it, then hash the fold as `fl_backend/app/core/security.py :: loeschung_journal_hash` does,
+under its label and `secrets/sperrliste_schluessel`: the erasure routes journal the fold, and a
+registration or a contact seat keeps its address unfolded, so a hash of the stored spelling matches
+no line. Each address whose hash a line after the snapshot carries is a person whose erasure the
+restore undid. The paste that does it belongs in the operator's
 own checklist and in no file here, as the ban list's lookup does (§5). A line whose commit lost its
 answer may name an erasure that never landed, and running it again wrongs nobody, the person having
 asked for it. **Read the mail thread beside the journal** for every request that arrived by mail: a
