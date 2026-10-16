@@ -23,6 +23,7 @@ from datetime import UTC, datetime
 from typing import Any, Final, Literal, TextIO
 from zoneinfo import ZoneInfo
 
+from bson import decode, encode
 from pydantic import SecretStr
 from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
@@ -42,6 +43,7 @@ from app.core.collections import Collection
 
 # Outside any request, as the constraints CLI is, so the environment's settings rather than an application's.
 from app.core.config import EnvironmentValidationError, get_config  # noqa: TID251
+from app.core.constraints import COLLECTION_VALIDATORS
 from app.core.crud import patch_one_in_db, post_one_to_db
 from app.core.drosselung import build_counts_filter, erase_counts_in_session
 from app.core.exceptions import BaseAPIException
@@ -185,6 +187,17 @@ async def where_held(database: AsyncDatabase, person_hashes: set[str], *, schlue
                     held[hashed[value]].append((name, document.get("_id"), path))
 
     return held
+
+
+async def stale_validators(database: AsyncDatabase) -> list[str]:
+    """Every collection whose stored validator is not this build's.
+
+    A restore can leave the snapshot's, which refuses a replay's write or admits one this build refuses.
+    """
+
+    stored = {info["name"]: (info.get("options") or {}).get("validator") async for info in await database.list_collections()}
+    # Through BSON, so a declared rule compares in the types the server answers with.
+    return sorted(str(name) for name, declared in COLLECTION_VALIDATORS.items() if stored.get(name) != decode(encode(declared)))
 
 
 def _holds(address: Any, line: JournalLine, schluessel: SecretStr) -> bool:
@@ -449,10 +462,20 @@ async def run_replay(
     now: datetime,
     out: TextIO,
 ) -> int:
-    """List each line inside the window, replaying each under `apply`; 0 once nothing is left, else 1.
+    """List each line inside the window, replaying each under `apply`.
 
-    No address, hash or pseudonym is printed: a line is named by its act and record, an erasure by where it is held.
+    0 once nothing is left, 1 while anything is, 2 while a validator is not this build's. No address, hash or pseudonym is
+    printed.
     """
+
+    stale = await stale_validators(database)
+    if stale:
+        print(
+            f"The validators on {', '.join(stale)} are not this build's, so no line was judged: run"
+            " python -m app.core.constraints --apply in the backend's container first.",
+            file=out,
+        )
+        return 2
 
     window = Window(since=since, until=until)
     read, unreadable = read_day_files(lines, since=since, until=until)

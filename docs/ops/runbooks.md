@@ -1577,6 +1577,16 @@ days still hold into the day files:
 constraint landed restores rows the current validators reject, and the validators are attached strict,
 so such a row refuses any erasure or replay below that writes over it rather than removing it.
 
+**Then, once `--check` is clean, attach this build's constraints again**, from the checkout:
+
+    docker compose -f docker-compose.yml exec -T backend python -m app.core.constraints --apply
+
+A restore can bring back the snapshot's validators with its data, older than the build that writes
+below: one refuses a replay's write, as the log's did before it admitted the pseudonym replay's row,
+and another admits a row this build refuses. The replay judges no line, exiting 2 and naming the
+collections, until every validator is this build's
+(`fl_backend/app/api/identitaet/wiederherstellung.py :: stale_validators`).
+
 **Then list what the lines ask for, giving both moments written down above, each with its offset:**
 
     ./scripts/ops/replay_journal.sh 2026-10-15T03:00:00Z 2026-10-15T09:40:00Z
@@ -1607,8 +1617,8 @@ has run` where the same person's erasure, held nowhere, is in the same listing.
 
 It exits 0 once nothing is left; 1 while an erasure is to run, a line to replay, a record to review,
 a replay that failed or a line it could not read is left, each counted on its closing `Left:` line;
-2 where it judged no line, a moment refused or the container's settings or the restored database
-unreadable, naming files and never a value; and 3 or more where it crashed, a 1 ending without that
+2 where it judged no line, a moment refused, the container's settings or the restored database
+unreadable, naming files and never a value, or a validator not this build's; and 3 or more where it crashed, a 1 ending without that
 `Left:` line among them, as Compose answers for a backend that is not running.
 
 **Then replay them: the same command with `--apply`.** Each line standing to be replayed is judged
