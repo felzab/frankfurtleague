@@ -2,7 +2,7 @@ import "server-only";
 
 import { buildBewerbungErinnerungEmail, buildBewerbungGeloeschtEmail } from "@/core/bewerbungEmail";
 import { frontend_config } from "@/core/config";
-import { APIBadStatusError, APIMalformedDataError, APINetworkError } from "@/core/errors";
+import { requestOf } from "@/core/errors";
 import { kontaktBestaetigungsLink } from "@/core/kontaktLink";
 import { logger } from "@/core/logging";
 import { buildRegistrierungErinnerungEmail, buildRegistrierungSaisonendeEmail } from "@/core/registrierungEmail";
@@ -356,16 +356,4 @@ function logSweepFailure(event: SweepFailure, error: unknown, saisonId: string |
     ...requestOf(error),
     saison_id: saisonId,
   });
-}
-
-/**
- * What a failed call says of its request, and nothing of a person: the status and code tell a refusal
- * from a crash, and its trace joins the backend's line.
- */
-function requestOf(error: unknown): { status?: number; server_error_code?: string; trace_id?: string } {
-  if (error instanceof APIBadStatusError)
-    return { status: error.statusCode, server_error_code: error.serverErrorCode, trace_id: error.traceId };
-  if (error instanceof APIMalformedDataError) return { status: error.statusCode, trace_id: error.traceId };
-  if (error instanceof APINetworkError) return { trace_id: error.traceId };
-  return {};
 }

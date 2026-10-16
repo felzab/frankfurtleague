@@ -157,9 +157,22 @@ describe("an activation whose deletion the request's deadline cuts", () => {
     advance(REQUEST_DEADLINE_MS - 2 * CALL_MS);
     await pressed;
 
+    // The trace by its shape: the client minted it for the call the deadline cut.
+    const traced = (meta: unknown) => ({
+      ...(meta as object),
+      trace_id: /^[0-9a-f]{32}$/.test(String((meta as { trace_id?: unknown }).trace_id)),
+    });
     assert.deepEqual(
-      loggedLines.filter(({ level, message }) => level !== "info" && message.startsWith("loeschung.")),
-      [{ level: "warn", message: "loeschung.umstellung_cut_short", meta: { error_code: "FE-SWEEP-001", name: "APINetworkError" } }],
+      loggedLines
+        .filter(({ level, message }) => level !== "info" && message.startsWith("loeschung."))
+        .map((line) => ({ ...line, meta: traced(line.meta) })),
+      [
+        {
+          level: "warn",
+          message: "loeschung.umstellung_cut_short",
+          meta: { error_code: "FE-SWEEP-001", name: "APINetworkError", trace_id: true },
+        },
+      ],
     );
   });
 });

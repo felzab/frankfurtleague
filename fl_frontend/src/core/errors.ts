@@ -262,6 +262,18 @@ export class APINetworkError extends Error {
 }
 
 /**
+ * What a failed call says of its request, for a sweep's line, and nothing of a person: the status and code
+ * tell a refusal from a crash, and the trace joins the backend's own line.
+ */
+export function requestOf(error: unknown): { status?: number; server_error_code?: string; trace_id?: string } {
+  if (error instanceof APIBadStatusError)
+    return { status: error.statusCode, server_error_code: error.serverErrorCode, trace_id: error.traceId };
+  if (error instanceof APIMalformedDataError) return { status: error.statusCode, trace_id: error.traceId };
+  if (error instanceof APINetworkError) return { trace_id: error.traceId };
+  return {};
+}
+
+/**
  * The refusals Resend's published error reference calls temporary, mirrored here because the token
  * decides whether a second attempt can succeed. **The source moves without us**
  * (<https://resend.com/docs/api-reference/errors>, read 2026-09-08).

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
 import { ERASED_ACTOR_MARKER } from "@/core/erasedActor.ts";
+import { APIBadStatusError } from "@/core/errors.ts";
 import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
@@ -431,6 +432,33 @@ describe("what a pass leaves for the next", () => {
     assert.deepEqual(
       lines.map((line) => [line.event, line.fields]),
       [["berechtigung.abgleich_failed", { error_code: "FE-SWEEP-002", name: "Error" }]],
+    );
+  });
+
+  /* A refusal of the whole claim and a crash read alike by their name alone: the status and code tell them apart,
+     and the trace finds the backend's own line. */
+  it("carries a refused claim's status, code and trace", async () => {
+    claim = new APIBadStatusError({
+      message: "API returned a bad status.",
+      url: "http://backend:8000",
+      statusCode: 503,
+      serverErrorCode: "DB-FAIL-001",
+      endpoint: "/berechtigungen/abgleich",
+      method: "POST",
+      readOnly: false,
+      traceId: "t".repeat(32),
+    });
+
+    await runBerechtigungenAbgleich();
+
+    assert.deepEqual(
+      lines.map((line) => [line.event, line.fields]),
+      [
+        [
+          "berechtigung.abgleich_failed",
+          { error_code: "FE-SWEEP-002", name: "APIBadStatusError", status: 503, server_error_code: "DB-FAIL-001", trace_id: "t".repeat(32) },
+        ],
+      ],
     );
   });
 

@@ -645,8 +645,9 @@ describe("the deletion the activation runs", () => {
   });
 
   /* The activation is saved and stays so: answered as failed, the administrator presses again and a stale page
-     refuses, or answers a rollover nobody repeated. */
-  for (const [fall, fehler] of [
+     refuses, or answers a rollover nobody repeated. The line carries what the call says of its request, as the
+     hourly pass's does. */
+  for (const [fall, fehler, anfrage] of [
     [
       "a run the backend answers 500",
       () =>
@@ -660,6 +661,7 @@ describe("the deletion the activation runs", () => {
           readOnly: false,
           traceId: "t".repeat(32),
         }),
+      { status: 500, server_error_code: "DB-FAIL-001", trace_id: "t".repeat(32) },
     ],
     [
       "a run the network broke off",
@@ -672,6 +674,7 @@ describe("the deletion the activation runs", () => {
           traceId: "t".repeat(32),
           isTimeout: false,
         }),
+      { trace_id: "t".repeat(32) },
     ],
     // Its own bound and not the press's deadline: a backend answering slower than its own deadline is a fault, and
     // a warning keyed on the timeout alone would hide it (`fl_frontend/src/features/saisons/deadline.test.ts`).
@@ -686,6 +689,7 @@ describe("the deletion the activation runs", () => {
           traceId: "t".repeat(32),
           isTimeout: true,
         }),
+      { trace_id: "t".repeat(32) },
     ],
   ] as const) {
     it(`answers the activation saved after ${fall}, says what the hourly pass finishes, and still drops the tags`, async () => {
@@ -707,7 +711,7 @@ describe("the deletion the activation runs", () => {
       );
       assert.deepEqual(
         loggedLines.filter(({ message: line }) => line === "loeschung.umstellung_failed"),
-        [{ level: "error", message: "loeschung.umstellung_failed", meta: { error_code: "FE-SWEEP-001", name: fehler().name } }],
+        [{ level: "error", message: "loeschung.umstellung_failed", meta: { error_code: "FE-SWEEP-001", name: fehler().name, ...anfrage } }],
       );
     });
   }
