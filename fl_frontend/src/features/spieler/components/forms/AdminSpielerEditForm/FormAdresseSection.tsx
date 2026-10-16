@@ -31,8 +31,8 @@ import { focusAfterWrite } from "@/shared/utils/focusAfterWrite";
 import { pressLinkWrite } from "@/shared/utils/linkWrite";
 import { toFieldErrors } from "@/shared/utils/validation";
 
-export const ADRESSE_AENDERN = "Adresse ändern";
-export const LINK_AN_NEUE_ADRESSE = "Link an neue Adresse senden";
+const ADRESSE_AENDERN = "Adresse ändern";
+const LINK_AN_NEUE_ADRESSE = "Link an neue Adresse senden";
 
 /** A refusal and the value it was about: a keystroke away from that value retracts it, and nothing else does. */
 type Fehler = { satz: string; zu: string };
