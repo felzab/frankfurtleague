@@ -38,7 +38,7 @@ const { AdresseGesperrt, LinkUnlesbar } = await import("@/features/bewerbungen/c
 const { unshownRefusal } = await import("@/shared/hooks/useServerFieldErrors.ts");
 
 const TOKEN = "abc123";
-/** Typed rather than taken from `SCHIEDSRICHTER_MIN_ALTER`: the page judges by the floor the read serves, which is the one the link was minted under. */
+/** The floor this fixture's read serves: the page judges by it, the one the link was minted under. */
 const MINDESTALTER = 16;
 /** The media age this fixture's read answers, for `MINDESTALTER`'s reason. */
 const MEDIEN_ALTER = 18;

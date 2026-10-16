@@ -112,10 +112,11 @@ MIRRORED_BOUNDS: Final = (
     Mirror("features/schiedsrichter/constants.ts", "SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE", "SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE"),
     Mirror("features/registrierungen/constants.ts", "REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE", "REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE"),
     Mirror("features/spieler/constants.ts", "SPIELER_ADRESSWECHSEL_FRIST_TAGE", "SPIELER_ADRESSWECHSEL_FRIST_TAGE"),
-    # These three mirror the published notice's sentences and never a payload schema: each confirmation
-    # view and each account entry states its floors as it was served them.
+    # These mirror the published notice's sentences and never a payload schema: each confirmation view
+    # and each account entry states its floors as it was served them.
     Mirror("features/registrierungen/constants.ts", "REGISTRIERUNG_MIN_ALTER", "REGISTRIERUNG_MIN_ALTER_JAHRE"),
-    Mirror("features/schiedsrichter/constants.ts", "SCHIEDSRICHTER_MIN_ALTER", "SCHIEDSRICHTER_MIN_AGE_YEARS"),
+    # The notice's one floor for playing is its floor for refereeing too, so it lies the day the two part.
+    Mirror("features/registrierungen/constants.ts", "REGISTRIERUNG_MIN_ALTER", "SCHIEDSRICHTER_MIN_AGE_YEARS"),
     Mirror("features/registrierungen/constants.ts", "MEDIEN_MIN_ALTER", "MEDIEN_MIN_AGE_YEARS"),
     # The notice states the ban's length in a word, which its render test holds to this constant; no
     # payload carries a length at all.
