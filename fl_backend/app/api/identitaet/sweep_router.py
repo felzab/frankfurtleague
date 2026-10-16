@@ -34,7 +34,7 @@ from app.core.dependencies import (
     SpielerCollection,
     get_germany_now,
 )
-from app.core.exception_handlers import DATABASE_FAILED, DUPLICATE_KEY_RESPONSE, STORED_DATA_INVALID, UNKNOWN_OUTCOME
+from app.core.exception_handlers import DATABASE_FAILED, DUPLICATE_KEY_RESPONSE, STORED_DATA_INVALID, UNHANDLED_CRASH, UNKNOWN_OUTCOME
 from app.core.exceptions import DocumentNotFoundException
 from app.core.logging import fl_logger
 from app.core.recording import log_stamp
@@ -159,11 +159,12 @@ async def post_loeschung_lauf(
 
     **A pass is a run of calls, each handing the next the `nach` the last answered**, the first naming none; it ends at the call
     answering `nach` null. A call reaches at most a fixed share of the due pupils after `nach`, in `_id` order, and the pass
-    holds no state on the server. A pupil whose deletion the database refuses is counted `fehlgeschlagen`, logged by id and
-    passed, so a failing record holds back nobody behind it in the pass; it stays due, and the next pass tries it again. Where
-    the request's deadline cuts the call, it stops at that pupil, warns once, and answers what it did; the rest stay due, and
-    the pass goes on from the next call. `verbleibend` counts the pupils due after the call, those it failed or passed over
-    among them, so it is no stopping condition. No body: the call takes no season and no limit.
+    holds no state on the server. A pupil whose deletion fails, the database refusing it or anything else, is counted
+    `fehlgeschlagen`, logged by id and passed, so a failing record holds back nobody behind it in the pass; it stays due, and
+    the next pass tries it again. Where the request's deadline cuts the call, it stops at that pupil, warns once, and answers
+    what it did; the rest stay due, and the pass goes on from the next call. `verbleibend` counts the pupils due after the
+    call, those it failed or passed over among them, so it is no stopping condition. No body: the call takes no season and no
+    limit.
 
     The 409 is published because the duplicate-key trace reaches the registry's insert of the pupils' sentinel and reads no
     handler; this call counts that failure as any other and never answers it.
@@ -249,6 +250,16 @@ async def post_loeschung_lauf(
                 fl_logger.error(
                     f"Pupil {row['_id']} was {'erased or not, the commit unanswered' if ungewiss else 'not erased'}: {type(failure).__name__}",
                     extra={"error_code": UNKNOWN_OUTCOME if ungewiss else DATABASE_FAILED},
+                )
+                fehlgeschlagen += 1
+                continue
+            # Any class, or the next pass stops at this pupil again and holds back everyone behind them
+            # (`docs/backend/spec.md :: I717`); not `BaseException`, so a cancellation still ends the call. The id and
+            # the class alone, as above.
+            except Exception as failure:
+                fl_logger.error(
+                    f"Pupil {row['_id']} was not erased, the failure not the database's: {type(failure).__name__}",
+                    extra={"error_code": UNHANDLED_CRASH},
                 )
                 fehlgeschlagen += 1
                 continue

@@ -136,10 +136,11 @@ class TestTheStatusesAnActivationLeaves:
 # `fl_backend/tests/api/test_loeschung_sweep.py :: TestOnePupilCostsTheCommandsItsShareIsSizedAt`.
 COMMANDS_A_PERSON = 19
 
-# The call's other commands, four on the wire and one for the pending registrations' read past the
-# driver's first batch, the page being one document; the per-command cost the largest of two windows
-# timing whole calls locally, 2026-10-16.
-OTHER_COMMANDS = 4 + 1
+# The call's other commands, counted on the wire 2026-10-16: three aggregates, and a `getMore` once the
+# pending registrations outrun the driver's first batch, the page being one document.
+OTHER_COMMANDS = 3 + 1
+
+# The per-command cost, the largest of two windows timing whole calls locally, 2026-10-16.
 PER_COMMAND_S = 0.00203
 
 # The round trip `sweep_router.LOESCHUNGEN_PER_PASS`'s comment sizes the share for.
