@@ -346,9 +346,17 @@ class FLSchiedsrichterSelbstEinwilligungResponse(BaseAPIResponse):
     nachweis_stand: FLEinwilligungStand
 
 
+class FLAdresswechselSweepParams(BaseModel):
+    """Where in one pass the call starts: after the change the call before it reached, or at the lowest id where none is named."""
+
+    nach: CustomObjectId | None = None
+
+
 class FLSchiedsrichterAdresswechselSweepResponse(BaseAPIResponse):
-    """One call's share of the pending addresses whose link lapsed: how many went, and how many are still due."""
+    """One call's share of the pending addresses whose link lapsed, a referee's or a pupil's: how many went, and how many are still due."""
 
     entfernt: int
     # A change whose removal failed among them: it stays due, so a caller looping on this alone never ends.
     verbleibend: int
+    # The last row this call reached, for the next call's `nach`; null once it reached the end, which ends the pass.
+    nach: CustomObjectId | None

@@ -1,9 +1,10 @@
-from collections.abc import Sequence
-from typing import NamedTuple
+from collections.abc import Mapping, Sequence
+from typing import Any, NamedTuple
 
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
+from app.api.aktionen.crud import redact_images_in_session
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spieler.schemas import FLSpielerRolle
 from app.api.spieler.services import (
@@ -15,6 +16,7 @@ from app.api.spieler.services import (
     build_spieler_filter,
     find_squad_capacity_refusal,
     find_squad_rolle_refusal,
+    spieler_adresswechsel_image_edits,
 )
 from app.core.collections import Collection
 from app.core.crud import (
@@ -22,12 +24,14 @@ from app.core.crud import (
     anchor_in_db,
     erase_many_from_db,
     patch_many_in_db,
+    patch_one_in_db,
     post_one_to_db,
     pull_one_from_db,
     refuse,
 )
 from app.core.recording import build_redaction_filter, build_redaction_update
 from app.core.sentinels import GHOST_SPIELER_ID
+from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import CustomObjectId
 
 
@@ -249,3 +253,43 @@ async def remove_pending_pupil_addresses_in_session(
     )
 
     return removed.modified_count
+
+
+async def discard_spieler_adresswechsel_in_session(
+    *,
+    spieler_collection: AsyncCollection,
+    aktionen_collection: AsyncCollection,
+    # The judgement: a pupil it matches not is a miss, `DocumentNotFoundException`, before any write.
+    db_filter: Mapping[str, Any],
+    stamp: str,
+    return_document: bool,
+    # REQUIRED, so the address judged in the images is the one this transaction removes.
+    session: AsyncClientSession,
+) -> Mapping[str, Any]:
+    """Remove the pending change, and its address from every log image of that pupil, the rest of each image standing.
+
+    The administrator's discard and the lapse's clock both run this body (`docs/backend/spec.md :: I704`, `:: I693`).
+    """
+
+    stored = await pull_one_from_db(
+        collection=spieler_collection, db_filter=db_filter, projection={f"{SPIELER_ADRESSWECHSEL_FELD}.email": 1}, session=session
+    )
+    updated = await patch_one_in_db(
+        collection=spieler_collection,
+        db_filter=db_filter,
+        update={"$unset": {SPIELER_ADRESSWECHSEL_FELD: ""}},
+        session=session,
+        return_document=return_document,
+    )
+
+    # LAST, for the decline's reason: it reaches the pre-image the patch above just filed, which still holds the address.
+    discarded = sign_in_identifier(str(stored[SPIELER_ADRESSWECHSEL_FELD]["email"]))
+    await redact_images_in_session(
+        aktionen_collection=aktionen_collection,
+        db_filter=build_redaction_filter([(Collection.SPIELER, [stored["_id"]])]),
+        judge=lambda image: spieler_adresswechsel_image_edits(image, discarded),
+        stamp=stamp,
+        session=session,
+    )
+
+    return updated

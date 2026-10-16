@@ -12,6 +12,7 @@ from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.sperrliste.lookup import SperrlisteLookup, hash_gesperrt, sperrliste_saison
 from app.api.spieler.crud import (
     another_pupil_holds,
+    discard_spieler_adresswechsel_in_session,
     pull_a_person_to_enter,
     refuse_a_full_squad,
     refuse_a_taken_rolle,
@@ -448,33 +449,15 @@ async def delete_adresswechsel(
     """
 
     async def discard_the_change(session: AsyncClientSession) -> Mapping[str, Any]:
-        # In-session, so the address judged in the images below is the one this transaction removes.
         # The filter is the judgement: a pupil holding no change is the 404 here.
-        stored = await pull_one_from_db(
-            collection=spieler_collection,
-            db_filter=build_pending_spieler_adresswechsel_filter(spieler_id),
-            projection={f"{SPIELER_ADRESSWECHSEL_FELD}.email": 1},
-            session=session,
-        )
-        updated = await patch_one_in_db(
-            collection=spieler_collection,
-            db_filter=build_pending_spieler_adresswechsel_filter(spieler_id),
-            update={"$unset": {SPIELER_ADRESSWECHSEL_FELD: ""}},
-            session=session,
-            return_document=ReturnDocument.AFTER,
-        )
-
-        # LAST, for the decline's reason: it reaches the pre-image the patch above just filed.
-        discarded = sign_in_identifier(str(stored[SPIELER_ADRESSWECHSEL_FELD]["email"]))
-        await redact_images_in_session(
+        return await discard_spieler_adresswechsel_in_session(
+            spieler_collection=spieler_collection,
             aktionen_collection=aktionen_collection,
-            db_filter=build_redaction_filter([(Collection.SPIELER, [spieler_id])]),
-            judge=lambda image: spieler_adresswechsel_image_edits(image, discarded),
+            db_filter=build_pending_spieler_adresswechsel_filter(spieler_id),
             stamp=log_stamp(germany_now),
+            return_document=ReturnDocument.AFTER,
             session=session,
         )
-
-        return updated
 
     # One transaction, so the write, the log row recording it and the redaction land together.
     async with transaction_session(db) as session:

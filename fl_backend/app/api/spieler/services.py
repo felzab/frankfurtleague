@@ -568,6 +568,20 @@ def build_pending_spieler_adresswechsel_filter(spieler_id: Any) -> Mapping[str, 
     return {**build_spieler_filter(spieler_id), SPIELER_ADRESSWECHSEL_FELD: {"$type": "object"}}
 
 
+def build_lapsed_spieler_adresswechsel_filter(*, today: str, spieler_id: Any = None) -> Mapping[str, Any]:
+    """Every real pupil, retired or not, whose pending change's link lapsed before `today`; given an id, that one alone.
+
+    `$lt` as `spieler_link_is_over` reads the deadline, its own day still taking the link. The validator requires the block's `frist`.
+    """
+
+    lapsed = {f"{SPIELER_ADRESSWECHSEL_FELD}.frist": {"$lt": today}}
+
+    if spieler_id is None:
+        return build_real_spieler_filter({SPIELER_ADRESSWECHSEL_FELD: {"$type": "object"}, **lapsed})
+
+    return {**build_pending_spieler_adresswechsel_filter(spieler_id), **lapsed}
+
+
 def spieler_link_is_over(*, frist: Any, today: str) -> bool:
     """`app/api/schiedsrichter/services.py :: link_is_over`'s twin: a block carrying no readable deadline is over."""
 

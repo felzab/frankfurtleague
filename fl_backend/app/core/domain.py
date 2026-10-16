@@ -956,8 +956,8 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "no payload carries the block. `POST /spieler/{spieler_id}/adresswechsel` writes it WHOLE, replacing a pending one, "
         "and `POST /spieler/{spieler_id}/adresswechsel/einladen` replaces it whole for the same address, each answering the raw "
         "token once. `DELETE /spieler/{spieler_id}/adresswechsel` removes it, and so does either answer its person gives through "
-        "`POST /spieler/adresswechsel`, the erasure of the address it names, and the removal of a change the day after its link "
-        "lapsed. The three delivery endpoints write its delivery state on the system key alone",
+        "`POST /spieler/adresswechsel`, the erasure of the address it names and, the day after its link lapses, "
+        "`POST /schiedsrichter/sweep/adresswechsel`. The three delivery endpoints write its delivery state on the system key alone",
         "app.api.spieler.services.compose_spieler_adresswechsel",
     ),
     FieldPolicy(

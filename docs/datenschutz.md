@@ -733,7 +733,8 @@ Every ruling below is the sign-up flow as it stands for the next season.
   (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-10-06, its timing re-ruled 2026-10-15.
 - **A pupil's pending new address stands until its holder confirms or declines it, an administrator
   replaces or discards it, or the pupil is erased with it, and it is removed the day after its link
-  lapses** (`fl_backend/app/core/domain.py :: FIELD_POLICIES`), for the referee's reason above. Its
+  lapses** (`fl_backend/app/core/domain.py :: FIELD_POLICIES`, `docs/backend/spec.md :: I693`), for
+  the referee's reason above. Its
   link lasts fourteen days and a re-send restarts them
   (`fl_backend/app/shared/schemas/bounds.py :: SPIELER_ADRESSWECHSEL_FRIST_TAGE`). Ruled 2026-10-15.
 - **A ban on an email address is kept for five full seasons after the one it was entered under, and
