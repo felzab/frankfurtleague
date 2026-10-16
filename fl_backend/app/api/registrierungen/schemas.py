@@ -119,8 +119,9 @@ class FLRegistrierung(BaseModel):
     # link was mailed to, and the admission is what folds it onto the person it writes.
     email: CustomNonEmptyString
     # The three a squad often does not know at registration, each stated by the caller rather than
-    # defaulted. Unbounded on read, as every stored value here is (`docs/backend/spec.md :: I254`).
+    # defaulted.
     position: FLSpielerPosition | None
+    # Patterned on the submission's payload alone (`docs/backend/spec.md :: I254`).
     nummer: str | None
     stufe: FLSpielerStufe | None
     # Null until the pupil confirms, which is the pairing `docs/backend/spec.md :: I141` rests on.
