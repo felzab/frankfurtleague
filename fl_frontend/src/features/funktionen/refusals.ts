@@ -1,5 +1,7 @@
 import { isRefusal } from "@/shared/utils/actionError";
 
+import type { FieldErrors } from "@/shared/utils/validation";
+
 /** An administrator's own address: their records go through the account page, or through another administrator. */
 const EIGENE_ADRESSE_LOESCHEN =
   "Deine eigene Adresse löschst Du nicht hier. Lösche Dein Konto auf Deiner Kontoseite, oder bitte eine andere Person aus der Verwaltung darum.";
@@ -25,11 +27,20 @@ function mapper(worte: Readonly<Record<string, string>>): (error: unknown) => { 
 
 const LOESCHEN_WORTE: Readonly<Record<string, string>> = { "REQ-PURGE-003": EIGENE_ADRESSE_LOESCHEN, "REQ-PURGE-005": INHABER_LOESCHEN };
 
+const mapLoeschenRefusal = mapper(LOESCHEN_WORTE);
+
+/** A name of the person in the Anlass, said on the box as the address there is: the box itself is the way out. */
+const NAME_IM_ANLASS = "Der Anlass darf keinen Namen der Person enthalten.";
+
 /**
- * The erasure's and its reveal's refusals, which judge the same address the same way; `null` for the rest, the
- * `DB-COMMON` pair among them, which the shared reader words.
+ * The erasure's and its reveal's refusals, which judge the same address the same way, and the erasure's of its Anlass;
+ * `null` for the rest, the `DB-COMMON` pair among them, which the shared reader words.
  */
-export const mapErasureRefusal = mapper(LOESCHEN_WORTE);
+export function mapErasureRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
+  if (isRefusal(error) && error.serverErrorCode === "REQ-PURGE-006") return { fieldErrors: { anlass: NAME_IM_ANLASS } };
+
+  return mapLoeschenRefusal(error);
+}
 
 /**
  * Whether a failed reveal answered one of the erasure's own refusals, which the panel says alone: a reveal the rule
