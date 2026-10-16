@@ -109,6 +109,9 @@ export const SPERRLISTE_EINTRAG = {
   },
 } as const satisfies SidemenuStructureSubOption<AdminIconName>;
 
+/** The erasure page's sign-out panel and its press, named by the page's hint: one spelling, so a renamed panel takes the hint with it. */
+export const UEBERALL_ABMELDEN = "Überall abmelden";
+
 /** The erasure page's entry, named where another page sends a reader to it, so a rename reaches both. */
 export const LOESCHUNG_EINTRAG = {
   id: "loeschung",
@@ -119,7 +122,7 @@ export const LOESCHUNG_EINTRAG = {
     points: [
       { term: "Die Adresse", detail: "gibst Du zweimal ein, zum Anzeigen und zum Bestätigen." },
       // The page's second panel, which its label does not name: an admin opening the menu for a sign-out finds it here.
-      { term: "„Überall abmelden“", detail: "beendet jede Anmeldung einer Adresse, ohne ihre Daten zu löschen." },
+      { term: `„${UEBERALL_ABMELDEN}“`, detail: "beendet jede Anmeldung einer Adresse, ohne ihre Daten zu löschen." },
     ],
     // What an admin comes here to do and cannot: no control on this page takes an erasure back.
     note: "Eine Löschung lässt sich nicht zurücknehmen.",

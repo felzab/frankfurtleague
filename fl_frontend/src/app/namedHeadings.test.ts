@@ -7,7 +7,13 @@ import ts from "typescript";
 
 import { JA_MEINE_ADRESSE, NICHT_MEINE_ADRESSE } from "@/core/adresswechselAntworten.ts";
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
-import { HANDLUNGSBEDARF_EINTRAG, LOESCHUNG_EINTRAG, SPERRLISTE_EINTRAG, TEAMS_EINTRAG } from "@/features/admin/constants.ts";
+import {
+  HANDLUNGSBEDARF_EINTRAG,
+  LOESCHUNG_EINTRAG,
+  SPERRLISTE_EINTRAG,
+  TEAMS_EINTRAG,
+  UEBERALL_ABMELDEN,
+} from "@/features/admin/constants.ts";
 import { ADRESSE_KORRIGIEREN } from "@/features/bewerbungen/constants.ts";
 import { ORGANISATION_TITEL } from "@/features/meta/constants.ts";
 import {
@@ -95,6 +101,12 @@ const REGISTER: readonly Benannt[] = [
   eintrag("TEAMS_EINTRAG", TEAMS_EINTRAG),
   eintrag("SPERRLISTE_EINTRAG", SPERRLISTE_EINTRAG),
   eintrag("LOESCHUNG_EINTRAG", LOESCHUNG_EINTRAG),
+  {
+    wort: UEBERALL_ABMELDEN,
+    konstante: "UEBERALL_ABMELDEN",
+    heim: ADMIN,
+    zeigen: ["features/funktionen/components/forms/AdminLoeschungForm/FormAbmeldenSection.tsx"],
+  },
   {
     wort: ADRESSE_AENDERN,
     konstante: "ADRESSE_AENDERN",
