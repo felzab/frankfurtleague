@@ -22,30 +22,45 @@ Resume this session. Do not continue any work until you have finished this proto
      - stale -- another branch, a tip subject not on yours, or a next action already a commit ->
        treat none of it as state; say which check failed and ask.
 
-2. RECONSTRUCT. Read the resume point, then the handoff the register names if one exists. State
-   the branch, the commit subjects on it (never SHAs), whether the tree is clean, and the cycle
-   phase, each from a command.
+2. RECONSTRUCT. Read the resume point, then the handoff the register names if one exists. Its
+   `Mode:` field holds until the owner's word changes it, an away stretch whose time has passed
+   included. State the branch, the commit subjects on it (never SHAs), whether the tree is clean,
+   and the cycle phase, each from a command.
 
 3. THE FLEET. List every subagent actually running; assume none alive and none dead. For each one
    the register records:
-     - finished and banked -> mark it done; finished and not banked -> bank its report from its
-       transcript (`ledger.py bank --from <agent id>`), and judge its edits on disk against it.
+     - finished and banked -> mark it done (`ledger.py open` flags such a row still RUNNING);
+       finished and not banked -> bank its report from its transcript
+       (`ledger.py bank --from <agent id>`, which marks it done and passes over a closing quota
+       error to the report before it, and refuses a transcript ending mid-turn, in a tool call or
+       a message to the agent, whose last text is an interim note: resume that agent instead), and
+       judge its edits on disk against it.
      - running -> leave it, and note what it owns.
      - paused, killed or unaccounted for -> resume it by the id the Agent tool returned, as a new
-       dispatch: check its files are still free, and count nothing done until its acceptance
-       evidence is on disk. Where it cannot be resumed, brief a successor from its saved brief, its
-       `<NAME>-messages.md` and its transcript, and from its last provable state. Land its branch
-       only where every commit carries acceptance evidence, otherwise a branch cut at the last
-       commit that does. Judge every uncommitted edit as intended work or an unrestored plant; save
-       the work -- `git -C <path> diff`, its untracked files, any stash entry on its branch -- to
-       the scratch path, name it in the successor's brief, and
-       keep its worktree row open until the fresh work lands.
+       dispatch (the messages hook sets a PAUSED or DONE row RUNNING again): check its files are
+       still free, and count nothing done until its acceptance evidence is on disk.
+       Resume them in one action, critical path first, up to the owner's cap, or under `/pace` up
+       to the width with each counted by its `reg.py context` (modes.md): a resumed agent's first
+       call re-creates its whole context's cache, and nineteen resumed at once re-created 8.4M
+       tokens of it (2026-10-15). An agent whose worktree is gone -- the harness removes one whose
+       turn ended holding no change -- is resumed into it re-created at the path and on the branch
+       the harness gave it, both named by the agent's id: `git worktree add <path> <branch>`, or
+       `git worktree add -b <branch> <path> <fork sha>` where the branch went too; one that
+       commits nothing may take `--detach`. That a resumed writer can commit there is not
+       established until one's first commit exits 0. Where it cannot be resumed, brief a successor
+       from its saved brief, its `<NAME>-messages.md` and its transcript, and from its last
+       provable state. Land its branch only where every commit carries acceptance evidence,
+       otherwise a branch cut at the last commit that does. Judge every uncommitted edit as
+       intended work or an unrestored plant; save the work -- `git -C <path> diff`, its untracked
+       files, any stash entry on its branch -- to the scratch path, name it in the successor's
+       brief, and keep its worktree until the fresh work lands.
 
-4. PARTIAL WORK. Match every `git worktree list` entry to the register's worktree table. For each,
+4. PARTIAL WORK. Match every `git worktree list` entry to a live-agent row by the agent id its
+   branch carries, as `reg.py overlap` labels it. For each,
    `git log --format='%h %s' <session branch>..<branch>` names what a merge would take and
-   `git -C <path> status --porcelain` what is uncommitted, an untracked file included. A worktree no
-   row names is a lost agent; your own checkout holding a change is a conflict incident. Land
-   nothing you cannot attribute.
+   `git -C <path> status --porcelain` what is uncommitted, an untracked file included. A worktree
+   neither a row nor an UPDATE line names is a lost agent; your own checkout holding a change is a
+   conflict incident. Land nothing you cannot attribute.
 
 5. INSTRUCTIONS. Re-read every standing instruction -- the repository's rules, the ratified
    decisions, the owner's `~/.claude/CLAUDE.md`, the starter the register names, the rulings in the
@@ -55,13 +70,15 @@ Resume this session. Do not continue any work until you have finished this proto
 
 6. VERIFY. Check that the commit the register's `Last gate run` names is still the tip, and that
    the Docker engine the database tier needs answers (`docker info` exits 0) before any agent
-   resumes: after a restart it may not. Run the gate only where the next action is the ending's.
+   resumes: after a restart it may not. Then read `docker ps`: the stack's restart policy can
+   bring back a local stack the register records as down, which `./scripts/ops/local.sh --down`
+   stops from your checkout. Run the gate only where the next action is the ending's.
 
-7. RESUME POINT. State the single next action and why, and write it into the register in the same
-   edit as the action. Where this session's id differs from the register's, rewrite the
-   `Coordinator session id:` line in that edit. A register with no `Briefs:` line gains one, and
-   each live agent `reg.py dispatch` has not recorded is given its file and row, before the next send. Then continue, running in parallel what shortens
-   the critical path.
+7. RESUME POINT. State the single next action and why, and write it with `reg.py resume` as you
+   take the action. Where this session's id differs from the register's, rewrite the
+   `Coordinator session id:` line. A register with no `Briefs:` or `Reports:` line gains one, one
+   with no `Mode:` field gains `Mode: full speed; attended` under its resume point, and each live
+   agent `reg.py dispatch` has not recorded is given its file and row, before the next send. Then continue, running in parallel what shortens the critical path.
 
 Redo what cannot be shown complete; re-derive nothing a command answers in one line; re-audit no
 work whose acceptance evidence is on disk and still valid.
