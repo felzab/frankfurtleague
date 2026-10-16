@@ -60,6 +60,8 @@ if [[ "${1:-}" == "compose" ]]; then
     *" ps "*)
       printf '%s\\n' "$@" > "${FL_DEPLOY_PS_ARGV}"
       case ":${FL_DEPLOY_NO_CONTAINER:-}:" in *":${last}:"*) exit 0 ;; esac
+      # A stopped container answers only a `ps` that asks for every one.
+      if [[ " $* " != *" --all "* && ":${FL_DEPLOY_STOPPED_CONTAINER:-}:" == *":${last}:"* ]]; then exit 0; fi
       printf 'cid-%s\\n' "$last"; exit 0 ;;
     *" logs "*)
       printf 'logs %s\\n' "$last" >> "${FL_DEPLOY_CALLS}"
@@ -159,6 +161,7 @@ def _run(body: str, **overrides: str) -> tuple[int, str, _Fixture]:
         'IMAGE_BACKEND="backend-image"',
         *(_assignment(name) for name in ENV_ASSIGNMENTS),
         _lifted("service_cid"),
+        _lifted("service_cid_any"),
         _lifted("check_compose_config"),
         _lifted("copy_streams"),
         _lifted("start_again_and_refuse"),
@@ -258,6 +261,27 @@ def test_a_refused_copy_starts_the_stopped_containers_again() -> None:
     assert code == 2, output
     assert fixture.called()[-1] == "start frontend backend", output
     assert "were started again" in output, output
+
+
+def test_a_container_that_is_not_running_is_copied_and_neither_stopped_nor_started() -> None:
+    """A failed build's backend has often exited or is restarting, and the rollback's recreate discards its stream all the same."""
+    code, output, fixture = _run(FAILED, FL_DEPLOY_STOPPED_CONTAINER="backend")
+
+    assert code == 0, output
+    assert _copies(fixture) == [f"{STAMP}-backend-failed.log", f"{STAMP}-frontend-failed.log"], output
+    assert fixture.called() == ["stop frontend", "logs frontend", "logs backend"], output
+
+
+def test_a_refused_copy_starts_only_what_it_stopped() -> None:
+    """A container found stopped stays stopped, and a bare `start` would start the whole project."""
+    code, output, fixture = _run(BEFORE, FL_DEPLOY_STOPPED_CONTAINER="backend", FL_DEPLOY_LOGS_FAIL="backend", FL_DEPLOY_LOGS_RC="7")
+    assert code == 2, output
+    assert fixture.called()[-1] == "start frontend", output
+
+    code, output, fixture = _run(BEFORE, FL_DEPLOY_STOPPED_CONTAINER="frontend:backend", FL_DEPLOY_LOGS_FAIL="frontend", FL_DEPLOY_LOGS_RC="7")
+    assert code == 2, output
+    assert fixture.called() == ["logs frontend"], output
+    assert "were started again" not in output, output
 
 
 def test_a_start_that_fails_after_a_refused_copy_says_the_site_is_down() -> None:
