@@ -144,6 +144,16 @@ the machine is outside the repository. What it does tell you:
   restores the running build by image id and runs no preflight, so the first deploy of a build
   carrying the check can still fall back to the build before it. Then publish a fixed build rather
   than deploying the restored one by the tag the script names.
+- **Never deploy by tag a build declaring no
+  `fl_backend/app/core/sentinels.py :: GHOST_SPIELER_ID` once a later build has erased a pupil or an
+  administrator; roll forward instead.** Each erasure writes a row such a build cannot read, and
+  nothing refuses the deploy:
+  - a pupil's, the season-after deletion's among them, writes the erased pupils' sentinel with no
+    name, so that build's player list in the administration answers 500;
+  - an administrator's queues a grant notice withheld as `geloescht`, which that build's hourly grant
+    pass cannot parse, so every pass fails and no change of access is mailed again, where the row is
+    still queued as that build boots;
+  - that build's boot attaches its own validators again (§2), which refuse any write over either row.
 - **After serving a build older than the season-row confirmation links, re-send the link of every
   contact seat that build re-staffed, once the current build is back.** That build's contacts editor
   leaves a row's links standing when it hands a seat to another person, and the confirmation finds a
@@ -479,7 +489,8 @@ ABGLEICH_INTERVAL_MS`) finds the row, it is dated by its own `erteilt_am`, or by
   older desktop with no biometric and no PIN is the case that turns up. Give them a FIDO2 key with
   resident-key and user-verification support, or a second device they can enrol from; there is no
   password and no code to fall back to. **Where nobody can get in at all, the way back is the
-  previous image** (§1's deploy by tag), which authenticates against the store that build carries —
+  previous image** (§1's deploy by tag, never past the floors §1 sets on it), which authenticates
+  against the store that build carries —
   so it works only while that store is still there, and dropping it is what closes this route.
 - **A removal is not a recovery route, and no control offers one to a session a mailed code alone
   made**: such a session could otherwise swap the administrator's passkey for a stolen mailbox's,
