@@ -41,7 +41,7 @@ from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE
 from app.core.logging import fl_logger
 from app.core.recording import build_redaction_filter, build_redaction_update, log_stamp
 from app.core.security import bind_system_actor, verify_access_system
-from app.core.transactions import drain, refuse_a_stalled_page, transaction_session
+from app.core.transactions import Batch, drain, refuse_a_stalled_page, run_isolated, transaction_session
 from app.shared.schemas.bounds import LIST_LIMIT_MAX
 
 # System tier and the system actor, as the application sweep's own router is: this pass holds no
@@ -133,8 +133,13 @@ async def sweep_registrierungen(
     until its deadline, and reminds it once a lift comes first; each pass logs how many it withheld, never which. Every removal
     names this season alone, is made inside a transaction and takes its log rows with it.
 
-    Whatever a call answers in `erinnerungen` and `benachrichtigt` was committed by its last transaction, so no later step of the same
-    call can answer an error in their place.
+    Whatever a call answers in `erinnerungen` and `benachrichtigt` was committed by its last transactions, so no later step of the same
+    call can answer an error in their place; where the request's deadline cuts them after one has committed, the call answers what
+    committed and warns once.
+
+    A registration whose write fails, the database refusing it or anything else, or one the answer cannot carry, is passed over
+    alone and logged by id: the rest of its clock's page or share goes, and it stays due, so the next pass meets it again and one
+    failing record holds back no clock and nobody behind it.
 
     404 where no season has the id. Idempotent per day once every due reminder and notice has gone out: a run after that writes
     nothing, though it logs the count of withheld registrations again.
@@ -175,20 +180,24 @@ async def sweep_registrierungen(
             session=session,
         )
 
-    async def erase_the_undecided(session: AsyncClientSession) -> tuple[list[FLRegistrierungSweepBenachrichtigung], int, int, bool]:
+    async def erase_the_undecided(
+        session: AsyncClientSession, batch: Batch
+    ) -> tuple[list[FLRegistrierungSweepBenachrichtigung], int, int, bool]:
         """The season's own end: erase, then redact the rows that still hold the people. Read in-session, so a retry re-judges.
 
         Also answers whether it was the pass's last transaction, or whether another page follows.
         """
 
-        rows = await pull_many_from_db(
-            collection=registrierungen_collection,
-            db_filter=build_undecided_filter(saison_id=saison_id),
-            projection=["status", "einwilligung", "vorname", "email", "team_id"],
-            # One over the page, as `app/api/saisons/admin_router.py :: undraw_spielplan` reads: a
-            # full page is a page that may be truncated, and a clock cannot see what it never read.
-            limit=SWEEP_PAGE + 1,
-            session=session,
+        rows = batch.saw(
+            await pull_many_from_db(
+                collection=registrierungen_collection,
+                db_filter={**build_undecided_filter(saison_id=saison_id), **batch.term},
+                projection=["status", "einwilligung", "vorname", "email", "team_id"],
+                # One over the page, as `app/api/saisons/admin_router.py :: undraw_spielplan` reads: a
+                # full page is a page that may be truncated, and a clock cannot see what it never read.
+                limit=SWEEP_PAGE + 1,
+                session=session,
+            )
         )
         taken = [row for row in rows if undecided_erasure_is_due(registrierung_raw=row, saison_status=saison_status)]
         if not taken:
@@ -225,15 +234,17 @@ async def sweep_registrierungen(
 
         return benachrichtigt, result.deleted_count, redacted, last
 
-    async def erase_the_unconfirmed(session: AsyncClientSession) -> tuple[int, int, int]:
+    async def erase_the_unconfirmed(session: AsyncClientSession, batch: Batch) -> tuple[int, int, int]:
         """The deadline clock: erase, then redact. Read in-session, so a retry re-judges."""
 
-        rows = await pull_many_from_db(
-            collection=registrierungen_collection,
-            db_filter=build_unconfirmed_filter(saison_id=saison_id, today=today),
-            projection=["status", "einwilligung", "bestaetigung"],
-            limit=SWEEP_PAGE + 1,
-            session=session,
+        rows = batch.saw(
+            await pull_many_from_db(
+                collection=registrierungen_collection,
+                db_filter={**build_unconfirmed_filter(saison_id=saison_id, today=today), **batch.term},
+                projection=["status", "einwilligung", "bestaetigung"],
+                limit=SWEEP_PAGE + 1,
+                session=session,
+            )
         )
         ids = [row["_id"] for row in rows if bestaetigung_erasure_is_due(registrierung_raw=row, today=today)]
         if not ids:
@@ -249,21 +260,23 @@ async def sweep_registrierungen(
 
         return len(rows), result.deleted_count, redacted
 
-    async def remind(session: AsyncClientSession) -> tuple[list[FLRegistrierungSweepErinnerung], int]:
+    async def remind(session: AsyncClientSession, batch: Batch) -> tuple[list[FLRegistrierungSweepErinnerung], int]:
         """Stamp, mint, stamp the run, then hand back, as the pass's last transaction. Read in-session, so a retry re-judges.
 
         Also answers how many registrations on the page a ban kept from their reminder, for the log line.
         """
 
-        rows = await pull_many_from_db(
-            collection=registrierungen_collection,
-            db_filter=build_erinnerung_filter(saison_id=saison_id, today=today),
-            projection=["status", "einwilligung", "bestaetigung", "vorname", "email", "team_id"],
-            limit=SWEEP_PAGE + 1,
-            # Earliest deadline first, so the pupil the unconfirmed clock takes soonest is reminded
-            # first; `_id` makes the page the same page whichever plan the server picks.
-            sort_by=[("bestaetigung.frist", ASCENDING), ("_id", ASCENDING)],
-            session=session,
+        rows = batch.saw(
+            await pull_many_from_db(
+                collection=registrierungen_collection,
+                db_filter={**build_erinnerung_filter(saison_id=saison_id, today=today), **batch.term},
+                projection=["status", "einwilligung", "bestaetigung", "vorname", "email", "team_id"],
+                limit=SWEEP_PAGE + 1,
+                # Earliest deadline first, so the pupil the unconfirmed clock takes soonest is reminded
+                # first; `_id` makes the page the same page whichever plan the server picks.
+                sort_by=[("bestaetigung.frist", ASCENDING), ("_id", ASCENDING)],
+                session=session,
+            )
         )
         due = [row for row in rows if erinnerung_is_due(registrierung_raw=row, today=today)]
         # Asked over the whole page before the share is cut: nothing of a ban is stored, so a barred row
@@ -276,7 +289,7 @@ async def sweep_registrierungen(
 
         # The rows past the share stay due and unstamped, so the next pass takes them: a reminded row
         # leaves the filter, so a full page is drained by the passes that follow.
-        taken = reachable[:REMINDERS_PER_PASS]
+        taken = reachable[: batch.share]
         refuse_a_stalled_page(read=len(rows), moved=len(taken), page=SWEEP_PAGE, clock="reminder", saison_id=saison_id)
         team_names = await _team_names(teams_collection=teams_collection, rows=taken, session=session)
 
@@ -307,15 +320,17 @@ async def sweep_registrierungen(
 
         return erinnerungen, withheld
 
-    async def erase_declined(session: AsyncClientSession) -> tuple[int, int, int]:
+    async def erase_declined(session: AsyncClientSession, batch: Batch) -> tuple[int, int, int]:
         """The one-month clock: erase, then redact. Read in-session, so a retry re-judges."""
 
-        rows = await pull_many_from_db(
-            collection=registrierungen_collection,
-            db_filter=build_decline_filter(saison_id=saison_id, today=today),
-            projection=["status", "entscheidung"],
-            limit=SWEEP_PAGE + 1,
-            session=session,
+        rows = batch.saw(
+            await pull_many_from_db(
+                collection=registrierungen_collection,
+                db_filter={**build_decline_filter(saison_id=saison_id, today=today), **batch.term},
+                projection=["status", "entscheidung"],
+                limit=SWEEP_PAGE + 1,
+                session=session,
+            )
         )
         ids = [row["_id"] for row in rows if decline_erasure_is_due(registrierung_raw=row, today=today)]
         if not ids:
@@ -332,7 +347,13 @@ async def sweep_registrierungen(
     # FIRST, and every other drain before the pass's last transaction: what that transaction hands
     # back is owed a message, and a failure after it would answer this request with an error instead
     # (`docs/backend/spec.md :: I323`).
-    abgelehnte, redacted_declined = await drain(db=db, page_of=lambda session: session.with_transaction(erase_declined), page=SWEEP_PAGE)
+    abgelehnte, redacted_declined = await drain(
+        db=db,
+        page_of=lambda session, batch: session.with_transaction(erase_declined, batch),
+        page=SWEEP_PAGE,
+        what="Registration",
+        clock="decline",
+    )
 
     benachrichtigt: list[FLRegistrierungSweepBenachrichtigung] = []
     erinnerungen: list[FLRegistrierungSweepErinnerung] = []
@@ -348,20 +369,50 @@ async def sweep_registrierungen(
             while True:
                 # Accepted: this commit going unanswered erases a page and loses whom it owed a
                 # message (`docs/backend/spec.md :: "An unanswered last commit"`).
-                async with transaction_session(db) as session:
-                    told, erased, redacted, last = await session.with_transaction(erase_the_undecided)
-                benachrichtigt.extend(told)
-                ohne_entscheidung += erased
-                redacted_undecided += redacted
-                if last:
+                pages, _ = await run_isolated(
+                    db=db,
+                    batch=Batch(),
+                    attempt=lambda session, batch: session.with_transaction(erase_the_undecided, batch),
+                    moved=lambda page: page[1],
+                    owes=True,
+                    what="Registration",
+                    clock="season's end",
+                )
+                for told, erased, redacted, _ in pages:
+                    benachrichtigt.extend(told)
+                    ohne_entscheidung += erased
+                    redacted_undecided += redacted
+                # Every half of a page taken apart reads under the page and so ends the call, having
+                # stamped the day; where none committed, nothing is owed and the day is stamped alone.
+                if not pages:
+                    async with transaction_session(db) as session:
+                        await session.with_transaction(stamp_the_run)
+                if all(last for *_, last in pages):
                     break
         else:
             unbestaetigt, redacted_unconfirmed = await drain(
-                db=db, page_of=lambda session: session.with_transaction(erase_the_unconfirmed), page=SWEEP_PAGE
+                db=db,
+                page_of=lambda session, batch: session.with_transaction(erase_the_unconfirmed, batch),
+                page=SWEEP_PAGE,
+                what="Registration",
+                clock="deadline",
             )
 
-            async with transaction_session(db) as session:
-                erinnerungen, withheld = await session.with_transaction(remind)
+            reminded, _ = await run_isolated(
+                db=db,
+                batch=Batch(share=REMINDERS_PER_PASS),
+                attempt=lambda session, batch: session.with_transaction(remind, batch),
+                moved=lambda answered: len(answered[0]),
+                owes=True,
+                what="Registration",
+                clock="reminder",
+            )
+            # Every half that committed stamped the day; where none did, nothing is owed and it is stamped alone.
+            if not reminded:
+                async with transaction_session(db) as session:
+                    await session.with_transaction(stamp_the_run)
+            erinnerungen = [erinnerung for answered, _ in reminded for erinnerung in answered]
+            withheld = sum(count for _, count in reminded)
 
             # After the commit, so a retried transaction writes no second line. A count and never an id:
             # a line naming the registration would tie it to the ban for as long as the log is kept.

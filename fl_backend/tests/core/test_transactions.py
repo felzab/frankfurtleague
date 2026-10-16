@@ -15,17 +15,27 @@ from bson import ObjectId
 from fastapi import FastAPI
 from pymongo import AsyncMongoClient, monitoring
 from pymongo.asynchronous.client_session import AsyncClientSession
+from pymongo.errors import ExecutionTimeout, OperationFailure
 from starlette.requests import Request
 from starlette.types import Message, Scope
 
 from app.core import security
 from app.core.collections import Collection
-from app.core.exception_handlers import DATABASE_FAILED
+from app.core.exception_handlers import DATABASE_FAILED, UNHANDLED_CRASH, UNKNOWN_OUTCOME
 from app.core.logging import fl_logger
 from app.core.middlewares import request_deadline_var
 from app.core.recording import PUBLIC_ACTOR, SYSTEM_ACTOR, Actor, PersonActor, actor_var
 from app.core.security import admin_judge, bind_actor, person_judge
-from app.core.transactions import ABORT_GRACE_S, UNJUDGED_KINDS, actor_judge_var, drain, transaction_session
+from app.core.transactions import (
+    ABORT_GRACE_S,
+    UNJUDGED_KINDS,
+    Batch,
+    StalledPage,
+    actor_judge_var,
+    drain,
+    run_isolated,
+    transaction_session,
+)
 from app.main import create_app
 from tests.actor_tokens import verified_actor
 from tests.config import TEST_BASE_URL, UNANSWERED_URI, build_test_config, grants_for_the_suite
@@ -93,13 +103,19 @@ class TestAFullPageIsRunAgain:
         client = _Client()
         handed: list[_Session] = []
 
-        async def erase_a_page(session: Any) -> tuple[int, int, int]:
+        async def erase_a_page(session: Any, _: Batch) -> tuple[int, int, int]:
             assert session.open, "a page ran outside the session it was handed"
             handed.append(session)
             return pages[len(handed) - 1]
 
         erased, redacted = asyncio.run(
-            drain(db=cast(AsyncMongoClient, client), page_of=lambda session: session.with_transaction(erase_a_page), page=PAGE)
+            drain(
+                db=cast(AsyncMongoClient, client),
+                page_of=lambda session, batch: session.with_transaction(erase_a_page, batch),
+                page=PAGE,
+                what="Row",
+                clock="test",
+            )
         )
 
         assert handed == client.sessions
@@ -135,6 +151,142 @@ class _RefusedByTheJudge(Exception):
 
 class _FailedInTheCallback(Exception):
     """The callback's own failure."""
+
+
+class _Rows:
+    """The rows a clock's transaction reads, one past `PAGE` under its batch's term, raising whatever `raises` answers for what it read."""
+
+    def __init__(self, count: int, raises: Callable[[list[int]], Exception | None]) -> None:
+        self.standing = list(range(count))
+        self.raises = raises
+        self.read: list[list[int]] = []
+
+    async def erase(self, _: Any, batch: Batch) -> tuple[int, int, int]:
+        term = batch.term.get("_id", {})
+        rows = [row for row in self.standing if ("$in" not in term or row in term["$in"]) and row not in term.get("$nin", ())][: PAGE + 1]
+        batch.saw([{"_id": row} for row in rows])
+        self.read.append(rows)
+        if (failure := self.raises(rows)) is not None:
+            raise failure
+
+        for row in rows:
+            self.standing.remove(row)
+        return len(rows), len(rows), 0
+
+
+def _isolated(rows: _Rows, *, owes: bool = False) -> tuple[list[tuple[int, int, int]], list[Any]]:
+    return asyncio.run(
+        run_isolated(
+            db=cast(AsyncMongoClient, _Client()),
+            batch=Batch(),
+            attempt=lambda session, batch: session.with_transaction(rows.erase, batch),
+            moved=lambda page: page[1],
+            owes=owes,
+            what="Row",
+            clock="test",
+        )
+    )
+
+
+class TestARowFailingAloneIsPassedOver:
+    """`docs/backend/spec.md :: I720` over doubles, for the failures no row carries, which no database case reaches cheaply."""
+
+    @pytest.mark.parametrize(
+        ("failure", "code", "line"),
+        [
+            pytest.param(
+                _FailedInTheCallback,
+                UNHANDLED_CRASH,
+                "Row 1 was passed over by the test clock, the failure not the database's: _FailedInTheCallback",
+                id="not the database's",
+            ),
+            pytest.param(
+                lambda: OperationFailure("refused", 121),
+                DATABASE_FAILED,
+                "Row 1 was passed over by the test clock: OperationFailure",
+                id="refused",
+            ),
+            pytest.param(
+                lambda: OperationFailure("unanswered", None, {"errorLabels": ["UnknownTransactionCommitResult"]}),
+                UNKNOWN_OUTCOME,
+                "Row 1 was written or not by the test clock, its commit unanswered: OperationFailure",
+                id="its commit unanswered",
+            ),
+        ],
+    )
+    def test_the_rest_of_its_page_goes_and_no_later_page_reads_it_again(
+        self, caplog: pytest.LogCaptureFixture, failure: Callable[[], Exception], code: str, line: str
+    ):
+        rows = _Rows(2 * PAGE + 1, lambda read: failure() if 1 in read else None)
+
+        with caplog.at_level(logging.ERROR, logger=fl_logger.name):
+            erased, _ = asyncio.run(
+                drain(
+                    db=cast(AsyncMongoClient, _Client()),
+                    page_of=lambda session, batch: session.with_transaction(rows.erase, batch),
+                    page=PAGE,
+                    what="Row",
+                    clock="test",
+                )
+            )
+
+        assert (erased, rows.standing) == (2 * PAGE, [1])
+        # The page after the one it failed in, read without it: read with it, it fails that page whole again.
+        assert rows.read[-1] == [4, 5, 6]
+        assert [(getattr(record, "error_code", None), record.getMessage()) for record in caplog.records] == [(code, line)]
+
+    @pytest.mark.parametrize("owes", [True, False], ids=("owing a message", "owing none"))
+    def test_a_deadline_is_never_halved_and_is_answered_only_where_a_committed_half_owes_a_message(self, owes: bool):
+        """Row 1 fails alone; whatever reads row 2 meets the deadline, which every half of `[2, 3]` would meet too."""
+
+        def raises(read: list[int]) -> Exception | None:
+            if 1 in read:
+                return _FailedInTheCallback()
+            return ExecutionTimeout("deadline", 50) if 2 in read else None
+
+        rows = _Rows(4, raises)
+
+        if owes:
+            assert _isolated(rows, owes=owes) == ([(1, 1, 0)], [1])
+        else:
+            with pytest.raises(ExecutionTimeout):
+                _isolated(rows, owes=owes)
+
+        assert rows.read == [[0, 1, 2, 3], [0, 1], [0], [1], [2, 3]]
+
+    def test_a_failure_before_any_row_was_read_is_raised_rather_than_halved(self):
+        """No row to halve, so taking it apart would answer an empty success over a read that failed."""
+
+        attempts: list[Batch] = []
+
+        async def unread(_: Any, batch: Batch) -> tuple[int, int, int]:
+            attempts.append(batch)
+            raise _FailedInTheCallback
+
+        with pytest.raises(_FailedInTheCallback):
+            asyncio.run(
+                run_isolated(
+                    db=cast(AsyncMongoClient, _Client()),
+                    batch=Batch(),
+                    attempt=lambda session, batch: session.with_transaction(unread, batch),
+                    moved=lambda page: page[1],
+                    owes=True,
+                    what="Row",
+                    clock="test",
+                )
+            )
+
+        assert len(attempts) == 1
+
+    def test_a_stalled_page_is_raised_rather_than_halved(self):
+        """Its halves read under the page, so taking it apart would hide the stall `refuse_a_stalled_page` declares."""
+
+        rows = _Rows(PAGE + 1, lambda read: StalledPage("stalled"))
+
+        with pytest.raises(StalledPage):
+            _isolated(rows)
+
+        assert rows.read == [[0, 1, 2, 3]]
 
 
 def _run_judged(actor: Actor | PersonActor, judge: Any, *, attempts: int = 1, fails: bool = False, client: _Client | None = None) -> list[str]:
@@ -795,7 +947,7 @@ def _session_running_it(node: ast.AST, session: str | None, forwarded: str | Non
         return None
     if isinstance(node.func, ast.Attribute) and node.func.attr == "with_transaction":
         named = node.func.value
-    elif isinstance(node.func, ast.Name) and node.func.id == forwarded and len(node.args) == 1 and not node.keywords:
+    elif isinstance(node.func, ast.Name) and node.func.id == forwarded and len(node.args) in (1, 2) and not node.keywords:
         named = node.args[0]
     else:
         return None
@@ -803,8 +955,8 @@ def _session_running_it(node: ast.AST, session: str | None, forwarded: str | Non
     return named if isinstance(named, ast.Name) and named.id == session else None
 
 
-# `drain` awaits the transaction each caller hands it as `page_of`, which every caller is then held to.
-_FORWARDING = ("drain", "page_of")
+# Each helper awaiting the transaction its caller hands it under this parameter, which every caller is then held to.
+_FORWARDING = {"drain": "page_of", "isolate": "attempt", "run_isolated": "attempt"}
 
 
 def _able_to_swallow(block: ast.AsyncWith, forwarded: str | None = None) -> list[ast.expr | ast.stmt]:
@@ -882,42 +1034,49 @@ class TestEveryTransactionRunsOnTheHelpersSession:
         ]
         # Non-empty, so a helper renamed past this sweep's spelling fails rather than finding nothing to judge.
         assert blocks
-        function, parameter = _FORWARDING
         forwarding = {
-            id(block)
+            id(block): (node.name, _FORWARDING[node.name])
             for node in ast.walk(parsed(APP_ROOT / "core" / "transactions.py"))
-            if isinstance(node, ast.AsyncFunctionDef) and node.name == function
+            if isinstance(node, ast.AsyncFunctionDef) and node.name in _FORWARDING
             for block in _transaction_blocks(node)
         }
-        assert forwarding, f"no `{function}` opens a session where this sweep looks"
+        assert {function for function, _ in forwarding.values()} == set(_FORWARDING), (
+            "a forwarding helper opens no session where this sweep looks"
+        )
 
         assert [
             f"{module}:{node.lineno}"
             for module, block in blocks
-            for node in _able_to_swallow(block, parameter if id(block) in forwarding else None)
+            for node in _able_to_swallow(block, forwarding[id(block)][1] if id(block) in forwarding else None)
         ] == []
 
     def test_every_page_drain_is_handed_runs_its_transaction_where_it_is_called(self):
-        """`drain` awaits what `page_of` returns, so a `page_of` returning anything but the transaction escapes the sweep above."""
+        """Each helper awaits what it is handed, so one handed anything but the transaction escapes the sweep above.
 
-        function, parameter = _FORWARDING
+        A helper handing on its own parameter is the one other shape: that parameter is held where its own caller hands it.
+        """
+
         handed = [
-            (f"{module} :: {scope}", keyword.value)
+            (f"{module} :: {scope}", scope, parameter, keyword.value)
             for module, scope, call in app_calls()
+            for function, parameter in _FORWARDING.items()
             if callee(call) == function
             for keyword in call.keywords
             if keyword.arg == parameter
         ]
-        assert handed, f"no call hands `{function}` a `{parameter}`, so the clause below is vacuous"
+        assert any(not site.startswith("app/core/transactions.py") for site, *_ in handed), (
+            "no caller hands a helper a transaction, so the clause below is vacuous"
+        )
 
         assert [
             site
-            for site, page_of in handed
+            for site, scope, parameter, value in handed
             if not (
-                isinstance(page_of, ast.Lambda)
-                and len(page_of.args.args) == 1
-                and _session_running_it(page_of.body, page_of.args.args[0].arg) is not None
+                isinstance(value, ast.Lambda)
+                and len(value.args.args) == 2
+                and _session_running_it(value.body, value.args.args[0].arg) is not None
             )
+            and not (site.startswith("app/core/transactions.py") and isinstance(value, ast.Name) and value.id == _FORWARDING.get(scope))
         ] == []
 
     @pytest.mark.parametrize(("source", "named"), [pytest.param(*sample, id=name) for name, sample in _SWALLOWING_BLOCKS.items()])

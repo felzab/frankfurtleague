@@ -1183,6 +1183,16 @@ half, and the date alone is not: the application's endpoint stamps its day befor
 follow it, so a throw after that stamp leaves a fresh application date beside a stale registration
 one just as a failed registration call would.
 
+**A row either pass cannot write is passed over and named, and the date still moves.** The
+backend's line names the application, the registration or the season row by id and the error's
+class, never a person's values: `DB-FAIL-001` is a write the database refused, `SRV-FAIL-001` a
+failure it did not raise, such as a hand-edited deadline or an empty first name the answer cannot
+carry, and `DB-FAIL-002` a commit whose outcome is unknown, which the next pass judges afresh. The
+rest of that clock's rows go, and the named one stays due: every later pass names it again until
+its record is repaired ([`../backend/spec.md`](../backend/spec.md#2-invariants) I720). A warning
+that the database deadline passed taking a clock's rows apart is the call answering what it had
+done, and the next pass goes on.
+
 **The two halves after the seasons stamp no day, so their own lines are the record.** Every pass
 ends by removing the referees' and the pupils' pending addresses whose link lapsed before today,
 and, where `LOESCHUNG_SWEEP` reads `on`, by deleting the pupils the season-after rule makes due.

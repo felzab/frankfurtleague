@@ -64,7 +64,7 @@ from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE
 from app.core.logging import fl_logger
 from app.core.recording import build_redaction_filter, build_redaction_update, log_stamp
 from app.core.security import bind_system_actor, verify_access_system
-from app.core.transactions import drain, refuse_a_stalled_page, transaction_session
+from app.core.transactions import Batch, drain, log_passed, refuse_a_stalled_page, run_isolated, transaction_session
 from app.shared.schemas.bounds import LIST_LIMIT_MAX
 
 # System tier and the system actor: the sweep holds no session, so `bind_actor` would refuse it,
@@ -187,8 +187,13 @@ async def sweep_saison(
     declined, accepted and contact-block clocks erase and redact in this call. Every removal names this season alone.
 
     One call reminds, lists and clears contact blocks for a bounded share of what is due, the first two earliest deadline
-    first; the rest stay due and the calls after it take them. The reminders are committed by the call's LAST transaction, so no later step
-    of the same call can answer an error in their place.
+    first; the rest stay due and the calls after it take them. The reminders are committed by the call's LAST transactions, so no later step
+    of the same call can answer an error in their place; where the request's deadline cuts them after one has committed, the call
+    answers what committed and warns once.
+
+    An application or a season row whose write fails, the database refusing it or anything else, or one the answer cannot carry,
+    is passed over alone and logged by id: the rest of its clock's page or share goes, and it stays due, so the next pass meets it
+    again and one failing record holds back no clock and nobody behind it.
 
     404 where no season has the id. Idempotent per day once every share has been taken: a run after that writes nothing,
     though it logs the count of withheld seats again.
@@ -238,17 +243,19 @@ async def sweep_saison(
             session=session,
         )
 
-    async def erase_the_undecided(session: AsyncClientSession) -> tuple[int, int, int]:
+    async def erase_the_undecided(session: AsyncClientSession, batch: Batch) -> tuple[int, int, int]:
         """The season's own end: erase, then redact the rows that still hold the people. Read in-session, so a retry re-judges."""
 
-        rows = await pull_many_from_db(
-            collection=bewerbungen_collection,
-            db_filter={"saison_id": saison_id, "status": "eingereicht"},
-            projection=["status"],
-            # One over the page: a full page is a page that may be truncated, and a clock cannot
-            # see what it never read (`docs/backend/spec.md :: I295`).
-            limit=SWEEP_PAGE + 1,
-            session=session,
+        rows = batch.saw(
+            await pull_many_from_db(
+                collection=bewerbungen_collection,
+                db_filter={"saison_id": saison_id, "status": "eingereicht", **batch.term},
+                projection=["status"],
+                # One over the page: a full page is a page that may be truncated, and a clock cannot
+                # see what it never read (`docs/backend/spec.md :: I295`).
+                limit=SWEEP_PAGE + 1,
+                session=session,
+            )
         )
         ids = [row["_id"] for row in rows if undecided_erasure_is_due(bewerbung_raw=row, saison_status=saison_status)]
         if not ids:
@@ -263,20 +270,22 @@ async def sweep_saison(
 
         return len(rows), result.deleted_count, redacted
 
-    async def remind(session: AsyncClientSession) -> tuple[list[FLBewerbungSweepErinnerung], int]:
+    async def remind(session: AsyncClientSession, batch: Batch) -> tuple[list[FLBewerbungSweepErinnerung], int]:
         """Stamp, mint, stamp the run, then hand back, as the pass's last transaction. Read in-session, so a retry re-judges.
 
         Also answers how many mailboxes on the page a ban kept from their reminder, for the log line.
         """
 
-        rows = await pull_many_from_db(
-            collection=bewerbungen_collection,
-            db_filter=build_erinnerung_filter(saison_id=saison_id, today=today),
-            limit=SWEEP_PAGE + 1,
-            # Earliest deadline first, so the application the fourteen-day clock takes soonest is
-            # chased first; `_id` makes the page the same page whichever plan the server picks.
-            sort_by=[("bestaetigungsfrist", ASCENDING), ("_id", ASCENDING)],
-            session=session,
+        rows = batch.saw(
+            await pull_many_from_db(
+                collection=bewerbungen_collection,
+                db_filter={**build_erinnerung_filter(saison_id=saison_id, today=today), **batch.term},
+                limit=SWEEP_PAGE + 1,
+                # Earliest deadline first, so the application the fourteen-day clock takes soonest is
+                # chased first; `_id` makes the page the same page whichever plan the server picks.
+                sort_by=[("bestaetigungsfrist", ASCENDING), ("_id", ASCENDING)],
+                session=session,
+            )
         )
         per_row = [
             (
@@ -302,7 +311,7 @@ async def sweep_saison(
 
         # The rows past the share stay due and unstamped, so the next pass takes them: a stamped
         # seat leaves the filter, so a full page is drained by the passes that follow.
-        taken = [(row, mailboxes) for row, mailboxes in reachable if mailboxes][:REMINDERS_PER_PASS]
+        taken = [(row, mailboxes) for row, mailboxes in reachable if mailboxes][: batch.share]
         refuse_a_stalled_page(read=len(rows), moved=len(taken), page=SWEEP_PAGE, clock="reminder", saison_id=saison_id)
         club_names = await _club_names(teams_collection=teams_collection, rows=[row for row, _ in taken], session=session)
 
@@ -349,17 +358,24 @@ async def sweep_saison(
 
         return erinnerungen, withheld
 
-    async def erase_declined(session: AsyncClientSession) -> tuple[int, int, int]:
+    async def erase_declined(session: AsyncClientSession, batch: Batch) -> tuple[int, int, int]:
         """The one-month clock: erase, then redact the rows that still hold the people. Read in-session, so a retry re-judges."""
 
-        rows = await pull_many_from_db(
-            collection=bewerbungen_collection,
-            # Narrowed to the decisions whose month is behind them: a page of fresh ones would fill the
-            # read ahead of a due one, and the stall would refuse the pass.
-            db_filter={"saison_id": saison_id, "status": "abgelehnt", "entscheidung.getroffen_am": {"$lte": latest_decision_due(today=today)}},
-            projection=["status", "entscheidung"],
-            limit=SWEEP_PAGE + 1,
-            session=session,
+        rows = batch.saw(
+            await pull_many_from_db(
+                collection=bewerbungen_collection,
+                # Narrowed to the decisions whose month is behind them: a page of fresh ones would fill the
+                # read ahead of a due one, and the stall would refuse the pass.
+                db_filter={
+                    "saison_id": saison_id,
+                    "status": "abgelehnt",
+                    "entscheidung.getroffen_am": {"$lte": latest_decision_due(today=today)},
+                    **batch.term,
+                },
+                projection=["status", "entscheidung"],
+                limit=SWEEP_PAGE + 1,
+                session=session,
+            )
         )
         ids = [row["_id"] for row in rows if decline_erasure_is_due(bewerbung_raw=row, today=today)]
         if not ids:
@@ -377,15 +393,17 @@ async def sweep_saison(
 
         return len(rows), result.deleted_count, redacted
 
-    async def erase_accepted(session: AsyncClientSession) -> tuple[int, int, int]:
+    async def erase_accepted(session: AsyncClientSession, batch: Batch) -> tuple[int, int, int]:
         """The season-and-one clock's first half. Read in-session, so a retry re-judges."""
 
-        rows = await pull_many_from_db(
-            collection=bewerbungen_collection,
-            db_filter={"saison_id": saison_id, "status": "angenommen"},
-            projection=["status"],
-            limit=SWEEP_PAGE + 1,
-            session=session,
+        rows = batch.saw(
+            await pull_many_from_db(
+                collection=bewerbungen_collection,
+                db_filter={"saison_id": saison_id, "status": "angenommen", **batch.term},
+                projection=["status"],
+                limit=SWEEP_PAGE + 1,
+                session=session,
+            )
         )
         ids = [row["_id"] for row in rows if acceptance_erasure_is_due(bewerbung_raw=row, next_saison_status=next_saison_status)]
         if not ids:
@@ -400,20 +418,22 @@ async def sweep_saison(
 
         return len(rows), result.deleted_count, redacted
 
-    async def clear_the_blocks(session: AsyncClientSession) -> tuple[int, int]:
+    async def clear_the_blocks(session: AsyncClientSession, batch: Batch) -> tuple[int, int]:
         """The season-and-one clock's second half, a share a pass. Read in-session, so a retry re-judges."""
 
-        junction_rows = await pull_many_from_db(
-            collection=saison_teams_collection,
-            # Either block standing, not `kontakte` alone: an image that predates the links clears the
-            # people and leaves their links, and their delivery records, behind.
-            db_filter={"saison_id": saison_id, "$or": [{"kontakte": {"$ne": None}}, {"bestaetigungen": {"$ne": None}}]},
-            projection=["_id"],
-            limit=SWEEP_PAGE + 1,
-            session=session,
+        junction_rows = batch.saw(
+            await pull_many_from_db(
+                collection=saison_teams_collection,
+                # Either block standing, not `kontakte` alone: an image that predates the links clears the
+                # people and leaves their links, and their delivery records, behind.
+                db_filter={"saison_id": saison_id, "$or": [{"kontakte": {"$ne": None}}, {"bestaetigungen": {"$ne": None}}], **batch.term},
+                projection=["_id"],
+                limit=SWEEP_PAGE + 1,
+                session=session,
+            )
         )
         # A cleared row leaves the filter, so the rows past the share are the next pass's.
-        taken = junction_rows[:BLOCKS_CLEARED_PER_PASS]
+        taken = junction_rows[: batch.share]
 
         # `patch_one_in_db` per row and never `patch_many_in_db`, which records no `document_id`: the
         # redaction below must match the rows it logs (`app/api/kontakte/crud.py :: clear_seats`).
@@ -450,18 +470,42 @@ async def sweep_saison(
     # notice about nothing.
     if season_has_ended(saison_status=saison_status):
         ohne_entscheidung, redacted_undecided = await drain(
-            db=db, page_of=lambda session: session.with_transaction(erase_the_undecided), page=SWEEP_PAGE
+            db=db,
+            page_of=lambda session, batch: session.with_transaction(erase_the_undecided, batch),
+            page=SWEEP_PAGE,
+            what="Application",
+            clock="season's end",
         )
 
-    abgelehnte, redacted_declined = await drain(db=db, page_of=lambda session: session.with_transaction(erase_declined), page=SWEEP_PAGE)
+    abgelehnte, redacted_declined = await drain(
+        db=db,
+        page_of=lambda session, batch: session.with_transaction(erase_declined, batch),
+        page=SWEEP_PAGE,
+        what="Application",
+        clock="decline",
+    )
 
     angenommene, geleert, redacted_accepted = 0, 0, 0
     if season_after_has_ended(next_saison_status=next_saison_status):
-        angenommene, redacted_accepted = await drain(db=db, page_of=lambda session: session.with_transaction(erase_accepted), page=SWEEP_PAGE)
+        angenommene, redacted_accepted = await drain(
+            db=db,
+            page_of=lambda session, batch: session.with_transaction(erase_accepted, batch),
+            page=SWEEP_PAGE,
+            what="Application",
+            clock="acceptance",
+        )
 
-        async with transaction_session(db) as session:
-            geleert, redacted_blocks = await session.with_transaction(clear_the_blocks)
-        redacted_accepted += redacted_blocks
+        cleared, _ = await run_isolated(
+            db=db,
+            batch=Batch(share=BLOCKS_CLEARED_PER_PASS),
+            attempt=lambda session, batch: session.with_transaction(clear_the_blocks, batch),
+            moved=lambda blocks: blocks[0],
+            owes=False,
+            what="Season team",
+            clock="contact block",
+        )
+        geleert = sum(blocks for blocks, _ in cleared)
+        redacted_accepted += sum(redacted for _, redacted in cleared)
 
     # Reads alone: the notice goes out first, and the erasure is the caller's second call.
     candidates = await pull_many_from_db(
@@ -482,8 +526,10 @@ async def sweep_saison(
         # The mailbox and every seat it holds, from the helper the confirm router addresses its own
         # message with: one person on two seats reads one phrase naming both, in both messages.
         empfaenger, rollen = ansprechperson_mailbox(kontakte=row.get("kontakte"))
-        loeschungen.append(
-            FLBewerbungSweepLoeschung(
+        # Each row apart, so one that raises, a deadline the answer's model refuses say, is passed over
+        # rather than failing every clock of the call (`docs/backend/spec.md :: I720`).
+        try:
+            loeschung = FLBewerbungSweepLoeschung(
                 bewerbung_id=row["_id"],
                 saison_id=saison_id,
                 schule=schule_name(bewerbung_raw=row, club_names=club_names),
@@ -496,12 +542,29 @@ async def sweep_saison(
                 ],
                 angekuendigt=deletion_was_announced(bewerbung_raw=row),
             )
-        )
+        except Exception as failure:
+            log_passed(what="Application", row_id=row["_id"], clock="deletion", failure=failure)
+            continue
+        loeschungen.append(loeschung)
 
     # The run's day is a season write, which the cache serves.
     with dropping_the_saison_cache():
-        async with transaction_session(db) as session:
-            erinnerungen, withheld = await session.with_transaction(remind)
+        reminded, _ = await run_isolated(
+            db=db,
+            batch=Batch(share=REMINDERS_PER_PASS),
+            attempt=lambda session, batch: session.with_transaction(remind, batch),
+            moved=lambda answered: len({erinnerung.bewerbung_id for erinnerung in answered[0]}),
+            owes=True,
+            what="Application",
+            clock="reminder",
+        )
+        # Every half that committed stamped the day; where none did, nothing is owed and it is stamped alone.
+        if not reminded:
+            async with transaction_session(db) as session:
+                await session.with_transaction(stamp_the_run)
+
+    erinnerungen = [erinnerung for answered, _ in reminded for erinnerung in answered]
+    withheld = sum(count for _, count in reminded)
 
     # After the commit, so a retried transaction writes no second line. A count and never an id: a
     # line naming the application would tie it to the ban for as long as the log is kept.
@@ -537,6 +600,8 @@ async def angekuendigt_bewerbungen(
     """
     Record that the deletion notice reached the applications named, so an erasure that fails afterwards mails nobody twice.
 
+    An id whose stamp fails, the database refusing it or anything else, is passed over alone, logged by id and left unstamped.
+
     The ids are re-judged in-session: only one still submitted, past its deadline and with a seat outstanding is stamped, and one
     already carrying a stamp keeps the day it has. An id whose Ansprechperson the mail provider refused between the pass and this
     call is skipped, so a notice the provider never carried is not recorded as delivered. 404 where no season has the id. An empty
@@ -545,14 +610,22 @@ async def angekuendigt_bewerbungen(
 
     await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["_id"])
 
-    async def stamp_the_notified(session: AsyncClientSession) -> int:
+    async def stamp_the_notified(session: AsyncClientSession, batch: Batch) -> int:
         """Judge and stamp in one transaction. Everything judged is read in-session, so a retry re-judges it."""
 
-        rows = await pull_many_from_db(
-            collection=bewerbungen_collection,
-            db_filter={"saison_id": saison_id, "_id": {"$in": list(angekuendigt_data.bewerbung_ids)}, "status": "eingereicht"},
-            limit=LIST_LIMIT_MAX,
-            session=session,
+        rows = batch.saw(
+            await pull_many_from_db(
+                collection=bewerbungen_collection,
+                # A half's ids, where the batch names one, in place of the list's: each is drawn from it.
+                db_filter={
+                    "saison_id": saison_id,
+                    "_id": {"$in": list(angekuendigt_data.bewerbung_ids)},
+                    "status": "eingereicht",
+                    **batch.term,
+                },
+                limit=LIST_LIMIT_MAX,
+                session=session,
+            )
         )
 
         stamped = 0
@@ -572,10 +645,17 @@ async def angekuendigt_bewerbungen(
 
         return stamped
 
-    async with transaction_session(db) as session:
-        angekuendigt = await session.with_transaction(stamp_the_notified)
+    stamped, _ = await run_isolated(
+        db=db,
+        batch=Batch(),
+        attempt=lambda session, batch: session.with_transaction(stamp_the_notified, batch),
+        moved=lambda count: count,
+        owes=False,
+        what="Application",
+        clock="announcement",
+    )
 
-    return FLBewerbungSweepAngekuendigtResponse(saison_id=saison_id, angekuendigt=angekuendigt)
+    return FLBewerbungSweepAngekuendigtResponse(saison_id=saison_id, angekuendigt=sum(stamped))
 
 
 @router.post(
@@ -601,18 +681,23 @@ async def loeschen_bewerbungen(
     mail provider will still carry AND carrying the announcement stamp is erased, so an application confirmed and accepted between
     the calls survives, one whose notice bounced after it was stamped is held rather than destroyed, and an id from another
     season or one nobody was told about is skipped rather than refused. 404 where no season has the id. An empty list answers zeros.
+
+    An id whose erasure fails, the database refusing it or anything else, is passed over alone, logged by id and left standing.
     """
 
     await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["_id"])
 
-    async def erase_the_notified(session: AsyncClientSession) -> tuple[int, int]:
+    async def erase_the_notified(session: AsyncClientSession, batch: Batch) -> tuple[int, int]:
         """Judge, erase, redact, in one transaction. Everything judged is read in-session, so a retry re-judges it."""
 
-        rows = await pull_many_from_db(
-            collection=bewerbungen_collection,
-            db_filter={"saison_id": saison_id, "_id": {"$in": list(loeschen_data.bewerbung_ids)}, "status": "eingereicht"},
-            limit=LIST_LIMIT_MAX,
-            session=session,
+        rows = batch.saw(
+            await pull_many_from_db(
+                collection=bewerbungen_collection,
+                # A half's ids, where the batch names one, in place of the list's: each is drawn from it.
+                db_filter={"saison_id": saison_id, "_id": {"$in": list(loeschen_data.bewerbung_ids)}, "status": "eingereicht", **batch.term},
+                limit=LIST_LIMIT_MAX,
+                session=session,
+            )
         )
         # Announced as well as due: an unannounced id here is a caller that skipped the stamp, and
         # erasing it would destroy an application whose people were never told.
@@ -629,7 +714,16 @@ async def loeschen_bewerbungen(
 
         return result.deleted_count, redacted
 
-    async with transaction_session(db) as session:
-        geloescht, redigiert = await session.with_transaction(erase_the_notified)
+    erased, _ = await run_isolated(
+        db=db,
+        batch=Batch(),
+        attempt=lambda session, batch: session.with_transaction(erase_the_notified, batch),
+        moved=lambda counts: counts[0],
+        owes=False,
+        what="Application",
+        clock="fourteen-day",
+    )
 
-    return FLBewerbungSweepLoeschenResponse(saison_id=saison_id, geloescht=geloescht, redigierte_aktionen=redigiert)
+    return FLBewerbungSweepLoeschenResponse(
+        saison_id=saison_id, geloescht=sum(geloescht for geloescht, _ in erased), redigierte_aktionen=sum(redigiert for _, redigiert in erased)
+    )

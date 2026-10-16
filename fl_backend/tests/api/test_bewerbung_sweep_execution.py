@@ -44,6 +44,7 @@ from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db
+from app.core.exception_handlers import DATABASE_FAILED, UNHANDLED_CRASH
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from app.core.logging import FL_LOGGER_NAME
 from app.core.recording import SYSTEM_ACTOR_EMAIL
@@ -1025,6 +1026,225 @@ class TestASeasonNobodyHas:
             return await database[Collection.BEWERBUNGEN].count_documents({}), await erasure_rows(database)
 
         assert on_a_league(mongo_replica_set_url, body) == (5, [])
+
+
+SECOND_OID = ObjectId("6890a1b2c3d4e5f607960007")
+SECOND_CLUB_OID = ObjectId("6890a1b2c3d4e5f607960012")
+SECOND_JUNCTION_OID = ObjectId("6890a1b2c3d4e5f607960022")
+
+DECLINED = {"status": "abgelehnt", "entscheidung": {"getroffen_am": "2026-02-15", "von": "admin", "grund": "kein Platz"}}
+
+
+def refusing_its_redaction(collection: Collection, row: Mapping[str, Any]) -> dict[str, Any]:
+    """A log image missing the `trace_id` its validator requires, so the redaction's update is refused: any row a write is refused on."""
+
+    return {
+        "at": "2026-01-01T00:00:00+00:00",
+        "actor": {"kind": "system", "email": "SYSTEM"},
+        "request": None,
+        "collection": str(collection),
+        "operation": "patch_one",
+        "document_id": row["_id"],
+        "db_filter": None,
+        "before": dict(row),
+        "modified_count": None,
+        "redacted_at": None,
+    }
+
+
+async def refuse_the_redaction_of(database: AsyncDatabase, collection: Collection, row_id: ObjectId) -> None:
+    row = await database[collection].find_one({"_id": row_id})
+    assert row is not None
+    await database[Collection.AKTIONEN].insert_one(refusing_its_redaction(collection, row), bypass_document_validation=True)
+
+
+def passed_over(caplog: pytest.LogCaptureFixture) -> list[tuple[str, str | None, str]]:
+    return [
+        (record.levelname, getattr(record, "error_code", None), record.getMessage())
+        for record in caplog.records
+        if "passed over" in record.getMessage()
+    ]
+
+
+def reminded(answer: Any) -> set[ObjectId]:
+    return {erinnerung.bewerbung_id for erinnerung in answer.erinnerungen}
+
+
+class TestOneRowHoldsBackNoOther:
+    """`docs/backend/spec.md :: I720`, one case per write the call makes: with the site's isolation gone the whole call raises, every hour."""
+
+    def test_a_refused_erasure_at_the_seasons_end(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await refuse_the_redaction_of(database, Collection.BEWERBUNGEN, REMIND_OID)
+            answer = await sweep(database, client)
+
+            return (
+                (answer.ohne_entscheidung_geloescht, answer.abgelehnte_geloescht),
+                await stored(database, REMIND_OID),
+                await stored(database, DELETE_OID),
+            )
+
+        with caplog.at_level(logging.ERROR, logger=FL_LOGGER_NAME):
+            counts, refused, other = on_a_league(mongo_replica_set_url, body, status="past")
+
+        # The decline clock after it ran too.
+        assert counts == (1, 1)
+        assert (refused is not None, other) == (True, None)
+        assert passed_over(caplog) == [
+            ("ERROR", DATABASE_FAILED, f"Application {REMIND_OID} was passed over by the season's end clock: WriteError")
+        ]
+
+    def test_a_refused_erasure_by_the_decline_clock(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.BEWERBUNGEN].insert_one(application(SECOND_OID, **DECLINED))
+            await refuse_the_redaction_of(database, Collection.BEWERBUNGEN, DECLINED_OID)
+            answer = await sweep(database, client)
+
+            return answer, await stored(database, DECLINED_OID), await stored(database, SECOND_OID)
+
+        with caplog.at_level(logging.ERROR, logger=FL_LOGGER_NAME):
+            answer, refused, other = on_a_league(mongo_replica_set_url, body)
+
+        assert answer.abgelehnte_geloescht == 1
+        assert (refused is not None, other) == (True, None)
+        # The clocks after it ran: the drive at the fork found the reminder unstamped and the call raising every pass.
+        assert (reminded(answer), [loeschung.bewerbung_id for loeschung in answer.loeschungen]) == ({REMIND_OID}, [DELETE_OID])
+        assert passed_over(caplog) == [
+            ("ERROR", DATABASE_FAILED, f"Application {DECLINED_OID} was passed over by the decline clock: WriteError")
+        ]
+
+    def test_a_refused_erasure_by_the_acceptance_clock(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.BEWERBUNGEN].insert_one(
+                application(SECOND_OID, status="angenommen", entscheidung={"getroffen_am": "2026-03-01", "von": "admin", "grund": None})
+            )
+            await refuse_the_redaction_of(database, Collection.BEWERBUNGEN, ACCEPTED_OID)
+            answer = await sweep(database, client)
+
+            return (
+                (answer.angenommene_geloescht, answer.kontaktbloecke_geleert),
+                await stored(database, ACCEPTED_OID),
+                await stored(database, SECOND_OID),
+            )
+
+        with caplog.at_level(logging.ERROR, logger=FL_LOGGER_NAME):
+            counts, refused, other = on_a_league(mongo_replica_set_url, body, next_status="past")
+
+        assert counts == (1, 1)
+        assert (refused is not None, other) == (True, None)
+        assert passed_over(caplog) == [
+            ("ERROR", DATABASE_FAILED, f"Application {ACCEPTED_OID} was passed over by the acceptance clock: WriteError")
+        ]
+
+    def test_a_refused_contact_block(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SAISON_TEAMS].insert_one({**junction_row(), "_id": SECOND_JUNCTION_OID, "team_id": SECOND_CLUB_OID})
+            await refuse_the_redaction_of(database, Collection.SAISON_TEAMS, JUNCTION_OID)
+            answer = await sweep(database, client)
+            blocks = await database[Collection.SAISON_TEAMS].find({}, {"kontakte": 1}).sort("_id", 1).to_list(None)
+
+            return answer, [(block["_id"], block["kontakte"] is not None) for block in blocks]
+
+        with caplog.at_level(logging.ERROR, logger=FL_LOGGER_NAME):
+            answer, blocks = on_a_league(mongo_replica_set_url, body, next_status="past")
+
+        assert (answer.kontaktbloecke_geleert, reminded(answer)) == (1, {REMIND_OID})
+        assert blocks == [(JUNCTION_OID, True), (SECOND_JUNCTION_OID, False)]
+        assert passed_over(caplog) == [
+            ("ERROR", DATABASE_FAILED, f"Season team {JUNCTION_OID} was passed over by the contact block clock: WriteError")
+        ]
+
+    def test_a_candidate_the_answer_cannot_carry(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+        """A deadline a hand edit left malformed: the validator stores any string, and the answer's model refuses it."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.BEWERBUNGEN].insert_one(application(SECOND_OID, bestaetigungsfrist="2026-03-1"))
+
+            return await sweep(database, client)
+
+        with caplog.at_level(logging.ERROR, logger=FL_LOGGER_NAME):
+            answer = on_a_league(mongo_replica_set_url, body)
+
+        assert ([loeschung.bewerbung_id for loeschung in answer.loeschungen], reminded(answer)) == ([DELETE_OID], {REMIND_OID})
+        assert passed_over(caplog) == [
+            (
+                "ERROR",
+                UNHANDLED_CRASH,
+                f"Application {SECOND_OID} was passed over by the deletion clock, the failure not the database's: ValidationError",
+            )
+        ]
+
+    def test_a_reminder_the_answer_cannot_carry(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+        """The stamp is written before the answer's model refuses the deadline, so the transaction is taken apart, not the row skipped."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.BEWERBUNGEN].insert_one(application(SECOND_OID, bestaetigungsfrist="2026-04-1"))
+            answer = await sweep(database, client)
+            refused = await stored(database, SECOND_OID)
+            assert refused is not None
+
+            return reminded(answer), [seat["erinnert_am"] for seat in refused["bestaetigungen"].values()]
+
+        with caplog.at_level(logging.ERROR, logger=FL_LOGGER_NAME):
+            answered, stamps = on_a_league(mongo_replica_set_url, body)
+
+        assert (answered, stamps) == ({REMIND_OID}, [None, None, None])
+        assert passed_over(caplog) == [
+            (
+                "ERROR",
+                UNHANDLED_CRASH,
+                f"Application {SECOND_OID} was passed over by the reminder clock, the failure not the database's: ValidationError",
+            )
+        ]
+
+    def test_a_pass_whose_every_reminder_fails_still_records_its_day(self, mongo_replica_set_url: str):
+        """Every half that commits stamps the day, so only a pass none commits needs the day stamped alone."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.BEWERBUNGEN].update_one({"_id": REMIND_OID}, {"$set": {"bestaetigungsfrist": "2026-04-1"}})
+            answer = await sweep(database, client)
+
+            return answer.erinnerungen, (await get_sweep_saisons(saisons_collection=database[Collection.SAISONS])).sweep_gelaufen_am
+
+        assert on_a_league(mongo_replica_set_url, body) == ([], TODAY)
+
+    def test_a_refused_announcement(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+        """An application stored before a field its validator requires: the stamp's update is refused under strict validation."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            invalid = {key: value for key, value in application(SECOND_OID, bestaetigungsfrist=YESTERDAY).items() if key != "trikot"}
+            await database[Collection.BEWERBUNGEN].insert_one(invalid, bypass_document_validation=True)
+            answer = await announce(database, client, [DELETE_OID, SECOND_OID])
+
+            return answer.angekuendigt, [
+                (await stored(database, row_id) or {}).get("loeschung_angekuendigt_am") for row_id in (DELETE_OID, SECOND_OID)
+            ]
+
+        with caplog.at_level(logging.ERROR, logger=FL_LOGGER_NAME):
+            stamped, stamps = on_a_league(mongo_replica_set_url, body)
+
+        assert (stamped, stamps) == (1, [TODAY, None])
+        # `OperationFailure` rather than `WriteError`: the stamp is a `findAndModify`, which answers a refusal as a command error.
+        assert passed_over(caplog) == [
+            ("ERROR", DATABASE_FAILED, f"Application {SECOND_OID} was passed over by the announcement clock: OperationFailure")
+        ]
+
+    def test_a_refused_erasure_of_the_announced(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.BEWERBUNGEN].insert_one(application(SECOND_OID, bestaetigungsfrist=YESTERDAY))
+            await announce(database, client, [DELETE_OID, SECOND_OID])
+            await refuse_the_redaction_of(database, Collection.BEWERBUNGEN, DELETE_OID)
+            answer = await erase(database, client, [DELETE_OID, SECOND_OID])
+
+            return answer.geloescht, await stored(database, DELETE_OID), await stored(database, SECOND_OID)
+
+        with caplog.at_level(logging.ERROR, logger=FL_LOGGER_NAME):
+            erased, refused, other = on_a_league(mongo_replica_set_url, body)
+
+        assert (erased, refused is not None, other) == (1, True, None)
+        assert passed_over(caplog) == [
+            ("ERROR", DATABASE_FAILED, f"Application {DELETE_OID} was passed over by the fourteen-day clock: WriteError")
+        ]
 
 
 @functools.cache
