@@ -874,9 +874,14 @@ grown to cover costs a false green on a development machine rather than a merged
 measurements behind the trade are in the body of the commit that moved the cache under
 `node_modules/.cache/`.
 
-**knip refuses a file, an export or a dependency nothing reads**, so what a change leaves unused is
-removed in that change rather than found by a later sweep. `fl_frontend/knip.json` names, beside
-each ignore, the reader knip cannot see; a configuration hint fails the step as a finding does.
+**knip runs twice and refuses what nothing reads, then what only tests read**, so what a change
+leaves unused is removed in that change rather than found by a later sweep. The default run
+(`fl_frontend/knip.json`) refuses a file, an export or a dependency nothing imports, a test
+included. The production run (`fl_frontend/knip.production.json`) drops the tests and refuses a
+file or an export no production code reads. An export its own module still uses passes there, a
+`*Schema` whose inferred type names it among them (§4), and a value a test compares on purpose
+carries `@internal`. Each file names, beside each ignore, the reader knip cannot see, and a
+configuration hint fails either step as a finding does.
 
 **No formatter the gate runs writes a tracked file** — prettier runs in check mode everywhere, so a
 run cannot hand back a tree different from the one its later steps measured. Formatting happens at
@@ -1478,3 +1483,4 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | The edge's declared state is enforced by nothing here             | Accepted — §1.8 records what the Cloudflare dashboard holds, and no gate check, deploy step or test can read any of it                                                                             |
 | CI's Python can be another patch release than the image's         | Accepted — `actions/setup-python` resolves the series `fl_backend/.python-version` names, while the image holds the release its tag names until Dependabot moves it (I513)                         |
 | A runtime's security release waits for Dependabot's schedule      | Accepted — Dependabot has no base-image security updates, so a Node or Python fix waits for the weekly run and cooldown: eight days at worst                                                       |
+| An unread `*Schema` passes both knip runs                         | Open — the production run counts its inferred type's `typeof` as its module's use, and both runs ignore that type: reading alone finds it                                                          |
