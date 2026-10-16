@@ -48,6 +48,7 @@ from app.api.spieler.services import (
     spieler_adresswechsel_image_edits,
 )
 from app.api.spieltage.crud import nachnominierung_laeuft_in
+from app.core.adressanker import anchor_the_addresses
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import (
@@ -60,6 +61,7 @@ from app.core.crud import (
     set_inactive_since,
 )
 from app.core.dependencies import (
+    AdressankerCollection,
     AktionenCollection,
     DBClient,
     SaisonsCollection,
@@ -266,6 +268,7 @@ async def post_adresswechsel(
     adresswechsel_data: Annotated[FLSpielerAdresswechselPayload, Body()],
     spieler_collection: SpielerCollection,
     sperrliste: SperrlisteLookup,
+    adressanker_collection: AdressankerCollection,
     aktionen_collection: AktionenCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
@@ -318,6 +321,8 @@ async def post_adresswechsel(
             session=session,
             return_document=ReturnDocument.BEFORE,
         )
+        # The address entering here, which an erasure of it running now never read (`docs/backend/spec.md :: I719`).
+        await anchor_the_addresses([email], adressanker_collection=adressanker_collection, schluessel=sperrliste.schluessel, session=session)
 
         if replaces_a_pending_address(stored=stored, email=email):
             # After the write, for the decline's reason: it reaches the pre-image this request just filed,

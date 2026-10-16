@@ -470,7 +470,13 @@ def build_selbst_pupil_filter(identifier: str) -> Mapping[str, Any]:
     """
 
     # The sentinel by id although it holds no address: a hand edit can give it one, and the id is what names it nobody.
-    return build_real_spieler_filter({"email": {"$eq": identifier, "$type": "string"}})
+    return build_real_spieler_filter(build_address_holder_filter(identifier))
+
+
+def build_address_holder_filter(identifier: str) -> Mapping[str, Any]:
+    """Every row `uniq_spieler_email` holds under this address, the sentinel included: one a hand edit gave it is a holder the index refuses."""
+
+    return {"email": {"$eq": identifier, "$type": "string"}}
 
 
 def build_selbst_pupil_pipeline(identifier: str) -> list[Mapping[str, Any]]:

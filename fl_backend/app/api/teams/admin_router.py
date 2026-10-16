@@ -83,6 +83,7 @@ from app.api.teams.services import (
     seats_one_link_answers,
     voids_a_live_link,
 )
+from app.core.adressanker import anchor_the_addresses
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import (
@@ -98,6 +99,7 @@ from app.core.crud import (
     set_inactive_since,
 )
 from app.core.dependencies import (
+    AdressankerCollection,
     AktionenCollection,
     BewerbungenCollection,
     DBClient,
@@ -593,6 +595,7 @@ async def patch_saison_team_kontakte(
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
     sperrliste: SperrlisteLookup,
+    adressanker_collection: AdressankerCollection,
     db: DBClient,
     refuse_unconfirmed: Annotated[StepUpCheck, Depends(get_step_up_check)],
     today: str = Depends(get_german_date_str),
@@ -711,6 +714,13 @@ async def patch_saison_team_kontakte(
             update={"$set": {"kontakte": kontakte, "bestaetigungen": bestaetigungen}},
             session=session,
             return_document=ReturnDocument.AFTER,
+        )
+        # The addresses entering here, which an erasure of one running now never read (`docs/backend/spec.md :: I719`).
+        await anchor_the_addresses(
+            seat_adressen(kontakte=kontakte, seats=KONTAKT_ROLLEN),
+            adressanker_collection=adressanker_collection,
+            schluessel=sperrliste.schluessel,
+            session=session,
         )
 
         return FLPatchSaisonTeamKontakteResponse(

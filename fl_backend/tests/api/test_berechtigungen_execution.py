@@ -186,6 +186,7 @@ async def grant(
             berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
             berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
             sperrliste=ban_list(database),
+            adressanker_collection=database[Collection.ADRESSANKER],
             db=client,
             erteilt_von=als,
             now=now,
@@ -413,6 +414,7 @@ class TestTheOutboxMovesWithItsChange:
                         AsyncCollection, Aborting(database[Collection.BERECHTIGUNGEN_POSTAUSGANG], "insert_one")
                     ),
                     sperrliste=ban_list(database),
+                    adressanker_collection=database[Collection.ADRESSANKER],
                     db=client,
                     erteilt_von=ANNA,
                     now=NOW,

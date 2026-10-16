@@ -34,9 +34,11 @@ from app.api.berechtigungen.services import (
 )
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, hash_gesperrt
 from app.api.sperrliste.services import withheld_actor
+from app.core.adressanker import anchor_the_addresses
 from app.core.config import API_VERSION
 from app.core.crud import delete_many_from_db, erase_many_from_db, patch_one_in_db, post_one_to_db, refuse
 from app.core.dependencies import (
+    AdressankerCollection,
     BerechtigungenAngekuendigtCollection,
     BerechtigungenCollection,
     BerechtigungenPostausgangCollection,
@@ -121,6 +123,7 @@ async def post_berechtigung(
     berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
     berechtigungen_postausgang_collection: BerechtigungenPostausgangCollection,
     sperrliste: SperrlisteLookup,
+    adressanker_collection: AdressankerCollection,
     db: DBClient,
     erteilt_von: str = Depends(get_actor_email),
     now: datetime = Depends(get_germany_now),
@@ -160,6 +163,8 @@ async def post_berechtigung(
             "gesehen_am": now,
         }
         created = await post_one_to_db(collection=berechtigungen_collection, document=document, session=session)
+        # The address entering here, which an erasure of it running now never read (`docs/backend/spec.md :: I719`).
+        await anchor_the_addresses([adresse], adressanker_collection=adressanker_collection, schluessel=sperrliste.schluessel, session=session)
 
         stand = stand_of(document)
         # The announced row moves with the grant and the outbox row carries its notice, so the

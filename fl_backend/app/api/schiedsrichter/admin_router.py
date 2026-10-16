@@ -50,6 +50,7 @@ from app.api.schiedsrichter.services import (
     save_moves_the_link,
 )
 from app.api.sperrliste.lookup import SperrlisteLookup, hash_gesperrt, sperrliste_saison
+from app.core.adressanker import anchor_the_addresses
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import (
@@ -62,6 +63,7 @@ from app.core.crud import (
     set_inactive_since,
 )
 from app.core.dependencies import (
+    AdressankerCollection,
     AktionenCollection,
     DBClient,
     SchiedsrichterCollection,
@@ -102,6 +104,7 @@ async def post_schiedsrichter(
     schiedsrichter_data: Annotated[FLPostSchiedsrichterPayload, Body()],
     schiedsrichter_collection: SchiedsrichterCollection,
     sperrliste: SperrlisteLookup,
+    adressanker_collection: AdressankerCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
 ) -> FLPostSchiedsrichterResponse:
@@ -130,6 +133,9 @@ async def post_schiedsrichter(
         # hash alone, as the correction and the re-send ask it (`REQ-SCHIEDSRICHTER-007`).
         gesperrt = await hash_gesperrt(sperrliste, gehasht, massgebliche_saison_id=massgebliche_saison_id, session=session)
         refuse(find_gesperrt_refusal(gesperrt=gesperrt))
+
+        # The address entering here, which an erasure of it running now never read (`docs/backend/spec.md :: I719`).
+        await anchor_the_addresses([email], adressanker_collection=adressanker_collection, schluessel=sperrliste.schluessel, session=session)
 
         # Spelled at the call site rather than assembled above it, so
         # `fl_backend/tests/core/test_write_shapes.py :: creations` can still read what this create
@@ -169,6 +175,7 @@ async def patch_schiedsrichter(
     schiedsrichter_collection: SchiedsrichterCollection,
     spiele_collection: SpieleCollection,
     sperrliste: SperrlisteLookup,
+    adressanker_collection: AdressankerCollection,
     aktionen_collection: AktionenCollection,
     db: DBClient,
     refuse_unconfirmed: Annotated[StepUpCheck, Depends(get_step_up_check)],
@@ -241,6 +248,9 @@ async def patch_schiedsrichter(
             return_document=ReturnDocument.AFTER,
         )
         updated_document = FLSchiedsrichter(**updated_document_raw)
+        # The address entering here, held in force or pending, which an erasure of it running now never read
+        # (`docs/backend/spec.md :: I719`).
+        await anchor_the_addresses([email], adressanker_collection=adressanker_collection, schluessel=sperrliste.schluessel, session=session)
 
         if verwirft:
             # After the patch, for the decline's reason: it reaches the pre-image this save just filed,

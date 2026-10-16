@@ -1279,6 +1279,7 @@ async def correct(database: AsyncDatabase, client: AsyncMongoClient, seat: str, 
         email_data=FLBewerbungKontaktEmailPayload.model_validate({"email": email}),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         sperrliste=ban_list(database),
+        adressanker_collection=database[Collection.ADRESSANKER],
         db=client,
         today=TODAY,
     )
@@ -1682,6 +1683,7 @@ class TestAResendRacingAnAnswer:
                     email_data=FLBewerbungKontaktEmailPayload.model_validate({"email": CORRECTED_EMAIL}),
                     bewerbungen_collection=database[Collection.BEWERBUNGEN],
                     sperrliste=ban_list(database),
+                    adressanker_collection=database[Collection.ADRESSANKER],
                     db=client,
                     today=TODAY,
                 )
@@ -1793,6 +1795,7 @@ async def reseat(
         sitz_data=FLBewerbungKontaktSitzPayload.model_validate({**RESEAT_PERSON, "email": email, "text_version": text_version}),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         sperrliste=ban_list(database),
+        adressanker_collection=database[Collection.ADRESSANKER],
         db=client,
         today=TODAY,
     )

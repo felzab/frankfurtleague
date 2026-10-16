@@ -16,6 +16,7 @@ from app.api.sperrliste.lookup import BanList, SperrlisteLookup
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.db import get_drosselung_collection
 from app.core.dependencies import (
+    AdressankerCollection,
     AktionenCollection,
     BerechtigungenAngekuendigtCollection,
     BerechtigungenCollection,
@@ -71,6 +72,7 @@ async def _erase_one(
     berechtigungen_postausgang_collection: AsyncCollection,
     einladungen_collection: AsyncCollection,
     sperrliste_collection: AsyncCollection,
+    adressanker_collection: AsyncCollection,
     sperrliste: BanList,
     db: AsyncMongoClient,
     schluessel: SecretStr,
@@ -97,6 +99,7 @@ async def _erase_one(
             berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
             einladungen_collection=einladungen_collection,
             sperrliste_collection=sperrliste_collection,
+            adressanker_collection=adressanker_collection,
             sperrliste=sperrliste,
             schluessel=schluessel,
             stamp=stamp,
@@ -131,6 +134,7 @@ async def post_loeschung_lauf(
     berechtigungen_postausgang_collection: BerechtigungenPostausgangCollection,
     einladungen_collection: EinladungenCollection,
     sperrliste_collection: SperrlisteCollection,
+    adressanker_collection: AdressankerCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
@@ -218,6 +222,7 @@ async def post_loeschung_lauf(
                     berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
                     einladungen_collection=einladungen_collection,
                     sperrliste_collection=sperrliste_collection,
+                    adressanker_collection=adressanker_collection,
                     sperrliste=sperrliste,
                     db=db,
                     schluessel=config.sperrliste_schluessel,

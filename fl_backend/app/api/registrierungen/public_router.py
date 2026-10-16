@@ -29,12 +29,13 @@ from app.api.registrierungen.services import (
     find_team_junction_refusal,
     saison_nimmt_registrierungen_an,
 )
-from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.sperrliste.lookup import BanList, SperrlisteLookup, hash_gesperrt, sperrliste_saison
 from app.api.spieltage.crud import nachnominierung_laeuft_in
+from app.core.adressanker import anchor_the_addresses
 from app.core.config import API_VERSION
-from app.core.crud import anchor_in_db, patch_one_in_db, post_one_to_db, pull_one_from_db, refuse
+from app.core.crud import patch_one_in_db, post_one_to_db, pull_one_from_db, refuse
 from app.core.dependencies import (
+    AdressankerCollection,
     DBClient,
     EinladungenCollection,
     RegistrierungenCollection,
@@ -80,22 +81,6 @@ def _live_squad_filter(*, saison_id: str, team_id: Any) -> dict[str, Any]:
     """
 
     return {"saison_id": saison_id, "team_id": team_id, "inactive_since": None}
-
-
-async def _anchor_the_season_registered_for(
-    *,
-    saisons_collection: AsyncCollection,
-    saison_id: str,
-    # REQUIRED: the anchor below is what closes the race, so forgetting the session has to be a
-    # TypeError at the call rather than a silent reopening of it.
-    session: AsyncClientSession,
-) -> None:
-    """The season-after deletion never reads a registration inserted after its snapshot and anchors every season one can arrive in.
-
-    Without this write both commit, and the pupil the registration keeps is deleted (`docs/backend/spec.md :: I716`).
-    """
-
-    await anchor_in_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
 
 
 async def _open_einladung(*, einladungen_collection: Any, token: str, session: AsyncClientSession | None = None) -> Any:
@@ -248,6 +233,7 @@ async def post_registrierung(
     saison_teams_collection: SaisonTeamsCollection,
     saison_spieler_collection: SaisonSpielerCollection,
     sperrliste: SperrlisteLookup,
+    adressanker_collection: AdressankerCollection,
     db: DBClient,
     # Version 4 alone: a guessable key lets a stranger store other details under it first, and the
     # pupil's own press is then refused as a changed replay.
@@ -380,8 +366,14 @@ async def post_registrierung(
             },
             session=session,
         )
-        # The last write: a refused press anchors nothing, and a second press with this key still meets the insert's conflict.
-        await _anchor_the_season_registered_for(saisons_collection=saisons_collection, saison_id=saison_id, session=session)
+        # The address entering here, which an erasure of it running now never read, or a pupil's deletion judging the pupil
+        # due (`docs/backend/spec.md :: I716`). The last write: a refused press anchors nothing.
+        await anchor_the_addresses(
+            [str(registrierung_data.email)],
+            adressanker_collection=adressanker_collection,
+            schluessel=sperrliste.schluessel,
+            session=session,
+        )
 
         return FLPostRegistrierungResponse(
             registrierung_id=created.inserted_id,
@@ -396,7 +388,5 @@ async def post_registrierung(
 
     # The key lookup is the transaction's first read: a first press committed before this snapshot is
     # found, and one committed after it makes the insert a write conflict `with_transaction` retries.
-    # Its anchor writes the season, which the cache serves.
-    with dropping_the_saison_cache():
-        async with transaction_session(db) as session:
-            return await session.with_transaction(store_or_replay)
+    async with transaction_session(db) as session:
+        return await session.with_transaction(store_or_replay)

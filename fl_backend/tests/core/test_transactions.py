@@ -690,6 +690,9 @@ class _RecordedCollection:
         self._carried("insert_one", kwargs)
         return SimpleNamespace(inserted_id=ObjectId())
 
+    async def update_one(self, *_: Any, **kwargs: Any) -> None:
+        self._carried("update_one", kwargs)
+
 
 class _RecordedDatabase:
     def __init__(self, grants: list[Mapping[str, Any]]) -> None:
@@ -733,10 +736,13 @@ class TestEveryJudgeReadsInTheAttemptsSession:
         }
         assert [call for call in carried if call[2] is not session] == []
 
-    def test_the_persons_ban_read_carries_it(self):
+    def test_the_persons_ban_read_and_anchor_carry_it(self):
         session, carried = _sessions_a_judge_carried(person_judge(verified_actor(ACTING["adresse"]), build_test_config()), [])
 
-        assert (Collection.SPERRLISTE, "find") in {(collection, method) for collection, method, _ in carried}
+        assert {(collection, method) for collection, method, _ in carried} >= {
+            (Collection.SPERRLISTE, "find"),
+            (Collection.ADRESSANKER, "update_one"),
+        }
         assert [call for call in carried if call[2] is not session] == []
 
 

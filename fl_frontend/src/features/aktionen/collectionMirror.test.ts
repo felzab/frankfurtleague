@@ -29,6 +29,8 @@ const MEMBERS = new Map(
 const LEFT_OUT: Readonly<Record<string, string>> = {
   AKTIONEN: "the log never records itself",
   DROSSELUNG: "a day's write count is operational state, written past the helpers that record (`fl_backend/app/core/drosselung.py`)",
+  ADRESSANKER:
+    "an address's anchor changes nothing a reader sees, so its write records nothing (`fl_backend/app/core/crud.py :: anchor_by_id_in_db`)",
 };
 
 /**

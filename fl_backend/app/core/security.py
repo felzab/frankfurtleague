@@ -25,6 +25,7 @@ from app.core.actor_token import (
     ActorTokenRefusal,
     verify_actor_token,
 )
+from app.core.adressanker import anchor_the_addresses
 from app.core.collections import Collection
 from app.core.config import BackendConfig, get_app_config
 from app.core.crud import a_write_may_stand
@@ -370,6 +371,20 @@ def person_judge(actor: ActorClaims, config: BackendConfig) -> ActorJudge:
         await verify_person_is_unbarred(actor, is_gesperrt)
 
         yield
+
+        # Last, and only where a write may stand, for the administrator's judge's reasons. The write may hold
+        # the person's address or pseudonym on a record their erasure, running now, never read
+        # (`docs/backend/spec.md :: I719`).
+        if not a_write_may_stand():
+            return
+
+        # On the transaction's own client, for `_lists_on`'s reason.
+        await anchor_the_addresses(
+            [actor.email],
+            adressanker_collection=session.client[config.db_base_name][Collection.ADRESSANKER],
+            schluessel=config.sperrliste_schluessel,
+            session=session,
+        )
 
     return judging_the_person
 

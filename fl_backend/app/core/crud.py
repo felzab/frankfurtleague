@@ -194,6 +194,36 @@ async def anchor_in_db(
     await collection.update_many(filter=db_filter, update={"$inc": {ANCHOR_FIELD: 1}}, session=session)
 
 
+# When an anchor written by id was last written, the one field its collection's TTL index reads
+# (`app/core/constraints.py :: TTL_INDEXES`).
+ANCHOR_WRITTEN_AT: Final = "geschrieben_am"
+
+
+async def anchor_by_id_in_db(
+    *,
+    collection: AsyncCollection,
+    ids: Sequence[str],
+    # REQUIRED, for `anchor_in_db`'s reason.
+    session: AsyncClientSession,
+) -> None:
+    """Write the document of each id, creating any not yet written, so a rival writing one conflicts (`docs/backend/spec.md :: I53`).
+
+    Logs no row, for `anchor_in_db`'s reason.
+    """
+
+    _sending_a_write()
+    # An upsert, as a document nobody has written joins no write set; two transactions upserting one meet as a
+    # write conflict, never a duplicate key. One command an id: `bulk_write` can remove, which
+    # `tests/core/test_unenforced.py` refuses.
+    for anchor_id in ids:
+        await collection.update_one(
+            filter={"_id": anchor_id},
+            update={"$inc": {ANCHOR_FIELD: 1}, "$currentDate": {ANCHOR_WRITTEN_AT: True}},
+            upsert=True,
+            session=session,
+        )
+
+
 async def post_one_to_db(
     *,
     collection: AsyncCollection,

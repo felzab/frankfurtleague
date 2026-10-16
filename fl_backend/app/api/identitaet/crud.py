@@ -54,7 +54,6 @@ from app.api.identitaet.services import (
     pupil_address,
     referee_address,
     referenced_addresses,
-    registrierbare_saison_ids,
     seat_is_confirmed,
     seats_naming,
     statuses_of,
@@ -70,9 +69,10 @@ from app.api.schiedsrichter.services import ADRESSWECHSEL_FELD
 from app.api.sperrliste.lookup import BanList
 from app.api.spieler.crud import ensure_ghost_spieler, erase_person_in_session, remove_pending_pupil_addresses_in_session
 from app.api.spieler.services import SPIELER_ADRESSWECHSEL_FELD, build_spieler_filter
+from app.core.adressanker import anchor_the_addresses
 from app.core.collections import Collection
 from app.core.concurrency import gather_cancelling
-from app.core.crud import aggregate_many_from_db, anchor_in_db, patch_many_in_db, refuse
+from app.core.crud import aggregate_many_from_db, patch_many_in_db, refuse
 from app.core.db import warn_about_the_grants
 from app.core.drosselung import erase_counts_in_session
 from app.core.exception_handlers import DATABASE_FAILED
@@ -596,6 +596,7 @@ async def erase_everything(
     berechtigungen_postausgang_collection: AsyncCollection,
     einladungen_collection: AsyncCollection,
     sperrliste_collection: AsyncCollection,
+    adressanker_collection: AsyncCollection,
     sperrliste: BanList,
     # Whom the grant notice names as ending the person's grant: the person on their own request, the
     # administrator on theirs.
@@ -612,6 +613,11 @@ async def erase_everything(
     The subject is read HERE, so a retry after a conflict re-reads it. The caller runs its transaction inside an
     `ErasureJournal`, which journals once it commits.
     """
+
+    # First, ahead of the subject: a writer that committed for this address since the snapshot opened makes
+    # this attempt run again before it has done any work, and one writing later retries until this one ends
+    # (`docs/backend/spec.md :: I719`).
+    await anchor_the_addresses([identifier], adressanker_collection=adressanker_collection, schluessel=schluessel, session=session)
 
     subject = await resolve_subject(
         identifier,
@@ -912,6 +918,7 @@ async def erase_if_still_due(
     berechtigungen_postausgang_collection: AsyncCollection,
     einladungen_collection: AsyncCollection,
     sperrliste_collection: AsyncCollection,
+    adressanker_collection: AsyncCollection,
     sperrliste: BanList,
     schluessel: SecretStr,
     stamp: str,
@@ -929,10 +936,6 @@ async def erase_if_still_due(
     behalten = behaltene_saison_ids(statuses)
     if behalten is None:
         return None
-
-    # A registration inserts a row this snapshot never sees, so only the season both write makes it conflict; the squad
-    # writers already do, each writing the pupil or a row of theirs this erasure removes (`docs/backend/spec.md :: I716`).
-    await anchor_in_db(collection=saisons_collection, db_filter={"_id": {"$in": sorted(registrierbare_saison_ids(statuses))}}, session=session)
 
     # By id through the filter refusing the sentinel, so a hand-given address never makes it due.
     pupils = await aggregate_many_from_db(
@@ -975,6 +978,7 @@ async def erase_if_still_due(
         berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
         einladungen_collection=einladungen_collection,
         sperrliste_collection=sperrliste_collection,
+        adressanker_collection=adressanker_collection,
         sperrliste=sperrliste,
         # Read by the grants step alone, which this scope never runs.
         geaendert_von=SYSTEM_ACTOR_EMAIL,

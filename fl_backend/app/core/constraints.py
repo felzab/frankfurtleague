@@ -83,8 +83,9 @@ _KONTAKT_EINGETRAGEN_VON = ["bewerbung", "liga"]
 _BEWERBUNG_STATUS = ["eingereicht", "angenommen", "abgelehnt"]
 
 # Derived, not spelled: these ARE the collection names. The log never records itself, nor the day's
-# write counts, which bypass `app/core/crud.py` (`app/core/drosselung.py`).
-_LOGGED_COLLECTIONS = [str(name) for name in Collection if name not in {Collection.AKTIONEN, Collection.DROSSELUNG}]
+# write counts, which bypass `app/core/crud.py` (`app/core/drosselung.py`), nor an address's anchor,
+# which changes nothing a reader sees.
+_LOGGED_COLLECTIONS = [str(name) for name in Collection if name not in {Collection.AKTIONEN, Collection.DROSSELUNG, Collection.ADRESSANKER}]
 
 # Mirrors `app/core/recording.py :: LoggedAct`, hand-copied as the literals below are: a row's
 # `collection` for an act that writes none of the application's own.
@@ -1168,6 +1169,18 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
             },
         )
     },
+    Collection.ADRESSANKER: {
+        "$jsonSchema": _object(
+            # `geschrieben_am` too, for the day count's reason: a row without it is never expired. The anchor field is
+            # left undeclared, as on every collection an anchor advances.
+            required=("_id", "geschrieben_am"),
+            properties={
+                # The keyed hash of a folded address (`app/core/adressanker.py :: adressanker_id`), never the address.
+                "_id": {"bsonType": "string"},
+                "geschrieben_am": {"bsonType": "date"},
+            },
+        )
+    },
 }
 
 
@@ -1460,6 +1473,15 @@ TTL_INDEXES: Sequence[TTLIndex] = (
     ),
     # Zero: `ablauf` is already the German midnight ending the day the row counts.
     TTLIndex(Collection.DROSSELUNG, "drosselung_ablauf", "ablauf", 0, "a day's write count is removed once its German day has ended"),
+    # Zero: an anchor serves only the transactions open while it is written, and its removal is itself a
+    # write that one of them meets as a conflict, so no later removal is ever safer (`docs/backend/spec.md :: I719`).
+    TTLIndex(
+        Collection.ADRESSANKER,
+        "adressanker_geschrieben_am",
+        "geschrieben_am",
+        0,
+        "an address's anchor is removed once the TTL monitor next passes after its last write",
+    ),
 )
 
 

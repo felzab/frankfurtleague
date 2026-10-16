@@ -206,6 +206,7 @@ async def save(
         saison_teams_collection=database[Collection.SAISON_TEAMS] if saison_teams is None else saison_teams,
         saisons_collection=database[Collection.SAISONS],
         sperrliste=ban_list(database),
+        adressanker_collection=database[Collection.ADRESSANKER],
         db=database.client,
         refuse_unconfirmed=step_up,
         today=today,

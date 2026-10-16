@@ -234,6 +234,7 @@ async def the_address_change_request(database: AsyncDatabase, client: AsyncMongo
         adresswechsel_data=FLSpielerAdresswechselPayload.model_validate({"email": "thessaly.neu@beispielschule.de"}),
         spieler_collection=database[Collection.SPIELER],
         sperrliste=ban_list(database),
+        adressanker_collection=database[Collection.ADRESSANKER],
         aktionen_collection=database[Collection.AKTIONEN],
         db=client,
         today=TODAY,

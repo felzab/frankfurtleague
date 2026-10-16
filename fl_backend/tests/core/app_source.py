@@ -47,7 +47,16 @@ BOUNDED_COMPARISONS = frozenset({"$lt", "$lte", "$gt", "$gte", "$in", "$eq"})
 
 # `app/core/crud.py`'s writing half: a call to one of these is where a document changes.
 WRITE_HELPERS = frozenset(
-    {"anchor_in_db", "insert_live", "patch_many_in_db", "patch_one_in_db", "post_many_to_db", "post_one_to_db", "set_inactive_since"}
+    {
+        "anchor_by_id_in_db",
+        "anchor_in_db",
+        "insert_live",
+        "patch_many_in_db",
+        "patch_one_in_db",
+        "post_many_to_db",
+        "post_one_to_db",
+        "set_inactive_since",
+    }
 )
 
 # The driver's own writes, on a collection a module holds rather than through `app/core/crud.py`.
