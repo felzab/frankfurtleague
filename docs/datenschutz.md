@@ -393,13 +393,22 @@ Every ruling below is the sign-up flow as it stands for the next season.
   meets the deleted row and is refused as not found. Every erased referee's fixtures share that one
   row, so no set of fixtures singles a person out. No erasure reaches the ghost: each selects the
   records an address holds, and the ghost holds none.
-- **A record holding no address of its person is reached by no erasure.** Every erasure is keyed on
-  a mailbox, so a pupil row stored without an address is reached by none, and neither is a referee
-  row stored without one: those hold one placeholder under the reserved `.invalid` domain, which the
-  administrator's erasure and its reveal refuse before any read, since it would reach every such row
-  at once (`fl_backend/app/api/identitaet/schemas.py :: refuse_the_reserved_domain`). An
-  administrator gives such a referee row the person's own address first; the pupil rows go with the
-  reset of [section 3](#3-the-current-pupil-records-are-reset-once).
+- **A record holding no address of its person is reached by no erasure, and which route answers
+  that person's request is not decided.** Every erasure is keyed on a mailbox, so a pupil row stored
+  without an address is reached by none, and neither is a referee row stored without one: those hold
+  one placeholder under the reserved `.invalid` domain, which the administrator's erasure and its
+  reveal refuse before any read, since it would reach every such row at once
+  (`fl_backend/app/api/identitaet/schemas.py :: refuse_the_reserved_domain`). No write stores a row
+  of either kind, and both kinds go with the one-off removals of
+  [section 3](#3-the-current-pupil-records-are-reset-once). Until then the routes open today cost
+  the person something:
+  - **A referee row** is reached by the erasure once the person's own address is saved on it, and on
+    a row still in service that save answers a confirmation link the page mails to that person before
+    anything is erased (`fl_backend/app/api/schiedsrichter/admin_router.py :: patch_schiedsrichter`).
+    Retiring the row first, after which the save mails nothing, is refused while a fixture still to be
+    played names the referee (`REQ-RETIRE-004`).
+  - **A pupil row** waits for this season's reset, which may fall after the month Art. 12(3) gives
+    for answering the request.
 - **A referee's erasure also ends their engagement.** Booking a person after they asked to be erased
   creates fresh personal data about them, with no lawful basis standing for it. The ghost is a
   retired row no list serves and no picker names, so `REQ-BOOKING-001` refuses it every new
