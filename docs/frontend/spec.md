@@ -721,8 +721,10 @@ because a season that is over is `past`; no action writes `saisons.status` excep
 keeps the pre-image, `Es gibt in der Verwaltung keinen Weg zurück.`; where the same transaction
 takes those values out of the log as it takes them out of the record
 (`fl_backend/app/core/recording.py :: build_redaction_update`, `:: build_image_redactions`),
-`Zurückholen lässt sich das nicht.` — a person's erasure on „Löschung auf Anfrage“ alone
-(`fl_frontend/src/features/funktionen/components/forms/AdminLoeschungForm/FormLoeschungAnsicht.tsx`).
+`Zurückholen lässt sich das nicht.` — a person's erasure on „Löschung auf Anfrage“
+(`fl_frontend/src/features/funktionen/components/forms/AdminLoeschungForm/FormLoeschungAnsicht.tsx`), and the
+outgoing club's contacts in a team's replacement, whose hand-over itself keeps its pre-image
+(`fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/FormTeamErsatzSection.tsx`).
 **Each is a whole sentence of its own**, because folding the qualifier into
 the object beside it is what let one promise grow into a family of wordings nobody could sort.
 

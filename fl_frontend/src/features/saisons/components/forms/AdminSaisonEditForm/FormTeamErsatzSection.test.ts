@@ -92,6 +92,12 @@ describe("the replacement panel", () => {
           `the absent withdrawal is not in the empty grade: ${grade.join(" ")}`,
         );
         assert.match(screen.getByRole("alert").textContent, new RegExp(`keinen Weg zurück\\. ${describeKaderAustragungDanach("SG Alpha")}`));
+        // The contacts leave the log in the same write, so they take the sentence for what nothing restores (`docs/frontend/spec.md` §1.3).
+        assert.match(
+          screen.getByRole("alert").textContent,
+          /Die eingetragenen Kontaktpersonen von SG Alpha werden dabei gelöscht\. Zurückholen lässt sich das nicht\./,
+          "the confirmation says the outgoing contacts can be had back",
+        );
       },
     });
 
