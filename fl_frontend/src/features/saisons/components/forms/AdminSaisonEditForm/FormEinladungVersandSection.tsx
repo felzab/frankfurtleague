@@ -110,7 +110,7 @@ function zustellSatz(zeile: EinladungVersandErgebnis): string {
 
 /**
  * One press writes to many teams, so the title says whose grade it is: one team's in its own press's words, every team's,
- * or some teams' where a link went beside one that did not. Outside production that is none, every link held back.
+ * or some teams' where a link went beside one that did not.
  */
 function registrierungslinksTitel(versendet: readonly LinkVersand[]): VersandTitel {
   if (versendet.length === 1) return REGISTRIERUNGSLINK_TITEL;

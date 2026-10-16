@@ -240,9 +240,8 @@ describe("what the ban's dialog shows before the ban (`docs/frontend/spec.md :: 
     for (const [, href] of verweiseIn(dialog)) assert.ok(href !== null && !href.includes("@"), `${String(href)} carries an address`);
   });
 
-  /* The registrations list serves the pending ones alone: a link to a declined one opens a list it is not on, and the
-     sentence that a registration ends with the ban is false of one its team declined already. Nothing it lists has a tool,
-     so the lead asks for no edit either. */
+  /* The registrations list serves pending ones alone, so a declined one has no link, no tool to edit it with and nothing
+     for the ban to end: neither the edit nor the ending is said. */
   it("links no declined registration, names it declined, and asks for no edit of it or says it ends", async () => {
     antwort = () =>
       Promise.resolve({
@@ -539,8 +538,8 @@ describe("the ban's refusals, placed (`docs/frontend/spec.md :: I724`)", () => {
     assert.ok(within(keine.dialog).queryByRole("alert") === null, "the reveal stands over a refused ban");
   });
 
-  /* The read never judges the reason, so a name of the address's records in it (`REQ-SPERRLISTE-004`) is refused by the
-     ban alone: on the reason's box, which holds the way out, and never in a toast that leaves the box unmarked. */
+  /* The read never judges the reason, so the ban alone refuses a name of the address's records in it
+     (`REQ-SPERRLISTE-004`): on the reason's box, which holds the way out, never in a toast. */
   it("lands a name in the reason on its box, raising nothing", async (t) => {
     t.mock.timers.enable({ apis: ["Date"] });
     sperre = () => Promise.reject(refusedOn(CREATE_OPERATION, "REQ-SPERRLISTE-004"));

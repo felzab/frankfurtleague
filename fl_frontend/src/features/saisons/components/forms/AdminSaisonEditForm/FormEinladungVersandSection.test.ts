@@ -617,8 +617,8 @@ describe("the season's bulk invite send", () => {
     );
   });
 
-  /* The title is the grade of every team the press meant to write to or of some of them, and a season of one team says it
-     in the single press's words: „Nicht alle“ over one team, or over a local stack sending nothing, misreads both. */
+  /* A title says whether its grade is every team's or some teams', one team's in the team press's words: „Nicht alle“
+     is false over one team and over a local stack sending nothing. */
   for (const [versendet, variant, title] of [
     [["gesendet"], "success", "Registrierungslink gesendet"],
     [["zurueckgehalten"], "warning", "Registrierungslink zurückgehalten"],

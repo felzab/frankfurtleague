@@ -167,8 +167,8 @@ async function sweepAlleSaisons(): Promise<void> {
 }
 
 /**
- * A half's pass line, a warning where `offen` rows it failed or passed over stand: each pass moves on past them, so only
- * this count tells a half failing on every row from a healthy one, and a level above INFO keeps it.
+ * A warning where `offen` rows the half failed or passed over stand: each pass moves on past them, so only this count
+ * tells a half failing on every row from a healthy one.
  */
 function logPass(
   event: "bewerbung.sweep_pass" | "registrierung.sweep_pass" | "schiedsrichter.adresswechsel_sweep_pass" | "loeschung.sweep_pass",

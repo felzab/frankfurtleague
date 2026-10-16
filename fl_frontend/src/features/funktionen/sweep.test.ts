@@ -359,7 +359,7 @@ describe("one pass at a time", () => {
 
 describe("the line a completed pass writes", () => {
   /* Nothing is stored, so this line is the whole answer to whether the sweep runs and what it did. A failure keeping an
-     account makes it a warning, which a level above INFO keeps: a clean pass's is the INFO the skipped tick's case holds. */
+     account makes it a warning, a level above INFO dropping the INFO a clean pass writes. */
   it("counts what it listed, what was answered unreferenced, deleted, already gone and failed, warning over a failure", async () => {
     accounts = ["geloescht@schule.de", "fort@schule.de", "referenziert@schule.de", "neu@schule.de", "fehler@schule.de"];
     referenzen = (identifiers) =>

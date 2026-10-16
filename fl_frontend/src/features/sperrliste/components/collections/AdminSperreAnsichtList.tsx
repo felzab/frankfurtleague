@@ -124,8 +124,8 @@ function eintraegeDer<Art extends keyof SperreAnsicht>(art: Art, ansicht: Sperre
 export function AdminSperreAnsichtList({ ansicht }: { ansicht: SperreAnsicht }) {
   const saisonHref = useSaisonHref();
   const eintraege = (Object.keys(EINTRAEGE) as (keyof SperreAnsicht)[]).flatMap((art) => eintraegeDer(art, ansicht, saisonHref));
-  // The edit is asked only where a record has a tool to make it with. No administrator edits a registration, and one its
-  // team declined already has nothing left for the ban to end, so its sentence stands only where one is still pending.
+  // The edit is asked only where a record has a tool for it. No administrator edits a registration, and a declined one
+  // has nothing left for the ban to end: its sentence stands only where one is pending.
   const lead = [
     SPERRE_ANSICHT_COPY.lead,
     ...(eintraege.some(({ verweise }) => verweise.length > 0) ? [SPERRE_ANSICHT_COPY.bearbeiten] : []),

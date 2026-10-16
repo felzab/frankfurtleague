@@ -342,14 +342,13 @@ describe("what a pass leaves for the next", () => {
     assert.deepEqual(stamps(), [{ beanspruchung: "claim-1", ids: [OUTBOX_A] }]);
   });
 
-  /* The provider collapses a key reused over the same body and refuses one reused over another for its day, `409
-     invalid_idempotent_request` (https://resend.com/docs/api-reference/errors, read 2026-10-16; the source moves without
-     us). An erasure committing between two passes withholds the row's address, so a key on the row alone would leave the
-     recipient the first pass lost untold. */
+  /* An erasure committing between two passes withholds the row's address: keyed on the row alone, the later pass's
+     send is refused, and the recipient the first pass lost stays untold. */
   it("mails a body an erasure rewrote between two passes under a key of its own, which the provider takes", async () => {
     const ROW = "6890a1b2c3d4e5f6071a0003";
     const angenommen = new Map<string, string>();
-    // The provider's own rule for a key, the request that broke off having reached it.
+    // The provider's rule for a reused key, the request that broke off having reached it: one body collapses, another is
+    // refused (https://resend.com/docs/api-reference/errors, read 2026-10-16, the source moving without us).
     const wieDerAnbieter =
       (sonst: (sent: { to: string }) => MailOutcome) =>
       (sent: { to: string; subject: string; html: string; text: string; idempotencyKey?: string }): MailOutcome => {
