@@ -1142,12 +1142,43 @@ def test_every_write_the_application_makes_is_reached_from_a_route():
     )
 
 
-def _scoped_nodes(node: ast.AST, chain: tuple[Declaration, ...]) -> Iterator[tuple[tuple[Declaration, ...], ast.AST]]:
-    """Every node under `node` with the functions around it, as `scoped_calls` pairs each call."""
+@dataclass(frozen=True)
+class _Reference:
+    """One name or attribute a module reads, with the functions around it."""
 
-    for child in ast.iter_child_nodes(node):
-        yield chain, child
-        yield from _scoped_nodes(child, (*chain, child) if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)) else chain)
+    chain: tuple[Declaration, ...]
+    node: ast.Name | ast.Attribute
+    #: Where it is a call's callee or a transaction's callback, the two places a writer stands by right.
+    called: bool
+    handed: bool
+
+
+@functools.cache
+def _references(path: Path) -> tuple[tuple[_Reference, ...], Mapping[str, Path]]:
+    """Every name and attribute one module reads, and each name its imports bind to an application module.
+
+    One walk a module: each question below would otherwise walk the whole application again.
+    """
+
+    read: list[tuple[tuple[Declaration, ...], ast.Name | ast.Attribute]] = []
+    called: set[int] = set()
+    handed: set[int] = set()
+    modules: dict[str, Path] = {}
+    pending: list[tuple[tuple[Declaration, ...], ast.AST]] = [((), parsed(path))]
+    while pending:
+        chain, node = pending.pop()
+        if isinstance(node, (ast.Name, ast.Attribute)):
+            read.append((chain, node))
+        elif isinstance(node, ast.Call):
+            called.add(id(node.func))
+            if callee(node) == TRANSACTION_RUNNER and node.args:
+                handed.add(id(node.args[0]))
+        elif isinstance(node, (ast.Import, ast.ImportFrom)):
+            modules |= _modules_bound(node)
+        inner = (*chain, node) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) else chain
+        pending.extend((inner, child) for child in ast.iter_child_nodes(node))
+
+    return tuple(_Reference(chain, node, called=id(node) in called, handed=id(node) in handed) for chain, node in read), modules
 
 
 def _writes_itself(call: ast.Call, chain: tuple[Declaration, ...], path: Path) -> bool:
@@ -1159,69 +1190,63 @@ def _writes_itself(call: ast.Call, chain: tuple[Declaration, ...], path: Path) -
 
 
 @functools.cache
-def _writers() -> frozenset[int]:
-    """Every application function whose own body writes, or calls by a name `resolve_callee` follows one that does."""
+def _writers() -> Mapping[int, str]:
+    """Every application function whose own body writes, or calls by a name `resolve_callee` follows one that does, to its name."""
 
-    writing: set[int] = set()
-    calling: dict[int, set[int]] = {}
+    writing: dict[int, str] = {}
+    calling: dict[int, tuple[str, set[int]]] = {}
     for path in sorted(APP_ROOT.rglob("*.py")):
         for chain, call in scoped_calls(parsed(path), ()):
             if not chain or path == CRUD:
                 continue
             if _writes_itself(call, chain, path):
-                writing.add(id(chain[-1]))
+                writing[id(chain[-1])] = chain[-1].name
             elif (resolved := resolve_callee(call, chain, path)) is not None:
-                calling.setdefault(id(chain[-1]), set()).add(id(resolved[0]))
+                calling.setdefault(id(chain[-1]), (chain[-1].name, set()))[1].add(id(resolved[0]))
 
-    while grown := {holder for holder, called in calling.items() if holder not in writing and called & writing}:
+    while grown := {holder: name for holder, (name, called) in calling.items() if holder not in writing and called.intersection(writing)}:
         writing |= grown
 
-    return frozenset(writing)
+    return writing
 
 
-def _module_held_as(name: str, tree: ast.Module) -> Path | None:
-    """The application module `name` holds where an import binds it to one, which a call then reaches through an attribute."""
+def _modules_bound(node: ast.Import | ast.ImportFrom) -> dict[str, Path]:
+    """Each name one import binds to an application module, which a call then reaches through an attribute."""
 
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Import):
-            bound = [(alias, alias.name) for alias in node.names]
-        elif isinstance(node, ast.ImportFrom):
-            bound = [(alias, f"{node.module}.{alias.name}") for alias in node.names]
-        else:
-            continue
-        for alias, dotted in bound:
-            if (alias.asname or alias.name) != name:
-                continue
-            candidate = BACKEND_ROOT.joinpath(*dotted.split("."))
-            for origin in (candidate.with_suffix(".py"), candidate / "__init__.py"):
-                if dotted.startswith("app.") and origin.exists():
-                    return origin
+    bound = [(alias, alias.name if isinstance(node, ast.Import) else f"{node.module}.{alias.name}") for alias in node.names]
+    held: dict[str, Path] = {}
+    for alias, dotted in bound:
+        candidate = BACKEND_ROOT.joinpath(*dotted.split("."))
+        for origin in (candidate.with_suffix(".py"), candidate / "__init__.py"):
+            if dotted.startswith("app.") and origin.exists():
+                held[alias.asname or alias.name] = origin
 
-    return None
+    return held
 
 
 def _writers_held_as_values() -> dict[str, frozenset[str]]:
     """Every scope naming a writer other than at a call `resolve_callee` follows or as a transaction's callback, with the writers it names."""
 
     writers = _writers()
+    # A name no writer bears resolves to none, so only these are resolved.
+    names = frozenset(writers.values())
     found: dict[str, set[str]] = {}
     for path in sorted(APP_ROOT.rglob("*.py")):
-        tree = parsed(path)
-        called = {id(node.func) for node in ast.walk(tree) if isinstance(node, ast.Call)}
-        handed = {
-            id(node.args[0]) for node in ast.walk(tree) if isinstance(node, ast.Call) and callee(node) == TRANSACTION_RUNNER and node.args
-        }
-        for chain, node in _scoped_nodes(tree, ()):
-            if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load) and id(node) not in called | handed:
-                resolved = resolve_name(node.id, chain, path)
-            elif isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name) and (held := _module_held_as(node.value.id, tree)):
+        references, modules = _references(path)
+        for reference in references:
+            node = reference.node
+            if isinstance(node, ast.Name):
+                if node.id not in names or not isinstance(node.ctx, ast.Load) or reference.called or reference.handed:
+                    continue
+                resolved = resolve_name(node.id, reference.chain, path)
+            elif isinstance(node.value, ast.Name) and (held := modules.get(node.value.id)):
                 # Called or not: `resolve_callee` follows no attribute, so a writer reached through its module is unseen either way.
                 declaration = next((found for found in parsed(held).body if getattr(found, "name", None) == node.attr), None)
                 resolved = (declaration, held) if isinstance(declaration, (ast.FunctionDef, ast.AsyncFunctionDef)) else None
             else:
                 continue
             if resolved is not None and id(resolved[0]) in writers:
-                where = f"{path.relative_to(BACKEND_ROOT).as_posix()} :: {chain[-1].name if chain else '<module>'}"
+                where = f"{path.relative_to(BACKEND_ROOT).as_posix()} :: {reference.chain[-1].name if reference.chain else '<module>'}"
                 found.setdefault(where, set()).add(resolved[0].name)
 
     return {where: frozenset(names) for where, names in found.items()}
@@ -1247,17 +1272,12 @@ WRITERS_HELD_ELSEWHERE: dict[str, tuple[frozenset[str], str]] = {
 def _driver_writes_held_as_values() -> list[str]:
     """Every driver write named other than as a call's callee: `send = spielorte_collection.update_one` writes under `send`."""
 
-    found: list[str] = []
-    for path in sorted(APP_ROOT.rglob("*.py")):
-        tree = parsed(path)
-        called = {id(node.func) for node in ast.walk(tree) if isinstance(node, ast.Call)}
-        found.extend(
-            f"{path.relative_to(BACKEND_ROOT).as_posix()}:{node.lineno} `{ast.unparse(node)}`"
-            for node in ast.walk(tree)
-            if isinstance(node, ast.Attribute) and node.attr in DRIVER_WRITES and id(node) not in called
-        )
-
-    return found
+    return [
+        f"{path.relative_to(BACKEND_ROOT).as_posix()}:{reference.node.lineno} `{ast.unparse(reference.node)}`"
+        for path in sorted(APP_ROOT.rglob("*.py"))
+        for reference in _references(path)[0]
+        if isinstance(reference.node, ast.Attribute) and reference.node.attr in DRIVER_WRITES and not reference.called
+    ]
 
 
 def _steps_called_by_name() -> frozenset[str]:
