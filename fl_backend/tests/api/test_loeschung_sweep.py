@@ -37,7 +37,7 @@ from app.api.spieler.services import build_ghost_spieler
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db
-from app.core.exception_handlers import DATABASE_FAILED, STORED_DATA_INVALID, UNKNOWN_OUTCOME
+from app.core.exception_handlers import DATABASE_FAILED, STORED_DATA_INVALID, UNHANDLED_CRASH, UNKNOWN_OUTCOME
 from app.core.exceptions import DocumentNotFoundException
 from app.main import create_app
 from tests.app_client import app_client
@@ -680,6 +680,43 @@ class TestOneRecordHoldsBackNobody:
         assert [str(numbered(1)) in record.getMessage() and "WriteError" in record.getMessage() for record in failures] == [True]
         # Neither the address nor the name, which the line would keep past the erasure it reports.
         assert not [record for record in failures if address_of(1) in record.getMessage() or "Quintessa" in record.getMessage()]
+
+    def test_a_failure_not_the_databases_is_counted_and_the_next_pupil_goes(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+        """Catch the database's failures alone and the call fails, the second pupil standing and the next pass stopping at the first again."""
+
+        class NotTheDatabases(Exception):
+            """A failure no driver raises, standing for every class an erasure can meet outside the database."""
+
+        class RaisesForOnePupil:
+            """The squad rows, whose in-session read for the first pupil raises `NotTheDatabases`."""
+
+            def __init__(self, collection: Any) -> None:
+                self._collection = collection
+
+            def __getattr__(self, name: str) -> Any:
+                return getattr(self._collection, name)
+
+            async def aggregate(self, pipeline: list[Any], *args: Any, **kwargs: Any) -> Any:
+                if pipeline and pipeline[0] == {"$match": {"spieler_id": numbered(1)}}:
+                    raise NotTheDatabases("synthetic")
+
+                return await self._collection.aggregate(pipeline, *args, **kwargs)
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await seeded(database, a_due_pupil(1), a_due_pupil(2))
+            answer = await run(database, client, saison_spieler_collection=RaisesForOnePupil(database[Collection.SAISON_SPIELER]))
+
+            return counts(answer), answer.nach, await database[Collection.SPIELER].distinct("_id", {"email": {"$type": "string"}})
+
+        with caplog.at_level(logging.ERROR):
+            answer, nach, standing = on_a_league(mongo_replica_set_url, body)
+
+        assert (answer["spieler"], answer["fehlgeschlagen"], answer["verbleibend"], nach) == (1, 1, 1, None)
+        assert standing == [numbered(1)]
+        failures = [
+            (record.levelname, record.getMessage()) for record in caplog.records if getattr(record, "error_code", None) == UNHANDLED_CRASH
+        ]
+        assert failures == [("ERROR", f"Pupil {numbered(1)} was not erased, the failure not the database's: NotTheDatabases")]
 
 
 # Long enough that the pupil before the stall is erased inside it on a loaded machine.

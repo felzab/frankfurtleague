@@ -1161,7 +1161,9 @@ reach a visitor for up to a week after the deletion.
 
 **A pupil counted `fehlgeschlagen` stays due, and every later pass meets them again.** The
 backend's `DB-FAIL-001` line names that pupil's id and the error's class, never an address: the
-erasure's write was refused, and the next pass tries again. Find the record the write was refused
+erasure's write was refused, and the next pass tries again; a `SRV-FAIL-001` line naming them the
+same way is a failure the database did not raise, which the class and that pupil's record locate
+for a fix. Find the record the write was refused
 on and repair it, and the pass after deletes the pupil. `DB-FAIL-002` means the commit's outcome is
 unknown; the next pass judges the pupil afresh, so it needs nothing from you. A warning saying the
 database deadline passed at a pupil or at an address change is the call stopping in time rather

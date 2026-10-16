@@ -23,7 +23,7 @@ from app.api.schiedsrichter.sweep_router import ADRESSWECHSEL_PER_PASS, sweep_ad
 from app.api.spieler.services import SPIELER_ADRESSWECHSEL_FELD, build_ghost_spieler, compose_spieler_adresswechsel
 from app.core.collections import Collection
 from app.core.crud import patch_one_in_db
-from app.core.exception_handlers import DATABASE_FAILED, UNKNOWN_OUTCOME
+from app.core.exception_handlers import DATABASE_FAILED, UNHANDLED_CRASH, UNKNOWN_OUTCOME
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import saison_document, schiedsrichter_document, spieler_document
 from tests.whole_database import where_held
@@ -354,7 +354,58 @@ class TestEachCallTakesAShare:
         assert later == (0, 0, None)
 
 
+class NotTheDatabases(Exception):
+    """A failure no driver raises, standing for every class a row's removal can meet outside the database."""
+
+
+class RaisesOnOneRow:
+    """A collection whose in-session read of one row raises `NotTheDatabases`."""
+
+    def __init__(self, collection: Any, failing: str) -> None:
+        self._collection = collection
+        self._failing = failing
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._collection, name)
+
+    async def find_one(self, filter: Mapping[str, Any], *args: Any, **kwargs: Any) -> Any:
+        if self._failing in str(filter) and kwargs.get("session") is not None:
+            raise NotTheDatabases("synthetic")
+
+        return await self._collection.find_one(filter, *args, **kwargs)
+
+
 class TestOneRecordHoldsBackNoOther:
+    def test_a_failure_not_the_databases_is_passed_over_and_the_next_goes(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+        """Catch the database's failures alone and the call fails, the second address standing and the next pass stopping at the first again."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SCHIEDSRICHTER].insert_many(
+                [a_referee(position, minted=MINTED_TO_LAPSE_YESTERDAY) for position in (1, 2)]
+            )
+            answer = await sweep(
+                database, client, schiedsrichter_collection=RaisesOnOneRow(database[Collection.SCHIEDSRICHTER], str(numbered(1)))
+            )
+
+            return (answer.entfernt, answer.verbleibend, answer.nach), await database[Collection.SCHIEDSRICHTER].distinct(
+                "_id", {ADRESSWECHSEL_FELD: {"$type": "object"}}
+            )
+
+        with caplog.at_level("ERROR"):
+            counts, still_pending = on_a_league(mongo_replica_set_url, body)
+
+        assert counts == (1, 1, None)
+        assert still_pending == [numbered(1)]
+        failures = [
+            (record.levelname, record.getMessage()) for record in caplog.records if getattr(record, "error_code", None) == UNHANDLED_CRASH
+        ]
+        assert failures == [
+            (
+                "ERROR",
+                f"The lapsed address change of referee {numbered(1)} was not removed, the failure not the database's: NotTheDatabases",
+            )
+        ]
+
     def test_a_refused_removal_is_passed_over_and_the_next_goes(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         """A log image stored before its validator required `trace_id` refuses the redaction's update. Remove the catch and the call fails."""
 

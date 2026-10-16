@@ -24,7 +24,7 @@ from app.core.dependencies import (
     get_german_date_str,
     get_germany_now,
 )
-from app.core.exception_handlers import DATABASE_FAILED, UNKNOWN_OUTCOME
+from app.core.exception_handlers import DATABASE_FAILED, UNHANDLED_CRASH, UNKNOWN_OUTCOME
 from app.core.exceptions import DocumentNotFoundException
 from app.core.logging import fl_logger
 from app.core.recording import log_stamp
@@ -148,10 +148,10 @@ async def sweep_adresswechsel(
     fresh link since this call read it is left standing. **A pass is a run of calls, each handing the next the `nach` the last
     answered**, the first naming none; it ends at the call answering `nach` null. A call reaches at most a fixed share of the
     lapsed changes after `nach`, the referees' and the pupils' in one `_id` order, and the pass holds no state on the server.
-    A change whose removal the database refuses is logged by its row's id and passed, so it holds back nobody behind it in the
-    pass; it stays lapsed, and the next pass tries it again. Where the request's deadline cuts the call, it stops at that
-    change, warns once, and answers what it did. `verbleibend` counts the lapsed changes standing after the call, so it is no
-    stopping condition.
+    A change whose removal fails, the database refusing it or anything else, is logged by its row's id and passed, so it holds
+    back nobody behind it in the pass; it stays lapsed, and the next pass tries it again. Where the request's deadline cuts the
+    call, it stops at that change, warns once, and answers what it did. `verbleibend` counts the lapsed changes standing after
+    the call, so it is no stopping condition.
     """
 
     [gelesen] = await aggregate_many_from_db(
@@ -204,6 +204,15 @@ async def sweep_adresswechsel(
                 f"The lapsed address change of {wessen} {row['_id']} was "
                 f"{'removed or not, the commit unanswered' if ungewiss else 'not removed'}: {type(failure).__name__}",
                 extra={"error_code": UNKNOWN_OUTCOME if ungewiss else DATABASE_FAILED},
+            )
+            continue
+        # Any class, or the next pass stops at this change again and holds back every one behind it
+        # (`docs/backend/spec.md :: I717`); not `BaseException`, so a cancellation still ends the call. The id and the
+        # class alone, as above.
+        except Exception as failure:
+            fl_logger.error(
+                f"The lapsed address change of {wessen} {row['_id']} was not removed, the failure not the database's: {type(failure).__name__}",
+                extra={"error_code": UNHANDLED_CRASH},
             )
             continue
 
