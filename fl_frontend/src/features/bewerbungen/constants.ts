@@ -140,7 +140,7 @@ export const BEWERBUNG_TOKEN_MAX_LENGTH = 128;
  * `fl_backend/app/api/bewerbungen/schemas.py :: DELETIONS_LISTED_PER_PASS` and held to the
  * `maxItems` both sweep payloads publish by `fl_frontend/src/core/payloadBounds.test.ts`.
  */
-export const DELETIONS_LISTED_PER_PASS = 125;
+export const DELETIONS_LISTED_PER_PASS = 84;
 
 /**
  * The picker key standing for „meine Schule ist nicht dabei“.
