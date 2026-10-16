@@ -647,8 +647,8 @@ def referenced_addresses(
         # the address it replaces stays here till then (`docs/backend/spec.md :: I560`).
         *map(referee_address, referee_rows),
         *map(pupil_address, pupil_rows),
-        # The one kind narrowed to its pupil's confirmation, as the gate narrows it. The row's own fold
-        # stands for the identifier, its selection having matched the row to the batch already.
+        # The one kind narrowed to its pupil's confirmation, as the gate narrows it, each row judged on its
+        # own fold: the set holds every address a record names, so a row read for another mailbox adds its own.
         *(row.get("email") for row in registrierung_rows if ist_eigene_registrierung(row, folded(row.get("email")) or "")),
         *(row.get("adresse") for row in grant_rows),
     )

@@ -212,7 +212,7 @@ class _SecretFields(BaseModel):
     # are cheaper to break than the addresses they were taken from
     # (`app/api/sperrliste/services.py :: adresse_hash`). No ceiling — HMAC takes a key of any length.
     sperrliste_schluessel: SecretStr = Field(
-        min_length=SPERRLISTE_KEY_MIN_LENGTH, description="HMAC master key for the email ban list and the action log's pseudonyms"
+        min_length=SPERRLISTE_KEY_MIN_LENGTH, description="HMAC master key every keyed hash of an address derives its own sub-key from"
     )
 
     @field_validator("mongodb_uri")
