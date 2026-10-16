@@ -213,12 +213,16 @@ describe("a heading or a control a sentence names", () => {
     const astray = REGISTER.flatMap(({ wort, konstante, heim, zeigen }) =>
       [...new Set([heim, ...zeigen])].flatMap((modul) => {
         const text = read(modul);
-        const typed = fragmentsOf(modul, text).filter((fragment) => fragment.text.trim() === wort);
+        const typed = fragmentsOf(modul, text)
+          .filter((fragment) => fragment.text.trim() === wort)
+          .map(({ where }) => where);
         const allowed = modul === heim ? 1 : 0;
         return [
           ...(typed.length === allowed
             ? []
-            : [`${modul} types „${wort}“ ${String(typed.length)} times, where ${String(allowed)} is ${konstante}`]),
+            : typed.length === 0
+              ? [`${modul} no longer defines ${konstante} as „${wort}“`]
+              : [`${typed.join(", ")} ${typed.length === 1 ? "types" : "type"} „${wort}“, which only ${konstante}'s definition may`]),
           ...(zeigen.includes(modul) && !reads(modul, text, konstante) ? [`${modul} renders „${wort}“ without reading ${konstante}`] : []),
         ];
       }),
