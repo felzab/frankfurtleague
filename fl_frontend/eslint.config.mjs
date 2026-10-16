@@ -1333,6 +1333,16 @@ const SOURCE_BANS = [
     message:
       "Hand `unansweredAction` the rejection it answers: without it, the edge's own refusal of the press reads as an unclear save rather than as one that wrote nothing.",
   },
+  {
+    selector: [
+      ":matches(Literal, TemplateLiteral)",
+      "ConditionalExpression > :matches(Literal, TemplateLiteral):matches(.consequent, .alternate)",
+    ]
+      .map((value) => `CallExpression[callee.name="buildRefusal"] > ObjectExpression.arguments > Property[key.name="where"] > ${value}`)
+      .join(", "),
+    message:
+      "Name a refusal's `where` by the constant its panel or page renders the heading from: a heading typed here goes on pointing at the old one once the panel is renamed.",
+  },
 ];
 
 /**
