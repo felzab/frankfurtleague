@@ -6,6 +6,7 @@ Here rather than in `crud.py`, which opens collections: a services module is wha
 so a judgement left beside a handle is one nothing stops from growing a read of its own.
 """
 
+import re
 from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
 from collections.abc import Set as AbstractSet
 from http import HTTPStatus
@@ -30,7 +31,7 @@ from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.collections import Collection as DbCollection
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import is_confirmed
-from app.shared.folding import is_stored_identifier, sign_in_identifier
+from app.shared.folding import is_stored_identifier, person_name_key, sign_in_identifier
 
 # --- The SELECTIONS, each shared with its record's own person-tier reads rather than spelled again.
 # Unnarrowed by retirement or withdrawal: `_judged` narrows the Funktionen (`docs/backend/spec.md :: I376`).
@@ -578,6 +579,65 @@ def find_inhaber_adresse_refusal(
         error_code=INHABER_ADRESSE,
         status=HTTPStatus.FORBIDDEN,
         message="this address holds an owner's access to the administration; only an owner, signed in since becoming one, acts on it here",
+    )
+
+
+# 422 on the box, as the address the payload's own validator refuses there: the value typed is what is
+# refused, and the administrator rephrases it (`docs/backend/spec.md :: I721`).
+NAME_IM_ANLASS = "REQ-PURGE-006"
+
+# Matched only inside the name they stand in: alone, „der“ or „von“ would refuse most German sentences.
+NAME_PARTICLES: frozenset[str] = frozenset(
+    {"von", "vom", "van", "der", "den", "de", "zu", "zur", "zum", "di", "da", "du", "la", "le", "ten", "ter", "dos"}
+)
+
+# Letters and digits, never `\w`, which counts `_` as a letter: a hyphen and `_` each end a word, as the refusal bounds one.
+_WORD = re.compile(r"[^\W_]+")
+
+
+def anlass_names(
+    identifier: str,
+    *,
+    saison_team_rows: Sequence[Mapping[str, Any]],
+    bewerbung_rows: Sequence[Mapping[str, Any]],
+    referee_rows: Iterable[Mapping[str, Any]],
+    pupil_rows: Iterable[Mapping[str, Any]],
+    registrierung_rows: Iterable[Mapping[str, Any]],
+) -> frozenset[str]:
+    """Every name the person's own records hold, as the reveal names each, folded: each field whole, and each of its words but a particle."""
+
+    fields = [
+        *(_pupil_entry(row)[part] for row in pupil_rows for part in ("vorname", "nachname")),
+        *(
+            _seat_entry(row, slot)[part]
+            for row, slot in seats_naming([*saison_team_rows, *bewerbung_rows], identifier)
+            for part in ("vorname", "nachname")
+        ),
+        *(row.get(part) for row in registrierung_rows for part in ("vorname", "nachname")),
+        *(_referee_entry(row)["name"] for row in referee_rows),
+    ]
+    wholes = {person_name_key(field) for field in fields}
+
+    # Without the empty fold of an absent field, which would stand as a whole word everywhere.
+    return frozenset({*wholes, *(word for whole in wholes for word in _WORD.findall(whole) if word not in NAME_PARTICLES)} - {""})
+
+
+def find_name_im_anlass_refusal(*, anlass: str, names: Iterable[str]) -> WriteRefusal | None:
+    """`REQ-PURGE-006`: no name in `names` stands in the request as a whole word or words.
+
+    Both folded alike (`anlass_names`). A common word equal to a name is refused with it, and the administrator rephrases.
+    """
+
+    folded = person_name_key(anlass)
+    if not any(re.search(rf"(?<![^\W_]){re.escape(name)}(?![^\W_])", folded) for name in names):
+        return None
+
+    # Naming none of them: the message reaches the refusal's log line.
+    return WriteRefusal(
+        error_code=NAME_IM_ANLASS,
+        status=HTTPStatus.UNPROCESSABLE_CONTENT,
+        message="the request this erasure answers names the person, and every log row the erasure files would keep that name for a year",
+        fields=(("anlass",),),
     )
 
 
