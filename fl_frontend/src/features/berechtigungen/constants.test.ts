@@ -2,17 +2,20 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { ERASED_ACTOR_MARKER } from "@/core/erasedActor.ts";
+import { publishedOperations } from "@/core/openapiDocument.ts";
 import {
   GELOESCHTE_PERSON,
   GESPERRTE_ADRESSE,
   INHABER_GESPERRT,
   INHABER_LABEL,
+  NACH_ERNENNUNG_NEU_ANMELDEN,
   NUR_INHABER_ENTZIEHT,
   STUFE_GEAENDERT_MESSAGE,
   stufeWorte,
   vonOderGesperrt,
 } from "@/features/berechtigungen/constants.ts";
 import { mapEntziehenRefusal, mapStufeRefusal } from "@/features/berechtigungen/refusals.ts";
+import { mapAbmeldungRefusal, mapErasureRefusal } from "@/features/funktionen/refusals.ts";
 import { publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 
 describe("the actor an admin card names", () => {
@@ -88,6 +91,34 @@ describe("the words the grants page names the owner tier in", () => {
       "einer Inhaberin oder einem Inhaber",
     ]) {
       assert.equal(inBeidenFormen(paar), true, paar);
+    }
+  });
+});
+
+describe("a refusal of an owner's power", () => {
+  /** The codes refusing a session without an owner's power, an owner's signed in before the promotion among them. */
+  const OWNERS_POWER = new Set(["REQ-PURGE-005", "REQ-BERECHTIGUNG-005"]);
+
+  /** Each operation publishing one, and the mapper wording it. */
+  const WORDED_BY: Readonly<Record<string, (error: unknown) => { error?: string } | null>> = {
+    "POST /identitaet/erasure/ansicht": mapErasureRefusal,
+    "POST /identitaet/erasure": mapErasureRefusal,
+    "POST /identitaet/abmeldung": mapAbmeldungRefusal,
+    "DELETE /berechtigungen/{berechtigung_id}": mapEntziehenRefusal,
+    "PATCH /berechtigungen/{berechtigung_id}": mapStufeRefusal,
+  };
+
+  /* An owner whose session predates the promotion is refused in the code an administrator is, and reads the sentence
+     as false of them: only the closing sentence names the sign-in that repairs it. */
+  it("sends an owner promoted since signing in to sign in again, on every operation refusing one", () => {
+    const published = publishedOperations().flatMap(({ operation, answers }) =>
+      answers.filter(({ code }) => OWNERS_POWER.has(code)).map(({ code }) => ({ operation, code })),
+    );
+
+    assert.deepEqual([...new Set(published.map(({ operation }) => operation))].sort(), Object.keys(WORDED_BY).sort());
+    for (const { operation, code } of published) {
+      const satz = WORDED_BY[operation]?.(refusedOn(operation, code))?.error ?? "";
+      assert.ok(satz.endsWith(`. ${NACH_ERNENNUNG_NEU_ANMELDEN}`), `${operation} answers ${code} as „${satz}“`);
     }
   });
 });

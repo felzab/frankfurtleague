@@ -4,7 +4,6 @@ import { deleteAccountFor, endSessionsOfAddress } from "@/core/auth";
 import { RolledBackError } from "@/core/errors";
 import { logger } from "@/core/logging";
 import { isWithinEnrolmentWindow } from "@/core/sessionLifetimes";
-import { verwaltungOf } from "@/core/verwaltung";
 import { HANDLUNGSBEDARF_EINTRAG } from "@/features/admin/constants";
 import { invalidatesOnWrite, refusalResult, refuseUnconfirmed, runAdminMutation } from "@/shared/utils/adminMutation";
 import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
@@ -117,16 +116,19 @@ export async function eraseAufAnfrageAction(
       };
     }
 
-    // A grant holder's address is held to the enrolment's window on both servers (`docs/frontend/spec.md :: I714`), so a
-    // grant written since the panel's read is refused here too. Read only for a session past that window.
-    const haeltZugang = !isWithinEnrolmentWindow(session.session.createdAt) && (await verwaltungOf(validated.data.email)).verwaltung !== null;
-    const unconfirmed = haeltZugang ? refuseUnconfirmed(session, "enrolment") : null;
-    if (unconfirmed !== null) return unconfirmed;
-
-    // The records first: an account deleted ahead of a refused or failed erasure leaves a person whose data stands
-    // and who then cannot sign in to ask again.
     let erasure: FLErasureResponse;
     try {
+      // A grant holder's address is held to the enrolment's window on both servers (`docs/frontend/spec.md :: I714`), so a
+      // grant written since the panel's read is refused here too. Read only for a session past that window.
+      const haeltZugang =
+        !isWithinEnrolmentWindow(session.session.createdAt) &&
+        // The panel's reveal, never the subject lookup, which refuses an address stored under an older rule the erasure takes.
+        (await readErasureAnsicht({ email: validated.data.email })).verwaltung !== null;
+      const unconfirmed = haeltZugang ? refuseUnconfirmed(session, "enrolment") : null;
+      if (unconfirmed !== null) return unconfirmed;
+
+      // The records first: an account deleted ahead of a refused or failed erasure leaves a person whose data stands
+      // and who then cannot sign in to ask again.
       erasure = await eraseAufAnfrage(validated.data);
     } catch (error) {
       const refusal = mapErasureRefusal(error);

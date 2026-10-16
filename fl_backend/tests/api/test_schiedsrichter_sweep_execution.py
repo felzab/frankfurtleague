@@ -6,6 +6,7 @@ administrator's discard takes each. The share's sizing is `tests/api/test_schied
 """
 
 import re
+from collections import Counter
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
 from typing import Any
@@ -14,7 +15,7 @@ from zoneinfo import ZoneInfo
 import pymongo
 import pytest
 from bson import ObjectId
-from pymongo import AsyncMongoClient, ReturnDocument, monitoring
+from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.services import hash_token
@@ -28,9 +29,10 @@ from app.core.exception_handlers import DATABASE_FAILED, UNHANDLED_CRASH, UNKNOW
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import saison_document, schiedsrichter_document, spieler_document
 from tests.whole_database import where_held
+from tests.wire import commands_by_name, commands_sent
 from tests.worker import worker_database
 
-from .test_schiedsrichter_sweep_refusal import COMMANDS_A_PUPIL, COMMANDS_A_REFEREE
+from .test_schiedsrichter_sweep_refusal import COMMANDS_A_PUPIL, COMMANDS_A_REFEREE, OTHER_COMMANDS
 
 pytestmark = pytest.mark.db
 
@@ -512,20 +514,6 @@ class TestTheDeadlineStopsTheCall:
         ]
 
 
-class _Counting(monitoring.CommandListener):
-    def __init__(self) -> None:
-        self.commands = 0
-
-    def started(self, event: monitoring.CommandStartedEvent) -> None:
-        self.commands += 1
-
-    def succeeded(self, event: monitoring.CommandSucceededEvent) -> None:
-        pass
-
-    def failed(self, event: monitoring.CommandFailedEvent) -> None:
-        pass
-
-
 FEW = ADRESSWECHSEL_PER_PASS // 2
 
 
@@ -544,17 +532,36 @@ class TestOneRowCostsTheCommandsItsShareIsSizedAt:
                 await database[Collection.AKTIONEN].delete_many({})
                 await with_history(database, *(row(position, minted=MINTED_TO_LAPSE_YESTERDAY) for position in range(due)))
 
-                listener = _Counting()
-                counting = AsyncMongoClient(mongo_replica_set_url, event_listeners=[listener])
-                try:
-                    await sweep(counting[DATABASE_NAME], counting)
-                finally:
-                    await counting.close()
-
-                return listener.commands
+                return await commands_sent(mongo_replica_set_url, DATABASE_NAME, sweep)
 
             return await counted(FEW), await counted(2 * FEW)
 
         few, twice = on_a_league(mongo_replica_set_url, body)
 
         assert (twice - few) / FEW == commands
+
+
+class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
+    def test_a_full_share(self, mongo_replica_set_url: str):
+        """`tests/api/test_schiedsrichter_sweep_refusal.py`'s budget: a share and one more lapsed, pupils and referees in alternation.
+
+        A command added to the call turns this red, so the share is judged against the deadline again.
+        """
+
+        rows = [
+            (a_referee if position % 2 else a_pupil)(position, minted=MINTED_TO_LAPSE_YESTERDAY)
+            for position in range(ADRESSWECHSEL_PER_PASS + 1)
+        ]
+        taken = rows[:ADRESSWECHSEL_PER_PASS]
+        referees = sum(1 for row in taken if "kontakt" in row)
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[Any, Counter[str]]:
+            await with_history(database, *rows)
+
+            return await commands_by_name(mongo_replica_set_url, DATABASE_NAME, sweep)
+
+        answer, names = on_a_league(mongo_replica_set_url, body)
+        per_row = referees * COMMANDS_A_REFEREE + (len(taken) - referees) * COMMANDS_A_PUPIL
+
+        assert answer.entfernt == ADRESSWECHSEL_PER_PASS
+        assert names.total() - per_row == OTHER_COMMANDS, names

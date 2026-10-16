@@ -66,8 +66,14 @@ export const ERTEILT_AM_LABEL = "Erteilt am";
 /** What a CLEAN grant answers, beside the form's title only where the two differ. */
 export const ZUGANG_ERTEILT = "Zugang erteilt";
 
-/** Why the revoke is closed to an administrator holding no `owner` grant, and the backend's `-005` in the same words. */
-export const NUR_INHABER_ENTZIEHT = "Den Zugang entziehen können nur Inhaberinnen und Inhaber.";
+/**
+ * Closes every refusal of an owner's power. A promotion holds for a sign-in after it alone (`docs/backend/spec.md :: I534`),
+ * so an owner signed in before it is refused too, and would read the refusal as false of them.
+ */
+export const NACH_ERNENNUNG_NEU_ANMELDEN = "Bist Du erst nach Deiner Anmeldung Inhaberin oder Inhaber geworden, melde Dich neu an.";
+
+/** Why the revoke is closed to a session holding no owner's power, and the backend's `-005` in the same words. */
+export const NUR_INHABER_ENTZIEHT = `Den Zugang entziehen können nur Inhaberinnen und Inhaber. ${NACH_ERNENNUNG_NEU_ANMELDEN}`;
 
 /** The row a control's name tells apart after its words: the address, or the grant's day where the address is withheld. */
 const zugang = (adresse: string | null, erteiltAm: string): string => adresse ?? `Zugang vom ${erteiltAm}`;

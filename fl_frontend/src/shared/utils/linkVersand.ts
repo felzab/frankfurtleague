@@ -29,10 +29,18 @@ export function versandWarnt(versand: LinkVersand | undefined): boolean {
 }
 
 /**
- * Whether an address change's notice to the stored address failed, which its sentence asks the administrator to make
- * good by hand: one held back, or none stored, asks nothing (`docs/frontend/spec.md :: I737`).
+ * How an address change's notice to the stored address ended: a link mail's ends, or `ungewiss`, a send broken off
+ * unanswered that may have landed. A courtesy beside a saved write, it words its own doubt (`docs/frontend/spec.md :: I372`).
  */
-export function hinweisFehlt(hinweis: LinkVersand | null | undefined): boolean {
+export type HinweisVersand = LinkVersand | "ungewiss";
+
+/**
+ * Whether an address change's notice to the stored address failed or may have, which its sentence asks the
+ * administrator to make good by hand: one held back, or none stored, asks nothing (`docs/frontend/spec.md :: I737`).
+ */
+export function hinweisFehlt(hinweis: HinweisVersand | null | undefined): boolean {
+  if (hinweis === "ungewiss") return true;
+
   return hinweis !== null && hinweis !== undefined && versandGrad(hinweis) === "fehlgeschlagen";
 }
 

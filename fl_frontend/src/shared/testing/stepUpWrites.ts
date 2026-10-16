@@ -80,25 +80,48 @@ function keyOf(options: ts.Expression | undefined): KeyTier | null {
   return key;
 }
 
-/**
- * The key the export `name` of `source`, a slice's mutations module, sends on, read off its client calls: `null` where it is no
- * function, calls no client, or calls it on two keys.
- */
-function requestKeyOf(source: ts.SourceFile | null, name: string): KeyTier | null {
+/** The options argument of every client call the export `name` of `source`, a slice's mutations module, makes; `null` where it is no function. */
+function clientOptionsOf(source: ts.SourceFile | null, name: string): (ts.Expression | undefined)[] | null {
   const declaration = source?.statements.find(
     (statement): statement is ts.FunctionDeclaration =>
       ts.isFunctionDeclaration(statement) && isExported(statement) && statement.name?.text === name,
   );
   if (declaration?.body === undefined) return null;
 
-  const keys = new Set<KeyTier | null>();
+  const options: (ts.Expression | undefined)[] = [];
   const visit = (node: ts.Node): void => {
-    if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "apiClient")
-      keys.add(keyOf(node.arguments[2]));
+    if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "apiClient") options.push(node.arguments[2]);
     ts.forEachChild(node, visit);
   };
   visit(declaration.body);
+  return options;
+}
+
+/** The key a request sends on, read off its client calls: `null` where it is no function, calls no client, or calls it on two keys. */
+function requestKeyOf(options: readonly (ts.Expression | undefined)[] | null): KeyTier | null {
+  const keys = new Set((options ?? []).map(keyOf));
   return keys.size === 1 ? ([...keys][0] ?? null) : null;
+}
+
+/** Whether every client call a request makes declares `readOnly: true` as a literal; a spread, which could undo it, reads as no. */
+function readsOnly(options: readonly (ts.Expression | undefined)[] | null): boolean {
+  return (
+    options !== null &&
+    options.length > 0 &&
+    options.every(
+      (option) =>
+        option !== undefined &&
+        ts.isObjectLiteralExpression(option) &&
+        !option.properties.some(ts.isSpreadAssignment) &&
+        option.properties.some(
+          (property) =>
+            ts.isPropertyAssignment(property) &&
+            ts.isIdentifier(property.name) &&
+            property.name.text === "readOnly" &&
+            property.initializer.kind === ts.SyntaxKind.TrueKeyword,
+        ),
+    )
+  );
 }
 
 /**
@@ -113,10 +136,12 @@ export function stepUpRequestsOf(
   const unread: string[] = [];
   for (const request of sends) {
     const [slice = "", name = ""] = request.split(" :: ");
-    const key = requestKeyOf(mutationsOf(slice), name);
+    const options = clientOptionsOf(mutationsOf(slice), name);
+    const key = requestKeyOf(options);
     if (key === null) unread.push(`${request} sent on a key the reader cannot read`);
-    // An unread key keeps the request, so a shape this cannot read never narrows the listing.
-    if (key === null || key === "admin") requests.push(request);
+    // An unread key keeps the request, so a shape this cannot read never narrows the listing. A read is no write's door:
+    // the backend steps up no operation storing nothing, which `readOnly` declares (`fl_frontend/src/core/apiRequests.test.ts`).
+    if ((key === null || key === "admin") && !readsOnly(options)) requests.push(request);
   }
   return { requests, unread };
 }

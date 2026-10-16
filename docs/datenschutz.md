@@ -597,10 +597,13 @@ Every ruling below is the sign-up flow as it stands for the next season.
   erasure leaves it to that index, its own write being what holds a late writer off. The published
   notice tabulates it, that pass's period in words (`DatenschutzView.tsx :: FRISTEN`). Ruled
   2026-10-16.
-- **Backups outlive an erasure by the snapshot window, and the person is told so.** The hosting
+- **Backups outlive an erasure by the snapshot window, the mail provider's copies by its own
+  period, and the person is told both.** The hosting
   keeps snapshots for about eight days, taken daily — a figure mirrored from the provider's own
   console, which moves without us, as it stood on 2026-09-01. An erased person is gone from the live
-  database at once and from backups within that window, and that sentence is what a requester
+  database at once and from backups within that window, while the mail provider keeps every
+  message the league sent, theirs among them, for the longer period of
+  [section 7](#7-processors-and-third-parties), which no erasure reaches. Both are what a requester
   receives, from the published notice and from the runbook alike
   (`DatenschutzView.tsx :: Was eine Löschung erreicht und was nicht`). A restore is followed by
   running again every erasure asked for since its snapshot, each found by the keyed hash it left in
@@ -615,8 +618,9 @@ Every ruling below is the sign-up flow as it stands for the next season.
   that reaches everything else (`docs/backend/spec.md :: I268`). **The row is pseudonymised personal
   data rather than none** — this controller holds the key that re-identifies it — and the person
   barred is in it past their own erasure. The free-text reason refuses a name the address's own
-  records hold as stored (`docs/backend/spec.md :: I726`), so it may still name them spelled
-  otherwise, or outright where no record of the address names them. The
+  records hold, by the erasure's own rule below (`docs/backend/spec.md :: I726`), so it may still
+  name them in any form that rule lists as passing, or outright where no record of the address
+  names them. The
   administrator who entered it stands in `erstellt_von` in plain until their own erasure gives the
   row a marker naming nobody (`docs/backend/spec.md :: I660`). The basis for keeping either is what
   [section 11](#11-open-and-owed-a-decision) asks the Datenschutzexperte to confirm.
@@ -637,16 +641,23 @@ Every ruling below is the sign-up flow as it stands for the next season.
   (`aktionen.anlass`) stands on every log row that erasure files, for the log's twelve months
   (`docs/backend/spec.md :: I683`, `:: I119`). It is refused where it holds an address
   (`fl_backend/app/api/identitaet/schemas.py :: refuse_an_address_in_the_anlass`) or a name of the
-  person's own records as stored (`docs/backend/spec.md :: I721`), so a name it still carries past
-  the erasure is one of these:
-  - written otherwise than stored: a nickname, a misspelling, or another spelling of an umlaut or
-    „ß“, such as „Mueller“ or „Weiss“;
+  person's own records standing in it as a whole word or words, equal in plain lower case or in
+  plain capitals (`docs/backend/spec.md :: I721`): „MÜLLER“ is refused for „Müller“, „Weiss“ and
+  „WEISS“ for „Weiß“ and „Yildiz“ for „Yıldız“, whose capitals they share. A name it still carries
+  past the erasure is one of these:
+  - written otherwise in both cases: a nickname, a misspelling, an umlaut spelled out or its marks
+    left off, such as „Mueller“ or „Muller“ for „Müller“, or a dotted and a dotless I, such as
+    „Ilkay“ for „İlkay“;
   - joined into a longer word, such as „Müllerfamilie“, or of two letters before a genitive s;
   - a single letter;
-  - a particle that a later word of its field follows, such as „Le“ in a referee's „Le Thi Mai“.
-- **A retired row is never removed because of its age.** A player who left a squad, a referee who
-  stopped, a club that left and a past season all keep their rows; a person's row goes only by an
-  erasure or by one of the two one-off removals [section 3](#3-the-current-pupil-records-are-reset-once)
+  - a particle that a later word of its field follows, such as „Le“ in a referee's „Le Thi Mai“;
+  - one the person's records hold nowhere today, such as a surname an edit replaced: the refusal
+    reads the records and never their images in the log.
+- **A retired row is never removed because of its age.** A referee who stopped, a club that left
+  and a past season all keep their rows, and a player who left a squad keeps theirs until the
+  season after their last squad season has ended; a person's row goes only by an erasure, for a
+  pupil by that season-after rule of [section 6](#6-retention-is-bounded-where-a-bound-was-chosen),
+  or by one of the two one-off removals [section 3](#3-the-current-pupil-records-are-reset-once)
   records, this season's player reset and the drop of the referee rows standing today; a person
   asks for their own erasure through `POST /identitaet/selbst/erasure`. The
   Known-open row `docs/backend/spec.md :: Nothing purges a retired row` carries this today, naming
@@ -741,9 +752,11 @@ Every ruling below is the sign-up flow as it stands for the next season.
   request matches is passed over, and named in the log by id, until the address is corrected
   (`:: I718`). What goes is the pupil's own data alone — the record, every squad row and every
   registration at the address, a declined one included, each with its log images, and their day
-  counts as a pupil, every log row they wrote as one naming a fixed marker in their place
-  (`:: I667`) — while a contact seat, a referee record or a grant at the same address stands, each
-  bounded by its own purpose, with the counts and log rows the person made in that role. A
+  counts as a pupil, every log row they wrote as one under their current address naming a fixed
+  marker in their place (`:: I667`; rows under an earlier address keep its pseudonym, as
+  [section 5](#5-erasure-reaches-everyone-who-asks) records) — while a contact seat, a referee
+  record or a grant at the same address stands, each bounded by its own purpose, with the counts
+  and log rows the person made in that role. A
   pupil holding no address is outside the rule, the one-off reset of
   [section 3](#3-the-current-pupil-records-are-reset-once) removing them. **An erasure deletes the
   document outright** rather than nulling its fields (`docs/backend/spec.md :: I12`), so the row
@@ -883,21 +896,25 @@ Every ruling below is the sign-up flow as it stands for the next season.
   application logs keep the container runtime's size rotation as their only live bound
   (`docs/logging/spec.md :: 1.2`), because the only way to rotate a file the runtime holds open
   loses lines, and the thirty days reach the copy the deploy takes of each stream before replacing
-  its container (`scripts/ops/deploy.sh :: LOG_DIR`). **The erasure journal's lines are kept the same
-  thirty days in a file per day**, each naming by a keyed hash of the address a requested erasure, or
-  a consent its person withdrew, a Widerspruch or an address change declined through its link, with
-  the record that act changed and its moment (`docs/backend/spec.md :: I666`, `:: I745`), copied
-  there hourly so that a restore can run every erasure since its snapshot again
+  its container (`scripts/ops/deploy.sh :: LOG_DIR`). **The erasure journal's lines are kept as the
+  application log they are written to is, and in a file per day deleted thirty days after its last
+  change**, so a pass copying a late line into a day starts that day's thirty again. Each line names
+  by a keyed hash of the address a requested erasure, or a consent its person withdrew, a
+  Widerspruch or an address change declined through its link, with the record that act changed and
+  its moment (`docs/backend/spec.md :: I666`, `:: I745`), and is copied there hourly so that a
+  restore can run every erasure since its snapshot again
   ([section 5](#5-erasure-reaches-everyone-who-asks)) and replay every such choice. **A replay
   writes a choice only onto a record still holding its person, stamped with that person's own moment
   and never a later one, and a second run writes nothing** (`docs/backend/spec.md :: I746`). A record
   whose addresses none match the line's hash is listed and left as it stands; an erasure is listed for an
   administrator to run again on its page; the action log records each replay under the system,
   naming the line it replays without its person; and the listing prints no address and no key
-  ([`ops/runbooks.md`](ops/runbooks.md#13-after-a-restore-from-a-snapshot)). A line is lost to the
-  stream's size cap only where more than the cap is logged inside one hour, and the published notice
-  tabulates the thirty days (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-10-15, the choices' lines
-  and their replay 2026-10-16.
+  ([`ops/runbooks.md`](ops/runbooks.md#13-after-a-restore-from-a-snapshot)). A line reaches no day
+  file where the stream's size cap rotates it away before any pass reads it and no deploy copied it,
+  as more than the cap's worth of backend log written inside one hour does
+  ([`ops/runbooks.md`](ops/runbooks.md) §7). The published notice tabulates the log's bound and the
+  day file's together (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-10-15, the choices' lines and
+  their replay 2026-10-16.
   The host files enforcing both figures are
   installed by hand in the same deployment that publishes them
   ([`ops/runbooks.md`](ops/runbooks.md) §7). The

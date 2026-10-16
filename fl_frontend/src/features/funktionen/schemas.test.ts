@@ -5,6 +5,8 @@ import { describe, it } from "node:test";
 
 import { z } from "zod";
 
+import { asSignInIdentifier } from "@/core/emailAddress.ts";
+
 import { ERASURE_ANLASS_MAX_LENGTH } from "./constants.ts";
 import { FLAbmeldungPayloadSchema, FLErasureAnsichtPayloadSchema, FLErasurePayloadSchema } from "./schemas.ts";
 
@@ -61,6 +63,31 @@ describe("the placeholder every address-less referee row shares", () => {
     for (const { value, refused } of REFUSALS.email) {
       for (const [payload, takes] of LOOKUPS) assert.equal(takes(value), !refused, `${payload} judged "${value}" otherwise`);
       assert.equal(satz(value), refused ? "Diese Adresse ist ein Platzhalter und gehört niemandem." : undefined, `"${value}"`);
+    }
+  });
+});
+
+/** The mirror table both folds are held to; `fl_backend/tests/shared/test_email_address.py` holds the API's lookup to it too. */
+const ADDRESSES = z
+  .array(z.object({ case: z.string(), typed: z.string(), folded: z.string() }))
+  .parse(JSON.parse(readFileSync(path.resolve(REPO_ROOT, "fl_backend", "tests", "shared", "email_addresses.json"), "utf8")));
+
+describe("the mailbox each lookup asks for", () => {
+  /* The action ends the sign-in account of what the box trimmed, so a box trimming otherwise than the API's erases one
+     mailbox's records and leaves another's account. The placeholder's rows are the box's own refusal, above. */
+  it("is the one the mirror table folds each row to, the API's lookup answering alike", () => {
+    const rows = ADDRESSES.filter(({ folded }) => folded.split(".").at(-1) !== "invalid");
+    assert.ok(
+      rows.some(({ typed }) => typed.trim() !== typed),
+      "no row is trimmed, so the case compares nothing",
+    );
+    const parsed = [
+      ["the reveal", (email: string) => FLErasureAnsichtPayloadSchema.parse({ email: email }).email],
+      ["the erasure", (email: string) => FLErasurePayloadSchema.parse({ email: email, anlass: ANLASS }).email],
+      ["the sign-out", (email: string) => FLAbmeldungPayloadSchema.parse({ email: email }).email],
+    ] as const;
+    for (const [payload, asked] of parsed) {
+      for (const { case: fall, typed, folded } of rows) assert.equal(asSignInIdentifier(asked(typed)), folded, `${payload}: ${fall}`);
     }
   });
 });

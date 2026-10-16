@@ -134,7 +134,7 @@ describe("the route a typed code is checked at", () => {
       ["TOO_MANY_ATTEMPTS", "Zu viele Versuche mit diesem Code. Fordere einen neuen an."],
       [
         "ADDRESS_ATTEMPTS_EXHAUSTED",
-        "Zu viele Versuche mit dieser Adresse. Melde Dich mit einem Passkey an oder versuche es in 24 Stunden wieder.",
+        "Zu viele Versuche mit dieser Adresse. Melde Dich mit einem Passkey an oder versuche es in 24 Stunden erneut.",
       ],
       ["SIGN_IN_BARRED", "Diese E-Mail-Adresse ist gesperrt. Solange die Sperre gilt, ist keine Anmeldung möglich."],
       [
