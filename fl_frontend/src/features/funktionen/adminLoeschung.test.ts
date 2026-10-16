@@ -276,6 +276,23 @@ describe("the erasure's press", () => {
     assert.ok(await screen.findByRole("textbox", { name: BESTAETIGUNG }));
   });
 
+  /* The answer of a read whose arming was cancelled speaks of an address the box was edited away from: marking the box
+     with it refuses an address nobody has asked about. */
+  it("never marks an edited box with a refusal of the address it held before", async () => {
+    const { user } = await renderPage();
+    const reads = holdReads();
+    await typeRequest(user);
+
+    await user.click(screen.getByRole("button", { name: "Person löschen" }));
+    await user.click(await screen.findByRole("button", { name: "Abbrechen" }));
+    const box = within(panel("Person löschen")).getByRole("textbox", { name: "E-Mail" });
+    await user.clear(box);
+    await user.type(box, ANDERE_ADRESSE);
+
+    await act(async () => reads.answer(0, FELD_ABGELEHNT_ANTWORT(["email"])));
+    assert.deepEqual(markiert(), [], "the refusal of the address before the edit marked the box");
+  });
+
   /* Where the API's address rule parts from the panel's, its verdict lands on the box it judged, and the arming is
      undone as the panel's own verdict would have refused it: restarting would only meet the same refusal. */
   it("marks the E-Mail box with a field refusal of the reveal and stands disarmed", async () => {
