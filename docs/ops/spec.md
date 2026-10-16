@@ -126,18 +126,15 @@ still running skips with one line rather than overlapping it. The clocks that wr
 select on dates or on season statuses and are idempotent,
 so a redeploy, a restart and a double-arm each cost nothing; the deletion notice is idempotent to one
 floor, a crash between a delivery and its stamp repeating that one notice once
-([`docs/backend/spec.md`](../backend/spec.md) I156). **The pupils' deletion has a second caller and
-a second switch**: activating a season runs it first, the pass finishes what the activation left,
-and `LOESCHUNG_SWEEP`, off by default, holds both
-([`docs/frontend/spec.md`](../frontend/spec.md) I694, I695). That finishing, like the removal of a
-lapsed pending address, is the pass's alone, so it happens only while `BEWERBUNG_SWEEP` arms the
-timer ([`runbooks.md`](runbooks.md) §9). `BEWERBUNG_SWEEP` is what turns the
+([`docs/backend/spec.md`](../backend/spec.md) I156). The removal of a lapsed pending address is the
+pass's alone, so it happens only while `BEWERBUNG_SWEEP` arms the timer
+([`runbooks.md`](runbooks.md) §9). `BEWERBUNG_SWEEP` is what turns the
 pass off on a production build (§1.5); a `next dev` process arms nothing whatever that switch says,
 its default being on. Each of those is a way for the sweep to be absent, and `GET /bewerbungen/sweep`
 is what tells one from a pass that found nothing to do: it answers the day the last pass ran, null
-where none ever has ([`docs/backend/spec.md`](../backend/spec.md) I189). The two halves after the
-season loop stamp no day, so their per-pass log lines are their record. [`runbooks.md`](runbooks.md)
-§9 is the call.
+where none ever has ([`docs/backend/spec.md`](../backend/spec.md) I189). The half after the season
+loop stamps no day, so its per-pass log line is its record. [`runbooks.md`](runbooks.md) §9 is the
+call.
 
 **It runs the account sweep too, on a timer and a switch of its own.**
 `fl_frontend/src/instrumentation-node.ts :: registerOnNode` arms
@@ -149,6 +146,19 @@ it. A pass deletes the sign-in account of every address no record references
 account already gone being counted as such. Nothing stores that a pass ran, so its completion line
 in the frontend's log is the answer ([`docs/frontend/spec.md`](../frontend/spec.md) I700;
 [`runbooks.md`](runbooks.md) §9 reads it).
+
+**And it runs the pupils' deletion, on a timer of its own under `LOESCHUNG_SWEEP`.**
+`fl_frontend/src/instrumentation-node.ts :: registerOnNode` arms
+`fl_frontend/src/features/saisons/sweep.ts :: armLoeschungSweep` under a production build with
+`LOESCHUNG_SWEEP` on, off by default, on the same schedule, whatever `BEWERBUNG_SWEEP` reads:
+activating a season deletes under that switch first and tells the administrator the next hourly pass
+finishes the rest, so no other switch may hold that pass back
+([`docs/frontend/spec.md`](../frontend/spec.md) I694, I768). Each pass drops the squad cache after
+its last call ([`docs/frontend/spec.md`](../frontend/spec.md) I743), and a pass beside an
+activation's calls deletes nobody twice, the backend
+judging each pupil again in a transaction of their own
+([`docs/backend/spec.md`](../backend/spec.md) I691). Its per-pass line is its record
+([`runbooks.md`](runbooks.md) §9).
 
 **Note:** `API_VERSION` is a constant of the code rather than a setting
 ([`docs/backend/spec.md`](../backend/spec.md) §1.5), so bumping it is a code change — and the
@@ -1390,7 +1400,7 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | I18  | A rate-limit key is the visitor's own network, never the tunnel connector's address, and no prefix splits across two keys (§1.3)                                              | `nginx/shared/http.conf :: map $remote_addr $client_net` and `:: map $remote_addr $client_net48`, `nginx/shared/http.conf :: set_real_ip_from` and `:: real_ip_header`; trust held by `scripts/checks/check_compose_model.py :: trusted_connector`, keys unenforced                                     |
 | I133 | The catch-all makes a Next route handler reachable the moment it exists, its OWN authorization the only guard in front of it (§1.3)                                           | unenforced — `nginx/shared/site.conf :: location /` is a prefix matching everything, and nothing sweeps a new route handler for its guard                                                                                                                                                               |
 | I134 | FastAPI's `/docs`, `/redoc` and `/openapi.json` are served by the app but reachable from no edge route, so nothing off this host meets them (I13)                             | unenforced — `fl_backend/app/main.py :: create_app` sets no `docs_url`, `nginx/shared/site.conf` names no `/docs` location, and nothing checks either                                                                                                                                                   |
-| I149 | One `frontend` service, declared once, and no replica count lets the retention and account sweeps each hold one timer per process, with no lease                              | unenforced — `docker-compose.yml` declares the service and the local file merges into it; nothing refuses a second or a `deploy.replicas`                                                                                                                                                               |
+| I149 | One `frontend` service, declared once, and no replica count lets each sweep hold one timer per process, with no lease                                                         | unenforced — `docker-compose.yml` declares the service and the local file merges into it; nothing refuses a second or a `deploy.replicas`                                                                                                                                                               |
 | I174 | Production declares no database service; the managed cluster is the one store, and `mongo` is declared in `docker-compose.local.yml` alone                                    | `scripts/checks/check_compose_model.py :: PRODUCTION_SERVICES`, over the model `docker compose config` renders                                                                                                                                                                                          |
 | I176 | Every refusal-register row is spelled in its area's tree, and every code a tree spells has a row unless `RULES` declares it (§1.6)                                            | gate check `error-codes`, over `scripts/checks/docs_gate/error_codes.py :: CODE_RE`; `fl_backend/tests/core/test_domain.py` holds the codes raised under `app/api/` to `domain.py :: RULES`, the protocol codes excused by name                                                                         |
 | I177 | A Cloudflare challenge may meet a top-level navigation and never a server action's POST or an `/api/*` route, which cannot render an interstitial (§1.3)                      | unenforced — nothing in this repository can read a Cloudflare rule                                                                                                                                                                                                                                      |

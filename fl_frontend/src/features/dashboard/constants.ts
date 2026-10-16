@@ -34,7 +34,7 @@ export type DashboardIconName = keyof typeof DASHBOARD_SIDEMENU_ICONS;
 export const DASHBOARD_SHELL_FALLBACK = {
   label: SAISONUEBERSICHT_TITEL,
   hint: {
-    lead: "Diese Adresse gehört zu keinem Bereich der Saisonübersicht.",
+    lead: `Diese Adresse gehört zu keiner Seite unter „${SAISONUEBERSICHT_TITEL}“.`,
   },
 } as const satisfies { label: string; hint: SidemenuHint };
 

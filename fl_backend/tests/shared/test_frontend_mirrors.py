@@ -36,9 +36,10 @@ from app.core.actor_token import (
 )
 from app.core.config import INTERNAL_API_KEY_CHARACTERS
 from app.core.logging import NEEDS_QUOTING
-from app.core.middlewares import TRACEPARENT
+from app.core.middlewares import REQUEST_DEADLINE_S, TRACEPARENT
 from app.core.recording import ERASED_ACTOR_MARKER
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
+from app.core.transactions import ABORT_GRACE_S
 from app.shared.folding import league_address
 from app.shared.schemas import bounds
 from app.shared.schemas.addresses import HAUSNUMMER_PATTERN, FLAddress, FLAddressPayload
@@ -1409,6 +1410,24 @@ def test_the_two_trace_header_readers_take_the_same_headers():
     assert taken, f"{record.python} takes none of {len(probes)} probes, so agreeing with it proves nothing"
     assert len(taken) < len(probes), f"{record.python} takes every probe, so agreeing with it proves nothing"
     assert taken == _javascript_accepted(typescript, probes), f"{record.typescript} and {record.python} take different headers"
+
+
+WRITE_BUDGET_MODULE: Final = "core/api.ts"
+
+
+def test_a_write_s_budget_waits_out_the_backend_s_deadline_and_its_aborts():
+    """`docs/frontend/spec.md :: I767`: a page leaving a write sooner drops its caches before the backend's commit lands.
+
+    Each figure is read off the source, so a renamed constant fails here rather than comparing nothing.
+    """
+
+    source = _source(WRITE_BUDGET_MODULE)
+    deadline = _integer_constant(source, "BACKEND_REQUEST_DEADLINE_MS", exported=False)
+    margin = _integer_constant(source, "WRITE_ANSWER_MARGIN_MS", exported=False)
+
+    assert deadline is not None and margin is not None, f"{WRITE_BUDGET_MODULE} no longer declares a write's two budgets as integers"
+    assert deadline == REQUEST_DEADLINE_S * 1000, "the frontend waits out a deadline other than the backend's own"
+    assert ABORT_GRACE_S * 1000 < margin, "the margin past the backend's deadline no longer outlasts its aborts"
 
 
 def test_the_two_ends_pin_an_internal_key_to_the_same_alphabet():

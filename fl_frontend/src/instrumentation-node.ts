@@ -37,6 +37,13 @@ export async function registerOnNode() {
     armKontoSweep();
   }
 
+  // Under the switch the activation's press deletes under, and never behind the application sweep's: the press tells
+  // the administrator the next hourly pass deletes what it left. Compared to "on" for the reason above.
+  if (process.env.NODE_ENV === "production" && frontend_config.LOESCHUNG_SWEEP === "on") {
+    const { armLoeschungSweep } = await import("./features/saisons/sweep");
+    armLoeschungSweep();
+  }
+
   // Never behind the sweep's switch, which a local stack sets off: a change to who administers is
   // announced wherever a production build runs, and a stack that mails nothing counts it as told.
   if (process.env.NODE_ENV === "production") {

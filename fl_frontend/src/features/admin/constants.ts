@@ -48,14 +48,17 @@ export const ADMIN_SIDEMENU_ICONS = {
 
 export type AdminIconName = keyof typeof ADMIN_SIDEMENU_ICONS;
 
+/** The administration's own name, which its bar reads and its hint names, as the other areas' do. */
+const VERWALTUNG_TITEL = "Verwaltung";
+
 /**
  * What the bar reads on an address that belongs to no section, the catch-all's 404 among them. The area's name, never a
  * section's: a heading naming one describes a page the reader is not on (WCAG 2.4.6).
  */
 export const ADMIN_SHELL_FALLBACK = {
-  label: "Verwaltung",
+  label: VERWALTUNG_TITEL,
   hint: {
-    lead: "Diese Adresse gehört zu keinem Bereich der Verwaltung.",
+    lead: `Diese Adresse gehört zu keiner Seite unter „${VERWALTUNG_TITEL}“.`,
   },
 } as const satisfies { label: string; hint: SidemenuHint };
 
@@ -79,6 +82,18 @@ export const HANDLUNGSBEDARF_EINTRAG = {
     // `ACTION_REQUIRED_LABELS` entry, and a second telling here would go stale against it.
     lead: "Jedes Spiel der Saison, das eine Eingabe braucht, sortiert nach dem, was es aufhält.",
     note: "Ein abgebrochenes Spiel wartet weiter auf sein Ergebnis.",
+  },
+} as const satisfies SidemenuStructureSubOption<AdminIconName>;
+
+/** The season list's entry, named where a taken season id sends a reader to the existing season, so a rename reaches both. */
+export const SAISONS_EINTRAG = {
+  id: "saisons",
+  label: "Saisons",
+  iconName: "Sliders",
+  hint: {
+    lead: "Alle Saisons, mit Zeitraum und Regeln.",
+    // What an admin comes here to do and cannot: no row carries a delete control, and none ever will.
+    note: "Eine Saison wird nie gelöscht.",
   },
 } as const satisfies SidemenuStructureSubOption<AdminIconName>;
 
@@ -173,18 +188,7 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
   // nor a rule for an empty name.
   {
     category_name: "",
-    sub_options: [
-      {
-        id: "saisons",
-        label: "Saisons",
-        iconName: "Sliders",
-        hint: {
-          lead: "Alle Saisons, mit Zeitraum und Regeln.",
-          // What an admin comes here to do and cannot: no row carries a delete control, and none ever will.
-          note: "Eine Saison wird nie gelöscht.",
-        },
-      },
-    ],
+    sub_options: [SAISONS_EINTRAG],
   },
 
   // Grouped by what an admin DOES here: both are queues worked down to nothing, where every list

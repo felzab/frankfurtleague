@@ -6,7 +6,7 @@ import { doubleActionRequest, loggedLines } from "@/shared/testing/actionDoubles
 import { saisonRules } from "@/shared/testing/saisonRules.ts";
 
 /* The real action, client and request scope, only their network doubled below: what is driven is the deadline
-   cutting one deletion call inside the activation press, which a doubled client would have to restage. */
+   ending the deletion inside the activation press, which a doubled client would have to restage. */
 const API_URL = "http://backend:8000";
 
 const CONFIG = {
@@ -32,11 +32,15 @@ registerDoubles({
 
 const { activateSaisonAction } = await import("./actions.ts");
 const { REQUEST_DEADLINE_MS } = await import("@/core/requestScope");
+const { WRITE_NEEDS_MS } = await import("@/core/api");
 
 const SAISON_ID = "2026";
 
-/** How long the activation and the first deletion call each take: inside a call's own bound, and two of them past its length short of the deadline. */
+/** How long the first deletion call takes: inside a call's own bound, as a whole share's erasures are. */
 const CALL_MS = 10000;
+
+/** How long the activation takes, which a case sets: it decides how much of the deadline the deletion starts with. */
+let aktivierungMs = CALL_MS;
 
 const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
 
@@ -68,6 +72,11 @@ const ERSTER_LAUF = {
   nach: `${"d".repeat(23)}4`,
 };
 
+/** What the press answers wherever the deadline ends its deletion after the first call. */
+const UNVOLLSTAENDIG =
+  "Saison 2026 ist jetzt aktiv. Die vorherige Saison ist abgeschlossen. 2 Spielerinnen und Spieler ohne Kadereintrag seit Saison " +
+  "2025 wurden gelöscht. Die Löschung ist nicht vollständig durchgelaufen. Was noch aussteht, löscht der nächste stündliche Durchlauf.";
+
 /** Every call the press sent, with the signal that could abort it. */
 const sent: { url: string; signal: AbortSignal }[] = [];
 
@@ -78,10 +87,11 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   sent.push({ url: url, signal: signal });
   if (signal.aborted) throw Object.assign(new Error("aborted"), { name: "AbortError" });
 
-  const antwort = url.endsWith("/activate") ? AKTIVIERT : sent.length === 2 ? ERSTER_LAUF : null;
+  const aktivierung = url.endsWith("/activate");
+  const antwort = aktivierung ? AKTIVIERT : sent.length === 2 ? ERSTER_LAUF : null;
 
   return await new Promise<Response>((resolve, reject) => {
-    if (antwort !== null) setTimeout(() => resolve(json(antwort)), CALL_MS);
+    if (antwort !== null) setTimeout(() => resolve(json(antwort)), aktivierung ? aktivierungMs : CALL_MS);
     signal.addEventListener("abort", () => reject(Object.assign(new Error("aborted"), { name: "AbortError" })));
   });
 }) as typeof fetch;
@@ -102,9 +112,20 @@ async function untilCall(count: number): Promise<{ url: string; signal: AbortSig
   return sent[count - 1] ?? assert.fail(`call ${String(count)} was never sent`);
 }
 
+/** The press's lines about its deletion above info, the trace judged by its shape: the client mints it per call. */
+const deletionLines = () =>
+  loggedLines
+    .filter(({ level, message }) => level !== "info" && message.startsWith("loeschung."))
+    .map((line) => ({
+      ...line,
+      meta: { ...(line.meta as object), trace_id: /^[0-9a-f]{32}$/.test(String((line.meta as { trace_id?: unknown }).trace_id)) },
+    }));
+
 beforeEach(() => {
   sent.length = 0;
+  loggedLines.length = 0;
   clock = 0;
+  aktivierungMs = CALL_MS;
   mock.method(performance, "now", () => clock);
   mock.timers.enable({ apis: ["setTimeout"] });
 });
@@ -114,20 +135,74 @@ afterEach(() => {
   mock.restoreAll();
 });
 
-describe("an activation whose deletion the request's deadline cuts", () => {
-  /* The activation was acknowledged before the deletion began, so only the deletion is in doubt: answered as of
-     unknown outcome, the press sends the administrator to check a season change that stands. */
-  it("answers the activation saved and the deletion unfinished, never as of unknown outcome", async () => {
+/* `docs/frontend/spec.md :: I767`: a call sent with less left could go on deleting after the spine dropped `spieler`, and
+   the squad page would serve the pupils it deleted. */
+describe("an activation whose deletion would outrun the request's deadline", () => {
+  /**
+   * The press through the activation and the first deletion call, then settled. A third call, which it must not send,
+   * is run on to the deadline rather than left holding the case open, so the count below fails instead.
+   */
+  async function pressedToItsStop() {
+    const pressed = activateSaisonAction({ id: SAISON_ID });
+    let settled = false;
+    void pressed.then(() => (settled = true));
+
+    await untilCall(1);
+    advance(aktivierungMs);
+    await untilCall(2);
+    advance(CALL_MS);
+    for (let turn = 0; turn < 1000 && !settled && sent.length < 3; turn++) await new Promise((resolve) => setImmediate(resolve));
+    if (sent.length > 2) advance(REQUEST_DEADLINE_MS);
+
+    return pressed;
+  }
+
+  /* The activation was acknowledged before the deletion began, so only the deletion is unfinished, and the hourly pass
+     finishes it: answered as of unknown outcome, the press sends the administrator to check a season change that stands. */
+  it("sends no deletion call it cannot wait out, answering the activation saved and the deletion unfinished", async () => {
+    assert.ok(REQUEST_DEADLINE_MS - aktivierungMs - CALL_MS < WRITE_NEEDS_MS, "the case leaves the second call its need, so proves nothing");
+
+    const answer = await pressedToItsStop();
+
+    assert.deepEqual(
+      sent.map(({ url }) => new URL(url).pathname),
+      [`/api/v0/saisons/${SAISON_ID}/activate`, "/api/v0/identitaet/loeschung/lauf"],
+      "a deletion call went out with too little left to wait out its answer",
+    );
+    assert.equal(answer.success, true, `the stopped press answered ${JSON.stringify(answer)}`);
+    assert.equal(answer.success ? answer.message : undefined, UNVOLLSTAENDIG);
+  });
+
+  /* Wherever more pupils are due than the deadline reaches, this is the run's expected end: filed as an error, it sends
+     the operator to repair a record nothing is wrong with. */
+  it("files the stop as a warning, never under an error", async () => {
+    await pressedToItsStop();
+
+    assert.deepEqual(deletionLines(), [
+      {
+        level: "warn",
+        message: "loeschung.umstellung_cut_short",
+        meta: { error_code: "FE-SWEEP-001", name: "ApiUnsentError", trace_id: false },
+      },
+    ]);
+  });
+});
+
+describe("an activation whose deletion call the request's deadline cuts", () => {
+  /* Sent with its need left, a call still meets the deadline where the backend overran its own: the press answers that
+     cut itself, and the hourly pass's drop of `spieler` follows whatever the call deleted (`docs/frontend/spec.md :: I743`). */
+  it("answers the activation saved and the deletion unfinished, never as of unknown outcome, and files a warning", async () => {
+    aktivierungMs = REQUEST_DEADLINE_MS - CALL_MS - WRITE_NEEDS_MS;
     const pressed = activateSaisonAction({ id: SAISON_ID });
 
-    assert.ok((await untilCall(1)).url.endsWith(`/saisons/${SAISON_ID}/activate`));
-    advance(CALL_MS);
-    assert.ok((await untilCall(2)).url.endsWith("/identitaet/loeschung/lauf"));
+    await untilCall(1);
+    advance(aktivierungMs);
+    await untilCall(2);
     advance(CALL_MS);
 
     const cut = await untilCall(3);
     assert.ok(cut.url.endsWith(`/identitaet/loeschung/lauf?nach=${ERSTER_LAUF.nach}`));
-    advance(REQUEST_DEADLINE_MS - 2 * CALL_MS - 1);
+    advance(WRITE_NEEDS_MS - 1);
     assert.equal(cut.signal.aborted, false, "the deletion call was aborted before the deadline");
     advance(1);
     assert.equal(cut.signal.aborted, true, "the deadline passed and the deletion call ran on to its own bound");
@@ -136,43 +211,13 @@ describe("an activation whose deletion the request's deadline cuts", () => {
 
     assert.equal(sent.length, 3, "a call went out after the deadline had passed");
     assert.equal(answer.success, true, `the cut press answered ${JSON.stringify(answer)}`);
-    assert.equal(
-      answer.success ? answer.message : undefined,
-      "Saison 2026 ist jetzt aktiv. Die vorherige Saison ist abgeschlossen. 2 Spielerinnen und Spieler ohne Kadereintrag seit Saison " +
-        "2025 wurden gelöscht. Die Löschung ist nicht vollständig durchgelaufen. Was noch aussteht, löscht der nächste stündliche Durchlauf.",
-    );
-  });
-
-  /* The press's own deadline ending the run is expected wherever more pupils are due than it reaches: filed as an
-     error, it sends the operator to repair a record nothing is wrong with. */
-  it("files the cut as a warning, never under an error", async () => {
-    loggedLines.length = 0;
-    const pressed = activateSaisonAction({ id: SAISON_ID });
-
-    await untilCall(1);
-    advance(CALL_MS);
-    await untilCall(2);
-    advance(CALL_MS);
-    await untilCall(3);
-    advance(REQUEST_DEADLINE_MS - 2 * CALL_MS);
-    await pressed;
-
-    // The trace by its shape: the client minted it for the call the deadline cut.
-    const traced = (meta: unknown) => ({
-      ...(meta as object),
-      trace_id: /^[0-9a-f]{32}$/.test(String((meta as { trace_id?: unknown }).trace_id)),
-    });
-    assert.deepEqual(
-      loggedLines
-        .filter(({ level, message }) => level !== "info" && message.startsWith("loeschung."))
-        .map((line) => ({ ...line, meta: traced(line.meta) })),
-      [
-        {
-          level: "warn",
-          message: "loeschung.umstellung_cut_short",
-          meta: { error_code: "FE-SWEEP-001", name: "APINetworkError", trace_id: true },
-        },
-      ],
-    );
+    assert.equal(answer.success ? answer.message : undefined, UNVOLLSTAENDIG);
+    assert.deepEqual(deletionLines(), [
+      {
+        level: "warn",
+        message: "loeschung.umstellung_cut_short",
+        meta: { error_code: "FE-SWEEP-001", name: "APINetworkError", trace_id: true },
+      },
+    ]);
   });
 });

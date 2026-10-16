@@ -1868,7 +1868,8 @@ def _plant_copy_term() -> None:
     _append(COPY_SAMPLE, "export function Entitaet() {", "  return <p>Öffne den Link noch&nbsp;einmal.</p>;", "}")
     _append(COPY_SAMPLE, "export function Getrennt() {", '  return <p>Öffne den Link noch{" "}einmal.</p>;', "}")
     _replace(WORDINGS, HELD_WORDING, "Öffne den Link noch einmal; die Liga speichert Deinen Namen.")
-    _replace(WORDINGS, "}\n", '    "2026-02": Fassung(absaetze=("Öffne den Link noch einmal; danach gilt Deine Antwort.",), schalter="Ja."),\n}\n')
+    added = '    "2026-02": Fassung(absaetze=("Öffne den Link noch einmal; danach gilt Deine Antwort.",), schalter="Ja."),\n'
+    _replace(WORDINGS, "}\n", added + "}\n")
 
 
 def _plant_copy_semicolon() -> None:

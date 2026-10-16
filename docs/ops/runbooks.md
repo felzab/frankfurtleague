@@ -1138,9 +1138,11 @@ x /var/log/frankfurtleague/nginx
 
 **The erasure journal's lines are copied into a file per day,
 `/var/log/frankfurtleague/<day>-erasure-journal.log`, by a pair of units of their own.** Every
-erasure a person or an administrator asks for leaves one line in the backend's stream
-([`../backend/spec.md`](../backend/spec.md#2-invariants) I666), and a restore runs each of them again
-from those lines (§13). The stream loses them at the next recreate, or sooner once its size cap
+erasure a person or an administrator asks for leaves one line in the backend's stream, and so does
+every consent a person withdraws on their own record, every Widerspruch made through a seat's link
+and every address change declined through its link
+([`../backend/spec.md`](../backend/spec.md#2-invariants) I666, I745); a restore runs each erasure
+again and replays each of those choices from those lines (§13). The stream loses them at the next recreate, or sooner once its size cap
 rotates them away; the day files keep them for this directory's thirty days, counted from each
 file's last change, which is what the published notice states: a pass that adds nothing to a day
 leaves its file untouched, or every day the logs still hold would start its thirty days again each
@@ -1279,25 +1281,36 @@ written with nobody told, and a later pass meets again only those it did not wri
 the deadline stops there fails its call with the date left stale, as a failure the dates above
 report.
 
-**The two halves after the seasons stamp no day, so their own lines are the record.** Every pass
-ends by removing the referees' and the pupils' pending addresses whose link lapsed before today,
-and, where `LOESCHUNG_SWEEP` reads `on`, by deleting the pupils the season-after rule makes due.
-Each writes one line per pass holding its counts and no person —
-`schiedsrichter.adresswechsel_sweep_pass` and `loeschung.sweep_pass`, at `INFO` where the pass left
-no row due, which a `LOG_LEVEL` above `INFO` drops, and as a warning where it left rows due — and a
-half that threw files
-`schiedsrichter.adresswechsel_sweep_failed` or `loeschung.sweep_failed` under `FE-SWEEP-001`
-besides.
+**The half after the seasons stamps no day, so its own line is the record.** Every pass ends by
+removing the referees' and the pupils' pending addresses whose link lapsed before today. It writes
+one line per pass holding its counts and no person, `schiedsrichter.adresswechsel_sweep_pass`, at
+`INFO` where the pass left no row due, which a `LOG_LEVEL` above `INFO` drops, and as a warning
+where it left rows due; a half that threw files `schiedsrichter.adresswechsel_sweep_failed` under
+`FE-SWEEP-001` besides.
+
+**The pupils' deletion runs on a timer of its own wherever `LOESCHUNG_SWEEP` reads `on`**, a
+minute after the frontend starts and then hourly, whatever `BEWERBUNG_SWEEP` reads
+(`fl_frontend/src/features/saisons/sweep.ts :: armLoeschungSweep`). It stamps no day either: each
+pass deletes the pupils the season-after rule makes due, drops the squad cache after its last call,
+and writes one `loeschung.sweep_pass` line, at `INFO` where it left no pupil due and as a warning
+where it left pupils it failed or passed over; a pass whose call threw files `loeschung.sweep_failed`
+under `FE-SWEEP-001` besides. A `loeschung.sweep_skipped` line says a tick found the previous pass
+still running, and one in every hour says that pass is stuck, which recreating the frontend service
+ends:
+
+    docker compose logs --since 2h frontend | grep loeschung.sweep_
 
 **Activating a season runs the same deletion first, inside the press, but only as far as the
-press's own deadline reaches** (`fl_frontend/src/core/requestScope.ts :: REQUEST_DEADLINE_MS`).
-Wherever more pupils are due than that, the deadline ends the run: the press files the warning
-`loeschung.umstellung_cut_short`, which needs nothing from you, and its message tells the
-administrator the hourly pass finishes the rest. `loeschung.umstellung_failed`, an error under
-`FE-SWEEP-001`, is a call that failed rather than ran out of time. The caches the press drops as it
-answers hold none of the pupils it deleted. **The call the deadline cut runs on in the backend after
-the press has answered**, so a pupil it deletes stays on a cached squad page until the next hourly
-pass, which drops that cache after its own deletion whatever it deleted. **A drop that failed is the
+press's own deadline reaches** (`fl_frontend/src/core/requestScope.ts :: REQUEST_DEADLINE_MS`): the
+press sends no deletion call it could not wait out to its answer
+([`../frontend/spec.md`](../frontend/spec.md#2-invariants) I767). Wherever more pupils are due than
+that, the run stops there: the press files the warning `loeschung.umstellung_cut_short`, which
+needs nothing from you, and its message tells the administrator the hourly pass finishes the rest.
+`loeschung.umstellung_failed`, an error under `FE-SWEEP-001`, is a call that failed rather than ran
+out of time. The caches the press drops as it answers hold none of the pupils it deleted. **A call
+can still be deleting once the press has answered only where it outlasted the backend's own deadline
+and the margin the press allows past it**, and a pupil such a call deletes stays on a cached squad
+page until the next hourly pass, which drops that cache after its own deletion whatever it deleted. **A drop that failed is the
 error `cache.revalidation_failed` under `FE-CACHE-001`**, naming the status the route answered or
 the error's name: the next pass drops it again, and
 [section 20](#20-after-a-hand-edit-in-mongodb)'s call drops it at once.
@@ -1329,13 +1342,15 @@ of the ways [`spec.md`](spec.md) §1.1 lists: `BEWERBUNG_SWEEP` off,
 `fl_frontend/src/instrumentation-node.ts :: registerOnNode` not reached, or a build that is not a production
 one. `BEWERBUNG_SWEEP` arms the whole pass, so two nulls point at the frontend container's
 environment and its startup rather than at the backend. `LOESCHUNG_SWEEP` holds the pupils'
-deletion alone, in the pass and in the activation press both.
+deletion alone, its hourly timer and the activation press both, and `BEWERBUNG_SWEEP` reaches
+neither.
 
-**Two promises rest on `BEWERBUNG_SWEEP` and not on `LOESCHUNG_SWEEP`**: the activation press's
-message that the next hourly pass deletes what it left („Was noch aussteht, löscht der nächste
-stündliche Durchlauf“), and the word that a lapsed pending address goes the day after its link
-lapses, the address-change mails' „am Tag nach Ablauf des Links“ and the privacy notice's „am Tag
-danach“. Both are the hourly pass's to keep, so while `BEWERBUNG_SWEEP` is off neither happens.
+**One promise rests on `BEWERBUNG_SWEEP`**: the word that a lapsed pending address goes the day
+after its link lapses, the address-change mails' „am Tag nach Ablauf des Links“ and the privacy
+notice's „am Tag danach“. It is the hourly pass's to keep, so while `BEWERBUNG_SWEEP` is off it is
+not kept. **The activation press's message that the next hourly pass deletes what it left („Was noch
+aussteht, löscht der nächste stündliche Durchlauf“) rests on `LOESCHUNG_SWEEP` alone**: the switch
+the press deletes under arms that pass, and with it the squad cache's drop after it.
 
 **A date more than a day old means the timer stopped**: the frontend process holds it
 ([`spec.md`](spec.md) I149), so the container is up and the timer inside it is not. Recreating the
@@ -1351,7 +1366,8 @@ so neither an activation nor a pass deletes a pupil until you set it.
    league lost is the signal to leave the switch off and ask why, and a line saying the count is not
    available is a read that failed: reload the page until it gives a figure.
 2. Add `LOESCHUNG_SWEEP=on` to the server's `fl_frontend/.env` and deploy (§1). The frontend reads
-   it once as it boots, and the season page then says the press will delete them.
+   it once as it boots, arming the hourly deletion, and the season page then says the press will
+   delete them.
 
 **Switching it off is that line set to `off`, and a deploy**: until the frontend has booted on it, a
 pass or a press can still delete.

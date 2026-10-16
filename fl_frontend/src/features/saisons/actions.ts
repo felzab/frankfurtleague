@@ -1,7 +1,7 @@
 "use server";
 
 import { frontend_config } from "@/core/config";
-import { requestOf } from "@/core/errors";
+import { ApiUnsentError, requestOf } from "@/core/errors";
 import { logger } from "@/core/logging";
 import { requestOutcomeUnknown, runAnsweringOwnCut } from "@/core/requestScope";
 import { TEAMS_EINTRAG } from "@/features/admin/constants";
@@ -234,9 +234,9 @@ async function loeschenNachUmstellung(senden: (nach: string | null) => Promise<F
   if (lauf.abgebrochen) {
     // The name and the request's facts, as the hourly pass logs its own: no person reaches this line.
     const felder = { error_code: "FE-SWEEP-001", name: lauf.fehler instanceof Error ? lauf.fehler.name : undefined, ...requestOf(lauf.fehler) };
-    // Below error: wherever more pupils are due than the deadline reaches, its cut is the expected end, and the
-    // hourly pass finishes them with nothing to repair.
-    if (vonDerFristBeendet) logger.warn("loeschung.umstellung_cut_short", felder);
+    // Below error: wherever more pupils are due than the deadline reaches, its end of the run, a call it left unsent
+    // or one it cut, is the expected one, and the hourly pass finishes them with nothing to repair.
+    if (vonDerFristBeendet || lauf.fehler instanceof ApiUnsentError) logger.warn("loeschung.umstellung_cut_short", felder);
     else logger.error("loeschung.umstellung_failed", undefined, felder);
   }
 

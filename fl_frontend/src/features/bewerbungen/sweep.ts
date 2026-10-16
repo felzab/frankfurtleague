@@ -6,11 +6,8 @@ import { ContractBreakError, requestOf } from "@/core/errors";
 import { kontaktBestaetigungsLink } from "@/core/kontaktLink";
 import { logger } from "@/core/logging";
 import { buildRegistrierungErinnerungEmail, buildRegistrierungSaisonendeEmail } from "@/core/registrierungEmail";
-import { revalidateOverLoopback } from "@/core/revalidation";
 import { REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE } from "@/features/registrierungen/constants";
 import { postRegistrierungSweep } from "@/features/registrierungen/mutations";
-import { loeschungLaufen } from "@/features/saisons/loeschung";
-import { postLoeschungLauf } from "@/features/saisons/mutations";
 import { postSchiedsrichterAdresswechselSweep } from "@/features/schiedsrichter/mutations";
 import { sendZielMail } from "@/features/zustellung/notifications";
 import { getGermanTodayStr } from "@/shared/utils/date";
@@ -42,8 +39,7 @@ const SWEEP_START_DELAY_MS = 60 * 1000;
 const SWEEP_OPERATION = "bewerbungSweep";
 
 /** Which half of the pass a failure line is about. Each clock family stops for its own reasons. */
-type SweepFailure =
-  "bewerbung.sweep_failed" | "registrierung.sweep_failed" | "schiedsrichter.adresswechsel_sweep_failed" | "loeschung.sweep_failed";
+type SweepFailure = "bewerbung.sweep_failed" | "registrierung.sweep_failed" | "schiedsrichter.adresswechsel_sweep_failed";
 
 /** The rows each season half's calls passed over in one pass, summed over the seasons that answered. */
 type Uebergangen = { bewerbung: number; registrierung: number };
@@ -71,7 +67,7 @@ export function armBewerbungSweep(): void {
 let laeuft = false;
 
 /**
- * One pass over every season, then the two clocks no season holds (`docs/datenschutz.md :: 6`).
+ * One pass over every season, then the clock no season holds (`docs/datenschutz.md :: 6`).
  *
  * Settles rather than throws: nothing awaits this, so a rejection would surface as an unhandled one
  * an hour after the tick that caused it.
@@ -87,11 +83,9 @@ export async function runBewerbungSweep(): Promise<void> {
   laeuft = true;
   try {
     await sweepAlleSaisons();
-    // Each half catches its own throw, as a season's two do: a shared `try` would leave a lapsed address or a due
-    // pupil standing every hour the half before it fails.
+    // Catching its own throw, as a season's two halves do: a shared `try` would leave a lapsed address standing every
+    // hour the seasons' loop fails.
     await sweepAdresswechsel();
-    // Compared to "on", as the activation press compares it: a switch reading anything else deletes nobody.
-    if (frontend_config.LOESCHUNG_SWEEP === "on") await sweepLoeschung();
   } finally {
     laeuft = false;
   }
@@ -120,29 +114,6 @@ async function sweepAdresswechsel(): Promise<void> {
     logger.info("schiedsrichter.adresswechsel_sweep_pass", { entfernt: entfernt });
     logSweepFailure("schiedsrichter.adresswechsel_sweep_failed", error, undefined);
   }
-}
-
-/**
- * The rest the activation press left of the pupils its season made due. Without a deadline of its own: a timer
- * has no request whose answer a long run would hold back.
- */
-async function sweepLoeschung(): Promise<void> {
-  const lauf = await loeschungLaufen(postLoeschungLauf);
-  // On every armed pass, one deleting nobody included: an activation's call its deadline cut may delete in the backend
-  // after the press dropped this tag, and no pass's count shows those pupils (`docs/frontend/spec.md :: I743`).
-  await revalidateOverLoopback(["spieler"]);
-
-  // Counts and the season the rule kept, never a person: the backend's own lines name a failed person's id.
-  // A finished pass's remainder is the pupils it failed or passed over; one cut short knows only its failures.
-  if (!lauf.abgebrochen) {
-    const { abgebrochen: _durchgelaufen, ...zahlen } = lauf;
-    logPass("loeschung.sweep_pass", zahlen, zahlen.verbleibend);
-    return;
-  }
-
-  const { abgebrochen: _abgebrochen, fehler, ...bisher } = lauf;
-  logPass("loeschung.sweep_pass", bisher, bisher.fehlgeschlagen);
-  logSweepFailure("loeschung.sweep_failed", fehler, undefined);
 }
 
 async function sweepAlleSaisons(): Promise<void> {
@@ -175,7 +146,7 @@ async function sweepAlleSaisons(): Promise<void> {
  * tells a half failing on every row from a healthy one.
  */
 function logPass(
-  event: "bewerbung.sweep_pass" | "registrierung.sweep_pass" | "schiedsrichter.adresswechsel_sweep_pass" | "loeschung.sweep_pass",
+  event: "bewerbung.sweep_pass" | "registrierung.sweep_pass" | "schiedsrichter.adresswechsel_sweep_pass",
   felder: Record<string, unknown>,
   offen: number,
 ): void {

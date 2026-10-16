@@ -976,6 +976,57 @@ def test_the_pre_filter_takes_every_spelling_the_fold_claims_and_no_other_local_
     assert [email for email in missed if matches(email)] == []
 
 
+# What a stored address may hold, past the validator as a hand-typed or older row is: blanks the fold trims, regex
+# metacharacters, a NUL, case partners outside ASCII, and near misses of each identifier below. Built from code points.
+SERVER_CORPUS: tuple[str, ...] = (
+    *("", chr(0x20), chr(0x20) * 3, chr(0xA0), f"{chr(0x20)}{chr(0xA0)}{chr(0x09)}", chr(0x3000), chr(0xFEFF), chr(0x85)),
+    *(f"{chr(0xFEFF)}kein-at{chr(0x3000)}", f"{chr(0x85)}kein-at", *NO_AT_CLAIMED, *NO_AT_UNCLAIMED),
+    *("kein-at@", "KEIN-AT@", f"{chr(0x20)}kein-at@{chr(0xA0)}", "kein-at@@", "kein-at@x@y"),
+    *("a@b@c", "A@B@C", f"{chr(0x20)}a@b@C{chr(0xA0)}", "a@b@cx", "a@b@x.de", "a@bx@c"),
+    *("@x.de", f"@{chr(0xFF58)}.de", "@X.DE", "x@x.de", "@", "@@"),
+    *("someone@example.org", f"{chr(0x017F)}omeone@example.org", f"{chr(0x212A)}im@example.org", "kim@example.org"),
+    *("a.b@x.de", "axb@x.de", "a+b@x.de", "aab@x.de", "a(b)@x.de", "a\\b@x.de", "a[b]@x.de", "a$b@x.de", "a^b@x.de"),
+    *("a|b@x.de", "a{2}@x.de", "aa@x.de", "a?b@x.de", "a*b@x.de", "ab@x.de", "b@x.de", "a\x00b@x.de"),
+    *("wiltrudis.quastenflosser@example.com", "Wiltrudis.Quastenflosser@EXAMPLE.COM", "wiltrudisXquastenflosser@example.com"),
+)
+SERVER_IDENTIFIERS: tuple[str, ...] = (
+    *(NO_AT_IDENTIFIER, "kein-at@", "KEIN-AT@", "a@b@c", chr(0x20) * 3, "", f"{chr(0xA0)}{chr(0x09)}", "@x.de", "@", "@@"),
+    *("someone@example.org", "kim@example.org", "a.b@x.de", "a+b@x.de", "a(b)@x.de", "a\\b@x.de", "a[b]@x.de", "a$b@x.de"),
+    *("a^b@x.de", "a|b@x.de", "a{2}@x.de", "a?b@x.de", "a*b@x.de", "a\x00b@x.de", "Wiltrudis.Quastenflosser@EXAMPLE.COM"),
+)
+
+
+@pytest.mark.db
+def test_the_server_reads_each_pre_filter_as_python_does_and_misses_nothing_the_fold_claims(mongo_replica_set_url: str):
+    """The case above's `re` held to the server's own engine, which reads `\\s` as ASCII alone: a no-break space it would miss."""
+
+    row_ids = {value: ObjectId(f"6890a1b2c3d4e5f60783{index:04d}") for index, value in enumerate(SERVER_CORPUS)}
+
+    async def body(database: AsyncDatabase, _: AsyncMongoClient) -> dict[str, set[ObjectId]]:
+        await database[Collection.SAISON_TEAMS].insert_many(
+            [a_row_naming(row_id, value) for value, row_id in row_ids.items()], bypass_document_validation=True
+        )
+        read: dict[str, set[ObjectId]] = {}
+        for identifier in SERVER_IDENTIFIERS:
+            pipeline = build_erasure_seat_pipeline(identifier)
+            read[identifier] = {row["_id"] for row in await (await database[Collection.SAISON_TEAMS].aggregate(pipeline)).to_list()}
+
+        return read
+
+    read = on_a_league(mongo_replica_set_url, body)
+    parted: dict[str, Any] = {}
+    for identifier in SERVER_IDENTIFIERS:
+        pattern = same_address(identifier)
+        python = {value for value in SERVER_CORPUS if re.search(pattern["$regex"], value, re.IGNORECASE if pattern["$options"] == "i" else 0)}
+        server = {value for value, row_id in row_ids.items() if row_id in read[identifier]}
+        claimed = {value for value in SERVER_CORPUS if sign_in_identifier(value) == sign_in_identifier(identifier)}
+        # The last, a whole-collection read for an identifier naming anything, is a pre-filter that takes nothing out.
+        if server != python or claimed - server or (identifier.strip() and server == set(SERVER_CORPUS)):
+            parted[identifier] = {"server alone": server - python, "python alone": python - server, "claimed and missed": claimed - server}
+
+    assert parted == {}
+
+
 DECODED_ROW_OID = ObjectId("6890a1b2c3d4e5f607817101")
 
 
