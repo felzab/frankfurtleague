@@ -1,12 +1,11 @@
-from collections.abc import Mapping, Sequence, Set
-from typing import Any, Final, NamedTuple
+from collections.abc import Iterable, Mapping, Sequence, Set
+from typing import Any, NamedTuple
 
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.aktionen.crud import read_imaged_rows, redact_images_in_session, redact_rows_in_session
-from app.api.bewerbungen.services import compose_decline_update, compose_saison_decline_update, seat_adressen
 from app.api.kontakte.services import (
     PersonName,
     build_clearing_update,
@@ -102,47 +101,29 @@ async def erase_kontaktperson_in_session(
     return SeatsCleared(kontakt_slots=cleared_slots, redacted_aktionen=redacted)
 
 
-# The two homes a seat's link sits on, each emptying its slots by its own update.
-WIDERSPRUCH_UPDATES: Final = {Collection.BEWERBUNGEN: compose_decline_update, Collection.SAISON_TEAMS: compose_saison_decline_update}
-
-
-async def take_widerspruch_in_session(
+async def redact_the_decliner(
     *,
-    collection: AsyncCollection,
     aktionen_collection: AsyncCollection,
-    row: Mapping[str, Any],
-    seats: Sequence[str],
-    # The German day the person declined on, and the instant the log's redaction is stamped with.
-    today: str,
+    collection: Collection,
+    row_id: Any,
+    adressen: Iterable[str],
     stamp: str,
     session: AsyncClientSession,
-) -> Mapping[str, Any]:
-    """The link's Widerspruch and a restore's replay of its journal line both run this body, so a replay writes what the press wrote.
+) -> None:
+    """The declining person's seats out of every log image of this one row, which is all a Widerspruch reaches.
 
-    `row` is read in the caller's transaction, its seats' addresses being the ones the log loses.
+    The link's Widerspruch and a restore's replay of its journal line both run it, after the patch emptying the seats.
     """
 
-    home = Collection(collection.name)
-    updated = await patch_one_in_db(
-        collection=collection,
-        db_filter={"_id": row["_id"]},
-        update=WIDERSPRUCH_UPDATES[home](seats=seats, today=today),
-        session=session,
-        return_document=ReturnDocument.AFTER,
-    )
-
-    # LAST, so it reaches the pre-image the clearing patch just filed, which still holds the person who refused to be
-    # held; the link stays with the seat, its decline recorded on it.
     await redact_seats_in_documents(
         aktionen_collection=aktionen_collection,
-        documents=[(home, [row["_id"]])],
-        identifiers={sign_in_identifier(adresse) for adresse in seat_adressen(kontakte=row.get("kontakte"), seats=seats)},
+        documents=[(collection, [row_id])],
+        identifiers={sign_in_identifier(adresse) for adresse in adressen},
+        # The link stays with the seat, its decline recorded on it, as the live write leaves it.
         links=False,
         stamp=stamp,
         session=session,
     )
-
-    return updated
 
 
 async def redact_seats_in_documents(

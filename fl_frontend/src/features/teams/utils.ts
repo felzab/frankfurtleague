@@ -362,6 +362,22 @@ export function publicTeamSaisonId(
 }
 
 /**
+ * `REQ-RETIRE-001` mirrored, so neither the list nor the editor offers a retirement the write path refuses: no running
+ * or planned season may hold the club.
+ */
+export function isRetireable(
+  saisons: readonly Pick<FLSaison, "id" | "status">[],
+  memberships: readonly Pick<FLTeamMembership, "saison_id">[],
+): boolean {
+  const statusBySaisonId = new Map(saisons.map((saison) => [saison.id, saison.status]));
+
+  return !memberships.some((membership) => {
+    const status = statusBySaisonId.get(membership.saison_id);
+    return status === "active" || status === "future";
+  });
+}
+
+/**
  * What a website box reports upward: the whole URL, or `null` for a box nobody filled. **The one
  * place `""` becomes `null`** — the single spelling `OptionalExternalUrlSchema` states is kept by
  * coercing here, not by every reader testing for two.

@@ -137,9 +137,7 @@ export function RegistrierungView({ start, siteKey }: { start: RegistrierungStar
           <p className={ABSATZ_CLASSES}>
             Der Kader dieses Teams ist für diese Saison voll, deshalb können wir gerade keine weitere Registrierung annehmen.
           </p>
-          <p className={ABSATZ_CLASSES}>
-            Sag Deinem Team Bescheid. Wird im Kader wieder ein Platz frei, kannst Du den Link noch einmal öffnen.
-          </p>
+          <p className={ABSATZ_CLASSES}>Sag Deinem Team Bescheid. Wird im Kader wieder ein Platz frei, kannst Du den Link erneut öffnen.</p>
           <FrageStellen />
         </BestaetigungErgebnis>
       )}

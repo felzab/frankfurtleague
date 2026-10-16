@@ -273,7 +273,7 @@ export function FormGruppenSwapSection({
             {isConfirming && first !== null && second !== null && (
               <ConfirmReveal>
                 <p className="fluid-xxs leading-normal font-medium text-foreground">
-                  Rückgängig machst Du den Tausch, indem Du dieselben beiden Teams noch einmal tauschst.
+                  Rückgängig machst Du den Tausch, indem Du dieselben beiden Teams erneut tauschst.
                 </p>
               </ConfirmReveal>
             )}

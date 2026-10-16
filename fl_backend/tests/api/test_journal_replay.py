@@ -23,7 +23,7 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.services import hash_token
-from app.api.identitaet.wiederherstellung import REPLAY_METHOD, plan, replay, run
+from app.api.identitaet.wiederherstellung import REPLAY_METHOD, plan_replay, replay_line, run_replay
 from app.api.schiedsrichter.services import compose_adresswechsel
 from app.api.spieler.services import compose_spieler_adresswechsel
 from app.api.teams.services import compose_kontakt_bestaetigung
@@ -379,9 +379,9 @@ def restored_and_replayed(url: str, caplog: pytest.LogCaptureFixture, press: str
 
         # The restore, for this record: the snapshot's document back in place of the one the press left.
         await database[collection].replace_one({"_id": record_id}, snapshot)
-        replayed = [await replay(_parsed(line), client, database, schluessel=KEY, now=REPLAY_NOW) for line in lines]
+        replayed = [await replay_line(_parsed(line), client, database, schluessel=KEY, now=REPLAY_NOW) for line in lines]
         after_one = await _record(database, collection, record_id)
-        again = [await replay(_parsed(line), client, database, schluessel=KEY, now=REPLAY_NOW) for line in lines]
+        again = [await replay_line(_parsed(line), client, database, schluessel=KEY, now=REPLAY_NOW) for line in lines]
         rows = await database[Collection.AKTIONEN].find({"document_id": record_id, "request.method": REPLAY_METHOD}).to_list()
 
         return {
@@ -452,7 +452,7 @@ class TestARecordTheLineNoLongerFits:
 
         async def steps(_http: AsyncClient, database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             before = await _record(database, Collection.SPIELER, MOVING_PUPIL_OID)
-            stand = await replay(line, client, database, schluessel=KEY, now=REPLAY_NOW)
+            stand = await replay_line(line, client, database, schluessel=KEY, now=REPLAY_NOW)
             return stand, before, await _record(database, Collection.SPIELER, MOVING_PUPIL_OID)
 
         stand, before, after = served(mongo_replica_set_url, steps)
@@ -470,7 +470,7 @@ class TestARecordTheLineNoLongerFits:
         )
 
         async def steps(_http: AsyncClient, database: AsyncDatabase, _client: AsyncMongoClient) -> Any:
-            return (await plan(line, database, schluessel=KEY, session=None, now=REPLAY_NOW)).stand
+            return (await plan_replay(line, database, schluessel=KEY, session=None, now=REPLAY_NOW)).stand
 
         assert served(mongo_replica_set_url, steps) == "no such record"
 
@@ -505,6 +505,8 @@ class TestTheListing:
             ("2026-10-03T11:00:00+00:00", erased.text()),
             ("2026-10-03T11:30:00+00:00", withdrawal.text()),
             ("2026-10-03T11:40:00+00:00", f"{JOURNAL_TOKEN} {'b' * 64} vergessen"),
+            # An id bson's own reader would raise `InvalidId` on: counted as unreadable, never a traceback.
+            ("2026-10-03T11:50:00+00:00", f"{JOURNAL_TOKEN} {'b' * 64} adresswechsel_abgelehnt spieler/{'z' * 24} am={AM}"),
         )
 
         async def steps(_http: AsyncClient, database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -512,9 +514,9 @@ class TestTheListing:
             since = datetime(2026, 10, 3, 10, 0, tzinfo=UTC)
             common = {"since": since, "client": client, "database": database, "schluessel": KEY, "now": REPLAY_NOW}
             codes = [
-                await run(day, apply=False, out=listed, **common),
-                await run(day, apply=True, out=applied, **common),
-                await run(day[2:3], apply=True, out=settled, **common),
+                await run_replay(day, apply=False, out=listed, **common),
+                await run_replay(day, apply=True, out=applied, **common),
+                await run_replay(day[2:3], apply=True, out=settled, **common),
             ]
             return codes, listed.getvalue(), applied.getvalue(), settled.getvalue()
 
@@ -525,7 +527,7 @@ class TestTheListing:
         assert "Journal lines written after 2026-10-03T10:00:00+00:00: 2." in listed
         assert "held in spieler: 1 field(s), " in listed and "held in schiedsrichter: 1 field(s), " in listed
         assert "    to replay" in listed and "    replayed" in applied and "    already done" in settled
-        assert "1 unreadable lines" in listed
+        assert "2 unreadable lines" in listed
         for output in (listed, applied, settled):
             assert "@" not in output
             assert erased.person_hash not in output
