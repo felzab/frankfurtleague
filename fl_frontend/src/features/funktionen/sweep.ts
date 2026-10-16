@@ -1,7 +1,7 @@
 import "server-only";
 
 import { deleteAccountFor, listAccounts } from "@/core/auth";
-import { APIBadStatusError, APIMalformedDataError, APINetworkError } from "@/core/errors";
+import { requestOf } from "@/core/errors";
 import { logger } from "@/core/logging";
 
 import { REFERENZEN_ADRESSEN_MAX } from "./constants";
@@ -136,16 +136,4 @@ function logKontoFailure(
     ...requestOf(error),
     anzahl: anzahl,
   });
-}
-
-/**
- * What a failed call says of its request, and nothing of the address it carried: the status and code
- * tell a drifted ceiling or the backend's fail-safe from a crash, and its trace joins the backend's line.
- */
-function requestOf(error: unknown): { status?: number; server_error_code?: string; trace_id?: string } {
-  if (error instanceof APIBadStatusError)
-    return { status: error.statusCode, server_error_code: error.serverErrorCode, trace_id: error.traceId };
-  if (error instanceof APIMalformedDataError) return { status: error.statusCode, trace_id: error.traceId };
-  if (error instanceof APINetworkError) return { trace_id: error.traceId };
-  return {};
 }
