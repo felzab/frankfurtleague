@@ -6,6 +6,8 @@ import Medal from "@gravity-ui/icons/Medal";
 import Person from "@gravity-ui/icons/Person";
 import Persons from "@gravity-ui/icons/Persons";
 
+import { SAISONUEBERSICHT_TITEL } from "@/core/seitenNamen";
+
 import type { SidemenuHint, SidemenuStructure } from "@/shared/types/types";
 import type React from "react";
 
@@ -30,7 +32,7 @@ export type DashboardIconName = keyof typeof DASHBOARD_SIDEMENU_ICONS;
  * redirects to a section (`fl_frontend/next.config.ts`). The area's name, never a section's, as the admin shell's is.
  */
 export const DASHBOARD_SHELL_FALLBACK = {
-  label: "Saisonübersicht",
+  label: SAISONUEBERSICHT_TITEL,
   hint: {
     lead: "Diese Adresse gehört zu keinem Bereich der Saisonübersicht.",
   },

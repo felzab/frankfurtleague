@@ -3,6 +3,8 @@ import Person from "@gravity-ui/icons/Person";
 import PersonPencil from "@gravity-ui/icons/PersonPencil";
 import Tray from "@gravity-ui/icons/Tray";
 
+import { DEIN_BEREICH_TITEL } from "@/core/seitenNamen";
+
 import type { SidemenuHint, SidemenuStructure, SidemenuStructureSubOption } from "@/shared/types/types";
 import type React from "react";
 import type { TeamSeat } from "./teamSeats";
@@ -26,7 +28,7 @@ export type PersonIconName = keyof typeof PERSON_SIDEMENU_ICONS;
 
 /** What the bar reads on an address inside `/bereich` that no page claims, the catch-all's 404 among them. */
 export const PERSON_SHELL_FALLBACK = {
-  label: "Dein Bereich",
+  label: DEIN_BEREICH_TITEL,
   hint: {
     lead: "Diese Adresse gehört zu keiner Seite Deines Bereichs.",
   },

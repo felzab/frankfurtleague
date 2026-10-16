@@ -21,6 +21,7 @@ import {
   textFooter,
 } from "./emailShell";
 import { kontaktBestaetigungsLink } from "./kontaktLink";
+import { DEIN_BEREICH_TITEL } from "./seitenNamen";
 
 import type { Aktion } from "./emailShell";
 
@@ -91,9 +92,9 @@ function eintragSatz({ vorname, rollen, schule, saisonId }: Fakten, markup: bool
   return `Hallo ${name}, die Verwaltung der ${BRAND_NAME} hat Dich in der ${saison} als ${markup ? escapeHtml(rollen) : rollen} für ${team} eingetragen.`;
 }
 
-// „Bereich“, the signed-in area's own name on screen, and never „Zugang“: on screen that word names an
+// The signed-in area by its name on screen, and never „Zugang“: on screen that word names an
 // administrator's grant alone (`docs/glossary.md`), which a confirmed seat is not.
-const DANACH_SATZ = "Erst danach findest Du Dein Team nach der Anmeldung auf der Website in Deinem Bereich.";
+const DANACH_SATZ = `Erst danach findest Du Dein Team nach der Anmeldung auf der Website unter „${DEIN_BEREICH_TITEL}“.`;
 
 // Both answers are named before the press: a reader who came to object and meets a birthdate box was
 // asked something the message did not say.

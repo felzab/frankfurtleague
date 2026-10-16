@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 import { assertRedactedAtTheEdge } from "./edgeRedaction.ts";
 import { registerDoubles } from "./exportingModule.ts";
 import { flat, readable } from "./mailText.ts";
+import { DEIN_BEREICH_TITEL } from "./seitenNamen.ts";
 
 /** The origin the local stack serves from, which `docker-compose.local.yml` sets `AUTH_URL` to. */
 const ORIGIN = "http://localhost:3000";
@@ -86,9 +87,9 @@ describe("the message a seated contact person is mailed", () => {
 
   /* On screen „Zugang“ is an administrator's grant alone (`docs/glossary.md`); what a confirmed seat
      opens is named by the signed-in area's own name. */
-  it("says the team waits in the reader's Bereich, never that a Zugang is granted, in both branches", () => {
+  it("names the reader's area by its name, never a Zugang granted, in both branches", () => {
     for (const words of [readable(mail.html), flat(mail.text)]) {
-      assert.match(words, /Erst danach findest Du Dein Team nach der Anmeldung auf der Website in Deinem Bereich\./);
+      assert.ok(words.includes(`Erst danach findest Du Dein Team nach der Anmeldung auf der Website unter „${DEIN_BEREICH_TITEL}“.`), words);
       assert.doesNotMatch(words, /Zugang/);
     }
   });

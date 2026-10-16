@@ -6,6 +6,15 @@ import { describe, it } from "node:test";
 import ts from "typescript";
 
 import { JA_MEINE_ADRESSE, NICHT_MEINE_ADRESSE } from "@/core/adresswechselAntworten.ts";
+import {
+  ABOUT_TITEL,
+  DATENSCHUTZ_TITEL,
+  DEIN_BEREICH_TITEL,
+  IMPRESSUM_TITEL,
+  KONTAKT_TITEL,
+  ORGANISATION_TITEL,
+  SAISONUEBERSICHT_TITEL,
+} from "@/core/seitenNamen.ts";
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 import {
   FINALRUNDEN_EINTRAG,
@@ -18,7 +27,6 @@ import {
   UEBERALL_ABMELDEN,
 } from "@/features/admin/constants.ts";
 import { ADRESSE_KORRIGIEREN } from "@/features/bewerbungen/constants.ts";
-import { ORGANISATION_TITEL } from "@/features/meta/constants.ts";
 import {
   REGELN_ABSCHNITT,
   SPIELPLAN_ABSCHNITT,
@@ -55,6 +63,21 @@ const ADRESSWECHSEL_SEITEN = [
   "features/schiedsrichter/components/views/SchiedsrichterAdresswechselView.tsx",
   "features/spieler/components/views/SpielerAdresswechselView.tsx",
 ];
+
+const TOP_NAV = "shared/components/layout/topnav/TopNav.tsx";
+const FOOTER = "shared/components/layout/footer/Footer.tsx";
+const META_PAGES = "app/(public)/(meta)";
+const META_VIEWS = "features/meta/components/views";
+const BEWERBUNG_SEITE = "features/bewerbungen/components/views/BewerbungView.tsx";
+
+/** A page the top bar or the footer links to, by the name every link, title and heading reads. */
+const seitenName = (konstante: string, wort: string, zeigen: readonly string[]): Benannt => ({
+  wort: wort,
+  konstante: konstante,
+  heim: "core/seitenNamen.ts",
+  zeigen: zeigen,
+  seite: true,
+});
 
 /** A sidemenu entry, which the shell renders as its page's heading and the menu's link: its structure is where it shows. */
 const eintrag = (konstante: string, { label }: { label: string }): Benannt => ({
@@ -102,13 +125,29 @@ const REGISTER: readonly Benannt[] = [
     heim: "features/saisons/constants.ts",
     zeigen: [`${SAISON_FORM}/FormSpielplanSection.tsx`],
   },
-  {
-    wort: ORGANISATION_TITEL,
-    konstante: "ORGANISATION_TITEL",
-    heim: "features/meta/constants.ts",
-    zeigen: ["features/meta/components/views/MetaOrganisationView.tsx", "app/(public)/(meta)/organisation/page.tsx"],
-    seite: true,
-  },
+  seitenName("SAISONUEBERSICHT_TITEL", SAISONUEBERSICHT_TITEL, [TOP_NAV, "app/dashboard/layout.tsx", "features/dashboard/constants.ts"]),
+  seitenName("DEIN_BEREICH_TITEL", DEIN_BEREICH_TITEL, [TOP_NAV, "features/funktionen/constants.ts", "core/kontaktEmail.ts"]),
+  seitenName("ABOUT_TITEL", ABOUT_TITEL, [TOP_NAV, FOOTER, `${META_PAGES}/about/page.tsx`, `${META_VIEWS}/AboutView.tsx`, BEWERBUNG_SEITE]),
+  seitenName("ORGANISATION_TITEL", ORGANISATION_TITEL, [
+    TOP_NAV,
+    FOOTER,
+    `${META_PAGES}/organisation/page.tsx`,
+    `${META_VIEWS}/MetaOrganisationView.tsx`,
+  ]),
+  seitenName("KONTAKT_TITEL", KONTAKT_TITEL, [
+    TOP_NAV,
+    FOOTER,
+    `${META_PAGES}/kontakt/page.tsx`,
+    `${META_VIEWS}/KontaktView.tsx`,
+    BEWERBUNG_SEITE,
+  ]),
+  seitenName("IMPRESSUM_TITEL", IMPRESSUM_TITEL, [
+    FOOTER,
+    `${META_PAGES}/impressum/page.tsx`,
+    `${META_VIEWS}/ImpressumView.tsx`,
+    "core/emailShell.ts",
+  ]),
+  seitenName("DATENSCHUTZ_TITEL", DATENSCHUTZ_TITEL, [FOOTER, `${META_PAGES}/datenschutz/page.tsx`]),
   eintrag("HANDLUNGSBEDARF_EINTRAG", HANDLUNGSBEDARF_EINTRAG),
   eintrag("TEAMS_EINTRAG", TEAMS_EINTRAG),
   eintrag("SPERRLISTE_EINTRAG", SPERRLISTE_EINTRAG),

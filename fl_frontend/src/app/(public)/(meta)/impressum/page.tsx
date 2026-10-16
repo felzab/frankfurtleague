@@ -1,10 +1,11 @@
+import { IMPRESSUM_TITEL } from "@/core/seitenNamen";
 import { ImpressumView } from "@/features/meta/components/views/ImpressumView";
 import { openGraphFor } from "@/shared/utils/metadata";
 
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Impressum",
+  title: IMPRESSUM_TITEL,
   description: "Anbieterkennzeichnung der Frankfurt League nach § 5 DDG und § 18 Abs. 2 MStV.",
   openGraph: openGraphFor("/impressum"),
   alternates: {
