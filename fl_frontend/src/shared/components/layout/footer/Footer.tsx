@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { INSTAGRAM_URL } from "@/core/brand";
 import { BrandLink } from "@/shared/components/ui/BrandLink";
+import { NewTabLink } from "@/shared/components/ui/NewTabLink";
 import { skeletonBlock } from "@/shared/components/ui/skeleton";
 
 import { FooterCopyrightString } from "./FooterCopyrightString";
@@ -72,20 +73,18 @@ function FooterNavColumn({ title, links }: { title: string; links: readonly { hr
  */
 function FooterSocialLink({ href, label, mask }: { href: string; label: string; mask: string }) {
   return (
-    <Link
+    <NewTabLink
       href={href}
-      prefetch={false}
-      target="_blank"
-      rel="noopener noreferrer"
-      aria-label={label}
       className="-m-1.5 flex rounded-md p-1.5 transition-colors hover:bg-hover">
+      {/* Named in words rather than by `aria-label`, which would replace the new tab's announcement after them. */}
+      <span className="sr-only">{label}</span>
       {/* `flex` on the link and `block` here are load-bearing: on a text line, the line's height rather than
           the 24px glyph sizes the hover fill. Each mask source must be a silhouette on a transparent ground. */}
       <span
         aria-hidden="true"
         className={`block size-6 bg-foreground mask-contain mask-center mask-no-repeat ${mask}`}
       />
-    </Link>
+    </NewTabLink>
   );
 }
 

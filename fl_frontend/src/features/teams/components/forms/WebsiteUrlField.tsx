@@ -11,6 +11,7 @@ import { toWebsiteUrl } from "@/features/teams/utils";
 import { FIELD_ERROR_CLASSES, FIELD_GROUP_CLASSES, FIELD_LABEL_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { Hint } from "@/shared/components/ui/Hint";
 import { IconTooltip } from "@/shared/components/ui/IconTooltip";
+import { NEW_TAB_ATTRIBUTES } from "@/shared/components/ui/NewTabLink";
 import { TextField } from "@/shared/components/ui/TextField";
 import { ExternalUrlSchema } from "@/shared/schemas";
 import { benannt } from "@/shared/utils/benannt";
@@ -50,7 +51,7 @@ export function WebsiteUrlField({
 
   const openLink = (
     <a
-      {...(isFollowable && value !== null ? { href: value, target: "_blank", rel: "noopener noreferrer" } : { "aria-disabled": true })}
+      {...(isFollowable && value !== null ? { href: value, ...NEW_TAB_ATTRIBUTES } : { "aria-disabled": true })}
       aria-label={benannt("Link in neuem Tab öffnen", "Website")}
       className={`flex size-7 shrink-0 items-center justify-center rounded-md transition-colors ${
         isFollowable ? "cursor-pointer text-foreground-muted hover:text-brand" : "cursor-not-allowed text-foreground-muted/40"

@@ -1073,6 +1073,13 @@ const SOURCE_BANS = [
       "A brand control outside prose takes `BRAND_INK_OUTSIDE_PROSE_CLASSES` rather than spelling its grade (docs/frontend/spec.md :: I238).",
     exempt: ["src/shared/components/ui/textLink.ts"],
   },
+  {
+    // The target in any spelling, an attribute's, a spread object's or a `window.open` argument's.
+    selector: inLiteral("^_blank$"),
+    message:
+      "A link opening a new tab is `NewTabLink`, or spreads `NEW_TAB_ATTRIBUTES` on a control whose own name says so: a target spelled here tells a screen reader nothing.",
+    exempt: ["src/shared/components/ui/NewTabLink.tsx"],
+  },
   ...["muted-hint", "muted-meta"].map((utility) => ({
     // A `leading-*` beside the recipe overrides the line height `fluid-*` sets, which is knowingly not the utility.
     selector: classList({ all: utilityExpansion(GLOBALS_CSS, utility), none: ["leading-\\S+"] }),

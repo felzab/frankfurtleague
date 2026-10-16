@@ -32,6 +32,7 @@ import { answerReadsWith, backendNotFound, EMPTIEST_ANSWER, pageBody, renderPage
 import { renderMarkup, renderTree, textOf } from "@/shared/testing/renderTest";
 import { assertOwnPanel, resultPanels } from "@/shared/testing/resultPanels.ts";
 import { TEST_SITE_KEY } from "@/shared/testing/siteverifyDouble.ts";
+import { shownText } from "@/shared/testing/spokenText.ts";
 import { filledSlots } from "@/shared/testing/stampedText.ts";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
 import { getGermanTodayStr } from "@/shared/utils/date";
@@ -78,6 +79,7 @@ const { default: KontaktPage } = await import("@/app/(public)/(meta)/kontakt/pag
 const { default: BestaetigungPage } = await import("@/app/(public)/bestaetigung/kontakt/page.tsx");
 const { BewerbungBandSkeleton } = await import("./components/ui/BewerbungBandSkeleton.tsx");
 const { BewerbungInstagramBand } = await import("./components/ui/BewerbungInstagramBand.tsx");
+const { IN_NEUEM_TAB } = await import("@/shared/components/ui/NewTabLink.tsx");
 const { band } = await import("./components/ui/band.ts");
 const { ctaButton } = await import("@/shared/components/ui/formButtons.ts");
 const { textLink } = await import("@/shared/components/ui/textLink.ts");
@@ -336,7 +338,7 @@ describe("how the application page invites a post about the application", () => 
   /* Pinned as one string because I dictated it: every other rule the page's copy keeps would produce
      a different sentence, so a pass tidying the page toward them is what this case refuses. */
   it("renders the sentence I dictated, whole", () => {
-    assert.equal(textOf(INVITATION).replace(/\s+/g, " ").trim(), INVITATION_SENTENCE, "the invitation was reworded");
+    assert.equal(shownText(INVITATION).replace(/\s+/g, " ").trim(), INVITATION_SENTENCE, "the invitation was reworded");
   });
 
   it("wears the band recipe's box", () => {
@@ -350,7 +352,8 @@ describe("how the application page invites a post about the application", () => 
     assert.equal(links.length, 1, "the strip offers a number of links other than the handle alone");
     // A strip that is one large link takes a half-filled form off the screen on any stray press.
     assert.match(INVITATION.slice(0, INVITATION.indexOf(">")), /^<div\b/, "the whole strip is pressable");
-    assert.equal(textOf(links[0]?.[2] ?? "").trim(), INSTAGRAM_HANDLE, "the link names something other than the handle");
+    // The handle, then what a screen reader alone hears: the page stays behind the profile.
+    assert.equal(textOf(links[0]?.[2] ?? "").trim(), `${INSTAGRAM_HANDLE} ${IN_NEUEM_TAB}`, "the link names something other than the handle");
     assert.ok(attribute.includes(`href="${INSTAGRAM_URL}"`), "the handle points somewhere other than the profile");
     assert.ok(attribute.includes(`class="${textLink()}"`), "the handle wears a treatment of its own");
     // The form is half filled in behind it, and this tab is where the applicant has to come back to.

@@ -7,11 +7,17 @@ import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { IconTooltip } from "@/shared/components/ui/IconTooltip";
+import { IN_NEUEM_TAB, NEW_TAB_ATTRIBUTES } from "@/shared/components/ui/NewTabLink";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { buildMapsSearchUrl, formatAddressFull } from "@/shared/utils/format";
 
 import type { TeamFieldPath } from "@/features/teams/teamDraftStatus";
 import type { FLAddress } from "@/shared/schemas";
+
+const MAPS_LINK_LABEL = "Adresse auf Google Maps öffnen";
+
+/** The tooltip's words first, so speech input finds the link by what it shows, closed or not. */
+const MAPS_LINK_NAME = `${MAPS_LINK_LABEL} ${IN_NEUEM_TAB}`;
 
 /**
  * The SHARED `AddressFields`, its plain labels swapped for the editor's marker-carrying ones. The
@@ -31,10 +37,8 @@ export function FormAdresseSection({
 
   const mapsLink = (
     <a
-      {...(isSearchable
-        ? { href: buildMapsSearchUrl(formatAddressFull(address)), target: "_blank", rel: "noopener noreferrer" }
-        : { "aria-disabled": true })}
-      aria-label="Adresse auf Google Maps öffnen"
+      {...(isSearchable ? { href: buildMapsSearchUrl(formatAddressFull(address)), ...NEW_TAB_ATTRIBUTES } : { "aria-disabled": true })}
+      aria-label={MAPS_LINK_NAME}
       className={`flex size-10 shrink-0 items-center justify-center rounded-xl transition-colors ${
         isSearchable ? "cursor-pointer text-foreground-muted hover:bg-hover hover:text-brand" : "cursor-not-allowed text-foreground-muted/40"
       }`}>
@@ -53,12 +57,12 @@ export function FormAdresseSection({
         <span className="absolute top-1/2 right-4 -translate-y-1/2 sm:right-5">
           {/* The pair `fl_frontend/src/shared/components/ui/RowActions.tsx :: RowActionDelete` splits, for its reason. */}
           {isSearchable ? (
-            <IconTooltip label="Adresse auf Google Maps öffnen">{mapsLink}</IconTooltip>
+            <IconTooltip label={MAPS_LINK_LABEL}>{mapsLink}</IconTooltip>
           ) : (
             <Hint
               mode="refusal"
               reason="Erst Straße und Stadt eingeben"
-              label="Adresse auf Google Maps öffnen">
+              label={MAPS_LINK_NAME}>
               {mapsLink}
             </Hint>
           )}

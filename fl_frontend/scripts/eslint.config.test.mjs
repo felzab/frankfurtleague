@@ -23,6 +23,7 @@ const BANS = [
   ["gap", /A gap is one of/],
   ["link-decoration", /rather than spelling its underline/],
   ["brand-grade", /BRAND_INK_OUTSIDE_PROSE_CLASSES/],
+  ["new-tab", /A link opening a new tab is `NewTabLink`/],
   ["muted-hint", /Wear `muted-hint`/],
   ["BRAND_TILE", /Take `BRAND_TILE_CLASSES`/],
   ["BRAND_ICON_BUTTON", /Take `BRAND_ICON_BUTTON_CLASSES`/],
