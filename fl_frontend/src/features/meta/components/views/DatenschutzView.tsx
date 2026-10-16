@@ -224,8 +224,10 @@ const FRISTEN = [
   },
   {
     daten: "Vermerk einer Löschung auf Wunsch: Deine E-Mail-Adresse als unlesbarer Schlüssel und der Zeitpunkt",
+    // The line stands in the application log as every line does, and the day file ages from its last write
+    // (`docs/ops/runbooks.md` §7), so the row names both and no flat period.
     frist:
-      "30 Tage, damit wir die Löschung erneut ausführen können, falls wir eine Sicherungskopie der Datenbank einspielen, die Deine Daten noch enthält",
+      "Wie das Betriebsprotokoll der Anwendung, in dem er steht, und außerdem in einer eigenen Datei je Tag, die wir 30 Tage nach ihrer letzten Änderung löschen. Damit können wir die Löschung erneut ausführen, falls wir eine Sicherungskopie der Datenbank einspielen, die Deine Daten noch enthält",
   },
   { daten: "Sicherungskopien der Datenbank", frist: "Etwa acht Tage" },
   {
