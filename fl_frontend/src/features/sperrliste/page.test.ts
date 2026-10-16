@@ -8,6 +8,7 @@ import { act, createElement as h } from "react";
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
+import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { DOUBLE_PRESS_MS } from "@/shared/hooks/useTwoPressConfirm.ts";
 import { doubleActionRequest, doubleToasts } from "@/shared/testing/actionDoubles.ts";
@@ -33,6 +34,10 @@ import type { TestContext } from "node:test";
 doubleActionRequest();
 doubleSendMail();
 const { raised: toasts } = doubleToasts();
+// The origin the ban's notice links from: without one the notice fails to build, and the ban's toast is its warning.
+registerDoubles({
+  modules: { "core/config.ts": { frontend_config: { AUTH_URL: "http://localhost:3000", LOG_LEVEL: "ERROR", LOG_FORMAT: "json" } } },
+});
 
 /* Reached with `await import` and never a static import beside the harness, which registers the JSX
    compile step as it evaluates (`docs/frontend/spec.md` §1.9). */
@@ -125,7 +130,7 @@ answerReadsWith((endpoint, schema, params) => {
   return track(
     endpoint,
     endpoint === ANSICHT_ENDPOINT
-      ? antwort().then((records) => answer(schema, endpoint, { verwaltung: null, ...records, acknowledged: 1 }))
+      ? antwort().then((records) => answer(schema, endpoint, { verwaltung: null, gesperrt: false, ...records, acknowledged: 1 }))
       : istSperre
         ? sperre().then((fields) => answer(schema, endpoint, fields))
         : Promise.resolve(endpoint === "/sperrliste" ? answer(schema, endpoint, SPERRLISTE) : EMPTIEST_ANSWER(endpoint, schema, params)),
@@ -234,8 +239,9 @@ describe("what the ban's dialog shows before the ban (`docs/frontend/spec.md :: 
     for (const [, href] of verweiseIn(dialog)) assert.ok(href !== null && !href.includes("@"), `${String(href)} carries an address`);
   });
 
-  /* The registrations list serves the pending ones alone: a link to a declined one opens a list it is not on. */
-  it("links no declined registration, and names it declined", async () => {
+  /* The registrations list serves the pending ones alone: a link to a declined one opens a list it is not on, and the
+     sentence that a registration ends with the ban is false of one its team declined already. */
+  it("links no declined registration, names it declined, and says nothing of it ending", async () => {
     antwort = () =>
       Promise.resolve({
         ...NICHTS,
@@ -251,6 +257,7 @@ describe("what the ban's dialog shows before the ban (`docs/frontend/spec.md :: 
       within(dialog).queryByText(/^Abgelehnte Registrierung für die Saison 2026: Zorbanax Quell$/) !== null,
       "the line hides its status",
     );
+    assert.ok(within(dialog).queryByText(SPERRE_ANSICHT_COPY.lead) !== null, "a declined registration is said to end with the ban");
   });
 
   /* The memberships read lists a pupil holding no squad row, and the editor opens on them: their record is what stands. */
@@ -341,8 +348,8 @@ describe("the order of the list and the ban (`docs/frontend/spec.md :: I724`)", 
 
     await waitFor(() => assert.ok(screen.queryByRole("dialog") === null, "the ban left the dialog open"));
     assert.deepEqual(
-      toasts.map(({ variant, title }) => [variant, title]),
-      [["success", SPERRE_ERFOLG]],
+      toasts.map(({ variant, title, description }) => [variant, title, description]),
+      [["success", SPERRE_ERFOLG, undefined]],
     );
     await user.click(screen.getByRole("button", { name: "Adresse sperren" }));
     const reopened = await screen.findByRole("dialog");
@@ -485,8 +492,24 @@ describe("the ban's refusals, placed (`docs/frontend/spec.md :: I724`)", () => {
     }
   });
 
-  /* The read cannot tell an address already barred or a league with no season running: those land after the press,
-     the address's on its box and the league's in the toast, the reveal closing over them. */
+  /* The read says whether a ban stands on the address (`docs/frontend/spec.md :: I730`): a second ban is refused, so
+     the box says so in that refusal's words before anyone works through a list for nothing. */
+  it("marks an address barred already before the press, arming nothing", async () => {
+    antwort = () => Promise.resolve({ ...BESTAND, gesperrt: true });
+    const schon = mapAdresseRefusal(refusedOn(CREATE_OPERATION, "REQ-SPERRLISTE-001"))?.fieldErrors?.email ?? "unworded";
+    const { dialog, user } = await oeffnen();
+
+    await zeigen(dialog, user);
+
+    assert.deepEqual(markiert(dialog), ["E-Mail"]);
+    assert.ok(within(dialog).queryByText(schon) !== null, "the barred address reads otherwise than the ban's refusal");
+    assert.ok(within(dialog).queryByRole("alert") === null, "the barred address armed the press");
+    assert.ok(within(dialog).queryByText(SPERRE_ANSICHT_COPY.heading) === null, "the barred address's records were listed");
+    assert.deepEqual(gesendet("/sperrliste"), []);
+  });
+
+  /* The read cannot tell a ban entered after it or a league with no season running: those land after the press, the
+     address's on its box and the league's in the toast, the reveal closing over them. */
   it("lands a refusal the read cannot foresee where the ban's own answer puts it", async (t) => {
     const fehler = (code: string) => mapAdresseRefusal(refusedOn(CREATE_OPERATION, code));
     t.mock.timers.enable({ apis: ["Date"] });
