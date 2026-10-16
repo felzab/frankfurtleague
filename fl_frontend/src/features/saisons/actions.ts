@@ -38,6 +38,7 @@ import type {
   FLActivateSaisonResponse,
   FLGenerateSpielplanPayload,
   FLGenerateSpielplanResponse,
+  FLLoeschungLaufResponse,
   FLPatchSaisonPayload,
   FLPatchSaisonResponse,
   FLSwapGruppenPayload,
@@ -200,8 +201,9 @@ export async function activateSaisonAction(rawPayload: FLActivateSaisonPayload):
           ? `Saison ${validated.data.id} ist jetzt aktiv. Die vorherige Saison ist abgeschlossen.`
           : `Saison ${validated.data.id} ist jetzt aktiv. ${String(demoted)} vorher aktive Saisons wurden abgeschlossen.`;
 
-    // Compared to "on": a skipped validation leaves it undefined, where a negated test would delete.
-    const geloescht = frontend_config.LOESCHUNG_SWEEP === "on" ? await loeschenNachUmstellung() : [];
+    // Compared to "on": a skipped validation leaves it undefined, where a negated test would delete. Called here rather
+    // than handed on bare: the step-up reader attributes a request only where an action's own body calls it.
+    const geloescht = frontend_config.LOESCHUNG_SWEEP === "on" ? await loeschenNachUmstellung((nach) => postLoeschungLauf(nach)) : [];
 
     return { success: true, saison: activateOperation, message: [message, ...geloescht].join(" ") };
   });
@@ -211,14 +213,14 @@ export async function activateSaisonAction(rawPayload: FLActivateSaisonPayload):
  * AWAITED inside the action's body, so the spine drops `invalidateRollover`'s tags after the last deletion: a run
  * behind the answer lands after that drop, and a squad page names deleted pupils for up to a week (`docs/frontend/spec.md :: I694`).
  */
-async function loeschenNachUmstellung(): Promise<string[]> {
+async function loeschenNachUmstellung(senden: (nach: string | null) => Promise<FLLoeschungLaufResponse>): Promise<string[]> {
   let vonDerFristBeendet = false;
   // Each call answering its own cut: one the deadline ends would otherwise answer the whole press as of unknown
   // outcome, sending the administrator to check an activation that stands.
   const lauf = await loeschungLaufen((nach) =>
     runAnsweringOwnCut(async () => {
       try {
-        return await postLoeschungLauf(nach);
+        return await senden(nach);
       } finally {
         // Read inside the call's own scope, which the request's deadline alone marks: the call's own bound does not.
         vonDerFristBeendet = requestOutcomeUnknown();
