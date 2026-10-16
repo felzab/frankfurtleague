@@ -52,3 +52,47 @@ Neither carries a register path.
 2. Message 2: the programme brief — the goal, the constraints, the durable plan directory, and the
    deliverables: the programme plan, session one's `START-*.md`, and an independent audit of both
    followed by its fix round.
+
+## Steering a running session
+
+Six commands steer a session that has run `/orchestration`; in any other, the session says so and
+stops. Only you can run them: Claude cannot invoke them on its own. Send each as a message of its
+own. One sent while Claude is working waits for that turn to end. A mode a command sets is written
+to the register, so a compaction or a resume keeps it. A session started before a command file was
+added or changed finds it after `/reload-skills`, which re-scans the command directories.
+
+| Command         | Use it when                                                        | Example               |
+| --------------- | ------------------------------------------------------------------ | --------------------- |
+| `/estimate`     | you want to know when the session ends, and what would bring it in | `/estimate`           |
+| `/fleet`        | you want a quick look at where things stand                        | `/fleet`              |
+| `/pace [n]`     | you need usage left at the five-hour reset                         | `/pace` or `/pace 80` |
+| `/fullspeed`    | you want to end a `/pace`                                          | `/fullspeed`          |
+| `/away [until]` | you are about to leave the session unattended                      | `/away 07:00`         |
+| `/back`         | you have returned after `/away`                                    | `/back`               |
+
+- **`/estimate`** replaces asking for a detailed estimate and its read-back. You get one chat
+  message: an estimate section by section and lane by lane, every figure marked measured or
+  estimated, the critical path and what dominates it, your own pending items as lanes, then a
+  read-back for speed, quality and parallelism. Claude acts on the read-back in the same turn and
+  records both in the register. Words after the command narrow it, for example
+  `/estimate the lens round only`.
+- **`/fleet`** gives a short status: what is running, what landed since the last status, the next
+  step on the critical path and what it waits on, CI, both usage readings, and what waits on you. It
+  changes nothing.
+- **Full speed is the default** in every session, attended or not: every agent the work can use is
+  dispatched, and a usage-limit stop is made cheap instead of avoided. Agents commit each finished
+  item, and the resume point is kept current. After a stop, the terminal continues on its own once
+  the limit resets. The desktop app continues only if you tick _Auto-continue when limits reset_ on
+  the session-limit card, which appears at the stop. A weekly limit never continues on its own, so
+  Claude tells you before one nears.
+- **`/pace [n]`** keeps the five-hour window under a line that reaches n percent at its reset, 95
+  when you give no number, by sizing the fleet to it and pausing agents gracefully above it. It holds
+  until `/fullspeed`.
+- **`/away [until]`** prepares the session before you leave. Claude adds the permission overlay that
+  keeps an agent's prompt from parking the fleet, and replies once, asking nothing. The reply says
+  when a usage stop is due, whether it will continue on its own, and what will wait for you. While
+  you are away, questions are queued with a recommendation instead of asked. Where one blocks work,
+  the recommended option is built provisionally.
+- **`/back`** undoes the preparation and reports what changed while you were away, every
+  provisional build and what reversing it would cost, and the `/fleet` status. Then it asks the
+  queued questions, in batches.
