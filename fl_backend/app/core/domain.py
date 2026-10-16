@@ -2397,6 +2397,15 @@ RULES: tuple[Rule, ...] = (
         tested_by="tests/api/test_funktionen_erasure.py::TestTheLastOwner",
     ),
     Rule(
+        code="REQ-PURGE-006",
+        status=HTTPStatus.UNPROCESSABLE_CONTENT,
+        operation="POST /identitaet/erasure",
+        aggregate="Aktion",
+        summary="the request an erasure answers holds no name the person's records hold, as a whole word in any capitals or spacing",
+        implemented_by="app.api.identitaet.services.find_name_im_anlass_refusal",
+        tested_by="tests/api/test_erasure_auf_anfrage.py::TestANameInTheAnlass",
+    ),
+    Rule(
         code="REQ-REFERENZEN-001",
         status=HTTPStatus.CONFLICT,
         operation="POST /identitaet/referenzen",

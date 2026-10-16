@@ -18,12 +18,14 @@ from app.api.identitaet.schemas import (
     FLErasureResponse,
 )
 from app.api.identitaet.services import (
+    anlass_names,
     build_erasure_kader_pipeline,
     build_season_team_pipeline,
     build_unplayed_saison_pipeline,
     compose_erasure_ansicht_auf_anfrage,
     find_eigene_adresse_refusal,
     find_inhaber_adresse_refusal,
+    find_name_im_anlass_refusal,
 )
 from app.api.sperrliste.lookup import SperrlisteLookup
 from app.core.config import API_VERSION, BackendConfig, get_app_config
@@ -222,10 +224,13 @@ async def erase_auf_anfrage(
     else `REQ-AUTH-009`. An address under the reserved `invalid` domain is refused 422 before any read: every referee row
     stored without an address shares one placeholder there.
 
-    `anlass` names the request the erasure answers, and every log row the erasure files carries it; no other row does. The
-    grant notice names this administrator as ending the person's grant. An address holding nothing is answered with every
-    count zero. The 404 and the 409 answer only a database changed by hand under the request. The sign-in account is not
-    touched here: deleting it is the caller's, once this has answered.
+    `anlass` names the request the erasure answers, and every log row the erasure files carries it; no other row does. No
+    redaction reaches it, so it is refused 422 where it holds an address, and, inside the write ahead of every step, where a
+    name the person's records hold stands in it as a whole word in any capitals or spacing (`REQ-PURGE-006`): each name
+    whole and each word of one alone, a particle such as `von` alone excepted. A common word equal to a name is refused with
+    it. The grant notice names this administrator as ending the person's grant. An address holding nothing is answered with
+    every count zero. The 404 and the 409 answer only a database changed by hand under the request. The sign-in account is
+    not touched here: deleting it is the caller's, once this has answered.
     """
 
     identifier = sign_in_identifier(erasure_data.email)
@@ -241,6 +246,27 @@ async def erase_auf_anfrage(
         # so equality is the fold's judgement (`:: I453`).
         if any(grant["adresse"] == identifier for grant in lebendige(grants)):
             refuse_unconfirmed()
+
+        # Ahead of the erasure's first write, its anchor, and in its snapshot: a retry judges the names afresh (`docs/backend/spec.md :: I721`).
+        subject = await resolve_subject(
+            identifier,
+            saison_teams_collection=saison_teams_collection,
+            bewerbungen_collection=bewerbungen_collection,
+            schiedsrichter_collection=schiedsrichter_collection,
+            spieler_collection=spieler_collection,
+            registrierungen_collection=registrierungen_collection,
+            schluessel=config.sperrliste_schluessel,
+            session=session,
+        )
+        names = anlass_names(
+            identifier,
+            saison_team_rows=subject.saison_teams,
+            bewerbung_rows=subject.bewerbungen,
+            referee_rows=subject.schiedsrichter,
+            pupil_rows=subject.spieler,
+            registrierung_rows=subject.registrierungen,
+        )
+        refuse(find_name_im_anlass_refusal(anlass=erasure_data.anlass, names=names))
 
         erased = await erase_everything(
             identifier,
