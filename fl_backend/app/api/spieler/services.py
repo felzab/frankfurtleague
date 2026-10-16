@@ -768,7 +768,6 @@ def spieler_adresswechsel_zustand_of(
 # An INCLUSION, for `app/api/schiedsrichter/services.py :: BESTAETIGUNG_ANSICHT_FIELDS`' reason. Both
 # addresses are read for the ban list and the holder check alone, and no answer carries either.
 SPIELER_ADRESSWECHSEL_ANSICHT_FIELDS: Mapping[str, int] = {
-    "vorname": 1,
     "email": 1,
     f"{SPIELER_ADRESSWECHSEL_FELD}.email": 1,
     f"{SPIELER_ADRESSWECHSEL_FELD}.frist": 1,

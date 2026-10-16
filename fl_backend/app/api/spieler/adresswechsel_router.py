@@ -63,10 +63,10 @@ async def get_adresswechsel_ansicht(
     today: str = Depends(get_german_date_str),
 ) -> FLSpielerAdresswechselAnsichtResponse:
     """
-    Answer what this token opens: the pupil's first name, the link's state and its deadline.
+    Answer what this token opens: the link's state and its deadline.
 
-    **A first name and nothing else about the row** (`READ-PUPIL-005`): never either address, the surname or the id. A POST
-    that reads, so the token travels in a body and never in a second URL.
+    **Nothing else about the row** (`READ-PUPIL-005`): never a name, either address or the id. A POST that reads, so the token
+    travels in a body and never in a second URL.
 
     Refuses only a token no pupil holds (`REQ-SPIELER-001`), which an answered, replaced or discarded change is too: an answer
     removes what the link opens. An expired link is SERVED in that state rather than refused. The state is `gesperrt`, ahead
@@ -105,7 +105,6 @@ async def get_adresswechsel_ansicht(
             keine_adresse=not holds_an_address(raw.get("email")),
             vergeben=vergeben,
         ),
-        vorname=str(raw.get("vorname") or ""),
         frist=frist,
     )
 
