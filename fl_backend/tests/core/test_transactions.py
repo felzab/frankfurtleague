@@ -21,6 +21,7 @@ from starlette.types import Message, Scope
 
 from app.core import security
 from app.core.collections import Collection
+from app.core.crud import WritesSent, writes_sent_var
 from app.core.exception_handlers import DATABASE_FAILED, UNHANDLED_CRASH, UNKNOWN_OUTCOME
 from app.core.logging import fl_logger
 from app.core.middlewares import request_deadline_var
@@ -896,6 +897,22 @@ class TestEveryJudgeReadsInTheAttemptsSession:
             (Collection.ADRESSANKER, "update_one"),
         }
         assert [call for call in carried if call[2] is not session] == []
+
+
+class TestThePersonsJudgeAnchorsOnlyWhereAWriteMayStand:
+    @pytest.mark.parametrize(("sent", "anchored"), [(False, False), (True, True)], ids=("nothing sent", "a write sent"))
+    def test_the_anchor_follows_the_requests_record(self, sent: bool, anchored: bool):
+        """Anchored with nothing sent, the address's anchor stands for no write and the request reads as having sent one (I321)."""
+
+        record = WritesSent(sent=sent)
+        token = writes_sent_var.set(record)
+        try:
+            _, carried = _sessions_a_judge_carried(person_judge(verified_actor(ACTING["adresse"]), build_test_config()), [])
+        finally:
+            writes_sent_var.reset(token)
+
+        assert ((Collection.ADRESSANKER, "update_one") in {(collection, method) for collection, method, _ in carried}) is anchored
+        assert record.sent is sent
 
 
 class TestTheAdministratorsBinderBindsTheirJudge:
