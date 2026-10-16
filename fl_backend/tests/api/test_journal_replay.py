@@ -497,7 +497,10 @@ def _day_file(*entries: tuple[str, str]) -> list[str]:
 
 class TestTheListing:
     def test_it_names_where_an_erasure_s_address_is_held_and_prints_no_address_and_no_hash(self, mongo_replica_set_url: str):
-        erased = JournalLine(person_hash=loeschung_journal_hash(PERSON, schluessel=KEY), art="loeschung")
+        # Its pseudonym named, and its address held: the page's erasure takes the pseudonym's rows with everything else.
+        erased = JournalLine(
+            person_hash=loeschung_journal_hash(PERSON, schluessel=KEY), art="loeschung", pseudonym=akteur_pseudonym(PERSON, schluessel=KEY)
+        )
         withdrawal = JournalLine(
             person_hash=loeschung_journal_hash(PERSON, schluessel=KEY),
             art="widerruf",
@@ -551,6 +554,7 @@ class TestTheListing:
         for output in (listed, applied, settled):
             assert "@" not in output
             assert erased.person_hash not in output
+            assert str(erased.pseudonym) not in output
             assert KEY.get_secret_value() not in output
 
 
