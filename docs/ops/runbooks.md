@@ -1223,7 +1223,8 @@ done, and the next pass goes on.
 ends by removing the referees' and the pupils' pending addresses whose link lapsed before today,
 and, where `LOESCHUNG_SWEEP` reads `on`, by deleting the pupils the season-after rule makes due.
 Each writes one line per pass holding its counts and no person —
-`schiedsrichter.adresswechsel_sweep_pass` and `loeschung.sweep_pass` — and a half that threw files
+`schiedsrichter.adresswechsel_sweep_pass` and `loeschung.sweep_pass`, both at `INFO`, so a
+`LOG_LEVEL` above `INFO` drops them — and a half that threw files
 `schiedsrichter.adresswechsel_sweep_failed` or `loeschung.sweep_failed` under `FE-SWEEP-001`
 besides.
 
@@ -1290,12 +1291,18 @@ so neither an activation nor a pass deletes a pupil until you set it.
 2. Add `LOESCHUNG_SWEEP=on` to the server's `fl_frontend/.env` and deploy (§1). The frontend reads
    it once as it boots, and the season page then says the press will delete them.
 
+**Switching it off is that line set to `off`, and a deploy**: until the frontend has booted on it, a
+pass or a press can still delete.
+
 **The account sweep stores no date, so its own line in the frontend's log is the answer**
 ([`spec.md`](spec.md) §1.1). Every pass that completes writes one `konto.sweep_completed` line,
 counting the accounts it listed, those answered unreferenced, deleted, already gone, and those a
 failure left for the next pass, never naming an address:
 
     docker compose logs --since 2h frontend | grep konto.sweep_
+
+**`KONTO_SWEEP=off` in the server's `fl_frontend/.env`, and a deploy (§1), stop it**: the frontend
+reads the switch once as it boots, and it ships `on`, so the sweep runs wherever the file sets none.
 
 **No `konto.sweep_completed` line in two hours means no pass completed, or the line went
 unwritten.** A `LOG_LEVEL` above `INFO` drops it, the line being `INFO`; otherwise `KONTO_SWEEP` is
