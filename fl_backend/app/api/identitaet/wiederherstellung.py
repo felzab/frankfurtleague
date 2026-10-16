@@ -7,7 +7,7 @@ where the restored database holds its address, for an administrator to run again
 also deletes the sign-in account; a choice by its record, which `--apply` writes again (`docs/ops/runbooks.md` §13).
 
 Invariants:
-- A choice is replayed only onto a record still holding its person, by the body the person's own press ran.
+- A choice is replayed only onto a record still holding its person, as the person's own press wrote it.
 - A replayed choice stamps the instant its line carries, never the replay's.
 - A second run over the same lines writes nothing.
 """
@@ -28,8 +28,8 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import PyMongoError
 
-from app.api.bewerbungen.services import seat_is_answered
-from app.api.kontakte.crud import take_widerspruch_in_session
+from app.api.bewerbungen.services import compose_decline_update, compose_saison_decline_update, seat_adressen, seat_is_answered
+from app.api.kontakte.crud import redact_the_decliner
 from app.api.konto.services import compose_person_move, compose_sitz_move
 from app.api.schiedsrichter.crud import discard_adresswechsel_in_session
 from app.api.schiedsrichter.services import ADRESSWECHSEL_FELD
@@ -62,6 +62,9 @@ _PERSON_ADDRESS: Final[Mapping[Collection, Callable[[Mapping[str, Any]], Any]]] 
     Collection.REGISTRIERUNGEN: lambda row: row.get("email"),
     Collection.SCHIEDSRICHTER: lambda row: (row.get("kontakt") or {}).get("email"),
 }
+
+# Each home's own update emptying the seats a Widerspruch names, as the link's answer writes it.
+_WIDERSPRUCH_UPDATE: Final = {Collection.BEWERBUNGEN: compose_decline_update, Collection.SAISON_TEAMS: compose_saison_decline_update}
 
 # Where each record keeps a pending address change.
 _ADRESSWECHSEL_FELD: Final = {Collection.SCHIEDSRICHTER: ADRESSWECHSEL_FELD, Collection.SPIELER: SPIELER_ADRESSWECHSEL_FELD}
@@ -196,7 +199,8 @@ async def _plan_widerspruch(
     line: JournalLine, database: AsyncDatabase, *, schluessel: SecretStr, session: AsyncClientSession | None, now: datetime
 ) -> Plan:
     assert line.collection is not None and line.am is not None
-    collection = database[line.collection]
+    home = line.collection
+    collection = database[home]
     row = await collection.find_one({"_id": line.record_id}, session=session)
     if row is None:
         return Plan("no such record")
@@ -218,12 +222,19 @@ async def _plan_widerspruch(
     declined_on = datetime.fromisoformat(line.am).astimezone(_GERMANY).strftime("%Y-%m-%d")
 
     async def rewrite_widerspruch(session: AsyncClientSession) -> Any:
-        return await take_widerspruch_in_session(
+        await patch_one_in_db(
             collection=collection,
+            db_filter={"_id": row["_id"]},
+            update=_WIDERSPRUCH_UPDATE[home](seats=offen, today=declined_on),
+            session=session,
+            return_document=ReturnDocument.BEFORE,
+        )
+        # After the patch, as the link's answer redacts, so it reaches the pre-image the patch filed.
+        await redact_the_decliner(
             aktionen_collection=database[Collection.AKTIONEN],
-            row=row,
-            seats=offen,
-            today=declined_on,
+            collection=home,
+            row_id=row["_id"],
+            adressen=seat_adressen(kontakte=row.get("kontakte"), seats=offen),
             stamp=log_stamp(now),
             session=session,
         )
