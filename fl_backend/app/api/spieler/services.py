@@ -1,14 +1,17 @@
 from collections import Counter
 from collections.abc import Mapping, Sequence
 from http import HTTPStatus
-from typing import Any, NamedTuple
+from typing import Any, Final, NamedTuple
 
-from app.api.spieler.schemas import FLSpielerFilterParams, FLSpielerRolle
+from app.api.bewerbungen.services import days_after
+from app.api.spieler.schemas import FLSpielerAdresswechselZustand, FLSpielerFilterParams, FLSpielerRolle
 from app.core.collections import Collection
 from app.core.crud import build_query, build_sort
 from app.core.exceptions import WriteRefusal
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SPIELER_ID
 from app.shared.einwilligung import is_confirmed
+from app.shared.folding import sign_in_identifier
+from app.shared.schemas.bounds import SPIELER_ADRESSWECHSEL_FRIST_TAGE
 from app.shared.schemas.custom import CustomObjectId
 
 AS_NAME = "saison_data"
@@ -520,3 +523,245 @@ def build_selbst_pupil_pipeline(identifier: str) -> list[Mapping[str, Any]]:
         },
         {"$sort": {"_id": 1}},
     ]
+
+
+# --- The ADDRESS CHANGE, duplicated from the referee's rather than shared with it
+# (`app/api/schiedsrichter/services.py :: ADRESSWECHSEL_FELD`): the new address waits in a block no
+# person's read keys on (`docs/backend/spec.md :: I560`).
+
+# The carrier key, which `app/api/zustellung/services.py :: ZIEL_PFADE` and the erasure's readers also spell.
+SPIELER_ADRESSWECHSEL_FELD: Final = "adresswechsel"
+
+# What every code below refuses is `fl_backend/app/core/domain.py :: RULES`.
+SPIELER_TOKEN_UNKNOWN = "REQ-SPIELER-001"
+SPIELER_TOKEN_EXPIRED = "REQ-SPIELER-002"
+SPIELER_ADRESSE_GESPERRT = "REQ-SPIELER-003"
+SPIELER_BESTAETIGUNG_GESPERRT = "REQ-SPIELER-004"
+# Its own code and never `-004`'s, for `app/api/schiedsrichter/services.py :: SCHIEDSRICHTER_ERSETZTE_ADRESSE_GESPERRT`'s reason.
+SPIELER_ERSETZTE_ADRESSE_GESPERRT = "REQ-SPIELER-005"
+SPIELER_ADRESSE_VERGEBEN = "REQ-SPIELER-006"
+SPIELER_ADRESSE_UNVERAENDERT = "REQ-SPIELER-007"
+SPIELER_KEINE_ADRESSE = "REQ-SPIELER-008"
+
+
+def spieler_adresswechsel_frist_from(*, today: str) -> str:
+    """The day the link stops working, counted from the mint -- a re-send restarts it."""
+
+    return days_after(day=today, days=SPIELER_ADRESSWECHSEL_FRIST_TAGE)
+
+
+def compose_spieler_adresswechsel(*, email: str, token_hash: str, today: str) -> dict[str, Any]:
+    """The WHOLE block, so a replaced change's link dies and its message's delivery state goes with it."""
+
+    return {"email": email, "token_hash": token_hash, "verschickt_am": today, "frist": spieler_adresswechsel_frist_from(today=today)}
+
+
+def build_spieler_adresswechsel_filter(*, token_hash: str) -> Mapping[str, Any]:
+    """The hash alone finds the pupil, retired or not: the address is theirs to confirm either way."""
+
+    return {f"{SPIELER_ADRESSWECHSEL_FELD}.token_hash": token_hash}
+
+
+def build_pending_spieler_adresswechsel_filter(spieler_id: Any) -> Mapping[str, Any]:
+    """One real pupil holding a pending change. The filter is the judgement: a pupil holding none answers 404."""
+
+    return {**build_spieler_filter(spieler_id), SPIELER_ADRESSWECHSEL_FELD: {"$type": "object"}}
+
+
+def spieler_link_is_over(*, frist: Any, today: str) -> bool:
+    """`app/api/schiedsrichter/services.py :: link_is_over`'s twin: a block carrying no readable deadline is over."""
+
+    return not isinstance(frist, str) or frist < today
+
+
+def spieler_adresswechsel_abgelaufen(block: Any, *, today: str) -> bool:
+    """Whether a pending block a row holds has passed its deadline, judged as its confirmation refuses."""
+
+    return isinstance(block, Mapping) and spieler_link_is_over(frist=block.get("frist"), today=today)
+
+
+def holds_an_address(email: Any) -> bool:
+    return isinstance(email, str) and email != ""
+
+
+def find_keine_adresse_refusal(*, email: Any) -> WriteRefusal | None:
+    """`REQ-SPIELER-008`: a pupil holding no address takes no change, the request correcting an address and never entering one.
+
+    An address reaches a pupil through the admission of their own confirmed registration alone.
+    """
+
+    if holds_an_address(email):
+        return None
+
+    return WriteRefusal(
+        error_code=SPIELER_KEINE_ADRESSE,
+        status=HTTPStatus.CONFLICT,
+        message="this pupil holds no email address, so there is none to change; an address arrives with their registration",
+    )
+
+
+def find_adresse_unveraendert_refusal(*, stored: Any, email: str) -> WriteRefusal | None:
+    """`REQ-SPIELER-007`: the typed address signs in as the stored one already, so it would ask a mailbox already proved."""
+
+    if not holds_an_address(stored) or sign_in_identifier(email) != sign_in_identifier(str(stored)):
+        return None
+
+    return WriteRefusal(
+        error_code=SPIELER_ADRESSE_UNVERAENDERT,
+        status=HTTPStatus.CONFLICT,
+        message="this is the email address the pupil already holds",
+    )
+
+
+def find_spieler_adresse_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
+    """`REQ-SPIELER-003`: no link goes to an address the ban list holds. Worded for the administrator who typed it."""
+
+    if not gesperrt:
+        return None
+
+    return WriteRefusal(
+        error_code=SPIELER_ADRESSE_GESPERRT,
+        status=HTTPStatus.CONFLICT,
+        message="this email address is on the ban list, so no address link may be sent to it; lift the entry first",
+    )
+
+
+def find_adresse_vergeben_refusal(*, vergeben: bool) -> WriteRefusal | None:
+    """`REQ-SPIELER-006`: another pupil signs in on this address, and one address is one person (`uniq_spieler_email`)."""
+
+    if not vergeben:
+        return None
+
+    return WriteRefusal(
+        error_code=SPIELER_ADRESSE_VERGEBEN,
+        status=HTTPStatus.CONFLICT,
+        message="another pupil's entry holds this email address, and an address belongs to one entry alone",
+    )
+
+
+def find_spieler_token_unknown_refusal(*, found: bool) -> WriteRefusal | None:
+    """`REQ-SPIELER-001`, ONE answer for unknown, replaced, answered, discarded and erased, for the referee's twin's reason."""
+
+    if found:
+        return None
+
+    return WriteRefusal(
+        error_code=SPIELER_TOKEN_UNKNOWN,
+        status=HTTPStatus.NOT_FOUND,
+        message="this link opens no address change; it may have been replaced by a newer one, or the change is gone",
+    )
+
+
+def find_spieler_token_expired_refusal(*, frist: Any, today: str) -> WriteRefusal | None:
+    """`REQ-SPIELER-002`: the link's deadline has passed."""
+
+    if not spieler_link_is_over(frist=frist, today=today):
+        return None
+
+    return WriteRefusal(
+        error_code=SPIELER_TOKEN_EXPIRED,
+        status=HTTPStatus.GONE,
+        message="this link has expired; the administration can send a fresh one",
+    )
+
+
+def find_spieler_bestaetigung_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
+    """`REQ-SPIELER-004`: the ban list holds the address this link was mailed to, however long ago it was minted."""
+
+    if not gesperrt:
+        return None
+
+    # 403 where the editor's `-003` is 409, for the referee's twin's reason: this caller is the barred person.
+    return WriteRefusal(
+        error_code=SPIELER_BESTAETIGUNG_GESPERRT,
+        status=HTTPStatus.FORBIDDEN,
+        message="the email address this link was sent to is on the ban list, so it confirms nothing",
+    )
+
+
+def find_spieler_ersetzte_adresse_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
+    """`REQ-SPIELER-005`: the ban list holds the address this change would replace, so moving it would carry the ban's person off it."""
+
+    if not gesperrt:
+        return None
+
+    return WriteRefusal(
+        error_code=SPIELER_ERSETZTE_ADRESSE_GESPERRT,
+        status=HTTPStatus.CONFLICT,
+        message="this address change can no longer be confirmed; the address on file stays",
+    )
+
+
+def replaces_a_pending_address(*, stored: Mapping[str, Any], email: str) -> bool:
+    """Whether a request drops a pending address for another one, which then leaves the log as a decline's does.
+
+    Compared on the fold, as every other judgement of a pupil's address is: typing the pending one again drops nothing.
+    """
+
+    pending = (stored.get(SPIELER_ADRESSWECHSEL_FELD) or {}).get("email")
+
+    return isinstance(pending, str) and sign_in_identifier(pending) != sign_in_identifier(email)
+
+
+def spieler_adresswechsel_image_edits(image: Mapping[str, Any], identifier: str) -> dict[str, None]:
+    """The pending block in one log image of a pupil, emptied where it names this mailbox on the fold.
+
+    The rest of the image stays: the pupil's earlier states are theirs, and a restore starts from them.
+    """
+
+    wechsel = image.get(SPIELER_ADRESSWECHSEL_FELD)
+    email = wechsel.get("email") if isinstance(wechsel, Mapping) else None
+
+    return {SPIELER_ADRESSWECHSEL_FELD: None} if isinstance(email, str) and sign_in_identifier(email) == identifier else {}
+
+
+def compose_spieler_adresswechsel_antwort(*, antwort: str, email: Any) -> Mapping[str, Any]:
+    """The ONE update an answer is: a confirmation moves the address and ends the change, a decline ends it alone.
+
+    Neither touches `einwilligung`: the link proves a mailbox and asks no consent.
+    """
+
+    if antwort == "bestaetigt":
+        # Folded, never as typed: the sign-in seam joins on this field by equality (`docs/backend/spec.md :: I265`).
+        return {"$set": {"email": sign_in_identifier(str(email))}, "$unset": {SPIELER_ADRESSWECHSEL_FELD: ""}}
+
+    return {"$unset": {SPIELER_ADRESSWECHSEL_FELD: ""}}
+
+
+def spieler_adresswechsel_zustand_of(
+    *, wechsel: Mapping[str, Any], today: str, gesperrt: bool, ersetzte_gesperrt: bool, keine_adresse: bool, vergeben: bool
+) -> FLSpielerAdresswechselZustand:
+    """What the link shows, ranked as its referee twin (`app/api/schiedsrichter/services.py :: adresswechsel_zustand_of`).
+
+    The three unconfirmable causes read alike; the press's own codes part them, merged only at the edge.
+    """
+
+    if gesperrt:
+        return "gesperrt"
+
+    if spieler_link_is_over(frist=wechsel.get("frist"), today=today):
+        return "abgelaufen"
+
+    return "nicht_bestaetigbar" if ersetzte_gesperrt or keine_adresse or vergeben else "gueltig"
+
+
+# An INCLUSION, for `app/api/schiedsrichter/services.py :: BESTAETIGUNG_ANSICHT_FIELDS`' reason. Both
+# addresses are read for the ban list and the holder check alone, and no answer carries either.
+SPIELER_ADRESSWECHSEL_ANSICHT_FIELDS: Mapping[str, int] = {
+    "vorname": 1,
+    "email": 1,
+    f"{SPIELER_ADRESSWECHSEL_FELD}.email": 1,
+    f"{SPIELER_ADRESSWECHSEL_FELD}.frist": 1,
+}
+
+
+def spieler_adresswechsel_adressen(raw: Mapping[str, Any]) -> tuple[str, str]:
+    """The address the link was mailed to and the one it would replace, as the ban list is asked about them."""
+
+    wechsel = raw.get(SPIELER_ADRESSWECHSEL_FELD) or {}
+
+    return str(wechsel.get("email") or ""), str(raw.get("email") or "")
+
+
+# What the request and the re-send judge and answer: both addresses, and the first name both mails greet with.
+SPIELER_ADRESSWECHSEL_MINT_FIELDS: Mapping[str, int] = {"vorname": 1, "email": 1, f"{SPIELER_ADRESSWECHSEL_FELD}.email": 1}

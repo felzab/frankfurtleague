@@ -7,6 +7,7 @@ from app.api.aktionen.schemas import FLAktorAdapter, FLAktorMitAdresse
 from app.api.kontakte.services import same_address
 from app.api.schiedsrichter.services import ADRESSWECHSEL_FELD
 from app.api.sperrliste.services import withheld_actor
+from app.api.spieler.services import SPIELER_ADRESSWECHSEL_FELD
 from app.core.collections import Collection as DbCollection
 from app.core.crud import build_sort
 from app.core.recording import ERASED_ACTOR_MARKER
@@ -95,11 +96,10 @@ IMAGE_ADDRESSES: Final[Mapping[DbCollection, tuple[ImageAddress, ...]]] = Mappin
             ImageAddress("kontakt.email", "kontakt.email", None),
             ImageAddress(f"{ADRESSWECHSEL_FELD}.email", ADRESSWECHSEL_FELD, None),
         ),
-        # The referee row's twin: a row since re-addressed, and another pupil's pending change, whose block
-        # carries the referee's field name.
+        # The referee row's twin: a row since re-addressed, and another pupil's pending change.
         DbCollection.SPIELER: (
             ImageAddress("email", "email", None),
-            ImageAddress(f"{ADRESSWECHSEL_FELD}.email", ADRESSWECHSEL_FELD, None),
+            ImageAddress(f"{SPIELER_ADRESSWECHSEL_FELD}.email", SPIELER_ADRESSWECHSEL_FELD, None),
         ),
     }
 )

@@ -196,11 +196,23 @@ const SAISON_TEAMS = [{ teamId: TEAM_A, name: "SG Alpha", shorthand: "SGA" }];
 const spielerList = (rows: ReturnType<typeof spieler>[]) =>
   h(AdminSpielerView, { spieler: rows, teams: SAISON_TEAMS, selectedSaisonId: "2026" });
 
+/** A pupil's new address waiting on its mailbox. */
+const SP_ADRESSWECHSEL = { email: "lena@neu.example", verschickt_am: "2026-09-21", frist: "2026-10-05", zustellung: null };
+
 /** The player's editor in the season its squad row stands in, retired as the case says. */
-const spielerEditor = (inactiveSince: string | null, inKader = true) =>
+const spielerEditor = (inactiveSince: string | null, inKader = true, adresswechsel: typeof SP_ADRESSWECHSEL | null = null) =>
   h(AdminSpielerEditView, {
     istFassungBekannt: true,
-    spieler: { id: SP_A, vorname: "Lena", nachname: "Meier", inactive_since: inactiveSince, geburtsdatum: null },
+    spieler: {
+      id: SP_A,
+      vorname: "Lena",
+      nachname: "Meier",
+      inactive_since: inactiveSince,
+      geburtsdatum: null,
+      email: "lena.meier@schule.example",
+      adresswechsel: adresswechsel,
+      adresswechsel_abgelaufen: false,
+    },
     einwilligung: null,
     saison: {
       saisonId: "2026",
@@ -1183,6 +1195,28 @@ const LANDINGS: Record<string, Landing> = {
     after: () => h(AdminSchiedsrichterEditView, { istFassungBekannt: true, schiedsrichter: SR_RECORD, inactiveSince: null }),
     remount: true,
     lands: () => heading(/^Kontakt/),
+  },
+  /* The referee's twin: the discard takes its own panel away, and the address panel beside it stays. */
+  "a pupil's waiting address discarded, on the address panel's heading": {
+    before: () => spielerEditor(null, true, SP_ADRESSWECHSEL),
+    press: (user) => user.click(screen.getByRole("button", { name: "Änderung verwerfen" })),
+    after: () => spielerEditor(null),
+    remount: true,
+    lands: () => heading(/^E-Mail-Adresse/),
+  },
+  /* The request closes the box it was pressed in, so the focus returns to the control that opened it. */
+  "a pupil's new address requested, on the control the box opened from": {
+    before: () => spielerEditor(null),
+    press: async (user) => {
+      await user.click(screen.getByRole("button", { name: "Adresse ändern" }));
+      const box = screen.getByRole("textbox", { name: /Neue E-Mail-Adresse/ });
+      await user.clear(box);
+      await user.type(box, "lena@neu.example");
+      await user.click(screen.getByRole("button", { name: "Link an neue Adresse senden" }));
+    },
+    after: () => spielerEditor(null, true, SP_ADRESSWECHSEL),
+    remount: true,
+    lands: () => screen.getByRole("button", { name: "Adresse ändern" }),
   },
   "a club editor's reactivation, on the editor's heading": {
     before: () => teamEditor(RETIRED_ON),

@@ -11,11 +11,13 @@ import { userEvent } from "@testing-library/user-event";
 
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
+import { answerReadsWith, pageBody } from "@/shared/testing/pageHarness.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 import { assertOwnPanel, resultPanels } from "@/shared/testing/resultPanels.ts";
 import { LINK_ADRESSE_GESPERRT } from "@/shared/utils/reopenLink.ts";
 
 import type { SchiedsrichterAdresswechselStart } from "@/features/schiedsrichter/adresswechselStart.ts";
+import type { ReactElement } from "react";
 
 const { raised: toasts } = doubleToasts();
 const fetchMock = doubleFetch();
@@ -24,6 +26,16 @@ const fetchMock = doubleFetch();
 const { JA_MEINE_ADRESSE, NICHT_MEINE_ADRESSE, SchiedsrichterAdresswechselView } = await import("./SchiedsrichterAdresswechselView.tsx");
 const { startOf } = await import("@/features/schiedsrichter/adresswechselStart.ts");
 const { LinkUnlesbar } = await import("@/features/bewerbungen/components/views/BestaetigungPanels.tsx");
+const { default: SchiedsrichterAdresswechselPage } = await import("@/app/(public)/bestaetigung/schiedsrichter/adresse/page.tsx");
+
+/** What the page opens its view on, the link's read answered as the case set it. */
+const pageStart = async (): Promise<SchiedsrichterAdresswechselStart> =>
+  (
+    (await pageBody(SchiedsrichterAdresswechselPage, {
+      params: Promise.resolve({}),
+      searchParams: Promise.resolve({ token: "kein-echtes-token" }),
+    })) as ReactElement<{ start: SchiedsrichterAdresswechselStart }>
+  ).props.start;
 
 const OFFEN: SchiedsrichterAdresswechselStart = { zustand: "gueltig", vorname: "Anna", frist: "2026-10-15", token: "abc123" };
 
@@ -209,5 +221,22 @@ describe("the referee's address page", () => {
     assert.deepEqual(startOf({ zustand: "nicht_bestaetigbar" }, "abc123"), { zustand: "nicht_bestaetigbar", token: "abc123" });
     assert.deepEqual(startOf({ zustand: "ungueltig" }, "abc123"), { zustand: "ungueltig" });
     assert.deepEqual(startOf({ zustand: "gesperrt" }, "abc123"), { zustand: "gesperrt" });
+  });
+});
+
+describe("the referee's address page over a read that did not answer", () => {
+  it("opens on its own state where the read failed, rather than calling a live link void", async () => {
+    answerReadsWith(() => {
+      throw new TypeError("fetch failed");
+    });
+
+    assert.deepEqual(await pageStart(), { zustand: "unlesbar" });
+  });
+
+  /* An answer off its schema is a broken contract, never a failed read: the error boundary logs it, and the reload panel would hide it. */
+  it("lets a read off its contract reach the error boundary", async () => {
+    answerReadsWith(() => ({ acknowledged: 1, zustand: "verschollen", vorname: "Anna", frist: "2026-10-15" }));
+
+    await assert.rejects(pageStart(), { name: "APIMalformedDataError" });
   });
 });

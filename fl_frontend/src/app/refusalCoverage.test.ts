@@ -36,6 +36,7 @@ const { SCHIEDSRICHTER_MIN_ALTER } = await import("@/features/schiedsrichter/con
 const sperrliste = await import("@/features/sperrliste/refusals.ts");
 const spiele = await import("@/features/spiele/refusals.ts");
 const spieler = await import("@/features/spieler/refusals.ts");
+const spielerQueries = await import("@/features/spieler/queries.ts");
 const spielorte = await import("@/features/spielorte/refusals.ts");
 const spieltage = await import("@/features/spieltage/refusals.ts");
 const teams = await import("@/features/teams/refusals.ts");
@@ -118,6 +119,10 @@ const ANSWERED_BY: Readonly<Record<string, Mapper>> = {
   "PATCH /spiele/{spiel_id}": spiele.mapSpielRefusal,
   // Written by the match undo's replay alone.
   "PATCH /spiele/paarungen": (error) => replayRefusal(error, spiele.PAARUNGEN_REPLAY_REFUSALS) ?? null,
+  "POST /spieler/{spieler_id}/adresswechsel": spieler.mapAdresswechselAntragRefusal,
+  "POST /spieler/{spieler_id}/adresswechsel/einladen": spieler.mapAdresswechselLinkRefusal,
+  "POST /spieler/adresswechsel": spielerQueries.mapSpielerAdresswechselRefusal,
+  "POST /spieler/adresswechsel/ansicht": spielerQueries.mapSpielerAdresswechselAnsichtRefusal,
   "GET /spieler/kader/{team_id}/{saison_id}": TEAM_FORBIDDEN_PANEL,
   "PATCH /spieler/kader/{team_id}/{saison_id}/{spieler_id}": spieler.mapKaderZeileRefusal,
   "DELETE /spieler/kader/{team_id}/{saison_id}/{spieler_id}": SHARED_READER,

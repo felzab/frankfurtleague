@@ -12,6 +12,7 @@ import { userEvent } from "@testing-library/user-event";
 import { ContractBreakError } from "@/core/errors.ts";
 import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleActions } from "@/shared/testing/actionDoubles.ts";
+import { assertLeer } from "@/shared/testing/leerGrade.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { pageBody } from "@/shared/testing/pageHarness.ts";
 import { answerShown, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
@@ -26,14 +27,14 @@ import {
 import { mapAlreadyInSaisonRefusal, mapSquadRefusal } from "./refusals.ts";
 
 import type { ReactElement, ReactNode } from "react";
-import type { FLSpielerRolle } from "./schemas.ts";
+import type { FLSpielerAdresswechsel, FLSpielerRolle } from "./schemas.ts";
 import type { AdminSpielerRow, SpielerSaisonMembership, SpielerTeamOption } from "./types.ts";
 
 const SPIELER_ID = "68c1f0a2b3c4d5e6f7a8b9c0";
 const SAISON_ID = "2026";
 
 /* Every write answers as landed; this file still reads the real module's text. */
-const { calls, answered } = doubleActions({
+const { calls, answered, answerWith } = doubleActions({
   modules: ["/src/features/spieler/actions.ts"],
   answer: () => Promise.resolve({ success: true, message: "Gespeichert.", spieler_id: SPIELER_ID }),
 });
@@ -118,6 +119,17 @@ const refusalNamed = (html: string, name: string): string | null =>
 /** What a reader hears, the JSX line breaks collapsed. */
 const read = (html: string): string => spokenText(html, " ").replace(/\s+/g, " ");
 
+const OHNE_ADRESSE = {
+  id: SPIELER_ID,
+  vorname: "Lena",
+  nachname: "Meier",
+  inactive_since: null,
+  geburtsdatum: null,
+  email: null,
+  adresswechsel: null,
+  adresswechsel_abgelaufen: false,
+};
+
 /** The player's editor on this season's squad row, which names the stored club. */
 function renderEditor({
   teams,
@@ -132,7 +144,7 @@ function renderEditor({
     underSaison(
       h(AdminSpielerEditForm, {
         istFassungBekannt: true,
-        spieler: { id: SPIELER_ID, vorname: "Lena", nachname: "Meier", inactive_since: null, geburtsdatum: null },
+        spieler: OHNE_ADRESSE,
         einwilligung: null,
         saison: {
           saisonId: SAISON_ID,
@@ -218,7 +230,9 @@ function person(id: string, vorname: string, rows: { saison_id: string; team_id:
     inactive_since: null,
     geburtsdatum: null,
     einwilligung: null,
-    email: null,
+    email: null as string | null,
+    adresswechsel: null as FLSpielerAdresswechsel | null,
+    adresswechsel_abgelaufen: false,
     memberships: rows.map(({ saison_id, team_id, rolle = null }) => ({
       saison_id,
       team_id,
@@ -699,7 +713,7 @@ describe("the late-entry marker, which the backend derives", () => {
       underSaison(
         h(AdminSpielerEditForm, {
           istFassungBekannt: true,
-          spieler: { id: SPIELER_ID, vorname: "Lena", nachname: "Meier", inactive_since: null, geburtsdatum: null },
+          spieler: OHNE_ADRESSE,
           einwilligung: null,
           saison: { saisonId: SAISON_ID, saisonStatus: "active", erlaubteStufen: ["Q1"], nachnominierungLaeuft, membership: null },
           teams: [STORED_TEAM],
@@ -761,5 +775,123 @@ describe("the late-entry marker, which the backend derives", () => {
     answerPages([person(SPIELER_ID, "Lena", [{ saison_id: SAISON_ID, team_id: STORED_TEAM.teamId }])]);
     assert.equal(saisonOf(await editorPageBody()).nachnominierungLaeuft, null, "a player holding a row is handed a verdict no entry uses");
     assert.deepEqual(pageReads().asked, [], "the page asks for a verdict no banner can use");
+  });
+});
+
+const GESPEICHERT = "lena@schule.example";
+const WARTEND: FLSpielerAdresswechsel = { email: "lena@neu.example", verschickt_am: "2026-10-01", frist: "2026-10-15", zustellung: null };
+
+/** The editor page over one pupil holding `adresse`, rendered as its reads answer it. */
+async function renderAdressePage(adresse: { email: string | null; adresswechsel: FLSpielerAdresswechsel | null; abgelaufen: boolean }) {
+  answerPages([
+    {
+      ...person(SPIELER_ID, "Lena", [{ saison_id: SAISON_ID, team_id: STORED_TEAM.teamId }]),
+      email: adresse.email,
+      adresswechsel: adresse.adresswechsel,
+      adresswechsel_abgelaufen: adresse.abgelaufen,
+    },
+  ]);
+  render(underSaison(await editorPageBody()));
+}
+
+/** The value beside a stored fact's label. */
+const angabe = (label: string): Element | null => screen.getByText(label).nextElementSibling;
+
+describe("the pupil's address on the editor", () => {
+  it("shows the stored address, and the waiting one with its deadline marked lapsed as the read judged it", async () => {
+    await renderAdressePage({ email: GESPEICHERT, adresswechsel: WARTEND, abgelaufen: true });
+
+    assert.equal(angabe("Hinterlegte Adresse")?.textContent, GESPEICHERT);
+    assert.equal(angabe("Neue Adresse")?.textContent, WARTEND.email);
+    assert.match(angabe("Gültig bis")?.textContent ?? "", /^15\.10\.2026\s*abgelaufen$/);
+    assert.ok(screen.getByRole("button", { name: "Link erneut senden" }), "the waiting change has no re-send");
+  });
+
+  /* A pupil holding no address takes no change (`REQ-SPIELER-008`), and the empty value reads in the one muted grade. */
+  it("shows a pupil holding no address „Nicht hinterlegt“, muted, and no control to change one", async () => {
+    await renderAdressePage({ email: null, adresswechsel: null, abgelaufen: false });
+
+    assertLeer(angabe("Hinterlegte Adresse")?.firstElementChild, "Nicht hinterlegt");
+    assert.equal(screen.queryAllByRole("button", { name: "Adresse ändern" }).length, 0, "a pupil holding no address is offered a change");
+  });
+
+  it("sends the typed address through the request, the press its only way in", async () => {
+    await renderAdressePage({ email: GESPEICHERT, adresswechsel: null, abgelaufen: false });
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Adresse ändern" }));
+    const box = screen.getByRole("textbox", { name: /Neue E-Mail-Adresse/ });
+    await user.clear(box);
+    await user.type(box, "Lena@Neu.Example");
+    calls.length = 0;
+    await user.click(screen.getByRole("button", { name: "Link an neue Adresse senden" }));
+    await act(answered);
+
+    assert.deepEqual(
+      calls.map((call) => [call.action, call.payload]),
+      [["beantrageSpielerAdresswechselAction", { id: SPIELER_ID, email: "Lena@Neu.Example" }]],
+    );
+  });
+
+  /* Enter in the box presses the box's own control: inside the editor's form it would otherwise submit the person's draft. */
+  it("takes Enter in the box as the request's press, never as the editor's save", async () => {
+    await renderAdressePage({ email: GESPEICHERT, adresswechsel: null, abgelaufen: false });
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Adresse ändern" }));
+    const box = screen.getByRole("textbox", { name: /Neue E-Mail-Adresse/ });
+    await user.clear(box);
+    calls.length = 0;
+    await user.type(box, "lena@neu.example{Enter}");
+    await act(answered);
+
+    assert.deepEqual(
+      calls.map((call) => call.action),
+      ["beantrageSpielerAdresswechselAction"],
+    );
+  });
+
+  /* Over a typed draft, the one state in which the save stands enabled for Enter to submit through: over a clean one
+     it is disabled, and the case above would pass with the box letting Enter through. */
+  it("submits nothing from Enter in the box while the draft beside it holds typing", async () => {
+    await renderAdressePage({ email: GESPEICHERT, adresswechsel: null, abgelaufen: false });
+    const user = userEvent.setup();
+
+    const vorname = screen.getByRole("textbox", { name: "Vorname" });
+    await user.clear(vorname);
+    await user.type(vorname, "Lena-Marie");
+    await user.click(screen.getByRole("button", { name: "Adresse ändern" }));
+    const box = screen.getByRole("textbox", { name: /Neue E-Mail-Adresse/ });
+    let submits = 0;
+    (box.closest("form") ?? assert.fail("the box stands in no form")).addEventListener("submit", () => (submits += 1));
+    await user.clear(box);
+    calls.length = 0;
+    await user.type(box, "lena@neu.example{Enter}");
+    await act(answered);
+
+    assert.equal(submits, 0, "Enter in the box submitted the editor's form");
+    assert.deepEqual(
+      calls.map((call) => call.action),
+      [],
+      "Enter in the box wrote over the draft",
+    );
+  });
+
+  it("keeps a refusal of the address on the box, which stays open on the typed value", async () => {
+    const BELEGT = "Diese Adresse ist schon bei einer anderen Spielerin oder einem anderen Spieler hinterlegt.";
+    answerWith(() => Promise.resolve({ success: false, error: BELEGT, fieldErrors: { email: BELEGT } }));
+    await renderAdressePage({ email: GESPEICHERT, adresswechsel: null, abgelaufen: false });
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Adresse ändern" }));
+    const box = screen.getByRole<HTMLInputElement>("textbox", { name: /Neue E-Mail-Adresse/ });
+    await user.clear(box);
+    await user.type(box, "lena@neu.example");
+    await user.click(screen.getByRole("button", { name: "Link an neue Adresse senden" }));
+    await act(answered);
+
+    await waitFor(() => assert.equal(box.getAttribute("aria-invalid"), "true", "the refusal is not on the box"));
+    assert.equal(box.value, "lena@neu.example");
+    assert.ok(box.closest('[data-slot="textfield"]')?.textContent.includes(BELEGT), "the box does not say why");
   });
 });

@@ -19,7 +19,7 @@ from app.api.kontakte.services import rows_possibly_naming, same_address
 from app.api.registrierungen.services import SUBMITTED, build_eigene_registrierung_filter, build_erasure_registrierung_filter
 from app.api.saisons.schemas import FLSaisonStatus
 from app.api.schiedsrichter.services import ADRESSWECHSEL_FELD, build_real_referees_filter, build_selbst_referee_filter
-from app.api.spieler.services import build_real_spieler_filter, build_selbst_pupil_filter
+from app.api.spieler.services import SPIELER_ADRESSWECHSEL_FELD, build_real_spieler_filter, build_selbst_pupil_filter
 from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import is_confirmed
@@ -135,8 +135,8 @@ def build_pending_pupil_address_pipeline(identifier: str) -> list[Mapping[str, A
     """Every pupil row whose pending address change, the referee block's twin, may name the address."""
 
     return [
-        {"$match": {f"{ADRESSWECHSEL_FELD}.email": same_address(identifier), **build_real_spieler_filter()}},
-        {"$project": {f"{ADRESSWECHSEL_FELD}.email": 1, "email": 1}},
+        {"$match": {f"{SPIELER_ADRESSWECHSEL_FELD}.email": same_address(identifier), **build_real_spieler_filter()}},
+        {"$project": {f"{SPIELER_ADRESSWECHSEL_FELD}.email": 1, "email": 1}},
         {"$sort": {"_id": 1}},
     ]
 
@@ -150,16 +150,14 @@ def pupil_address(row: Mapping[str, Any]) -> Any:
 
 
 def pending_addresses_of(
-    rows: Iterable[Mapping[str, Any]], identifier: str, *, stored: Callable[[Mapping[str, Any]], Any]
+    rows: Iterable[Mapping[str, Any]], identifier: str, *, feld: str, stored: Callable[[Mapping[str, Any]], Any]
 ) -> list[Mapping[str, Any]]:
-    """The rows whose pending address IS this mailbox and whose `stored` one is not, each the old address's person's.
+    """The rows whose pending address under `feld` IS this mailbox and whose `stored` one is not, each the old address's person's.
 
     A row holding the address in both is the address's own row, which the erasure takes whole.
     """
 
-    return [
-        row for row in rows if folds_to((row.get(ADRESSWECHSEL_FELD) or {}).get("email"), identifier) and not folds_to(stored(row), identifier)
-    ]
+    return [row for row in rows if folds_to((row.get(feld) or {}).get("email"), identifier) and not folds_to(stored(row), identifier)]
 
 
 def build_erasure_kader_pipeline(spieler_ids: Iterable[Any]) -> list[Mapping[str, Any]]:

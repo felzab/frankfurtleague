@@ -16,6 +16,7 @@ import {
 import { MEDIEN_MIN_ALTER, REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE, REGISTRIERUNG_MIN_ALTER } from "@/features/registrierungen/constants.ts";
 import { SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE, SCHIEDSRICHTER_MIN_ALTER } from "@/features/schiedsrichter/constants.ts";
 import { SPERRE_DAUER_HINWEIS, SPERRE_DAUER_SAISONS } from "@/features/sperrliste/constants.ts";
+import { SPIELER_ADRESSWECHSEL_FRIST_TAGE } from "@/features/spieler/constants.ts";
 import { renderMarkup, textOf } from "@/shared/testing/renderTest";
 
 const { DatenschutzView } = await import("./DatenschutzView.tsx");
@@ -48,7 +49,7 @@ const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
  * The „Stand“ and the words it dates, frozen together: a reader told nothing changed since that day
  * has been misled by any edit that left the date standing.
  */
-const FASSUNG = { stand: "16. Oktober 2026", digest: "21a7f9749c1e201da6a1d70276f7ec58e1754d623953fae3dea28b81467204ae" } as const;
+const FASSUNG = { stand: "16. Oktober 2026", digest: "2c2d368d450d2207e7f3ce7b0b35f6de0e8459a20440683037f9183082f92691" } as const;
 
 /** Every word the page renders but its date, so moving the date alone never passes for moving the words. */
 const wortlautDigest = (): string =>
@@ -216,6 +217,26 @@ describe("the privacy notice's retention table", () => {
       "Ändert die Verwaltung Deine E-Mail-Adresse, nachdem Du Deinen Eintrag bestätigt hast, gilt die neue erst, wenn Du sie über den " +
         "Link bestätigt hast, den wir an sie schicken; bis dahin bleibt die bisherige in Kraft, und an die bisherige schicken wir einen " +
         "Hinweis auf die Änderung.",
+    );
+  });
+
+  /* The referee's twin, on the clock the pupil's has: the lapsed address goes the day after, never at the yearly erasure. */
+  it("gives a pupil's unconfirmed new address its retention, its link's clock in words and the removal the day after it lapses", () => {
+    assert.equal(
+      ANGABEN.get(
+        "Neue E-Mail-Adresse einer Spielerin oder eines Spielers, solange sie nicht bestätigt ist, dazu ihr Link als unlesbarer " +
+          "Schlüssel mit Versanddatum und Frist",
+      ),
+      "Bis die Adresse über ihren Link bestätigt oder abgelehnt wird oder die Verwaltung die Änderung verwirft. Mit dem Eintrag wird " +
+        `sie gelöscht. Ihr Link gilt ${inWorten(SPIELER_ADRESSWECHSEL_FRIST_TAGE)} Tage ab dem Versand, und jeder neue Link ersetzt ` +
+        "den vorigen. Ist er abgelaufen, löschen wir die Adresse am Tag danach",
+    );
+  });
+
+  it("says the address on file stays in force and is the one told of a pupil's address change", () => {
+    rendert(
+      "Ändert die Verwaltung Deine E-Mail-Adresse, gilt die neue erst, wenn Du sie über den Link bestätigt hast, den wir an sie " +
+        "schicken. Bis dahin bleibt die bisherige in Kraft, und an die bisherige schicken wir einen Hinweis auf die Änderung.",
     );
   });
 
@@ -667,8 +688,8 @@ describe("the privacy notice's publication and retention rows keep their ruled b
     );
   });
 
-  /* Only the admission enforces it (`docs/datenschutz.md :: "One address is one person"`); every other
-     writer assumes it, so this sentence and the forms' hints are what make it known to the person it binds. */
+  /* Only the admission and a pupil's address change enforce it (`docs/datenschutz.md :: "One address is one person"`);
+     every other writer assumes it, so this sentence and the forms' hints are what make it known to the person it binds. */
   it("tells a person that their address stands for them alone and everything under it is their account's", () => {
     rendert("Deine E-Mail-Adresse steht bei uns für Dich allein: Alles, was unter ihr eingetragen ist, gehört zu Deinem Konto.");
   });

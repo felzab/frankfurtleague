@@ -2,22 +2,32 @@
 
 import z from "zod";
 
-import { invalidatesOnWrite, runAdminMutation } from "@/shared/utils/adminMutation";
+import { invalidatesOnWrite, refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
 import { partlyRestored, refusedReplay, restored, runAdminUndo, unclearReplay, UNDO_UNREADABLE } from "@/shared/utils/adminUndo";
 import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { RETIREMENT_KEEPS_SQUAD_ROWS } from "./constants";
 import {
+  beantrageSpielerAdresswechsel,
   deleteSaisonSpieler,
   deleteSpieler,
+  einladeSpielerAdresswechsel,
   patchSaisonSpieler,
   patchSpieler,
   postSaisonSpieler,
   reactivateSaisonSpieler,
   reactivateSpieler,
+  verwirfSpielerAdresswechsel,
 } from "./mutations";
-import { mapAlreadyInSaisonRefusal, mapSquadRefusal, SQUAD_REPLAY_REFUSALS } from "./refusals";
+import { describeSpielerAdresswechselMail, mailSpielerAdresswechsel } from "./notifications";
+import {
+  mapAdresswechselAntragRefusal,
+  mapAdresswechselLinkRefusal,
+  mapAlreadyInSaisonRefusal,
+  mapSquadRefusal,
+  SQUAD_REPLAY_REFUSALS,
+} from "./refusals";
 import {
   FLDeleteSpielerPayloadSchema,
   FLPatchSaisonSpielerPayloadSchema,
@@ -25,6 +35,9 @@ import {
   FLPostSaisonSpielerPayloadSchema,
   FLReactivateSpielerPayloadSchema,
   FLSaisonSpielerKeyPayloadSchema,
+  FLSpielerAdresswechselEinladenPayloadSchema,
+  FLSpielerAdresswechselPayloadSchema,
+  FLSpielerAdresswechselVerwerfenPayloadSchema,
 } from "./schemas";
 
 import type { ActionResult } from "@/shared/types/types";
@@ -36,6 +49,9 @@ import type {
   FLSaisonSpielerKeyPayload,
   FLSaisonSpielerResponse,
   FLSpielerAdminSingleResponse,
+  FLSpielerAdresswechselEinladenPayload,
+  FLSpielerAdresswechselPayload,
+  FLSpielerAdresswechselVerwerfenPayload,
 } from "./schemas";
 import type { SaisonSpielerEnterDraft, SaisonSpielerMembershipDraft } from "./types";
 
@@ -111,6 +127,120 @@ export async function reactivateSpielerAction(
       spieler: reactivateOperation,
       message: "Spieler reaktiviert",
     };
+  });
+}
+
+/**
+ * Asks a pupil's new address to confirm itself: the link goes to the new mailbox and a notice to the
+ * stored one, which stays in force until the link is answered.
+ */
+export async function beantrageSpielerAdresswechselAction(
+  rawPayload: FLSpielerAdresswechselPayload,
+): Promise<ActionResult<{ versandFehlgeschlagen?: boolean }>> {
+  return runAdminMutation("beantrageSpielerAdresswechselAction", { stepUp: true }, async () => {
+    const validated = FLSpielerAdresswechselPayloadSchema.safeParse(rawPayload);
+
+    if (!validated.success) {
+      return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
+    }
+
+    // No tag moves: no cached read holds a pupil's address, the pending one least of all.
+    let mintOperation;
+    try {
+      mintOperation = await beantrageSpielerAdresswechsel(validated.data);
+    } catch (error) {
+      const refusal = mapAdresswechselAntragRefusal(error);
+      if (refusal !== null) return refusalResult(refusal);
+      throw error;
+    }
+
+    if (!mintOperation.acknowledged) {
+      return { success: false, error: buildRefusal({ reason: "Der Link wurde nicht gesendet", repair: VERSUCHE_ES_ERNEUT }) };
+    }
+
+    const wechsel = mintOperation.adresswechsel;
+    const versand = await mailSpielerAdresswechsel({
+      operation: "beantrageSpielerAdresswechselAction",
+      spielerId: validated.data.id,
+      mint: wechsel,
+      anlass: "empfang",
+    });
+
+    return {
+      success: true,
+      // The address the mint names, never the one typed: a rival request landing between the two
+      // replaced the mailbox the credential was made for.
+      message: describeSpielerAdresswechselMail(wechsel.email, versand),
+      versandFehlgeschlagen: versand.link === "fehlgeschlagen",
+    };
+  });
+}
+
+/** A fresh link to the pending address, mailed with a fresh notice to the stored one: the earlier link is dead either way. */
+export async function einladeSpielerAdresswechselAction(
+  rawPayload: FLSpielerAdresswechselEinladenPayload,
+): Promise<ActionResult<{ versandFehlgeschlagen?: boolean }>> {
+  return runAdminMutation("einladeSpielerAdresswechselAction", { stepUp: true }, async () => {
+    const validated = FLSpielerAdresswechselEinladenPayloadSchema.safeParse(rawPayload);
+
+    if (!validated.success) {
+      return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
+    }
+
+    let mintOperation;
+    try {
+      mintOperation = await einladeSpielerAdresswechsel(validated.data);
+    } catch (error) {
+      const refusal = mapAdresswechselLinkRefusal(error);
+      if (refusal !== null) return { success: false, error: refusal };
+      throw error;
+    }
+
+    if (!mintOperation.acknowledged) {
+      return { success: false, error: buildRefusal({ reason: "Der Link wurde nicht gesendet", repair: VERSUCHE_ES_ERNEUT }) };
+    }
+
+    const wechsel = mintOperation.adresswechsel;
+    const versand = await mailSpielerAdresswechsel({
+      operation: "einladeSpielerAdresswechselAction",
+      spielerId: validated.data.id,
+      mint: wechsel,
+      anlass: "erneut",
+    });
+
+    return {
+      success: true,
+      // Said whichever way the send went: the previous link is dead either way, which is the fact an
+      // administrator has to act on when the message did not leave.
+      message: `${describeSpielerAdresswechselMail(wechsel.email, versand)} Der vorherige Link gilt nicht mehr.`,
+      versandFehlgeschlagen: versand.link === "fehlgeschlagen",
+    };
+  });
+}
+
+/** Discards the pending address and its link; the stored address stays, and nobody is mailed. */
+export async function verwirfSpielerAdresswechselAction(rawPayload: FLSpielerAdresswechselVerwerfenPayload): Promise<ActionResult> {
+  return runAdminMutation("verwirfSpielerAdresswechselAction", { stepUp: true }, async () => {
+    const validated = FLSpielerAdresswechselVerwerfenPayloadSchema.safeParse(rawPayload);
+
+    if (!validated.success) {
+      return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
+    }
+
+    let operation;
+    try {
+      operation = await verwirfSpielerAdresswechsel(validated.data);
+    } catch (error) {
+      const refusal = mapAdresswechselLinkRefusal(error);
+      if (refusal !== null) return { success: false, error: refusal };
+      throw error;
+    }
+
+    if (!operation.acknowledged) {
+      return { success: false, error: buildRefusal({ reason: "Die Änderung wurde nicht verworfen", repair: VERSUCHE_ES_ERNEUT }) };
+    }
+
+    return { success: true, message: "Der Link an die neue Adresse gilt nicht mehr. Die bisherige Adresse bleibt." };
   });
 }
 
