@@ -40,7 +40,7 @@ export const SPERRLISTE_CRUD_COPY = {
  * on one press, so a reader carrying that expectation here would lose a ban they cannot restore.
  */
 export const SPERRE_AUFHEBEN_CONSEQUENCE =
-  "Die Sperre verschwindet aus der Liste. Um die Adresse wieder zu sperren, musst Du sie neu eintragen.";
+  "Die Sperre verschwindet aus der Liste. Um die Adresse erneut zu sperren, musst Du sie neu eintragen.";
 
 /**
  * What a CLEAN save answers, and the title its toast raises: the toast adds the action's message only

@@ -42,7 +42,7 @@ export const NUR_WIDERRUF = "Hier kannst Du eine Erlaubnis nur zurücknehmen. La
 
 // A grant past the person's ceiling for the day (`REQ-DROSSELUNG-001`): the count starts again at
 // German midnight, and a withdrawal is never counted, so the page says both.
-export const ZUSTIMMEN_MORGEN = "Zustimmen kannst Du morgen wieder. Widerrufen geht jederzeit.";
+export const ZUSTIMMEN_MORGEN = "Zustimmen kannst Du erst morgen. Widerrufen geht jederzeit.";
 
 /**
  * The code set every consent write shares, each with its sentence, so a refusal reads the same whichever
