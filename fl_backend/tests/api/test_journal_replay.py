@@ -23,15 +23,18 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.services import hash_token
-from app.api.identitaet.wiederherstellung import REPLAY_METHOD, plan_replay, replay_line, run_replay
-from app.api.schiedsrichter.services import compose_adresswechsel
+from app.api.identitaet.wiederherstellung import REPLAY_METHOD, Read, Window, plan_replay, replay_line, run_replay
+from app.api.schiedsrichter.services import ADRESSWECHSEL_FELD, compose_adresswechsel
 from app.api.spieler.services import compose_spieler_adresswechsel
 from app.api.teams.services import compose_kontakt_bestaetigung
 from app.core.collections import Collection
 from app.core.config import API_VERSION
+from app.core.dependencies import get_germany_now
+from app.core.drosselung import build_counts_filter
 from app.core.journal import JOURNAL_TOKEN, JournalLine, parse_line
 from app.core.logging import JSONFormatter
-from app.core.security import loeschung_journal_hash
+from app.core.recording import ERASED_ACTOR_MARKER
+from app.core.security import akteur_pseudonym, loeschung_journal_hash
 from app.main import create_app
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN, Seite
 from app.shared.einwilligung_nachweis import nachweis_stand_of
@@ -68,6 +71,10 @@ TODAY = "2026-10-03"
 AM = "2026-10-03T10:00:00+00:00"
 # The replay runs a day later: whatever it stamps from its own clock differs from what the press stamped.
 REPLAY_NOW = datetime(2026, 10, 4, 9, 0, tzinfo=UTC)
+# The snapshot taken the morning of the presses, the restore ended the next morning: a link sent on the presses' day is the snapshot's.
+WINDOW = Window(since=datetime(2026, 10, 3, 9, 0, tzinfo=UTC), until=datetime(2026, 10, 4, 8, 0, tzinfo=UTC))
+# A second after the press, as its day file holds it.
+JOURNALLED = datetime(2026, 10, 3, 10, 0, 1, tzinfo=UTC)
 SAISON_ID = "2026"
 ADULT = "1990-05-09"
 
@@ -355,10 +362,10 @@ def journalled(caplog: pytest.LogCaptureFixture) -> list[str]:
     return [record.getMessage() for record in caplog.records if record.getMessage().startswith(JOURNAL_TOKEN)]
 
 
-def _parsed(text: str) -> JournalLine:
+def _entry(text: str) -> Read:
     line = parse_line(text)
     assert line is not None, "a message opening on the journal's token read as no line"
-    return line
+    return Read(timestamp=JOURNALLED, line=line)
 
 
 async def _record(database: AsyncDatabase, collection: Collection, record_id: ObjectId) -> Any:
@@ -379,9 +386,9 @@ def restored_and_replayed(url: str, caplog: pytest.LogCaptureFixture, press: str
 
         # The restore, for this record: the snapshot's document back in place of the one the press left.
         await database[collection].replace_one({"_id": record_id}, snapshot)
-        replayed = [await replay_line(_parsed(line), client, database, schluessel=KEY, now=REPLAY_NOW) for line in lines]
+        replayed = [(await replay_line(_entry(line), client, database, schluessel=KEY, now=REPLAY_NOW, window=WINDOW)).stand for line in lines]
         after_one = await _record(database, collection, record_id)
-        again = [await replay_line(_parsed(line), client, database, schluessel=KEY, now=REPLAY_NOW) for line in lines]
+        again = [(await replay_line(_entry(line), client, database, schluessel=KEY, now=REPLAY_NOW, window=WINDOW)).stand for line in lines]
         rows = await database[Collection.AKTIONEN].find({"document_id": record_id, "request.method": REPLAY_METHOD}).to_list()
 
         return {
@@ -415,10 +422,11 @@ class TestEachPressAndItsReplay:
 
         assert (outcome["replayed"], outcome["after_one"]) == (["replayed"], outcome["pressed"])
         assert (outcome["again"], outcome["after_two"]) == (["already done"], outcome["pressed"])
-        # One log row, the system's, naming the line it replayed without its person.
+        # One log row, the system's, naming the line it replayed by its act alone: neither its person nor the erasure journal's token.
         assert [(row["actor"], row["request"]) for row in outcome["rows"]] == [
-            ({"kind": "system", "email": "SYSTEM"}, {"method": REPLAY_METHOD, "path": line.text(with_person=False)})
+            ({"kind": "system", "email": "SYSTEM"}, {"method": REPLAY_METHOD, "path": f"{line.act()} journalled={JOURNALLED.isoformat()}"})
         ]
+        assert JOURNAL_TOKEN not in outcome["rows"][0]["request"]["path"]
 
     def test_a_grant_and_a_press_moving_nothing_journal_nothing(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         """A grant a restore takes back leaves the person less exposed, so only a withdrawal is journalled."""
@@ -452,8 +460,8 @@ class TestARecordTheLineNoLongerFits:
 
         async def steps(_http: AsyncClient, database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             before = await _record(database, Collection.SPIELER, MOVING_PUPIL_OID)
-            stand = await replay_line(line, client, database, schluessel=KEY, now=REPLAY_NOW)
-            return stand, before, await _record(database, Collection.SPIELER, MOVING_PUPIL_OID)
+            planned = await replay_line(Read(timestamp=JOURNALLED, line=line), client, database, schluessel=KEY, now=REPLAY_NOW, window=WINDOW)
+            return planned.stand, before, await _record(database, Collection.SPIELER, MOVING_PUPIL_OID)
 
         stand, before, after = served(mongo_replica_set_url, steps)
 
@@ -470,7 +478,7 @@ class TestARecordTheLineNoLongerFits:
         )
 
         async def steps(_http: AsyncClient, database: AsyncDatabase, _client: AsyncMongoClient) -> Any:
-            return (await plan_replay(line, database, schluessel=KEY, session=None, now=REPLAY_NOW)).stand
+            return (await plan_replay(line, database, schluessel=KEY, session=None, now=REPLAY_NOW, window=WINDOW)).stand
 
         assert served(mongo_replica_set_url, steps) == "no such record"
 
@@ -489,7 +497,10 @@ def _day_file(*entries: tuple[str, str]) -> list[str]:
 
 class TestTheListing:
     def test_it_names_where_an_erasure_s_address_is_held_and_prints_no_address_and_no_hash(self, mongo_replica_set_url: str):
-        erased = JournalLine(person_hash=loeschung_journal_hash(PERSON, schluessel=KEY), art="loeschung")
+        # Its pseudonym named, and its address held: the page's erasure takes the pseudonym's rows with everything else.
+        erased = JournalLine(
+            person_hash=loeschung_journal_hash(PERSON, schluessel=KEY), art="loeschung", pseudonym=akteur_pseudonym(PERSON, schluessel=KEY)
+        )
         withdrawal = JournalLine(
             person_hash=loeschung_journal_hash(PERSON, schluessel=KEY),
             art="widerruf",
@@ -497,6 +508,15 @@ class TestTheListing:
             record_id=PUPIL_OID,
             am=AM,
             text_version=LAUFENDE_FASSUNGEN["konto_spieler"],
+            wahlen={"medien": False},
+        )
+        on_the_restored_site = JournalLine(
+            person_hash=loeschung_journal_hash(PERSON, schluessel=KEY),
+            art="widerruf",
+            collection=Collection.SCHIEDSRICHTER,
+            record_id=REFEREE_OID,
+            am="2026-10-03T12:30:00+00:00",
+            text_version=LAUFENDE_FASSUNGEN["konto_schiedsrichter"],
             wahlen={"medien": False},
         )
         day = _day_file(
@@ -507,12 +527,14 @@ class TestTheListing:
             ("2026-10-03T11:40:00+00:00", f"{JOURNAL_TOKEN} {'b' * 64} vergessen"),
             # An id bson's own reader would raise `InvalidId` on: counted as unreadable, never a traceback.
             ("2026-10-03T11:50:00+00:00", f"{JOURNAL_TOKEN} {'b' * 64} adresswechsel_abgelehnt spieler/{'z' * 24} am={AM}"),
+            # After the restore's end: the restored site's own act, which stands as its person made it.
+            ("2026-10-03T12:30:01+00:00", on_the_restored_site.text()),
         )
 
         async def steps(_http: AsyncClient, database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             listed, applied, settled = io.StringIO(), io.StringIO(), io.StringIO()
-            since = datetime(2026, 10, 3, 10, 0, tzinfo=UTC)
-            common = {"since": since, "client": client, "database": database, "schluessel": KEY, "now": REPLAY_NOW}
+            since, until = datetime(2026, 10, 3, 10, 0, tzinfo=UTC), datetime(2026, 10, 3, 12, 0, tzinfo=UTC)
+            common = {"since": since, "until": until, "client": client, "database": database, "schluessel": KEY, "now": REPLAY_NOW}
             codes = [
                 await run_replay(day, apply=False, out=listed, **common),
                 await run_replay(day, apply=True, out=applied, **common),
@@ -524,11 +546,177 @@ class TestTheListing:
 
         # Left while an erasure is to run, a line unreadable or a choice to replay; nothing left once the replay ran.
         assert codes == [1, 1, 0]
-        assert "Journal lines written after 2026-10-03T10:00:00+00:00: 2." in listed
+        assert "Journal lines written after 2026-10-03T10:00:00+00:00 and no later than 2026-10-03T12:00:00+00:00: 2." in listed
+        assert "widerruf schiedsrichter/" not in listed + applied
         assert "held in spieler: 1 field(s), " in listed and "held in schiedsrichter: 1 field(s), " in listed
         assert "    to replay" in listed and "    replayed" in applied and "    already done" in settled
         assert "2 unreadable lines" in listed
         for output in (listed, applied, settled):
             assert "@" not in output
             assert erased.person_hash not in output
+            assert str(erased.pseudonym) not in output
             assert KEY.get_secret_value() not in output
+
+
+ERASURE = f"{V}/identitaet/selbst/erasure"
+# An hour after the presses: the person's own later act.
+AN_HOUR_LATER = datetime(2026, 10, 3, 13, 0, tzinfo=ZoneInfo("Europe/Berlin"))
+PSEUDONYM = akteur_pseudonym(PERSON, schluessel=KEY)
+
+# The snapshot and the restore's end on the presses' own day: a link sent that day may fall before the one or after the other.
+ONE_DAY = Window(since=datetime(2026, 10, 3, 9, 0, tzinfo=UTC), until=datetime(2026, 10, 3, 11, 0, tzinfo=UTC))
+
+# What the restored site sends again on a day after the restore: a new link for the declined seat, a new change to the declined address.
+SENT_AGAIN: dict[str, Callable[[str], dict[str, Any]]] = {
+    "a Widerspruch on a season row": lambda day: {
+        "bestaetigungen.stellvertretung": compose_kontakt_bestaetigung(token_hash=hash_token("a-new-link"), today=day)
+    },
+    "a referee's declined address": lambda day: {
+        ADRESSWECHSEL_FELD: compose_adresswechsel(email=NEW_ADDRESS, token_hash=hash_token("asked-again"), today=day)
+    },
+}
+
+
+async def _withdrawn_and_granted_again(http: AsyncClient, database: AsyncDatabase, caplog: pytest.LogCaptureFixture) -> str:
+    """A pupil's withdrawal of their media consent and, an hour later, their grant of it again: the line the withdrawal journalled."""
+
+    with caplog.at_level(logging.INFO):
+        withdrawn = await PRESSES["a pupil's withdrawal"][0](http, database)
+    [line] = journalled(caplog)
+    # The app's clock moved on; `app_client` puts back the overrides it found as it leaves.
+    _app().dependency_overrides[get_germany_now] = lambda: AN_HOUR_LATER
+    body = {**_withdrawal("konto_spieler", umfang="intern", medien=True), "nachweis_stand": withdrawn.json()["nachweis_stand"]}
+    granted = await http.patch(f"{V}/spieler/selbst/einwilligung", json=body, headers=_person(PERSON))
+    assert (withdrawn.status_code, granted.status_code) == (200, 200), granted.text
+
+    return line
+
+
+class TestALaterActStands:
+    def test_a_grant_after_the_withdrawal_is_its_person_s_last_word(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+        """Replayed over it, the line would date a withdrawal before the grant it claims to end."""
+
+        async def steps(http: AsyncClient, database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            line = await _withdrawn_and_granted_again(http, database, caplog)
+            granted = await _record(database, Collection.SPIELER, PUPIL_OID)
+            planned = await replay_line(_entry(line), client, database, schluessel=KEY, now=REPLAY_NOW, window=WINDOW)
+            return planned.stand, granted, await _record(database, Collection.SPIELER, PUPIL_OID)
+
+        stand, granted, after = served(mongo_replica_set_url, steps)
+
+        assert granted["einwilligung"]["medien"] is True
+        assert (stand, after) == ("already done", granted)
+
+    @pytest.mark.parametrize("press", SENT_AGAIN)
+    @pytest.mark.parametrize(
+        ("sent", "window", "expected"),
+        [
+            pytest.param("2026-10-04", WINDOW, "already done", id="sent after the snapshot's day"),
+            pytest.param(TODAY, ONE_DAY, "left for review", id="sent on the day of both"),
+        ],
+    )
+    def test_a_link_the_restored_site_sent_again_stands(
+        self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture, press: str, sent: str, window: Window, expected: str
+    ):
+        """A decline replays only onto what the snapshot held; where the link's day cannot tell, it is reviewed, never guessed."""
+        _, collection, record_id = PRESSES[press]
+
+        async def steps(http: AsyncClient, database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            snapshot = await _record(database, collection, record_id)
+            with caplog.at_level(logging.INFO):
+                await PRESSES[press][0](http, database)
+            [line] = journalled(caplog)
+            # The restore, then the restored site's own act on the same record.
+            await database[collection].replace_one({"_id": record_id}, snapshot)
+            await database[collection].update_one({"_id": record_id}, {"$set": SENT_AGAIN[press](sent)})
+            sent_again = await _record(database, collection, record_id)
+            planned = await replay_line(_entry(line), client, database, schluessel=KEY, now=REPLAY_NOW, window=window)
+            return planned.stand, sent_again, await _record(database, collection, record_id)
+
+        stand, sent_again, after = served(mongo_replica_set_url, steps)
+
+        assert (stand, after) == (expected, sent_again)
+
+
+async def _listed(day: list[str], client: AsyncMongoClient, database: AsyncDatabase, *, apply: bool) -> tuple[int, str]:
+    out = io.StringIO()
+    code = await run_replay(
+        day, since=WINDOW.since, until=WINDOW.until, apply=apply, client=client, database=database, schluessel=KEY, now=REPLAY_NOW, out=out
+    )
+
+    return code, out.getvalue()
+
+
+class TestAnErasureSettlesItsPersonsChoices:
+    def test_a_withdrawal_whose_person_has_been_erased_is_settled_and_held_nowhere_alone_is_reviewed(
+        self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture
+    ):
+        """The runbook runs each erasure again before its last listing, which then finds nothing of theirs to replay.
+
+        Without the erasure's line, a person held nowhere stays a review: a pupil whose address changed reads the same.
+        """
+
+        async def steps(http: AsyncClient, database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            with caplog.at_level(logging.INFO):
+                withdrawn = await PRESSES["a season seat's withdrawal"][0](http, database)
+                erased = await http.post(ERASURE, headers=_person(PERSON))
+            assert (withdrawn.status_code, erased.status_code) == (200, 200), erased.text
+            withdrawal, erasure = journalled(caplog)
+            day = _day_file(("2026-10-03T10:00:01+00:00", withdrawal), ("2026-10-03T10:00:02+00:00", erasure))
+            return await _listed(day, client, database, apply=False), await _listed(day[:1], client, database, apply=False)
+
+        (both_code, both), (alone_code, alone) = served(mongo_replica_set_url, steps)
+
+        assert (both_code, alone_code) == (0, 1), both
+        assert "    its person's erasure has run: nothing to replay" in both
+        assert "    left for review" in alone
+
+
+class TestAnErasedPersonsPseudonym:
+    def test_the_rows_a_restore_brings_back_under_it_are_marked_again_once(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+        """Where the restored database holds the address nowhere, the erasure's line alone finds what its pseudonym marks.
+
+        Restored as a snapshot holds a person whose records went before it: their rows' pseudonym and count, no address.
+        """
+
+        async def steps(http: AsyncClient, database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            withdrawal = await _withdrawn_and_granted_again(http, database, caplog)
+            rows = [row["_id"] async for row in database[Collection.AKTIONEN].find({"actor.pseudonym": PSEUDONYM}, {"_id": 1})]
+            counts = await database[Collection.DROSSELUNG].find(build_counts_filter(PSEUDONYM)).to_list()
+            with caplog.at_level(logging.INFO):
+                erased = await http.post(ERASURE, headers=_person(PERSON))
+            assert erased.status_code == 200, erased.text
+            _, erasure = journalled(caplog)
+
+            # The restore: the attribution the erasure marked, and the count it erased.
+            await database[Collection.AKTIONEN].update_many({"_id": {"$in": rows}}, {"$set": {"actor.pseudonym": PSEUDONYM}})
+            await database[Collection.DROSSELUNG].insert_many(counts)
+            day = _day_file(("2026-10-03T10:00:01+00:00", withdrawal), ("2026-10-03T11:00:01+00:00", erasure))
+            runs = [await _listed(day, client, database, apply=apply) for apply in (False, True, True)]
+
+            left = (
+                await database[Collection.AKTIONEN].count_documents({"actor.pseudonym": PSEUDONYM}),
+                await database[Collection.AKTIONEN].count_documents({"_id": {"$in": rows}, "actor.pseudonym": ERASED_ACTOR_MARKER}),
+                await database[Collection.DROSSELUNG].count_documents(build_counts_filter(PSEUDONYM)),
+            )
+            acts = await database[Collection.AKTIONEN].find({"collection": "pseudonyme"}).to_list()
+            return len(rows), len(counts), runs, left, acts
+
+        rows, counts, runs, left, acts = served(mongo_replica_set_url, steps)
+        [(listed_code, listed), (applied_code, applied), (again_code, again)] = runs
+
+        # The withdrawal's row and the grant's, and the count the grant took.
+        assert (rows, counts) == (2, 1)
+        # None still attributed, each marked, no count left.
+        assert left == (0, rows, 0)
+        assert (listed_code, applied_code, again_code) == (1, 0, 0), listed
+        assert f"but its pseudonym still marks {rows} log row(s) (" in listed and "and 1 day count(s)" in listed
+        assert "    to replay" in listed and "    replayed" in applied and "    already done" in again
+        # One row, the system's, naming the erasure's line: the second run found nothing and wrote nothing.
+        assert [(row["actor"], row["request"]) for row in acts] == [
+            ({"kind": "system", "email": "SYSTEM"}, {"method": REPLAY_METHOD, "path": "loeschung journalled=2026-10-03T11:00:01+00:00"})
+        ]
+        for output in (listed, applied, again):
+            assert "@" not in output
+            assert PSEUDONYM not in output
+            assert loeschung_journal_hash(PERSON, schluessel=KEY) not in output

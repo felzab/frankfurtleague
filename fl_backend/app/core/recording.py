@@ -144,9 +144,10 @@ async def record_write(
     await collection.database[Collection.AKTIONEN].insert_one(row, session=session)
 
 
-# An act the log records that writes none of the application's collections: an administrator's ending
-# of an address's sessions writes the sign-in store, which this backend holds no handle on.
-LoggedAct = Literal["anmeldungen"]
+# An act the log records, writing none of the logged collections: ending an address's sessions writes the
+# sign-in store, out of this backend's reach; replaying an erasure's pseudonym writes the log and the day
+# counts, which it never records.
+LoggedAct = Literal["anmeldungen", "pseudonyme"]
 
 
 def act_row(act: LoggedAct, *, operation: Operation) -> dict[str, Any]:
