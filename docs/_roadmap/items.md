@@ -498,8 +498,8 @@ junction (`fl_backend/app/api/teams/schemas.py :: FLSaisonTeamKontakte`) and on 
 both validated through one sub-schema (`fl_backend/app/core/constraints.py :: _KONTAKTE_PROPERTIES`),
 so a role added to the block reaches both collections in the commit that adds it. `/bereich/admin/kontakte`
 reads the junction's copy, and an erasure of the person's address
-(`fl_backend/app/api/kontakte/crud.py :: erase_kontaktperson_in_session`) is the one write that removes
-a person from either.
+(`fl_backend/app/api/kontakte/crud.py :: erase_kontaktperson_in_session`) is among the writes that
+remove a person from either.
 
 **Undecided, and it needs a ruling before the flow enters a club: whether the flow may enter a club
 it has just created.** No junction row is ever removed — `saison_teams` has a POST, a PATCH and a
