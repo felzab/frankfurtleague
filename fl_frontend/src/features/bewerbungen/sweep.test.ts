@@ -718,6 +718,41 @@ describe("one pass of the sweep", () => {
   });
 });
 
+describe("the line a failed call files", () => {
+  /* A refusal and a crash carry the same name: the status and code tell them apart, and the trace joins
+     the line to the backend's own for that request. */
+  it("names a refused call's status, code and trace on its failure line", async () => {
+    answerWith(() => {
+      throw new APIBadStatusError({
+        message: "The backend failed the request.",
+        url: "http://backend:8000/api/v0/bewerbungen/sweep",
+        endpoint: "/bewerbungen/sweep",
+        method: "GET",
+        readOnly: false,
+        statusCode: 500,
+        serverErrorCode: "DB-FAIL-001",
+        traceId: "4bf92f3577b34da6a3ce929d0e0e4736",
+      });
+    });
+
+    await runBewerbungSweep();
+
+    assert.deepEqual(
+      lines.filter(({ level }) => level === "error").map(({ fields }) => fields),
+      [
+        {
+          error_code: "FE-SWEEP-001",
+          name: "APIBadStatusError",
+          status: 500,
+          server_error_code: "DB-FAIL-001",
+          trace_id: "4bf92f3577b34da6a3ce929d0e0e4736",
+          saison_id: undefined,
+        },
+      ],
+    );
+  });
+});
+
 /** Registration ids as the mirror demands them: `CustomObjectIdStringSchema` takes 24 hex characters and nothing else. */
 const ID_PUPIL = `${"d".repeat(23)}4`;
 const ID_UNDECIDED = `${"e".repeat(23)}5`;
@@ -864,39 +899,6 @@ describe("the registration half of one pass", () => {
     await runBewerbungSweep();
 
     assert.deepEqual(registrierungPasses().map(saisonOf), ["2627"]);
-  });
-
-  /* A refusal and a crash carry the same name: the status and code tell them apart, and the trace joins
-     the line to the backend's own for that request. */
-  it("names a refused call's status, code and trace on its failure line", async () => {
-    answerWith(() => {
-      throw new APIBadStatusError({
-        message: "The backend failed the request.",
-        url: "http://backend:8000/api/v0/bewerbungen/sweep",
-        endpoint: "/bewerbungen/sweep",
-        method: "GET",
-        readOnly: false,
-        statusCode: 500,
-        serverErrorCode: "DB-FAIL-001",
-        traceId: "4bf92f3577b34da6a3ce929d0e0e4736",
-      });
-    });
-
-    await runBewerbungSweep();
-
-    assert.deepEqual(
-      lines.filter(({ level }) => level === "error").map(({ fields }) => fields),
-      [
-        {
-          error_code: "FE-SWEEP-001",
-          name: "APIBadStatusError",
-          status: 500,
-          server_error_code: "DB-FAIL-001",
-          trace_id: "4bf92f3577b34da6a3ce929d0e0e4736",
-          saison_id: undefined,
-        },
-      ],
-    );
   });
 
   it("files a failure line naming the half that stopped", async () => {
