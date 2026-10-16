@@ -2,7 +2,7 @@ import "server-only";
 
 import { buildBewerbungErinnerungEmail, buildBewerbungGeloeschtEmail } from "@/core/bewerbungEmail";
 import { frontend_config } from "@/core/config";
-import { requestOf } from "@/core/errors";
+import { ContractBreakError, requestOf } from "@/core/errors";
 import { kontaktBestaetigungsLink } from "@/core/kontaktLink";
 import { logger } from "@/core/logging";
 import { buildRegistrierungErinnerungEmail, buildRegistrierungSaisonendeEmail } from "@/core/registrierungEmail";
@@ -102,7 +102,11 @@ async function sweepAdresswechsel(): Promise<void> {
     do {
       antwort = await postSchiedsrichterAdresswechselSweep(nach);
       entfernt += antwort.entfernt;
-      // The pass's one end, as the pupils' deletion's (`fl_frontend/src/features/saisons/loeschung.ts :: loeschungLaufen`).
+      // The pass's one end and its guard against a place not past the one sent, as the pupils' deletion's
+      // (`fl_frontend/src/features/saisons/loeschung.ts :: loeschungLaufen`).
+      if (nach !== null && antwort.nach !== null && antwort.nach <= nach) {
+        throw new ContractBreakError("The lapsed addresses answered a place not past the one they were sent.");
+      }
       nach = antwort.nach;
     } while (nach !== null);
 

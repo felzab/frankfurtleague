@@ -1,3 +1,5 @@
+import { ContractBreakError } from "@/core/errors";
+
 import type { FLLoeschungLaufResponse } from "./schemas";
 
 /**
@@ -40,6 +42,13 @@ export async function loeschungLaufen(lauf: (nach: string | null) => Promise<FLL
         fehlgeschlagen: summe.fehlgeschlagen + antwort.fehlgeschlagen,
         verbleibend: antwort.verbleibend,
       };
+
+      // A place not past the one sent would loop for ever, the hourly pass holding every clock meanwhile; fixed-length
+      // hex compares in id order (`docs/backend/spec.md :: I717`).
+      if (nach !== null && antwort.nach !== null && antwort.nach <= nach) {
+        throw new ContractBreakError("The deletion answered a place not past the one it was sent.");
+      }
+
       // The pass's one end: `verbleibend` counts a failing person, who stays due, and a call erasing nobody may stand
       // in front of a due person the next call reaches.
       nach = antwort.nach;

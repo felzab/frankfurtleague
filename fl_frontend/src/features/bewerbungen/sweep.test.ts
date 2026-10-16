@@ -1148,6 +1148,72 @@ describe("the two halves after the season loop", () => {
     );
   });
 
+  /* A place not past the one sent holds the pass, and every clock behind it, for ever. Each double ends on its third
+     answer, so a loop lacking the guard fails on its calls and lines rather than hanging. */
+  const NICHT_WEITER = [
+    ["the same place", ORT_ADRESSE, ORT_SPIELER],
+    ["a place before it", `${"d".repeat(23)}3`, `${"e".repeat(23)}4`],
+  ] as const;
+
+  for (const [wie, adresse, spieler] of NICHT_WEITER) {
+    it(`stops the lapsed addresses' half where a call answers ${wie}, the removals counted and the half's own line filed`, async () => {
+      adresswechselAnswer = inTurn([entfernt(2, 5, ORT_ADRESSE), entfernt(1, 4, adresse), entfernt(0, 0)]);
+
+      await runBewerbungSweep();
+
+      assert.deepEqual(halfCalls(), [
+        [ADRESSWECHSEL, {}],
+        [ADRESSWECHSEL, { nach: ORT_ADRESSE }],
+      ]);
+      assert.deepEqual(
+        lines.filter(({ event }) => event.startsWith("schiedsrichter.")),
+        [
+          { level: "info", event: "schiedsrichter.adresswechsel_sweep_pass", fields: { entfernt: 3 } },
+          {
+            level: "error",
+            event: "schiedsrichter.adresswechsel_sweep_failed",
+            fields: { error_code: "FE-SWEEP-001", name: "ContractBreakError", saison_id: undefined },
+          },
+        ],
+      );
+    });
+
+    it(`stops the pupils' half where a call answers ${wie}, the deletions counted and the half's own line filed`, async () => {
+      loeschungSwitch = "on";
+      laufAnswer = inTurn([gelaufen(3, 5, ORT_SPIELER), gelaufen(1, 4, spieler), gelaufen(0, 0)]);
+
+      await runBewerbungSweep();
+
+      assert.deepEqual(halfCalls(), [
+        [ADRESSWECHSEL, {}],
+        [LAUF, {}],
+        [LAUF, { nach: ORT_SPIELER }],
+      ]);
+      assert.deepEqual(
+        lines.filter(({ event }) => event.startsWith("loeschung.")),
+        [
+          {
+            level: "info",
+            event: "loeschung.sweep_pass",
+            fields: {
+              abgeschlossene_saison_id: "2526",
+              spieler: 4,
+              saison_spieler: 4,
+              registrierungen: 0,
+              uebersprungen: 0,
+              fehlgeschlagen: 0,
+            },
+          },
+          {
+            level: "error",
+            event: "loeschung.sweep_failed",
+            fields: { error_code: "FE-SWEEP-001", name: "ContractBreakError", saison_id: undefined },
+          },
+        ],
+      );
+    });
+  }
+
   /* Each half is its own clock: a shared `try` would hold every due pupil past the hour the address half fails. */
   it("deletes the due pupils where the lapsed addresses' half threw, the seasons swept before it, under the half's own line", async () => {
     loeschungSwitch = "on";
