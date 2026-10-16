@@ -88,7 +88,10 @@ export function FormPersonLoeschenSection() {
   // What the confirmation compares against and the write sends: the address the arming read was made for. An edit
   // of the box disarms, so a reveal and a confirmation for one address are never pressed for another.
   const adresse = gelesen?.adresse ?? "";
-  const { confirm, field, reason } = useTypedAddressConfirm(adresse, { stepUp: true });
+  // The API holds the erasure of an address holding a grant to the enrolment's window: the step-up's alone would
+  // meet its refusal, and the next press would ask nothing again.
+  const haeltZugang = gelesen?.status === "read" && gelesen.ansicht.verwaltung !== null;
+  const { confirm, field, reason } = useTypedAddressConfirm(adresse, { stepUp: haeltZugang ? "enrolment" : true });
   const { isConfirming, isPending } = confirm;
 
   const panel = formPanel({ tone: "danger" });

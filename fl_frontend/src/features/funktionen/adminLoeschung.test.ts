@@ -3,7 +3,7 @@ import "@/shared/testing/dom.ts";
 import assert from "node:assert/strict";
 import { afterEach, describe, it, mock } from "node:test";
 
-import { act } from "react";
+import { act, createElement } from "react";
 
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
@@ -14,7 +14,9 @@ import { doubleActionRequest, doubleActions, doubleToasts } from "@/shared/testi
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { pageBody } from "@/shared/testing/pageHarness.ts";
 
+import type { StepUp } from "@/shared/components/ui/stepUp.ts";
 import type { UserEvent } from "@testing-library/user-event";
+import type { TestContext } from "node:test";
 import type { FLErasureAnsichtResponse } from "./schemas.ts";
 
 /* An administrator's session, which the page's own check reads: it renders for nobody else
@@ -27,6 +29,7 @@ const { raised } = doubleToasts();
 const { default: AdminLoeschungPage } = await import("@/app/bereich/admin/loeschung/page.tsx");
 const { FLErasureAnsichtResponseSchema } = await import("./schemas.ts");
 const { mapAbmeldungRefusal, mapErasureRefusal } = await import("./refusals.ts");
+const { StepUpContext } = await import("@/shared/components/ui/stepUp.ts");
 
 /** A rule's refusal as the client raises one, for the mappers' own words. */
 const refused = (serverErrorCode: string): APIBadStatusError =>
@@ -93,11 +96,11 @@ afterEach(() => {
 });
 
 /** The page as its route renders it for an administrator, under a router recording every navigation. */
-async function renderPage(next: Record<string, unknown> = {}, search = "") {
+async function renderPage(next: Record<string, unknown> = {}, search = "", stepUp?: StepUp) {
   answering(next);
   const { router, seen } = recordingRouter();
   const body = await pageBody(AdminLoeschungPage, { params: Promise.resolve({}), searchParams: Promise.resolve({}) });
-  render(underNext(body, { router, pathname: "/bereich/admin/loeschung", search }));
+  render(underNext(createElement(StepUpContext.Provider, { value: stepUp }, body), { router, pathname: "/bereich/admin/loeschung", search }));
 
   return { seen, user: userEvent.setup() };
 }
@@ -201,6 +204,53 @@ describe("the erasure's press", () => {
     );
     assert.deepEqual([...seen.pushed, ...seen.replaced], [], "the press navigated");
     assert.equal(window.location.search, "", "an address reached the page's own URL");
+  });
+});
+
+describe("the passkey the erasure's press asks for", () => {
+  /* A session inside the step-up window and past the enrolment's: the API refuses the erasure of a grant holder's
+     address from it, so the press asks first rather than meeting that refusal on every press. */
+  const gate = () => {
+    const asked: string[] = [];
+    const stepUp: StepUp = {
+      isStale: (_now, demand) => demand === "enrolment",
+      confirm: () => {
+        asked.push("prompt");
+        return Promise.resolve(true);
+      },
+    };
+    return { asked, stepUp };
+  };
+
+  const confirmed = async (verwaltung: "owner" | null, stepUp: StepUp, t: TestContext) => {
+    const { user } = await renderPage(
+      { readErasureAnsichtAction: { success: true, ansicht: { ...NICHTS_GESPEICHERT, verwaltung } } },
+      "",
+      stepUp,
+    );
+    await typeRequest(user);
+    t.mock.timers.enable({ apis: ["Date"] });
+    await arm(user);
+    await user.type(await screen.findByRole("textbox", { name: BESTAETIGUNG }), ADRESSE);
+    t.mock.timers.tick(DOUBLE_PRESS_MS);
+    await user.click(screen.getByRole("button", { name: ARMED }));
+    await act(answered);
+  };
+
+  it("asks for it within the enrolment's window where the address holds a grant", async (t) => {
+    const { asked, stepUp } = gate();
+    await confirmed("owner", stepUp, t);
+
+    assert.deepEqual(asked, ["prompt"], "a grant holder's erasure went out without the passkey the API holds it to");
+    assert.equal(sent("eraseAufAnfrageAction").length, 1);
+  });
+
+  it("asks for nothing more than the step-up's window where the address holds none", async (t) => {
+    const { asked, stepUp } = gate();
+    await confirmed(null, stepUp, t);
+
+    assert.deepEqual(asked, [], "an address holding no grant was held to the enrolment's window");
+    assert.equal(sent("eraseAufAnfrageAction").length, 1);
   });
 });
 
