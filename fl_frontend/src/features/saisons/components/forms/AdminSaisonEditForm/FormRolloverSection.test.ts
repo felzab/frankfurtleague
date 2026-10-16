@@ -16,7 +16,7 @@ import { assertLeer } from "@/shared/testing/leerGrade.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { PLACEHOLDER } from "@/shared/utils/format.ts";
 
-/** A write nobody has answered yet: no case here presses, and a real one needs a session and a backend. */
+/** A write nobody has answered yet: no case here presses the armed control, and a real write needs a session and a backend. */
 doubleActions({ modules: ["/src/features/saisons/actions.ts"], answer: () => new Promise<never>(() => undefined) });
 doubleToasts();
 
@@ -174,7 +174,8 @@ describe("the count beside the rollover press", () => {
       const { unmount } = render(panel(mitLoeschung(spieler, eingeschaltet)));
 
       await user.click(screen.getByRole("button", { name: `Auf Saison ${SAISON_ID} umstellen` }));
-      await screen.findByRole("button", { name: `Ja, auf ${SAISON_ID} umstellen` });
+      // Got, never found: the arming press reaches no double, so its render stands once the press returns.
+      screen.getByRole("button", { name: `Ja, auf ${SAISON_ID} umstellen` });
       const bestaetigung = [...screen.getByRole("alert").querySelectorAll("p")].map((absatz) => absatz.textContent);
 
       assert.deepEqual(

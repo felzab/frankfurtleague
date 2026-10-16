@@ -8,7 +8,8 @@ import { logger } from "@/core/logging";
 import { buildRegistrierungErinnerungEmail, buildRegistrierungSaisonendeEmail } from "@/core/registrierungEmail";
 import { REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE } from "@/features/registrierungen/constants";
 import { postRegistrierungSweep } from "@/features/registrierungen/mutations";
-import { loeschungLaufen, postLoeschungLauf } from "@/features/saisons/mutations";
+import { loeschungLaufen } from "@/features/saisons/loeschung";
+import { postLoeschungLauf } from "@/features/saisons/mutations";
 import { postSchiedsrichterAdresswechselSweep } from "@/features/schiedsrichter/mutations";
 import { sendZielMail } from "@/features/zustellung/notifications";
 import { getGermanTodayStr } from "@/shared/utils/date";
@@ -101,7 +102,7 @@ async function sweepAdresswechsel(): Promise<void> {
     do {
       antwort = await postSchiedsrichterAdresswechselSweep(nach);
       entfernt += antwort.entfernt;
-      // The pass's one end, as the pupils' deletion's (`fl_frontend/src/features/saisons/mutations.ts :: loeschungLaufen`).
+      // The pass's one end, as the pupils' deletion's (`fl_frontend/src/features/saisons/loeschung.ts :: loeschungLaufen`).
       nach = antwort.nach;
     } while (nach !== null);
 

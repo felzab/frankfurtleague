@@ -100,13 +100,15 @@ export async function einladeAdresswechsel({
  * `nach` is the previous call's answer.
  */
 export async function postSchiedsrichterAdresswechselSweep(nach: string | null): Promise<FLSchiedsrichterAdresswechselSweepResponse> {
+  // Left out on a pass's first call: the server takes `nach` as an id wherever it is present.
+  const params: { nach?: string } = nach === null ? {} : { nach: nach };
   return apiClient<FLSchiedsrichterAdresswechselSweepResponse>(
     "/schiedsrichter/sweep/adresswechsel",
     FLSchiedsrichterAdresswechselSweepResponseSchema,
     {
       method: "POST",
       authType: "system",
-      params: { nach: nach },
+      params: params,
     },
   );
 }
