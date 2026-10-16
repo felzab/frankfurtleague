@@ -582,8 +582,9 @@ sessions, passkeys and waiting codes with it (`fl_frontend/src/core/auth.ts :: d
 `:: deleteAccountFor`); after any other erasure the account sweep deletes it within the hour once
 nothing references the address ([section 9](#9-checking-that-the-retention-sweep-has-run)).
 **A barred address keeps its account**, frozen until the ban ends
-([`../datenschutz.md`](../datenschutz.md#6-retention-is-bounded-where-a-bound-was-chosen)), and
-nothing deletes it before then. Read the store for an access request: the `user` row whose `email` is the
+([`../datenschutz.md`](../datenschutz.md#6-retention-is-bounded-where-a-bound-was-chosen)): the
+account sweep passes it by, and a barred person cannot sign in to delete it, so an administrator's
+erasure on their request is the one thing that deletes it before then. Read the store for an access request: the `user` row whose `email` is the
 address as the sign-in box folds it, in lower case
 (`fl_frontend/src/core/emailAddress.ts :: asSignInIdentifier`), and the `session`, `account` and
 `passkey` rows whose `userId` is that row's `_id`.
@@ -777,6 +778,11 @@ until that list is on screen and the address is typed a second time
 Read the result afterwards: it says whether the address's account went too, and an account the
 erasure could not delete goes when the address is erased again
 ([`../frontend/spec.md`](../frontend/spec.md#2-invariants) I685).
+
+**The page refuses two addresses, and says so before anyone confirms**: the administrator's own,
+which goes through their account page or another administrator, and an owner's to an administrator
+who is not one. It mails nobody, and on the same page „Überall abmelden“ ends every session of an
+address without erasing or barring it.
 
 **Answer as soon as what you need is gathered, and where it will take longer say so in the first
 reply rather than after it.** Where the answer needs the Datenschutzexperte, the person is told that
