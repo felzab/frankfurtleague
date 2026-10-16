@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
-import { APIBadStatusError } from "@/core/errors.ts";
+import { APIBadStatusError, APIMalformedDataError, APINetworkError } from "@/core/errors.ts";
 import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
 
@@ -254,6 +254,58 @@ describe("a pass meeting a failure", () => {
             trace_id: TRACE_ID,
             anzahl: 2,
           },
+        },
+      ],
+    );
+  });
+
+  /* No status: the backend never answered, so the trace is all that finds the request in its log, if it
+     arrived there at all (`docs/logging/error-codes.md`, `FE-SWEEP-003`). */
+  it("names an unanswered call's trace on its failure line", async () => {
+    accounts = ["a@schule.de"];
+    referenzen = () => {
+      throw new APINetworkError({
+        message: "The backend did not answer.",
+        url: "http://backend:8000/api/v0/identitaet/referenzen",
+        method: "POST",
+        readOnly: true,
+        traceId: TRACE_ID,
+        isTimeout: true,
+      });
+    };
+
+    await runKontoSweep();
+
+    assert.deepEqual(deleteCalls, []);
+    assert.deepEqual(
+      failures().map(({ event, fields }) => ({ event, fields })),
+      [{ event: "konto.referenzen_failed", fields: { error_code: "FE-SWEEP-003", name: "APINetworkError", trace_id: TRACE_ID, anzahl: 1 } }],
+    );
+  });
+
+  it("names a malformed answer's status and trace on its failure line", async () => {
+    accounts = ["a@schule.de"];
+    referenzen = () => {
+      throw new APIMalformedDataError({
+        message: "The backend's answer did not match its schema.",
+        url: "http://backend:8000/api/v0/identitaet/referenzen",
+        endpoint: "/identitaet/referenzen",
+        method: "POST",
+        readOnly: true,
+        statusCode: 200,
+        traceId: TRACE_ID,
+      });
+    };
+
+    await runKontoSweep();
+
+    assert.deepEqual(deleteCalls, []);
+    assert.deepEqual(
+      failures().map(({ event, fields }) => ({ event, fields })),
+      [
+        {
+          event: "konto.referenzen_failed",
+          fields: { error_code: "FE-SWEEP-003", name: "APIMalformedDataError", status: 200, trace_id: TRACE_ID, anzahl: 1 },
         },
       ],
     );

@@ -5,7 +5,7 @@ import path from "node:path";
 import { after, beforeEach, describe, it, mock } from "node:test";
 
 import { ACTOR_KEY_FILE } from "@/core/authDoubles.ts";
-import { APIBadStatusError } from "@/core/errors.ts";
+import { APIBadStatusError, APIMalformedDataError, APINetworkError } from "@/core/errors.ts";
 import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
@@ -745,6 +745,57 @@ describe("the line a failed call files", () => {
           name: "APIBadStatusError",
           status: 500,
           server_error_code: "DB-FAIL-001",
+          trace_id: "4bf92f3577b34da6a3ce929d0e0e4736",
+          saison_id: undefined,
+        },
+      ],
+    );
+  });
+
+  /* No status: the backend never answered, so the trace is all that finds the request in its log, if it
+     arrived there at all (`docs/logging/error-codes.md`, `FE-SWEEP-001`). */
+  it("names an unanswered call's trace on its failure line", async () => {
+    answerWith(() => {
+      throw new APINetworkError({
+        message: "The backend did not answer.",
+        url: "http://backend:8000/api/v0/bewerbungen/sweep",
+        method: "GET",
+        readOnly: true,
+        traceId: "4bf92f3577b34da6a3ce929d0e0e4736",
+        isTimeout: true,
+      });
+    });
+
+    await runBewerbungSweep();
+
+    assert.deepEqual(
+      lines.filter(({ level }) => level === "error").map(({ fields }) => fields),
+      [{ error_code: "FE-SWEEP-001", name: "APINetworkError", trace_id: "4bf92f3577b34da6a3ce929d0e0e4736", saison_id: undefined }],
+    );
+  });
+
+  it("names a malformed answer's status and trace on its failure line", async () => {
+    answerWith(() => {
+      throw new APIMalformedDataError({
+        message: "The backend's answer did not match its schema.",
+        url: "http://backend:8000/api/v0/bewerbungen/sweep",
+        endpoint: "/bewerbungen/sweep",
+        method: "GET",
+        readOnly: true,
+        statusCode: 200,
+        traceId: "4bf92f3577b34da6a3ce929d0e0e4736",
+      });
+    });
+
+    await runBewerbungSweep();
+
+    assert.deepEqual(
+      lines.filter(({ level }) => level === "error").map(({ fields }) => fields),
+      [
+        {
+          error_code: "FE-SWEEP-001",
+          name: "APIMalformedDataError",
+          status: 200,
           trace_id: "4bf92f3577b34da6a3ce929d0e0e4736",
           saison_id: undefined,
         },
