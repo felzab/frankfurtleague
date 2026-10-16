@@ -385,7 +385,7 @@ describe("the address correction", () => {
     // Its own title rather than the editors' „Änderung nicht gespeichert“, which a sentence-only
     // refusal would otherwise reach through the hook's default raise.
     assert.deepEqual(titles("danger"), ["Adresse nicht korrigiert"]);
-    assert.deepEqual(titles("warning"), ["Link nicht verschickt", "Link zurückgehalten"]);
+    assert.deepEqual(titles("warning"), ["Adresse korrigiert, Link nicht verschickt", "Adresse korrigiert, Link zurückgehalten"]);
     // The server's sentence is the body at every grade (`docs/frontend/spec.md` §1.12): the action words its own failed send.
     assert.deepEqual(warningBodies(), [
       "Der Link ging nicht raus.",

@@ -107,7 +107,12 @@ const BESETZUNG_OHNE_ANTWORT = "Prüfe die Verbindung und lade die Seite neu. St
 
 const ERNEUT_TITEL: VersandTitel = { ...LINK_TITEL, gesendet: "Link erneut gesendet" };
 
-const KORREKTUR_TITEL: VersandTitel = { ...LINK_TITEL, gesendet: "Adresse korrigiert" };
+/** Each says the address moved, the strip's re-send raising the bare link titles for a link alone. */
+const KORREKTUR_TITEL: VersandTitel = {
+  gesendet: "Adresse korrigiert",
+  fehlgeschlagen: "Adresse korrigiert, Link nicht verschickt",
+  abgelegt: "Adresse korrigiert, Link zurückgehalten",
+};
 
 /**
  * Its own titles, never the correction's: one title names one outcome, and these say the seat is filled
