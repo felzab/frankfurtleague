@@ -961,9 +961,12 @@ no log above outlives its bound.
 
 ## 7. The logs' age bounds, and the copies a deploy leaves behind
 
-**Every deploy copies both application streams to `/var/log/frankfurtleague/` before it recreates a
-container** (`scripts/ops/deploy.sh :: copy_streams`), one file per service stamped to the second, and
-refuses at exit 2 with nothing stopped where it cannot write there. **A deploy that rolls back
+**Every deploy stops both application containers and copies their streams to
+`/var/log/frankfurtleague/` before it recreates them** (`scripts/ops/deploy.sh :: copy_streams`), one
+file per service stamped to the second, so a line written in the seconds before the recreate — an
+erasure's journal line among them (§13) — is in the copy. Where it cannot write there it starts the
+stopped containers again and refuses at exit 2 with nothing recreated.
+**A deploy that rolls back
 recreates the pair twice and so copies twice**, the failed build's streams taking the same stamp and a
 `-failed` suffix, so a failed deploy leaves four files that sort together (§1). The same step creates
 `/var/log/frankfurtleague/nginx`, which `docker-compose.yml` bind-mounts for the edge's access log
