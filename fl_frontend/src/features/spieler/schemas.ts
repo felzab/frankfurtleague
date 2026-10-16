@@ -266,7 +266,7 @@ export const FLSpielerAdresswechselPayloadSchema = z.object({
 });
 export type FLSpielerAdresswechselPayload = z.infer<typeof FLSpielerAdresswechselPayloadSchema>;
 
-/** The re-send and the discard: the id in the path, no request body. One schema per control, for `FLEraseSpielerPayloadSchema`'s reason. */
+/** The re-send and the discard: the id in the path, no request body. One schema per control: a shared payload lets a caller reach one write while reading as another. */
 export const FLSpielerAdresswechselEinladenPayloadSchema = z.object({
   id: CustomObjectIdStringSchema,
 });
