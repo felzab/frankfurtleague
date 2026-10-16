@@ -29,6 +29,7 @@ two tool configurations sit at the top of this folder instead, in none of the fi
 | `scripts/ops/local.sh`                      | dev — Windows | Run the production image locally, behind nginx and a database of its own                                                                                                                          |
 | `scripts/ops/deploy.sh`                     | prod — Linux  | Pull and restart in place, verify health, roll back                                                                                                                                               |
 | `scripts/ops/export_journal.sh`             | prod — Linux  | Copy the erasure journal's lines out of the backend's logs into a host file per day, run hourly by a timer `docs/ops/runbooks.md` §7 installs                                                     |
+| `scripts/ops/replay_journal.sh`             | prod — Linux  | After a restore, list every journal line since its snapshot and replay the choices they name, `docs/ops/runbooks.md` §13                                                                          |
 | `scripts/lib/_lib.sh`                       | —             | The output standard: strict mode, the traps, the sections and the exit contract; sourced, never run                                                                                               |
 | `scripts/lib/checker_kernel.py`             | —             | What every checker is built on; imported, never run directly                                                                                                                                      |
 | `scripts/tests/`                            | any           | pytest over the gate and the checkers this folder holds; the directory lists what is covered                                                                                                      |
@@ -40,8 +41,9 @@ two tool configurations sit at the top of this folder instead, in none of the fi
 `deploy.sh` does, and so does `./scripts/ops/local.sh --refresh-db`, which reads the
 production database to fill the local one — it copies out and never writes back. `--seed` reaches
 production only when there is no copy on disk yet. `export_journal.sh` reads the production
-backend's logs and writes host files beside them, never a database. Everything else leaves
-production alone.
+backend's logs and writes host files beside them, never a database. `replay_journal.sh` reads the
+restored production database, and with `--apply` writes the person records its lines name.
+Everything else leaves production alone.
 
 `--fresh` is still destructive locally: it removes the volumes, the copy under `.local-db`, the
 edge's access log under `.tmp-nginx-log` and the mail sink under `.tmp-mail` in

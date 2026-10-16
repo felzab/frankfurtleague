@@ -88,9 +88,9 @@ class Plan:
 
 
 def read_day_files(lines: Iterable[str], *, since: datetime) -> tuple[list[Read], int]:
-    """Every journal line written after `since`, oldest first and each once, and how many lines no act could be read off.
+    """Every journal line written after `since`, oldest first and each once, and how many lines could not be read.
 
-    A day file holds journal lines alone, so a line failing to read is counted rather than passed over in silence.
+    A day file holds journal lines alone, so an unreadable one is counted, never passed over in silence.
     """
 
     found: dict[tuple[datetime, str], Read] = {}
@@ -128,10 +128,9 @@ def _strings(value: Any, path: str = "") -> Iterator[tuple[str, str]]:
 
 
 async def where_held(database: AsyncDatabase, person_hashes: set[str], *, schluessel: SecretStr) -> dict[str, list[tuple[str, Any, str]]]:
-    """For each hash, every collection, document and field of the restored database holding an address that hashes to it.
+    """For each hash, every collection, document and field holding an address that hashes to it.
 
-    Every string value carrying an `@`, in every document of every collection: an erasure reaches an address wherever it
-    is held, the log's images and every author field among them, so no list of fields could be the whole of it.
+    Every string carrying an `@` in every document: an erasure reaches an address wherever it is held, so no list of fields is whole.
     """
 
     held: dict[str, list[tuple[str, Any, str]]] = {person_hash: [] for person_hash in person_hashes}
@@ -324,7 +323,7 @@ async def run(
 ) -> int:
     """List every line written after `since`, replaying each choice under `apply`; 0 once nothing is left, else 1.
 
-    Prints no address and no person's hash: a line is named without its person, and an erasure by where its address is held.
+    No address and no person's hash is printed: a line is named without its person, an erasure by where it is held.
     """
 
     read, unreadable = read_day_files(lines, since=since)
