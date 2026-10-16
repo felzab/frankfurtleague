@@ -182,9 +182,14 @@ async def get_erasure_ansicht(
     Read through that erasure's own selections in one snapshot, so it names every record of the person's own the erasure
     removes or empties, an unconfirmed seat, a retired row and a declined registration among them, and no other. No address
     and no birthdate is answered. A pending address change on another address's referee or pupil row is counted and not
-    named, that row not being this address's until the change is confirmed. Reached and not named: what the person made or
-    decided for others, their day counts and their log rows. `verwaltung` is the tier of the live grant the address holds,
-    or null; a dead spelling of the address, which admits nobody, goes with the erasure unnamed.
+    named, that row not being this address's until the change is confirmed. Reached and not named: the fixtures booking
+    their referee record, which move onto the ghost, and their name in each of those fixtures' log images, which goes;
+    what the person made or decided for others, which names a marker in their place; their day counts; their rows in the
+    log; every log image of a record the erasure removes, emptied whole whether or not it holds the address, and every
+    other log image holding the address; each grant's announced row, and an announced row holding the address under
+    another grant's id; and the address in every notice still queued, withheld. Written besides: the notice that their
+    grant ended, which every administrator is sent. `verwaltung` is the tier of the live grant the address holds, or
+    null; a dead spelling of the address, which admits nobody, goes with the erasure unnamed.
 
     `letzter_inhaber` says whether the press would be refused `REQ-PURGE-004` as the grants stand at this read: the address
     holds the last live `owner` grant, a barred owner counting as none. Read outside the press's transaction, it is advisory;

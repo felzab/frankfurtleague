@@ -96,10 +96,13 @@ async def get_erasure_ansicht_auf_anfrage(
     and no other. Another address's referee or pupil row holding a pending change to this address is named by its id, the
     change going and the row standing. A squad row and a referee row each carry the day it was retired, null while live,
     and a referee row every season holding a fixture still to be played that it is booked on, as `REQ-RETIRE-004` judges
-    one. Reached and not named: the fixtures booking a referee row, which move onto the ghost; the grants, bans,
-    invitations and decisions the address made for others, which name a marker in its place; its day counts; its rows in
-    the log and every log image holding it; a dead spelling of its grant, which admits nobody, and each grant's announced
-    row; and the address in every notice still queued, withheld. No address and no birthdate is answered.
+    one. Reached and not named: the fixtures booking a referee row, which move onto the ghost, and the referee's name in
+    each of those fixtures' log images, which goes; the grants, bans, invitations and decisions the address made for
+    others, which name a marker in its place; its day counts; its rows in the log; every log image of a record the
+    erasure removes, emptied whole whether or not it holds the address, and every other log image holding the address;
+    a dead spelling of its grant, which admits nobody, each grant's announced row, and an announced row holding the
+    address under another grant's id; and the address in every notice still queued, withheld. Written besides: the
+    notice that the address's grant ended, which every administrator is sent. No address and no birthdate is answered.
     `verwaltung` is the tier of the live grant the address holds, or null. Stores nothing.
 
     Refused as the erasure is: the administrator's own address (`REQ-PURGE-003`), an address holding an `owner` grant unless
