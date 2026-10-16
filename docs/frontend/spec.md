@@ -2584,7 +2584,6 @@ carries an `aria-label` of its own and the glyph inside it is decorative like an
 | A ban the sign-in store did not answer leaves its sessions unstamped, and a lift serves those its browser never brought back (I528)                                     | Accepted — its administrator is told and nobody is mailed (`FE-AUTH-006`, I517); the address is kept nowhere to end them later                                                              |
 | Two sends racing for the hour's last mail both pass the total's read, so one address's held code is voided and nothing mailed (I447, I486)                              | Accepted — the total counts mails sent, past the gate, so nothing reserves one before the code rotates; only a flood reaches it (`FE-AUTH-008`)                                             |
 | A store failing a transaction before its commit and failing its abort leaves the transaction open to its lifetime limit with no line (I678)                             | Accepted — the driver's own abort after a failed callback swallows its failures by specification, and the adapter's logged abort follows only an attempted commit                           |
-| I680's page sweep types only into a field a page shows unpressed or once a closed list opens, past every server action doubled                                          | Accepted — a field behind a dialog or a pick, and a URL an action builds, are review's; the lint bans still refuse `q` everywhere                                                           |
 | A reference written between the account sweep's second ask and its delete loses that account, its sessions and passkeys with it (I699)                                  | Accepted — no transaction spans the backend and the sign-in store; the second ask narrows it to seconds, and the person signs in by code                                                    |
 
 - **I545 reads what the source spells, and four routes past it are review's.** A module specifier or
@@ -2602,3 +2601,19 @@ carries an `aria-label` of its own and the glyph inside it is decorative like an
   read through `useSyncExternalStore`, whose changes React renders as blocking, so a toast shows at
   once whether a start call wraps it or not. Both were read in the installed packages on 2026-09-24,
   and both move without us.
+- **I680's page sweep types into every field a page shows, in its dialogs and behind each pick,
+  submits every form and presses every button, and what follows stays review's.**
+  `fl_frontend/src/app/typedText.test.ts` refuses every write a press sends, the one answer each
+  action shares, since a success is shaped as its own action answers it. The sweep does not see:
+  - what a page sends once a write succeeds;
+  - a URL a server action builds, held at the backend only by the parameter names
+    `fl_backend/tests/api/test_url_parameters.py` pins;
+  - typed text a page encodes before it sends it: a request, a prefetch, an attribute and whatever
+    a press sends are matched by the marker;
+  - a send gated on a shape the field's own attributes leave unsaid, its length and an address type
+    being the two the sweep types to;
+  - an address set on an element the page never holds, an image's apart, and a worker's request;
+  - a control more than two opens deep, and a button in a dialog a press opened, which closes again
+    before the next press.
+
+  The lint bans still refuse `q` everywhere.
