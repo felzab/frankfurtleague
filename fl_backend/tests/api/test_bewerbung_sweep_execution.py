@@ -1089,7 +1089,7 @@ class TestOneRowHoldsBackNoOther:
             answer = await sweep(database, client)
 
             return (
-                (answer.ohne_entscheidung_geloescht, answer.abgelehnte_geloescht),
+                (answer.ohne_entscheidung_geloescht, answer.abgelehnte_geloescht, answer.fehlgeschlagen),
                 await stored(database, REMIND_OID),
                 await stored(database, DELETE_OID),
             )
@@ -1098,7 +1098,7 @@ class TestOneRowHoldsBackNoOther:
             counts, refused, other = on_a_league(mongo_replica_set_url, body, status="past")
 
         # The decline clock after it ran too.
-        assert counts == (1, 1)
+        assert counts == (1, 1, 1)
         assert (refused is not None, other) == (True, None)
         assert passed_over(caplog) == [
             ("ERROR", DATABASE_FAILED, f"Application {REMIND_OID} was passed over by the season's end clock: {REFUSED_TRACE_ID}")
@@ -1115,7 +1115,7 @@ class TestOneRowHoldsBackNoOther:
         with caplog.at_level(logging.ERROR, logger=FL_LOGGER_NAME):
             answer, refused, other = on_a_league(mongo_replica_set_url, body)
 
-        assert answer.abgelehnte_geloescht == 1
+        assert (answer.abgelehnte_geloescht, answer.fehlgeschlagen) == (1, 1)
         assert (refused is not None, other) == (True, None)
         # The clocks after it ran: the drive at the fork found the reminder unstamped and the call raising every pass.
         assert (reminded(answer), [loeschung.bewerbung_id for loeschung in answer.loeschungen]) == ({REMIND_OID}, [DELETE_OID])
@@ -1132,7 +1132,7 @@ class TestOneRowHoldsBackNoOther:
             answer = await sweep(database, client)
 
             return (
-                (answer.angenommene_geloescht, answer.kontaktbloecke_geleert),
+                (answer.angenommene_geloescht, answer.kontaktbloecke_geleert, answer.fehlgeschlagen),
                 await stored(database, ACCEPTED_OID),
                 await stored(database, SECOND_OID),
             )
@@ -1140,7 +1140,7 @@ class TestOneRowHoldsBackNoOther:
         with caplog.at_level(logging.ERROR, logger=FL_LOGGER_NAME):
             counts, refused, other = on_a_league(mongo_replica_set_url, body, next_status="past")
 
-        assert counts == (1, 1)
+        assert counts == (1, 1, 1)
         assert (refused is not None, other) == (True, None)
         assert passed_over(caplog) == [
             ("ERROR", DATABASE_FAILED, f"Application {ACCEPTED_OID} was passed over by the acceptance clock: {REFUSED_TRACE_ID}")
@@ -1158,7 +1158,7 @@ class TestOneRowHoldsBackNoOther:
         with caplog.at_level(logging.ERROR, logger=FL_LOGGER_NAME):
             answer, blocks = on_a_league(mongo_replica_set_url, body, next_status="past")
 
-        assert (answer.kontaktbloecke_geleert, reminded(answer)) == (1, {REMIND_OID})
+        assert (answer.kontaktbloecke_geleert, answer.fehlgeschlagen, reminded(answer)) == (1, 1, {REMIND_OID})
         assert blocks == [(JUNCTION_OID, True), (SECOND_JUNCTION_OID, False)]
         assert passed_over(caplog) == [
             ("ERROR", DATABASE_FAILED, f"Season team {JUNCTION_OID} was passed over by the contact block clock: {REFUSED_TRACE_ID}")
@@ -1175,7 +1175,11 @@ class TestOneRowHoldsBackNoOther:
         with caplog.at_level(logging.ERROR, logger=FL_LOGGER_NAME):
             answer = on_a_league(mongo_replica_set_url, body)
 
-        assert ([loeschung.bewerbung_id for loeschung in answer.loeschungen], reminded(answer)) == ([DELETE_OID], {REMIND_OID})
+        assert ([loeschung.bewerbung_id for loeschung in answer.loeschungen], reminded(answer), answer.fehlgeschlagen) == (
+            [DELETE_OID],
+            {REMIND_OID},
+            1,
+        )
         assert passed_over(caplog) == [
             ("ERROR", STORED_DATA_INVALID, f"Application {SECOND_OID} was passed over by the deletion clock: {REFUSED_DEADLINE}")
         ]
@@ -1189,12 +1193,12 @@ class TestOneRowHoldsBackNoOther:
             refused = await stored(database, SECOND_OID)
             assert refused is not None
 
-            return reminded(answer), [seat["erinnert_am"] for seat in refused["bestaetigungen"].values()]
+            return reminded(answer), answer.fehlgeschlagen, [seat["erinnert_am"] for seat in refused["bestaetigungen"].values()]
 
         with caplog.at_level(logging.ERROR, logger=FL_LOGGER_NAME):
-            answered, stamps = on_a_league(mongo_replica_set_url, body)
+            answered, count, stamps = on_a_league(mongo_replica_set_url, body)
 
-        assert (answered, stamps) == ({REMIND_OID}, [None, None, None])
+        assert (answered, count, stamps) == ({REMIND_OID}, 1, [None, None, None])
         assert passed_over(caplog) == [
             ("ERROR", STORED_DATA_INVALID, f"Application {SECOND_OID} was passed over by the reminder clock: {REFUSED_DEADLINE}")
         ]
@@ -1215,27 +1219,31 @@ class TestOneRowHoldsBackNoOther:
             refused = await stored(database, SECOND_OID)
             assert refused is not None
 
-            return reminded(answer), [seat["erinnert_am"] for seat in refused["bestaetigungen"].values()]
+            return reminded(answer), answer.fehlgeschlagen, [seat["erinnert_am"] for seat in refused["bestaetigungen"].values()]
 
-        answered, stamps = on_a_league(mongo_replica_set_url, body)
+        answered, count, stamps = on_a_league(mongo_replica_set_url, body)
 
-        assert (answered, stamps) == ({REMIND_OID}, [None, None, None])
+        assert (answered, count, stamps) == ({REMIND_OID}, 1, [None, None, None])
         refusal = "OperationFailure, code 121: [{'loc': 'trikot', 'type': 'required', 'msg': 'property is missing'}]"
         assert passed_over(caplog) == [("ERROR", DATABASE_FAILED, f"Application {SECOND_OID} was passed over by the reminder clock: {refusal}")]
         assert [record.getMessage() for record in caplog.records if "withheld" in record.getMessage()] == [
             f"Reminders withheld from barred addresses in season {SAISON_ID}: 2 mailbox(es)"
         ]
 
-    def test_a_pass_whose_every_reminder_fails_still_records_its_day(self, mongo_replica_set_url: str):
-        """Every half that commits stamps the day, so only a pass none commits needs the day stamped alone: every stamp refused here."""
+    def test_a_pass_whose_every_reminder_fails_records_its_day_and_counts_them(self, mongo_replica_set_url: str):
+        """Every stamp refused, so no half commits and the day is stamped alone: the count is all that tells this pass from a clean one."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.BEWERBUNGEN].update_many({}, {"$unset": {"trikot": ""}}, bypass_document_validation=True)
             answer = await sweep(database, client)
 
-            return answer.erinnerungen, (await get_sweep_saisons(saisons_collection=database[Collection.SAISONS])).sweep_gelaufen_am
+            return (
+                answer.erinnerungen,
+                answer.fehlgeschlagen,
+                (await get_sweep_saisons(saisons_collection=database[Collection.SAISONS])).sweep_gelaufen_am,
+            )
 
-        assert on_a_league(mongo_replica_set_url, body) == ([], TODAY)
+        assert on_a_league(mongo_replica_set_url, body) == ([], 1, TODAY)
 
     def test_a_refused_announcement(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         """An application stored before a field its validator requires: the stamp's update is refused under strict validation."""
@@ -1245,14 +1253,14 @@ class TestOneRowHoldsBackNoOther:
             await database[Collection.BEWERBUNGEN].insert_one(invalid, bypass_document_validation=True)
             answer = await announce(database, client, [DELETE_OID, SECOND_OID])
 
-            return answer.angekuendigt, [
+            return (answer.angekuendigt, answer.fehlgeschlagen), [
                 (await stored(database, row_id) or {}).get("loeschung_angekuendigt_am") for row_id in (DELETE_OID, SECOND_OID)
             ]
 
         with caplog.at_level(logging.ERROR, logger=FL_LOGGER_NAME):
             stamped, stamps = on_a_league(mongo_replica_set_url, body)
 
-        assert (stamped, stamps) == (1, [TODAY, None])
+        assert (stamped, stamps) == ((1, 1), [TODAY, None])
         # `OperationFailure` rather than `WriteError`: the stamp is a `findAndModify`, which answers a refusal as a command error.
         refusal = "OperationFailure, code 121: [{'loc': 'trikot', 'type': 'required', 'msg': 'property is missing'}]"
         assert passed_over(caplog) == [
@@ -1266,12 +1274,12 @@ class TestOneRowHoldsBackNoOther:
             await refuse_the_redaction_of(database, Collection.BEWERBUNGEN, DELETE_OID)
             answer = await erase(database, client, [DELETE_OID, SECOND_OID])
 
-            return answer.geloescht, await stored(database, DELETE_OID), await stored(database, SECOND_OID)
+            return (answer.geloescht, answer.fehlgeschlagen), await stored(database, DELETE_OID), await stored(database, SECOND_OID)
 
         with caplog.at_level(logging.ERROR, logger=FL_LOGGER_NAME):
             erased, refused, other = on_a_league(mongo_replica_set_url, body)
 
-        assert (erased, refused is not None, other) == (1, True, None)
+        assert (erased, refused is not None, other) == ((1, 1), True, None)
         assert passed_over(caplog) == [
             ("ERROR", DATABASE_FAILED, f"Application {DELETE_OID} was passed over by the fourteen-day clock: {REFUSED_TRACE_ID}")
         ]

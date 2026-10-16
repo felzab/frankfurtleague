@@ -195,7 +195,8 @@ async def sweep_saison(
 
     An application or a season row whose write fails, the database refusing it or anything else, or one the answer cannot carry,
     is passed over alone and logged by id: the rest of its clock's page or share goes, and it stays due, so the next pass meets it
-    again and one failing record holds back no clock and nobody behind it.
+    again and one failing record holds back no clock and nobody behind it. `fehlgeschlagen` sums the rows each of the six clocks
+    passed over: a day stamped beside a sum that is not zero is a clock passing rows over, not one that ran clean.
 
     404 where no season has the id. Idempotent per day once every share has been taken: a run after that writes nothing,
     though it logs the count of withheld seats again.
@@ -481,38 +482,41 @@ async def sweep_saison(
     # Every transaction before the LAST, which is the reminder's: what that one hands back is owed a
     # message, and a failure after it would answer this request with an error instead
     # (`docs/backend/spec.md :: I323`).
-    ohne_entscheidung, redacted_undecided = 0, 0
+    ohne_entscheidung, redacted_undecided, fehlgeschlagen = 0, 0, 0
     # AHEAD of the reminder and of the list below, which read the collection after it: a season that
     # has ended leaves nobody to chase, and a notice about an application this pass erased is a
     # notice about nothing.
     if season_has_ended(saison_status=saison_status):
-        ohne_entscheidung, redacted_undecided, _ = await drain(
+        ohne_entscheidung, redacted_undecided, passed = await drain(
             db=db,
             page_of=lambda session, batch: session.with_transaction(erase_the_undecided, batch),
             page=SWEEP_PAGE,
             what="Application",
             clock="season's end",
         )
+        fehlgeschlagen += len(passed)
 
-    abgelehnte, redacted_declined, _ = await drain(
+    abgelehnte, redacted_declined, passed = await drain(
         db=db,
         page_of=lambda session, batch: session.with_transaction(erase_declined, batch),
         page=SWEEP_PAGE,
         what="Application",
         clock="decline",
     )
+    fehlgeschlagen += len(passed)
 
     angenommene, geleert, redacted_accepted = 0, 0, 0
     if season_after_has_ended(next_saison_status=next_saison_status):
-        angenommene, redacted_accepted, _ = await drain(
+        angenommene, redacted_accepted, passed = await drain(
             db=db,
             page_of=lambda session, batch: session.with_transaction(erase_accepted, batch),
             page=SWEEP_PAGE,
             what="Application",
             clock="acceptance",
         )
+        fehlgeschlagen += len(passed)
 
-        cleared, _ = await run_isolated(
+        cleared, passed = await run_isolated(
             db=db,
             batch=Batch(share=BLOCKS_CLEARED_PER_PASS),
             attempt=lambda session, batch: session.with_transaction(clear_the_blocks, batch),
@@ -523,6 +527,7 @@ async def sweep_saison(
         )
         geleert = sum(blocks for blocks, _ in cleared)
         redacted_accepted += sum(redacted for _, redacted in cleared)
+        fehlgeschlagen += len(passed)
 
     # Reads alone: the notice goes out first, and the erasure is the caller's second call.
     candidates = await pull_many_from_db(
@@ -561,13 +566,14 @@ async def sweep_saison(
             )
         except Exception as failure:
             log_passed(what="Application", row_id=row["_id"], clock="deletion", failure=failure)
+            fehlgeschlagen += 1
             continue
         loeschungen.append(loeschung)
 
     # The run's day is a season write, which the cache serves.
     with dropping_the_saison_cache():
         share = Batch(share=REMINDERS_PER_PASS)
-        reminded, _ = await run_isolated(
+        reminded, passed = await run_isolated(
             db=db,
             batch=share,
             attempt=lambda session, batch: session.with_transaction(remind, batch),
@@ -576,6 +582,7 @@ async def sweep_saison(
             what="Application",
             clock="reminder",
         )
+        fehlgeschlagen += len(passed)
         # Every half that committed stamped the day; where none did, nothing is owed and it is stamped alone.
         if not reminded:
             async with transaction_session(db) as session:
@@ -597,6 +604,7 @@ async def sweep_saison(
         ohne_entscheidung_geloescht=ohne_entscheidung,
         kontaktbloecke_geleert=geleert,
         redigierte_aktionen=redacted_declined + redacted_accepted + redacted_undecided,
+        fehlgeschlagen=fehlgeschlagen,
     )
 
 
@@ -617,7 +625,8 @@ async def angekuendigt_bewerbungen(
     """
     Record that the deletion notice reached the applications named, so an erasure that fails afterwards mails nobody twice.
 
-    An id whose stamp fails, the database refusing it or anything else, is passed over alone, logged by id and left unstamped.
+    An id whose stamp fails, the database refusing it or anything else, is passed over alone, logged by id, left unstamped and
+    counted in `fehlgeschlagen`.
 
     The ids are re-judged in-session: only one still submitted, past its deadline and with a seat outstanding is stamped, and one
     already carrying a stamp keeps the day it has. An id whose Ansprechperson the mail provider refused between the pass and this
@@ -663,7 +672,7 @@ async def angekuendigt_bewerbungen(
 
         return len(taken)
 
-    stamped, _ = await run_isolated(
+    stamped, passed = await run_isolated(
         db=db,
         batch=Batch(),
         attempt=lambda session, batch: session.with_transaction(stamp_the_notified, batch),
@@ -673,7 +682,7 @@ async def angekuendigt_bewerbungen(
         clock="announcement",
     )
 
-    return FLBewerbungSweepAngekuendigtResponse(saison_id=saison_id, angekuendigt=sum(stamped))
+    return FLBewerbungSweepAngekuendigtResponse(saison_id=saison_id, angekuendigt=sum(stamped), fehlgeschlagen=len(passed))
 
 
 @router.post(
@@ -700,7 +709,8 @@ async def loeschen_bewerbungen(
     the calls survives, one whose notice bounced after it was stamped is held rather than destroyed, and an id from another
     season or one nobody was told about is skipped rather than refused. 404 where no season has the id. An empty list answers zeros.
 
-    An id whose erasure fails, the database refusing it or anything else, is passed over alone, logged by id and left standing.
+    An id whose erasure fails, the database refusing it or anything else, is passed over alone, logged by id, left standing and
+    counted in `fehlgeschlagen`.
     """
 
     await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["_id"])
@@ -741,7 +751,7 @@ async def loeschen_bewerbungen(
 
         return result.deleted_count, redacted
 
-    erased, _ = await run_isolated(
+    erased, passed = await run_isolated(
         db=db,
         batch=Batch(),
         attempt=lambda session, batch: session.with_transaction(erase_the_notified, batch),
@@ -752,5 +762,8 @@ async def loeschen_bewerbungen(
     )
 
     return FLBewerbungSweepLoeschenResponse(
-        saison_id=saison_id, geloescht=sum(geloescht for geloescht, _ in erased), redigierte_aktionen=sum(redigiert for _, redigiert in erased)
+        saison_id=saison_id,
+        geloescht=sum(geloescht for geloescht, _ in erased),
+        redigierte_aktionen=sum(redigiert for _, redigiert in erased),
+        fehlgeschlagen=len(passed),
     )

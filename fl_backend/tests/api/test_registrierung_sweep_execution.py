@@ -539,11 +539,12 @@ class TestOneRowHoldsBackNoOther:
             answer, left = on_a_league(mongo_replica_set_url, body)
 
         # The clocks after it ran: the drive at the fork found the deadline's row standing and the call raising every pass.
-        assert (answer.geloescht_abgelehnt, answer.geloescht_unbestaetigt, REMIND_OID in {e.registrierung_id for e in answer.erinnerungen}) == (
-            1,
-            1,
-            True,
-        )
+        assert (
+            answer.geloescht_abgelehnt,
+            answer.geloescht_unbestaetigt,
+            answer.fehlgeschlagen,
+            REMIND_OID in {e.registrierung_id for e in answer.erinnerungen},
+        ) == (1, 1, 1, True)
         assert (DECLINED_OID in left, SECOND_OID in left) == (True, False)
         assert passed_over(caplog) == [
             ("ERROR", DATABASE_FAILED, f"Registration {DECLINED_OID} was passed over by the decline clock: {REFUSED_TRACE_ID}")
@@ -559,23 +560,27 @@ class TestOneRowHoldsBackNoOther:
         with caplog.at_level(logging.ERROR, logger=FL_LOGGER_NAME):
             answer, left, day = on_a_league(mongo_replica_set_url, body, status="past")
 
-        assert (answer.geloescht_ohne_entscheidung, [entry.registrierung_id for entry in answer.benachrichtigt]) == (3, [CONFIRMED_OID])
+        assert (answer.geloescht_ohne_entscheidung, answer.fehlgeschlagen, [entry.registrierung_id for entry in answer.benachrichtigt]) == (
+            3,
+            1,
+            [CONFIRMED_OID],
+        )
         assert (left, day) == ([REMIND_OID, OTHER_SEASON_OID], TODAY)
         assert passed_over(caplog) == [
             ("ERROR", DATABASE_FAILED, f"Registration {REMIND_OID} was passed over by the season's end clock: {REFUSED_TRACE_ID}")
         ]
 
-    def test_a_seasons_end_whose_every_erasure_fails_still_records_its_day(self, mongo_replica_set_url: str):
-        """Every half that commits stamps the day, so only a page none commits needs the day stamped alone."""
+    def test_a_seasons_end_whose_every_erasure_fails_records_its_day_and_counts_them(self, mongo_replica_set_url: str):
+        """No half commits, so the day is stamped alone: the count is all that tells this pass from a clean one."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.REGISTRIERUNGEN].delete_many({"_id": {"$in": [EXPIRED_OID, INSIDE_OID, CONFIRMED_OID]}})
             await refuse_the_redaction_of(database, REMIND_OID)
             answer = await sweep(database, client)
 
-            return answer.geloescht_ohne_entscheidung, await the_days_stamp(database)
+            return answer.geloescht_ohne_entscheidung, answer.fehlgeschlagen, await the_days_stamp(database)
 
-        assert on_a_league(mongo_replica_set_url, body, status="past") == (0, TODAY)
+        assert on_a_league(mongo_replica_set_url, body, status="past") == (0, 1, TODAY)
 
     def test_a_pupil_the_seasons_end_note_cannot_carry_stands_named_once(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         """Confirmed, with an empty first name: never erased untold, and read past by the page after its own rather than again."""
@@ -589,11 +594,11 @@ class TestOneRowHoldsBackNoOther:
             with caplog.at_level(logging.ERROR, logger=FL_LOGGER_NAME):
                 answer = await sweep(database, client)
 
-            return answer.geloescht_ohne_entscheidung, await standing(database)
+            return answer.geloescht_ohne_entscheidung, answer.fehlgeschlagen, await standing(database)
 
-        erased, left = on_a_league(mongo_replica_set_url, body, status="past")
+        erased, count, left = on_a_league(mongo_replica_set_url, body, status="past")
 
-        assert (erased, left) == (OVERFLOW, [SECOND_OID])
+        assert (erased, count, left) == (OVERFLOW, 1, [SECOND_OID])
         assert [line for _, _, line in passed_over(caplog)] == [
             f"Registration {SECOND_OID} was passed over by the season's end clock: ValidationError: "
             "[{'loc': 'vorname', 'type': 'string_too_short', 'msg': 'String should have at least 1 character'}]"
@@ -612,7 +617,15 @@ class TestOneRowHoldsBackNoOther:
         with caplog.at_level(logging.ERROR, logger=FL_LOGGER_NAME):
             answer, left = on_a_league(mongo_replica_set_url, body)
 
-        assert (answer.geloescht_unbestaetigt, REMIND_OID in {entry.registrierung_id for entry in answer.erinnerungen}) == (1, True)
+        assert (
+            answer.geloescht_unbestaetigt,
+            answer.fehlgeschlagen,
+            REMIND_OID in {entry.registrierung_id for entry in answer.erinnerungen},
+        ) == (
+            1,
+            1,
+            True,
+        )
         assert (EXPIRED_OID in left, SECOND_OID in left) == (True, False)
         assert passed_over(caplog) == [
             ("ERROR", DATABASE_FAILED, f"Registration {EXPIRED_OID} was passed over by the deadline clock: {REFUSED_TRACE_ID}")
@@ -627,12 +640,12 @@ class TestOneRowHoldsBackNoOther:
             refused = await stored(database, SECOND_OID)
             assert refused is not None
 
-            return {entry.registrierung_id for entry in answer.erinnerungen}, refused["bestaetigung"]["erinnert_am"]
+            return {entry.registrierung_id for entry in answer.erinnerungen}, answer.fehlgeschlagen, refused["bestaetigung"]["erinnert_am"]
 
         with caplog.at_level(logging.ERROR, logger=FL_LOGGER_NAME):
-            answered, stamp = on_a_league(mongo_replica_set_url, body)
+            answered, count, stamp = on_a_league(mongo_replica_set_url, body)
 
-        assert (REMIND_OID in answered, SECOND_OID in answered, stamp) == (True, False, None)
+        assert (REMIND_OID in answered, SECOND_OID in answered, count, stamp) == (True, False, 1, None)
         refusal = "ValidationError: [{'loc': 'vorname', 'type': 'string_too_short', 'msg': 'String should have at least 1 character'}]"
         assert passed_over(caplog) == [
             ("ERROR", STORED_DATA_INVALID, f"Registration {SECOND_OID} was passed over by the reminder clock: {refusal}")
@@ -655,11 +668,11 @@ class TestOneRowHoldsBackNoOther:
             refused = await stored(database, SECOND_OID)
             assert refused is not None
 
-            return {entry.registrierung_id for entry in answer.erinnerungen}, refused["bestaetigung"]["erinnert_am"]
+            return {entry.registrierung_id for entry in answer.erinnerungen}, answer.fehlgeschlagen, refused["bestaetigung"]["erinnert_am"]
 
-        answered, stamp = on_a_league(mongo_replica_set_url, body)
+        answered, count, stamp = on_a_league(mongo_replica_set_url, body)
 
-        assert (answered, stamp) == ({REMIND_OID, INSIDE_OID}, None)
+        assert (answered, count, stamp) == ({REMIND_OID, INSIDE_OID}, 1, None)
         refusal = "OperationFailure, code 121: [{'loc': 'einladung_id', 'type': 'required', 'msg': 'property is missing'}]"
         assert passed_over(caplog) == [
             ("ERROR", DATABASE_FAILED, f"Registration {SECOND_OID} was passed over by the reminder clock: {refusal}")
@@ -668,16 +681,17 @@ class TestOneRowHoldsBackNoOther:
             f"Reminders withheld from barred addresses in season {SAISON_ID}: 1 registration(s)"
         ]
 
-    def test_a_pass_whose_every_reminder_fails_still_records_its_day(self, mongo_replica_set_url: str):
-        """Every half that commits stamps the day, so only a pass none commits needs the day stamped alone: every stamp refused here."""
+    def test_a_pass_whose_every_reminder_fails_records_its_day_and_counts_them(self, mongo_replica_set_url: str):
+        """Every stamp refused, so no half commits and the day is stamped alone: the count is all that tells this pass from a clean one."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.REGISTRIERUNGEN].update_many({}, {"$unset": {"einladung_id": ""}}, bypass_document_validation=True)
             answer = await sweep(database, client)
 
-            return answer.erinnerungen, await the_days_stamp(database)
+            return answer.erinnerungen, answer.fehlgeschlagen, await the_days_stamp(database)
 
-        assert on_a_league(mongo_replica_set_url, body) == ([], TODAY)
+        # The two registrations at their reminder mark.
+        assert on_a_league(mongo_replica_set_url, body) == ([], 2, TODAY)
 
 
 # A page and a short one after it. At a page plus ONE the first read takes every row, so a clock

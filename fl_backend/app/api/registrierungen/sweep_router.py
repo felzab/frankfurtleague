@@ -139,7 +139,8 @@ async def sweep_registrierungen(
 
     A registration whose write fails, the database refusing it or anything else, or one the answer cannot carry, is passed over
     alone and logged by id: the rest of its clock's page or share goes, and it stays due, so the next pass meets it again and one
-    failing record holds back no clock and nobody behind it.
+    failing record holds back no clock and nobody behind it. `fehlgeschlagen` sums the rows each of the four clocks passed over: a
+    day stamped beside a sum that is not zero is a clock passing rows over, not one that ran clean.
 
     404 where no season has the id. Idempotent per day once every due reminder and notice has gone out: a run after that writes
     nothing, though it logs the count of withheld registrations again.
@@ -372,13 +373,14 @@ async def sweep_registrierungen(
     # FIRST, and every other drain before the pass's last transaction: what that transaction hands
     # back is owed a message, and a failure after it would answer this request with an error instead
     # (`docs/backend/spec.md :: I323`).
-    abgelehnte, redacted_declined, _ = await drain(
+    abgelehnte, redacted_declined, passed = await drain(
         db=db,
         page_of=lambda session, batch: session.with_transaction(erase_declined, batch),
         page=SWEEP_PAGE,
         what="Registration",
         clock="decline",
     )
+    fehlgeschlagen = len(passed)
 
     benachrichtigt: list[FLRegistrierungSweepBenachrichtigung] = []
     erinnerungen: list[FLRegistrierungSweepErinnerung] = []
@@ -417,17 +419,19 @@ async def sweep_registrierungen(
                         await session.with_transaction(stamp_the_run)
                 if all(last for *_, last in pages):
                     break
+            fehlgeschlagen += len(passed_at_the_end)
         else:
-            unbestaetigt, redacted_unconfirmed, _ = await drain(
+            unbestaetigt, redacted_unconfirmed, passed = await drain(
                 db=db,
                 page_of=lambda session, batch: session.with_transaction(erase_the_unconfirmed, batch),
                 page=SWEEP_PAGE,
                 what="Registration",
                 clock="deadline",
             )
+            fehlgeschlagen += len(passed)
 
             share = Batch(share=REMINDERS_PER_PASS)
-            reminded, _ = await run_isolated(
+            reminded, passed = await run_isolated(
                 db=db,
                 batch=share,
                 attempt=lambda session, batch: session.with_transaction(remind, batch),
@@ -436,6 +440,7 @@ async def sweep_registrierungen(
                 what="Registration",
                 clock="reminder",
             )
+            fehlgeschlagen += len(passed)
             # Every half that committed stamped the day; where none did, nothing is owed and it is stamped alone.
             if not reminded:
                 async with transaction_session(db) as session:
@@ -455,4 +460,5 @@ async def sweep_registrierungen(
         geloescht_ohne_entscheidung=ohne_entscheidung,
         geloescht_abgelehnt=abgelehnte,
         redigierte_aktionen=redacted_undecided + redacted_unconfirmed + redacted_declined,
+        fehlgeschlagen=fehlgeschlagen,
     )

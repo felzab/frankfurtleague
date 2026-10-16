@@ -1196,6 +1196,14 @@ failure, with the file, line and function it was raised in. The rest of that clo
 the named one stays due: every later pass names it again until its record is repaired
 ([`../backend/spec.md`](../backend/spec.md#2-invariants) I720).
 
+**A fresh date beside a `bewerbung.sweep_pass` or `registrierung.sweep_pass` warning is a clock
+passing rows over, not a pass that ran clean.** A clock failing on every row still moves its date,
+so this count is the only sign of it. Each pass writes one line for each half, its `fehlgeschlagen`
+summing the rows that half's clocks passed over across every season: `INFO` at zero, and a warning
+under `FE-SWEEP-001` above it. The backend's lines then name each row, as above:
+
+    docker compose logs --since 2h frontend | grep -E 'bewerbung.sweep_pass|registrierung.sweep_pass'
+
 **A clock owing a message answers what it had done when the deadline stops it taking rows apart;
 every other clock fails the call.** The clocks owing one are the two reminder clocks and the
 registrations' season's end. For them a warning that the database deadline passed, or that it held
