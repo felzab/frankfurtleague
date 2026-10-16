@@ -177,8 +177,11 @@ def test_a_window_the_module_would_read_otherwise_is_refused_before_the_containe
     ids=("done", "left", "no listing", "refused", "crashed"),
 )
 def test_the_module_s_answer_keeps_the_exit_contract(module_rc: int, printed: str, expected: int) -> None:
-    """1 is lines left, counted on the module's closing line; a 1 without it is Compose answering for a service not
-    running, a crash (3) as the module's own is; 2 is a run the module refused."""
+    """1 is lines left, counted on the module's closing line.
+
+    A 1 without that line is Compose answering for a service not running, a crash (3) as the module's own is; 2 is a run
+    the module refused.
+    """
     fixture = _Fixture()
     fixture.day("2026-10-15")
 
