@@ -9,6 +9,7 @@ and says so, since a silent zero reads exactly like a report with nothing in it.
 
     bank <register> <report> [--from <agent id>] [--none] [--as <name>]
          [--route <owner>=<F-labels>]... [--close "<status>=<evidence>:<F-labels>"]...
+         [--line F<n>=<line>]... [--cited <F-labels>]...
     route <register> <owner> <row>… [--reroute]
     close <register> <status> <evidence> <row>… [--reclose]
     open <register> [--unclosed]
@@ -31,7 +32,7 @@ import shlex
 import sys
 import tempfile
 import time
-from collections.abc import Callable, Collection, Iterator
+from collections.abc import Callable, Collection, Iterator, Mapping
 from pathlib import Path
 from typing import Final, NamedTuple
 
@@ -128,7 +129,6 @@ class Label(NamedTuple):
     table: bool
     # The line after its paragraph: a table row is a paragraph of one line.
     end: int
-    size: int
 
 
 def labels(report: str) -> dict[int, list[Label]]:
@@ -149,8 +149,7 @@ def labels(report: str) -> dict[int, list[Label]]:
     starts = {k for k, _, _ in opened}
     found: dict[int, list[Label]] = {}
     for k, n, summary in opened:
-        end = _end(lines, k, starts)
-        found.setdefault(n, []).append(Label(k, summary, TABLE_ROW_RE.match(lines[k]) is not None, end, len("\n".join(lines[k:end]).strip())))
+        found.setdefault(n, []).append(Label(k, summary, TABLE_ROW_RE.match(lines[k]) is not None, _end(lines, k, starts)))
     return found
 
 
@@ -167,43 +166,74 @@ def _end(lines: list[str], start: int, starts: set[int]) -> int:
     return end
 
 
-def _finding(found: list[Label]) -> Label:
-    # An index line, an acceptance table or an evidence line citing another report carries the number
-    # too, often first: the finding is the prose label with the longest paragraph, a table row only
-    # where no prose carries it.
+class Bankable(NamedTuple):
+    # The label each finding banks from, by number.
+    chosen: dict[int, Label]
+    # A line per number banked from a table row alone.
+    said: list[str]
+
+
+def _quoted(found: list[Label]) -> str:
+    return ", ".join(f"{label.line + 1} “{label.summary[:60]}”" for label in found)
+
+
+def _single(found: list[Label]) -> Label | None:
+    """A number's one prose label, or its first table row where no prose labels it; None where prose labels it twice."""
     prose = [label for label in found if not label.table]
-    return max(prose, key=lambda label: label.size) if prose else found[0]
+    return (prose[0] if len(prose) == 1 else None) if prose else found[0]
 
 
-def findings(report: str) -> dict[int, str]:
-    """Each labelled finding's first line, by number."""
-    return {n: _finding(found).summary for n, found in labels(report).items()}
+def bankable(report: str, settled: Mapping[int, int] | None = None, cited: Collection[int] = ()) -> Bankable:
+    """Each finding's label, `settled` naming a number's line and `cited` the numbers that cite another report.
 
-
-def shadowed(report: str) -> list[str]:
-    """A warning per number banked from a choice: labelled on several lines, or by a table row alone in a prose report."""
+    A report labels its findings once and cites by ledger id, so neither a number labelled twice nor one only above F1 is guessed at.
+    """
     found = labels(report)
-    if not any(not label.table for each in found.values() for label in each):
-        return []
-    said: list[str] = []
-    for n, each in sorted(found.items()):
-        chosen = _finding(each)
-        if chosen.table:
-            said.append(f"F{n} is banked from the table row at line {chosen.line + 1} alone: close it where it names another report's finding")
-        # A ranked table closing the report repeats every finding by design, which needs no word.
-        elif any(not label.table or label.line < chosen.line for label in each if label.line != chosen.line):
-            on = ", ".join(str(label.line + 1) for label in each)
-            said.append(f"F{n} is labelled on lines {on}: banked from line {chosen.line + 1}, whose paragraph runs longest")
-    return said
+    settled = settled or {}
+    for n, line in settled.items():
+        if not any(label.line + 1 == line for label in found.get(n, [])):
+            labelled = f"; F{n} is labelled on {_quoted(found[n])}" if n in found else ""
+            raise ValueError(f"--line F{n}={line}: line {line} labels no F{n}{labelled}")
+    if missing := sorted(set(cited) - set(found)):
+        raise ValueError(f"--cited names F{', F'.join(map(str, missing))}, which the report does not label")
+    chosen: dict[int, Label] = {}
+    unsettled: list[str] = []
+    for n in sorted(set(found) - set(cited)):
+        label = next((each for each in found[n] if each.line + 1 == settled[n]), None) if n in settled else _single(found[n])
+        if label is None:
+            prose = _quoted([each for each in found[n] if not each.table])
+            unsettled.append(f"F{n} is labelled on prose lines {prose}: --line F{n}=<line> names the finding")
+        else:
+            chosen[n] = label
+    # Findings number from F1, so a label above the report's own F1 is another report's finding cited bare, or its own out of order.
+    start = chosen[1].line if 1 in chosen else -1
+    for n in chosen:
+        if n not in settled and all(each.line < start for each in found[n]):
+            on = ", ".join(str(each.line + 1) for each in found[n])
+            unsettled.append(
+                f"F{n} is labelled only above the report's own F1 (line {start + 1}), on {on}: --line banks it, --cited F{n} banks no row"
+            )
+    if unsettled:
+        # A line each: the quoted summaries hold semicolons of their own.
+        raise ValueError("\n".join(unsettled))
+    prose_report = any(not label.table for each in found.values() for label in each)
+    said = [
+        f"F{n} is banked from the table row at line {label.line + 1} alone: close it where it names another report's finding"
+        for n, label in chosen.items()
+        if label.table and prose_report and n not in settled
+    ]
+    return Bankable(chosen, said)
 
 
 def paragraph(report: str, n: int, banked: str | None = None) -> str | None:
-    """Finding `n` whole: from its banked label to the next label or heading, or its table row alone."""
+    """Finding `n` whole, from the label the row's summary came from to the next label or heading; None where none labels `n`."""
     found = labels(report)
     if n not in found:
         return None
-    # The line whose summary the row holds: a row banked by an earlier choice prints what it banked.
-    chosen = next((label for label in found[n] if _cell(label.summary) == banked), _finding(found[n]))
+    # The label a row's summary holds, whatever chose it; else the number's only one.
+    chosen = next((label for label in found[n] if _cell(label.summary) == banked), None) or _single(found[n])
+    if chosen is None:
+        raise ValueError(f"F{n} is labelled on prose lines {_quoted([label for label in found[n] if not label.table])}")
     return "\n".join(report.splitlines()[chosen.line : chosen.end]).rstrip()
 
 
@@ -697,8 +727,8 @@ def held_as(register: Path, rows: list[str]) -> dict[str, str]:
     return {row: status(cells(lines[at[row]])) for row in rows if row in at}
 
 
-def gaps(text: str) -> list[int]:
-    numbers = sorted(findings(text))
+def gaps(banked: Collection[int]) -> list[int]:
+    numbers = sorted(banked)
     return [n for n in range(1, numbers[-1] + 1) if n not in numbers] if numbers else []
 
 
@@ -732,6 +762,17 @@ def parse_route(value: str) -> tuple[str, list[int]]:
     return agent.strip(), labelled_numbers(named)
 
 
+def parse_lines(values: list[str]) -> dict[int, int]:
+    """Each `F<n>=<line>` as the number and its line, refused where one is malformed or a number is named twice."""
+    settled: dict[int, int] = {}
+    for value in (word for given in values for word in given.split(",")):
+        found = re.fullmatch(r"F(\d+)=(\d+)", value.strip())
+        if found is None or int(found[1]) in settled:
+            raise ValueError(f"--line `{value}` is no F<n>=<line>, or names its number twice")
+        settled[int(found[1])] = int(found[2])
+    return settled
+
+
 def parse_close(value: str) -> tuple[str, str, list[int]]:
     # The labels follow the last colon, so the evidence may hold one.
     word, sep, rest = value.partition("=")
@@ -751,9 +792,12 @@ def bank_text(
     closes: Collection[tuple[str, str, list[int]]] = (),
     agent: str | None = None,
     now: datetime.datetime | None = None,
+    settled: Mapping[int, int] | None = None,
+    cited: Collection[int] = (),
 ) -> Banked:
     """One row per labelled finding of a report's text, OPEN unless routed or closed, written with the agent's live row in one write."""
-    labelled = findings(text)
+    choice = bankable(text, settled, cited)
+    labelled = {n: label.summary for n, label in choice.chosen.items()}
     if not labelled and not declared_none:
         shapes = other_shapes(text)
         raise LookupError(
@@ -796,7 +840,9 @@ def bank_text(
                     rows[n][3] = f"{word} ({escaped(evidence)})"
         if refused:
             raise ValueError("; ".join(refused))
-        said = shadowed(text)
+        said = list(choice.said)
+        if missing := gaps(labelled):
+            said.append(f"{report_name} skips F{', F'.join(map(str, missing))}: a finding may be unlabelled")
         if agent is not None:
             said.append(set_live_status(lines, agent, f"DONE {stamp(now)} {report_name}"))
         # An OPEN row keeps the shape it was always written in, its empty owner cell one space wide.
@@ -814,8 +860,11 @@ def bank(
     name: str | None = None,
     routes: Collection[tuple[str, list[int]]] = (),
     closes: Collection[tuple[str, str, list[int]]] = (),
+    settled: Mapping[int, int] | None = None,
+    cited: Collection[int] = (),
 ) -> Banked:
-    return bank_text(register, report.read_bytes().decode("utf-8"), report.name, declared_none, name, routes, closes)
+    text = report.read_bytes().decode("utf-8")
+    return bank_text(register, text, report.name, declared_none, name, routes, closes, settled=settled, cited=cited)
 
 
 def transcripts(agent: str, projects: Path) -> list[Path]:
@@ -895,13 +944,15 @@ def bank_from(
     name: str | None = None,
     routes: Collection[tuple[str, list[int]]] = (),
     closes: Collection[tuple[str, str, list[int]]] = (),
+    settled: Mapping[int, int] | None = None,
+    cited: Collection[int] = (),
 ) -> Banked:
     """The agent's final message banked, then saved as `report`: a refused bank saves nothing, so its retry is clean."""
     text = final_message(agent, projects)
     # A resumed agent's next reply is a report of its own: written over the first, it erased it.
     if report.exists() and report.read_bytes() != text.encode("utf-8"):
         raise ValueError(f"{report} already holds another report: save a later round under its own name, such as <NAME>-r2-report.md")
-    banked = bank_text(register, text, report.name, declared_none, name, routes, closes, agent=agent)
+    banked = bank_text(register, text, report.name, declared_none, name, routes, closes, agent=agent, settled=settled, cited=cited)
     report.write_bytes(text.encode("utf-8"))
     return banked
 
@@ -921,7 +972,11 @@ def show(register: Path, rows: list[str]) -> tuple[list[str], list[str]]:
         if path is None or not path.is_file():
             refused.append(f"{row}: no saved report at {path or 'a directory the register names in a `Reports:` or `Briefs:` line'}")
             continue
-        text = paragraph(path.read_bytes().decode("utf-8"), int(number["n"]), summary)
+        try:
+            text = paragraph(path.read_bytes().decode("utf-8"), int(number["n"]), summary)
+        except ValueError as unsettled:
+            refused.append(f"{row}: no label of {report} holds its summary, and {unsettled}")
+            continue
         if text is None:
             refused.append(f"{row}: {report} labels no F{number['n']}")
             continue
@@ -946,6 +1001,10 @@ def parser() -> argparse.ArgumentParser:
     banking.add_argument(
         "--close", action="append", default=[], metavar="STATUS=EVIDENCE:F-LABELS", help="close these labels' rows in the same write"
     )
+    banking.add_argument(
+        "--line", action="append", default=[], metavar="F<n>=LINE", help="bank F<n> from this line of the report: a comma parts several"
+    )
+    banking.add_argument("--cited", action="append", default=[], metavar="F-LABELS", help="labels that cite another report: no row")
     routing = commands.add_parser("route")
     routing.add_argument("register", type=Path)
     routing.add_argument("agent", help=f"a live-agent row's name, or a queue: {', '.join(QUEUES)}")
@@ -969,16 +1028,17 @@ def parser() -> argparse.ArgumentParser:
 def _bank(args: argparse.Namespace) -> int:
     routes = [parse_route(value) for value in args.route]
     closes = [parse_close(value) for value in args.close]
+    settled = parse_lines(args.line)
+    cited = [n for value in args.cited for n in labelled_numbers(value)]
     if args.agent:
-        banked = bank_from(args.register, args.report, args.agent, Path.home() / ".claude" / "projects", args.none, args.name, routes, closes)
+        projects = Path.home() / ".claude" / "projects"
+        banked = bank_from(args.register, args.report, args.agent, projects, args.none, args.name, routes, closes, settled, cited)
     else:
-        banked = bank(args.register, args.report, args.none, args.name, routes, closes)
+        banked = bank(args.register, args.report, args.none, args.name, routes, closes, settled, cited)
     for row in banked.added:
         print(row)
     for line in banked.said + repeats(args.register, banked.added):
         print(line, file=sys.stderr)
-    if missing := gaps(args.report.read_bytes().decode("utf-8")):
-        print(f"{args.report.name} skips F{', F'.join(map(str, missing))}: a finding may be unlabelled", file=sys.stderr)
     if banked.left_open:
         print(f"left OPEN: {', '.join(banked.left_open)} -- route each to its owner or close it", file=sys.stderr)
         return 4

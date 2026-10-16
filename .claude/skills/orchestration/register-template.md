@@ -115,7 +115,10 @@ while the owner is away, queued here with its options and any provisional build 
 | # | Source report | Finding (file :: anchor) | Status | Owner, or the evidence that closed it |
 |---|---|---|---|---|
 <The fleet's only ledger: no other file holds findings. One row per labelled finding of every
-report, a fixer's included, written by `ledger.py bank` before the next dispatch. A row moves to
+report, a fixer's included, written by `ledger.py bank` before the next dispatch. A report
+labelling a number on several prose lines, or only above its own F1, banks nothing until
+`ledger.py bank --line F<n>=<line>` names the line its finding opens on, or `--cited F<n>` names
+the label a citation of another report's finding. A row moves to
 ROUTED, one owner at a time, by `bank --route`, by a writer's brief's `Rows:` line at
 `reg.py dispatch --brief`, by a sent message's `Rows:` line or by `ledger.py route`; its owner is a
 live agent or one of the queues `ledger.py route` names when it refuses another, and

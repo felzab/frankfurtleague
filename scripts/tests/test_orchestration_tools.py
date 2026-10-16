@@ -527,7 +527,9 @@ def test_bank_writes_one_open_row_per_label_and_never_twice(tmp_path: Path) -> N
     register = _register(tmp_path)
     report = tmp_path / "LENS-L6-report.md"
     report.write_bytes(LABELLED.encode("utf-8"))
-    added = ledger.bank(register, report).added
+    with pytest.raises(ValueError, match="F1 is labelled on prose lines 5 “The switch the label names is not rendered.”, 16 “again"):
+        ledger.bank(register, report)
+    added = ledger.bank(register, report, settled={1: 5}).added
     assert [row.split(" | ")[0] for row in added] == ["| LENS-L6-F1", "| LENS-L6-F2", "| LENS-L6-F3"]
     assert "The switch the label names is not rendered." in added[0]
     assert all(row.endswith("| OPEN | |") for row in added)
@@ -961,12 +963,16 @@ FIXER_REPORT: Final = (
 )
 
 
-def test_a_number_a_table_row_and_a_prose_line_both_label_banks_the_prose_and_says_so(tmp_path: Path) -> None:
-    """S9-AUTH-r6's F1 to F9 were banked from its acceptance table, and its real findings never reached the ledger."""
-    assert ledger.findings(FIXER_REPORT) == {1: "correction for the commit body.", 2: "the case drives it", 3: "The tail"}
-    said = ledger.shadowed(FIXER_REPORT)
-    assert said[0] == "F1 is labelled on lines 5, 10: banked from line 10, whose paragraph runs longest"
-    assert said[1].startswith("F2 is banked from the table row at line 6 alone") and len(said) == 2
+def test_a_number_a_table_row_and_a_prose_line_both_label_banks_the_prose() -> None:
+    """S9-AUTH-r6's F1 to F9 were banked from its acceptance table, and its real findings never reached the ledger.
+
+    A number only that table labels, above the report's own F1, banks nothing until it is cited or named.
+    """
+    with pytest.raises(ValueError, match=r"^F2 is labelled only above the report's own F1 \(line 10\), on 6: --line banks it, --cited F2"):
+        ledger.bankable(FIXER_REPORT)
+    cited = ledger.bankable(FIXER_REPORT, cited=[2])
+    assert {n: label.summary for n, label in cited.chosen.items()} == {1: "correction for the commit body.", 3: "The tail"}
+    assert cited.said == [] and ledger.bankable(FIXER_REPORT, settled={2: 6}).chosen[2].summary == "the case drives it"
 
 
 # A cold audit's shape: an index naming each finding, the findings in prose, and a ranked table closing it.
@@ -979,28 +985,75 @@ INDEXED_REPORT: Final = (
 )
 
 
-def test_a_number_an_index_list_repeats_banks_its_longest_paragraph_and_says_so(tmp_path: Path) -> None:
-    """An index item listed first was banked as the finding, and a closing ranked table drew a warning per finding."""
-    assert ledger.findings(INDEXED_REPORT) == {
-        1: "`ci.py expect` writes a job's placeholder as an expected red.",
-        2: "Register writes have no lock.",
-        3: "a dash before the summary.",
-    }
-    assert ledger.shadowed(INDEXED_REPORT) == [
-        "F1 is labelled on lines 3, 8, 22: banked from line 8, whose paragraph runs longest",
-        "F2 is labelled on lines 4, 12, 23: banked from line 12, whose paragraph runs longest",
-    ]
-    assert ledger.paragraph(INDEXED_REPORT, 2) == "**F2. Register writes have no lock.**\n\n**Evidence.** Two writers overlap."
+def test_a_number_an_index_list_repeats_is_refused_until_its_line_is_named() -> None:
+    """An index item listed first was banked as the finding, and the longest paragraph that replaced it picked evidence lines.
+
+    A closing ranked table repeats every finding by design and refuses nothing.
+    """
+    with pytest.raises(ValueError) as refused:
+        ledger.bankable(INDEXED_REPORT)
+    said = str(refused.value).splitlines()
+    assert [line.split(" “")[0] for line in said] == ["F1 is labelled on prose lines 3", "F2 is labelled on prose lines 4"], said
+    assert ", 8 “" in said[0] and ", 12 “Register writes have no lock.”: --line F2=<line> names the finding" in said[1]
+    named = ledger.bankable(INDEXED_REPORT, settled={1: 8, 2: 12})
+    assert {n: label.line + 1 for n, label in named.chosen.items()} == {1: 8, 2: 12, 3: 18} and named.said == []
+    held = ledger._cell("Register writes have no lock.")
+    assert ledger.paragraph(INDEXED_REPORT, 2, held) == "**F2. Register writes have no lock.**\n\n**Evidence.** Two writers overlap."
+    with pytest.raises(ValueError, match="F2 is labelled on prose lines 4"):
+        ledger.paragraph(INDEXED_REPORT, 2)
     cold = INDEXED_REPORT.split("## Findings\n\n", 1)[1]
-    assert ledger.shadowed(cold) == []
+    assert sorted(ledger.bankable(cold).chosen) == [1, 2, 3] and ledger.bankable(cold).said == []
+
+
+# SKILL-FIX-TOOLS-2's report, its labels kept and its prose cut: its acceptance section labels the audit's
+# findings bare, F23 among them, and its own findings follow from F1.
+CITING_REPORT: Final = (
+    "## (c) Acceptance\n\n**Item 1: the audit's F1 to F3.**\n\n"
+    "- **F1 (`expect` and generic lines).** `expect` no longer writes a row for a job's verdict-only line.\n"
+    "- **F2 (one writer at a time).** `ledger.update` holds a lock file across the read and the replace.\n"
+    "  - Plants: `F2-lock`, red 2 of 2 times.\n"
+    "- **F3 (prune keeps a working agent).** A finished agent keeps its tree in four cases.\n"
+    "- F23: a failure after the record is reported beside it (`F23-oserror`).\n\n"
+    "## (d) What I could not verify\n\n"
+    "- **F1.** I did not run `prune` or `overlap` against the real worktrees.\n"
+    "- **F2.** That bash ignores `-n` in an interactive shell is not established by a run.\n\n"
+    "## (e) What in the brief was wrong\n\n- **F3.** The repair for audit F5 would refuse 872 real final reports.\n"
+)
+
+
+def test_a_report_labelling_a_number_twice_or_citing_one_bare_banks_nothing_until_each_is_named(tmp_path: Path) -> None:
+    """Its F1 to F3 were banked from bullets citing the audit, and its bare F23 became a row for a finding it never made."""
+    register = _register(tmp_path)
+    report = tmp_path / "SKILL-FIX-TOOLS-2-report.md"
+    report.write_bytes(CITING_REPORT.encode())
+    before = register.read_bytes()
+    first = _run("ledger", "bank", str(register), str(report))
+    assert first.returncode == 2 and register.read_bytes() == before and first.stdout == "", first.stderr
+    assert [line.split(" “")[0] for line in first.stderr.splitlines()] == [
+        f"F{n} is labelled on prose lines {k}" for n, k in ((1, 5), (2, 6), (3, 8))
+    ]
+    assert ", 13 “I did not run" in first.stderr and ", 14 “That bash" in first.stderr and ", 18 “The repair" in first.stderr
+    wrong = _run("ledger", "bank", str(register), str(report), "--line", "F1=6")
+    assert wrong.returncode == 2 and "--line F1=6: line 6 labels no F1" in wrong.stderr, wrong.stderr
+    named = _run("ledger", "bank", str(register), str(report), "--line", "F1=13,F2=14", "--line", "F3=18")
+    assert named.returncode == 2 and register.read_bytes() == before
+    assert named.stderr.strip() == "F23 is labelled only above the report's own F1 (line 13), on 9: --line banks it, --cited F23 banks no row"
+    done = _run("ledger", "bank", str(register), str(report), "--line", "F1=13,F2=14", "--line", "F3=18", "--cited", "F23")
+    assert done.returncode == 4, done.stderr
+    assert [ledger.cells(row)[2] for row in done.stdout.splitlines()] == [
+        "I did not run `prune` or `overlap` against the real worktrees.",
+        "That bash ignores `-n` in an interactive shell is not established by a run.",
+        "The repair for audit F5 would refuse 872 real final reports.",
+    ]
 
 
 def test_show_prints_a_rows_whole_finding_from_its_saved_report(tmp_path: Path) -> None:
     """Over half the ledger's rows end cut at 160 characters, and a driver barred from the report worked from the half."""
     reports = tmp_path / "reports"
     reports.mkdir()
-    register = _banked(tmp_path, ("A-report.md", FIXER_REPORT))
+    register = _register(tmp_path)
     (reports / "A-report.md").write_bytes(FIXER_REPORT.encode())
+    ledger.bank(register, reports / "A-report.md", settled={2: 6})
     head = register.read_bytes().replace(b"# Agent register\n", f"# Agent register\nReports: {reports}\n".encode(), 1)
     register.write_bytes(head)
     done = _run("ledger", "show", str(register), "A-F1", "A-F2", "A-F9")
