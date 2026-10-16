@@ -37,7 +37,7 @@ done
 # Unions each day's lines into that day's file with what it already holds, so a line the size cap
 # rotated away since the last pass stays. Days are UTC, as each line's `timestamp` is.
 export_days() { # $1 the last day to write, today, as YYYY-MM-DD
-  local last="$1" first copy held day target merged newest live_rc=0 read_rc=0
+  local last="$1" first copy held day target merged live_rc=0 read_rc=0
   local -a copies=() piped=()
   first="$(date -u -d "${last} $(( JOURNAL_DAYS - 1 )) days ago" +%F)"
   [[ -d "$LOG_DIR" && -w "$LOG_DIR" ]] || refuse "${LOG_DIR} is missing or not writable by $(id -un), so no journal line was copied.
@@ -77,17 +77,11 @@ The deploy creates it; docs/ops/runbooks.md §7 says how to create it by hand."
     merged="${held}.merged"
     if [[ -f "$target" ]]; then
       LC_ALL=C sort -u -- "$held" "$target" > "$merged"
-      # Left untouched when nothing is new, so its date stays its newest line's.
+      # Left untouched when nothing is new: the age bound counts from a file's last change, which the
+      # notice publishes, and a rewrite would restart it hourly for every day the logs still hold.
       if cmp -s -- "$merged" "$target"; then continue; fi
     else
       LC_ALL=C sort -u -- "$held" > "$merged"
-    fi
-    # Dated to its newest line, which sorts last: the age bound then counts from the erasure rather
-    # than from the pass that first read it, however late that was.
-    newest="$(tail -n 1 -- "$merged")"
-    if [[ -n "$newest" ]]; then
-      newest="${newest#\{\"timestamp\": \"}"
-      touch -d "${newest%%\"*}" -- "$merged"
     fi
     mv -f -- "$merged" "$target"
   done

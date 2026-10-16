@@ -83,6 +83,7 @@ SPECS: Final = {
     "yesterday later": (f"{YESTERDAY}T18:00:00", "JOURNAL ddd"),
     "first": (f"{FIRST}T00:00:00", "JOURNAL eee"),
     "a week ago": ("2026-10-09T07:30:00", "JOURNAL fff"),
+    "a quiet day": ("2026-10-12T08:00:00", "A request answered"),
 }
 
 
@@ -255,28 +256,29 @@ def test_a_day_the_logs_hold_gets_its_file_with_no_erasure_and_a_day_they_do_not
     assert fixture.day(TODAY) is None, output
 
 
-def test_a_file_that_gains_a_line_is_dated_to_its_newest_line() -> None:
-    """The age bound reads a file's mtime, so a line a late pass copies is kept from its erasure and not from that pass."""
-    fixture = _Fixture()
-    fixture.stream(line("yesterday later"), line("yesterday"))
+def test_a_second_pass_over_the_same_logs_leaves_every_day_file_as_it_was() -> None:
+    """The notice deletes a day file thirty days after its last change, and a rewrite restarts that bound hourly for every day held.
 
+    The quiet day's empty file is the load-bearing one: every day the logs hold has one.
+    """
+    fixture = _Fixture()
+    fixture.stream(line("a quiet day"), line("yesterday"), line("today"))
+    fixture.write("2026-10-16T101500-backend.log", _copied(line("a week ago"), "2026-10-09T07:30:00"))
     code, output = _run(fixture)
-
     assert code == 0, output
-    assert fixture.path(YESTERDAY).stat().st_mtime == _epoch(f"{YESTERDAY}T18:00:00"), output
-
-
-def test_a_pass_adding_nothing_leaves_the_file_untouched() -> None:
-    fixture = _Fixture()
-    held = fixture.write(f"{YESTERDAY}-erasure-journal.log", line("yesterday"))
-    fixture.stream(line("yesterday"))
+    days = sorted(fixture.logs.glob("*-erasure-journal.log"))
+    assert [path.name for path in days] == [f"{day}-erasure-journal.log" for day in ("2026-10-09", "2026-10-12", YESTERDAY, TODAY)], output
     before = time.time() - 3600
-    os.utime(held, (before, before))
+    for path in days:
+        os.utime(path, (before, before))
+    written = {path.name: path.read_bytes() for path in days}
 
     code, output = _run(fixture)
 
     assert code == 0, output
-    assert held.stat().st_mtime == before, output
+    assert sorted(fixture.logs.glob("*-erasure-journal.log")) == days, output
+    assert {path.name: path.read_bytes() for path in days} == written, output
+    assert {path.name: path.stat().st_mtime for path in days} == dict.fromkeys(written, before), output
 
 
 def test_a_pass_leaves_nothing_in_the_directory_but_the_day_files() -> None:

@@ -1086,8 +1086,10 @@ x /var/log/frankfurtleague/nginx
 erasure a person or an administrator asks for leaves one line in the backend's stream
 ([`../backend/spec.md`](../backend/spec.md#2-invariants) I666), and a restore runs each of them again
 from those lines (§13). The stream loses them at the next recreate, or sooner once its size cap
-rotates them away; the day files keep them for this directory's thirty days, each file dated to its
-newest line, so the thirty count from the erasure rather than from the pass that copied it. **Every
+rotates them away; the day files keep them for this directory's thirty days, counted from each
+file's last change, which is what the published notice states: a pass that adds nothing to a day
+leaves its file untouched, or every day the logs still hold would start its thirty days again each
+hour. **Every
 pass reads every day of those thirty that the stream or a deploy copy above still holds**
 (`scripts/ops/export_journal.sh :: JOURNAL_DAYS`) and unions each day's lines into what its file
 already holds, so no pass drops a line an earlier one copied, and a line a pass missed — the stream
