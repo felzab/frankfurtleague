@@ -83,7 +83,8 @@ ABSENT_OID = ObjectId("6890a1b2c3d4e5f607849999")
 VORNAME = "Lenore"
 EMAIL = "lenore.quastenbach@schule.example"
 NEW_EMAIL = "lenore.q@neupost.example.org"
-# How an administrator may type the new address: the payload keeps the local part's case.
+# How an administrator may type the new address: the payload keeps the local part's case. A case
+# requesting this spelling fails where a writer judges the address as typed rather than its fold.
 NEW_AS_TYPED = "Lenore.Q@NeuPost.Example.org"
 THIRD_EMAIL = "quastenbach.lenore@drittpost.example.net"
 OTHER_EMAIL = "jonte.wirbelauer@schule.example"
@@ -282,11 +283,11 @@ class TestTheRequest:
         """The first request, its re-send and the replacing request each file an image carrying the replaced address."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await request(database, client, email=NEW_EMAIL)
+            await request(database, client, email=NEW_AS_TYPED)
             await resend(database, client)
             await request(database, client, email=THIRD_EMAIL)
 
-            return await where_held(database, NEW_EMAIL, THIRD_EMAIL)
+            return await where_held(database, NEW_EMAIL, THIRD_EMAIL, folded=True)
 
         held = on_a_league(mongo_replica_set_url, body)
 
@@ -518,14 +519,14 @@ class TestTheDecline:
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await request(database, client, email=NEW_EMAIL)
+            await request(database, client, email=NEW_AS_TYPED)
             token = (await resend(database, client)).adresswechsel.token
             if late_or_barred != "late":
                 # Hashed, so the ban list itself holds the address nowhere for the scan below to find.
                 await ban(database, client, email=NEW_EMAIL if late_or_barred == "barred" else EMAIL)
             await answer(database, client, token, "abgelehnt", today=AFTER_THE_DEADLINE if late_or_barred == "late" else TODAY)
 
-            return await stored(database), await where_held(database, NEW_EMAIL)
+            return await stored(database), await where_held(database, NEW_EMAIL, folded=True)
 
         row, held = on_a_league(mongo_replica_set_url, body)
 
@@ -683,11 +684,17 @@ class TestTheDiscard:
     def test_it_keeps_the_address_removes_the_change_and_leaves_its_address_nowhere(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             before = await stored(database)
-            await request(database, client, email=NEW_EMAIL)
+            await request(database, client, email=NEW_AS_TYPED)
             token = (await resend(database, client)).adresswechsel.token
             discarded = await discard(database, client)
 
-            return before, discarded, await stored(database), await refused_code(view(database, token)), await where_held(database, NEW_EMAIL)
+            return (
+                before,
+                discarded,
+                await stored(database),
+                await refused_code(view(database, token)),
+                await where_held(database, NEW_EMAIL, folded=True),
+            )
 
         before, discarded, row, old_link, held = on_a_league(mongo_replica_set_url, body)
 
