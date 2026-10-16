@@ -45,6 +45,7 @@ from tests.bans import ban_list
 from tests.config import ADMIN_KEY, ADMINISTRATORS, UNANSWERED_DEADLINE_S, UNANSWERED_URI, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import schiedsrichter_document
+from tests.erasure import erasure_collections
 from tests.isolation import InterleavedCollection
 from tests.whole_database import where_held
 from tests.worker import worker_database
@@ -81,7 +82,6 @@ from .test_funktionen_erasure import (
     acting,
     as_person,
     everything_in,
-    the_collections,
 )
 from .test_funktionen_erasure import PATH as SELBST_PATH
 
@@ -180,7 +180,7 @@ async def erased_by_the_handler(
 
     return await erase_auf_anfrage(
         erasure_data=FLErasurePayload(email=email, anlass=anlass),
-        **the_collections(database, **replaced),
+        **erasure_collections(database, **replaced),
         sperrliste=ban_list(database),
         # Refusing none: the window is held over HTTP, in `tests/api/test_step_up_execution.py`.
         refuse_unconfirmed=get_recent_confirmation_check(FRESH_ADMIN_ACTOR),
