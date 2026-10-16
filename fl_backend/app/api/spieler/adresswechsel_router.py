@@ -114,7 +114,8 @@ async def get_adresswechsel_ansicht(
     "",
     response_model=FLSpielerAdresswechselAntwortResponse,
     summary="Confirm or decline one Spieler's pending address",
-    # `uniq_spieler_email` answers a rival write landing the address after the in-session read below.
+    # `uniq_spieler_email` answers the sentinel given the address by hand, which the in-session holder read passes over.
+    # A rival committing after that read meets the write as a conflict, and the retry's read refuses it.
     responses={409: DUPLICATE_KEY_RESPONSE},
 )
 async def post_adresswechsel_antwort(
@@ -140,8 +141,8 @@ async def post_adresswechsel_antwort(
     removes an address nobody proved, and it takes that address out of every image the action log holds of this pupil, those of
     every write while the change stood, a re-send included. The rest of each image stays.
 
-    The last three codes, and `DB-COMMON-002` for the race the in-session read misses, tell a caller what the view's
-    `nicht_bestaetigbar` keeps alike. Only the edge keeps them from the link's holder: `nginx/shared/site.conf` routes no public
+    The last three codes, and `DB-COMMON-002` for an address the erased pupils' sentinel was given by hand, tell a caller what
+    the view's `nicht_bestaetigbar` keeps alike. Only the edge keeps them from the link's holder: `nginx/shared/site.conf` routes no public
     call to this service, and the frontend's route handler for the link's page answers all four as that one state.
     """
 

@@ -44,6 +44,9 @@ from app.api.spieler.services import (
     SPIELER_KEINE_ADRESSE,
     SPIELER_TOKEN_EXPIRED,
     SPIELER_TOKEN_UNKNOWN,
+    build_pending_spieler_adresswechsel_filter,
+    build_selbst_pupil_filter,
+    build_spieler_adresswechsel_filter,
     spieler_adresswechsel_frist_from,
 )
 from app.api.zustellung.router import angenommen_zustellung
@@ -57,6 +60,7 @@ from tests import documents
 from tests.bans import ban_list, ban_through_the_route
 from tests.config import grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.holds import HeldCollection
 from tests.records import record_collections
 from tests.whole_database import where_held
 from tests.worker import worker_database
@@ -137,10 +141,10 @@ async def resend(database: AsyncDatabase, client: AsyncMongoClient, *, spieler_i
     )
 
 
-async def discard(database: AsyncDatabase, client: AsyncMongoClient, *, spieler_id: ObjectId = SPIELER_OID) -> Any:
+async def discard(database: AsyncDatabase, client: AsyncMongoClient, *, spieler_id: ObjectId = SPIELER_OID, spieler: Any = None) -> Any:
     return await delete_adresswechsel(
         spieler_id=spieler_id,
-        spieler_collection=database[Collection.SPIELER],
+        spieler_collection=spieler if spieler is not None else database[Collection.SPIELER],
         aktionen_collection=database[Collection.AKTIONEN],
         db=client,
         germany_now=NOW,
@@ -156,10 +160,12 @@ async def view(database: AsyncDatabase, token: str, *, today: str = TODAY) -> An
     )
 
 
-async def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str, antwort: str, *, today: str = TODAY) -> Any:
+async def answer(
+    database: AsyncDatabase, client: AsyncMongoClient, token: str, antwort: str, *, today: str = TODAY, spieler: Any = None
+) -> Any:
     return await post_adresswechsel_antwort(
         antwort_data=FLSpielerAdresswechselAntwortPayload.model_validate({"token": token, "antwort": antwort}),
-        spieler_collection=database[Collection.SPIELER],
+        spieler_collection=spieler if spieler is not None else database[Collection.SPIELER],
         sperrliste=ban_list(database),
         aktionen_collection=database[Collection.AKTIONEN],
         db=client,
@@ -231,6 +237,53 @@ def refusal_of(outcome: BaseException | object) -> str:
     if isinstance(outcome, DocumentNotFoundException):
         return outcome.error_code
     raise AssertionError(f"{outcome!r} is neither an answer nor a refusal")
+
+
+class _HoldsAfterItsRead(HeldCollection):
+    """A writer held after its read through one filter until another writer has committed.
+
+    Records each such read and each write's failure as well: how many attempts ran, and how the server ordered the two.
+    """
+
+    MISSED = "the writer answered without its read, so nothing held it across the other writer's commit"
+
+    def __init__(self, collection: Any, committed: asyncio.Event, *, read: Mapping[str, Any]) -> None:
+        super().__init__(collection, committed)
+        self._read = read
+        self.reads = 0
+        self.write_failures: list[str] = []
+
+    async def find_one(self, *args: Any, **kwargs: Any) -> Any:
+        found = await self._collection.find_one(*args, **kwargs)
+        if kwargs.get("filter", args[0] if args else {}) == self._read:
+            self.reads += 1
+            await self.hold()
+
+        return found
+
+    async def find_one_and_update(self, *args: Any, **kwargs: Any) -> Any:
+        try:
+            return await self._collection.find_one_and_update(*args, **kwargs)
+        except Exception as failure:
+            self.write_failures.append(f"{type(failure).__name__}:{getattr(failure, 'code', None)}")
+            raise
+
+
+async def held_against(
+    held: HeldCollection, committed: asyncio.Event, writer: Awaitable[Any], rival: Callable[[], Awaitable[Any]]
+) -> tuple[Any, BaseException | Any]:
+    """The rival's answer and then the held writer's, the writer released once the rival has committed."""
+
+    task = asyncio.ensure_future(writer)
+    await held.until_held(task)
+    try:
+        answered = await rival()
+    except BaseException:
+        await held.abandon(task)
+        raise
+    committed.set()
+
+    return answered, (await asyncio.gather(task, return_exceptions=True))[0]
 
 
 async def the_pupils_images(database: AsyncDatabase) -> list[Mapping[str, Any]]:
@@ -481,6 +534,23 @@ class TestTheConfirmationsRefusals:
         assert code == SPIELER_ADRESSE_VERGEBEN
         assert row == before
 
+    def test_to_an_address_the_sentinel_was_given_by_hand(self, mongo_replica_set_url: str):
+        """The one path to `DB-COMMON-002`: the holder read passes over the sentinel, and `uniq_spieler_email` covers it."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            token = (await request(database, client, email=NEW_EMAIL)).adresswechsel.token
+            await database[Collection.SPIELER].insert_one(documents.spieler_document(GHOST_SPIELER_ID, VORNAME, None, email=NEW_EMAIL))
+            before = await stored(database)
+            with pytest.raises(DuplicateKeyError) as refused:
+                await answer(database, client, token, "bestaetigt")
+
+            return refusal_of(refused.value), before, await stored(database)
+
+        code, before, row = on_a_league(mongo_replica_set_url, body)
+
+        assert code == DUPLICATE_KEY
+        assert row == before
+
     def test_for_a_pupil_whose_address_was_removed_by_hand(self, mongo_replica_set_url: str):
         """Confirmed, the change would enter an address on a pupil holding none, which the request never may."""
 
@@ -717,10 +787,13 @@ class TestTheDiscard:
 
 
 class TestTwoWritersAtOnce:
-    """Each writer judges inside its own transaction, so two running at once settle to one outcome, whichever commits first."""
+    """Each writer judges inside its own transaction, so two running at once settle to one outcome, whichever commits first.
+
+    The held cases fix each interleaving the unheld ones leave to the scheduler, so every branch runs every time.
+    """
 
     def test_two_pupils_confirming_one_address_leave_it_one_holder(self, mongo_replica_set_url: str):
-        """The loser meets the winner's write: the in-session read refuses it on a retry, or `uniq_spieler_email` at its own write."""
+        """The loser meets the winner's key in `uniq_spieler_email` as a write conflict, whose retry the in-session read refuses."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             ours = (await request(database, client, email=NEW_EMAIL)).adresswechsel.token
@@ -736,10 +809,9 @@ class TestTwoWritersAtOnce:
 
         answered = [outcome for outcome in outcomes if isinstance(outcome, FLSpielerAdresswechselAntwortResponse)]
         assert len(answered) == 1, outcomes
-        assert [refusal_of(outcome) for outcome in outcomes if not isinstance(outcome, FLSpielerAdresswechselAntwortResponse)] in (
-            [SPIELER_ADRESSE_VERGEBEN],
-            [DUPLICATE_KEY],
-        )
+        assert [refusal_of(outcome) for outcome in outcomes if not isinstance(outcome, FLSpielerAdresswechselAntwortResponse)] == [
+            SPIELER_ADRESSE_VERGEBEN
+        ]
         assert len(holders) == 1
         # The loser moved nothing: its address on file stands, and so does its change.
         loser = rows[OTHER_OID if holders == [SPIELER_OID] else SPIELER_OID]
@@ -765,6 +837,61 @@ class TestTwoWritersAtOnce:
         else:
             assert isinstance(discarded, FLSpielerAdminSingleResponse), (confirmed, discarded)
             assert (refusal_of(confirmed), row["email"]) == (SPIELER_TOKEN_UNKNOWN, EMAIL)
+
+    def test_a_confirmation_held_past_its_holder_read_is_refused_by_its_retry(self, mongo_replica_set_url: str):
+        """Why no duplicate-key outcome exists: the read opens the snapshot, and a rival's later commit meets the write as a conflict."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            ours = (await request(database, client, email=NEW_EMAIL)).adresswechsel.token
+            theirs = (await request(database, client, email=NEW_EMAIL, spieler_id=OTHER_OID)).adresswechsel.token
+            committed = asyncio.Event()
+            held = _HoldsAfterItsRead(database[Collection.SPIELER], committed, read=build_selbst_pupil_filter(NEW_EMAIL))
+            _, outcome = await held_against(
+                held,
+                committed,
+                answer(database, client, ours, "bestaetigt", spieler=held),
+                lambda: answer(database, client, theirs, "bestaetigt"),
+            )
+            holders = await database[Collection.SPIELER].find({"email": NEW_EMAIL}, projection={"_id": 1}).to_list(length=None)
+
+            return refusal_of(outcome), held.reads, held.write_failures, [holder["_id"] for holder in holders]
+
+        code, reads, failures, holders = on_a_league(mongo_replica_set_url, body)
+
+        assert (code, holders) == (SPIELER_ADRESSE_VERGEBEN, [OTHER_OID])
+        # 112 is `WriteConflict`, which `with_transaction` retries: the second run's read finds the rival.
+        assert (reads, failures) == (2, ["OperationFailure:112"])
+
+    @pytest.mark.parametrize("held_writer", ["discard", "confirmation"])
+    def test_the_writer_held_past_its_read_meets_the_other_s_commit_and_finds_the_change_gone(
+        self, mongo_replica_set_url: str, held_writer: str
+    ):
+        """Each branch of the unheld case above, made to run: whichever writer is held loses."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            token = (await request(database, client, email=NEW_EMAIL)).adresswechsel.token
+            committed = asyncio.Event()
+            if held_writer == "discard":
+                held = _HoldsAfterItsRead(database[Collection.SPIELER], committed, read=build_pending_spieler_adresswechsel_filter(SPIELER_OID))
+                writer, rival = discard(database, client, spieler=held), lambda: answer(database, client, token, "bestaetigt")
+            else:
+                held = _HoldsAfterItsRead(
+                    database[Collection.SPIELER], committed, read=build_spieler_adresswechsel_filter(token_hash=hash_token(token))
+                )
+                writer, rival = answer(database, client, token, "bestaetigt", spieler=held), lambda: discard(database, client)
+            _, outcome = await held_against(held, committed, writer, rival)
+
+            return refusal_of(outcome), held.reads, held.write_failures, await stored(database)
+
+        code, reads, failures, row = on_a_league(mongo_replica_set_url, body)
+
+        assert SPIELER_ADRESSWECHSEL_FELD not in row
+        if held_writer == "discard":
+            assert (code, row["email"]) == (DOCUMENT_NOT_FOUND, NEW_EMAIL)
+        else:
+            assert (code, row["email"]) == (SPIELER_TOKEN_UNKNOWN, EMAIL)
+        # 112 is `WriteConflict`: the held writer's `_id` write meets the other's, and its retry reads the change gone.
+        assert (reads, failures) == (2, ["OperationFailure:112"])
 
 
 class TestThePupilsOwnTrailStays:
