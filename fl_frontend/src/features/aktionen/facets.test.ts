@@ -39,6 +39,7 @@ function row(id: string, actor: FLAktor): AdminAktionRow {
     db_filter: null,
     modified_count: null,
     redacted_at: null,
+    anlass: null,
     stand_gesichert: true,
   };
 }

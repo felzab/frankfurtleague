@@ -46,7 +46,6 @@ import { formatSpielDatum, NICHT_HINTERLEGT } from "@/shared/utils/format";
 import { FASSUNG_UNLESBAR } from "@/shared/utils/refusal";
 
 import { FormKontaktEinladen } from "./FormKontaktEinladen";
-import { FormKontaktErasure } from "./FormKontaktErasure";
 
 import type { KontakteFieldPath } from "@/features/kontakte/kontakteDraftStatus";
 import type { KontaktRolle } from "@/features/teams/constants";
@@ -131,7 +130,7 @@ export function FormKontakteSection({
   /** Never handed `null`: taking the block away is the deletion section's own write, never a draft this panel stages. */
   onChange: (next: SaisonTeamKontakteDraft) => void;
   onFieldLeft: (paths: readonly string[]) => void;
-  /** Unsaved work in the draft, which both destructive controls here refuse to write over. */
+  /** Unsaved work in the draft, which the re-send refuses to write over. */
   isDirty: boolean;
   /** Judged with the value that arrived in the event, because state has not committed yet. */
   onValidateSelection: (paths: readonly string[], selected: { kontakte: SaisonTeamKontakteDraft | null }) => void;
@@ -248,7 +247,6 @@ export function FormKontakteSection({
                 />
               ) : null
             }
-            isDirty={isDirty}
             onPresenceChange={(present) => setPresence(rolle, present)}
             onChange={(person) => applyPerson(rolle, person)}
             onFieldLeft={judgeFieldsLeft}
@@ -303,7 +301,6 @@ function KontaktpersonFields({
   isMirrored,
   zugleich,
   einladen,
-  isDirty,
   onPresenceChange,
   onChange,
   onFieldLeft,
@@ -324,7 +321,6 @@ function KontaktpersonFields({
   zugleich: ReactNode;
   /** The re-send, on a stored seat whose person has not confirmed; `null` everywhere else. */
   einladen: ReactNode;
-  isDirty: boolean;
   onPresenceChange: (present: boolean) => void;
   onChange: (next: KontaktpersonDraft) => void;
   onFieldLeft: (paths: readonly string[]) => void;
@@ -391,16 +387,6 @@ function KontaktpersonFields({
         )}
 
         {einladen}
-
-        {/* On the seat that HOLDS the person, never the mirrored copy: the claim points two seats at
-            one record, and offering the erasure twice would read as two people. */}
-        {person !== null && !isMirrored && person.email !== "" && (
-          <FormKontaktErasure
-            email={person.email}
-            fullName={`${person.vorname} ${person.nachname}`.trim() || person.email}
-            isDirty={isDirty}
-          />
-        )}
       </div>
     </section>
   );

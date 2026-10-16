@@ -8,10 +8,8 @@ import { refusedReplay, restored, runAdminUndo, unclearReplay, UNDO_UNREADABLE }
 import { buildRefusal, LADE_DIE_SEITE_NEU, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
-import { SCHIEDSRICHTER_ANONYM_LABEL } from "./constants";
 import { returnMayMint, saveMayMint } from "./linkMint";
 import {
-  anonymiseSchiedsrichter,
   deleteSchiedsrichter,
   einladeAdresswechsel,
   einladeSchiedsrichter,
@@ -25,7 +23,6 @@ import { getSchiedsrichterById } from "./queries";
 import {
   KEINE_ADRESSE,
   mapAdresswechselRefusal,
-  mapAnonymiseRefusal,
   mapEinladenRefusal,
   mapGesperrteAdresseRefusal,
   mapNameRefusal,
@@ -34,7 +31,6 @@ import {
   SCHIEDSRICHTER_REPLAY_REFUSALS,
 } from "./refusals";
 import {
-  FLAnonymiseSchiedsrichterPayloadSchema,
   FLPatchSchiedsrichterPayloadSchema,
   FLPostSchiedsrichterPayloadSchema,
   FLSchiedsrichterAdresswechselEinladenPayloadSchema,
@@ -49,7 +45,6 @@ import type { FLKontakt } from "@/shared/schemas";
 import type { ActionResult } from "@/shared/types/types";
 import type { UndoOutcome } from "@/shared/utils/adminUndo";
 import type {
-  FLAnonymiseSchiedsrichterPayload,
   FLPatchSchiedsrichterPayload,
   FLPostSchiedsrichterPayload,
   FLSchiedsrichter,
@@ -521,55 +516,6 @@ export async function reactivateSchiedsrichterAction(
       updated_document: reactivateOperation.updated_document,
       message: mint === null || versand === null ? "Schiedsrichter reaktiviert" : describeLinkMail(mint.email, versand),
       versandFehlgeschlagen: versand === "fehlgeschlagen",
-    };
-  });
-}
-
-/**
- * Deletes the referee's document and repoints every fixture that named them at the ghost, whose
- * retirement they inherit. **Permanent, with no undo.** It refuses `REQ-ANONYMISE-004` alone — the
- * ghost itself, which stands for nobody.
- */
-export async function anonymiseSchiedsrichterAction(
-  rawPayload: FLAnonymiseSchiedsrichterPayload,
-): Promise<ActionResult<{ updated_document?: FLSchiedsrichter }>> {
-  return runAdminMutation("anonymiseSchiedsrichterAction", { stepUp: true }, async () => {
-    const validated = FLAnonymiseSchiedsrichterPayloadSchema.safeParse(rawPayload);
-
-    if (!validated.success) {
-      return {
-        success: false,
-        error: VALIDATION_FAILED,
-        fieldErrors: toFieldErrors(validated.error),
-      };
-    }
-
-    // The repointed booking fans into every match as a rename does, so the same one cached read is
-    // stale here. The referee list and the log are uncached.
-    invalidatesOnWrite("spiele");
-    // The refusal belongs in the dialog that asked, not on the error page.
-    let anonymiseOperation;
-    try {
-      anonymiseOperation = await anonymiseSchiedsrichter(validated.data);
-    } catch (error) {
-      const refusal = mapAnonymiseRefusal(error);
-      if (refusal !== null) return { success: false, error: refusal };
-      throw error;
-    }
-
-    if (!anonymiseOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Die Daten wurden nicht gelöscht", repair: VERSUCHE_ES_ERNEUT }) };
-    }
-
-    return {
-      success: true,
-      updated_document: anonymiseOperation.updated_document,
-      message:
-        `Der Eintrag ist gelöscht; auf jedem Spiel dieser Person steht jetzt „${SCHIEDSRICHTER_ANONYM_LABEL}“. ` +
-        // The one sentence here an administrator must act on: without it a match still to be played
-        // sits with nobody to officiate it and nothing says so.
-        "Spiele ohne Ergebnis brauchen jetzt einen neuen Schiedsrichter. " +
-        "Im Änderungsprotokoll ist der gesicherte Stand jeder Zeile gelöscht, die diese Person betrifft.",
     };
   });
 }

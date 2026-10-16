@@ -47,6 +47,21 @@ const EXCLUDED = excludedByTheDerivation();
 /** What `fl_backend/app/core/constraints.py :: _LOGGED_COLLECTIONS` evaluates to, which the log's validator enumerates. */
 const LOGGED = [...MEMBERS].filter(([member]) => !EXCLUDED?.includes(member)).map(([, stored]) => stored);
 
+/**
+ * The areas the validator admits beside the collections, each a row recording an act that writes no league
+ * collection, read off the list `fl_backend/app/core/constraints.py` names them in; `undefined` where it is spelled otherwise.
+ */
+function actsAdmitted(): string[] | undefined {
+  const names = /^_LOGGED_ACTS = \[([^\]]*)\]$/m
+    .exec(CONSTRAINTS)?.[1]
+    ?.split(",")
+    .map((entry) => /^\s*"([a-z_]+)"\s*$/.exec(entry)?.[1]);
+
+  return names?.every((name) => name !== undefined) ? names : undefined;
+}
+
+const ACTS = actsAdmitted();
+
 describe("the areas the change log names against the collections the backend records", () => {
   /* First, so a boundary or a derivation that stopped matching fails here rather than leaving every
      comparison below over an empty or an unexcluded set. */
@@ -70,7 +85,8 @@ describe("the areas the change log names against the collections the backend rec
      area the filter offers until it is named here; a name kept for one it stopped recording is an area
      that leads nowhere. */
   it("names every collection the log records, and none it does not", () => {
-    assert.deepEqual(Object.keys(AKTION_COLLECTION_LABELS).sort(), [...LOGGED].sort());
+    assert.ok(ACTS !== undefined, "constraints.py names no _LOGGED_ACTS list of quoted names");
+    assert.deepEqual(Object.keys(AKTION_COLLECTION_LABELS).sort(), [...LOGGED, ...ACTS].sort());
   });
 
   it("names no two areas alike, which the filter would offer as one word twice", () => {

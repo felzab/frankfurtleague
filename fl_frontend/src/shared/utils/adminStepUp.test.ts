@@ -506,7 +506,6 @@ describe("an undo the server holds to the step-up window", () => {
 const GRANT_ID = "6890a1b2c3d4e5f6071b0001";
 const BEWERBUNG_ID = "6890a1b2c3d4e5f6071c0001";
 const SPERRE_ID = "6890a1b2c3d4e5f6071d0001";
-const SPIELER_ID = "6890a1b2c3d4e5f6071e0001";
 const INCOMING_TEAM_ID = "6890a1b2c3d4e5f607182933";
 
 /** A season both the create's schema and the backend's take, as the season suite's own fixture is. */
@@ -561,7 +560,7 @@ const CONFIRMED_BY_THE_BACKEND: Record<string, { name: string; payload: unknown 
     payload: { team_id: TEAM_ID, saison_id: SAISON_ID },
   },
   "POST /saisons/{saison_id}/einladungen/versand": { name: "postEinladungVersandAction", payload: { id: SAISON_ID } },
-  "POST /kontakte/erasure": { name: "eraseKontaktpersonAction", payload: { email: "berta@example.de" } },
+  "POST /identitaet/erasure": { name: "eraseAufAnfrageAction", payload: { email: "berta@example.de", anlass: "E-Mail vom 12.10.2026" } },
   // Clearing the block, one of the two calls of the contacts save the backend steps up, the other
   // being a save that seats somebody new.
   "PATCH /teams/{team_id}/saisons/{saison_id}/kontakte": {
@@ -585,11 +584,9 @@ const CONFIRMED_BY_THE_BACKEND: Record<string, { name: string; payload: unknown 
   "PATCH /schiedsrichter/{schiedsrichter_id}": { name: "patchSchiedsrichterAction", payload: refereeReplay("anna@neu.example") },
   "POST /schiedsrichter/{schiedsrichter_id}/reactivate": { name: "reactivateSchiedsrichterAction", payload: { id: REFEREE_ID } },
   "POST /schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen": { name: "einladeSchiedsrichterAction", payload: { id: REFEREE_ID } },
-  "POST /schiedsrichter/{schiedsrichter_id}/anonymisieren": { name: "anonymiseSchiedsrichterAction", payload: { id: REFEREE_ID } },
   "POST /schiedsrichter/{schiedsrichter_id}/adresswechsel/einladen": { name: "einladeAdresswechselAction", payload: { id: REFEREE_ID } },
   "DELETE /schiedsrichter/{schiedsrichter_id}/adresswechsel": { name: "verwirfAdresswechselAction", payload: { id: REFEREE_ID } },
   "DELETE /sperrliste/{sperrliste_id}": { name: "deleteSperreAction", payload: { id: SPERRE_ID } },
-  "DELETE /spieler/{spieler_id}/erasure": { name: "eraseSpielerAction", payload: { id: SPIELER_ID } },
   "POST /teams/{team_id}/saisons": { name: "postSaisonTeamAction", payload: { team_id: TEAM_ID, saison_id: SAISON_ID, gruppe: "A" } },
   "POST /teams/{team_id}/saisons/{saison_id}/replace": {
     name: "replaceSaisonTeamAction",

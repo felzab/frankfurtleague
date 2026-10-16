@@ -53,8 +53,10 @@ export const FLAktionSchema = z.object({
   // one — `GET /aktionen/{aktion_id}` is the read that serves it (`docs/backend/spec.md :: I43`).
   stand_gesichert: z.boolean(),
   modified_count: z.int().nullable(),
-  // Set once a person's erasure, or a referee's anonymisation, has overwritten the values this row recorded.
+  // Set once a person's erasure has overwritten the values this row recorded.
   redacted_at: z.string().nullable(),
+  // The request an administrator's erasure answered, on every row it filed, and null on every other row.
+  anlass: z.string().nullable(),
 });
 export type FLAktion = z.infer<typeof FLAktionSchema>;
 

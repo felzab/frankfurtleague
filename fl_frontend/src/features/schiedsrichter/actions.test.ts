@@ -2,36 +2,25 @@ import "@/shared/testing/dom.ts";
 import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import path from "node:path";
-import { afterEach, describe, it, mock } from "node:test";
+import { afterEach, describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
 import { act, render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
-import { DOUBLE_PRESS_MS } from "@/shared/hooks/useTwoPressConfirm.ts";
 import { doubleActionRequest, doubleActions, doubleToasts, loggedLines } from "@/shared/testing/actionDoubles.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { answer, answerReadsWith, EMPTIEST_ANSWER, pageBody } from "@/shared/testing/pageHarness.ts";
 import { answerShown, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
-import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
 import { mapNameRefusal as mapSpielortNameRefusal } from "../spielorte/refusals.ts";
-import {
-  mapAnonymiseRefusal,
-  mapEinladenRefusal,
-  mapGesperrteAdresseRefusal,
-  mapNameRefusal,
-  mapReactivateRefusal,
-  mapRetireRefusal,
-} from "./refusals.ts";
+import { mapEinladenRefusal, mapGesperrteAdresseRefusal, mapNameRefusal, mapReactivateRefusal, mapRetireRefusal } from "./refusals.ts";
 
 import type { ReactNode } from "react";
 
 /* Every write hangs until a case answers it: a real action needs a session and a backend. */
-const { calls, answerWith, answerPending, answered } = doubleActions({
+const { answerWith, answered } = doubleActions({
   modules: ["/src/features/schiedsrichter/actions.ts"],
   answer: () => new Promise<never>(() => undefined),
 });
@@ -46,15 +35,9 @@ doubleActionRequest();
 const { mapSchiedsrichterAnsichtRefusal, mapSchiedsrichterBestaetigungRefusal } = await import("./queries.ts");
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
-const { FormAnonymisierenSection } = await import("./components/forms/AdminSchiedsrichterEditForm/FormAnonymisierenSection.tsx");
 const { AdminSchiedsrichterEditView } = await import("./components/views/AdminSchiedsrichterEditView.tsx");
 const { default: AdminSchiedsrichterEditPage } = await import("@/app/bereich/admin/schiedsrichter/[schiedsrichter_id]/page.tsx");
 
-const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
-/** The backend redaction the panel's copy describes, read where it is written. */
-const RECORDING = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "core", "recording.py"), "utf8");
-
-const ANONYMISE_OPERATION = "POST /schiedsrichter/{schiedsrichter_id}/anonymisieren";
 const CREATE_OPERATION = "POST /schiedsrichter";
 const SAVE_OPERATION = "PATCH /schiedsrichter/{schiedsrichter_id}";
 const EINLADEN_OPERATION = "POST /schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen";
@@ -67,19 +50,6 @@ const ANSICHT_OPERATION = "POST /schiedsrichter/bestaetigung/ansicht";
 const saveAnswer = (error: unknown) => mapNameRefusal(error) ?? mapGesperrteAdresseRefusal(error);
 
 describe("the referee's writes against the codes their endpoints publish", () => {
-  /* The ghost is the one refusal here, and it needs a sentence: an administrator reaches this only by
-     opening the row every erased referee's fixtures point at. A rule published later and left unmapped
-     fails this. */
-  it("maps every refusal the anonymisation publishes", () => {
-    assert.deepEqual(
-      publishedRefusals(ANONYMISE_OPERATION).filter((code) => code !== DUPLICATE_KEY),
-      ["REQ-ANONYMISE-004"],
-    );
-    for (const code of publishedRefusals(ANONYMISE_OPERATION)) {
-      assert.notEqual(answerShown(ANONYMISE_OPERATION, code, mapAnonymiseRefusal), null, `${code} reaches the admin as an unhandled conflict`);
-    }
-  });
-
   /* Coming back mints for an unanswered referee, so the reactivation meets the ban list as every mint
      does; left unmapped it reaches the admin as the shared fallback, which names no rule. */
   it("words every refusal the reactivation publishes", () => {
@@ -162,15 +132,6 @@ describe("the referee's writes against the codes their endpoints publish", () =>
       assert.notEqual(answerShown(RETIRE_OPERATION, code, mapRetireRefusal), null, `${code} reaches the admin as an unhandled conflict`);
     }
   });
-
-  /* These administrators are teachers, and the one thing this sentence must not do is suggest a way
-     back: the person's row is gone, so the repair names the referee they meant instead. */
-  it("words the ghost's refusal without offering a retry on it", () => {
-    const refusal = String(mapAnonymiseRefusal(refusedOn(ANONYMISE_OPERATION, "REQ-ANONYMISE-004")));
-
-    assert.match(refusal, /keine Person/, "the refusal does not say why this entry cannot be erased");
-    assert.doesNotMatch(refusal, /wiederherstell|zurückhol|rückgängig|erneut/i, "the refusal offers a retry on a row that holds nobody");
-  });
 });
 
 describe("the referee name a unique index already holds", () => {
@@ -192,31 +153,9 @@ describe("the referee name a unique index already holds", () => {
   });
 });
 
-/** Each navigation a press makes, in order. */
-const { router, seen } = recordingRouter();
+const { router } = recordingRouter();
 
 const underRecordingNext = (tree: ReactNode): ReactNode => underNext(tree, { router });
-
-/** The sentences a reader hears, tags gone and the JSX line breaks collapsed. */
-const read = (element: ReactNode): string =>
-  textOf(renderTree(underRecordingNext(element)))
-    .replace(/\s+/g, " ")
-    .trim();
-
-const PANEL_PROPS = {
-  schiedsrichterId: "68c1f0a2b3c4d5e6f7a8b9c0",
-  name: "Anna Beispiel",
-  schule: "Musterschule",
-  kontakt: { email: "anna@example.de", telefon: "069 1234567" },
-  onBeforeAnonymise: () => true,
-};
-
-/** The panel at rest, which is the state an administrator meets it in. */
-const panelText = (): string => read(h(FormAnonymisierenSection, PANEL_PROPS));
-
-/** The same panel over a row a hand-write left nameless, which the editor serves like any other. */
-const namelessPanelText = (): string =>
-  read(h(FormAnonymisierenSection, { ...PANEL_PROPS, name: null, schule: null, kontakt: { email: null, telefon: null } }));
 
 const RECORD = {
   id: "68c1f0a2b3c4d5e6f7a8b9c0",
@@ -249,82 +188,17 @@ answerReadsWith((endpoint, schema, params) => {
 const VERSAND_SATZ = "Der Best\u00e4tigungslink ging an anna@example.de.";
 
 afterEach(() => {
-  calls.length = 0;
   toasts.length = 0;
-  seen.pushed.length = 0;
-  seen.replaced.length = 0;
-  seen.refresh = 0;
 });
 
-/** The editor the page mounts for a referee nobody erased, whose last panel is the erasure. */
+/** The editor the page mounts for a referee nobody erased. */
 const renderEditor = () =>
   render(underRecordingNext(h(AdminSchiedsrichterEditView, { istFassungBekannt: true, schiedsrichter: RECORD, inactiveSince: null })));
-
-const erasureButton = () => screen.getByRole("button", { name: /^(Ja, )?Daten (endgültig )?löschen$/ });
-
-/** The announcement the first press raises, or `null` where it raised none. */
-const alarm = (): string | null => screen.queryByRole("alert")?.textContent.replace(/\s+/g, " ").trim() ?? null;
-
-/** Both presses, the second after the double-press window. */
-async function pressTwice(user: ReturnType<typeof userEvent.setup>, between: () => Promise<void> = async () => undefined): Promise<void> {
-  mock.timers.enable({ apis: ["Date"] });
-  try {
-    await user.click(erasureButton());
-    await between();
-    mock.timers.tick(DOUBLE_PRESS_MS);
-    await user.click(erasureButton());
-  } finally {
-    mock.timers.reset();
-  }
-}
 
 /** A draft that differs from the stored record, typed as an administrator types one. */
 async function typeADraft(user: ReturnType<typeof userEvent.setup>): Promise<void> {
   await user.type(screen.getByRole("textbox", { name: "Name" }), " B.");
 }
-
-describe("the anonymisation's copy", () => {
-  /* The ROW does not survive and the FIXTURES do. Copy saying the entry stays, or that a reader can
-     open it afterwards, describes an operation the backend no longer runs. */
-  it("says the entry goes whole and the fixtures stay under one word", () => {
-    const shown = panelText();
-
-    assert.match(shown, /vollständig aus der Verwaltung/, "the confirmation does not say the entry goes whole");
-    assert.match(shown, /Änderungsprotokoll/, "the confirmation does not say the log is reached");
-    assert.match(shown, /Spiele selbst bleiben/, "the confirmation does not say the fixtures survive the person");
-    assert.doesNotMatch(shown, /Eintrag bleibt|bearbeiten lässt|stillgelegt/, "the confirmation promises a row the erasure deletes");
-  });
-
-  /* The subject is what an administrator is left holding: the person is gone, the fixtures are not,
-     and one of them may now need somebody. Nothing restores any of it. */
-  it("arms a confirmation saying the entry goes, the fixtures stay, and none of it comes back", async () => {
-    render(underRecordingNext(h(FormAnonymisierenSection, PANEL_PROPS)));
-    await userEvent.setup().click(screen.getByRole("button", { name: "Daten löschen" }));
-
-    const announced = alarm() ?? "";
-    assert.match(announced, /Zurückholen lässt sich das nicht/, "the armed confirmation does not refuse an undo in words");
-    assert.match(announced, /Eintrag verschwindet ganz/, "the armed confirmation does not say the entry goes whole");
-    assert.match(announced, /Spiele ohne Ergebnis/, "the armed confirmation does not name the fixtures that need somebody");
-    assert.match(announced, /neuen Schiedsrichter/, "the armed confirmation does not say such a fixture needs somebody else");
-
-    const armed = document.body.textContent.replace(/\s+/g, " ");
-    /* The readout stands only once armed, and the school is the field an administrator forgets: beside a
-       fixture list that never expires it narrows the person to the few referees one school ever sent. */
-    assert.match(armed, /Schule \/ Verein/, "the readout does not name the school among what goes");
-    assert.doesNotMatch(armed, /Rückgängig/, "the panel offers an undo, and no endpoint can honour one");
-    assert.doesNotMatch(armed, /Telefonnummer[^.]*(auch|und überall)[^.]*Änderungsprotokoll/, "the panel narrows the log to the two fields");
-    assert.doesNotMatch(armed, /Eintrag bleibt|behalten die Zuteilung/, "the armed confirmation promises what the erasure takes");
-  });
-
-  /* A hand-write can leave a row nameless, and this panel is on that row's editor too: the sentence
-     has to name a subject where the interpolated name is null. */
-  it("names the subject of the deletion on a row that holds no name", () => {
-    const shown = namelessPanelText();
-
-    assert.match(shown, /Eintrag von dieser Person/, "the sentence deletes the entry of nobody");
-    assert.match(shown, /diese Person geleitet hat/, "the nameless row's panel stopped saying which matches are reached");
-  });
-});
 
 describe("what the save tells the administrator about the message it sent", () => {
   /* The save mails a link where an outstanding referee's address moved, and the editor's toast is
@@ -405,80 +279,7 @@ describe("what the save tells the administrator about the message it sent", () =
   });
 });
 
-describe("the erasure on the referee's editor", () => {
-  it("arms before it writes", async () => {
-    const user = userEvent.setup();
-    renderEditor();
-
-    await pressTwice(user, async () => {
-      assert.deepEqual(calls, [], "one press wrote");
-      assert.match(alarm() ?? "", /^Bist Du Dir sicher\?/, "the escalation replaces the copy in place with no announcement");
-    });
-    assert.deepEqual(calls, [{ action: "anonymiseSchiedsrichterAction", payload: { id: RECORD.id } }], "the second press writes nothing");
-    await act(async () => answerPending({ success: true, message: "Die Daten sind gelöscht." }));
-  });
-
-  /* The refresh remounts the form onto the cleared record, so an unsaved draft goes with it, and the warning
-     names that LOSS: a write-back is the opposite failure, the one no refresh at all causes. */
-  it("refuses to arm over an unsaved draft, warning that the draft would be lost", async () => {
-    const user = userEvent.setup();
-    renderEditor();
-    await typeADraft(user);
-    await user.click(erasureButton());
-
-    assert.equal(alarm(), null, "the erasure arms over an unsaved draft");
-    const warnung = toasts.find(({ variant, title }) => variant === "warning" && title === "Erst speichern")?.description ?? "";
-    assert.notEqual(warnung, "", "the refused press says nothing");
-    // Three inflections of one verb: which one a sentence takes is its grammar rather than its meaning.
-    assert.match(warnung, /verwirft|verwerfen|verworfen/, "the guard does not say the unsaved changes are lost");
-    assert.doesNotMatch(warnung, /zurück|wieder ein/, "the guard describes a write-back the page's key rules out");
-  });
-
-  // Judged on both presses: a draft opened after the first is lost to the second just the same.
-  it("refuses the second press over a draft opened after the first", async () => {
-    const user = userEvent.setup();
-    renderEditor();
-
-    await pressTwice(user, async () => {
-      assert.notEqual(alarm(), null, "a clean editor does not arm, so nothing below is judged");
-      await typeADraft(user);
-    });
-    assert.deepEqual(calls, [], "the second press writes over a draft opened after the first");
-  });
-
-  /* The STORED record, never the draft: this write clears what is saved, and a readout off typed
-     values would name data the press does not reach. */
-  it("reads the stored contact record", async () => {
-    const user = userEvent.setup();
-    renderEditor();
-    await user.click(erasureButton());
-    await user.clear(screen.getByRole("textbox", { name: "E-Mail" }));
-    await user.type(screen.getByRole("textbox", { name: "E-Mail" }), "neu@example.de");
-
-    assert.match(alarm() ?? "", /anna@example\.de/, "the armed readout names no stored address");
-    assert.doesNotMatch(alarm() ?? "", /neu@example\.de/, "the armed readout names the typed address the press does not reach");
-  });
-
-  /* The row is deleted by the time this lands, so the page the panel stands on answers not-found: a
-     refresh would put the admin on that page, and a push would leave Back pointing at it. */
-  it("leaves the page it just deleted, by replacing it rather than pushing", async () => {
-    answerWith(() => Promise.resolve({ success: true, message: "Die Daten sind gelöscht." }));
-    renderEditor();
-    await pressTwice(userEvent.setup());
-    await act(answered);
-
-    await waitFor(() =>
-      assert.deepEqual(
-        toasts.map(({ variant, title }) => [variant, title]),
-        [["success", "Schiedsrichterdaten gelöscht"]],
-        "the write answered without its toast, so nothing below is judged",
-      ),
-    );
-    assert.deepEqual(seen.replaced, ["/bereich/admin/schiedsrichter"], "the erasure stays on the page whose row it deleted");
-    assert.deepEqual(seen.pushed, [], "Back is left pointing at a page that now answers not-found");
-    assert.equal(seen.refresh, 0, "the erasure re-reads a row it has deleted");
-  });
-
+describe("the referee's editor page", () => {
   /* The registry tells a known label from an unknown one, which the consent panel says beside it; its
      failure leaves that unchecked rather than taking the editor down. */
   it("hands the editor an unchecked label, and renders, where the registry read failed", async () => {
@@ -616,30 +417,5 @@ describe("which link the editor's page marks as lapsed", () => {
 
     assert.match(await shownIn(record, served, "Neue E-Mail-Adresse"), /abgelaufen/, "the change's panel misses the lapse served for it");
     assert.doesNotMatch(await shownIn(record, served, "Bestätigung"), /abgelaufen/, "the consent link's panel took the change's lapse");
-  });
-});
-
-describe("how much of the log the copy claims", () => {
-  /* `build_redaction_update` nulls `before` — the WHOLE pre-image of every row naming this referee,
-     not the contact fields within it. A rename last month leaves a row holding the old name, and
-     this write destroys that too. */
-  it("matches what the redaction actually clears", () => {
-    assert.match(RECORDING, /def build_redaction_update[\s\S]*?"before": None/, "the backend no longer clears the whole pre-image");
-    assert.match(panelText(), /gesicherte[rn]? Stand/, "the panel does not name the pre-image the log keeps");
-  });
-
-  /* The narrow claim, in the shape it was written: the log's rows lose more than the row does. */
-  it("never says the log loses only the contact details", () => {
-    assert.doesNotMatch(
-      panelText(),
-      /Telefonnummer[^.]*(auch|und überall)[^.]*Änderungsprotokoll/,
-      "the panel narrows the log to the two fields",
-    );
-  });
-
-  /* What survives is as load-bearing as what goes: the rows stay, so the log still shows that
-     something happened and when. */
-  it("says the rows themselves stay readable", () => {
-    assert.match(panelText(), /Was wann geschehen ist, bleibt lesbar/, "the panel does not say what the log keeps");
   });
 });

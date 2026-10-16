@@ -4,13 +4,11 @@ import {
   FLKaderZeileResponseSchema,
   FLSaisonSpielerResponseSchema,
   FLSpielerAdminSingleResponseSchema,
-  FLSpielerErasureResponseSchema,
   FLSpielerSelbstEinwilligungResponseSchema,
 } from "./schemas";
 
 import type {
   FLDeleteSpielerPayload,
-  FLEraseSpielerPayload,
   FLKaderZeileKeyPayload,
   FLKaderZeileResponse,
   FLPatchKaderZeilePayload,
@@ -21,7 +19,6 @@ import type {
   FLSaisonSpielerKeyPayload,
   FLSaisonSpielerResponse,
   FLSpielerAdminSingleResponse,
-  FLSpielerErasureResponse,
   FLSpielerSelbstEinwilligungPayload,
   FLSpielerSelbstEinwilligungResponse,
 } from "./schemas";
@@ -47,15 +44,6 @@ export async function deleteSpieler({ id }: FLDeleteSpielerPayload): Promise<FLS
 export async function reactivateSpieler({ id }: FLReactivateSpielerPayload): Promise<FLSpielerAdminSingleResponse> {
   return apiClient<FLSpielerAdminSingleResponse>(`/spieler/${id}/reactivate`, FLSpielerAdminSingleResponseSchema, {
     method: "POST",
-    authType: "admin",
-  });
-}
-
-// HARD, where `deleteSpieler` above is soft: the person, every squad row they hold and their values
-// in the log all go, in one transaction. Refused until they are retired (`REQ-PURGE-001`).
-export async function eraseSpieler({ id }: FLEraseSpielerPayload): Promise<FLSpielerErasureResponse> {
-  return apiClient<FLSpielerErasureResponse>(`/spieler/${id}/erasure`, FLSpielerErasureResponseSchema, {
-    method: "DELETE",
     authType: "admin",
   });
 }

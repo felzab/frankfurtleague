@@ -32,6 +32,8 @@ export const AKTION_COLLECTION_LABELS: Record<string, string> = {
   berechtigungen_postausgang: "Ausstehende Zugangsmeldungen",
   einladungen: "Registrierungslinks",
   registrierungen: "Registrierungen",
+  // No league collection: an administrator ending every session of one address, which the sign-in store holds.
+  anmeldungen: "Anmeldungen",
 };
 
 /**

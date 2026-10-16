@@ -315,6 +315,7 @@ const PAGES = filesUnder(APP_DIR, (name) => name === "page.tsx", 20);
 /** The pages that make no read in any league, and why none is theirs to make. */
 const READS_NOTHING: Record<string, string> = {
   "[...unmatched]/page.tsx": "the admin 404, answered before any read for an address no other route takes",
+  "loeschung/page.tsx": "a request by mail answered on two panels, each reading only once its own press names an address",
 };
 /* A `[saison_id]` segment names the page's subject, which `resolveSaisonIdParam` answers with no
    fallback, and a season-bearing record's editor reads the season its record carries (I359): neither

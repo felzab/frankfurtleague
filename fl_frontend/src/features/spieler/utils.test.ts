@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 
 // Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
 import { FLSpielerWithMembershipsSchema } from "./schemas.ts";
-import { collectHeldRollen, countLiveSquadRows, describeErasureUmfang, judgeRowReturn, nummerPayload, squadIsFull } from "./utils.ts";
+import { collectHeldRollen, countLiveSquadRows, judgeRowReturn, nummerPayload, squadIsFull } from "./utils.ts";
 
 import type { FLSpielerMembership, FLSpielerWithMemberships } from "./schemas.ts";
 
@@ -48,30 +48,6 @@ function person(
     memberships: memberships.map((membership) => ({ ...MEMBERSHIP, ...membership })),
   };
 }
-
-describe("describeErasureUmfang", () => {
-  /* A person can be erased holding none: registered, and never put in a squad. Zero is a sentence
-     rather than a figure, because German counts nothing with a word. */
-  it("reports both counts, each with its own zero and its own singular", () => {
-    assert.equal(describeErasureUmfang(0, 0), "Kadereinträge gab es keine. Im Änderungsprotokoll stand nichts zu dieser Person.");
-    assert.equal(describeErasureUmfang(1, 1), "Ein Kadereintrag wurde gelöscht. Ein Eintrag im Änderungsprotokoll wurde geleert.");
-    assert.equal(describeErasureUmfang(3, 12), "3 Kadereinträge wurden gelöscht. 12 Einträge im Änderungsprotokoll wurden geleert.");
-  });
-
-  /* A toast description stands on its own, with no figures beside it to carry the grammar. */
-  it("writes whole sentences rather than a telegraphic list", () => {
-    for (const report of [describeErasureUmfang(0, 0), describeErasureUmfang(1, 1), describeErasureUmfang(3, 12)]) {
-      assert.match(report, /^[A-ZÄÖÜ0-9]/, "the report opens lower-case");
-      for (const sentence of report.split(". ")) assert.match(sentence, /\b(wurde|wurden|gab|stand)\b/, `„${sentence}“ carries no verb`);
-    }
-  });
-
-  /* GELEERT, never deleted: no log row is dropped, only the values one held. */
-  it("says the log was emptied rather than removed", () => {
-    assert.match(describeErasureUmfang(0, 4), /geleert/);
-    assert.doesNotMatch(describeErasureUmfang(0, 4), /Einträge im Änderungsprotokoll gelöscht/);
-  });
-});
 
 describe("collectHeldRollen", () => {
   it("names who holds each role, by team", () => {

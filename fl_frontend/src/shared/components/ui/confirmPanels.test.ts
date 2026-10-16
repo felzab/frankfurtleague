@@ -58,6 +58,8 @@ type Arming = {
   render: () => ReactNode;
   reach?: (user: User) => Promise<void>;
   answer?: () => Promise<unknown>;
+  /** What the armed panel needs typed before its press opens, as a typed confirmation keeps it closed until then. */
+  typed?: (user: User) => Promise<void>;
   resting: string;
   /** `false` where the armed write is one a reversal undoes, which asks nothing past the step-up window. */
   stepUp?: false;
@@ -129,8 +131,9 @@ const M = {
   annehmen: "features/bewerbungen/components/forms/AdminBewerbungAnnehmenSection.tsx",
   bestaetigung: "features/bewerbungen/components/views/BestaetigungFormPanel.tsx",
   saisonVorbei: "features/bewerbungen/components/views/BestaetigungSaisonVorbei.tsx",
+  abmelden: "features/funktionen/components/forms/AdminLoeschungForm/FormAbmeldenSection.tsx",
+  personLoeschen: "features/funktionen/components/forms/AdminLoeschungForm/FormPersonLoeschenSection.tsx",
   kontakteLoeschen: "features/kontakte/components/forms/AdminKontakteEditForm/FormKontakteLoeschenSection.tsx",
-  kontaktErasure: "features/kontakte/components/forms/AdminKontakteEditForm/FormKontaktErasure.tsx",
   passkey: "features/passkeys/components/ui/PasskeyKarteView.tsx",
   andereAbmelden: "features/konto/components/ui/AndereAbmelden.tsx",
   kontoLoeschen: "features/konto/components/views/KontoLoeschenSection.tsx",
@@ -140,11 +143,9 @@ const M = {
   rollover: "features/saisons/components/forms/AdminSaisonEditForm/FormRolloverSection.tsx",
   spielplan: "features/saisons/components/forms/AdminSaisonEditForm/FormSpielplanSection.tsx",
   teamErsatz: "features/saisons/components/forms/AdminSaisonEditForm/FormTeamErsatzSection.tsx",
-  anonymisieren: "features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormAnonymisierenSection.tsx",
   sperre: "features/sperrliste/components/forms/AdminSperreAufhebenPanel.tsx",
   zugangEntziehen: "features/berechtigungen/components/forms/AdminBerechtigungEntziehenPanel.tsx",
   zugangStufe: "features/berechtigungen/components/forms/AdminBerechtigungStufePanel.tsx",
-  spielerLoeschen: "features/spieler/components/forms/AdminSpielerEditForm/FormLoeschenSection.tsx",
   einladung: "features/teams/components/forms/AdminTeamEditForm/FormEinladungSection.tsx",
   saison: "features/teams/components/forms/AdminTeamEditForm/FormSaisonSection.tsx",
   registrierungen: "features/registrierungen/components/collections/RegistrierungenList.tsx",
@@ -155,8 +156,9 @@ const C = {
   annehmen: await component(M.annehmen, "AdminBewerbungAnnehmenSection"),
   bestaetigung: await component(M.bestaetigung, "BestaetigungFormPanel"),
   saisonVorbei: await component(M.saisonVorbei, "BestaetigungSaisonVorbei"),
+  abmelden: await component(M.abmelden, "FormAbmeldenSection"),
+  personLoeschen: await component(M.personLoeschen, "FormPersonLoeschenSection"),
   kontakteLoeschen: await component(M.kontakteLoeschen, "FormKontakteLoeschenSection"),
-  kontaktErasure: await component(M.kontaktErasure, "FormKontaktErasure"),
   passkey: await component(M.passkey, "PasskeyKarteView"),
   andereAbmelden: await component(M.andereAbmelden, "AndereAbmelden"),
   kontoLoeschen: await component(M.kontoLoeschen, "KontoLoeschenSection"),
@@ -166,11 +168,9 @@ const C = {
   rollover: await component(M.rollover, "FormRolloverSection"),
   spielplan: await component(M.spielplan, "FormSpielplanSection"),
   teamErsatz: await component(M.teamErsatz, "FormTeamErsatzSection"),
-  anonymisieren: await component(M.anonymisieren, "FormAnonymisierenSection"),
   sperre: await component(M.sperre, "AdminSperreAufhebenPanel"),
   zugangEntziehen: await component(M.zugangEntziehen, "AdminBerechtigungEntziehenPanel"),
   zugangStufe: await component(M.zugangStufe, "AdminBerechtigungStufePanel"),
-  spielerLoeschen: await component(M.spielerLoeschen, "FormLoeschenSection"),
   einladung: await component(M.einladung, "FormEinladungSection"),
   saison: await component(M.saison, "FormSaisonSection"),
   registrierungen: await component(M.registrierungen, "RegistrierungenList"),
@@ -294,18 +294,47 @@ const PANELS: Record<string, Arming[]> = {
       resting: "Ich möchte nicht eingetragen sein",
     },
   ],
+  [M.abmelden]: [
+    {
+      render: () => underNext(el(C.abmelden, {})),
+      reach: (user) => user.type(screen.getByRole("textbox", { name: "E-Mail" }), "ada@example.org"),
+      resting: "Überall abmelden",
+      stepUp: false,
+    },
+  ],
+  [M.personLoeschen]: [
+    {
+      render: () => underNext(el(C.personLoeschen, {})),
+      reach: async (user) => {
+        await user.type(screen.getByRole("textbox", { name: "E-Mail" }), "ada@example.org");
+        await user.type(screen.getByRole("textbox", { name: "Anlass" }), "E-Mail vom 12.10.2026");
+      },
+      // The read the arming makes, answered: unanswered, the reveal holds its placeholder and the press stays held.
+      answer: () =>
+        Promise.resolve({
+          success: true,
+          message: "Gelöscht.",
+          ansicht: {
+            spieler: [],
+            schiedsrichter: [],
+            sitze: [],
+            bewerbungen: [],
+            registrierungen: [],
+            adresswechsel: [],
+            spieler_adresswechsel: [],
+            verwaltung: null,
+          },
+          konto: "geloescht",
+          gespeichert: true,
+        }),
+      typed: (user) => user.type(screen.getByRole("textbox", { name: /^Gib zur Bestätigung die Adresse/ }), "ada@example.org"),
+      resting: "Person löschen",
+    },
+  ],
   [M.kontakteLoeschen]: [
     {
       render: () => underNext(el(C.kontakteLoeschen, { teamId: "t1", saisonId: "2526", hasStored: true, stand: "9f2c", isDirty: false })),
       resting: "Kontakte löschen",
-    },
-  ],
-  [M.kontaktErasure]: [
-    {
-      render: () => underNext(el(C.kontaktErasure, { email: "ada@example.org", fullName: "Ada Byron", isDirty: false })),
-      // The read the arming makes, answered: unanswered, it closes the armed control on its refusal.
-      answer: () => Promise.resolve({ success: true, message: "Gelöscht.", ansicht: { saison_teams: [], bewerbungen: [] } }),
-      resting: "Kontaktperson löschen",
     },
   ],
   [M.passkey]: [
@@ -441,21 +470,6 @@ const PANELS: Record<string, Arming[]> = {
       resting: "Team ersetzen",
     },
   ],
-  [M.anonymisieren]: [
-    {
-      render: () =>
-        underNext(
-          el(C.anonymisieren, {
-            schiedsrichterId: "68c1f0a2b3c4d5e6f7a8b9c0",
-            name: "Anna Beispiel",
-            schule: "Musterschule",
-            kontakt: { email: "anna@example.de", telefon: "069 1234567" },
-            onBeforeAnonymise: () => true,
-          }),
-        ),
-      resting: "Daten löschen",
-    },
-  ],
   [M.sperre]: [
     {
       render: () => underNext(el(C.sperre, { sperreId: "6890a1b2c3d4e5f607190001", gesperrtAm: "12.03.2026" })),
@@ -502,18 +516,6 @@ const PANELS: Record<string, Arming[]> = {
           }),
         ),
       resting: "Mich zur Verwaltung herabstufen",
-    },
-  ],
-  [M.spielerLoeschen]: [
-    {
-      render: () =>
-        underNext(
-          el(C.spielerLoeschen, { spielerId: "68c1f0a2b3c4d5e6f7a8b9c0", fullName: "Lena Meier", isRetired: true, membershipCount: 2 }),
-          {
-            search: "saison_id=2026",
-          },
-        ),
-      resting: "Spieler endgültig löschen",
     },
   ],
   [M.einladung]: [
@@ -724,6 +726,7 @@ describe("every administrator panel past the step-up window", () => {
         await act(answered);
         // Found rather than got: a panel that arms once a read it started has answered is armed after the click returns.
         await screen.findByRole("button", { name: "Abbrechen" });
+        await arming.typed?.(user);
         const armed = screen.queryByRole("button", { name: STEP_UP_LABEL });
         assert.equal(
           armed !== null,

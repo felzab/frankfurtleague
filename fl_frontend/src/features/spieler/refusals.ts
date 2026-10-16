@@ -1,7 +1,7 @@
 import { isRefusal } from "@/shared/utils/actionError";
 import { buildRefusal } from "@/shared/utils/refusal";
 
-import { ALREADY_IN_SAISON, ERASURE_NEEDS_RETIREMENT, STUFE_NICHT_ZUGELASSEN } from "./constants";
+import { ALREADY_IN_SAISON, STUFE_NICHT_ZUGELASSEN } from "./constants";
 
 import type { FieldErrors } from "@/shared/utils/validation";
 
@@ -54,17 +54,6 @@ export function mapKaderZeileRefusal(error: unknown): { error?: string; fieldErr
   // On the picker as well as in the sentence: the form offers the season's levels, so only a season
   // narrowed under the open page reaches this, and the picker is where it is repaired.
   if (error.serverErrorCode === "REQ-SQUAD-005") return { error: STUFE_NICHT_ZUGELASSEN, fieldErrors: { stufe: STUFE_NICHT_ZUGELASSEN } };
-  return null;
-}
-
-/**
- * The erasure's precondition, or `null` when the refusal is something else. It lands on no field: the
- * control is a panel with nothing to fill in, and the repair it names is on another page.
- */
-export function mapErasureRefusal(error: unknown): string | null {
-  if (!isRefusal(error)) return null;
-
-  if (error.serverErrorCode === "REQ-PURGE-001") return ERASURE_NEEDS_RETIREMENT;
   return null;
 }
 

@@ -263,7 +263,6 @@ const FORMS: Record<string, FormCase> = {
             membership: withMembership ? membership : null,
           },
           teams: [TEAM_A, TEAM_B],
-          membershipCount: withMembership ? 1 : 0,
           pageHeader: { title: "Lena Meier" },
         } as never);
       const rostered = await marksOf(editor(true));

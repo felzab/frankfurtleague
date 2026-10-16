@@ -11,36 +11,31 @@ import { RETIREMENT_KEEPS_SQUAD_ROWS } from "./constants";
 import {
   deleteSaisonSpieler,
   deleteSpieler,
-  eraseSpieler,
   patchSaisonSpieler,
   patchSpieler,
   postSaisonSpieler,
   reactivateSaisonSpieler,
   reactivateSpieler,
 } from "./mutations";
-import { mapAlreadyInSaisonRefusal, mapErasureRefusal, mapSquadRefusal, SQUAD_REPLAY_REFUSALS } from "./refusals";
+import { mapAlreadyInSaisonRefusal, mapSquadRefusal, SQUAD_REPLAY_REFUSALS } from "./refusals";
 import {
   FLDeleteSpielerPayloadSchema,
-  FLEraseSpielerPayloadSchema,
   FLPatchSaisonSpielerPayloadSchema,
   FLPatchSpielerPayloadSchema,
   FLPostSaisonSpielerPayloadSchema,
   FLReactivateSpielerPayloadSchema,
   FLSaisonSpielerKeyPayloadSchema,
 } from "./schemas";
-import { describeErasureUmfang } from "./utils";
 
 import type { ActionResult } from "@/shared/types/types";
 import type { UndoOutcome } from "@/shared/utils/adminUndo";
 import type {
   FLDeleteSpielerPayload,
-  FLEraseSpielerPayload,
   FLPatchSpielerPayload,
   FLReactivateSpielerPayload,
   FLSaisonSpielerKeyPayload,
   FLSaisonSpielerResponse,
   FLSpielerAdminSingleResponse,
-  FLSpielerErasureResponse,
 } from "./schemas";
 import type { SaisonSpielerEnterDraft, SaisonSpielerMembershipDraft } from "./types";
 
@@ -115,40 +110,6 @@ export async function reactivateSpielerAction(
       success: true,
       spieler: reactivateOperation,
       message: "Spieler reaktiviert",
-    };
-  });
-}
-
-/**
- * Erases the person: their record, every squad row they hold and their values in the log, in one
- * transaction. **No undo is offered and none exists** — nothing writes the person back, and the log
- * deliberately keeps no image of them.
- */
-export async function eraseSpielerAction(rawPayload: FLEraseSpielerPayload): Promise<ActionResult<{ erasure?: FLSpielerErasureResponse }>> {
-  return runAdminMutation("eraseSpielerAction", { stepUp: true }, async () => {
-    const validated = FLEraseSpielerPayloadSchema.safeParse(rawPayload);
-
-    if (!validated.success) {
-      return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
-    }
-
-    // The base `spieler` tag alone: this removed the person and their squad rows, which is what the
-    // cached public squad read joins. A club's read joins no pupil, a Spiel embeds none, and the log
-    // is admin-tier and uncached.
-    invalidateSpieler();
-    let erasure;
-    try {
-      erasure = await eraseSpieler(validated.data);
-    } catch (error) {
-      const refusal = mapErasureRefusal(error);
-      if (refusal !== null) return { success: false, error: refusal };
-      throw error;
-    }
-
-    return {
-      success: true,
-      erasure,
-      message: describeErasureUmfang(erasure.erased_saison_spieler, erasure.redacted_aktionen),
     };
   });
 }
