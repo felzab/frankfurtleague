@@ -23,7 +23,7 @@ for arg in "$@"; do
 done
 
 # One EXIT trap for the whole run: bash keeps one, so a second `trap … EXIT` below would silently
-# replace it. INT and TERM stay `scripts/lib/_lib.sh`'s, which exits 130 and so fires this.
+# replace it. INT, TERM and HUP stay `scripts/lib/_lib.sh`'s, which exits 130 and so fires this.
 SELFCHECK_TMP="$(mktemp -d)"
 cleanup() {
   rm -rf "$SELFCHECK_TMP"
