@@ -1014,6 +1014,32 @@ describe("the pupil's address on the editor", () => {
     );
   });
 
+  /* Over a typed draft, the one state in which the save stands enabled for Enter to submit through: over a clean one
+     it is disabled, and the case above would pass with the box letting Enter through. */
+  it("submits nothing from Enter in the box while the draft beside it holds typing", async () => {
+    await renderAdressePage({ email: GESPEICHERT, adresswechsel: null, abgelaufen: false });
+    const user = userEvent.setup();
+
+    const vorname = screen.getByRole("textbox", { name: "Vorname" });
+    await user.clear(vorname);
+    await user.type(vorname, "Lena-Marie");
+    await user.click(screen.getByRole("button", { name: "Adresse ändern" }));
+    const box = screen.getByRole("textbox", { name: /Neue E-Mail-Adresse/ });
+    let submits = 0;
+    (box.closest("form") ?? assert.fail("the box stands in no form")).addEventListener("submit", () => (submits += 1));
+    await user.clear(box);
+    calls.length = 0;
+    await user.type(box, "lena@neu.example{Enter}");
+    await act(answered);
+
+    assert.equal(submits, 0, "Enter in the box submitted the editor's form");
+    assert.deepEqual(
+      calls.map((call) => call.action),
+      [],
+      "Enter in the box wrote over the draft",
+    );
+  });
+
   it("keeps a refusal of the address on the box, which stays open on the typed value", async () => {
     const BELEGT = "Diese Adresse ist schon bei einer anderen Spielerin oder einem anderen Spieler hinterlegt.";
     answerWith(() => Promise.resolve({ success: false, error: BELEGT, fieldErrors: { email: BELEGT } }));
