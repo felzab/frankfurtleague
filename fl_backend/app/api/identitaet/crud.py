@@ -435,7 +435,7 @@ async def unattribute_in_session(
         session=session,
     )
 
-    # Read then judged on the fold, as every stored address is: the pre-filter's `i` ignores case beyond ASCII.
+    # Read then judged on the fold, as every stored address is: the pre-filter reads every mailbox sharing the local part.
     candidates = await aggregate_many_from_db(
         collection=aktionen_collection,
         pipeline=[{"$match": {"actor.email": same_address(identifier)}}, {"$project": {"actor.email": 1}}],

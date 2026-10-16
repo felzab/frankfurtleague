@@ -51,7 +51,7 @@ NAHE = "erikaxzwirbelmoos@frankfurtleague.de"
 # Another mailbox, a long s where hers has an s: the pattern's `i` may read it as hers, the fold does not.
 LANGES_S = ERIKA.replace("moos@", f"moo{chr(0x17F)}@")
 # Her mailbox at a Unicode domain, whose fold is punycode, and as a paste would spell it, the full stop
-# fullwidth: only the fold equates the two, so a read narrowed on any spelling of the address misses it.
+# fullwidth: the fold equates the two, and a read narrowed on any listed spelling of her domain misses it.
 ERIKA_UNICODE = "erika@xn--mller-kva.de"
 ERIKA_UNICODE_PASTED = "Erika@MÜLLER．de"
 # Another `owner`, erasing her as the administrator's own route will.
@@ -273,7 +273,7 @@ class TestHerGrantsGo:
         assert on_a_league(mongo_replica_set_url, body) == [str(BERND_ID)]
 
     def test_a_grant_pasted_with_her_domain_in_unicode_goes_and_her_pasted_authorship_with_it(self, mongo_replica_set_url: str):
-        """A paste may type the domain as an address book shows it, which the pattern built from the fold never reads."""
+        """Catches a read narrowed on spellings of her domain, which leaves this grant and its authorship standing."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[bool, Any, dict[str, list[str]]]:
             pasted, granted = ObjectId(), ObjectId()

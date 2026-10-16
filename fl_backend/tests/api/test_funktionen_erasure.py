@@ -105,6 +105,8 @@ NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 # The person: typed with capitals where a payload keeps them, folded where the pupil row stores it.
 TYPED = "Zorbanax.Quillfeather@Example.org"
 IDENTIFIER = "zorbanax.quillfeather@example.org"
+# As a hand-typed row may spell it, the domain fullwidth: the fold equates it with theirs, a pattern listing domains never.
+PASTED = IDENTIFIER.replace("example", "".join(chr(ord(letter) + 0xFEE0) for letter in "example"))
 VORNAME, NACHNAME = "Zorbanax", "Quillfeather"
 TELEFON = "+49 69 7771234"
 GEBURTSDATUM = "2008-07-14"
@@ -115,7 +117,7 @@ THEIR_DIGEST = "digest-7f3a1c-mit-block"
 THEIR_BLOCKLESS_DIGEST = "digest-7f3a1c-ohne-block"
 
 # Distinctive, so a hit in a whole-database scan is never coincidence: every value the person holds.
-THEIR_VALUES = (VORNAME, NACHNAME, IDENTIFIER, "7771234", GEBURTSDATUM, PSEUDONYM, THEIR_DIGEST, THEIR_BLOCKLESS_DIGEST)
+THEIR_VALUES = (VORNAME, NACHNAME, IDENTIFIER, PASTED, "7771234", GEBURTSDATUM, PSEUDONYM, THEIR_DIGEST, THEIR_BLOCKLESS_DIGEST)
 
 # The people beside them, each asserted still present: a step taking anybody else's record with theirs fails.
 BYSTANDER_VALUES = ("Quillhilde", "Bramblewick", "Wraxlington", "kraus.bernd@example.com")
@@ -143,6 +145,7 @@ OTHER_OWNER_OID = ObjectId("6890a1b2c3d4e5f607b00077")
 OTHER_OWNER = "ortwin.inhaber@example.com"
 GRANTED_BY_THEM_OID = ObjectId("6890a1b2c3d4e5f607b00072")
 BANNED_BY_THEM_OID = ObjectId("6890a1b2c3d4e5f607b00073")
+BANNED_BY_THEM_PASTED_OID = ObjectId("6890a1b2c3d4e5f607b00078")
 INVITED_BY_THEM_OID = ObjectId("6890a1b2c3d4e5f607b00074")
 DECIDED_BY_THEM_OID = ObjectId("6890a1b2c3d4e5f607b00075")
 DECLINED_BY_THEM_OID = ObjectId("6890a1b2c3d4e5f607b00076")
@@ -383,7 +386,7 @@ GRANTED = datetime(2026, 1, 1, tzinfo=UTC)
 
 
 async def records_they_made_holding_no_grant(database: AsyncDatabase) -> None:
-    """A grant, a ban, an invitation and two decisions in their name, each typed as stored, while the address holds no grant.
+    """A grant, two bans, an invitation and two decisions in their name, each typed as stored, while the address holds no grant.
 
     The grants step marks each: it runs in the full scope whatever the address holds.
     """
@@ -400,13 +403,14 @@ async def records_they_made_holding_no_grant(database: AsyncDatabase) -> None:
     await database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT].insert_one(
         {"_id": GRANTED_BY_THEM_OID, "adresse": "bramblewick.admin@example.com", "verwaltung": "administration", "angekuendigt_am": GRANTED}
     )
-    await database[Collection.SPERRLISTE].insert_one(
-        ban_document(
-            "gebannt@beispiel.de",
-            bis=compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID),
-            _id=BANNED_BY_THEM_OID,
-            erstellt_von=TYPED,
-        )
+    await database[Collection.SPERRLISTE].insert_many(
+        [
+            ban_document(address, bis=compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID), _id=ban_id, erstellt_von=von)
+            for address, ban_id, von in (
+                ("gebannt@beispiel.de", BANNED_BY_THEM_OID, TYPED),
+                ("gebannt-zwei@beispiel.de", BANNED_BY_THEM_PASTED_OID, PASTED),
+            )
+        ]
     )
     await database[Collection.EINLADUNGEN].insert_one(
         {
