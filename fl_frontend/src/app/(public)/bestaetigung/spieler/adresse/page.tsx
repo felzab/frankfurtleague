@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 
+import { isContractBreak } from "@/core/errors";
 import { startOf } from "@/features/spieler/adresswechselStart";
 import { SpielerAdresswechselView } from "@/features/spieler/components/views/SpielerAdresswechselView";
 import { getSpielerAdresswechselAnsicht } from "@/features/spieler/queries";
@@ -37,10 +38,14 @@ async function SpielerAdresswechselContent(props: NextPageProps) {
   // A missing or repeated parameter is no link at all and reads as the dead link.
   if (typeof token !== "string" || token === "") return <SpielerAdresswechselView start={{ zustand: "ungueltig" }} />;
 
-  // Caught, so a failed read is its own state: the dead-link panel would call a live link void.
+  // A failed read is its own state, the dead-link panel calling a live link void. A broken contract is
+  // no failed read: it reaches the error boundary, which logs it.
   const start: SpielerAdresswechselStart = await getSpielerAdresswechselAnsicht(token).then(
     (gelesen) => startOf(gelesen, token),
-    () => ({ zustand: "unlesbar" }),
+    (error: unknown): SpielerAdresswechselStart => {
+      if (isContractBreak(error)) throw error;
+      return { zustand: "unlesbar" };
+    },
   );
 
   return <SpielerAdresswechselView start={start} />;
