@@ -16,7 +16,7 @@ import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 import { toFieldErrors } from "@/shared/utils/validation";
 
-import type { FormState } from "@/shared/types/types";
+import type { FormState, SignOutResult } from "@/shared/types/types";
 
 // Deliberately identical whether or not the send gate admits the address: this action is public, so a
 // distinguishable "not authorized" is a membership oracle.
@@ -96,12 +96,12 @@ export async function handleSignIn(_prevState: FormState | undefined, formData: 
   });
 }
 
-export async function signOutAction(): Promise<FormState> {
+export async function signOutAction(): Promise<SignOutResult> {
   return runWithIncomingTrace(async () => {
     try {
       await signOutHere(await headers());
 
-      return { success: true, message: "Abgemeldet" };
+      return { success: true };
     } catch (error) {
       // Keeps a framework redirect from being reported as a failed sign-out.
       unstable_rethrow(error);

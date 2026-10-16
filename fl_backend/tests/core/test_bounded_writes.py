@@ -25,6 +25,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.berechtigungen.crud import anchor_the_actors_grant, pull_the_list_to_judge
+from app.api.bewerbungen.sweep_router import pull_the_season_after
 from app.api.identitaet.crud import erase_if_still_due
 from app.api.sperrliste import crud as sperrliste_crud
 from app.api.sperrliste.admin_router import _pull_the_season_a_ban_counts_from
@@ -143,6 +144,10 @@ CALLERS: dict[str, frozenset[str]] = {
     "anchor_the_actors_grant": frozenset({"app/core/security.py :: judging_the_administrator"}),
     # The season-after deletion pass, one pupil a transaction.
     "erase_if_still_due": frozenset({"app/api/identitaet/sweep_router.py :: erase_the_pupil_if_still_due"}),
+    # The application sweep's two clocks the season-after rule ends, each transaction judging the season again.
+    "pull_the_season_after": frozenset(
+        {"app/api/bewerbungen/sweep_router.py :: erase_accepted", "app/api/bewerbungen/sweep_router.py :: clear_the_blocks"}
+    ),
 }
 
 # The callers no `with_transaction` is handed, each run by `transaction_session` inside every attempt
@@ -162,6 +167,7 @@ ANCHORS: tuple[tuple[Callable[..., Any], str], ...] = (
     (pull_the_list_to_judge, "berechtigungen_collection"),
     (anchor_the_actors_grant, "berechtigungen_collection"),
     (erase_if_still_due, "saisons_collection"),
+    (pull_the_season_after, "saisons_collection"),
 )
 
 ANCHORING_FUNCTIONS = tuple(function for function, _ in ANCHORS)

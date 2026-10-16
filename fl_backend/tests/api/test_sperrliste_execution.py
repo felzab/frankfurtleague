@@ -15,6 +15,7 @@ from app.api.sperrliste.admin_router import delete_sperrliste_eintrag, get_sperr
 from app.api.sperrliste.crud import address_is_gesperrt, read_sperrliste_page
 from app.api.sperrliste.services import SPERRLISTE_ADRESSE_GESPERRT, SPERRLISTE_SCHLUESSEL_VERSION, SPERRLISTE_VERWALTUNG, adresse_hash
 from app.core.collections import Collection
+from app.core.crud import ANCHOR_FIELD
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from tests.bans import ban_list, ban_through_the_route
 from tests.config import build_test_config, grants_for_the_suite
@@ -24,7 +25,8 @@ from tests.erasure import erased
 from tests.worker import worker_database
 
 from .test_erasure_auf_anfrage import ANOTHER_SURNAME, SURNAME_OF
-from .test_funktionen_erasure import NACHNAME, TYPED, VORNAME, a_person_holding_everything, everything_in
+from .test_funktionen_erasure import NACHNAME, SAISON_ID, TYPED, VORNAME, a_person_holding_everything, everything_in
+from .test_sperrliste_isolation import SeasonsRunningARivalAfterTheFirstRead
 
 pytestmark = pytest.mark.db
 
@@ -569,6 +571,41 @@ class TestANameInTheGrund:
             return await rows_of(database)
 
         assert [row["grund"] for row in on_a_person_holding_everything(mongo_replica_set_url, body)].count(grund) == 1
+
+
+class TestANameARivalWritesMidBan:
+    """`docs/backend/spec.md :: I726` on a retry: a rename committing inside the ban, and the retry reads it."""
+
+    def test_the_retry_refuses_the_name_and_bans_nobody(self, mongo_replica_set_url: str):
+        """Judged once before the transaction instead, the pass stands: the retry commits a reason naming the person.
+
+        The rename alone sends no retry, the ban writing no pupil row; the rival's write to the season the ban anchors does.
+        """
+
+        racing: list[SeasonsRunningARivalAfterTheFirstRead] = []
+        grund = f"Falsche Angaben, siehe {ANOTHER_SURNAME}"
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            collection, row, field = SURNAME_OF["a pupil"]
+
+            async def rival() -> None:
+                assert (await database[collection].update_one(row, {"$set": {field: ANOTHER_SURNAME}})).modified_count == 1
+                assert (await database[Collection.SAISONS].update_one({"_id": SAISON_ID}, {"$inc": {ANCHOR_FIELD: 1}})).modified_count == 1
+
+            before = await rows_of(database)
+            racing.append(SeasonsRunningARivalAfterTheFirstRead(database[Collection.SAISONS], rival))
+            try:
+                await ban_through_the_route(database, client, email=TYPED, grund=grund, von=ADMIN, today=TODAY, saisons=racing[-1])
+            except WriteRefusalException as refusal:
+                return refusal.error_code, before == await rows_of(database)
+
+            return "banned", before == await rows_of(database)
+
+        outcome, untouched = on_a_person_holding_everything(mongo_replica_set_url, body)
+
+        assert (outcome, untouched) == (NAME_IM_GRUND, True)
+        # The premise: the first attempt met the rival and the retry read the season again.
+        assert racing[-1].passes == 2
 
 
 class TestTheKeyTheRowsWereTakenUnder:

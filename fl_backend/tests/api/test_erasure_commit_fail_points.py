@@ -6,8 +6,10 @@ workers, so a second module configuring it on another worker would replace this 
 `off` would clear both. The gate's `--dist loadfile` runs one module on one worker, its cases one after another.
 """
 
+import ast
 import logging
 from collections.abc import Awaitable, Callable
+from importlib.util import resolve_name
 from pathlib import Path
 from typing import Any
 
@@ -58,6 +60,8 @@ UNANSWERED: dict[str, Any] = {
 
 FAIL_POINT = "failCommand"
 TESTS_ROOT = Path(__file__).resolve().parents[1]
+BACKEND_ROOT = TESTS_ROOT.parent
+THIS_MODULE = ".".join(Path(__file__).resolve().relative_to(BACKEND_ROOT).with_suffix("").parts)
 
 
 class _Commits(monitoring.CommandListener):
@@ -81,14 +85,34 @@ class _Commits(monitoring.CommandListener):
             self.answered.append(event.failure.get("code"))
 
 
+def _modules_imported(path: Path) -> frozenset[str]:
+    """Every module the file imports, and every name it imports from one read as a submodule, relative levels resolved."""
+
+    package = ".".join(path.relative_to(BACKEND_ROOT).with_suffix("").parts[:-1])
+    found: set[str] = set()
+    for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+        if isinstance(node, ast.Import):
+            found.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            base = resolve_name("." * node.level + (node.module or ""), package)
+            found.add(base)
+            found.update(f"{base}.{alias.name}" for alias in node.names)
+
+    return frozenset(found)
+
+
 def test_no_other_module_configures_the_fail_point():
-    """The rule this module's docstring states: a second module's configuration replaces this one's on a shared server."""
+    """The rule this module's docstring states: a second module's configuration replaces this one's on a shared server.
 
-    configuring = sorted(
-        path.relative_to(TESTS_ROOT).as_posix() for path in TESTS_ROOT.rglob("*.py") if FAIL_POINT in path.read_text(encoding="utf-8")
-    )
+    Two routes reach it: spelling the fail point, and importing this module, whose helpers configure it unspelled.
+    """
 
-    assert configuring == [Path(__file__).relative_to(TESTS_ROOT).as_posix()]
+    texts = {path.relative_to(TESTS_ROOT).as_posix(): (path, path.read_text(encoding="utf-8")) for path in sorted(TESTS_ROOT.rglob("*.py"))}
+    spelling = [name for name, (_, text) in texts.items() if FAIL_POINT in text]
+    # Parsed only where the module's own name is spelled, as every import of it spells it.
+    importing = [name for name, (path, text) in texts.items() if Path(__file__).stem in text and THIS_MODULE in _modules_imported(path)]
+
+    assert (spelling, importing) == ([Path(__file__).relative_to(TESTS_ROOT).as_posix()], [])
 
 
 @pytest.mark.db

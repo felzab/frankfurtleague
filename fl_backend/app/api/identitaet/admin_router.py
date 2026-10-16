@@ -239,8 +239,9 @@ async def erase_auf_anfrage(
     redaction reaches it, so it is refused 422 where it holds an address, and, inside the write ahead of the erasure's first
     step, where it holds a name of the person's own records as a whole word or before a genitive s (`REQ-PURGE-006`): each
     name field whole and each of its words, but a particle such as `von` before a later word of its field and any single
-    letter. Names compare as stored, capitals and spacing aside, so another spelling passes, „Weiss“ or „Mueller“ for „Weiß“
-    or „Müller“. A common word equal to a name is refused with it. The grant notice names this administrator as ending the
+    letter. Names compare as stored, spacing aside, and equal where their plain lower or their plain upper case is: „Weiss“
+    is refused for „Weiß“, whose capitals it shares, and another spelling such as „Mueller“ for „Müller“ passes. A common
+    word equal to a name is refused with it. The grant notice names this administrator as ending the
     person's grant. An address holding nothing is answered with every count zero. The 404 and the 409 answer only a database
     changed by hand under the request. The sign-in account is not touched here: deleting it is the caller's, once this has
     answered.

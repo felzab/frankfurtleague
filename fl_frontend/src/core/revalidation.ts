@@ -9,7 +9,7 @@ import { logger } from "./logging";
  * Every tag a caller of `fl_frontend/src/app/api/revalidate/route.ts` may name, and no other: the base tag of each
  * cached league read (`docs/frontend/spec.md` §1.2). A granular tag rides on its base tag's entries, so the base clears it.
  */
-const REVALIDATION_TAGS = ["saisons", "spiele", "spieler", "spieltage", "teams"] as const;
+export const REVALIDATION_TAGS = ["saisons", "spiele", "spieler", "spieltage", "teams"] as const;
 
 type RevalidationTag = (typeof REVALIDATION_TAGS)[number];
 
@@ -21,7 +21,7 @@ export const REVALIDATED = 204;
 
 /**
  * Drops `tags` from outside a request, settling rather than throwing: a drop that failed leaves a cached page serving
- * what the caller just deleted, which the line tells the operator to drop by hand (`docs/ops/spec.md` §3).
+ * what the caller just deleted, which the line tells the operator to drop by hand (`docs/ops/runbooks.md` §20).
  */
 export async function revalidateOverLoopback(tags: readonly RevalidationTag[]): Promise<void> {
   try {

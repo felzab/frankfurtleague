@@ -44,7 +44,7 @@ import type { FLSchiedsrichterPayloadDraft } from "@/features/schiedsrichter/sch
 import type { FLKontakt } from "@/shared/schemas";
 import type { ActionResult } from "@/shared/types/types";
 import type { UndoOutcome } from "@/shared/utils/adminUndo";
-import type { LinkVersand } from "@/shared/utils/linkVersand";
+import type { HinweisVersand, LinkVersand } from "@/shared/utils/linkVersand";
 import type {
   FLPatchSchiedsrichterPayload,
   FLPostSchiedsrichterPayload,
@@ -115,7 +115,7 @@ export async function patchSchiedsrichterAction(
     updated_document?: FLSchiedsrichter;
     versandSatz?: string;
     versand?: LinkVersand;
-    hinweis?: LinkVersand | null;
+    hinweis?: HinweisVersand | null;
     adresswechselGespeichert?: boolean;
   }>
 > {
@@ -358,7 +358,7 @@ export async function einladeSchiedsrichterAction(
 /** A fresh link to the pending address, mailed with a fresh notice to the stored one: the earlier link is dead either way. */
 export async function einladeAdresswechselAction(
   rawPayload: FLSchiedsrichterAdresswechselEinladenPayload,
-): Promise<ActionResult<{ versand: LinkVersand; hinweis: LinkVersand | null }>> {
+): Promise<ActionResult<{ versand: LinkVersand; hinweis: HinweisVersand | null }>> {
   return runAdminMutation("einladeAdresswechselAction", { stepUp: true }, async () => {
     const validated = FLSchiedsrichterAdresswechselEinladenPayloadSchema.safeParse(rawPayload);
 

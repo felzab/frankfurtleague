@@ -72,8 +72,9 @@ describe("the notice an address change sends the address in force", () => {
       anlass: "empfang",
     });
 
-  /* It may have landed, so the request is answered as of unknown outcome, as a link mail's lost send is. */
-  it("marks the request as of unknown outcome where its send broke off unanswered", async () => {
+  /* It may have landed, and it is a courtesy beside a saved write: its own answer says so, and the request's outcome
+     stays the write's and the link's (`docs/frontend/spec.md :: I372`). */
+  it("ends as unclear where its send broke off unanswered, leaving the request's outcome unmarked", async () => {
     mail.answerWith(({ to }) => (to === BISHER ? "lost" : { accepted: "56761188-7520-42d8-8898-ff6fc54ce618" }));
 
     const [versand, markedUnknown] = await runWithRequestScope({ traceId: "a".repeat(32), spanId: "b".repeat(16) }, async () => {
@@ -81,8 +82,8 @@ describe("the notice an address change sends the address in force", () => {
       return [ended, requestOutcomeUnknown()] as const;
     });
 
-    assert.deepEqual(versand, { link: "gesendet", hinweis: "fehlgeschlagen" });
-    assert.equal(markedUnknown, true, "the request was not told the notice may have landed");
+    assert.deepEqual(versand, { link: "gesendet", hinweis: "ungewiss" });
+    assert.equal(markedUnknown, false, "a notice that may have landed answered the whole request as of unknown outcome");
   });
 
   for (const [outcome, hinweis] of [

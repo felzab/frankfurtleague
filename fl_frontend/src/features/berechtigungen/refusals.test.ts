@@ -35,7 +35,8 @@ describe("the grant's refusals", () => {
 describe("the revoke's refusals", () => {
   it("names each reason a revoke is refused in its own sentence", () => {
     assert.deepEqual(mapEntziehenRefusal(refusedOn(REVOKE, "REQ-BERECHTIGUNG-005", 403)), {
-      error: "Den Zugang entziehen können nur Inhaberinnen und Inhaber.",
+      error:
+        "Den Zugang entziehen können nur Inhaberinnen und Inhaber. Bist Du erst nach Deiner Anmeldung Inhaberin oder Inhaber geworden, melde Dich neu an.",
     });
     assert.deepEqual(mapEntziehenRefusal(refusedOn(REVOKE, "REQ-BERECHTIGUNG-002", 409)), {
       error: "Einer Inhaberin oder einem Inhaber lässt sich der Zugang nicht entziehen. Stufe die Person zuerst zur Verwaltung herab.",
@@ -60,7 +61,8 @@ describe("the revoke's refusals", () => {
 describe("the tier change's refusals", () => {
   it("names each reason a tier change is refused in its own sentence", () => {
     assert.deepEqual(mapStufeRefusal(refusedOn(TIER, "REQ-BERECHTIGUNG-005", 403)), {
-      error: "Die Stufe eines Zugangs ändern können nur Inhaberinnen und Inhaber.",
+      error:
+        "Die Stufe eines Zugangs ändern können nur Inhaberinnen und Inhaber. Bist Du erst nach Deiner Anmeldung Inhaberin oder Inhaber geworden, melde Dich neu an.",
     });
     assert.deepEqual(mapStufeRefusal(refusedOn(TIER, "REQ-BERECHTIGUNG-003", 409)), {
       error: "Diese Adresse ist gesperrt. Hebe zuerst die Sperre auf, wenn sie Inhaberin oder Inhaber werden soll.",

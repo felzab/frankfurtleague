@@ -1,6 +1,6 @@
-from typing import Annotated
+from typing import Annotated, Any
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints
 
 from app.api.berechtigungen.schemas import FLUtcInstant, FLVerwaltung
 
@@ -10,7 +10,7 @@ from app.api.bewerbungen.schemas import FLKontaktRolle
 from app.api.registrierungen.schemas import FLRegistrierungStatus
 from app.api.saisons.schemas import FLSaisonStatus
 from app.api.sperrliste.schemas import ADDRESS_IN_FREE_TEXT
-from app.shared.folding import sign_in_identifier
+from app.shared.folding import sign_in_identifier, trimmed
 from app.shared.schemas.bounds import ERASURE_ANLASS_MAX_LENGTH, KONTAKT_EMAIL_MAX_LENGTH, REFERENZEN_ADRESSEN_MAX
 from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.kontakt import CustomEmail
@@ -255,12 +255,19 @@ def refuse_the_reserved_domain(value: str) -> str:
     return value
 
 
+def _trimmed_as_the_page_trims(value: Any) -> Any:
+    return trimmed(value) if isinstance(value, str) else value
+
+
 # A lookup asking no more than any payload stores, an `@` within the stored ceiling, and refusing the
 # reserved domain (`docs/backend/spec.md :: I329`): a record stored under an older rule stays
-# erasable. Stripped as the page's own box trims it.
+# erasable.
 ErasureAdresse = Annotated[
     str,
-    StringConstraints(strip_whitespace=True, max_length=KONTAKT_EMAIL_MAX_LENGTH, pattern="@"),
+    StringConstraints(max_length=KONTAKT_EMAIL_MAX_LENGTH, pattern="@"),
+    # Never `strip_whitespace`, whose set adds U+0085, which the page keeps: one spelling's records would be erased and
+    # another spelling's sign-in account left (`fl_backend/tests/shared/test_email_address.py`).
+    BeforeValidator(_trimmed_as_the_page_trims),
     AfterValidator(refuse_the_reserved_domain),
 ]
 
