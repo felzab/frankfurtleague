@@ -30,14 +30,12 @@ export async function mailSchiedsrichterLink({
   operation,
   schiedsrichterId,
   email,
-  name,
   mint,
   anlass,
 }: {
   operation: string;
   schiedsrichterId: string;
   email: string;
-  name: string | null;
   mint: FLSchiedsrichterMint;
   anlass: ZustellAnlass;
 }): Promise<LinkVersand> {
@@ -52,7 +50,6 @@ export async function mailSchiedsrichterLink({
         // The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`: a stack that is not
         // production must not mail production links (`docs/frontend/spec.md :: I186`).
         origin: frontend_config.AUTH_URL,
-        vorname: schiedsrichterVorname(name) ?? "",
         token: mint.token,
         fristText: formatSpielDatum(mint.frist),
       }),
@@ -90,7 +87,6 @@ export async function mailSchiedsrichterAdresswechsel({
       buildMail: () =>
         buildSchiedsrichterAdresswechselEmail({
           origin: frontend_config.AUTH_URL,
-          vorname: vorname,
           token: mint.token,
           fristText: formatSpielDatum(mint.frist),
         }),

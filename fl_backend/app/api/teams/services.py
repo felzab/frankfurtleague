@@ -1207,7 +1207,6 @@ def mint_answer(
         rollen=list(seats),
         email=str(person["email"]),
         frist=frist,
-        vorname=str(person["vorname"]),
         schule=str(row.get("name") or ""),
         zeile=zeile,
     )

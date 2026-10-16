@@ -38,7 +38,6 @@ const MINT = {
   token: "zurueck",
   rollen: ["ansprechperson"],
   email: "ada@example.org",
-  vorname: "Ada",
   schule: "Lessing-Kolleg",
   frist: "2026-10-17",
   zeile: "offen",

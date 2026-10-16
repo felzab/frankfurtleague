@@ -98,7 +98,6 @@ const minted = (vorname: string, email: string, rollen: string[], token = `token
   token,
   rollen,
   email,
-  vorname,
   schule: "Lessing-Kolleg",
   frist: "2026-10-17",
   zeile,

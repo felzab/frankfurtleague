@@ -127,17 +127,14 @@ export type FLEinwilligungUmfang = z.infer<typeof FLEinwilligungUmfangSchema>;
 /**
  * What a confirmation link is told before any press.
  *
- * The surname never travels, so a leaked link learns no name to look anything up against. The
- * three stored answers are null on the new pupil's page.
+ * No name travels: the link went to an address nobody has confirmed, which behind a typo is a
+ * stranger's. The three stored answers are null on the new pupil's page.
  */
 export const FLRegistrierungBestaetigungAnsichtResponseSchema = BaseAPIResponseSchema.extend({
   zustand: z.enum(["gueltig", "bestaetigt", "abgelaufen", "gesperrt"]),
   team: z.string(),
   schule: z.string(),
   saison_id: z.string(),
-  // Never null: the endpoint answers a state for a spent or lapsed link and this name only
-  // reaches a page that renders the form.
-  vorname: z.string(),
   // Which page the link opens, decided by the backend: the press is judged against the same one.
   seite: z.enum(["bestaetigung_spieler", "bestaetigung_spieler_wiederkehrend"]),
   // The floor the answer is judged by. The page bounds its date control and words its sentences from

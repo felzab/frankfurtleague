@@ -50,11 +50,12 @@ const EMPFAENGER_SATZ = "Diese E-Mail geht nur an Dich.";
 
 export type SchiedsrichterEmail = { subject: string; html: string; text: string };
 
+// No name: an administrator typed this address and nobody has confirmed it, so behind a typo its
+// reader is a stranger, owed none.
 /** What one referee is asked to confirm. No season: a referee's entry is bound to none, so the deadline is the only date here. */
 export interface SchiedsrichterBestaetigungData {
   /** The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL` (`docs/frontend/spec.md :: I186`). */
   origin: string;
-  vorname: string;
   /** The raw token. It is a bearer credential and is never taken apart here. */
   token: string;
   /**
@@ -73,13 +74,13 @@ function aktionen(url: string): readonly Aktion[] {
   return [{ href: url, label: "Eintrag bestätigen", ton: "primary" }];
 }
 
-function renderHtml(vorname: string, url: string, frist: string, origin: string): string {
+function renderHtml(url: string, frist: string, origin: string): string {
   return renderKarte({
     titel: `${BRAND_NAME}: ${UEBERSCHRIFT}`,
     ueberschrift: escapeHtml(UEBERSCHRIFT),
     bloecke: [
       paragraph(
-        `Hallo ${strong(escapeHtml(vorname))}, die Verwaltung der ${BRAND_NAME} hat Dich als Schiedsrichterin oder Schiedsrichter eingetragen. ${strong("Bitte bestätige, dass das stimmt")}: Erst danach kannst Du auf der Website Ansetzungen annehmen und Spielberichte einreichen.`,
+        `Hallo, die Verwaltung der ${BRAND_NAME} hat Dich als Schiedsrichterin oder Schiedsrichter eingetragen. ${strong("Bitte bestätige, dass das stimmt")}: Erst danach kannst Du auf der Website Ansetzungen annehmen und Spielberichte einreichen.`,
       ),
       // Both answers are named before the press: a reader who came to confirm an entry and meets a
       // publication choice was asked something the message did not say.
@@ -98,11 +99,11 @@ function renderHtml(vorname: string, url: string, frist: string, origin: string)
   });
 }
 
-function renderText(vorname: string, url: string, frist: string, origin: string): string {
+function renderText(url: string, frist: string, origin: string): string {
   const oben = [
     `${BRAND_NAME}: ${UEBERSCHRIFT}`,
     "",
-    `Hallo ${vorname}, die Verwaltung der ${BRAND_NAME} hat Dich als Schiedsrichterin oder Schiedsrichter eingetragen.`,
+    `Hallo, die Verwaltung der ${BRAND_NAME} hat Dich als Schiedsrichterin oder Schiedsrichter eingetragen.`,
     "Bitte bestätige, dass das stimmt: Erst danach kannst Du auf der Website Ansetzungen annehmen und Spielberichte einreichen.",
     "",
     "Auf der Seite trägst Du Dein Geburtsdatum ein und entscheidest, was im Spielplan von Deinem Namen zu sehen ist.",
@@ -123,23 +124,17 @@ function renderText(vorname: string, url: string, frist: string, origin: string)
  * **The two parts state the same facts**, as in the application messages
  * (`fl_frontend/src/core/bewerbungEmail.ts :: buildBewerbungBestaetigungEmail`).
  */
-export function buildSchiedsrichterBestaetigungEmail({
-  origin,
-  vorname,
-  token,
-  fristText,
-}: SchiedsrichterBestaetigungData): SchiedsrichterEmail {
+export function buildSchiedsrichterBestaetigungEmail({ origin, token, fristText }: SchiedsrichterBestaetigungData): SchiedsrichterEmail {
   const site = mailOrigin(origin);
   // Folded before either branch: this message renders no fact panel, so nothing downstream would
-  // fold these, and the two halves have to state one string.
-  const name = einzeilig(vorname);
+  // fold it, and the two halves have to state one string.
   const frist = einzeilig(fristText);
   const url = schiedsrichterBestaetigungsLink(site, token);
 
   return {
     subject: `Bitte bestätigen: Dein Eintrag bei der ${BRAND_NAME}`,
-    html: renderHtml(name, url, frist, site),
-    text: renderText(name, url, frist, site),
+    html: renderHtml(url, frist, site),
+    text: renderText(url, frist, site),
   };
 }
 
@@ -153,11 +148,13 @@ function schiedsrichterAdresswechselLink(origin: string, token: string): string 
 
 const ADRESSE_UEBERSCHRIFT = "Neue E-Mail-Adresse bestätigen";
 
-/** What an address link mail is built from; `fristText` is rendered by the caller for `SchiedsrichterBestaetigungData`'s reason. */
+/**
+ * What an address link mail is built from: no name, and `fristText` rendered by the caller, each for
+ * `SchiedsrichterBestaetigungData`'s reason.
+ */
 export interface SchiedsrichterAdresswechselData {
   /** The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL` (`docs/frontend/spec.md :: I186`). */
   origin: string;
-  vorname: string;
   /** The raw token. It is a bearer credential and is never taken apart here. */
   token: string;
   fristText: string;
@@ -171,15 +168,9 @@ const adresseIgnorierSatz = `Ist das nicht Deine Adresse? Dann wähle auf der Se
  * The link to a confirmed referee's new address. It asks nothing but whether the mailbox is theirs:
  * their consent stands, and a page asking it again would record an answer nobody owed.
  */
-export function buildSchiedsrichterAdresswechselEmail({
-  origin,
-  vorname,
-  token,
-  fristText,
-}: SchiedsrichterAdresswechselData): SchiedsrichterEmail {
+export function buildSchiedsrichterAdresswechselEmail({ origin, token, fristText }: SchiedsrichterAdresswechselData): SchiedsrichterEmail {
   const site = mailOrigin(origin);
   // Folded before either branch, for `buildSchiedsrichterBestaetigungEmail`'s reason.
-  const name = einzeilig(vorname);
   const frist = einzeilig(fristText);
   const url = schiedsrichterAdresswechselLink(site, token);
 
@@ -190,7 +181,7 @@ export function buildSchiedsrichterAdresswechselEmail({
     titel: `${BRAND_NAME}: ${ADRESSE_UEBERSCHRIFT}`,
     ueberschrift: escapeHtml(ADRESSE_UEBERSCHRIFT),
     bloecke: [
-      paragraph(`Hallo ${strong(escapeHtml(name))}, ${eintrag} ${strong(escapeHtml(gilt))}`),
+      paragraph(`Hallo, ${eintrag} ${strong(escapeHtml(gilt))}`),
       paragraph(`Bestätige sie bis zum ${strong(escapeHtml(frist))} über diesen Link. Er funktioniert nur einmal.`),
       ...fallbackBloecke([{ label: "", url: url }], FALLBACK_SATZ),
       paragraph(escapeHtml(adresseIgnorierSatz), "0", ASIDE_TEXT),
@@ -203,7 +194,7 @@ export function buildSchiedsrichterAdresswechselEmail({
   const oben = [
     `${BRAND_NAME}: ${ADRESSE_UEBERSCHRIFT}`,
     "",
-    `Hallo ${name}, ${eintrag}`,
+    `Hallo, ${eintrag}`,
     gilt,
     "",
     `Bestätige sie bis zum ${frist} über diesen Link. Er funktioniert nur einmal.`,
