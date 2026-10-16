@@ -733,7 +733,11 @@ def build_offene_registrierungen_pipeline() -> list[Mapping[str, Any]]:
 
 
 def offene_adressen(registrierung_rows: Iterable[Mapping[str, Any]]) -> frozenset[str]:
-    """The pending registrations' addresses, folded: a registration stores its address unfolded (`docs/glossary.md :: Registrierung`)."""
+    """The pending registrations' addresses, folded, so membership decides exactly.
+
+    A registration stores its address unfolded (`docs/glossary.md :: Registrierung`), and one pupil's read in
+    `app/api/identitaet/crud.py :: erase_if_still_due` takes every mailbox sharing the local part, another person's among them.
+    """
 
     return frozenset(
         sign_in_identifier(row["email"]) for row in registrierung_rows if row.get("status") == SUBMITTED and isinstance(row.get("email"), str)

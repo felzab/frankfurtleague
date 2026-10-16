@@ -304,10 +304,17 @@ a person's own consent and a carried-over record to express and nothing else —
 already marks the second, and `erziehungsberechtigt` stays in the enum for the rows that carry it,
 which the once-only reset of this season's pupil rows removes (`docs/datenschutz.md` §3).
 
+**The consent records' speakers are written by nothing either.** No write sets a consent block's
+`erteilt_von` or a contact seat's `erfasst_von`, and no validator requires them, as I ruled on
+2026-10-04; the records stored before carry them still
+(`fl_backend/app/shared/einwilligung_nachweis.py :: SPRECHER`), and the enum above is `erteilt_von`'s.
+
 **Done when** the enum has lost `erziehungsberechtigt` once the reset removed every row carrying it,
 and a pupil's birthdate is required on the person from then on, `fl_backend/app/core/domain.py ::
-UNENFORCED` carrying the state that ends there. The notice's referee publication row is
-`pw5c-zps5`'s.
+UNENFORCED` carrying the state that ends there; and the consent blocks' two speaker fields are gone
+from every model and validator and, by a Playground paste of mine, from every stored record still
+carrying one. A grant's own `erteilt_von` on `berechtigungen`, the administrator who gave it, is
+another field and stays. The notice's referee publication row is `pw5c-zps5`'s.
 
 ### `dgdv-27yw` · No rule engine reads this repository's sources, and two spellings its own readers refuse wait on a parse across the language boundary
 

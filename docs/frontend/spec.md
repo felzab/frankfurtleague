@@ -1504,6 +1504,11 @@ where a comment quotes a rendered string, which tracks it. The wording rules:
 - **No dash is punctuation** (my rule, 2026-08-13): not the em dash `—`, not the en dash `–`, not a
   hyphen standing between spaces. A dash that carried a real break is **rewritten**, never merely
   deleted, and a dash doing a word's job is spelled out — a pairing reads `gegen`.
+- **No semicolon in visible German** (my rule, 2026-10-07, reaching every rendered string from
+  2026-10-15): a sentence carrying one is split into full sentences that say the same, a period and
+  a capital where the semicolon stood. **Legal text keeps its semicolons** (2026-10-16) — the consent
+  wordings (`fl_backend/app/shared/einwilligung.py :: FASSUNGEN`), the privacy notice and the
+  Impressum — German legal drafting ending each enumerated point with one.
 - **A hyphen that connects stays** — `KO-Runde`, `E-Mail`, every club and venue name — which is the
   half a find-and-replace destroys, so the sweep runs string by string.
 - **A range between two dates takes an en dash, and it is the only exception** (my rule,
@@ -2592,6 +2597,9 @@ carries an `aria-label` of its own and the glyph inside it is decorative like an
 | A store failing a transaction before its commit and failing its abort leaves the transaction open to its lifetime limit with no line (I678)                             | Accepted — the driver's own abort after a failed callback swallows its failures by specification, and the adapter's logged abort follows only an attempted commit                           |
 | I680's page sweep types only into a field a page shows unpressed or once a closed list opens, past every server action doubled                                          | Accepted — a field behind a dialog or a pick, and a URL an action builds, are review's; the lint bans still refuse `q` everywhere                                                           |
 | A reference written between the account sweep's second ask and its delete loses that account, its sessions and passkeys with it (I699)                                  | Accepted — no transaction spans the backend and the sign-in store; the second ask narrows it to seconds, and the person signs in by code                                                    |
+| Two cookieless sign-ins at once, or a retry after a lost answer, leave a session no browser holds (I399, I485)                                                          | Accepted — nothing ties a cookieless request to a browser; the account page lists the session and ends it, and its lifetime expires it                                                      |
+| A pupil the hourly pass deletes stays on a cached squad page until the `days` profile lets that entry go, up to a week                                                  | Accepted — a timer holds no request to drop a tag from, and an invalidation endpoint is refused (`.claude/rules/cross-surface.md`); the press drops it (I694)                               |
+| A grant notice claimed before an erasure or a ban commits still names that person to its recipients (I455)                                                              | Open — the claim mails the row as read; a recipient a later pass reaches gets the withheld body under the same key (I457)                                                                   |
 
 - **I545 reads what the source spells, and four routes past it are review's.** A module specifier or
   a variable's name assembled at run time passes every ban. A module reading a secret's file off

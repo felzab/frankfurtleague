@@ -81,8 +81,9 @@ async def redact_address_in_images(
     standing role keeps its own.
     """
 
-    # Folded again, the fold being idempotent: an unfolded spelling passes the pre-filter's `i` and
-    # matches nothing on the fold, so the erasure would commit having removed nothing.
+    # Folded again, the fold being idempotent: an unfolded spelling passes the pre-filter, which reads the
+    # local part in any case and any domain, and matches nothing on the fold, so the erasure would commit
+    # having removed nothing.
     identifier = sign_in_identifier(identifier)
 
     changed = 0

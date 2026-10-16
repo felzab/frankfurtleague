@@ -692,8 +692,8 @@ EINLADEN_FIELDS: Mapping[str, int] = {"inactive_since": 1, "kontakt.email": 1, f
 def build_selbst_referee_filter(identifier: str, *, schiedsrichter_id: Any = None) -> Mapping[str, Any]:
     """The referee rows that may be this address's own, retired ones included: a withdrawal reaches them too.
 
-    A pre-filter: a stored address keeps its typed case, so the caller keeps the rows
-    `app/api/identitaet/services.py :: folds_to` confirms.
+    A pre-filter reading every mailbox sharing the local part, in any case or domain: the caller keeps
+    the rows `app/api/identitaet/services.py :: folds_to` confirms.
     """
 
     return {

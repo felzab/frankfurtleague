@@ -581,8 +581,10 @@ Every ruling below is the sign-up flow as it stands for the next season.
   console, which moves without us, as it stood on 2026-09-01. An erased person is gone from the live
   database at once and from backups within that window, and that sentence is what a requester
   receives, from the published notice and from the runbook alike
-  (`DatenschutzView.tsx :: Was eine Löschung erreicht und was nicht`). No replay of erasures after
-  a restore is built, so a restore is followed by running each of them again by hand
+  (`DatenschutzView.tsx :: Was eine Löschung erreicht und was nicht`). A restore is followed by
+  running again every erasure asked for since its snapshot, each found by the keyed hash it left in
+  the erasure journal ([section 6](#6-retention-is-bounded-where-a-bound-was-chosen)) and matched
+  against the addresses the restored records hold
   ([`ops/runbooks.md`](ops/runbooks.md#13-after-a-restore-from-a-snapshot)).
 - **One record outlives an erasure, and it is a record about two people.** An address barred from
   signing up is stored as an HMAC under a key this controller holds, beside the administrator's
@@ -835,7 +837,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   (`docs/backend/spec.md :: I189`), so a claim that one of their periods was honoured rests on a
   date rather than on reading the data. The lapsed addresses' removal and the pupils' deletion
   stamp no day: their record is the line each writes per pass in the frontend's log
-  ([`ops/runbooks.md`](ops/runbooks.md#9-checking-that-the-retention-sweep-has-run) §9).
+  ([`ops/runbooks.md`](ops/runbooks.md#9-checking-that-the-hourly-passes-have-run) §9).
 - **Access logs stay on the host and are kept for at most eight days. The application logs are
   bounded by size while they run, and by thirty days as the copy each deploy makes.** The access
   log is a file on the host rather than a stream inside the nginx container — it carries the
@@ -850,7 +852,13 @@ Every ruling below is the sign-up flow as it stands for the next season.
   application logs keep the container runtime's size rotation as their only live bound
   (`docs/logging/spec.md :: 1.2`), because the only way to rotate a file the runtime holds open
   loses lines, and the thirty days reach the copy the deploy takes of each stream before replacing
-  its container (`scripts/ops/deploy.sh :: LOG_DIR`). The host files enforcing both figures are
+  its container (`scripts/ops/deploy.sh :: LOG_DIR`). **The erasure journal's lines are kept the same
+  thirty days in a file per day**, each naming a requested erasure by a keyed hash of the address
+  and its moment (`docs/backend/spec.md :: I666`), copied there hourly so that a restore can run
+  every erasure since its snapshot again ([section 5](#5-erasure-reaches-everyone-who-asks)); a line
+  is lost to the stream's size cap only where more than the cap is logged inside one hour, and the
+  published notice tabulates the thirty days (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-10-15.
+  The host files enforcing both figures are
   installed by hand in the same deployment that publishes them
   ([`ops/runbooks.md`](ops/runbooks.md) §7). The
   eight is the backup window an erased person is told about

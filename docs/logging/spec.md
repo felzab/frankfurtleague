@@ -184,7 +184,11 @@ application line written before the logger exists, so it reaches the formatter d
 Retention is Docker's `json-file` driver, capped by size per service
 (`docker-compose.yml :: x-logging`), and for a container's own stream that size is the whole bound —
 nothing rotates a file the runtime holds open. The edge's two logs are host files instead, bounded
-by age ([`docs/ops/spec.md`](../ops/spec.md) §1.1).
+by age ([`docs/ops/spec.md`](../ops/spec.md) §1.1). **The backend's erasure-journal lines are the one
+part of a stream copied out while it runs**: an hourly pass on the host unions them into a file per
+day (`scripts/ops/export_journal.sh`), under the deploy copies' thirty days
+([`docs/ops/runbooks.md`](../ops/runbooks.md) §7), because a restore runs each erasure again from
+them past both the recreate and the size cap (`docs/backend/spec.md :: I666`).
 
 **The logs live and die with the container, so a deploy starts the application services from empty.**
 `stop` and `start` keep the file because the container survives; anything that **replaces** a container

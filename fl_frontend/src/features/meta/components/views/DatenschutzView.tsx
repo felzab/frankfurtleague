@@ -171,7 +171,7 @@ const FRISTEN = [
   {
     daten: "Registrierungslink eines Teams: der Link als unlesbarer Schlüssel, dazu das Datum und die anlegende Person aus der Verwaltung",
     frist:
-      "Kein eigener Zeitraum: Der Link endet mit der Registrierungsfrist der Saison, für die er gilt, oder sobald die Verwaltung ihn zurückzieht oder durch einen neuen ersetzt. Der Eintrag dazu enthält den Link nur als unlesbaren Schlüssel, nennt keine Spielerin und keinen Spieler und bleibt mit dem Datum und der E-Mail-Adresse der Person aus der Verwaltung, die ihn angelegt hat, bestehen.",
+      "Kein eigener Zeitraum: Der Link endet mit der Registrierungsfrist der Saison, für die er gilt, oder sobald die Verwaltung ihn zurückzieht oder durch einen neuen ersetzt. Der Eintrag dazu enthält den Link nur als unlesbaren Schlüssel, nennt keine Spielerin und keinen Spieler und bleibt mit dem Datum und der E-Mail-Adresse der Person aus der Verwaltung, die ihn angelegt hat, bestehen. Werden die Daten dieser Person gelöscht, steht dort statt ihrer Adresse ein Vermerk, der niemanden nennt.",
   },
   { daten: "Geburtsdatum einer Kontaktperson", frist: "Entsteht erst mit ihrer Bestätigung, dann dieselbe Frist wie die Bewerbung" },
   {
@@ -221,6 +221,11 @@ const FRISTEN = [
   {
     daten: "Betriebsprotokoll der Anwendung",
     frist: "Begrenzt durch eine feste Gesamtgröße; die bei jeder Auslieferung angelegte Kopie wird nach 30 Tagen gelöscht",
+  },
+  {
+    daten: "Vermerk einer Löschung auf Wunsch: Deine E-Mail-Adresse als unlesbarer Schlüssel und der Zeitpunkt",
+    frist:
+      "30 Tage, damit wir die Löschung erneut ausführen können, falls wir eine Sicherungskopie der Datenbank einspielen, die Deine Daten noch enthält",
   },
   { daten: "Sicherungskopien der Datenbank", frist: "Etwa acht Tage" },
   {
@@ -747,13 +752,13 @@ export function DatenschutzView() {
             Deine E-Mail-Adresse steht bei uns für Dich allein: Alles, was unter ihr eingetragen ist, gehört zu Deinem Konto.
           </p>
           <p className={ABSATZ_CLASSES}>
-            Eine Einschränkung gilt für Administratorinnen und Administratoren der Liga: Ihre E-Mail-Adresse bleibt in den Zeilen des
-            Änderungsprotokolls stehen, die ihre eigenen Änderungen festhalten, auch nach einer Löschung. Das Protokoll hat nur dann einen Sinn,
-            wenn nachvollziehbar bleibt, wer eine Änderung vorgenommen hat. Diese Zeilen werden wie alle anderen gelöscht. Außerdem bleibt ihre
-            E-Mail-Adresse bei jedem Registrierungslink eines Teams stehen, den sie angelegt haben; dieser Eintrag wird nicht gelöscht
-            (Abschnitt 13). Wer einer Person Zugang zur Verwaltung erteilt hat, bleibt mit seiner E-Mail-Adresse an diesem Zugang vermerkt, auch
-            nachdem der eigene Zugang entzogen oder die eigenen Daten gelöscht wurden; alle Personen mit Zugang zur Verwaltung sehen diesen
-            Vermerk, solange der erteilte Zugang besteht.
+            Eine Einschränkung gilt für Administratorinnen und Administratoren der Liga: Ihre E-Mail-Adresse steht in den Zeilen des
+            Änderungsprotokolls, die ihre eigenen Änderungen festhalten. Das Protokoll hat nur dann einen Sinn, wenn nachvollziehbar bleibt, wer
+            eine Änderung vorgenommen hat. Diese Zeilen werden wie alle anderen gelöscht. Ebenso steht ihre E-Mail-Adresse bei jedem
+            Registrierungslink eines Teams, den sie angelegt haben, bei jeder Sperre, die sie eingetragen haben, bei jeder Entscheidung über
+            eine Bewerbung, die sie getroffen haben, und bei jedem Zugang zur Verwaltung, den sie erteilt haben. Dort bleibt sie auch, nachdem
+            ihr eigener Zugang entzogen wurde, und alle Personen mit Zugang zur Verwaltung sehen sie, solange der Eintrag besteht. Werden ihre
+            Daten gelöscht, ersetzen wir ihre E-Mail-Adresse an all diesen Stellen durch einen Vermerk, der niemanden nennt.
           </p>
           <p className={ABSATZ_CLASSES}>
             Eine zweite Einschränkung gilt für gesperrte E-Mail-Adressen: In der Sperrliste steht von der gesperrten Adresse nur ein unlesbarer
