@@ -1393,7 +1393,7 @@ def compose_zustellung_update(*, seats: Sequence[str], nachricht_id: str, stand:
 
 
 def next_saison_id(saison_id: str) -> str:
-    """The season after this one, ids being years.
+    """The lowest id the next season can hold.
 
     Raises rather than answering nothing: the accepted clock and the contact block both hang off the
     successor, so an absent one stops both for ever with nothing in any log.
