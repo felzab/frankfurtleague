@@ -67,15 +67,18 @@ describe("the placeholder every address-less referee row shares", () => {
   });
 });
 
-/** The mirror table both folds are held to; `fl_backend/tests/shared/test_email_address.py` holds the API's lookup to it too. */
+/**
+ * The mirror table both folds are held to, the frontend's own fold recorded where the two runtimes' tables part;
+ * `fl_backend/tests/shared/test_email_address.py` holds the API's lookup to it too.
+ */
 const ADDRESSES = z
-  .array(z.object({ case: z.string(), typed: z.string(), folded: z.string() }))
+  .array(z.object({ case: z.string(), typed: z.string(), folded: z.string(), frontend: z.object({ folded: z.string() }).optional() }))
   .parse(JSON.parse(readFileSync(path.resolve(REPO_ROOT, "fl_backend", "tests", "shared", "email_addresses.json"), "utf8")));
 
 describe("the mailbox each lookup asks for", () => {
   /* The action ends the sign-in account of what the box trimmed, so a box trimming otherwise than the API's erases one
      mailbox's records and leaves another's account. The placeholder's rows are the box's own refusal, above. */
-  it("is the one the mirror table folds each row to, the API's lookup answering alike", () => {
+  it("is the one the mirror table folds each row to on this side, the API's lookup answering its own", () => {
     const rows = ADDRESSES.filter(({ folded }) => folded.split(".").at(-1) !== "invalid");
     assert.ok(
       rows.some(({ typed }) => typed.trim() !== typed),
@@ -87,7 +90,9 @@ describe("the mailbox each lookup asks for", () => {
       ["the sign-out", (email: string) => FLAbmeldungPayloadSchema.parse({ email: email }).email],
     ] as const;
     for (const [payload, asked] of parsed) {
-      for (const { case: fall, typed, folded } of rows) assert.equal(asSignInIdentifier(asked(typed)), folded, `${payload}: ${fall}`);
+      for (const row of rows) {
+        assert.equal(asSignInIdentifier(asked(row.typed)), (row.frontend ?? row).folded, `${payload}: ${row.case}`);
+      }
     }
   });
 });
