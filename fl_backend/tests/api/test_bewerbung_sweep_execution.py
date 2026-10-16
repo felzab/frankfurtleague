@@ -4,13 +4,14 @@ import logging
 from collections import Counter
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
 from fastapi import FastAPI
 from pymongo import AsyncMongoClient, MongoClient, ReturnDocument, monitoring
+from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen import sweep_router as sweep_router_module
@@ -40,6 +41,7 @@ from app.api.bewerbungen.sweep_router import (
     sweep_saison,
 )
 from app.api.bewerbungen.zustellung_router import angenommen_zustellung, post_zustellung
+from app.api.saisons.admin_router import activate_saison
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.collections import Collection
@@ -56,7 +58,16 @@ from tests.app_client import app_client
 from tests.bans import ban_list
 from tests.config import ADMIN_AUTH, BASE_AUTH, SYSTEM_AUTH, build_test_config
 from tests.database import a_clean_database, a_clean_database_sync, on_the_seed_loop
-from tests.documents import ban_document, kontaktperson_document, rules_document, saison_document, saison_team_document, team_document
+from tests.documents import (
+    ban_document,
+    kontaktperson_document,
+    rules_document,
+    saison_document,
+    saison_team_document,
+    spiel_document,
+    team_document,
+)
+from tests.isolation import COMMITTED, InterleavedCollection, Rival, outcome_of
 from tests.worker import worker_database
 
 # Module level, as the other execution suites mark theirs: every test below reaches a real mongod.
@@ -1064,6 +1075,139 @@ class TestTheSeasonAndOneClock:
                 await sweep(database, client, saison_id="abcd")
 
         on_a_league(mongo_replica_set_url, body, status="past")
+
+
+class _ThenTheRival:
+    """A cursor running the rival once its rows have arrived; `sort` and `limit` chain as the driver's do."""
+
+    def __init__(self, cursor: Any, rival: Callable[[], Awaitable[None]]) -> None:
+        self._cursor = cursor
+        self._rival = rival
+
+    def sort(self, *args: Any, **kwargs: Any) -> _ThenTheRival:
+        self._cursor = self._cursor.sort(*args, **kwargs)
+        return self
+
+    def limit(self, *args: Any, **kwargs: Any) -> _ThenTheRival:
+        self._cursor = self._cursor.limit(*args, **kwargs)
+        return self
+
+    async def to_list(self, *args: Any, **kwargs: Any) -> list[Any]:
+        rows = await self._cursor.to_list(*args, **kwargs)
+        await self._rival()
+
+        return rows
+
+
+class ActivatedAfterTheClocksRead(InterleavedCollection):
+    """The rows a clock reads first in its transaction, the season activated once that read has answered.
+
+    The transaction has read by then, so only the season's anchor can make the two conflict.
+    """
+
+    def __init__(self, collection: Any, rival: Rival, *, clocks_read: Callable[[Mapping[str, Any]], bool]) -> None:
+        async def reported() -> None:
+            self.rival_outcome = await outcome_of(rival())
+
+        super().__init__(collection, reported)
+        self.rival_outcome: str | None = None
+        self._clocks_read = clocks_read
+
+    def find(self, *args: Any, **kwargs: Any) -> Any:
+        cursor = self._collection.find(*args, **kwargs)
+        if kwargs.get("session") is None or not self._clocks_read(kwargs.get("filter") or {}):
+            return cursor
+
+        return _ThenTheRival(cursor, self.run_the_rival)
+
+
+# Far past the call's few seconds over two pages, and far short of a job's own budget.
+DRAIN_BOUND_S = 60.0
+
+
+class TestAnActivationInsideAnErasingTransactionKeepsTheSeasonsRows:
+    @pytest.mark.parametrize(
+        ("collection", "clocks_read", "expected"),
+        [
+            pytest.param(
+                Collection.BEWERBUNGEN, lambda db_filter: db_filter.get("status") == "angenommen", (0, 0, True, True), id="the accepted clock's"
+            ),
+            # The accepted clock committed first, so its applications went before the season ran.
+            pytest.param(Collection.SAISON_TEAMS, lambda _: True, (SWEEP_PAGE + 2, 0, False, True), id="the contact block's"),
+        ],
+    )
+    def test_the_season_activated_keeps_what_the_transaction_had_not_taken(
+        self,
+        mongo_replica_set_url: str,
+        collection: Collection,
+        clocks_read: Callable[[Mapping[str, Any]], bool],
+        expected: tuple[int, int, bool, bool],
+    ):
+        """`docs/backend/spec.md :: I154`: remove `pull_the_season_after`'s anchor and the planned season loses what it runs on.
+
+        Planned below a season that has ended, so the call's own read finds both clocks due.
+        """
+
+        accepted = {"status": "angenommen", "entscheidung": {"getroffen_am": "2026-03-01", "von": "admin", "grund": None}}
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            # A page and one more: a kept page answered as read drains for ever, which `DRAIN_BOUND_S` turns into a failure.
+            await database[Collection.BEWERBUNGEN].insert_many(
+                [application(numbered(position), **accepted) for position in range(SWEEP_PAGE + 1)]
+            )
+            # What makes the planned season activatable (`REQ-ACTIVATE-003`).
+            await database[Collection.SPIELE].insert_one(
+                spiel_document(spiel_id=numbered(SWEEP_PAGE + 1), saison_id=SAISON_ID, spiel_nr=1, spieltag_id=numbered(SWEEP_PAGE + 2))
+            )
+
+            async def activate() -> Any:
+                return await activate_saison(
+                    saison_id=SAISON_ID,
+                    saisons_collection=database[Collection.SAISONS],
+                    spiele_collection=database[Collection.SPIELE],
+                    spieltage_collection=database[Collection.SPIELTAGE],
+                    sperrliste_collection=database[Collection.SPERRLISTE],
+                    db=client,
+                )
+
+            interleaved = ActivatedAfterTheClocksRead(database[collection], activate, clocks_read=clocks_read)
+
+            def reaching(name: Collection) -> AsyncCollection:
+                return cast(AsyncCollection, interleaved) if name == collection else database[name]
+
+            response = await asyncio.wait_for(
+                sweep_saison(
+                    saison_id=SAISON_ID,
+                    bewerbungen_collection=reaching(Collection.BEWERBUNGEN),
+                    saison_teams_collection=reaching(Collection.SAISON_TEAMS),
+                    saisons_collection=database[Collection.SAISONS],
+                    teams_collection=database[Collection.TEAMS],
+                    aktionen_collection=database[Collection.AKTIONEN],
+                    sperrliste=ban_list(database),
+                    db=client,
+                    today=TODAY,
+                    germany_now=NOW,
+                ),
+                timeout=DRAIN_BOUND_S,
+            )
+            junction_row = await database[Collection.SAISON_TEAMS].find_one({"_id": JUNCTION_OID})
+
+            return (
+                interleaved.rival_outcome,
+                await database[Collection.SAISONS].find_one({"_id": SAISON_ID}),
+                (
+                    response.angenommene_geloescht,
+                    response.kontaktbloecke_geleert,
+                    await stored(database, ACCEPTED_OID) is not None,
+                    junction_row is not None and junction_row["kontakte"] is not None,
+                ),
+            )
+
+        outcome, activated, kept = on_a_league(mongo_replica_set_url, body, status="future", next_status="past")
+
+        # The premise first: the activation committed inside the clock's transaction.
+        assert (outcome, activated is not None and activated["status"]) == (COMMITTED, "active")
+        assert kept == expected
 
 
 class TestASeasonNobodyHas:
