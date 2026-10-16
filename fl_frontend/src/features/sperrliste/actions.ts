@@ -2,11 +2,13 @@
 
 import { endSessionsOfAddress } from "@/core/auth";
 import { frontend_config } from "@/core/config";
+import { APIBadStatusError, APIMalformedDataError, APINetworkError } from "@/core/errors";
 import { logger } from "@/core/logging";
 import { sendSperreNotice } from "@/core/mail";
 import { runAnsweringOwnCut } from "@/core/requestScope";
 import { versandAusfallOf } from "@/core/versandAusfall";
 import { ZURUECKGEHALTEN } from "@/features/einladungen/meldungen";
+import { readErasureAnsicht } from "@/features/funktionen/mutations";
 import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
 import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
@@ -16,8 +18,18 @@ import { deleteSperre, postSperre } from "./mutations";
 import { mapAdresseRefusal } from "./refusals";
 import { FLPostSperrlistePayloadSchema, FLSperrlisteKeyPayloadSchema } from "./schemas";
 
+import type { FLErasureAnsichtResponse } from "@/features/funktionen/schemas";
 import type { ActionResult } from "@/shared/types/types";
 import type { FLPostSperrlistePayload, FLSperrlisteKeyPayload } from "./schemas";
+
+/**
+ * Every record the barred address still holds, as the erasure's reveal names them. No grant among them: an address
+ * holding one is refused the ban before this is read (`REQ-SPERRLISTE-003`).
+ */
+export type SperreAnsicht = Omit<FLErasureAnsichtResponse, "acknowledged" | "verwaltung">;
+
+/** What a ban answers its dialog: the row it wrote, and what the address still holds, `null` where that read failed. */
+export type SperreGespeichert = { created_id: string; ansicht: SperreAnsicht | null };
 
 const SPERRE_STEHT = "Die Sperre steht.";
 const NICHT_BENACHRICHTIGT = "Die Benachrichtigung an die Adresse konnte nicht zugestellt werden.";
@@ -83,7 +95,18 @@ async function benachrichtigen(email: string, grund: string, gesperrtBisSaisonId
   }
 }
 
-export async function postSperreAction(rawPayload: FLPostSperrlistePayload): Promise<ActionResult<{ created_id: string }>> {
+/** A failed read of what the barred address holds: the ban stands, as it does past a failed notice. */
+function nichtGelesen(failed: unknown): null {
+  const typed = failed instanceof APIBadStatusError || failed instanceof APINetworkError || failed instanceof APIMalformedDataError;
+  // The NAME alone, as the notice's own failure is logged: the read carries the address in its body.
+  logger.error("sperrliste.ansicht_not_read", undefined, {
+    error_code: typed ? failed.code : "FE-ACT-001",
+    name: failed instanceof Error ? failed.name : "unknown",
+  });
+  return null;
+}
+
+export async function postSperreAction(rawPayload: FLPostSperrlistePayload): Promise<ActionResult<SperreGespeichert>> {
   return runAdminMutation("postSperreAction", async () => {
     const validated = FLPostSperrlistePayloadSchema.safeParse(rawPayload);
 
@@ -126,7 +149,22 @@ export async function postSperreAction(rawPayload: FLPostSperrlistePayload): Pro
     const told = [abgemeldet.satz, benachrichtigt].filter((sentence) => sentence !== null);
     const message = told.length === 0 ? SPERRE_ERFOLG : [SPERRE_STEHT, ...told].join(" ");
 
-    return { success: true, created_id: postOperation.created_id, message: message };
+    // Read now, a ban cascading to no record and the address surviving this press nowhere; last, so a slow read never
+    // spends the deadline the sign-out and the notice are owed (`docs/frontend/spec.md :: I688`).
+    let ansicht: SperreAnsicht | null;
+    try {
+      // Its own cut: a deadline the notice spent ends this read alone, never the answer for the ban written before it.
+      const {
+        acknowledged: _umschlag,
+        verwaltung: _zugang,
+        ...gelesen
+      } = await runAnsweringOwnCut(() => readErasureAnsicht({ email: validated.data.email }));
+      ansicht = gelesen;
+    } catch (failed) {
+      ansicht = nichtGelesen(failed);
+    }
+
+    return { success: true, created_id: postOperation.created_id, ansicht: ansicht, message: message };
   });
 }
 

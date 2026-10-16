@@ -44,6 +44,32 @@ export const SPERRE_AUFHEBEN_CONSEQUENCE =
  */
 export const SPERRE_ERFOLG = "Adresse gesperrt";
 
+/**
+ * The create dialog's second state: a ban cascades to no record, so what the address still holds is shown at the one
+ * moment anybody holds the address, each record linked to the tool that acts on it.
+ */
+export const SPERRE_ANSICHT_COPY = {
+  heading: "Was unter dieser Adresse noch gespeichert ist",
+  lead: "Die Sperre wirkt sofort. Diese Einträge bleiben bestehen, bis Du sie bearbeitest.",
+  leer: "Unter dieser Adresse ist nichts gespeichert.",
+  nichtGeladen: "Was unter der Adresse gespeichert ist, konnte nicht geladen werden. Die Sperre steht.",
+  fertig: "Fertig",
+} as const;
+
+/** Each record's link, named for what the page it opens does to that record. */
+export const SPERRE_ANSICHT_VERWEISE = {
+  kontakte: "Kontakte bearbeiten",
+  kader: "Kadereintrag austragen",
+  // A pupil holding no squad row, whose record is the whole of what stands.
+  spieler: "Eintrag ansehen",
+  // The fixtures first: a referee still booked on one is refused retirement (`REQ-RETIRE-004`).
+  spiele: "Spiele neu besetzen",
+  stilllegen: "Schiedsrichter stilllegen",
+  bewerbung: "Bewerbung öffnen",
+  registrierungen: "Registrierungen ansehen",
+  adresswechsel: "Adressänderung ansehen",
+} as const;
+
 /** The eyebrow over the bound on a row, and the phrasing that makes the named season a barred one rather than the first free one. */
 export const SPERRE_BIS_LABEL = "Gesperrt bis";
 
