@@ -22,10 +22,11 @@ from starlette.types import Message, Scope
 from app.core import security
 from app.core.collections import Collection
 from app.core.exception_handlers import DATABASE_FAILED, UNHANDLED_CRASH, UNKNOWN_OUTCOME
+from app.core.exceptions import ActorForbiddenException
 from app.core.logging import fl_logger
 from app.core.middlewares import request_deadline_var
 from app.core.recording import PUBLIC_ACTOR, SYSTEM_ACTOR, Actor, PersonActor, actor_var
-from app.core.security import admin_judge, bind_actor, person_judge
+from app.core.security import ACTOR_NOT_ADMIN, admin_judge, bind_actor, person_judge
 from app.core.transactions import (
     ABORT_GRACE_S,
     UNJUDGED_KINDS,
@@ -161,10 +162,15 @@ class _Rows:
         self.raises = raises
         self.read: list[list[int]] = []
 
+    async def _page(self, batch: Batch) -> list[dict[str, int]]:
+        # The filter `Batch.within` builds over this clock's empty one, read as the server reads it.
+        terms = [term["_id"] for term in batch.within({}).get("$and", [])[1:]]
+        admitted = [row for row in self.standing if all(row in term.get("$in", [row]) and row not in term.get("$nin", ()) for term in terms)]
+
+        return [{"_id": row} for row in admitted[: PAGE + 1]]
+
     async def erase(self, _: Any, batch: Batch) -> tuple[int, int, int]:
-        term = batch.term.get("_id", {})
-        rows = [row for row in self.standing if ("$in" not in term or row in term["$in"]) and row not in term.get("$nin", ())][: PAGE + 1]
-        batch.saw([{"_id": row} for row in rows])
+        rows = [row["_id"] for row in await batch.saw(self._page(batch))]
         self.read.append(rows)
         if (failure := self.raises(rows)) is not None:
             raise failure
@@ -287,6 +293,56 @@ class TestARowFailingAloneIsPassedOver:
             _isolated(rows)
 
         assert rows.read == [[0, 1, 2, 3]]
+
+    def test_a_retry_whose_read_fails_is_raised_rather_than_halved_over_the_read_before_it(self):
+        """The driver runs the callback again on a transient error: the rows the first attempt read carry no failure of the second's read."""
+
+        reads: list[int] = []
+
+        async def failing_the_second_time() -> list[dict[str, int]]:
+            reads.append(len(reads))
+            if len(reads) > 1:
+                raise _FailedInTheCallback
+            return [{"_id": row} for row in range(PAGE + 1)]
+
+        async def read(_: Any, batch: Batch) -> tuple[int, int, int]:
+            rows = await batch.saw(failing_the_second_time())
+            return len(rows), 0, 0
+
+        with pytest.raises(_FailedInTheCallback):
+            asyncio.run(
+                run_isolated(
+                    db=cast(AsyncMongoClient, _Client(attempts=2)),
+                    batch=Batch(),
+                    attempt=lambda session, batch: session.with_transaction(read, batch),
+                    moved=lambda page: page[1],
+                    owes=False,
+                    what="Row",
+                    clock="test",
+                )
+            )
+
+        assert reads == [0, 1]
+
+    def test_a_refusal_the_request_answers_is_raised_rather_than_halved(self):
+        """A judge's (`docs/backend/spec.md :: I575`), which every half meets too: halved, the call would answer 200 for an actor it refuses."""
+
+        refusal = ActorForbiddenException(error_code=ACTOR_NOT_ADMIN, message="refused", jti="jti")
+        rows = _Rows(PAGE + 1, lambda read: refusal)
+
+        with pytest.raises(ActorForbiddenException):
+            _isolated(rows)
+
+        assert rows.read == [[0, 1, 2, 3]]
+
+
+class TestABatchNarrowsTheClocksOwnFilter:
+    def test_a_filter_naming_its_own_ids_keeps_them_beside_the_rows_passed_over(self):
+        """Merged rather than set beside, the term replaces the list's own ids and the read takes every row the rest admits."""
+
+        own = {"_id": {"$in": [1, 2]}, "status": "eingereicht"}
+
+        assert Batch(passed=[3]).within(own) == {"$and": [own, {"_id": {"$nin": [3]}}]}
 
 
 def _run_judged(actor: Actor | PersonActor, judge: Any, *, attempts: int = 1, fails: bool = False, client: _Client | None = None) -> list[str]:

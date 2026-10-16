@@ -247,10 +247,10 @@ async def sweep_saison(
     async def erase_the_undecided(session: AsyncClientSession, batch: Batch) -> tuple[int, int, int]:
         """The season's own end: erase, then redact the rows that still hold the people. Read in-session, so a retry re-judges."""
 
-        rows = batch.saw(
-            await pull_many_from_db(
+        rows = await batch.saw(
+            pull_many_from_db(
                 collection=bewerbungen_collection,
-                db_filter={"saison_id": saison_id, "status": "eingereicht", **batch.term},
+                db_filter=batch.within({"saison_id": saison_id, "status": "eingereicht"}),
                 projection=["status"],
                 # One over the page: a full page is a page that may be truncated, and a clock cannot
                 # see what it never read (`docs/backend/spec.md :: I295`).
@@ -277,10 +277,10 @@ async def sweep_saison(
         Also answers how many mailboxes on the page a ban kept from their reminder, for the log line.
         """
 
-        rows = batch.saw(
-            await pull_many_from_db(
+        rows = await batch.saw(
+            pull_many_from_db(
                 collection=bewerbungen_collection,
-                db_filter={**build_erinnerung_filter(saison_id=saison_id, today=today), **batch.term},
+                db_filter=batch.within(build_erinnerung_filter(saison_id=saison_id, today=today)),
                 limit=SWEEP_PAGE + 1,
                 # Earliest deadline first, so the application the fourteen-day clock takes soonest is
                 # chased first; `_id` makes the page the same page whichever plan the server picks.
@@ -362,17 +362,14 @@ async def sweep_saison(
     async def erase_declined(session: AsyncClientSession, batch: Batch) -> tuple[int, int, int]:
         """The one-month clock: erase, then redact the rows that still hold the people. Read in-session, so a retry re-judges."""
 
-        rows = batch.saw(
-            await pull_many_from_db(
+        rows = await batch.saw(
+            pull_many_from_db(
                 collection=bewerbungen_collection,
                 # Narrowed to the decisions whose month is behind them: a page of fresh ones would fill the
                 # read ahead of a due one, and the stall would refuse the pass.
-                db_filter={
-                    "saison_id": saison_id,
-                    "status": "abgelehnt",
-                    "entscheidung.getroffen_am": {"$lte": latest_decision_due(today=today)},
-                    **batch.term,
-                },
+                db_filter=batch.within(
+                    {"saison_id": saison_id, "status": "abgelehnt", "entscheidung.getroffen_am": {"$lte": latest_decision_due(today=today)}}
+                ),
                 projection=["status", "entscheidung"],
                 limit=SWEEP_PAGE + 1,
                 session=session,
@@ -397,10 +394,10 @@ async def sweep_saison(
     async def erase_accepted(session: AsyncClientSession, batch: Batch) -> tuple[int, int, int]:
         """The season-and-one clock's first half. Read in-session, so a retry re-judges."""
 
-        rows = batch.saw(
-            await pull_many_from_db(
+        rows = await batch.saw(
+            pull_many_from_db(
                 collection=bewerbungen_collection,
-                db_filter={"saison_id": saison_id, "status": "angenommen", **batch.term},
+                db_filter=batch.within({"saison_id": saison_id, "status": "angenommen"}),
                 projection=["status"],
                 limit=SWEEP_PAGE + 1,
                 session=session,
@@ -422,12 +419,12 @@ async def sweep_saison(
     async def clear_the_blocks(session: AsyncClientSession, batch: Batch) -> tuple[int, int]:
         """The season-and-one clock's second half, a share a pass. Read in-session, so a retry re-judges."""
 
-        junction_rows = batch.saw(
-            await pull_many_from_db(
+        junction_rows = await batch.saw(
+            pull_many_from_db(
                 collection=saison_teams_collection,
                 # Either block standing, not `kontakte` alone: an image that predates the links clears the
                 # people and leaves their links, and their delivery records, behind.
-                db_filter={"saison_id": saison_id, "$or": [{"kontakte": {"$ne": None}}, {"bestaetigungen": {"$ne": None}}], **batch.term},
+                db_filter=batch.within({"saison_id": saison_id, "$or": [{"kontakte": {"$ne": None}}, {"bestaetigungen": {"$ne": None}}]}),
                 projection=["_id"],
                 limit=SWEEP_PAGE + 1,
                 session=session,
@@ -614,16 +611,12 @@ async def angekuendigt_bewerbungen(
     async def stamp_the_notified(session: AsyncClientSession, batch: Batch) -> int:
         """Judge and stamp in one transaction. Everything judged is read in-session, so a retry re-judges it."""
 
-        rows = batch.saw(
-            await pull_many_from_db(
+        rows = await batch.saw(
+            pull_many_from_db(
                 collection=bewerbungen_collection,
-                # A half's ids, where the batch names one, in place of the list's: each is drawn from it.
-                db_filter={
-                    "saison_id": saison_id,
-                    "_id": {"$in": list(angekuendigt_data.bewerbung_ids)},
-                    "status": "eingereicht",
-                    **batch.term,
-                },
+                db_filter=batch.within(
+                    {"saison_id": saison_id, "_id": {"$in": list(angekuendigt_data.bewerbung_ids)}, "status": "eingereicht"}
+                ),
                 limit=LIST_LIMIT_MAX,
                 session=session,
             )
@@ -691,11 +684,10 @@ async def loeschen_bewerbungen(
     async def erase_the_notified(session: AsyncClientSession, batch: Batch) -> tuple[int, int]:
         """Judge, erase, redact, in one transaction. Everything judged is read in-session, so a retry re-judges it."""
 
-        rows = batch.saw(
-            await pull_many_from_db(
+        rows = await batch.saw(
+            pull_many_from_db(
                 collection=bewerbungen_collection,
-                # A half's ids, where the batch names one, in place of the list's: each is drawn from it.
-                db_filter={"saison_id": saison_id, "_id": {"$in": list(loeschen_data.bewerbung_ids)}, "status": "eingereicht", **batch.term},
+                db_filter=batch.within({"saison_id": saison_id, "_id": {"$in": list(loeschen_data.bewerbung_ids)}, "status": "eingereicht"}),
                 limit=LIST_LIMIT_MAX,
                 session=session,
             )

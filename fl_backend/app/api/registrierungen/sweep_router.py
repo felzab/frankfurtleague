@@ -188,10 +188,10 @@ async def sweep_registrierungen(
         Also answers whether it was the pass's last transaction, or whether another page follows.
         """
 
-        rows = batch.saw(
-            await pull_many_from_db(
+        rows = await batch.saw(
+            pull_many_from_db(
                 collection=registrierungen_collection,
-                db_filter={**build_undecided_filter(saison_id=saison_id), **batch.term},
+                db_filter=batch.within(build_undecided_filter(saison_id=saison_id)),
                 projection=["status", "einwilligung", "vorname", "email", "team_id"],
                 # One over the page, as `app/api/saisons/admin_router.py :: undraw_spielplan` reads: a
                 # full page is a page that may be truncated, and a clock cannot see what it never read.
@@ -237,10 +237,10 @@ async def sweep_registrierungen(
     async def erase_the_unconfirmed(session: AsyncClientSession, batch: Batch) -> tuple[int, int, int]:
         """The deadline clock: erase, then redact. Read in-session, so a retry re-judges."""
 
-        rows = batch.saw(
-            await pull_many_from_db(
+        rows = await batch.saw(
+            pull_many_from_db(
                 collection=registrierungen_collection,
-                db_filter={**build_unconfirmed_filter(saison_id=saison_id, today=today), **batch.term},
+                db_filter=batch.within(build_unconfirmed_filter(saison_id=saison_id, today=today)),
                 projection=["status", "einwilligung", "bestaetigung"],
                 limit=SWEEP_PAGE + 1,
                 session=session,
@@ -266,10 +266,10 @@ async def sweep_registrierungen(
         Also answers how many registrations on the page a ban kept from their reminder, for the log line.
         """
 
-        rows = batch.saw(
-            await pull_many_from_db(
+        rows = await batch.saw(
+            pull_many_from_db(
                 collection=registrierungen_collection,
-                db_filter={**build_erinnerung_filter(saison_id=saison_id, today=today), **batch.term},
+                db_filter=batch.within(build_erinnerung_filter(saison_id=saison_id, today=today)),
                 projection=["status", "einwilligung", "bestaetigung", "vorname", "email", "team_id"],
                 limit=SWEEP_PAGE + 1,
                 # Earliest deadline first, so the pupil the unconfirmed clock takes soonest is reminded
@@ -323,10 +323,10 @@ async def sweep_registrierungen(
     async def erase_declined(session: AsyncClientSession, batch: Batch) -> tuple[int, int, int]:
         """The one-month clock: erase, then redact. Read in-session, so a retry re-judges."""
 
-        rows = batch.saw(
-            await pull_many_from_db(
+        rows = await batch.saw(
+            pull_many_from_db(
                 collection=registrierungen_collection,
-                db_filter={**build_decline_filter(saison_id=saison_id, today=today), **batch.term},
+                db_filter=batch.within(build_decline_filter(saison_id=saison_id, today=today)),
                 projection=["status", "entscheidung"],
                 limit=SWEEP_PAGE + 1,
                 session=session,

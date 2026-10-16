@@ -14,6 +14,7 @@ from pymongo.client_session_shared import _EmptyServerSession
 from pymongo.errors import OperationFailure, PyMongoError
 
 from app.core.exception_handlers import DATABASE_FAILED, UNHANDLED_CRASH, UNKNOWN_OUTCOME
+from app.core.exceptions import BaseAPIException
 from app.core.logging import fl_logger
 from app.core.middlewares import request_deadline_var
 from app.core.recording import actor_var
@@ -158,27 +159,39 @@ class Batch:
         self.share = share
         self.ids: list[Any] = []
 
-    @property
-    def term(self) -> dict[str, Any]:
-        """The `_id` term the clock's read takes beside its own filter: a half of a failed read, or the read without the rows passed over."""
+    def within(self, db_filter: Mapping[str, Any]) -> Mapping[str, Any]:
+        """The clock's own filter, narrowed to a half of a failed read, or to the read without the rows passed over."""
 
         if self.among is not None:
-            return {"_id": {"$in": list(self.among)}}
-        if self.passed:
-            return {"_id": {"$nin": list(self.passed)}}
-        return {}
+            term: Mapping[str, Any] = {"_id": {"$in": list(self.among)}}
+        elif self.passed:
+            term = {"_id": {"$nin": list(self.passed)}}
+        else:
+            return db_filter
 
-    def saw[Row: Mapping[str, Any]](self, rows: list[Row]) -> list[Row]:
-        # Assigned rather than extended: the driver runs the callback again on a transient error, and
-        # the attempt that failed last is the one to halve.
+        # Beside the filter rather than merged into it: a filter naming its own `_id` would lose it,
+        # and a passed-over term would then read every row the rest of the filter admits.
+        return {"$and": [db_filter, term]}
+
+    async def saw[Row: Mapping[str, Any]](self, read: Awaitable[list[Row]]) -> list[Row]:
+        """The attempt's read, which every clock's callback makes first, its ids recorded once it answers."""
+
+        # Emptied before the read: the driver runs the callback again on a transient error, and an
+        # attempt failing in its read would otherwise be halved over the ids an earlier attempt read.
+        self.ids = []
+        rows = await read
         self.ids = [row["_id"] for row in rows]
         return rows
 
 
 def carried_by_a_row(failure: Exception) -> bool:
-    """Whether halving the rows can isolate a failure: a deadline meets every half too, and a stalled page is the page's own."""
+    """Whether halving the rows can isolate a failure.
 
-    return not isinstance(failure, StalledPage) and not (isinstance(failure, PyMongoError) and failure.timeout)
+    A deadline meets every half too, a stalled page is the page's own, and a refusal the request
+    answers -- a judge's (`docs/backend/spec.md :: I575`) among them -- is the request's.
+    """
+
+    return not isinstance(failure, (StalledPage, BaseAPIException)) and not (isinstance(failure, PyMongoError) and failure.timeout)
 
 
 def log_passed(*, what: str, row_id: Any, clock: str, failure: Exception) -> None:
