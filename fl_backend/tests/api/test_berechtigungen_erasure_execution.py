@@ -74,6 +74,10 @@ NAMING_HER_GRANT = ObjectId("6890a1b2c3d4e5f607a20001")
 MADE_BY_HER = ObjectId("6890a1b2c3d4e5f607a20002")
 A_BARRED_GRANT_BY_HER = ObjectId("6890a1b2c3d4e5f607a20003")
 NOT_HERS = ObjectId("6890a1b2c3d4e5f607a20004")
+# Made by another mailbox at her local part, which the queued notices' read reaches and the fold refuses.
+BY_HER_LOCAL_PART_ELSEWHERE = ObjectId("6890a1b2c3d4e5f607a20005")
+ERIKA_ELSEWHERE = ERIKA.replace("@frankfurtleague.de", "@anderswo.de")
+ELSEWHERE_GRANTED_ID = ObjectId("6890a1b2c3d4e5f607a10008")
 
 # The records she made, each in a store the step reaches, and a bystander's beside each.
 BAN_BY_HER, BAN_BY_HER_TYPED, BAN_BY_DORA, BAN_BY_NAHE, BAN_BY_LANGES_S = (ObjectId(f"6890a1b2c3d4e5f607a3000{n}") for n in range(1, 6))
@@ -164,6 +168,7 @@ async def a_league_she_administered(database: AsyncDatabase) -> None:
             notice(MADE_BY_HER, BERND_ID, "erteilt", BERND, None, ERIKA_TYPED),
             notice(A_BARRED_GRANT_BY_HER, GESPERRT_ID, "entzogen", None, GESPERRT, ERIKA, gesperrt=frozenset({GESPERRT})),
             notice(NOT_HERS, CLARA_ID, "erteilt", CLARA, None, DORA),
+            notice(BY_HER_LOCAL_PART_ELSEWHERE, ELSEWHERE_GRANTED_ID, "erteilt", "dritte.admin@frankfurtleague.de", None, ERIKA_ELSEWHERE),
         ]
     )
     await database[Collection.SPERRLISTE].insert_many(
@@ -363,7 +368,7 @@ class TestTheNotices:
             return {
                 row["_id"]: tuple(row[site] for site in sites)
                 async for row in database[Collection.BERECHTIGUNGEN_POSTAUSGANG].find(
-                    {"_id": {"$in": [NAMING_HER_GRANT, MADE_BY_HER, A_BARRED_GRANT_BY_HER, NOT_HERS]}}
+                    {"_id": {"$in": [NAMING_HER_GRANT, MADE_BY_HER, A_BARRED_GRANT_BY_HER, NOT_HERS, BY_HER_LOCAL_PART_ELSEWHERE]}}
                 )
             }
 
@@ -387,6 +392,8 @@ class TestTheNotices:
         assert after[MADE_BY_HER] == (bernd, None, ERASED_ACTOR_MARKER, None)
         assert after[A_BARRED_GRANT_BY_HER] == (None, {"adresse": None, "verwaltung": "administration"}, ERASED_ACTOR_MARKER, "gesperrt")
         assert after[NOT_HERS] == before[NOT_HERS]
+        assert after[BY_HER_LOCAL_PART_ELSEWHERE] == before[BY_HER_LOCAL_PART_ELSEWHERE]
+        # The notice made at her local part elsewhere is counted nowhere: the fold drops it before any write is sent.
         assert withheld == 3
 
 

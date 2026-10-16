@@ -2,15 +2,14 @@ import { isRefusal } from "@/shared/utils/actionError";
 
 import type { FieldErrors } from "@/shared/utils/validation";
 
-/** An administrator's own address: their records go through the account page, or through another administrator. */
+/** An administrator's own address: their records go through the account page, or through an owner (`REQ-PURGE-005`). */
 const EIGENE_ADRESSE_LOESCHEN =
-  "Deine eigene Adresse löschst Du nicht hier. Lösche Dein Konto auf Deiner Kontoseite, oder bitte eine andere Person aus der Verwaltung darum.";
+  "Deine eigene Adresse löschst Du nicht hier. Lösche Dein Konto auf Deiner Kontoseite, oder lass Deine Adresse von einer Inhaberin oder einem Inhaber der Verwaltung löschen.";
 
 const EIGENE_ADRESSE_ABMELDEN = "Deine eigenen Anmeldungen beendest Du auf Deiner Kontoseite.";
 
-/** An owner's address, which only an owner's press reaches: an administrator could otherwise remove the people above them. */
-const INHABER_LOESCHEN =
-  "Diese Adresse gehört einer Inhaberin oder einem Inhaber der Verwaltung. Löschen kann sie nur, wer selbst Inhaberin oder Inhaber ist.";
+/** A grant holder's address, which only an owner's press reaches, as only an owner revokes a grant. */
+const VERWALTUNG_LOESCHEN = "Diese Adresse hat Zugang zur Verwaltung. Löschen kann sie nur, wer Inhaberin oder Inhaber der Verwaltung ist.";
 
 const INHABER_ABMELDEN =
   "Diese Adresse gehört einer Inhaberin oder einem Inhaber der Verwaltung. Abmelden kann sie nur, wer selbst Inhaberin oder Inhaber ist.";
@@ -25,7 +24,7 @@ function mapper(worte: Readonly<Record<string, string>>): (error: unknown) => { 
   };
 }
 
-const LOESCHEN_WORTE: Readonly<Record<string, string>> = { "REQ-PURGE-003": EIGENE_ADRESSE_LOESCHEN, "REQ-PURGE-005": INHABER_LOESCHEN };
+const LOESCHEN_WORTE: Readonly<Record<string, string>> = { "REQ-PURGE-003": EIGENE_ADRESSE_LOESCHEN, "REQ-PURGE-005": VERWALTUNG_LOESCHEN };
 
 const mapLoeschenRefusal = mapper(LOESCHEN_WORTE);
 

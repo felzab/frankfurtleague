@@ -17,11 +17,14 @@ def same_address(identifier: str) -> Mapping[str, Any]:
     would index: rows a league counts in hundreds, and log images nothing indexes inside.
     """
 
-    local, at, _ = identifier.rpartition("@")
+    # Folded here whatever a caller hands on: built off an unfolded spelling, a padded or a blank one above all, the
+    # pattern reads less than that spelling's fold claims.
+    folded = sign_in_identifier(identifier)
+    local, at, _ = folded.rpartition("@")
     # No `@`, so no local part: the fold equates the identifier whole, and a start alone, anchoring an empty
     # prefix, reads every stored string. The account sweep hands on identifiers no address rule has held.
     if not at:
-        return {"$regex": trimmed_pattern(literal_pattern(identifier)), "$options": "i"}
+        return {"$regex": trimmed_pattern(literal_pattern(folded)), "$options": "i"}
 
     # Anchored on the local part and its `@`, which the fold changes by ASCII case alone (`i`): it maps a
     # domain from more spellings than a pattern lists, so the read takes every mailbox sharing that local part.

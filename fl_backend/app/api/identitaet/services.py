@@ -11,11 +11,12 @@ import unicodedata
 from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
 from collections.abc import Set as AbstractSet
 from http import HTTPStatus
-from typing import Any, Literal
+from typing import Any, Final, Literal, get_args
 
 from bson import ObjectId
 
-from app.api.berechtigungen.services import OWNER, holds_an_owners_power, lebendige
+from app.api.berechtigungen.schemas import FLVerwaltung
+from app.api.berechtigungen.services import OWNER, holds_an_owners_power, lebendige, verwaltung_des
 from app.api.bewerbungen.services import build_eigene_bewerbung_filter
 from app.api.identitaet.schemas import FLErasureAnsicht, FLSelbstErasureAnsicht, FLSubjekt, FLSubjektSitz
 from app.api.kontakte.services import rows_possibly_naming, same_address
@@ -541,7 +542,7 @@ def find_letzter_inhaber_erasure_refusal(*, identifier: str, grants: Iterable[Ma
 
 
 # 403 and not 409, `REQ-BERECHTIGUNG-005`'s precedent: the refusal is about who asks. An administrator's
-# own records go through their account page, or through another administrator.
+# own records go through their account page, or through an owner (`REQ-PURGE-005`).
 EIGENE_ADRESSE = "REQ-PURGE-003"
 
 
@@ -554,32 +555,43 @@ def find_eigene_adresse_refusal(*, identifier: str, akteur: str) -> WriteRefusal
     return WriteRefusal(
         error_code=EIGENE_ADRESSE,
         status=HTTPStatus.FORBIDDEN,
-        message="an administrator does not act on their own address here; their own account page does, or another administrator",
+        message="an administrator does not act on their own address here; their own account page does, or an owner",
     )
 
 
-# 403 for who asks, as `REQ-PURGE-003`: without it an administrator removes the owners above them,
-# which a revoke refuses them (`REQ-BERECHTIGUNG-005`).
-INHABER_ADRESSE = "REQ-PURGE-005"
+# 403 for who asks, as `REQ-PURGE-003`: without it an administrator ends another's grant, which a revoke
+# reserves to an owner (`REQ-BERECHTIGUNG-005`).
+VERWALTUNG_ADRESSE = "REQ-PURGE-005"
+
+# The erasure's and its reveal's: the one ends the grant, the other opens the holder's records.
+JEDE_VERWALTUNG: Final[frozenset[str]] = frozenset(get_args(FLVerwaltung))
+# The sign-out's: an ended session is repaired by signing in again, so only an owner's is held back.
+NUR_INHABER: Final[frozenset[str]] = frozenset({OWNER})
 
 
-def find_inhaber_adresse_refusal(
-    *, identifier: str, akteur: str, auth_time: int, grants: Sequence[Mapping[str, Any]], announced: Sequence[Mapping[str, Any]]
+def find_verwaltung_adresse_refusal(
+    *,
+    identifier: str,
+    akteur: str,
+    auth_time: int,
+    grants: Sequence[Mapping[str, Any]],
+    announced: Sequence[Mapping[str, Any]],
+    geschuetzt: frozenset[str],
 ) -> WriteRefusal | None:
-    """`REQ-PURGE-005`: an address holding a live `owner` grant is acted on only by an actor holding an owner's power.
+    """`REQ-PURGE-005`: an address holding a live grant of a `geschuetzt` tier is acted on only by an actor holding an owner's power.
 
     `grants` and `announced` as stored, read where the caller judges, so a retry judges them afresh.
     """
 
-    if not holds_an_owner_grant(identifier, lebendige(grants)) or holds_an_owners_power(
+    if verwaltung_des(identifier, grants) not in geschuetzt or holds_an_owners_power(
         akteur=akteur, auth_time=auth_time, grants=grants, announced=announced
     ):
         return None
 
     return WriteRefusal(
-        error_code=INHABER_ADRESSE,
+        error_code=VERWALTUNG_ADRESSE,
         status=HTTPStatus.FORBIDDEN,
-        message="this address holds an owner's access to the administration; only an owner, signed in since becoming one, acts on it here",
+        message="this address holds access to the administration; only an owner, signed in since becoming one, acts on it here",
     )
 
 

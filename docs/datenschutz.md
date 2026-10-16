@@ -382,8 +382,8 @@ Every ruling below is the sign-up flow as it stands for the next season.
   (`docs/backend/spec.md :: I663`) and refuses only the administration's last live owner, until they
   make another administrator an owner (`:: I479`), and the administrator's `POST /identitaet/erasure`,
   which runs that same erasure for a person who asked by mail and refuses nothing about them, only
-  the administrator's own address and an owner's address to an administrator holding no owner's power
-  (`docs/backend/spec.md :: I682`); the one-off drop of
+  the administrator's own address and the address of anyone holding a grant to an administrator
+  holding no owner's power (`docs/backend/spec.md :: I682`); the one-off drop of
   [section 3](#3-the-current-pupil-records-are-reset-once) empties the name on every fixture it
   repoints, so it leaves no name with no row behind it. The referee path deletes the document
   and repoints every fixture that named them at the ghost — one permanent row,
@@ -736,8 +736,10 @@ Every ruling below is the sign-up flow as it stands for the next season.
   them before the press (`:: I692`). A pupil whose address was corrected by hand into a spelling no
   request matches is passed over, and named in the log by id, until the address is corrected
   (`:: I718`). What goes is the pupil's own data alone — the record, every squad row and every
-  registration at the address, a declined one included, each with its log images — while a contact
-  seat, a referee record or a grant at the same address stands, each bounded by its own purpose. A
+  registration at the address, a declined one included, each with its log images, and their day
+  counts as a pupil, every log row they wrote as one naming a fixed marker in their place
+  (`:: I667`) — while a contact seat, a referee record or a grant at the same address stands, each
+  bounded by its own purpose, with the counts and log rows the person made in that role. A
   pupil holding no address is outside the rule, the one-off reset of
   [section 3](#3-the-current-pupil-records-are-reset-once) removing them. **An erasure deletes the
   document outright** rather than nulling its fields (`docs/backend/spec.md :: I12`), so the row

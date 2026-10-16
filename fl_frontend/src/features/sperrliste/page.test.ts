@@ -473,8 +473,8 @@ describe("a list the read could not give (`docs/frontend/spec.md :: I724`)", () 
 });
 
 describe("the ban's refusals, placed (`docs/frontend/spec.md :: I724`)", () => {
-  /* The read refuses an administrator's address, the reader's own or an owner's, and lists a grant holder's: the ban
-     would refuse each, so the box says so before anyone works through a list for nothing. */
+  /* The read refuses the reader's own address, and any administrator's to a reader holding no owner's power, or lists
+     the grant: the ban would refuse each, so the box says so before anyone works through a list for nothing. */
   it("marks an administrator's address before the press, arming nothing", async () => {
     const answers: [string, () => Promise<Record<string, unknown>>][] = [
       ["a grant on the list", () => Promise.resolve({ ...NICHTS, verwaltung: "administration" })],
