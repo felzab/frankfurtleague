@@ -1142,8 +1142,14 @@ NAMES = eigene_namen(
         }
     ],
     bewerbung_rows=[],
-    referee_rows=[{"name": "Anna von der Heide"}, {"name": "Thi Mai Le"}, {"name": "Seán O'Brien"}],
-    pupil_rows=[{"vorname": "Max", "nachname": "Müller"}],
+    referee_rows=[
+        {"name": "Anna von der Heide"},
+        {"name": "Thi Mai Le"},
+        {"name": "Seán O'Brien"},
+        {"name": "Deniz Yıldız"},
+        {"name": "Jo GROẞ"},
+    ],
+    pupil_rows=[{"vorname": "Max", "nachname": "Müller"}, {"vorname": "Ida", "nachname": "Weiß"}],
     registrierung_rows=[{"vorname": "Anna Lena", "nachname": "Schmidt"}],
 )
 
@@ -1157,12 +1163,15 @@ REFUSALS = {
 class TestWhichWordsAFreeTextMayNotHold:
     def test_each_name_stands_whole_and_each_of_its_words_but_a_particle_before_a_name_and_a_single_letter(self):
         assert NAMES == {
-            *("max", "müller"),
-            *("anna von der heide", "anna", "heide"),
-            *("thi mai le", "thi", "mai", "le"),
-            *("seán o'brien", "seán", "brien"),
-            *("anna lena", "lena", "schmidt"),
-            *("quirin", "müller-lüdenscheidt", "lüdenscheidt"),
+            *("Max", "Müller"),
+            *("Ida", "Weiß"),
+            *("Anna von der Heide", "Anna", "Heide"),
+            *("Thi Mai Le", "Thi", "Mai", "Le"),
+            *("Seán O'Brien", "Seán", "Brien"),
+            *("Deniz Yıldız", "Deniz", "Yıldız"),
+            *("Jo GROẞ", "Jo", "GROẞ"),
+            *("Anna Lena", "Lena", "Schmidt"),
+            *("Quirin", "Müller-Lüdenscheidt", "Lüdenscheidt"),
         }
 
     @pytest.mark.parametrize("refusal", REFUSALS)
@@ -1183,6 +1192,13 @@ class TestWhichWordsAFreeTextMayNotHold:
             "Mail Mül\u200bler 3.10.",
             # A common word equal to a name, „Thi Mai Le“'s „Mai“, refused with it.
             "Anfrage vom 3. Mai",
+            # Equal in upper case alone: „Weiß“ and „Yıldız“ share theirs with each of these.
+            "Mail WEISS 3.10.",
+            "Mail Weiss 3.10.",
+            "Mail YILDIZ 3.10.",
+            "Mail Yildiz 3.10.",
+            # Equal in lower case alone: „GROẞ“ keeps its capital sharp s in upper case, where „Groß“ takes „SS“.
+            "Mail Groß 3.10.",
         ],
     )
     def test_a_name_standing_as_a_whole_word_or_before_a_genitive_s_is_refused_on_the_box(self, refusal: str, text: str):
@@ -1200,8 +1216,9 @@ class TestWhichWordsAFreeTextMayNotHold:
             "Brief aus der Müllerstraße",
             "Bitte um Löschung der Daten von heute",
             "o. g. Anfrage vom 3.5. i. A. weitergeleitet",
+            "Mail MUELLER 3.10.",
         ],
-        ids=["no name", "a name inside a longer word", "a particle alone", "a single letter"],
+        ids=["no name", "a name inside a longer word", "a particle alone", "a single letter", "a spelling neither case form shares"],
     )
     def test_no_name_standing_as_a_whole_word_passes(self, refusal: str, text: str):
         find, _, _ = REFUSALS[refusal]

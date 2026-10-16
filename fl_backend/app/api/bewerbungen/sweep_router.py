@@ -50,7 +50,7 @@ from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperr
 from app.api.teams.schemas import FLKontaktRolle
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.crud import erase_many_from_db, patch_many_in_db, patch_one_in_db, pull_many_from_db, pull_one_from_db
+from app.core.crud import anchor_in_db, erase_many_from_db, patch_many_in_db, patch_one_in_db, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import (
     AktionenCollection,
     BewerbungenCollection,
@@ -75,13 +75,13 @@ router = APIRouter(
     dependencies=[Depends(verify_access_system), Depends(bind_system_actor)],
 )
 
-# Both shares at two commands a row beside the 28 of the worst call erasing one page per clock
+# Both shares at two commands a row beside the 32 of the worst call erasing one page per clock
 # (`tests/api/test_bewerbung_sweep_refusal.py :: test_a_full_share_finishes_inside_the_deadline_at_the_round_trip_its_comment_names`):
 # 264 commands at a 36 ms round trip plus 1.35 ms take 9.86 s of `app/core/middlewares.py :: REQUEST_DEADLINE_S`.
-REMINDERS_PER_PASS: Final = 59
+REMINDERS_PER_PASS: Final = 58
 
 # A season at the capacity its rules allow holds more junction rows than this, and takes more passes.
-BLOCKS_CLEARED_PER_PASS: Final = 59
+BLOCKS_CLEARED_PER_PASS: Final = 58
 
 
 async def _club_names(
@@ -116,6 +116,44 @@ async def _redact(
     )
 
     return redacted.modified_count
+
+
+def _ended_after(saison_id: str) -> dict[str, Any]:
+    """Every season later than this one that has ended. Raises for an id that is no year, as `next_saison_id` does."""
+
+    return {"_id": {"$gte": next_saison_id(saison_id)}, "status": "past"}
+
+
+async def pull_the_season_after(
+    *,
+    saison_id: str,
+    saisons_collection: SaisonsCollection,
+    # REQUIRED: judged inside the erasing transaction, the anchor below commits with its erasure.
+    session: AsyncClientSession,
+) -> Any:
+    """`season_after_has_ended`'s input, judged in the erasing transaction: a later ended season's status, `None` while this one runs."""
+
+    # This season and the earliest later one that has ended, in one read: ascending ids put this season first.
+    seasons = await pull_many_from_db(
+        collection=saisons_collection,
+        db_filter={"$or": [{"_id": saison_id}, _ended_after(saison_id)]},
+        projection=["status"],
+        sort_by=[("_id", ASCENDING)],
+        limit=2,
+        session=session,
+    )
+    statuses = {row["_id"]: row.get("status") for row in seasons}
+    own_status = statuses.pop(saison_id, None)
+    if own_status == "active":
+        return None
+
+    later_saison_status = next(iter(statuses.values()), None)
+    # Written where its rows go, as a pupil's deletion writes one (`docs/backend/spec.md :: I722`): an activation
+    # committing after this read conflicts with the erasure, whose retry finds this season running.
+    if own_status == "future" and season_after_has_ended(later_saison_status=later_saison_status):
+        await anchor_in_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
+
+    return later_saison_status
 
 
 @router.get("", response_model=FLBewerbungSweepSaisonsResponse, summary="Every season the sweep has to visit")
@@ -216,15 +254,11 @@ async def sweep_saison(
     saison_status = saison_raw.get("status")
 
     # Ahead of the guard below, so an id that is no year fails the running season's pass too.
-    spaetere_ab = next_saison_id(saison_id)
+    beendet_danach = _ended_after(saison_id)
     # Ended once any later season has while this one is not `active`, as a squad row's pupil goes
     # (`docs/backend/spec.md :: I715`): the next year's season alone may be skipped, or planned and never run.
-    beendete_raw = (
-        None
-        if saison_status == "active"
-        else await saisons_collection.find_one({"_id": {"$gte": spaetere_ab}, "status": "past"}, {"status": 1})
-    )
-    next_saison_status = beendete_raw.get("status") if beendete_raw is not None else None
+    beendete_raw = None if saison_status == "active" else await saisons_collection.find_one(beendet_danach, {"status": 1})
+    later_saison_status = beendete_raw.get("status") if beendete_raw is not None else None
 
     stamp = log_stamp(germany_now)
     # Outside the reminder's transaction, whose callback may run again, as the correction reads it
@@ -412,7 +446,7 @@ async def sweep_saison(
         return len(rows), result.deleted_count, redacted
 
     async def erase_accepted(session: AsyncClientSession, batch: Batch) -> tuple[int, int, int]:
-        """The season-and-one clock's first half. Read in-session, so a retry re-judges."""
+        """The season-and-one clock's first half. Read in-session, the season with it, so a retry re-judges."""
 
         rows = await batch.saw(
             pull_many_from_db(
@@ -423,17 +457,18 @@ async def sweep_saison(
                 session=session,
             )
         )
+        later_status = await pull_the_season_after(saison_id=saison_id, saisons_collection=saisons_collection, session=session)
         taken = batch.took(
             [
                 row
-                for row, due in batch.judged(
-                    rows, lambda row: acceptance_erasure_is_due(bewerbung_raw=row, next_saison_status=next_saison_status)
-                )
+                for row, due in batch.judged(rows, lambda row: acceptance_erasure_is_due(bewerbung_raw=row, later_saison_status=later_status))
                 if due
             ]
         )
         if not taken:
-            return len(rows), 0, 0
+            # Read as nothing, so the drain stops: a page of accepted rows it takes none of is one an activation
+            # since the call's own read keeps, and reading it again would find the same.
+            return 0, 0, 0
 
         ids = [row["_id"] for row in taken]
         result = await erase_many_from_db(
@@ -446,7 +481,7 @@ async def sweep_saison(
         return len(rows), result.deleted_count, redacted
 
     async def clear_the_blocks(session: AsyncClientSession, batch: Batch) -> tuple[int, int]:
-        """The season-and-one clock's second half, a share a pass. Read in-session, so a retry re-judges."""
+        """The season-and-one clock's second half, a share a pass. Read in-session, the season with it, so a retry re-judges."""
 
         junction_rows = await batch.saw(
             pull_many_from_db(
@@ -459,6 +494,10 @@ async def sweep_saison(
                 session=session,
             )
         )
+        if not season_after_has_ended(
+            later_saison_status=await pull_the_season_after(saison_id=saison_id, saisons_collection=saisons_collection, session=session)
+        ):
+            return 0, 0
         # A cleared row leaves the filter, so the rows past the share are the next pass's.
         taken = batch.took(junction_rows[: batch.share])
 
@@ -515,25 +554,28 @@ async def sweep_saison(
     fehlgeschlagen += len(passed)
 
     angenommene, geleert, redacted_accepted = 0, 0, 0
-    if season_after_has_ended(next_saison_status=next_saison_status):
-        angenommene, redacted_accepted, passed = await drain(
-            db=db,
-            page_of=lambda session, batch: session.with_transaction(erase_accepted, batch),
-            page=SWEEP_PAGE,
-            what="Application",
-            clock="acceptance",
-        )
-        fehlgeschlagen += len(passed)
+    # A gate alone, each erasing transaction judging the season again: an activation since this read keeps its rows.
+    if season_after_has_ended(later_saison_status=later_saison_status):
+        # Each transaction anchors a planned season, a season write the cache serves.
+        with dropping_the_saison_cache():
+            angenommene, redacted_accepted, passed = await drain(
+                db=db,
+                page_of=lambda session, batch: session.with_transaction(erase_accepted, batch),
+                page=SWEEP_PAGE,
+                what="Application",
+                clock="acceptance",
+            )
+            fehlgeschlagen += len(passed)
 
-        cleared, passed = await run_isolated(
-            db=db,
-            batch=Batch(share=BLOCKS_CLEARED_PER_PASS),
-            attempt=lambda session, batch: session.with_transaction(clear_the_blocks, batch),
-            moved=lambda blocks: blocks[0],
-            owes=False,
-            what="Season team",
-            clock="contact block",
-        )
+            cleared, passed = await run_isolated(
+                db=db,
+                batch=Batch(share=BLOCKS_CLEARED_PER_PASS),
+                attempt=lambda session, batch: session.with_transaction(clear_the_blocks, batch),
+                moved=lambda blocks: blocks[0],
+                owes=False,
+                what="Season team",
+                clock="contact block",
+            )
         geleert = sum(blocks for blocks, _ in cleared)
         redacted_accepted += sum(redacted for _, redacted in cleared)
         fehlgeschlagen += len(passed)

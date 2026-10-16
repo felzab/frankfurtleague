@@ -144,7 +144,8 @@ async def post_sperrliste_eintrag(
 
     `grund` is served, mailed to the address and kept past that person's erasure, so it is refused 422 where it holds a
     name of the address's own records, as `POST /identitaet/erasure/ansicht` names each (`REQ-SPERRLISTE-004`). It is
-    matched as that erasure's `anlass` is: as stored, capitals and spacing aside, so another spelling passes.
+    matched as that erasure's `anlass` is: as stored, spacing aside, and equal where the plain lower or the plain upper case
+    is, so „Weiss“ is refused for „Weiß“ and another spelling such as „Mueller“ for „Müller“ passes.
     """
 
     gehasht = sperrliste.hash_of(str(sperrliste_data.email))

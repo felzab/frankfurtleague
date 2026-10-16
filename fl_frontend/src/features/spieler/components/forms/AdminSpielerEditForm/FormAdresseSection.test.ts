@@ -48,6 +48,7 @@ describe("what the address request says of the link it sent", () => {
     ["fehlgeschlagen", "gesendet", "warning", "Link nicht verschickt"],
     ["gesperrt", "gesendet", "warning", "Link zurückgehalten"],
     ["gesendet", "fehlgeschlagen", "warning", "Link gesendet, Hinweis nicht verschickt"],
+    ["gesendet", "ungewiss", "warning", "Link gesendet, Hinweis unklar"],
   ] as const) {
     it(`titles a request whose link is ${versand} and notice ${hinweis} „${title}“`, async () => {
       answerWith(() => Promise.resolve({ success: true, message: "Der Link zur neuen Adresse.", versand: versand, hinweis: hinweis }));

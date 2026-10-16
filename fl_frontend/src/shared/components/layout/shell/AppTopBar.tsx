@@ -13,7 +13,7 @@ import { KONTO_SECTION } from "./kontoSection";
 import { RAIL_WIDTH_LG_CLASSES } from "./railWidth";
 import { SignOutButton } from "./SignOutButton";
 
-import type { FormState, SidemenuHint } from "@/shared/types/types";
+import type { SidemenuHint, SignOutResult } from "@/shared/types/types";
 
 /**
  * **This is the page's `h1` and a view under it must not carry a second.** `SidemenuStructure` is the one declaration
@@ -41,7 +41,7 @@ export function AppTopBar({
   /** Whether the page under the bar is that account page, which the link then marks as the current one. */
   isOnKonto: boolean;
   /** Forwarded to the options menu; a shell for the public dashboard supplies none. */
-  onSignOut?: () => Promise<FormState>;
+  onSignOut?: () => Promise<SignOutResult>;
 }) {
   // Hoisted out of the class template because the Tailwind lint cannot read a class string through an
   // index expression — it reads `collapsed` and `expanded` as class names.

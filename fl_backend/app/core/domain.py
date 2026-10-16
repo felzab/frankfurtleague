@@ -2404,8 +2404,8 @@ RULES: tuple[Rule, ...] = (
         operation="POST /identitaet/erasure",
         aggregate="Aktion",
         summary=(
-            "the request an erasure answers holds no name of the person's own records as stored, capitals and spacing"
-            " aside, as a whole word or before a genitive s"
+            "the request an erasure answers holds no name of the person's own records, spacing aside and equal in plain"
+            " lower or plain upper case, as a whole word or before a genitive s"
         ),
         implemented_by="app.api.identitaet.services.find_name_im_anlass_refusal",
         tested_by="tests/api/test_erasure_auf_anfrage.py::TestANameInTheAnlass",

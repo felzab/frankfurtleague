@@ -227,7 +227,7 @@ export function buildRegistrierungErinnerungEmail(data: RegistrierungLinkEmailDa
 const saisonendeSaetze = ({ vorname, teamName, saisonId }: RegistrierungNotizEmailData): readonly string[] => [
   `Hallo ${vorname}, die Saison ${saisonId} der ${BRAND_NAME} ist vorbei.`,
   `Über Deine Registrierung für ${teamName} wurde bis zum Saisonende nicht entschieden, deshalb haben wir sie mit allen Angaben gelöscht. Du musst nichts tun.`,
-  "Zur nächsten Saison kannst Du Dich über den Link Deines Teams wieder registrieren.",
+  "Zur nächsten Saison kannst Du Dich über den Link Deines Teams erneut registrieren.",
 ];
 
 /**

@@ -228,8 +228,8 @@ export function FormPersonLoeschenSection() {
             className={FIELD_INPUT_CLASSES}
           />
           <FieldError className={FIELD_ERROR_CLASSES}>{fehler.anlass}</FieldError>
-          {/* The log keeps it a year, past any redaction. The erasure refuses an address and the person's names as stored,
-              never a nickname or a misspelling a mail's subject carries, so the hint asks for the request's kind. */}
+          {/* Kept a year in the log, past any redaction. The erasure refuses an address and the person's names in plain lower
+              or upper case, never a nickname or transliteration from a mail's subject: the hint asks for the request's kind. */}
           <Hint
             mode="field"
             text="Nur das Datum und die Art der Anfrage. Nenne hier keine Person beim Namen und keine Adresse, auch nicht aus dem Betreff. Der Anlass steht zwölf Monate im Änderungsprotokoll."

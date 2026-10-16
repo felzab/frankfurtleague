@@ -17,6 +17,7 @@ import { laufendeNeubesetzung } from "@/shared/testing/einwilligungAnswers.ts";
 import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderUnderWrite } from "@/shared/testing/postWrite.ts";
+import { retirementWrites } from "@/shared/testing/retirementWrites.ts";
 import { saisonRules } from "@/shared/testing/saisonRules.ts";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
 
@@ -80,6 +81,8 @@ type Landing = {
   afterSearch?: string;
   /** Where the focus has to end. */
   lands: () => HTMLElement;
+  /** The write an editor's own control sends, which the press is held to: a list's landing names none, so it never stands in for an editor's. */
+  editorWrite?: string;
 };
 
 const RETIRED_ON = "2026-09-01";
@@ -885,6 +888,7 @@ const LANDINGS: Record<string, Landing> = {
     after: () => h(AdminSpielortEditView, { spielort: ort(ORT_A, "Halle A", null), inactiveSince: null }),
     remount: true,
     lands: () => screen.getByRole("button", { name: "Stilllegen" }),
+    editorWrite: "reactivateSpielortAction",
   },
   "a venue editor's retirement in the dialog, on the reactivation replacing it": {
     before: () => h(AdminSpielortEditView, { spielort: ort(ORT_A, "Halle A", null), inactiveSince: null }),
@@ -892,6 +896,7 @@ const LANDINGS: Record<string, Landing> = {
     after: () => h(AdminSpielortEditView, { spielort: ort(ORT_A, "Halle A", RETIRED_ON), inactiveSince: RETIRED_ON }),
     remount: true,
     lands: () => screen.getByRole("button", { name: "Reaktivieren" }),
+    editorWrite: "deleteSpielortAction",
   },
   "a referee editor's reactivation, on the retirement replacing it": {
     before: () => h(AdminSchiedsrichterEditView, { istFassungBekannt: true, schiedsrichter: SR_RECORD, inactiveSince: RETIRED_ON }),
@@ -899,6 +904,7 @@ const LANDINGS: Record<string, Landing> = {
     after: () => h(AdminSchiedsrichterEditView, { istFassungBekannt: true, schiedsrichter: SR_RECORD, inactiveSince: null }),
     remount: true,
     lands: () => screen.getByRole("button", { name: "Stilllegen" }),
+    editorWrite: "reactivateSchiedsrichterAction",
   },
   "a referee editor's retirement in the dialog, on the reactivation replacing it": {
     before: () => h(AdminSchiedsrichterEditView, { istFassungBekannt: true, schiedsrichter: SR_RECORD, inactiveSince: null }),
@@ -906,6 +912,7 @@ const LANDINGS: Record<string, Landing> = {
     after: () => h(AdminSchiedsrichterEditView, { istFassungBekannt: true, schiedsrichter: SR_RECORD, inactiveSince: RETIRED_ON }),
     remount: true,
     lands: () => screen.getByRole("button", { name: "Reaktivieren" }),
+    editorWrite: "deleteSchiedsrichterAction",
   },
   "a player editor's reactivation, on the retirement replacing it": {
     before: () => spielerEditor(RETIRED_ON),
@@ -913,6 +920,7 @@ const LANDINGS: Record<string, Landing> = {
     after: () => spielerEditor(null),
     remount: true,
     lands: () => screen.getByRole("button", { name: "Stilllegen" }),
+    editorWrite: "reactivateSpielerAction",
   },
   "a player editor's retirement in the dialog, on the reactivation replacing it": {
     before: () => spielerEditor(null),
@@ -920,6 +928,7 @@ const LANDINGS: Record<string, Landing> = {
     after: () => spielerEditor(RETIRED_ON),
     remount: true,
     lands: () => screen.getByRole("button", { name: "Reaktivieren" }),
+    editorWrite: "deleteSpielerAction",
   },
   "a passkey's deletion, on the next card's": {
     before: () => panel(sicherheit()),
@@ -1096,6 +1105,7 @@ const LANDINGS: Record<string, Landing> = {
     after: () => austragen(RETIRED_ON),
     remount: true,
     lands: () => screen.getByRole("button", { name: "Kadereintrag reaktivieren" }),
+    editorWrite: "deleteSaisonSpielerAction",
   },
   "a squad row's return, on the removal replacing it": {
     before: () => austragen(RETIRED_ON),
@@ -1103,6 +1113,7 @@ const LANDINGS: Record<string, Landing> = {
     after: () => austragen(null),
     remount: true,
     lands: () => screen.getByRole("button", { name: "Aus Kader 2026 austragen" }),
+    editorWrite: "reactivateSaisonSpielerAction",
   },
   /* The seat holder's austragen has no return to draw in its stead: the row turns read-only, its panel the landing. */
   "a seat holder's austragen of a squad row, on the read-only row's heading": {
@@ -1254,6 +1265,7 @@ const LANDINGS: Record<string, Landing> = {
     after: () => teamEditor(null, { gruppe: null }),
     remount: true,
     lands: () => screen.getByRole("button", { name: "Stilllegen" }),
+    editorWrite: "reactivateTeamAction",
   },
   "a club editor's retirement in the dialog, on the reactivation replacing it": {
     before: () => teamEditor(null, { gruppe: null }),
@@ -1261,6 +1273,7 @@ const LANDINGS: Record<string, Landing> = {
     after: () => teamEditor(RETIRED_ON, { gruppe: null }),
     remount: true,
     lands: () => screen.getByRole("button", { name: "Reaktivieren" }),
+    editorWrite: "deleteTeamAction",
   },
   "a registration's admission, on the next row's admission": {
     before: () => registrierungen([REG_LENA, REG_MIA]),
@@ -1364,11 +1377,18 @@ describe("where the focus lands once a write takes its control off the page", ()
       // stands down once the page's path changes under it.
       const page = (tree: ReactNode, search = landing.search ?? "saison_id=2026") => underNext(tree, { search, pathname: "/" });
       const view = renderUnderWrite(page(landing.before()));
+      const sent = calls.length;
 
       await landing.press(user);
       // Every write the press set off answered first, a confirmation's own check among them.
       await act(answered);
       await view.answered();
+      if (landing.editorWrite !== undefined) {
+        assert.ok(
+          calls.slice(sent).some((call) => call.action === landing.editorWrite),
+          `the press never sent ${landing.editorWrite}`,
+        );
+      }
       await view.refresh(page(landing.after(), landing.afterSearch), { remount: landing.remount ?? false });
 
       const expected = landing.lands();
@@ -1377,4 +1397,20 @@ describe("where the focus lands once a write takes its control off the page", ()
       assert.ok(document.activeElement === expected, `the focus is on ${described(document.activeElement)}, not ${described(expected)}`);
     });
   }
+});
+
+describe("the landings an editor's retirement and return are held to", () => {
+  /* The landings are this file's own list and the header's slot is optional, so a retirable record's editor wired to
+     neither control would pass every case above. */
+  it("cover every retirement and return a slice exports", () => {
+    const writes = retirementWrites();
+    assert.ok(writes.length > 0, "the actions yield no retirement, so the comparison below compares nothing");
+    const landed = new Set(Object.values(LANDINGS).map((landing) => landing.editorWrite));
+
+    assert.deepEqual(
+      writes.filter((write) => !landed.has(write)),
+      [],
+      "a retirable record's write no editor landing presses",
+    );
+  });
 });

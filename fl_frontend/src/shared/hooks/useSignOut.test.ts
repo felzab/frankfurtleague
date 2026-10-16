@@ -15,7 +15,7 @@ import { answersInFlight } from "@/shared/testing/answersInFlight.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
 
-import type { FormState } from "@/shared/types/types.ts";
+import type { SignOutResult } from "@/shared/types/types.ts";
 
 const { raised } = doubleToasts();
 
@@ -30,7 +30,7 @@ registerDoubles({ modules: { "shared/utils/documentNavigation.ts": { leaveDocume
    static import would have resolved the real one before the double registered. */
 const { useSignOut } = await import("./useSignOut.ts");
 
-function Probe({ onSignOut }: { onSignOut: () => Promise<FormState> }): ReturnType<typeof h> {
+function Probe({ onSignOut }: { onSignOut: () => Promise<SignOutResult> }): ReturnType<typeof h> {
   const { confirm, press } = useSignOut(onSignOut);
 
   // Marked as the control, or the hook's outside-press disarm takes the confirming press for a press elsewhere.
@@ -45,7 +45,7 @@ function Probe({ onSignOut }: { onSignOut: () => Promise<FormState> }): ReturnTy
 const answers = answersInFlight();
 
 /** The arming press and the one that signs out, up to the action's answer. */
-async function signOut(onSignOut: () => Promise<FormState>) {
+async function signOut(onSignOut: () => Promise<SignOutResult>) {
   const user = userEvent.setup();
   const { router, seen } = recordingRouter();
   render(underNext(h(Probe, { onSignOut: () => answers.track("signOut", onSignOut()) }), { router }));
@@ -96,9 +96,9 @@ describe("what a sign-out tells the reader", () => {
     render(
       underNext(
         h(Probe, {
-          onSignOut: async (): Promise<FormState> => {
+          onSignOut: async (): Promise<SignOutResult> => {
             asked += 1;
-            return { success: true, message: "Abgemeldet" };
+            return { success: true };
           },
         }),
         { router: recordingRouter().router },
@@ -115,7 +115,7 @@ describe("what a sign-out tells the reader", () => {
      rows and the typed searches of the session just ended. A toast would vanish with the page it
      was raised on, unread. */
   it("loads the start page as a new document once the session has ended, and raises no toast", async () => {
-    const seen = await signOut(async () => ({ success: true, message: "Abgemeldet" }));
+    const seen = await signOut(async () => ({ success: true }));
 
     await waitFor(() => assert.deepEqual(left, ["/"]));
     assert.deepEqual(raised, [], "a sign-out that leaves the page raised a toast over it");

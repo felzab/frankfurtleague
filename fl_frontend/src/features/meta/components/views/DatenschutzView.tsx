@@ -216,10 +216,10 @@ const FRISTEN = [
   },
   {
     daten:
-      "Kurzzeitiger Vermerk zu einer E-Mail-Adresse: die Adresse als unlesbarer Schlüssel, ein Zähler und der Zeitpunkt seiner letzten Änderung",
+      "Kurzzeitige Markierung einer E-Mail-Adresse: die Adresse als unlesbarer Schlüssel, ein Zähler und der Zeitpunkt ihrer letzten Änderung",
     // MongoDB's expiry pass and its period, mirrored in `docs/datenschutz.md` §5 with the day it was read: the source moves without us.
     frist:
-      "Kurz nach seiner letzten Änderung: Die Datenbank löscht ihn beim nächsten Aufräumen, das ungefähr jede Minute läuft und sich zum Beispiel bei hoher Last verzögern kann. Er entsteht, wenn eine E-Mail-Adresse in unsere Daten kommt, wenn eine angemeldete Person etwas ändert und wenn wir die Daten einer Adresse löschen. Er sorgt dafür, dass Angaben, die während einer Löschung unter dieser Adresse gespeichert werden, mit ihr gelöscht werden",
+      "Kurz nach ihrer letzten Änderung: Die Datenbank löscht sie beim nächsten Aufräumen, das ungefähr jede Minute läuft und sich zum Beispiel bei hoher Last verzögern kann. Sie entsteht, wenn eine E-Mail-Adresse in unsere Daten kommt, wenn eine angemeldete Person etwas ändert und wenn wir die Daten einer Adresse löschen. Sie sorgt dafür, dass Angaben, die während einer Löschung unter dieser Adresse gespeichert werden, mit dieser Löschung gelöscht werden",
   },
   {
     daten: "Zugriffsprotokoll des Servers",
@@ -242,7 +242,7 @@ const FRISTEN = [
   {
     daten: "E-Mails der Liga beim Versanddienst Resend: Empfängeradresse, Betreff, Inhalt und Zustellstand",
     frist:
-      "30 Tage bei Resend, in dessen Sicherungskopien bis zu einer Woche länger. Löschen wir Deine Daten, bleiben diese Kopien bis dahin bestehen",
+      "30 Tage bei Resend, in dessen Sicherungskopien bis zu einer Woche länger. Eine Löschung bei uns erreicht diese E-Mails nicht: Sie bleiben bei Resend bis dahin bestehen",
   },
   {
     daten: "Daten von Spielerinnen, Spielern und Schiedsrichtern",
@@ -725,8 +725,11 @@ export function DatenschutzView() {
             zurückgenommen werden kann. Dieses Protokoll kann deshalb auch Deine Daten enthalten. Bei einer Löschung auf Wunsch werden Deine
             Einträge darin sofort geleert. Bittest Du uns darum, hält das Protokoll die Löschung selbst fest, mit dem Datum und der Art Deiner
             Anfrage. Das bleibt dort wie jede andere Änderung zwölf Monate stehen. Deinen Namen, so wie er bei uns eingetragen ist, lassen wir
-            in der Angabe zu Deiner Anfrage nicht zu. Anders geschrieben kann er dort für diese zwölf Monate stehen. Rechtsgrundlage ist Art. 6
-            Abs. 1 lit. f DSGVO; unser berechtigtes Interesse ist, Fehler in den Daten der Liga erkennen und rückgängig machen zu können.
+            in der Angabe zu Deiner Anfrage nicht zu, auch nicht in anderer Groß- oder Kleinschreibung. Stehen kann er dort für diese zwölf
+            Monate anders geschrieben, etwa mit „ue“ statt „ü“, als Teil eines längeren Wortes, als einzelner Buchstabe, als kurzer Namensteil
+            wie „von“ oder „Le“, auf den in Deinem Namen ein weiterer folgt, und als früherer Name, der bei uns nicht mehr eingetragen ist.
+            Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO; unser berechtigtes Interesse ist, Fehler in den Daten der Liga erkennen und
+            rückgängig machen zu können.
           </p>
         </LegalSection>
 
@@ -764,7 +767,8 @@ export function DatenschutzView() {
           <p className={ABSATZ_CLASSES}>
             Was eine Löschung erreicht und was nicht: Aus der laufenden Datenbank sind Deine Daten sofort verschwunden. In den Sicherungskopien
             bleiben sie bis zu etwa acht Tage länger, weil eine Sicherung nicht einzeln geändert werden kann; danach laufen die Kopien von
-            selbst aus, und wir stellen aus einer Sicherung nichts wieder her, ohne Deine Löschung erneut auszuführen.
+            selbst aus, und wir stellen aus einer Sicherung nichts wieder her, ohne Deine Löschung erneut auszuführen. Auch die Kopien unserer
+            E-Mails beim Versanddienst Resend erreicht eine Löschung nicht. Wie lange sie dort bleiben, steht in Abschnitt 13.
           </p>
           <p className={ABSATZ_CLASSES}>
             Deine E-Mail-Adresse steht bei uns für Dich allein: Alles, was unter ihr eingetragen ist, gehört zu Deinem Konto.
@@ -785,10 +789,10 @@ export function DatenschutzView() {
             Abschnitt 13 bei der Anmeldung aufzählt. Bis die Sperre endet, kann sich damit niemand anmelden. Eine Kopie Deiner Daten oder ihre
             Löschung erhältst Du auch während einer Sperre über eine E-Mail an <MailLink />; wir bestätigen die Anfrage mit einer E-Mail an die
             gesperrte Adresse. Der Grund ist ein freier Text. Einen Namen, so wie er unter der gesperrten Adresse eingetragen ist, lassen wir
-            darin nicht zu. Ein Name, der dort nicht so steht, etwa anders geschrieben, kann darin stehen und bleibt dann mit dem Eintrag
-            stehen. Dieser Eintrag bleibt auch nach einer Löschung bestehen, bis die Sperre nach fünf vollen Saisons endet oder die Verwaltung
-            sie vorher aufhebt. Wir speichern diesen Eintrag auf Grundlage unseres berechtigten Interesses daran, eine gesperrte Adresse nicht
-            erneut zuzulassen (Art. 6 Abs. 1 lit. f DSGVO).
+            darin nicht zu, auch nicht in anderer Groß- oder Kleinschreibung. In den Formen, die Abschnitt 13 für die Angabe zu einer Anfrage
+            nennt, kann ein Name darin stehen und bleibt dann mit dem Eintrag stehen. Dieser Eintrag bleibt auch nach einer Löschung bestehen,
+            bis die Sperre nach fünf vollen Saisons endet oder die Verwaltung sie vorher aufhebt. Wir speichern diesen Eintrag auf Grundlage
+            unseres berechtigten Interesses daran, eine gesperrte Adresse nicht erneut zuzulassen (Art. 6 Abs. 1 lit. f DSGVO).
           </p>
         </LegalSection>
 
