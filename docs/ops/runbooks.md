@@ -1302,10 +1302,10 @@ press sends no deletion call it could not wait out to its answer
 that, the run stops there: the press files the warning `loeschung.umstellung_cut_short`, which
 needs nothing from you, and its message tells the administrator the hourly pass finishes the rest.
 `loeschung.umstellung_failed`, an error under `FE-SWEEP-001`, is a call that failed rather than ran
-out of time. The caches the press drops as it answers hold none of the pupils it deleted. **Only a
-call the backend let run past its own deadline can still be deleting once the press has
-answered**, and a pupil such a call deletes stays on a cached squad page until the next hourly
-pass, which drops that cache after its own deletion whatever it deleted. **A drop that failed is the
+out of time. The caches the press drops as it answers hold none of the pupils it deleted. **A call
+can still be deleting once the press has answered only where it outlasted the backend's own deadline
+and the margin the press allows past it**, and a pupil such a call deletes stays on a cached squad
+page until the next hourly pass, which drops that cache after its own deletion whatever it deleted. **A drop that failed is the
 error `cache.revalidation_failed` under `FE-CACHE-001`**, naming the status the route answered or
 the error's name: the next pass drops it again, and
 [section 20](#20-after-a-hand-edit-in-mongodb)'s call drops it at once.
