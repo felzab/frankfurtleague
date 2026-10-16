@@ -222,14 +222,15 @@ export function FormPersonLoeschenSection() {
           <Label className={FIELD_LABEL_CLASSES}>Anlass</Label>
           <Input
             autoComplete="off"
-            placeholder="z.B. E-Mail vom 12.10.2026, Betreff „Löschung meiner Daten“"
+            placeholder="z.B. E-Mail vom 12.10.2026, Bitte um Löschung"
             className={FIELD_INPUT_CLASSES}
           />
           <FieldError className={FIELD_ERROR_CLASSES}>{fehler.anlass}</FieldError>
-          {/* Every log row the erasure files keeps it a year, past the redaction of anybody it names. */}
+          {/* Every log row the erasure files keeps it a year, past any redaction, and the box refuses addresses, never names:
+              a mail's subject routinely carries its sender's, so the hint asks for the request's kind. */}
           <Hint
             mode="field"
-            text="Datum und Betreff der Anfrage. Nenne hier keine Person beim Namen und keine Adresse. Der Anlass steht zwölf Monate im Änderungsprotokoll."
+            text="Nur das Datum und die Art der Anfrage. Nenne hier keine Person beim Namen und keine Adresse, auch nicht aus dem Betreff. Der Anlass steht zwölf Monate im Änderungsprotokoll."
           />
         </TextField>
 

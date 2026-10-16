@@ -478,6 +478,18 @@ describe("the reveal the arming read answers", () => {
   });
 });
 
+describe("the Anlass box", () => {
+  it("asks for the date and the request's kind, and for no name, not even the subject's", async () => {
+    await renderPage();
+
+    within(panel("Person löschen")).getByRole("textbox", {
+      name: "Anlass",
+      description:
+        /^Nur das Datum und die Art der Anfrage\. Nenne hier keine Person beim Namen und keine Adresse, auch nicht aus dem Betreff\./,
+    });
+  });
+});
+
 describe("what the erasure reports once it has run", () => {
   /* „Person gelöscht“ over an account still standing, one that may stand, or an address holding no record tells the
      operator of a deletion nobody made: each is a warning, under its own title. */
