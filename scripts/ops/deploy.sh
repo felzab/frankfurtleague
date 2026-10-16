@@ -668,6 +668,10 @@ restart_on_exit() {
 roll_back() { # $1 how the build being restored is named on screen
   local name="$1" tag_rc=0 up_rc=0 healthy=1 edge_rc=0 unasked=0
   step "Stopping the failed build and copying its logs off before it is replaced"
+  # Interrupted here, the failed pair stays stopped rather than put back: it has just failed its
+  # health wait, so starting it restores no service, and the rollback is finished by tag
+  # (`docs/ops/runbooks.md` §1).
+
   # `warn` where the copy before the recreate refuses, and this is the only difference between the
   # two calls: the site is already down by here, so a refusal would trade the outage for a log file.
   copy_streams "-failed" warn "The rollback goes on without the copy, and the recreate below discards
