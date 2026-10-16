@@ -388,12 +388,22 @@ describe("the re-send beside an unconfirmed seat", () => {
     });
   }
 
-  it("says so where the link did not leave", async () => {
+  it("says so where the link did not leave, and marks it so the control grades its toast a warning", async () => {
     mail.answerWith(() => "refused");
 
     const res = await einladeKontaktAction({ team_id: TEAM_ID, saison_id: "2627", rolle: "stellvertretung" });
 
     assert.equal(res.success && res.message, describeLinkMail("bernd@schule.example", "fehlgeschlagen"));
+    assert.equal(res.success && res.versandFehlgeschlagen, true);
+  });
+
+  /* Filed rather than failed, as the save marks it (`docs/frontend/spec.md :: I542`). */
+  it("marks no failure where the gate withholds a barred send", async () => {
+    mail.answerWith(() => "barred");
+
+    const res = await einladeKontaktAction({ team_id: TEAM_ID, saison_id: "2627", rolle: "stellvertretung" });
+
+    assert.equal(res.success && res.versandFehlgeschlagen, false);
   });
 });
 

@@ -80,7 +80,10 @@ export function FormAdresswechselSection({
     }
 
     landing.landed();
-    appToast.success(art === "senden" ? "Link gesendet" : "Änderung verworfen", { description: res.message });
+    // A warning where the link did not leave, as the editor's save grades it: the earlier link is dead either way.
+    if ("versandFehlgeschlagen" in res && res.versandFehlgeschlagen === true)
+      appToast.warning("Link nicht gesendet", { description: res.message });
+    else appToast.success(art === "senden" ? "Link gesendet" : "Änderung verworfen", { description: res.message });
   };
 
   return (

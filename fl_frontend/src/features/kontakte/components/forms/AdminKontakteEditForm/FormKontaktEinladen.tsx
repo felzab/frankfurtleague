@@ -62,7 +62,9 @@ export function FormKontaktEinladen({
       return;
     }
 
-    appToast.success("Bestätigungslink gesendet", { description: res.message });
+    // A warning where the link did not leave, as the editor's save grades it: the seat's earlier link is dead either way.
+    if (res.versandFehlgeschlagen === true) appToast.warning("Bestätigungslink nicht gesendet", { description: res.message });
+    else appToast.success("Bestätigungslink gesendet", { description: res.message });
   };
 
   return (

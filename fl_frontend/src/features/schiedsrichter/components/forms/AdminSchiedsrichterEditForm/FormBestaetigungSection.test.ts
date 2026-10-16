@@ -323,6 +323,22 @@ describe("the control that sends the link", () => {
     );
   });
 
+  /* The earlier link is dead either way, so a link that did not leave is a warning, as the editor's save grades it. */
+  it("grades a re-send whose link did not leave a warning", async () => {
+    answerWith(() => Promise.resolve({ success: true, message: "Nicht zugestellt.", versandFehlgeschlagen: true }));
+    render(panel({ bestaetigung: BLOCK }));
+
+    await userEvent.setup().click(screen.getByRole("button", { name: BESTAETIGUNG_ERNEUT }));
+    await act(answered);
+
+    await waitFor(() =>
+      assert.deepEqual(
+        toasts.map((raised) => [raised.variant, raised.title]),
+        [["warning", "Bestätigungslink nicht gesendet"]],
+      ),
+    );
+  });
+
   /* Thrown in transport or answered so by the API, nobody can tell whether the link went out: one
      toast of unknown outcome either way. */
   const ANSWERED = "Ob die Änderung gespeichert wurde, ist unklar. Lade die Seite neu und prüfe, ob sie da ist.";

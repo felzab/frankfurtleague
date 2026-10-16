@@ -172,7 +172,7 @@ export async function undoAdminKontakteEditAction(rawPayload: FLPatchSaisonTeamK
  * A fresh link for one unconfirmed seat, the seat's earlier one opening nothing afterwards. **Always a
  * step-up write**: every call mints a bearer link.
  */
-export async function einladeKontaktAction(rawPayload: FLKontaktEinladenPayload): Promise<ActionResult<object>> {
+export async function einladeKontaktAction(rawPayload: FLKontaktEinladenPayload): Promise<ActionResult<{ versandFehlgeschlagen?: boolean }>> {
   return runAdminMutation("einladeKontaktAction", { stepUp: true }, async () => {
     const validated = FLKontaktEinladenPayloadSchema.safeParse(rawPayload);
 
@@ -212,6 +212,7 @@ export async function einladeKontaktAction(rawPayload: FLKontaktEinladenPayload)
       // The address the MINT read in its own transaction, never one the page showed: a save landing
       // between the two moved the mailbox the credential was made for.
       message: describeLinkMail(mint.email, versand),
+      versandFehlgeschlagen: versand === "fehlgeschlagen",
     };
   });
 }

@@ -141,6 +141,17 @@ describe("the re-send the editor's panel presses", () => {
     }
   });
 
+  /* As the save marks its own link: a barred send is filed, and only a refused one is graded a warning. */
+  it("marks a re-sent link that did not leave, and a barred one not", async () => {
+    mail.answerWith(() => "refused");
+    const refused = await einladeSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });
+    mail.answerWith(() => "barred");
+    const barred = await einladeSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });
+
+    assert.equal(refused.success && refused.versandFehlgeschlagen, true);
+    assert.equal(barred.success && barred.versandFehlgeschlagen, false);
+  });
+
   it("answers a re-send whose link broke off in transit as of unknown outcome", async () => {
     mail.answerWith(() => "lost");
 

@@ -166,6 +166,18 @@ describe("the pending address change's two controls", () => {
     assert.match(res.success ? (res.message ?? "") : "", /Der vorherige Link gilt nicht mehr\./);
   });
 
+  /* As the pupil's re-send marks it: a barred link is filed, and only a refused one is graded a warning. */
+  it("marks a re-sent link that did not leave, and a barred one not", async () => {
+    mail.answerWith(({ to }) => (to === NEU ? "refused" : "accepted"));
+    const refused = await einladeAdresswechselAction({ id: SCHIEDSRICHTER_ID });
+    mail.answerWith(({ to }) => (to === NEU ? "barred" : "accepted"));
+    const barred = await einladeAdresswechselAction({ id: SCHIEDSRICHTER_ID });
+
+    assert.equal(refused.success && refused.versandFehlgeschlagen, true);
+    assert.match(refused.success ? (refused.message ?? "") : "", /Melde Dich selbst bei der Person/);
+    assert.equal(barred.success && barred.versandFehlgeschlagen, false);
+  });
+
   it("answers a barred pending address in the ban list's words and mails nothing", async () => {
     resend = () => refusedOn(RESEND_OPERATION, "REQ-SCHIEDSRICHTER-007");
 
