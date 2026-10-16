@@ -1619,7 +1619,10 @@ guard reads something the restore took away:
   them, and so is their address on every grant, ban, invitation and decision they made. The erasure
   removes the grants and marks the rest again, where a `DELETE` of the grant would not do: it refuses
   an `owner` grant ([`../backend/spec.md`](../backend/spec.md#2-invariants) I436), and the floor of
-  two live grants may refuse any (I435).
+  two live grants may refuse any (I435). **An owner runs it again, confirmed by passkey within the
+  enrolment window**: the page refuses a grant holder's address to anyone else
+  ([section 5](#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)), and the erasure ending
+  a grant takes a passkey sign-in that recent (I489).
 - **A record holding no address.** No erasure reaches one
   ([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)), so no line names
   it. A placeholder referee whose person's address was saved before their erasure comes back holding
