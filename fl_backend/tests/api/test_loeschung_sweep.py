@@ -324,6 +324,27 @@ class TestThePopulation:
         assert answer["spieler"] == 0
         assert ghost == build_ghost_spieler()
 
+    def test_the_pupils_sentinel_given_an_address_by_hand_is_kept_out_by_its_id(self, mongo_replica_set_url: str):
+        """The id term alone, which the case above cannot tell from the address term.
+
+        Named, the sentinel is counted in the press's „bis zu“ and read again, and passed over, on every pass.
+        """
+
+        by_hand = "von.hand@beispielschule.de"
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SPIELER].update_one({"_id": build_ghost_spieler()["_id"]}, {"$set": {"email": by_hand}})
+            named = await population(database)
+            answer = await run(database, client)
+
+            return named, counts(answer), await database[Collection.SPIELER].find_one({"_id": build_ghost_spieler()["_id"]})
+
+        named, answer, ghost = on_a_league(mongo_replica_set_url, body)
+
+        assert named == []
+        assert (answer["spieler"], answer["uebersprungen"], answer["verbleibend"]) == (0, 0, 0)
+        assert ghost == {**build_ghost_spieler(), "email": by_hand}
+
 
 # --- The run.
 
@@ -833,14 +854,18 @@ class TestTheDeadlineStopsTheCall:
             await seeded(database, a_due_pupil(1), a_due_pupil(2), a_due_pupil(3))
             with pymongo.timeout(SHORT_DEADLINE_S):
                 answer = await run(database, client, saison_spieler_collection=StallsOnePupil(database[Collection.SAISON_SPIELER], numbered(2)))
+            standing = await database[Collection.SPIELER].distinct("_id", {"email": {"$type": "string"}})
+            # The next pass, unstalled: the cut left nothing behind that keeps either of them.
+            await a_pass(database, client)
 
-            return counts(answer), answer.nach, await database[Collection.SPIELER].distinct("_id", {"email": {"$type": "string"}})
+            return counts(answer), answer.nach, standing, await database[Collection.SPIELER].distinct("_id", {"email": {"$type": "string"}})
 
         with caplog.at_level(logging.WARNING):
-            answer, nach, standing = on_a_league(mongo_replica_set_url, body)
+            answer, nach, standing, after_the_next_pass = on_a_league(mongo_replica_set_url, body)
 
         assert (answer["spieler"], answer["fehlgeschlagen"], answer["verbleibend"], nach) == (1, 0, 2, numbered(2))
         assert standing == [numbered(2), numbered(3)]
+        assert after_the_next_pass == []
         lines = [
             (record.levelname, record.getMessage())
             for record in caplog.records
