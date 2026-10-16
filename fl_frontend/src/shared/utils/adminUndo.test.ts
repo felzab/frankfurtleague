@@ -206,6 +206,7 @@ describe("what an undo says where no press repairs its failure", () => {
     assert.deepEqual(await undo(() => Promise.reject(failed(403, "REQ-AUTH-009")), false), {
       success: false,
       error: `Deine Bestätigung mit dem Passkey ist abgelaufen. ${AENDERUNG_STEHT_WEITERHIN}`,
+      stepUp: true,
     });
     assert.deepEqual(await save(() => Promise.reject(failed(403, "REQ-AUTH-009")), false), {
       success: false,
