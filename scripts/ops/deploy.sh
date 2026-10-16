@@ -489,20 +489,36 @@ COPIED_STREAMS=0
 # Counted beside it, because zero copies has two causes and only one of them has already been
 # printed: no container answered at all, or every container's copy failed with its own warning.
 ATTEMPTED_STREAMS=0
+# What the last call stopped, for the verb that starts it again.
+STOPPED_SERVICES=()
 
 # One loop for both calls, so the path taken only by a failed deploy cannot drift from the path
 # every deploy takes. `--force-recreate` discards a container's `json-file` stream, and a failed
 # deploy recreates the pair twice (`docs/logging/spec.md` §1.2).
 copy_streams() { # $1 what the copies carry beside the stamp, $2 the verb a failure takes, $3 what that verb says of the run
-  local suffix="$1" on_failure="$2" consequence="$3" svc cid target partial copy_rc mv_rc
+  local suffix="$1" on_failure="$2" consequence="$3" svc cid target partial copy_rc mv_rc stop_rc=0
+  local -a held=()
   COPIED_STREAMS=0
   ATTEMPTED_STREAMS=0
+  STOPPED_SERVICES=()
   for svc in frontend backend; do
-    # Only a service with a container has a stream: on a first deploy there is nothing to copy, and
-    # an empty file would read as a build that logged nothing.
+    # Only a service with a container has a stream: a first deploy has nothing to copy, and an empty
+    # file would read as a build that logged nothing. Asked before the stop: `ps` lists running
+    # containers alone.
     cid="$(service_cid "$svc")" || cid=""
-    [[ -n "$cid" ]] || continue
-    ATTEMPTED_STREAMS=$(( ATTEMPTED_STREAMS + 1 ))
+    if [[ -n "$cid" ]]; then held+=("$svc"); fi
+  done
+  ATTEMPTED_STREAMS=${#held[@]}
+  if (( ! ATTEMPTED_STREAMS )); then return 0; fi
+  # Stopped first, `stop` keeping the stream: a line written in the seconds before the recreate, an
+  # erasure's journal line a restore replays among them, is otherwise in no copy.
+  quietly docker compose -f "$COMPOSE" stop "${held[@]}" || stop_rc=$?
+  STOPPED_SERVICES=("${held[@]}")
+  if (( stop_rc )); then
+    warn "compose could not stop the containers before their copy (exit ${stop_rc}), so a line written
+between the copy and the recreate is in no file. The copy is taken all the same."
+  fi
+  for svc in "${held[@]}"; do
     target="${LOG_DIR}/${LOG_STAMP}-${svc}${suffix}.log"
     # Written beside the target and moved in once the copy succeeded: a copy failing midway would
     # otherwise leave a short `.log` reading as the build's whole stream.
@@ -514,10 +530,9 @@ copy_streams() { # $1 what the copies carry beside the stamp, $2 the verb a fail
     timeout 120 docker compose -f "$COMPOSE" logs --no-color --timestamps "$svc" > "$partial" 2>/dev/null || copy_rc=$?
     if (( copy_rc )); then
       rm -f "$partial" 2>/dev/null || true
-      "$on_failure" "the ${svc} log could not be copied to ${target} (exit ${copy_rc}), so that stream goes
-with the recreate below and nothing keeps a record of it. ${consequence}
+      "$on_failure" "the ${svc} log could not be copied to ${target} (exit ${copy_rc}). ${consequence}
 Copy it by hand:  docker compose -f ${COMPOSE} logs --no-color --timestamps ${svc} > ${target}"
-      # Reached under `warn` alone -- `refuse` has ended the run by here -- and the other service's
+      # Reached under `warn` alone -- the refusing verb has ended the run by here -- and the other service's
       # stream is worth copying whatever this one did.
       continue
     fi
@@ -535,14 +550,31 @@ Copy it by hand:  docker compose -f ${COMPOSE} logs --no-color --timestamps ${sv
   done
 }
 
+# The verb of the copy before the recreate. The containers were stopped for it, and `start` resumes
+# each with its stream whole, so the run ends on the build it found serving and a re-run copies it.
+start_again_and_refuse() { # $1 what failed, and what that leaves
+  local start_rc=0 named
+  named="$(IFS=' '; printf '%s' "${STOPPED_SERVICES[*]}")"
+  quietly docker compose -f "$COMPOSE" start "${STOPPED_SERVICES[@]}" || start_rc=$?
+  if (( start_rc )); then
+    refuse "$1
+The containers stopped for the copy could NOT be started again (exit ${start_rc}), so the site is
+DOWN. Compose's own output is above.
+Start them:  docker compose -f ${COMPOSE} start ${named}"
+  fi
+  refuse "$1
+The containers stopped for the copy were started again, on the build they were running."
+}
+
 # Called only with both previous image ids held: a rollback restoring one service and not the other
 # leaves the mismatched pair `--status` refuses to call live.
 roll_back() { # $1 how the build being restored is named on screen
   local name="$1" tag_rc=0 up_rc=0 healthy=1 edge_rc=0 unasked=0
-  step "Copying the failed build's logs off before it is replaced"
-  # `warn` where the copy before the recreate `refuse`s, and this is the only difference between the
+  step "Stopping the failed build and copying its logs off before it is replaced"
+  # `warn` where the copy before the recreate refuses, and this is the only difference between the
   # two calls: the site is already down by here, so a refusal would trade the outage for a log file.
-  copy_streams "-failed" warn "The rollback goes on without it."
+  copy_streams "-failed" warn "The rollback goes on without it, so that stream goes with the recreate
+below and nothing keeps a record of it."
   if (( COPIED_STREAMS )); then
     ok "${COPIED_STREAMS} stream(s) copied to ${LOG_DIR}"
   elif (( ATTEMPTED_STREAMS )); then
@@ -1043,7 +1075,7 @@ check_actor_key "NOTHING has been recreated, and the site is untouched." \
 
 section "logs"
 
-step "Copying the application logs off the containers about to be replaced"
+step "Stopping the application containers and copying their logs off"
 # `nginx/` is created here rather than left to the `up` below, which would invent it root-owned:
 # `docker-compose.yml` bind-mounts it for the edge's two logs, and one refusal covers the
 # copies and the directory `logrotate` bounds by age (docs/ops/runbooks.md §7).
@@ -1056,9 +1088,9 @@ NOTHING has been recreated.
 Create them once, owned by the deploying user (docs/ops/runbooks.md §7):
   sudo install -d -o \"\$USER\" -g \"\$USER\" ${LOG_DIR} ${LOG_DIR}/nginx"
 fi
-# `refuse` here, and `warn` at the rollback's copy: nothing is stopped or recreated yet, so the
-# deploy can simply be re-run once this path can be written.
-copy_streams "" refuse "NOTHING has been recreated, and the site is untouched."
+# A refusal here, and `warn` at the rollback's copy: nothing is recreated yet, so the deploy can
+# simply be re-run once this path can be written.
+copy_streams "" start_again_and_refuse "NOTHING has been recreated."
 if (( COPIED_STREAMS )); then
   ok "${COPIED_STREAMS} stream(s) copied to ${LOG_DIR}"
 else

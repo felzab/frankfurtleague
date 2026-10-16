@@ -671,18 +671,13 @@ class TestTheDecline:
 
 
 class TestTheView:
-    def test_it_answers_exactly_the_first_name_the_state_and_the_deadline(self, mongo_replica_set_url: str):
+    def test_it_answers_exactly_the_state_and_the_deadline(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             return await view(database, (await request(database, client, email=NEW_EMAIL)).adresswechsel.token)
 
         seen = on_a_league(mongo_replica_set_url, body)
 
-        assert seen.model_dump() == {
-            "acknowledged": 1,
-            "zustand": "gueltig",
-            "vorname": VORNAME,
-            "frist": spieler_adresswechsel_frist_from(today=TODAY),
-        }
+        assert seen.model_dump() == {"acknowledged": 1, "zustand": "gueltig", "frist": spieler_adresswechsel_frist_from(today=TODAY)}
 
     @pytest.mark.parametrize(
         ("ban_on", "held_by_another", "today", "zustand"),

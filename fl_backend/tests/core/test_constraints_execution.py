@@ -27,6 +27,7 @@ from app.core.constraints import (
     probe_collmod_privilege,
     report_duplicates,
     report_relations,
+    report_unservable_values,
     report_violations,
 )
 from tests.config import build_test_config
@@ -1057,6 +1058,74 @@ def test_a_club_on_both_sides_of_one_fixture_is_one_group_not_two(mongo_url: str
     groups, examples = on_an_unconstrained_database(mongo_url, body)
     assert groups == 1
     assert examples[0]["spiele"] == [1]
+
+
+def unservable_by_collection(reports: list[constraints.RelationReport]) -> dict[str, constraints.RelationReport]:
+    return {served.collection: report for served, report in zip(constraints.SERVED_VALUES, reports, strict=True)}
+
+
+# A pending address change as the mint stores it, its deadline overridden per case.
+ADRESSWECHSEL = {"email": "neu@example.invalid", "token_hash": "a" * 64, "verschickt_am": "2026-03-16", "frist": "2026-03-30"}
+
+
+def test_the_values_a_list_refuses_report_a_clean_database_as_clean(mongo_url: str):
+    """First and apart, for the cross-document rules' reason; the optional blanks are values every served model admits."""
+
+    async def body(database: AsyncDatabase) -> dict[str, int]:
+        await database.registrierungen.insert_one(valid_document("registrierungen", geburtsdatum=""))
+        await database.spieler.insert_one(valid_document("spieler", adresswechsel=dict(ADRESSWECHSEL), inactive_since=""))
+        await database.saison_spieler.insert_one(valid_documents()["saison_spieler"])
+
+        return {collection: report.groups for collection, report in unservable_by_collection(await report_unservable_values(database)).items()}
+
+    assert on_the_shipped_schema(mongo_url, body) == {"registrierungen": 0, "spieler": 0, "saison_spieler": 0}
+
+
+def test_the_values_a_list_refuses_are_counted_where_the_validators_store_them(mongo_url: str):
+    """On the shipped schema, so every offender below is one the validators accepted: the gap this report closes.
+
+    A day the pattern takes and no calendar holds is the case a regex in place of the served type would miss.
+    """
+
+    async def body(database: AsyncDatabase) -> dict[str, tuple[int, list[Any]]]:
+        bestaetigung = {**valid_documents()["registrierungen"]["bestaetigung"], "frist": "2026-02-31"}
+        await database.registrierungen.insert_one(valid_document("registrierungen", vorname="", bestaetigung=bestaetigung))
+        # A null forename is `NAMELESS_PERSON_RULE`'s, so this report leaves it.
+        await database.spieler.insert_many(
+            [
+                valid_document("spieler", adresswechsel={**ADRESSWECHSEL, "frist": "30.03.2026"}),
+                valid_document("spieler", _id=ObjectId(), vorname=None),
+            ]
+        )
+        await database.saison_spieler.insert_one(valid_document("saison_spieler", inactive_since="2026-13-01"))
+
+        reports = unservable_by_collection(await report_unservable_values(database))
+
+        return {collection: (report.groups, [example["fields"] for example in report.examples]) for collection, report in reports.items()}
+
+    assert on_the_shipped_schema(mongo_url, body) == {
+        "registrierungen": (1, [["vorname", "bestaetigung.frist"]]),
+        "spieler": (1, [["adresswechsel.frist"]]),
+        "saison_spieler": (1, [["inactive_since"]]),
+    }
+
+
+def test_the_check_counts_a_value_a_list_refuses_into_its_exit(
+    mongo_url: str, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+):
+    """The run and not the report alone: `--check` without the section reads clean over a row its list refuses."""
+
+    async def body(database: AsyncDatabase) -> tuple[int, int]:
+        configured = build_test_config().model_copy(update={"mongodb_uri": SecretStr(mongo_url), "db_base_name": database.name})
+        monkeypatch.setattr(constraints, "get_config", lambda: configured)
+
+        clean = await constraints._run(check=True)
+        await database.registrierungen.insert_one(valid_document("registrierungen", vorname=""))
+
+        return clean, await constraints._run(check=True)
+
+    assert on_the_shipped_schema(mongo_url, body) == (0, 1)
+    assert f"FAIL  {constraints.SERVED_VALUES[0].rule}" in capsys.readouterr().out
 
 
 # Section 6, the support indexes. Dropping one costs speed rather than correctness, which is why

@@ -35,6 +35,7 @@ from app.api.registrierungen.services import (
     find_medien_refusal,
     find_unknown_token_refusal,
     find_wahlen_refusal,
+    ist_vorschlag,
     persons_named,
     seite_of,
     sole_person,
@@ -453,6 +454,27 @@ class TestWhichPageTheLinkOpens:
         stored = {**self.PERSON, "nachname": f"Mu{chr(0x308)}ller"}
 
         assert persons_named([stored], vorname="Quillhilde", nachname=f"M{chr(0xFC)}ller") == [stored]
+
+    @pytest.mark.parametrize(
+        ("vorname", "nachname", "found"),
+        [
+            pytest.param("Quillhilde", "Brackenmoor", True, id="the control, a name on both sides"),
+            pytest.param("", "", False, id="both halves empty"),
+            pytest.param("  ", "Brackenmoor", False, id="a forename of spaces"),
+            pytest.param("Quillhilde", None, False, id="no surname"),
+        ],
+    )
+    def test_a_blank_name_on_both_sides_names_nobody(self, vorname: Any, nachname: Any, found: bool):
+        """Only a hand edit stores one.
+
+        Compared as two keys, two blanks are one name, and the addressless row is proposed, handing its
+        record to the registering mailbox.
+        """
+
+        stored = {**self.PERSON, "vorname": vorname, "nachname": nachname, "email": None, "geburtsdatum": None}
+
+        assert (persons_named([stored], vorname=vorname, nachname=nachname) == [stored]) == found
+        assert ist_vorschlag(spieler_raw=stored, registrierung_raw=registrierung(vorname=vorname, nachname=nachname)) == found
 
     @pytest.mark.parametrize(
         ("rows", "found"),

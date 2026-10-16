@@ -500,6 +500,19 @@ def build_adressen_filter(adressen: Iterable[str]) -> Mapping[str, Any]:
 PERSON_IDENTITY_FIELDS: tuple[str, ...] = ("vorname", "nachname")
 
 
+def person_name(raw: Mapping[str, Any]) -> tuple[str, ...] | None:
+    """`None` where either half is blank, a blank name being nobody's (`app/api/kontakte/services.py :: seat_name`).
+
+    Compared equal, two hand-edited blanks would propose one blank-named pupil as the other's namesake.
+    """
+
+    # The seat editor's fold (`app/api/teams/services.py :: _identity_of`), so „Weiß“ and „Weiss“ at
+    # one shared mailbox are two pupils and neither is shown the other's record.
+    name = tuple(person_name_key(raw.get(field)) for field in PERSON_IDENTITY_FIELDS)
+
+    return name if all(name) else None
+
+
 def persons_named(rows: Sequence[Mapping[str, Any]], *, vorname: Any, nachname: Any) -> list[Mapping[str, Any]]:
     """Every row at this address whose stored name is the registration's own.
 
@@ -507,11 +520,10 @@ def persons_named(rows: Sequence[Mapping[str, Any]], *, vorname: Any, nachname: 
     sibling registering from a mailbox shared anyway would be shown that person's birthdate.
     """
 
-    # The seat editor's fold (`app/api/teams/services.py :: _identity_of`), so „Weiß“ and „Weiss“ at
-    # one shared mailbox are two pupils and neither is shown the other's record.
-    wanted = tuple(person_name_key(value) for value in (vorname, nachname))
+    if (wanted := person_name({"vorname": vorname, "nachname": nachname})) is None:
+        return []
 
-    return [row for row in rows if tuple(person_name_key(row.get(field)) for field in PERSON_IDENTITY_FIELDS) == wanted]
+    return [row for row in rows if person_name(row) == wanted]
 
 
 def sole_person(rows: Sequence[Mapping[str, Any]]) -> Mapping[str, Any] | None:
@@ -846,7 +858,8 @@ def person_weicht_ab(*, registrierung_raw: Mapping[str, Any], spieler_raw: Mappi
     nothing to contradict.
     """
 
-    if any(person_name_key(registrierung_raw.get(field)) != person_name_key(spieler_raw.get(field)) for field in PERSON_IDENTITY_FIELDS):
+    # A blank name names nobody, so it confirms nobody either.
+    if (name := person_name(registrierung_raw)) is None or name != person_name(spieler_raw):
         return True
 
     stored = spieler_raw.get("geburtsdatum")
