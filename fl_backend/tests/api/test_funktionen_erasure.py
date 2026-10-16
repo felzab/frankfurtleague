@@ -5,8 +5,9 @@ One address holds a pupil row in a live squad, a seat on a season row and on an 
 two bystanders, a referee row booked on a played fixture, a pending and a declined registration,
 another referee's and another pupil's pending address change, a pupil row corrected away from the
 address, a day's counts, records they made as an administrator, though they hold no grant, and as a
-seat holder, and log rows written as a person and as an administrator. Every case asks what is left,
-so a step removed from the registry fails here.
+seat holder, and log rows written as a person and as an administrator. Another mailbox at their local
+part holds records beside them. Every case asks what is left, so a step removed from the registry
+fails here.
 """
 
 import functools
@@ -155,6 +156,14 @@ DECLINED_BY_THEM_OID = ObjectId("6890a1b2c3d4e5f607b00076")
 MOVING_PUPIL_OID = ObjectId("6890a1b2c3d4e5f607b00081")
 # A pupil once entered under the person's address and corrected to another: the row is the other's.
 READDRESSED_PUPIL_OID = ObjectId("6890a1b2c3d4e5f607b00082")
+# Another mailbox at the person's local part, whose records every read narrowed by that local part reaches: the fold
+# after each read alone keeps them. Lower case, so no exact scan for the person's names finds it.
+ELSEWHERE = IDENTIFIER.replace("@example.org", "@anderswo.org")
+ELSEWHERE_REGISTRATION_OID = ObjectId("6890a1b2c3d4e5f607b00091")
+ELSEWHERE_REFEREE_OID = ObjectId("6890a1b2c3d4e5f607b00092")
+ELSEWHERE_GRANT_OID = ObjectId("6890a1b2c3d4e5f607b00093")
+REFEREE_MOVING_ELSEWHERE_OID = ObjectId("6890a1b2c3d4e5f607b00094")
+PUPIL_MOVING_ELSEWHERE_OID = ObjectId("6890a1b2c3d4e5f607b00095")
 # Every record of their own the erasure removes, each id looked for in the whole database afterwards: a reference left
 # naming one names nobody.
 THEIR_RECORDS = (PUPIL_OID, THEIR_SQUAD_ROW_OID, REFEREE_OID, PENDING_OID, DECLINED_OID)
@@ -394,6 +403,81 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
         lambda: edited(database, Collection.TEAMS, OTHER_TEAM_OID, {"$set": {"name": "Gast-Schule"}}),
     )
 
+    await a_mailbox_sharing_their_local_part(database)
+
+
+async def a_mailbox_sharing_their_local_part(database: AsyncDatabase) -> None:
+    await database[Collection.REGISTRIERUNGEN].insert_one(
+        registrierung_document(
+            ELSEWHERE_REGISTRATION_OID,
+            ELSEWHERE,
+            saison_id=SAISON_ID,
+            team_id=HOME_TEAM_OID,
+            vorname="Quendolin",
+            nachname="Anderswo",
+            token="token-anderswo",
+            eingereicht_am="2026-03-25",
+            frist="2026-04-08",
+        )
+    )
+    await database[Collection.SCHIEDSRICHTER].insert_many(
+        [
+            referee(ELSEWHERE_REFEREE_OID, email=ELSEWHERE, name="Quendolin Anderswo"),
+            referee(
+                REFEREE_MOVING_ELSEWHERE_OID,
+                email="umzug.dritter@example.com",
+                name="Udo Dritter",
+                adresswechsel=compose_adresswechsel(email=ELSEWHERE, token_hash=hash_token("to-anderswo"), today="2026-03-28"),
+            ),
+        ]
+    )
+    await database[Collection.SPIELER].insert_one(
+        spieler_document(
+            PUPIL_MOVING_ELSEWHERE_OID,
+            "Ulla",
+            "Ulla-Muster",
+            email="ulla@example.com",
+            einwilligung=eigene_einwilligung_document(text_version="v1", bestaetigt_am="2026-03-02"),
+            adresswechsel=compose_spieler_adresswechsel(email=ELSEWHERE, token_hash=hash_token("ulla-to-anderswo"), today="2026-03-29"),
+        )
+    )
+    await a_grant(database, ELSEWHERE_GRANT_OID, ELSEWHERE, "administration")
+    # Not on `teams`: the case reading the person's administrator rows takes every row there.
+    await acting(
+        Actor(kind="admin_session", email=ELSEWHERE),
+        lambda: edited(database, Collection.SPIELE, OTHER_SPIEL_OID, {"$set": {"uhrzeit": "16:00:00"}}),
+    )
+
+
+async def what_elsewhere_holds(database: AsyncDatabase) -> dict[str, int]:
+    """Each record counted where it still names `ELSEWHERE`, beside the notices about its grant: one taken as the person's queues one."""
+
+    referee_moving = await database[Collection.SCHIEDSRICHTER].find_one({"_id": REFEREE_MOVING_ELSEWHERE_OID})
+    pupil_moving = await database[Collection.SPIELER].find_one({"_id": PUPIL_MOVING_ELSEWHERE_OID})
+
+    return {
+        "registration": await database[Collection.REGISTRIERUNGEN].count_documents({"_id": ELSEWHERE_REGISTRATION_OID, "email": ELSEWHERE}),
+        "referee": await database[Collection.SCHIEDSRICHTER].count_documents({"_id": ELSEWHERE_REFEREE_OID, "kontakt.email": ELSEWHERE}),
+        "grant": await database[Collection.BERECHTIGUNGEN].count_documents({"_id": ELSEWHERE_GRANT_OID, "adresse": ELSEWHERE}),
+        "announced": await database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT].count_documents({"_id": ELSEWHERE_GRANT_OID, "adresse": ELSEWHERE}),
+        "notices": await database[Collection.BERECHTIGUNGEN_POSTAUSGANG].count_documents({"berechtigung_id": ELSEWHERE_GRANT_OID}),
+        "referee_change": int(((referee_moving or {}).get("adresswechsel") or {}).get("email") == ELSEWHERE),
+        "pupil_change": int(((pupil_moving or {}).get("adresswechsel") or {}).get("email") == ELSEWHERE),
+        "log_actor": await database[Collection.AKTIONEN].count_documents({"collection": str(Collection.SPIELE), "actor.email": ELSEWHERE}),
+    }
+
+
+ELSEWHERE_HOLDS = {
+    "registration": 1,
+    "referee": 1,
+    "grant": 1,
+    "announced": 1,
+    "notices": 0,
+    "referee_change": 1,
+    "pupil_change": 1,
+    "log_actor": 1,
+}
+
 
 GRANTED = datetime(2026, 1, 1, tzinfo=UTC)
 
@@ -549,7 +633,7 @@ class TestNothingOfTheirsIsLeftAnywhere:
 
         async def scanned(database: AsyncDatabase, *values: str) -> tuple[dict[str, list[str]], list[str], dict[Any, list[str]]]:
             return (
-                await where_held(database, *values, folded=True),
+                await where_held(database, *values, folded=True, beside=(ELSEWHERE,)),
                 await where_folded_to(database, IDENTIFIER),
                 await where_referenced(database, *records),
             )
@@ -672,6 +756,17 @@ class TestWhatStandsBesideThem:
 
         assert on_a_league(mongo_replica_set_url, body) == [OTHER_COUNT_ID]
 
+    def test_a_mailbox_sharing_their_local_part_keeps_every_record(self, mongo_replica_set_url: str):
+        """Read before as well, so a seed that stopped writing a record fails rather than agreeing with the erasure on a zero."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            before = await what_elsewhere_holds(database)
+            await erased_over_http(mongo_replica_set_url)
+
+            return before, await what_elsewhere_holds(database)
+
+        assert on_a_league(mongo_replica_set_url, body) == (ELSEWHERE_HOLDS, ELSEWHERE_HOLDS)
+
 
 class TestTheLogNamesNobodyInTheirPlace:
     """The rows they wrote stay, saying an action happened, and name the marker where they stood."""
@@ -734,8 +829,10 @@ class TestTheSentinels:
 
         pupils, referees = on_a_league(mongo_replica_set_url, body)
 
-        assert sorted(row["_id"] for row in pupils) == sorted([GHOST_SPIELER_ID, MOVING_PUPIL_OID, READDRESSED_PUPIL_OID])
-        assert referees == [{"_id": GHOST_SCHIEDSRICHTER_ID}]
+        assert sorted(row["_id"] for row in pupils) == sorted(
+            [GHOST_SPIELER_ID, MOVING_PUPIL_OID, READDRESSED_PUPIL_OID, PUPIL_MOVING_ELSEWHERE_OID]
+        )
+        assert sorted(row["_id"] for row in referees) == sorted([GHOST_SCHIEDSRICHTER_ID, ELSEWHERE_REFEREE_OID, REFEREE_MOVING_ELSEWHERE_OID])
 
 
 class TestTheSentinelIsNobodyToErase:
@@ -810,7 +907,7 @@ class TestOneTransaction:
 
         # On the code, so this cannot pass because something else failed before any write.
         assert code == DOCUMENT_VALIDATION_FAILED
-        assert counts == {"berechtigungen": 1, "spieler": 4, "saison_spieler": 2, "schiedsrichter": 2, "registrierungen": 3, "drosselung": 4}
+        assert counts == {"berechtigungen": 2, "spieler": 5, "saison_spieler": 2, "schiedsrichter": 4, "registrierungen": 4, "drosselung": 4}
         assert (seat, pending, their_rows, stamped, on_the_ghost) == (TYPED, TYPED, 2, 0, 0)
         # And no journal line nor floor warning: an erasure rolled back is no erasure a replay may repeat.
         assert not [record for record in caplog.records if record.getMessage().startswith(ERASURE_JOURNAL_EVENT)]
