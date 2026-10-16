@@ -39,9 +39,15 @@ async function kontoLoeschen(email: string): Promise<KontoNachLoeschung> {
 }
 
 /** The sentence each outcome is told in, beside the title the panel gives it. */
-function loeschungSatz(konto: KontoNachLoeschung, gespeichert: boolean): string {
+function loeschungSatz(konto: KontoNachLoeschung, gespeichert: boolean, spiele: number): string {
+  // The one sentence an administrator acts on afterwards: an unplayed fixture of an erased referee stands unassigned.
+  const folge =
+    spiele > 0
+      ? " Spiele ohne Ergebnis, für die diese Person eingeteilt war, brauchen eine neue Einteilung. Du findest sie unter „Handlungsbedarf“."
+      : "";
+
   if (konto === "nichtGeloescht") {
-    return "Die Daten sind gelöscht, das Konto der Adresse aber nicht. Lösche die Adresse erneut, dann wird auch das Konto gelöscht.";
+    return `Die Daten sind gelöscht, das Konto der Adresse aber nicht. Lösche die Adresse erneut, dann wird auch das Konto gelöscht.${folge}`;
   }
   // Never „nichts gespeichert“: the log and the address's authorship were rewritten anyway, and no count says what they held.
   if (!gespeichert && konto === "keines") {
@@ -49,7 +55,7 @@ function loeschungSatz(konto: KontoNachLoeschung, gespeichert: boolean): string 
   }
 
   const kontoSatz = konto === "geloescht" ? "Das Konto der Adresse ist gelöscht." : "Die Adresse hatte kein Konto.";
-  return `Alles, was unter der Adresse gespeichert war, ist gelöscht. ${kontoSatz}`;
+  return `Alles, was unter der Adresse gespeichert war, ist gelöscht. ${kontoSatz}${folge}`;
 }
 
 /**
@@ -121,7 +127,7 @@ export async function eraseAufAnfrageAction(
     const gespeichert = loeschteEtwas(erasure);
 
     // Counts and never the person: a report repeating them hands back a copy of what the erasure destroyed.
-    return { success: true, konto: konto, gespeichert: gespeichert, message: loeschungSatz(konto, gespeichert) };
+    return { success: true, konto: konto, gespeichert: gespeichert, message: loeschungSatz(konto, gespeichert, erasure.spiele) };
   });
 }
 

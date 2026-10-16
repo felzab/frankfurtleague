@@ -337,6 +337,8 @@ describe("the reveal the arming read answers", () => {
       zeilen.slice(-IMMER.length).map((zeile) => zeile.textContent),
       IMMER,
     );
+    // The referee's unplayed fixtures stand unassigned afterwards, the one thing the reveal asks the operator to act on.
+    assert.match(screen.getByRole("alert").textContent, /Spiele ohne Ergebnis, .* brauchen danach eine neue Einteilung\./);
   });
 
   /* The log and the address's authorship are cleaned whatever the read found, so an operator answering the person
@@ -356,6 +358,7 @@ describe("the reveal the arming read answers", () => {
       "an address holding no record reads as an erasure of an account alone",
     );
     assert.doesNotMatch(reveal, /nichts gespeichert|nur ein Konto/);
+    assert.doesNotMatch(reveal, /Handlungsbedarf/, "an address holding no referee is told of fixtures to reassign");
   });
 
   /* A pending change names nobody, so its line opens the record it waits on, on the season the shell shows. */

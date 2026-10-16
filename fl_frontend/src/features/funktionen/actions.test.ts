@@ -197,6 +197,19 @@ describe("the erasure on request", () => {
     assert.match(satz, /Im Änderungsprotokoll .* ist sie trotzdem gelöscht\.$/, "the result reads as an erasure that did nothing");
   });
 
+  /* A referee's fixtures move onto the ghost, and the unplayed among them stand with nobody to officiate until an
+     administrator assigns one: the one thing the result asks of its reader. */
+  it("sends the administrator to „Handlungsbedarf“ where an erased referee's fixtures moved", async () => {
+    answerWith(() => Promise.resolve({ ...NICHTS, schiedsrichter: 1, spiele: 2 }));
+
+    const result = await erase();
+
+    assert.match(
+      "message" in result ? result.message : "",
+      /Spiele ohne Ergebnis, .* brauchen eine neue Einteilung\. Du findest sie unter „Handlungsbedarf“\./,
+    );
+  });
+
   it("mails nobody", async () => {
     await erase();
 

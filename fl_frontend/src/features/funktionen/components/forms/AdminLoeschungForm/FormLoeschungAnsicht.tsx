@@ -74,6 +74,10 @@ const IMMER: readonly Zeile[] = [
   { text: "Die Adresse im Änderungsprotokoll und als Urheberin von Sperren, Einladungen, Entscheidungen und Zugängen" },
 ];
 
+/** The one consequence an administrator acts on afterwards: the erased referee's unplayed fixtures stand unassigned. */
+const NEUE_EINTEILUNG =
+  "Spiele ohne Ergebnis, für die diese Person eingeteilt ist, brauchen danach eine neue Einteilung. Du findest sie dann unter „Handlungsbedarf“.";
+
 /** What the erasure of one address reaches, inside its armed reveal: the claim the confirmation rests on. */
 export function FormLoeschungAnsicht({ ansicht }: { ansicht: LoeschungAnsicht }) {
   const saisonHref = useSaisonHref();
@@ -104,6 +108,7 @@ export function FormLoeschungAnsicht({ ansicht }: { ansicht: LoeschungAnsicht })
         </ul>
       </div>
 
+      {ansicht.schiedsrichter.length > 0 && <p className={ZEILE_CLASSES}>{NEUE_EINTEILUNG}</p>}
       <p className={ZEILE_CLASSES}>Zurückholen lässt sich das nicht.</p>
     </div>
   );
