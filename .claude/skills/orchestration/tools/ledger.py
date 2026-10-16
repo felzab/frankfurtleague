@@ -218,6 +218,24 @@ def owner(row: list[str]) -> str:
     return row[4].split(";", 1)[0].strip() if len(row) == 5 else ""
 
 
+def _patient[T](act: Callable[[], T], deadline: float | None = None) -> T:
+    """`act`, asked again while Windows refuses it a file another process holds, until the deadline."""
+    until = time.monotonic() + LOCK_SECONDS if deadline is None else deadline
+    while True:
+        try:
+            return act()
+        except PermissionError:
+            # Windows refuses to replace or delete a file another process has open, and to open one being replaced.
+            if os.name != "nt" or time.monotonic() >= until:
+                raise
+            time.sleep(LOCK_POLL_SECONDS)
+
+
+def read(path: Path, deadline: float | None = None) -> bytes:
+    """The bytes of a file a tool writes, read past a replace in flight."""
+    return _patient(path.read_bytes, deadline)
+
+
 @contextlib.contextmanager
 def locked(path: Path) -> Iterator[None]:
     """The file's lock, a file beside it created only where none exists, held; a second taker waits, refused past `LOCK_SECONDS`."""
@@ -242,26 +260,27 @@ def locked(path: Path) -> Iterator[None]:
         lock.unlink()
 
 
-def _replace(path: Path, data: bytes) -> None:
+def _replace(path: Path, data: bytes, deadline: float | None = None) -> None:
     # A spare of its own beside the file, renamed over it: an interrupted write leaves the old file whole.
     handle, spare = tempfile.mkstemp(dir=path.parent, prefix=f"{path.name}.", suffix=".writing")
     try:
         with os.fdopen(handle, "wb") as out:
             out.write(data)
-        os.replace(spare, path)
+        _patient(lambda: os.replace(spare, path), deadline)
     except BaseException:
         Path(spare).unlink(missing_ok=True)
         raise
 
 
-def update[T](path: Path, edit: Callable[[list[str]], T]) -> T:
+def update[T](path: Path, edit: Callable[[list[str]], T], deadline: float | None = None) -> T:
     """`edit` applied to the file's lines under its lock, writing nothing where it raises; what it returned.
 
     Every register write comes through here: the messages hook and a background `ci.py --wait` write
-    unbidden, and overlapping whole-file rewrites drop the earlier.
+    unbidden, and overlapping whole-file rewrites drop the earlier. The deadline bounds the whole write.
     """
+    until = time.monotonic() + LOCK_SECONDS if deadline is None else deadline
     with locked(path):
-        held = path.read_bytes()
+        held = read(path, until)
         text = held.decode("utf-8")
         # A register written with carriage returns keeps them, `edit` seeing its lines without.
         crlf = "\r\n" in text and "\n" not in text.replace("\r\n", "")
@@ -270,7 +289,7 @@ def update[T](path: Path, edit: Callable[[list[str]], T]) -> T:
         written = "\n".join(lines)
         data = (written.replace("\n", "\r\n") if crlf else written).encode("utf-8")
         if data != held:
-            _replace(path, data)
+            _replace(path, data, until)
         return done
 
 
@@ -415,7 +434,7 @@ def rows_at(lines: list[str], register: Path, mending: Collection[str] = ()) -> 
 
 
 def _rows(register: Path, mending: Collection[str] = ()) -> tuple[list[str], dict[str, int]]:
-    lines = register.read_bytes().decode("utf-8").split("\n")
+    lines = read(register).decode("utf-8").split("\n")
     return lines, rows_at(lines, register, mending)
 
 
@@ -505,7 +524,13 @@ def route(register: Path, agent: str, rows: list[str], reroute: bool = False) ->
 
 
 def route_each(
-    register: Path, agent: str, rows: list[str], reroute: bool = False, held_by: str | None = None, moves: str = "--reroute moves it"
+    register: Path,
+    agent: str,
+    rows: list[str],
+    reroute: bool = False,
+    held_by: str | None = None,
+    moves: str = "--reroute moves it",
+    deadline: float | None = None,
 ) -> tuple[list[str], list[str]]:
     """Each row the agent can take ROUTED to it, one refused row never holding back the rest; the rows moved and the refusals."""
 
@@ -514,7 +539,7 @@ def route_each(
         check_owner(lines, agent)
         return route_lines(lines, at, agent, rows, reroute, held_by, moves)
 
-    return update(register, edit)
+    return update(register, edit, deadline)
 
 
 def _closed(row: list[str], word: str, evidence: str) -> str:
@@ -896,7 +921,7 @@ def main(argv: list[str]) -> int:
         rows = open_rows(args.register, args.unclosed)
         for row in rows:
             print(row)
-        for line in stale_live(args.register.read_bytes().decode("utf-8")):
+        for line in stale_live(read(args.register).decode("utf-8")):
             print(line, file=sys.stderr)
         return 1 if rows else 0
     except LookupError as unlabelled:

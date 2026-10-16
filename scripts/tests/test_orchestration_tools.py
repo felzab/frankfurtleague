@@ -336,6 +336,26 @@ def test_a_writer_waits_for_the_lock_and_then_writes(tmp_path: Path) -> None:
     assert not (tmp_path / f"{register.name}.lock").exists()
 
 
+def test_a_write_waits_out_a_reader_holding_the_register_open(tmp_path: Path) -> None:
+    """On Windows a replace refuses a file another process holds open, and a reader holding the register failed the write."""
+    register = _register(tmp_path)
+    done: list[str] = []
+    failed: list[BaseException] = []
+
+    def write() -> None:
+        try:
+            done.append(reg.append(register, "past the reader"))
+        except BaseException as error:
+            failed.append(error)
+
+    with register.open("rb"):
+        writer = threading.Thread(target=write)
+        writer.start()
+        writer.join(0.3)
+    writer.join(ledger.LOCK_SECONDS)
+    assert failed == [] and done and done[0] in register.read_bytes().decode("utf-8")
+
+
 def test_a_register_written_with_carriage_returns_keeps_them_through_every_writer(tmp_path: Path) -> None:
     """A rewritten row lost its carriage return, since a row is split into cells and joined again."""
     register = tmp_path / "REGISTER-s.md"

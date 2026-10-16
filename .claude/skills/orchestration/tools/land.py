@@ -246,7 +246,7 @@ def land(register: Path, branch: str, after_dispatch: bool = False) -> int:
     root = Path(git("rev-parse", "--show-toplevel").strip())
     try:
         ledger.open_rows(register)
-        held = register.read_bytes().decode("utf-8")
+        held = ledger.read(register).decode("utf-8")
     except (ValueError, OSError) as unreadable:
         raise Stop(2, f"the register's findings ledger cannot be read: {unreadable}") from None
     preflight(branch)

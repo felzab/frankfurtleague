@@ -355,7 +355,7 @@ def _read(argv: list[str]) -> int:
     if (args.run is None) == (not args.head) or (args.wait and not args.head) or (args.timeout is not None and not args.wait):
         parser.error("give a run or --head, --wait only with --head and --timeout only with --wait")
     # Refused before any wait: a register with no table to match against reads no run.
-    expected_rows(args.register.read_bytes().decode("utf-8"))
+    expected_rows(ledger.read(args.register).decode("utf-8"))
     # Another commit's run, main's among them, says nothing about the rows the pushed head holds.
     sha, writes = (commit(args.commit), False) if args.commit else (pushed(), True)
     run = args.run or (await_run(sha, TIMEOUT_SECONDS if args.timeout is None else args.timeout) if args.wait else None)
@@ -365,7 +365,7 @@ def _read(argv: list[str]) -> int:
             raise ValueError(f"no {WORKFLOW} run for {sha[:9]} yet: read it with --wait")
         run = str(found["databaseId"])
     state = view(run, sha)
-    held = args.register.read_bytes().decode("utf-8")
+    held = ledger.read(args.register).decode("utf-8")
     if state.get("conclusion") == "success":
         rows = expected_rows(held)
         cleared = f"{len(rows)} RED row(s) CLEARED" if writes else "--commit reads without writing, so no row was set CLEARED"
@@ -392,7 +392,7 @@ def _read(argv: list[str]) -> int:
 
 def _expect(argv: list[str]) -> int:
     args = expect_parser().parse_args(argv)
-    held = args.register.read_bytes().decode("utf-8")
+    held = ledger.read(args.register).decode("utf-8")
     expected_rows(held)
     sha = pushed()
     state = view(args.run, sha)

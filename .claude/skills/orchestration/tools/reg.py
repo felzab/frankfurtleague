@@ -217,7 +217,7 @@ def dispatch(
     """The agent's messages file and live-agent row written, its rows routed and its standing action ticked; what was done, and each refusal."""
     if not NAME_RE.match(name) or (agent is not None and not ledger.AGENT_ID_RE.match(agent)):
         raise ValueError(f"{name!r} or {agent!r} is no agent name or id")
-    briefs = _briefs(register.read_bytes().decode("utf-8"))
+    briefs = _briefs(ledger.read(register).decode("utf-8"))
     if briefs is None or not briefs.is_dir():
         raise ValueError(f"the register's `Briefs:` line names no directory ({briefs}): add one under its header")
     if brief is not None and not brief.is_file():
@@ -344,13 +344,13 @@ def record(payload: dict[str, object], plans: Path, now: datetime.datetime | Non
     to = re.sub(r"\s*\[[^\]]*\]$", "", to)
     claimed = re.compile(rf"^Coordinator session id: {re.escape(session)}\s*$", re.MULTILINE)
     # Replaced rather than refused: an unreadable register the sending session never claimed stops nothing.
-    registers = [path for path in sorted(plans.glob("*/REGISTER-*.md")) if claimed.search(path.read_bytes().decode("utf-8", "replace"))]
+    registers = [path for path in sorted(plans.glob("*/REGISTER-*.md")) if claimed.search(ledger.read(path).decode("utf-8", "replace"))]
     if not registers:
         return None
     lost = f"The message to {to} is in no messages file:"
     if len(registers) > 1:
         return f"{lost} {len(registers)} registers name this session."
-    register = registers[0].read_bytes().decode("utf-8")
+    register = ledger.read(registers[0]).decode("utf-8")
     briefs = _briefs(register)
     if briefs is None:
         return f"{lost} the register has no `Briefs:` line."
@@ -395,7 +395,7 @@ def _named(found: str) -> list[str]:
 
 def live(register: Path) -> list[str]:
     """Each RUNNING live-agent row, the PAUSED ones apart, and the RUNNING count last: the fleet's gauge."""
-    lines = register.read_bytes().decode("utf-8").split("\n")
+    lines = ledger.read(register).decode("utf-8").split("\n")
     table, end = ledger.live_table(lines)
     column = ledger.status_column(lines[table])
     rows = [row for k in range(table + 2, end + 1) if column < len(row := ledger.cells(lines[k]))]
@@ -488,7 +488,7 @@ def unresolved(patterns: list[str]) -> list[str]:
 
 def overlap(register: Path, patterns: list[str]) -> list[str]:
     """Each path a live worktree changes that the patterns name, with the worktree's agent."""
-    text = register.read_bytes().decode("utf-8")
+    text = ledger.read(register).decode("utf-8")
     shared = []
     for tree in worktrees():
         hits = sorted(path for path in touched(tree) if any(matches(path, pattern) for pattern in patterns))
@@ -563,7 +563,7 @@ def _kept(agent: str, held: Agent, tree: Worktree | None, holding: dict[str, lis
 
 def prune(register: Path, projects: Path) -> tuple[list[str], list[str]]:
     """Each finished agent's merged branch and clean worktree removed, each other worktree named with why; what was done, each refusal."""
-    lines = register.read_bytes().decode("utf-8").split("\n")
+    lines = ledger.read(register).decode("utf-8").split("\n")
     table, end = ledger.live_table(lines)
     column = ledger.status_column(lines[table])
     agents: dict[str, Agent] = {}
@@ -607,7 +607,7 @@ def prune(register: Path, projects: Path) -> tuple[list[str], list[str]]:
 
 def context(register: Path, agents: list[str], projects: Path) -> tuple[list[str], list[str]]:
     """Each agent's context at its last call, and its call count; each agent whose transcript could not be read."""
-    text = register.read_bytes().decode("utf-8")
+    text = ledger.read(register).decode("utf-8")
     said, refused = [], []
     for agent in agents:
         try:
