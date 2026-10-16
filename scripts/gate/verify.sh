@@ -327,7 +327,10 @@ do_typecheck()  { ( cd fl_frontend && pnpm typecheck:only ); }
 # Threads on a runner alone: it restores no eslint cache, so it pays the cold fill threads divide,
 # while a warm local run would pay every worker's configuration load (`docs/ops/spec.md`). The `=`
 # keeps the flag one word under `_lib.sh`'s IFS.
-do_eslint()     { ( cd fl_frontend && pnpm lint ${GITHUB_ACTIONS:+--concurrency=auto} ); }
+
+# Three where `auto` takes two on a four-vCPU runner: whether the third worker repays its own setup is
+# the frontend job's eslint spans' to show (`.github/gate-wall-clock.tsv`).
+do_eslint()     { ( cd fl_frontend && pnpm lint ${GITHUB_ACTIONS:+--concurrency=3} ); }
 do_audit()      { ( cd fl_frontend && pnpm audit:prod ); }
 do_knip()       { ( cd fl_frontend && pnpm knip ); }
 do_knip_prod()  { ( cd fl_frontend && pnpm knip:prod ); }
