@@ -1267,7 +1267,7 @@ describe("the club editor's retirement", () => {
 
     await user.click(screen.getByRole("button", { name: "Stilllegen", description: TEAM_NICHT_STILLLEGBAR }));
 
-    assert.equal(screen.queryByRole("alertdialog"), null, "the closed retirement opened its dialog");
+    assert.equal(screen.queryAllByRole("alertdialog").length, 0, "the closed retirement opened its dialog");
     assert.deepEqual(written(), []);
   });
 });
