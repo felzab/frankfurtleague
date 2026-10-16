@@ -164,6 +164,7 @@ ELSEWHERE_REFEREE_OID = ObjectId("6890a1b2c3d4e5f607b00092")
 ELSEWHERE_GRANT_OID = ObjectId("6890a1b2c3d4e5f607b00093")
 REFEREE_MOVING_ELSEWHERE_OID = ObjectId("6890a1b2c3d4e5f607b00094")
 PUPIL_MOVING_ELSEWHERE_OID = ObjectId("6890a1b2c3d4e5f607b00095")
+ELSEWHERE_SEAT_ROW_OID = ObjectId("6890a1b2c3d4e5f607b00096")
 # Every record of their own the erasure removes, each id looked for in the whole database afterwards: a reference left
 # naming one names nobody.
 THEIR_RECORDS = (PUPIL_OID, THEIR_SQUAD_ROW_OID, REFEREE_OID, PENDING_OID, DECLINED_OID)
@@ -442,6 +443,18 @@ async def a_mailbox_sharing_their_local_part(database: AsyncDatabase) -> None:
         )
     )
     await a_grant(database, ELSEWHERE_GRANT_OID, ELSEWHERE, "administration")
+    await database[Collection.SAISON_TEAMS].insert_one(
+        saison_team_document(
+            SAISON_ID,
+            OTHER_TEAM_OID,
+            "Gast-Schule",
+            "GS",
+            _id=ELSEWHERE_SEAT_ROW_OID,
+            kontakte=kontakte_document(
+                ansprechperson=kontaktperson_document("Quendolin", bestaetigt_am="2026-03-21", nachname="Anderswo", email=ELSEWHERE)
+            ),
+        )
+    )
     # Not on `teams`: the case reading the person's administrator rows takes every row there.
     await acting(
         Actor(kind="admin_session", email=ELSEWHERE),
@@ -458,6 +471,13 @@ async def what_elsewhere_holds(database: AsyncDatabase) -> dict[str, int]:
     return {
         "registration": await database[Collection.REGISTRIERUNGEN].count_documents({"_id": ELSEWHERE_REGISTRATION_OID, "email": ELSEWHERE}),
         "referee": await database[Collection.SCHIEDSRICHTER].count_documents({"_id": ELSEWHERE_REFEREE_OID, "kontakt.email": ELSEWHERE}),
+        "seat": await database[Collection.SAISON_TEAMS].count_documents(
+            {
+                "_id": ELSEWHERE_SEAT_ROW_OID,
+                "kontakte.ansprechperson.email": ELSEWHERE,
+                "kontakte.ansprechperson.einwilligung.bestaetigt_am": {"$ne": None},
+            }
+        ),
         "grant": await database[Collection.BERECHTIGUNGEN].count_documents({"_id": ELSEWHERE_GRANT_OID, "adresse": ELSEWHERE}),
         "announced": await database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT].count_documents({"_id": ELSEWHERE_GRANT_OID, "adresse": ELSEWHERE}),
         "notices": await database[Collection.BERECHTIGUNGEN_POSTAUSGANG].count_documents({"berechtigung_id": ELSEWHERE_GRANT_OID}),
@@ -470,6 +490,7 @@ async def what_elsewhere_holds(database: AsyncDatabase) -> dict[str, int]:
 ELSEWHERE_HOLDS = {
     "registration": 1,
     "referee": 1,
+    "seat": 1,
     "grant": 1,
     "announced": 1,
     "notices": 0,
