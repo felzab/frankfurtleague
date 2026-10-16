@@ -302,7 +302,7 @@ class TestTheRequestsRefusals:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await ban(database, client, email=NEW_EMAIL)
 
-            return await refused_code(request(database, client, email=NEW_EMAIL)), await stored(database)
+            return await refused_code(request(database, client, email=NEW_AS_TYPED)), await stored(database)
 
         code, row = on_a_league(mongo_replica_set_url, body)
 
@@ -430,7 +430,7 @@ class TestTheConfirmationsRefusals:
 
     def test_to_an_address_barred_since_the_request(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            token = (await request(database, client, email=NEW_EMAIL)).adresswechsel.token
+            token = (await request(database, client, email=NEW_AS_TYPED)).adresswechsel.token
             await ban(database, client, email=NEW_EMAIL)
             before = await stored(database)
 
@@ -619,7 +619,7 @@ class TestTheReSend:
 
     def test_a_pending_address_barred_since_the_request_is_refused(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            first = await request(database, client, email=NEW_EMAIL)
+            first = await request(database, client, email=NEW_AS_TYPED)
             await ban(database, client, email=NEW_EMAIL)
 
             return await refused_code(resend(database, client)), first, await stored(database)
