@@ -17,7 +17,7 @@ export function mapEinladungRefusal(error: unknown): { error?: string; fieldErro
       return {
         error: buildRefusal({
           reason: "Dieses Team steht nicht in dieser Saison",
-          repair: "Nimm es zuerst in die Saison auf",
+          repair: { before: "Nimm es zuerst", after: "auf" },
           where: SAISON_ABSCHNITT,
         }),
       };

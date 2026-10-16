@@ -120,7 +120,7 @@ export async function mailEinladungAction(rawPayload: FLEinladungMailPayload): P
         success: false,
         error: buildRefusal({
           reason: "Für dieses Team sind in dieser Saison keine Kontaktdaten hinterlegt",
-          repair: "Trage die Kontakte ein, oder gib den Link von Hand weiter",
+          repair: { before: "Trage sie", after: "ein, oder gib den Link von Hand weiter" },
           where: KONTAKTE_ABSCHNITT,
         }),
       };
