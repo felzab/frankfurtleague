@@ -7,7 +7,7 @@ from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.collections import Collection
 from app.core.crud import literal_pattern
 from app.core.recording import row_images
-from app.shared.folding import person_name_key, sign_in_identifier, trimmed_prefix_pattern
+from app.shared.folding import person_name_key, sign_in_identifier, trimmed_pattern, trimmed_prefix_pattern
 
 
 def same_address(identifier: str) -> Mapping[str, Any]:
@@ -17,9 +17,14 @@ def same_address(identifier: str) -> Mapping[str, Any]:
     would index: rows a league counts in hundreds, and log images nothing indexes inside.
     """
 
+    local, at, _ = identifier.rpartition("@")
+    # No `@`, so no local part: the fold equates the identifier whole, and a start alone, anchoring an empty
+    # prefix, reads every stored string. The account sweep hands on identifiers no address rule has held.
+    if not at:
+        return {"$regex": trimmed_pattern(literal_pattern(identifier)), "$options": "i"}
+
     # Anchored on the local part and its `@`, which the fold changes by ASCII case alone (`i`): it maps a
     # domain from more spellings than a pattern lists, so the read takes every mailbox sharing that local part.
-    local, at, _ = identifier.rpartition("@")
     return {"$regex": trimmed_prefix_pattern(literal_pattern(local + at)), "$options": "i"}
 
 
