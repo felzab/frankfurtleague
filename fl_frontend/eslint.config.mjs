@@ -1400,6 +1400,7 @@ const SCOPED_BANS = [
         "src/features/bewerbungen/sweep.ts",
         "src/features/funktionen/actions.ts",
         "src/features/funktionen/sweep.ts",
+        "src/features/saisons/sweep.ts",
         "src/features/schiedsrichter/notifications.ts",
         "src/features/sperrliste/actions.ts",
         "src/features/spieler/notifications.ts",

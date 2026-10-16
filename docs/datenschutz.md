@@ -870,12 +870,13 @@ Every ruling below is the sign-up flow as it stands for the next season.
   beside it with it (`fl_backend/app/api/bewerbungen/sweep_router.py :: sweep_saison`). The consent text scopes
   itself to one season, and the clearing uses the mechanism the erasure already had. Ruled
   2026-09-02.
-- **A timer in the frontend process is what turns those clocks from an intention into a mechanism**
+- **Timers in the frontend process are what turn those clocks from an intention into a mechanism**
   (`fl_frontend/src/features/bewerbungen/sweep.ts :: armBewerbungSweep`, calling
   `fl_backend/app/api/bewerbungen/sweep_router.py :: sweep_saison` and
   `fl_backend/app/api/registrierungen/sweep_router.py :: sweep_registrierungen` per season, then
-  `fl_backend/app/api/schiedsrichter/sweep_router.py :: sweep_adresswechsel` and, where
-  `LOESCHUNG_SWEEP` is on, `fl_backend/app/api/identitaet/sweep_router.py :: post_loeschung_lauf`).
+  `fl_backend/app/api/schiedsrichter/sweep_router.py :: sweep_adresswechsel`; and, where
+  `LOESCHUNG_SWEEP` is on, `fl_frontend/src/features/saisons/sweep.ts :: armLoeschungSweep`, calling
+  `fl_backend/app/api/identitaet/sweep_router.py :: post_loeschung_lauf`).
   A season's two sweeps record the day they ran, one that reminds nobody and deletes nothing exactly
   as a busy one does, and `GET /bewerbungen/sweep` answers the day each last ran
   (`docs/backend/spec.md :: I189`), so a claim that one of their periods was honoured rests on a

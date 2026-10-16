@@ -16,7 +16,7 @@ import {
   UnattributedAdminCallError,
 } from "./errors";
 import { logger } from "./logging";
-import { boundCall, getRequestActor, getRequestSpanId, getRequestTraceId } from "./requestScope";
+import { boundCall, getRequestActor, getRequestSpanId, getRequestTraceId, requestTimeLeft } from "./requestScope";
 import { FLRefusedPayloadBodySchema } from "./schemas";
 import { ACTOR_HEADER, formatTraceparent, mintSpanId, mintTraceId, TRACEPARENT_HEADER } from "./trace";
 
@@ -25,6 +25,25 @@ import type { SentRequest } from "./errors";
 const BASE_FETCH_AUTH_TYPE = "base";
 const BASE_FETCH_TIMEOUT_MS = 15000;
 const BASE_FETCH_URL = `${frontend_config.API_URL}/api/v${frontend_config.API_VERSION}`;
+
+/**
+ * The backend's own deadline on a request, retyped from `fl_backend/app/core/middlewares.py :: REQUEST_DEADLINE_S`:
+ * every database write a call makes ends inside it (`docs/backend/spec.md :: I320`).
+ */
+const BACKEND_REQUEST_DEADLINE_MS = 10000;
+
+/**
+ * What a write's answer takes past that deadline: the backend's aborts after a cut
+ * (`fl_backend/app/core/transactions.py :: ABORT_GRACE_S`), then the hop each way, whose round trip measured 0.3 to
+ * 3.3 ms on loopback (2026-10-16).
+ */
+const WRITE_ANSWER_MARGIN_MS = 2000;
+
+/**
+ * What a call that may write needs left of its request's deadline: sent with less, the request could stop waiting while
+ * the backend still commits, and drop its caches before that write lands (`docs/frontend/spec.md :: I767`).
+ */
+export const WRITE_NEEDS_MS = BACKEND_REQUEST_DEADLINE_MS + WRITE_ANSWER_MARGIN_MS;
 
 export interface FetchOptions extends RequestInit {
   authType?: "base" | "system" | "admin" | "none";
@@ -181,9 +200,13 @@ export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, optio
     });
   }
 
-  const bound = boundCall(timeoutMs);
-
   const sent = sentRequestOf(customOptions.method, readOnly);
+
+  // Ahead of the bound, so nothing marks the request: a write refused unsent changed nothing, and its caller says
+  // what the writes before it did.
+  if (mayHaveWritten(sent) && requestTimeLeft() < WRITE_NEEDS_MS) throw new ApiUnsentError(sent.method);
+
+  const bound = boundCall(timeoutMs);
 
   const asNetworkError = (error: unknown) =>
     new APINetworkError({
@@ -201,10 +224,8 @@ export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, optio
   let rawData: unknown;
   try {
     // Thrown here rather than left to `fetch`, which refuses an aborted signal unsent too but names no
-    // deadline in what it throws (`docs/frontend/spec.md :: I366`).
+    // deadline in what it throws (`docs/frontend/spec.md :: I366`). A read alone reaches it: a write is refused above.
     if (bound.signal.aborted) {
-      // Never a network error for a write, which every reader of one takes for a write that may have landed.
-      if (mayHaveWritten(sent)) throw new ApiUnsentError(sent.method);
       throw new APINetworkError({
         message: "The request's deadline had passed before this call was sent.",
         isTimeout: true,
