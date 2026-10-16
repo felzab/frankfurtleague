@@ -14,7 +14,7 @@ import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { SPERRE_ERFOLG } from "./constants";
 import { deleteSperre, postSperre } from "./mutations";
-import { mapAdresseRefusal, mapAnsichtRefusal, verwaltungAmFeld } from "./refusals";
+import { mapAdresseRefusal, mapAnsichtRefusal, schonGesperrtAmFeld, verwaltungAmFeld } from "./refusals";
 import { FLPostSperrlistePayloadSchema, FLSperrlisteKeyPayloadSchema } from "./schemas";
 
 import type { FLErasureAnsichtResponse } from "@/features/funktionen/schemas";
@@ -22,10 +22,10 @@ import type { ActionResult, QueryResult } from "@/shared/types/types";
 import type { FLPostSperrlistePayload, FLSperrlisteKeyPayload } from "./schemas";
 
 /**
- * Every record the address holds, as the erasure's reveal names them. No grant among them: the read answers an address
- * holding one with the ban's own refusal (`REQ-SPERRLISTE-003`).
+ * Every record the address holds, as the erasure's reveal names them. No grant and no ban among them: the read answers an
+ * address holding either with the ban's own refusal (`REQ-SPERRLISTE-003`, `REQ-SPERRLISTE-001`).
  */
-export type SperreAnsicht = Omit<FLErasureAnsichtResponse, "acknowledged" | "verwaltung">;
+export type SperreAnsicht = Omit<FLErasureAnsichtResponse, "acknowledged" | "verwaltung" | "gesperrt">;
 
 /** The ban's own address rule, never the erasure's looser lookup: no list is read for an address the ban would refuse. */
 const AnsichtPayloadSchema = FLPostSperrlistePayloadSchema.pick({ email: true });
@@ -121,16 +121,18 @@ export async function readSperreAnsichtAction(
       throw error;
     }
 
-    // Refused rather than listed: the ban refuses an address holding a grant, so its list would be work for nothing.
-    const { acknowledged: _umschlag, verwaltung, ...ansicht } = gelesen;
+    // Refused rather than listed, in the ban's own order: the ban refuses an address holding a grant or barred already,
+    // so its list would be work for nothing (`docs/frontend/spec.md :: I730`).
+    const { acknowledged: _umschlag, verwaltung, gesperrt, ...ansicht } = gelesen;
     if (verwaltung !== null) return refusalResult(verwaltungAmFeld());
+    if (gesperrt) return refusalResult(schonGesperrtAmFeld());
 
     return { success: true, ansicht: ansicht };
   });
 }
 
-export async function postSperreAction(rawPayload: FLPostSperrlistePayload): Promise<ActionResult> {
-  return runAdminMutation("postSperreAction", async () => {
+export async function postSperreAction(rawPayload: FLPostSperrlistePayload): Promise<ActionResult<{ warn: boolean }>> {
+  return runAdminMutation("postSperreAction", { stepUp: true }, async () => {
     const validated = FLPostSperrlistePayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -171,7 +173,13 @@ export async function postSperreAction(rawPayload: FLPostSperrlistePayload): Pro
     // a failure with.
     const told = [abgemeldet.satz, benachrichtigt].filter((sentence) => sentence !== null);
 
-    return { success: true, message: told.length === 0 ? SPERRE_ERFOLG : [SPERRE_STEHT, ...told].join(" ") };
+    return {
+      success: true,
+      message: told.length === 0 ? SPERRE_ERFOLG : [SPERRE_STEHT, ...told].join(" "),
+      // A warning wherever a sign-out or a notice the dialog's hint promises did not happen (`docs/frontend/spec.md :: I729`).
+      // An address no account holds is mailed by nobody, as that hint says, so its sentence alone leaves the ban clean.
+      warn: told.some((sentence) => sentence !== KEIN_KONTO),
+    };
   });
 }
 

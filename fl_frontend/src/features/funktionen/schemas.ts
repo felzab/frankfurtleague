@@ -130,6 +130,7 @@ export const FLErasureAnsichtResponseSchema = BaseAPIResponseSchema.extend({
   adresswechsel: z.array(FLErasureAnsichtAdresswechselSchema),
   spieler_adresswechsel: z.array(FLErasureAnsichtSpielerAdresswechselSchema),
   verwaltung: FLSubjektResponseSchema.shape.verwaltung,
+  gesperrt: z.boolean(),
 });
 export type FLErasureAnsichtResponse = z.infer<typeof FLErasureAnsichtResponseSchema>;
 
