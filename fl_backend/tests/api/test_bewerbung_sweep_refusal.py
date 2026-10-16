@@ -465,12 +465,16 @@ class TestTheIdPayloadsTakeOnePassList:
 ROUND_TRIPS_A_ROW = 2
 
 
+# The other commands counted on the wire 2026-10-16, the per-command cost from whole passes timed
+# locally, 2026-09-23.
 @pytest.mark.parametrize(
     ("rows", "other_commands", "per_command_s", "round_trip_s"),
     [
-        # Other commands and the per-command cost from whole passes timed locally, 2026-09-23.
-        pytest.param(REMINDERS_PER_PASS + BLOCKS_CLEARED_PER_PASS, 18, 0.00135, 0.036, id="the sweep"),
-        pytest.param(DELETIONS_LISTED_PER_PASS, 4, 0.00101, 0.038, id="/angekuendigt"),
+        # The worst call: ten reads, an aggregate and four commits, and where both erasing clocks erase a
+        # page, an imaged block is cleared and the day is stamped, two deletes, four updates and three log rows.
+        pytest.param(REMINDERS_PER_PASS + BLOCKS_CLEARED_PER_PASS, 24, 0.00135, 0.036, id="the sweep"),
+        # Two reads and the commit.
+        pytest.param(DELETIONS_LISTED_PER_PASS, 3, 0.00101, 0.038, id="/angekuendigt"),
     ],
 )
 def test_a_full_share_finishes_inside_the_deadline_at_the_round_trip_its_comment_names(

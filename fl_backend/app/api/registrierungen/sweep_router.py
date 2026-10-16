@@ -55,10 +55,10 @@ router = APIRouter(
 # a pass that stops on a club somebody retired.
 _TEAM_UNBEKANNT = ""
 
-# Two commands a row, each costing the round trip plus about 1.1 ms (from whole passes timed locally,
-# 2026-09-23): this share keeps a pass inside `app/core/middlewares.py :: REQUEST_DEADLINE_S` up to a
-# 37 ms round trip (`docs/backend/spec.md :: I322`).
-REMINDERS_PER_PASS: Final = 125
+# Two commands a row beside the worst call's nineteen (`tests/api/test_registrierung_sweep_refusal.py :: OTHER_COMMANDS`):
+# 121 x 2 + 19 commands at a 37 ms round trip plus 1.07 ms each take 9.94 s of
+# `app/core/middlewares.py :: REQUEST_DEADLINE_S` (`docs/backend/spec.md :: I322`).
+REMINDERS_PER_PASS: Final = 121
 
 
 async def _team_names(

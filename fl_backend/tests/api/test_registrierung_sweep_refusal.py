@@ -642,8 +642,12 @@ class TestTheClocksDrain:
 # `fl_backend/tests/api/test_registrierung_sweep_execution.py :: TestTheReminderClockTakesAShareEachCall`.
 ROUND_TRIPS_A_ROW = 2
 
-# The pass's other commands and the per-command cost, from whole passes timed locally, 2026-09-23.
-OTHER_COMMANDS = 12
+# The worst call's other commands, counted on the wire 2026-10-16: eight reads and three commits, and
+# where both erasing clocks erase a page and the day is stamped, two deletes, three updates and three
+# log rows.
+OTHER_COMMANDS = 19
+
+# The per-command cost, from whole passes timed locally, 2026-09-23.
 PER_COMMAND_S = 0.00107
 
 # The round trip `sweep_router.REMINDERS_PER_PASS`'s comment sizes the share for.
