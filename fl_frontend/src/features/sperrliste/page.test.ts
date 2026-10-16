@@ -219,7 +219,8 @@ describe("what the ban's dialog shows before the ban (`docs/frontend/spec.md :: 
 
     // The registration's own sentence beside it: the lead's promise of an edit reaches no registration.
     assert.ok(
-      within(dialog).queryByText(`${SPERRE_ANSICHT_COPY.lead} ${SPERRE_ANSICHT_COPY.registrierungen}`) !== null,
+      within(dialog).queryByText(`${SPERRE_ANSICHT_COPY.lead} ${SPERRE_ANSICHT_COPY.bearbeiten} ${SPERRE_ANSICHT_COPY.registrierungen}`) !==
+        null,
       "the list stands under no lead, or one promising an edit of a registration",
     );
     assert.deepEqual(verweiseIn(dialog), [
@@ -240,8 +241,9 @@ describe("what the ban's dialog shows before the ban (`docs/frontend/spec.md :: 
   });
 
   /* The registrations list serves the pending ones alone: a link to a declined one opens a list it is not on, and the
-     sentence that a registration ends with the ban is false of one its team declined already. */
-  it("links no declined registration, names it declined, and says nothing of it ending", async () => {
+     sentence that a registration ends with the ban is false of one its team declined already. Nothing it lists has a tool,
+     so the lead asks for no edit either. */
+  it("links no declined registration, names it declined, and asks for no edit of it or says it ends", async () => {
     antwort = () =>
       Promise.resolve({
         ...NICHTS,
@@ -257,7 +259,11 @@ describe("what the ban's dialog shows before the ban (`docs/frontend/spec.md :: 
       within(dialog).queryByText(/^Abgelehnte Registrierung für die Saison 2026: Zorbanax Quell$/) !== null,
       "the line hides its status",
     );
-    assert.ok(within(dialog).queryByText(SPERRE_ANSICHT_COPY.lead) !== null, "a declined registration is said to end with the ban");
+    // The lead alone, matched whole: an edit sentence or the registration's own would make it a longer text.
+    assert.ok(
+      within(dialog).queryByText(SPERRE_ANSICHT_COPY.lead) !== null,
+      "a declined registration is said to end with the ban, or asked to be edited with no tool to do it",
+    );
   });
 
   /* The memberships read lists a pupil holding no squad row, and the editor opens on them: their record is what stands. */

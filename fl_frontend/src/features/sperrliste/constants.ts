@@ -69,7 +69,9 @@ export const SPERRE_PRESS = {
  */
 export const SPERRE_ANSICHT_COPY = {
   heading: "Was unter dieser Adresse gespeichert ist",
-  lead: "Die Sperre ändert an diesen Einträgen nichts. Bearbeite sie, bevor Du die Adresse sperrst.",
+  lead: "Die Sperre ändert an diesen Einträgen nichts.",
+  // Only beside a record a link reaches: a declined registration has no tool, and the clock erases it.
+  bearbeiten: "Bearbeite sie, bevor Du die Adresse sperrst.",
   // Its team can only decline it, the admission refusing a barred address, and the clock erases it either way.
   registrierungen: "Eine Registrierung endet nach der Sperre von selbst, denn ihr Team kann sie dann nicht mehr aufnehmen.",
   // A record, never „nichts“: the account and the log below stand whatever the read found, as the erasure's reveal says.
