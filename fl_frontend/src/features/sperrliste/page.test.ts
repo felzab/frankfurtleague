@@ -130,7 +130,7 @@ answerReadsWith((endpoint, schema, params) => {
   return track(
     endpoint,
     endpoint === ANSICHT_ENDPOINT
-      ? antwort().then((records) => answer(schema, endpoint, { verwaltung: null, ...records, acknowledged: 1 }))
+      ? antwort().then((records) => answer(schema, endpoint, { verwaltung: null, gesperrt: false, ...records, acknowledged: 1 }))
       : istSperre
         ? sperre().then((fields) => answer(schema, endpoint, fields))
         : Promise.resolve(endpoint === "/sperrliste" ? answer(schema, endpoint, SPERRLISTE) : EMPTIEST_ANSWER(endpoint, schema, params)),
@@ -490,8 +490,24 @@ describe("the ban's refusals, placed (`docs/frontend/spec.md :: I724`)", () => {
     }
   });
 
-  /* The read cannot tell an address already barred or a league with no season running: those land after the press,
-     the address's on its box and the league's in the toast, the reveal closing over them. */
+  /* The read says whether a ban stands on the address (`docs/frontend/spec.md :: I730`): a second ban is refused, so
+     the box says so in that refusal's words before anyone works through a list for nothing. */
+  it("marks an address barred already before the press, arming nothing", async () => {
+    antwort = () => Promise.resolve({ ...BESTAND, gesperrt: true });
+    const schon = mapAdresseRefusal(refusedOn(CREATE_OPERATION, "REQ-SPERRLISTE-001"))?.fieldErrors?.email ?? "unworded";
+    const { dialog, user } = await oeffnen();
+
+    await zeigen(dialog, user);
+
+    assert.deepEqual(markiert(dialog), ["E-Mail"]);
+    assert.ok(within(dialog).queryByText(schon) !== null, "the barred address reads otherwise than the ban's refusal");
+    assert.ok(within(dialog).queryByRole("alert") === null, "the barred address armed the press");
+    assert.ok(within(dialog).queryByText(SPERRE_ANSICHT_COPY.heading) === null, "the barred address's records were listed");
+    assert.deepEqual(gesendet("/sperrliste"), []);
+  });
+
+  /* The read cannot tell a ban entered after it or a league with no season running: those land after the press, the
+     address's on its box and the league's in the toast, the reveal closing over them. */
   it("lands a refusal the read cannot foresee where the ban's own answer puts it", async (t) => {
     const fehler = (code: string) => mapAdresseRefusal(refusedOn(CREATE_OPERATION, code));
     t.mock.timers.enable({ apis: ["Date"] });

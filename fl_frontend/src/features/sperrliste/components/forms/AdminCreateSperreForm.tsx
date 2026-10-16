@@ -94,8 +94,8 @@ export function AdminCreateSperreForm({ onClose }: { onClose: () => void }) {
       return;
     }
 
-    // A refusal of the address, a grant holder's among them, lands on its box as the ban's would, the arming undone so
-    // the next press reads the corrected address.
+    // A refusal of the address, a grant holder's and one barred already among them, lands on its box as the ban's would,
+    // the arming undone so the next press reads the corrected address.
     if (res.fieldErrors?.email !== undefined) {
       setGelesen(null);
       confirm.cancel();

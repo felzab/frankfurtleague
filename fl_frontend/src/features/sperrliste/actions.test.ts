@@ -66,6 +66,7 @@ const ANSICHT = {
   adresswechsel: [],
   spieler_adresswechsel: [],
   verwaltung: null,
+  gesperrt: false,
 };
 
 let answerAnsicht: () => Promise<unknown> = () => Promise.resolve(ANSICHT);
@@ -398,7 +399,7 @@ describe("what the address holds, read before the ban (`docs/frontend/spec.md ::
     const result = await itsListIsRead();
 
     assert.deepEqual(requestsOf(client.calls), [{ endpoint: ANSICHT_ENDPOINT, method: "POST", body: { email: BARRED }, readOnly: true }]);
-    const { acknowledged: _umschlag, verwaltung: _zugang, ...records } = ANSICHT;
+    const { acknowledged: _umschlag, verwaltung: _zugang, gesperrt: _sperre, ...records } = ANSICHT;
     assert.deepEqual(result.success ? result.ansicht : result, records);
     assert.doesNotMatch(JSON.stringify(result), new RegExp(BARRED), "the address reached the answer the browser is handed");
     assert.deepEqual(events, ["ansicht"], "the read wrote, mailed or refreshed");
@@ -416,6 +417,19 @@ describe("what the address holds, read before the ban (`docs/frontend/spec.md ::
 
       assert.deepEqual(result.success ? result : result.fieldErrors, asTheBan?.fieldErrors, `a ${verwaltung} grant was listed`);
     }
+  });
+
+  /* A second ban is refused (`REQ-SPERRLISTE-001`), so a standing one is said on the box before the list, in that
+     refusal's words (`docs/frontend/spec.md :: I730`); the control is every case above, whose address no ban holds. */
+  it("answers an address a ban holds already on the address box, as a second ban would", async () => {
+    answerAnsicht = () => Promise.resolve({ ...ANSICHT, gesperrt: true });
+
+    const result = await itsListIsRead();
+
+    assert.deepEqual(
+      result.success ? result : result.fieldErrors,
+      mapAdresseRefusal(refusedOn(CREATE_OPERATION, "REQ-SPERRLISTE-001"))?.fieldErrors,
+    );
   });
 
   /* Each refuses an administrator's address, the reader's own or an owner's, which the ban refuses too. */

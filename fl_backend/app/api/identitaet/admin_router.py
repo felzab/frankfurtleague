@@ -27,7 +27,7 @@ from app.api.identitaet.services import (
     find_inhaber_adresse_refusal,
     find_name_im_anlass_refusal,
 )
-from app.api.sperrliste.lookup import SperrlisteLookup
+from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import aggregate_many_from_db, post_one_to_db, refuse
 from app.core.db import get_drosselung_collection
@@ -86,6 +86,7 @@ async def get_erasure_ansicht_auf_anfrage(
     spiele_collection: SpieleCollection,
     berechtigungen_collection: BerechtigungenCollection,
     berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
+    sperrliste: SperrlisteLookup,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     operator: str = Depends(get_actor_email),
@@ -106,7 +107,8 @@ async def get_erasure_ansicht_auf_anfrage(
     a dead spelling of its grant, which admits nobody, each grant's announced row, and an announced row holding the
     address under another grant's id; and the address in every notice still queued, withheld. Written besides: the
     notice that the address's grant ended, which every administrator is sent. No address and no birthdate is answered.
-    `verwaltung` is the tier of the live grant the address holds, or null. Stores nothing.
+    `verwaltung` is the tier of the live grant the address holds, or null. `gesperrt` is whether a standing ban holds the
+    address, judged as `POST /identitaet/gesperrt` judges one; the erasure leaves a ban standing. Stores nothing.
 
     Refused as the erasure is: the administrator's own address (`REQ-PURGE-003`), an address holding an `owner` grant unless
     the administrator holds an owner's power (`REQ-PURGE-005`), and with a 422 before any read, an address under the reserved
@@ -159,6 +161,9 @@ async def get_erasure_ansicht_auf_anfrage(
             if subject.schiedsrichter
             else []
         )
+        # The stored-address judgement, as `POST /identitaet/gesperrt`'s: an address no rule keys a ban under answers
+        # false, where keying the payload's spelling would raise.
+        gesperrt = await adressen_gesperrt(sperrliste, [ansicht_data.email], session=session)
 
     ansicht = compose_erasure_ansicht_auf_anfrage(
         identifier,
@@ -176,7 +181,7 @@ async def get_erasure_ansicht_auf_anfrage(
     # A live row is its own fold, so equality is the fold's judgement (`docs/backend/spec.md :: I453`).
     own = next((grant for grant in lebendige(grants) if grant["adresse"] == identifier), None)
 
-    return FLErasureAnsichtResponse(**ansicht.model_dump(), verwaltung=None if own is None else own["verwaltung"])
+    return FLErasureAnsichtResponse(**ansicht.model_dump(), verwaltung=None if own is None else own["verwaltung"], gesperrt=bool(gesperrt))
 
 
 @router.post(

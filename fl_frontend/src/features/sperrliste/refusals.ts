@@ -20,16 +20,19 @@ export const verwaltungAmFeld = (): { fieldErrors: FieldErrors } => ({
   fieldErrors: { email: "Diese Adresse gehört zur Verwaltung und lässt sich nicht sperren." },
 });
 
+/**
+ * No repair sentence: the box carrying the message is itself the way out (`docs/frontend/spec.md` §1.12). Said alike where
+ * the ban refuses a second ban and where the list's read finds one standing.
+ */
+export const schonGesperrtAmFeld = (): { fieldErrors: FieldErrors } => ({ fieldErrors: { email: "Diese Adresse ist schon gesperrt." } });
+
 /** `null` where the refusal is something else. It lands on the ADDRESS box, the only value the create sent. */
 export function mapAdresseRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
   if (!isRefusal(error)) return null;
 
   // Both codes: the rule refuses a second ban and `uniq_sperrliste_adresse_hash` refuses it again
   // where two administrators press together, so which of them answers is a race.
-  if (error.serverErrorCode === "REQ-SPERRLISTE-001" || error.serverErrorCode === "DB-COMMON-002") {
-    // No repair sentence: the box carrying the message is itself the way out (`docs/frontend/spec.md` §1.12).
-    return { fieldErrors: { email: "Diese Adresse ist schon gesperrt." } };
-  }
+  if (error.serverErrorCode === "REQ-SPERRLISTE-001" || error.serverErrorCode === "DB-COMMON-002") return schonGesperrtAmFeld();
 
   if (error.serverErrorCode === "REQ-SPERRLISTE-002") {
     return { error: KEINE_SAISON };
