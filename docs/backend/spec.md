@@ -1456,10 +1456,13 @@ rather than by the handler remembering to conceal one.
   2008 disallows and a label RFC 5890 reserves pass the form's rule and reach the box as a `kind` the
   page does not word. No real address falls in either class. The special-use names are the form's to
   word (`fl_frontend/src/core/emailAddress.ts :: SPECIAL_USE_DOMAINS`).
-- **The two runtimes convert a Unicode domain on their own Unicode tables**, so a label holding a
-  code point newer than one runtime's release converts on one side alone; no registry issues such a
-  label yet, and `fl_backend/tests/shared/email_addresses.json` holds the two to one answer on the
-  domains that occur (I332).
+- **The two runtimes' folds part on a domain no payload stores.** Each converts a Unicode domain on
+  its own tables, so a label holding a code point one side's release lacks, such as a Unicode 17
+  letter, converts on the frontend alone, and the frontend's fold drops a Hangul filler the backend
+  keeps. Measured on 2026-10-16 for every single code point in each label position, the two part only
+  on a domain the backend's address rule refuses, so no stored record is asked for in two spellings.
+  `fl_backend/tests/shared/email_addresses.json` records each side's own answer for one of each kind,
+  so an upgrade moving either side fails that side's suite (I332, I333).
 - **A ban stored on a Greek domain may not match the address it bars.** Those keys were taken with
   NFKC and a full lower-casing ahead of the domain's conversion, which turn a lunate sigma, a
   mathematical final sigma, and a capital sigma ending the domain or standing before a hyphen into

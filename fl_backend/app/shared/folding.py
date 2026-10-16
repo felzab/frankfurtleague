@@ -15,7 +15,7 @@ _TRIMMED: Final = "".join(
 
 # ASCII's letters alone, never `str.lower`, whose tables move with the interpreter's Unicode release:
 # the frontend lowers the same 26, so this step cannot part the two folds; their domain conversions
-# are held to one answer by `fl_backend/tests/shared/email_addresses.json`.
+# are held to the answers `fl_backend/tests/shared/email_addresses.json` records.
 _ASCII_LOWER: Final = str.maketrans("ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")
 
 
