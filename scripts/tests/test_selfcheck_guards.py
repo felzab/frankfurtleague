@@ -127,6 +127,56 @@ def test_par_run_survives_a_unit_that_exits(tmp_path: Path) -> None:
     assert "FAILURES=1" in out, out
 
 
+def _steps(first: str, until: str) -> str:
+    """The script's top level from step `first`'s opening line to step `until`'s, as written: steps run in no function."""
+    text = SELFCHECK.read_text(encoding="utf-8")
+    start = text.index(f'\nstep "{first}')
+    return text[start + 1 : text.index(f'\nstep "{until}', start)]
+
+
+def test_steps_5_and_6_run_no_script_git_does_not_track(tmp_path: Path) -> None:
+    """An untracked draft would run whatever its body does before its argument loop, on every gate.
+
+    The tracked twin is the control, since a filter running nothing passes the draft's absence alone.
+    """
+    tree = tmp_path / "tree"
+    (tree / "scripts").mkdir(parents=True)
+    ran = tmp_path / "ran.txt"
+    for name in ("drafted.sh", "tracked.sh"):
+        write_shell(tree / "scripts" / name, f'{SHEBANG}\nprintf \'%s %s\\n\' "${{0##*/}}" "$1" >> {ran.as_posix()!r}\n')
+    for argv in (("git", "init", "-q"), ("git", "add", "--chmod=+x", "scripts/tracked.sh")):
+        subprocess.run(argv, cwd=tree, check=True, capture_output=True)
+    status, out, err = _bash(
+        (
+            SHEBANG,
+            f"source {LIB.as_posix()!r}",
+            # `_lib.sh` roots every run at this repository as it is sourced.
+            f"cd {tree.as_posix()!r}",
+            f"REPO_ROOT={tree.as_posix()!r}",
+            'SELFCHECK_TMP="$(mktemp -d)"',
+            "PAR_WIDTH=2",
+            "FAILURES=0",
+            "note_fail() { printf 'FAIL %s\\n' \"$*\"; FAILURES=$(( FAILURES + 1 )); }",
+            "note_skip() { printf 'SKIP %s\\n' \"$*\"; }",
+            "note_warn() { printf 'WARN %s\\n' \"$*\"; }",
+            "info() { printf 'INFO %s\\n' \"$*\"; }",
+            "PAR_ITEMS=(); PAR_LABELS=()",
+            _function("par_reset"),
+            _function("par_add"),
+            _function("par_run"),
+            "RUNNABLE=(drafted.sh tracked.sh)",
+            _steps("3. ", "4. "),
+            _steps("5. ", "7. "),
+        ),
+        tmp_path,
+    )
+    lines = sorted(ran.read_text(encoding="utf-8").splitlines()) if ran.exists() else []
+
+    assert status == 0, f"{out!r} {err!r}"
+    assert lines == ["tracked.sh --definitely-not-an-option", "tracked.sh --help"], f"{lines!r} {out!r}"
+    assert "SKIP drafted.sh is not tracked by git, so steps 5 and 6 did not run it" in out, out
+
+
 def test_the_helper_check_reads_its_subjects_out_of_the_scripts(tmp_path: Path) -> None:
     """A pattern built from what `_lib.sh` defines can only match names that resolve (PRE-4).
 

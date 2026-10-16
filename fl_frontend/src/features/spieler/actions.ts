@@ -42,7 +42,7 @@ import {
 
 import type { ActionResult } from "@/shared/types/types";
 import type { UndoOutcome } from "@/shared/utils/adminUndo";
-import type { LinkVersand } from "@/shared/utils/linkVersand";
+import type { HinweisVersand, LinkVersand } from "@/shared/utils/linkVersand";
 import type {
   FLDeleteSpielerPayload,
   FLPatchSpielerPayload,
@@ -137,7 +137,7 @@ export async function reactivateSpielerAction(
  */
 export async function beantrageSpielerAdresswechselAction(
   rawPayload: FLSpielerAdresswechselPayload,
-): Promise<ActionResult<{ versand: LinkVersand; hinweis: LinkVersand }>> {
+): Promise<ActionResult<{ versand: LinkVersand; hinweis: HinweisVersand }>> {
   return runAdminMutation("beantrageSpielerAdresswechselAction", { stepUp: true }, async () => {
     const validated = FLSpielerAdresswechselPayloadSchema.safeParse(rawPayload);
 
@@ -181,7 +181,7 @@ export async function beantrageSpielerAdresswechselAction(
 /** A fresh link to the pending address, mailed with a fresh notice to the stored one: the earlier link is dead either way. */
 export async function einladeSpielerAdresswechselAction(
   rawPayload: FLSpielerAdresswechselEinladenPayload,
-): Promise<ActionResult<{ versand: LinkVersand; hinweis: LinkVersand }>> {
+): Promise<ActionResult<{ versand: LinkVersand; hinweis: HinweisVersand }>> {
   return runAdminMutation("einladeSpielerAdresswechselAction", { stepUp: true }, async () => {
     const validated = FLSpielerAdresswechselEinladenPayloadSchema.safeParse(rawPayload);
 

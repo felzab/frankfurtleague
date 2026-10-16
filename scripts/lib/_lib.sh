@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SCRIPTS · shared helpers — sourced, never run directly.
-# Sourcing applies strict mode and installs the ERR, INT and TERM traps.
+# Sourcing applies strict mode and installs the ERR, INT, TERM and HUP traps.
 
 # `-E`: without errtrace the ERR trap is not inherited by a function, so a command failing inside
 # one never reaches `on_error`. It exits with its own status — 1, which the exit contract spells
@@ -686,8 +686,9 @@ exit status ${rc}" >&2
 }
 trap 'on_error "$?" "$LINENO" "$BASH_COMMAND"' ERR
 
-# Bash runs no EXIT trap for a signal it was never told to catch. Exiting rather than re-raising
-# fires each script's own EXIT trap, so fixtures and throwaway tags are still reclaimed.
+# A dropped SSH session's hangup among them: left to bash, each still runs a script's EXIT trap but
+# dies by its signal, with no statement and `quietly`'s capture left behind, a hangup exiting 129,
+# which the exit contract never names.
 on_interrupt() {
   spinner_stop
   if [[ -n "$_QUIETLY_CAPTURE" ]]; then rm -f -- "$_QUIETLY_CAPTURE" || true; fi
@@ -699,7 +700,7 @@ on_interrupt() {
   fi
   exit 130
 }
-trap on_interrupt INT TERM
+trap on_interrupt INT TERM HUP
 
 # --- Guards ----------------------------------------------------------------------------------------
 

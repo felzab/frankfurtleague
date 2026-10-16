@@ -136,6 +136,10 @@
       "PowerShell(gh pr merge*)"
     ],
     "allow": [
+      "Bash(pnpm run typecheck)",
+      "Bash(pnpm run lint)",
+      "Bash(pnpm run knip)",
+      "Bash(pnpm run knip:prod)",
       "Bash(git status:*)",
       "Bash(git log:*)",
       "Bash(git diff:*)",

@@ -49,11 +49,17 @@ def _folded_domain(domain: str) -> str:
     return domain.translate(_ASCII_LOWER)
 
 
+def trimmed(address: str) -> str:
+    """`address` as a page's `.trim()` leaves it, so a value judged on both sides starts from one spelling."""
+
+    return address.strip(_TRIMMED)
+
+
 def _league_validated(address: str) -> ValidatedEmail:
     """`allow_smtputf8=False` is the address rule's whole choice: a local part in ASCII, and a Unicode domain converted to punycode."""
 
     try:
-        return validate_email(address.strip(_TRIMMED), allow_smtputf8=False, check_deliverability=False)
+        return validate_email(trimmed(address), allow_smtputf8=False, check_deliverability=False)
     except EmailNotValidError:
         # `from None`, for the reason `app/core/config.py :: get_config` suppresses its own cause:
         # the library's message quotes the value it rejected, and no address reaches a traceback or
@@ -78,10 +84,10 @@ def sign_in_identifier(address: str) -> str:
     nothing fails. It never raises, so an address no rule takes today still folds.
     """
 
-    trimmed = address.strip(_TRIMMED)
-    local, at, domain = trimmed.rpartition("@")
+    bare = trimmed(address)
+    local, at, domain = bare.rpartition("@")
 
-    return f"{local.translate(_ASCII_LOWER)}@{_folded_domain(domain)}" if at else trimmed.translate(_ASCII_LOWER)
+    return f"{local.translate(_ASCII_LOWER)}@{_folded_domain(domain)}" if at else bare.translate(_ASCII_LOWER)
 
 
 def is_stored_identifier(value: Any) -> bool:
@@ -138,10 +144,16 @@ def trimmed_pattern(fragment: str) -> str:
     return f"^{_TRIMMED_CLASS}*{fragment}{_TRIMMED_CLASS}*$"
 
 
-def person_name_key(value: Any) -> str:
-    """NFC and `lower`, never `casefold`: „Weiß“ and „Weiss“ are two families, and a decomposed umlaut is one name typed on another keyboard."""
+def composed_name(value: Any) -> str:
+    """NFC, each run of spaces one space, capitals kept: a decomposed umlaut is one name typed on another keyboard."""
 
-    return " ".join(unicodedata.normalize("NFC", str(value or "")).split()).lower()
+    return " ".join(unicodedata.normalize("NFC", str(value or "")).split())
+
+
+def person_name_key(value: Any) -> str:
+    """`composed_name` and `lower`, never `casefold`: „Weiß“ and „Weiss“ are two families."""
+
+    return composed_name(value).lower()
 
 
 def mailbox_key(address: str) -> str:

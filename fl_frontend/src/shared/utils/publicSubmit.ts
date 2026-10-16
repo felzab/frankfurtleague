@@ -37,7 +37,7 @@ export const UNKLAR_TITEL = "Unklar, ob es bei uns angekommen ist";
  * spent link says so, and a live one takes the answer again.
  */
 export const ANTWORT_UNKLAR =
-  "Öffne den Link aus Deiner E-Mail erneut: Ist Deine Antwort angekommen, steht das dort, sonst kannst Du dort antworten.";
+  "Öffne den Link aus Deiner E-Mail erneut: Ist Deine Antwort angekommen, steht das dort, sonst antwortest Du dort.";
 
 /**
  * Whether this application answered at all. Nothing standing in front of it produces a field error,

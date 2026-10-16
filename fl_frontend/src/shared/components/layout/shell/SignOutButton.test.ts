@@ -13,7 +13,7 @@ import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
 
-import type { FormState } from "@/shared/types/types.ts";
+import type { SignOutResult } from "@/shared/types/types.ts";
 
 doubleToasts();
 
@@ -25,12 +25,12 @@ describe("the bar's sign-out while its write runs", () => {
      to the page in a browser, which this window does not imitate: the attribute is what is read. */
   it("holds the pressed control rather than closing it", async () => {
     const user = userEvent.setup();
-    let settle: (state: FormState) => void = () => undefined;
+    let settle: (state: SignOutResult) => void = () => undefined;
     render(
       underNext(
         h(SignOutButton, {
           onSignOut: () =>
-            new Promise<FormState>((resolve) => {
+            new Promise<SignOutResult>((resolve) => {
               settle = resolve;
             }),
         }),
