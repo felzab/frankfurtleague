@@ -649,6 +649,16 @@
 # carrying a fleet of agent sessions, so an upper bound on a runner's cost. The row carries `-` for
 # its reference, so the case moves no figure and answers to the budget alone.
 #
+# `frontend` gained a check: knip's production run (`scripts/gate/verify.sh :: do_knip_prod`) took
+# 2.91-3.78 s through `pnpm run` over five rounds interleaved with the default run's 3.67-7.58 s and
+# tsc's 6.16-18.72 s, the widest tsc round its first and cold. It is pooled with tsc, eslint, the
+# default run and the audit and ran shorter than tsc in every round, so the job pays it only as
+# contention: tsc, eslint and the default run started together took 6.61-7.16 s with it against
+# 6.28-6.86 s without, six interleaved rounds each over a warm eslint cache. Measured locally on
+# 2026-10-16 on a sixteen-core Windows machine carrying a fleet of agent sessions, so every figure is
+# an upper bound. The row carries `-` for its reference, so the check moves no figure and answers to
+# the budget alone.
+#
 # The total row is the sum of the seconds above it, compared the same way where it carries a floor.
 # Its floor sums each referenced row's draws, so `--stamp` cuts one only where every row holding a
 # reference was re-stamped from the one population it reads, and `--base` refuses a total floor that

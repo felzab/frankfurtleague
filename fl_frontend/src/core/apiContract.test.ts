@@ -28,8 +28,9 @@ const NAME_ALIASES: Record<string, string> = {
 };
 
 /**
- * Components with no Zod mirror. A new backend response model fails the pairing test until it is
- * mirrored or written here, which is why the list is kept by hand.
+ * Components with no Zod mirror, kept by hand: a new backend response model fails the pairing test
+ * until it is mirrored or written here. A mirror no production code reads is deleted and its
+ * component written here.
  */
 const BACKEND_ONLY: Record<string, string> = {
   FLAktionSingleResponse: "GET /{id} is the one read serving a pre-image, for the restore; nothing calls it yet",
@@ -366,7 +367,7 @@ describe("every shape is paired or recorded", () => {
       unpaired,
       [],
       `These backend components have no Zod mirror and no recorded reason:\n  ${unpaired.join("\n  ")}\n` +
-        `Mirror each one, or add it to BACKEND_ONLY in this file with the reason no mirror can exist.`,
+        `Mirror each one the frontend reads, and add any other to BACKEND_ONLY in this file with the reason nothing reads it.`,
     );
   });
 

@@ -146,7 +146,7 @@ export function buildSchiedsrichterBestaetigungEmail({
 export const SCHIEDSRICHTER_ADRESSWECHSEL_PATH = "/bestaetigung/schiedsrichter/adresse";
 
 /** The one place the address link is spelled, its parameter named `token` for `schiedsrichterBestaetigungsLink`'s reason. */
-export function schiedsrichterAdresswechselLink(origin: string, token: string): string {
+function schiedsrichterAdresswechselLink(origin: string, token: string): string {
   return `${origin}${SCHIEDSRICHTER_ADRESSWECHSEL_PATH}?token=${encodeURIComponent(token)}`;
 }
 

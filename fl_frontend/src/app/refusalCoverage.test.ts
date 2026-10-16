@@ -32,7 +32,6 @@ const { MEDIEN_MIN_ALTER, REGISTRIERUNG_MIN_ALTER } = await import("@/features/r
 const saisons = await import("@/features/saisons/refusals.ts");
 const schiedsrichter = await import("@/features/schiedsrichter/refusals.ts");
 const schiedsrichterQueries = await import("@/features/schiedsrichter/queries.ts");
-const { SCHIEDSRICHTER_MIN_ALTER } = await import("@/features/schiedsrichter/constants.ts");
 const sperrliste = await import("@/features/sperrliste/refusals.ts");
 const spiele = await import("@/features/spiele/refusals.ts");
 const spieler = await import("@/features/spieler/refusals.ts");
@@ -101,7 +100,8 @@ const ANSWERED_BY: Readonly<Record<string, Mapper>> = {
   "POST /schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen": schiedsrichter.mapEinladenRefusal,
   "POST /schiedsrichter/bestaetigung": (error) =>
     schiedsrichterQueries.mapSchiedsrichterBestaetigungRefusal(error, async () => ({
-      mindestalter: SCHIEDSRICHTER_MIN_ALTER,
+      // The floor the link's read serves, as the referee page takes it.
+      mindestalter: 16,
       medien_mindestalter: MEDIEN_MIN_ALTER,
     })),
   "POST /schiedsrichter/bestaetigung/ansicht": schiedsrichterQueries.mapSchiedsrichterAnsichtRefusal,

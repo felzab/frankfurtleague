@@ -14,7 +14,7 @@ import {
   VERTRETUNG_MIN_ALTER,
 } from "@/features/bewerbungen/constants.ts";
 import { MEDIEN_MIN_ALTER, REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE, REGISTRIERUNG_MIN_ALTER } from "@/features/registrierungen/constants.ts";
-import { SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE, SCHIEDSRICHTER_MIN_ALTER } from "@/features/schiedsrichter/constants.ts";
+import { SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE } from "@/features/schiedsrichter/constants.ts";
 import { SPERRE_DAUER_HINWEIS, SPERRE_DAUER_SAISONS } from "@/features/sperrliste/constants.ts";
 import { SPIELER_ADRESSWECHSEL_FRIST_TAGE } from "@/features/spieler/constants.ts";
 import { renderMarkup, textOf } from "@/shared/testing/renderTest";
@@ -114,11 +114,10 @@ describe("the privacy notice's account of a birthdate", () => {
     );
   });
 
-  it("is a sentence the three floors it merges still permit", () => {
-    assert.deepEqual(
-      { pfeifen: SCHIEDSRICHTER_MIN_ALTER, kontaktperson: BEWERBUNG_MIN_ALTER },
-      { pfeifen: REGISTRIERUNG_MIN_ALTER, kontaktperson: REGISTRIERUNG_MIN_ALTER },
-    );
+  // The referee's floor has no copy here: `fl_backend/tests/shared/test_frontend_mirrors.py :: MIRRORED_BOUNDS`
+  // holds the served one to this sentence's number.
+  it("is a sentence the contact person's floor still permits", () => {
+    assert.equal(BEWERBUNG_MIN_ALTER, REGISTRIERUNG_MIN_ALTER);
   });
 });
 
