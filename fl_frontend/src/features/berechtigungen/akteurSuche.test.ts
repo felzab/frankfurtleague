@@ -134,6 +134,7 @@ describe("the change log's search, over the actor its rows print", () => {
     db_filter: null,
     modified_count: null,
     redacted_at: null,
+    anlass: null,
     stand_gesichert: true,
   });
   // A row is found by its record's id, which no actor's label can contain.
