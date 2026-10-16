@@ -608,7 +608,11 @@ Every ruling below is the sign-up flow as it stands for the next season.
   (`saison_teams.austritt.grund`), a registration's decision reason
   (`registrierungen.entscheidung.grund`) and a club's description (`teams.description`) are typed
   about others and keyed on no address, so no step reaches them: only a name could find them, and a
-  name search would take a namesake's text with it.
+  name search would take a namesake's text with it. The request an administrator's erasure answers
+  (`aktionen.anlass`) stands on every log row that erasure files, for the log's twelve months
+  (`docs/backend/spec.md :: I683`, `:: I119`), and its box refuses an address and never a name
+  (`fl_backend/app/api/identitaet/schemas.py :: refuse_an_address_in_the_anlass`), so a mail subject
+  carrying the sender's name outlives the erasure it answers.
 - **A retired row is never removed because of its age.** A player who left a squad, a referee who
   stopped, a club that left and a past season all keep their rows; a person's row goes only by an
   erasure or by one of the two one-off removals [section 3](#3-the-current-pupil-records-are-reset-once)
