@@ -18,7 +18,8 @@ covers the shell alone (defence in depth — verify each still exists rather tha
 tiered internal API keys used by
 `src/core/api.ts`. Ratified postures to check conformance against, not to re-litigate — each is a
 `.claude/rules/cross-surface.md` clause: the single enforced CSP with `react/no-danger` as compensating control,
-the kept system tier, and the absence of a reference-data invalidation endpoint.
+the kept system tier, and the one reference-data invalidation endpoint, on the system key and the base tags
+alone, refused at the edge.
 
 THE CHECKS, in priority order:
 
