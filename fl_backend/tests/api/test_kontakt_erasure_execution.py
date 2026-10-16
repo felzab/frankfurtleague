@@ -1020,9 +1020,16 @@ def test_the_server_reads_each_pre_filter_as_python_does_and_misses_nothing_the_
         python = {value for value in SERVER_CORPUS if re.search(pattern["$regex"], value, re.IGNORECASE if pattern["$options"] == "i" else 0)}
         server = {value for value, row_id in row_ids.items() if row_id in read[identifier]}
         claimed = {value for value in SERVER_CORPUS if sign_in_identifier(value) == sign_in_identifier(identifier)}
+        # With no `@` the fold equates the value whole, so the read is the claim exactly: an end left open reads a near miss.
+        whole = "@" not in sign_in_identifier(identifier)
         # The last, a whole-collection read for an identifier naming anything, is a pre-filter that takes nothing out.
-        if server != python or claimed - server or (identifier.strip() and server == set(SERVER_CORPUS)):
-            parted[identifier] = {"server alone": server - python, "python alone": python - server, "claimed and missed": claimed - server}
+        if server != python or claimed - server or (whole and server != claimed) or (identifier.strip() and server == set(SERVER_CORPUS)):
+            parted[identifier] = {
+                "server alone": server - python,
+                "python alone": python - server,
+                "claimed and missed": claimed - server,
+                "read and unclaimed": server - claimed if whole else set(),
+            }
 
     assert parted == {}
 
