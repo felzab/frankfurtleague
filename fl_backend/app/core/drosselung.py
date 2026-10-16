@@ -11,7 +11,7 @@ Invariants:
 """
 
 import math
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Awaitable, Callable, Iterable, Mapping
 from datetime import datetime, time, timedelta
 from typing import Annotated, Final
 
@@ -131,13 +131,15 @@ async def erase_counts_in_session(
     # REQUIRED: removed outside the erasure's transaction, the counts go even where the erasure rolls
     # back, handing a person who still stands a fresh day.
     session: AsyncClientSession,
+    # A scope taking one kind of person names it: the counts of a kind whose record stands are that record's.
+    funktionen: Iterable[AktorFunktion] = TAGESBUDGETS,
 ) -> int:
-    """Remove every count this person holds, of each kind of person and every day, answering how many."""
+    """Remove every count this person holds of `funktionen`, every kind unless named, every day of each, answering how many."""
 
     # By the key's prefix rather than today's and yesterday's keys: a day the TTL monitor has not yet
     # reached is still the person's pseudonym, however late the monitor runs.
     erased = await drosselung_collection.delete_many(
-        {"$or": [{"_id": {"$regex": f"^{literal_pattern(_count_prefix(funktion, pseudonym))}"}} for funktion in TAGESBUDGETS]},
+        {"$or": [{"_id": {"$regex": f"^{literal_pattern(_count_prefix(funktion, pseudonym))}"}} for funktion in funktionen]},
         session=session,
     )
 

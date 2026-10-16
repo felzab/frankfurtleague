@@ -810,8 +810,8 @@ erasure could not delete goes when the address is erased again
 ([`../frontend/spec.md`](../frontend/spec.md#2-invariants) I685).
 
 **The page refuses three kinds of address, and says so before anyone confirms**: the
-administrator's own, which goes through their account page or another administrator; an owner's to
-an administrator who is not one; and any under the reserved `.invalid` domain, which every referee
+administrator's own, which goes through their account page or an owner; any holding a grant, to an
+administrator who is not an owner; and any under the reserved `.invalid` domain, which every referee
 row stored without an address shares, so that an erasure of it would reach them all at once
 (`fl_backend/app/api/identitaet/schemas.py :: refuse_the_reserved_domain`). Which route answers the
 person behind such a row is the address route all the same

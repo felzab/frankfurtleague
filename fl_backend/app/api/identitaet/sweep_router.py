@@ -48,7 +48,7 @@ router = APIRouter(
     dependencies=[Depends(verify_access_system), Depends(bind_system_actor)],
 )
 
-# Nineteen commands a pupil, each costing the round trip plus at most 2.03 ms (whole calls timed
+# Twenty-one commands a pupil, each costing the round trip plus at most 2.03 ms (whole calls timed
 # locally, 2026-10-16): this share keeps a call inside `app/core/middlewares.py :: REQUEST_DEADLINE_S`
 # up to a 37 ms round trip (`docs/backend/spec.md :: I322`).
 LOESCHUNGEN_PER_PASS: Final = 10
@@ -156,7 +156,8 @@ async def post_loeschung_lauf(
     writes waits for it to end: the entry then finds nobody, and the registration is stored for a pupil already gone.
     Two calls at once therefore delete each pupil once. Deleted are
     the pupil's own data alone: the pupil record, every squad row it holds and every registration at the address, a declined
-    one included, each with its log images. A contact seat, a referee record, a grant and anything else held at the same
+    one included, each with its log images, and their day counts as a pupil; every log row they wrote as a pupil keeps a
+    fixed marker in their place. A contact seat, a referee record, a grant and anything else held at the same
     address stand, and so do the log images naming them.
 
     **A pass is a run of calls, each handing the next the `nach` the last answered**, the first naming none; it ends at the call

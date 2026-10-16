@@ -111,7 +111,7 @@ const ANSWERED_BY: Readonly<Record<string, Mapper>> = {
   // The last owner's refusal is the slice's; the unique index's, which no request reaches without a hand
   // edit racing it, the shared reader's.
   "POST /identitaet/selbst/erasure": kontoLoeschung.mapLoeschungRefusal,
-  // The operator's own address and an owner's are the slice's; the unique index's is the shared reader's.
+  // The operator's own address and a grant holder's are the slice's; the unique index's is the shared reader's.
   "POST /identitaet/erasure/ansicht": funktionen.mapErasureRefusal,
   "POST /identitaet/erasure": funktionen.mapErasureRefusal,
   "POST /identitaet/abmeldung": funktionen.mapAbmeldungRefusal,

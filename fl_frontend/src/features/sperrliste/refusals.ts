@@ -52,8 +52,9 @@ export function mapAdresseRefusal(error: unknown): { error?: string; fieldErrors
 }
 
 /**
- * The list read's two refusals, `null` for the rest. Each refuses an address holding a grant, the administrator's own
- * (`REQ-PURGE-003`) or an owner's (`REQ-PURGE-005`), which the ban would refuse too: answered in the ban's words.
+ * The list read's two refusals, `null` for the rest. Each refuses a grant holder's address, the administrator's own
+ * (`REQ-PURGE-003`) or, to one holding no owner's power, any other (`REQ-PURGE-005`), which the ban would refuse too:
+ * answered in the ban's words.
  */
 export function mapAnsichtRefusal(error: unknown): { fieldErrors: FieldErrors } | null {
   if (!isRefusal(error)) return null;

@@ -312,6 +312,7 @@ class TestWhatCountsAsAnOwnRecord:
             pytest.param(PFEIFE_OFFEN, id="an unconfirmed referee"),
             pytest.param(SPIELER_EHEMALIG_OFFEN, id="an unconfirmed retired pupil"),
             pytest.param(PFEIFE_RUHESTAND_OFFEN, id="an unconfirmed retired referee"),
+            pytest.param(PFEIFE_AKTIV.replace("@schule.de", "@anderswo.de"), id="a confirmed referee's local part at another domain"),
             pytest.param(SITZ_AUSGETRETEN_OFFEN, id="an unconfirmed seat on a withdrawn team's row"),
             pytest.param(GEIST, id="the placeholder referee"),
             pytest.param(REGISTRIERT_ABGELEHNT, id="a declined registration"),

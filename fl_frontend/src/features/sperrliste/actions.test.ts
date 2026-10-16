@@ -432,7 +432,8 @@ describe("what the address holds, read before the ban (`docs/frontend/spec.md ::
     );
   });
 
-  /* Each refuses an administrator's address, the reader's own or an owner's, which the ban refuses too. */
+  /* Each refuses an administrator's address, the reader's own or, to a reader holding no owner's power, any other, which
+     the ban refuses too. */
   it("answers every refusal the read publishes through the list's own mapper", async () => {
     await assertEachAnswered({
       operation: ANSICHT_OPERATION,

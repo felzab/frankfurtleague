@@ -90,6 +90,8 @@ YOUNG_OID = ObjectId("6890a1b2c3d4e5f607850012")
 RETIRED_OID = ObjectId("6890a1b2c3d4e5f607850013")
 UNCONFIRMED_OID = ObjectId("6890a1b2c3d4e5f607850014")
 BYSTANDER_OID = ObjectId("6890a1b2c3d4e5f607850019")
+ELSEWHERE = IDENTIFIER.replace("@schule.de", "@anderswo.de")
+ELSEWHERE_OID = ObjectId("6890a1b2c3d4e5f60785001a")
 
 CONFIRMATION_LABEL = "2026-09-schiedsrichterseite-3"
 
@@ -213,6 +215,9 @@ async def _seed(database: AsyncDatabase) -> None:
             _referee(RETIRED_OID, RETIRED, "Rudolf Ruhestand", inactive_since="2026-07-01", einwilligung=_einwilligung(medien=True)),
             _referee(UNCONFIRMED_OID, UNCONFIRMED, "Ottilie Wartezeit", geburtsdatum=None, einwilligung=None),
             _referee(BYSTANDER_OID, BYSTANDER, "Baldur Krautzberger"),
+            # Confirmed, at the asked address's local part: every read narrowed by that local part reaches it, and the fold
+            # after the read alone keeps it from the asker's page, list and press.
+            _referee(ELSEWHERE_OID, ELSEWHERE, "Ortrud Anderswo"),
             # The ghost carries the asked address too, so a read reaching it would serve a row nobody stands behind.
             _referee(GHOST_SCHIEDSRICHTER_ID, IDENTIFIER, "Niemand", inactive_since="2000-01-01"),
         ]
@@ -374,8 +379,8 @@ class TestTheTwoChoices:
 class TestARecordNotHeld:
     @pytest.mark.parametrize(
         ("email", "schiedsrichter_id"),
-        [(IDENTIFIER, BYSTANDER_OID), (IDENTIFIER, GHOST_SCHIEDSRICHTER_ID), (UNCONFIRMED, UNCONFIRMED_OID)],
-        ids=["another-persons-row", "the-ghost", "unconfirmed"],
+        [(IDENTIFIER, BYSTANDER_OID), (IDENTIFIER, ELSEWHERE_OID), (IDENTIFIER, GHOST_SCHIEDSRICHTER_ID), (UNCONFIRMED, UNCONFIRMED_OID)],
+        ids=["another-persons-row", "another-mailbox-at-the-local-part", "the-ghost", "unconfirmed"],
     )
     def test_a_row_that_is_not_the_addresss_own_is_refused_and_unwritten(
         self, mongo_replica_set_url: str, email: str, schiedsrichter_id: ObjectId

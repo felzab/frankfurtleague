@@ -2383,11 +2383,11 @@ RULES: tuple[Rule, ...] = (
         operation="POST /identitaet/erasure/ansicht · POST /identitaet/erasure · POST /identitaet/abmeldung",
         aggregate="Berechtigung",
         summary=(
-            "an address holding a live `owner` grant is acted on by an administrator's route only for an actor holding an"
-            " owner's power, judged on the grants that route reads"
+            "an address holding a live grant is revealed or erased, and one holding an `owner` grant signed out, only by an"
+            " actor holding an owner's power, judged on the grants the route reads"
         ),
-        implemented_by="app.api.identitaet.services.find_inhaber_adresse_refusal",
-        tested_by="tests/api/test_erasure_auf_anfrage.py::TestAnOwnersAddress",
+        implemented_by="app.api.identitaet.services.find_verwaltung_adresse_refusal",
+        tested_by="tests/api/test_erasure_auf_anfrage.py::TestAGrantHoldersAddress",
     ),
     Rule(
         code="REQ-PURGE-004",
