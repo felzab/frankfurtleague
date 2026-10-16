@@ -289,7 +289,9 @@ const EINTRAG_WEG = buildRefusal({ reason: "Diesen Eintrag gibt es nicht mehr", 
  * The address is read BEFORE the mint, which replaces the whole block: a read failing afterwards
  * would leave the referee with no working link and no message.
  */
-export async function einladeSchiedsrichterAction(rawPayload: FLSchiedsrichterEinladenPayload): Promise<ActionResult<object>> {
+export async function einladeSchiedsrichterAction(
+  rawPayload: FLSchiedsrichterEinladenPayload,
+): Promise<ActionResult<{ versandFehlgeschlagen?: boolean }>> {
   return runAdminMutation("einladeSchiedsrichterAction", { stepUp: true }, async () => {
     const validated = FLSchiedsrichterEinladenPayloadSchema.safeParse(rawPayload);
 
@@ -343,12 +345,15 @@ export async function einladeSchiedsrichterAction(rawPayload: FLSchiedsrichterEi
       // Said whichever way the send went: the previous link is dead either way, which is the fact an
       // administrator has to act on when the message did not leave.
       message: `${describeLinkMail(mint.email, versand)} Der vorherige Link gilt nicht mehr.`,
+      versandFehlgeschlagen: versand === "fehlgeschlagen",
     };
   });
 }
 
 /** A fresh link to the pending address, mailed with a fresh notice to the stored one: the earlier link is dead either way. */
-export async function einladeAdresswechselAction(rawPayload: FLSchiedsrichterAdresswechselEinladenPayload): Promise<ActionResult<object>> {
+export async function einladeAdresswechselAction(
+  rawPayload: FLSchiedsrichterAdresswechselEinladenPayload,
+): Promise<ActionResult<{ versandFehlgeschlagen?: boolean }>> {
   return runAdminMutation("einladeAdresswechselAction", { stepUp: true }, async () => {
     const validated = FLSchiedsrichterAdresswechselEinladenPayloadSchema.safeParse(rawPayload);
 
@@ -385,7 +390,11 @@ export async function einladeAdresswechselAction(rawPayload: FLSchiedsrichterAdr
       anlass: "erneut",
     });
 
-    return { success: true, message: `${describeAdresswechselMail(wechsel.email, versand)} Der vorherige Link gilt nicht mehr.` };
+    return {
+      success: true,
+      message: `${describeAdresswechselMail(wechsel.email, versand)} Der vorherige Link gilt nicht mehr.`,
+      versandFehlgeschlagen: versand.link === "fehlgeschlagen",
+    };
   });
 }
 

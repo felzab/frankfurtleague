@@ -3,6 +3,7 @@ import "server-only";
 import { buildBerechtigungEmail } from "@/core/berechtigungEmail";
 import { BERECHTIGUNG_HINWEIS, BERECHTIGUNG_TAG } from "@/core/berechtigungTag";
 import { frontend_config } from "@/core/config";
+import { requestOf } from "@/core/errors";
 import { logger } from "@/core/logging";
 import { MailRecipientError, sendMail } from "@/core/mail";
 import { mailIdempotencyKey } from "@/core/mailIdempotencyKey";
@@ -189,7 +190,7 @@ function urheber(aenderung: FLBerechtigungAenderung): Urheber {
   return { von: aenderung.geaendert_von_gesperrt ? null : aenderung.geaendert_von, am: aenderung.geaendert_am };
 }
 
-/** Which half stopped and the error's name, never a person. */
+/** Which half stopped, the error's name and what the call says of its request, never a person. */
 function logAbgleichFailure(event: "berechtigung.abgleich_failed" | "berechtigung.stempel_failed", error: unknown): void {
-  logger.error(event, undefined, { error_code: "FE-SWEEP-002", name: error instanceof Error ? error.name : undefined });
+  logger.error(event, undefined, { error_code: "FE-SWEEP-002", name: error instanceof Error ? error.name : undefined, ...requestOf(error) });
 }

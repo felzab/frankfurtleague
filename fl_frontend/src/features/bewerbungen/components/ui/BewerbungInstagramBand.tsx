@@ -1,7 +1,6 @@
-import Link from "next/link";
-
 import { INSTAGRAM_HANDLE, INSTAGRAM_URL } from "@/core/brand";
 import { band } from "@/features/bewerbungen/components/ui/band";
+import { NewTabLink } from "@/shared/components/ui/NewTabLink";
 import { textLink } from "@/shared/components/ui/textLink";
 
 /**
@@ -34,14 +33,11 @@ export function BewerbungInstagramBand() {
           warum ihr in die Liga wollt, und markiert{" "}
           {/* The strip's one accent, and its only tap target: a strip that is itself a link takes a
               half-filled form off the screen on a stray press. */}
-          <Link
+          <NewTabLink
             href={INSTAGRAM_URL}
-            prefetch={false}
-            target="_blank"
-            rel="noopener noreferrer"
             className={textLink()}>
             {INSTAGRAM_HANDLE}
-          </Link>
+          </NewTabLink>
           .
         </p>
       </div>

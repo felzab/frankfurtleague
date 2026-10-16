@@ -237,3 +237,6 @@ export function kaderAustragenHinweis(saisonId: string): string {
  * the day the endpoint refuses on.
  */
 export const SPIELER_ADRESSWECHSEL_FRIST_TAGE = 14;
+
+/** The address box's press, which the refusal of a taken address names: one spelling, so a reworded press takes the sentence with it. */
+export const ADRESSE_AENDERN = "Adresse ändern";

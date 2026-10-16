@@ -153,12 +153,14 @@ export const SCHULE_NICHT_IN_LISTE = "neue-schule";
 /** What that option reads as, in the trigger as well as in the list — one string, so the two agree. */
 export const SCHULE_NICHT_IN_LISTE_LABEL = "Meine Schule steht nicht in der Liste";
 
+/** The confirmation strip's correction press, which two refusals send the administrator to by its label: one spelling for all three. */
+export const ADRESSE_KORRIGIEREN = "Adresse korrigieren";
+
 /**
  * A re-send's answer for a seat holding no address, whether the action refuses the press or the strip closes the
  * control first: one sentence, naming the correction that stands beside the control on the strip.
  */
-export const ERNEUT_OHNE_ADRESSE =
-  "Zu dieser Rolle steht keine E-Mail-Adresse in der Bewerbung. Trage zuerst eine über „Adresse korrigieren“ ein.";
+export const ERNEUT_OHNE_ADRESSE = `Zu dieser Rolle steht keine E-Mail-Adresse in der Bewerbung. Trage zuerst eine über „${ADRESSE_KORRIGIEREN}“ ein.`;
 
 /**
  * `KONTAKT_ROLLEN` under its long wording, never a second table: two lists of one set drift, and the

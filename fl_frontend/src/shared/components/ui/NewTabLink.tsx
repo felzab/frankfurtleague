@@ -8,9 +8,15 @@ export const NEW_TAB_ATTRIBUTES = { target: "_blank", rel: "noopener noreferrer"
 /** Said after the link's own words, so a screen reader learns the page stays where it is. */
 export const IN_NEUEM_TAB = "(öffnet in einem neuen Tab)";
 
+/** The announcement inside a control that opens a tab and is named by its words rather than by an `aria-label`. */
+export function InNeuemTab() {
+  return <span className="sr-only"> {IN_NEUEM_TAB}</span>;
+}
+
 /**
- * A link opening its page in a tab of its own, for a page that must outlive the press: a dialog's list of
- * what is left to do is lost the moment its own tab navigates away.
+ * Every link leaving for a tab of its own, so none leaves without telling a screen reader. A control
+ * named by an `aria-label`, or closed while it has nowhere to go, spreads `NEW_TAB_ATTRIBUTES` and says
+ * `IN_NEUEM_TAB` in that name instead.
  */
 export function NewTabLink({ href, className, children }: { href: string; className: string; children: ReactNode }) {
   return (
@@ -20,7 +26,7 @@ export function NewTabLink({ href, className, children }: { href: string; classN
       className={className}
       {...NEW_TAB_ATTRIBUTES}>
       {children}
-      <span className="sr-only"> {IN_NEUEM_TAB}</span>
+      <InNeuemTab />
     </Link>
   );
 }

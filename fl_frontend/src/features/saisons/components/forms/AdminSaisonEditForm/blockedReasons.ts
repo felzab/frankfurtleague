@@ -1,4 +1,10 @@
-import { GRUPPEN_OFF_RULES, RECORDED_FACTS_ANY, SPIELTAGE_UNDATED } from "@/features/saisons/constants";
+import {
+  GRUPPEN_OFF_RULES,
+  RECORDED_FACTS_ANY,
+  SPIELPLAN_NEU_ANLEGEN,
+  SPIELPLAN_ZURUECKNEHMEN,
+  SPIELTAGE_UNDATED,
+} from "@/features/saisons/constants";
 import { drawGruppenRefusal, drawnSpieltage, drawShapeRefusal, fitsAnOfferedShape } from "@/features/saisons/shapeOffer";
 
 import type { FLSaisonStatus, FLSpielplanShape } from "@/features/saisons/schemas";
@@ -171,7 +177,7 @@ export function spielplanPress({
   // Said on the control alone rather than in the panel's body, where a pick or a step would take it away under
   // the reader's hands (`docs/frontend/spec.md` §1.14).
   const closedReason = isUnchosen
-    ? "Wähle „Neu anlegen“ oder „Zurücknehmen“."
+    ? `Wähle „${SPIELPLAN_NEU_ANLEGEN}“ oder „${SPIELPLAN_ZURUECKNEHMEN}“.`
     : (standingReason ??
       (isReplacing
         ? spielplanShapeBlockedReason({ shape, occupancy: input.gruppen.occupancy, startDate: input.startDate, endDate: input.endDate })

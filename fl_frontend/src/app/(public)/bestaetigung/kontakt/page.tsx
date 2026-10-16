@@ -3,7 +3,7 @@ import { connection } from "next/server";
 
 import { getGenannteFassung } from "@/core/einwilligung";
 import { gekeyteFassung, KONTAKT_ABSATZ_SCHLUESSEL, KONTAKT_BEDIEN_SCHLUESSEL } from "@/core/einwilligungSeiten";
-import { nullUnlessContractBreak } from "@/core/errors";
+import { isContractBreak, nullUnlessContractBreak } from "@/core/errors";
 import { BestaetigungView } from "@/features/bewerbungen/components/views/BestaetigungView";
 import { getEinwilligungAnsicht } from "@/features/bewerbungen/queries";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
@@ -43,9 +43,11 @@ async function BestaetigungContent(props: NextPageProps) {
   await connection();
   const { token } = await props.searchParams;
 
-  // A missing or repeated parameter is no link at all and reads as the dead link. Caught, so a
-  // failed read is its own state: the dead-link panel there would call a live link void.
+  // A missing or repeated parameter is no link at all and reads as the dead link.
   if (typeof token !== "string" || token === "") return <BestaetigungView start={{ zustand: "ungueltig" }} />;
+
+  // A failed read is its own state, the dead-link panel calling a live link void. A broken contract is
+  // no failed read: it reaches the error boundary, which logs it.
 
   const start: BestaetigungStart = await getEinwilligungAnsicht(token).then(
     async (gelesen): Promise<BestaetigungStart> => {
@@ -64,7 +66,10 @@ async function BestaetigungContent(props: NextPageProps) {
       const worte = gekeyteFassung(fassung, KONTAKT_ABSATZ_SCHLUESSEL, KONTAKT_BEDIEN_SCHLUESSEL);
       return { zustand: "gueltig", ansicht: gelesen.ansicht, token: token, fassung: worte };
     },
-    () => ({ zustand: "unlesbar" }),
+    (error: unknown): BestaetigungStart => {
+      if (isContractBreak(error)) throw error;
+      return { zustand: "unlesbar" };
+    },
   );
 
   return <BestaetigungView start={start} />;

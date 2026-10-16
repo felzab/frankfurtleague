@@ -12,6 +12,7 @@ import { Label } from "@heroui/react/label";
 
 import { asSignInIdentifier } from "@/core/emailAddress";
 import { beantrageSpielerAdresswechselAction } from "@/features/spieler/actions";
+import { ADRESSE_AENDERN } from "@/features/spieler/constants";
 import { FLSpielerAdresswechselPayloadSchema } from "@/features/spieler/schemas";
 import { Angabe, Leer } from "@/shared/components/ui/Angabe";
 import { FocusSlot } from "@/shared/components/ui/FocusSlot";
@@ -31,7 +32,6 @@ import { focusAfterWrite } from "@/shared/utils/focusAfterWrite";
 import { pressLinkWrite } from "@/shared/utils/linkWrite";
 import { toFieldErrors } from "@/shared/utils/validation";
 
-const ADRESSE_AENDERN = "Adresse ändern";
 const LINK_AN_NEUE_ADRESSE = "Link an neue Adresse senden";
 
 /** A refusal and the value it was about: a keystroke away from that value retracts it, and nothing else does. */

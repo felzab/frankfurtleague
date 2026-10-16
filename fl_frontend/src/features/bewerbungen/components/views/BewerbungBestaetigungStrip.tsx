@@ -18,7 +18,7 @@ import { Label } from "@heroui/react/label";
 import { besetzeKontaktSitzAction, einwilligungErneutSendenAction, kontaktEmailKorrigierenAction } from "@/features/bewerbungen/actions";
 import { adressenAndererPersonen, istOffen, linkAngebot, loeschungsSatz, sitzAngebot } from "@/features/bewerbungen/bestaetigungStand";
 import { FESTE_WERTE } from "@/features/bewerbungen/components/ui/Gefuellt";
-import { ERNEUT_OHNE_ADRESSE } from "@/features/bewerbungen/constants";
+import { ADRESSE_KORRIGIEREN, ERNEUT_OHNE_ADRESSE } from "@/features/bewerbungen/constants";
 import {
   FLBewerbungKontaktEmailPayloadSchema,
   FLBewerbungKontaktSitzPayloadSchema,
@@ -322,11 +322,11 @@ function SitzZeile({
             control on this site stands where the value it edits is. */}
         {hatAngebot && bearbeitet === null && (
           <FocusSlot name="korrektur">
-            <IconTooltip label="Adresse korrigieren">
+            <IconTooltip label={ADRESSE_KORRIGIEREN}>
               <Button
                 type="button"
                 isPending={sendet}
-                aria-label={benannt("Adresse korrigieren", sitz.nameSatz)}
+                aria-label={benannt(ADRESSE_KORRIGIEREN, sitz.nameSatz)}
                 onPress={() => {
                   onOeffne("korrektur");
                 }}

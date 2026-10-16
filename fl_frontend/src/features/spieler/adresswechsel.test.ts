@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
+import { NICHT_MEINE_ADRESSE } from "@/core/adresswechselAntworten.ts";
 import { assertRedactedAtTheEdge } from "@/core/edgeRedaction.ts";
 import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
@@ -102,6 +103,7 @@ describe("the request for a pupil's new address", () => {
 
     const link = linkMail();
     for (const teil of [link?.text ?? "", link?.html ?? ""]) {
+      assert.ok(teil.includes(`„${NICHT_MEINE_ADRESSE}“`), "a part names a decline the address page does not offer");
       assert.ok(teil.includes("Tust Du nichts, löschen wir sie am Tag nach Ablauf des Links."), "a part says nothing of the removal");
       assert.doesNotMatch(teil, /schon abgelaufen/, "a part promises the decline after the lapse");
     }

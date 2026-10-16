@@ -1,5 +1,6 @@
 import "server-only";
 
+import { NICHT_MEINE_ADRESSE } from "./adresswechselAntworten";
 import { KONTAKT_EMAIL } from "./brand";
 import {
   ANTWORT_SATZ_HTML,
@@ -53,8 +54,7 @@ const ADRESSE_UEBERSCHRIFT = "Neue E-Mail-Adresse bestätigen";
 
 // For the holder of a mailbox an administrator mistyped. No promise of a decline after the lapse: the
 // day after it, the lapse removes the change, its link and the decline with it.
-const adresseIgnorierSatz =
-  "Ist das nicht Deine Adresse? Dann wähle auf der Seite „Das ist nicht meine Adresse“. Wir entfernen sie dann sofort. Tust Du nichts, löschen wir sie am Tag nach Ablauf des Links.";
+const adresseIgnorierSatz = `Ist das nicht Deine Adresse? Dann wähle auf der Seite „${NICHT_MEINE_ADRESSE}“. Wir entfernen sie dann sofort. Tust Du nichts, löschen wir sie am Tag nach Ablauf des Links.`;
 
 /**
  * The link to a pupil's new address, the referee's twin

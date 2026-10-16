@@ -56,6 +56,7 @@ const { AdresseGesperrt, LinkUnlesbar } = await import("@/features/bewerbungen/c
 const { NUMMER_MAX_LENGTH, STUFE_OPTIONS } = await import("@/features/spieler/constants.ts");
 
 const { default: SpielerBestaetigungPage } = await import("@/app/(public)/bestaetigung/spieler/page.tsx");
+const { default: RegistrierungPage } = await import("@/app/(public)/registrierung/page.tsx");
 
 /**
  * The team the invite opens, and a SECOND team of the same season that it does not.
@@ -309,6 +310,32 @@ describe("the state the registration page renders", () => {
       "the banner gives the season's start as the reason, or drops what the marker leaves unchanged",
     );
     assert.doesNotMatch(textOf(seite("gueltig"), " "), /nachnominiert/, "an ordinary registration is called a Nachnominierung");
+  });
+});
+
+describe("the registration page over an invite read that did not answer", () => {
+  /** What the page opens its view on, the invite's read answered as the case sets it. */
+  const registrierungStart = async (): Promise<unknown> =>
+    (
+      (await pageBody(RegistrierungPage, {
+        params: Promise.resolve({}),
+        searchParams: Promise.resolve({ token: "kein-echtes-token" }),
+      })) as ReactElement<{ start: unknown }>
+    ).props.start;
+
+  it("opens on its own state where the read failed, rather than calling a live invite void", async () => {
+    answerReadsWith(() => {
+      throw new TypeError("fetch failed");
+    });
+
+    assert.deepEqual(await registrierungStart(), { zustand: "unlesbar" });
+  });
+
+  /* An answer off its schema is a broken contract, never a failed read: the error boundary logs it, and the reload panel would hide it. */
+  it("lets a read off its contract reach the error boundary", async () => {
+    answerReadsWith(() => ({ acknowledged: 1 }));
+
+    await assert.rejects(registrierungStart(), { name: "APIMalformedDataError" });
   });
 });
 
@@ -656,20 +683,33 @@ describe("which of the confirmation page's words its stamped version covers", ()
     await assert.rejects(handedFassung({ seiten: { acknowledged: 1 } }), { name: "APIMalformedDataError" }, "an answer off its schema");
   });
 
-  /* The published floor is a positive whole number: the read refuses a view serving 0, which would offer
-     the media switch to every age, so no form opens on it. */
-  it("opens no form on a view serving a media floor of 0", async () => {
+  /* The read refuses a view serving a media floor of 0, which would offer the media switch to every age:
+     a broken contract, which the error boundary logs and the reload panel would hide. */
+  it("lets a view serving a media floor of 0 reach the error boundary", async () => {
     answerReadsWith((endpoint, schema, params) =>
       endpoint === "/registrierungen/bestaetigung/ansicht"
         ? { ...GEOEFFNET, medien_mindestalter: 0 }
         : (einwilligungAnswer(endpoint) ?? EMPTIEST_ANSWER(endpoint, schema, params)),
     );
+
+    await assert.rejects(
+      pageBody(SpielerBestaetigungPage, { params: Promise.resolve({}), searchParams: Promise.resolve({ token: "kein-echtes-token" }) }),
+      { name: "APIMalformedDataError" },
+      "the page took a media floor of 0",
+    );
+  });
+
+  it("opens a link on the failed read's panel where the link's own read fails", async () => {
+    answerReadsWith((endpoint, schema, params) => {
+      if (endpoint === "/registrierungen/bestaetigung/ansicht") throw new TypeError("fetch failed");
+      return einwilligungAnswer(endpoint) ?? EMPTIEST_ANSWER(endpoint, schema, params);
+    });
     const body = (await pageBody(SpielerBestaetigungPage, {
       params: Promise.resolve({}),
       searchParams: Promise.resolve({ token: "kein-echtes-token" }),
     })) as ReactElement<{ start: unknown }>;
 
-    assert.deepEqual(body.props.start, { zustand: "unlesbar" }, "the page took a media floor of 0");
+    assert.deepEqual(body.props.start, { zustand: "unlesbar" });
   });
 
   /* The read failing is a state of its own, which a reload may clear. */

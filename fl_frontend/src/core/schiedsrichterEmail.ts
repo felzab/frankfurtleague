@@ -1,5 +1,6 @@
 import "server-only";
 
+import { NICHT_MEINE_ADRESSE } from "./adresswechselAntworten";
 import { KONTAKT_EMAIL } from "./brand";
 import {
   ANTWORT_SATZ_HTML,
@@ -164,8 +165,7 @@ export interface SchiedsrichterAdresswechselData {
 
 // For the holder of a mailbox an administrator mistyped. No „ignoriere“: ignoring leaves the address
 // stored until the hourly pass removes it, the day after the link lapses.
-const adresseIgnorierSatz =
-  "Ist das nicht Deine Adresse? Dann wähle auf der Seite „Das ist nicht meine Adresse“. Wir entfernen sie dann sofort. Tust Du nichts, löschen wir sie am Tag nach Ablauf des Links.";
+const adresseIgnorierSatz = `Ist das nicht Deine Adresse? Dann wähle auf der Seite „${NICHT_MEINE_ADRESSE}“. Wir entfernen sie dann sofort. Tust Du nichts, löschen wir sie am Tag nach Ablauf des Links.`;
 
 /**
  * The link to a confirmed referee's new address. It asks nothing but whether the mailbox is theirs:

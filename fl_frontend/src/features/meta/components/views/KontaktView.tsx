@@ -8,6 +8,7 @@ import { card } from "@/shared/components/ui/card";
 import { CardGrid } from "@/shared/components/ui/CardGrid";
 import { ctaButton } from "@/shared/components/ui/formButtons";
 import { CARDS_CASCADE_CLASSES, PAGE_RISE_CLASSES } from "@/shared/components/ui/motion";
+import { NewTabLink } from "@/shared/components/ui/NewTabLink";
 
 import { KONTAKT_CHANNELS } from "../../constants";
 import { MetaSection } from "../ui/MetaSection";
@@ -20,6 +21,8 @@ import type { KontaktChannelId } from "../../types";
 const COLUMNS_CLASSES = "@min-[34.5rem]:grid-cols-2 @min-[52.5rem]:grid-cols-3";
 
 const MASK_CLASSES = "inline-block size-6 bg-brand-solid-foreground mask-contain mask-center mask-no-repeat";
+
+const CTA_CLASSES = `${ctaButton({ intent: "outline", size: "sm", hover: "css" })} w-full`;
 
 // A record rather than a chain: `KontaktChannelId` is a closed set, so a fourth channel fails to
 // compile here rather than rendering an empty tile nothing reports.
@@ -87,13 +90,20 @@ export function KontaktView({ bewerbungSlot }: { bewerbungSlot?: ReactNode }) {
                 <span className="fluid-sm font-semibold break-words text-foreground">{channel.value}</span>
               </div>
 
-              <Link
-                href={channel.action}
-                // Never onto the `mailto:`: the mail client opens and an empty tab stays behind it.
-                {...(channel.action.startsWith("mailto:") ? {} : { target: "_blank", rel: "noopener noreferrer" })}
-                className={`${ctaButton({ intent: "outline", size: "sm", hover: "css" })} w-full`}>
-                {channel.cta}
-              </Link>
+              {/* Never a new tab onto the `mailto:`: the mail client opens and an empty tab stays behind it. */}
+              {channel.action.startsWith("mailto:") ? (
+                <Link
+                  href={channel.action}
+                  className={CTA_CLASSES}>
+                  {channel.cta}
+                </Link>
+              ) : (
+                <NewTabLink
+                  href={channel.action}
+                  className={CTA_CLASSES}>
+                  {channel.cta}
+                </NewTabLink>
+              )}
             </div>
           ))}
         </CardGrid>

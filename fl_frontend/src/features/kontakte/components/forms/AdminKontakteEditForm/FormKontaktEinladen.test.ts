@@ -57,4 +57,20 @@ describe("the contact seat's link control", () => {
       ),
     );
   });
+
+  /* The seat's earlier link is dead either way, so a link that did not leave is a warning, as the editor's save grades it. */
+  it("grades a send whose link did not leave a warning", async () => {
+    answerWith(() => Promise.resolve({ success: true, message: "Nicht zugestellt.", versandFehlgeschlagen: true }));
+    render(control());
+
+    await userEvent.setup().click(screen.getByRole("button", { name: "Bestätigungslink senden: Ansprechperson" }));
+    await act(answered);
+
+    await waitFor(() =>
+      assert.deepEqual(
+        toasts.map((raised) => [raised.variant, raised.title]),
+        [["warning", "Bestätigungslink nicht gesendet"]],
+      ),
+    );
+  });
 });

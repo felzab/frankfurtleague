@@ -19,6 +19,7 @@ import { Angabe, Leer } from "@/shared/components/ui/Angabe";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
+import { NewTabLink } from "@/shared/components/ui/NewTabLink";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { textLink } from "@/shared/components/ui/textLink";
 import { ExternalUrlSchema } from "@/shared/schemas";
@@ -42,13 +43,11 @@ function Website({ url }: { url: string | null }) {
   const safe = ExternalUrlSchema.safeParse(url);
 
   return safe.success ? (
-    <a
+    <NewTabLink
       href={safe.data}
-      target="_blank"
-      rel="noopener noreferrer"
       className={textLink()}>
       {url}
-    </a>
+    </NewTabLink>
   ) : (
     <span className="text-foreground-muted">{url}</span>
   );
