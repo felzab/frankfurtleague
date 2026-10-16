@@ -434,6 +434,54 @@ class TestAnOwnersAddress:
 
         assert (verwaltung, erased["berechtigungen"], left) == ("owner", 1, 0)
 
+    def test_a_promotion_landing_inside_the_erasure_is_refused_by_its_retry(self, mongo_replica_set_url: str):
+        """The rival makes the address an owner after the first attempt's judgement, which the attempt's writes then conflict with.
+
+        Judged once ahead of the transaction instead, the retry erases the owner's grant.
+        """
+
+        promotions: list[int] = []
+        racing: list[PupilsMeetingARival] = []
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
+            held = await where_held(database, *THEIR_VALUES)
+            served = _app()
+            async with app_client(mongo_replica_set_url, app=served, now=NOW) as http:
+
+                async def promote() -> None:
+                    answered = await http.patch(
+                        f"/api/v{API_VERSION}/berechtigungen/{THEIR_GRANT_OID}",
+                        json={"verwaltung": "owner"},
+                        headers=SignedActor(OWNER, ADMIN_KEY),
+                    )
+                    promotions.append(answered.status_code)
+
+                async def pupils() -> AsyncCollection:
+                    # The app's own client: the request's session belongs to it.
+                    racing.append(PupilsMeetingARival(served.state.db_client[DATABASE_NAME][Collection.SPIELER], promote))
+                    return cast(AsyncCollection, racing[-1])
+
+                served.dependency_overrides[get_spieler_collection] = pupils
+                try:
+                    response = await http.post(PATH, json=erasure_of(), headers=SignedActor(OPERATOR, ADMIN_KEY))
+                finally:
+                    # The app is the module's: a rival left on it would run inside every later case's erasure.
+                    del served.dependency_overrides[get_spieler_collection]
+
+            grant = await database[Collection.BERECHTIGUNGEN].find_one({"_id": THEIR_GRANT_OID})
+
+            return response, held, await where_held(database, *THEIR_VALUES), grant
+
+        response, held, left, grant = on_a_league(mongo_replica_set_url, body)
+
+        assert (response.status_code, response.json().get("error_code"), promotions) == (403, INHABER_ADRESSE, [200])
+        assert grant is not None and grant["verwaltung"] == "owner"
+        # The notice the promotion queued aside, every value stands where it stood.
+        assert {value: [name for name in found if name != Collection.BERECHTIGUNGEN_POSTAUSGANG] for value, found in left.items()} == held
+        # The premise last: the first attempt passed its judgement and reached the pupils, and the retry was refused before them.
+        assert sum(collection.passes for collection in racing) == 1
+
 
 @pytest.mark.db
 class TestTheReveal:
@@ -539,8 +587,8 @@ class TestTheAnlass:
         assert {row["anlass"] for row in filed} == {None}
 
 
-class PupilsMeetingARevoke(InterleavedCollection):
-    """The pupils the erasure removes, a revoke of its administrator's grant committing first: inside the attempt, once per attempt."""
+class PupilsMeetingARival(InterleavedCollection):
+    """The pupils the erasure removes, a rival write to the grants committing first: inside the attempt, once per attempt."""
 
     async def delete_many(self, *args: Any, **kwargs: Any) -> Any:
         await self.run_the_rival()
@@ -556,7 +604,7 @@ class TestAnAdministratorRevokedMidRequest:
         """Remove the anchor in `app/core/security.py :: admin_judge` and the erasure commits: the attempt's read never sees the revoke."""
 
         revokes: list[int] = []
-        racing: list[PupilsMeetingARevoke] = []
+        racing: list[PupilsMeetingARival] = []
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             # The grant the person granted, which the erasure marks and every revoke anchors: without it the actor's
@@ -578,9 +626,7 @@ class TestAnAdministratorRevokedMidRequest:
 
                 async def pupils() -> AsyncCollection:
                     # The app's own client: the request's session belongs to it.
-                    racing.append(
-                        PupilsMeetingARevoke(served.state.db_client[DATABASE_NAME][Collection.SPIELER], revoke if revoked else nobody)
-                    )
+                    racing.append(PupilsMeetingARival(served.state.db_client[DATABASE_NAME][Collection.SPIELER], revoke if revoked else nobody))
                     return cast(AsyncCollection, racing[-1])
 
                 served.dependency_overrides[get_spieler_collection] = pupils
