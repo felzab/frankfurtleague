@@ -54,8 +54,8 @@ export type RegistrierungFormDraft = {
  */
 export type SpielerLinkZustand = "bestaetigt" | "abgelaufen" | "ungueltig" | "gesperrt";
 
-/** A link still open, and so a registration that still holds the person the page is about to name. */
-export type SpielerBestaetigungGeoeffnet = FLRegistrierungBestaetigungAnsichtResponse & { vorname: string };
+/** A link still open, and so a registration the page can still be answered for. */
+export type SpielerBestaetigungGeoeffnet = FLRegistrierungBestaetigungAnsichtResponse;
 
 export type SpielerBestaetigungAnsicht = { zustand: "gueltig"; ansicht: SpielerBestaetigungGeoeffnet } | { zustand: SpielerLinkZustand };
 

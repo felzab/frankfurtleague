@@ -273,7 +273,6 @@ class FLRegistrierungBestaetigungAnsichtResponse(BaseAPIResponse):
     team: CustomNonEmptyString
     schule: CustomNonEmptyString
     saison_id: str
-    vorname: CustomNonEmptyString
     # Served rather than left to the page to infer from the three below: a stored person with no
     # birthdate is a returning pupil all the same, and the press refuses the other page's label.
     seite: FLRegistrierungSeite

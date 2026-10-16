@@ -142,7 +142,7 @@ class TestTheLookupAndItsProjections:
 
         assert not any(key.startswith("bestaetigung.token_hash") for key in projection)
 
-    def test_the_view_declares_exactly_the_eleven_names_it_may_answer(self):
+    def test_the_view_declares_exactly_the_ten_names_it_may_answer(self):
         """An EQUALITY, not a subset.
 
         This is the widest of the link reads, so a field added to the model reaches a caller
@@ -155,7 +155,6 @@ class TestTheLookupAndItsProjections:
             "team",
             "schule",
             "saison_id",
-            "vorname",
             "seite",
             "mindestalter",
             "medien_mindestalter",

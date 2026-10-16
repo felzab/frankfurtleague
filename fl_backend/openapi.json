@@ -7404,7 +7404,7 @@
     "/api/v0/registrierungen/bestaetigung/ansicht": {
       "post": {
         "summary": "What one registration confirmation link opens",
-        "description": "Answer what the page renders for the registration this token opens, and no part of the registration beyond it.\n\nThe link's state, the team and its school, the season, the pupil's own first name, the age floor the press\nwill be judged by, the age from which the media switch is offered, and which of two pages the link opens.\n`bestaetigung_spieler_wiederkehrend` is the returning pupil's: a stored person at the registration's folded\naddress under its folded name who confirmed their own record. That page asks no choice, so beside it the view\nserves the person's stored birthdate, publication scope and media switch, the birthdate null where none is\nstored. Matched on the address alone, a mailbox shared anyway would show a sibling that person's answers, so on\n`bestaetigung_spieler`, the new pupil's page, all three are null.\n\nA POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no\nregistration holds (`REQ-REGISTRIERUNG-004`): a confirmed or an expired link is SERVED in that state rather\nthan refused, so a reopened link shows what became of it. The state is `gesperrt`, ahead of every other, wherever\nthe ban list holds the address the link was mailed to (`REQ-REGISTRIERUNG-012`), so the page offers a barred\npupil nothing to press.",
+        "description": "Answer what the page renders for the registration this token opens, and no part of the registration beyond it.\n\nThe link's state, the team and its school, the season, the age floor the press will be judged by, the age from\nwhich the media switch is offered, and which of two pages the link opens. Never the pupil's name: the link went to\nan address nobody has confirmed, which behind a typo is a stranger's.\n\n`bestaetigung_spieler_wiederkehrend` is the returning pupil's: a stored person at the registration's folded\naddress under its folded name who confirmed their own record. That page asks no choice, so beside it the view\nserves the person's stored birthdate, publication scope and media switch, the birthdate null where none is\nstored. Matched on the address alone, a mailbox shared anyway would show a sibling that person's answers, so on\n`bestaetigung_spieler`, the new pupil's page, all three are null.\n\nA POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no\nregistration holds (`REQ-REGISTRIERUNG-004`): a confirmed or an expired link is SERVED in that state rather\nthan refused, so a reopened link shows what became of it. The state is `gesperrt`, ahead of every other, wherever\nthe ban list holds the address the link was mailed to (`REQ-REGISTRIERUNG-012`), so the page offers a barred\npupil nothing to press.",
         "operationId": "get_bestaetigung_ansicht_api_v0_registrierungen_bestaetigung_ansicht_post",
         "requestBody": {
           "content": {
@@ -19588,11 +19588,6 @@
             "type": "string",
             "title": "Saison Id"
           },
-          "vorname": {
-            "type": "string",
-            "minLength": 1,
-            "title": "Vorname"
-          },
           "seite": {
             "type": "string",
             "enum": [
@@ -19655,7 +19650,6 @@
           "team",
           "schule",
           "saison_id",
-          "vorname",
           "seite",
           "mindestalter",
           "medien_mindestalter",

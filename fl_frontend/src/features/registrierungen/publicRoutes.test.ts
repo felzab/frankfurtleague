@@ -120,7 +120,6 @@ const GEOEFFNET: SpielerBestaetigungGeoeffnet = {
   team: TEAM.name,
   schule: TEAM.full_name,
   saison_id: "2026",
-  vorname: "Mira",
   seite: FASSUNG.seite,
   mindestalter: MIN_ALTER,
   medien_mindestalter: MEDIEN_ALTER,
@@ -173,7 +172,6 @@ const paragraphsOf = (html: string): string[] =>
 
 /** The slots a record fills, as the page fills them, so a comparison reads what a reader read. */
 const SLOTS: Readonly<Record<string, string>> = {
-  vorname: GEOEFFNET.vorname,
   team: TEAM.name,
   schule: TEAM.full_name,
   saison: GEOEFFNET.saison_id,
