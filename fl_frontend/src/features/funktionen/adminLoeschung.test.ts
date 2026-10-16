@@ -75,6 +75,12 @@ const EIN_EINTRAG_JE_ART = {
   verwaltung: "owner",
 } satisfies Omit<FLErasureAnsichtResponse, "acknowledged">;
 
+/** The lines every reveal ends on, whatever the read found. */
+const IMMER = [
+  "Das Konto der Adresse mit Passkeys und Anmeldungen, falls eines besteht",
+  "Die Adresse im Änderungsprotokoll und als Urheberin von Sperren, Einladungen, Entscheidungen und Zugängen",
+];
+
 /** The kinds the mirror declares, read off its own keys, so the answer below carries every one there is. */
 const ARTEN = Object.keys(FLErasureAnsichtResponseSchema.shape).filter((key) => key !== "acknowledged");
 
@@ -326,8 +332,30 @@ describe("the reveal the arming read answers", () => {
     await arm(user);
 
     const zeilen = within(liste()).getAllByRole("listitem");
-    assert.equal(zeilen.length, ARTEN.length + 1, "a kind the read answered has no line");
-    assert.match(zeilen.at(-1)?.textContent ?? "", /^Das Konto der Adresse/);
+    assert.equal(zeilen.length, ARTEN.length + IMMER.length, "a kind the read answered has no line");
+    assert.deepEqual(
+      zeilen.slice(-IMMER.length).map((zeile) => zeile.textContent),
+      IMMER,
+    );
+  });
+
+  /* The log and the address's authorship are cleaned whatever the read found, so an operator answering the person
+     must not read that nothing is held. */
+  it("says an address holding no record holds no record, and still names the account, the log and the authorship", async () => {
+    const { user } = await renderPage();
+    await typeRequest(user);
+    await arm(user);
+
+    const reveal = screen.getByRole("alert").textContent;
+    assert.match(reveal, /Unter dieser Adresse ist kein Eintrag gespeichert\./);
+    assert.deepEqual(
+      within(liste())
+        .getAllByRole("listitem")
+        .map((zeile) => zeile.textContent),
+      IMMER,
+      "an address holding no record reads as an erasure of an account alone",
+    );
+    assert.doesNotMatch(reveal, /nichts gespeichert|nur ein Konto/);
   });
 
   /* A pending change names nobody, so its line opens the record it waits on, on the season the shell shows. */

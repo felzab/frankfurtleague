@@ -43,7 +43,10 @@ function loeschungSatz(konto: KontoNachLoeschung, gespeichert: boolean): string 
   if (konto === "nichtGeloescht") {
     return "Die Daten sind gelöscht, das Konto der Adresse aber nicht. Lösche die Adresse erneut, dann wird auch das Konto gelöscht.";
   }
-  if (!gespeichert && konto === "keines") return "Unter dieser Adresse war nichts gespeichert, und sie hatte kein Konto.";
+  // Never „nichts gespeichert“: the log and the address's authorship were rewritten anyway, and no count says what they held.
+  if (!gespeichert && konto === "keines") {
+    return "Unter dieser Adresse war kein Eintrag gespeichert, und sie hatte kein Konto. Im Änderungsprotokoll und als Urheberin von Sperren, Einladungen, Entscheidungen und Zugängen ist sie trotzdem gelöscht.";
+  }
 
   const kontoSatz = konto === "geloescht" ? "Das Konto der Adresse ist gelöscht." : "Die Adresse hatte kein Konto.";
   return `Alles, was unter der Adresse gespeichert war, ist gelöscht. ${kontoSatz}`;

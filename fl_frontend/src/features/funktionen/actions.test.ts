@@ -182,15 +182,19 @@ describe("the erasure on request", () => {
     assert.doesNotMatch(JSON.stringify(loggedLines).toLowerCase(), /ada\.byron@example\.org/, "an address reached the log stream");
   });
 
-  it("says nothing was found where the address held nothing and no account", async () => {
+  /* No count covers the log's and the authorship's rewrite, which reach an address holding no record too: an answer
+     to the person must not read that nothing was held. */
+  it("says no record was held and the log was cleaned anyway where the address held no record and no account", async () => {
     answerWith(() => Promise.resolve(NICHTS));
     request.holdNoAccount();
 
     const result = await erase();
+    const satz = "message" in result ? result.message : "";
 
     assert.equal(result.success, true);
     assert.equal("gespeichert" in result ? result.gespeichert : undefined, false);
-    assert.equal("message" in result ? result.message : undefined, "Unter dieser Adresse war nichts gespeichert, und sie hatte kein Konto.");
+    assert.match(satz, /^Unter dieser Adresse war kein Eintrag gespeichert, und sie hatte kein Konto\. /);
+    assert.match(satz, /Im Änderungsprotokoll .* ist sie trotzdem gelöscht\.$/, "the result reads as an erasure that did nothing");
   });
 
   it("mails nobody", async () => {

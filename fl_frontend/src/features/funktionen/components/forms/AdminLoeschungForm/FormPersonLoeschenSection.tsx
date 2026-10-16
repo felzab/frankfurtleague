@@ -143,8 +143,8 @@ export function FormPersonLoeschenSection() {
         setAnlass("");
         setGelesen(null);
         if (res.konto === "nichtGeloescht") appToast.warning("Konto nicht gelöscht", { description: res.message });
-        // The endpoint refuses nothing, so an address holding nothing succeeds, and „gelöscht“ there would be a lie.
-        else if (!res.gespeichert && res.konto === "keines") appToast.warning("Nichts gefunden", { description: res.message });
+        // The endpoint refuses nothing, so an address holding no record succeeds, and „Person gelöscht“ there would claim one.
+        else if (!res.gespeichert && res.konto === "keines") appToast.warning("Kein Eintrag gefunden", { description: res.message });
         else appToast.success("Person gelöscht", { description: res.message });
       });
     });
