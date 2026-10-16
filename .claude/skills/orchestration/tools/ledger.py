@@ -692,41 +692,57 @@ def transcript(agent: str, projects: Path) -> Path:
     return found[0]
 
 
-def calls(path: Path) -> Iterator[dict[str, object]]:
-    """Each assistant message the model wrote, one line per content block, the harness's own error messages left out."""
+def messages(path: Path) -> Iterator[tuple[str, dict[str, object]]]:
+    """Each user or assistant message line of a transcript with its role, the harness's own error messages left out."""
     for raw in path.read_bytes().splitlines():
         try:
             entry = json.loads(raw)
         except ValueError:
             continue
         message = entry.get("message") if isinstance(entry, dict) else None
-        if not isinstance(message, dict) or message.get("role") != "assistant":
+        if not isinstance(message, dict) or message.get("role") not in ("user", "assistant"):
             continue
         if entry.get("isApiErrorMessage") or message.get("model") == SYNTHETIC_MODEL:
             continue
-        yield message
+        yield str(message["role"]), message
+
+
+def calls(path: Path) -> Iterator[dict[str, object]]:
+    """Each assistant message the model wrote, one line per content block."""
+    return (message for role, message in messages(path) if role == "assistant")
+
+
+def last_message(path: Path) -> tuple[str, list[dict[str, object]]]:
+    """The role of the transcript's last message and its content blocks."""
+    role, ident, blocks = "", None, []
+    for said, message in messages(path):
+        # One assistant message reaches the transcript as several lines sharing its id.
+        if not (said == role == "assistant" and message.get("id") == ident):
+            blocks = []
+        role, ident = said, message.get("id")
+        content = message.get("content")
+        blocks += [block for block in content if isinstance(block, dict)] if isinstance(content, list) else []
+    return role, blocks
+
+
+def mid_turn(role: str, blocks: list[dict[str, object]]) -> str | None:
+    """What the last message is where the agent's turn has not ended: a turn ends in a message calling no tool."""
+    if role != "assistant":
+        return "a message to it: a tool's result, an interruption or a resume" if role else "no message"
+    return "a tool call" if any(block.get("type") == "tool_use" for block in blocks) else None
 
 
 def final_message(agent: str, projects: Path) -> str:
-    """The text of the last assistant message in the agent's transcript, which is its report."""
+    """The text of the agent's last message, which is its report, refused where its turn has not ended."""
     path = transcript(agent, projects)
-    last_id, parts = None, []
-    for message in calls(path):
-        blocks = message.get("content")
-        texts = (
-            [str(block.get("text", "")) for block in blocks if isinstance(block, dict) and block.get("type") == "text"]
-            if isinstance(blocks, list)
-            else []
-        )
-        if not texts:
-            continue
-        # One message reaches the transcript as several lines sharing its id.
-        if message.get("id") != last_id:
-            last_id, parts = message.get("id"), []
-        parts += texts
-    if not parts:
-        raise ValueError(f"no final message in {path}")
-    return "".join(parts).rstrip("\n") + "\n"
+    role, blocks = last_message(path)
+    # A stopped agent's last text is an interim note written beside a tool call, which reads like a report.
+    if stopped := mid_turn(role, blocks):
+        raise ValueError(f"{agent} stopped mid-task, its transcript ending in {stopped}: resume it, and bank once it ends its turn")
+    texts = [str(block.get("text", "")) for block in blocks if block.get("type") == "text"]
+    if not texts:
+        raise ValueError(f"the last message in {path} holds no text")
+    return "".join(texts).rstrip("\n") + "\n"
 
 
 def bank_from(

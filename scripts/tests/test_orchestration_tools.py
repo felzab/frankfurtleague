@@ -702,6 +702,31 @@ def test_bank_from_an_agent_skips_the_quota_stop_and_sets_its_live_row_done(tmp_
     )
 
 
+@pytest.mark.parametrize(
+    ("after", "said"),
+    [
+        ({"role": "assistant", "content": [{"type": "tool_use", "name": "Bash", "input": {}}]}, "ending in a tool call"),
+        ({"role": "user", "content": [{"type": "text", "text": "[Request interrupted by user]"}]}, "ending in a message to it"),
+    ],
+    ids=["a quota stop after a tool call", "an interruption"],
+)
+@pytest.mark.parametrize("flags", [(), ("--none",)], ids=["labelled", "--none"])
+def test_bank_from_an_agent_stopped_mid_task_banks_and_saves_nothing(
+    tmp_path: Path, after: dict[str, object], said: str, flags: tuple[str, ...]
+) -> None:
+    """A stopped agent's last text was an interim note written beside its next call, and `--none` saved it as the report."""
+    env = _home(tmp_path)
+    _transcript(tmp_path / "home", "a1b2c3", ("m1", ["F1 looks real; checking the merge next.\n"]))
+    path = tmp_path / "home" / ".claude" / "projects" / "proj" / "session" / "subagents" / "agent-a1b2c3.jsonl"
+    path.write_bytes(path.read_bytes() + b"\n" + json.dumps({"message": {"id": "m1", **after}}).encode())
+    _synthetic(tmp_path / "home", "a1b2c3")
+    register, report = _register(tmp_path), tmp_path / "WORKER-report.md"
+    before = register.read_bytes()
+    done = _run("ledger", "bank", str(register), str(report), "--from", "a1b2c3", *flags, env=env)
+    assert done.returncode == 2 and f"a1b2c3 stopped mid-task, its transcript {said}" in done.stderr, done.stderr
+    assert register.read_bytes() == before and not report.exists()
+
+
 def test_bank_routes_and_closes_in_its_own_write_and_names_each_row_left_open(tmp_path: Path) -> None:
     """Implementer and research rows were banked and never routed: 555 of them sat OPEN at once."""
     register = _register(tmp_path)
