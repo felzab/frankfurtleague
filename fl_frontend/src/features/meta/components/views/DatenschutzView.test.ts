@@ -49,7 +49,7 @@ const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
  * The „Stand“ and the words it dates, frozen together: a reader told nothing changed since that day
  * has been misled by any edit that left the date standing.
  */
-const FASSUNG = { stand: "16. Oktober 2026", digest: "bfd7d6686355b424714c84a637273c5cc9ada2ee71ea6473a03a00135f224505" } as const;
+const FASSUNG = { stand: "16. Oktober 2026", digest: "f19fe6a748a22695bb3deba6900d2157f2bb8907b71dac1cd746d1c54f9b0fa0" } as const;
 
 /** Every word the page renders but its date, so moving the date alone never passes for moving the words. */
 const wortlautDigest = (): string =>
@@ -167,7 +167,7 @@ describe("the privacy notice's retention table", () => {
       "Kein eigener Zeitraum: Der Link endet mit der Registrierungsfrist der Saison, für die er gilt, oder sobald die Verwaltung ihn " +
         "zurückzieht oder durch einen neuen ersetzt. Der Eintrag dazu enthält den Link nur als unlesbaren Schlüssel, nennt keine " +
         "Spielerin und keinen Spieler und bleibt mit dem Datum und der E-Mail-Adresse der Person aus der Verwaltung, die ihn angelegt " +
-        "hat, bestehen.",
+        "hat, bestehen. Werden die Daten dieser Person gelöscht, steht dort statt ihrer Adresse ein Vermerk, der niemanden nennt.",
     );
   });
 
@@ -670,17 +670,18 @@ describe("the privacy notice's publication and retention rows keep their ruled b
     );
   });
 
-  /* The granter's address on each grant outlives their own revoke and erasure (docs/datenschutz.md,
-     section 5), so the notice names it where it names what else an administrator's erasure leaves. */
-  it("keeps the granter's address on a grant past their own revoke and erasure, among the administrators' limits", () => {
+  /* An administrator's address outlives their revoke on every record they authored and not their erasure, which
+     leaves a marker in its place (docs/datenschutz.md, section 5), so the notice promises neither less nor more. */
+  it("keeps an administrator's address on what they authored past their revoke, until their own erasure", () => {
     rendert(
-      "Eine Einschränkung gilt für Administratorinnen und Administratoren der Liga: Ihre E-Mail-Adresse bleibt in den Zeilen des " +
-        "Änderungsprotokolls stehen, die ihre eigenen Änderungen festhalten, auch nach einer Löschung. Das Protokoll hat nur dann " +
-        "einen Sinn, wenn nachvollziehbar bleibt, wer eine Änderung vorgenommen hat. Diese Zeilen werden wie alle anderen gelöscht. " +
-        "Außerdem bleibt ihre E-Mail-Adresse bei jedem Registrierungslink eines Teams stehen, den sie angelegt haben; dieser Eintrag " +
-        "wird nicht gelöscht (Abschnitt 13). Wer einer Person Zugang zur Verwaltung erteilt hat, bleibt mit seiner E-Mail-Adresse an " +
-        "diesem Zugang vermerkt, auch nachdem der eigene Zugang entzogen oder die eigenen Daten gelöscht wurden; alle Personen mit " +
-        "Zugang zur Verwaltung sehen diesen Vermerk, solange der erteilte Zugang besteht.",
+      "Eine Einschränkung gilt für Administratorinnen und Administratoren der Liga: Ihre E-Mail-Adresse steht in den Zeilen des " +
+        "Änderungsprotokolls, die ihre eigenen Änderungen festhalten. Das Protokoll hat nur dann einen Sinn, wenn nachvollziehbar " +
+        "bleibt, wer eine Änderung vorgenommen hat. Diese Zeilen werden wie alle anderen gelöscht. Ebenso steht ihre E-Mail-Adresse " +
+        "bei jedem Registrierungslink eines Teams, den sie angelegt haben, bei jeder Sperre, die sie eingetragen haben, bei jeder " +
+        "Entscheidung über eine Bewerbung, die sie getroffen haben, und bei jedem Zugang zur Verwaltung, den sie erteilt haben. Dort " +
+        "bleibt sie auch, nachdem ihr eigener Zugang entzogen wurde, und alle Personen mit Zugang zur Verwaltung sehen sie, solange " +
+        "der Eintrag besteht. Werden ihre Daten gelöscht, ersetzen wir ihre E-Mail-Adresse an all diesen Stellen durch einen " +
+        "Vermerk, der niemanden nennt.",
     );
   });
 
