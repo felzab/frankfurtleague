@@ -1567,15 +1567,32 @@ stream, and so did every consent a person withdrew, every Widerspruch made throu
 every address change declined through its link, each naming its person by a keyed hash and never
 by an address, an erasure's line also by the pseudonym the log keys their signed-in rows by, whether
 its commit landed or lost its answer ([`../backend/spec.md`](../backend/spec.md#2-invariants) I666,
-I745). §7's day files keep those lines outside the database for thirty days. Run the export
-once more, which reads every journal line the backend's stream and the deploy copies of those thirty
-days still hold into the day files:
+I745). §7's day files keep those lines outside the database for thirty days. **Once the restore has
+completed, run the export once more**, which reads every journal line the backend's stream and the
+deploy copies of those thirty days still hold into the day files:
 
     sudo systemctl start frankfurtleague-journal.service
+
+A pass before the restore's end can have left its last hour's lines in the stream alone, so the
+replay below refuses until a pass has read the stream since. Each pass that read it touches
+`/var/log/frankfurtleague/erasure-journal.last-pass`, which the replay compares with the restore's
+end; the day files cannot say it, since a pass rewrites one only where it found a new line. The
+hourly passes keep the stamp's mtime inside §7's age bound, so only thirty days with no pass reading
+the stream remove it, and the replay refuses then as well.
 
 **`python -m app.core.constraints --check` BEFORE anything else** (§2). A snapshot taken before a
 constraint landed restores rows the current validators reject, and the validators are attached strict,
 so such a row refuses any erasure or replay below that writes over it rather than removing it.
+
+**Then, once `--check` is clean, attach this build's constraints again**, from the checkout:
+
+    docker compose -f docker-compose.yml exec -T backend python -m app.core.constraints --apply
+
+A restore can bring back the snapshot's validators with its data, older than the build that writes
+below: one refuses a replay's write, as the log's did before it admitted the pseudonym replay's row,
+and another admits a row this build refuses. The replay judges no line, exiting 2 and naming the
+collections, until every validator is this build's
+(`fl_backend/app/api/identitaet/wiederherstellung.py :: stale_validators`).
 
 **Then list what the lines ask for, giving both moments written down above, each with its offset:**
 
@@ -1607,8 +1624,8 @@ has run` where the same person's erasure, held nowhere, is in the same listing.
 
 It exits 0 once nothing is left; 1 while an erasure is to run, a line to replay, a record to review,
 a replay that failed or a line it could not read is left, each counted on its closing `Left:` line;
-2 where it judged no line, a moment refused or the container's settings or the restored database
-unreadable, naming files and never a value; and 3 or more where it crashed, a 1 ending without that
+2 where it judged no line, a moment refused, the container's settings or the restored database
+unreadable, naming files and never a value, or a validator not this build's; and 3 or more where it crashed, a 1 ending without that
 `Left:` line among them, as Compose answers for a backend that is not running.
 
 **Then replay them: the same command with `--apply`.** Each line standing to be replayed is judged
@@ -1620,7 +1637,7 @@ did, the log keeping one row for them under „Pseudonyme“ (I764). The action 
 the system, its call reading `REPLAY` and the line's act, record and journalling instant, never its
 person nor the journal's token, and a second run writes nothing. **A record left for review is
 written by nothing**: read it beside the person's mail thread and settle it by hand, the listing
-going on to name it since its hash matches nothing the record holds. Three things no line restores:
+going on to name it since its hash matches nothing the record holds. Four things no line restores:
 
 - **A grant made after a journalled withdrawal and before the restore's end** is in no journal, so
   the choice stays withdrawn, the safe side, until its person grants it again on the account page.
@@ -1633,6 +1650,14 @@ going on to name it since its hash matches nothing the record holds. Three thing
   the window, re-send its link from the editor where the restored record still holds it pending, or
   enter the new address again where it holds none ([section 5](#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)),
   and write to the person that their change was undone and waits on their confirmation again.
+- **An address an administrator corrected inside the window**: a referee's who had not confirmed,
+  retired or not, in the referee editor, or a contact seat's through
+  `fl_backend/app/api/bewerbungen/admin_router.py :: korrigiere_kontakt_email`. No line records an
+  administrator's correction, so the tool cannot list these either: the restored record holds the
+  replaced address again, and the link the correction voided, which the mailbox it went to can
+  answer again until its deadline. The mail thread that asked for each correction is its record:
+  correct the address again as [section 5](#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)
+  says, which voids that link once more.
 
 A line whose commit lost its answer may name an act that never landed, and running it again wrongs
 nobody, the person having asked for it. **Read the mail thread beside the journal** for every request

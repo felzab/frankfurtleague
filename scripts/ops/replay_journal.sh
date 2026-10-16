@@ -21,6 +21,9 @@ COMPOSE="docker-compose.yml"
 # `scripts/ops/export_journal.sh :: LOG_DIR`, where the day files are.
 LOG_DIR="/var/log/frankfurtleague"
 
+# `scripts/ops/export_journal.sh :: PASS_STAMP`, touched by each pass that read the stream.
+PASS_STAMP="${LOG_DIR}/erasure-journal.last-pass"
+
 # The backend module that judges the lines, run where its settings and the restored database's credentials are.
 REPLAY_MODULE="app.api.identitaet.wiederherstellung"
 
@@ -47,7 +50,7 @@ an_instant() { # $1 the moment, $2 whose it is
 }
 
 replay() { # $1 the snapshot's moment, $2 the restore's end, $3 `--apply` or nothing
-  local since="$1" until="$2" first since_s until_s rc
+  local since="$1" until="$2" first since_s until_s stamped=0 rc
   local -a apply=() statuses=()
   if [[ -n "${3:-}" ]]; then apply=("$3"); fi
   an_instant "$since" "the snapshot's"
@@ -55,6 +58,12 @@ replay() { # $1 the snapshot's moment, $2 the restore's end, $3 `--apply` or not
   since_s="$(date -u -d "$since" +%s)" || refuse "${since}, the snapshot's, is no moment date can read: give it as ISO 8601 with its offset."
   until_s="$(date -u -d "$until" +%s)" || refuse "${until}, the restore's end, is no moment date can read: give it as ISO 8601 with its offset."
   (( until_s > since_s )) || refuse "The restore's end ${until} is no later than the snapshot ${since}, so no line falls between them."
+  # A pass before the restore's end can have left its last hour's lines in the stream alone, and a line
+  # missing here is an erasure or a withdrawal no listing names.
+  if [[ -f "$PASS_STAMP" ]]; then stamped="$(date -u -r "$PASS_STAMP" +%s)"; fi
+  (( stamped > until_s )) || refuse "No export pass has read the backend's stream since the restore ended at ${until}, so a line of
+its last hour can be in no day file. Run the export, then this again:
+sudo systemctl start frankfurtleague-journal.service (docs/ops/runbooks.md §13)."
   first="$(date -u -d "$since" +%F)"
 
   # Read in full before the container is asked, so a refusal above stops the run before anything is judged.

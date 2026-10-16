@@ -34,6 +34,12 @@ YESTERDAY: Final = "2026-10-15"
 TODAY: Final = "2026-10-16"
 
 
+def _pass_stamp() -> str:
+    found = re.fullmatch(r'PASS_STAMP="\$\{LOG_DIR\}/([^"/]+)"', lift_assignment(EXPORT, "PASS_STAMP"))
+    assert found is not None, "scripts/ops/export_journal.sh :: PASS_STAMP is no longer a file in the log directory"
+    return found.group(1)
+
+
 def _journal_days() -> int:
     found = re.fullmatch(r'JOURNAL_DAYS="(\d+)"', lift_assignment(EXPORT, "JOURNAL_DAYS"))
     assert found is not None, "scripts/ops/export_journal.sh :: JOURNAL_DAYS is no longer a count of days"
@@ -156,6 +162,7 @@ def _run(fixture: _Fixture, *, log_dir: Path | None = None, **overrides: str) ->
         lift_assignment(EXPORT, "JOURNAL_TOKEN"),
         lift_assignment(EXPORT, "JOURNAL_DAYS"),
         f'LOG_DIR="{(log_dir or fixture.logs).as_posix()}"',
+        lift_assignment(EXPORT, "PASS_STAMP"),
         lift_function(EXPORT, "export_days"),
         f"export_days {TODAY}",
         "",
@@ -269,7 +276,8 @@ def test_a_second_pass_over_the_same_logs_leaves_every_day_file_as_it_was() -> N
     days = sorted(fixture.logs.glob("*-erasure-journal.log"))
     assert [path.name for path in days] == [f"{day}-erasure-journal.log" for day in ("2026-10-09", "2026-10-12", YESTERDAY, TODAY)], output
     before = time.time() - 3600
-    for path in days:
+    stamp = fixture.logs / _pass_stamp()
+    for path in (*days, stamp):
         os.utime(path, (before, before))
     written = {path.name: path.read_bytes() for path in days}
 
@@ -279,9 +287,11 @@ def test_a_second_pass_over_the_same_logs_leaves_every_day_file_as_it_was() -> N
     assert sorted(fixture.logs.glob("*-erasure-journal.log")) == days, output
     assert {path.name: path.read_bytes() for path in days} == written, output
     assert {path.name: path.stat().st_mtime for path in days} == dict.fromkeys(written, before), output
+    # The pass is stamped all the same: the replay after a restore asks whether one has read the stream since.
+    assert stamp.stat().st_mtime > before, output
 
 
-def test_a_pass_leaves_nothing_in_the_directory_but_the_day_files() -> None:
+def test_a_pass_leaves_nothing_in_the_directory_but_the_day_files_and_its_stamp() -> None:
     """Its working files hold journal lines, under a name no reader of the directory looks for."""
     fixture = _Fixture()
     fixture.stream(line("yesterday"), line("today"))
@@ -289,7 +299,9 @@ def test_a_pass_leaves_nothing_in_the_directory_but_the_day_files() -> None:
     code, output = _run(fixture)
 
     assert code == 0, output
-    assert sorted(path.name for path in fixture.logs.iterdir()) == [f"{YESTERDAY}-erasure-journal.log", f"{TODAY}-erasure-journal.log"], output
+    assert sorted(path.name for path in fixture.logs.iterdir()) == sorted(
+        [f"{YESTERDAY}-erasure-journal.log", f"{TODAY}-erasure-journal.log", _pass_stamp()]
+    ), output
 
 
 def test_a_stream_that_cannot_be_read_still_lets_the_copies_through_and_refuses() -> None:
@@ -304,6 +316,8 @@ def test_a_stream_that_cannot_be_read_still_lets_the_copies_through_and_refuses(
     assert fixture.day(YESTERDAY) == [line("yesterday")], output
     assert fixture.day(TODAY) is None, output
     assert not any(path.name.startswith(".journal-") for path in fixture.logs.iterdir()), output
+    # Unstamped: a replay after a restore must not take these day files for a pass that read the stream.
+    assert not (fixture.logs / _pass_stamp()).exists(), output
 
 
 def test_a_missing_directory_refuses_before_anything_is_written() -> None:
