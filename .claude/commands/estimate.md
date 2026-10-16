@@ -1,5 +1,5 @@
 ---
-description: A completion estimate of everything planned, read back and acted on in the same turn
+description: A completion estimate of everything planned, as a chat message, read back and acted on in the same turn
 argument-hint: "[what to narrow to or weigh]"
 disable-model-invocation: true
 ---

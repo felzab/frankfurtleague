@@ -133,9 +133,9 @@ A chat message, never an artifact, every time in this shape:
    end; the owner's own pending items as lanes of their own. Every figure is marked measured or
    estimated, and every clock time is an offset from a `date` read in this turn. Name the critical
    path, what dominates it, and any usage-limit stop the readings project, as wall time.
-2. **The read-back**, for performance, quality, parallelism and the owner's own items. A wave costs
-   its longest agent, so an optimisation leaving the dominating block untouched buys nothing:
-   shorten that agent, or start it earlier.
+2. **The read-back**: the estimate read again for what to change, in performance, quality,
+   parallelism and the owner's own items. A wave costs its longest agent, so an optimisation leaving
+   the dominating block untouched buys nothing: shorten that agent, or start it earlier.
 3. **Action in the same turn.** Dispatch whatever can run in parallel without hurting quality; weigh
    anything else worth doing, needed or only a quality gain, and do it or decline it with its
    reason.
