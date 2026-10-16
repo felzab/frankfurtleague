@@ -1,10 +1,23 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, it } from "node:test";
+
+import { z } from "zod";
 
 import { ERASURE_ANLASS_MAX_LENGTH } from "./constants.ts";
 import { FLAbmeldungPayloadSchema, FLErasureAnsichtPayloadSchema, FLErasurePayloadSchema } from "./schemas.ts";
 
 const ANLASS = "E-Mail vom 12.10.2026, Betreff Löschung meiner Daten";
+
+const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
+
+// Read rather than retyped: the API's two validators answer the same rows in their own suite, the only
+// comparison the two predicates get, since the API's sentence reaches its log line and never this box.
+const PROBE = z.array(z.object({ value: z.string(), refused: z.boolean() }));
+const REFUSALS = z
+  .object({ email: PROBE, anlass: PROBE })
+  .parse(JSON.parse(readFileSync(path.resolve(REPO_ROOT, "fl_backend", "tests", "shared", "erasure_refusals.json"), "utf8")));
 
 /** The three payloads keyed on an address, each judged on the address alone. */
 const LOOKUPS = [
@@ -42,18 +55,13 @@ describe("the address the erasure, its reveal and the sign-out look up", () => {
 
 describe("the placeholder every address-less referee row shares", () => {
   /* One lookup there would reach every such row at once; the API refuses it on the fold, capitals and a bare
-     `invalid` domain included, and the box words it as the API does. */
-  it("is refused by all three lookups, in its own words, whatever its capitals", () => {
+     `invalid` domain included, and a domain merely ending in the letters stays a mailbox. */
+  it("is refused by all three lookups where the API's table refuses it, in the box's own words", () => {
     const satz = (email: string) => FLErasureAnsichtPayloadSchema.safeParse({ email: email }).error?.issues[0]?.message;
-    for (const email of ["schiri@platzhalter.invalid", "SCHIRI@Platzhalter.INVALID", "schiri@invalid"]) {
-      for (const [payload, takes] of LOOKUPS) assert.equal(takes(email), false, `${payload} took "${email}"`);
-      assert.equal(satz(email), "Diese Adresse ist ein Platzhalter und gehört niemandem.", `"${email}" is refused in other words`);
+    for (const { value, refused } of REFUSALS.email) {
+      for (const [payload, takes] of LOOKUPS) assert.equal(takes(value), !refused, `${payload} judged "${value}" otherwise`);
+      assert.equal(satz(value), refused ? "Diese Adresse ist ein Platzhalter und gehört niemandem." : undefined, `"${value}"`);
     }
-  });
-
-  /* The control: a domain merely ending in the letters stays a mailbox. */
-  it("takes a real domain whose name ends in those letters", () => {
-    for (const [payload, takes] of LOOKUPS) assert.equal(takes("ada@noinvalid.example"), true, `${payload} refused a real domain`);
   });
 });
 
@@ -80,5 +88,12 @@ describe("the request the erasure answers", () => {
   /* Measured as the API measures it, after the strip. */
   it("counts the bound on the trimmed request", () => {
     assert.equal(refused(` ${"a".repeat(ERASURE_ANLASS_MAX_LENGTH)} `), undefined);
+  });
+
+  /* A deliverable shape only: an at sign in prose, or a domain with no top level, stays an Anlass. */
+  it("refuses an address where the API's table refuses one", () => {
+    for (const { value, refused: verweigert } of REFUSALS.anlass) {
+      assert.equal(refused(value), verweigert ? "Der Anlass darf keine E-Mail-Adresse enthalten." : undefined, `"${value}"`);
+    }
   });
 });

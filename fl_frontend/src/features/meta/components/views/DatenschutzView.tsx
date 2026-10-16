@@ -215,6 +215,13 @@ const FRISTEN = [
       "Bis kurz nach Mitternacht des Tages, den er zählt. Er enthält nur, als was Du angemeldet bist (Kontaktperson eines Teams, Spielerin oder Spieler, Schiedsrichterin oder Schiedsrichter), und wie oft Du in dieser Personengruppe an dem Tag etwas ändern wolltest, darunter auch Änderungen, die danach noch abgewiesen wurden, unter einem unlesbaren Schlüssel statt Deiner Adresse. Er begrenzt, wie viel Du in jeder dieser Personengruppen an einem Tag ändern kannst, damit ein missbrauchtes Konto nicht unbegrenzt schreibt; eine zurückgezogene Einwilligung zählt er nicht",
   },
   {
+    daten:
+      "Kurzzeitiger Vermerk zu einer E-Mail-Adresse: die Adresse als unlesbarer Schlüssel, ein Zähler und der Zeitpunkt seiner letzten Änderung",
+    // MongoDB's expiry pass and its period, mirrored in `docs/datenschutz.md` §5 with the day it was read: the source moves without us.
+    frist:
+      "Kurz nach seiner letzten Änderung: Die Datenbank löscht ihn beim nächsten Aufräumen, das ungefähr jede Minute läuft und sich zum Beispiel bei hoher Last verzögern kann. Er entsteht, wenn eine E-Mail-Adresse in unsere Daten kommt, wenn eine angemeldete Person etwas ändert und wenn wir die Daten einer Adresse löschen. Er sorgt dafür, dass Angaben, die während einer Löschung unter dieser Adresse gespeichert werden, mit ihr gelöscht werden",
+  },
+  {
     daten: "Zugriffsprotokoll des Servers",
     frist: "Höchstens acht Tage; gelöscht wird beim Wechsel der Protokolldatei, einmal täglich und früher bei Erreichen der Größengrenze",
   },

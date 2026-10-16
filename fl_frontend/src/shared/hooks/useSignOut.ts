@@ -37,7 +37,8 @@ export function useSignOut(onSignOut: () => Promise<FormState>) {
     };
   }, [isConfirming, cancel]);
 
-  // The toast fires before the document is left, and shows only until the start page replaces it.
+  // A success raises no toast, as a sign-in raises none: the start page replaces this document before
+  // one could be read.
   const signOutNow = async () => {
     try {
       const result = await onSignOut();
@@ -47,9 +48,6 @@ export function useSignOut(onSignOut: () => Promise<FormState>) {
         return;
       }
 
-      // The fallback stands for `null`, which `FormState` admits and no sign-out sends: the catch
-      // below is what answers a round trip that did not land.
-      appToast.success(result?.message ?? "Abgemeldet");
       // A full document load, as Next's guide advises for a sign-out: a soft navigation keeps every route
       // the router hid, with its rows and what was typed into it.
       leaveDocumentFor("/");

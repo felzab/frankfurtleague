@@ -351,6 +351,7 @@ export const STEP_UP_CALLERS: Readonly<Record<string, Readonly<Record<string, St
     kontaktEmailKorrigierenAction: "one-press",
     besetzeKontaktSitzAction: "one-press",
   },
+  "features/funktionen/components/forms/AdminLoeschungForm/FormAbmeldenSection.tsx": { endAnmeldungenAction: "two-press" },
   "features/funktionen/components/forms/AdminLoeschungForm/FormPersonLoeschenSection.tsx": { eraseAufAnfrageAction: "two-press" },
   "features/kontakte/components/forms/AdminKontakteEditForm/AdminKontakteEditForm.tsx": {
     patchSaisonTeamKontakteAction: "one-press",
