@@ -26,10 +26,7 @@ _NOT_IN_A_HOST: Final = frozenset("!\"#$%&'()*+,/:;<=>?@[\\]^_`{|}~")
 
 
 def _ascii_domain(domain: str) -> str | None:
-    """The domain as the URL Standard's parser hosts it, pydantic-core's `Url` as the frontend's `new URL`, or `None` where it cannot.
-
-    Never `league_address`'s conversion, which refuses a special-use or dotless domain and so leaves it unconverted here alone.
-    """
+    """The domain as the URL Standard's parser hosts it, pydantic-core's `Url` as the frontend's `new URL`, or `None` where it cannot."""
 
     if not domain or any(character in _NOT_IN_A_HOST or unicodedata.category(character)[0] in "ZC" for character in domain):
         return None
@@ -40,11 +37,23 @@ def _ascii_domain(domain: str) -> str | None:
         return None
 
 
+def _stored_domain(domain: str) -> str | None:
+    """The domain as `league_address` stores it, or `None` where the address rule refuses it."""
+
+    # Any local part the rule takes: it converts the domain alone.
+    try:
+        return _league_validated(f"a@{domain}").ascii_domain
+    except ValueError:
+        return None
+
+
 def _folded_domain(domain: str) -> str:
     # A lookup held to no address rule may name its domain in Unicode (`docs/backend/spec.md :: I329`),
     # and converting it here is what joins it to the punycode spelling every payload stores (`:: I333`).
     if not domain.isascii():
-        domain = _ascii_domain(domain) or domain
+        # `Url` first: the frontend converts as it does, and the address rule refuses a special-use or dotless domain.
+        # The rule where `Url` refuses: its Unicode tables run ahead, and a domain it stored converted would be asked unconverted.
+        domain = _ascii_domain(domain) or _stored_domain(domain) or domain
 
     return domain.translate(_ASCII_LOWER)
 

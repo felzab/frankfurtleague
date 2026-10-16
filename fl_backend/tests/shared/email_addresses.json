@@ -208,5 +208,11 @@
     "typed": "anna@m\u00fcnchen.de/x",
     "stored": null,
     "folded": "anna@m\u00fcnchen.de/x"
+  },
+  {
+    "case": "a Unicode 16 letter in the domain, which the URL parser the fold reads first refuses",
+    "typed": "anna@\ud81b\udd43x.de",
+    "stored": "anna@xn--x-7p6m.de",
+    "folded": "anna@xn--x-7p6m.de"
   }
 ]
