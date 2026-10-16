@@ -19,7 +19,7 @@ hook's, records each send and routes its rows one by one.
     overlap <register> (<path>… | --brief <file>)
     context <register> <agent id>…
 
-Exit 0 done, 2 refused; `overlap` 1 while a path is shared; `prune` 1 where a removal failed or left its folder;
+Exit 0 done, 2 refused; `overlap` 1 while a path is shared; `prune` 1 where a removal failed;
 `message` always 0, a hook's failure being the send's.
 """
 

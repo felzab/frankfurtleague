@@ -23,7 +23,9 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import ctypes
 import datetime
+import functools
 import io
 import json
 import os
@@ -75,42 +77,44 @@ PLACEHOLDER_RE: Final = re.compile(r"<[a-z]+>")
 LOCK_SECONDS: Final = 10.0
 LOCK_POLL_SECONDS: Final = 0.02
 
-if sys.platform == "win32":
-    import ctypes
-    from ctypes import wintypes
+WINDOWS: Final = sys.platform == "win32"
+PROCESS_QUERY_LIMITED_INFORMATION: Final = 0x1000
+STILL_ACTIVE: Final = 259
 
-    _KERNEL32: Final = ctypes.WinDLL("kernel32", use_last_error=True)
-    _KERNEL32.OpenProcess.restype = wintypes.HANDLE
-    _KERNEL32.OpenProcess.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
-    _KERNEL32.WaitForSingleObject.restype = wintypes.DWORD
-    _KERNEL32.WaitForSingleObject.argtypes = (wintypes.HANDLE, wintypes.DWORD)
-    _KERNEL32.CloseHandle.argtypes = (wintypes.HANDLE,)
-    SYNCHRONIZE: Final = 0x00100000
-    WAIT_TIMEOUT: Final = 0x102
-    ERROR_INVALID_PARAMETER: Final = 87
 
-    def _alive(pid: int) -> bool:
-        # Never `os.kill(pid, 0)`: on Windows signal 0 is CTRL_C_EVENT, sent to the process group the id names.
-        handle = _KERNEL32.OpenProcess(SYNCHRONIZE, False, pid)
-        if not handle:
-            # No process has the id; any other refusal is a process this user may not open, so running.
-            return ctypes.get_last_error() != ERROR_INVALID_PARAMETER
-        try:
-            return _KERNEL32.WaitForSingleObject(handle, 0) == WAIT_TIMEOUT
-        finally:
-            _KERNEL32.CloseHandle(handle)
+@functools.cache
+def _kernel32() -> ctypes.CDLL:
+    # CDLL rather than WinDLL: x64 Windows has one calling convention, and pyright types WinDLL only
+    # inside a branch on `sys.platform`, which `docs/ops/spec.md` PLAT-1 refuses.
+    kernel32 = ctypes.CDLL("kernel32")
+    kernel32.OpenProcess.restype = ctypes.c_void_p
+    kernel32.OpenProcess.argtypes = (ctypes.c_uint32, ctypes.c_int, ctypes.c_uint32)
+    kernel32.GetExitCodeProcess.argtypes = (ctypes.c_void_p, ctypes.POINTER(ctypes.c_uint32))
+    kernel32.CloseHandle.argtypes = (ctypes.c_void_p,)
+    return kernel32
 
-else:
 
-    def _alive(pid: int) -> bool:
-        try:
-            os.kill(pid, 0)
-        except ProcessLookupError:
+def _alive(pid: int) -> bool:
+    """Whether the process the id names runs."""
+    if WINDOWS:
+        # Never `os.kill(pid, 0)` there: signal 0 is CTRL_C_EVENT, sent to the process group the id names.
+        kernel32 = _kernel32()
+        # Granted on every process this user runs, so a refusal is an id none of them holds.
+        if not (handle := kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)):
             return False
-        # A process another user runs refuses the signal, and runs.
-        except PermissionError:
-            return True
+        code = ctypes.c_uint32()
+        try:
+            return bool(kernel32.GetExitCodeProcess(handle, ctypes.byref(code))) and code.value == STILL_ACTIVE
+        finally:
+            kernel32.CloseHandle(handle)
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    # A process another user runs refuses the signal, and runs.
+    except PermissionError:
         return True
+    return True
 
 
 def command(*args: str) -> str:
@@ -184,9 +188,9 @@ def _single(found: list[Label]) -> Label | None:
 
 
 def bankable(report: str, settled: Mapping[int, int] | None = None, cited: Collection[int] = ()) -> Bankable:
-    """Each finding's label, `settled` naming a number's line and `cited` the numbers that cite another report.
+    """Each finding's label, `settled` naming a number's line and `cited` the numbers citing another report.
 
-    A report labels its findings once and cites by ledger id, so neither a number labelled twice nor one only above F1 is guessed at.
+    A report labels its findings once and cites by ledger id, so no number labelled twice or only above F1 is guessed at.
     """
     found = labels(report)
     settled = settled or {}
@@ -294,7 +298,7 @@ def _patient[T](act: Callable[[], T], deadline: float | None = None) -> T:
             return act()
         except PermissionError:
             # Windows refuses to replace or delete a file another process has open, and to open one being replaced.
-            if os.name != "nt" or time.monotonic() >= until:
+            if not WINDOWS or time.monotonic() >= until:
                 raise
             time.sleep(LOCK_POLL_SECONDS)
 
@@ -392,7 +396,7 @@ def update[T](path: Path, edit: Callable[[list[str]], T], deadline: float | None
     """`edit` applied to the file's lines under its lock, writing nothing where it raises; what it returned.
 
     Every register write comes through here: the messages hook and a background `ci.py --wait` write
-    unbidden, and overlapping whole-file rewrites drop the earlier. The deadline bounds the whole write.
+    unbidden, and overlapping whole-file rewrites drop the earlier.
     """
     until = time.monotonic() + LOCK_SECONDS if deadline is None else deadline
     with locked(path, until):

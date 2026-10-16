@@ -66,9 +66,9 @@ SHORT_RE: Final = re.compile(r"the following arguments are required|expected one
 
 
 def _calls(text: str) -> list[str]:
-    """Each tool call a page names, a `path :: symbol` citation aside: from the tool's name to the end of its code span.
+    """Each tool call a page names, from the tool's name to its code span's end, a `path :: symbol` citation aside.
 
-    A span opened by a path or `uv run` holds a call too, and a fenced line holds one outside any span, to its end.
+    A fenced line holds one outside any span too, to its end.
     """
     calls: list[str] = []
     fenced, ticks = False, 0
@@ -434,6 +434,35 @@ def test_a_lock_naming_a_running_process_or_none_is_kept_and_named(tmp_path: Pat
     with pytest.raises(OSError, match=re.escape(said.format(pid=os.getpid()))):
         ledger.update(register, lambda lines: lines.append("x"), time.monotonic() + 0.2)
     assert register.read_bytes() == before and lock.exists()
+
+
+# The platform bound each way, so both arms run on every machine: Windows asks a refused file again
+# until the deadline, and elsewhere a PermissionError is final.
+PATIENT: Final[tuple[str, ...]] = (
+    "import time",
+    "import ledger",
+    "refusals = []",
+    "def act():",
+    "    refusals.append(1)",
+    "    if len(refusals) < 3:",
+    "        raise PermissionError('held')",
+    "    return 'done'",
+    "ledger.WINDOWS = True",
+    "assert ledger._patient(act, time.monotonic() + 5) == 'done' and len(refusals) == 3, refusals",
+    "refusals.clear()",
+    "ledger.WINDOWS = False",
+    "try:",
+    "    ledger._patient(act, time.monotonic() + 5)",
+    "except PermissionError:",
+    "    assert len(refusals) == 1, refusals",
+    "else:",
+    "    raise SystemExit('a PermissionError off Windows was asked again')",
+)
+
+
+def test_a_file_held_open_is_asked_for_again_on_windows_alone() -> None:
+    done = subprocess.run((sys.executable, "-c", "\n".join(PATIENT)), cwd=TOOLS, capture_output=True, check=False)
+    assert done.returncode == 0, done.stderr.decode("utf-8", "replace")
 
 
 def test_a_write_waits_out_a_reader_holding_the_register_open(tmp_path: Path) -> None:
@@ -2485,8 +2514,8 @@ def test_prune_removes_a_tree_holding_a_path_past_windows_limit(tmp_path: Path) 
     deep = tree / "node_modules" / "x"
     while len(str(deep)) < 280:
         deep = deep / "a-package-nested-in-another"
-    # Python hands Windows a path past its limit whole only behind the `\\?\` prefix.
-    (Path("\\\\?\\" + str(deep)) if os.name == "nt" else deep).mkdir(parents=True)
+    # Python takes a path past the limit where Windows' LongPathsEnabled is set; git takes it only when asked.
+    deep.mkdir(parents=True)
     pruned = _run("reg", "prune", str(_agents(tmp_path, "| DEEP `a1b2c3` | q |  | DONE 2020-01-01 10:00 x |")), cwd=root, env=_home(tmp_path))
     assert pruned.returncode == 0 and f"removed {tree} and worktree-agent-a1b2c3 (DEEP)" in pruned.stdout, (pruned.stdout, pruned.stderr)
     assert not tree.exists()
