@@ -6,7 +6,7 @@ import { afterEach, describe, it, mock } from "node:test";
 
 import { Fragment, createElement as h, useState } from "react";
 
-import { act, screen, within } from "@testing-library/react";
+import { act, fireEvent, screen, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { publishedLaufendeFassung } from "@/core/einwilligungDocument.ts";
@@ -1313,9 +1313,10 @@ const described = (element: Element | null): string =>
     : `<${element.tagName.toLowerCase()}> „${element.getAttribute("aria-label") ?? element.textContent?.trim() ?? ""}“`;
 
 describe("where the focus lands once a write takes its control off the page", () => {
-  // A landing a case left watching would take the next case's focus as that case's page draws.
+  // A landing a case left watching would take the next case's focus as that case's page draws. Through
+  // `fireEvent`, inside `act`: the page is still mounted, and react-aria's components answer the key press.
   afterEach(() => {
-    document.dispatchEvent(new window.KeyboardEvent("keydown"));
+    fireEvent.keyDown(document);
   });
 
   for (const [name, landing] of Object.entries(LANDINGS)) {
