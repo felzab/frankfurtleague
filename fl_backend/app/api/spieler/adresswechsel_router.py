@@ -5,9 +5,10 @@ from fastapi import APIRouter, Body, Depends
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
+from app.api.aktionen.crud import redact_images_in_session
 from app.api.bewerbungen.services import hash_token
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
-from app.api.spieler.crud import another_pupil_holds, discard_spieler_adresswechsel_in_session
+from app.api.spieler.crud import another_pupil_holds
 from app.api.spieler.schemas import (
     FLSpielerAdresswechselAnsichtPayload,
     FLSpielerAdresswechselAnsichtResponse,
@@ -27,6 +28,7 @@ from app.api.spieler.services import (
     find_spieler_token_unknown_refusal,
     holds_an_address,
     spieler_adresswechsel_adressen,
+    spieler_adresswechsel_image_edits,
     spieler_adresswechsel_zustand_of,
 )
 from app.core.collections import Collection
@@ -35,7 +37,7 @@ from app.core.crud import patch_one_in_db, refuse
 from app.core.dependencies import AktionenCollection, DBClient, SpielerCollection, get_german_date_str, get_germany_now
 from app.core.exception_handlers import DUPLICATE_KEY_RESPONSE, stores_nothing
 from app.core.journal import Journal, JournalLine
-from app.core.recording import log_stamp
+from app.core.recording import build_redaction_filter, log_stamp
 from app.core.security import bind_public_actor, loeschung_journal_hash, verify_access_base
 from app.core.transactions import transaction_session
 from app.shared.folding import sign_in_identifier
@@ -148,7 +150,6 @@ async def post_adresswechsel_antwort(
     token_hash = hash_token(antwort_data.token)
     # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_gesperrt`).
     massgebliche_saison_id = await sperrliste_saison(sperrliste)
-    am = log_stamp(germany_now)
     journal = Journal()
 
     @journal.attempted
@@ -176,27 +177,35 @@ async def post_adresswechsel_antwort(
             )
             refuse(find_adresse_vergeben_refusal(vergeben=vergeben))
 
-            await patch_one_in_db(
-                collection=spieler_collection,
-                db_filter={"_id": raw["_id"]},
-                update=compose_spieler_adresswechsel_antwort(antwort=antwort_data.antwort, email=wechsel.get("email")),
-                session=session,
-                return_document=ReturnDocument.BEFORE,
-            )
-
-            return FLSpielerAdresswechselAntwortResponse(antwort=antwort_data.antwort)
-
-        # The discard's own body, for the referee's twin's reason.
-        await discard_spieler_adresswechsel_in_session(
-            spieler_collection=spieler_collection,
-            aktionen_collection=aktionen_collection,
+        await patch_one_in_db(
+            collection=spieler_collection,
             db_filter={"_id": raw["_id"]},
-            stamp=am,
-            return_document=ReturnDocument.BEFORE,
+            update=compose_spieler_adresswechsel_antwort(antwort=antwort_data.antwort, email=wechsel.get("email")),
             session=session,
+            return_document=ReturnDocument.BEFORE,
         )
-        hashed = loeschung_journal_hash(str(wechsel.get("email") or ""), schluessel=config.sperrliste_schluessel)
-        journal.note(JournalLine(person_hash=hashed, art="adresswechsel_abgelehnt", collection=Collection.SPIELER, record_id=raw["_id"], am=am))
+
+        if antwort_data.antwort == "abgelehnt":
+            # LAST, for the referee's twin's reason: it reaches the pre-image the patch above just filed,
+            # which still holds the address its holder disowned.
+            disowned = sign_in_identifier(str(wechsel.get("email") or ""))
+            await redact_images_in_session(
+                aktionen_collection=aktionen_collection,
+                db_filter=build_redaction_filter([(Collection.SPIELER, [raw["_id"]])]),
+                judge=lambda image: spieler_adresswechsel_image_edits(image, disowned),
+                stamp=log_stamp(germany_now),
+                session=session,
+            )
+            hashed = loeschung_journal_hash(str(wechsel.get("email") or ""), schluessel=config.sperrliste_schluessel)
+            journal.note(
+                JournalLine(
+                    person_hash=hashed,
+                    art="adresswechsel_abgelehnt",
+                    collection=Collection.SPIELER,
+                    record_id=raw["_id"],
+                    am=log_stamp(germany_now),
+                )
+            )
 
         return FLSpielerAdresswechselAntwortResponse(antwort=antwort_data.antwort)
 

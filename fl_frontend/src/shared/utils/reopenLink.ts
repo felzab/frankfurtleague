@@ -8,18 +8,17 @@ import { buildRefusal } from "./refusal";
 // Every page opened by a link strips its token from the address bar, so „Lade die Seite neu“ lands a
 // live link on the panel calling it void; only the link itself reopens the page.
 /** What each link confirmation tells a visitor whose answer only a page older than the running one sends. */
-export const ANTWORT_NEU_OEFFNEN =
-  "Deine Antwort konnten wir so nicht übernehmen. Öffne den Link aus Deiner E-Mail noch einmal und antworte dort erneut.";
+export const ANTWORT_NEU_OEFFNEN = "Deine Antwort konnten wir so nicht übernehmen. Öffne den Link aus Deiner E-Mail erneut und antworte dort.";
 
 // Its own sentence beside `ANTWORT_NEU_OEFFNEN`, whose drifted body is another fault with the same repair:
 // a reader told the words moved knows the page they read is not the one they would answer now.
 /** What each link confirmation tells a visitor whose page shows words other than those the backend runs. */
 export const FASSUNG_NEU_OEFFNEN =
-  "Die Hinweise auf dieser Seite sind inzwischen geändert worden. Öffne den Link aus Deiner E-Mail noch einmal und antworte auf die aktuellen Hinweise.";
+  "Die Hinweise auf dieser Seite sind inzwischen geändert worden. Öffne den Link aus Deiner E-Mail erneut und antworte auf die aktuellen Hinweise.";
 
 /** The registration page's twin of `ANTWORT_NEU_OEFFNEN`, whose link is the team's rather than a mail's. */
 export const REGISTRIERUNG_NEU_OEFFNEN =
-  "Deine Registrierung konnten wir so nicht übernehmen. Öffne den Link Deines Teams noch einmal und registriere Dich dort erneut.";
+  "Deine Registrierung konnten wir so nicht übernehmen. Öffne den Link Deines Teams erneut und registriere Dich dort.";
 
 // Named plainly where the forms' own refusals are neutral: whoever holds a mailed link holds that
 // mailbox, as a sign-in code's holder does, and the ban's own mail has already told them.

@@ -228,7 +228,7 @@ export const FLSchiedsrichterReactivateResponseSchema = BaseAPIResponseSchema.ex
 export type FLSchiedsrichterReactivateResponse = z.infer<typeof FLSchiedsrichterReactivateResponseSchema>;
 
 /** The one thing a visitor's body can be wrong about that no input renders: the token their link carried. */
-const LINK_UNVOLLSTAENDIG = "Bitte öffne den Link noch einmal aus Deiner E-Mail.";
+const LINK_UNVOLLSTAENDIG = "Bitte öffne den Link aus Deiner E-Mail erneut.";
 
 /**
  * Both public payloads read their token from here. One sentence for the missing token and the

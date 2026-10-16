@@ -36,16 +36,3 @@ strictPeerDependencies: true
 # writes it into `minimumReleaseAgeExclude` here.
 minimumReleaseAge: 1440
 minimumReleaseAgeStrict: true
-# Better Auth 1.7.10 and the packages published with it, taken inside the day at my instruction. Each
-# entry names one version, so no later release of these packages is excepted; delete them all once
-# that release is a day old.
-minimumReleaseAgeExclude:
-  - "@better-auth/core@1.7.10"
-  - "@better-auth/drizzle-adapter@1.7.10"
-  - "@better-auth/kysely-adapter@1.7.10"
-  - "@better-auth/memory-adapter@1.7.10"
-  - "@better-auth/mongo-adapter@1.7.10"
-  - "@better-auth/passkey@1.7.10"
-  - "@better-auth/prisma-adapter@1.7.10"
-  - "@better-auth/telemetry@1.7.10"
-  - better-auth@1.7.10

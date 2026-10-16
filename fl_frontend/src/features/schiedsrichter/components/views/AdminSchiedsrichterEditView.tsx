@@ -34,7 +34,7 @@ export function AdminSchiedsrichterEditView({
 }) {
   const { isReactivating, isPrompting, reactivate } = useReactivation({ action: reactivateSchiedsrichterAction, noun: "Schiedsrichter" });
   // The landing read as the dialog opens, which takes the focus off the pressed control.
-  const [stilllegung, setStilllegung] = useState<{ landed: () => void } | null>(null);
+  const [retiring, setRetiring] = useState<{ landed: () => void } | null>(null);
 
   const isRetired = inactiveSince !== null;
   const { name } = schiedsrichter;
@@ -50,22 +50,23 @@ export function AdminSchiedsrichterEditView({
           title: name ?? <Leer>{SCHIEDSRICHTER_OHNE_NAMEN_LABEL}</Leer>,
           // The retirement date, which the rail's banner states as a state and never as a day.
           chip: isRetired ? <RetiredBadge since={inactiveSince} /> : undefined,
-          reactivate: isRetired
-            ? {
-                isPending: isReactivating,
-                isPrompting,
-                // A return that mints the referee a link is a step-up write.
-                onPress: () => reactivate({ id: schiedsrichter.id }, { stepUp: returnMayMint(schiedsrichter) }),
-              }
-            : undefined,
-          retire: isRetired ? undefined : { onPress: (pressed) => setStilllegung(focusAfterWrite(pressed)) },
+          stilllegung: {
+            isRetired,
+            reactivate: {
+              isPending: isReactivating,
+              isPrompting,
+              // A return that mints the referee a link is a step-up write.
+              onPress: () => reactivate({ id: schiedsrichter.id }, { stepUp: returnMayMint(schiedsrichter) }),
+            },
+            retire: { onPress: (pressed) => setRetiring(focusAfterWrite(pressed)) },
+          },
         }}
       />
       <AdminDeleteSchiedsrichterModal
         schiedsrichterData={schiedsrichter}
-        isOpen={stilllegung !== null}
-        onClose={() => setStilllegung(null)}
-        onRetired={() => stilllegung?.landed()}
+        isOpen={retiring !== null}
+        onClose={() => setRetiring(null)}
+        onRetired={() => retiring?.landed()}
       />
     </div>
   );

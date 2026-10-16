@@ -1568,8 +1568,8 @@ It exits 0 once nothing is left, and 1 while an erasure is to run, a choice to r
 review or a line it could not read.
 
 **Then replay the choices: the same command with `--apply`.** Each choice standing to be replayed is
-judged again in a transaction of its own and written through the body its person's own press ran,
-its evidence stamped with the instant on its line, the moment the person acted and never the
+judged again in a transaction of its own and written as its person's own press wrote it, the same
+update and the same log redaction, its evidence stamped with the instant on its line, the moment the person acted and never the
 replay's ([`../backend/spec.md`](../backend/spec.md#2-invariants) I746). The action log records each
 under the system, its call reading `REPLAY` and the line without its person, and a second run writes
 nothing. **A record left for review is written by nothing**: read it beside the person's mail thread
