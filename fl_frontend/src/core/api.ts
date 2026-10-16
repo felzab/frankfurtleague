@@ -1,6 +1,6 @@
 import "server-only";
 
-import { createHash, timingSafeEqual } from "node:crypto";
+import { timingSafeEqual } from "node:crypto";
 
 import z from "zod";
 
@@ -262,17 +262,17 @@ export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, optio
 
 const BEARER = "Bearer ";
 
-/** Each side hashed first, so the comparison runs the same whatever length the header holds. */
-const keyDigest = (key: string): Buffer => createHash("sha256").update(key).digest();
-
 /**
  * Whether a caller presents the system key: the guard of `fl_frontend/src/app/api/revalidate/route.ts`, which this
  * server alone calls (`docs/frontend/spec.md :: I16`).
  */
 export function presentsSystemKey(authorization: string | null): boolean {
-  const presented = authorization?.startsWith(BEARER) ? authorization.slice(BEARER.length) : "";
+  const presented = Buffer.from(authorization?.startsWith(BEARER) ? authorization.slice(BEARER.length) : "", "utf8");
+  const expected = Buffer.from(internalApiKeySystem(), "utf8");
 
-  return timingSafeEqual(keyDigest(presented), keyDigest(internalApiKeySystem()));
+  // `timingSafeEqual` throws on unequal byte lengths. Checked first, an unequal length tells a caller the key's length
+  // alone, which `fl_frontend/src/core/config.ts :: INTERNAL_API_KEY` fixes, as `secrets.compare_digest` does backend-side.
+  return presented.length === expected.length && timingSafeEqual(presented, expected);
 }
 
 /** A drop is a few writes inside this process, so a call this slow has stalled rather than queued. */
