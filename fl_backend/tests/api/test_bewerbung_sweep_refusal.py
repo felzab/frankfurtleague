@@ -470,8 +470,9 @@ ROUND_TRIPS_A_ROW = 2
 @pytest.mark.parametrize(
     ("rows", "other_commands", "per_command_s", "round_trip_s"),
     [
-        # The worst call: ten reads, an aggregate and four commits, and where both erasing clocks erase a
-        # page, an imaged block is cleared and the day is stamped, two deletes, four updates and three log rows.
+        # The worst call erasing one page per clock: ten reads, an aggregate and four commits, and where both
+        # clocks erase, an imaged block is cleared and the day is stamped, two deletes, four updates and three
+        # log rows.
         pytest.param(REMINDERS_PER_PASS + BLOCKS_CLEARED_PER_PASS, 24, 0.00135, 0.036, id="the sweep"),
         # Two reads and the commit.
         pytest.param(DELETIONS_LISTED_PER_PASS, 3, 0.00101, 0.038, id="/angekuendigt"),
