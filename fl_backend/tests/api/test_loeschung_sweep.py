@@ -11,6 +11,7 @@ import asyncio
 import functools
 import logging
 import re
+from collections import Counter
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime
 from typing import Any
@@ -20,7 +21,7 @@ import pymongo
 import pytest
 from bson import ObjectId
 from fastapi import FastAPI
-from pymongo import AsyncMongoClient, ReturnDocument, monitoring
+from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.services import hash_token
@@ -61,10 +62,11 @@ from tests.documents import (
 from tests.erasure import erasure_collections
 from tests.isolation import InterleavedCollection
 from tests.whole_database import where_held
+from tests.wire import commands_by_name, commands_sent
 from tests.worker import worker_database
 
 from .conftest import config_for
-from .test_loeschung_sweep_refusal import COMMANDS_A_PERSON
+from .test_loeschung_sweep_refusal import COMMANDS_A_PERSON, OTHER_COMMANDS
 
 pytestmark = pytest.mark.db
 
@@ -975,25 +977,14 @@ class TestNoJournalLine:
         assert not [record for record in caplog.records if record.getMessage().startswith(JOURNAL_TOKEN)]
 
 
-# --- What one pupil costs on the wire, which the share is sized at.
-
-
-class _Counting(monitoring.CommandListener):
-    def __init__(self) -> None:
-        self.commands = 0
-
-    def started(self, event: monitoring.CommandStartedEvent) -> None:
-        self.commands += 1
-
-    def succeeded(self, event: monitoring.CommandSucceededEvent) -> None:
-        pass
-
-    def failed(self, event: monitoring.CommandFailedEvent) -> None:
-        pass
+# --- What a call costs on the wire, which the share is sized at.
 
 
 # Two runs apart by this many pupils, both inside one share.
 FEW = LOESCHUNGEN_PER_PASS // 2
+
+# The server's first batch for a cursor naming no size: one pending registration more takes the read a `getMore`.
+FIRST_BATCH = 101
 
 
 class TestOnePupilCostsTheCommandsItsShareIsSizedAt:
@@ -1006,20 +997,36 @@ class TestOnePupilCostsTheCommandsItsShareIsSizedAt:
                     await database[collection].delete_many({"_id": {"$ne": build_ghost_spieler()["_id"]}})
                 await seeded(database, *(a_due_pupil(position) for position in range(due)))
 
-                listener = _Counting()
-                counting = AsyncMongoClient(mongo_replica_set_url, event_listeners=[listener])
-                try:
-                    await run(counting[DATABASE_NAME], counting)
-                finally:
-                    await counting.close()
-
-                return listener.commands
+                return await commands_sent(mongo_replica_set_url, DATABASE_NAME, run)
 
             return await counted(FEW), await counted(2 * FEW)
 
         few, twice = on_a_league(mongo_replica_set_url, body)
 
         assert (twice - few) / FEW == COMMANDS_A_PERSON
+
+
+class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
+    def test_a_full_share(self, mongo_replica_set_url: str):
+        """`tests/api/test_loeschung_sweep_refusal.py`'s budget: a share and one more due, the pending registrations past the first batch.
+
+        A command added to the call turns this red, so the share is judged against the deadline again.
+        """
+
+        waiting = [registration(numbered(6000 + position), f"angemeldet.{position}@beispielschule.de") for position in range(FIRST_BATCH + 1)]
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[Any, Counter[str]]:
+            await seeded(
+                database, *(a_due_pupil(position) for position in range(LOESCHUNGEN_PER_PASS + 1)), {Collection.REGISTRIERUNGEN: waiting}
+            )
+
+            return await commands_by_name(mongo_replica_set_url, DATABASE_NAME, run)
+
+        answer, names = on_a_league(mongo_replica_set_url, body)
+
+        # The premise first: a full share erased, and the pending registrations read past the first batch.
+        assert (answer.spieler, names["getMore"]) == (LOESCHUNGEN_PER_PASS, 1), names
+        assert names.total() - LOESCHUNGEN_PER_PASS * COMMANDS_A_PERSON == OTHER_COMMANDS, names
 
 
 # --- The preview.

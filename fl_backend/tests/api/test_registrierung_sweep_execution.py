@@ -10,7 +10,7 @@ from zoneinfo import ZoneInfo
 import pytest
 from bson import ObjectId
 from fastapi import FastAPI
-from pymongo import AsyncMongoClient, MongoClient, ReturnDocument, monitoring
+from pymongo import AsyncMongoClient, MongoClient, ReturnDocument
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.services import hash_token
@@ -33,6 +33,7 @@ from tests.bans import ban_list
 from tests.config import ADMIN_AUTH, BASE_AUTH, SYSTEM_AUTH, build_test_config
 from tests.database import a_clean_database, a_clean_database_sync, on_the_seed_loop
 from tests.documents import ban_document, rules_document, saison_document, team_document
+from tests.wire import commands_by_name, commands_sent
 from tests.worker import worker_database
 
 # Module level, as the other execution suites mark theirs: every test below reaches a real mongod.
@@ -742,38 +743,8 @@ class TestAPageAndOneMoreIsDrainedRatherThanRefused:
         assert (erased, left) == (OVERFLOW, 0), f"the {clock} clock left rows the next pass would read into the same full page"
 
 
-class _Counting(monitoring.CommandListener):
-    """Every command sent while it is on, each one a round trip."""
-
-    def __init__(self) -> None:
-        self.commands = 0
-
-    def started(self, event: monitoring.CommandStartedEvent) -> None:
-        self.commands += 1
-
-    def succeeded(self, event: monitoring.CommandSucceededEvent) -> None:
-        pass
-
-    def failed(self, event: monitoring.CommandFailedEvent) -> None:
-        pass
-
-
 # Under the driver's first batch, so a page read is one command however many rows it holds.
 FEW = 10
-
-# The update and its log row: the per-row cost each share is sized at.
-ROUND_TRIPS_A_ROW = 2
-
-
-async def commands_sent(url: str, call: Body) -> int:
-    listener = _Counting()
-    counting = AsyncMongoClient(url, event_listeners=[listener])
-    try:
-        await call(counting[DATABASE_NAME], counting)
-    finally:
-        await counting.close()
-
-    return listener.commands
 
 
 async def passes_until_empty(one_pass: Callable[[], Awaitable[int]], *, share: int, total: int) -> list[int]:
@@ -882,13 +853,13 @@ class TestTheReminderClockTakesAShareEachCall:
                 # Stamped already, so the run's own stamp costs both passes the same guard read.
                 await database[Collection.SAISONS].update_many({}, {"$set": {"registrierung_sweep_gelaufen_am": TODAY}})
 
-                return await commands_sent(mongo_replica_set_url, sweep)
+                return await commands_sent(mongo_replica_set_url, DATABASE_NAME, sweep)
 
             return await counted(FEW), await counted(2 * FEW)
 
         few, twice = on_a_league(mongo_replica_set_url, body)
 
-        assert (twice - few) / FEW == ROUND_TRIPS_A_ROW
+        assert (twice - few) / FEW == budget.ROUND_TRIPS_A_ROW
 
     @pytest.mark.parametrize(
         "refused",
@@ -917,7 +888,7 @@ class TestTheReminderClockTakesAShareEachCall:
                 # Stamped already, so the run's own stamp costs both passes the same guard read.
                 await database[Collection.SAISONS].update_many({}, {"$set": {"registrierung_sweep_gelaufen_am": TODAY}})
 
-                return await commands_sent(mongo_replica_set_url, sweep)
+                return await commands_sent(mongo_replica_set_url, DATABASE_NAME, sweep)
 
             return await counted(due), await counted(one_refused)
 
@@ -936,34 +907,13 @@ class TestTheReminderClockTakesAShareEachCall:
                 await database[Collection.REGISTRIERUNGEN].insert_many(rows)
                 await database[Collection.SAISONS].update_many({}, {"$set": {"registrierung_sweep_gelaufen_am": TODAY}})
 
-                return await commands_sent(mongo_replica_set_url, sweep)
+                return await commands_sent(mongo_replica_set_url, DATABASE_NAME, sweep)
 
             return await counted(the_corpus()), await counted([*the_corpus(), unreadable]), await standing(database)
 
         without, beside, left = on_a_league(mongo_replica_set_url, body)
 
         assert (beside, SECOND_OID in left, DECLINED_OID in left) == (without, True, False)
-
-
-class _ByName(_Counting):
-    def __init__(self) -> None:
-        super().__init__()
-        self.names: Counter[str] = Counter()
-
-    def started(self, event: monitoring.CommandStartedEvent) -> None:
-        super().started(event)
-        self.names[event.command_name] += 1
-
-
-async def commands_by_name(url: str, call: Body) -> tuple[Any, Counter[str]]:
-    """The call's answer and its commands, read before the close sends `endSessions`, which is no command of the call's."""
-
-    listener = _ByName()
-    counting = AsyncMongoClient(url, event_listeners=[listener])
-    try:
-        return await call(counting[DATABASE_NAME], counting), Counter(listener.names)
-    finally:
-        await counting.close()
 
 
 class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
@@ -974,7 +924,7 @@ class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
         """
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[Any, Counter[str]]:
-            return await commands_by_name(mongo_replica_set_url, sweep)
+            return await commands_by_name(mongo_replica_set_url, DATABASE_NAME, sweep)
 
         answer, names = on_a_league(mongo_replica_set_url, body)
         rows = len(answer.erinnerungen)
