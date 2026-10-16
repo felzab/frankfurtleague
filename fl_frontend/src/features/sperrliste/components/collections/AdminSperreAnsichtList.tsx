@@ -29,7 +29,8 @@ const ZEILE_CLASSES = "fluid-xxs leading-normal font-medium text-foreground";
 const nameOf = (vorname: string, nachname: string | null): string => (nachname === null ? vorname : `${vorname} ${nachname}`);
 
 /* The records' own wording is `fl_frontend/src/features/funktionen/components/forms/AdminLoeschungForm/FormLoeschungAnsicht.tsx`'s,
-   which names the same reveal before an erasure, in the order the person's own reveal lists them. */
+   which names the same reveal before an erasure, in the order the person's own reveal lists them; a line here adds the
+   state that decides its tool, which an erasure needs none of. */
 const EINTRAEGE: Eintraege = {
   // A squad row each, at its own season: the pupil editor addresses the selected season's row alone.
   spieler: (spieler, saisonHref) =>
@@ -43,7 +44,7 @@ const EINTRAEGE: Eintraege = {
 
       return kader.map(({ saison_id, team_name, inactive_since }) => {
         const zeile =
-          team_name === null ? `${person}, im Kader der Saison ${saison_id}` : `${person}, im Kader von ${team_name} (${saison_id})`;
+          team_name === null ? `${person}, im Kader der Saison ${saison_id}` : `${person}, im Kader von ${team_name}, Saison ${saison_id}`;
         const href = withSaisonId(`/bereich/admin/spieler/${spieler_id}`, saison_id);
 
         return inactive_since === null

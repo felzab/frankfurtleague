@@ -232,7 +232,13 @@ describe("what the ban's dialog shows once the ban stands (`docs/frontend/spec.m
       ["Kadereintrag austragen", `/bereich/admin/spieler/${SPIELER}?saison_id=2026`],
       ["Eintrag ansehen", `/bereich/admin/schiedsrichter/${SCHIEDSRICHTER}?saison_id=2025`],
     ]);
-    assert.ok(within(dialog).queryByText(/\(2024\), ausgetragen seit 01\.02\.2025$/) !== null, "the row taken out reads as one still in");
+    // The season placed as every other line places it, the erasure's reveal of the same row included.
+    assert.ok(
+      within(dialog).queryByText(
+        /^Spielerin oder Spieler: Zorbanax Quell, im Kader von Goethe-Gymnasium, Saison 2024, ausgetragen seit 01\.02\.2025$/,
+      ) !== null,
+      "the row taken out reads as one still in, or places its season otherwise",
+    );
     assert.ok(within(dialog).queryByText(/Zorbanax Quell, stillgelegt seit 01\.03\.2025$/) !== null, "the retired referee reads as active");
   });
 
