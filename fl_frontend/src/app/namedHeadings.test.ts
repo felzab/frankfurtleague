@@ -34,9 +34,8 @@ const SRC_DIR = path.resolve(import.meta.dirname, "..");
 const shown = (file: string): string => path.relative(SRC_DIR, file).split(path.sep).join("/");
 
 /**
- * A heading or a control a sentence sends the reader to: its words, the constant holding them, the
- * module defining that constant, and every module rendering the words. `seite` marks a page's name,
- * which a list of such names sends the reader to as surely as a quotation does.
+ * What a sentence sends the reader to: its words, their constant, the module defining it and each
+ * module rendering them. `seite` marks a page's name, which a list of names points to as a quotation does.
  */
 type Benannt = {
   readonly wort: string;
@@ -262,9 +261,9 @@ const START = String.raw`(?<![\p{L}\p{N}])`;
 const END = String.raw`(?![\p{L}\p{N}])`;
 
 /**
- * Each place a run names a registered word by typing it: in any quotation, unquoted after a word sending
- * the reader somewhere, or a page's name listed beside another's. A section's heading listed is an
- * ordinary noun, as in „mit Zeitraum und Regeln“.
+ * Each place a run types a registered word: in any quotation, after a word pointing somewhere, or as a
+ * page's name listed beside another's. A listed section heading is an ordinary noun, as in „mit
+ * Zeitraum und Regeln“.
  */
 function typedNames(words: readonly string[], pages: readonly string[]): (run: string) => { worte: string[]; wie: string }[] {
   const pointed = words.map((wort) => ({
