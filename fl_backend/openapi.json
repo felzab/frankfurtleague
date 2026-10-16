@@ -4398,7 +4398,7 @@
     "/api/v0/spieler/memberships": {
       "get": {
         "summary": "Every Spieler with their squad rows",
-        "description": "Every player, retired ones included, each with every squad row they hold.\n\n`GET /spieler` answers it at no setting: the junction join is strict with a `saison_id`, and\nwithout one a player with no live row has `nummer` and `position` null.",
+        "description": "Every player, retired ones included, each with every squad row they hold.\n\n`GET /spieler` answers it at no setting: the junction join is strict with a `saison_id`, and\nwithout one a player with no live row has `nummer` and `position` null.\n\nA pending address change is served without its token hash, beside whether its link has lapsed today\nby the rule its confirmation refuses on, so the editor marks a lapsed link without reading a day of its own.",
         "operationId": "get_spieler_memberships_api_v0_spieler_memberships_get",
         "responses": {
           "200": {
@@ -4542,6 +4542,194 @@
           },
           "403": {
             "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "x-fl-tier": "admin"
+      }
+    },
+    "/api/v0/spieler/{spieler_id}/adresswechsel": {
+      "post": {
+        "summary": "Ask a Spieler's new address to confirm itself",
+        "description": "Hold a new address for this pupil until its own mailbox confirms it, answering the link's raw token once with both addresses.\n\n**The stored address does not move here.** It stays in force, the sign-in and the account page keyed on it, until the\nholder of the new mailbox confirms through `POST /spieler/adresswechsel`; the caller mails the link to the new address and\na notice to the stored one. The whole pending block is written, so a change already pending is replaced and its link\nopens nothing, and where it named another mailbox that address goes from every image the action log holds of this pupil,\nas a decline's does.\n\nRefused where the pupil holds no address (`REQ-SPIELER-008`): this corrects an address and enters none. Refused where the\ntyped address is the stored one already (`REQ-SPIELER-007`), where the ban list holds it (`REQ-SPIELER-003`), and where\nanother pupil signs in on it (`REQ-SPIELER-006`). 404 for an id no pupil holds, the sentinel's included.",
+        "operationId": "post_adresswechsel_api_v0_spieler__spieler_id__adresswechsel_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "spieler_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Spieler Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLSpielerAdresswechselPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpielerAdresswechselMintResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/404.DB-COMMON-001"
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005.REQ-VAL-002"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.REQ-SPIELER-003.REQ-SPIELER-006.REQ-SPIELER-007.REQ-SPIELER-008"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "x-fl-tier": "admin"
+      },
+      "delete": {
+        "summary": "Discard a Spieler's pending address change",
+        "description": "Discard this pupil's pending address change: the block goes, its link opens nothing, and the stored address stays.\n\n**The address goes from the action log too** (`docs/backend/spec.md :: I562`): it is taken out of every image the log holds\nof this pupil, since every write on the row while the change stood, a re-send or this discard included, filed one carrying\nan address nobody proved; the rest of each image stays. Nothing is mailed. 404 where the pupil holds no pending change, and\nfor an id no pupil holds, the sentinel's included.",
+        "operationId": "delete_adresswechsel_api_v0_spieler__spieler_id__adresswechsel_delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "spieler_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Spieler Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpielerAdminSingleResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/404.DB-COMMON-001"
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "x-fl-tier": "admin"
+      }
+    },
+    "/api/v0/spieler/{spieler_id}/adresswechsel/einladen": {
+      "post": {
+        "summary": "Send a Spieler's pending address a fresh link",
+        "description": "Mint a fresh link for this pupil's pending address, answering the raw token once with both addresses, for the caller to mail.\n\nIt replaces the whole pending block but its address, so the previous link stops working at once and the delivery state of\nthe message it went out in goes with it. The deadline restarts from today, and a deadline already passed is no refusal:\nthe re-send is how a lapsed change is asked again.\n\nRefused where the ban list holds the pending address (`REQ-SPIELER-003`) and where another pupil has come to sign in on it\n(`REQ-SPIELER-006`). 404 where the pupil holds no pending change, and for an id no pupil holds, the sentinel's included.",
+        "operationId": "einladen_adresswechsel_api_v0_spieler__spieler_id__adresswechsel_einladen_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "spieler_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Spieler Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpielerAdresswechselMintResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/404.DB-COMMON-001"
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.REQ-SPIELER-003.REQ-SPIELER-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -7544,6 +7732,122 @@
           },
           "410": {
             "$ref": "#/components/responses/410.REQ-SCHIEDSRICHTER-003"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "base"
+      }
+    },
+    "/api/v0/spieler/adresswechsel/ansicht": {
+      "post": {
+        "summary": "What one Spieler address link opens",
+        "description": "Answer what this token opens: the pupil's first name, the link's state and its deadline.\n\n**A first name and nothing else about the row** (`READ-PUPIL-005`): never either address, the surname or the id. A POST\nthat reads, so the token travels in a body and never in a second URL.\n\nRefuses only a token no pupil holds (`REQ-SPIELER-001`), which an answered, replaced or discarded change is too: an answer\nremoves what the link opens. An expired link is SERVED in that state rather than refused. The state is `gesperrt`, ahead\nof every other, wherever the ban list holds the address the link was mailed to, and `nicht_bestaetigbar`, behind the\ndeadline, wherever it holds the address the change would replace or another pupil signs in on the new one: each state the\nconfirmation would be refused in, the last two alike so the link tells its holder nothing about whose either address is.",
+        "operationId": "get_adresswechsel_ansicht_api_v0_spieler_adresswechsel_ansicht_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLSpielerAdresswechselAnsichtPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpielerAdresswechselAnsichtResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-VAL-002"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-002"
+          },
+          "404": {
+            "$ref": "#/components/responses/404.REQ-SPIELER-001"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "base",
+        "x-fl-stores-nothing": true
+      }
+    },
+    "/api/v0/spieler/adresswechsel": {
+      "post": {
+        "summary": "Confirm or decline one Spieler's pending address",
+        "description": "Record whether the mailbox this link was sent to is the pupil's: `bestaetigt` moves their address to it, `abgelehnt` discards the change.\n\nEither answer ends the change, so the link opens nothing afterwards. The confirmation stores the address as the sign-in\ncompares it, asks no consent and writes none: the consent record stands as it was, and only `email` moves.\n\nRefuses a token no pupil holds (`REQ-SPIELER-001`), and a CONFIRMATION through a link whose deadline has passed\n(`REQ-SPIELER-002`), one mailed to an address the ban list holds now (`REQ-SPIELER-004`), one whose change would replace an\naddress the ban list holds now (`REQ-SPIELER-005`), so a barred person cannot move their record off the address the ban\nkeys on, and one to an address another pupil has come to sign in on (`REQ-SPIELER-006`). **A decline is refused none of\nthese**: it removes an address nobody proved, and it takes that address out of every image the action log holds of this\npupil, those of every write while the change stood, a re-send included. The rest of each image stays.",
+        "operationId": "post_adresswechsel_antwort_api_v0_spieler_adresswechsel_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLSpielerAdresswechselAntwortPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpielerAdresswechselAntwortResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-SPIELER-005.REQ-SPIELER-006"
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-VAL-002"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-002"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-SPIELER-004"
+          },
+          "404": {
+            "$ref": "#/components/responses/404.REQ-SPIELER-001"
+          },
+          "410": {
+            "$ref": "#/components/responses/410.REQ-SPIELER-002"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -23515,6 +23819,225 @@
         "title": "FLSpielerAdminSingleResponse",
         "description": "The same player echoed back to the admin who just wrote them, with their whole name.\n\n`inactive_since` rides here alone: it IS the answer `DELETE` and `reactivate` give, and no public\nsurface renders a pupil's leaving date."
       },
+      "FLSpielerAdresswechsel": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "verschickt_am": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Verschickt Am"
+          },
+          "frist": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Frist"
+          },
+          "zustellung": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLBewerbungZustellung"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "email",
+          "verschickt_am",
+          "frist"
+        ],
+        "title": "FLSpielerAdresswechsel",
+        "description": "A pupil's new address waiting on its own mailbox, as the editor reads it -- and NO `token_hash`.\n\nThe hash is the whole credential, and the link's lookup alone reads it."
+      },
+      "FLSpielerAdresswechselAnsichtPayload": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Token"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "token"
+        ],
+        "title": "FLSpielerAdresswechselAnsichtPayload"
+      },
+      "FLSpielerAdresswechselAnsichtResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "zustand": {
+            "type": "string",
+            "enum": [
+              "gueltig",
+              "abgelaufen",
+              "gesperrt",
+              "nicht_bestaetigbar"
+            ],
+            "title": "Zustand"
+          },
+          "vorname": {
+            "type": "string",
+            "title": "Vorname"
+          },
+          "frist": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Frist"
+          }
+        },
+        "type": "object",
+        "required": [
+          "zustand",
+          "vorname",
+          "frist"
+        ],
+        "title": "FLSpielerAdresswechselAnsichtResponse",
+        "description": "What one address link opens, declared from nothing (`READ-PUPIL-005`): never either address, the id or the surname."
+      },
+      "FLSpielerAdresswechselAntwortPayload": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Token"
+          },
+          "antwort": {
+            "type": "string",
+            "enum": [
+              "bestaetigt",
+              "abgelehnt"
+            ],
+            "title": "Antwort"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "token",
+          "antwort"
+        ],
+        "title": "FLSpielerAdresswechselAntwortPayload"
+      },
+      "FLSpielerAdresswechselAntwortResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "antwort": {
+            "type": "string",
+            "enum": [
+              "bestaetigt",
+              "abgelehnt"
+            ],
+            "title": "Antwort"
+          }
+        },
+        "type": "object",
+        "required": [
+          "antwort"
+        ],
+        "title": "FLSpielerAdresswechselAntwortResponse",
+        "description": "The answer recorded, and nothing of the row: a leaked link learns only what it posted."
+      },
+      "FLSpielerAdresswechselMint": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "title": "Token"
+          },
+          "frist": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Frist"
+          },
+          "email": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Email"
+          },
+          "bisherige_email": {
+            "type": "string",
+            "title": "Bisherige Email"
+          },
+          "vorname": {
+            "type": "string",
+            "title": "Vorname"
+          }
+        },
+        "type": "object",
+        "required": [
+          "token",
+          "frist",
+          "email",
+          "bisherige_email",
+          "vorname"
+        ],
+        "title": "FLSpielerAdresswechselMint",
+        "description": "A freshly minted address link, answered ONCE and stored nowhere, admin-tier whole.\n\nThe raw token exists here and in the new mailbox; the database holds its hash."
+      },
+      "FLSpielerAdresswechselMintResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "adresswechsel": {
+            "$ref": "#/components/schemas/FLSpielerAdresswechselMint"
+          }
+        },
+        "type": "object",
+        "required": [
+          "adresswechsel"
+        ],
+        "title": "FLSpielerAdresswechselMintResponse",
+        "description": "The request's and the re-send's answer. Never null: where no link may be minted a refusal answers instead."
+      },
+      "FLSpielerAdresswechselPayload": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "format": "email",
+            "title": "Email"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "email"
+        ],
+        "title": "FLSpielerAdresswechselPayload",
+        "description": "The address an administrator asks a pupil's link to go to. The path names the pupil."
+      },
       "FLSpielerKontext": {
         "properties": {
           "vorname": {
@@ -24172,6 +24695,20 @@
             ],
             "title": "Email"
           },
+          "adresswechsel": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielerAdresswechsel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "adresswechsel_abgelaufen": {
+            "type": "boolean",
+            "title": "Adresswechsel Abgelaufen"
+          },
           "memberships": {
             "items": {
               "$ref": "#/components/schemas/FLSpielerMembership"
@@ -24186,6 +24723,7 @@
           "nachname",
           "id",
           "inactive_since",
+          "adresswechsel_abgelaufen",
           "memberships"
         ],
         "title": "FLSpielerWithMemberships",
@@ -25496,7 +26034,8 @@
               "einladung",
               "registrierung",
               "kontakt",
-              "schiedsrichter_adresswechsel"
+              "schiedsrichter_adresswechsel",
+              "spieler_adresswechsel"
             ],
             "title": "Ziel"
           },
@@ -25557,7 +26096,8 @@
               "einladung",
               "registrierung",
               "kontakt",
-              "schiedsrichter_adresswechsel"
+              "schiedsrichter_adresswechsel",
+              "spieler_adresswechsel"
             ],
             "title": "Ziel"
           },
@@ -25611,7 +26151,8 @@
               "einladung",
               "registrierung",
               "kontakt",
-              "schiedsrichter_adresswechsel"
+              "schiedsrichter_adresswechsel",
+              "spieler_adresswechsel"
             ],
             "title": "Ziel"
           },
@@ -26188,6 +26729,29 @@
           }
         }
       },
+      "403.REQ-SPIELER-004": {
+        "description": "Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-SPIELER-004"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
       "404.DB-COMMON-001": {
         "description": "Not Found",
         "content": {
@@ -26319,6 +26883,29 @@
                     "error_code": {
                       "enum": [
                         "REQ-SCHIEDSRICHTER-002"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "404.REQ-SPIELER-001": {
+        "description": "Not Found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-SPIELER-001"
                       ]
                     }
                   }
@@ -26721,6 +27308,31 @@
                         "REQ-SPERRLISTE-001",
                         "REQ-SPERRLISTE-002",
                         "REQ-SPERRLISTE-003"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "409.DB-COMMON-002.REQ-SPIELER-005.REQ-SPIELER-006": {
+        "description": "Conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "DB-COMMON-002",
+                        "REQ-SPIELER-005",
+                        "REQ-SPIELER-006"
                       ]
                     }
                   }
@@ -27306,6 +27918,56 @@
           }
         }
       },
+      "409.REQ-SPIELER-003.REQ-SPIELER-006": {
+        "description": "Conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-SPIELER-003",
+                        "REQ-SPIELER-006"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "409.REQ-SPIELER-003.REQ-SPIELER-006.REQ-SPIELER-007.REQ-SPIELER-008": {
+        "description": "Conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-SPIELER-003",
+                        "REQ-SPIELER-006",
+                        "REQ-SPIELER-007",
+                        "REQ-SPIELER-008"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
       "409.REQ-SPIELPLAN-006": {
         "description": "Conflict",
         "content": {
@@ -27468,6 +28130,29 @@
                     "error_code": {
                       "enum": [
                         "REQ-SCHIEDSRICHTER-003"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "410.REQ-SPIELER-002": {
+        "description": "Gone",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-SPIELER-002"
                       ]
                     }
                   }

@@ -942,11 +942,23 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Collection.SPIELER,
         "email",
         Editability.CONTROL_ONLY,
-        "written by the admission alone, as `sign_in_identifier` folds the registration's address: at the person's creation, or "
-        "onto a proposed person holding none. No payload carries it, a person holding one never takes another, and "
-        "`uniq_spieler_email` keeps one person per address. `POST /identitaet/subjekt` joins on the field by equality, so a value "
-        "stored in any other form is matched by nothing",
+        "written by two controls alone, each as `sign_in_identifier` folds an address: the admission, from the registration's "
+        "address at the person's creation or onto a proposed person holding none, and the confirmation of an address change "
+        "through `POST /spieler/adresswechsel`, from the address its new mailbox proved. No payload carries it, an admission "
+        "never gives a person holding one another, and `uniq_spieler_email` keeps one person per address. "
+        "`POST /identitaet/subjekt` joins on the field by equality, so a value stored in any other form is matched by nothing",
         "app.api.registrierungen.services.compose_person_update",
+    ),
+    FieldPolicy(
+        Collection.SPIELER,
+        "adresswechsel",
+        Editability.CONTROL_ONLY,
+        "no payload carries the block. `POST /spieler/{spieler_id}/adresswechsel` writes it WHOLE, replacing a pending one, "
+        "and `POST /spieler/{spieler_id}/adresswechsel/einladen` replaces it whole for the same address, each answering the raw "
+        "token once. `DELETE /spieler/{spieler_id}/adresswechsel` removes it, and so does either answer its person gives through "
+        "`POST /spieler/adresswechsel`, the erasure of the address it names, and the removal of a change the day after its link "
+        "lapsed. The three delivery endpoints write its delivery state on the system key alone",
+        "app.api.spieler.services.compose_spieler_adresswechsel",
     ),
     FieldPolicy(
         Collection.SPIELER,
@@ -2036,6 +2048,82 @@ RULES: tuple[Rule, ...] = (
         summary="an address change whose replaced address the ban list now holds confirms nothing, the address on file staying",
         implemented_by="app.api.schiedsrichter.services.find_ersetzte_adresse_gesperrt_refusal",
         tested_by="tests/api/test_schiedsrichter_adresswechsel_execution.py::TestAChangeReplacingABarredAddress",
+    ),
+    Rule(
+        code="REQ-SPIELER-001",
+        status=HTTPStatus.NOT_FOUND,
+        operation="POST /spieler/adresswechsel/ansicht · POST /spieler/adresswechsel",
+        aggregate="Spieler",
+        summary=(
+            "a pupil's address link opens no change -- unknown, replaced by a later mint, already answered or discarded, or gone with the pupil"
+        ),
+        implemented_by="app.api.spieler.services.find_spieler_token_unknown_refusal",
+        tested_by="tests/api/test_spieler_adresswechsel_execution.py::TestTheConfirmation",
+    ),
+    Rule(
+        code="REQ-SPIELER-002",
+        status=HTTPStatus.GONE,
+        operation="POST /spieler/adresswechsel",
+        aggregate="Spieler",
+        summary="an address link whose deadline has passed confirms no address",
+        implemented_by="app.api.spieler.services.find_spieler_token_expired_refusal",
+        tested_by="tests/api/test_spieler_adresswechsel_execution.py::TestTheConfirmationsRefusals",
+    ),
+    Rule(
+        code="REQ-SPIELER-003",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /spieler/{spieler_id}/adresswechsel · POST /spieler/{spieler_id}/adresswechsel/einladen",
+        aggregate="Spieler",
+        summary="no address link is minted for an address the ban list still holds",
+        implemented_by="app.api.spieler.services.find_spieler_adresse_gesperrt_refusal",
+        tested_by="tests/api/test_spieler_adresswechsel_execution.py::TestTheRequestsRefusals",
+    ),
+    Rule(
+        code="REQ-SPIELER-004",
+        status=HTTPStatus.FORBIDDEN,
+        operation="POST /spieler/adresswechsel",
+        aggregate="Spieler",
+        summary="a link mailed to an address the ban list now holds confirms no address, whenever it was minted",
+        implemented_by="app.api.spieler.services.find_spieler_bestaetigung_gesperrt_refusal",
+        tested_by="tests/api/test_spieler_adresswechsel_execution.py::TestTheConfirmationsRefusals",
+    ),
+    Rule(
+        code="REQ-SPIELER-005",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /spieler/adresswechsel",
+        aggregate="Spieler",
+        summary="an address change whose replaced address the ban list now holds confirms nothing, the address on file staying",
+        implemented_by="app.api.spieler.services.find_spieler_ersetzte_adresse_gesperrt_refusal",
+        tested_by="tests/api/test_spieler_adresswechsel_execution.py::TestTheConfirmationsRefusals",
+    ),
+    Rule(
+        code="REQ-SPIELER-006",
+        status=HTTPStatus.CONFLICT,
+        operation=(
+            "POST /spieler/{spieler_id}/adresswechsel · POST /spieler/{spieler_id}/adresswechsel/einladen · POST /spieler/adresswechsel"
+        ),
+        aggregate="Spieler",
+        summary="no address change is minted or confirmed to an address another pupil signs in on",
+        implemented_by="app.api.spieler.services.find_adresse_vergeben_refusal",
+        tested_by="tests/api/test_spieler_adresswechsel_execution.py::TestTheRequestsRefusals",
+    ),
+    Rule(
+        code="REQ-SPIELER-007",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /spieler/{spieler_id}/adresswechsel",
+        aggregate="Spieler",
+        summary="an address change names an address other than the one the pupil signs in on",
+        implemented_by="app.api.spieler.services.find_adresse_unveraendert_refusal",
+        tested_by="tests/api/test_spieler_adresswechsel_execution.py::TestTheRequestsRefusals",
+    ),
+    Rule(
+        code="REQ-SPIELER-008",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /spieler/{spieler_id}/adresswechsel",
+        aggregate="Spieler",
+        summary="a pupil holding no address takes no address change, an address reaching them with their registration alone",
+        implemented_by="app.api.spieler.services.find_keine_adresse_refusal",
+        tested_by="tests/api/test_spieler_adresswechsel_execution.py::TestTheRequestsRefusals",
     ),
     Rule(
         code="REQ-SQUAD-001",

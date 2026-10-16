@@ -111,6 +111,7 @@ MIRRORED_BOUNDS: Final = (
     Mirror("features/funktionen/constants.ts", "ERASURE_ANLASS_MAX_LENGTH", "ERASURE_ANLASS_MAX_LENGTH"),
     Mirror("features/schiedsrichter/constants.ts", "SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE", "SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE"),
     Mirror("features/registrierungen/constants.ts", "REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE", "REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE"),
+    Mirror("features/spieler/constants.ts", "SPIELER_ADRESSWECHSEL_FRIST_TAGE", "SPIELER_ADRESSWECHSEL_FRIST_TAGE"),
     # These three mirror the published notice's sentences and never a payload schema: each confirmation
     # view and each account entry states its floors as it was served them.
     Mirror("features/registrierungen/constants.ts", "REGISTRIERUNG_MIN_ALTER", "REGISTRIERUNG_MIN_ALTER_JAHRE"),

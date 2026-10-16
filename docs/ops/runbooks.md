@@ -628,15 +628,21 @@ season's matches, a referee not being season-scoped.
 role the address sits in.** It is what a person signs in as, so changing one changes who can sign in
 as them.
 
-- **A pupil.** `spieler.email` is written by the team's admission alone and is on no payload, so no
-  screen corrects it. A pupil admitted under an address they cannot read is corrected by hand: set
-  `spieler.email` to the new address as `fl_backend/app/shared/folding.py :: sign_in_identifier`
-  folds it, in the Playground, and run `python -m app.core.constraints --check` (§2); the unique
-  index `uniq_spieler_email` refuses an address another person already holds. Registering again
-  from the new address instead writes a second person, which the admission joins to the first only
-  where the first holds no address. The address a PENDING registration was typed with is not
-  corrected: the answer is to register again through the team's link, the unconfirmed row going
-  with the seven-day sweep.
+- **A pupil.** Enter the new address in the pupil editor (`POST /spieler/{spieler_id}/adresswechsel`).
+  The address on file stays in force and is told a change was asked, while the new one waits with a
+  link of its own; it moves only once its holder confirms there, so until then the pupil still signs
+  in at the address on file (`docs/backend/spec.md :: I701`). The ban list and another pupil already
+  holding the address each refuse the request (`docs/backend/spec.md :: I702`), and a pupil holding no
+  address takes none: an address arrives with their registration (`docs/backend/spec.md :: I703`).
+  Re-send the link when it lapses, or discard the change when the request turns out to be wrong; a
+  change whose link lapsed goes the day after
+  ([`../datenschutz.md`](../datenschutz.md#6-retention-is-bounded-where-a-bound-was-chosen)).
+  **Once the change confirms, the account sweep deletes the old address's sign-in account within the
+  hour**, once nothing else references that address
+  ([section 9](#9-checking-that-the-retention-sweep-has-run)). Registering again from the new address
+  instead writes a second person, which the admission joins to the first only where the first holds
+  no address. The address a PENDING registration was typed with is not corrected: the answer is to
+  register again through the team's link, the unconfirmed row going with the seven-day sweep.
 - **A referee who has NOT confirmed.** Correct `kontakt.email` in the referee editor. The save
   itself kills the link that went to the old mailbox, mints a fresh one and mails the corrected
   address, so nothing further is owed and the old link opens nothing.
@@ -659,6 +665,12 @@ as them.
   (`DELETE /schiedsrichter/{schiedsrichter_id}/adresswechsel`), which removes the address and the
   log's images of it (`docs/backend/spec.md :: I562`). The link's own „Das ist nicht meine
   Adresse“ does the same, past its deadline too.
+- **The holder of a pending new pupil address**, the referee's case above on a pupil's row. Find the
+  row with a read-only Playground query on `spieler` for `adresswechsel.email` equal to the address,
+  matched in any case and projecting `_id`, `vorname` and `nachname` alone, then open that pupil's
+  editor and discard the change (`DELETE /spieler/{spieler_id}/adresswechsel`), which removes the
+  address and the log's images of it (`docs/backend/spec.md :: I562`). The link's own decline does
+  the same, past its deadline too.
 - **A referee who is RETIRED and has not confirmed.** Correct `kontakt.email` in the referee editor.
   The save stores the address, mails nothing and kills the old link, since a retired referee takes
   no booking to consent for; reactivating them later mints a fresh link and mails it to the
@@ -671,8 +683,8 @@ as them.
 
 **A person asking to change their own address is answered by performing the procedure above.**
 No page lets anybody change the address they sign in as: a confirmed referee's change is the
-administrator's save, proved by the new mailbox's own link and told to the address on file, and
-every other role's is the administrator's correction.
+administrator's save and a pupil's the administrator's request, each proved by the new mailbox's own
+link and told to the address on file, and every other role's is the administrator's correction.
 
 **Withdrawing a consent is the person's own write on their account page, `/bereich/konto`, and
 never an erasure or an edit by hand** (`docs/backend/spec.md :: I613`, `:: I596`). Point a request

@@ -39,6 +39,8 @@ ZIEL_PFADE: Mapping[FLZustellungZiel, ZielPfad] = {
     # A confirmed referee's address link, which goes to the address the change names rather than to
     # the one the row holds: its own carrier, so its bounce never marks the consent link's message.
     "schiedsrichter_adresswechsel": ZielPfad(Collection.SCHIEDSRICHTER, "adresswechsel"),
+    # The pupil's twin, its own kind for the referee's reason: the link goes to the address the change names.
+    "spieler_adresswechsel": ZielPfad(Collection.SPIELER, "adresswechsel"),
 }
 
 

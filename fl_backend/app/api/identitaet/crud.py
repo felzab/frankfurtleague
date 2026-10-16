@@ -65,9 +65,10 @@ from app.api.registrierungen.crud import erase_registrierungen_in_session
 from app.api.registrierungen.services import build_eigene_registrierung_filter
 from app.api.saisons.schemas import FLSaisonStatus
 from app.api.schiedsrichter.crud import ensure_ghost_schiedsrichter, erase_referee_in_session, remove_pending_addresses_in_session
+from app.api.schiedsrichter.services import ADRESSWECHSEL_FELD
 from app.api.sperrliste.lookup import BanList, adressen_gesperrt
 from app.api.spieler.crud import ensure_ghost_spieler, erase_person_in_session, remove_pending_pupil_addresses_in_session
-from app.api.spieler.services import build_spieler_filter
+from app.api.spieler.services import SPIELER_ADRESSWECHSEL_FELD, build_spieler_filter
 from app.core.collections import Collection
 from app.core.concurrency import gather_cancelling
 from app.core.crud import aggregate_many_from_db, patch_many_in_db, refuse
@@ -397,11 +398,13 @@ async def resolve_subject(
             collection=schiedsrichter_collection, pipeline=build_pending_address_pipeline(identifier), session=session
         ),
         identifier,
+        feld=ADRESSWECHSEL_FELD,
         stored=referee_address,
     )
     spieler_adresswechsel = pending_addresses_of(
         await aggregate_many_from_db(collection=spieler_collection, pipeline=build_pending_pupil_address_pipeline(identifier), session=session),
         identifier,
+        feld=SPIELER_ADRESSWECHSEL_FELD,
         stored=pupil_address,
     )
 

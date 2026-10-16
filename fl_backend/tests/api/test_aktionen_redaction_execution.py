@@ -18,6 +18,7 @@ from app.api.aktionen.crud import redact_address_in_images
 from app.api.aktionen.services import IMAGE_ADDRESSES, ImageAddress, address_image_edits
 from app.api.einladungen.services import compose_einladung, compose_widerruf_update
 from app.api.schiedsrichter.services import ADRESSWECHSEL_FELD, compose_adresswechsel
+from app.api.spieler.services import SPIELER_ADRESSWECHSEL_FELD, compose_spieler_adresswechsel
 from app.core.collections import Collection
 from app.core.crud import delete_many_from_db, patch_one_in_db
 from app.core.recording import ERASED_ACTOR_MARKER
@@ -132,12 +133,12 @@ async def a_league_holding_their_images(database: AsyncDatabase, client: AsyncMo
                 "Walburga",
                 "Fadenbach",
                 email=PUPIL_STORED,
-                **{ADRESSWECHSEL_FELD: compose_adresswechsel(email=ERASED, token_hash="v" * 64, today="2026-03-01")},
+                **{SPIELER_ADRESSWECHSEL_FELD: compose_spieler_adresswechsel(email=ERASED, token_hash="v" * 64, today="2026-03-01")},
             ),
         ]
     )
     await patched(database, Collection.SPIELER, READDRESSED_PUPIL, {"$set": {"email": PUPIL_NOW}})
-    await patched(database, Collection.SPIELER, PENDING_PUPIL, {"$unset": {ADRESSWECHSEL_FELD: ""}})
+    await patched(database, Collection.SPIELER, PENDING_PUPIL, {"$unset": {SPIELER_ADRESSWECHSEL_FELD: ""}})
     async with client.start_session() as session:
         await delete_many_from_db(collection=database[Collection.BERECHTIGUNGEN], db_filter={"_id": THEIR_GRANT}, session=session)
         await delete_many_from_db(collection=database[Collection.SPERRLISTE], db_filter={"_id": ban["_id"]}, session=session)

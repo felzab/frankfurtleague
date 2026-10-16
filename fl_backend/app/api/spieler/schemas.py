@@ -2,11 +2,18 @@ from typing import Annotated, Literal
 
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter
 
-from app.shared.schemas.bounds import EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH, LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SAISON_ID_LENGTH
-from app.shared.schemas.custom import CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
+from app.shared.schemas.bounds import (
+    BEWERBUNG_TOKEN_MAX_LENGTH,
+    EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH,
+    LIST_LIMIT_DEFAULT,
+    LIST_LIMIT_MAX,
+    SAISON_ID_LENGTH,
+)
+from app.shared.schemas.custom import CustomDateString, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.einwilligung import FLEinwilligungNachweise, FLEinwilligungStand, FLEinwilligungStandPayload
-from app.shared.schemas.kontakt import CustomKontaktName
+from app.shared.schemas.kontakt import CustomEmail, CustomKontaktName
 from app.shared.schemas.responses import BaseAPIResponse
+from app.shared.schemas.zustellung import FLBewerbungZustellung
 
 # `[0-9]`, never `\d`: Python's `\d` matches Unicode decimal digits where the frontend mirror's
 # does not, and the two ends must accept and refuse the same shirt.
@@ -35,6 +42,31 @@ FLEinwilligungUmfang = Literal["kader_oeffentlich", "intern"]
 # What stored records name as who answered; no write sets it (`app/shared/einwilligung_nachweis.py ::
 # SPRECHER`). `bestandsuebernahme` marks a record carried over from before consent was collected.
 FLEinwilligungQuelle = Literal["erziehungsberechtigt", "volljaehrig", "bestandsuebernahme"]
+
+# What a pupil's address link shows, the referee's states (`app/api/schiedsrichter/schemas.py ::
+# FLSchiedsrichterAdresswechselZustand`). `nicht_bestaetigbar` also answers a new address another pupil
+# holds, so the link's holder cannot tell that from a ban on the replaced one.
+FLSpielerAdresswechselZustand = Literal["gueltig", "abgelaufen", "gesperrt", "nicht_bestaetigbar"]
+
+FLSpielerAdresswechselAntwort = Literal["bestaetigt", "abgelehnt"]
+
+# The raw token as it arrives on the two base-tier endpoints, under the one ceiling every link this
+# application mints is spelled to.
+CustomSpielerToken = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=BEWERBUNG_TOKEN_MAX_LENGTH)]
+
+
+class FLSpielerAdresswechsel(BaseModel):
+    """A pupil's new address waiting on its own mailbox, as the editor reads it -- and NO `token_hash`.
+
+    The hash is the whole credential, and the link's lookup alone reads it.
+    """
+
+    email: str
+    verschickt_am: CustomDateString
+    # Stored rather than derived from `verschickt_am`: raising the bound must not move a link already sent.
+    frist: CustomDateString
+    # Null on every fresh mint: nothing is yet known about the message the link went out in.
+    zustellung: FLBewerbungZustellung | None = None
 
 
 class FLEinwilligung(BaseModel):
@@ -148,6 +180,8 @@ class FLSpieler(_SpielerPerson, _SaisonSpielerWritable):
     # seam joining a signed-in person to this row is an equality on the stored value, and a raw write
     # breaks it silently.
     email: str | None = None
+    # Defaulted: only a pupil whose address an administrator asked to move carries one, until its mailbox answers.
+    adresswechsel: FLSpielerAdresswechsel | None = None
 
 
 FLSpielerListAdapter = TypeAdapter(list[FLSpielerPublic])
@@ -270,6 +304,65 @@ class FLSpielerAdminSingleResponse(FLSpielerSingleResponse):
     inactive_since: CustomOptionalDateString
 
 
+class FLSpielerAdresswechselPayload(BaseModel):
+    """The address an administrator asks a pupil's link to go to. The path names the pupil."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    email: CustomEmail
+
+
+class FLSpielerAdresswechselMint(BaseModel):
+    """A freshly minted address link, answered ONCE and stored nowhere, admin-tier whole.
+
+    The raw token exists here and in the new mailbox; the database holds its hash.
+    """
+
+    token: str
+    frist: CustomDateString
+    # Both addresses as the mint's own transaction read them: one a caller read BEFORE the mint may
+    # name a mailbox a rival request has since replaced. The stored one is told a change was asked.
+    email: CustomNonEmptyString
+    bisherige_email: str
+    # Read in the same transaction for both mails' greeting: no admin read serves one pupil by id.
+    vorname: str
+
+
+class FLSpielerAdresswechselMintResponse(BaseAPIResponse):
+    """The request's and the re-send's answer. Never null: where no link may be minted a refusal answers instead."""
+
+    adresswechsel: FLSpielerAdresswechselMint
+
+
+class FLSpielerAdresswechselAnsichtPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    token: CustomSpielerToken
+
+
+class FLSpielerAdresswechselAnsichtResponse(BaseAPIResponse):
+    """What one address link opens, declared from nothing (`READ-PUPIL-005`): never either address, the id or the surname."""
+
+    zustand: FLSpielerAdresswechselZustand
+    vorname: str
+    frist: CustomDateString
+
+
+class FLSpielerAdresswechselAntwortPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    token: CustomSpielerToken
+    # Required rather than defaulted: a page that omitted it would have the model answer for the
+    # person whether a mailbox is theirs.
+    antwort: FLSpielerAdresswechselAntwort
+
+
+class FLSpielerAdresswechselAntwortResponse(BaseAPIResponse):
+    """The answer recorded, and nothing of the row: a leaked link learns only what it posted."""
+
+    antwort: FLSpielerAdresswechselAntwort
+
+
 class FLSaisonSpielerResponse(_SaisonSpielerWritable, BaseAPIResponse):
     """A junction row, which has no read model of its own -- so it is echoed as it was written."""
 
@@ -324,6 +417,11 @@ class FLSpielerWithMemberships(_SpielerPerson):
     # Served here and withheld from the base tier, as the record above is: this read is the admin
     # editor's, and an address is the person's own.
     email: str | None = None
+    # Defaulted for `FLSpieler.adresswechsel`'s reason.
+    adresswechsel: FLSpielerAdresswechsel | None = None
+    # The read's own judgement by the rule the confirmation refuses on, so no client compares `frist`
+    # to a clock of its own. Required, so a read forgetting to judge it fails rather than answering false.
+    adresswechsel_abgelaufen: bool
     memberships: list[FLSpielerMembership]
 
 
