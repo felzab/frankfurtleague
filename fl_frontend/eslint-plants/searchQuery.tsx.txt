@@ -12,7 +12,10 @@ declare const pathname: string;
 declare const typed: string;
 declare const item: { q: string; a: string };
 declare const props: { searchParams: Promise<Record<string, string | undefined>> };
+declare const searchParamsPromise: Promise<Record<string, string | undefined>>;
 declare const router: { replace: (to: string) => void };
+declare function use<T>(promise: Promise<T>): T;
+declare function readFaq(): Promise<{ q: string }>;
 
 export const READ = searchParams.get("q"); // expect: search-in-url
 export const READ_ALL = searchParams.getAll(`q`); // expect: search-in-url
@@ -36,6 +39,23 @@ export async function readOnTheServer(): Promise<unknown[]> {
   return [params.q, params["q"], (await props.searchParams).q, q]; // expect: search-in-url expect: search-in-url expect: search-in-url
 }
 
+// The parameters held under any name: through an assertion, a fallback, an alias and a rest element.
+export async function readABinding(): Promise<unknown[]> {
+  const taken = await props.searchParams;
+  const kept = (await searchParamsPromise) ?? {};
+  const alias = taken as Record<string, string | undefined>;
+  const { q: query } = alias; // expect: search-in-url
+  const { saison_id: saison, ...rest } = kept;
+  const { q: fallen } = (await props.searchParams) ?? {}; // expect: search-in-url
+  return [taken.q, kept[`q`], rest.q, query, saison, fallen]; // expect: search-in-url expect: search-in-url expect: search-in-url
+}
+
+// A client page's parameters, through React's `use`.
+export function ReadInTheBrowser() {
+  const used = use(props.searchParams);
+  return [used.q, use(props.searchParams).q]; // expect: search-in-url expect: search-in-url
+}
+
 export function Boxes() {
   return (
     <>
@@ -45,6 +65,13 @@ export function Boxes() {
       <input role="searchbox" aria-label="Suchen" /> {/* expect: search-field */}
     </>
   );
+}
+
+// Free: a binding of anything but the page's parameters, and one destructured key's value.
+export async function readOtherBindings(): Promise<unknown[]> {
+  const antwort = await readFaq();
+  const { saison_id: saison } = await props.searchParams;
+  return [antwort.q, (saison as unknown as { q: string }).q];
 }
 
 // Free: an old `q` asked after and stripped, another parameter, a name merely ending in q, another host's
