@@ -1,4 +1,7 @@
-from typing import Any, Final
+from collections.abc import Iterator
+from typing import Annotated, Any, Final
+
+from fastapi import FastAPI, Query
 
 from app.shared.schemas.custom import OBJECT_ID_REGEX
 from tests.openapi_document import build_document
@@ -29,9 +32,16 @@ OPEN_STRING_PARAMETERS: Final = {
 OBJECT_ID_PATTERN: Final = f"^{OBJECT_ID_REGEX}$"
 
 
-def _members(schema: dict[str, Any]) -> list[dict[str, Any]]:
-    """The schema itself, or each member of its union: `Optional` publishes the string inside an `anyOf`."""
-    return schema.get("anyOf", [schema])
+def _members(schema: dict[str, Any]) -> Iterator[dict[str, Any]]:
+    """The schema itself, or each member of its union, `Optional` publishing the string inside an `anyOf`.
+
+    An array is read through its `items`, where a list-typed parameter publishes its strings.
+    """
+    for member in schema.get("anyOf", [schema]):
+        if member.get("type") == "array":
+            yield from _members(member.get("items", {}))
+        else:
+            yield member
 
 
 def _is_open_string(schema: dict[str, Any]) -> bool:
@@ -57,3 +67,26 @@ def test_every_open_string_parameter_in_a_url_carries_no_typed_text():
 
     # Named, each parameter published and not entered, or entered and not published.
     assert [(location, name) for location, names in published.items() for name in sorted(names ^ OPEN_STRING_PARAMETERS[location].keys())] == []
+
+
+def _list_typed_query_schemas() -> list[dict[str, Any]]:
+    """What FastAPI publishes for a list-typed query parameter, required and optional, built rather than spelled."""
+    probe = FastAPI()
+
+    @probe.get("/required")
+    def required(q: Annotated[list[str], Query()]) -> None:
+        return None
+
+    @probe.get("/optional")
+    def optional(q: Annotated[list[str] | None, Query()] = None) -> None:
+        return None
+
+    paths = probe.openapi()["paths"]
+
+    return [paths[path]["get"]["parameters"][0]["schema"] for path in ("/required", "/optional")]
+
+
+def test_a_list_typed_parameter_is_read_through_its_items():
+    """No URL parameter is list-typed today, so the sweep above would pass one over unread were its items skipped."""
+
+    assert [_is_open_string(schema) for schema in _list_typed_query_schemas()] == [True, True]
