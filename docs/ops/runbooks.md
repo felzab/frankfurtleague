@@ -842,8 +842,10 @@ mails the person itself where the address holds a sign-in account**, naming the 
 the last season the ban covers, so there is nothing to send by hand; an address that never signed in
 is mailed nothing, and the page says so. Where the send fails, or the sign-in store could not say
 whether an account holds the address, the page says the notice did not go, and there is then no
-address left anywhere to try again with. **The same write ends every live sign-in of the address**, keeping its
-account and passkeys (`docs/frontend/spec.md :: I402`), which then stay only while a record holds the address; where that fails the
+address left anywhere to try again with. **The same write ends every live sign-in of the address**
+(`docs/frontend/spec.md :: I402`), keeping its account and passkeys, which then stay only while a
+record holds the address (`:: I699`,
+[`../datenschutz.md`](../datenschutz.md#6-retention-is-bounded-where-a-bound-was-chosen)); where that fails the
 page says so too, every person page refuses the sessions as no session at all
 (`docs/frontend/spec.md :: I406`), and each is deleted the next time its browser reaches the sign-in
 page (`docs/frontend/spec.md :: I518`). **Every later sign-in of the address
@@ -873,9 +875,12 @@ own season (`docs/frontend/spec.md :: I688`), and says beneath them how long the
 account stays ([section 9](#9-checking-that-the-hourly-passes-have-run)) and that its log rows and
 authorship stay. „Adresse sperren“ reads and shows the list, and „Ja, Adresse sperren“ enters the
 ban: closing the dialog in between bans nobody, and an edit of the address takes the list away until
-it is read again (`docs/frontend/spec.md :: I724`). Each link opens in a tab of its own, so the list
-stays open beside it; work through it before „Ja, Adresse sperren“, since the dialog closes on the
-ban.
+it is read again (`docs/frontend/spec.md :: I724`). **An address the list already holds is refused
+at the first press**, on the address box in a second ban's words and with no list shown (`:: I730`);
+one barred by somebody else after that read is refused the same way at the second. **Past the
+step-up window the second press asks the passkey first**, reading „Mit Passkey bestätigen“, as
+lifting a ban does (`:: I727`). Each link opens in a tab of its own, so the list stays open beside
+it; work through it before the second press, since the dialog closes on the ban.
 
 - a referee: „Spiele der Saison … neu besetzen“, one link for each season holding an unplayed
   fixture they are booked on, opens the fixture search at that season to reassign them, then
@@ -895,8 +900,8 @@ ban.
   editor, whose „Änderung verwerfen“ removes it;
 - a pupil holding no squad row: „Eintrag ansehen“ opens their record.
 
-Where the dialog says the list could not be loaded, the ban stands and these records are found by
-hand.
+Where the dialog says the list could not be loaded, it bans nobody until a later read shows the list
+(`docs/frontend/spec.md :: I724`).
 
 **A ban lapses five full seasons after the one it was entered under, and the row is removed at the
 activation that runs past it.** The season it was entered in does not count, so a ban entered while
