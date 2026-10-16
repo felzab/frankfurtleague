@@ -1361,7 +1361,17 @@ database edits: `aktionen` carries no POST and no DELETE route, and no code remo
 **The log goes LAST whichever route the player half takes**, because every write through
 `fl_backend/app/core/crud.py` appends a row to it: taken through „Löschung auf Anfrage“ per person,
 the player half leaves rows this reset then has to take. Which route the player half takes is not
-settled here.
+settled here, but **„Löschung auf Anfrage“ cannot be the whole of it**: it reaches a record only
+through the address the record holds, so a pupil row holding none survives it
+([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)), and every row this
+reset is for has to go.
+
+**Neither half, nor the referee drop below, touches the sign-in store, and the frontend keeps
+running through all three.** Each paste holds league rows alone: once no record holds an address,
+the account sweep deletes its account within the hour, mailing nobody, a barred address's alike
+([section 9](#9-checking-that-the-hourly-passes-have-run)). That needs the sweep live before the
+first paste, `KONTO_SWEEP` reading `on` on a production build, and its next
+`konto.sweep_completed` line counts the accounts it deleted.
 
 **What the reset reaches that the retention index cannot is the rows carrying no `at_date`**, which
 nothing expires (I119), and a count of them says how many are left.
