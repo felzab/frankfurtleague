@@ -290,7 +290,7 @@ describe("an administrator write the server holds to the step-up window", () => 
 
   /* Over a synthetic sample, since the tree holds one request off the admin key and none whose key hides: the
      activation's deletion run goes on the system key, which the hourly timer sends with no session to step up. */
-  it("takes a step-up action's request for a step-up write's on the admin key alone, and names one whose key it cannot read", () => {
+  it("takes a step-up action's admin-key write for a step-up write's, and names one whose key it cannot read", () => {
     const mutations = ts.createSourceFile(
       "mutations.ts",
       [
@@ -301,6 +301,10 @@ describe("an administrator write the server holds to the step-up window", () => 
         'export async function postComputed(k: never) { return apiClient("/c", S, { [k]: "system" }); }',
         'export async function postTwo() { await apiClient("/a", S, { authType: "admin" }); return apiClient("/b", S, { authType: "system" }); }',
         "export async function laufen(lauf: () => Promise<void>) { await lauf(); }",
+        // A read beside the write, as the erasure's reveal is, steps nothing up.
+        'export async function readAnsicht() { return apiClient("/r", S, { method: "POST", readOnly: true, authType: "admin" }); }',
+        'export async function postNachLesen() { await apiClient("/r", S, { readOnly: true, authType: "admin" }); return apiClient("/w", S, { authType: "admin" }); }',
+        'export async function readSpread(o: never) { return apiClient("/r", S, { readOnly: true, authType: "admin", ...o }); }',
       ].join("\n"),
       ts.ScriptTarget.Latest,
       true,
@@ -308,9 +312,16 @@ describe("an administrator write the server holds to the step-up window", () => 
     const request = (name: string) => `saisons :: ${name}`;
     const unread = [...["postSpread", "postComputed", "postTwo", "laufen"].map(request), "teams :: postGone"];
 
+    const kept = ["postNachLesen", "readSpread"].map(request);
+
     assert.deepEqual(
-      stepUpRequestsOf([...["postWrite", "postLauf", "postForm"].map(request), ...unread], (slice) => (slice === "saisons" ? mutations : null)),
-      { requests: [request("postWrite"), ...unread], unread: unread.map((each) => `${each} sent on a key the reader cannot read`) },
+      stepUpRequestsOf([...["postWrite", "postLauf", "postForm", "readAnsicht"].map(request), ...kept, ...unread], (slice) =>
+        slice === "saisons" ? mutations : null,
+      ),
+      {
+        requests: [request("postWrite"), ...kept, ...unread],
+        unread: [...kept.slice(1), ...unread].map((each) => `${each} sent on a key the reader cannot read`),
+      },
     );
   });
 

@@ -1,6 +1,6 @@
 import { isRefusal } from "@/shared/utils/actionError";
 
-import { ADRESSE_GESPERRT, INHABER_GESPERRT, NUR_INHABER_ENTZIEHT } from "./constants";
+import { ADRESSE_GESPERRT, INHABER_GESPERRT, NACH_ERNENNUNG_NEU_ANMELDEN, NUR_INHABER_ENTZIEHT } from "./constants";
 
 import type { FieldErrors } from "@/shared/utils/validation";
 
@@ -47,7 +47,7 @@ export function mapStufeRefusal(error: unknown): { error?: string } | null {
   switch (error.serverErrorCode) {
     // The acting owner was demoted while the page stood, another owner's demotion among the ways.
     case "REQ-BERECHTIGUNG-005":
-      return { error: "Die Stufe eines Zugangs ändern können nur Inhaberinnen und Inhaber." };
+      return { error: `Die Stufe eines Zugangs ändern können nur Inhaberinnen und Inhaber. ${NACH_ERNENNUNG_NEU_ANMELDEN}` };
     case "REQ-BERECHTIGUNG-003":
       return { error: INHABER_GESPERRT };
     // The last owner's demotion, their own step-down included.

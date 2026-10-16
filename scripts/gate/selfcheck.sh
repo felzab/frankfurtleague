@@ -931,6 +931,10 @@ import(pathToFileURL(reader).href).then(({ refusal }) => {
 });
 ' "${HOOKS_DIR}/implementer-whole-suite.mjs" "$arms" > "$answers" 2>"${SELFCHECK_TMP}/suite-driver.err" || rc=$?
     mapfile -d '' -t answered < "$answers"
+    # A split answer or a stray write shifts every answer after it, and at the last arm shows nothing.
+    if (( ${#answered[@]} > ${#SUITE_EXPECTS[@]} )); then
+      note_fail "whole-suite hook: the reader's driver gave ${#answered[@]} answers to ${#SUITE_EXPECTS[@]} arms, so the arms after the surplus read another arm's answer"
+    fi
     # Read now: an arm through the script below rewrites that script's own stderr file.
     unanswered="no answer, the reader's driver exited ${rc}: $(tr '\n' ' ' < "${SELFCHECK_TMP}/suite-driver.err")"
     for i in "${!SUITE_EXPECTS[@]}"; do
@@ -989,6 +993,15 @@ import(pathToFileURL(reader).href).then(({ refusal }) => {
   expect_refused Bash 'pnpm run test:base -- --test-reporter dot'
   expect_refused Bash 'npm t'
   expect_refused Bash 'bash -x ./scripts/gate/verify.sh'
+  # `-n` runs nothing of a script alone: an interactive shell ignores it, and a `-c` line is judged.
+  expect_refused Bash 'bash -in scripts/gate/verify.sh'
+  expect_refused Bash "bash -n -c 'pnpm test'"
+  expect_refused Bash "bash -n -c \"\$(pnpm test)\""
+  # A shell's long options, `--` and an option's name are read past to the script they run.
+  expect_refused Bash 'bash --norc scripts/gate/verify.sh'
+  expect_refused Bash 'bash --rcfile x.rc scripts/gate/verify.sh'
+  expect_refused Bash 'bash -euo pipefail scripts/gate/verify.sh'
+  expect_refused Bash 'bash -- scripts/gate/verify.sh'
   expect_refused Bash 'uv run --directory fl_backend pytest'
   expect_refused Bash './scripts/gate/verify.sh --docs'
   expect_refused Bash 'bash scripts/ops/local.sh --down'
@@ -1006,6 +1019,10 @@ import(pathToFileURL(reader).href).then(({ refusal }) => {
   expect_refused Bash "echo \$(uv run --frozen pytest)"
   suite_tick='`'
   expect_refused Bash "echo ${suite_tick}pnpm test${suite_tick}"
+  # Inside double quotes a substitution still runs, in both shells.
+  expect_refused Bash "echo \"\$(pnpm test)\""
+  expect_refused Bash "echo \"${suite_tick}pnpm test${suite_tick}\""
+  expect_refused PowerShell "echo \"\$(pnpm test)\""
   expect_refused Bash '(cd fl_frontend && pnpm test)'
   expect_refused Bash '{ pnpm test; }'
   expect_refused Bash 'bash -c "cd fl_frontend && pnpm test"'
@@ -1026,6 +1043,7 @@ import(pathToFileURL(reader).href).then(({ refusal }) => {
   expect_let_through implementer Bash 'uv run --frozen pytest -m db tests/api/test_spiele.py::test_one tests/api/test_spiele.py::test_two'
   # A substitution's output is the operand, whatever it lists.
   expect_let_through implementer Bash "uv run --frozen pytest \$(git diff --name-only HEAD~1 -- tests)"
+  expect_let_through implementer Bash "uv run --frozen pytest \"\$(git diff --name-only HEAD~1 -- tests)\""
   expect_let_through implementer Bash "uv run --frozen pytest ${suite_tick}cat files.txt${suite_tick}"
   expect_let_through implementer Bash "pnpm run test:base \$(git ls-files 'src/features/x/*.test.ts')"
   expect_let_through implementer PowerShell "uv run --frozen pytest ${suite_tick}"$'\n'"  tests/api/test_spiele.py"
@@ -1034,6 +1052,7 @@ import(pathToFileURL(reader).href).then(({ refusal }) => {
   expect_let_through implementer Bash 'uv run --frozen pytest --version'
   expect_let_through implementer Bash 'uv run --frozen pytest -h'
   expect_let_through implementer Bash 'git log -- scripts/gate/verify.sh'
+  expect_let_through implementer Bash 'bash -n scripts/gate/verify.sh'
   expect_let_through implementer Bash "git commit -F - <<'EOF'"$'\n''pnpm test'$'\n''EOF'
   expect_let_through implementer Bash 'true # ; pnpm test'
   expect_let_through implementer Bash 'echo "an unterminated quote'
@@ -1137,6 +1156,15 @@ process.exit(said.hookEventName === "SessionStart" && pointers && /REGISTER-one\
     if [[ "$messages_said" == "0 "*'"hookEventName": "PostToolUse"'*"is in no messages file"* ]]; then
       info 'messages hook: a send it cannot record — told to the coordinator'
     else note_fail "messages hook: a send to an agent with no messages file must be told as PostToolUse context, got '${messages_said:0:200}'"; fi
+    # A lock naming a process that has ended is a writer killed holding it: broken, inside the timeout
+    # `.claude/settings.json` gives the hook, past which the harness kills the hook unheard.
+    node -e 'process.stdout.write(String(process.pid))' > "${messages_briefs}/WORKER-messages.md.lock"
+    messages_said="$(printf '%s' '{"session_id":"probe-1","tool_name":"SendMessage","tool_input":{"to":"WORKER","message":"probe order past a stale lock"}}' |
+      HOME="$messages_home" timeout 10 bash "$MESSAGES_HOOK" 2>&1)" || messages_said="exit $? ${messages_said}"
+    if [[ -z "$messages_said" && ! -e "${messages_briefs}/WORKER-messages.md.lock" ]] &&
+      grep -q '^probe order past a stale lock$' "${messages_briefs}/WORKER-messages.md"; then
+      info 'messages hook: a lock whose process ended — broken, the send recorded inside the timeout'
+    else note_fail "messages hook: a lock naming an ended process must be broken and the send recorded within 10 s, got '${messages_said:0:200}'"; fi
   fi
 
   # A writing or driving agent's MCP and Skill calls refused, because the app ignores the

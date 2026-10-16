@@ -199,7 +199,7 @@ describe("what the season-end note says after the row is gone", () => {
   it("says that the deletion has happened rather than that it will", () => {
     assert.match(MAIL.text, /gelöscht/, "the note never says what happened");
     assert.match(MAIL.text, /Du musst nichts tun/, "the note asks a reader to act on something they cannot change");
-    assert.match(MAIL.text, /wieder registrieren/, "the note leaves a returning pupil no way back");
+    assert.match(MAIL.text, /erneut registrieren/, "the note leaves a returning pupil no way back");
   });
 });
 

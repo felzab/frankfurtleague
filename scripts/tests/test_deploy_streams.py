@@ -57,6 +57,13 @@ if [[ "${1:-}" == "compose" && " ${*:2:3} " == *" run "* ]]; then
 fi
 if [[ "${1:-}" == "compose" ]]; then
   case " $* " in
+    # nginx's Control API, answering a reload as `FL_DEPLOY_RELOAD_STATUS` says.
+    *" -X PATCH "*)
+      printf 'reload\\n' >> "${FL_DEPLOY_CALLS}"
+      if [[ -n "${FL_DEPLOY_RELOAD_RC:-}" ]]; then exit "${FL_DEPLOY_RELOAD_RC}"; fi
+      printf '{"logs":[]}\\n%s' "${FL_DEPLOY_RELOAD_STATUS:-200}"; exit 0 ;;
+    *" up "*)
+      printf 'up %s\\n' "${*:5}" >> "${FL_DEPLOY_CALLS}"; exit 0 ;;
     *" ps "*)
       printf '%s\\n' "$@" > "${FL_DEPLOY_PS_ARGV}"
       case ":${FL_DEPLOY_NO_CONTAINER:-}:" in *":${last}:"*) exit 0 ;; esac
@@ -65,10 +72,13 @@ if [[ "${1:-}" == "compose" ]]; then
       printf 'cid-%s\\n' "$last"; exit 0 ;;
     *" logs "*)
       printf 'logs %s\\n' "$last" >> "${FL_DEPLOY_CALLS}"
+      # A signal to the run itself while this command is in hand; the pause lets it land first.
+      if [[ "${FL_DEPLOY_SIGNAL_AT:-}" == logs ]]; then kill -s "${FL_DEPLOY_SIGNAL}" "${FL_DEPLOY_SHELL_PID}"; sleep 0.3; fi
       case ":${FL_DEPLOY_LOGS_FAIL:-}:" in *":${last}:"*) exit "${FL_DEPLOY_LOGS_RC:-1}" ;; esac
       printf '%s line one\\n%s line two\\n' "$last" "$last"; exit 0 ;;
     *" stop "*)
       printf 'stop %s\\n' "${*:5}" >> "${FL_DEPLOY_CALLS}"
+      if [[ "${FL_DEPLOY_SIGNAL_AT:-}" == stop ]]; then kill -s "${FL_DEPLOY_SIGNAL}" "${FL_DEPLOY_SHELL_PID}"; sleep 0.3; fi
       exit "${FL_DEPLOY_STOP_RC:-0}" ;;
     *" start "*)
       printf 'start %s\\n' "${*:5}" >> "${FL_DEPLOY_CALLS}"
@@ -86,7 +96,7 @@ if [[ "${1:-}" == "compose" ]]; then
   esac
   exit 0
 fi
-if [[ "${1:-}" == "inspect" ]]; then printf 'healthy\\n'; exit 0; fi
+if [[ "${1:-}" == "inspect" ]]; then printf '%s\\n' "${FL_DEPLOY_HEALTH:-healthy}"; exit 0; fi
 if [[ "${1:-}" == "run" ]]; then
   printf '%s\\n' "$@" > "${FL_DEPLOY_ARGV}"
   if [[ -n "${FL_DEPLOY_RUN_SAYS:-}" ]]; then printf '%s\\n' "${FL_DEPLOY_RUN_SAYS}" >&2; fi
@@ -104,8 +114,10 @@ def _assignment(name: str) -> str:
     return lift_assignment(DEPLOY, name)
 
 
-# Every assignment the environment readers build their containers from.
+# Every assignment the environment readers build their containers from, and the ones putting a
+# stopped pair back reads, after `COMPOSE`, which the typed reload spells.
 ENV_ASSIGNMENTS: Final = ("ENV_MOUNTS", "ENV_NAME_CHECK")
+RESTART_ASSIGNMENTS: Final = ("EDGE_CONTROL_SOCKET", "EDGE_RELOAD_TYPED", "HEALTH_WAIT_BACKEND", "HEALTH_WAIT_FRONTEND")
 
 
 class _Fixture:
@@ -159,12 +171,15 @@ def _run(body: str, **overrides: str) -> tuple[int, str, _Fixture]:
         "ATTEMPTED_STREAMS=0",
         "STOPPED_SERVICES=()",
         'IMAGE_BACKEND="backend-image"',
-        *(_assignment(name) for name in ENV_ASSIGNMENTS),
+        *(_assignment(name) for name in ENV_ASSIGNMENTS + RESTART_ASSIGNMENTS),
         _lifted("service_cid"),
         _lifted("service_cid_any"),
         _lifted("check_compose_config"),
+        _lifted("edge_control"),
         _lifted("copy_streams"),
-        _lifted("start_again_and_refuse"),
+        _lifted("start_stopped_again"),
+        _lifted("start_again_and_end"),
+        _lifted("restart_on_exit"),
         _lifted("read_env_names"),
         _lifted("check_env_names"),
         body,
@@ -181,7 +196,7 @@ def _copies(fixture: _Fixture) -> list[str]:
 # --- the copy taken before each recreate -------------------------------------------------------------
 
 COUNTS: Final = 'printf "copied=%s attempted=%s\\n" "$COPIED_STREAMS" "$ATTEMPTED_STREAMS"'
-BEFORE: Final = f'copy_streams "" start_again_and_refuse "NOTHING has been recreated." ; {COUNTS}'
+BEFORE: Final = f'copy_streams "" start_again_and_end "NOTHING has been recreated." ; {COUNTS}'
 FAILED: Final = f'copy_streams "-failed" warn "The rollback goes on without it." ; {COUNTS}'
 
 
@@ -254,13 +269,38 @@ def test_a_copy_that_fails_before_the_recreate_refuses_with_nothing_left_behind(
     assert _copies(fixture) == [f"{STAMP}-frontend.log"], output
 
 
-def test_a_refused_copy_starts_the_stopped_containers_again() -> None:
-    """Left stopped, the site stays down, and a re-run's `ps` lists neither container, so its copy skips both streams."""
+def test_a_refused_copy_puts_the_stopped_pair_back_and_reloads_the_edge_onto_it() -> None:
+    """The reload is the load-bearing call: a started container takes its address afresh, and nginx keeps the old one.
+
+    Never `up`, which would recreate the pair from the build the pull just fetched.
+    """
     code, output, fixture = _run(BEFORE, FL_DEPLOY_LOGS_FAIL="frontend", FL_DEPLOY_LOGS_RC="7")
 
     assert code == 2, output
-    assert fixture.called()[-1] == "start frontend backend", output
-    assert "were started again" in output, output
+    assert fixture.called()[-2:] == ["start frontend backend", "reload"], output
+    assert "'frontend' is healthy" in output and "'backend' is healthy" in output, output
+    assert "reloaded onto them, and each answered healthy" in output, output
+    assert not [call for call in fixture.called() if call.startswith("up")], output
+
+
+# Each answer a step putting the pair back can give short of a healthy pair, the exit it ends on,
+# and what the run says of it. A reload's arms each name the reload as an operator types it.
+PUT_BACK_ANSWERS: Final = [
+    pytest.param({"FL_DEPLOY_RELOAD_STATUS": "422"}, 1, "nginx refused the configuration", True, id="reload-refused"),
+    pytest.param({"FL_DEPLOY_RELOAD_RC": "7"}, 2, "could not be asked to reload it (exit 7)", True, id="reload-unanswered"),
+    pytest.param({"FL_DEPLOY_RELOAD_STATUS": "500"}, 2, "answered the reload with '500'", True, id="reload-neither"),
+    pytest.param({"FL_DEPLOY_HEALTH": "unhealthy"}, 1, "reports UNHEALTHY", False, id="unhealthy"),
+]
+
+
+@pytest.mark.parametrize(("answers", "ending", "said", "typed"), PUT_BACK_ANSWERS)
+def test_each_step_putting_the_pair_back_ends_the_run_by_its_own_answer(answers: dict[str, str], ending: int, said: str, typed: bool) -> None:
+    """A bad answer leaves the site out of service, a finding outranking the copy's refusal; one nobody gave leaves that refusal the ending."""
+    code, output, _ = _run(BEFORE, FL_DEPLOY_LOGS_FAIL="frontend", FL_DEPLOY_LOGS_RC="7", **answers)
+
+    assert code == ending, output
+    assert said in output, output
+    assert ("-X PATCH --unix-socket /run/nginx-control/control.sock http://localhost/1/control/config" in output) is typed, output
 
 
 def test_a_directory_the_copy_cannot_write_refuses_before_anything_is_stopped() -> None:
@@ -274,7 +314,7 @@ def test_a_directory_the_copy_cannot_write_refuses_before_anything_is_stopped() 
 
 
 def test_a_container_that_is_not_running_is_copied_and_neither_stopped_nor_started() -> None:
-    """A failed build's backend has often exited or is restarting, and the rollback's recreate discards its stream all the same."""
+    """A failed build's backend has often exited, and the rollback's recreate discards its stream all the same."""
     code, output, fixture = _run(FAILED, FL_DEPLOY_STOPPED_CONTAINER="backend")
 
     assert code == 0, output
@@ -286,7 +326,8 @@ def test_a_refused_copy_starts_only_what_it_stopped() -> None:
     """A container found stopped stays stopped, and a bare `start` would start the whole project."""
     code, output, fixture = _run(BEFORE, FL_DEPLOY_STOPPED_CONTAINER="backend", FL_DEPLOY_LOGS_FAIL="backend", FL_DEPLOY_LOGS_RC="7")
     assert code == 2, output
-    assert fixture.called()[-1] == "start frontend", output
+    assert [call for call in fixture.called() if call.startswith("start")] == ["start frontend"], output
+    assert "waiting for 'backend'" not in output, output
 
     code, output, fixture = _run(BEFORE, FL_DEPLOY_STOPPED_CONTAINER="frontend:backend", FL_DEPLOY_LOGS_FAIL="frontend", FL_DEPLOY_LOGS_RC="7")
     assert code == 2, output
@@ -294,13 +335,59 @@ def test_a_refused_copy_starts_only_what_it_stopped() -> None:
     assert "were started again" not in output, output
 
 
-def test_a_start_that_fails_after_a_refused_copy_says_the_site_is_down() -> None:
+def test_a_start_that_fails_after_a_refused_copy_ends_on_the_site_being_down() -> None:
+    """Exit 1 and never the copy's 2: a section holding a refusal and a finding ends on the finding, the definite verdict."""
     code, output, fixture = _run(BEFORE, FL_DEPLOY_LOGS_FAIL="backend", FL_DEPLOY_LOGS_RC="7", FL_DEPLOY_START_RC="1")
 
-    assert code == 2, output
+    assert code == 1, output
     assert "could NOT be started again (exit 1)" in output, output
     assert "docker compose -f docker-compose.yml start frontend backend" in output, output
     assert "were started again" not in output, output
+    assert "reload" not in fixture.called(), output
+
+
+# The deploy's copy as its top level runs it, the run's own process id handed to the stand-in.
+WINDOW: Final = f"export FL_DEPLOY_SHELL_PID=$$\ntrap restart_on_exit EXIT\n{BEFORE}\necho went-on"
+
+
+@pytest.mark.parametrize(
+    ("signal", "during", "copied"),
+    [
+        pytest.param("INT", "logs", ["logs frontend"], id="interrupt-during-the-copy"),
+        pytest.param("TERM", "logs", ["logs frontend"], id="terminate-during-the-copy"),
+        pytest.param("HUP", "logs", ["logs frontend"], id="hangup-during-the-copy"),
+        pytest.param("INT", "stop", [], id="interrupt-during-the-stop"),
+    ],
+)
+def test_a_signal_inside_the_stop_window_puts_the_stopped_pair_back(signal: str, during: str, copied: list[str]) -> None:
+    """A hangup, a dropped SSH session's, left to bash ends the run at 129 with no statement.
+
+    The stop's row needs the pair recorded before the stop is asked for: recorded after, the trap starts nothing.
+    """
+    code, output, fixture = _run(WINDOW, FL_DEPLOY_SIGNAL=signal, FL_DEPLOY_SIGNAL_AT=during)
+
+    assert code == 130, output
+    assert fixture.called() == ["stop frontend backend", *copied, "start frontend backend", "reload"], output
+    assert "'backend' is healthy" in output, output
+    assert "went-on" not in output, output
+
+
+def _top_level(text: str) -> list[str]:
+    """The script's statements at column 0, its comments and blank lines dropped."""
+    return [line for line in text.splitlines() if line and not line.startswith(("#", " ", "\t"))]
+
+
+def test_the_trap_is_set_just_before_the_deploys_copy_and_lifted_just_before_the_recreate() -> None:
+    """Set later, an interrupt during the stop leaves the pair stopped; lifted later, one during the recreate starts containers it replaced."""
+    lines = _top_level(DEPLOY.read_text(encoding="utf-8"))
+    armed = lines.index("trap restart_on_exit EXIT")
+    lifted = lines.index("trap - EXIT")
+    recreated = next(i for i, line in enumerate(lines) if "up -d --force-recreate frontend backend" in line)
+
+    assert lines[armed + 1].startswith('copy_streams "" start_again_and_end '), lines[armed + 1]
+    assert armed < lifted < recreated, (armed, lifted, recreated)
+    assert lines[lifted + 1 : recreated] == ["UP_RC=0"], lines[lifted:recreated]
+    assert [line for line in lines[armed:lifted] if line.startswith("trap ")] == ["trap restart_on_exit EXIT"], lines[armed:lifted]
 
 
 def test_the_same_failure_inside_the_rollback_warns_and_copies_the_other_service() -> None:
@@ -355,7 +442,7 @@ def test_the_two_call_sites_differ_in_the_suffix_and_in_the_verb_alone() -> None
     """
     calls = re.findall(r"^\s*copy_streams (\"[^\"]*\") (\w+) ", DEPLOY.read_text(encoding="utf-8"), re.MULTILINE)
 
-    assert calls == [('"-failed"', "warn"), ('""', "start_again_and_refuse")], calls
+    assert calls == [('"-failed"', "warn"), ('""', "start_again_and_end")], calls
 
 
 # --- the environment file, read by the build about to run --------------------------------------------

@@ -109,6 +109,25 @@ the machine is outside the repository. What it does tell you:
   (`scripts/lib/_lib.sh :: check_backend_boot_config`), so a file it cannot use and a value its
   validators refuse — an internal key outside its alphabet among them — refuse there, naming the
   variable or the file.
+- **Both application containers are stopped for their logs' copy just before the recreate** (§7),
+  and a run ending in between puts them back on its way out, a failed copy, an interrupt and a
+  dropped SSH session alike: it starts them, reloads nginx onto them and waits for each to be
+  healthy (`scripts/ops/deploy.sh :: start_stopped_again`). **A failed copy ends the run at exit 2,
+  and at 1 where the start, the reload or a health wait answered badly**, the site then out of
+  service. Killed outright, or interrupted again while it puts them back, the run leaves them
+  stopped, which `./scripts/ops/deploy.sh --status` reports as not running, and
+  `restart: unless-stopped` never starts a container `stop` stopped, not even after the daemon
+  restarts
+  ([Docker's restart policies](https://docs.docker.com/engine/containers/start-containers-automatically/),
+  which move without us; read 2026-10-16). **Start them and reload the edge by hand, never with
+  `up`**, which would recreate them from the build the pull fetched, with no copy taken; the reload
+  prints nginx's reply, then `200` once applied:
+
+  ```bash
+  docker compose -f docker-compose.yml start frontend backend
+  docker compose -f docker-compose.yml exec -T nginx curl -s -w '\n%{http_code}\n' -X PATCH --unix-socket /run/nginx-control/control.sock http://localhost/1/control/config
+  ```
+
 - **Only the application containers are recreated**, and nginx is reloaded once they are healthy
   (`scripts/ops/deploy.sh :: serve_through_nginx`), through nginx's Control API, which answers whether
   the reload applied. The edge keeps running across the swap, so a deploy that succeeds costs seconds
@@ -799,9 +818,12 @@ address on „Löschung auf Anfrage“.
 person in writing: say what is held, on what basis, and what you have done. Where a restriction is
 agreed, the only reliable form it can take here is removing the data, which is the erasure route.
 
-**Two things belong in every answer that touches a deletion.** Backups outlive it by the snapshot
+**Three things belong in every answer that touches a deletion.** Backups outlive it by the snapshot
 window and the person is told so
-([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)); and an erasure is
+([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)); every mail the
+league sent them outlives it at the mail provider, and in that provider's backups, for the period
+the notice states, no erasure reaching those copies
+([`../datenschutz.md`](../datenschutz.md#7-processors-and-third-parties)); and an erasure is
 keyed on an email address, so it clears every record that address holds, in every season and every
 collection. **The erasure takes the address typed, and reaches a record only where that record's
 address folds to the same spelling** once its capitals are lowered
@@ -992,9 +1014,10 @@ no log above outlives its bound.
 `/var/log/frankfurtleague/` before it recreates them** (`scripts/ops/deploy.sh :: copy_streams`), one
 file per service stamped to the second, so a line written in the seconds before the recreate — an
 erasure's journal line among them (§13) — is in the copy. A container already stopped, a failed
-build's backend that exited or keeps restarting among them, is copied as well and left stopped.
+build's backend that exited among them, is copied as well and left stopped; one that keeps
+restarting is running to the engine, and is stopped and copied with the other.
 A directory it cannot write refuses at exit 2 before anything is stopped; a copy failing after the
-stop starts the containers it stopped again and refuses alike, nothing recreated either way.
+stop puts back the containers it stopped, as §1 says, nothing recreated either way.
 **A deploy that rolls back
 recreates the pair twice and so copies twice**, the failed build's streams taking the same stamp and a
 `-failed` suffix, so a failed deploy leaves four files that sort together (§1). The same step creates
@@ -1369,9 +1392,12 @@ pass read while the stream or a deploy copy still held it:
     systemctl status frankfurtleague-journal.service
     ls -l /var/log/frankfurtleague/*-erasure-journal.log
 
-**A run that ended at 2 could not read the backend's stream**, and its status says so: the deploy
-copies' lines reached the day files all the same, and the stream's own lines reach theirs at the
-next pass that reads it, whichever day they fall on, unless the size cap rotates them away first.
+**A run that ended at 2 says why in its status, and only one of its reasons wrote anything.** Where
+the backend's stream alone could not be read, the deploy copies' lines reached the day files all the
+same, and the stream's own lines reach theirs at the next pass that reads it, whichever day they fall
+on, unless the size cap rotates them away first. Where the directory could not be written or the
+logs could not be read at all, no day file was written, and the next pass that can writes every line
+the stream and the copies still hold (`scripts/ops/export_journal.sh :: export_days`).
 
 ## 10. The mail provider's dashboard
 
@@ -1964,5 +1990,8 @@ refills from the season the backend still holds, and keeps that for another day.
 
 **Any other status dropped nothing.** `401` is a key the server did not boot with: a rewritten
 `secrets/internal_api_key_system` is read once, as the container starts
-([section 16](#16-the-secret-files)). `422` is a tag off the list. `404` is the edge's answer, so the
-call reached nginx rather than the server inside the container, or the image predates the route.
+([section 16](#16-the-secret-files)). `422` is a tag off the list. `404` is the server inside the
+container, which the call reaches without passing nginx, answering a route its image predates:
+deploy the running build again by the tag `./scripts/ops/deploy.sh --status` names, which starts a
+new frontend holding no cached entry, its cache living in the server's memory
+([section 1](#1-the-server) names the builds never to deploy by tag).

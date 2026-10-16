@@ -95,6 +95,7 @@ describe("the waiting address's two controls", () => {
     ["fehlgeschlagen", "gesendet", "Link nicht verschickt"],
     ["gesperrt", "gesendet", "Link zurückgehalten"],
     ["gesendet", "fehlgeschlagen", "Link gesendet, Hinweis nicht verschickt"],
+    ["gesendet", "ungewiss", "Link gesendet, Hinweis unklar"],
   ] as const) {
     it(`grades a re-send whose link is ${versand} and notice ${hinweis} a warning titled „${title}“`, async () => {
       answerWith(() => Promise.resolve({ success: true, message: "Nicht raus.", versand: versand, hinweis: hinweis }));

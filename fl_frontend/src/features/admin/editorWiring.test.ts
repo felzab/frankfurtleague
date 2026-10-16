@@ -18,6 +18,7 @@ import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { bodyField, refusedPayload } from "@/shared/testing/refusedPayload.ts";
+import { retirementWrites } from "@/shared/testing/retirementWrites.ts";
 import { saisonRules } from "@/shared/testing/saisonRules.ts";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
 import { toActionErrorResult } from "@/shared/utils/actionError.ts";
@@ -908,7 +909,12 @@ type RecordMove = {
   dialog?: { resting: string; armed: string };
   /** The action the press writes through. */
   write: string;
+  /** The record the write names, which every retirement and return declares: a dialog handed another row writes it. */
+  payload?: unknown;
 };
+
+/** The squad row the pupil editor's season addresses, as its removal and return name it. */
+const SQUAD_ROW_KEY = { spieler_id: SPIELER.id, saison_id: "2026" };
 
 /** A new address typed into the pupil's address box, which no save carries. */
 async function typeNewAddress(user: UserEvent): Promise<void> {
@@ -926,6 +932,7 @@ const RECORD_MOVES: Record<string, RecordMove> = {
     type: (user) => typeInto(user, box("Name"), "Sportpark Nordwest"),
     press: "Reaktivieren",
     write: "reactivateSpielortAction",
+    payload: { id: SPIELORT.id },
   },
   "the venue's retirement": {
     render: async () => {
@@ -937,6 +944,7 @@ const RECORD_MOVES: Record<string, RecordMove> = {
     press: "Stilllegen",
     dialog: { resting: "Stilllegen", armed: "Ja, stilllegen" },
     write: "deleteSpielortAction",
+    payload: { id: SPIELORT.id },
   },
   "the referee's reactivation": {
     render: async () => {
@@ -949,6 +957,7 @@ const RECORD_MOVES: Record<string, RecordMove> = {
     type: (user) => typeInto(user, box("Name"), "Pia Kraft-Meier"),
     press: "Reaktivieren",
     write: "reactivateSchiedsrichterAction",
+    payload: { id: SCHIEDSRICHTER.id },
   },
   "the referee's retirement": {
     render: async () => {
@@ -960,6 +969,7 @@ const RECORD_MOVES: Record<string, RecordMove> = {
     press: "Stilllegen",
     dialog: { resting: "Stilllegen", armed: "Ja, stilllegen" },
     write: "deleteSchiedsrichterAction",
+    payload: { id: SCHIEDSRICHTER.id },
   },
   "the referee's invitation": {
     render: async () => {
@@ -1012,6 +1022,7 @@ const RECORD_MOVES: Record<string, RecordMove> = {
     type: (user) => typeInto(user, box("Vorname"), "Lena-Marie"),
     press: "Reaktivieren",
     write: "reactivateSpielerAction",
+    payload: { id: SPIELER.id },
   },
   "the player's retirement": {
     render: async () => {
@@ -1023,6 +1034,7 @@ const RECORD_MOVES: Record<string, RecordMove> = {
     press: "Stilllegen",
     dialog: { resting: "Stilllegen", armed: "Ja, stilllegen" },
     write: "deleteSpielerAction",
+    payload: { id: SPIELER.id },
   },
   // The address panel's two link writes, each re-keying the editor on the moved block.
   "the player's address change": {
@@ -1068,6 +1080,7 @@ const RECORD_MOVES: Record<string, RecordMove> = {
     type: (user) => typeInto(user, box("Vorname"), "Lena-Marie"),
     press: "Aus Kader 2026 austragen",
     write: "deleteSaisonSpielerAction",
+    payload: SQUAD_ROW_KEY,
   },
   "the player's squad entry": {
     render: async () => {
@@ -1101,6 +1114,7 @@ const RECORD_MOVES: Record<string, RecordMove> = {
     type: typeNewAddress,
     press: "Aus Kader 2026 austragen",
     write: "deleteSaisonSpielerAction",
+    payload: SQUAD_ROW_KEY,
   },
   "the player's reactivation, over a typed new address": {
     render: async () => {
@@ -1111,6 +1125,7 @@ const RECORD_MOVES: Record<string, RecordMove> = {
     type: typeNewAddress,
     press: "Reaktivieren",
     write: "reactivateSpielerAction",
+    payload: { id: SPIELER.id },
   },
   "the player's retirement, over a typed new address": {
     render: async () => {
@@ -1122,6 +1137,7 @@ const RECORD_MOVES: Record<string, RecordMove> = {
     press: "Stilllegen",
     dialog: { resting: "Stilllegen", armed: "Ja, stilllegen" },
     write: "deleteSpielerAction",
+    payload: { id: SPIELER.id },
   },
   "the player's squad entry, over a typed new address": {
     render: async () => {
@@ -1143,6 +1159,7 @@ const RECORD_MOVES: Record<string, RecordMove> = {
     type: (user) => typeInto(user, box("Vorname"), "Lena-Marie"),
     press: "Kadereintrag reaktivieren",
     write: "reactivateSaisonSpielerAction",
+    payload: SQUAD_ROW_KEY,
   },
   "the club's reactivation": {
     render: async () => {
@@ -1153,6 +1170,7 @@ const RECORD_MOVES: Record<string, RecordMove> = {
     type: (user) => typeInto(user, box("PLZ"), "60436"),
     press: "Reaktivieren",
     write: "reactivateTeamAction",
+    payload: { id: TEAM.id },
   },
   "the club's retirement": {
     render: async () => {
@@ -1164,6 +1182,7 @@ const RECORD_MOVES: Record<string, RecordMove> = {
     press: "Stilllegen",
     dialog: { resting: "Stilllegen", armed: "Ja, stilllegen" },
     write: "deleteTeamAction",
+    payload: { id: TEAM.id },
   },
   "the club's season entry": {
     render: async () => {
@@ -1238,6 +1257,7 @@ describe("a press whose write moves the record the page keys its editor by", () 
       calls.length = 0;
       await pressThrough(user, move);
       assert.deepEqual(written(), [move.write], "the press over a clean editor did not write, so the refusal below judges nothing");
+      if (move.payload !== undefined) assert.deepEqual(calls[0]?.payload, move.payload, "the press wrote another record than the page's");
 
       cleanup();
       await move.type(user, await readied(user, move));
@@ -1253,6 +1273,28 @@ describe("a press whose write moves the record the page keys its editor by", () 
       );
     });
   }
+});
+
+describe("the retirements and returns the moves above press", () => {
+  /* The moves are this file's own list and the header's slot is optional, so a retirable record's editor wired to
+     neither control would pass every case above. */
+  it("are every retirement and return a slice exports, each naming the record it moves", () => {
+    const writes = retirementWrites();
+    assert.ok(writes.length > 0, "the actions yield no retirement, so the comparison below compares nothing");
+    const moves = Object.values(RECORD_MOVES);
+
+    assert.deepEqual(
+      writes.filter((write) => !moves.some((move) => move.write === write)),
+      [],
+      "a retirable record's write no editor case presses",
+    );
+    assert.deepEqual(
+      Object.entries(RECORD_MOVES)
+        .filter(([, move]) => writes.includes(move.write) && move.payload === undefined)
+        .map(([name]) => name),
+      [],
+    );
+  });
 });
 
 describe("the club editor's retirement", () => {
