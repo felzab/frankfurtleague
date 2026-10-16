@@ -236,7 +236,9 @@ class FLReferenzenResponse(BaseAPIResponse):
 
 # --- The ADMINISTRATOR's erasure on a mailed request, and its reveal.
 
-# German, as every refusal a payload's own validator raises is worded.
+# German, as every refusal a payload's own validator raises is worded. It reaches `REQ-VAL-001`'s log
+# line, never the page, whose box words its own; `fl_backend/tests/shared/erasure_refusals.json` holds
+# the two predicates to one verdict.
 ADRESSE_UNTER_INVALID = "Diese Adresse ist ein Platzhalter und gehört niemandem."
 
 
@@ -253,16 +255,17 @@ def refuse_the_reserved_domain(value: str) -> str:
     return value
 
 
-# A lookup held to no address rule, as `FLGesperrtPayload`'s is, the reserved domain apart
-# (`docs/backend/spec.md :: I329`): a record stored under an older rule stays erasable. Stripped as
-# the page's own box trims it.
+# A lookup asking no more than any payload stores, an `@` within the stored ceiling, and refusing the
+# reserved domain (`docs/backend/spec.md :: I329`): a record stored under an older rule stays
+# erasable. Stripped as the page's own box trims it.
 ErasureAdresse = Annotated[
     str,
     StringConstraints(strip_whitespace=True, max_length=KONTAKT_EMAIL_MAX_LENGTH, pattern="@"),
     AfterValidator(refuse_the_reserved_domain),
 ]
 
-# German, as the ban's `grund` words its own: the page shows it beside the box.
+# German, as the ban's `grund` words its own, and like it read on the log line alone: the box words
+# its own, held to this one's verdict by `fl_backend/tests/shared/erasure_refusals.json`.
 ANLASS_HOLDS_AN_ADDRESS = "Der Anlass darf keine E-Mail-Adresse enthalten."
 
 

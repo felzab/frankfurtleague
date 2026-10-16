@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { after, beforeEach, describe, it, mock } from "node:test";
@@ -8,6 +8,7 @@ import { ACTOR_KEY_FILE } from "@/core/authDoubles.ts";
 import { APIBadStatusError, APIMalformedDataError, APINetworkError } from "@/core/errors.ts";
 import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
+import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
 
 import type { SentMail } from "@/core/mailDouble.ts";
@@ -124,12 +125,22 @@ const CONFIG_DOUBLE = {
 
 const INDEXES_DOUBLE = { buildAuthIndexes: () => Promise.resolve() };
 
+/** Each loopback drop the pass asked for, with how many deletion calls had run by then. */
+const drops: { tags: readonly string[]; laufCalls: number }[] = [];
+
+// The loopback call reaches a server no test process runs; its pairing with the route is the route's own suite's.
+const REVALIDATION_DOUBLE = {
+  revalidateOverLoopback: async (tags: readonly string[]) =>
+    void drops.push({ tags: tags, laufCalls: apiCalls().filter(({ endpoint }) => endpoint === LAUF).length }),
+};
+
 registerDoubles({
   modules: {
     "core/logging.ts": LOGGING_DOUBLE,
     "core/config.ts": CONFIG_DOUBLE,
     // A production boot builds the sign-in store's indexes too, over a client this suite never configures.
     "core/authIndexes.ts": INDEXES_DOUBLE,
+    "core/revalidation.ts": REVALIDATION_DOUBLE,
   },
 });
 
@@ -242,6 +253,7 @@ beforeEach(() => {
   events.length = 0;
   logs.length = 0;
   lines.length = 0;
+  drops.length = 0;
   refused.clear();
   withheld.clear();
   // Appended as the send happens, so a send and the calls around it stay in the order they ran.
@@ -343,6 +355,18 @@ describe("the switch the retention sweep is armed by", () => {
 
     it("refuses anything else by name, rather than reading it as one side or the other", async () => {
       await assert.rejects(parseWith("false", "LOESCHUNG_SWEEP"), (error: Error) => error.message.includes("LOESCHUNG_SWEEP"));
+    });
+
+    /* The API's pass deletes on any system-key call, the switch read at each caller alone, so a third caller would
+       delete while it reads off. Each caller's off arm is driven in its own suite. */
+    it("guards the deletion pass's only callers, the hourly pass and the activation", () => {
+      const src = path.resolve(import.meta.dirname, "..", "..");
+      const naming = filesUnder(src, (name) => /\.tsx?$/.test(name) && !isTestFile(name), 200)
+        .filter((file) => /\bpostLoeschungLauf\b/.test(readFileSync(file, "utf8")))
+        .map((file) => path.relative(src, file).split(path.sep).join("/"))
+        .filter((file) => file !== "features/saisons/mutations.ts");
+
+      assert.deepEqual(naming.sort(), ["features/bewerbungen/sweep.ts", "features/saisons/actions.ts"]);
     });
   });
 });
@@ -817,7 +841,6 @@ const reminder = (registrierungId: string, email: string, token: string) => ({
   registrierung_id: registrierungId,
   saison_id: "2627",
   team: "Adler",
-  vorname: "Quillhilde",
   email: email,
   token: token,
 });
@@ -1169,6 +1192,40 @@ describe("the two halves after the season loop", () => {
     assert.deepEqual(halves(), [ADRESSWECHSEL, LAUF]);
   });
 
+  /* An activation's call its deadline cut deletes in the backend after the press dropped the tag, and no pass's count
+     shows those pupils, so the drop follows the pass's last call whatever the pass did. */
+  const ARMED_PASSES = [
+    ["that deleted nobody", () => gelaufen(0, 0)],
+    ["that deleted pupils", () => gelaufen(3, 0)],
+    [
+      "whose call threw",
+      () => {
+        throw new Error("the deletion was refused");
+      },
+    ],
+  ] as const;
+
+  for (const [what, answer] of ARMED_PASSES) {
+    it(`drops the squad cache once, after the last deletion call, on an armed pass ${what}`, async () => {
+      loeschungSwitch = "on";
+      laufAnswer = answer;
+
+      await runBewerbungSweep();
+
+      assert.deepEqual(drops, [{ tags: ["spieler"], laufCalls: 1 }]);
+    });
+  }
+
+  for (const schalter of ["off", undefined]) {
+    it(`drops no cache while the switch reads ${String(schalter)}`, async () => {
+      loeschungSwitch = schalter;
+
+      await runBewerbungSweep();
+
+      assert.deepEqual(drops, []);
+    });
+  }
+
   /* Neither half takes a season, so a season list the backend could not answer leaves both to run. */
   it("runs both halves where the season list could not be read", async () => {
     loeschungSwitch = "on";
@@ -1228,14 +1285,20 @@ describe("the two halves after the season loop", () => {
 
     await runBewerbungSweep();
 
+    // Warnings, each half leaving rows it failed: a level above INFO would drop the line counting them.
     assert.deepEqual(
-      lines.filter(({ level, event }) => level === "info" && !SEASON_HALVES.test(event)),
+      lines.filter(({ level, event }) => level !== "error" && !SEASON_HALVES.test(event)),
       [
-        { level: "info", event: "schiedsrichter.adresswechsel_sweep_pass", fields: { entfernt: 1, verbleibend: 42 } },
         {
-          level: "info",
+          level: "warn",
+          event: "schiedsrichter.adresswechsel_sweep_pass",
+          fields: { error_code: "FE-SWEEP-001", entfernt: 1, verbleibend: 42 },
+        },
+        {
+          level: "warn",
           event: "loeschung.sweep_pass",
           fields: {
+            error_code: "FE-SWEEP-001",
             abgeschlossene_saison_id: "2526",
             spieler: 1,
             saison_spieler: 1,
@@ -1243,6 +1306,52 @@ describe("the two halves after the season loop", () => {
             uebersprungen: 0,
             fehlgeschlagen: 10,
             verbleibend: 10,
+          },
+        },
+      ],
+    );
+  });
+
+  /* Each call counts every lapsed change standing, an earlier page's failures among them, so the pass's remainder is
+     the last call's: a sum would count the first page's unreached rows as left behind. */
+  it("warns with the last call's remainder of a pass over two pages, never a sum of them", async () => {
+    adresswechselAnswer = inTurn([entfernt(2, 5, ORT_ADRESSE), entfernt(3, 1)]);
+
+    await runBewerbungSweep();
+
+    assert.deepEqual(
+      lines.filter(({ event }) => event.startsWith("schiedsrichter.")),
+      [
+        {
+          level: "warn",
+          event: "schiedsrichter.adresswechsel_sweep_pass",
+          fields: { error_code: "FE-SWEEP-001", entfernt: 5, verbleibend: 1 },
+        },
+      ],
+    );
+  });
+
+  /* A pass cut short knows no remainder, so its failures alone make the line a warning beside the half's own error. */
+  it("warns where the pupils' half is cut short after a call that failed pupils", async () => {
+    loeschungSwitch = "on";
+    laufAnswer = inTurn([{ ...gelaufen(3, 5, ORT_SPIELER), fehlgeschlagen: 2 }, gelaufen(1, 4, ORT_SPIELER), gelaufen(0, 0)]);
+
+    await runBewerbungSweep();
+
+    assert.deepEqual(
+      lines.filter(({ event }) => event === "loeschung.sweep_pass"),
+      [
+        {
+          level: "warn",
+          event: "loeschung.sweep_pass",
+          fields: {
+            error_code: "FE-SWEEP-001",
+            abgeschlossene_saison_id: "2526",
+            spieler: 4,
+            saison_spieler: 4,
+            registrierungen: 0,
+            uebersprungen: 0,
+            fehlgeschlagen: 2,
           },
         },
       ],

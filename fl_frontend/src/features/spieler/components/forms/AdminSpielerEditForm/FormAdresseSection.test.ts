@@ -41,15 +41,16 @@ afterEach(() => {
 });
 
 describe("what the address request says of the link it sent", () => {
-  /* The request stands whichever way its link went, so a link that failed or that the ban list held
-     back is a warning titled for what happened, never a sent link. */
-  for (const [versand, variant, title] of [
-    ["gesendet", "success", "Link gesendet"],
-    ["fehlgeschlagen", "warning", "Link nicht zugestellt"],
-    ["gesperrt", "warning", "Link zurückgehalten"],
+  /* The request stands whichever way its link went: a failed or held-back link is a warning titled for what
+     happened, and so is a failed notice to the stored address (`docs/frontend/spec.md :: I737`). */
+  for (const [versand, hinweis, variant, title] of [
+    ["gesendet", "gesendet", "success", "Link gesendet"],
+    ["fehlgeschlagen", "gesendet", "warning", "Link nicht verschickt"],
+    ["gesperrt", "gesendet", "warning", "Link zurückgehalten"],
+    ["gesendet", "fehlgeschlagen", "warning", "Link gesendet, Hinweis nicht verschickt"],
   ] as const) {
-    it(`titles a request whose link is ${versand} „${title}“`, async () => {
-      answerWith(() => Promise.resolve({ success: true, message: "Der Link zur neuen Adresse.", versand: versand }));
+    it(`titles a request whose link is ${versand} and notice ${hinweis} „${title}“`, async () => {
+      answerWith(() => Promise.resolve({ success: true, message: "Der Link zur neuen Adresse.", versand: versand, hinweis: hinweis }));
       const { unmount } = render(underNext(h(Host), { router: nextRouter() }));
 
       await userEvent.setup().click(screen.getByRole("button", { name: "Link an neue Adresse senden" }));

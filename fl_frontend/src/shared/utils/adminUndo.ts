@@ -30,7 +30,14 @@ const UNDO_WORDING: Wording = {
   close: (reason) => `${reason} ${AENDERUNG_STEHT_WEITERHIN}`,
   unworded: `Die Rücknahme ist so nicht mehr möglich. ${AENDERUNG_STEHT_WEITERHIN}`,
   unclear: RUECKNAHME_UNKLAR,
+  terminal: (sentence) => `${sentence} ${AENDERUNG_STEHT_WEITERHIN}`,
 };
+
+/**
+ * A replay refused for want of a recent confirmation, by its body or the backend: the undo's offer is gone, so
+ * „Bestätige zuerst“ would ask for a press nobody can make.
+ */
+export const UNDO_UNBESTAETIGT = `Deine Bestätigung mit dem Passkey ist abgelaufen. ${AENDERUNG_STEHT_WEITERHIN}`;
 
 /** What an undo answers the offer that sent it: the restore, graded by what it cost, or why it did not land. */
 export type UndoOutcome = { success: true; message: string; warn: boolean } | ActionFailure;
@@ -83,7 +90,9 @@ type SecondHalf = {
  */
 export function partlyRestored(error: unknown, refusals: Readonly<Record<string, string>>, half: SecondHalf): ActionFailure {
   // The reason alone, never a retry: the half closes every answer instead.
-  const reason = replayRefusal(error, refusals) ?? answerThrow(error, { ...UNDO_WORDING, close: (bare) => bare, unworded: half.unworded });
+  const reason =
+    replayRefusal(error, refusals) ??
+    answerThrow(error, { ...UNDO_WORDING, close: (bare) => bare, terminal: (bare) => bare, unworded: half.unworded });
   if (typeof reason !== "string" && reason.outcome === "unknown") throw error;
   // No form stands behind an undo to mark the fields a refusal names, so the sentence for the rest is
   // the answer, never the form's own.
@@ -98,6 +107,8 @@ export function partlyRestored(error: unknown, refusals: Readonly<Record<string,
  */
 export async function runAdminUndo(mutationName: string, fn: (session: AdminSession) => Promise<UndoOutcome>): Promise<UndoOutcome> {
   const answer = await runAdminMutation(mutationName, { stepUp: false, turnedAway: undoTurnedAway, wording: UNDO_WORDING }, fn);
+  // Still the step-up refusal, its page's figure read again (`docs/frontend/spec.md :: I433`), in the undo's own words.
+  if (!answer.success && "stepUp" in answer) return { ...answer, error: UNDO_UNBESTAETIGT };
 
   // The spine drops the tags behind a half that went back and leaves the page to the action
   // (`docs/frontend/spec.md :: I233`).

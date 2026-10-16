@@ -115,7 +115,7 @@ const ANSWERED_BY: Readonly<Record<string, Mapper>> = {
   "POST /identitaet/erasure/ansicht": funktionen.mapErasureRefusal,
   "POST /identitaet/erasure": funktionen.mapErasureRefusal,
   "POST /identitaet/abmeldung": funktionen.mapAbmeldungRefusal,
-  "POST /sperrliste": sperrliste.mapAdresseRefusal,
+  "POST /sperrliste": sperrliste.mapSperreRefusal,
   "PATCH /spiele/{spiel_id}": spiele.mapSpielRefusal,
   // Written by the match undo's replay alone.
   "PATCH /spiele/paarungen": (error) => replayRefusal(error, spiele.PAARUNGEN_REPLAY_REFUSALS) ?? null,

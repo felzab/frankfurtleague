@@ -6,6 +6,7 @@ import { ContractBreakError, requestOf } from "@/core/errors";
 import { kontaktBestaetigungsLink } from "@/core/kontaktLink";
 import { logger } from "@/core/logging";
 import { buildRegistrierungErinnerungEmail, buildRegistrierungSaisonendeEmail } from "@/core/registrierungEmail";
+import { revalidateOverLoopback } from "@/core/revalidation";
 import { REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE } from "@/features/registrierungen/constants";
 import { postRegistrierungSweep } from "@/features/registrierungen/mutations";
 import { loeschungLaufen } from "@/features/saisons/loeschung";
@@ -113,7 +114,8 @@ async function sweepAdresswechsel(): Promise<void> {
       nach = antwort.nach;
     } while (nach !== null);
 
-    logger.info("schiedsrichter.adresswechsel_sweep_pass", { entfernt: entfernt, verbleibend: antwort.verbleibend });
+    // The last call's count, never a sum: each call counts every lapsed change standing, an earlier page's failures among them.
+    logPass("schiedsrichter.adresswechsel_sweep_pass", { entfernt: entfernt, verbleibend: antwort.verbleibend }, antwort.verbleibend);
   } catch (error) {
     logger.info("schiedsrichter.adresswechsel_sweep_pass", { entfernt: entfernt });
     logSweepFailure("schiedsrichter.adresswechsel_sweep_failed", error, undefined);
@@ -126,16 +128,20 @@ async function sweepAdresswechsel(): Promise<void> {
  */
 async function sweepLoeschung(): Promise<void> {
   const lauf = await loeschungLaufen(postLoeschungLauf);
+  // On every armed pass, one deleting nobody included: an activation's call its deadline cut may delete in the backend
+  // after the press dropped this tag, and no pass's count shows those pupils (`docs/frontend/spec.md :: I743`).
+  await revalidateOverLoopback(["spieler"]);
 
   // Counts and the season the rule kept, never a person: the backend's own lines name a failed person's id.
+  // A finished pass's remainder is the pupils it failed or passed over; one cut short knows only its failures.
   if (!lauf.abgebrochen) {
     const { abgebrochen: _durchgelaufen, ...zahlen } = lauf;
-    logger.info("loeschung.sweep_pass", zahlen);
+    logPass("loeschung.sweep_pass", zahlen, zahlen.verbleibend);
     return;
   }
 
   const { abgebrochen: _abgebrochen, fehler, ...bisher } = lauf;
-  logger.info("loeschung.sweep_pass", bisher);
+  logPass("loeschung.sweep_pass", bisher, bisher.fehlgeschlagen);
   logSweepFailure("loeschung.sweep_failed", fehler, undefined);
 }
 
@@ -160,17 +166,21 @@ async function sweepAlleSaisons(): Promise<void> {
     }
   }
 
-  logSeasonsPass("bewerbung.sweep_pass", uebergangen.bewerbung);
-  logSeasonsPass("registrierung.sweep_pass", uebergangen.registrierung);
+  logPass("bewerbung.sweep_pass", { fehlgeschlagen: uebergangen.bewerbung }, uebergangen.bewerbung);
+  logPass("registrierung.sweep_pass", { fehlgeschlagen: uebergangen.registrierung }, uebergangen.registrierung);
 }
 
 /**
- * A warning where a season half's calls passed rows over: their day moves whatever their clocks did, so only this
- * count tells a clock failing on every row from a healthy one.
+ * A warning where `offen` rows the half failed or passed over stand: each pass moves on past them, so only this count
+ * tells a half failing on every row from a healthy one.
  */
-function logSeasonsPass(event: "bewerbung.sweep_pass" | "registrierung.sweep_pass", fehlgeschlagen: number): void {
-  if (fehlgeschlagen === 0) logger.info(event, { fehlgeschlagen: fehlgeschlagen });
-  else logger.warn(event, { error_code: "FE-SWEEP-001", fehlgeschlagen: fehlgeschlagen });
+function logPass(
+  event: "bewerbung.sweep_pass" | "registrierung.sweep_pass" | "schiedsrichter.adresswechsel_sweep_pass" | "loeschung.sweep_pass",
+  felder: Record<string, unknown>,
+  offen: number,
+): void {
+  if (offen === 0) logger.info(event, felder);
+  else logger.warn(event, { error_code: "FE-SWEEP-001", ...felder });
 }
 
 /**
@@ -260,7 +270,6 @@ async function mailRegistrierungErinnerung(erinnerung: FLRegistrierungSweepErinn
     recipients: [erinnerung.email],
     buildMail: () =>
       buildRegistrierungErinnerungEmail({
-        vorname: erinnerung.vorname,
         teamName: erinnerung.team,
         saisonId: erinnerung.saison_id,
         origin: origin,

@@ -124,6 +124,7 @@ doubleActions({ modules: ["/src/core/einwilligung.ts"], answer: () => Promise.re
 const { calls, answerWith } = doubleApiAnswers((call: ApiCall) => Promise.resolve(landed(call)));
 
 const { stepUpRequired } = await import("./adminMutation.ts");
+const { UNDO_UNBESTAETIGT } = await import("./adminUndo.ts");
 
 /** The two actions that authorize nobody, which `fl_frontend/src/shared/utils/adminActionSpine.test.ts` exempts for their own reasons. */
 const AUTHORIZES_NOBODY: ReadonlySet<string> = new Set(["auth :: handleSignIn", "auth :: signOutAction"]);
@@ -142,6 +143,9 @@ async function action(name: string): Promise<(payload?: unknown) => Promise<unkn
 }
 
 const refused = stepUpRequired();
+
+/** The same refusal of an undo, in its own words: the offer pressed is gone, so it asks for no press first. */
+const undoRefused = { ...refused, error: UNDO_UNBESTAETIGT };
 
 const standingLink = {
   id: "b".repeat(24),
@@ -500,16 +504,16 @@ describe("an undo the server holds to the step-up window", () => {
       setFresh(false);
 
       let sent = calls.length;
-      assert.deepEqual(await undo(drive.refused), refused, `a stale session's ${name} replay ran`);
+      assert.deepEqual(await undo(drive.refused), undoRefused, `a stale session's ${name} replay ran`);
       assert.deepEqual(writes(sent), [], `a stale session's ${name} replay reached the backend`);
 
       sent = calls.length;
-      assert.notDeepEqual(await undo(drive.admitted), refused, `a stale session was refused a ${name} replay minting nothing`);
+      assert.notDeepEqual(await undo(drive.admitted), undoRefused, `a stale session was refused a ${name} replay minting nothing`);
       assert.ok(writes(sent).length > 0, `the ${name} replay stopped short of the backend`);
 
       setFresh(true);
       sent = calls.length;
-      assert.notDeepEqual(await undo(drive.refused), refused, `a fresh session was refused a ${name} replay`);
+      assert.notDeepEqual(await undo(drive.refused), undoRefused, `a fresh session was refused a ${name} replay`);
       assert.equal(calls.length - sent, writes(sent).length, `a fresh session's ${name} replay read the store to judge a step-up`);
     });
   }
@@ -521,7 +525,13 @@ describe("an undo the server holds to the step-up window", () => {
       setFresh(true);
       answerWith(() => Promise.reject(refusedOn(drive.operation, "REQ-AUTH-009")));
 
-      assert.deepEqual(await (await action(name))(drive.refused), refused, `the ${name} replay answered the backend's refusal in other words`);
+      assert.deepEqual(
+        await (
+          await action(name)
+        )(drive.refused),
+        undoRefused,
+        `the ${name} replay answered the backend's refusal in other words`,
+      );
       assert.deepEqual(
         cacheCalls.map((call) => call.name),
         ["refresh"],
@@ -590,6 +600,7 @@ const CONFIRMED_BY_THE_BACKEND: Record<string, { name: string; payload: unknown 
   },
   "POST /saisons/{saison_id}/einladungen/versand": { name: "postEinladungVersandAction", payload: { id: SAISON_ID } },
   "POST /identitaet/erasure": { name: "eraseAufAnfrageAction", payload: { email: "berta@example.de", anlass: "E-Mail vom 12.10.2026" } },
+  "POST /identitaet/abmeldung": { name: "endAnmeldungenAction", payload: { email: "berta@example.de" } },
   // Clearing the block, one of the two calls of the contacts save the backend steps up, the other
   // being a save that seats somebody new.
   "PATCH /teams/{team_id}/saisons/{saison_id}/kontakte": {

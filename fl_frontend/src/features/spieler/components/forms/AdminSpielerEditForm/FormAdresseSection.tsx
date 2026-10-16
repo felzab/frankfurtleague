@@ -29,7 +29,7 @@ import { useStepUp } from "@/shared/hooks/useStepUp";
 import { LINK_ERNEUT_OHNE_ANTWORT, LINK_UNKLAR } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { focusAfterWrite } from "@/shared/utils/focusAfterWrite";
-import { LINK_TITEL, meldeLinkVersand } from "@/shared/utils/linkVersandToast";
+import { meldeAdresswechselVersand } from "@/shared/utils/linkVersandToast";
 import { pressLinkWrite } from "@/shared/utils/linkWrite";
 import { toFieldErrors } from "@/shared/utils/validation";
 
@@ -217,7 +217,7 @@ function AdresseAendern({
     }
 
     schliesse(landing);
-    meldeLinkVersand(res.versand, LINK_TITEL, res.message);
+    meldeAdresswechselVersand(res, res.message);
   };
 
   const gezeigt = fehler !== null && fehler.zu === entwurf ? fehler.satz : null;

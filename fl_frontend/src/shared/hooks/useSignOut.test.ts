@@ -41,10 +41,10 @@ function Probe({ onSignOut }: { onSignOut: () => Promise<FormState> }): ReturnTy
   );
 }
 
-/** The sign-out's answers, awaited before the toast answering them is polled for. */
+/** The sign-out's answers, awaited before what answers them is polled for. */
 const answers = answersInFlight();
 
-/** The arming press and the one that signs out, up to the toast answering it. */
+/** The arming press and the one that signs out, up to the action's answer. */
 async function signOut(onSignOut: () => Promise<FormState>) {
   const user = userEvent.setup();
   const { router, seen } = recordingRouter();
@@ -52,7 +52,6 @@ async function signOut(onSignOut: () => Promise<FormState>) {
 
   await pressTwice(user, { resting: "Abmelden", armed: "Wirklich abmelden" });
   await act(answers.answered);
-  await waitFor(() => assert.equal(raised.length, 1));
 
   return seen;
 }
@@ -68,6 +67,7 @@ describe("what a sign-out tells the reader", () => {
   it("says nobody can tell whether a cut sign-out ended the session, and goes nowhere", async () => {
     const seen = await signOut(() => Promise.reject(new Error("An unexpected response was received from the server.")));
 
+    await waitFor(() => assert.equal(raised.length, 1));
     assert.deepEqual(
       raised.map(({ variant, title, description }) => ({ variant, title, description })),
       [{ variant: "danger", title: "Abmeldung unklar", description: "Lade die Seite neu, um zu sehen, ob Du noch angemeldet bist." }],
@@ -79,6 +79,7 @@ describe("what a sign-out tells the reader", () => {
   it("names a refusal under the negated title", async () => {
     const seen = await signOut(async () => ({ success: false, error: "Versuche es erneut." }));
 
+    await waitFor(() => assert.equal(raised.length, 1));
     assert.deepEqual(
       raised.map(({ variant, title, description }) => ({ variant, title, description })),
       [{ variant: "danger", title: "Nicht abgemeldet", description: "Versuche es erneut." }],
@@ -111,15 +112,13 @@ describe("what a sign-out tells the reader", () => {
   });
 
   /* A whole new document, never the router: a soft navigation keeps every route it hid, with the
-     rows and the typed searches of the session just ended. */
-  it("loads the start page as a new document once the session has ended", async () => {
+     rows and the typed searches of the session just ended. A toast would vanish with the page it
+     was raised on, unread. */
+  it("loads the start page as a new document once the session has ended, and raises no toast", async () => {
     const seen = await signOut(async () => ({ success: true, message: "Abgemeldet" }));
 
-    assert.deepEqual(
-      raised.map(({ variant, title }) => ({ variant, title })),
-      [{ variant: "success", title: "Abgemeldet" }],
-    );
     await waitFor(() => assert.deepEqual(left, ["/"]));
+    assert.deepEqual(raised, [], "a sign-out that leaves the page raised a toast over it");
     assert.deepEqual({ pushed: seen.pushed, replaced: seen.replaced, refresh: seen.refresh }, { pushed: [], replaced: [], refresh: 0 });
   });
 });

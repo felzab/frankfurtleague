@@ -12,6 +12,7 @@ import { Table } from "@heroui/react/table";
 
 import { ERASED_ACTOR_MARKER } from "@/core/erasedActor";
 import { VonOderGesperrt } from "@/features/berechtigungen/components/ui/VonOderGesperrt";
+import { GELOESCHTE_PERSON } from "@/features/berechtigungen/constants";
 import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/AdminCrudEmpty";
 import {
   CELL_EDGE_CLASSES,
@@ -29,7 +30,13 @@ import { appToast } from "@/shared/utils/appToast";
 import { CLIPBOARD_ERROR_DETAIL, copyTextToClipboard } from "@/shared/utils/clipboard";
 import { withSaisonId } from "@/shared/utils/saisonHref";
 
-import { AKTION_HERKUNFT_LABELS, AKTION_OPERATION_LABELS, AKTION_OPERATION_TINTS, AKTIONEN_CRUD_COPY } from "../../constants";
+import {
+  AKTION_HERKUNFT_LABELS,
+  AKTION_OPERATION_LABELS,
+  AKTION_OPERATION_TINTS,
+  AKTIONEN_CRUD_COPY,
+  AKTOR_FUNKTION_LABELS,
+} from "../../constants";
 import { describeAktionDatensatz, formatAktionZeitpunkt, herkunftOfAktor, labelForCollection, personAkteurLabel } from "../../utils";
 
 import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView";
@@ -102,9 +109,12 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
           />
           <span className="min-w-0 truncate fluid-sm font-semibold text-foreground">
             {actor.kind === "person_session" ? (
-              // Erased since, the row names a state rather than a person, in the empty grade the barred arm takes.
+              // Erased since, the row names a state rather than a person, in the empty grade the barred arm takes: the
+              // kind the write was made as is a fact about the row and stays upright.
               actor.pseudonym === ERASED_ACTOR_MARKER ? (
-                <Leer>{personAkteurLabel(actor)}</Leer>
+                <>
+                  {AKTOR_FUNKTION_LABELS[actor.funktion]} · <Leer>{GELOESCHTE_PERSON}</Leer>
+                </>
               ) : (
                 personAkteurLabel(actor)
               )

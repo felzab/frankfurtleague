@@ -726,6 +726,7 @@ STEP_UP_WRITES = [
     pytest.param("post", "/api/v0/bewerbungen/{bewerbung_id}/kontakte/{seat}/email", id="a seat's address correction"),
     pytest.param("post", "/api/v0/bewerbungen/{bewerbung_id}/kontakte/{seat}", id="a reseat"),
     pytest.param("post", "/api/v0/identitaet/erasure", id="an erasure on a mailed request"),
+    pytest.param("post", "/api/v0/identitaet/abmeldung", id="an address's sign-out of every session"),
     pytest.param("post", "/api/v0/saisons", id="a season's creation"),
     pytest.param("post", "/api/v0/saisons/{saison_id}/activate", id="the rollover"),
     pytest.param("delete", "/api/v0/saisons/{saison_id}/spielplan", id="the undraw"),

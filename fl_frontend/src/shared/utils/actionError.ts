@@ -178,12 +178,15 @@ export type Wording = {
   readonly unworded: string;
   /** A write that may or may not have landed. */
   readonly unclear: string;
+  /** A sentence no press repairs, said whole: the undo adds what became of the change, as its guard's refusals do. */
+  readonly terminal: (sentence: string) => string;
 };
 
 const SAVE_WORDING: Wording = {
   close: (reason, retry) => `${reason} ${retry}`,
   unworded: UNKNOWN_REFUSAL,
   unclear: SPEICHERUNG_UNKLAR,
+  terminal: (sentence) => sentence,
 };
 
 /**
@@ -339,15 +342,15 @@ export function toActionErrorResult(error: unknown, answering?: SentRequest, wor
   if (error instanceof APIBadStatusError) {
     // Raised by the actor check before any handler, and by a write's transaction re-judging the
     // grant before each attempt, so nothing was written: the grant went after the guard read it.
-    if (error.serverErrorCode === "REQ-AUTH-006") return { success: false, error: ZUGANG_WEG };
+    if (error.serverErrorCode === "REQ-AUTH-006") return { success: false, error: wording.terminal(ZUGANG_WEG) };
     // The person binder reads the ban per request, so a ban entered since the session was judged.
-    if (error.serverErrorCode === "REQ-AUTH-008") return { success: false, error: GESPERRT_KEINE_AENDERUNG };
+    if (error.serverErrorCode === "REQ-AUTH-008") return { success: false, error: wording.terminal(GESPERRT_KEINE_AENDERUNG) };
     // Every person's write route can answer it, so it is worded here rather than by each slice; the consent
     // writes' mapper words a refused grant first (`fl_frontend/src/features/konto/einwilligung.ts :: ZUSTIMMEN_MORGEN`).
-    if (error.serverErrorCode === "REQ-DROSSELUNG-001") return { success: false, error: HEUTE_GENUG_GEAENDERT };
+    if (error.serverErrorCode === "REQ-DROSSELUNG-001") return { success: false, error: wording.terminal(HEUTE_GENUG_GEAENDERT) };
   }
   // A rule's code, so ahead of the rule fallback below, which would name no reason for it.
-  if (isFunktionLost(error)) return { success: false, error: SITZ_WEG };
+  if (isFunktionLost(error)) return { success: false, error: wording.terminal(SITZ_WEG) };
 
   if (isRefusal(error)) {
     const refused = refusedAnswer(error, wording);

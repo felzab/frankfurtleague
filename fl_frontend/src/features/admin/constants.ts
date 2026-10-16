@@ -76,7 +76,11 @@ export const LOESCHUNG_EINTRAG = {
   iconName: "PersonXmark",
   hint: {
     lead: "Alle Daten einer Person löschen, die per E-Mail darum gebeten hat.",
-    points: [{ term: "Die Adresse", detail: "gibst Du zweimal ein, zum Anzeigen und zum Bestätigen." }],
+    points: [
+      { term: "Die Adresse", detail: "gibst Du zweimal ein, zum Anzeigen und zum Bestätigen." },
+      // The page's second panel, which its label does not name: an admin opening the menu for a sign-out finds it here.
+      { term: "„Überall abmelden“", detail: "beendet jede Anmeldung einer Adresse, ohne ihre Daten zu löschen." },
+    ],
     // What an admin comes here to do and cannot: no control on this page takes an erasure back.
     note: "Eine Löschung lässt sich nicht zurücknehmen.",
   },

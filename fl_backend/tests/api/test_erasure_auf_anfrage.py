@@ -908,8 +908,8 @@ class TestAnotherAdministratorsAddress:
 class TestRowsNoMailboxNames:
     """What no request may reach through this route: the placeholder every address-less referee row shares, and the two sentinels."""
 
-    def test_a_look_alike_of_the_placeholder_matches_none_of_the_rows_holding_it(self, mongo_replica_set_url: str):
-        """A spelling the box admits, its stop full-width: the fold leaves a special-use domain unconverted, so it equals no stored address."""
+    def test_a_look_alike_of_the_placeholder_is_refused_as_the_placeholder(self, mongo_replica_set_url: str):
+        """Its stop full-width: the fold converts the domain as the URL Standard does, so it names the placeholder and both routes refuse it."""
 
         look_alike = PLACEHOLDER.replace(".invalid", f"{chr(0xFF0E)}invalid")
 
@@ -923,11 +923,14 @@ class TestRowsNoMailboxNames:
             ansicht = await posted(mongo_replica_set_url, ANSICHT_PATH, ansicht_of(look_alike))
             erasure = await posted(mongo_replica_set_url, PATH, erasure_of(look_alike))
 
-            return ansicht.json(), erasure.json(), await database[Collection.SCHIEDSRICHTER].count_documents({"kontakt.email": PLACEHOLDER})
+            return (
+                [(response.status_code, response.json()["error_code"]) for response in (ansicht, erasure)],
+                await database[Collection.SCHIEDSRICHTER].count_documents({"kontakt.email": PLACEHOLDER}),
+            )
 
-        ansicht, erased, left = on_a_league_of_its_own(mongo_replica_set_url, body)
+        answers, left = on_a_league_of_its_own(mongo_replica_set_url, body)
 
-        assert (ansicht["schiedsrichter"], erased["schiedsrichter"], left) == ([], 0, len(PLACEHOLDER_REFEREE_OIDS))
+        assert (answers, left) == ([(422, PAYLOAD_REFUSED)] * 2, len(PLACEHOLDER_REFEREE_OIDS))
 
     def test_the_sentinels_given_an_address_by_hand_are_reached_by_neither_request(self, mongo_replica_set_url: str):
         """Each step selects by id past the sentinel, the address notwithstanding: the route inherits the registry's exclusion."""

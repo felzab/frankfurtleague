@@ -4,6 +4,7 @@ import ArrowUturnCwLeft from "@gravity-ui/icons/ArrowUturnCwLeft";
 
 import { Button } from "@heroui/react/button";
 
+import { FocusSlot } from "@/shared/components/ui/FocusSlot";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { STEP_UP_RUNNING } from "@/shared/components/ui/stepUp";
 import { FOCUS_HEADING, focusSection } from "@/shared/utils/focusAfterWrite";
@@ -21,7 +22,12 @@ export type EditPageHeaderContent = {
   chip?: ReactNode;
   /** Only where the entity can be retired; the write is the row's, not the draft's. */
   reactivate?: { isPending: boolean; isPrompting?: boolean; onPress: () => void };
+  /** Only where the editor retires its row, through the retirement's own dialog; handed the pressed control, which a landing anchors on. */
+  retire?: { onPress: (pressed: Element) => void };
 };
+
+/** The place the retirement and its reactivation share, so a landed write hands the focus from one to the other. */
+const STILLLEGUNG_PLACE = "stilllegung";
 
 /**
  * Every entity editor's chrome. The pill is above the heading rather than in it: it leaves the page, where the
@@ -33,6 +39,7 @@ export function EditPageHeader({
   title,
   chip,
   reactivate,
+  retire,
   onLeave,
   isLeaving,
 }: EditPageHeaderContent & {
@@ -70,12 +77,23 @@ export function EditPageHeader({
           </h2>
           {chip !== undefined && <div className="flex shrink-0 items-center">{chip}</div>}
           {reactivate !== undefined && (
-            <Button
-              onPress={reactivate.onPress}
-              isPending={reactivate.isPending}
-              className={`${formButton({ intent: "nav", size: "sm" })} shrink-0`}>
-              {reactivate.isPrompting === true ? STEP_UP_RUNNING : reactivate.isPending ? "Stellt wieder her..." : "Reaktivieren"}
-            </Button>
+            <FocusSlot name={STILLLEGUNG_PLACE}>
+              <Button
+                onPress={reactivate.onPress}
+                isPending={reactivate.isPending}
+                className={`${formButton({ intent: "nav", size: "sm" })} shrink-0`}>
+                {reactivate.isPrompting === true ? STEP_UP_RUNNING : reactivate.isPending ? "Stellt wieder her..." : "Reaktivieren"}
+              </Button>
+            </FocusSlot>
+          )}
+          {retire !== undefined && (
+            <FocusSlot name={STILLLEGUNG_PLACE}>
+              <Button
+                onPress={(event) => retire.onPress(event.target)}
+                className={`${formButton({ intent: "nav", size: "sm" })} shrink-0`}>
+                Stilllegen
+              </Button>
+            </FocusSlot>
           )}
         </div>
         <p className="muted-hint">Änderungen gelten erst, wenn Du speicherst.</p>

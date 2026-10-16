@@ -22,7 +22,7 @@ import { useStepUp } from "@/shared/hooks/useStepUp";
 import { LINK_ERNEUT_OHNE_ANTWORT, LINK_UNKLAR } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { focusAfterWrite, focusSection } from "@/shared/utils/focusAfterWrite";
-import { LINK_TITEL, meldeLinkVersand } from "@/shared/utils/linkVersandToast";
+import { meldeAdresswechselVersand } from "@/shared/utils/linkVersandToast";
 import { pressLinkWrite } from "@/shared/utils/linkWrite";
 
 import type { FLSpielerAdresswechsel } from "@/features/spieler/schemas";
@@ -81,7 +81,7 @@ export function FormAdresswechselSection({
 
     landing.landed();
     // Graded as the request's press grades its link: the earlier link is dead whichever way this one went.
-    if ("versand" in res) meldeLinkVersand(res.versand, LINK_TITEL, res.message);
+    if ("versand" in res) meldeAdresswechselVersand(res, res.message);
     else appToast.success("Änderung verworfen", { description: res.message });
   };
 

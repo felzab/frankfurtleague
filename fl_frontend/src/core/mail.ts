@@ -373,7 +373,7 @@ async function deliver({ to, subject, html, text, tags, idempotencyKey }: Outbou
   const logRefusal = (refusal: MailSendError) => {
     logger.error("mail.send_failed", undefined, {
       error_code: refusal.code,
-      status_code: refusal.statusCode,
+      status: refusal.statusCode,
       provider_error_name: refusal.providerErrorName,
       trace_id: traceId,
     });
@@ -422,7 +422,7 @@ async function deliver({ to, subject, html, text, tags, idempotencyKey }: Outbou
 
         logger.warn("mail.send_retried", {
           error_code: error instanceof MailSendError || error instanceof APINetworkError ? error.code : undefined,
-          status_code: error instanceof MailSendError ? error.statusCode : undefined,
+          status: error instanceof MailSendError ? error.statusCode : undefined,
           provider_error_name: error instanceof MailSendError ? error.providerErrorName : undefined,
           trace_id: traceId,
         });

@@ -216,7 +216,6 @@ export const FLRegistrierungSweepErinnerungSchema = z.object({
   registrierung_id: CustomObjectIdStringSchema,
   saison_id: z.string(),
   team: z.string(),
-  vorname: z.string(),
   email: z.string(),
   token: z.string(),
 });

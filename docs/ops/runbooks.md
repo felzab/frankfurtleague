@@ -27,6 +27,7 @@ The contracts these depend on — the services, the scripts, the gate scopes and
 | [17. Clearing an address's code lock](#17-clearing-an-addresss-code-lock)                                                                       | Who meets it, when it lifts, and what clearing it costs        |
 | [18. The Node a checkout runs](#18-the-node-a-checkout-runs)                                                                                    | What `pnpm install` fetches, and what a bare `node` still runs |
 | [19. The database's storage alert](#19-the-databases-storage-alert)                                                                             | What fills the tier unseen, and the two alerts that show it    |
+| [20. After a hand edit in MongoDB](#20-after-a-hand-edit-in-mongodb)                                                                            | What a hand edit leaves cached, and the one call that drops it |
 
 ---
 
@@ -824,7 +825,8 @@ holding no address waits for that section's pupil reset at the end of this seaso
 person nothing. **Erasing an administrator's address tells every
 administrator, as a revoke does**: the grant's end goes out with the other changes of access, the
 notice naming no address (`docs/backend/spec.md :: I659`). On the same page „Überall abmelden“ ends
-every session of an address without erasing or barring it.
+every session of an address without erasing or barring it; past the step-up window its second press
+asks the passkey first, as the ban's does (`docs/frontend/spec.md :: I748`).
 
 **Answer as soon as what you need is gathered, and where it will take longer say so in the first
 reply rather than after it.** Where the answer needs the Datenschutzexperte, the person is told that
@@ -986,8 +988,10 @@ no log above outlives its bound.
 **Every deploy stops both application containers and copies their streams to
 `/var/log/frankfurtleague/` before it recreates them** (`scripts/ops/deploy.sh :: copy_streams`), one
 file per service stamped to the second, so a line written in the seconds before the recreate — an
-erasure's journal line among them (§13) — is in the copy. Where it cannot write there it starts the
-stopped containers again and refuses at exit 2 with nothing recreated.
+erasure's journal line among them (§13) — is in the copy. A container already stopped, a failed
+build's backend that exited or keeps restarting among them, is copied as well and left stopped.
+A directory it cannot write refuses at exit 2 before anything is stopped; a copy failing after the
+stop starts the containers it stopped again and refuses alike, nothing recreated either way.
 **A deploy that rolls back
 recreates the pair twice and so copies twice**, the failed build's streams taking the same stamp and a
 `-failed` suffix, so a failed deploy leaves four files that sort together (§1). The same step creates
@@ -1262,12 +1266,12 @@ Wherever more pupils are due than that, the deadline ends the run: the press fil
 `loeschung.umstellung_cut_short`, which needs nothing from you, and its message tells the
 administrator the hourly pass finishes the rest. `loeschung.umstellung_failed`, an error under
 `FE-SWEEP-001`, is a call that failed rather than ran out of time. The caches the press drops as it
-answers hold none of the pupils it deleted, but a pupil the hourly pass deletes, or the call the
-deadline cut deletes as it runs on in the backend after the press has answered, stays on a cached
-squad page until that page refreshes. Next's `days` cache profile, which the squad reads use
-(`fl_frontend/src/features/spieler/queries.ts`), still serves an entry more than a day old once
-while it refreshes, and keeps an entry nobody asks for up to a week, so a deleted pupil's name can
-reach a visitor for up to a week after the deletion.
+answers hold none of the pupils it deleted. **The call the deadline cut runs on in the backend after
+the press has answered**, so a pupil it deletes stays on a cached squad page until the next hourly
+pass, which drops that cache after its own deletion whatever it deleted. **A drop that failed is the
+error `cache.revalidation_failed` under `FE-CACHE-001`**, naming the status the route answered or
+the error's name: the next pass drops it again, and
+[section 20](#20-after-a-hand-edit-in-mongodb)'s call drops it at once.
 
 **A pupil counted `fehlgeschlagen` stays due, and every later pass meets them again.** The
 backend's line names that pupil's id, the error's class and what locates it, never an address:
@@ -1451,6 +1455,10 @@ the account sweep deletes its account within the hour, mailing nobody, a barred 
 first paste, `KONTO_SWEEP` reading `on` on a production build, and its next
 `konto.sweep_completed` line counts the accounts it deleted.
 
+**Each paste is followed by [section 20](#20-after-a-hand-edit-in-mongodb)'s call**: until then the
+public squad pages and fixtures go on naming whom the paste removed, for as long as each cached
+entry lives.
+
 **What the reset reaches that the retention index cannot is the rows carrying no `at_date`**, which
 nothing expires (I119), and a count of them says how many are left.
 
@@ -1484,8 +1492,8 @@ decide whether the one pasted is right:
   each count the database reports against it. `spiele.schiedsrichter.schiedsrichter_id` is a
   required id, so a null is refused rather than stored.
 - **Afterwards no fixture names an id with no referee row behind it, no fixture booked to the ghost
-  holds a name, and exactly one ghost stands.** Read one of those fixtures on the site; its referee
-  reads „anonym“.
+  holds a name, and exactly one ghost stands.** Read one of those fixtures on the site once
+  [section 20](#20-after-a-hand-edit-in-mongodb)'s call has answered `204`; its referee reads „anonym“.
 - **The log's images of them go too, more of each than an erasure takes.** Every `aktionen` row holding a dropped
   referee's image, their own rows' and the `spiele` rows' naming them, takes
   `fl_backend/app/core/recording.py :: build_redaction_update` under one stamp, found by
@@ -1873,3 +1881,26 @@ in the Atlas console. `drosselung` holds one row per person, kind of person and 
 index removes (`docs/backend/spec.md :: I619`), so a large one there is the TTL monitor stopping
 rather than people writing. Indexes larger than the documents put step 1's alert behind step 2's:
 lower its threshold below 4 GB times the documents' share of documents and indexes.
+
+## 20. After a hand edit in MongoDB
+
+**A hand edit invalidates no cached page**: the frontend serves the league's reads as it cached
+them until each entry's lifetime runs out
+([`../frontend/spec.md`](../frontend/spec.md#15-out-of-band-invalidation)). **One call drops them,
+from inside the frontend container**, which reads the system key there, so the key never passes
+through your shell or its history. It prints `204`:
+
+    docker compose exec frontend node -e "fetch('http://127.0.0.1:3000/api/revalidate',{method:'POST',headers:{Authorization:'Bearer '+require('fs').readFileSync('/run/secrets/internal_api_key_system','utf8').trim(),'Content-Type':'application/json'},body:JSON.stringify({tags:['saisons','spiele','spieler','spieltage','teams']})}).then(r=>console.log(r.status))"
+
+**It names every tag whatever the edit touched**: one costs a cold read on the next visit to each
+page carrying it, where naming fewer means working out which reads the edited document reaches, and
+a season reaches all of them.
+
+**After a season edit, wait out the backend's own season cache first**
+(`fl_backend/app/api/saisons/cache.py :: SAISON_CACHE_TTL_SECONDS`): dropped sooner, the frontend
+refills from the season the backend still holds, and keeps that for another day.
+
+**Any other status dropped nothing.** `401` is a key the server did not boot with: a rewritten
+`secrets/internal_api_key_system` is read once, as the container starts
+([section 16](#16-the-secret-files)). `422` is a tag off the list. `404` is the edge's answer, so the
+call reached nginx rather than the server inside the container, or the image predates the route.

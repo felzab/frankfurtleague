@@ -563,7 +563,7 @@ describe("what the administrator is told", () => {
     const nothing = describeBewerbungMail("Zusage", { delivered: [], unreachable: ["a@schule.de"], withheld: [], gesperrt: 0 });
     const partial = describeBewerbungMail("Zusage", { delivered: ["b@schule.de"], unreachable: ["a@schule.de"], withheld: [], gesperrt: 0 });
 
-    assert.match(nothing, /niemandem zugestellt/);
+    assert.match(nothing, /an niemanden verschickt/);
     assert.notEqual(nothing, partial);
   });
 

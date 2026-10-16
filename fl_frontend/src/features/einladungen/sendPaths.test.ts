@@ -347,7 +347,7 @@ describe("what the season-wide press answers", () => {
 
     const res = await pressSeason([zeile("aa", "t-aa", null)]);
 
-    assert.equal(res.success && res.versand, "zurueckgehalten");
+    assert.deepEqual(res.success && res.versendet, ["zurueckgehalten"]);
     assert.deepEqual(res.success ? res.zeilen[0]?.zurueckgehalten : [], ["erika-aa@beispiel.de"]);
   });
 
@@ -360,7 +360,7 @@ describe("what the season-wide press answers", () => {
 
     const row = res.success ? res.zeilen[0] : undefined;
     assert.deepEqual([row?.zugestellt, row?.unerreichbar, row?.zurueckgehalten, row?.gesperrt], [[], [], [], 1]);
-    assert.equal(res.success && res.versand, "gesperrt");
+    assert.deepEqual(res.success && res.versendet, ["gesperrt"]);
   });
 
   it("leaves a skipped team's row empty on all three address lists", async () => {
@@ -370,7 +370,7 @@ describe("what the season-wide press answers", () => {
     assert.deepEqual([row?.zugestellt, row?.unerreichbar, row?.zurueckgehalten], [[], [], []]);
     assert.deepEqual(mail.sent, [], "a team the endpoint skipped was mailed anyway");
     // Passed over by the rule the preview showed: no link this press meant to send, so no grade.
-    assert.equal(res.success ? res.versand : "refused", undefined);
+    assert.deepEqual(res.success ? res.versendet : "refused", []);
   });
 
   /* The two rows a team was mailed nothing on and still owes a sentence about its old link: a commit of
@@ -387,7 +387,8 @@ describe("what the season-wide press answers", () => {
       ["bb", false, true],
       ["cc", false, null],
     ]);
-    // A team whose link was never minted got none, which the press's grade counts as failed.
-    assert.equal(res.success && res.versand, "fehlgeschlagen");
+    // A team whose link was never minted got none, which the press's grade counts as failed; a commit of unknown
+    // outcome too, its link reaching nobody this press can name.
+    assert.deepEqual(res.success && res.versendet, ["fehlgeschlagen", "fehlgeschlagen", "fehlgeschlagen"]);
   });
 });

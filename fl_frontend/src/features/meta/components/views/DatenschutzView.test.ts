@@ -49,7 +49,7 @@ const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
  * The „Stand“ and the words it dates, frozen together: a reader told nothing changed since that day
  * has been misled by any edit that left the date standing.
  */
-const FASSUNG = { stand: "16. Oktober 2026", digest: "346956e95489e929ca03adf7f6f825be47089a94949072951fcce32f8d0ea058" } as const;
+const FASSUNG = { stand: "16. Oktober 2026", digest: "f41cc1e8cfdef309614558bdac5ebfba90d9f6548c7f935527207c8a0621627d" } as const;
 
 /** Every word the page renders but its date, so moving the date alone never passes for moving the words. */
 const wortlautDigest = (): string =>
@@ -514,6 +514,19 @@ describe("the privacy notice's account of the site's own protection", () => {
     assert.ok(frist.includes("unter einem unlesbaren Schlüssel statt Deiner Adresse"), frist);
     // A Funktion is one record, and a person holding two seats holds one counter for them.
     assert.ok(!frist.includes("Funktion"), frist);
+  });
+
+  /* The address's anchor is pseudonymised personal data however briefly it stands (`docs/datenschutz.md` §5), so the table
+     lists it, with the expiry pass that ends it rather than a minute nothing keeps: the pass can be late. */
+  it("lists an address's short-lived anchor, held as a key and never as the address, with the pass that removes it", () => {
+    const frist =
+      ANGABEN.get(
+        "Kurzzeitiger Vermerk zu einer E-Mail-Adresse: die Adresse als unlesbarer Schlüssel, ein Zähler und der Zeitpunkt seiner letzten Änderung",
+      ) ?? "";
+
+    assert.ok(frist.startsWith("Kurz nach seiner letzten Änderung: Die Datenbank löscht ihn beim nächsten Aufräumen,"), frist);
+    assert.ok(frist.includes("verzögern kann"), frist);
+    assert.ok(frist.includes("wenn wir die Daten einer Adresse löschen"), frist);
   });
 });
 

@@ -28,7 +28,8 @@ import { appToast } from "@/shared/utils/appToast";
  */
 export function FormAbmeldenSection() {
   const router = useRouter();
-  const twoPress = useTwoPressConfirm();
+  // The armed press asks the passkey as the erasure's and the ban's do: nothing brings an ended session back.
+  const twoPress = useTwoPressConfirm({ stepUp: true });
   const { isConfirming, isPending } = twoPress;
   const [email, setEmail] = useState("");
   const [fehler, setFehler] = useState<string | null>(null);

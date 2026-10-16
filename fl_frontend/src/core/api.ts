@@ -1,5 +1,7 @@
 import "server-only";
 
+import { createHash, timingSafeEqual } from "node:crypto";
+
 import z from "zod";
 
 import { dispatchRequest, sentRequestOf } from "./apiDispatch";
@@ -257,3 +259,40 @@ export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, optio
 
   return validated.data;
 };
+
+const BEARER = "Bearer ";
+
+/** Each side hashed first, so the comparison runs the same whatever length the header holds. */
+const keyDigest = (key: string): Buffer => createHash("sha256").update(key).digest();
+
+/**
+ * Whether a caller presents the system key: the guard of `fl_frontend/src/app/api/revalidate/route.ts`, which this
+ * server alone calls (`docs/frontend/spec.md :: I16`).
+ */
+export function presentsSystemKey(authorization: string | null): boolean {
+  const presented = authorization?.startsWith(BEARER) ? authorization.slice(BEARER.length) : "";
+
+  return timingSafeEqual(keyDigest(presented), keyDigest(internalApiKeySystem()));
+}
+
+/** A drop is a few writes inside this process, so a call this slow has stalled rather than queued. */
+const REVALIDATION_TIMEOUT_MS = 10000;
+
+/**
+ * Asks this server's own revalidation route to drop `tags`, answering the route's status. Over loopback because Next
+ * drops a tag only inside a request, and a timer's call throws (`docs/frontend/spec.md` §1.5).
+ */
+export async function postRevalidation(tags: readonly string[]): Promise<number> {
+  // The port Next's standalone server reads, and the address the container's healthcheck reaches it on.
+  const port = Number.parseInt(process.env.PORT ?? "", 10) || 3000;
+  const response = await fetch(`http://127.0.0.1:${String(port)}/api/revalidate`, {
+    method: "POST",
+    headers: getFetchHeaders("system"),
+    body: JSON.stringify({ tags: tags }),
+    signal: AbortSignal.timeout(REVALIDATION_TIMEOUT_MS),
+  });
+  // Released unread: the route answers no body, and anything else answering is judged by its status alone.
+  await response.body?.cancel();
+
+  return response.status;
+}
