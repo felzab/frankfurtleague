@@ -41,9 +41,8 @@ export function spielerBestaetigungsLink(origin: string, token: string): string 
 export type RegistrierungEmail = { subject: string; html: string; text: string };
 
 /**
- * What the two link messages are addressed with. They greet nobody by name, unlike the two notes,
- * which reach a confirmed address alone: this one has proved nothing, and behind a typo it is a
- * stranger's, who is owed no pupil's name.
+ * What the two link messages are addressed with. No name, unlike the notes, which reach a confirmed
+ * address alone: this one has proved nothing, and after a typo its stranger is owed no pupil's name.
  */
 export interface RegistrierungLinkEmailData {
   readonly teamName: string;
