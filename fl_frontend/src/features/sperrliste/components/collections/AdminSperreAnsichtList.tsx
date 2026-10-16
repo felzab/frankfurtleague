@@ -120,27 +120,19 @@ function eintraegeDer<Art extends keyof SperreAnsicht>(art: Art, ansicht: Sperre
   return EINTRAEGE[art](ansicht[art], saisonHref);
 }
 
-/**
- * What the barred address still holds, as the ban's dialog shows it once the ban stands (`docs/frontend/spec.md ::
- * I688`). `null` is a read that failed, which leaves the ban standing.
- */
-export function AdminSperreAnsichtList({ ansicht }: { ansicht: SperreAnsicht | null }) {
+/** What the address holds, in the ban's armed reveal ahead of the ban (`docs/frontend/spec.md :: I688`, `:: I724`). */
+export function AdminSperreAnsichtList({ ansicht }: { ansicht: SperreAnsicht }) {
   const saisonHref = useSaisonHref();
-  const eintraege =
-    ansicht === null ? null : (Object.keys(EINTRAEGE) as (keyof SperreAnsicht)[]).flatMap((art) => eintraegeDer(art, ansicht, saisonHref));
+  const eintraege = (Object.keys(EINTRAEGE) as (keyof SperreAnsicht)[]).flatMap((art) => eintraegeDer(art, ansicht, saisonHref));
   // The lead promises an edit, which no administrator makes of a registration.
   const lead =
-    (ansicht?.registrierungen.length ?? 0) === 0
-      ? SPERRE_ANSICHT_COPY.lead
-      : `${SPERRE_ANSICHT_COPY.lead} ${SPERRE_ANSICHT_COPY.registrierungen}`;
+    ansicht.registrierungen.length === 0 ? SPERRE_ANSICHT_COPY.lead : `${SPERRE_ANSICHT_COPY.lead} ${SPERRE_ANSICHT_COPY.registrierungen}`;
 
   return (
     <div className="flex w-full flex-col gap-y-2">
       <h3 className={FORM_SECTION_HEADING_CLASSES}>{SPERRE_ANSICHT_COPY.heading}</h3>
 
-      {eintraege === null ? (
-        <p className={ZEILE_CLASSES}>{SPERRE_ANSICHT_COPY.nichtGeladen}</p>
-      ) : eintraege.length === 0 ? (
+      {eintraege.length === 0 ? (
         <p className={ZEILE_CLASSES}>{SPERRE_ANSICHT_COPY.leer}</p>
       ) : (
         <>
@@ -171,12 +163,8 @@ export function AdminSperreAnsichtList({ ansicht }: { ansicht: SperreAnsicht | n
       )}
 
       {/* Whatever the read found: the account and the log hold the address past every record, and no read lists them. */}
-      {eintraege !== null && (
-        <>
-          <p className={ZEILE_CLASSES}>{SPERRE_ANSICHT_COPY.konto}</p>
-          <p className={ZEILE_CLASSES}>{SPERRE_ANSICHT_COPY.protokoll}</p>
-        </>
-      )}
+      <p className={ZEILE_CLASSES}>{SPERRE_ANSICHT_COPY.konto}</p>
+      <p className={ZEILE_CLASSES}>{SPERRE_ANSICHT_COPY.protokoll}</p>
     </div>
   );
 }

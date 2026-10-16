@@ -850,13 +850,15 @@ its deadline open on its form again. Nothing else refuses on the list, so a pers
 queue is still what keeps a barred address out of everything a sign-up does not cover. **The ban
 takes away nothing the address already holds** — a record it confirmed before the ban, and one it
 cannot confirm since alike — and the ban's row names none of it: a record stays until you take it
-away, a registration excepted, which ends by itself. **The dialog the ban was entered in lists every
-such record once the ban stands**, linking each one a page acts on to that page at the record's own
-season (`docs/frontend/spec.md :: I688`), and says beneath them how long the address's sign-in
+away, a registration excepted, which ends by itself. **The dialog the ban is entered in lists every
+such record before the ban goes out**, linking each one a page acts on to that page at the record's
+own season (`docs/frontend/spec.md :: I688`), and says beneath them how long the address's sign-in
 account stays ([section 9](#9-checking-that-the-hourly-passes-have-run)) and that its log rows and
-authorship stay. Each link opens in a tab of its own, so the list stays open beside it; work
-through it before „Fertig“, since once the dialog closes nothing finds those records from the ban
-again.
+authorship stay. „Adresse sperren“ reads and shows the list, and „Ja, Adresse sperren“ enters the
+ban: closing the dialog in between bans nobody, and an edit of the address takes the list away until
+it is read again (`docs/frontend/spec.md :: I724`). Each link opens in a tab of its own, so the list
+stays open beside it; work through it before „Ja, Adresse sperren“, since the dialog closes on the
+ban.
 
 - a referee: „Spiele der Saison … neu besetzen“, one link for each season holding an unplayed
   fixture they are booked on, opens the fixture search at that season to reassign them, then
