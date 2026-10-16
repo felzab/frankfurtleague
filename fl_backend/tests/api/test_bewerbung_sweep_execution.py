@@ -952,7 +952,7 @@ class TestTheSeasonAndOneClock:
                 await log_rows_naming(database, Collection.SAISON_TEAMS, JUNCTION_OID),
             )
 
-        response, document, row, junction_log = on_a_league(mongo_replica_set_url, body, next_status="past")
+        response, document, row, junction_log = on_a_league(mongo_replica_set_url, body, status="past", next_status="past")
 
         assert (response.angenommene_geloescht, response.kontaktbloecke_geleert, document) == (1, 1, None)
         assert row is not None and row["kontakte"] is None
@@ -968,7 +968,7 @@ class TestTheSeasonAndOneClock:
 
             return await log_rows_naming(database, Collection.SAISON_TEAMS, JUNCTION_OID)
 
-        images = [entry["before"] for entry in on_a_league(mongo_replica_set_url, body, next_status="past")]
+        images = [entry["before"] for entry in on_a_league(mongo_replica_set_url, body, status="past", next_status="past")]
 
         # The seeded move into group B filed the row as it stood in A; the clearing filed it in B.
         assert sorted(image["gruppe"] for image in images) == ["A", "B"]
@@ -1000,7 +1000,7 @@ class TestTheSeasonAndOneClock:
                 await log_rows_naming(database, Collection.SAISON_TEAMS, JUNCTION_OID),
             )
 
-        geleert, row, log = on_a_league(mongo_replica_set_url, body, next_status="past")
+        geleert, row, log = on_a_league(mongo_replica_set_url, body, status="past", next_status="past")
 
         assert geleert == 1
         assert row is not None and (row["kontakte"], row["bestaetigungen"]) == (None, None)
@@ -1013,10 +1013,21 @@ class TestTheSeasonAndOneClock:
 
             return response.angenommene_geloescht, response.kontaktbloecke_geleert
 
-        assert on_a_league(mongo_replica_set_url, body, next_status=None) == (0, 0)
+        assert on_a_league(mongo_replica_set_url, body, status="past", next_status=None) == (0, 0)
 
-    def test_a_skipped_year_reads_the_next_season_the_league_holds(self, mongo_replica_set_url: str):
-        """No season of the year after, and the one after that has ended: read by the year alone, both clocks wait for ever."""
+    @pytest.mark.parametrize(
+        "between",
+        [
+            pytest.param(None, id="a year the league skipped"),
+            pytest.param("future", id="a season planned and never run"),
+            pytest.param("active", id="a lower season activated once the later one had run"),
+        ],
+    )
+    def test_any_later_season_that_has_ended_ends_both(self, mongo_replica_set_url: str, between: str | None):
+        """The year after stands `between`, and the one after has ended, when `docs/backend/spec.md :: I715` drops this season's pupils.
+
+        Read off the year after, the first two hold both clocks for ever, and the third past its pupils.
+        """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.SAISONS].insert_one(season(SKIPPED_TO_SAISON_ID, "past"))
@@ -1024,7 +1035,33 @@ class TestTheSeasonAndOneClock:
 
             return response.angenommene_geloescht, response.kontaktbloecke_geleert
 
-        assert on_a_league(mongo_replica_set_url, body, status="past", next_status=None) == (1, 1)
+        assert on_a_league(mongo_replica_set_url, body, status="past", next_status=between) == (1, 1)
+
+    def test_the_running_season_keeps_both_whatever_later_season_has_ended(self, mongo_replica_set_url: str):
+        """A lower season activated once a later one had run: it needs its contact persons while it runs.
+
+        `docs/backend/spec.md :: I715` keeps its pupils for as long, and these two clocks match it.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            response = await sweep(database, client)
+
+            return response, await stored(database, ACCEPTED_OID), await database[Collection.SAISON_TEAMS].find_one({"_id": JUNCTION_OID})
+
+        response, document, row = on_a_league(mongo_replica_set_url, body, status="active", next_status="past")
+
+        assert (response.angenommene_geloescht, response.kontaktbloecke_geleert) == (0, 0)
+        assert document is not None and row is not None and row["kontakte"] is not None
+
+    def test_a_running_season_whose_id_is_no_year_still_fails_the_pass(self, mongo_replica_set_url: str):
+        """A running season reads no later one: judged inside that read, a hand-edited id would fail no pass while its season runs."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> None:
+            await database[Collection.SAISONS].insert_one(season("abcd", "active"))
+            with pytest.raises(ValueError):
+                await sweep(database, client, saison_id="abcd")
+
+        on_a_league(mongo_replica_set_url, body, status="past")
 
 
 class TestASeasonNobodyHas:
@@ -1150,7 +1187,7 @@ class TestOneRowHoldsBackNoOther:
             )
 
         with caplog.at_level(logging.ERROR, logger=FL_LOGGER_NAME):
-            counts, refused, other = on_a_league(mongo_replica_set_url, body, next_status="past")
+            counts, refused, other = on_a_league(mongo_replica_set_url, body, status="past", next_status="past")
 
         assert counts == (1, 1, 1)
         assert (refused is not None, other) == (True, None)
@@ -1168,7 +1205,7 @@ class TestOneRowHoldsBackNoOther:
             return answer, [(block["_id"], block["kontakte"] is not None) for block in blocks]
 
         with caplog.at_level(logging.ERROR, logger=FL_LOGGER_NAME):
-            answer, blocks = on_a_league(mongo_replica_set_url, body, next_status="past")
+            answer, blocks = on_a_league(mongo_replica_set_url, body, status="future", next_status="past")
 
         assert (answer.kontaktbloecke_geleert, answer.fehlgeschlagen, reminded(answer)) == (1, 1, {REMIND_OID})
         assert blocks == [(JUNCTION_OID, True), (SECOND_JUNCTION_OID, False)]
@@ -1516,7 +1553,7 @@ class TestEachCappedClockMakesProgressAcrossPasses:
 
             return taken, await database[Collection.SAISON_TEAMS].count_documents({"kontakte": {"$ne": None}})
 
-        taken, standing = on_a_league(mongo_replica_set_url, body, next_status="past")
+        taken, standing = on_a_league(mongo_replica_set_url, body, status="past", next_status="past")
 
         per_pass(taken, BLOCKS_CLEARED_PER_PASS, overflow)
         assert standing == 0
@@ -1671,7 +1708,7 @@ class TestEachPerRowLoopCostsTheRoundTripsItsShareIsSizedAt:
 
             return await counted(FEW), await counted(2 * FEW)
 
-        few, twice = on_a_league(mongo_replica_set_url, body, next_status="past")
+        few, twice = on_a_league(mongo_replica_set_url, body, status="past", next_status="past")
 
         assert (twice - few) / FEW == ROUND_TRIPS_A_ROW
 
@@ -1739,7 +1776,7 @@ class TestAPageAndOneMoreIsDrained:
 
             return response.angenommene_geloescht, await database[Collection.BEWERBUNGEN].count_documents({"saison_id": SAISON_ID})
 
-        assert on_a_league(mongo_replica_set_url, body, next_status="past") == (overflow, 0)
+        assert on_a_league(mongo_replica_set_url, body, status="past", next_status="past") == (overflow, 0)
 
     def test_a_page_of_decisions_inside_their_month_does_not_hide_one_that_is_due(self, mongo_replica_set_url: str):
         """The fresh decisions are seeded first, so a read not narrowed to the due ones fills its page with them and refuses the pass."""
