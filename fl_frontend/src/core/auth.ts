@@ -1898,7 +1898,8 @@ export async function deleteOwnAccount(
 
   try {
     const answer = await ownErasure.run(eraseRecords, () => auth.api.deleteUser({ body: { token: token }, headers: requestHeaders }));
-    // The library's own word for a deletion, never the absence of a throw: its one other answer mails a link.
+    // The library's own word for a deletion, never the absence of a throw. Its one other answer, a link's, comes
+    // only for an empty token, which the guard above refuses first: no case reaches this check alone.
     if (answer.message !== ACCOUNT_DELETED) throw new DeletionNotAnswered();
     return "deleted";
   } catch (failed) {
