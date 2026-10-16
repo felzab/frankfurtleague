@@ -538,6 +538,22 @@ describe("the ban's refusals, placed (`docs/frontend/spec.md :: I724`)", () => {
     );
     assert.ok(within(keine.dialog).queryByRole("alert") === null, "the reveal stands over a refused ban");
   });
+
+  /* The read never judges the reason, so a name of the address's records in it (`REQ-SPERRLISTE-004`) is refused by the
+     ban alone: on the reason's box, which holds the way out, and never in a toast that leaves the box unmarked. */
+  it("lands a name in the reason on its box, raising nothing", async (t) => {
+    t.mock.timers.enable({ apis: ["Date"] });
+    sperre = () => Promise.reject(refusedOn(CREATE_OPERATION, "REQ-SPERRLISTE-004"));
+    const satz = mapSperreRefusal(refusedOn(CREATE_OPERATION, "REQ-SPERRLISTE-004"))?.fieldErrors?.grund ?? "unworded";
+    const { dialog, user } = await gezeigt();
+
+    await sperren(dialog, user, t);
+
+    assert.deepEqual(gesendet("/sperrliste"), [{ email: BARRED, grund: GRUND }], "the ban was never sent, so nothing refused it");
+    assert.deepEqual(markiert(dialog), ["Grund"]);
+    assert.ok(within(dialog).queryByText(satz) !== null, "the reason's box reads otherwise than the ban's refusal");
+    assert.deepEqual(toasts, [], "a refusal its box shows was raised as well");
+  });
 });
 
 describe("the page the ban list stands on", () => {
