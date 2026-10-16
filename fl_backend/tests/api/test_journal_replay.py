@@ -703,10 +703,11 @@ class TestAnErasedPersonsPseudonym:
 
         # The withdrawal's row and the grant's, and the count the grant took.
         assert (rows, counts) == (2, 1)
+        # None still attributed, each marked, no count left.
+        assert left == (0, rows, 0)
         assert (listed_code, applied_code, again_code) == (1, 0, 0), listed
         assert f"but its pseudonym still marks {rows} log row(s) (" in listed and "and 1 day count(s)" in listed
         assert "    to replay" in listed and "    replayed" in applied and "    already done" in again
-        assert left == (0, rows, 0)
         # One row, the system's, naming the erasure's line: the second run found nothing and wrote nothing.
         assert [(row["actor"], row["request"]) for row in acts] == [
             ({"kind": "system", "email": "SYSTEM"}, {"method": REPLAY_METHOD, "path": "loeschung journalled=2026-10-03T11:00:01+00:00"})
