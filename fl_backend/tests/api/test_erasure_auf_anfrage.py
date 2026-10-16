@@ -21,17 +21,18 @@ from httpx2 import AsyncClient, Response
 from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
+from pymongo.errors import PyMongoError
 
 from app.api.identitaet.admin_router import erase_auf_anfrage, get_erasure_ansicht_auf_anfrage
-from app.api.identitaet.crud import ERASURE_JOURNAL_EVENT
-from app.api.identitaet.schemas import FLErasureAnsichtPayload, FLErasureAnsichtResponse, FLErasurePayload, FLErasureResponse
+from app.api.identitaet.crud import ERASURE_JOURNAL_EVENT, UNKNOWN_COMMIT_RESULT
+from app.api.identitaet.schemas import FLErasure, FLErasureAnsichtPayload, FLErasureAnsichtResponse, FLErasurePayload, FLErasureResponse
 from app.api.identitaet.services import EIGENE_ADRESSE, INHABER_ADRESSE
 from app.api.schiedsrichter.services import build_ghost_schiedsrichter
 from app.api.spieler.services import build_ghost_spieler
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import ANCHOR_FIELD, patch_one_in_db
-from app.core.db import NO_OWNER, get_spieler_collection
+from app.core.db import NO_OWNER, get_aktionen_collection, get_spieler_collection
 from app.core.exception_handlers import DATABASE_FAILED, PAYLOAD_REFUSED, UNKNOWN_OUTCOME
 from app.core.recording import Actor
 from app.core.security import ACTOR_NOT_ADMIN, get_recent_confirmation_check, loeschung_journal_hash
@@ -57,6 +58,7 @@ from .test_funktionen_erasure import (
     GRANTED_BY_THEM_OID,
     HOME_TEAM_OID,
     IDENTIFIER,
+    LOST_COMMIT_DEADLINE_S,
     MOVING_PUPIL_OID,
     NACHNAME,
     NOW,
@@ -73,6 +75,7 @@ from .test_funktionen_erasure import (
     THEIR_VALUES,
     TYPED,
     VORNAME,
+    WRITE_CONCERN_FAILED,
     a_grant,
     a_person_holding_everything,
     acting,
@@ -100,6 +103,8 @@ ANLASS = "Mail vom 30.03.2026, Betreff: Bitte löscht alle meine Daten"
 # The fail point refusing one commit matches this client's name alone: every worker shares the server.
 REFUSED_COMMIT_APP = f"{DATABASE_NAME}-refused-commit"
 WRITE_CONFLICT = 112
+# The one losing every commit's answer, for the same reason.
+LOST_COMMIT_APP = f"{DATABASE_NAME}-lost-commit"
 
 # What every address-less referee row holds, under RFC 6761's reserved `invalid`: one value, shared by every such row.
 PLACEHOLDER = "adresse-fehlt@frankfurtleague.invalid"
@@ -107,6 +112,13 @@ PLACEHOLDER_REFEREE_OIDS = (ObjectId("6890a1b2c3d4e5f607d00001"), ObjectId("6890
 
 # An address a hand edit gave both sentinels, which no erasure may reach through them.
 SENTINEL_ADDRESS = "von.hand@example.com"
+
+# A grant typed in the person's capitals, which admits nobody and goes with their erasure.
+DEAD_GRANT_OID = ObjectId("6890a1b2c3d4e5f607e00001")
+
+# What the erasure counts and its reveal names nothing of, as the reveal's description says: the fixtures moved onto the
+# ghost, and the day counts.
+COUNTED_AND_NOT_NAMED = ("spiele", "drosselung")
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
@@ -434,12 +446,60 @@ class TestAnOwnersAddress:
 
         assert (verwaltung, erased["berechtigungen"], left) == ("owner", 1, 0)
 
+    def test_a_promotion_landing_inside_the_erasure_is_refused_by_its_retry(self, mongo_replica_set_url: str):
+        """The rival makes the address an owner after the first attempt's judgement, which the attempt's writes then conflict with.
+
+        Judged once ahead of the transaction instead, the retry erases an owner's grant.
+        """
+
+        promotions: list[int] = []
+        racing: list[PupilsMeetingARival] = []
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
+            held = await where_held(database, *THEIR_VALUES)
+            served = _app()
+            async with app_client(mongo_replica_set_url, app=served, now=NOW) as http:
+
+                async def promote() -> None:
+                    answered = await http.patch(
+                        f"/api/v{API_VERSION}/berechtigungen/{THEIR_GRANT_OID}",
+                        json={"verwaltung": "owner"},
+                        headers=SignedActor(OWNER, ADMIN_KEY),
+                    )
+                    promotions.append(answered.status_code)
+
+                async def pupils() -> AsyncCollection:
+                    # The app's own client: the request's session belongs to it.
+                    racing.append(PupilsMeetingARival(served.state.db_client[DATABASE_NAME][Collection.SPIELER], promote))
+                    return cast(AsyncCollection, racing[-1])
+
+                served.dependency_overrides[get_spieler_collection] = pupils
+                try:
+                    response = await http.post(PATH, json=erasure_of(), headers=SignedActor(OPERATOR, ADMIN_KEY))
+                finally:
+                    # The app is the module's: a rival left on it would run inside every later case's erasure.
+                    del served.dependency_overrides[get_spieler_collection]
+
+            grant = await database[Collection.BERECHTIGUNGEN].find_one({"_id": THEIR_GRANT_OID})
+
+            return response, held, await where_held(database, *THEIR_VALUES), grant
+
+        response, held, left, grant = on_a_league(mongo_replica_set_url, body)
+
+        assert (response.status_code, response.json().get("error_code"), promotions) == (403, INHABER_ADRESSE, [200])
+        assert grant is not None and grant["verwaltung"] == "owner"
+        # The notice the promotion queued aside, every value stands where it stood.
+        assert {value: [name for name in found if name != Collection.BERECHTIGUNGEN_POSTAUSGANG] for value, found in left.items()} == held
+        # The premise last: the first attempt passed its judgement and reached the pupils, and the retry was refused before them.
+        assert sum(collection.passes for collection in racing) == 1
+
 
 @pytest.mark.db
 class TestTheReveal:
-    """`docs/backend/spec.md :: I684`: what the erasure reaches, read by its own selections, and stored nowhere."""
+    """`docs/backend/spec.md :: I684`: every record of the person's the erasure removes or empties, by its own selections, stored nowhere."""
 
-    def test_it_names_every_record_the_erasure_reaches_by_the_ids_its_links_need_and_writes_nothing(self, mongo_replica_set_url: str):
+    def test_it_names_every_record_the_erasure_removes_by_the_ids_its_links_need_and_writes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
             before = await everything_in(database)
@@ -461,26 +521,28 @@ class TestTheReveal:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
+            await a_grant(database, DEAD_GRANT_OID, TYPED, "administration")
             ansicht = (await posted(mongo_replica_set_url, ANSICHT_PATH, ansicht_of())).json()
 
             return ansicht, (await posted(mongo_replica_set_url, PATH, erasure_of())).json()
 
         ansicht, erased = on_a_league(mongo_replica_set_url, body)
-
-        assert {
+        named = {
             "spieler": len(ansicht["spieler"]),
             "saison_spieler": sum(len(spieler["kader"]) for spieler in ansicht["spieler"]),
             "schiedsrichter": len(ansicht["schiedsrichter"]),
             "kontakt_sitze": len(ansicht["sitze"]) + len(ansicht["bewerbungen"]),
             "registrierungen": len(ansicht["registrierungen"]),
             "adresswechsel": len(ansicht["adresswechsel"]) + len(ansicht["spieler_adresswechsel"]),
-            "berechtigungen": int(ansicht["verwaltung"] is not None),
-        } == {
-            key: erased[key]
-            for key in ("spieler", "saison_spieler", "schiedsrichter", "kontakt_sitze", "registrierungen", "adresswechsel", "berechtigungen")
         }
+
+        assert named == {key: erased[key] for key in named}
+        # The live grant is named by its tier, and a dead spelling beside it goes unnamed: two removed, one named.
+        assert (ansicht["verwaltung"], erased["berechtigungen"]) == ("administration", 2)
+        # Every count is compared above or one the reveal names nothing of: a count added to the answer fails here until placed.
+        assert {*named, "berechtigungen", *COUNTED_AND_NOT_NAMED} == set(FLErasure.model_fields)
         # The premise: an address holding nothing would agree on zeros.
-        assert all(erased[key] for key in ("spieler", "schiedsrichter", "kontakt_sitze", "registrierungen", "adresswechsel", "berechtigungen"))
+        assert all(erased[key] for key in FLErasure.model_fields)
 
 
 @pytest.mark.db
@@ -539,12 +601,20 @@ class TestTheAnlass:
         assert {row["anlass"] for row in filed} == {None}
 
 
-class PupilsMeetingARevoke(InterleavedCollection):
-    """The pupils the erasure removes, a revoke of its administrator's grant committing first: inside the attempt, once per attempt."""
+class PupilsMeetingARival(InterleavedCollection):
+    """The pupils the erasure removes, a rival write to the grants committing first: inside the attempt, once per attempt."""
 
     async def delete_many(self, *args: Any, **kwargs: Any) -> Any:
         await self.run_the_rival()
         return await self._collection.delete_many(*args, **kwargs)
+
+
+class TheSignOutsRowMeetingARival(InterleavedCollection):
+    """The sign-out's one log row, a rival write to the grants committing first: inside the attempt, once per attempt."""
+
+    async def insert_one(self, *args: Any, **kwargs: Any) -> Any:
+        await self.run_the_rival()
+        return await self._collection.insert_one(*args, **kwargs)
 
 
 @pytest.mark.db
@@ -556,7 +626,7 @@ class TestAnAdministratorRevokedMidRequest:
         """Remove the anchor in `app/core/security.py :: admin_judge` and the erasure commits: the attempt's read never sees the revoke."""
 
         revokes: list[int] = []
-        racing: list[PupilsMeetingARevoke] = []
+        racing: list[PupilsMeetingARival] = []
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             # The grant the person granted, which the erasure marks and every revoke anchors: without it the actor's
@@ -578,9 +648,7 @@ class TestAnAdministratorRevokedMidRequest:
 
                 async def pupils() -> AsyncCollection:
                     # The app's own client: the request's session belongs to it.
-                    racing.append(
-                        PupilsMeetingARevoke(served.state.db_client[DATABASE_NAME][Collection.SPIELER], revoke if revoked else nobody)
-                    )
+                    racing.append(PupilsMeetingARival(served.state.db_client[DATABASE_NAME][Collection.SPIELER], revoke if revoked else nobody))
                     return cast(AsyncCollection, racing[-1])
 
                 served.dependency_overrides[get_spieler_collection] = pupils
@@ -630,6 +698,39 @@ class TestTheJournal:
         ]
         # The premise last: one commit refused, so the line above is the rerun's alone.
         assert (refused, erased) == (1, 1)
+
+    def test_a_commit_whose_answer_is_lost_is_journalled_all_the_same(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+        """Catches a route journalling once its commit answers: this one landed, and its answer was lost to the deadline.
+
+        Every commit runs and answers a replication timeout, so the driver retries it until the case's deadline ends it.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            losing = AsyncMongoClient(mongo_replica_set_url, serverMonitoringMode="poll", appname=LOST_COMMIT_APP)
+            unanswered = {
+                "failCommands": ["commitTransaction"],
+                "appName": LOST_COMMIT_APP,
+                "writeConcernError": {"code": WRITE_CONCERN_FAILED, "errmsg": "waiting for replication timed out"},
+            }
+            entered = (await client.admin.command("configureFailPoint", "failCommand", mode="alwaysOn", data=unanswered))["count"]
+            try:
+                with pytest.raises(PyMongoError) as lost:
+                    with pymongo.timeout(LOST_COMMIT_DEADLINE_S):
+                        await erased_by_the_handler(losing[database.name], losing)
+            finally:
+                left = (await client.admin.command("configureFailPoint", "failCommand", mode="off"))["count"]
+                await losing.close()
+
+            return left > entered, lost.value.has_error_label(UNKNOWN_COMMIT_RESULT), await where_held(database, IDENTIFIER)
+
+        with caplog.at_level(logging.INFO):
+            answered, labelled, after = on_a_league(mongo_replica_set_url, body)
+
+        assert journal_lines(caplog) == [
+            f"{ERASURE_JOURNAL_EVENT} {loeschung_journal_hash(IDENTIFIER, schluessel=CONFIG.sperrliste_schluessel)}"
+        ]
+        # The premise last: a commit ran and its answer was lost, and the erasure landed.
+        assert (answered, labelled, after) == (True, True, {IDENTIFIER: []})
 
 
 @pytest.mark.db
@@ -748,6 +849,46 @@ class TestTheSignOut:
         # The log's own read serves it under the act's name.
         assert [aktion["collection"] for aktion in served["aktionen"]] == ["anmeldungen"]
 
+    def test_a_promotion_landing_inside_it_is_refused_by_its_retry(self, mongo_replica_set_url: str):
+        """The promotion anchors every grant, the actor's among them, which the sign-out's judge anchors last: the retry judges again.
+
+        Judged once ahead of the transaction instead, the row is filed and the caller ends an owner's sessions.
+        """
+
+        promotions: list[int] = []
+        racing: list[TheSignOutsRowMeetingARival] = []
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
+            served = _app()
+            async with app_client(mongo_replica_set_url, app=served, now=NOW) as http:
+
+                async def promote() -> None:
+                    answered = await http.patch(
+                        f"/api/v{API_VERSION}/berechtigungen/{THEIR_GRANT_OID}",
+                        json={"verwaltung": "owner"},
+                        headers=SignedActor(OWNER, ADMIN_KEY),
+                    )
+                    promotions.append(answered.status_code)
+
+                async def log() -> AsyncCollection:
+                    racing.append(TheSignOutsRowMeetingARival(served.state.db_client[DATABASE_NAME][Collection.AKTIONEN], promote))
+                    return cast(AsyncCollection, racing[-1])
+
+                served.dependency_overrides[get_aktionen_collection] = log
+                try:
+                    response = await http.post(ABMELDUNG_PATH, json=ansicht_of(), headers=SignedActor(OPERATOR, ADMIN_KEY))
+                finally:
+                    del served.dependency_overrides[get_aktionen_collection]
+
+            return response, await filed_by(database, ABMELDUNG_PATH)
+
+        response, filed = on_a_league(mongo_replica_set_url, body)
+
+        assert (response.status_code, response.json().get("error_code"), promotions, filed) == (403, INHABER_ADRESSE, [200], [])
+        # The premise last: the first attempt passed its judgement and reached the row, and the retry was refused before it.
+        assert sum(collection.passes for collection in racing) == 1
+
 
 def unanchored(collections: Mapping[str, list[Any]], *, besides: str) -> dict[str, list[Any]]:
     """Every collection but `besides`, each grant without its anchor's count."""
@@ -817,7 +958,9 @@ class TestThePlaceholderIsRefusedAtTheBox:
 
     @pytest.mark.parametrize("path", [ANSICHT_PATH, PATH, ABMELDUNG_PATH], ids=["the reveal", "the erasure", "the sign-out"])
     @pytest.mark.parametrize(
-        "email", [PLACEHOLDER, f"  {PLACEHOLDER.upper()} ", "jemand@schule.INVALID"], ids=["as stored", "folding to it", "any mailbox under it"]
+        "email",
+        [PLACEHOLDER, f"  {PLACEHOLDER.upper()} ", "jemand@schule.INVALID", "jemand@invalid"],
+        ids=["as stored", "folding to it", "any mailbox under it", "the reserved name itself"],
     )
     def test_it_is_refused_on_its_fold(self, path: str, email: str):
         assert refused_at(answered_unanswered(path, erasure_of(email) if path == PATH else ansicht_of(email))) == (

@@ -252,8 +252,9 @@ def refuse_the_reserved_domain(value: str) -> str:
     return value
 
 
-# A lookup held to no address rule, as `FLGesperrtPayload`'s is (`docs/backend/spec.md :: I329`): a
-# record stored under an older rule stays erasable. Stripped as the page's own box trims it.
+# A lookup held to no address rule, as `FLGesperrtPayload`'s is, the reserved domain apart
+# (`docs/backend/spec.md :: I329`): a record stored under an older rule stays erasable. Stripped as
+# the page's own box trims it.
 ErasureAdresse = Annotated[
     str,
     StringConstraints(strip_whitespace=True, max_length=KONTAKT_EMAIL_MAX_LENGTH, pattern="@"),
