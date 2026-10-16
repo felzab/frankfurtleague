@@ -239,8 +239,9 @@ describe("what the ban's dialog shows before the ban (`docs/frontend/spec.md :: 
     for (const [, href] of verweiseIn(dialog)) assert.ok(href !== null && !href.includes("@"), `${String(href)} carries an address`);
   });
 
-  /* The registrations list serves the pending ones alone: a link to a declined one opens a list it is not on. */
-  it("links no declined registration, and names it declined", async () => {
+  /* The registrations list serves the pending ones alone: a link to a declined one opens a list it is not on, and the
+     sentence that a registration ends with the ban is false of one its team declined already. */
+  it("links no declined registration, names it declined, and says nothing of it ending", async () => {
     antwort = () =>
       Promise.resolve({
         ...NICHTS,
@@ -256,6 +257,7 @@ describe("what the ban's dialog shows before the ban (`docs/frontend/spec.md :: 
       within(dialog).queryByText(/^Abgelehnte Registrierung für die Saison 2026: Zorbanax Quell$/) !== null,
       "the line hides its status",
     );
+    assert.ok(within(dialog).queryByText(SPERRE_ANSICHT_COPY.lead) !== null, "a declined registration is said to end with the ban");
   });
 
   /* The memberships read lists a pupil holding no squad row, and the editor opens on them: their record is what stands. */
