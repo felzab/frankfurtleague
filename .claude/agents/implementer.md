@@ -58,13 +58,17 @@ that is not your worktree's own, is a wrong premise under section 4. Stop and re
   `uv sync --project fl_backend --dev --frozen` at the root, and again after a rebase that moves a
   manifest or a lockfile. Never link either directory in from another tree. Run git in Bash, never
   PowerShell: the harness checks a PowerShell command's directory only, not where its git points.
+  The frontend install also fetches the Node release `fl_frontend/package.json`'s `devEngines` pins,
+  which pnpm runs: a tool there runs as `pnpm run <script>` or `pnpm exec <bin>`, never `npx`, which
+  refuses whenever the machine's own Node is not that release.
 - **Run the checks your items name and then your targeted set, never a whole suite.** The set is the
   test files of every file you changed and of every module importing one, found by every import form
   in use -- the `@/` alias, a relative path, a dotted Python module -- and the tests naming any
   registry gaining a member, run as `pnpm run test:base <files>` and
-  `uv run --frozen pytest <paths>`; `npx tsc --noEmit -p .` and eslint over the side you touched in
-  `fl_frontend`, pyright over the backend where you touched it; every `scripts/checks/` checker
-  whose population you add to, from the root as `uv run --project fl_backend --frozen python
+  `uv run --frozen pytest <paths>`; `pnpm run typecheck` and `pnpm run lint` where you touched
+  `fl_frontend` (the first runs `next typegen` before tsc, without which a fresh worktree's tsc passes
+  a page breaking Next's route types), pyright over the backend where you touched it; every
+  `scripts/checks/` checker whose population you add to, from the root as `uv run --project fl_backend --frozen python
 scripts/checks/<name>.py` -- `check_tracked_text.py` always, `check_public_routes.py` for a route
   handler, a page or `nginx/shared/site.conf`, `check_test_estate.py` for a backend test or fixture;
   and every plant your items need. CI

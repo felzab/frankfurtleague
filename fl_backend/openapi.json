@@ -4553,7 +4553,7 @@
     "/api/v0/spieler/{spieler_id}/erasure": {
       "delete": {
         "summary": "Erase a Spieler (hard delete)",
-        "description": "Erase a player: the person, their squad rows, and their values in the log.\n\nHARD and refused until retirement (`REQ-PURGE-001`); the soft `DELETE` stays.\nNo log row is dropped: images are emptied in place and stamped (`docs/backend/spec.md :: I42`).",
+        "description": "Erase a player: the person, their squad rows, and their values in the log.\n\nHARD and refused until retirement (`REQ-PURGE-001`); the soft `DELETE` stays.\nNo log row is dropped: images are emptied in place and stamped (`docs/backend/spec.md :: I671`).",
         "operationId": "erase_spieler_api_v0_spieler__spieler_id__erasure_delete",
         "security": [
           {
@@ -8248,6 +8248,60 @@
         "x-fl-stores-nothing": true
       }
     },
+    "/api/v0/identitaet/referenzen": {
+      "post": {
+        "summary": "Say which of these sign-in addresses no record references",
+        "description": "Answer which of the addresses asked about no league record references, so the sign-in account each names may be deleted.\n\nStores nothing, and a POST for `POST /identitaet/subjekt`'s reason: the addresses travel in the body.\n\nAn address is referenced, and so never answered, while any of these holds:\n\n- a contact seat on any season row holds it, a `past` season's and a withdrawn team's included, confirmed or not;\n- a contact seat on a pending application holds it, confirmed or not;\n- a pupil or referee record holds it, confirmed or not and live or retired; the placeholder every erased referee's fixtures\n  name and the one every erased pupil's entries name hold nothing;\n- a pending registration holds it that its pupil confirmed;\n- a grant in `berechtigungen` holds it, as stored, before the comparison has seen it too;\n- a standing ban holds it.\n\nA pending address change holds nothing: its address admits no sign-in until it is confirmed, and the address it replaces\nstays on the record until then.\n\nThat is wider than what `POST /identitaet/anmeldung` admits a sign-in on, so no account answered here is one the sign-in\nwould admit again: an unconfirmed seat on a `past` season and an unconfirmed retired record keep an account the gate admits\nno sign-in for, until the block is cleared or the row removed.\n\nThe whole batch is refused, `REQ-REFERENZEN-001`, while no live grant in `berechtigungen` is an `owner`'s. A league always\nholds one, so such a database is empty or another one, and answering from it would call every address unreferenced.\n\nEach address is compared as `POST /identitaet/subjekt` compares one, on the sign-in fold, and answered in the spelling it was\nasked in, once however often it was asked. An address today's address rule refuses is answered never rather than refused: no\nban can be keyed under it, so whether a ban made under an older rule holds it is unknown, and one refusal would refuse the\nwhole batch. A batch past its published ceiling is refused whole.",
+        "operationId": "get_referenzen_api_v0_identitaet_referenzen_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLReferenzenPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLReferenzenResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-VAL-002"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-003"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.REQ-REFERENZEN-001"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "system",
+        "x-fl-stores-nothing": true
+      }
+    },
     "/api/v0/berechtigungen/abgleich": {
       "post": {
         "summary": "Claim the grant changes still to be announced",
@@ -9338,7 +9392,7 @@
     "/api/v0/identitaet/selbst/erasure": {
       "post": {
         "summary": "Erase every record the signed-in address holds",
-        "description": "Erase every record the signed-in address holds, at once and as one write, and answer how many of each kind went.\n\nPERSON TIER, refusing one person alone: the last live, unbarred `owner` of the administration, until another administrator\nis made one (`REQ-PURGE-004`), since nobody else could ever make an owner again. No other precondition stands in front of\na person's own request, a pupil in a live squad and a referee booked on a fixture still to be played included. Nothing is\ncounted against the person's day.\n\nRemoved: the pupil record and every squad row it holds, so the team reads one player fewer; the referee record, every\nfixture it was booked on moving to the one row that holds no person and keeping its own fee; every registration at the\naddress, pending or declined; another referee's or pupil's pending address change naming this address, that row itself\nstanding; every grant the address holds, an `owner` grant and the last two among them, every administrator being told it\nended; and the person's day counts. Emptied: every contact seat the address holds on a team's season row and on an\napplication of any status, the row and its other seats standing. Every record the person made as an administrator or\ndecided as a seat holder -- a grant, a ban, an invitation, an application's or a registration's decision -- and every\nlog row they wrote name a fixed marker in their place, this erasure's own rows included. The log images of the removed\nrecords are emptied, and every other image holding the address loses it, the people beside them keeping theirs.\n\nAn address holding nothing is answered with every count zero rather than refused. The 404 and the 409 answer only a\ndatabase changed by hand under the request. The sign-in account is not touched here: deleting it is the caller's, once\nthis has answered.",
+        "description": "Erase every record the signed-in address holds, at once and as one write, and answer how many of each kind went.\n\nPERSON TIER. The last live, unbarred `owner` of the administration is refused until another administrator is made one\n(`REQ-PURGE-004`), since nobody else could ever make an owner again; a person holding a live grant erases it with the rest\nfrom a passkey sign-in `ENROLMENT_WINDOW_MINUTES` old at most, as a revoke asks, else `REQ-AUTH-009`. No other\nprecondition stands in front of a person's own request, a pupil in a live squad and a referee booked on a fixture still\nto be played included. Nothing is counted against the person's day.\n\nRemoved: the pupil record and every squad row it holds, so the team reads one player fewer; the referee record, every\nfixture it was booked on moving to the one row that holds no person and keeping its own fee; every registration at the\naddress, pending or declined; another referee's or pupil's pending address change naming this address, that row itself\nstanding; every grant the address holds, an `owner` grant and the last two among them, every administrator being told it\nended; and the person's day counts. Emptied: every contact seat the address holds on a team's season row and on an\napplication of any status, the row and its other seats standing. Every record the person made as an administrator or\ndecided as a seat holder -- a grant, a ban, an invitation, an application's or a registration's decision -- and every\nlog row they wrote name a fixed marker in their place, this erasure's own rows included. The log images of the removed\nrecords are emptied, and every other image holding the address loses it, the people beside them keeping theirs.\n\nAn address holding nothing is answered with every count zero rather than refused. The 409 answers only a database\nchanged by hand, a second nameless referee meeting the ghost's name index. The 404 is published for the steps' reads by\nid, which no request can meet: every id comes from the subject read in the same snapshot. The sign-in account is not\ntouched here: deleting it is the caller's, once this has answered.",
         "operationId": "erase_selbst_api_v0_identitaet_selbst_erasure_post",
         "responses": {
           "200": {
@@ -9364,7 +9418,7 @@
             "$ref": "#/components/responses/400.REQ-AUTH-005"
           },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009"
           },
           "403": {
             "$ref": "#/components/responses/403.REQ-AUTH-008"
@@ -9384,7 +9438,7 @@
     "/api/v0/identitaet/selbst/erasure/ansicht": {
       "get": {
         "summary": "Show what an erasure of the signed-in address would remove",
-        "description": "Answer what `POST /identitaet/selbst/erasure` would remove for the signed-in address, by kind and by name.\n\nRead through that erasure's own selections, so it names every record the erasure reaches, an unconfirmed seat, a retired\nrow and a declined registration among them, and no other. No address and no birthdate is answered. A pending address\nchange on another address's referee or pupil row is counted and not named, that row not being this address's until the\nchange is confirmed. `verwaltung` is the grant the address holds, or null.",
+        "description": "Answer what `POST /identitaet/selbst/erasure` would remove for the signed-in address, by kind and by name.\n\nRead through that erasure's own selections in one snapshot, so it names every record of the person's own the erasure\nremoves or empties, an unconfirmed seat, a retired row and a declined registration among them, and no other. No address\nand no birthdate is answered. A pending address change on another address's referee or pupil row is counted and not\nnamed, that row not being this address's until the change is confirmed. Reached and not named: what the person made or\ndecided for others, their day counts and their log rows. `verwaltung` is the tier of the live grant the address holds,\nor null; a dead spelling of the address, which admits nobody, goes with the erasure unnamed.\n\n`letzter_inhaber` says whether the press would be refused `REQ-PURGE-004` as the grants stand at this read: the address\nholds the last live `owner` grant, a barred owner counting as none. Read outside the press's transaction, it is advisory;\nthe press judges again, and its answer alone decides.",
         "operationId": "get_erasure_ansicht_api_v0_identitaet_selbst_erasure_ansicht_get",
         "responses": {
           "200": {
@@ -14215,38 +14269,47 @@
           },
           "spieler": {
             "type": "integer",
+            "minimum": 0.0,
             "title": "Spieler"
           },
           "saison_spieler": {
             "type": "integer",
+            "minimum": 0.0,
             "title": "Saison Spieler"
           },
           "schiedsrichter": {
             "type": "integer",
+            "minimum": 0.0,
             "title": "Schiedsrichter"
           },
           "spiele": {
             "type": "integer",
+            "minimum": 0.0,
             "title": "Spiele"
           },
           "kontakt_sitze": {
             "type": "integer",
+            "minimum": 0.0,
             "title": "Kontakt Sitze"
           },
           "registrierungen": {
             "type": "integer",
+            "minimum": 0.0,
             "title": "Registrierungen"
           },
           "adresswechsel": {
             "type": "integer",
+            "minimum": 0.0,
             "title": "Adresswechsel"
           },
           "berechtigungen": {
             "type": "integer",
+            "minimum": 0.0,
             "title": "Berechtigungen"
           },
           "drosselung": {
             "type": "integer",
+            "minimum": 0.0,
             "title": "Drosselung"
           }
         },
@@ -17956,6 +18019,52 @@
         ],
         "title": "FLPostTeamResponse"
       },
+      "FLReferenzenPayload": {
+        "properties": {
+          "identifiers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 250,
+            "minItems": 1,
+            "title": "Identifiers"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "identifiers"
+        ],
+        "title": "FLReferenzenPayload",
+        "description": "The sign-in addresses a pass of the account sweep asks about."
+      },
+      "FLReferenzenResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "unreferenziert": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Unreferenziert"
+          }
+        },
+        "type": "object",
+        "required": [
+          "unreferenziert"
+        ],
+        "title": "FLReferenzenResponse",
+        "description": "Which of them nothing references, and nothing of the records that reference the others."
+      },
       "FLRefusedField": {
         "properties": {
           "in": {
@@ -21113,6 +21222,7 @@
           },
           "adresswechsel": {
             "type": "integer",
+            "minimum": 0.0,
             "title": "Adresswechsel"
           },
           "verwaltung": {
@@ -21129,6 +21239,10 @@
               }
             ],
             "title": "Verwaltung"
+          },
+          "letzter_inhaber": {
+            "type": "boolean",
+            "title": "Letzter Inhaber"
           }
         },
         "type": "object",
@@ -21139,7 +21253,8 @@
           "bewerbungen",
           "registrierungen",
           "adresswechsel",
-          "verwaltung"
+          "verwaltung",
+          "letzter_inhaber"
         ],
         "title": "FLSelbstErasureAnsichtResponse"
       },
@@ -26578,6 +26693,29 @@
                     "error_code": {
                       "enum": [
                         "REQ-PURGE-001"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "409.REQ-REFERENZEN-001": {
+        "description": "Conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-REFERENZEN-001"
                       ]
                     }
                   }

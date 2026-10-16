@@ -196,5 +196,8 @@ export const FLSelbstErasureAnsichtResponseSchema = BaseAPIResponseSchema.extend
   // Another referee's pending change to this mailbox, which names no person to show.
   adresswechsel: z.int(),
   verwaltung: FLSubjektResponseSchema.shape.verwaltung,
+  // Whether the erasure would be refused as the league's last live owner's, as the store stood at the read:
+  // a flag about the press, and no record the erasure reaches.
+  letzter_inhaber: z.boolean(),
 });
 export type FLSelbstErasureAnsichtResponse = z.infer<typeof FLSelbstErasureAnsichtResponseSchema>;

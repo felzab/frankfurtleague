@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
+import path from "node:path";
 import { after, afterEach, beforeEach, describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
@@ -24,6 +26,7 @@ import {
 import { ENROLMENT_WINDOW_MS, STEP_UP_WINDOW_MS } from "./sessionLifetimes.ts";
 import { answerAt, NO_RECORDS, SITZ } from "./subjectFixtures.ts";
 import { assertionFor, COSE_KEY, CREDENTIAL_ID, CREDENTIAL_RAW_ID, registrationFor } from "./testAuthenticator.ts";
+import { filesUnder, isTestFile } from "./treeWalk.ts";
 
 import type { MemoryDB } from "better-auth/adapters/memory";
 import type { MemoryStore, SessionRow } from "./authDoubles.ts";
@@ -53,7 +56,7 @@ const HEADERS_DOUBLE = { headers: () => Promise.resolve(requestHeaders) };
 const LOGGING_DOUBLE = {
   logger: {
     debug: () => undefined,
-    info: () => undefined,
+    info: (message: string, meta: Record<string, unknown> = {}) => void informed.push({ message, error: undefined, meta }),
     warn: (message: string) => void warned.push(message),
     error: (message: string, error: unknown, meta: Record<string, unknown>) => void logged.push({ message, error, meta }),
   },
@@ -199,6 +202,8 @@ const store = memoryStore("__flAuthStore");
 const logged: LogLine[] = [];
 /** The event of every warning the module wrote. */
 const warned: string[] = [];
+/** Every info line the module wrote, with the fields it carried. */
+const informed: LogLine[] = [];
 const adapterCalls = {
   databases: [] as string[],
   pairs: [] as { db: unknown; config?: { client?: unknown } }[],
@@ -241,6 +246,7 @@ const {
 } = await import("./auth.ts");
 const { buildCodeEmail, CODE_VALIDITY_MINUTES } = await import("./authEmail.ts");
 const { holdsOwnersTier } = await import("./verwaltung.ts");
+const { getSubjectSession } = await import("./subject.ts");
 const { proxy } = await import("../proxy.ts");
 const { NextRequest } = await import("next/server");
 
@@ -546,6 +552,10 @@ describe("what the mounted HTTP surface answers", () => {
     // The credential id beside it, which would let a code session name a passkey's sessions as its own.
     await assert.rejects(() => auth.api.updateSession({ body: { passkeyCredentialId: CREDENTIAL_ID }, headers }));
     assert.equal(row.passkeyCredentialId, undefined, "the request wrote a credential id onto a code session");
+    // The idle mark beside them, which cleared would hand an idle administrator's session back its lane.
+    Reflect.set(row, "adminLapsed", true);
+    await assert.rejects(() => auth.api.updateSession({ body: { adminLapsed: false }, headers }));
+    assert.equal(Reflect.get(row, "adminLapsed"), true, "the request cleared the idle mark");
 
     assert.equal(row.authFactor, "code", "the request rewrote the factor, so every guard below proves nothing");
   });
@@ -869,6 +879,21 @@ describe("the administrator's idle hour across the proxy's slide", () => {
   it("serves a session slid a minute short of an hour idle, so the mark is the window and not every slide", async () => {
     assert.ok(await slidThenJudged(HOUR_MS - MINUTE_MS));
   });
+
+  /* The hook marks any session an hour idle, a person's too: the mark narrows the administrator's lane
+     alone, so a person guard reading it would refuse every person returning after an hour. */
+  it("leaves a person's session the slide marked to every guard of the person lane", async () => {
+    const { cookie, row } = await signIn(PERSON_EMAIL);
+    refreshedAgo(row, 2 * HOUR_MS);
+
+    await proxy(new NextRequest("http://localhost:3000/bereich/konto", { headers: { cookie } }));
+    assert.equal(Reflect.get(row, "adminLapsed"), true, "the slide left no mark, so the case proves nothing");
+
+    arriveAs(cookie);
+    assert.ok(await getKontoSession(), "the account guard refused a person's marked session");
+    assert.ok(await getSubjectSession(), "the person guard refused a person's marked session");
+    assert.equal(await getSignInDestination(), "/bereich");
+  });
 });
 
 describe("a grant the backend cannot answer for", () => {
@@ -1056,7 +1081,7 @@ describe("a grant on a barred address", () => {
   });
 });
 
-describe("the second factor, judged at the same guard", () => {
+describe("the administrator's passkey sign-in, judged at the same guard", () => {
   it("refuses a granted session the mailbox alone made, and sends it to the passkey page", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     assert.equal(row.authFactor, "code", "the mailbox factor's own verification did not stamp it");
@@ -1555,8 +1580,8 @@ describe("which sessions may enrol a passkey, and how many rows they may leave",
     assert.deepEqual(await getPasskeyStep(), { step: "assert", email: ADMIN_EMAIL });
   });
 
-  /* The hole the second factor would otherwise leave open: a mailbox alone reaches a code-borne
-     session, and the plugin gates both enrolment paths on freshness and nothing else. */
+  /* The hole a mailbox alone would otherwise open: it reaches a code-borne session, and the plugin
+     gates both enrolment paths on freshness and nothing else. */
   it("refuses both enrolment paths to a code-borne administrator who already holds one, writing no second row", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     const held = aPasskeyFor(row.userId);
@@ -3522,7 +3547,7 @@ function mailedToken(email: string): string {
 
 /**
  * Everything the store holds of one signed-in address, its pending rows among them: a session, a passkey,
- * a live code, a failed guess's count, a mail's count and two deletion tokens, the second outstanding.
+ * a live code, a failed guess's count, three mails' counts and two deletion tokens, the second outstanding.
  */
 async function seedAccount(email: string): Promise<{ cookie: string; userId: string; pending: string[]; token: string }> {
   const { cookie, row } = await signIn(email);
@@ -3546,7 +3571,7 @@ async function seedAccount(email: string): Promise<{ cookie: string; userId: str
   const pending = store.verification
     .filter((held) => !before.has(held.id) && held.identifier !== "sign-in-mail-every-address")
     .map((held) => held.identifier);
-  assert.equal(pending.length, 5, `the seeding left ${String(pending.length)} pending rows, so a case reads fewer than it means to`);
+  assert.equal(pending.length, 7, `the seeding left ${String(pending.length)} pending rows, so a case reads fewer than it means to`);
 
   return { cookie, userId: row.userId, pending, token };
 }
@@ -3612,7 +3637,7 @@ describe("a person's own account deletion", () => {
     assert.equal(answer, "deleted");
     assert.deepEqual(erasures, ["erased"], "the league's records were not erased exactly once");
     assert.deepEqual(heldOf(person), { user: 0, sessions: 0, passkeys: 0, pending: 0 });
-    assert.deepEqual(heldOf(bystander), { user: 1, sessions: 1, passkeys: 1, pending: 5 });
+    assert.deepEqual(heldOf(bystander), { user: 1, sessions: 1, passkeys: 1, pending: 7 });
   });
 
   /* Asked and refused: a case passing where the hook never ran -- no session, another account's token --
@@ -3635,6 +3660,40 @@ describe("a person's own account deletion", () => {
     assert.deepEqual(erasures, ["asked"], "the backend was never asked, so the refusal proves nothing");
     const held = heldOf(person);
     assert.deepEqual([held.user, held.sessions, held.passkeys], [1, 1, 1]);
+  });
+
+  /* The eraser is whatever its caller hands in, so a second production caller could delete an account
+     erasing nothing: only the action sending the backend's own erasure may name it, a comment included. */
+  it("is reached in production from the deletion's own action alone", () => {
+    const src = path.resolve(import.meta.dirname, "..");
+    const naming = filesUnder(src, (name) => /\.tsx?$/.test(name) && !isTestFile(name), 200)
+      .filter((file) => /\bdeleteOwnAccount\b/.test(readFileSync(file, "utf8")))
+      .map((file) => path.relative(src, file).split(path.sep).join("/"))
+      .filter((file) => file !== "core/auth.ts");
+
+    assert.deepEqual(naming, ["features/konto/personActions.ts"]);
+  });
+
+  /* The library reads an empty token as a request for a new link, which it mints and mails: a caller passing
+     one through was told of a deletion while a fresh link went out instead. */
+  it("answers an empty token as no link, mailing, erasing and deleting nothing", async () => {
+    const person = await seedAccount("leerer-link@example.org");
+    const erasures: string[] = [];
+    const mailed = sent.length;
+    const tokens = store.verification.filter((held) => held.identifier.startsWith("delete-account-")).length;
+
+    const answer = await asPerson("leerer-link@example.org", () =>
+      deleteOwnAccount("", new Headers({ ...ORIGIN, cookie: person.cookie }), () => {
+        erasures.push("erased");
+        return Promise.resolve({});
+      }),
+    );
+
+    assert.equal(answer, "linkRefused");
+    assert.equal(sent.length, mailed, "an empty token mailed a new link");
+    assert.equal(store.verification.filter((held) => held.identifier.startsWith("delete-account-")).length, tokens);
+    assert.deepEqual(erasures, []);
+    assert.equal(heldOf(person).user, 1);
   });
 
   /* The library spends the token before it compares whose it is, so a forwarded link opened by another
@@ -3686,6 +3745,57 @@ describe("a person's own account deletion", () => {
     assert.deepEqual([held.user, held.sessions, held.passkeys], [1, 1, 1]);
   });
 
+  /* Each press mints a token row and mails the session's own mailbox, so a link counts on the code's rows: one
+     bound for every mail the person asks for, past which the answer reads as mailed (`docs/frontend/spec.md :: I713`). */
+  it("mails no link past the address's fifth mail of the hour, minting no token and answering as a mailed one", async () => {
+    const email = "loeschlink-schleife@example.org";
+    const { cookie, row } = await signIn(email);
+    const headers = new Headers({ ...ORIGIN, cookie });
+    const tokens = () => store.verification.filter((held) => held.identifier.startsWith("delete-account-") && held.value === row.userId);
+    informed.length = 0;
+
+    const answers = [];
+    for (let press = 0; press < 50; press += 1) answers.push(await requestAccountDeletion(headers));
+
+    assert.equal(sent.filter((entry) => entry.to === email).length, 5, "the address was mailed past its hour's five");
+    assert.equal(tokens().length, 5, "a capped request minted a token row");
+    assert.deepEqual(new Set(answers.map((answer) => JSON.stringify(answer))).size, 1, "a capped request answers apart from a mailed one");
+    assert.deepEqual(
+      informed.filter((line) => line.message === "auth.deletion_link_capped").map((line) => line.meta.bound),
+      Array.from({ length: 45 }, () => "address"),
+    );
+  });
+
+  it("mails no link past every address's hundred mails of the hour, on the same answer", async () => {
+    const email = "loeschlink-gesamt@example.org";
+    const { cookie, row } = await signIn(email);
+    const headers = new Headers({ ...ORIGIN, cookie });
+    const mailed = await requestAccountDeletion(headers);
+    const expiresAt = new Date(Date.now() + HOUR_MS);
+    for (let held = store.verification.filter((each) => each.identifier === "sign-in-mail-every-address").length; held < 100; held += 1) {
+      store.verification.push({
+        id: `gesamt-${String(held)}`,
+        identifier: "sign-in-mail-every-address",
+        value: "counted",
+        expiresAt,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+    }
+    const before = sent.length;
+    informed.length = 0;
+
+    const capped = await requestAccountDeletion(headers);
+
+    assert.equal(sent.length, before, "a link past the total was mailed");
+    assert.deepEqual(capped, mailed);
+    assert.equal(store.verification.filter((held) => held.identifier.startsWith("delete-account-") && held.value === row.userId).length, 1);
+    assert.deepEqual(
+      informed.filter((line) => line.message === "auth.deletion_link_capped").map((line) => line.meta.bound),
+      ["total"],
+    );
+  });
+
   /* The library swallows a throw from its sender and answers the press as sent whatever happened, so what
      tells a filed send from a failed one is the stream alone. */
   it("logs no failure for a send this deployment withheld or the ban list kept, and the library's own line for a refused one", async () => {
@@ -3721,7 +3831,7 @@ describe("an account deleted for its address, and the list of every account", ()
     assert.equal(await deleteAccountFor("Konto-Weg@Example.org"), true);
 
     assert.deepEqual(heldOf(person), { user: 0, sessions: 0, passkeys: 0, pending: 0 });
-    assert.deepEqual(heldOf(bystander), { user: 1, sessions: 1, passkeys: 1, pending: 5 });
+    assert.deepEqual(heldOf(bystander), { user: 1, sessions: 1, passkeys: 1, pending: 7 });
   });
 
   /* Every address typed is answered alike, so a code row stands for an address holding no account: it

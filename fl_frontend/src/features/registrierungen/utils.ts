@@ -1,5 +1,6 @@
 import { KONTAKT_EMAIL } from "@/core/brand";
 import { isRecordMissing } from "@/core/errors";
+import { medienNochNicht } from "@/features/bewerbungen/utils";
 import { nummerPayload } from "@/features/spieler/utils";
 import { isRefusal, isRuleRefusal, refusedPayloadAnswer } from "@/shared/utils/actionError";
 import { buildRefusal, LADE_DIE_SEITE_NEU } from "@/shared/utils/refusal";
@@ -136,18 +137,24 @@ export function abgewiesenerVersand(): { error?: string; fieldErrors?: FieldErro
   return { fieldErrors: { email: MAIL_ABGEWIESEN } };
 }
 
+/** `alterAusserhalb` where the link's view serves no floor to name: both bounds, never a number of its own. */
+const ALTER_AUSSERHALB_UNGELESEN = "Mit diesem Geburtsdatum bist Du zu jung oder zu alt. Prüfe Dein Geburtsdatum.";
+
 /** What one refused confirmation asks its caller to do. */
 export type BestaetigungRefusal = { error?: string; fieldErrors?: FieldErrors; unplacedError?: string; zustand?: SpielerLinkZustand };
 
-// A THUNK and never a resolved number: every code below but the age refusal is a link state, and a
-// caller reading the floor in front of the switch spends a second backend read on each of them.
+// A THUNK and never resolved floors: every code below but the two age refusals is a link state, and a
+// caller reading the view in front of the switch spends a second backend read on each of them.
 /**
  * A confirmation refusal as what the page should show, or `null` where the code is none of these.
  *
- * The floor is the token's own view's: a number of this mapper's own would state one the
+ * The floors are the token's own view's: a number of this mapper's own would state one the
  * endpoint is not using.
  */
-export async function mapBestaetigungRefusal(error: unknown, mindestalter: () => Promise<number | null>): Promise<BestaetigungRefusal | null> {
+export async function mapBestaetigungRefusal(
+  error: unknown,
+  ansicht: () => Promise<{ readonly mindestalter: number; readonly medien_mindestalter: number } | null>,
+): Promise<BestaetigungRefusal | null> {
   if (!isRefusal(error)) return null;
 
   switch (error.serverErrorCode) {
@@ -156,9 +163,10 @@ export async function mapBestaetigungRefusal(error: unknown, mindestalter: () =>
     case "REQ-VAL-002":
     case "REQ-VAL-001":
       return refusedPayloadAnswer(error, ANTWORT_NEU_OEFFNEN);
-    // The page offers no media switch below the served age, so only a page older than that rule
-    // sends this answer, and its repair is the refused payload's.
+    // The switch is offered from the served age on the browser's day, so a clock disagreeing with the
+    // backend's sends this, which a reopened link would offer again: switching it off is the repair.
     case "REQ-REGISTRIERUNG-010":
+      return { error: medienNochNicht((await ansicht())?.medien_mindestalter ?? null) };
     // Choices the link's page did not ask: no page of ours sends it, the label check refusing a
     // mismatched page first, so only a drifted client meets this, and the mail's link reopens the page.
     case "REQ-REGISTRIERUNG-017":
@@ -179,11 +187,10 @@ export async function mapBestaetigungRefusal(error: unknown, mindestalter: () =>
     // The one refusal that spends no token, so it lands on the field and the typed date survives it;
     // a `zustand` here would swap a live form for a dead-link panel.
     case "REQ-REGISTRIERUNG-007": {
-      const floor = await mindestalter();
+      const floor = (await ansicht())?.mindestalter ?? null;
 
-      // Unworded rather than guessed: a sentence naming a floor this link was not minted under
-      // sends the person to correct a date that was right.
-      return floor === null ? null : { fieldErrors: { geburtsdatum: alterAusserhalb(floor) } };
+      // A view that went unread names no floor: one guessed could send the person to correct a date that was right.
+      return { fieldErrors: { geburtsdatum: floor === null ? ALTER_AUSSERHALB_UNGELESEN : alterAusserhalb(floor) } };
     }
     default:
       return null;

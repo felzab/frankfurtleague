@@ -9,6 +9,7 @@ shown to leave the stored state as it was, and each call of the other kind to pa
 
 import functools
 from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime
 from typing import Any
 
 import pytest
@@ -22,10 +23,10 @@ from app.api.schiedsrichter.services import compose_bestaetigung, compose_einwil
 from app.api.teams.schemas import kontakte_stand_of
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.security import CONFIRMATION_REQUIRED, STEP_UP_WINDOW_S
+from app.core.security import ACTOR_HEADER, CONFIRMATION_REQUIRED, ENROLMENT_WINDOW_S, STEP_UP_WINDOW_S
 from app.main import create_app
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
-from tests.actor_tokens import SignedActor
+from tests.actor_tokens import ACTOR_TOKEN_CONTRACT, SignedActor, actor_claims, sign
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
@@ -288,3 +289,60 @@ class TestTheRefereesReturn:
             return (await http.post(self.URL, headers=OLDER)).status_code
 
         assert on_a_season(mongo_replica_set_url, body, seed=seeding(a_referee(confirmed=True, retired=True))) == 200
+
+
+# A grant holder, beside the suite's administrators, whose own erasure takes their grant with the rest.
+GRANT_HOLDER = "gisela.zugang@example.com"
+
+
+def by_passkey(email: str, *, signed_in_before_s: int) -> dict[str, str]:
+    """A person's token after the page's passkey prompt, signed when called, so its `iat` is the request's."""
+
+    claims = {**actor_claims(email, lane="person", signed_in_before_s=signed_in_before_s), "amr": [ACTOR_TOKEN_CONTRACT["admin_factor"]]}
+
+    return {**ADMIN_KEY, ACTOR_HEADER: sign(claims)}
+
+
+async def a_grant_holder(database: AsyncDatabase) -> None:
+    await database[Collection.BERECHTIGUNGEN].insert_one(
+        {"adresse": GRANT_HOLDER, "verwaltung": "administration", "erteilt_von": "PLAYGROUND", "erteilt_am": datetime(2026, 1, 1, tzinfo=UTC)}
+    )
+
+
+class TestAGrantHoldersOwnErasure:
+    """A person's erasure asks the revoke's passkey window on the calls taking a live grant (`docs/backend/spec.md :: I489`)."""
+
+    URL = f"/api/v{API_VERSION}/identitaet/selbst/erasure"
+
+    def test_an_erasure_from_a_passkey_past_the_window_is_refused_and_erases_nothing(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, http: AsyncClient) -> tuple[bool, int]:
+            # The person's own token, past the revoke's window by a minute: this suite's `OLDER` is an administrator's.
+            OLDER = by_passkey(GRANT_HOLDER, signed_in_before_s=ENROLMENT_WINDOW_S + 60)
+            response = await http.post(self.URL, headers=OLDER)
+            return refused(response), await database[Collection.BERECHTIGUNGEN].count_documents({"adresse": GRANT_HOLDER})
+
+        assert on_a_season(mongo_replica_set_url, body, seed=a_grant_holder) == (True, 1)
+
+    def test_an_erasure_from_a_sign_in_by_code_is_refused_however_fresh(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, http: AsyncClient) -> tuple[bool, int]:
+            by_code = SignedActor(GRANT_HOLDER, ADMIN_KEY, lane="person", signed_in_before_s=1)
+            response = await http.post(self.URL, headers=by_code)
+            return refused(response), await database[Collection.BERECHTIGUNGEN].count_documents({"adresse": GRANT_HOLDER})
+
+        assert on_a_season(mongo_replica_set_url, body, seed=a_grant_holder) == (True, 1)
+
+    def test_a_passkey_confirmed_a_second_before_its_token_erases_the_grant(self, mongo_replica_set_url: str):
+        """The page's prompt reads the session before its insert, so `auth_time` precedes `iat`: the window is judged at `iat`."""
+
+        async def body(database: AsyncDatabase, http: AsyncClient) -> tuple[int, int]:
+            response = await http.post(self.URL, headers=by_passkey(GRANT_HOLDER, signed_in_before_s=1))
+            return response.status_code, response.json()["berechtigungen"]
+
+        assert on_a_season(mongo_replica_set_url, body, seed=a_grant_holder) == (200, 1)
+
+    def test_an_address_holding_no_grant_erases_from_an_older_sign_in_by_code(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, http: AsyncClient) -> int:
+            older = SignedActor("niemand@example.com", ADMIN_KEY, lane="person", signed_in_before_s=ENROLMENT_WINDOW_S + 60)
+            return (await http.post(self.URL, headers=older)).status_code
+
+        assert on_a_season(mongo_replica_set_url, body) == 200

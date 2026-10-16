@@ -11,12 +11,12 @@ import type { NextRequest } from "next/server";
 // Never resolved in front of the mapper: this read answers no floor for the states that ARE the
 // answer, so a caller asking first gives up on them.
 /**
- * The floor this link's own read answered, for the one refusal that names a number. A failed read
- * leaves that refusal unworded rather than guessing a floor.
+ * The floors this link's own read answered, for the two refusals that name one. A failed read names
+ * none rather than guessing a floor.
  */
-async function mindestalterFuerToken(token: string): Promise<number | null> {
+async function ansichtFuerToken(token: string): Promise<{ mindestalter: number; medien_mindestalter: number } | null> {
   return getSchiedsrichterBestaetigungAnsicht(token).then(
-    (gelesen) => (gelesen.zustand === "gueltig" ? gelesen.ansicht.mindestalter : null),
+    (gelesen) => (gelesen.zustand === "gueltig" ? gelesen.ansicht : null),
     () => null,
   );
 }
@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
         antwort = await postSchiedsrichterBestaetigung(parsed.data);
       } catch (error) {
         // The refusal belongs on the field or on the dead-link panel, not on the error page.
-        const refusal = await mapSchiedsrichterBestaetigungRefusal(error, () => mindestalterFuerToken(parsed.data.token));
+        const refusal = await mapSchiedsrichterBestaetigungRefusal(error, () => ansichtFuerToken(parsed.data.token));
         if (refusal === null) throw error;
 
         return { success: false as const, ...refusal };

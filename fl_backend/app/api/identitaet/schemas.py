@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, StringConstraints
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from app.api.berechtigungen.schemas import FLUtcInstant, FLVerwaltung
 
@@ -9,7 +9,7 @@ from app.api.berechtigungen.schemas import FLUtcInstant, FLVerwaltung
 # endpoint publishes.
 from app.api.bewerbungen.schemas import FLKontaktRolle
 from app.api.saisons.schemas import FLSaisonStatus
-from app.shared.schemas.bounds import KONTAKT_EMAIL_MAX_LENGTH
+from app.shared.schemas.bounds import KONTAKT_EMAIL_MAX_LENGTH, REFERENZEN_ADRESSEN_MAX
 from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.kontakt import CustomEmail
 from app.shared.schemas.responses import BaseAPIResponse
@@ -139,19 +139,19 @@ class FLErasure(BaseModel):
     Records alone: an emptied log row is no record of the person's, and two passes may reach one.
     """
 
-    spieler: int
-    saison_spieler: int
-    schiedsrichter: int
+    spieler: int = Field(ge=0)
+    saison_spieler: int = Field(ge=0)
+    schiedsrichter: int = Field(ge=0)
     # The fixtures moved onto the ghost, which stay as the league's record of the match.
-    spiele: int
+    spiele: int = Field(ge=0)
     # Per seat, as `app/api/kontakte/schemas.py :: FLKontaktErasureResponse` counts them: one row seats one person twice.
-    kontakt_sitze: int
-    registrierungen: int
+    kontakt_sitze: int = Field(ge=0)
+    registrierungen: int = Field(ge=0)
     # Another referee's or pupil's pending address change, removed alone: that row is the old address's person's.
-    adresswechsel: int
+    adresswechsel: int = Field(ge=0)
     # The person's own grants, a dead spelling of their address among them.
-    berechtigungen: int
-    drosselung: int
+    berechtigungen: int = Field(ge=0)
+    drosselung: int = Field(ge=0)
 
 
 class FLErasureResponse(FLErasure, BaseAPIResponse):
@@ -206,9 +206,27 @@ class FLSelbstErasureAnsicht(BaseModel):
     bewerbungen: list[FLSelbstErasureBewerbung]
     registrierungen: list[FLSelbstErasureRegistrierung]
     # A count and no name: each is a pending change on another address's referee or pupil row.
-    adresswechsel: int
+    adresswechsel: int = Field(ge=0)
 
 
 class FLSelbstErasureAnsichtResponse(FLSelbstErasureAnsicht, BaseAPIResponse):
-    # The grant the address holds, which the erasure removes with the rest.
+    # The tier of the live grant the address holds, read in the preview's snapshot as the press reads it.
     verwaltung: FLVerwaltung | None
+    # Advisory: read apart from the erasure's transaction, whose own `REQ-PURGE-004` alone decides.
+    letzter_inhaber: bool
+
+
+class FLReferenzenPayload(BaseModel):
+    """The sign-in addresses a pass of the account sweep asks about."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    # Each held to no address rule, as `FLGesperrtPayload`'s is, nor to a length: one address refused
+    # refuses the whole batch, and every pass asks again, so the sweep would delete nothing ever after.
+    identifiers: list[str] = Field(min_length=1, max_length=REFERENZEN_ADRESSEN_MAX)
+
+
+class FLReferenzenResponse(BaseAPIResponse):
+    """Which of them nothing references, and nothing of the records that reference the others."""
+
+    unreferenziert: list[str]

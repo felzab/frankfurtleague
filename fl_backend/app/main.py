@@ -93,6 +93,7 @@ from app.core.security import (
     WRONG_BASE_KEY,
     WRONG_SYSTEM_KEY,
     get_actor_token,
+    get_person_confirmation_check,
     get_step_up_check,
     get_token,
     verify_access_admin,
@@ -223,6 +224,9 @@ DEPENDENCY_REFUSALS: Mapping[Callable[..., Any], DependencyRefusal] = {
     get_database: _probed(HTTPStatus.SERVICE_UNAVAILABLE, NO_DATABASE_CLIENT),
     # A check handed to the handler, which calls it on the calls it judges.
     get_step_up_check: DependencyRefusal(status=HTTPStatus.UNAUTHORIZED, code=CONFIRMATION_REQUIRED, driven_by=RefusalDriver.STEP_UP),
+    get_person_confirmation_check: DependencyRefusal(
+        status=HTTPStatus.UNAUTHORIZED, code=CONFIRMATION_REQUIRED, driven_by=RefusalDriver.STEP_UP
+    ),
     get_drossel: DependencyRefusal(status=HTTPStatus.TOO_MANY_REQUESTS, code=DROSSELUNG_ERREICHT, driven_by=RefusalDriver.COUNT),
 }
 UNGUARDED_TIER = "none"

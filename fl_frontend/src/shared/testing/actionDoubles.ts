@@ -284,6 +284,13 @@ const signInStore = (answers: SignInAnswers) => ({
   // The account page's guard, answering the same session: its own lanes are the sign-in store's to judge.
   getKontoSession: () => answering(answers.served),
   getSignInDestination: () => Promise.resolve(answers.destination),
+  // The sign-in page's read, `null` wherever the landing sends the caller to sign in, as the real one judges.
+  getSignedInAddress: () =>
+    answers.session instanceof Error
+      ? Promise.reject(answers.session)
+      : Promise.resolve(answers.session === null || answers.destination === "/signin" ? null : answers.session.user.email),
+  // `null`, as the real store answers the session `served` holds: one its passkey made is offered no card.
+  getPasskeyStep: () => (answers.session instanceof Error ? Promise.reject(answers.session) : Promise.resolve(null)),
   isFreshlySignedIn: () => answers.fresh,
   endSessionsOfAddress: (address: unknown) => {
     answers.signedOut.push(String(address));

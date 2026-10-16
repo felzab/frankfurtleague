@@ -370,10 +370,10 @@ describe("the sign-in store's client bounds every operation it sends (`docs/fron
     assert.deepEqual(logged, [{ event: "auth.transaction_left_open", error_code: "FE-AUTH-003", name: MongoOperationTimeoutError.name }]);
   });
 
-  /* The case above's line, from a passkey removal: a server action runs it outside every endpoint,
-     where the library's own logger writes to the console rather than to the stream
+  /* A passkey removal runs from a server action, outside every endpoint, where the library writes this
+     line to the console; the json format's shim carries it into the envelope as `FE-CONSOLE-001`
      (`docs/frontend/spec.md :: I678`). */
-  it("logs a removal's transaction left open through the configured logger, and nothing to the console", async (t) => {
+  it("writes a removal's transaction left open to the console when its commit and its abort both hang", async (t) => {
     const printed: unknown[][] = [];
     t.mock.method(console, "error", (...line: unknown[]) => void printed.push(line));
     await signInByCode(auth, ADMIN_EMAIL);
@@ -405,8 +405,8 @@ describe("the sign-in store's client bounds every operation it sends (`docs/fron
     assert.ok(relay.triggered, "the removal sent no commit, so nothing here was hung");
     assert.ok(outcome instanceof MongoOperationTimeoutError, `the hung removal settled with ${String(outcome)}`);
     assert.deepEqual(
-      { logged: logged, printed: printed.length },
-      { logged: [{ event: "auth.transaction_left_open", error_code: "FE-AUTH-003", name: MongoOperationTimeoutError.name }], printed: 0 },
+      { logged: logged, printed: printed.map(([line]) => String(line).includes("Failed to abort a MongoDB transaction")) },
+      { logged: [], printed: [true] },
     );
   });
 

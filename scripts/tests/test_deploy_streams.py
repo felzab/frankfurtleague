@@ -468,69 +468,75 @@ def test_each_value_shape_the_schemas_declare_is_clean(line: str) -> None:
     assert "judged-clean" in output, output
 
 
-# Each value carries `vxq`, which no refusal may print. A line is named only where it opens with an
-# upper-case `NAME=` or `NAME:`; every other is listed by its number.
+# Each line carries `vxq` or a name, neither of which a refusal may print: a line is listed by its
+# number alone, whatever it opens with.
 @pytest.mark.parametrize(
-    ("line", "name"),
+    "line",
     [
-        pytest.param('LOG_FORMAT="vxq"', "LOG_FORMAT", id="double-quoted"),
-        pytest.param("LOG_FORMAT='vxq'", "LOG_FORMAT", id="single-quoted"),
-        pytest.param("LOG_FORMAT=`vxq`", "LOG_FORMAT", id="backtick-quoted"),
-        pytest.param("log_format='vxq'", "(no name)", id="lower-case-name"),
-        pytest.param("API_TRUSTED_HOSTS=vxq, backend", "API_TRUSTED_HOSTS", id="space-inside"),
-        pytest.param("LOG_FORMAT = vxq", "(no name)", id="space-around-the-equals"),
-        pytest.param("  LOG_FORMAT=vxq", "(no name)", id="space-leading"),
-        pytest.param("LOG_FORMAT=vxq ", "LOG_FORMAT", id="space-trailing"),
-        pytest.param("LOG_FORMAT=a\tvxq", "LOG_FORMAT", id="tab"),
-        pytest.param("LOG_FORMAT=vxq # the stream", "LOG_FORMAT", id="inline-comment"),
-        pytest.param("HASH=vxq#b", "HASH", id="hash-unspaced"),
-        pytest.param("SECRET=vxq$OTHER", "SECRET", id="dollar"),
-        pytest.param("SECRET=${vxq}", "SECRET", id="dollar-braced"),
-        pytest.param("PATHLIKE=vxq\\b", "PATHLIKE", id="backslash"),
-        pytest.param("BRACED={vxq}", "BRACED", id="brace"),
-        pytest.param("ANGLED=<vxq>", "ANGLED", id="angle-bracket"),
-        pytest.param("PIPED=vxq|b", "PIPED", id="pipe"),
-        pytest.param("ACCENTED=jsön-vxq", "ACCENTED", id="non-ascii"),
-        pytest.param("export LOG_FORMAT=vxq", "(no name)", id="export"),
-        pytest.param("LOG_FORMAT: vxq", "LOG_FORMAT", id="colon"),
-        pytest.param("LOG_FORMAT:vxq", "LOG_FORMAT", id="colon-unspaced"),
-        pytest.param("LOG_FORMAT", "(no name)", id="bare-pass-through"),
-        pytest.param("  # vxq", "(no name)", id="comment-indented"),
+        pytest.param('LOG_FORMAT="vxq"', id="double-quoted"),
+        pytest.param("LOG_FORMAT='vxq'", id="single-quoted"),
+        pytest.param("LOG_FORMAT=`vxq`", id="backtick-quoted"),
+        pytest.param("log_format='vxq'", id="lower-case-name"),
+        pytest.param("API_TRUSTED_HOSTS=vxq, backend", id="space-inside"),
+        pytest.param("LOG_FORMAT = vxq", id="space-around-the-equals"),
+        pytest.param("  LOG_FORMAT=vxq", id="space-leading"),
+        pytest.param("LOG_FORMAT=vxq ", id="space-trailing"),
+        pytest.param("LOG_FORMAT=a\tvxq", id="tab"),
+        pytest.param("LOG_FORMAT=vxq # the stream", id="inline-comment"),
+        pytest.param("HASH=vxq#b", id="hash-unspaced"),
+        pytest.param("SECRET=vxq$OTHER", id="dollar"),
+        pytest.param("SECRET=${vxq}", id="dollar-braced"),
+        pytest.param("PATHLIKE=vxq\\b", id="backslash"),
+        pytest.param("BRACED={vxq}", id="brace"),
+        pytest.param("ANGLED=<vxq>", id="angle-bracket"),
+        pytest.param("PIPED=vxq|b", id="pipe"),
+        pytest.param("ACCENTED=jsön-vxq", id="non-ascii"),
+        pytest.param("export LOG_FORMAT=vxq", id="export"),
+        pytest.param("LOG_FORMAT: vxq", id="colon"),
+        pytest.param("LOG_FORMAT:vxq", id="colon-unspaced"),
+        pytest.param("LOG_FORMAT", id="bare-pass-through"),
+        pytest.param("  # vxq", id="comment-indented"),
         # python-dotenv ends a line at a lone carriage return, `@next/env` at U+2028 and U+2029 too,
         # and compose at neither, so a comment holding one declares a name for some readers alone.
-        pytest.param("# vxq\rLOG_LEVEL_APP=DEBUG", "(no name)", id="comment-carriage-return"),
-        pytest.param("# vxq\u2028LOG_LEVEL_APP=DEBUG", "(no name)", id="comment-line-separator"),
-        pytest.param("# vxq\u2029LOG_LEVEL_APP=DEBUG", "(no name)", id="comment-paragraph-separator"),
+        pytest.param("# vxq\rLOG_LEVEL_APP=DEBUG", id="comment-carriage-return"),
+        pytest.param("# vxq\u2028LOG_LEVEL_APP=DEBUG", id="comment-line-separator"),
+        pytest.param("# vxq\u2029LOG_LEVEL_APP=DEBUG", id="comment-paragraph-separator"),
         # `read` drops a NUL unseen, so the line would keep the shape to the shell alone.
-        pytest.param("TURNSTILE_SITE_KEY=vxq\x00b", "TURNSTILE_SITE_KEY", id="nul-in-a-value"),
-        pytest.param("# vxq\x00", "(no name)", id="nul-in-a-comment"),
-        pytest.param("1_NAME=vxq", "(no name)", id="name-opening-on-a-digit"),
-        pytest.param("A.NAME=vxq", "(no name)", id="name-with-a-dot"),
+        pytest.param("TURNSTILE_SITE_KEY=vxq\x00b", id="nul-in-a-value"),
+        pytest.param("# vxq\x00", id="nul-in-a-comment"),
+        pytest.param("1_NAME=vxq", id="name-opening-on-a-digit"),
+        pytest.param("A.NAMED=vxq", id="name-with-a-dot"),
+        # An upper-case token before `:` or `=` reads as a name, and a pasted key's line can be one.
+        pytest.param("KEYDATAVXQ:token", id="upper-case-token-and-colon"),
+        pytest.param("KEYDATAVXQ=to ken", id="upper-case-token-and-equals"),
     ],
 )
-def test_a_line_outside_the_one_shape_refuses_naming_it_and_never_its_value(line: str, name: str) -> None:
+def test_a_line_outside_the_one_shape_refuses_by_its_number_and_prints_nothing_it_holds(line: str) -> None:
     code, output = _env_spellings(f"FIRST=1\n{line}\n")
+    word = re.search(r"[A-Za-z_]{3,}", line)
 
     assert code == 2, output
-    assert f"fl_backend/.env {name}:2" in output, output
+    assert "fl_backend/.env:2\n" in output.replace("\r", ""), output
     assert "1 line(s)" in output, output
-    assert "vxq" not in output, output
+    assert "vxq" not in output.lower(), output
+    assert word is not None and word.group() not in output, output
     assert "judged-clean" not in output, output
 
 
 @pytest.mark.parametrize("quote", ['"', "'", "`"], ids=["double", "single", "backtick"])
-def test_a_value_running_over_several_lines_names_none_of_the_lines_after_its_quote(quote: str) -> None:
+def test_a_value_running_over_several_lines_lists_its_lines_by_number_alone(quote: str) -> None:
     """python-dotenv takes `"` and `'` over several lines, `@next/env` the backtick too.
 
-    Line 2 is shaped as a name only the quote above keeps unprinted; line 3 keeps the whole shape and is no finding.
+    Line 2 is shaped as a name, a key's data; line 3 keeps the whole shape and is no finding.
     """
     text = f"NOTE={quote}first vxq\nKEYVXQ:MATERIAL\nDATAvxq=x\nlast vxq{quote}\nLOG_FORMAT=json\n"
     code, output = _env_spellings(text)
 
     assert code == 2, output
-    assert "fl_backend/.env NOTE:1" in output, output
-    assert "fl_backend/.env (no name):2" in output, output
-    assert "fl_backend/.env (no name):4" in output, output
+    assert "fl_backend/.env:1\n" in output.replace("\r", ""), output
+    assert "fl_backend/.env:2\n" in output.replace("\r", ""), output
+    assert "fl_backend/.env:4\n" in output.replace("\r", ""), output
+    assert "NOTE" not in output and "KEYVXQ" not in output, output
     assert "3 line(s)" in output, output
     assert "vxq" not in output.lower(), output
 
@@ -543,11 +549,20 @@ def test_a_pasted_key_s_lines_are_listed_by_number_alone() -> None:
     code, output = _env_spellings("LOG_FORMAT=json\nvxqKEYMATERIAL0123\nvxqKEY==\nvxquser:pw@host\nvxqkey+part/x==\n")
 
     assert code == 2, output
-    assert "fl_backend/.env (no name):2" in output, output
-    assert "fl_backend/.env (no name):4" in output, output
-    assert "fl_backend/.env (no name):5" in output, output
+    assert "fl_backend/.env:2\n" in output.replace("\r", ""), output
+    assert "fl_backend/.env:4\n" in output.replace("\r", ""), output
+    assert "fl_backend/.env:5\n" in output.replace("\r", ""), output
     assert "3 line(s)" in output, output
     assert "vxq" not in output, output
+
+
+def test_a_last_line_of_nul_bytes_alone_is_refused() -> None:
+    """With no newline after it, `read` hands such a line back empty and ends the loop before visiting it."""
+    code, output = _env_spellings("FIRST=1\n\x00\x00")
+
+    assert code == 2, output
+    assert "fl_backend/.env:2\n" in output.replace("\r", ""), output
+    assert "1 line(s)" in output, output
 
 
 def test_a_shell_trace_prints_no_line_of_either_check() -> None:
@@ -565,7 +580,8 @@ def test_a_byte_order_mark_refuses_its_line_and_names_the_file() -> None:
     code, output = _env_spellings("\ufeffAPI_URL=http://backend:8000\nLOG_FORMAT=json\n")
 
     assert code == 2, output
-    assert "fl_backend/.env API_URL:1" in output, output
+    assert "fl_backend/.env:1\n" in output.replace("\r", ""), output
+    assert "API_URL" not in output, output
     assert "byte-order mark" in output, output
     assert "backend:8000" not in output, output
 
@@ -575,8 +591,8 @@ def test_every_file_named_is_judged_before_the_refusal() -> None:
     code, output = _env_spellings("LOG_FORMAT='vxq'\n", frontend='APP_ENV=local\nAPI_URL="vxq"\n')
 
     assert code == 2, output
-    assert "fl_frontend/.env API_URL:2" in output, output
-    assert "fl_backend/.env LOG_FORMAT:1" in output, output
+    assert "fl_frontend/.env:2\n" in output.replace("\r", ""), output
+    assert "fl_backend/.env:1\n" in output.replace("\r", ""), output
     assert "2 line(s)" in output, output
 
 
@@ -1055,8 +1071,10 @@ def test_every_credential_line_refuses_naming_each_in_any_case_and_no_value() ->
 
     assert code == 2, output
     assert "credential-lines-passed" not in output, output
-    assert "fl_backend/.env: mongodb_uri" in output, output
-    assert "fl_frontend/.env: INTERNAL_API_KEY_BASE AUTH_SECRET" in output, output
+    assert "fl_backend/.env:2 MONGODB_URI" in output, output
+    assert "mongodb_uri" not in output, output
+    assert "fl_frontend/.env:1 INTERNAL_API_KEY_BASE" in output, output
+    assert "fl_frontend/.env:2 AUTH_SECRET" in output, output
     assert "LOG_FORMAT" not in output, output
     assert "a value no case reads" not in output, output
     assert "Delete them" in output, output
@@ -1079,7 +1097,7 @@ def test_a_credential_line_in_any_form_compose_reads_refuses(line: str) -> None:
     code, output, _ = _run(body)
 
     assert code == 2, output
-    assert "fl_backend/.env: AUTH_SECRET" in output, output
+    assert "fl_backend/.env:1 AUTH_SECRET" in output, output
     assert "a value no case reads" not in output, output
     assert "credential-lines-passed" not in output, output
 
@@ -1091,7 +1109,7 @@ def test_a_credential_line_behind_a_byte_order_mark_refuses() -> None:
     )
 
     assert code == 2, output
-    assert "fl_backend/.env: AUTH_SECRET" in output, output
+    assert "fl_backend/.env:1 AUTH_SECRET" in output, output
     assert "a value no case reads" not in output, output
 
 
@@ -1101,7 +1119,8 @@ def test_a_credential_line_after_a_multi_line_value_is_still_judged() -> None:
     code, output, _ = _run(_written("fl_backend/.env", text) + "refuse_credential_lines fl_backend/.env\n")
 
     assert code == 2, output
-    assert "fl_backend/.env: AUTH_SECRET" in output, output
+    assert "fl_backend/.env:2 AUTH_SECRET" in output, output
+    assert "fl_backend/.env:4 AUTH_SECRET" in output, output
     assert "data the value carries" not in output, output
     assert "a value no case reads" not in output, output
 
@@ -1116,7 +1135,7 @@ def test_the_retired_administrator_list_refuses_naming_it_and_no_address() -> No
     code, output, _ = _run(body)
 
     assert code == 2, output
-    assert "fl_frontend/.env: ALLOWED_ADMIN_EMAILS" in output, output
+    assert "fl_frontend/.env:2 ALLOWED_ADMIN_EMAILS" in output, output
     assert "vorstand@schule.de" not in output, output
     assert "APP_ENV" not in output, output
     assert "credential-lines-passed" not in output, output
@@ -1187,7 +1206,7 @@ def test_a_credential_line_stops_every_start_before_compose_is_asked_anything(sc
 
     assert code == 2, output
     assert "these lines name a value no service reads from its environment" in output, output
-    assert "fl_frontend/.env: AUTH_SECRET" in output, output
+    assert "fl_frontend/.env:2 AUTH_SECRET" in output, output
     assert "a value no case reads" not in output, output
     # The stand-in answered the daemon check, so a compose call made before the refusal is one it recorded.
     assert any(call.startswith("version") for call in calls), calls
@@ -1202,8 +1221,8 @@ def test_a_spelling_the_readers_disagree_on_stops_every_start_before_compose_is_
     code, output, calls = _start(script, uname, args, "APP_ENV=local\nAPI_URL=http://backend:8000/$base\n", backend_env="LOG_FORMAT='json'\n")
 
     assert code == 2, output
-    assert "fl_frontend/.env API_URL:2" in output, output
-    assert "fl_backend/.env LOG_FORMAT:1" in output, output
+    assert "fl_frontend/.env:2\n" in output.replace("\r", ""), output
+    assert "fl_backend/.env:1\n" in output.replace("\r", ""), output
     assert "2 line(s)" in output, output
     assert any(call.startswith("version") for call in calls), calls
     assert [call for call in calls if call.startswith("compose")] == [], calls
@@ -1221,7 +1240,8 @@ def test_the_dry_run_lists_each_refused_line_by_name_and_number_and_never_its_va
     code, output, calls = _start("deploy.sh", "Linux", ("--check-env",), "APP_ENV=production\nAPI_URL='http://vxq:8000'\n")
 
     assert code == 2, output
-    assert "fl_frontend/.env API_URL:2" in output, output
+    assert "fl_frontend/.env:2\n" in output.replace("\r", ""), output
+    assert "API_URL" not in output, output
     assert "1 line(s)" in output, output
     assert "vxq" not in output, output
     assert calls == [], calls
@@ -1241,7 +1261,7 @@ def test_the_dry_run_refuses_a_credential_line_as_the_deploy_does() -> None:
     code, output, calls = _start("deploy.sh", "Linux", ("--check-env",), "APP_ENV=production\nAUTH_SECRET=vxq\n")
 
     assert code == 2, output
-    assert "fl_frontend/.env: AUTH_SECRET" in output, output
+    assert "fl_frontend/.env:2 AUTH_SECRET" in output, output
     assert "vxq" not in output, output
     assert calls == [], calls
 
@@ -1421,6 +1441,35 @@ def test_a_model_mounting_no_sink_is_refused_naming_the_mount() -> None:
     assert code == 2, output
     assert "mounts nothing at /app/.tmp-mail" in output, output
     assert "sink-emptied" not in output, output
+
+
+# A connection string in what a container or compose answers, which each capture holds unfiltered.
+SAID: Final = "MONGODB_URI mongodb://user:pw@cluster.example.net/x"
+
+
+@pytest.mark.parametrize(
+    ("prelude", "check", "answer"),
+    [
+        pytest.param("", NAMES, {"FL_DEPLOY_RUN_RC": "3", "FL_DEPLOY_RUN_SAYS": SAID}, id="names"),
+        pytest.param("", FRONTEND_BOOT, {"FL_DEPLOY_RUN_RC": "3", "FL_DEPLOY_RUN_SAYS": SAID}, id="frontend-boot"),
+        pytest.param("", BOOT_CHECK, {"FL_DEPLOY_RUN_RC": "3", "FL_DEPLOY_RUN_SAYS": SAID}, id="backend-boot"),
+        pytest.param("", KEY_CHECK, {"FL_DEPLOY_RUN_RC": "3", "FL_DEPLOY_RUN_SAYS": SAID}, id="actor-key"),
+        # Compose's rendered model carries every value of both `.env` files; this one mounts no sink.
+        pytest.param(
+            SINK,
+            "empty_mail_sink",
+            {"FL_DEPLOY_CONFIG_SAYS": f'{{"services": {{"frontend": {{"environment": {{"X": "{SAID}"}}}}}}}}'},
+            id="mail-sink",
+        ),
+    ],
+)
+def test_a_shell_trace_never_prints_what_a_container_said_before_the_filter(prelude: str, check: str, answer: dict[str, str]) -> None:
+    """`bash -x` would trace each capture's assignment, the raw words in it, before `redact_uri_credentials` or any reader sees them."""
+    code, output, _ = _run(f"{prelude}set -x\n{check}", **answer)
+
+    assert code == 2, output
+    assert "+ " in output, output
+    assert "user:pw@" not in output, output
 
 
 def test_every_start_empties_the_sink_before_the_build() -> None:

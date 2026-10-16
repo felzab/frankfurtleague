@@ -143,24 +143,26 @@ async def a_league_holding_their_images(database: AsyncDatabase, client: AsyncMo
         await delete_many_from_db(collection=database[Collection.SPERRLISTE], db_filter={"_id": ban["_id"]}, session=session)
 
 
-async def run_the_pass(database: AsyncDatabase, client: AsyncMongoClient) -> int:
+async def run_the_pass(database: AsyncDatabase, client: AsyncMongoClient, identifier: str) -> int:
     async def in_session(session: Any) -> int:
         return await redact_address_in_images(
-            aktionen_collection=database[Collection.AKTIONEN], identifier=sign_in_identifier(ERASED), stamp=STAMP, session=session
+            aktionen_collection=database[Collection.AKTIONEN], identifier=identifier, stamp=STAMP, session=session
         )
 
     async with transaction_session(client) as session:
         return await session.with_transaction(in_session)
 
 
-def after_the_pass(url: str, *, runs: int = 1) -> tuple[list[Mapping[str, Any]], list[Mapping[str, Any]], list[int]]:
+def after_the_pass(
+    url: str, *, runs: int = 1, identifier: str = sign_in_identifier(ERASED)
+) -> tuple[list[Mapping[str, Any]], list[Mapping[str, Any]], list[int]]:
     """The log before, the log after, and each run's count."""
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
             await a_league_holding_their_images(database, client)
             seeded = await database[Collection.AKTIONEN].find().sort("_id", 1).to_list(length=None)
-            counts = [await run_the_pass(database, client) for _ in range(runs)]
+            counts = [await run_the_pass(database, client, identifier) for _ in range(runs)]
 
             return seeded, await database[Collection.AKTIONEN].find().sort("_id", 1).to_list(length=None), counts
 
@@ -222,6 +224,17 @@ def test_no_image_holds_the_address_afterwards(mongo_replica_set_url: str):
     assert held_before == {str(collection) for collection in IMAGE_ADDRESSES}, "a store's image was never seeded holding the address"
     assert ERASED not in str(log).lower()
     # One row per store holding the address, each stamped once and counted once.
+    assert counts == [len([row for row in log if row["redacted_at"] == STAMP])] == [10]
+
+
+@pytest.mark.db
+def test_a_spelling_handed_in_unfolded_still_takes_the_address_out(mongo_replica_set_url: str):
+    """Drop the fold at the pass's entry and this fails: the pre-filter's `i` selects each image and the fold then matches none."""
+
+    _, log, counts = after_the_pass(mongo_replica_set_url, identifier=ERASED_AS_TYPED)
+
+    assert ERASED not in str(log).lower()
+    # Every row the folded spelling's run stamps, each counted once.
     assert counts == [len([row for row in log if row["redacted_at"] == STAMP])] == [10]
 
 

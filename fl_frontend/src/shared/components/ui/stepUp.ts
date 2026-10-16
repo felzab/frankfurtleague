@@ -29,6 +29,7 @@ export interface StepUp {
   readonly confirm: () => Promise<boolean>;
 }
 
-// Undefined outside the administrator's shell: a control there asks nothing first, and the server's own
-// refusal is the whole of its step-up.
+// Undefined outside the administrator's shell and a grant holder's deletion press
+// (`fl_frontend/src/features/konto/components/views/LoeschungView.tsx`): a control there asks nothing
+// first, and the server's own refusal is the whole of its step-up.
 export const StepUpContext = createContext<StepUp | undefined>(undefined);

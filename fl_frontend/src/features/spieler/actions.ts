@@ -241,6 +241,9 @@ const SpielerUndoSchema = z
 /** What closes a refusal where the person half went back first, which the change standing would deny. */
 const PERSON_HALF_RESTORED = "Nur die Personendaten wurden zurückgesetzt.";
 
+/** The squad half after the person half went back, as a refusal names it. */
+const SQUAD_HALF = { unworded: "Der Kadereintrag lässt sich so nicht mehr zurücksetzen.", restored: PERSON_HALF_RESTORED };
+
 export async function undoAdminSpielerEditAction(rawPayload: z.input<typeof SpielerUndoSchema>): Promise<UndoOutcome> {
   return runAdminUndo("undoAdminSpielerEditAction", async () => {
     const validated = SpielerUndoSchema.safeParse(rawPayload);
@@ -259,9 +262,7 @@ export async function undoAdminSpielerEditAction(rawPayload: z.input<typeof Spie
       try {
         operation = await patchSaisonSpieler(saison);
       } catch (error) {
-        return person === undefined
-          ? refusedReplay(error, SQUAD_REPLAY_REFUSALS)
-          : partlyRestored(error, SQUAD_REPLAY_REFUSALS, PERSON_HALF_RESTORED);
+        return person === undefined ? refusedReplay(error, SQUAD_REPLAY_REFUSALS) : partlyRestored(error, SQUAD_REPLAY_REFUSALS, SQUAD_HALF);
       }
 
       if (!operation.acknowledged) {

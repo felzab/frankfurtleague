@@ -9,6 +9,7 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
+from app.api.identitaet.schemas import FLErasureResponse
 from app.api.spieler.admin_router import (
     delete_saison_spieler,
     delete_spieler,
@@ -23,6 +24,7 @@ from app.core.collections import Collection
 from app.core.exceptions import WriteRefusalException
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.documents import saison_document, saison_team_document, spieler_document
+from tests.erasure import erased
 from tests.whole_database import where_held
 from tests.worker import worker_database
 
@@ -82,10 +84,9 @@ def on_a_league(url: str, body: Body, *, mutates_schema: bool = False) -> Any:
 
 
 def person_row(vorname: str) -> dict[str, Any]:
-    """A pupil as one was stored BEFORE the registration flow existed, which is the shape production still holds.
+    """A pupil carrying the consent record stored before the registration flow existed, and an address the erasure is keyed on.
 
-    Seeded rather than written through a route: no endpoint creates a person, and the admission
-    that will is another programme's.
+    Seeded rather than written through a route: the one route writing a person is the admission, which needs a registration.
     """
 
     return spieler_document(
@@ -93,6 +94,7 @@ def person_row(vorname: str) -> dict[str, Any]:
         vorname,
         # Surname derived from the given name, so one sweep of a whole database still tells two apart.
         f"{vorname}-Mustermann",
+        email=f"{vorname.lower()}@example.com",
         einwilligung={
             "umfang": "kader_oeffentlich",
             "erteilt_von": "erziehungsberechtigt",
@@ -180,6 +182,15 @@ async def a_pupil_who_never_joined_a_squad(database: AsyncDatabase) -> ObjectId:
     return spieler_id
 
 
+async def erase_the_pupil(database: AsyncDatabase, client: AsyncMongoClient, spieler_id: ObjectId) -> FLErasureResponse:
+    """The registry's erasure of the address this pupil's row holds: the erasure is keyed on a mailbox, never on an id."""
+
+    person = await database[Collection.SPIELER].find_one({"_id": spieler_id}, {"email": 1})
+    assert person is not None, f"no pupil {spieler_id} to erase"
+
+    return await erased(database, client, person["email"], germany_now=NOW)
+
+
 async def call_erasure(database: AsyncDatabase, client: AsyncMongoClient, spieler_id: ObjectId) -> Any:
     return await erase_spieler(
         spieler_id=spieler_id,
@@ -241,7 +252,7 @@ class TestARetiredPupilIsErasedWhole:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             spieler_id = await a_pupil_with_a_history(database, vorname="Max", team_id=HOME_TEAM_OID, retired=True)
-            await call_erasure(database, client, spieler_id)
+            await erase_the_pupil(database, client, spieler_id)
 
             return await database[Collection.SPIELER].count_documents({"_id": spieler_id})
 
@@ -252,13 +263,13 @@ class TestARetiredPupilIsErasedWhole:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             spieler_id = await a_pupil_with_a_history(database, vorname="Max", team_id=HOME_TEAM_OID, retired=True)
-            response = await call_erasure(database, client, spieler_id)
+            response = await erase_the_pupil(database, client, spieler_id)
 
-            return response.erased_saison_spieler, await database[Collection.SAISON_SPIELER].count_documents({"spieler_id": spieler_id})
+            return response.saison_spieler, await database[Collection.SAISON_SPIELER].count_documents({"spieler_id": spieler_id})
 
-        erased, remaining = on_a_league(mongo_replica_set_url, body)
+        removed, remaining = on_a_league(mongo_replica_set_url, body)
 
-        assert (erased, remaining) == (2, 0)
+        assert (removed, remaining) == (2, 0)
 
     def test_another_pupil_keeps_their_squad_row(self, mongo_replica_set_url: str):
         """The over-breadth floor: catches a removal filtered on the collection rather than on `spieler_id`."""
@@ -266,7 +277,7 @@ class TestARetiredPupilIsErasedWhole:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             spieler_id = await a_pupil_with_a_history(database, vorname="Max", team_id=HOME_TEAM_OID, retired=True)
             other_id = await a_pupil_with_a_history(database, vorname="Erika", team_id=AWAY_TEAM_OID, retired=False)
-            await call_erasure(database, client, spieler_id)
+            await erase_the_pupil(database, client, spieler_id)
 
             return (
                 await database[Collection.SPIELER].count_documents({"_id": other_id}),
@@ -284,17 +295,17 @@ class TestARetiredPupilIsErasedWhole:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             spieler_id = await a_pupil_with_a_history(database, vorname="Max", team_id=HOME_TEAM_OID, retired=True)
             before_erasure = await log_rows_naming(database, spieler_id)
-            response = await call_erasure(database, client, spieler_id)
+            await erase_the_pupil(database, client, spieler_id)
 
             stamped = await database[Collection.AKTIONEN].find({"redacted_at": {"$ne": None}}).to_list(length=None)
 
-            return before_erasure, stamped, response.redacted_aktionen
+            return before_erasure, stamped
 
-        before_erasure, stamped, counted = on_a_league(mongo_replica_set_url, body)
+        before_erasure, stamped = on_a_league(mongo_replica_set_url, body)
 
         # The floor: the seeded history really did leave this person's names and consent record in the log.
         assert [row for row in before_erasure if row["before"] is not None], "the seeded log held no image to redact"
-        assert len(before_erasure) == counted == len(stamped)
+        assert sorted(row["_id"] for row in stamped) == sorted(row["_id"] for row in before_erasure)
         assert all(row["before"] is None for row in stamped)
         assert {row["redacted_at"] for row in stamped} == {REDACTED_AT}
 
@@ -304,7 +315,7 @@ class TestARetiredPupilIsErasedWhole:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             spieler_id = await a_pupil_with_a_history(database, vorname="Max", team_id=HOME_TEAM_OID, retired=True)
             other_id = await a_pupil_with_a_history(database, vorname="Erika", team_id=AWAY_TEAM_OID, retired=False)
-            await call_erasure(database, client, spieler_id)
+            await erase_the_pupil(database, client, spieler_id)
 
             return await log_rows_naming(database, other_id)
 
@@ -316,13 +327,13 @@ class TestARetiredPupilIsErasedWhole:
     def test_the_redaction_writes_no_row_of_its_own(self, mongo_replica_set_url: str):
         """Catches removing `record_write`'s early return on the log: the redaction would record a fresh copy of the values it erased.
 
-        Exactly two rows are added, the two removals' own, and neither names the log.
+        Exactly three rows are added, the sentinel's insert and the two removals', and none names the log.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             spieler_id = await a_pupil_with_a_history(database, vorname="Max", team_id=HOME_TEAM_OID, retired=True)
             before_count = await database[Collection.AKTIONEN].count_documents({})
-            await call_erasure(database, client, spieler_id)
+            await erase_the_pupil(database, client, spieler_id)
 
             return (
                 before_count,
@@ -332,7 +343,7 @@ class TestARetiredPupilIsErasedWhole:
 
         before_count, after_count, self_recorded = on_a_league(mongo_replica_set_url, body)
 
-        assert after_count == before_count + 2
+        assert after_count == before_count + 3
         assert self_recorded == 0
 
     def test_the_erasure_stays_readable_as_an_action(self, mongo_replica_set_url: str):
@@ -340,7 +351,7 @@ class TestARetiredPupilIsErasedWhole:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             spieler_id = await a_pupil_with_a_history(database, vorname="Max", team_id=HOME_TEAM_OID, retired=True)
-            await call_erasure(database, client, spieler_id)
+            await erase_the_pupil(database, client, spieler_id)
 
             return await database[Collection.AKTIONEN].find({"operation": "erase_many"}).to_list(length=None)
 
@@ -366,7 +377,7 @@ class TestNothingOfTheirsIsLeftAnywhere:
             spieler_id = await a_pupil_with_a_history(database, vorname=ERASED_VORNAME, team_id=HOME_TEAM_OID, retired=True)
             left_behind = await database[Collection.SAISON_SPIELER].count_documents({"spieler_id": spieler_id, "inactive_since": {"$ne": None}})
             seeded = images_naming(await images_in_the_whole_log(database), spieler_id)
-            await call_erasure(database, client, spieler_id)
+            await erase_the_pupil(database, client, spieler_id)
 
             return left_behind, seeded, images_naming(await images_in_the_whole_log(database), spieler_id)
 
@@ -386,7 +397,7 @@ class TestNothingOfTheirsIsLeftAnywhere:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             spieler_id = await a_pupil_with_a_history(database, vorname=ERASED_VORNAME, team_id=HOME_TEAM_OID, retired=True)
             await a_pupil_with_a_history(database, vorname=OTHER_VORNAME, team_id=AWAY_TEAM_OID, retired=False)
-            await call_erasure(database, client, spieler_id)
+            await erase_the_pupil(database, client, spieler_id)
 
             return await where_held(database, ERASED_VORNAME, f"{OTHER_VORNAME}-Mustermann")
 
@@ -406,13 +417,13 @@ class TestAPupilWhoNeverJoinedASquad:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             other_id = await a_pupil_with_a_history(database, vorname=OTHER_VORNAME, team_id=AWAY_TEAM_OID, retired=False)
-            response = await call_erasure(database, client, await a_pupil_who_never_joined_a_squad(database))
+            response = await erase_the_pupil(database, client, await a_pupil_who_never_joined_a_squad(database))
 
-            return response.erased_saison_spieler, images_naming(await images_in_the_whole_log(database), other_id)
+            return response.saison_spieler, images_naming(await images_in_the_whole_log(database), other_id)
 
-        erased, theirs = on_a_league(mongo_replica_set_url, body)
+        removed, theirs = on_a_league(mongo_replica_set_url, body)
 
-        assert erased == 0
+        assert removed == 0
         assert [image for image in theirs if image.get("saison_id")], "an empty id list swept the other pupil's squad rows"
 
     def test_their_own_record_is_erased_all_the_same(self, mongo_replica_set_url: str):
@@ -420,7 +431,7 @@ class TestAPupilWhoNeverJoinedASquad:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             spieler_id = await a_pupil_who_never_joined_a_squad(database)
-            await call_erasure(database, client, spieler_id)
+            await erase_the_pupil(database, client, spieler_id)
 
             return await database[Collection.SPIELER].count_documents({"_id": spieler_id}), await where_held(database, LONE_VORNAME)
 
@@ -501,7 +512,7 @@ class TestAHalfDoneErasureCommitsNothing:
             )
 
             with pytest.raises(OperationFailure) as failure:
-                await call_erasure(database, client, spieler_id)
+                await erase_the_pupil(database, client, spieler_id)
 
             return (
                 failure.value.code,

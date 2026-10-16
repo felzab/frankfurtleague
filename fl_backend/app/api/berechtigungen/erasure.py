@@ -53,12 +53,22 @@ def _held_at(row: Mapping[str, Any], path: str) -> Any:
 
 
 async def _rows_naming(
-    collection: AsyncCollection, paths: Sequence[str], identifier: str, session: AsyncClientSession, *, whole: bool = False
+    collection: AsyncCollection,
+    paths: Sequence[str],
+    identifier: str,
+    session: AsyncClientSession,
+    *,
+    # Only where the application alone writes `paths`, in the punycode the pattern spells: a pasted
+    # Unicode domain the fold claims, the pattern never reads (`app/shared/folding.py :: trimmed_pattern`).
+    narrow: bool,
+    whole: bool = False,
 ) -> list[Mapping[str, Any]]:
     """Every row holding this person's address at one of `paths`, unbounded: a capped read leaves the rest naming them."""
 
-    pattern = same_address(identifier)
-    pipeline: list[Mapping[str, Any]] = [{"$match": {"$or": [{path: pattern} for path in paths]}}]
+    pipeline: list[Mapping[str, Any]] = []
+    if narrow:
+        pattern = same_address(identifier)
+        pipeline.append({"$match": {"$or": [{path: pattern} for path in paths]}})
     if not whole:
         pipeline.append({"$project": dict.fromkeys(paths, 1)})
 
@@ -98,7 +108,7 @@ def _withheld(document: Mapping[str, Any], identifier: str) -> dict[str, Any]:
 async def _withhold_queued(collection: AsyncCollection, identifier: str, session: AsyncClientSession) -> int:
     """Every notice still queued naming this person, written by id: a filter on the address copies it into the log."""
 
-    rows = await _rows_naming(collection, _QUEUED_SITES, identifier, session)
+    rows = await _rows_naming(collection, _QUEUED_SITES, identifier, session, narrow=False)
 
     by_update: dict[tuple[tuple[str, Any], ...], list[ObjectId]] = {}
     for row in rows:
@@ -110,10 +120,10 @@ async def _withhold_queued(collection: AsyncCollection, identifier: str, session
     return len(rows)
 
 
-async def _mark_authored(collection: AsyncCollection, field: str, identifier: str, session: AsyncClientSession) -> int:
+async def _mark_authored(collection: AsyncCollection, field: str, identifier: str, session: AsyncClientSession, *, narrow: bool) -> int:
     """Give every record this person made the marker in `field`, by id, so the log keeps the ids and no address."""
 
-    ids = [row["_id"] for row in await _rows_naming(collection, (field,), identifier, session)]
+    ids = [row["_id"] for row in await _rows_naming(collection, (field,), identifier, session, narrow=narrow)]
     if not ids:
         return 0
 
@@ -146,23 +156,20 @@ async def erase_grants_and_authorship_in_session(
     # REQUIRED: the grants, the notices and the authored records go in one transaction or none.
     session: AsyncClientSession,
 ) -> ErasedGrantsAndAuthorship:
-    """Neither the floor of two nor an owner's protection holds against it, so its caller warns once committed.
+    """Removes an `owner` grant and breaks the floor of two, refusing neither (`docs/backend/spec.md :: I435`, `:: I436`).
 
-    The warning is `app/core/db.py :: warn_about_the_grants`, the boot's own (`docs/backend/spec.md :: I435`, `:: I436`).
+    Who may erase an owner is the caller's judgement, and so is any line once the transaction commits.
     """
 
-    # Both read before the removals below, after which neither a grant nor its record matches.
-    grants = await _rows_naming(berechtigungen_collection, ("adresse",), identifier, session, whole=True)
+    # Both read before the removals below, after which neither a grant nor its record matches; read
+    # whole, the three grant collections holding a handful of rows a paste may have typed.
+    grants = await _rows_naming(berechtigungen_collection, ("adresse",), identifier, session, narrow=False, whole=True)
     grant_ids = [grant["_id"] for grant in grants]
     # Keyed on one of those grants whatever address it holds, or holding this address under another
     # grant's id: either is what the administrators were told of this person's access.
     records = [
         record
-        for record in await aggregate_many_from_db(
-            collection=berechtigungen_angekuendigt_collection,
-            pipeline=[{"$match": {"$or": [{"_id": {"$in": grant_ids}}, {"adresse": same_address(identifier)}]}}],
-            session=session,
-        )
+        for record in await aggregate_many_from_db(collection=berechtigungen_angekuendigt_collection, pipeline=[], session=session)
         if record["_id"] in grant_ids or _names(record.get("adresse"), identifier)
     ]
     records_by_id = {record["_id"]: record for record in records}
@@ -209,11 +216,12 @@ async def erase_grants_and_authorship_in_session(
 
     withheld = await _withhold_queued(berechtigungen_postausgang_collection, identifier, session)
 
-    marked = await _mark_authored(berechtigungen_collection, "erteilt_von", identifier, session)
-    marked += await _mark_authored(bewerbungen_collection, "entscheidung.von", identifier, session)
-    marked += await _mark_authored(registrierungen_collection, "entscheidung.von", identifier, session)
-    marked += await _mark_authored(sperrliste_collection, "erstellt_von", identifier, session)
-    marked += await _mark_authored(einladungen_collection, "erstellt_von", identifier, session)
+    marked = await _mark_authored(berechtigungen_collection, "erteilt_von", identifier, session, narrow=False)
+    # Each an actor the application stored from a folded identifier, which no paste writes.
+    marked += await _mark_authored(bewerbungen_collection, "entscheidung.von", identifier, session, narrow=True)
+    marked += await _mark_authored(registrierungen_collection, "entscheidung.von", identifier, session, narrow=True)
+    marked += await _mark_authored(sperrliste_collection, "erstellt_von", identifier, session, narrow=True)
+    marked += await _mark_authored(einladungen_collection, "erstellt_von", identifier, session, narrow=True)
 
     return ErasedGrantsAndAuthorship(
         removed_berechtigungen=len(grant_ids),

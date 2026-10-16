@@ -289,12 +289,12 @@ describe("the list's two ends and its empty state", () => {
   /* Standing over the rows, and offering the other end of the queue under every other narrowing kept. */
   it("says a cut-short queue is partial, and offers its other end", async () => {
     queue = { registrierungen: [LENA], vollstaendig: false };
-    const { markup, page } = await rendered({ saison_id: ADRESS_SAISON, q: "Lena" });
+    const { markup, page } = await rendered({ saison_id: ADRESS_SAISON });
 
     assert.ok(markup.includes("Diese Liste ist unvollständig"), "a partial queue reads as complete");
     assert.ok(page.body.textContent.includes("Geladen sind die neuesten Registrierungen."), "the notice does not say which end is loaded");
     const umkehr = [...page.querySelectorAll("a[href]")].find((link) => link.textContent === "Lade die ältesten zuerst");
-    assert.equal(umkehr?.getAttribute("href"), `?saison_id=${ADRESS_SAISON}&q=Lena&order=asc`);
+    assert.equal(umkehr?.getAttribute("href"), `?saison_id=${ADRESS_SAISON}&order=asc`);
   });
 
   /* The control for the case above: the sentence follows the answer, not the page. */

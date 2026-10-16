@@ -209,7 +209,7 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
     if (aktion.redacted_at !== null) {
       const datum = formatAktionZeitpunkt(aktion.redacted_at).datum;
 
-      // A copy still standing lost one person's values alone: the people beside them on that record keep theirs.
+      // A copy still standing kept all the redaction did not reach: the record's own state, and anybody it left.
       return aktion.stand_gesichert ? (
         <span className={labelBadge("danger")}>Einzelne Werte gelöscht am {datum}</span>
       ) : (

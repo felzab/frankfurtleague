@@ -32,7 +32,7 @@ FLBerechtigungUrheber = Literal["anwendung", "datenbank"]
 
 # Why a queued row's GRANT address is withheld: its holder barred, or erased. Never the actor's,
 # whose `geaendert_von` says it alone: null for a ban, `app/core/recording.py :: ERASED_ACTOR_MARKER`
-# for an erasure (`docs/backend/spec.md :: I452`).
+# for an erasure (`docs/backend/spec.md :: I661`).
 FLBerechtigungVorenthalten = Literal["gesperrt", "geloescht"]
 
 
@@ -42,8 +42,9 @@ class FLBerechtigung(BaseModel):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     adresse: CustomNonEmptyString
     verwaltung: FLVerwaltung
-    # An administrator's address for a grant made here; whatever the paste wrote, an empty string
-    # included, for one made in the Playground. No bound on it: that would hide a live grant.
+    # An administrator's address for a grant made here, `app/core/recording.py :: ERASED_ACTOR_MARKER`
+    # once they are erased; whatever the paste wrote, an empty string included, for one made in the
+    # Playground. No bound on it: that would hide a live grant.
     erteilt_von: str
     erteilt_am: datetime
     # Absent until a comparison finds the row new, and never written by a grant made here: a paste's
@@ -108,7 +109,7 @@ class FLBerechtigungWriteResponse(BaseAPIResponse):
 class FLBerechtigungStand(BaseModel):
     """One grant's address and tier at one moment."""
 
-    # Null where the address was barred when it was written or is barred now.
+    # Null where the address was barred when it was written or is barred now, or its holder is erased.
     adresse: str | None
     verwaltung: FLVerwaltung
 
@@ -158,8 +159,8 @@ class FLBerechtigungAenderung(BaseModel):
     geaendert_von: str | None
     geaendert_von_gesperrt: bool
     geaendert_am: FLUtcInstant | None
-    # Set where the grant's address is barred and withheld wherever it would stand; the actor's state
-    # is `geaendert_von_gesperrt`'s alone.
+    # Set where the grant's address is barred and withheld wherever it would stand; never for the
+    # actor, whose state `geaendert_von` and its own flag carry.
     gesperrt: bool
     # Set where the grant's address is withheld because its holder has been erased.
     geloescht: bool

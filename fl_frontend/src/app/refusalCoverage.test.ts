@@ -76,7 +76,11 @@ const ANSWERED_BY: Readonly<Record<string, Mapper>> = {
   "PATCH /teams/{team_id}/saisons/{saison_id}/kontakte": kontakte.mapKontakteRefusal,
   "POST /teams/{team_id}/saisons/{saison_id}/kontakte/{seat}/bestaetigung/einladen": kontakte.mapEinladenRefusal,
   "POST /registrierungen": registrierungen.mapRegistrierungSubmitRefusal,
-  "POST /registrierungen/bestaetigung": (error) => registrierungen.mapBestaetigungRefusal(error, async () => REGISTRIERUNG_MIN_ALTER),
+  "POST /registrierungen/bestaetigung": (error) =>
+    registrierungen.mapBestaetigungRefusal(error, async () => ({
+      mindestalter: REGISTRIERUNG_MIN_ALTER,
+      medien_mindestalter: MEDIEN_MIN_ALTER,
+    })),
   "POST /registrierungen/einladung/ansicht": registrierungen.mapRegistrierungAnsichtRefusal,
   "POST /registrierungen/bestaetigung/ansicht": registrierungen.mapRegistrierungAnsichtRefusal,
   "GET /registrierungen/kader/{team_id}/{saison_id}": TEAM_FORBIDDEN_PANEL,
@@ -95,7 +99,10 @@ const ANSWERED_BY: Readonly<Record<string, Mapper>> = {
   "POST /schiedsrichter/{schiedsrichter_id}/reactivate": schiedsrichter.mapReactivateRefusal,
   "POST /schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen": schiedsrichter.mapEinladenRefusal,
   "POST /schiedsrichter/bestaetigung": (error) =>
-    schiedsrichterQueries.mapSchiedsrichterBestaetigungRefusal(error, async () => SCHIEDSRICHTER_MIN_ALTER),
+    schiedsrichterQueries.mapSchiedsrichterBestaetigungRefusal(error, async () => ({
+      mindestalter: SCHIEDSRICHTER_MIN_ALTER,
+      medien_mindestalter: MEDIEN_MIN_ALTER,
+    })),
   "POST /schiedsrichter/bestaetigung/ansicht": schiedsrichterQueries.mapSchiedsrichterAnsichtRefusal,
   "POST /schiedsrichter/{schiedsrichter_id}/adresswechsel/einladen": schiedsrichter.mapAdresswechselRefusal,
   "POST /schiedsrichter/adresswechsel": schiedsrichterQueries.mapSchiedsrichterAdresswechselRefusal,
@@ -209,7 +216,7 @@ const UNDO_FLOOR = 8;
 
 /**
  * Each undo replaying through no table of its own, by `<module> :: <export>`, and why: one answered by
- * the shared fallback alone names no reason and sends the admin to a retry the same rule refuses.
+ * the spine's fallback alone never names the reason its rule refused for.
  */
 const REPLAYS_THROUGH_NO_TABLE: Readonly<Record<string, string>> = {};
 
@@ -218,9 +225,9 @@ function relativeTo(file: string, root = SRC): string {
 }
 
 /**
- * Each undo `file` exports, found by its `runAdminUndo` call, with every table it hands a replay's
- * wording, read off its syntax tree as its module exports it: `undefined` for a table no import reaches,
- * one of the module's own.
+ * Each undo `file` declares at its top level, a function or a variable holding one, found by its
+ * `runAdminUndo` call, with every table it hands a replay's wording: `undefined` for a table no import
+ * reaches, one of the module's own.
  */
 async function undosOf(file: string): Promise<{ undo: string; tables: { name: string; table: unknown }[] }[]> {
   const source = ts.createSourceFile(file, readFileSync(file, "utf8"), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
@@ -248,14 +255,20 @@ async function undosOf(file: string): Promise<{ undo: string; tables: { name: st
     return found;
   };
 
-  const undos = source.statements.flatMap((statement) =>
-    ts.isFunctionDeclaration(statement) && statement.name !== undefined && callsOf(statement, /^runAdminUndo$/).length > 0
-      ? [
-          {
-            undo: `${relativeTo(file)} :: ${statement.name.text}`,
-            passed: callsOf(statement, /^(?:refusedReplay|replayRefusal|partlyRestored)$/),
-          },
-        ]
+  // A variable's initializer as well as a declaration: `export const undo… = (…) => runAdminUndo(…)` is
+  // an undo as much as the function form is.
+  const declared = source.statements.flatMap((statement): { name: string; node: ts.Node }[] => {
+    if (ts.isFunctionDeclaration(statement)) return statement.name === undefined ? [] : [{ name: statement.name.text, node: statement }];
+    if (!ts.isVariableStatement(statement)) return [];
+    return statement.declarationList.declarations.flatMap((declaration) =>
+      ts.isIdentifier(declaration.name) && declaration.initializer !== undefined
+        ? [{ name: declaration.name.text, node: declaration.initializer }]
+        : [],
+    );
+  });
+  const undos = declared.flatMap(({ name, node }) =>
+    callsOf(node, /^runAdminUndo$/).length > 0
+      ? [{ undo: `${relativeTo(file)} :: ${name}`, passed: callsOf(node, /^(?:refusedReplay|replayRefusal|partlyRestored)$/) }]
       : [],
   );
 

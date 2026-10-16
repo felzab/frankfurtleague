@@ -108,7 +108,9 @@ describe("the referee's writes against the codes their endpoints publish", () =>
      page reads them rather than in an admin action's mapper. */
   it("words every refusal the referee's own link publishes", async () => {
     for (const code of publishedRefusals(BESTAETIGUNG_OPERATION)) {
-      const own = await mapSchiedsrichterBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, code), () => Promise.resolve(16));
+      const own = await mapSchiedsrichterBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, code), () =>
+        Promise.resolve({ mindestalter: 16, medien_mindestalter: 18 }),
+      );
       assert.notEqual(
         own ?? answerShown(BESTAETIGUNG_OPERATION, code, () => null),
         null,

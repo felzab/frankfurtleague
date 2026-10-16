@@ -13,7 +13,7 @@ import { einzeiligerName, FLKontaktRolleSchema } from "@/features/bewerbungen/sc
 import { ADRESSE_IM_GRUND_REGEX } from "@/features/sperrliste/schemas";
 import { addressSchema, CustomObjectIdStringSchema } from "@/shared/schemas";
 
-import { ERASURE_ANLASS_MAX_LENGTH } from "./constants";
+import { ERASURE_ANLASS_MAX_LENGTH, REFERENZEN_ADRESSEN_MAX } from "./constants";
 
 /**
  * One seat as a seat holder reads it: who holds it and whether they confirmed. No address, telephone or
@@ -117,3 +117,14 @@ export const FLErasureAnsichtResponseSchema = BaseAPIResponseSchema.extend({
   verwaltung: FLSubjektResponseSchema.shape.verwaltung,
 });
 export type FLErasureAnsichtResponse = z.infer<typeof FLErasureAnsichtResponseSchema>;
+
+export const FLReferenzenPayloadSchema = z.object({
+  // Each one as the sign-in store holds it, held to no address rule: one refused would refuse the batch.
+  identifiers: z.array(z.string()).min(1).max(REFERENZEN_ADRESSEN_MAX),
+});
+export type FLReferenzenPayload = z.infer<typeof FLReferenzenPayloadSchema>;
+
+export const FLReferenzenResponseSchema = BaseAPIResponseSchema.extend({
+  unreferenziert: z.array(z.string()),
+});
+export type FLReferenzenResponse = z.infer<typeof FLReferenzenResponseSchema>;

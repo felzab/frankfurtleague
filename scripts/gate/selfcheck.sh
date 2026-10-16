@@ -950,6 +950,8 @@ import(pathToFileURL(reader).href).then(({ refusal }) => {
   expect_refused Bash 'uv run --project fl_backend --frozen python -m pytest -m db'
   expect_refused Bash 'uv run --frozen pytest -m db -n 2'
   expect_refused Bash 'uv run --frozen pytest -m db tests/api/test_spiele.py tests/api/test_teams.py'
+  expect_refused Bash 'uv run --frozen pytest -m db tests/api/test_spiele.py::test_one tests/api/test_teams.py::test_two'
+  expect_refused Bash "uv run --frozen pytest -m db \$(git ls-files 'tests/api/*.py')"
   expect_refused Bash 'node --test --test-reporter spec'
   expect_refused Bash 'pnpm run test:base -- --test-reporter dot'
   expect_refused Bash 'npm t'
@@ -987,6 +989,8 @@ import(pathToFileURL(reader).href).then(({ refusal }) => {
   through_hook expect_let_through implementer Bash 'uv run --frozen pytest tests/api/test_spiele.py'
   expect_let_through implementer Bash 'uv run --frozen pytest tests/api/test_spiele.py::test_one'
   expect_let_through implementer Bash 'uv run --frozen pytest -m db tests/api/test_spiele.py'
+  # A node id names its file, so ids from one database file are that one file.
+  expect_let_through implementer Bash 'uv run --frozen pytest -m db tests/api/test_spiele.py::test_one tests/api/test_spiele.py::test_two'
   # A substitution's output is the operand, whatever it lists.
   expect_let_through implementer Bash "uv run --frozen pytest \$(git diff --name-only HEAD~1 -- tests)"
   expect_let_through implementer Bash "uv run --frozen pytest ${suite_tick}cat files.txt${suite_tick}"
@@ -1317,7 +1321,8 @@ check_uv_pin() { # $1 the action installing CI's uv · $2 the Dockerfile
     }
   ' "$1")"
   mapfile -t tags < <(sed -n 's|^FROM ghcr.io/astral-sh/uv:\([^ @]*\)[@ ].*|\1|p' "$2")
-  judge_pin uv exact "$1" "$2" "move the one the bot left behind, which after a Dependabot image bump is setup-uv's version" "$pin" "${tags[@]}"
+  # The range names the third file: two pins agreeing past its ceiling pass here and fail every uv run.
+  judge_pin uv exact "$1" "$2" "move the one the bot left behind, which after a Dependabot image bump is setup-uv's version, and keep both inside fl_backend/pyproject.toml's required-version, raising its ceiling where the release is past it" "$pin" "${tags[@]}"
 }
 
 check_node_pin() { # $1 the manifest · $2 the Dockerfile

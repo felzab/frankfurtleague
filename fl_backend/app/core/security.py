@@ -19,6 +19,7 @@ from app.api.sperrliste.lookup import BanList, SperrlisteLookup, adressen_gesper
 from app.core.actor_token import (
     ACTOR_TOKEN_MAX_LENGTH,
     COMPACT_JWS_PATTERN,
+    PASSKEY_FACTOR,
     ActorClaims,
     ActorTokenKey,
     ActorTokenRefusal,
@@ -298,6 +299,19 @@ def get_step_up_check(actor: Annotated[ActorClaims, Depends(verify_admin_actor)]
     def refuse_unconfirmed() -> None:
         if confirmed_before(actor, STEP_UP_WINDOW_S):
             raise confirmation_required(actor, STEP_UP_WINDOW_S)
+
+    return refuse_unconfirmed
+
+
+def get_person_confirmation_check(actor: Annotated[ActorClaims, Depends(verify_person_actor)]) -> StepUpCheck:
+    """A grant holder's own erasure asks a fresh passkey, as a revoke does: the person's lane admits a sign-in by code.
+
+    The window is I489's, judged at `iat` (`docs/backend/spec.md :: I527`).
+    """
+
+    def refuse_unconfirmed() -> None:
+        if actor.amr != (PASSKEY_FACTOR,) or confirmed_before(actor, ENROLMENT_WINDOW_S):
+            raise confirmation_required(actor, ENROLMENT_WINDOW_S)
 
     return refuse_unconfirmed
 

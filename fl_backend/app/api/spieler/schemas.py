@@ -280,7 +280,7 @@ class FLSpielerErasureResponse(BaseAPIResponse):
     spieler_id: CustomObjectId
     erased_saison_spieler: int
     # Every log row naming the person or one of those squad rows, images emptied and stamped
-    # (`docs/backend/spec.md :: I42`). No row is dropped, so this is never a deletion count.
+    # (`docs/backend/spec.md :: I671`). No row is dropped, so this is never a deletion count.
     redacted_aktionen: int
 
 

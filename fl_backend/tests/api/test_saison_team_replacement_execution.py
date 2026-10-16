@@ -291,6 +291,7 @@ async def call_replace(
         saisons_collection=database[Collection.SAISONS],
         spiele_collection=database[Collection.SPIELE],
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
+        bewerbungen_collection=database[Collection.BEWERBUNGEN],
         aktionen_collection=database[Collection.AKTIONEN],
         db=client,
         today=REPLACED_ON,
@@ -509,7 +510,8 @@ class TestTheOutgoingPeopleLeaveTheLog:
         assert len(rows) == 2, "the editor's save and the replacement each file one image"
         for row in rows:
             image = row["before"]
-            assert (image["kontakte"], image["bestaetigungen"]) == (None, None)
+            # The row was seeded before links existed, so its images hold no block for the redaction to add.
+            assert (image["kontakte"], "bestaetigungen" in image) == (None, False)
             assert (image["austritt"], image["gruppe"], image["trikot_farbe"]) == (EXIT, "A", OUTGOING_TRIKOT_FARBE)
             assert row["redacted_at"] == REDACTED_AT
         assert OUTGOING_KONTAKTPERSON["email"] not in str(rows)

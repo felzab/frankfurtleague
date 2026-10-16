@@ -124,6 +124,9 @@ MAIL_SINK_TARGET="/app/.tmp-mail"
 # Emptied on every start, so a code an earlier run filed never reads as current
 # (`docs/ops/spec.md` §1.5).
 empty_mail_sink() {
+  # Off, so a trace never prints the rendered model, which carries every value of both `.env` files.
+  local -
+  set +x
   local model="" rc=0 source="" probe="" rest="" root="" sink="" file removed=0
   model="$(docker compose config --format json 2>/dev/null)" || rc=$?
   if (( rc )); then

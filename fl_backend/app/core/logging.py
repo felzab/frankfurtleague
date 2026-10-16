@@ -1,7 +1,8 @@
 """
 CORE · structured logging
 
-One logger for the whole service, and nothing else in it writes to stdout: a stray `print` breaks
+One logger for the whole service, beside its child for the erasure journal, and nothing else in it
+writes to stdout: a stray `print` breaks
 `docs/logging/spec.md :: L1`. Log the field NAME, never the submitted value -- payloads carry
 personal data.
 """
@@ -18,6 +19,10 @@ from typing import Any
 from app.core.config import BackendConfig
 
 FL_LOGGER_NAME = "frankfurtleague"
+
+# The erasure journal's child of that logger, pinned at INFO below whatever `LOG_LEVEL_APP` says: a
+# restore replays the erasures made since its backup from these lines (`docs/backend/spec.md :: I666`).
+JOURNAL_LOGGER_SUFFIX = "loeschung"
 
 # A sentinel rather than an absent field, so a parser can rely on the key existing on every line.
 NO_REQUEST_SENTINEL = "SYSTEM"
@@ -186,6 +191,7 @@ def setup_custom_logger(config: BackendConfig):
                 # No handler of its own: the root console handler prints each record exactly once.
                 "propagate": True,
             },
+            f"{FL_LOGGER_NAME}.{JOURNAL_LOGGER_SUFFIX}": {"level": "INFO", "propagate": True},
             "pymongo": {"level": config.log_level_db, "propagate": True},
             "uvicorn": {"level": "INFO", "propagate": True},
             "uvicorn.error": {"level": "INFO", "propagate": True},  # Startup/Shutdown
@@ -199,3 +205,4 @@ def setup_custom_logger(config: BackendConfig):
 
 
 fl_logger = logging.getLogger(FL_LOGGER_NAME)
+journal_logger = fl_logger.getChild(JOURNAL_LOGGER_SUFFIX)

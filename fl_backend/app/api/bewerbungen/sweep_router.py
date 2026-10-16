@@ -102,7 +102,7 @@ async def _club_names(
 async def _redact(
     *, aktionen_collection: AktionenCollection, collection: Collection, ids: Sequence[Any], stamp: str, session: AsyncClientSession
 ) -> int:
-    """Every log row naming the removed documents, emptied and stamped -- the erasure's second half (`docs/backend/spec.md :: I42`)."""
+    """Every log row naming the removed documents, emptied and stamped -- the erasure's second half (`docs/backend/spec.md :: I671`)."""
 
     if not ids:
         return 0
@@ -416,7 +416,7 @@ async def sweep_saison(
         taken = junction_rows[:BLOCKS_CLEARED_PER_PASS]
 
         # `patch_one_in_db` per row and never `patch_many_in_db`, which records no `document_id`: the
-        # redaction below must match the rows it logs (`app/api/kontakte/crud.py :: _clear_each`).
+        # redaction below must match the rows it logs (`app/api/kontakte/crud.py :: clear_seats`).
         cleared: list[Any] = []
         for row in taken:
             await patch_one_in_db(

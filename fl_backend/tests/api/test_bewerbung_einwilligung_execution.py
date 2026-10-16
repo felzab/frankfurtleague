@@ -747,11 +747,13 @@ class TestADecline:
 
             return await log_rows(database)
 
-        consent, decline = on_a_league(mongo_replica_set_url, body)
+        # A submission's digest, taken over the declining person's details too.
+        consent, decline = on_a_league(mongo_replica_set_url, body, documents=[bewerbung_document(idempotenz_fingerabdruck="a" * 64)])
 
         for row in (consent, decline):
             assert (row["before"]["kontakte"]["stellvertretung"], row["redacted_at"]) == (None, REDACTED_AT)
-            assert row["before"].get("idempotenz_fingerabdruck") is None
+            # Present, so the null is the redaction's rather than a digest never stored.
+            assert ("idempotenz_fingerabdruck" in row["before"], row["before"]["idempotenz_fingerabdruck"]) == (True, None)
             # The link stays with the seat in the image, as it does on the application.
             assert row["before"]["bestaetigungen"]["stellvertretung"] is not None
         assert consent["before"]["kontakte"]["trainer"]["geburtsdatum"] is None
