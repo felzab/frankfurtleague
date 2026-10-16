@@ -64,6 +64,7 @@ DATABASE_NAME = worker_database("fl_bewerbung_sweep_test")
 
 SAISON_ID = "2026"
 NEXT_SAISON_ID = "2027"
+SKIPPED_TO_SAISON_ID = "2028"
 OTHER_SAISON_ID = "2025"
 TODAY = "2026-04-01"
 YESTERDAY = "2026-03-31"
@@ -1013,6 +1014,17 @@ class TestTheSeasonAndOneClock:
             return response.angenommene_geloescht, response.kontaktbloecke_geleert
 
         assert on_a_league(mongo_replica_set_url, body, next_status=None) == (0, 0)
+
+    def test_a_skipped_year_reads_the_next_season_the_league_holds(self, mongo_replica_set_url: str):
+        """No season of the year after, and the one after that has ended: read by the year alone, both clocks wait for ever."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SAISONS].insert_one(season(SKIPPED_TO_SAISON_ID, "past"))
+            response = await sweep(database, client)
+
+            return response.angenommene_geloescht, response.kontaktbloecke_geleert
+
+        assert on_a_league(mongo_replica_set_url, body, status="past", next_status=None) == (1, 1)
 
 
 class TestASeasonNobodyHas:

@@ -213,7 +213,9 @@ async def sweep_saison(
     saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["status"])
     saison_status = saison_raw.get("status")
 
-    naechste_raw = await saisons_collection.find_one({"_id": next_saison_id(saison_id)}, {"status": 1})
+    # The earliest season from the next year on, never that year's alone: a year the league skips would
+    # hold this season's accepted applications and contact blocks for ever.
+    naechste_raw = await saisons_collection.find_one({"_id": {"$gte": next_saison_id(saison_id)}}, {"status": 1}, sort=[("_id", ASCENDING)])
     next_saison_status = naechste_raw.get("status") if naechste_raw is not None else None
 
     stamp = log_stamp(germany_now)
