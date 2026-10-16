@@ -11,8 +11,9 @@ import {
   FLSubjektResponseSchema,
 } from "@/core/schemas";
 import { einzeiligerName, FLKontaktRolleSchema } from "@/features/bewerbungen/schemas";
+import { FLRegistrierungSchema } from "@/features/registrierungen/schemas";
 import { ADRESSE_IM_GRUND_REGEX } from "@/features/sperrliste/schemas";
-import { addressSchema, CustomObjectIdStringSchema } from "@/shared/schemas";
+import { addressSchema, CustomDateStringSchema, CustomObjectIdStringSchema } from "@/shared/schemas";
 
 import { ERASURE_ANLASS_MAX_LENGTH, REFERENZEN_ADRESSEN_MAX } from "./constants";
 
@@ -86,6 +87,7 @@ export const FLErasureAnsichtKaderSchema = z.object({
   team_id: CustomObjectIdStringSchema,
   // Null where no season row names the team.
   team_name: z.string().nullable(),
+  inactive_since: CustomDateStringSchema.nullable(),
 });
 
 export const FLErasureAnsichtSpielerSchema = FLSelbstErasureSpielerSchema.extend({
@@ -95,6 +97,8 @@ export const FLErasureAnsichtSpielerSchema = FLSelbstErasureSpielerSchema.extend
 
 export const FLErasureAnsichtSchiedsrichterSchema = FLSelbstErasureSchiedsrichterSchema.extend({
   schiedsrichter_id: CustomObjectIdStringSchema,
+  inactive_since: CustomDateStringSchema.nullable(),
+  spiele_ohne_ergebnis_saison_ids: z.array(z.string()),
 });
 
 export const FLErasureAnsichtSitzSchema = FLSelbstErasureSitzSchema.extend({ team_id: CustomObjectIdStringSchema });
@@ -104,6 +108,7 @@ export const FLErasureAnsichtBewerbungSchema = FLSelbstErasureBewerbungSchema.ex
 export const FLErasureAnsichtRegistrierungSchema = FLSelbstErasureRegistrierungSchema.extend({
   registrierung_id: CustomObjectIdStringSchema,
   team_id: CustomObjectIdStringSchema,
+  status: FLRegistrierungSchema.shape.status,
 });
 
 /** A referee row holding a change to the address still to be confirmed, which names no person to show. */

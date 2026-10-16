@@ -85,8 +85,8 @@ export function FormPersonLoeschenSection() {
   const [anlass, setAnlass] = useState("");
   const [fehler, setFehler] = useState<Fehler>({});
   const [gelesen, setGelesen] = useState<Gelesen | null>(null);
-  // Only the latest arming's read answers: Next sends one client's actions one at a time, so an earlier arming's
-  // answer lands while the latest waits. React's "ignore stale responses"
+  // Only the latest arming's read answers, and only while the box is unedited since: Next sends one client's actions
+  // one at a time, so an earlier arming's answer lands while the latest waits. React's "ignore stale responses"
   // (https://react.dev/learn/you-might-not-need-an-effect#fetching-data).
   const letzteLesung = useRef(0);
 
@@ -167,8 +167,7 @@ export function FormPersonLoeschenSection() {
     });
   };
 
-  // Against the box, so a reveal and a confirmation for one address are never pressed while it holds another.
-  const ansicht = isConfirming && gelesen?.adresse === email.trim() ? gelesen : null;
+  const ansicht = isConfirming ? gelesen : null;
   // The names ARE the confirmation, so a press taken over the placeholder would confirm nothing.
   const isReading = isConfirming && (ansicht === null || ansicht.status === "reading");
   // A refused read alone names a reason of its own: one still running ends by itself, as the write does.
@@ -193,6 +192,9 @@ export function FormPersonLoeschenSection() {
           onChange={(next) => {
             setEmail(next);
             setFehler({ ...fehler, email: undefined });
+            // The arming and its read alike: the read's answer, a refusal of the box among them, speaks of the
+            // address the box held before (`docs/frontend/spec.md :: I686`).
+            letzteLesung.current += 1;
             confirm.cancel();
           }}
           isInvalid={fehler.email !== undefined ? true : undefined}>

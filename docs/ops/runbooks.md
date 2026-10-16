@@ -841,24 +841,33 @@ already under way is refused (`docs/backend/spec.md :: I515`, `docs/frontend/spe
 contact person's Widerspruch then reaches the league's mailbox, as the withdrawal bullet above says.
 Nothing of the ban is written on those records, so lifting a mistaken ban lets a link still inside
 its deadline open on its form again. Nothing else refuses on the list, so a person reading the
-queue is still what keeps a barred address out of everything a sign-up does not cover. **What the address already
-holds stays until you take it away** — a record it confirmed before the ban, and one it can no
-longer confirm alike — and the ban's row names none of it. **The dialog the ban was entered in lists
-every such record once the ban stands**, each linked to the page acting on it at the record's own
-season (`docs/frontend/spec.md :: I688`). Each link opens in a tab of its own, so the list stays
-open beside it; work through it before „Fertig“, since once the dialog closes nothing finds those
-records from the ban again.
+queue is still what keeps a barred address out of everything a sign-up does not cover. **The ban
+takes away nothing the address already holds** — a record it confirmed before the ban, and one it
+cannot confirm since alike — and the ban's row names none of it: a record stays until you take it
+away, a registration excepted, which ends by itself. **The dialog the ban was entered in lists every
+such record once the ban stands**, linking each one a page acts on to that page at the record's own
+season (`docs/frontend/spec.md :: I688`), and says beneath them how long the address's sign-in
+account stays ([section 9](#9-checking-that-the-retention-sweep-has-run)) and that its log rows and
+authorship stay. Each link opens in a tab of its own, so the list stays open beside it; work
+through it before „Fertig“, since once the dialog closes nothing finds those records from the ban
+again.
 
-- a referee: „Spiele neu besetzen“ reassigns their unplayed fixtures, then „Schiedsrichter
-  stilllegen“ retires them, which `REQ-RETIRE-004` holds to that order;
+- a referee: „Spiele der Saison … neu besetzen“, one link for each season holding an unplayed
+  fixture they are booked on, opens the fixture search at that season to reassign them, then
+  „Schiedsrichter stilllegen“ retires them, which `REQ-RETIRE-004` holds to that order across every
+  season; a referee retired already is offered „Eintrag ansehen“ instead;
 - a pupil's squad row: „Kadereintrag austragen“ retires it, which takes the pupil off the public
-  squad list;
+  squad list; a row taken out already is offered „Eintrag ansehen“ instead;
 - a contact seat: „Kontakte bearbeiten“ replaces or clears it on the team's season;
 - a seat on an application: „Bewerbung öffnen“, whose „Neu besetzen“ seats the replacement the
   school names;
-- a registration: „Registrierungen ansehen“, its team deciding it;
+- a registration: „Registrierungen ansehen“ shows a pending one, and a declined one has no link;
+  no administrator decides either, its team cannot admit a barred address, and the clock erases
+  both;
 - another referee's pending change of address to it: „Adressänderung ansehen“ opens that
   referee's editor, whose „Änderung verwerfen“ removes it;
+- another pupil's pending change of address to it: „Adressänderung ansehen“ opens that pupil's
+  editor, whose „Änderung verwerfen“ removes it;
 - a pupil holding no squad row: „Eintrag ansehen“ opens their record.
 
 Where the dialog says the list could not be loaded, the ban stands and these records are found by

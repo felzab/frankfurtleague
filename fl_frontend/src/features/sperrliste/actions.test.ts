@@ -54,7 +54,9 @@ const ANSICHT_ENDPOINT = "/identitaet/erasure/ansicht";
 const ANSICHT = {
   acknowledged: 1,
   spieler: [],
-  schiedsrichter: [{ schiedsrichter_id: "6890a1b2c3d4e5f607190002", name: "Zorbanax Quell" }],
+  schiedsrichter: [
+    { schiedsrichter_id: "6890a1b2c3d4e5f607190002", name: "Zorbanax Quell", inactive_since: null, spiele_ohne_ergebnis_saison_ids: [] },
+  ],
   sitze: [],
   bewerbungen: [],
   registrierungen: [],

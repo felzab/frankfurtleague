@@ -43,7 +43,7 @@ from tests.app_client import app_client
 from tests.bans import ban_list
 from tests.config import ADMIN_KEY, ADMINISTRATORS, UNANSWERED_DEADLINE_S, UNANSWERED_URI, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import schiedsrichter_document
+from tests.documents import schiedsrichter_document, spiel_document
 from tests.erasure import erasure_collections
 from tests.isolation import InterleavedCollection
 from tests.whole_database import where_held
@@ -65,11 +65,13 @@ from .test_funktionen_erasure import (
     OTHER_OWNER_OID,
     OTHER_REFEREE_OID,
     OTHER_TEAM_OID,
+    PAYMENT,
     PENDING_OID,
     PUPIL_OID,
     REFEREE_NAME,
     REFEREE_OID,
     SAISON_ID,
+    SPIELTAG_OID,
     THEIR_GRANT_OID,
     THEIR_VALUES,
     TYPED,
@@ -194,6 +196,7 @@ async def revealed(database: AsyncDatabase, client: AsyncMongoClient, email: str
         spieler_collection=database[Collection.SPIELER],
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
+        spiele_collection=database[Collection.SPIELE],
         berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
         berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
         db=client,
@@ -259,12 +262,13 @@ def keys_anywhere(value: Any) -> set[str]:
     return set()
 
 
-def registration(registrierung_id: ObjectId) -> dict[str, str]:
+def registration(registrierung_id: ObjectId, status: str) -> dict[str, str]:
     return {
         "registrierung_id": str(registrierung_id),
         "saison_id": SAISON_ID,
         "team_id": str(HOME_TEAM_OID),
         "team_name": "Heim-Schule",
+        "status": status,
         "vorname": VORNAME,
         "nachname": NACHNAME,
     }
@@ -278,10 +282,13 @@ EXPECTED_ANSICHT = {
             "spieler_id": str(PUPIL_OID),
             "vorname": VORNAME,
             "nachname": NACHNAME,
-            "kader": [{"saison_id": SAISON_ID, "team_id": str(HOME_TEAM_OID), "team_name": "Heim-Schule"}],
+            "kader": [{"saison_id": SAISON_ID, "team_id": str(HOME_TEAM_OID), "team_name": "Heim-Schule", "inactive_since": None}],
         }
     ],
-    "schiedsrichter": [{"schiedsrichter_id": str(REFEREE_OID), "name": REFEREE_NAME}],
+    # Booked on a played fixture alone, which needs nobody afterwards.
+    "schiedsrichter": [
+        {"schiedsrichter_id": str(REFEREE_OID), "name": REFEREE_NAME, "inactive_since": None, "spiele_ohne_ergebnis_saison_ids": []}
+    ],
     "sitze": [
         {
             "saison_id": SAISON_ID,
@@ -302,7 +309,7 @@ EXPECTED_ANSICHT = {
             "nachname": NACHNAME,
         },
     ],
-    "registrierungen": [registration(PENDING_OID), registration(DECLINED_OID)],
+    "registrierungen": [registration(PENDING_OID, "eingereicht"), registration(DECLINED_OID, "abgelehnt")],
     "adresswechsel": [{"schiedsrichter_id": str(OTHER_REFEREE_OID)}],
     # Another pupil moving to the address: the change goes and their row stands.
     "spieler_adresswechsel": [{"spieler_id": str(MOVING_PUPIL_OID)}],
@@ -502,6 +509,39 @@ class TestTheReveal:
         assert keys_anywhere(answer) & {"email", "geburtsdatum"} == set()
         assert "@" not in response.text and GEBURTSDATUM not in response.text
         assert untouched
+
+    def test_it_serves_each_rows_retirement_and_every_season_a_referee_holds_an_unplayed_fixture_in(self, mongo_replica_set_url: str):
+        """Two unplayed fixtures share a season, named once.
+
+        A cancelled one is no booking `REQ-RETIRE-004` judges, and its season stays unnamed.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SAISON_SPIELER].update_one({"spieler_id": PUPIL_OID}, {"$set": {"inactive_since": "2026-03-20"}})
+            await database[Collection.SCHIEDSRICHTER].update_one({"_id": REFEREE_OID}, {"$set": {"inactive_since": "2026-03-21"}})
+            booking = {"schiedsrichter_id": REFEREE_OID, "name": REFEREE_NAME, "payment": PAYMENT}
+            await database[Collection.SPIELE].insert_many(
+                [
+                    spiel_document(
+                        spiel_id=ObjectId(), saison_id=saison_id, spiel_nr=spiel_nr, spieltag_id=SPIELTAG_OID, schiedsrichter=booking, **fields
+                    )
+                    for saison_id, spiel_nr, fields in (
+                        ("2028", 1, {}),
+                        ("2027", 1, {}),
+                        ("2028", 2, {}),
+                        ("2029", 1, {"sonderereignis": "ausgefallen"}),
+                    )
+                ]
+            )
+
+            return (await posted(mongo_replica_set_url, ANSICHT_PATH, ansicht_of())).json()
+
+        answer = on_a_league(mongo_replica_set_url, body)
+
+        assert [kader["inactive_since"] for kader in answer["spieler"][0]["kader"]] == ["2026-03-20"]
+        assert [(row["inactive_since"], row["spiele_ohne_ergebnis_saison_ids"]) for row in answer["schiedsrichter"]] == [
+            ("2026-03-21", ["2027", "2028"])
+        ]
 
     def test_it_names_as_many_of_each_kind_as_the_erasure_then_removes(self, mongo_replica_set_url: str):
         """Read against the erasure's own answer rather than the seed, so a kind it names short is caught whatever the seed holds."""

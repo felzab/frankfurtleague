@@ -74,7 +74,10 @@ const IMMER: readonly Zeile[] = [
   { text: "Die Adresse im Änderungsprotokoll und als Urheberin von Sperren, Einladungen, Entscheidungen und Zugängen" },
 ];
 
-/** The one consequence an administrator acts on afterwards: the erased referee's unplayed fixtures stand unassigned. */
+/**
+ * The one consequence an administrator acts on afterwards: the erased referee's unplayed fixtures stand unassigned.
+ * Said only where the reveal found one, the referee's played fixtures moving onto the ghost too.
+ */
 const NEUE_EINTEILUNG =
   "Spiele ohne Ergebnis, für die diese Person eingeteilt ist, brauchen danach eine neue Einteilung. Du findest sie dann unter „Handlungsbedarf“.";
 
@@ -108,7 +111,9 @@ export function FormLoeschungAnsicht({ ansicht }: { ansicht: LoeschungAnsicht })
         </ul>
       </div>
 
-      {ansicht.schiedsrichter.length > 0 && <p className={ZEILE_CLASSES}>{NEUE_EINTEILUNG}</p>}
+      {ansicht.schiedsrichter.some(({ spiele_ohne_ergebnis_saison_ids }) => spiele_ohne_ergebnis_saison_ids.length > 0) && (
+        <p className={ZEILE_CLASSES}>{NEUE_EINTEILUNG}</p>
+      )}
       <p className={ZEILE_CLASSES}>Zurückholen lässt sich das nicht.</p>
     </div>
   );

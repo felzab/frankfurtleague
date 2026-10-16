@@ -142,6 +142,8 @@ describe("what the interstitial restates before the press", () => {
       "Als Spielerin oder Spieler: Registrierung für Goethe Gators, Saison 2627",
       "Eine noch nicht bestätigte Adressänderung auf Deine Adresse",
       "Dein Zugang zur Verwaltung",
+      // Named whatever the read found: the erasure rewrites the log and the address's authorship, and no count says so.
+      "Deine Adresse im Änderungsprotokoll und als Urheberin von Sperren, Einladungen, Entscheidungen und Zugängen",
       "Zurückholen lässt sich das nicht.",
     ]) {
       assert.ok(text.includes(zeile), `the page does not say „${zeile}“`);
@@ -161,8 +163,8 @@ describe("what the interstitial restates before the press", () => {
       "the read serves a field this case holds no value of",
     );
 
-    // The account's own line beside one per kind.
-    assert.equal([...html(BEREIT).matchAll(/<li[ >]/g)].length, fields.filter((key) => !NO_RECORD.has(key)).length + 1);
+    // The account's own line and the log's beside one per kind.
+    assert.equal([...html(BEREIT).matchAll(/<li[ >]/g)].length, fields.filter((key) => !NO_RECORD.has(key)).length + 2);
   });
 
   /* The press would be refused, so the page offers none: one sentence serves the page and the refusal, and the

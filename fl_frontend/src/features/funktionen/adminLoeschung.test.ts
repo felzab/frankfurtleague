@@ -66,11 +66,20 @@ const NICHTS_GESPEICHERT = {
 
 /** One record of every kind the reveal names, typed against the mirror: a kind added there fails to compile here first. */
 const EIN_EINTRAG_JE_ART = {
-  spieler: [{ spieler_id: ID, vorname: "Lena", nachname: "Meier", kader: [{ saison_id: "2026", team_id: ID, team_name: "SG Alpha" }] }],
-  schiedsrichter: [{ schiedsrichter_id: ID, name: "Pia Kraft" }],
+  spieler: [
+    {
+      spieler_id: ID,
+      vorname: "Lena",
+      nachname: "Meier",
+      kader: [{ saison_id: "2026", team_id: ID, team_name: "SG Alpha", inactive_since: null }],
+    },
+  ],
+  schiedsrichter: [{ schiedsrichter_id: ID, name: "Pia Kraft", inactive_since: null, spiele_ohne_ergebnis_saison_ids: ["2026"] }],
   sitze: [{ saison_id: "2026", team_id: ID, team_name: "SG Alpha", rolle: "trainer", vorname: "Grace", nachname: "Meier" }],
   bewerbungen: [{ bewerbung_id: ID, saison_id: "2027", rolle: "ansprechperson", vorname: "Grace", nachname: "Meier" }],
-  registrierungen: [{ registrierung_id: ID, saison_id: "2026", team_id: ID, team_name: "SG Alpha", vorname: "Lena", nachname: "Meier" }],
+  registrierungen: [
+    { registrierung_id: ID, saison_id: "2026", team_id: ID, team_name: "SG Alpha", status: "eingereicht", vorname: "Lena", nachname: "Meier" },
+  ],
   adresswechsel: [{ schiedsrichter_id: ID }],
   spieler_adresswechsel: [{ spieler_id: PUPIL_ID }],
   verwaltung: "owner",
@@ -276,6 +285,23 @@ describe("the erasure's press", () => {
     assert.ok(await screen.findByRole("textbox", { name: BESTAETIGUNG }));
   });
 
+  /* The answer of a read whose arming was cancelled speaks of an address the box was edited away from: marking the box
+     with it refuses an address nobody has asked about. */
+  it("never marks an edited box with a refusal of the address it held before", async () => {
+    const { user } = await renderPage();
+    const reads = holdReads();
+    await typeRequest(user);
+
+    await user.click(screen.getByRole("button", { name: "Person löschen" }));
+    await user.click(await screen.findByRole("button", { name: "Abbrechen" }));
+    const box = within(panel("Person löschen")).getByRole("textbox", { name: "E-Mail" });
+    await user.clear(box);
+    await user.type(box, ANDERE_ADRESSE);
+
+    await act(async () => reads.answer(0, FELD_ABGELEHNT_ANTWORT(["email"])));
+    assert.deepEqual(markiert(), [], "the refusal of the address before the edit marked the box");
+  });
+
   /* Where the API's address rule parts from the panel's, its verdict lands on the box it judged, and the arming is
      undone as the panel's own verdict would have refused it: restarting would only meet the same refusal. */
   it("marks the E-Mail box with a field refusal of the reveal and stands disarmed", async () => {
@@ -429,6 +455,21 @@ describe("the reveal the arming read answers", () => {
     );
     assert.doesNotMatch(reveal, /nichts gespeichert|nur ein Konto/);
     assert.doesNotMatch(reveal, /Handlungsbedarf/, "an address holding no referee is told of fixtures to reassign");
+  });
+
+  /* A referee's played fixtures move onto the ghost too, and need nobody afterwards: sending the operator to
+     „Handlungsbedarf“ over them sends them looking for work that is not there. */
+  it("sends nobody to „Handlungsbedarf“ for a referee holding no fixture still to be played", async () => {
+    const ansicht = {
+      ...NICHTS_GESPEICHERT,
+      schiedsrichter: [{ ...EIN_EINTRAG_JE_ART.schiedsrichter[0], spiele_ohne_ergebnis_saison_ids: [] }],
+    };
+    const { user } = await renderPage({ readErasureAnsichtAction: { success: true, ansicht: ansicht } });
+    await typeRequest(user);
+    await arm(user);
+
+    assert.match(screen.getByRole("alert").textContent, /Pia Kraft/, "the reveal names no referee, so the absence below proves nothing");
+    assert.doesNotMatch(screen.getByRole("alert").textContent, /Handlungsbedarf/);
   });
 
   /* A pending change names nobody, so its line opens the record it waits on, on the season the shell shows. */

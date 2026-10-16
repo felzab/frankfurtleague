@@ -69,15 +69,19 @@ const BESTAND = {
       spieler_id: SPIELER,
       ...PERSON,
       kader: [
-        { saison_id: "2024", team_id: TEAM, team_name: "Goethe-Gymnasium" },
-        { saison_id: "2026", team_id: TEAM, team_name: "Goethe-Gymnasium" },
+        { saison_id: "2024", team_id: TEAM, team_name: "Goethe-Gymnasium", inactive_since: null },
+        { saison_id: "2026", team_id: TEAM, team_name: "Goethe-Gymnasium", inactive_since: null },
       ],
     },
   ],
-  schiedsrichter: [{ schiedsrichter_id: SCHIEDSRICHTER, name: "Zorbanax Quell" }],
+  schiedsrichter: [
+    { schiedsrichter_id: SCHIEDSRICHTER, name: "Zorbanax Quell", inactive_since: null, spiele_ohne_ergebnis_saison_ids: ["2024", "2026"] },
+  ],
   sitze: [{ team_id: TEAM, saison_id: "2026", team_name: "Goethe-Gymnasium", rolle: "trainer", ...PERSON }],
   bewerbungen: [{ bewerbung_id: BEWERBUNG, saison_id: "2027", rolle: "ansprechperson", ...PERSON }],
-  registrierungen: [{ registrierung_id: "6890a1b2c3d4e5f607250015", team_id: TEAM, saison_id: "2026", team_name: null, ...PERSON }],
+  registrierungen: [
+    { registrierung_id: "6890a1b2c3d4e5f607250015", team_id: TEAM, saison_id: "2026", team_name: null, status: "eingereicht", ...PERSON },
+  ],
   adresswechsel: [{ schiedsrichter_id: WECHSELNDER_SCHIEDSRICHTER }],
   spieler_adresswechsel: [{ spieler_id: WECHSELNDER_SPIELER }],
 };
@@ -149,12 +153,18 @@ describe("what the ban's dialog shows once the ban stands (`docs/frontend/spec.m
     const dialog = await sperren();
 
     assert.ok(screen.queryByRole("dialog") === dialog, "the dialog closed over the list");
-    assert.ok(within(dialog).queryByText(SPERRE_ANSICHT_COPY.lead) !== null, "the list stands under no lead");
+    // The registration's own sentence beside it: the lead's promise of an edit reaches no registration.
+    assert.ok(
+      within(dialog).queryByText(`${SPERRE_ANSICHT_COPY.lead} ${SPERRE_ANSICHT_COPY.registrierungen}`) !== null,
+      "the list stands under no lead, or one promising an edit of a registration",
+    );
     assert.deepEqual(verweiseIn(dialog), [
       ["Kadereintrag austragen", `/bereich/admin/spieler/${SPIELER}?saison_id=2024`],
       ["Kadereintrag austragen", `/bereich/admin/spieler/${SPIELER}?saison_id=2026`],
-      // The fixtures first: `REQ-RETIRE-004` refuses to retire a referee still booked on one.
-      ["Spiele neu besetzen", `/bereich/admin/spielsuche?schiedsrichter=${SCHIEDSRICHTER}&saison_id=2025`],
+      // The fixtures first, each season's at that season: `REQ-RETIRE-004` refuses to retire a referee still booked on
+      // one in any season, and the search reads one at a time.
+      ["Spiele der Saison 2024 neu besetzen", `/bereich/admin/spielsuche?schiedsrichter=${SCHIEDSRICHTER}&saison_id=2024`],
+      ["Spiele der Saison 2026 neu besetzen", `/bereich/admin/spielsuche?schiedsrichter=${SCHIEDSRICHTER}&saison_id=2026`],
       ["Schiedsrichter stilllegen", `/bereich/admin/schiedsrichter/${SCHIEDSRICHTER}?saison_id=2025`],
       ["Kontakte bearbeiten", `/bereich/admin/kontakte/${TEAM}?saison_id=2026`],
       ["Bewerbung öffnen", `/bereich/admin/bewerbungen/${BEWERBUNG}?saison_id=2025`],
@@ -163,6 +173,25 @@ describe("what the ban's dialog shows once the ban stands (`docs/frontend/spec.m
       ["Adressänderung ansehen", `/bereich/admin/spieler/${WECHSELNDER_SPIELER}?saison_id=2025`],
     ]);
     for (const [, href] of verweiseIn(dialog)) assert.ok(href !== null && !href.includes("@"), `${String(href)} carries an address`);
+  });
+
+  /* The registrations list serves the pending ones alone: a link to a declined one opens a list it is not on. */
+  it("links no declined registration, and names it declined", async () => {
+    antwort = () =>
+      Promise.resolve({
+        ...NICHTS,
+        registrierungen: [
+          { registrierung_id: "6890a1b2c3d4e5f607250015", team_id: TEAM, saison_id: "2026", team_name: null, status: "abgelehnt", ...PERSON },
+        ],
+      });
+
+    const dialog = await sperren();
+
+    assert.deepEqual(verweiseIn(dialog), []);
+    assert.ok(
+      within(dialog).queryByText(/^Abgelehnte Registrierung für die Saison 2026: Zorbanax Quell$/) !== null,
+      "the line hides its status",
+    );
   });
 
   /* The memberships read lists a pupil holding no squad row, and the editor opens on them: their record is what stands. */
@@ -174,14 +203,57 @@ describe("what the ban's dialog shows once the ban stands (`docs/frontend/spec.m
     assert.deepEqual(verweiseIn(dialog), [["Eintrag ansehen", `/bereich/admin/spieler/${SPIELER}?saison_id=2025`]]);
   });
 
-  /* Opened again, the dialog is the next ban's form: a list left standing would name the last address's records. */
-  it("says the address holds nothing where it holds nothing, and closes on „Fertig“ to open on the form again", async () => {
+  /* A row taken out and a referee retired have nothing left to take out: their editors offer no austragen and no
+     retirement, so a link promising one opens a page without it. */
+  it("offers no austragen of a squad row taken out and no retirement of a referee retired, linking their records", async () => {
+    antwort = () =>
+      Promise.resolve({
+        ...NICHTS,
+        spieler: [
+          {
+            spieler_id: SPIELER,
+            ...PERSON,
+            kader: [
+              { saison_id: "2024", team_id: TEAM, team_name: "Goethe-Gymnasium", inactive_since: "2025-02-01" },
+              { saison_id: "2026", team_id: TEAM, team_name: "Goethe-Gymnasium", inactive_since: null },
+            ],
+          },
+        ],
+        schiedsrichter: [
+          { schiedsrichter_id: SCHIEDSRICHTER, name: "Zorbanax Quell", inactive_since: "2025-03-01", spiele_ohne_ergebnis_saison_ids: [] },
+        ],
+      });
+
+    const dialog = await sperren();
+
+    // No fixtures link either: the referee holds no booking still to be played.
+    assert.deepEqual(verweiseIn(dialog), [
+      ["Eintrag ansehen", `/bereich/admin/spieler/${SPIELER}?saison_id=2024`],
+      ["Kadereintrag austragen", `/bereich/admin/spieler/${SPIELER}?saison_id=2026`],
+      ["Eintrag ansehen", `/bereich/admin/schiedsrichter/${SCHIEDSRICHTER}?saison_id=2025`],
+    ]);
+    // The season placed as every other line places it, the erasure's reveal of the same row included.
+    assert.ok(
+      within(dialog).queryByText(
+        /^Spielerin oder Spieler: Zorbanax Quell, im Kader von Goethe-Gymnasium, Saison 2024, ausgetragen seit 01\.02\.2025$/,
+      ) !== null,
+      "the row taken out reads as one still in, or places its season otherwise",
+    );
+    assert.ok(within(dialog).queryByText(/Zorbanax Quell, stillgelegt seit 01\.03\.2025$/) !== null, "the retired referee reads as active");
+  });
+
+  /* The account and the log hold the address whatever the read found, so „nothing stored“ would be false. Opened again,
+     the dialog is the next ban's form: a list left standing would name the last address's records. */
+  it("says the address holds no record, names its account and the log, and closes on „Fertig“ to open on the form again", async () => {
     antwort = () => Promise.resolve(NICHTS);
     const user = userEvent.setup();
 
     const dialog = await sperren();
 
-    assert.ok(within(dialog).queryByText(SPERRE_ANSICHT_COPY.leer) !== null, "an empty answer reads as something else");
+    for (const satz of [SPERRE_ANSICHT_COPY.leer, SPERRE_ANSICHT_COPY.konto, SPERRE_ANSICHT_COPY.protokoll]) {
+      assert.ok(within(dialog).queryByText(satz) !== null, `an empty answer leaves out „${satz}“`);
+    }
+    assert.doesNotMatch(dialog.textContent, /nichts gespeichert/, "the empty answer says nothing is stored");
     assert.deepEqual(verweiseIn(dialog), []);
     await user.click(within(dialog).getByRole("button", { name: SPERRE_ANSICHT_COPY.fertig }));
     await waitFor(() => assert.ok(screen.queryByRole("dialog") === null, "„Fertig“ left the dialog open"));

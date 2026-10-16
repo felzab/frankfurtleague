@@ -19,7 +19,12 @@ from app.api.identitaet.schemas import FLErasureAnsicht, FLSelbstErasureAnsicht,
 from app.api.kontakte.services import rows_possibly_naming, same_address
 from app.api.registrierungen.services import SUBMITTED, build_eigene_registrierung_filter, build_erasure_registrierung_filter
 from app.api.saisons.schemas import FLSaisonStatus
-from app.api.schiedsrichter.services import ADRESSWECHSEL_FELD, build_real_referees_filter, build_selbst_referee_filter
+from app.api.schiedsrichter.services import (
+    ADRESSWECHSEL_FELD,
+    build_real_referees_filter,
+    build_selbst_referee_filter,
+    build_unplayed_assignment_filter,
+)
 from app.api.spieler.services import SPIELER_ADRESSWECHSEL_FELD, build_real_spieler_filter, build_selbst_pupil_filter
 from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.collections import Collection as DbCollection
@@ -94,7 +99,11 @@ def build_erasure_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
 
 
 def build_erasure_referee_pipeline(identifier: str) -> list[Mapping[str, Any]]:
-    return [{"$match": build_selbst_referee_filter(identifier)}, {"$project": {"name": 1, "kontakt.email": 1}}, {"$sort": {"_id": 1}}]
+    return [
+        {"$match": build_selbst_referee_filter(identifier)},
+        {"$project": {"name": 1, "kontakt.email": 1, "inactive_since": 1}},
+        {"$sort": {"_id": 1}},
+    ]
 
 
 def build_erasure_pupil_pipeline(identifier: str) -> list[Mapping[str, Any]]:
@@ -104,7 +113,7 @@ def build_erasure_pupil_pipeline(identifier: str) -> list[Mapping[str, Any]]:
 def build_erasure_registrierung_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     return [
         {"$match": build_erasure_registrierung_filter(identifier)},
-        {"$project": {"saison_id": 1, "team_id": 1, "email": 1, "vorname": 1, "nachname": 1}},
+        {"$project": {"saison_id": 1, "team_id": 1, "status": 1, "email": 1, "vorname": 1, "nachname": 1}},
         {"$sort": {"saison_id": 1, "_id": 1}},
     ]
 
@@ -162,12 +171,23 @@ def pending_addresses_of(
     return [row for row in rows if folds_to((row.get(feld) or {}).get("email"), identifier) and not folds_to(stored(row), identifier)]
 
 
+def build_unplayed_saison_pipeline(schiedsrichter_ids: Iterable[Any]) -> list[Mapping[str, Any]]:
+    """Each season holding a fixture still to be played that one of these referees is booked on, by `REQ-RETIRE-004`'s own filter."""
+
+    return [
+        {"$match": build_unplayed_assignment_filter({"$in": list(schiedsrichter_ids)})},
+        {"$group": {"_id": {"schiedsrichter_id": "$schiedsrichter.schiedsrichter_id", "saison_id": "$saison_id"}}},
+        {"$replaceWith": "$_id"},
+        {"$sort": {"saison_id": 1}},
+    ]
+
+
 def build_erasure_kader_pipeline(spieler_ids: Iterable[Any]) -> list[Mapping[str, Any]]:
     """Every squad row of these pupils, a retired one included, as the pupil's step selects what it removes."""
 
     return [
         {"$match": {"spieler_id": {"$in": list(spieler_ids)}}},
-        {"$project": {"spieler_id": 1, "saison_id": 1, "team_id": 1}},
+        {"$project": {"spieler_id": 1, "saison_id": 1, "team_id": 1, "inactive_since": 1}},
         {"$sort": {"saison_id": 1, "team_id": 1, "_id": 1}},
     ]
 
@@ -204,7 +224,12 @@ def _team_names(team_rows: Iterable[Mapping[str, Any]]) -> dict[tuple[Any, Any],
 
 
 def _kader_entry(row: Mapping[str, Any], team_names: Mapping[tuple[Any, Any], Any]) -> dict[str, Any]:
-    return {"saison_id": row["saison_id"], "team_id": row["team_id"], "team_name": team_names.get((row["saison_id"], row["team_id"]))}
+    return {
+        "saison_id": row["saison_id"],
+        "team_id": row["team_id"],
+        "team_name": team_names.get((row["saison_id"], row["team_id"])),
+        "inactive_since": row.get("inactive_since"),
+    }
 
 
 def compose_erasure_ansicht(
@@ -246,6 +271,7 @@ def compose_erasure_ansicht_auf_anfrage(
     spieler_adresswechsel_rows: Sequence[Mapping[str, Any]],
     kader_rows: Sequence[Mapping[str, Any]],
     team_rows: Sequence[Mapping[str, Any]],
+    unplayed_rows: Sequence[Mapping[str, Any]],
 ) -> FLErasureAnsicht:
     """The administrator's reveal, from the rows the erasure's own subject read holds, by the ids the page links each record by.
 
@@ -264,14 +290,24 @@ def compose_erasure_ansicht_auf_anfrage(
                 }
                 for row in pupil_rows
             ],
-            "schiedsrichter": [{**_referee_entry(row), "schiedsrichter_id": row["_id"]} for row in referee_rows],
+            "schiedsrichter": [
+                {
+                    **_referee_entry(row),
+                    "schiedsrichter_id": row["_id"],
+                    "inactive_since": row.get("inactive_since"),
+                    "spiele_ohne_ergebnis_saison_ids": [
+                        unplayed["saison_id"] for unplayed in unplayed_rows if unplayed["schiedsrichter_id"] == row["_id"]
+                    ],
+                }
+                for row in referee_rows
+            ],
             "sitze": [
                 {**_seat_entry(row, slot), "team_name": row.get("name"), "team_id": row["team_id"]}
                 for row, slot in seats_naming(saison_team_rows, identifier)
             ],
             "bewerbungen": [{**_seat_entry(row, slot), "bewerbung_id": row["_id"]} for row, slot in seats_naming(bewerbung_rows, identifier)],
             "registrierungen": [
-                {**_registrierung_entry(row, team_names), "registrierung_id": row["_id"], "team_id": row["team_id"]}
+                {**_registrierung_entry(row, team_names), "registrierung_id": row["_id"], "team_id": row["team_id"], "status": row["status"]}
                 for row in registrierung_rows
             ],
             "adresswechsel": [{"schiedsrichter_id": row["_id"]} for row in adresswechsel_rows],

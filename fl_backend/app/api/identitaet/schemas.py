@@ -7,11 +7,12 @@ from app.api.berechtigungen.schemas import FLUtcInstant, FLVerwaltung
 # The wire's spelling of the three seats, imported rather than restated: a second closed set here
 # would name a seat no other endpoint publishes.
 from app.api.bewerbungen.schemas import FLKontaktRolle
+from app.api.registrierungen.schemas import FLRegistrierungStatus
 from app.api.saisons.schemas import FLSaisonStatus
 from app.api.sperrliste.schemas import ADDRESS_IN_FREE_TEXT
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.bounds import ERASURE_ANLASS_MAX_LENGTH, KONTAKT_EMAIL_MAX_LENGTH, REFERENZEN_ADRESSEN_MAX
-from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomObjectId
+from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.kontakt import CustomEmail
 from app.shared.schemas.responses import BaseAPIResponse
 
@@ -299,6 +300,8 @@ class FLErasureAnsichtKader(BaseModel):
     team_id: CustomObjectId
     # The season row's name, null where no season row names the team that season.
     team_name: str | None
+    # Null on a live row: a ban's dialog offers to take out only a row still in the squad.
+    inactive_since: CustomOptionalDateString
 
 
 class FLErasureAnsichtSpieler(FLSelbstErasureSpieler):
@@ -309,6 +312,11 @@ class FLErasureAnsichtSpieler(FLSelbstErasureSpieler):
 
 class FLErasureAnsichtSchiedsrichter(FLSelbstErasureSchiedsrichter):
     schiedsrichter_id: CustomObjectId
+    # Null on a live row: a ban's dialog offers to retire only a referee still active.
+    inactive_since: CustomOptionalDateString
+    # Every season, in order, holding a fixture still to be played that this referee is booked on, as
+    # `REQ-RETIRE-004` judges one: the fixture search opens on one season, so each is reached in its own.
+    spiele_ohne_ergebnis_saison_ids: list[str]
 
 
 class FLErasureAnsichtSitz(FLSelbstErasureSitz):
@@ -322,6 +330,8 @@ class FLErasureAnsichtBewerbung(FLSelbstErasureBewerbung):
 class FLErasureAnsichtRegistrierung(FLSelbstErasureRegistrierung):
     registrierung_id: CustomObjectId
     team_id: CustomObjectId
+    # The administrator's registrations list serves the pending ones alone, so a ban's dialog links no declined one.
+    status: FLRegistrierungStatus
 
 
 class FLErasureAnsichtAdresswechsel(BaseModel):

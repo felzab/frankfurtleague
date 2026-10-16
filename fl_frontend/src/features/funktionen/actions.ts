@@ -43,9 +43,10 @@ async function kontoLoeschen(email: string): Promise<KontoNachLoeschung> {
 /** The sentence each outcome is told in, beside the title the panel gives it. */
 function loeschungSatz(konto: KontoNachLoeschung, gespeichert: boolean, spiele: number): string {
   // The one sentence an administrator acts on afterwards: an unplayed fixture of an erased referee stands unassigned.
+  // Conditional, as `spiele` counts the played fixtures moved onto the ghost too.
   const folge =
     spiele > 0
-      ? " Spiele ohne Ergebnis, für die diese Person eingeteilt war, brauchen eine neue Einteilung. Du findest sie unter „Handlungsbedarf“."
+      ? " War diese Person für Spiele ohne Ergebnis eingeteilt, brauchen diese Spiele eine neue Einteilung. Du findest sie unter „Handlungsbedarf“."
       : "";
 
   if (konto === "nichtGeloescht") {
