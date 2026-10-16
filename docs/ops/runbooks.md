@@ -144,6 +144,16 @@ the machine is outside the repository. What it does tell you:
   restores the running build by image id and runs no preflight, so the first deploy of a build
   carrying the check can still fall back to the build before it. Then publish a fixed build rather
   than deploying the restored one by the tag the script names.
+- **Never deploy by tag a build declaring no
+  `fl_backend/app/core/sentinels.py :: GHOST_SPIELER_ID` once a later build has erased a pupil or an
+  administrator; roll forward instead.** Each erasure writes a row such a build cannot read, and
+  nothing refuses the deploy:
+  - a pupil's, the season-after deletion's among them, writes the erased pupils' sentinel with no
+    name, so that build's player list in the administration answers 500;
+  - an administrator's queues a grant notice withheld as `geloescht`, which that build's hourly grant
+    pass cannot parse, so every pass fails and no change of access is mailed again, where the row is
+    still queued as that build boots;
+  - that build's boot attaches its own validators again (§2), which refuse any write over either row.
 - **After serving a build older than the season-row confirmation links, re-send the link of every
   contact seat that build re-staffed, once the current build is back.** That build's contacts editor
   leaves a row's links standing when it hands a seat to another person, and the confirmation finds a
@@ -479,7 +489,8 @@ ABGLEICH_INTERVAL_MS`) finds the row, it is dated by its own `erteilt_am`, or by
   older desktop with no biometric and no PIN is the case that turns up. Give them a FIDO2 key with
   resident-key and user-verification support, or a second device they can enrol from; there is no
   password and no code to fall back to. **Where nobody can get in at all, the way back is the
-  previous image** (§1's deploy by tag), which authenticates against the store that build carries —
+  previous image** (§1's deploy by tag, never past the floors §1 sets on it), which authenticates
+  against the store that build carries —
   so it works only while that store is still there, and dropping it is what closes this route.
 - **A removal is not a recovery route, and no control offers one to a session a mailed code alone
   made**: such a session could otherwise swap the administrator's passkey for a stolen mailbox's,
@@ -762,7 +773,9 @@ by mail instead has two answers, and which one you give is the person's to choos
   the pupil's own answer
   (`fl_backend/app/api/registrierungen/services.py :: compose_person_update`). Where the window is
   shut, no route keeps their place with the name withheld, and „Löschung auf Anfrage“ reaches no
-  record holding no address: which route answers that request is not decided
+  record holding no address: theirs goes with this season's pupil reset
+  ([section 12](#12-deleting-this-seasons-player-records-and-resetting-the-action-log)), which may
+  fall after the month Art. 12(3) gives for answering
   ([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)). Either write that
   withholds the name drops the cached
   squad list, and the next read serves the row as a nameless slot
@@ -801,9 +814,13 @@ administrator's own, which goes through their account page or another administra
 an administrator who is not one; and any under the reserved `.invalid` domain, which every referee
 row stored without an address shares, so that an erasure of it would reach them all at once
 (`fl_backend/app/api/identitaet/schemas.py :: refuse_the_reserved_domain`). Which route answers the
-person behind such a row, or behind a pupil row holding no address, is not decided, and what each
-route open today costs is
-[`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)'s. The page mails the
+person behind such a row is the address route all the same
+([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)): save their own
+address on the row in the referee editor, which on a row still in service mails them a confirmation
+link first, then erase that address; otherwise the row goes with the referee drop, immediately
+before the deploy whose fixture read first consults a referee's own consent
+([section 12](#12-deleting-this-seasons-player-records-and-resetting-the-action-log)). A pupil row
+holding no address waits for that section's pupil reset at the end of this season. The page mails the
 person nothing. **Erasing an administrator's address tells every
 administrator, as a revoke does**: the grant's end goes out with the other changes of access, the
 notice naming no address (`docs/backend/spec.md :: I659`). On the same page „Überall abmelden“ ends
@@ -825,8 +842,10 @@ mails the person itself where the address holds a sign-in account**, naming the 
 the last season the ban covers, so there is nothing to send by hand; an address that never signed in
 is mailed nothing, and the page says so. Where the send fails, or the sign-in store could not say
 whether an account holds the address, the page says the notice did not go, and there is then no
-address left anywhere to try again with. **The same write ends every live sign-in of the address**, keeping its
-account and passkeys (`docs/frontend/spec.md :: I402`), which then stay only while a record holds the address; where that fails the
+address left anywhere to try again with. **The same write ends every live sign-in of the address**
+(`docs/frontend/spec.md :: I402`), keeping its account and passkeys, which then stay only while a
+record holds the address (`:: I699`,
+[`../datenschutz.md`](../datenschutz.md#6-retention-is-bounded-where-a-bound-was-chosen)); where that fails the
 page says so too, every person page refuses the sessions as no session at all
 (`docs/frontend/spec.md :: I406`), and each is deleted the next time its browser reaches the sign-in
 page (`docs/frontend/spec.md :: I518`). **Every later sign-in of the address
@@ -856,9 +875,12 @@ own season (`docs/frontend/spec.md :: I688`), and says beneath them how long the
 account stays ([section 9](#9-checking-that-the-hourly-passes-have-run)) and that its log rows and
 authorship stay. „Adresse sperren“ reads and shows the list, and „Ja, Adresse sperren“ enters the
 ban: closing the dialog in between bans nobody, and an edit of the address takes the list away until
-it is read again (`docs/frontend/spec.md :: I724`). Each link opens in a tab of its own, so the list
-stays open beside it; work through it before „Ja, Adresse sperren“, since the dialog closes on the
-ban.
+it is read again (`docs/frontend/spec.md :: I724`). **An address the list already holds is refused
+at the first press**, on the address box in a second ban's words and with no list shown (`:: I730`);
+one barred by somebody else after that read is refused the same way at the second. **Past the
+step-up window the second press asks the passkey first**, reading „Mit Passkey bestätigen“, as
+lifting a ban does (`:: I727`). Each link opens in a tab of its own, so the list stays open beside
+it; work through it before the second press, since the dialog closes on the ban.
 
 - a referee: „Spiele der Saison … neu besetzen“, one link for each season holding an unplayed
   fixture they are booked on, opens the fixture search at that season to reassign them, then
@@ -878,8 +900,8 @@ ban.
   editor, whose „Änderung verwerfen“ removes it;
 - a pupil holding no squad row: „Eintrag ansehen“ opens their record.
 
-Where the dialog says the list could not be loaded, the ban stands and these records are found by
-hand.
+Where the dialog says the list could not be loaded, it bans nobody until a later read shows the list
+(`docs/frontend/spec.md :: I724`).
 
 **A ban lapses five full seasons after the one it was entered under, and the row is removed at the
 activation that runs past it.** The season it was entered in does not count, so a ban entered while
@@ -1219,7 +1241,9 @@ report.
 ends by removing the referees' and the pupils' pending addresses whose link lapsed before today,
 and, where `LOESCHUNG_SWEEP` reads `on`, by deleting the pupils the season-after rule makes due.
 Each writes one line per pass holding its counts and no person —
-`schiedsrichter.adresswechsel_sweep_pass` and `loeschung.sweep_pass` — and a half that threw files
+`schiedsrichter.adresswechsel_sweep_pass` and `loeschung.sweep_pass`, at `INFO` where the pass left
+no row due, which a `LOG_LEVEL` above `INFO` drops, and as a warning where it left rows due — and a
+half that threw files
 `schiedsrichter.adresswechsel_sweep_failed` or `loeschung.sweep_failed` under `FE-SWEEP-001`
 besides.
 
@@ -1287,6 +1311,9 @@ so neither an activation nor a pass deletes a pupil until you set it.
 2. Add `LOESCHUNG_SWEEP=on` to the server's `fl_frontend/.env` and deploy (§1). The frontend reads
    it once as it boots, and the season page then says the press will delete them.
 
+**Switching it off is that line set to `off`, and a deploy**: until the frontend has booted on it, a
+pass or a press can still delete.
+
 **The account sweep stores no date, so its own line in the frontend's log is the answer**
 ([`spec.md`](spec.md) §1.1). Every pass that completes writes one `konto.sweep_completed` line,
 counting the accounts it listed, those answered unreferenced, deleted, already gone, and those a
@@ -1294,8 +1321,12 @@ failure left for the next pass, never naming an address:
 
     docker compose logs --since 2h frontend | grep konto.sweep_
 
+**`KONTO_SWEEP=off` in the server's `fl_frontend/.env`, and a deploy (§1), stop it**: the frontend
+reads the switch once as it boots, and it ships `on`, so the sweep runs wherever the file sets none.
+
 **No `konto.sweep_completed` line in two hours means no pass completed, or the line went
-unwritten.** A `LOG_LEVEL` above `INFO` drops it, the line being `INFO`; otherwise `KONTO_SWEEP` is
+unwritten.** A `LOG_LEVEL` above `INFO` drops it where no failure left an account for the next
+pass, the line then being `INFO`, while a pass leaving one warns; otherwise `KONTO_SWEEP` is
 off, the build is not a production one, or the timer stopped, which recreating the frontend service
 re-arms. A `konto.sweep_failed` line says the sign-in store could not be listed. A
 `konto.sweep_skipped` line says a tick found the previous pass still running, and one in every hour
