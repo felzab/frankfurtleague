@@ -112,6 +112,7 @@ const BANS = [
   ["declare-first", /Declare a write's first cache tags before/],
   ["unanswered-rejection", /Hand `unansweredAction` the rejection it answers/],
   ["refusal-where", /Name a refusal's `where` by the constant/],
+  ["refusal-alias", /Import and export `buildRefusal` under its own name/],
   ["logged-error", /Hand `logger\.error` `undefined`/],
   ["unknown-class", /^Unknown class detected/],
   ["class-order", /^Incorrect class order/],
