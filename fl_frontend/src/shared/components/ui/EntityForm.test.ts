@@ -37,8 +37,15 @@ type Draft = { name: string };
  */
 const { track: handedOut, answered } = answersInFlight();
 
+/** What a save hands the second state its caller names. */
+type Saved = { success: true; message: string };
+
 /** A caller whose payload step trims: the padded value as typed is one the schema below refuses. */
-function renderTrimmingCaller(onSubmit: (payload: Draft) => Promise<ActionResult>, onClose: () => void = () => undefined) {
+function renderTrimmingCaller(
+  onSubmit: (payload: Draft) => Promise<ActionResult>,
+  onClose: () => void = () => undefined,
+  onSaved?: (saved: Saved) => void,
+) {
   render(
     underNext(
       h(EntityForm<Draft, Draft>, {
@@ -56,12 +63,44 @@ function renderTrimmingCaller(onSubmit: (payload: Draft) => Promise<ActionResult
         onSubmit: (payload: Draft) => handedOut("onSubmit", onSubmit(payload)),
         successMessage: "Angelegt",
         onClose,
+        onSaved,
       }),
     ),
   );
 }
 
 describe("the create form", () => {
+  /* Every create but the ban's has nothing to show once it saved: left open, the dialog invites a second
+     press that creates the record again. */
+  it("closes on a save where its caller names no second state", async () => {
+    const user = userEvent.setup();
+    const onClose = mock.fn();
+    renderTrimmingCaller(async () => ({ success: true, message: "Angelegt" }), onClose);
+
+    await user.type(screen.getByRole("textbox", { name: "Name" }), "Lena");
+    await user.click(screen.getByRole("button", { name: "Speichern" }));
+    await act(answered);
+
+    await waitFor(() => assert.equal(onClose.mock.callCount(), 1, "a save left the dialog open over the record it created"));
+  });
+
+  /* The ban's dialog shows what the barred address still holds, which only the save's own answer carries. */
+  it("hands a save to the second state its caller names, and closes nothing", async () => {
+    const user = userEvent.setup();
+    const saved: Saved = { success: true, message: "Angelegt" };
+    const onClose = mock.fn();
+    const onSaved = mock.fn((_saved: Saved) => undefined);
+    renderTrimmingCaller(async () => saved, onClose, onSaved);
+
+    await user.type(screen.getByRole("textbox", { name: "Name" }), "Lena");
+    await user.click(screen.getByRole("button", { name: "Speichern" }));
+    await act(answered);
+
+    await waitFor(() => assert.equal(onSaved.mock.callCount(), 1, "the second state was never handed the save"));
+    assert.ok(onSaved.mock.calls[0]?.arguments[0] === saved, "the second state was handed something other than the action's answer");
+    assert.equal(onClose.mock.callCount(), 0, "the dialog closed over the second state its caller named");
+  });
+
   /* The block judges the payload step's output, so handing the write the raw draft sends a value the
      schema never saw, one it would have refused. */
   it("sends the payload the block judged, not the draft it was built from", async () => {

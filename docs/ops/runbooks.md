@@ -824,12 +824,26 @@ Nothing of the ban is written on those records, so lifting a mistaken ban lets a
 its deadline open on its form again. Nothing else refuses on the list, so a person reading the
 queue is still what keeps a barred address out of everything a sign-up does not cover. **What the address already
 holds stays until you take it away** — a record it confirmed before the ban, and one it can no
-longer confirm alike — and the ban names none of it:
+longer confirm alike — and the ban's row names none of it. **The dialog the ban was entered in lists
+every such record once the ban stands**, each linked to the page acting on it at the record's own
+season (`docs/frontend/spec.md :: I688`). Each link opens in a tab of its own, so the list stays
+open beside it; work through it before „Fertig“, since once the dialog closes nothing finds those
+records from the ban again.
 
-- a referee still booked on an unplayed fixture: reassign those fixtures first, then retire the
-  referee, which `REQ-RETIRE-004` holds to that order;
-- a pupil's squad row: retire it, which takes the pupil off the public squad list;
-- a contact seat: replace or clear it on the team's season.
+- a referee: „Spiele neu besetzen“ reassigns their unplayed fixtures, then „Schiedsrichter
+  stilllegen“ retires them, which `REQ-RETIRE-004` holds to that order;
+- a pupil's squad row: „Kadereintrag austragen“ retires it, which takes the pupil off the public
+  squad list;
+- a contact seat: „Kontakte bearbeiten“ replaces or clears it on the team's season;
+- a seat on an application: „Bewerbung öffnen“, whose „Neu besetzen“ seats the replacement the
+  school names;
+- a registration: „Registrierungen ansehen“, its team deciding it;
+- another referee's pending change of address to it: „Adressänderung ansehen“ opens that
+  referee's editor, whose „Änderung verwerfen“ removes it;
+- a pupil holding no squad row: „Eintrag ansehen“ opens their record.
+
+Where the dialog says the list could not be loaded, the ban stands and these records are found by
+hand.
 
 **A ban lapses five full seasons after the one it was entered under, and the row is removed at the
 activation that runs past it.** The season it was entered in does not count, so a ban entered while
