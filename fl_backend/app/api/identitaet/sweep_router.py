@@ -156,7 +156,8 @@ async def post_loeschung_lauf(
     writes waits for it to end: the entry then finds nobody, and the registration is stored for a pupil already gone.
     Two calls at once therefore delete each pupil once. Deleted are
     the pupil's own data alone: the pupil record, every squad row it holds and every registration at the address, a declined
-    one included, each with its log images. A contact seat, a referee record, a grant and anything else held at the same
+    one included, each with its log images, and their day counts as a pupil; every log row they wrote as a pupil keeps a
+    fixed marker in their place. A contact seat, a referee record, a grant and anything else held at the same
     address stand, and so do the log images naming them.
 
     **A pass is a run of calls, each handing the next the `nach` the last answered**, the first naming none; it ends at the call
