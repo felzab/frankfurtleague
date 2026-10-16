@@ -205,7 +205,6 @@ const FIXTURES: Record<string, (origin: string) => { html: string; text: string 
     buildPasskeyGeloeschtEmail({ zeitpunkt: new Date("2026-01-15T22:30:00Z"), origin: origin, konto: "/bereich/konto" }),
   buildRegistrierungBestaetigungEmail: (origin) =>
     buildRegistrierungBestaetigungEmail({
-      vorname: "Mira",
       teamName: "Ernst-Reuter-Schule",
       saisonId: "2627",
       origin: origin,
@@ -216,7 +215,6 @@ const FIXTURES: Record<string, (origin: string) => { html: string; text: string 
     }),
   buildRegistrierungErinnerungEmail: (origin) =>
     buildRegistrierungErinnerungEmail({
-      vorname: "Mira",
       teamName: "Ernst-Reuter-Schule",
       saisonId: "2627",
       origin: origin,

@@ -206,7 +206,7 @@ export function FormTeamErsatzSection({
               <Callout
                 severity="info"
                 title="Zu diesem Team gibt es keine Daten mehr">
-                Der Platz steht in der Saison, das Team dahinter ist aber nicht mehr angelegt. Der Wechsel gibt den Platz trotzdem weiter: Das
+                Der Platz steht in der Saison, das Team dahinter ist aber nicht mehr angelegt. Der Wechsel gibt den Platz weiter: Das
                 nachrückende Team steht danach in der Gruppe, die auf dem Platz eingetragen ist.
               </Callout>
             )}

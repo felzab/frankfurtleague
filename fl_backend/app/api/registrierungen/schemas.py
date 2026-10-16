@@ -354,7 +354,8 @@ class FLRegistrierungSweepErinnerung(BaseModel):
     # Empty where the team row is gone, as the application sweep's `schule` is: a message naming no
     # team is worth more than a pass that stops.
     team: str
-    vorname: CustomNonEmptyString
+    # No first name: this address is unconfirmed, after a typo a stranger's, and the message to it
+    # greets nobody by name.
     email: CustomNonEmptyString
     # No deadline: the message names the window in days from the mirrored bound rather than a date,
     # so a chase cannot state a day the stored one has moved away from.

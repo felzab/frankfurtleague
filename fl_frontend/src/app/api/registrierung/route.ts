@@ -69,7 +69,6 @@ export async function POST(request: NextRequest) {
         recipients: [eingang.email],
         buildMail: () =>
           buildRegistrierungBestaetigungEmail({
-            vorname: parsed.data.vorname,
             // Off the write's own answer and never off the body: anyone holding the invite could
             // otherwise decide what the league's message says about the team it names.
             teamName: eingang.team,

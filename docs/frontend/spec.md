@@ -1646,9 +1646,10 @@ The banner rules:
 - **Say what is now true rather than what stopped being true** — a negation makes the reader invert
   it. **A prohibition is exempt**: where the rule itself is that something may no longer be done,
   `nicht mehr möglich` IS what is now true.
-- **These come out wherever they appear**: the causal tail (`deshalb`, `damit`, `so`); the scope
-  tail (`überall`); a trailing `auch …` naming the edge case already covered; `sobald Du
-speicherst`; emphasis on a verb that carries itself; and reassurance (`trotzdem`).
+- **These come out wherever a banner or a `Callout` carries them**: the causal tail (`deshalb`,
+  `damit`, `so`); the scope tail (`überall`); a trailing `auch …` naming the edge case already
+  covered; `sobald Du speicherst`; emphasis on a verb that carries itself; and reassurance
+  (`trotzdem`). **The list does not reach a page's own state panel** (my rule, 2026-10-16).
 - **The trailing `auch` has two exceptions**, each naming a subject the sentence before it cannot
   reach. **The first is the clause naming that a change reaches fixtures that are already played**
   (my rule, 2026-08-27): a reader who has just typed reads a save as forward-looking, so the test

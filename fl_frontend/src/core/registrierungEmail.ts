@@ -40,9 +40,11 @@ export function spielerBestaetigungsLink(origin: string, token: string): string 
 /** One message as this slice builds it, in the two parts every message here carries. */
 export type RegistrierungEmail = { subject: string; html: string; text: string };
 
-/** What the two link messages are addressed with. The surname never travels: a forwarded link learns no full name. */
+/**
+ * What the two link messages are addressed with. No name, unlike the notes, which reach a confirmed
+ * address alone: this one has proved nothing, and after a typo its stranger is owed no pupil's name.
+ */
 export interface RegistrierungLinkEmailData {
-  readonly vorname: string;
   readonly teamName: string;
   readonly saisonId: string;
   /** The serving origin (`docs/frontend/spec.md :: I186`), RAW: the builder normalises it once. */
@@ -103,8 +105,8 @@ function linkBloecke(url: string, fristTage: number): readonly string[] {
   ];
 }
 
-const bestaetigungSaetze = ({ vorname, teamName, saisonId, fristTage }: RegistrierungLinkEmailData): readonly string[] => [
-  `Hallo ${vorname}, Du hast Dich für ${teamName} in der Saison ${saisonId} der ${BRAND_NAME} registriert.`,
+const bestaetigungSaetze = ({ teamName, saisonId, fristTage }: RegistrierungLinkEmailData): readonly string[] => [
+  `Hallo, Du hast Dich für ${teamName} in der Saison ${saisonId} der ${BRAND_NAME} registriert.`,
   "Über den Button unten bestätigst Du die Registrierung, trägst Dein Geburtsdatum ein und entscheidest, was mit Deinen Angaben passieren darf. Erst danach kann Dein Team Dich in den Kader aufnehmen.",
   `Bestätigst Du nicht innerhalb von ${String(fristTage)} Tagen, löschen wir die Registrierung mit allen Angaben. Du kannst Dich dann über den Link Deines Teams neu registrieren.`,
 ];
@@ -132,7 +134,7 @@ export function buildRegistrierungBestaetigungEmail(data: RegistrierungLinkEmail
       ueberschrift: escapeHtml("Registrierung bestätigen"),
       bloecke: [
         paragraph(
-          `Hallo ${strong(escapeHtml(data.vorname))}, Du hast Dich für ${strong(escapeHtml(data.teamName))} in der ${brandPhrase(`Saison ${escapeHtml(data.saisonId)}`)} der ${BRAND_NAME} registriert.`,
+          `Hallo, Du hast Dich für ${strong(escapeHtml(data.teamName))} in der ${brandPhrase(`Saison ${escapeHtml(data.saisonId)}`)} der ${BRAND_NAME} registriert.`,
         ),
         paragraph(escapeHtml(worum ?? "")),
         paragraph(escapeHtml(frist ?? "")),
@@ -167,8 +169,8 @@ export function buildRegistrierungBestaetigungEmail(data: RegistrierungLinkEmail
   };
 }
 
-const erinnerungSaetze = ({ vorname, teamName, saisonId, fristTage }: RegistrierungLinkEmailData): readonly string[] => [
-  `Hallo ${vorname}, Deine Registrierung für ${teamName} in der Saison ${saisonId} der ${BRAND_NAME} ist noch nicht bestätigt.`,
+const erinnerungSaetze = ({ teamName, saisonId, fristTage }: RegistrierungLinkEmailData): readonly string[] => [
+  `Hallo, Deine Registrierung für ${teamName} in der Saison ${saisonId} der ${BRAND_NAME} ist noch nicht bestätigt.`,
   `Die Frist von ${String(fristTage)} Tagen läuft weiter. Diese Erinnerung verschiebt sie nicht. Bestätigst Du bis dahin nicht, löschen wir die Registrierung mit allen Angaben.`,
   "Der Link aus der ersten E-Mail funktioniert weiterhin. Dieser hier funktioniert genauso.",
 ];
@@ -191,7 +193,7 @@ export function buildRegistrierungErinnerungEmail(data: RegistrierungLinkEmailDa
       ueberschrift: escapeHtml("Erinnerung"),
       bloecke: [
         paragraph(
-          `Hallo ${strong(escapeHtml(data.vorname))}, Deine Registrierung für ${strong(escapeHtml(data.teamName))} in der ${brandPhrase(`Saison ${escapeHtml(data.saisonId)}`)} der ${BRAND_NAME} ist noch nicht bestätigt.`,
+          `Hallo, Deine Registrierung für ${strong(escapeHtml(data.teamName))} in der ${brandPhrase(`Saison ${escapeHtml(data.saisonId)}`)} der ${BRAND_NAME} ist noch nicht bestätigt.`,
         ),
         paragraph(escapeHtml(frist ?? "")),
         paragraph(escapeHtml(zweiLinks ?? ""), "0 0 16px", ASIDE_TEXT),
