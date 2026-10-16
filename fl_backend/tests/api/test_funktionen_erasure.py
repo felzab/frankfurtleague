@@ -26,7 +26,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure, PyMongoError
 
 from app.api.bewerbungen.services import hash_token
-from app.api.einladungen.services import compose_einladung
+from app.api.einladungen.services import compose_einladung, compose_widerruf_update
 from app.api.identitaet.crud import ERASURE_JOURNAL_EVENT, ERASURE_STEPS, JEDE_PERSONENGRUPPE, UNKNOWN_COMMIT_RESULT, erase_everything
 from app.api.identitaet.services import LETZTER_INHABER_ERASURE
 from app.api.registrierungen.person_router import aufnehmen
@@ -384,6 +384,12 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
     await edited(database, Collection.SCHIEDSRICHTER, OTHER_REFEREE_OID, {"$set": {"schule": "Goethe-Gymnasium"}})
     await edited(database, Collection.SPIELER, MOVING_PUPIL_OID, {"$set": {"einwilligung.medien": False}})
     await edited(database, Collection.SPIELER, READDRESSED_PUPIL_OID, {"$set": {"email": "hartwig@example.com"}})
+    # And of the records they made, each image keeping them as its author: the address pass's alone to reach.
+    await edited(database, Collection.BERECHTIGUNGEN, GRANTED_BY_THEM_OID, {"$set": {"erteilt_am": datetime(2026, 1, 2, tzinfo=UTC)}})
+    await edited(database, Collection.SPERRLISTE, BANNED_BY_THEM_OID, {"$set": {"grund": "Doppelte Anmeldung"}})
+    await edited(database, Collection.EINLADUNGEN, INVITED_BY_THEM_OID, compose_widerruf_update(today=TODAY))
+    await edited(database, Collection.BEWERBUNGEN, DECIDED_BY_THEM_OID, {"$set": {"wunschgegner": "Gast-Schule"}})
+    await edited(database, Collection.REGISTRIERUNGEN, DECLINED_BY_THEM_OID, {"$set": {"nummer": "12"}})
 
     # Written AS the person: their own record as a pupil, and another pupil's squad row as a seat holder.
     await acting(
