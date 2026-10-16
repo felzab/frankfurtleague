@@ -109,13 +109,13 @@ def canonical_address(address: str) -> str:
 _TRIMMED_CLASS: Final = "[" + "".join(re.escape(character) for character in _TRIMMED) + "]"
 
 
-def trimmed_pattern(alternation: str) -> str:
-    """`alternation`, an escaped `$regex` fragment, anchored so that whatever `sign_in_identifier` trims may stand at either end.
+def trimmed_prefix_pattern(prefix: str) -> str:
+    """`prefix`, an escaped `$regex` fragment, anchored at the start so that whatever `sign_in_identifier` trims may stand before it.
 
     A pre-filter taking less than the fold leaves a row the fold would have claimed unread.
     """
 
-    return f"^{_TRIMMED_CLASS}*(?:{alternation}){_TRIMMED_CLASS}*$"
+    return f"^{_TRIMMED_CLASS}*{prefix}"
 
 
 def person_name_key(value: Any) -> str:

@@ -17,18 +17,16 @@ from datetime import UTC, datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
-import pymongo
 import pytest
 from bson import ObjectId
 from fastapi import FastAPI
 from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.database import AsyncDatabase
-from pymongo.errors import OperationFailure, PyMongoError
+from pymongo.errors import OperationFailure
 
 from app.api.bewerbungen.services import hash_token
-from app.api.einladungen.services import compose_einladung
-from app.api.identitaet.crud import ERASURE_JOURNAL_EVENT, ERASURE_STEPS, JEDE_PERSONENGRUPPE, UNKNOWN_COMMIT_RESULT, erase_everything
-from app.api.identitaet.person_router import erase_selbst
+from app.api.einladungen.services import compose_einladung, compose_widerruf_update
+from app.api.identitaet.crud import ERASURE_JOURNAL_EVENT, ERASURE_STEPS, JEDE_PERSONENGRUPPE, erase_everything
 from app.api.identitaet.services import LETZTER_INHABER_ERASURE
 from app.api.registrierungen.person_router import aufnehmen
 from app.api.registrierungen.schemas import FLRegistrierungAufnehmenPayload
@@ -48,7 +46,7 @@ from app.core.security import ACTOR_HEADER, akteur_pseudonym, loeschung_journal_
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID, GHOST_SPIELER_ID
 from app.core.transactions import transaction_session
 from app.main import create_app
-from tests.actor_tokens import ACTOR_TOKEN_CONTRACT, FRESH_STEP_UP_CHECK, SignedActor, actor_claims, sign
+from tests.actor_tokens import ACTOR_TOKEN_CONTRACT, SignedActor, actor_claims, sign
 from tests.app_client import app_client
 from tests.bans import ban_list
 from tests.config import ADMIN_KEY
@@ -70,9 +68,10 @@ from tests.documents import (
     spieler_document,
     team_document,
 )
+from tests.erasure import erased, erasure_collections
 from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
 from tests.records import record_collections
-from tests.whole_database import where_held
+from tests.whole_database import where_folded_to, where_held, where_referenced
 from tests.worker import worker_database
 
 from .conftest import config_for
@@ -85,17 +84,6 @@ CONFIG = config_for(DATABASE_NAME)
 
 PATH = f"/api/v{API_VERSION}/identitaet/selbst/erasure"
 
-# The fail point refusing one commit matches this client's name alone: every worker shares the server.
-REFUSED_COMMIT_APP = f"{DATABASE_NAME}-refused-commit"
-# The server's code for a write conflict, which a commit refused under the transient label carries.
-WRITE_CONFLICT = 112
-# The client whose every commit lands and answers a replication timeout, so its answer never arrives.
-LOST_COMMIT_APP = f"{DATABASE_NAME}-lost-commit"
-# The deadline the case holds around the erasure, which ends the driver's retries of that commit.
-LOST_COMMIT_DEADLINE_S = 0.5
-# The server's code for a write concern it could not meet in time.
-WRITE_CONCERN_FAILED = 64
-
 SAISON_ID = "2026"
 TODAY = "2026-04-01"
 YESTERDAY = "2026-03-31"
@@ -105,9 +93,13 @@ NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 # The person: typed with capitals where a payload keeps them, folded where the pupil row stores it.
 TYPED = "Zorbanax.Quillfeather@Example.org"
 IDENTIFIER = "zorbanax.quillfeather@example.org"
+# As a hand-typed row may spell it, the domain fullwidth: the fold equates it with theirs, a pattern listing domains never.
+PASTED = IDENTIFIER.replace("example", "".join(chr(ord(letter) + 0xFEE0) for letter in "example"))
 VORNAME, NACHNAME = "Zorbanax", "Quillfeather"
 TELEFON = "+49 69 7771234"
 GEBURTSDATUM = "2008-07-14"
+# The one their referee row holds, which they typed otherwise.
+REFEREE_GEBURTSDATUM = "1990-02-03"
 PSEUDONYM = akteur_pseudonym(IDENTIFIER, schluessel=CONFIG.sperrliste_schluessel)
 
 # The submission digests of two applications the person holds a seat on, the second predating the confirmation block.
@@ -115,9 +107,20 @@ THEIR_DIGEST = "digest-7f3a1c-mit-block"
 THEIR_BLOCKLESS_DIGEST = "digest-7f3a1c-ohne-block"
 
 # Distinctive, so a hit in a whole-database scan is never coincidence: every value the person holds.
-THEIR_VALUES = (VORNAME, NACHNAME, IDENTIFIER, "7771234", GEBURTSDATUM, PSEUDONYM, THEIR_DIGEST, THEIR_BLOCKLESS_DIGEST)
+THEIR_VALUES = (
+    VORNAME,
+    NACHNAME,
+    IDENTIFIER,
+    PASTED,
+    "7771234",
+    GEBURTSDATUM,
+    REFEREE_GEBURTSDATUM,
+    PSEUDONYM,
+    THEIR_DIGEST,
+    THEIR_BLOCKLESS_DIGEST,
+)
 
-# The people beside them, each asserted still present so a database emptied wholesale fails.
+# The people beside them, each asserted still present: a step taking anybody else's record with theirs fails.
 BYSTANDER_VALUES = ("Quillhilde", "Bramblewick", "Wraxlington", "kraus.bernd@example.com")
 # Those the seed's own edits file into shared log images beside the person, which keep them past the erasure.
 BYSTANDERS_IN_THE_LOG = ("Quillhilde", "Bramblewick", "kraus.bernd@example.com")
@@ -126,6 +129,7 @@ OTHER_PSEUDONYM = akteur_pseudonym("wraxlington@example.com", schluessel=CONFIG.
 HOME_TEAM_OID = ObjectId("6890a1b2c3d4e5f607b00001")
 OTHER_TEAM_OID = ObjectId("6890a1b2c3d4e5f607b00002")
 PUPIL_OID = ObjectId("6890a1b2c3d4e5f607b00011")
+THEIR_SQUAD_ROW_OID = ObjectId("6890a1b2c3d4e5f607b00013")
 OTHER_PUPIL_OID = ObjectId("6890a1b2c3d4e5f607b00012")
 REFEREE_OID = ObjectId("6890a1b2c3d4e5f607b00021")
 OTHER_REFEREE_OID = ObjectId("6890a1b2c3d4e5f607b00022")
@@ -143,6 +147,7 @@ OTHER_OWNER_OID = ObjectId("6890a1b2c3d4e5f607b00077")
 OTHER_OWNER = "ortwin.inhaber@example.com"
 GRANTED_BY_THEM_OID = ObjectId("6890a1b2c3d4e5f607b00072")
 BANNED_BY_THEM_OID = ObjectId("6890a1b2c3d4e5f607b00073")
+BANNED_BY_THEM_PASTED_OID = ObjectId("6890a1b2c3d4e5f607b00078")
 INVITED_BY_THEM_OID = ObjectId("6890a1b2c3d4e5f607b00074")
 DECIDED_BY_THEM_OID = ObjectId("6890a1b2c3d4e5f607b00075")
 DECLINED_BY_THEM_OID = ObjectId("6890a1b2c3d4e5f607b00076")
@@ -150,6 +155,9 @@ DECLINED_BY_THEM_OID = ObjectId("6890a1b2c3d4e5f607b00076")
 MOVING_PUPIL_OID = ObjectId("6890a1b2c3d4e5f607b00081")
 # A pupil once entered under the person's address and corrected to another: the row is the other's.
 READDRESSED_PUPIL_OID = ObjectId("6890a1b2c3d4e5f607b00082")
+# Every record of their own the erasure removes, each id looked for in the whole database afterwards: a reference left
+# naming one names nobody.
+THEIR_RECORDS = (PUPIL_OID, THEIR_SQUAD_ROW_OID, REFEREE_OID, PENDING_OID, DECLINED_OID)
 
 REFEREE_NAME = f"{VORNAME} {NACHNAME}"
 PAYMENT = 25
@@ -285,7 +293,7 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
             spieler_document(OTHER_PUPIL_OID, "Wraxlington", "Wraxlington-Muster", email="wraxlington@example.com", einwilligung=einwilligung),
         ]
     )
-    their_row, other_row = ObjectId(), ObjectId()
+    their_row, other_row = THEIR_SQUAD_ROW_OID, ObjectId()
     await database[Collection.SAISON_SPIELER].insert_many(
         [
             saison_spieler_document(PUPIL_OID, SAISON_ID, HOME_TEAM_OID, _id=their_row, nummer="7"),
@@ -294,7 +302,9 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
     )
     await database[Collection.SCHIEDSRICHTER].insert_many(
         [
-            referee(REFEREE_OID, email=TYPED, name=REFEREE_NAME, geburtsdatum="1990-02-03", kontakt={"telefon": TELEFON, "email": TYPED}),
+            referee(
+                REFEREE_OID, email=TYPED, name=REFEREE_NAME, geburtsdatum=REFEREE_GEBURTSDATUM, kontakt={"telefon": TELEFON, "email": TYPED}
+            ),
             referee(
                 OTHER_REFEREE_OID,
                 email="kraus.bernd@example.com",
@@ -362,6 +372,12 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
     await edited(database, Collection.SCHIEDSRICHTER, OTHER_REFEREE_OID, {"$set": {"schule": "Goethe-Gymnasium"}})
     await edited(database, Collection.SPIELER, MOVING_PUPIL_OID, {"$set": {"einwilligung.medien": False}})
     await edited(database, Collection.SPIELER, READDRESSED_PUPIL_OID, {"$set": {"email": "hartwig@example.com"}})
+    # And of the records they made, each image keeping them as its author: the address pass's alone to reach.
+    await edited(database, Collection.BERECHTIGUNGEN, GRANTED_BY_THEM_OID, {"$set": {"erteilt_am": datetime(2026, 1, 2, tzinfo=UTC)}})
+    await edited(database, Collection.SPERRLISTE, BANNED_BY_THEM_OID, {"$set": {"grund": "Doppelte Anmeldung"}})
+    await edited(database, Collection.EINLADUNGEN, INVITED_BY_THEM_OID, compose_widerruf_update(today=TODAY))
+    await edited(database, Collection.BEWERBUNGEN, DECIDED_BY_THEM_OID, {"$set": {"wunschgegner": "Gast-Schule"}})
+    await edited(database, Collection.REGISTRIERUNGEN, DECLINED_BY_THEM_OID, {"$set": {"nummer": "12"}})
 
     # Written AS the person: their own record as a pupil, and another pupil's squad row as a seat holder.
     await acting(
@@ -383,7 +399,7 @@ GRANTED = datetime(2026, 1, 1, tzinfo=UTC)
 
 
 async def records_they_made_holding_no_grant(database: AsyncDatabase) -> None:
-    """A grant, a ban, an invitation and two decisions in their name, each typed as stored, while the address holds no grant.
+    """A grant, two bans, an invitation and two decisions in their name, each typed as stored, while the address holds no grant.
 
     The grants step marks each: it runs in the full scope whatever the address holds.
     """
@@ -400,13 +416,14 @@ async def records_they_made_holding_no_grant(database: AsyncDatabase) -> None:
     await database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT].insert_one(
         {"_id": GRANTED_BY_THEM_OID, "adresse": "bramblewick.admin@example.com", "verwaltung": "administration", "angekuendigt_am": GRANTED}
     )
-    await database[Collection.SPERRLISTE].insert_one(
-        ban_document(
-            "gebannt@beispiel.de",
-            bis=compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID),
-            _id=BANNED_BY_THEM_OID,
-            erstellt_von=TYPED,
-        )
+    await database[Collection.SPERRLISTE].insert_many(
+        [
+            ban_document(address, bis=compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID), _id=ban_id, erstellt_von=von)
+            for address, ban_id, von in (
+                ("gebannt@beispiel.de", BANNED_BY_THEM_OID, TYPED),
+                ("gebannt-zwei@beispiel.de", BANNED_BY_THEM_PASTED_OID, PASTED),
+            )
+        ]
     )
     await database[Collection.EINLADUNGEN].insert_one(
         {
@@ -490,45 +507,10 @@ async def erased_over_http(url: str, *, email: str = TYPED, headers: Mapping[str
         return await http.post(PATH, headers=headers or as_person(email))
 
 
-def the_collections(database: AsyncDatabase, **replaced: Any) -> dict[str, Any]:
-    """Every collection the registry takes, as the route hands them in, any of them replaced by name."""
-
-    handles = {
-        f"{collection}_collection": database[collection]
-        for collection in (
-            Collection.SPIELER,
-            Collection.SAISON_SPIELER,
-            Collection.SAISON_TEAMS,
-            Collection.BEWERBUNGEN,
-            Collection.SCHIEDSRICHTER,
-            Collection.SPIELE,
-            Collection.REGISTRIERUNGEN,
-            Collection.DROSSELUNG,
-            Collection.AKTIONEN,
-            Collection.BERECHTIGUNGEN,
-            Collection.BERECHTIGUNGEN_ANGEKUENDIGT,
-            Collection.BERECHTIGUNGEN_POSTAUSGANG,
-            Collection.EINLADUNGEN,
-            Collection.SPERRLISTE,
-        )
-    }
-
-    return {**handles, **replaced}
-
-
 async def erased_by_the_handler(database: AsyncDatabase, client: AsyncMongoClient, *, identifier: str = IDENTIFIER, **replaced: Any) -> Any:
     """The route's own function, outside a request: what a case needs to catch the driver's failure itself."""
 
-    return await erase_selbst(
-        identifier=identifier,
-        **the_collections(database, **replaced),
-        sperrliste=ban_list(database),
-        # Refusing none: a grant holder's passkey is held over HTTP, in `TestTheGrantsLeftBehind` and the step-up suite.
-        refuse_unconfirmed=FRESH_STEP_UP_CHECK,
-        db=client,
-        config=CONFIG,
-        germany_now=NOW,
-    )
+    return await erased(database, client, identifier, germany_now=NOW, **replaced)
 
 
 async def erased_in_scope(database: AsyncDatabase, client: AsyncMongoClient, scope: frozenset[Any], **replaced: Any) -> Any:
@@ -536,7 +518,7 @@ async def erased_in_scope(database: AsyncDatabase, client: AsyncMongoClient, sco
         return await erase_everything(
             IDENTIFIER,
             scope=scope,
-            **the_collections(database, **replaced),
+            **erasure_collections(database, **replaced),
             sperrliste=ban_list(database),
             geaendert_von=IDENTIFIER,
             schluessel=CONFIG.sperrliste_schluessel,
@@ -550,29 +532,46 @@ async def erased_in_scope(database: AsyncDatabase, client: AsyncMongoClient, sco
 
 
 class TestNothingOfTheirsIsLeftAnywhere:
-    """The witness for reach: the whole database rendered as text, each collection named where a value survives."""
+    """The witness for reach: the whole database read for what they held, each collection named where something survives.
+
+    Their values case-blind, their address on the fold, and their records by id.
+    """
 
     @pytest.mark.parametrize("holding_a_grant", [False, True], ids=["holding no grant", "holding an administration grant"])
     def test_no_value_of_theirs_survives_and_every_bystanders_does(self, mongo_replica_set_url: str, holding_a_grant: bool):
         """Catches a step removed from the registry, or a store none reaches, the pseudonym's included.
 
-        Each value is asserted present first, so a seed that stopped writing one fails; the grant, where held, adds its rows and
-        notice.
+        Each value and id is asserted present first, so a seed that stopped writing one fails; the grant, where held, adds its
+        rows and notice.
         """
+
+        records = (*THEIR_RECORDS, *([THEIR_GRANT_OID] if holding_a_grant else []))
+
+        async def scanned(database: AsyncDatabase, *values: str) -> tuple[dict[str, list[str]], list[str], dict[Any, list[str]]]:
+            return (
+                await where_held(database, *values, folded=True),
+                await where_folded_to(database, IDENTIFIER),
+                await where_referenced(database, *records),
+            )
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             if holding_a_grant:
                 await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
-            before = await where_held(database, *THEIR_VALUES, *BYSTANDERS_IN_THE_LOG, folded=True)
+            before = await scanned(database, *THEIR_VALUES, *BYSTANDERS_IN_THE_LOG)
             response = await erased_over_http(mongo_replica_set_url, headers=by_passkey(TYPED))
 
-            return before, response.status_code, await where_held(database, *THEIR_VALUES, *BYSTANDER_VALUES, folded=True)
+            return before, response.status_code, await scanned(database, *THEIR_VALUES, *BYSTANDER_VALUES)
 
-        before, status, after = on_a_league(mongo_replica_set_url, body)
+        (before, folded_before, ids_before), status, (after, folded_after, ids_after) = on_a_league(mongo_replica_set_url, body)
 
         assert all(before[value] for value in THEIR_VALUES), before
+        assert folded_before and all(ids_before.values()), (folded_before, ids_before)
         assert status == 200
         assert {value: after[value] for value in THEIR_VALUES} == dict.fromkeys(THEIR_VALUES, [])
+        # On the fold too, which reads a spelling no case-blind match does, whatever the local part spells.
+        assert folded_after == []
+        assert ids_after == dict.fromkeys(records, [])
+        assert [value for value in BYSTANDER_VALUES if not after[value]] == []
         # In the log too: a pass emptying a shared image whole would take the people beside them with it.
         assert {value: "aktionen" in before[value] for value in BYSTANDERS_IN_THE_LOG} == dict.fromkeys(BYSTANDERS_IN_THE_LOG, True), before
         assert {value: "aktionen" in after[value] for value in BYSTANDERS_IN_THE_LOG} == dict.fromkeys(BYSTANDERS_IN_THE_LOG, True), after
@@ -872,74 +871,6 @@ class TestTheJournal:
 
         assert (status, len(lines)) == (200, 1)
 
-    def test_a_commit_whose_answer_is_lost_is_journalled_all_the_same(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
-        """Catches the journal left to a commit that answered: this one landed, and its answer was lost to the deadline.
-
-        Every commit runs and answers a replication timeout, so the driver retries it until the case's deadline ends it.
-        """
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            losing = AsyncMongoClient(mongo_replica_set_url, serverMonitoringMode="poll", appname=LOST_COMMIT_APP)
-            unanswered = {
-                "failCommands": ["commitTransaction"],
-                "appName": LOST_COMMIT_APP,
-                "writeConcernError": {"code": WRITE_CONCERN_FAILED, "errmsg": "waiting for replication timed out"},
-            }
-            entered = (await client.admin.command("configureFailPoint", "failCommand", mode="alwaysOn", data=unanswered))["count"]
-            try:
-                with pytest.raises(PyMongoError) as lost:
-                    with pymongo.timeout(LOST_COMMIT_DEADLINE_S):
-                        await erased_by_the_handler(losing[database.name], losing)
-            finally:
-                left = (await client.admin.command("configureFailPoint", "failCommand", mode="off"))["count"]
-                await losing.close()
-
-            return left > entered, lost.value.has_error_label(UNKNOWN_COMMIT_RESULT), await where_held(database, IDENTIFIER)
-
-        with caplog.at_level(logging.INFO):
-            answered, labelled, after = on_a_league(mongo_replica_set_url, body)
-
-        lines = [record.getMessage() for record in caplog.records if record.getMessage().startswith(ERASURE_JOURNAL_EVENT)]
-
-        assert len(lines) == 1
-        # The premise last: a commit ran and its answer was lost, and the erasure landed.
-        assert (answered, labelled, after) == (True, True, {IDENTIFIER: []})
-
-    def test_an_attempt_rolled_back_at_its_commit_writes_no_line(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
-        """Catches the journal written inside the callback, ahead of a commit that can still fail.
-
-        The refusal is transient, so the driver reruns the erasure and the rerun commits: one line and one warning, none of the
-        first attempt's.
-        """
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            refusing = AsyncMongoClient(mongo_replica_set_url, serverMonitoringMode="poll", appname=REFUSED_COMMIT_APP)
-            refusal = {
-                "failCommands": ["commitTransaction"],
-                "appName": REFUSED_COMMIT_APP,
-                "errorCode": WRITE_CONFLICT,
-                "errorLabels": ["TransientTransactionError"],
-            }
-            await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
-            entered = (await client.admin.command("configureFailPoint", "failCommand", mode={"times": 1}, data=refusal))["count"]
-            try:
-                answer = await erased_by_the_handler(refusing[database.name], refusing)
-            finally:
-                left = (await client.admin.command("configureFailPoint", "failCommand", mode="off"))["count"]
-                await refusing.close()
-
-            return left - entered, answer.berechtigungen
-
-        with caplog.at_level(logging.INFO):
-            refused, removed = on_a_league(mongo_replica_set_url, body)
-
-        lines = [record for record in caplog.records if record.getMessage().startswith(ERASURE_JOURNAL_EVENT)]
-        warnings = [getattr(record, "error_code", None) for record in caplog.records].count(NO_OWNER.error_code)
-
-        assert (len(lines), warnings) == (1, 1)
-        # The premise last: one commit refused, so the line counted above is the second attempt's alone.
-        assert (refused, removed) == (1, 1)
-
 
 class OwnersErasingAtOnce(InterleavedCollection):
     """`berechtigungen` as one owner's erasure reads it, the other owner's whole erasure committing once its first read answered."""
@@ -1083,7 +1014,7 @@ class TestEachStepWritesWhatItDeclares:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
-            recorded = {name: WritesRecorded(handle, writes) for name, handle in the_collections(database).items()}
+            recorded = {name: WritesRecorded(handle, writes) for name, handle in erasure_collections(database).items()}
             await erased_in_scope(database, client, JEDE_PERSONENGRUPPE, **recorded)
 
         on_a_league(mongo_replica_set_url, body)

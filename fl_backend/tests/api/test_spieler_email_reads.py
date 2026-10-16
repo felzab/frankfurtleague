@@ -9,7 +9,7 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.identitaet.crud import find_anmeldung, find_subjekt, unreferenced_of
-from app.api.identitaet.person_router import erase_selbst, get_erasure_ansicht
+from app.api.identitaet.person_router import get_erasure_ansicht
 from app.api.konto.router import get_einwilligungen
 from app.api.registrierungen.einwilligung_router import get_bestaetigung_ansicht
 from app.api.registrierungen.person_router import aufnehmen, get_offene_registrierungen
@@ -26,10 +26,10 @@ from app.core.collections import Collection
 from app.core.drosselung import get_drossel
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from tests import documents
-from tests.actor_tokens import FRESH_STEP_UP_CHECK
 from tests.bans import ban_list
 from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.erasure import erased
 from tests.plans import plans_of_sent_reads
 from tests.records import record_collections
 from tests.worker import worker_database
@@ -225,33 +225,7 @@ async def the_erasure_preview(database: AsyncDatabase, client: AsyncMongoClient,
 
 
 async def the_erasure(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
-    return await erase_selbst(
-        identifier=FOLDED_EMAIL,
-        **{
-            f"{collection}_collection": database[collection]
-            for collection in (
-                Collection.SPIELER,
-                Collection.SAISON_SPIELER,
-                Collection.SAISON_TEAMS,
-                Collection.BEWERBUNGEN,
-                Collection.SCHIEDSRICHTER,
-                Collection.SPIELE,
-                Collection.REGISTRIERUNGEN,
-                Collection.DROSSELUNG,
-                Collection.AKTIONEN,
-                Collection.BERECHTIGUNGEN,
-                Collection.BERECHTIGUNGEN_ANGEKUENDIGT,
-                Collection.BERECHTIGUNGEN_POSTAUSGANG,
-                Collection.EINLADUNGEN,
-                Collection.SPERRLISTE,
-            )
-        },
-        sperrliste=ban_list(database),
-        refuse_unconfirmed=FRESH_STEP_UP_CHECK,
-        db=client,
-        config=build_test_config(),
-        germany_now=NOW,
-    )
+    return await erased(database, client, FOLDED_EMAIL, germany_now=NOW)
 
 
 async def the_address_change_request(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:

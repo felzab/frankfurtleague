@@ -440,8 +440,9 @@ def _replica_set_mongod() -> Iterator[str]:
     from testcontainers.core.container import DockerContainer
     from testcontainers.core.wait_strategies import LogMessageWaitStrategy
 
-    # `enableTestCommands` admits `configureFailPoint`, the one way to land a commit inside a single
-    # server command; every worker shares this server, so a failpoint names its case's own namespace.
+    # `enableTestCommands` admits `configureFailPoint`, the one way to land a commit inside one server
+    # command. A fail point is one setting every worker shares, so its cases sit in one module, which
+    # `--dist loadfile` keeps on one worker.
     container = (
         DockerContainer(MONGO_IMAGE)
         # No `--auth`: with `--replSet` mongod demands a bind-mounted keyFile whose permissions it checks,
