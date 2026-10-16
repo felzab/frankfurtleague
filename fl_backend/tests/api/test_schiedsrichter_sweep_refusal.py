@@ -13,9 +13,10 @@ from app.core.middlewares import REQUEST_DEADLINE_S
 COMMANDS_A_REFEREE = 6
 COMMANDS_A_PUPIL = 6
 
-# The call's other commands, two on the wire, its one read answering one document at any size; the
-# per-command cost the largest of two windows timing whole calls locally, 2026-10-16.
-OTHER_COMMANDS = 2
+# The call's other command, counted on the wire 2026-10-16: one aggregate, answering one document at any size.
+OTHER_COMMANDS = 1
+
+# The per-command cost, the largest of two windows timing whole calls locally, 2026-10-16.
 PER_COMMAND_S = 0.00184
 
 # The round trip `sweep_router.ADRESSWECHSEL_PER_PASS`'s comment sizes the share for.
