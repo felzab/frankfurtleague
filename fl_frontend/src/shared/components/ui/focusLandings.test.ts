@@ -101,6 +101,12 @@ const retireThroughDialog = (key: string, row: string) => async (user: UserEvent
   await pressTwice(user, { resting: "Stilllegen", armed: "Ja, stilllegen" });
 };
 
+/** The same dialog, from an editor's header. */
+const retireInEditor = async (user: UserEvent) => {
+  await user.click(screen.getByRole("button", { name: "Stilllegen" }));
+  await pressTwice(user, { resting: "Stilllegen", armed: "Ja, stilllegen" });
+};
+
 /**
  * A screen reader's activation of a table row's control: it moves the focus there, which react-aria's grid takes
  * onto a row of its own choosing, then clicks the control with no pointer, so the focus never stands on it.
@@ -268,6 +274,8 @@ const teamEditor = (inactiveSince: string | null, { gruppe = "A" as "A" | "B" | 
         }
       : { teams: [], playedKnockoutSpiele: 0 },
     einladung: null,
+    // The planned season is the only one this fixture holds, so entered in it the club may not be retired.
+    isRetireable: gruppe === null,
   });
 
 const SR_RECORD = { ...schiedsrichter(SR_A, "Pia Kraft", null) };
@@ -871,12 +879,19 @@ const LANDINGS: Record<string, Landing> = {
     after: () => h(AdminSpielorteView, { spielorte: [ort(ORT_A, "Halle A", null)] }),
     lands: () => screen.getByRole("button", { name: "Filter hinzufügen" }),
   },
-  "a venue editor's reactivation, on the editor's heading": {
+  "a venue editor's reactivation, on the retirement replacing it": {
     before: () => h(AdminSpielortEditView, { spielort: ort(ORT_A, "Halle A", RETIRED_ON), inactiveSince: RETIRED_ON }),
     press: (user) => user.click(screen.getByRole("button", { name: "Reaktivieren" })),
     after: () => h(AdminSpielortEditView, { spielort: ort(ORT_A, "Halle A", null), inactiveSince: null }),
     remount: true,
-    lands: () => heading("Halle A"),
+    lands: () => screen.getByRole("button", { name: "Stilllegen" }),
+  },
+  "a venue editor's retirement in the dialog, on the reactivation replacing it": {
+    before: () => h(AdminSpielortEditView, { spielort: ort(ORT_A, "Halle A", null), inactiveSince: null }),
+    press: retireInEditor,
+    after: () => h(AdminSpielortEditView, { spielort: ort(ORT_A, "Halle A", RETIRED_ON), inactiveSince: RETIRED_ON }),
+    remount: true,
+    lands: () => screen.getByRole("button", { name: "Reaktivieren" }),
   },
   "a referee editor's reactivation, on the retirement replacing it": {
     before: () => h(AdminSchiedsrichterEditView, { istFassungBekannt: true, schiedsrichter: SR_RECORD, inactiveSince: RETIRED_ON }),
@@ -887,20 +902,24 @@ const LANDINGS: Record<string, Landing> = {
   },
   "a referee editor's retirement in the dialog, on the reactivation replacing it": {
     before: () => h(AdminSchiedsrichterEditView, { istFassungBekannt: true, schiedsrichter: SR_RECORD, inactiveSince: null }),
-    press: async (user) => {
-      await user.click(screen.getByRole("button", { name: "Stilllegen" }));
-      await pressTwice(user, { resting: "Stilllegen", armed: "Ja, stilllegen" });
-    },
+    press: retireInEditor,
     after: () => h(AdminSchiedsrichterEditView, { istFassungBekannt: true, schiedsrichter: SR_RECORD, inactiveSince: RETIRED_ON }),
     remount: true,
     lands: () => screen.getByRole("button", { name: "Reaktivieren" }),
   },
-  "a player editor's reactivation, on the editor's heading": {
+  "a player editor's reactivation, on the retirement replacing it": {
     before: () => spielerEditor(RETIRED_ON),
     press: (user) => user.click(screen.getByRole("button", { name: "Reaktivieren" })),
     after: () => spielerEditor(null),
     remount: true,
-    lands: () => heading("Lena Meier"),
+    lands: () => screen.getByRole("button", { name: "Stilllegen" }),
+  },
+  "a player editor's retirement in the dialog, on the reactivation replacing it": {
+    before: () => spielerEditor(null),
+    press: retireInEditor,
+    after: () => spielerEditor(RETIRED_ON),
+    remount: true,
+    lands: () => screen.getByRole("button", { name: "Reaktivieren" }),
   },
   "a passkey's deletion, on the next card's": {
     before: () => panel(sicherheit()),
@@ -1228,12 +1247,20 @@ const LANDINGS: Record<string, Landing> = {
     remount: true,
     lands: () => screen.getByRole("button", { name: "Adresse ändern" }),
   },
-  "a club editor's reactivation, on the editor's heading": {
-    before: () => teamEditor(RETIRED_ON),
+  // In no season, as a retired club stands: no season takes a retired club in (`REQ-ENTER-005`).
+  "a club editor's reactivation, on the retirement replacing it": {
+    before: () => teamEditor(RETIRED_ON, { gruppe: null }),
     press: (user) => user.click(screen.getByRole("button", { name: "Reaktivieren" })),
-    after: () => teamEditor(null),
+    after: () => teamEditor(null, { gruppe: null }),
     remount: true,
-    lands: () => heading("SG Alpha"),
+    lands: () => screen.getByRole("button", { name: "Stilllegen" }),
+  },
+  "a club editor's retirement in the dialog, on the reactivation replacing it": {
+    before: () => teamEditor(null, { gruppe: null }),
+    press: retireInEditor,
+    after: () => teamEditor(RETIRED_ON, { gruppe: null }),
+    remount: true,
+    lands: () => screen.getByRole("button", { name: "Reaktivieren" }),
   },
   "a registration's admission, on the next row's admission": {
     before: () => registrierungen([REG_LENA, REG_MIA]),

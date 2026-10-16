@@ -52,8 +52,9 @@ SENTENCE_OPENER_RE: Final = re.compile(rf"(?:\A|[.!?:;•·|]|[„“\"'(»–�
 # token -- `text-dir`, `dir-rtl`.
 INFORMAL_RE: Final = re.compile(r"(?<![\w\-/.])(?:du|dein(?:e|em|en|er|es)?|dir|dich)(?![\w\-/])")
 
-# One German word per concept (§1.12): a club is a `Team`, whatever grammar the sentence prefers.
-BANNED_TERMS: Final[dict[str, str]] = {"Mannschaft": "Team"}
+# One German word per concept (§1.12): a club is a `Team` and doing anything again is `erneut`, whatever
+# grammar the sentence prefers. Each spelling of the second is its own entry, the run-together one too.
+BANNED_TERMS: Final[dict[str, str]] = {"Mannschaft": "Team", "noch einmal": "erneut", "noch mal": "erneut", "nochmal": "erneut"}
 
 # The semicolon rule's one exception, by path: legal text keeps the semicolons German legal drafting
 # ends an enumerated point with (§1.12). The notice and the imprint are the legal text this corpus holds.

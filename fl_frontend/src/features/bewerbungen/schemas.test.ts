@@ -878,7 +878,7 @@ describe("the ceiling on the confirmation link's own token", () => {
       assert.equal(parsed.success, false);
       assert.deepEqual(
         parsed.error?.issues.map((issue) => issue.message),
-        ["Bitte öffne den Link noch einmal aus Deiner E-Mail."],
+        ["Bitte öffne den Link aus Deiner E-Mail erneut."],
       );
     }
   });
@@ -900,7 +900,7 @@ describe("the label a confirmation's answer names", () => {
       const parsed = FLBewerbungEinwilligungAntwortPayloadSchema.safeParse({ ...antwort, text_version });
       assert.deepEqual(
         parsed.error?.issues.map((issue) => [issue.path.join("."), issue.message]),
-        [["text_version", "Deine Antwort nennt keine Fassung. Öffne den Link aus Deiner E-Mail noch einmal."]],
+        [["text_version", "Deine Antwort nennt keine Fassung. Öffne den Link aus Deiner E-Mail erneut."]],
         JSON.stringify(text_version),
       );
     }

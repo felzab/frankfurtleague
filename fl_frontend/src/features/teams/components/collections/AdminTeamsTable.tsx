@@ -12,7 +12,7 @@ import PersonPencil from "@gravity-ui/icons/PersonPencil";
 import { Table } from "@heroui/react/table";
 
 import { reactivateTeamAction } from "@/features/teams/actions";
-import { austrittZustand, TEAMS_CRUD_COPY } from "@/features/teams/constants";
+import { austrittZustand, TEAM_NICHT_STILLLEGBAR, TEAMS_CRUD_COPY } from "@/features/teams/constants";
 import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/AdminCrudEmpty";
 import {
   CELL_EDGE_CLASSES,
@@ -133,9 +133,7 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
         /* Present but DISABLED where the write path would refuse (`REQ-RETIRE-001`), so the rule is
            discoverable rather than a mystery. */
         <RowActionDelete
-          disabledReason={
-            team.isRetireable ? null : "Stilllegen ist nur möglich, wenn das Team in keiner laufenden oder geplanten Saison spielt."
-          }
+          disabledReason={team.isRetireable ? null : TEAM_NICHT_STILLLEGBAR}
           label="Stilllegen"
           subject={`Team ${team.name}`}
           onPress={(pressed) => setDeletingTeam(team, pressed)}
