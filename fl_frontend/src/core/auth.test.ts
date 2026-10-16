@@ -3766,7 +3766,7 @@ describe("a person's own account deletion", () => {
     );
   });
 
-  it("mails no link past every address's hundred mails of the hour, on the same answer", async () => {
+  it("mails no link past every address's hundred mails of the hour, on the same answer, spending none of the address's five", async () => {
     const email = "loeschlink-gesamt@example.org";
     const { cookie, row } = await signIn(email);
     const headers = new Headers({ ...ORIGIN, cookie });
@@ -3783,6 +3783,8 @@ describe("a person's own account deletion", () => {
       });
     }
     const before = sent.length;
+    const mailRows = () => store.verification.filter((held) => held.identifier.startsWith("sign-in-mail-")).length;
+    const counted = mailRows();
     informed.length = 0;
 
     const capped = await requestAccountDeletion(headers);
@@ -3790,9 +3792,84 @@ describe("a person's own account deletion", () => {
     assert.equal(sent.length, before, "a link past the total was mailed");
     assert.deepEqual(capped, mailed);
     assert.equal(store.verification.filter((held) => held.identifier.startsWith("delete-account-") && held.value === row.userId).length, 1);
+    assert.equal(mailRows(), counted, "a link the full hour held back spent one of the address's five");
     assert.deepEqual(
       informed.filter((line) => line.message === "auth.deletion_link_capped").map((line) => line.meta.bound),
       ["total"],
+    );
+  });
+
+  it("counts a mailed link on every address's hundred", async () => {
+    const { cookie } = await signIn("gesamt-zaehlt@example.org");
+    const total = () => store.verification.filter((held) => held.identifier === "sign-in-mail-every-address").length;
+    const before = total();
+
+    await requestAccountDeletion(new Headers({ ...ORIGIN, cookie }));
+
+    assert.equal(total(), before + 1, "a mailed link left the hour's total uncounted");
+  });
+
+  it("holds a sign-in code back after five deletion links, one row counting both", async () => {
+    const email = "loeschlink-dann-code@example.org";
+    const { cookie } = await signIn(email);
+    const headers = new Headers({ ...ORIGIN, cookie });
+    for (let press = 0; press < 5; press += 1) await requestAccountDeletion(headers);
+    assert.equal(sent.filter((entry) => entry.to === email).length, 5, "fewer than five links were mailed, so the case proves nothing");
+
+    // Admitted at the send, so a code past the gate would be mailed: only the shared count holds it back.
+    BACKENDS.set(email, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true });
+    informed.length = 0;
+    try {
+      await auth.api.sendVerificationOTP({ body: { email, type: "sign-in" }, headers: new Headers(ORIGIN) });
+    } finally {
+      BACKENDS.delete(email);
+    }
+
+    assert.equal(sent.filter((entry) => entry.to === email).length, 5, "a code was mailed past five links");
+    assert.deepEqual(
+      informed.map((line) => line.message),
+      ["auth.code_mail_capped"],
+    );
+  });
+
+  it("mails a sign-in code after four deletion links, each link counting once", async () => {
+    const email = "vier-links-dann-code@example.org";
+    const { cookie } = await signIn(email);
+    const headers = new Headers({ ...ORIGIN, cookie });
+    for (let press = 0; press < 4; press += 1) await requestAccountDeletion(headers);
+
+    BACKENDS.set(email, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true });
+    try {
+      await auth.api.sendVerificationOTP({ body: { email, type: "sign-in" }, headers: new Headers(ORIGIN) });
+    } finally {
+      BACKENDS.delete(email);
+    }
+
+    assert.equal(sent.filter((entry) => entry.to === email).length, 5, "the fifth mail, a code, was held back");
+  });
+
+  it("mails no deletion link after five sign-in codes, one row counting both", async () => {
+    const email = "code-dann-loeschlink@example.org";
+    const { cookie, row } = await signIn(email);
+    const headers = new Headers({ ...ORIGIN, cookie });
+    BACKENDS.set(email, { ...NOTHING_HELD, sitze: [A_SEAT], konto: true });
+    try {
+      for (let send = 0; send < 5; send += 1) {
+        await auth.api.sendVerificationOTP({ body: { email, type: "sign-in" }, headers: new Headers(ORIGIN) });
+      }
+    } finally {
+      BACKENDS.delete(email);
+    }
+    assert.equal(sent.filter((entry) => entry.to === email).length, 5, "fewer than five codes were mailed, so the case proves nothing");
+    informed.length = 0;
+
+    await requestAccountDeletion(headers);
+
+    assert.equal(sent.filter((entry) => entry.to === email).length, 5, "a link was mailed past five codes");
+    assert.equal(store.verification.filter((held) => held.identifier.startsWith("delete-account-") && held.value === row.userId).length, 0);
+    assert.deepEqual(
+      informed.filter((line) => line.message === "auth.deletion_link_capped").map((line) => line.meta.bound),
+      ["address"],
     );
   });
 
