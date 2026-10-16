@@ -1339,14 +1339,17 @@ const SOURCE_BANS = [
       "Hand `unansweredAction` the rejection it answers: without it, the edge's own refusal of the press reads as an unclear save rather than as one that wrote nothing.",
   },
   {
-    selector: [
-      ":matches(Literal, TemplateLiteral)",
-      "ConditionalExpression > :matches(Literal, TemplateLiteral):matches(.consequent, .alternate)",
-    ]
-      .map((value) => `CallExpression[callee.name="buildRefusal"] > ObjectExpression.arguments > Property[key.name="where"] > ${value}`)
-      .join(", "),
+    // Any text beneath the value, however deep: a nested branch or a `+` operand is typed as much as
+    // the value itself. A ternary's condition is never what the sentence shows.
+    selector: `:matches(CallExpression[callee.name="buildRefusal"], CallExpression[callee.property.name="buildRefusal"]) > ObjectExpression.arguments > Property[key.name="where"] :matches(Literal[value=type(string)], TemplateLiteral):not(ConditionalExpression > .test, ConditionalExpression > .test *)`,
     message:
       "Name a refusal's `where` by the constant its panel or page renders the heading from: a heading typed here goes on pointing at the old one once the panel is renamed.",
+  },
+  {
+    // The ban above knows the call by its name, which an alias or a re-export under another one hides.
+    selector:
+      ':matches(ImportSpecifier[imported.name="buildRefusal"]:not([local.name="buildRefusal"]), ExportSpecifier[local.name="buildRefusal"]:not([exported.name="buildRefusal"]))',
+    message: "Import and export `buildRefusal` under its own name: the `where` ban reads the call by it.",
   },
 ];
 

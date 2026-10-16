@@ -441,8 +441,8 @@ def akteur_pseudonym(identifier: str, *, schluessel: SecretStr) -> str:
     return _keyed_fold(identifier, schluessel=schluessel, label=AKTEUR_PSEUDONYM_VERSION)
 
 
-# The erasure journal's label, a third beside the ban list's and the log's: under either of theirs the
-# journal's hash would equal a ban row's digest or an erased person's log pseudonym.
+# The erasure journal's label, a third beside the ban list's and the log's: under theirs a line would name a ban
+# row's digest or, on a choice, its person's log pseudonym, which an erasure's line alone names.
 LOESCHUNG_JOURNAL_VERSION: Final = "loeschung-v1"
 
 

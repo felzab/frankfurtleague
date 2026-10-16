@@ -3,7 +3,8 @@
 This is what enforces `docs/frontend/spec.md` §1.12 for the rules a scan can hold; the rest of that
 section is review's. The corpus is every string literal and JSX element of
 `fl_frontend/src`, comments and tests excluded, and it is scanned rather than parsed: the
-documentation scope degrades around node and never needs it. What no scan reaches is the inside
+documentation scope degrades around node and never needs it. The backend's consent wordings join it
+under a label the branch adds, read as the imported module serves them. What no scan reaches is the inside
 of an interpolated value, one opaque `HOLE` here whose words, spacing and even its presence on
 screen are the browser's answer and not the file's -- so every rule below is held over the
 characters a file spells, and a reader is still the only check on the characters it computes.
@@ -11,19 +12,33 @@ characters a file spells, and a reader is still the only check on the characters
 
 from __future__ import annotations
 
+import ast
+import dataclasses
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Final, Literal
 
+from .branch import fork_page, run_fork
 from .kernel import REGEX_LEAD_RE, REPO_ROOT, Finding, _Lead, _read_text, _skip_regex, tracked_glob
+from .reasons import backend
 
-# Where a reader's German lives. The backend spells the consent wordings too, which no rule here
-# reads; its refusals are mapped to German on this side, and the rest it spells is a line to the log
-# (`fl_backend/app/api/saisons/schemas.py :: refuse_a_saison_year_outside_the_league`).
+# Where a reader's German lives. The backend's refusals are mapped to German on this side, and the
+# rest it spells is a line to the log
+# (`fl_backend/app/api/saisons/schemas.py :: refuse_a_saison_year_outside_the_league`), apart from the
+# consent wordings `WORDINGS_SOURCE` holds.
 COPY_ROOT: Final = "fl_frontend/src"
 COPY_GLOB: Final = f"{COPY_ROOT}/**/*.ts*"
 TEST_SUFFIXES: Final[tuple[str, ...]] = (".test.ts", ".test.tsx")
+
+# A consent wording freezes under its label once it lands
+# (`fl_backend/tests/shared/test_einwilligung.py :: FASSUNG_DIGESTS`), so only a label the branch
+# adds is judged: a finding under an older one asks for a rewording no branch may make.
+WORDINGS_SOURCE: Final = "fl_backend/app/shared/einwilligung.py"
+WORDINGS_REGISTER: Final = "FASSUNGEN"
+# A paragraph's `str.format` field, which the page fills with a value.
+FORMAT_FIELD_RE: Final = re.compile(r"\{[A-Za-z_]\w*\}")
 
 # One interpolated value, standing where its rendering will. A private-use codepoint, so nothing in
 # a source file can spell it and be read as one.
@@ -53,8 +68,26 @@ SENTENCE_OPENER_RE: Final = re.compile(rf"(?:\A|[.!?:;•·|]|[„“\"'(»–�
 INFORMAL_RE: Final = re.compile(r"(?<![\w\-/.])(?:du|dein(?:e|em|en|er|es)?|dir|dich)(?![\w\-/])")
 
 # One German word per concept (§1.12): a club is a `Team` and doing anything again is `erneut`, whatever
-# grammar the sentence prefers. Each spelling of the second is its own entry, the run-together one too.
-BANNED_TERMS: Final[dict[str, str]] = {"Mannschaft": "Team", "noch einmal": "erneut", "noch mal": "erneut", "nochmal": "erneut"}
+# grammar the sentence prefers. Each spelling of the second is its own entry, the run-together one and
+# its adjective too.
+BANNED_TERMS: Final[dict[str, str]] = {
+    "Mannschaft": "Team",
+    "noch einmal": "erneut",
+    "noch ein Mal": "erneut",
+    "noch mal": "erneut",
+    "nochmal": "erneut",
+    "nochmalig": "erneut",
+}
+
+# A no-break space written as a string escape. Inside a literal the scan keeps the escape as spelled.
+NO_BREAK_ESCAPE: Final = r"\\(?:u00[aA]0|x[aA]0|u\{0*[aA]0\})"
+# What renders as the gap between two words of one term: any whitespace, the no-break space among it,
+# and that space spelled as a markup entity or a string escape.
+WORD_GAP: Final = rf"(?:\s|&nbsp;|&#160;|&#[xX]0*[aA]0;|{NO_BREAK_ESCAPE})+"
+WORD_GAP_RE: Final = re.compile(WORD_GAP)
+# A value of spacing alone, `{" "}` above all, puts that spacing on screen and nothing else, so the
+# flattening writes a space for it: kept as a hole it would part the two words of a term.
+SPACING_LITERAL_RE: Final = re.compile(rf"""(["'`])(?:\s|{NO_BREAK_ESCAPE})+\1""")
 
 # The semicolon rule's one exception, by path: legal text keeps the semicolons German legal drafting
 # ends an enumerated point with (§1.12). The notice and the imprint are the legal text this corpus holds.
@@ -66,10 +99,19 @@ LEGAL_SOURCES: Final[tuple[str, ...]] = (
 # the loading skeletons' `&nbsp;` would otherwise fail.
 CHARACTER_REFERENCE_RE: Final = re.compile(r"&(?:#\d+|#[xX][0-9a-fA-F]+|[A-Za-z][A-Za-z0-9]*);")
 
-# A lower-case entry is no noun, so German capitalises it at a sentence's start and `(?i:)` is what
-# reads that position. A capitalised entry stays exact: folded, it would match the lower-case
-# spelling that means a key rather than copy.
-BANNED_TERM_RE: Final = re.compile(rf"\b(?:{'|'.join(term if term[:1].isupper() else f'(?i:{term})' for term in BANNED_TERMS)})(?:en|s)?\b")
+
+def _term_pattern(term: str) -> str:
+    """One entry, its words escaped and parted by any gap a reader sees as one."""
+    spelled = WORD_GAP.join(re.escape(word) for word in term.split(" "))
+    # A lower-case entry is no noun, so German capitalises it at a sentence's start and `(?i:)` is what
+    # reads that position. A capitalised entry stays exact: folded, it would match the lower-case
+    # spelling that means a key rather than copy.
+    return spelled if term[:1].isupper() else f"(?i:{spelled})"
+
+
+# The endings a retired word takes in a sentence: a noun's plural and genitive, the adverb's `-s`, the
+# adjective's declension.
+BANNED_TERM_RE: Final = re.compile(rf"\b(?:{'|'.join(_term_pattern(term) for term in BANNED_TERMS)})(?:e[mnrs]?|s)?\b")
 
 # What separates a reader's sentence from a developer's log line or a list of classes: umlauts,
 # plus German function words that no Tailwind class, import specifier or field name spells.
@@ -209,7 +251,9 @@ def _close_hole(frames: list[_Frame], text: str, index: int) -> None:
     frame = frames.pop()
     if frame.buffer is not None and frame.hole_at >= 0:
         source = text[frame.hole_at : index - 1]
-        if not JSX_COMMENT_RE.fullmatch(source.strip()):
+        if SPACING_LITERAL_RE.fullmatch(source.strip()):
+            frame.buffer.add(" ")
+        elif not JSX_COMMENT_RE.fullmatch(source.strip()):
             frame.buffer.add_hole(source)
 
 
@@ -488,7 +532,7 @@ def _term_findings(rel: str, span: Copy) -> list[Finding]:
     """A concept spelled with a word §1.12 retired."""
     found: list[Finding] = []
     for match in BANNED_TERM_RE.finditer(span.text):
-        hit = match.group(0).lower()
+        hit = WORD_GAP_RE.sub(" ", match.group(0)).lower()
         wanted = next(preferred for banned, preferred in BANNED_TERMS.items() if hit.startswith(banned.lower()))
         found.append(Finding("fail", "copy-term", rel, f"`{match.group(0)}` in `{span.excerpt(match.start())}` -- say `{wanted}` (§1.12)"))
     return found
@@ -507,6 +551,56 @@ def _semicolon_findings(rel: str, span: Copy) -> list[Finding]:
     for match in re.finditer(";", shown):
         detail = f"a semicolon in `{span.excerpt(match.start())}` -- end the clause with a full stop (§1.12)"
         found.append(Finding("fail", "copy-semicolon", rel, detail))
+    return found
+
+
+def _labels_at_fork() -> frozenset[str]:
+    """The labels the fork's `WORDINGS_REGISTER` held.
+
+    Empty where no fork resolves or it held none, so every label is judged: that run fails
+    `check_branch_diff` already, and a broken rule is named rather than passed.
+    """
+    text = None if run_fork() is None else fork_page(WORDINGS_SOURCE)
+    for node in [] if text is None else ast.parse(text).body:
+        if isinstance(node, ast.AnnAssign):
+            target, value = node.target, node.value
+        elif isinstance(node, ast.Assign):
+            target, value = node.targets[0], node.value
+        else:
+            continue
+        if isinstance(target, ast.Name) and target.id == WORDINGS_REGISTER and value is not None:
+            # The outermost mapping, which a breadth-first walk meets first: a wording's own controls
+            # are keyed mappings too.
+            register = next((found for found in ast.walk(value) if isinstance(found, ast.Dict)), None)
+            keys = [] if register is None else register.keys
+            return frozenset(key.value for key in keys if isinstance(key, ast.Constant) and isinstance(key.value, str))
+    return frozenset()
+
+
+def _wording_findings() -> list[Finding]:
+    """The copy rules over each wording under a label the branch adds; never the semicolon rule, which legal text keeps."""
+    loaded = backend()
+    # A backend that will not import has refused the whole run before any check reads it.
+    if isinstance(loaded, str):
+        return []
+    register = getattr(loaded.einwilligung, WORDINGS_REGISTER, None)
+    if not isinstance(register, Mapping):
+        return [Finding("fail", "copy-corpus", WORDINGS_SOURCE, f"`{WORDINGS_REGISTER}` is gone, so no consent wording was read")]
+    held = _labels_at_fork()
+    found: list[Finding] = []
+    for label, fassung in register.items():
+        if label in held:
+            continue
+        nach_schluessel = fassung.absaetze_nach_schluessel or {}
+        for text in sorted({*fassung.absaetze, fassung.schalter, *fassung.bedienelemente.values(), *nach_schluessel.values()}):
+            span = Copy("string", FORMAT_FIELD_RE.sub(HOLE, text), tuple(FORMAT_FIELD_RE.findall(text)))
+            for finding in (
+                *_dash_findings(WORDINGS_SOURCE, span),
+                *_formal_findings(WORDINGS_SOURCE, span),
+                *_informal_findings(WORDINGS_SOURCE, span),
+                *_term_findings(WORDINGS_SOURCE, span),
+            ):
+                found.append(dataclasses.replace(finding, detail=f"under `{label}`, {finding.detail}"))
     return found
 
 
@@ -538,6 +632,7 @@ def check_copy_rules() -> list[Finding]:
             found.extend(_informal_findings(rel, span))
             found.extend(_term_findings(rel, span))
             found.extend(_semicolon_findings(rel, span))
+    found.extend(_wording_findings())
 
     # Three ways this sweep goes quiet without anything else noticing: the tree moves, the scanner
     # stops extracting, and an exempting name outlives what it exempted.

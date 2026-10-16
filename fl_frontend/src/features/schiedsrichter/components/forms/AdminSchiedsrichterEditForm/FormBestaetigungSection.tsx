@@ -219,11 +219,12 @@ export function FormBestaetigungSection({
         )}
 
         {einwilligung === null ? (
-          // The missing control belongs in the same breath: this panel stands among editable
-          // ones, so a reader meeting an empty one goes looking for the way to record a consent.
+          // The missing control belongs in the same breath, a reader of an empty panel among editable
+          // ones looking for a way to record a consent. The schedule's sentence is today's: the public
+          // fixture read consults no consent record.
           <p className="muted-hint">
-            Diese Person hat ihren Eintrag noch nicht bestätigt. Bis dahin steht im Spielplan bei ihren Spielen „anonym“, und eintragen lässt
-            sich die Einwilligung nicht.
+            Diese Person hat ihren Eintrag noch nicht bestätigt, und eintragen lässt sich die Einwilligung nicht. Im Spielplan stehen bei ihren
+            Spielen ihr erster Namensteil und der Anfangsbuchstabe des nächsten.
           </p>
         ) : (
           <>

@@ -48,7 +48,6 @@ export async function mailKontaktLink({
         // The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`: a stack that is not
         // production must not mail production links (`docs/frontend/spec.md :: I186`).
         origin: frontend_config.AUTH_URL,
-        vorname: mint.vorname,
         rollenText: rollenText(mint.rollen),
         schule: mint.schule,
         saisonId: saisonId,

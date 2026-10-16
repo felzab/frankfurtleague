@@ -98,7 +98,6 @@ function landed({ endpoint, method }: ApiCall): Record<string, unknown> {
         token: "t",
         rollen: ["ansprechperson"],
         email: STORED_EMAIL,
-        vorname: "Anna",
         schule: "Lessing-Kolleg",
         frist: "2026-10-17",
         zeile: "offen",

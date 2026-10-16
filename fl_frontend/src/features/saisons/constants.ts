@@ -1,3 +1,5 @@
+import { TEAMS_EINTRAG } from "@/features/admin/constants";
+
 import type { PillTone } from "@/shared/components/ui/badges";
 import type { FLSaisonPhase, FLSaisonTiebreakOrder } from "./schemas";
 
@@ -150,7 +152,7 @@ export const SPIELPLAN_ZURUECKNEHMEN = "Zurücknehmen";
  */
 export const GRUPPEN_OFF_RULES =
   "Für einen Spielplan muss jede Gruppe dieser Saison genau so viele Teams halten, wie die Regeln vorsehen, und kein Team darf in " +
-  "einer Gruppe stehen, die diese Saison nicht anbietet. Passe die Gruppen über die Teamseite an.";
+  `einer Gruppe stehen, die diese Saison nicht anbietet. Passe die Gruppen unter „${TEAMS_EINTRAG.label}“ an.`;
 
 /**
  * `REQ-ACTIVATE-004`'s one sentence, here for `GRUPPEN_OFF_RULES`' reason: the rollover's blocked

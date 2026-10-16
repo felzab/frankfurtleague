@@ -49,7 +49,7 @@ const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
  * The „Stand“ and the words it dates, frozen together: a reader told nothing changed since that day
  * has been misled by any edit that left the date standing.
  */
-const FASSUNG = { stand: "16. Oktober 2026", digest: "5c7732387cd45440e08bd87a65d2129cdb528ddb0eb3dc5fb2ff4c5fe189f5dc" } as const;
+const FASSUNG = { stand: "16. Oktober 2026", digest: "cb81dd55f3b5bdd46c17382d79c439fa69b99ae51ec669131bc09d7408259ef0" } as const;
 
 /** Every word the page renders but its date, so moving the date alone never passes for moving the words. */
 const wortlautDigest = (): string =>
@@ -185,6 +185,21 @@ describe("the privacy notice's retention table", () => {
     );
   });
 
+  /* A journal line keeps the person's address as keyed hashes alone, and its envelope's trace id joins it to the access
+     log's line, which holds the visitor's address (`docs/datenschutz.md` §6): the row says both. */
+  it("names everything a journal line holds, the address only as unreadable keys and the ids joining it to the access log", () => {
+    assert.ok(
+      ANGABEN.has(
+        "Vermerk eines Schritts, den Du veranlasst hast: einer Löschung auf Wunsch, eines Widerrufs Deiner Einwilligung, Deines " +
+          "Widerspruchs als Kontaktperson oder der Ablehnung einer neuen E-Mail-Adresse. Deine E-Mail-Adresse steht darin nur als " +
+          "unlesbarer Schlüssel, bei einer Löschung als zwei solche Schlüssel. Außerdem enthält er die Art des Schritts und den " +
+          "Zeitpunkt, bei den übrigen Schritten den betroffenen Eintrag, bei einem Widerruf die Fassung des Textes und die Antworten, " +
+          "die er setzt, bei einem Widerspruch die Rollen, die er leert, und Kennungen der Anfrage, über die er sich dem Eintrag im " +
+          "Zugriffsprotokoll zuordnen lässt",
+      ),
+    );
+  });
+
   it("names everything a referee's confirmation record holds, the birthdate included", () => {
     assert.equal(
       ANGABEN.get(
@@ -205,7 +220,7 @@ describe("the privacy notice's retention table", () => {
         "Neue E-Mail-Adresse einer Schiedsrichterin oder eines Schiedsrichters, solange sie nicht bestätigt ist, dazu ihr " +
           "Link als unlesbarer Schlüssel mit Versanddatum und Frist",
       ),
-      "Bis die Adresse über ihren Link bestätigt oder abgelehnt wird oder die Verwaltung die Änderung verwirft; mit dem Eintrag " +
+      "Bis die Adresse über ihren Link bestätigt oder abgelehnt wird oder die Verwaltung die Änderung verwirft. Mit dem Eintrag " +
         "wird sie gelöscht. Ihr Link gilt so lange wie der Bestätigungslink des Eintrags und wird durch jeden neuen ersetzt. Ist er abgelaufen," +
         " löschen wir die Adresse am Tag danach",
     );

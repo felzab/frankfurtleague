@@ -4,6 +4,7 @@ import { frontend_config } from "@/core/config";
 import { ApiUnsentError, requestOf } from "@/core/errors";
 import { logger } from "@/core/logging";
 import { requestOutcomeUnknown, runAnsweringOwnCut } from "@/core/requestScope";
+import { TEAMS_EINTRAG } from "@/features/admin/constants";
 import { invalidatesOnWrite, refusalResult, refuseUnconfirmed, runAdminMutation } from "@/shared/utils/adminMutation";
 import { refusedReplay, restored, runAdminUndo, unclearReplay, UNDO_UNREADABLE } from "@/shared/utils/adminUndo";
 import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
@@ -398,7 +399,7 @@ export async function undrawSpielplanAction(
     const removedRows = undrawOperation.spieltage > 0 || undrawOperation.spiele > 0;
 
     const message = removedRows
-      ? `Der Spielplan von Saison ${validated.data.id} ist zurückgenommen. Gelöscht wurden ${describeSpielplanUmfang(undrawOperation.spieltage, undrawOperation.spiele)}. Gruppen, Teams pro Gruppe und Qualifikanten pro Gruppe lassen sich jetzt wieder im Abschnitt ${REGELN_ABSCHNITT} ändern, die Teams über die Teamseite.`
+      ? `Der Spielplan von Saison ${validated.data.id} ist zurückgenommen. Gelöscht wurden ${describeSpielplanUmfang(undrawOperation.spieltage, undrawOperation.spiele)}. Gruppen, Teams pro Gruppe und Qualifikanten pro Gruppe lassen sich jetzt wieder im Abschnitt ${REGELN_ABSCHNITT} ändern, die Teams unter „${TEAMS_EINTRAG.label}“.`
       : undrawOperation.watermark_cleared
         ? `Saison ${validated.data.id} hielt weder Spieltage noch Spiele. Die Angabe, dass ihr Spielplan steht, ist jetzt entfernt.`
         : `Saison ${validated.data.id} hatte keinen Spielplan mehr, deshalb wurde nichts gelöscht.`;

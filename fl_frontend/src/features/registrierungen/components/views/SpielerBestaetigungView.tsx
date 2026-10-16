@@ -106,7 +106,7 @@ const ABSCHNITT_CLASSES = "flex flex-col gap-y-2";
  * The slots a record fills from the person who opened the link
  * (`fl_frontend/src/features/bewerbungen/components/ui/Gefuellt.tsx :: Gefuellt`).
  */
-const EIGENE_SLOTS = new Set(["vorname", "team", "schule", "saison"]);
+const EIGENE_SLOTS = new Set(["team", "schule", "saison"]);
 
 /**
  * What each publication scope offers, in the order the copy reads them in.
@@ -268,7 +268,7 @@ export function SpielerBestaetigungView({ start, fassung }: { start: SpielerBest
           panelRef={ergebnisRef}
           tone="erfolg">
           <p className={ABSATZ_CLASSES}>
-            Danke, <Wert>{stand.ansicht.vorname}</Wert>. Deine Registrierung für <Wert>{stand.ansicht.team}</Wert> ist bestätigt.
+            Danke. Deine Registrierung für <Wert>{stand.ansicht.team}</Wert> ist bestätigt.
           </p>
           <GespeicherteAngaben
             zeilen={[
@@ -385,7 +385,6 @@ function SpielerBestaetigungForm({
   const istZuJung = fieldErrors.geburtsdatum !== undefined && entwurf.geburtsdatum !== "" && entwurf.geburtsdatum > spaeteste;
 
   const werte: Slots = {
-    vorname: ansicht.vorname,
     team: ansicht.team,
     schule: ansicht.schule,
     saison: ansicht.saison_id,

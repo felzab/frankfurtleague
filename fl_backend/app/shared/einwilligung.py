@@ -474,6 +474,18 @@ _SPIELERSEITE_WIEDERKEHREND: Final[Mapping[str, str]] = MappingProxyType(
     }
 )
 
+# Both pupil pages once the identity line names no pupil: their link went to an address nobody has
+# confirmed, which behind a typo is a stranger's, so the line names the team instead.
+_SPIELERSEITE_5: Final[Mapping[str, str]] = MappingProxyType(
+    {
+        **_SPIELERSEITE_4,
+        "klickIdentitaet": "dass Du Dich selbst für {team} registriert hast und diese E-Mail-Adresse Dir gehört,",
+    }
+)
+_SPIELERSEITE_WIEDERKEHREND_2: Final[Mapping[str, str]] = MappingProxyType(
+    {**_SPIELERSEITE_WIEDERKEHREND, "klickIdentitaet": _SPIELERSEITE_5["klickIdentitaet"]}
+)
+
 # The account page's three controls, each a page of its own: a press there is no confirmation, so
 # it never stamps a confirmation page's label, and the words beside the switch say what it does now.
 _KONTO_SPIELER: Final[Mapping[str, str]] = MappingProxyType(
@@ -1523,6 +1535,33 @@ FASSUNGEN: Final[Mapping[str, Fassung]] = MappingProxyType(
             # A switch's words, keyed by the scope it writes when on: off writes `kontaktdaten`, which has none.
             bedienelemente=MappingProxyType({"kontaktdaten_whatsapp": "Die Liga darf mich auch über WhatsApp erreichen."}),
         ),
+        "2026-10-spielerseite-5": Fassung(
+            seite="bestaetigung_spieler",
+            gilt_ab=date(2026, 10, 16),
+            absaetze=tuple(_SPIELERSEITE_5.values()),
+            absaetze_nach_schluessel=_SPIELERSEITE_5,
+            schalter=_MEDIEN_SCHALTER,
+            bedienelemente=MappingProxyType(
+                {
+                    "kader_oeffentlich": "Vorname und erster Buchstabe des Nachnamens",
+                    "intern": "Intern: nur Nummer und Position, ohne Namen",
+                }
+            ),
+        ),
+        "2026-10-spielerseite-wiederkehrend-2": Fassung(
+            seite="bestaetigung_spieler_wiederkehrend",
+            gilt_ab=date(2026, 10, 16),
+            absaetze=tuple(_SPIELERSEITE_WIEDERKEHREND_2.values()),
+            absaetze_nach_schluessel=_SPIELERSEITE_WIEDERKEHREND_2,
+            # The new pupil page's, offered nothing here: the page labels the choices it shows back with them.
+            schalter=_MEDIEN_SCHALTER,
+            bedienelemente=MappingProxyType(
+                {
+                    "kader_oeffentlich": "Vorname und erster Buchstabe des Nachnamens",
+                    "intern": "Intern: nur Nummer und Position, ohne Namen",
+                }
+            ),
+        ),
     }
 )
 
@@ -1535,8 +1574,8 @@ LAUFENDE_FASSUNGEN: Final[Mapping[Seite, str]] = MappingProxyType(
         "bestaetigung_kontakt": "2026-10-bestaetigungsseite-7",
         "bestaetigung_kontakt_verwaltung": "2026-10-bestaetigungsseite-verwaltung",
         "bestaetigung_kontakt_saison": "2026-10-bestaetigungsseite-saison",
-        "bestaetigung_spieler": "2026-10-spielerseite-4",
-        "bestaetigung_spieler_wiederkehrend": "2026-10-spielerseite-wiederkehrend",
+        "bestaetigung_spieler": "2026-10-spielerseite-5",
+        "bestaetigung_spieler_wiederkehrend": "2026-10-spielerseite-wiederkehrend-2",
         "bestaetigung_schiedsrichter": "2026-09-schiedsrichterseite-3",
         "konto_spieler": "2026-10-konto-spieler",
         "konto_schiedsrichter": "2026-10-konto-schiedsrichter",

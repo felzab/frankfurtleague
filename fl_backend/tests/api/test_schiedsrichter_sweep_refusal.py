@@ -10,8 +10,8 @@ from app.core.middlewares import REQUEST_DEADLINE_S
 
 # One referee's commands on the wire and one pupil's, pinned by
 # `fl_backend/tests/api/test_schiedsrichter_sweep_execution.py :: TestOneRowCostsTheCommandsItsShareIsSizedAt`.
-COMMANDS_A_REFEREE = 6
-COMMANDS_A_PUPIL = 6
+COMMANDS_A_REFEREE = 7
+COMMANDS_A_PUPIL = 7
 
 # The call's other command, one aggregate answering one document at any size, pinned on the wire by
 # `fl_backend/tests/api/test_schiedsrichter_sweep_execution.py :: TestTheWorstCallSendsTheCommandsItsBudgetCounts`.

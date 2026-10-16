@@ -900,11 +900,17 @@ Every ruling below is the sign-up flow as it stands for the next season.
   its container (`scripts/ops/deploy.sh :: LOG_DIR`). **The erasure journal's lines are kept as the
   application log they are written to is, and in a file per day deleted thirty days after its last
   change**, so a pass copying a late line into a day starts that day's thirty again. Each line names
-  by a keyed hash of the address a requested erasure, or a consent its person withdrew, a
-  Widerspruch or an address change declined through its link, with the record that act changed and
-  its moment (`docs/backend/spec.md :: I666`, `:: I745`), and is copied there hourly so that a
-  restore can run every erasure since its snapshot again
-  ([section 5](#5-erasure-reaches-everyone-who-asks)) and replay every such choice. **A replay
+  a requested erasure, or a consent its person withdrew, a Widerspruch or an address change declined
+  through its link, and its person by keyed hashes of the address alone. An erasure's line holds
+  two, the journal's own and the pseudonym the action log and the day counts key that person on, so
+  a restore holding the address nowhere still finds those rows (`docs/backend/spec.md :: I666`, `:: I764`); a
+  choice's line holds the journal's one, beside the record that act changed and its moment, a
+  withdrawal's text version and the withholding values it set, and the seats a Widerspruch emptied
+  (`:: I745`). The day file keeps each line's whole log envelope, its trace and span ids among them,
+  and the trace id joins the line to the edge's access line, which names the visitor's address for
+  that log's eight days. Each line is copied into its day file hourly so that a restore can run
+  every erasure since its snapshot again ([section 5](#5-erasure-reaches-everyone-who-asks)) and
+  replay every such choice. **A replay
   writes a choice only onto a record still holding its person, stamped with that person's own moment
   and never a later one, and a second run writes nothing** (`docs/backend/spec.md :: I746`). A record
   whose addresses none match the line's hash is listed and left as it stands; an erasure is listed for an

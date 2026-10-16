@@ -427,7 +427,6 @@ const FORMS: Record<string, PublicForm> = {
             team: "Lessing-Kolleg",
             schule: "Lessing-Kolleg Oberstufengymnasium",
             saison_id: "2026",
-            vorname: "Mira",
             seite: SPIELER.seite,
             mindestalter: 16,
             medien_mindestalter: 18,

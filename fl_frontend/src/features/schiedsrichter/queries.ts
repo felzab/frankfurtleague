@@ -82,7 +82,7 @@ export type SchiedsrichterBestaetigungRefusal = {
 };
 
 /** `alterAusserhalb` where the link's view serves no floor to name: both bounds, never a number of its own. */
-const ALTER_AUSSERHALB_UNGELESEN = "Mit diesem Geburtsdatum bist Du zu jung oder zu alt. Prüfe Dein Geburtsdatum.";
+const ALTER_AUSSERHALB_UNGELESEN = "Mit diesem Geburtsdatum bist Du zu jung oder zu alt.";
 
 // A thunk, never the floors: they are read for the two age arms alone, and a caller resolving them first
 // answers every arm naming the link's state out of a second read, which finds nothing to read.

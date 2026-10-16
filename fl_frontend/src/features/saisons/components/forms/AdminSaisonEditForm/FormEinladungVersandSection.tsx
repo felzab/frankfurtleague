@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 import Envelope from "@gravity-ui/icons/Envelope";
 
+import { TEAMS_EINTRAG } from "@/features/admin/constants";
 import { postEinladungVersandAction, previewEinladungVersandAction } from "@/features/einladungen/actions";
 import { gesperrtSatz, ZURUECKGEHALTEN } from "@/features/einladungen/meldungen";
 import { Callout } from "@/shared/components/ui/Callout";
@@ -179,7 +180,10 @@ export function FormEinladungVersandSection({
       setVorschau(null);
       // Graded by the worst team this press meant to write to; none at all is no grade, only a fact.
       const versand = schlechtesterVersand(res.versendet);
-      if (versand === undefined) appToast.info("Keine Registrierungslinks gesendet", { description: res.message });
+      if (versand === undefined)
+        appToast.info(res.zeilen.length === 1 ? "Kein Registrierungslink gesendet" : "Keine Registrierungslinks gesendet", {
+          description: res.message,
+        });
       else meldeLinkVersand(versand, registrierungslinksTitel(res.versendet), res.message);
     });
   };
@@ -282,7 +286,7 @@ export function FormEinladungVersandSection({
               <Callout
                 severity="info"
                 title="Diese Saison hat noch kein Team aufgenommen">
-                Nimm die Teams über die Teamseite in die Saison auf.
+                Nimm die Teams unter „{TEAMS_EINTRAG.label}“ in die Saison auf.
               </Callout>
             )}
 

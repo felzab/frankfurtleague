@@ -881,7 +881,7 @@ loaded machine pays at several times the serial span — eslint's own `ESLintPoo
 advises disabling concurrency there — while an uncached run divides its work between them. A
 development machine mostly answers from the cache and runs serial; a runner restores no eslint
 cache, so it pays the cold fill on every run, and `scripts/gate/verify.sh ::
-do_eslint` adds `--concurrency auto` where `GITHUB_ACTIONS` is set — never on `CI`, which a
+do_eslint` threads it where `GITHUB_ACTIONS` is set — never on `CI`, which a
 developer's shell may export. **The cache lives under
 `fl_frontend/node_modules/.cache/eslint/` and never at eslint's default location**, because eslint
 deletes the default file on any run without `--cache`, so one hand-run over a single file would empty

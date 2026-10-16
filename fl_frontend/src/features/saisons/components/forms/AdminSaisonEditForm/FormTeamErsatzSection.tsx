@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 import ArrowRight from "@gravity-ui/icons/ArrowRight";
 
+import { TEAMS_EINTRAG } from "@/features/admin/constants";
 import { describeAngesetzteSpiele, describeKaderAustragung, describeKaderAustragungDanach } from "@/features/saisons/utils";
 import { replaceSaisonTeamAction } from "@/features/teams/actions";
 import { Leer } from "@/shared/components/ui/Angabe";
@@ -139,7 +140,7 @@ export function FormTeamErsatzSection({
           <Callout
             severity="info"
             title="Ersetzen lässt sich nur ein Team, das in dieser Saison steht">
-            Nimm die Teams über die Teamseite in die Saison auf.
+            Nimm die Teams unter „{TEAMS_EINTRAG.label}“ in die Saison auf.
           </Callout>
         ) : !hasPickableRow ? (
           /* Dictated copy, whole. It states its rule and names no repair, where `docs/frontend/spec.md` §1.12 gives a
@@ -152,7 +153,7 @@ export function FormTeamErsatzSection({
           <Callout
             severity="info"
             title="Nachrücken kann nur ein Team, das in dieser Saison noch nicht dabei und nicht stillgelegt ist">
-            Lege über die Teamseite ein neues an oder reaktiviere ein stillgelegtes.
+            Lege unter „{TEAMS_EINTRAG.label}“ ein neues an oder reaktiviere ein stillgelegtes.
           </Callout>
         ) : (
           <>

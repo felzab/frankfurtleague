@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Mapping, Sequence
 from datetime import datetime, timedelta
+from types import SimpleNamespace
 from typing import Any, cast
 
 import pytest
@@ -46,8 +47,8 @@ ROUTE = ("PATCH", "/api/v0/teams/{team_id}")
 TRACE_ID = "0123456789abcdef0123456789abcdef"
 SPAN_ID = "fedcba9876543210"
 
-# A stand-in for a transaction handle: what is proved is that the row travels inside whatever the caller passed.
-SESSION = cast(AsyncClientSession, object())
+# A stand-in for the caller's session, outside a transaction: what is proved is that the row travels inside whatever the caller passed.
+SESSION = cast(AsyncClientSession, SimpleNamespace(in_transaction=False))
 
 
 class _FakeCollection:

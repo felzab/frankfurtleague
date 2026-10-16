@@ -30,7 +30,7 @@ import type {
  * The ONE answer a taken Kürzel gets, wherever it is judged. It names no club and does not say
  * whether that club still plays.
  */
-export const KUERZEL_VERGEBEN = "Dieses Kürzel ist schon vergeben. Bitte wähle ein anderes.";
+export const KUERZEL_VERGEBEN = "Dieses Kürzel ist schon vergeben.";
 
 export const KUERZEL_PRUEFUNG = "Wir prüfen, ob das Kürzel noch frei ist...";
 const KUERZEL_FREI = "Dieses Kürzel ist noch frei.";
@@ -159,14 +159,13 @@ export function mapBewerbungSubmitRefusal(
     case "REQ-BEWERBUNG-006":
       return {
         fieldErrors: {
-          team_id:
-            "Diese Auswahl gilt nicht mehr. Lade die Seite neu und wähle erneut aus. Oder trage die Schule neu ein, mit einem noch freien Kürzel.",
+          team_id: "Diese Auswahl gilt nicht mehr. Lade die Seite neu, oder trage die Schule mit einem noch freien Kürzel neu ein.",
         },
       };
     // The club is IN the season, not the subject of a second application: the two read alike and
     // only one of them is what the backend refused.
     case "REQ-BEWERBUNG-007":
-      return { fieldErrors: { team_id: "Diese Schule spielt in dieser Saison schon mit. Wähle eine andere aus, wenn Du Dich vertan hast." } };
+      return { fieldErrors: { team_id: "Diese Schule spielt in dieser Saison schon mit." } };
     case "REQ-BEWERBUNG-008":
       return { fieldErrors: { "schule.shorthand": KUERZEL_VERGEBEN } };
     // The press this form repeated stands, under the details first sent: a banner rather than a
@@ -211,7 +210,7 @@ export const medienNochNicht = (medienMindestalter: number | null): string =>
   medienMindestalter === null ? MEDIEN_NOCH_NICHT : `${medienZuJung(medienMindestalter)} ${MEDIEN_AUSSCHALTEN}`;
 
 /** The contact page's age refusal where the link's view serves no floor to name: both bounds, as `alterAusserhalb` names them. */
-const GEBURTSDATUM_AUSSERHALB = "Mit diesem Geburtsdatum bist Du für Deine Bestätigung zu jung oder zu alt. Prüfe das Geburtsdatum.";
+const GEBURTSDATUM_AUSSERHALB = "Mit diesem Geburtsdatum bist Du für Deine Bestätigung zu jung oder zu alt.";
 
 /** What one refused confirmation asks its caller to do. `nachlesen` is answered by a read, never by this mapper. */
 export type EinwilligungRefusal = {

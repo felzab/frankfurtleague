@@ -1,5 +1,5 @@
+import { ORGANISATION_TITEL } from "@/core/seitenNamen";
 import { MetaOrganisationView } from "@/features/meta/components/views/MetaOrganisationView";
-import { ORGANISATION_TITEL } from "@/features/meta/constants";
 import { openGraphFor } from "@/shared/utils/metadata";
 
 import type { Metadata } from "next";

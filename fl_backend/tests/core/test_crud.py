@@ -5,7 +5,8 @@ from collections.abc import Mapping, Sequence
 from typing import Any, cast
 
 import pytest
-from bson import ObjectId
+from bson import Int64, ObjectId
+from bson.codec_options import DEFAULT_CODEC_OPTIONS
 from pydantic import BaseModel
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
@@ -116,6 +117,17 @@ class TestLiteralPattern:
         assert not pattern.fullmatch(LITERAL.replace(".", "x"))
 
 
+class _Session:
+    """A stand-in for a session handle, which answers the one attribute the helpers read off it."""
+
+    def __init__(self, *, in_transaction: bool) -> None:
+        self.in_transaction = in_transaction
+
+
+TRANSACTION = cast(AsyncClientSession, _Session(in_transaction=True))
+# A session holding no transaction, whose writes stand as a sessionless call's do.
+BARE_SESSION = cast(AsyncClientSession, _Session(in_transaction=False))
+
 FILTER: Mapping[str, Any] = {"_id": ObjectId(TEAM_OID)}
 UPDATE: Mapping[str, Any] = {"$set": {"name": "Lessing"}}
 STORED: Mapping[str, Any] = {"_id": ObjectId(TEAM_OID), "name": "Lessing"}
@@ -157,6 +169,7 @@ class _OneDocumentCollection:
         self.recorded: list[Mapping[str, Any]] = []
         self.name = Collection.TEAMS
         self.database = {Collection.AKTIONEN: _RecordingCollection(self.recorded)}
+        self.codec_options = DEFAULT_CODEC_OPTIONS
 
     async def find_one_and_update(self, *, filter: Any, update: Any, session: Any, return_document: Any) -> Mapping[str, Any] | None:
         self.calls.append({"filter": filter, "update": update, "session": session, "return_document": return_document})
@@ -198,15 +211,68 @@ class TestPatchOneInDb:
         assert stub.calls[0]["return_document"] is ReturnDocument.BEFORE
         assert stub.recorded[0]["before"] == REPLACED
 
-    def test_before_is_answered_without_a_second_read(self):
+    @pytest.mark.parametrize(
+        "session", [pytest.param(None, id="no session"), pytest.param(BARE_SESSION, id="a session holding no transaction")]
+    )
+    def test_before_is_answered_without_a_second_read_outside_a_transaction(self, session: AsyncClientSession | None):
         stub = _OneDocumentCollection(STORED, pre=REPLACED)
 
         returned = asyncio.run(
-            patch_one_in_db(collection=as_collection(stub), db_filter=FILTER, update=UPDATE, return_document=ReturnDocument.BEFORE)
+            patch_one_in_db(
+                collection=as_collection(stub), db_filter=FILTER, update=UPDATE, session=session, return_document=ReturnDocument.BEFORE
+            )
         )
 
         assert returned == REPLACED
         assert stub.reads == []
+        assert len(stub.recorded) == 1
+
+    @pytest.mark.parametrize(
+        "return_document", [pytest.param(ReturnDocument.BEFORE, id="BEFORE"), pytest.param(ReturnDocument.AFTER, id="AFTER")]
+    )
+    def test_a_patch_inside_a_transaction_leaving_the_document_as_it_was_records_nothing(self, return_document: bool):
+        """Read back once whichever image is answered: `AFTER` is answered with that read rather than a second."""
+        stub = _OneDocumentCollection(STORED, pre={**STORED})
+
+        returned = asyncio.run(
+            patch_one_in_db(
+                collection=as_collection(stub), db_filter=FILTER, update=UPDATE, session=TRANSACTION, return_document=return_document
+            )
+        )
+
+        assert returned == STORED
+        assert stub.recorded == []
+        assert len(stub.reads) == 1
+
+    @pytest.mark.parametrize(
+        ("replaced", "stored"),
+        [
+            pytest.param({"_id": ObjectId(TEAM_OID), "spiele": 1}, {"_id": ObjectId(TEAM_OID), "spiele": 1.0}, id="an integer made a double"),
+            pytest.param({"_id": ObjectId(TEAM_OID), "aktiv": 1}, {"_id": ObjectId(TEAM_OID), "aktiv": True}, id="an integer made a boolean"),
+            pytest.param(
+                {"_id": ObjectId(TEAM_OID), "spiele": 1},
+                {"_id": ObjectId(TEAM_OID), "spiele": Int64(1)},
+                id="a 32-bit integer made a 64-bit one",
+            ),
+            pytest.param(
+                {"_id": ObjectId(TEAM_OID), "trikot": {"farbe": "rot", "satz": 2}},
+                {"_id": ObjectId(TEAM_OID), "trikot": {"satz": 2, "farbe": "rot"}},
+                id="a sub-document's keys reordered",
+            ),
+        ],
+    )
+    def test_a_change_python_takes_for_equality_is_recorded(self, replaced: Mapping[str, Any], stored: Mapping[str, Any]):
+        """Each pair is equal to Python and two values to the server, which rewrote the document and joined its write set."""
+        stub = _OneDocumentCollection(stored, pre=replaced)
+
+        asyncio.run(
+            patch_one_in_db(
+                collection=as_collection(stub), db_filter=FILTER, update=UPDATE, session=TRANSACTION, return_document=ReturnDocument.BEFORE
+            )
+        )
+
+        assert replaced == stored
+        assert [row["before"] for row in stub.recorded] == [replaced]
 
     def test_a_miss_raises_rather_than_returning_none(self):
         """No caller branches on `None`, so returning one would put a miss into a response body as a 200."""
@@ -262,16 +328,6 @@ DUPLICATE_ERROR: Mapping[str, Any] = {
 }
 
 
-class _Session:
-    """A stand-in for a session handle, which answers the one attribute the helper reads off it."""
-
-    def __init__(self, *, in_transaction: bool) -> None:
-        self.in_transaction = in_transaction
-
-
-TRANSACTION = cast(AsyncClientSession, _Session(in_transaction=True))
-# A session holding no transaction, whose writes stand as a sessionless call's do.
-BARE_SESSION = cast(AsyncClientSession, _Session(in_transaction=False))
 VALIDATION_ERROR: Mapping[str, Any] = {"index": 2, "code": 121, "errmsg": "Document failed validation", "op": {"name": "Club 2"}}
 WRITE_CONCERN_ERROR: Mapping[str, Any] = {"code": 64, "errmsg": "waiting for replication timed out", "errInfo": {"wtimeout": True}}
 

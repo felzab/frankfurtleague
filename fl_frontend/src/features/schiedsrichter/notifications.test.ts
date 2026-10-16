@@ -29,7 +29,6 @@ describe("the link the referee's minter mails", () => {
       operation: "POST /schiedsrichter",
       schiedsrichterId: "6890a1b2c3d4e5f607190001",
       email: "anna@example.org",
-      name: "Anna Beispiel",
       mint: { token: TOKEN, frist: "2026-10-05", email: "anna@example.org" },
       anlass: "empfang",
     });
@@ -50,7 +49,6 @@ describe("the link the referee's minter mails", () => {
       operation: "POST /schiedsrichter",
       schiedsrichterId: "6890a1b2c3d4e5f607190002",
       email: "gerda@example.org",
-      name: "Gerda Beispiel",
       mint: { token: TOKEN, frist: "2026-10-05", email: "gerda@example.org" },
       anlass: "empfang",
     });

@@ -53,4 +53,4 @@ export const EINWILLIGUNG_UMFANG_OPTIONS = ["kader_oeffentlich", "intern"] as co
 // The ceiling is the contact seat's constant, which
 // `fl_backend/app/api/registrierungen/services.py :: find_alter_refusal` applies to a pupil too.
 export const alterAusserhalb = (mindestalter: number): string =>
-  `Du musst mindestens ${String(mindestalter)} und höchstens ${String(BEWERBUNG_MAX_ALTER)} Jahre alt sein. Prüfe Dein Geburtsdatum.`;
+  `Du musst mindestens ${String(mindestalter)} und höchstens ${String(BEWERBUNG_MAX_ALTER)} Jahre alt sein.`;

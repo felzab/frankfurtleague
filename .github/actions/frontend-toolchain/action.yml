@@ -56,10 +56,11 @@ runs:
     # `devEngines.runtime` declares: one action for both, and no npm self-install.
 
     # A CACHED CHECK, accepted knowingly: whatever `cache` says, pnpm's verification log is restored,
-    # and an unchanged lockfile is not re-verified against the registry.
+    # and an install matching a recorded verdict's lockfile, policy and pnpm is not re-verified
+    # against the registry.
 
-    # Bounded: a changed lockfile re-verifies, the log is uploaded when the install ends rather than
-    # at job end, out of reach of later steps, and one a record vanished from is discarded.
+    # Bounded: anything else re-verifies; the log is uploaded when the install ends, retried at job end
+    # only where that upload did not land, and discarded where a record it restored has vanished.
     - id: setup
       uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024 # v3.0.0
       env:
@@ -68,6 +69,13 @@ runs:
         # The image pins pnpm again at `fl_frontend/Dockerfile :: ARG PNPM_VERSION`, which
         # `docs/ops/spec.md :: I512` holds to `packageManager`, so a bump moves both.
         working-directory: fl_frontend
+        # pnpm trusts a verdict only for the same lockfile, policy and pnpm (`packageManager`), and
+        # pnpm/setup never replaces an entry it restored: a key on the lockfile alone re-verifies every
+        # run after a policy or pnpm change.
+        cache-dependency-path: |
+          fl_frontend/pnpm-lock.yaml
+          fl_frontend/pnpm-workspace.yaml
+          fl_frontend/package.json
         # Never its own store cache: that saves under a key unique to each job of each run, so every
         # job uploads the whole store whatever it restored. The steps around this one cache it.
         cache: false
