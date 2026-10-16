@@ -24,6 +24,8 @@ from app.api.bewerbungen.services import hash_token
 from app.api.identitaet.crud import find_subjekt
 from app.api.identitaet.router import get_anmeldung
 from app.api.identitaet.schemas import FLSubjektPayload
+from app.api.registrierungen.person_router import aufnehmen
+from app.api.registrierungen.schemas import FLRegistrierungAufnehmenPayload
 from app.api.spieler.admin_router import delete_adresswechsel, einladen_adresswechsel, get_spieler_memberships, post_adresswechsel
 from app.api.spieler.adresswechsel_router import get_adresswechsel_ansicht, post_adresswechsel_antwort
 from app.api.spieler.crud import erase_person_in_session
@@ -92,6 +94,13 @@ NEW_EMAIL = "lenore.q@neupost.example.org"
 NEW_AS_TYPED = "Lenore.Q@NeuPost.Example.org"
 THIRD_EMAIL = "quastenbach.lenore@drittpost.example.net"
 OTHER_EMAIL = "jonte.wirbelauer@schule.example"
+# The address the pupil's own registration carries where it is not the one on file.
+REGISTERED_EMAIL = "lenore@zweitpost.example"
+
+TEAM_OID = ObjectId("6890a1b2c3d4e5f607840101")
+REGISTRIERUNG_OID = ObjectId("6890a1b2c3d4e5f607840102")
+# The seat `documents.kontaktperson_document` gives the team's confirmed contact person, who admits.
+SEAT = "anna@example.com"
 
 MESSAGE_ID = "1b6f7a52-29c1-4f0e-9b7a-6d1c2e3f4a5c"
 ACCEPTED_AT = "2026-04-01T10:00:00.000000+00:00"
@@ -185,6 +194,64 @@ async def accepted(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         ),
         db=database,
         db_client=client,
+    )
+
+
+async def admit(database: AsyncDatabase, client: AsyncMongoClient, *, email: str, spieler_id: ObjectId | None) -> Any:
+    """The pupil's own confirmed registration, carrying `email`, admitted by the team's contact person into `spieler_id`."""
+
+    await database[Collection.TEAMS].insert_one(documents.team_document(TEAM_OID, "Zorbanax", "ZO"))
+    await database[Collection.SAISON_TEAMS].insert_one(
+        documents.saison_team_document(
+            SAISON_ID,
+            TEAM_OID,
+            "Zorbanax",
+            "ZO",
+            kontakte={
+                "trainer": None,
+                "ansprechperson": documents.kontaktperson_document("Anna", bestaetigt_am="2026-03-21"),
+                "stellvertretung": None,
+                "trainer_ist_zugleich": None,
+            },
+        )
+    )
+    await database[Collection.REGISTRIERUNGEN].insert_one(
+        documents.registrierung_document(
+            REGISTRIERUNG_OID,
+            email,
+            saison_id=SAISON_ID,
+            team_id=TEAM_OID,
+            vorname=VORNAME,
+            nachname="Quastenbach",
+            token="the-registration-s-own-link",
+            eingereicht_am="2026-03-30",
+            frist="2026-04-06",
+            bestaetigt={
+                "geburtsdatum": "2009-05-04",
+                "umfang": "intern",
+                "medien": False,
+                "text_version": "2026-09",
+                "today": "2026-03-31",
+                "am": "2026-03-31T08:00:00+00:00",
+            },
+        )
+    )
+
+    return await aufnehmen(
+        registrierung_id=REGISTRIERUNG_OID,
+        aufnahme_data=FLRegistrierungAufnehmenPayload(spieler_id=spieler_id),
+        identifier=SEAT,
+        registrierungen_collection=database[Collection.REGISTRIERUNGEN],
+        saison_spieler_collection=database[Collection.SAISON_SPIELER],
+        saisons_collection=database[Collection.SAISONS],
+        spieler_collection=database[Collection.SPIELER],
+        records=record_collections(database),
+        spieltage_collection=database[Collection.SPIELTAGE],
+        aktionen_collection=database[Collection.AKTIONEN],
+        sperrliste=ban_list(database),
+        db=client,
+        today=TODAY,
+        germany_now=NOW,
     )
 
 
@@ -962,6 +1029,46 @@ class TestTheEditorsRead:
         }
         assert served["adresswechsel_abgelaufen"] is abgelaufen
         assert (read[OTHER_OID].adresswechsel, read[OTHER_OID].adresswechsel_abgelaufen) == (None, False)
+
+
+class TestAnAdmissionMeanwhile:
+    """The pupil's own registration admitted while a change waits, the only other writer of `email` (`docs/backend/spec.md :: I265`)."""
+
+    def test_one_entering_another_address_ends_the_change_and_leaves_its_address_nowhere(self, mongo_replica_set_url: str):
+        """Only a hand edit leaves a pupil holding a change and no address, the one a registration carrying another may enter.
+
+        Left standing, the change's link would then move the address just proved to a mailbox its notice never reached.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await request(database, client, email=NEW_AS_TYPED)
+            token = (await resend(database, client)).adresswechsel.token
+            await remove_the_address_by_hand(database)
+            await admit(database, client, email=REGISTERED_EMAIL, spieler_id=SPIELER_OID)
+
+            return await stored(database), await refused_code(view(database, token)), await where_held(database, NEW_EMAIL, folded=True)
+
+        row, link, held = on_a_league(mongo_replica_set_url, body)
+
+        assert (SPIELER_ADRESSWECHSEL_FELD in row, row["email"]) == (False, REGISTERED_EMAIL)
+        assert link == SPIELER_TOKEN_UNKNOWN
+        assert held == {NEW_EMAIL: []}
+
+    def test_one_at_the_address_in_force_leaves_the_change_to_its_link(self, mongo_replica_set_url: str):
+        """The change was asked over this address and its notice reached it, so the registration proving it again ends nothing."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            token = (await request(database, client, email=NEW_EMAIL)).adresswechsel.token
+            await admit(database, client, email=EMAIL.upper(), spieler_id=None)
+            admitted = await stored(database)
+            await answer(database, client, token, "bestaetigt")
+
+            return admitted, await stored(database)
+
+        admitted, row = on_a_league(mongo_replica_set_url, body)
+
+        assert (admitted["email"], admitted[SPIELER_ADRESSWECHSEL_FELD]["email"]) == (EMAIL, NEW_EMAIL)
+        assert (SPIELER_ADRESSWECHSEL_FELD in row, row["email"]) == (False, NEW_EMAIL)
 
 
 class TestTheErasure:
