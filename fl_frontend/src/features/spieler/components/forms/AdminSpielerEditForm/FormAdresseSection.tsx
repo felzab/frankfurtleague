@@ -37,6 +37,13 @@ export const LINK_AN_NEUE_ADRESSE = "Link an neue Adresse senden";
 /** A refusal and the value it was about: a keystroke away from that value retracts it, and nothing else does. */
 type Fehler = { satz: string; zu: string };
 
+/**
+ * Whether the box holds an address its press would send, which is also what the editor counts as unsaved:
+ * compared as the backend compares it (`REQ-SPIELER-007`), both sides on the sign-in fold.
+ */
+export const istAndereAdresse = (entwurf: string, gespeicherteAdresse: string): boolean =>
+  entwurf.trim() !== "" && asSignInIdentifier(entwurf) !== asSignInIdentifier(gespeicherteAdresse);
+
 /** The schema's own sentence for the box, or `null` where it takes the value. */
 const urteil = (spielerId: string, email: string): string | null => {
   const geprueft = FLSpielerAdresswechselPayloadSchema.safeParse({ id: spielerId, email: email });
@@ -52,14 +59,20 @@ export function FormAdresseSection({
   spielerId,
   email,
   isDirty,
+  entwurf,
+  onEntwurfChange,
 }: {
   spielerId: string;
   /** The stored, folded address, `null` for a pupil holding none, who takes no change. */
   email: string | null;
   /** The editor's unsaved typing, which the write re-keys the editor over. */
   isDirty: boolean;
+  /** The box's typing, `null` while it is closed. Held above the editor's key, so a save's refresh keeps it. */
+  entwurf: string | null;
+  onEntwurfChange: (next: string | null) => void;
 }) {
-  const [offen, setOffen] = useState(false);
+  // Set by the press alone: a box the refresh remounts open takes no focus from wherever the reader is.
+  const [perDruck, setPerDruck] = useState(false);
   const panel = formPanel();
 
   return (
@@ -89,18 +102,25 @@ export function FormAdresseSection({
           <p className="muted-hint">Eine Adresse kommt mit der Registrierung über den Link des Teams.</p>
         ) : (
           <FocusSlot name="adresse-aendern">
-            {offen ? (
+            {entwurf !== null ? (
               <AdresseAendern
                 spielerId={spielerId}
                 gespeicherteAdresse={email}
                 isDirty={isDirty}
-                onFertig={() => setOffen(false)}
+                entwurf={entwurf}
+                fokussieren={perDruck}
+                onEntwurfChange={onEntwurfChange}
+                onFertig={() => onEntwurfChange(null)}
               />
             ) : (
               <div className="flex w-full flex-wrap items-start gap-2">
                 <Button
                   type="button"
-                  onPress={() => setOffen(true)}
+                  onPress={() => {
+                    setPerDruck(true);
+                    // Prefilled, because the commonest correction is one wrong character.
+                    onEntwurfChange(email);
+                  }}
                   className={`${formButton({ intent: "nav", size: "xs" })} gap-x-2`}>
                   <Pencil
                     className="size-3.5"
@@ -126,17 +146,21 @@ function AdresseAendern({
   spielerId,
   gespeicherteAdresse,
   isDirty,
+  entwurf,
+  fokussieren,
+  onEntwurfChange,
   onFertig,
 }: {
   spielerId: string;
   gespeicherteAdresse: string;
   isDirty: boolean;
+  entwurf: string;
+  fokussieren: boolean;
+  onEntwurfChange: (next: string) => void;
   onFertig: () => void;
 }) {
   const router = useRouter();
   const stepUp = useStepUp();
-  // Prefilled, because the commonest correction is one wrong character.
-  const [entwurf, setEntwurf] = useState(gespeicherteAdresse);
   const [fehler, setFehler] = useState<Fehler | null>(null);
   const [sendet, setSendet] = useState(false);
   const feldRef = useRef<HTMLInputElement>(null);
@@ -144,11 +168,10 @@ function AdresseAendern({
   // Moved on mount rather than through `autoFocus`, which is banned for a load-time grab: the control
   // that opened this box unmounts with the press, leaving a keyboard user on the document body.
   useEffect(() => {
-    feldRef.current?.focus();
-  }, []);
+    if (fokussieren) feldRef.current?.focus();
+  }, [fokussieren]);
 
-  // Compared as the backend compares it (`REQ-SPIELER-007`): the stored address is already folded.
-  const unveraendert = entwurf.trim() === "" || asSignInIdentifier(entwurf) === gespeicherteAdresse;
+  const unveraendert = !istAndereAdresse(entwurf, gespeicherteAdresse);
 
   const markiere = (satz: string) => {
     setFehler({ satz: satz, zu: entwurf });
@@ -208,7 +231,7 @@ function AdresseAendern({
           name="email"
           value={entwurf}
           isInvalid={gezeigt !== null}
-          onChange={setEntwurf}
+          onChange={onEntwurfChange}
           onBlur={() => {
             // Missing is never a blur's business, and a value already refused keeps its refusal.
             if (entwurf.trim() === "" || gezeigt !== null) return;

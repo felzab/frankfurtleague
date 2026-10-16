@@ -7,7 +7,7 @@ import path from "node:path";
 import { beforeEach, describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
-import { act, createElement as h } from "react";
+import { act, createElement as h, useState } from "react";
 
 import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
@@ -231,9 +231,13 @@ const adresswechselPanel = () =>
 
 const SPIELER_ID = "68c1f0a2b3c4d5e6f7a8b9c0";
 
-/** A pupil's stored address, its request one press behind „Adresse ändern“. */
-const spielerAdresse = () =>
-  underNext(h(FormAdresseSection, { spielerId: SPIELER_ID, email: "lena@schule.example", isDirty: false }), { router: nextRouter() });
+/** A pupil's stored address, its request one press behind „Adresse ändern“, its typing held as the editor holds it. */
+function SpielerAdresseHost() {
+  const [entwurf, setEntwurf] = useState<string | null>(null);
+  return h(FormAdresseSection, { spielerId: SPIELER_ID, email: "lena@schule.example", isDirty: false, entwurf, onEntwurfChange: setEntwurf });
+}
+
+const spielerAdresse = () => underNext(h(SpielerAdresseHost), { router: nextRouter() });
 
 /** A pupil's new address waiting on its mailbox, the referee's panel's twin. */
 const spielerAdresswechselPanel = () =>
