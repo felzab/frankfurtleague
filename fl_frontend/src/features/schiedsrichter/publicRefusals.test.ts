@@ -76,7 +76,7 @@ describe("what one refused confirmation asks the referee's page to show", () => 
     // A sentence naming a floor this link was not minted under sends the person to correct a date
     // that was right, so it names none, on the field all the same.
     assert.deepEqual(await mapSchiedsrichterBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, "REQ-SCHIEDSRICHTER-005"), noFloor), {
-      fieldErrors: { geburtsdatum: "Mit diesem Geburtsdatum bist Du zu jung oder zu alt. Prüfe Dein Geburtsdatum." },
+      fieldErrors: { geburtsdatum: "Mit diesem Geburtsdatum bist Du zu jung oder zu alt." },
     });
   });
 

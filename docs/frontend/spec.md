@@ -1519,9 +1519,11 @@ where a comment quotes a rendered string, which tracks it. The wording rules:
   navigation is scanned rather than read, so a label reading as a headline is the wrong label, and
   where a word is barred for another reason the answer is a different short word, never a phrase.
 - **Refusal copy carries a second register on top of this**, declared at
-  `fl_frontend/src/shared/utils/validation.ts :: VALIDATION_FAILED`: a FIELD message stays one
-  sentence about the value, a FORM message is two with the action second, and field messages are
-  the one place "Bitte" stays — a field nudges toward input, a banner refuses it.
+  `fl_frontend/src/shared/utils/validation.ts :: VALIDATION_FAILED`: a FIELD message is one
+  sentence about the value, plus at most one naming a way out the box itself cannot offer, a page or
+  a ban to lift (my rule, 2026-10-16), a repair the box already offers being dropped; a FORM message
+  is two with the action second, and field messages are the one place "Bitte" stays — a field nudges
+  toward input, a banner refuses it.
 - **A message under the control that is itself the way out needs no repair sentence** (my rule,
   2026-09-06). Naming a picker the reader is already looking at repairs nothing, so the second
   sentence would restate the control rather than route to one.
@@ -1710,9 +1712,11 @@ consent wording under a label the branch adds to `fl_backend/app/shared/einwilli
 a label already landed being frozen; it recognises a date by the name of the function
 that formats it, a coupling `copy-corpus` fails when the name stops matching, rather than letting
 the exception widen unseen. **The heading rule is held where a check can name the heading**:
-`fl_frontend/src/app/namedHeadings.test.ts` over the headings and controls it registers, and
-`fl_frontend/eslint.config.mjs :: SOURCE_BANS` over a refusal's `where`. **Every other rule here
-holds by review**: a lint over agreement, register or a list's completeness would first have to
+`fl_frontend/src/app/namedHeadings.test.ts` over the headings, pages, controls and value words it
+registers, and `fl_frontend/eslint.config.mjs :: SOURCE_BANS` over a refusal's `where`. **The field
+register is held over every mapper's field message** by `fl_frontend/src/app/refusalCoverage.test.ts`,
+which reads a way out by what names one: a quoted name, the ban, an address, the reload. **Every
+other rule here holds by review**: a lint over agreement, register or a list's completeness would first have to
 know which string reaches a reader, in what company, and what the surface it describes offers.
 
 ### 1.13 Metadata and indexing

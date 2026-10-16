@@ -254,7 +254,7 @@ describe("what one refused confirmation shows", () => {
      was right, so an unreadable link's refusal names none, on the field all the same. */
   it("puts the age refusal on the date naming no age where the floor could not be read", async () => {
     assert.deepEqual(await mapBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, "REQ-REGISTRIERUNG-007"), floorOf(null).lesen), {
-      fieldErrors: { geburtsdatum: "Mit diesem Geburtsdatum bist Du zu jung oder zu alt. Prüfe Dein Geburtsdatum." },
+      fieldErrors: { geburtsdatum: "Mit diesem Geburtsdatum bist Du zu jung oder zu alt." },
     });
   });
 
