@@ -238,20 +238,20 @@ def await_run(sha: str, timeout: float) -> str:
 
 def clear(register: Path, statuses: dict[str, str]) -> None:
     """Each RED row whose literal the map names given its CLEARED status, read afresh: a wait outlasts the coordinator's own writes."""
-    lines = register.read_bytes().decode("utf-8").split("\n")
-    status = _expected_table(lines)[0].index("Status")
-    for row in expected_rows("\n".join(lines)):
-        if row.matches in statuses:
-            held = ledger.cells(lines[row.at])
-            held[status] = statuses[row.matches]
-            lines[row.at] = ledger.joined(held)
-    ledger.write(register, lines)
+
+    def edit(lines: list[str]) -> None:
+        status = _expected_table(lines)[0].index("Status")
+        for row in expected_rows("\n".join(lines)):
+            if row.matches in statuses:
+                held = ledger.cells(lines[row.at])
+                held[status] = statuses[row.matches]
+                lines[row.at] = ledger.joined(held)
+
+    ledger.update(register, edit)
 
 
 def expect(register: Path, run: str, sha: str, new: list[tuple[str, str]], cleared_by: str) -> list[str]:
     """One RED row per NEW finding written under the expected-red table, its job at the head of its reason; the rows."""
-    lines = register.read_bytes().decode("utf-8").split("\n")
-    header, _, end = _expected_table(lines)
     filled = {
         "Matches": "`{text}`",
         "Lines": "1",
@@ -260,15 +260,19 @@ def expect(register: Path, run: str, sha: str, new: list[tuple[str, str]], clear
         "Since": "{sha}",
         "Status": "RED",
     }
-    rows = []
-    for job, text in new:
-        values = {"text": ledger.escaped(text), "job": job, "run": run, "cleared_by": ledger.escaped(cleared_by), "sha": sha[:9]}
-        rows.append(
-            ledger.joined([next((form.format(**values) for word, form in filled.items() if name.startswith(word)), "") for name in header])
-        )
-    lines[end + 1 : end + 1] = rows
-    ledger.write(register, lines)
-    return rows
+
+    def edit(lines: list[str]) -> list[str]:
+        header, _, end = _expected_table(lines)
+        rows = []
+        for job, text in new:
+            values = {"text": ledger.escaped(text), "job": job, "run": run, "cleared_by": ledger.escaped(cleared_by), "sha": sha[:9]}
+            rows.append(
+                ledger.joined([next((form.format(**values) for word, form in filled.items() if name.startswith(word)), "") for name in header])
+            )
+        lines[end + 1 : end + 1] = rows
+        return rows
+
+    return ledger.update(register, edit)
 
 
 def _parser(prog: str) -> argparse.ArgumentParser:

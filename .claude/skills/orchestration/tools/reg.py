@@ -58,10 +58,7 @@ GLOB_CHARS: Final = frozenset("*?[")
 
 def append(register: Path, text: str, now: datetime.datetime | None = None) -> str:
     """The register with one stamped line above its marker, written; the line."""
-    lines = register.read_bytes().decode("utf-8").split("\n")
-    line = _update(lines, text, now)
-    ledger.write(register, lines)
-    return line
+    return ledger.update(register, lambda lines: _update(lines, text, now))
 
 
 def _update(lines: list[str], text: str, now: datetime.datetime | None) -> str:
@@ -72,8 +69,7 @@ def _update(lines: list[str], text: str, now: datetime.datetime | None) -> str:
     if len(at) != 1:
         raise ValueError(f"the register holds {len(at)} copies of the marker line, where one says where the line goes: {MARKER}")
     line = f"UPDATE {ledger.stamp(now)}: {body}"
-    # The marker's own ending, so a register written with carriage returns keeps them on every line.
-    lines.insert(at[0], line + ("\r" if lines[at[0]].endswith("\r") else ""))
+    lines.insert(at[0], line)
     return line
 
 
@@ -87,25 +83,25 @@ def resume(register: Path, text: str, now: datetime.datetime | None = None) -> s
         given[found["label"]] = " ".join((found["text"] or "").split())
     if not given:
         raise ValueError("no `<label>: <text>` line to write")
-    lines = register.read_bytes().decode("utf-8").split("\n")
-    heading = next((k for k, line in enumerate(lines) if line.startswith(RESUME_HEADING)), None)
-    marker = [k for k, line in enumerate(lines) if line.strip() == MARKER]
-    if heading is None or len(marker) != 1 or marker[0] < heading:
-        raise ValueError(f"no `{RESUME_HEADING}` heading above one marker line ({MARKER})")
-    held: dict[str, list[int]] = {}
-    for k in range(heading + 1, marker[0]):
-        if lines[k].startswith("UPDATE "):
-            break
-        if found := FIELD_RE.match(lines[k]):
-            held.setdefault(found["label"], []).append(k)
-    if wrong := [label for label in given if len(held.get(label, [])) != 1]:
-        raise ValueError(f"the resume point holds no single field {'; '.join(wrong)}: its fields are {'; '.join(held)}")
-    for label, value in given.items():
-        k = held[label][0]
-        lines[k] = f"{label}: {value}".rstrip() + ("\r" if lines[k].endswith("\r") else "")
-    line = _update(lines, f"resume point rewritten: {'; '.join(given)}", now)
-    ledger.write(register, lines)
-    return line
+
+    def edit(lines: list[str]) -> str:
+        heading = next((k for k, line in enumerate(lines) if line.startswith(RESUME_HEADING)), None)
+        marker = [k for k, line in enumerate(lines) if line.strip() == MARKER]
+        if heading is None or len(marker) != 1 or marker[0] < heading:
+            raise ValueError(f"no `{RESUME_HEADING}` heading above one marker line ({MARKER})")
+        held: dict[str, list[int]] = {}
+        for k in range(heading + 1, marker[0]):
+            if lines[k].startswith("UPDATE "):
+                break
+            if found := FIELD_RE.match(lines[k]):
+                held.setdefault(found["label"], []).append(k)
+        if wrong := [label for label in given if len(held.get(label, [])) != 1]:
+            raise ValueError(f"the resume point holds no single field {'; '.join(wrong)}: its fields are {'; '.join(held)}")
+        for label, value in given.items():
+            lines[held[label][0]] = f"{label}: {value}".rstrip()
+        return _update(lines, f"resume point rewritten: {'; '.join(given)}", now)
+
+    return ledger.update(register, edit)
 
 
 def _briefs(register: str) -> Path | None:
@@ -145,16 +141,18 @@ def queue(register: Path, trigger: str, brief: Path) -> str:
     trigger = " ".join(trigger.split())
     if not trigger or not brief.is_file():
         raise ValueError(f"a standing action needs a trigger and a saved brief: {brief} is no file" if trigger else "the trigger is empty")
-    lines = register.read_bytes().decode("utf-8").split("\n")
-    table, end = standing_table(lines)
     target = brief.resolve()
-    for k in range(table + 2, end + 1):
-        row = ledger.cells(lines[k])
-        if unticked(row) and row[0] == ledger.escaped(trigger) and _same_file(row[1], target):
-            return f"already queued: {trigger} -> {target}"
-    lines.insert(end + 1, ledger.joined([ledger.escaped(trigger), f"`{target}`", ""]))
-    ledger.write(register, lines)
-    return f"queued {target.name} for {trigger}"
+
+    def edit(lines: list[str]) -> str:
+        table, end = standing_table(lines)
+        for k in range(table + 2, end + 1):
+            row = ledger.cells(lines[k])
+            if unticked(row) and row[0] == ledger.escaped(trigger) and _same_file(row[1], target):
+                return f"already queued: {trigger} -> {target}"
+        lines.insert(end + 1, ledger.joined([ledger.escaped(trigger), f"`{target}`", ""]))
+        return f"queued {target.name} for {trigger}"
+
+    return ledger.update(register, edit)
 
 
 def _tick(lines: list[str], target: Path, name: str, now: datetime.datetime | None) -> list[str]:
@@ -190,45 +188,46 @@ def dispatch(
     """The agent's messages file and live-agent row written, its rows routed and its standing action ticked; what was done, and each refusal."""
     if not NAME_RE.match(name) or (agent is not None and not ledger.AGENT_ID_RE.match(agent)):
         raise ValueError(f"{name!r} or {agent!r} is no agent name or id")
-    text = register.read_bytes().decode("utf-8")
-    briefs = _briefs(text)
+    briefs = _briefs(register.read_bytes().decode("utf-8"))
     if briefs is None or not briefs.is_dir():
         raise ValueError(f"the register's `Briefs:` line names no directory ({briefs}): add one under its header")
     if brief is not None and not brief.is_file():
         raise ValueError(f"{brief} is no brief file")
-    lines = text.split("\n")
-    table, end = ledger.live_table(lines)
-    column = ledger.status_column(lines[table])
-    said: list[str] = []
-    first = f"{name} `{agent}`" if agent else name
-    row = next((k for k in range(table + 2, end + 1) if ledger.row_name(lines[k]) == name), None)
-    if row is not None:
-        if agent and f"`{agent}`" not in ledger.first_cell(lines[row]):
-            parts = lines[row].split("|")
-            parts[1] = f" {first} "
-            lines[row] = "|".join(parts)
-            said.append(f"named {agent} in {name}'s live-agent row")
-        held = ledger.cells(lines[row])
-        # A finished agent sent another round is live again: its gauge and its stale-row check read this cell.
-        if agent and column < len(held) and held[column].startswith("DONE"):
-            held[column] = f"RUNNING ({ledger.stamp(now)})"
-            lines[row] = ledger.joined(held)
-            said.append(f"set {name}'s live-agent row RUNNING again: a resume")
-    else:
-        width = lines[table].count("|") - 1
-        made = [first, question, *[""] * max(width - 3, 0), f"RUNNING ({ledger.stamp(now)})"][:width]
-        lines.insert(end + 1, "| " + " | ".join(made) + " |")
-        said.append(f"added {name}'s live-agent row")
-    said += _tick(lines, (brief or briefs / f"{name}.md").resolve(), name, now)
     rows = brief_rows(brief) if brief else []
-    if brief is not None and not rows:
-        said.append(f"{brief.name} carries no `Rows:` line, so it routed no row")
-    refused = _take_rows(register, lines, name, rows, takes, said)
+
+    def edit(lines: list[str]) -> tuple[list[str], list[str]]:
+        table, end = ledger.live_table(lines)
+        column = ledger.status_column(lines[table])
+        said: list[str] = []
+        first = f"{name} `{agent}`" if agent else name
+        row = next((k for k in range(table + 2, end + 1) if ledger.row_name(lines[k]) == name), None)
+        if row is not None:
+            if agent and f"`{agent}`" not in ledger.first_cell(lines[row]):
+                parts = lines[row].split("|")
+                parts[1] = f" {first} "
+                lines[row] = "|".join(parts)
+                said.append(f"named {agent} in {name}'s live-agent row")
+            held = ledger.cells(lines[row])
+            # A finished agent sent another round is live again: its gauge and its stale-row check read this cell.
+            if agent and column < len(held) and held[column].startswith("DONE"):
+                held[column] = f"RUNNING ({ledger.stamp(now)})"
+                lines[row] = ledger.joined(held)
+                said.append(f"set {name}'s live-agent row RUNNING again: a resume")
+        else:
+            width = lines[table].count("|") - 1
+            made = [first, question, *[""] * max(width - 3, 0), f"RUNNING ({ledger.stamp(now)})"][:width]
+            lines.insert(end + 1, "| " + " | ".join(made) + " |")
+            said.append(f"added {name}'s live-agent row")
+        said += _tick(lines, (brief or briefs / f"{name}.md").resolve(), name, now)
+        if brief is not None and not rows:
+            said.append(f"{brief.name} carries no `Rows:` line, so it routed no row")
+        return said, _take_rows(register, lines, name, rows, takes, said)
+
+    said, refused = ledger.update(register, edit)
     messages = briefs / f"{name}-messages.md"
     if not messages.exists():
         messages.write_bytes(f"# {name} -- messages after the brief\n".encode())
         said.insert(0, f"created {messages}")
-    ledger.write(register, lines)
     return said, refused
 
 
@@ -287,10 +286,15 @@ def record(payload: dict[str, object], plans: Path, now: datetime.datetime | Non
     name = to if NAME_RE.match(to) and (briefs / f"{to}-messages.md").is_file() else ledger.agent_name(register, to)
     if not name or not NAME_RE.match(name) or not (target := briefs / f"{name}-messages.md").is_file():
         return f"{lost} no `<NAME>-messages.md` in {briefs} answers to it; `reg.py dispatch` creates one."
-    held = target.read_bytes()
-    lead = b"" if held.endswith(b"\n") or not held else b"\n"
     body = text.replace("\r\n", "\n").rstrip("\n")
-    target.write_bytes(held + lead + f"\n## {ledger.stamp(now)} coordinator\n\n{body}\n".encode())
+    entry = f"\n## {ledger.stamp(now)} coordinator\n\n{body}\n".split("\n")
+
+    def add(lines: list[str]) -> None:
+        if not lines[-1]:
+            lines.pop()
+        lines += entry
+
+    ledger.update(target, add)
     # Each line routes on its own, and each row within it: a refused row once dropped eight others with it.
     orders = [(None, _named(found)) for found in ROWS_RE.findall(text)]
     orders += [(found["owner"], _named(found["rows"])) for found in REROUTE_RE.finditer(text)]

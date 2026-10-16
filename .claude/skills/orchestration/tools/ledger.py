@@ -21,6 +21,7 @@ Exit 0 done, 2 refused, 3 a report with no label and no `--none`, 4 banked with 
 from __future__ import annotations
 
 import argparse
+import contextlib
 import datetime
 import io
 import json
@@ -28,7 +29,9 @@ import os
 import re
 import shlex
 import sys
-from collections.abc import Collection, Iterator
+import tempfile
+import time
+from collections.abc import Callable, Collection, Iterator
 from pathlib import Path
 from typing import Final, NamedTuple
 
@@ -66,6 +69,9 @@ SYNTHETIC_MODEL: Final = "<synthetic>"
 TOOL: Final = Path(__file__).resolve()
 INVOCATION: Final = ("uv", "run", "--project", str(TOOL.parents[4] / "fl_backend"), "--frozen", "python", str(TOOL))
 PLACEHOLDER_RE: Final = re.compile(r"<[a-z]+>")
+# A write holds the lock for milliseconds, so a lock held this long is a writer stopped holding it.
+LOCK_SECONDS: Final = 10.0
+LOCK_POLL_SECONDS: Final = 0.02
 
 
 def command(*args: str) -> str:
@@ -200,11 +206,64 @@ def owner(row: list[str]) -> str:
     return row[4].split(";", 1)[0].strip() if len(row) == 5 else ""
 
 
-def write(path: Path, lines: list[str]) -> None:
-    # Beside the register and renamed over it, so an interrupted write leaves the old register whole.
-    spare = path.with_name(path.name + ".writing")
-    spare.write_bytes("\n".join(lines).encode("utf-8"))
-    os.replace(spare, path)
+@contextlib.contextmanager
+def locked(path: Path) -> Iterator[None]:
+    """The file's lock, a file beside it created only where none exists, held; a second taker waits, refused past `LOCK_SECONDS`."""
+    lock = path.with_name(path.name + ".lock")
+    deadline = time.monotonic() + LOCK_SECONDS
+    while True:
+        try:
+            handle = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            break
+        # Windows refuses a create racing the holder's delete with PermissionError, not FileExistsError.
+        except (FileExistsError, PermissionError) as held:
+            if time.monotonic() >= deadline:
+                raise OSError(
+                    f"{lock} could not be taken within {LOCK_SECONDS:g} s ({held}): another tool is writing {path.name}, or one "
+                    "stopped holding the lock; delete the lock file once no tool runs"
+                ) from None
+            time.sleep(LOCK_POLL_SECONDS)
+    try:
+        try:
+            os.write(handle, f"{os.getpid()}\n".encode())
+        finally:
+            os.close(handle)
+        yield
+    finally:
+        lock.unlink()
+
+
+def _replace(path: Path, data: bytes) -> None:
+    # A spare of its own beside the file, renamed over it: an interrupted write leaves the old file whole.
+    handle, spare = tempfile.mkstemp(dir=path.parent, prefix=f"{path.name}.", suffix=".writing")
+    try:
+        with os.fdopen(handle, "wb") as out:
+            out.write(data)
+        os.replace(spare, path)
+    except BaseException:
+        Path(spare).unlink(missing_ok=True)
+        raise
+
+
+def update[T](path: Path, edit: Callable[[list[str]], T]) -> T:
+    """`edit` applied to the file's lines under its lock; what it returned.
+
+    Every register write comes through here: the messages hook and a background `ci.py --wait` write
+    unbidden, and two overlapping whole-file rewrites drop the earlier. A refusal `edit` raises writes
+    nothing.
+    """
+    with locked(path):
+        held = path.read_bytes()
+        text = held.decode("utf-8")
+        # A register written with carriage returns keeps them, `edit` seeing its lines without.
+        crlf = "\r\n" in text and "\n" not in text.replace("\r\n", "")
+        lines = (text.replace("\r\n", "\n") if crlf else text).split("\n")
+        done = edit(lines)
+        written = "\n".join(lines)
+        data = (written.replace("\n", "\r\n") if crlf else written).encode("utf-8")
+        if data != held:
+            _replace(path, data)
+        return done
 
 
 # --- the live-agent table -------------------------------------------------------------------------
@@ -408,26 +467,29 @@ def route_lines(
 
 def route(register: Path, agent: str, rows: list[str], reroute: bool = False) -> list[str]:
     """Each row ROUTED to the agent, all or none; the rows that moved."""
-    # `--reroute` lifts the refusal of a word no command knows for the rows it names, as `close
-    # --reclose` does: the in-flight half of the repair that refusal names.
-    lines, at = _rows(register, mending=rows if reroute else ())
-    check_owner(lines, agent)
-    moved, refused = route_lines(lines, at, agent, rows, reroute)
-    if refused:
-        raise ValueError("; ".join(refused))
-    if moved:
-        write(register, lines)
-    return moved
+
+    def edit(lines: list[str]) -> list[str]:
+        # `--reroute` lifts the refusal of a word no command knows for the rows it names, as `close
+        # --reclose` does: the in-flight half of the repair that refusal names.
+        at = rows_at(lines, register, mending=rows if reroute else ())
+        check_owner(lines, agent)
+        moved, refused = route_lines(lines, at, agent, rows, reroute)
+        if refused:
+            raise ValueError("; ".join(refused))
+        return moved
+
+    return update(register, edit)
 
 
 def route_each(register: Path, agent: str, rows: list[str], reroute: bool = False, held_by: str | None = None) -> tuple[list[str], list[str]]:
     """Each row the agent can take ROUTED to it, one refused row never holding back the rest; the rows moved and the refusals."""
-    lines, at = _rows(register, mending=rows if reroute else ())
-    check_owner(lines, agent)
-    moved, refused = route_lines(lines, at, agent, rows, reroute, held_by)
-    if moved:
-        write(register, lines)
-    return moved, refused
+
+    def edit(lines: list[str]) -> tuple[list[str], list[str]]:
+        at = rows_at(lines, register, mending=rows if reroute else ())
+        check_owner(lines, agent)
+        return route_lines(lines, at, agent, rows, reroute, held_by)
+
+    return update(register, edit)
 
 
 def _closed(row: list[str], word: str, evidence: str) -> str:
@@ -449,37 +511,42 @@ def close(register: Path, word: str, evidence: str, rows: list[str], reclose: bo
     """Each row set to the closing status `word` with the evidence, all or none; the rows closed."""
     _closing(word, evidence)
     rows = list(dict.fromkeys(rows))
-    # A row whose word no command knows is what `--reclose` exists to mend, so naming it lifts the refusal.
-    lines, at = _rows(register, mending=rows)
-    refused = []
-    for row in rows:
-        if row not in at:
-            refused.append(f"{row} is no ledger row")
-            continue
-        held = cells(lines[at[row]])
-        if status(held) in ("OPEN", "ROUTED") or reclose:
-            lines[at[row]] = _closed(held, word, evidence)
-        else:
-            # Its evidence would go, and a second verdict on a closed row is a decision to say aloud.
-            refused.append(f"{row} is `{held[3]}` already: --reclose closes it again")
-    if refused:
-        raise ValueError("; ".join(refused))
-    write(register, lines)
-    return rows
+
+    def edit(lines: list[str]) -> list[str]:
+        # A row whose word no command knows is what `--reclose` exists to mend, so naming it lifts the refusal.
+        at = rows_at(lines, register, mending=rows)
+        refused = []
+        for row in rows:
+            if row not in at:
+                refused.append(f"{row} is no ledger row")
+                continue
+            held = cells(lines[at[row]])
+            if status(held) in ("OPEN", "ROUTED") or reclose:
+                lines[at[row]] = _closed(held, word, evidence)
+            else:
+                # Its evidence would go, and a second verdict on a closed row is a decision to say aloud.
+                refused.append(f"{row} is `{held[3]}` already: --reclose closes it again")
+        if refused:
+            raise ValueError("; ".join(refused))
+        return rows
+
+    return update(register, edit)
 
 
 def close_routed(register: Path, rows: list[str], evidence: str, by: set[str]) -> list[str]:
     """Each named row ROUTED to one of `by`, the names of the landed agents, set FIXED with the evidence; the rows closed."""
-    lines, at = _rows(register)
-    closed = []
-    for row in rows:
-        held = cells(lines[at[row]]) if row in at else []
-        if held and status(held) == "ROUTED" and owner(held) in by:
-            lines[at[row]] = _closed(held, "FIXED", evidence)
-            closed.append(row)
-    if closed:
-        write(register, lines)
-    return closed
+
+    def edit(lines: list[str]) -> list[str]:
+        at = rows_at(lines, register)
+        closed = []
+        for row in rows:
+            held = cells(lines[at[row]]) if row in at else []
+            if held and status(held) == "ROUTED" and owner(held) in by:
+                lines[at[row]] = _closed(held, "FIXED", evidence)
+                closed.append(row)
+        return closed
+
+    return update(register, edit)
 
 
 def routed(register: Path, by: set[str]) -> list[str]:
@@ -559,47 +626,49 @@ def bank_text(
             + "; pass --none for a report with no finding"
         )
     source = name or report_name.removesuffix(".md").removesuffix("-report")
-    lines, _ = _rows(register)
-    end, heading = _ledger_rows(lines)
-    # Every report numbers from F1, so a second report under a banked name would bank only the labels
-    # past the first one's highest and drop the rest in silence.
-    if labelled and any(line.startswith(f"| {source}-F") for line in lines[heading : end + 1]):
-        raise ValueError(f"the ledger already holds rows for {source}: bank a second report under another name with --as")
-    rows = {n: [f"{source}-F{n}", report_name, _cell(summary), "OPEN", ""] for n, summary in sorted(labelled.items())}
-    taken: dict[int, str] = {}
-    refused: list[str] = []
 
-    def take(n: int, by: str) -> bool:
-        if n not in rows:
-            refused.append(f"{by} names F{n}, which {report_name} does not label")
-        elif n in taken:
-            refused.append(f"F{n} is named by {taken[n]} and by {by}: one finding, one verdict")
-        else:
-            taken[n] = by
-            return True
-        return False
+    def edit(lines: list[str]) -> Banked:
+        rows_at(lines, register)
+        end, heading = _ledger_rows(lines)
+        # Every report numbers from F1, so a second report under a banked name would bank only the labels
+        # past the first one's highest and drop the rest in silence.
+        if labelled and any(line.startswith(f"| {source}-F") for line in lines[heading : end + 1]):
+            raise ValueError(f"the ledger already holds rows for {source}: bank a second report under another name with --as")
+        rows = {n: [f"{source}-F{n}", report_name, _cell(summary), "OPEN", ""] for n, summary in sorted(labelled.items())}
+        taken: dict[int, str] = {}
+        refused: list[str] = []
 
-    for by, numbers in routes:
-        check_owner(lines, by)
-        for n in numbers:
-            if take(n, f"--route {by}"):
-                rows[n][3:5] = ["ROUTED", by]
-    for word, evidence, numbers in closes:
-        _closing(word, evidence)
-        for n in numbers:
-            if take(n, f"--close {word}"):
-                rows[n][3] = f"{word} ({escaped(evidence)})"
-    if refused:
-        raise ValueError("; ".join(refused))
-    said = shadowed(text)
-    if agent is not None:
-        said.append(set_live_status(lines, agent, f"DONE {stamp(now)} {report_name}"))
-    # An OPEN row keeps the shape it was always written in, its empty owner cell one space wide.
-    added = [joined(row) if row[4] else joined(row[:4]) + " |" for row in rows.values()]
-    lines[end + 1 : end + 1] = added
-    if added or agent is not None:
-        write(register, lines)
-    return Banked(added, [row[0] for row in rows.values() if row[3] == "OPEN"], said)
+        def take(n: int, by: str) -> bool:
+            if n not in rows:
+                refused.append(f"{by} names F{n}, which {report_name} does not label")
+            elif n in taken:
+                refused.append(f"F{n} is named by {taken[n]} and by {by}: one finding, one verdict")
+            else:
+                taken[n] = by
+                return True
+            return False
+
+        for by, numbers in routes:
+            check_owner(lines, by)
+            for n in numbers:
+                if take(n, f"--route {by}"):
+                    rows[n][3:5] = ["ROUTED", by]
+        for word, evidence, numbers in closes:
+            _closing(word, evidence)
+            for n in numbers:
+                if take(n, f"--close {word}"):
+                    rows[n][3] = f"{word} ({escaped(evidence)})"
+        if refused:
+            raise ValueError("; ".join(refused))
+        said = shadowed(text)
+        if agent is not None:
+            said.append(set_live_status(lines, agent, f"DONE {stamp(now)} {report_name}"))
+        # An OPEN row keeps the shape it was always written in, its empty owner cell one space wide.
+        added = [joined(row) if row[4] else joined(row[:4]) + " |" for row in rows.values()]
+        lines[end + 1 : end + 1] = added
+        return Banked(added, [row[0] for row in rows.values() if row[3] == "OPEN"], said)
+
+    return update(register, edit)
 
 
 def bank(

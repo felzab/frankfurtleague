@@ -16,6 +16,7 @@ import re
 import shlex
 import subprocess
 import sys
+import threading
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Final
@@ -230,6 +231,52 @@ def test_text_given_as_arguments_is_refused_naming_the_two_ways(tmp_path: Path, 
     text.write_bytes(f"{written}\n".encode())
     assert _run("reg", command, str(register), "--file", str(text)).returncode == 0
     assert written in register.read_bytes().decode("utf-8")
+
+
+def test_twenty_writers_started_together_each_land_their_line(tmp_path: Path) -> None:
+    """Each writer rewrote the whole register through one shared spare, so a concurrent change vanished while its command exited 0."""
+    register = _register(tmp_path)
+    texts = []
+    for k in range(20):
+        texts.append(tmp_path / f"u{k}.txt")
+        texts[-1].write_bytes(f"writer {k}\n".encode())
+    writers = [
+        subprocess.Popen((sys.executable, str(TOOLS / "reg.py"), "append", str(register), "--file", str(text)), stderr=subprocess.PIPE)
+        for text in texts
+    ]
+    failed = [(writer.returncode, writer.stderr.read() if writer.stderr else b"") for writer in writers if writer.wait() != 0]
+    assert failed == []
+    held = register.read_bytes().decode("utf-8")
+    assert sorted(int(found) for found in re.findall(r"^UPDATE [\d -]+:\d\d: writer (\d+)$", held, re.MULTILINE)) == list(range(20))
+    assert sorted(path.name for path in tmp_path.iterdir() if path.name.startswith(register.name)) == [register.name]
+
+
+def test_a_writer_waits_for_the_lock_and_then_writes(tmp_path: Path) -> None:
+    """The twenty writers above pass by luck where nothing excludes them; holding the lock makes the wait certain."""
+    register = _register(tmp_path)
+    done: list[str] = []
+    with ledger.locked(register):
+        writer = threading.Thread(target=lambda: done.append(reg.append(register, "after the lock")))
+        writer.start()
+        writer.join(0.5)
+        assert writer.is_alive() and "after the lock" not in register.read_bytes().decode("utf-8")
+    writer.join(ledger.LOCK_SECONDS)
+    assert done and done[0] in register.read_bytes().decode("utf-8")
+    assert not (tmp_path / f"{register.name}.lock").exists()
+
+
+def test_a_register_written_with_carriage_returns_keeps_them_through_every_writer(tmp_path: Path) -> None:
+    """A rewritten row lost its carriage return, since a row is split into cells and joined again."""
+    register = tmp_path / "REGISTER-s.md"
+    register.write_bytes((RESUME_POINT.format(marker=reg.MARKER) + LIVE + REGISTER.split("{live}")[1]).replace("\n", "\r\n").encode("utf-8"))
+    (tmp_path / "A-report.md").write_bytes(b"F1 one\n")
+    ledger.bank(register, tmp_path / "A-report.md")
+    ledger.route(register, "FIXER", ["A-F1"])
+    reg.resume(register, "Next action, and why it is next: push\n")
+    reg.append(register, "an update")
+    held = register.read_bytes()
+    assert held.count(b"\n") == held.count(b"\r\n") and b"Next action, and why it is next: push\r\n" in held
+    assert b"| A-F1 | A-report.md | one | ROUTED | FIXER |\r\n" in held
 
 
 RESUME_POINT: Final = (
