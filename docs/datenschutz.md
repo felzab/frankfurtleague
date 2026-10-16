@@ -644,9 +644,11 @@ Every ruling below is the sign-up flow as it stands for the next season.
   - joined into a longer word, such as „Müllerfamilie“, or of two letters before a genitive s;
   - a single letter;
   - a particle that a later word of its field follows, such as „Le“ in a referee's „Le Thi Mai“.
-- **A retired row is never removed because of its age.** A player who left a squad, a referee who
-  stopped, a club that left and a past season all keep their rows; a person's row goes only by an
-  erasure or by one of the two one-off removals [section 3](#3-the-current-pupil-records-are-reset-once)
+- **A retired row is never removed because of its age.** A referee who stopped, a club that left
+  and a past season all keep their rows, and a player who left a squad keeps theirs until the
+  season after their last squad season has ended; a person's row goes only by an erasure, for a
+  pupil by that season-after rule of [section 6](#6-retention-is-bounded-where-a-bound-was-chosen),
+  or by one of the two one-off removals [section 3](#3-the-current-pupil-records-are-reset-once)
   records, this season's player reset and the drop of the referee rows standing today; a person
   asks for their own erasure through `POST /identitaet/selbst/erasure`. The
   Known-open row `docs/backend/spec.md :: Nothing purges a retired row` carries this today, naming
