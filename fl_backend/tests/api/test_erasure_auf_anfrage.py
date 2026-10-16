@@ -437,7 +437,7 @@ class TestAnOwnersAddress:
     def test_a_promotion_landing_inside_the_erasure_is_refused_by_its_retry(self, mongo_replica_set_url: str):
         """The rival makes the address an owner after the first attempt's judgement, which the attempt's writes then conflict with.
 
-        Judged once ahead of the transaction instead, the retry erases the owner's grant.
+        Judged once ahead of the transaction instead, the retry erases an owner's grant.
         """
 
         promotions: list[int] = []
