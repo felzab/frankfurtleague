@@ -1216,7 +1216,8 @@ def _stub(tmp_path: Path, name: str, script: str) -> dict[str, str]:
 
 
 # Answers `run list` from `list-<n>.json`, the nth call's file or the last one, `run view --log-failed`
-# from `log.txt` and any other view from `run.json`, recording every call.
+# from `log.txt` and any other view from `run.json`, recording every call; the nth call exits with
+# the nth code in `exits.txt`, and past them with `exit.txt`.
 GH: Final = (
     "import sys\nfrom pathlib import Path\nhere = Path(__file__).parent\nargs = sys.argv[1:]\ncalls = here / 'calls.txt'\n"
     "calls.write_bytes((calls.read_bytes() if calls.exists() else b'') + ' '.join(args).encode() + b'\\n')\n"
@@ -1225,7 +1226,9 @@ GH: Final = (
     "    sys.stdout.write(answers[min(calls.read_bytes().count(b'run list'), len(answers)) - 1].read_text(encoding='utf-8'))\n"
     "elif '--log-failed' in args:\n    sys.stdout.buffer.write((here / 'log.txt').read_bytes())\n"
     "else:\n    sys.stdout.write((here / 'run.json').read_text(encoding='utf-8'))\n"
-    "sys.exit(int((here / 'exit.txt').read_text(encoding='utf-8')))\n"
+    "codes = (here / 'exits.txt').read_text(encoding='utf-8').split() if (here / 'exits.txt').exists() else []\n"
+    "n = calls.read_bytes().count(b'\\n')\n"
+    "sys.exit(int(codes[n - 1] if n <= len(codes) else (here / 'exit.txt').read_text(encoding='utf-8')))\n"
 )
 
 
@@ -1245,11 +1248,14 @@ def _pushed(tmp_path: Path) -> tuple[Path, str]:
     return root, pushed
 
 
-def _gh(tmp_path: Path, run: Mapping[str, object], log: bytes = b"", code: int = 0, lists: tuple[object, ...] = ()) -> dict[str, str]:
+def _gh(
+    tmp_path: Path, run: Mapping[str, object], log: bytes = b"", code: int = 0, lists: tuple[object, ...] = (), exits: tuple[int, ...] = ()
+) -> dict[str, str]:
     env = _stub(tmp_path, "gh", GH)
     (tmp_path / "bin" / "run.json").write_bytes(json.dumps(run).encode())
     (tmp_path / "bin" / "log.txt").write_bytes(log)
     (tmp_path / "bin" / "exit.txt").write_bytes(str(code).encode())
+    (tmp_path / "bin" / "exits.txt").write_bytes(" ".join(map(str, exits)).encode())
     for k, answer in enumerate(lists, 1):
         (tmp_path / "bin" / f"list-{k}.json").write_bytes(json.dumps(answer).encode())
     return {**env, "PYTHONIOENCODING": "cp1252"}
@@ -1359,6 +1365,148 @@ def test_ci_refuses_a_register_with_no_expected_red_table(tmp_path: Path) -> Non
     register.write_bytes(b"# Agent register\n")
     done = _run("ci", str(register), "123")
     assert done.returncode == 2 and "Expected red" in done.stderr
+
+
+def _failed(sha: str, **extra: object) -> dict[str, object]:
+    return {"status": "completed", "conclusion": "failure", "workflowName": "verify", "headSha": sha, **extra}
+
+
+def test_expect_writes_no_row_for_a_jobs_summary_and_a_relay_is_no_finding(tmp_path: Path) -> None:
+    """A row matching a job's placeholder expected every later failure of that job, so the read could not fail."""
+    root, sha = _pushed(tmp_path)
+    log = _log(
+        ("images", "##[error]Process completed with exit code 1."), ("verify", "##[error]A scope job failed -- its own log has the findings.")
+    )
+    env = _gh(tmp_path, _failed(sha), log)
+    register = tmp_path / "REGISTER-s.md"
+    register.write_bytes(EXPECTED_RED.encode("utf-8"))
+    before = register.read_bytes()
+    done = _run("ci", "expect", str(register), "123", "--cleared-by", "a fix", cwd=root, env=env)
+    assert done.returncode == 0 and done.stdout == "", (done.stdout, done.stderr)
+    assert "not written: `images: no finding line recognised; read its log` is `images`'s summary" in done.stderr
+    assert register.read_bytes() == before
+    read = _run("ci", str(register), "123", cwd=root, env=env)
+    assert read.returncode == 1 and "NEW       images: images: no finding line recognised" in read.stdout, read.stdout
+    # The summary job's pointer is relayed from the scope jobs, unless no scope job's line is there.
+    assert "relay     verify: a scope job failed" in read.stdout and "NEW       verify" not in read.stdout
+    alone = ci.report(_log(("verify", "##[error]A scope job failed -- its own log has the findings.")).decode(), EXPECTED_RED)
+    assert alone.new == [("verify", "verify: no finding line recognised; read its log")], alone.said
+
+
+def test_expect_keeps_a_lines_spacing_so_the_next_read_matches_it(tmp_path: Path) -> None:
+    """Spaces were collapsed in the row's literal, so the line it was written for read NEW again."""
+    root, sha = _pushed(tmp_path)
+    log = _log(("docs", "##[error]two  spaces\tand a tab"))
+    env = _gh(tmp_path, _failed(sha), log)
+    register = tmp_path / "REGISTER-s.md"
+    register.write_bytes(EXPECTED_RED.encode("utf-8"))
+    assert _run("ci", "expect", str(register), "123", "--cleared-by", "a fix", cwd=root, env=env).returncode == 0
+    assert not ci.report(log.decode(), register.read_bytes().decode()).flagged
+
+
+def test_a_passing_job_clears_its_own_row_and_not_another_jobs_holding_its_literal(tmp_path: Path) -> None:
+    root, sha = _pushed(tmp_path)
+    red = EXPECTED_RED.replace(
+        "| `refusalCoverage` | | mapper | a lane | y | RED |",
+        "| `shared` | | `a` job: x | l | y | RED |\n| `shared` | | `b` job: y | l | y | RED |",
+    )
+    run = _failed(sha, jobs=[{"name": "a", "conclusion": "success"}, {"name": "b", "conclusion": "failure"}])
+    env = _gh(tmp_path, run, _log(("b", "##[error]`db` took 155 s against a budget of 135 s")))
+    register = tmp_path / "REGISTER-s.md"
+    register.write_bytes(red.encode())
+    assert _run("ci", str(register), "123", cwd=root, env=env).returncode == 0
+    statuses = [cells[-1] for line in register.read_bytes().decode().splitlines() if (cells := ledger.cells(line))[:1] == ["`shared`"]]
+    assert statuses == [f"CLEARED {sha[:9]} (run 123: `a` passed)", "RED"]
+
+
+def test_ci_names_a_cancelled_run_rather_than_reading_its_log(tmp_path: Path) -> None:
+    root, sha = _pushed(tmp_path)
+    env = _gh(tmp_path, {**_failed(sha), "conclusion": "cancelled"}, FAILED_RUN)
+    register = tmp_path / "REGISTER-s.md"
+    register.write_bytes(EXPECTED_RED.encode("utf-8"))
+    for args in ((str(register), "123"), ("expect", str(register), "123", "--cleared-by", "x")):
+        done = _run("ci", *args, cwd=root, env=env)
+        assert done.returncode == 2 and "run 123 was cancelled" in done.stderr, done.stderr
+
+
+def test_ci_reads_another_commits_run_with_commit_and_writes_no_row(tmp_path: Path) -> None:
+    """Main's verify runs could no longer be read, and a run of another commit says nothing of the pushed head's rows."""
+    root, sha = _pushed(tmp_path)
+    head = git(root, "rev-parse", "HEAD")
+    jobs = [{"name": "frontend", "conclusion": "success"}]
+    red = EXPECTED_RED.replace("| `refusalCoverage` | | mapper |", "| `refusalCoverage` | | `frontend` job: x |")
+    env = _gh(tmp_path, _failed(head, jobs=jobs), _log(("docs", "##[error]`db` took 155 s against a budget of 135 s")))
+    register = tmp_path / "REGISTER-s.md"
+    register.write_bytes(red.encode())
+    before = register.read_bytes()
+    refused = _run("ci", str(register), "123", cwd=root, env=env)
+    assert refused.returncode == 2 and f"not verify's for {sha[:9]}" in refused.stderr
+    done = _run("ci", str(register), "123", "--commit", head[:9], cwd=root, env=env)
+    assert done.returncode == 0 and f"run 123 for {head[:9]}" in done.stdout and "no row above was set CLEARED" in done.stderr
+    assert register.read_bytes() == before
+    assert _run("ci", str(register), "123", "--commit", "0" * 12, cwd=root, env=env).returncode == 2
+
+
+def test_a_reading_prints_before_the_write_that_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root, sha = _pushed(tmp_path)
+    run = _failed(sha, jobs=[{"name": "frontend", "conclusion": "success"}])
+    env = _gh(tmp_path, run, _log(("docs", "##[error]`db` took 155 s against a budget of 135 s")))
+    register = tmp_path / "REGISTER-s.md"
+    register.write_bytes(EXPECTED_RED.replace("| `refusalCoverage` | | mapper |", "| `refusalCoverage` | | `frontend` job: x |").encode())
+
+    def unwritable(*_: object) -> None:
+        raise OSError("the register is locked")
+
+    monkeypatch.setenv("PATH", env["PATH"])
+    monkeypatch.setattr(ci, "clear", unwritable)
+    monkeypatch.chdir(root)
+    assert ci.main([str(register), "123"]) == 2
+    said = capsys.readouterr()
+    assert "CLEARED   refusalCoverage" in said.out and said.out.endswith("0 NEW, 1 expected\n") and "the register is locked" in said.err
+
+
+def test_a_wait_asks_again_after_one_failed_gh_and_stops_after_three(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root, sha = _pushed(tmp_path)
+    lists = ([{"databaseId": 77, "status": "completed"}],)
+    env = _gh(tmp_path, _failed(sha), _log(("verify", "##[error]`db` took 155 s against a budget of 135 s")), lists=lists, exits=(1,))
+    register = tmp_path / "REGISTER-s.md"
+    register.write_bytes(EXPECTED_RED.encode("utf-8"))
+    monkeypatch.setenv("PATH", env["PATH"])
+    monkeypatch.setattr(ci, "POLL_SECONDS", 0)
+    monkeypatch.chdir(root)
+    assert ci.main([str(register), "--head", "--wait"]) == 0
+    assert "gh failed while waiting (1 of 3), asking again" in capsys.readouterr().err
+    (tmp_path / "bin" / "exits.txt").write_bytes(b"1 1 1 1 1 1")
+    (tmp_path / "bin" / "calls.txt").unlink()
+    assert ci.main([str(register), "--head", "--wait"]) == 2
+    assert "gh failed 3 time(s) running" in capsys.readouterr().err
+
+
+def test_ci_head_without_wait_reads_the_pushed_commits_run_or_says_there_is_none(tmp_path: Path) -> None:
+    root, sha = _pushed(tmp_path)
+    register = tmp_path / "REGISTER-s.md"
+    register.write_bytes(EXPECTED_RED.encode("utf-8"))
+    none = _run("ci", str(register), "--head", cwd=root, env=_gh(tmp_path, _failed(sha), lists=([],)))
+    assert none.returncode == 2 and f"no verify run for {sha[:9]} yet: read it with --wait" in none.stderr, none.stderr
+    found = ([{"databaseId": 88, "status": "completed"}],)
+    read = _run("ci", str(register), "--head", cwd=root, env=_gh(tmp_path, _failed(sha), FAILED_RUN, lists=found))
+    assert read.returncode == 1 and read.stdout.startswith(f"run 88 for {sha[:9]}"), (read.stdout, read.stderr)
+
+
+def test_expect_names_a_row_past_its_bound_and_writes_none_for_it(tmp_path: Path) -> None:
+    root, sha = _pushed(tmp_path)
+    log = _log(
+        ("verify", "##[error]`db` took 155 s against a budget of 135 s"), ("verify", "##[error]`backend` took 81 s against a budget of 70 s")
+    )
+    register = tmp_path / "REGISTER-s.md"
+    register.write_bytes(EXPECTED_RED.encode("utf-8"))
+    done = _run("ci", "expect", str(register), "123", "--cleared-by", "x", cwd=root, env=_gh(tmp_path, _failed(sha), log))
+    assert done.returncode == 0 and "not written, its row's `Lines` cell is for you to judge: against a budget of" in done.stderr
+    assert register.read_bytes() == EXPECTED_RED.encode("utf-8")
 
 
 # --- land -----------------------------------------------------------------------------------------
