@@ -620,9 +620,9 @@ def context(register: Path, agents: list[str], projects: Path) -> tuple[list[str
     return said, refused
 
 
-def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="reg.py", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    commands = parser.add_subparsers(dest="command", required=True)
+def parser() -> argparse.ArgumentParser:
+    top = argparse.ArgumentParser(prog="reg.py", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    commands = top.add_subparsers(dest="command", required=True)
     appending = commands.add_parser("append")
     appending.add_argument("register", type=Path)
     # Taken only to be refused by name: argparse's own refusal would not say which way works.
@@ -658,7 +658,7 @@ def _parser() -> argparse.ArgumentParser:
     reading = commands.add_parser("context")
     reading.add_argument("register", type=Path)
     reading.add_argument("agents", nargs="+")
-    return parser
+    return top
 
 
 def _message(plans: Path) -> int:
@@ -722,7 +722,7 @@ def _run(args: argparse.Namespace) -> int:
 
 
 def main(argv: list[str]) -> int:
-    args = _parser().parse_args(argv)
+    args = parser().parse_args(argv)
     if args.command == "message":
         return _message(args.plans)
     try:

@@ -811,9 +811,9 @@ def show(register: Path, rows: list[str]) -> tuple[list[str], list[str]]:
     return shown, refused
 
 
-def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="ledger.py", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    commands = parser.add_subparsers(dest="command", required=True)
+def parser() -> argparse.ArgumentParser:
+    top = argparse.ArgumentParser(prog="ledger.py", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    commands = top.add_subparsers(dest="command", required=True)
     banking = commands.add_parser("bank")
     banking.add_argument("register", type=Path)
     banking.add_argument("report", type=Path)
@@ -845,7 +845,7 @@ def _parser() -> argparse.ArgumentParser:
     showing = commands.add_parser("show", help="each row's whole finding from its saved report")
     showing.add_argument("register", type=Path)
     showing.add_argument("rows", nargs="+")
-    return parser
+    return top
 
 
 def _bank(args: argparse.Namespace) -> int:
@@ -868,7 +868,7 @@ def _bank(args: argparse.Namespace) -> int:
 
 
 def main(argv: list[str]) -> int:
-    args = _parser().parse_args(argv)
+    args = parser().parse_args(argv)
     try:
         if args.command == "bank":
             return _bank(args)

@@ -9,7 +9,9 @@ nothing to refuse.
 
 from __future__ import annotations
 
+import contextlib
 import datetime
+import io
 import json
 import os
 import re
@@ -39,6 +41,74 @@ def _run(
     env = {**os.environ, **env} if env else None
     done = subprocess.run((sys.executable, str(TOOLS / f"{tool}.py"), *args), cwd=cwd, input=stdin, capture_output=True, check=False, env=env)
     return subprocess.CompletedProcess(done.args, done.returncode, done.stdout.decode("utf-8"), done.stderr.decode("utf-8"))
+
+
+# --- the skill text's calls -----------------------------------------------------------------------
+
+# Every page the coordinator or an agent reads a tool call from.
+PAGES: Final = tuple(
+    sorted(
+        [
+            *(REPO_ROOT / ".claude" / "skills" / "orchestration").glob("*.md"),
+            *(REPO_ROOT / ".claude" / "agents").glob("*.md"),
+            *(REPO_ROOT / ".claude" / "commands").glob("*.md"),
+        ]
+    )
+)
+TOOL_SPAN_RE: Final = re.compile(r"`((?:reg|ledger|ci|land)\.py(?:\s[^`]*)?)`")
+SPAN_PLACEHOLDER_RE: Final = re.compile(r"<[^<>]+>")
+# What argparse says of a call leaving out a word a full one carries, which a page naming a command may do.
+SHORT_RE: Final = re.compile(r"the following arguments are required|expected one argument")
+
+
+def _calls(text: str) -> list[str]:
+    """Each tool call a page names in a code span, a `path :: symbol` citation aside."""
+    return [span for span in TOOL_SPAN_RE.findall(text) if "::" not in span]
+
+
+def _misnamed(call: str) -> str | None:
+    """argparse's refusal of a call naming a word its tool lacks, or None; a call short of words is filled out first."""
+    words = shlex.split(SPAN_PLACEHOLDER_RE.sub("1", call.replace("…", "").replace("...", "")))
+    tool, argv = words[0].removesuffix(".py"), words[1:]
+    if tool == "ci":
+        build, argv = (ci.expect_parser, argv[1:]) if argv[:1] == ["expect"] else (ci.read_parser, argv)
+    else:
+        build = {"reg": reg.parser, "ledger": ledger.parser, "land": land.parser}[tool]
+    said = ""
+    # A word appended at a time stands in for each the page left out: a flag's value, then a positional.
+    for filled in range(6):
+        stderr = io.StringIO()
+        try:
+            with contextlib.redirect_stderr(stderr):
+                build().parse_args([*argv, *["1"] * filled])
+        except SystemExit:
+            said = stderr.getvalue().strip().splitlines()[-1]
+            if SHORT_RE.search(said):
+                continue
+            return said
+        return None
+    return said
+
+
+def test_the_judge_of_a_call_refuses_a_misnamed_word_and_passes_a_short_mention() -> None:
+    assert _misnamed("reg.py resume <register> --next <text>") is not None
+    assert _misnamed("reg.py pauses <register>") is not None
+    assert _misnamed("reg.py dispatch --nope") is not None
+    assert _misnamed("ci.py expect <register> <run> --cleared-by <landing> --wait") is not None
+    assert [_misnamed(call) for call in ("ledger.py bank --from", "reg.py overlap --brief", "ci.py", "land.py")] == [None] * 4
+    assert _calls("`reg.py live <register>`, `ledger.py :: STATUSES` and `reg.py`") == ["reg.py live <register>", "reg.py"]
+
+
+@pytest.mark.parametrize("page", PAGES, ids=lambda page: f"{page.parent.name}/{page.name}")
+def test_every_tool_call_a_page_names_parses_through_its_tool(page: Path) -> None:
+    """The text and the tools were written on two branches against one spec, and a flag the text named that the tool lacked ran nowhere."""
+    refused = [f"`{call}`: {said}" for call in _calls(page.read_bytes().decode("utf-8")) if (said := _misnamed(call))]
+    assert refused == []
+
+
+def test_the_core_names_tool_calls_for_the_seam_to_read() -> None:
+    """A page set or a span shape the extraction misses would leave the seam case passing over nothing."""
+    assert len(_calls((REPO_ROOT / ".claude" / "skills" / "orchestration" / "SKILL.md").read_bytes().decode("utf-8"))) >= 5
 
 
 # --- merge_rows -----------------------------------------------------------------------------------
