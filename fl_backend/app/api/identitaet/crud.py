@@ -568,7 +568,8 @@ async def erase_everything(
         session=session,
     )
 
-    # Each sentinel once, ahead of the first step that may repoint a reference at it, and only where one will.
+    # Each sentinel ahead of the step erasing its kind. The referee's takes the fixtures that booked the
+    # person; nothing is repointed at the pupils' yet, which stands for whatever record comes to name a pupil.
     if subject.schiedsrichter and _runs(erase_referee_in_session, scope):
         await ensure_ghost_schiedsrichter(schiedsrichter_collection=schiedsrichter_collection, session=session)
     if subject.spieler and _runs(erase_person_in_session, scope):
