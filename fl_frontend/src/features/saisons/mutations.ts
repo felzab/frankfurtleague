@@ -95,10 +95,12 @@ export async function swapGruppen({ saison_id, ...teams }: FLSwapGruppenPayload)
  * season. No season in the call, which reads the statuses itself; `nach` is the previous call's answer.
  */
 export async function postLoeschungLauf(nach: string | null): Promise<FLLoeschungLaufResponse> {
+  // Left out on a pass's first call: the server takes `nach` as an id wherever it is present.
+  const params: { nach?: string } = nach === null ? {} : { nach: nach };
   return apiClient<FLLoeschungLaufResponse>("/identitaet/loeschung/lauf", FLLoeschungLaufResponseSchema, {
     method: "POST",
     authType: "system",
-    params: { nach: nach },
+    params: params,
   });
 }
 

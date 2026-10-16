@@ -1027,11 +1027,11 @@ describe("the two halves after the season loop", () => {
     assert.deepEqual(halves(), [ADRESSWECHSEL, LAUF]);
   });
 
-  /** Each call of the two halves with the place it carried, in the order they ran. */
-  const halfCalls = (): [string, string | null][] =>
+  /** Each call of the two halves with the parameters it carried, in the order they ran. */
+  const halfCalls = (): [string, ApiEvent["params"]][] =>
     apiCalls()
       .filter(({ endpoint }) => endpoint === ADRESSWECHSEL || endpoint === LAUF)
-      .map(({ endpoint, params }) => [endpoint, params?.nach ?? null]);
+      .map(({ endpoint, params }) => [endpoint, params]);
 
   /** Places in the `_id` order, as the mirror demands them. */
   const ORT_ADRESSE = `${"d".repeat(23)}4`;
@@ -1047,11 +1047,12 @@ describe("the two halves after the season loop", () => {
 
     await runBewerbungSweep();
 
+    // A first call carrying no `nach` at all, never a null one: present, the server reads it as an id.
     assert.deepEqual(halfCalls(), [
-      [ADRESSWECHSEL, null],
-      [ADRESSWECHSEL, ORT_ADRESSE],
-      [LAUF, null],
-      [LAUF, ORT_SPIELER],
+      [ADRESSWECHSEL, {}],
+      [ADRESSWECHSEL, { nach: ORT_ADRESSE }],
+      [LAUF, {}],
+      [LAUF, { nach: ORT_SPIELER }],
     ]);
   });
 
