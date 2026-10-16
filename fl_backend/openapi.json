@@ -6561,7 +6561,7 @@
     "/api/v0/identitaet/abmeldung": {
       "post": {
         "summary": "Log the ending of every session an address holds",
-        "description": "File one log row saying that this administrator ended every session of an address, and when, before the caller ends them.\n\nADMIN TIER. The sessions live in the sign-in store, which the caller holds and this backend does not, so the row is the\nwhole of what this writes: collection `anmeldungen`, operation `delete_many`, the administrator as actor, and no address,\nfilter, image or count. Nothing bars the address and nothing is mailed; a person signs in again as before.\n\nRefused so that a refused call ends no session: the administrator's own address (`REQ-PURGE-003`), an address holding an\n`owner` grant unless the administrator holds an owner's power (`REQ-PURGE-005`), and with a 422 an address under the\nreserved `invalid` domain. Unlike the erasure, it ends another administrator's sessions for an administrator holding no\nowner's power: signing in again repairs it.",
+        "description": "File one log row saying that this administrator ended every session of an address, and when, before the caller ends them.\n\nADMIN TIER, a step-up write. The sessions live in the sign-in store, which the caller holds and this backend does not, so\nthe row is the whole of what this writes: collection `anmeldungen`, operation `delete_many`, the administrator as actor,\nand no address, filter, image or count. Nothing bars the address and nothing is mailed; a person signs in again as before.\n\nRefused so that a refused call ends no session: from a sign-in older than the step-up window (`REQ-AUTH-009`), the\nadministrator's own address (`REQ-PURGE-003`), an address holding an `owner` grant unless the administrator holds an\nowner's power (`REQ-PURGE-005`), and with a 422 an address under the reserved `invalid` domain. Unlike the erasure, it\nends another administrator's sessions for an administrator holding no owner's power: signing in again repairs it.",
         "operationId": "post_abmeldung_api_v0_identitaet_abmeldung_post",
         "requestBody": {
           "content": {
@@ -6594,7 +6594,7 @@
             "$ref": "#/components/responses/400.REQ-AUTH-005.REQ-VAL-002"
           },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009"
           },
           "403": {
             "$ref": "#/components/responses/403.REQ-AUTH-006.REQ-PURGE-003.REQ-PURGE-005"

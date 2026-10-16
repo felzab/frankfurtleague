@@ -301,7 +301,6 @@ const PANELS: Record<string, Arming[]> = {
       render: () => underNext(el(C.abmelden, {})),
       reach: (user) => user.type(screen.getByRole("textbox", { name: "E-Mail" }), "ada@example.org"),
       resting: "Überall abmelden",
-      stepUp: false,
     },
   ],
   [M.personLoeschen]: [

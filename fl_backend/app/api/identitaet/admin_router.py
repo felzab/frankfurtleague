@@ -329,7 +329,14 @@ async def erase_auf_anfrage(
     return answer
 
 
-@router.post("/abmeldung", response_model=FLAbmeldungResponse, summary="Log the ending of every session an address holds")
+@router.post(
+    "/abmeldung",
+    response_model=FLAbmeldungResponse,
+    summary="Log the ending of every session an address holds",
+    # The frontend ends the address's sessions once this answers, and nothing brings them back: unasked, a stolen
+    # administrator's session could sign other administrators out again and again.
+    dependencies=[Depends(verify_step_up)],
+)
 async def post_abmeldung(
     abmeldung_data: Annotated[FLAbmeldungPayload, Body()],
     aktionen_collection: AktionenCollection,
@@ -342,14 +349,14 @@ async def post_abmeldung(
     """
     File one log row saying that this administrator ended every session of an address, and when, before the caller ends them.
 
-    ADMIN TIER. The sessions live in the sign-in store, which the caller holds and this backend does not, so the row is the
-    whole of what this writes: collection `anmeldungen`, operation `delete_many`, the administrator as actor, and no address,
-    filter, image or count. Nothing bars the address and nothing is mailed; a person signs in again as before.
+    ADMIN TIER, a step-up write. The sessions live in the sign-in store, which the caller holds and this backend does not, so
+    the row is the whole of what this writes: collection `anmeldungen`, operation `delete_many`, the administrator as actor,
+    and no address, filter, image or count. Nothing bars the address and nothing is mailed; a person signs in again as before.
 
-    Refused so that a refused call ends no session: the administrator's own address (`REQ-PURGE-003`), an address holding an
-    `owner` grant unless the administrator holds an owner's power (`REQ-PURGE-005`), and with a 422 an address under the
-    reserved `invalid` domain. Unlike the erasure, it ends another administrator's sessions for an administrator holding no
-    owner's power: signing in again repairs it.
+    Refused so that a refused call ends no session: from a sign-in older than the step-up window (`REQ-AUTH-009`), the
+    administrator's own address (`REQ-PURGE-003`), an address holding an `owner` grant unless the administrator holds an
+    owner's power (`REQ-PURGE-005`), and with a 422 an address under the reserved `invalid` domain. Unlike the erasure, it
+    ends another administrator's sessions for an administrator holding no owner's power: signing in again repairs it.
     """
 
     identifier = sign_in_identifier(abmeldung_data.email)
