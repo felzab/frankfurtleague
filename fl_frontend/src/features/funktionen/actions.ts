@@ -35,7 +35,7 @@ async function kontoLoeschen(email: string): Promise<KontoNachLoeschung> {
       error_code: "FE-AUTH-012",
       name: failed instanceof Error ? failed.name : "unknown",
     });
-    // Rolled back, the account stands; any other failure came from the commit, which may have landed.
+    // A rollback leaves the account standing; any other failure may be its commit's, landed or not.
     return failed instanceof RolledBackError ? "nichtGeloescht" : "unklar";
   }
 }
