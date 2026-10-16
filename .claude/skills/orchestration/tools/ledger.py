@@ -88,51 +88,74 @@ class Label(NamedTuple):
     line: int
     summary: str
     table: bool
+    # The line after its paragraph: a table row is a paragraph of one line.
+    end: int
+    size: int
 
 
 def labels(report: str) -> dict[int, list[Label]]:
-    """Every line a label opens, by number in report order; a fenced example is no label."""
-    found: dict[int, list[Label]] = {}
+    """Every line a label opens, by number in report order, with its paragraph's end; a fenced example is no label."""
+    lines = report.splitlines()
+    opened: list[tuple[int, int, str]] = []
     fenced = False
-    for k, line in enumerate(report.splitlines()):
+    for k, line in enumerate(lines):
         if line.lstrip().startswith("```"):
             fenced = not fenced
             continue
         labelled = None if fenced else LABEL_RE.match(line)
         if labelled is None:
             continue
-        summary = re.sub(r"[*_`]{2,}|^[\s.:|)\-–—]+", "", labelled["rest"]).strip(" |")
-        found.setdefault(int(labelled["n"]), []).append(Label(k, summary, TABLE_ROW_RE.match(line) is not None))
+        # The bold goes first: the dash after `**F1**` opens the rest only once the bold is gone.
+        summary = re.sub(r"^[\s.:|)\-–—]+", "", re.sub(r"[*_`]{2,}", "", labelled["rest"])).strip(" |")
+        opened.append((k, int(labelled["n"]), summary))
+    starts = {k for k, _, _ in opened}
+    found: dict[int, list[Label]] = {}
+    for k, n, summary in opened:
+        end = _end(lines, k, starts)
+        found.setdefault(n, []).append(Label(k, summary, TABLE_ROW_RE.match(lines[k]) is not None, end, len("\n".join(lines[k:end]).strip())))
     return found
 
 
+def _end(lines: list[str], start: int, starts: set[int]) -> int:
+    if TABLE_ROW_RE.match(lines[start]):
+        return start + 1
+    end, fenced = start + 1, False
+    while end < len(lines):
+        if lines[end].lstrip().startswith("```"):
+            fenced = not fenced
+        elif not fenced and (end in starts or HEADING_RE.match(lines[end])):
+            break
+        end += 1
+    return end
+
+
 def _finding(found: list[Label]) -> Label:
-    # A fixer's acceptance table names other reports' findings by their bare labels, so a table row
-    # is the finding only where no prose line carries its number.
-    return next((label for label in found if not label.table), found[0])
+    # An index list, an acceptance table or an evidence line naming another report's finding carries
+    # the number too, often first: the finding is the prose label whose paragraph runs longest, and a
+    # table row only where no prose line carries the number.
+    prose = [label for label in found if not label.table]
+    return max(prose, key=lambda label: label.size) if prose else found[0]
 
 
 def findings(report: str) -> dict[int, str]:
-    """Each labelled finding's first line, by number: its first prose line, else its first table row."""
+    """Each labelled finding's first line, by number."""
     return {n: _finding(found).summary for n, found in labels(report).items()}
 
 
 def shadowed(report: str) -> list[str]:
-    """A warning per number a table row labels where the report's findings are prose."""
+    """A warning per number banked from a choice: labelled on several lines, or by a table row alone in a prose report."""
     found = labels(report)
     if not any(not label.table for each in found.values() for label in each):
         return []
-    lines = report.splitlines()
     said: list[str] = []
     for n, each in sorted(found.items()):
-        chosen, rows = _finding(each), [label for label in each if label.table]
-        if not rows:
-            continue
+        chosen = _finding(each)
         if chosen.table:
             said.append(f"F{n} is banked from the table row at line {chosen.line + 1} alone: close it where it names another report's finding")
-        else:
-            row = escaped(lines[rows[0].line])[:80]
-            said.append(f"F{n} is banked from line {chosen.line + 1}'s prose, not the table row at line {rows[0].line + 1} ({row})")
+        # A ranked table closing the report repeats every finding by design, which needs no word.
+        elif any(not label.table or label.line < chosen.line for label in each if label.line != chosen.line):
+            on = ", ".join(str(label.line + 1) for label in each)
+            said.append(f"F{n} is labelled on lines {on}: banked from line {chosen.line + 1}, whose paragraph runs longest")
     return said
 
 
@@ -141,20 +164,9 @@ def paragraph(report: str, n: int, banked: str | None = None) -> str | None:
     found = labels(report)
     if n not in found:
         return None
-    # The line whose summary the row holds: a row banked before prose won over a table row is that row.
-    start = next((label.line for label in found[n] if _cell(label.summary) == banked), _finding(found[n]).line)
-    lines = report.splitlines()
-    if TABLE_ROW_RE.match(lines[start]):
-        return lines[start]
-    starts = {label.line for each in found.values() for label in each}
-    end, fenced = start + 1, False
-    while end < len(lines):
-        if lines[end].lstrip().startswith("```"):
-            fenced = not fenced
-        elif not fenced and (end in starts or HEADING_RE.match(lines[end])):
-            break
-        end += 1
-    return "\n".join(lines[start:end]).rstrip()
+    # The line whose summary the row holds: a row banked by an earlier choice prints what it banked.
+    chosen = next((label for label in found[n] if _cell(label.summary) == banked), _finding(found[n]))
+    return "\n".join(report.splitlines()[chosen.line : chosen.end]).rstrip()
 
 
 def other_shapes(report: str) -> int:
@@ -344,9 +356,11 @@ def stale_live(register: str) -> list[str]:
     folder = reports_dir(register)
     if folder is None or not folder.is_dir():
         return [f"no reports directory ({folder}), so no RUNNING row was checked against the saved reports"]
-    saved = {
-        path.name: datetime.datetime.fromtimestamp(path.stat().st_mtime).replace(second=0, microsecond=0) for path in folder.glob("*-report.md")
-    }
+    # Read after `open`'s rows print, so no failure here may turn its exit: each is said instead.
+    saved: dict[str, datetime.datetime] = {}
+    for path in folder.glob("*-report.md"):
+        with contextlib.suppress(OSError):
+            saved[path.name] = datetime.datetime.fromtimestamp(path.stat().st_mtime).replace(second=0, microsecond=0)
     column = status_column(lines[table])
     said: list[str] = []
     for k in range(table + 2, end + 1):
@@ -355,7 +369,11 @@ def stale_live(register: str) -> list[str]:
         if running is None:
             continue
         name = row_name(lines[k])
-        since = datetime.datetime.strptime(running["stamp"], "%Y-%m-%d %H:%M") if running["stamp"] else None
+        try:
+            since = datetime.datetime.strptime(running["stamp"], "%Y-%m-%d %H:%M") if running["stamp"] else None
+        except ValueError:
+            said.append(f"{name}'s stamp `{running['stamp']}` is no date, so its row was not checked against the saved reports")
+            continue
         # A resumed agent's earlier report predates the stamp `dispatch --id` wrote, so it is no sign.
         own = re.compile(rf"^{re.escape(name)}(?:-r\d+)?-report\.md$")
         later = sorted((when, file) for file, when in saved.items() if own.match(file) and (since is None or when > since))

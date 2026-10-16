@@ -774,8 +774,34 @@ def test_a_number_a_table_row_and_a_prose_line_both_label_banks_the_prose_and_sa
     """S9-AUTH-r6's F1 to F9 were banked from its acceptance table, and its real findings never reached the ledger."""
     assert ledger.findings(FIXER_REPORT) == {1: "correction for the commit body.", 2: "the case drives it", 3: "The tail"}
     said = ledger.shadowed(FIXER_REPORT)
-    assert said[0] == "F1 is banked from line 10's prose, not the table row at line 5 (\\| F1 \\| `tsc` 0, the plant red \\|)"
+    assert said[0] == "F1 is labelled on lines 5, 10: banked from line 10, whose paragraph runs longest"
     assert said[1].startswith("F2 is banked from the table row at line 6 alone") and len(said) == 2
+
+
+# A cold audit's shape: an index naming each finding, the findings in prose, and a ranked table closing it.
+INDEXED_REPORT: Final = (
+    "# Audit\n\n- **F1.** `ci.py expect` records a placeholder.\n- **F2** — no lock.\n\n## Findings\n\n"
+    "**F1. `ci.py expect` writes a job's placeholder as an expected red.**\n\n**Evidence.** The job's later failures read as expected.\n\n"
+    "**F2. Register writes have no lock.**\n\n**Evidence.** Two writers overlap.\n\n"
+    "## Outside my scope\n\n**F3** — a dash before the summary.\n\n"
+    "| finding | repair |\n| --- | --- |\n| F1 | skip generic lines |\n| F2 | a lock |\n| F3 | strip the dash |\n"
+)
+
+
+def test_a_number_an_index_list_repeats_banks_its_longest_paragraph_and_says_so(tmp_path: Path) -> None:
+    """An index item listed first was banked as the finding, and a closing ranked table drew a warning per finding."""
+    assert ledger.findings(INDEXED_REPORT) == {
+        1: "`ci.py expect` writes a job's placeholder as an expected red.",
+        2: "Register writes have no lock.",
+        3: "a dash before the summary.",
+    }
+    assert ledger.shadowed(INDEXED_REPORT) == [
+        "F1 is labelled on lines 3, 8, 22: banked from line 8, whose paragraph runs longest",
+        "F2 is labelled on lines 4, 12, 23: banked from line 12, whose paragraph runs longest",
+    ]
+    assert ledger.paragraph(INDEXED_REPORT, 2) == "**F2. Register writes have no lock.**\n\n**Evidence.** Two writers overlap."
+    cold = INDEXED_REPORT.split("## Findings\n\n", 1)[1]
+    assert ledger.shadowed(cold) == []
 
 
 def test_show_prints_a_rows_whole_finding_from_its_saved_report(tmp_path: Path) -> None:
@@ -813,6 +839,10 @@ def test_open_names_a_running_agent_whose_report_was_saved_after_its_stamp(tmp_p
     assert flagged[1].startswith("FIXER-1 is `RUNNING` while FIXER-1-r2-report.md")
     os.utime(reports / "FIXER-report.md", (0, 0))
     assert not any(line.startswith("FIXER is") for line in _run("ledger", "open", str(register)).stderr.splitlines())
+    # Read after the rows print, an undatable stamp once turned the exit the ending loops on into a refusal.
+    register.write_bytes(register.read_bytes().replace(b"RUNNING (2020-01-01 10:00)", b"RUNNING (2020-13-45 10:00)"))
+    undated = _run("ledger", "open", str(register))
+    assert undated.returncode == 0 and "FIXER's stamp `2020-13-45 10:00` is no date" in undated.stderr, undated.stderr
 
 
 # --- reg dispatch and message ---------------------------------------------------------------------
