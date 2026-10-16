@@ -125,6 +125,8 @@ const LISTED: Readonly<Record<string, Record<string, unknown>>> = {
         geburtsdatum: null,
         einwilligung: null,
         email: null,
+        adresswechsel: null,
+        adresswechsel_abgelaufen: false,
         memberships: [{ ...KADER_ZEILE, saison_id: "2026", team_id: OBJECT_ID }],
       },
     ],
