@@ -30,30 +30,30 @@ export function EditFormLayout({
   rail: ReactNode;
   children: ReactNode;
 }) {
-  const { reactivate, retire } = header;
+  const { stilllegung } = header;
 
   return (
     <div className="min-h-0 w-full flex-1 scrollbar-gutter-stable overflow-y-auto px-4 pt-6 pb-10 sm:px-8">
       <div className="mx-auto flex w-full max-w-page flex-col">
         <EditPageHeader
           {...header}
-          // Guarded here, once, for every editor offering it: the write moves the record the page keys the editor by.
-          reactivate={
-            reactivate === undefined
+          // Guarded here, once, for every editor offering them: either write moves the record the page keys the editor by.
+          stilllegung={
+            stilllegung === undefined
               ? undefined
               : {
-                  ...reactivate,
-                  onPress: () => {
-                    if (guardAgainstDraft(isDirty, DRAFT_DISCARDED)) reactivate.onPress();
+                  ...stilllegung,
+                  reactivate: {
+                    ...stilllegung.reactivate,
+                    onPress: () => {
+                      if (guardAgainstDraft(isDirty, DRAFT_DISCARDED)) stilllegung.reactivate.onPress();
+                    },
                   },
-                }
-          }
-          retire={
-            retire === undefined
-              ? undefined
-              : {
-                  onPress: (pressed) => {
-                    if (guardAgainstDraft(isDirty, DRAFT_DISCARDED)) retire.onPress(pressed);
+                  retire: {
+                    ...stilllegung.retire,
+                    onPress: (pressed) => {
+                      if (guardAgainstDraft(isDirty, DRAFT_DISCARDED)) stilllegung.retire.onPress(pressed);
+                    },
                   },
                 }
           }

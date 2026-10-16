@@ -5,8 +5,8 @@ from fastapi import APIRouter, Body, Depends
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
+from app.api.aktionen.crud import redact_images_in_session
 from app.api.bewerbungen.services import hash_token
-from app.api.schiedsrichter.crud import discard_adresswechsel_in_session
 from app.api.schiedsrichter.schemas import (
     FLSchiedsrichterAdresswechselAnsichtPayload,
     FLSchiedsrichterAdresswechselAnsichtResponse,
@@ -17,6 +17,7 @@ from app.api.schiedsrichter.services import (
     ADRESSWECHSEL_ANSICHT_FIELDS,
     ADRESSWECHSEL_FELD,
     adresswechsel_adressen,
+    adresswechsel_image_edits,
     adresswechsel_zustand_of,
     build_adresswechsel_filter,
     compose_adresswechsel_antwort,
@@ -34,9 +35,10 @@ from app.core.crud import patch_one_in_db, refuse
 from app.core.dependencies import AktionenCollection, DBClient, SchiedsrichterCollection, get_german_date_str, get_germany_now
 from app.core.exception_handlers import stores_nothing
 from app.core.journal import Journal, JournalLine
-from app.core.recording import log_stamp
+from app.core.recording import build_redaction_filter, log_stamp
 from app.core.security import bind_public_actor, loeschung_journal_hash, verify_access_base
 from app.core.transactions import transaction_session
+from app.shared.folding import sign_in_identifier
 
 # A router of its own beside the consent link's, for that one's reason: the token is the whole
 # credential, so these two endpoints are base-tier and bind the public actor.
@@ -127,7 +129,6 @@ async def post_adresswechsel(
     token_hash = hash_token(antwort_data.token)
     # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_gesperrt`).
     massgebliche_saison_id = await sperrliste_saison(sperrliste)
-    am = log_stamp(germany_now)
     journal = Journal()
 
     @journal.attempted
@@ -149,30 +150,35 @@ async def post_adresswechsel(
             refuse(find_bestaetigung_gesperrt_refusal(gesperrt=neue in gesperrt))
             refuse(find_ersetzte_adresse_gesperrt_refusal(gesperrt=ersetzte in gesperrt))
 
-            await patch_one_in_db(
-                collection=schiedsrichter_collection,
-                db_filter={"_id": raw["_id"]},
-                update=compose_adresswechsel_antwort(antwort=antwort_data.antwort, email=wechsel.get("email")),
-                session=session,
-                return_document=ReturnDocument.BEFORE,
-            )
-
-            return FLSchiedsrichterAdresswechselResponse(antwort=antwort_data.antwort)
-
-        # The discard's own body: a decline removes the change and its address from the log as the discard and the
-        # lapse do, and a restore's replay of the journal line below runs that body again.
-        await discard_adresswechsel_in_session(
-            schiedsrichter_collection=schiedsrichter_collection,
-            aktionen_collection=aktionen_collection,
+        await patch_one_in_db(
+            collection=schiedsrichter_collection,
             db_filter={"_id": raw["_id"]},
-            stamp=am,
-            return_document=ReturnDocument.BEFORE,
+            update=compose_adresswechsel_antwort(antwort=antwort_data.antwort, email=wechsel.get("email")),
             session=session,
+            return_document=ReturnDocument.BEFORE,
         )
-        hashed = loeschung_journal_hash(str(wechsel.get("email") or ""), schluessel=config.sperrliste_schluessel)
-        journal.note(
-            JournalLine(person_hash=hashed, art="adresswechsel_abgelehnt", collection=Collection.SCHIEDSRICHTER, record_id=raw["_id"], am=am)
-        )
+
+        if antwort_data.antwort == "abgelehnt":
+            # LAST, for the contact's Widerspruch's reason: it reaches the pre-image the patch above
+            # just filed, which still holds the address its holder disowned.
+            disowned = sign_in_identifier(str(wechsel.get("email") or ""))
+            await redact_images_in_session(
+                aktionen_collection=aktionen_collection,
+                db_filter=build_redaction_filter([(Collection.SCHIEDSRICHTER, [raw["_id"]])]),
+                judge=lambda image: adresswechsel_image_edits(image, disowned),
+                stamp=log_stamp(germany_now),
+                session=session,
+            )
+            hashed = loeschung_journal_hash(str(wechsel.get("email") or ""), schluessel=config.sperrliste_schluessel)
+            journal.note(
+                JournalLine(
+                    person_hash=hashed,
+                    art="adresswechsel_abgelehnt",
+                    collection=Collection.SCHIEDSRICHTER,
+                    record_id=raw["_id"],
+                    am=log_stamp(germany_now),
+                )
+            )
 
         return FLSchiedsrichterAdresswechselResponse(antwort=antwort_data.antwort)
 

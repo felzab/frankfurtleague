@@ -584,7 +584,7 @@ export const FLPostBewerbungPayloadSchema = z
 export type FLPostBewerbungPayload = z.infer<typeof FLPostBewerbungPayloadSchema>;
 
 /** The one thing a visitor's body can be wrong about that no input renders: the token their link carried. */
-const LINK_UNVOLLSTAENDIG = "Bitte öffne den Link noch einmal aus Deiner E-Mail.";
+const LINK_UNVOLLSTAENDIG = "Bitte öffne den Link aus Deiner E-Mail erneut.";
 
 /**
  * Mirrors `fl_backend/app/api/bewerbungen/schemas.py :: CustomBewerbungToken`, both consent payloads

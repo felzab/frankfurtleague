@@ -6,10 +6,25 @@ import { Button } from "@heroui/react/button";
 
 import { FocusSlot } from "@/shared/components/ui/FocusSlot";
 import { formButton } from "@/shared/components/ui/formButtons";
+import { Hint } from "@/shared/components/ui/Hint";
 import { STEP_UP_RUNNING } from "@/shared/components/ui/stepUp";
 import { FOCUS_HEADING, focusSection } from "@/shared/utils/focusAfterWrite";
 
 import type { ReactNode } from "react";
+
+/**
+ * A retirable row's two writes, each the row's rather than the draft's. One slot holding both, so an editor offering
+ * the return without the retirement does not type-check.
+ */
+type Stilllegung = {
+  isRetired: boolean;
+  reactivate: { isPending: boolean; isPrompting?: boolean; onPress: () => void };
+  /**
+   * Handed the pressed control, which a landing anchors on. `disabledReason` is the refusal the page can already see:
+   * offering what the endpoint refuses is one defect whichever control reaches it.
+   */
+  retire: { onPress: (pressed: Element) => void; disabledReason?: string | null };
+};
 
 /** What a slice fills in. The exit is the form's, so it arrives beside this rather than in it. */
 export type EditPageHeaderContent = {
@@ -20,10 +35,7 @@ export type EditPageHeaderContent = {
    * second slot and no line below the title: a free slot is what lets the editors' headers diverge.
    */
   chip?: ReactNode;
-  /** Only where the entity can be retired; the write is the row's, not the draft's. */
-  reactivate?: { isPending: boolean; isPrompting?: boolean; onPress: () => void };
-  /** Only where the editor retires its row, through the retirement's own dialog; handed the pressed control, which a landing anchors on. */
-  retire?: { onPress: (pressed: Element) => void };
+  stilllegung?: Stilllegung;
 };
 
 /** The place the retirement and its reactivation share, so a landed write hands the focus from one to the other. */
@@ -38,8 +50,7 @@ const STILLLEGUNG_PLACE = "stilllegung";
 export function EditPageHeader({
   title,
   chip,
-  reactivate,
-  retire,
+  stilllegung,
   onLeave,
   isLeaving,
 }: EditPageHeaderContent & {
@@ -76,28 +87,47 @@ export function EditPageHeader({
             {title}
           </h2>
           {chip !== undefined && <div className="flex shrink-0 items-center">{chip}</div>}
-          {reactivate !== undefined && (
+          {stilllegung !== undefined && (
             <FocusSlot name={STILLLEGUNG_PLACE}>
-              <Button
-                onPress={reactivate.onPress}
-                isPending={reactivate.isPending}
-                className={`${formButton({ intent: "nav", size: "sm" })} shrink-0`}>
-                {reactivate.isPrompting === true ? STEP_UP_RUNNING : reactivate.isPending ? "Stellt wieder her..." : "Reaktivieren"}
-              </Button>
-            </FocusSlot>
-          )}
-          {retire !== undefined && (
-            <FocusSlot name={STILLLEGUNG_PLACE}>
-              <Button
-                onPress={(event) => retire.onPress(event.target)}
-                className={`${formButton({ intent: "nav", size: "sm" })} shrink-0`}>
-                Stilllegen
-              </Button>
+              {stilllegung.isRetired ? <Reaktivieren {...stilllegung.reactivate} /> : <Stilllegen {...stilllegung.retire} />}
             </FocusSlot>
           )}
         </div>
         <p className="muted-hint">Änderungen gelten erst, wenn Du speicherst.</p>
       </header>
     </>
+  );
+}
+
+const HEADER_CONTROL_CLASSES = `${formButton({ intent: "nav", size: "sm" })} shrink-0`;
+
+function Reaktivieren({ isPending, isPrompting, onPress }: Stilllegung["reactivate"]) {
+  return (
+    <Button
+      onPress={onPress}
+      isPending={isPending}
+      className={HEADER_CONTROL_CLASSES}>
+      {isPrompting === true ? STEP_UP_RUNNING : isPending ? "Stellt wieder her..." : "Reaktivieren"}
+    </Button>
+  );
+}
+
+const STILLLEGEN = "Stilllegen";
+
+function Stilllegen({ onPress, disabledReason = null }: Stilllegung["retire"]) {
+  return (
+    // One tree whether a refusal stands or not, as the save bar's, so a reason arriving never remounts the control.
+    <Hint
+      mode="refusal"
+      reason={disabledReason}
+      label={STILLLEGEN}
+      className="shrink-0">
+      <Button
+        onPress={(event) => onPress(event.target)}
+        isDisabled={disabledReason !== null}
+        className={HEADER_CONTROL_CLASSES}>
+        {STILLLEGEN}
+      </Button>
+    </Hint>
   );
 }
