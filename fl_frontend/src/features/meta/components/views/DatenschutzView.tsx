@@ -183,7 +183,7 @@ const FRISTEN = [
     daten:
       "Neue E-Mail-Adresse einer Schiedsrichterin oder eines Schiedsrichters, solange sie nicht bestätigt ist, dazu ihr Link als unlesbarer Schlüssel mit Versanddatum und Frist",
     frist:
-      "Bis die Adresse über ihren Link bestätigt oder abgelehnt wird oder die Verwaltung die Änderung verwirft; mit dem Eintrag wird sie gelöscht. Ihr Link gilt so lange wie der Bestätigungslink des Eintrags und wird durch jeden neuen ersetzt. Ist er abgelaufen, löschen wir die Adresse am Tag danach",
+      "Bis die Adresse über ihren Link bestätigt oder abgelehnt wird oder die Verwaltung die Änderung verwirft. Mit dem Eintrag wird sie gelöscht. Ihr Link gilt so lange wie der Bestätigungslink des Eintrags und wird durch jeden neuen ersetzt. Ist er abgelaufen, löschen wir die Adresse am Tag danach",
   },
   {
     daten:

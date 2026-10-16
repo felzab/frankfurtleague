@@ -49,7 +49,7 @@ const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
  * The „Stand“ and the words it dates, frozen together: a reader told nothing changed since that day
  * has been misled by any edit that left the date standing.
  */
-const FASSUNG = { stand: "16. Oktober 2026", digest: "5c7732387cd45440e08bd87a65d2129cdb528ddb0eb3dc5fb2ff4c5fe189f5dc" } as const;
+const FASSUNG = { stand: "16. Oktober 2026", digest: "843613056aa173380047648248ef5c9a3037034c88faa6b7a3f99fc142992432" } as const;
 
 /** Every word the page renders but its date, so moving the date alone never passes for moving the words. */
 const wortlautDigest = (): string =>
@@ -205,7 +205,7 @@ describe("the privacy notice's retention table", () => {
         "Neue E-Mail-Adresse einer Schiedsrichterin oder eines Schiedsrichters, solange sie nicht bestätigt ist, dazu ihr " +
           "Link als unlesbarer Schlüssel mit Versanddatum und Frist",
       ),
-      "Bis die Adresse über ihren Link bestätigt oder abgelehnt wird oder die Verwaltung die Änderung verwirft; mit dem Eintrag " +
+      "Bis die Adresse über ihren Link bestätigt oder abgelehnt wird oder die Verwaltung die Änderung verwirft. Mit dem Eintrag " +
         "wird sie gelöscht. Ihr Link gilt so lange wie der Bestätigungslink des Eintrags und wird durch jeden neuen ersetzt. Ist er abgelaufen," +
         " löschen wir die Adresse am Tag danach",
     );
