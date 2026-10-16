@@ -157,10 +157,9 @@ CustomTimeString = Annotated[str, StringConstraints(pattern=TIME_REGEX, strict=T
 
 
 def refuse_reversed_span(*, start: str, end: str, start_label: str, end_label: str) -> None:
-    """Refuse a span whose end falls before its start, from a `model_validator`.
+    """From a PAYLOAD's `model_validator` alone: refusing a stored reversal on read would hide it from the edit that repairs it.
 
-    On the PAYLOADS only: refusing on read would make a stored reversal unreadable, and the repair
-    is the edit that read must serve. German, because it surfaces as a 422.
+    German for the log and the forms mirroring it, a 422 carrying no sentence.
     """
 
     if end < start:
