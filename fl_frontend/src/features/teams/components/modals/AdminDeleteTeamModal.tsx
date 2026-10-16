@@ -13,7 +13,7 @@ export function AdminDeleteTeamModal({
   onClose,
   onRetired,
 }: {
-  teamData: AdminTeamRow | null;
+  teamData: Pick<AdminTeamRow, "id" | "name"> | null;
   isOpen: boolean;
   onClose: () => void;
   onRetired: () => void;
