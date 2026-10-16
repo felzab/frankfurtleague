@@ -3,7 +3,7 @@ API · after a restore from a snapshot: every journal line written inside its wi
 
 Run in the backend's container by `scripts/ops/replay_journal.sh`, where the journal's key and the database's
 credentials already are, so neither is typed or printed, and no address is printed either: an erasure is named by
-where the restored database holds its address, for an administrator to run again on „Löschung auf Anfrage“, which
+where the restored database holds its address, for an administrator to run again on the erasure page, which
 also deletes the sign-in account; a choice by its record, which `--apply` writes again (`docs/ops/runbooks.md` §13).
 
 Invariants:
@@ -55,6 +55,10 @@ from app.shared.einwilligung_nachweis import FLEinwilligungWahl, beleg_of, ist_e
 
 # What the action log names as a replay's call: no route made it, and its path names the line it replays.
 REPLAY_METHOD: Final = "REPLAY"
+
+# The erasure page as the sidemenu names it (`fl_frontend/src/features/admin/constants.ts :: LOESCHUNG_EINTRAG`), where
+# the listing sends an operator. This image holds no frontend source to read it from, so a mirror case holds the two.
+LOESCHUNG_SEITE: Final = "Löschung auf Anfrage"
 
 # The day a Widerspruch records is the German one its person declined on (`app/core/dependencies.py :: get_german_date_str`).
 _GERMANY: Final = ZoneInfo("Europe/Berlin")
@@ -470,7 +474,7 @@ async def run_replay(
                 found = [place for place in places if place[0] == collection]
                 shown = ", ".join(f"{document_id} {path}" for _, document_id, path in found[:3])
                 print(f"    held in {collection}: {len(found)} field(s), {shown}{', …' if len(found) > 3 else ''}", file=out)
-            print("    run it again on „Löschung auf Anfrage“ with the address one of those records shows", file=out)
+            print(f"    run it again on „{LOESCHUNG_SEITE}“ with the address one of those records shows", file=out)
             continue
         if line.art == "loeschung" and line.pseudonym is None:
             print("    its address is held nowhere in the restored database: nothing to run", file=out)

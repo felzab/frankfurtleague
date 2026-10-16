@@ -70,7 +70,7 @@ replay() { # $1 the snapshot's moment, $2 the restore's end, $3 `--apply` or not
     0) ok "the restored database holds nothing a journal line between ${since} and ${until} asks for" ;;
     1)
       grep -q '^Left: ' -- "${REPLAY_OUTPUT}" || on_error "$rc" "${LINENO}" "python -m ${REPLAY_MODULE}, which ended without its closing Left: line"
-      die "lines are left above: replay them with --apply, run each erasure held anywhere again on the page Löschung auf Anfrage, and run this again" ;;
+      die "lines are left above: replay them with --apply, run each erasure held anywhere again on the page the listing names, and run this again" ;;
     2) refuse "the backend judged no line: its arguments, its settings or the restored database were refused, as it says above" ;;
     *) on_error "$rc" "${LINENO}" "python -m ${REPLAY_MODULE}" ;;
   esac
