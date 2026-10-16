@@ -21,9 +21,10 @@ from httpx2 import AsyncClient, Response
 from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
+from pymongo.errors import PyMongoError
 
 from app.api.identitaet.admin_router import erase_auf_anfrage, get_erasure_ansicht_auf_anfrage
-from app.api.identitaet.crud import ERASURE_JOURNAL_EVENT
+from app.api.identitaet.crud import ERASURE_JOURNAL_EVENT, UNKNOWN_COMMIT_RESULT
 from app.api.identitaet.schemas import FLErasure, FLErasureAnsichtPayload, FLErasureAnsichtResponse, FLErasurePayload, FLErasureResponse
 from app.api.identitaet.services import EIGENE_ADRESSE, INHABER_ADRESSE
 from app.api.schiedsrichter.services import build_ghost_schiedsrichter
@@ -57,6 +58,7 @@ from .test_funktionen_erasure import (
     GRANTED_BY_THEM_OID,
     HOME_TEAM_OID,
     IDENTIFIER,
+    LOST_COMMIT_DEADLINE_S,
     MOVING_PUPIL_OID,
     NACHNAME,
     NOW,
@@ -73,6 +75,7 @@ from .test_funktionen_erasure import (
     THEIR_VALUES,
     TYPED,
     VORNAME,
+    WRITE_CONCERN_FAILED,
     a_grant,
     a_person_holding_everything,
     acting,
@@ -100,6 +103,8 @@ ANLASS = "Mail vom 30.03.2026, Betreff: Bitte löscht alle meine Daten"
 # The fail point refusing one commit matches this client's name alone: every worker shares the server.
 REFUSED_COMMIT_APP = f"{DATABASE_NAME}-refused-commit"
 WRITE_CONFLICT = 112
+# The one losing every commit's answer, for the same reason.
+LOST_COMMIT_APP = f"{DATABASE_NAME}-lost-commit"
 
 # What every address-less referee row holds, under RFC 6761's reserved `invalid`: one value, shared by every such row.
 PLACEHOLDER = "adresse-fehlt@frankfurtleague.invalid"
@@ -693,6 +698,39 @@ class TestTheJournal:
         ]
         # The premise last: one commit refused, so the line above is the rerun's alone.
         assert (refused, erased) == (1, 1)
+
+    def test_a_commit_whose_answer_is_lost_is_journalled_all_the_same(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+        """Catches a route journalling once its commit answers: this one landed, and its answer was lost to the deadline.
+
+        Every commit runs and answers a replication timeout, so the driver retries it until the case's deadline ends it.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            losing = AsyncMongoClient(mongo_replica_set_url, serverMonitoringMode="poll", appname=LOST_COMMIT_APP)
+            unanswered = {
+                "failCommands": ["commitTransaction"],
+                "appName": LOST_COMMIT_APP,
+                "writeConcernError": {"code": WRITE_CONCERN_FAILED, "errmsg": "waiting for replication timed out"},
+            }
+            entered = (await client.admin.command("configureFailPoint", "failCommand", mode="alwaysOn", data=unanswered))["count"]
+            try:
+                with pytest.raises(PyMongoError) as lost:
+                    with pymongo.timeout(LOST_COMMIT_DEADLINE_S):
+                        await erased_by_the_handler(losing[database.name], losing)
+            finally:
+                left = (await client.admin.command("configureFailPoint", "failCommand", mode="off"))["count"]
+                await losing.close()
+
+            return left > entered, lost.value.has_error_label(UNKNOWN_COMMIT_RESULT), await where_held(database, IDENTIFIER)
+
+        with caplog.at_level(logging.INFO):
+            answered, labelled, after = on_a_league(mongo_replica_set_url, body)
+
+        assert journal_lines(caplog) == [
+            f"{ERASURE_JOURNAL_EVENT} {loeschung_journal_hash(IDENTIFIER, schluessel=CONFIG.sperrliste_schluessel)}"
+        ]
+        # The premise last: a commit ran and its answer was lost, and the erasure landed.
+        assert (answered, labelled, after) == (True, True, {IDENTIFIER: []})
 
 
 @pytest.mark.db
