@@ -507,6 +507,28 @@ async def unattribute_in_session(
     return as_person.modified_count + as_administrator.modified_count
 
 
+async def erase_pupil_actor_in_session(
+    *,
+    aktionen_collection: AsyncCollection,
+    drosselung_collection: AsyncCollection,
+    pseudonym: str,
+    # REQUIRED: outside the erasure's transaction, a pupil it rolls back would still lose their counts and authorship.
+    session: AsyncClientSession,
+) -> int:
+    """Put the marker where the person stood as a pupil in the log, and remove their counts as one, answering how many counts went."""
+
+    await patch_many_in_db(
+        collection=aktionen_collection,
+        db_filter={"actor.pseudonym": pseudonym, "actor.funktion": "spieler"},
+        update={"$set": {"actor.pseudonym": ERASED_ACTOR_MARKER}},
+        session=session,
+    )
+
+    return await erase_counts_in_session(
+        drosselung_collection=drosselung_collection, pseudonym=pseudonym, funktionen=("spieler",), session=session
+    )
+
+
 @dataclass(frozen=True)
 class ErasureStep:
     """One member of the erasure: the collections it writes, whose records they are, and the function `erase_everything` calls by name."""
@@ -562,6 +584,9 @@ ERASURE_STEPS: Final[tuple[ErasureStep, ...]] = (
     ),
     ErasureStep(reaches=frozenset({Collection.DROSSELUNG}), personengruppe=None, run=erase_counts_in_session),
     ErasureStep(reaches=frozenset({Collection.AKTIONEN}), personengruppe=None, run=unattribute_in_session),
+    # The pupil's share of the two above, finding nothing after them in the full scope: in the pupil scope a seat's or a
+    # referee row's counts and rows are that standing record's, and stay.
+    ErasureStep(reaches=frozenset({Collection.AKTIONEN, Collection.DROSSELUNG}), personengruppe="spieler", run=erase_pupil_actor_in_session),
     # LAST: images filed before the erasure hold the address, and the seat clearing files more. No kind's
     # alone: in the pupil scope it would take a standing referee's or administrator's address out of their own images.
     ErasureStep(reaches=frozenset({Collection.AKTIONEN}), personengruppe=None, run=redact_address_in_images),
@@ -727,6 +752,11 @@ async def erase_everything(
     if _runs(unattribute_in_session, scope):
         await unattribute_in_session(
             aktionen_collection=aktionen_collection, identifier=identifier, pseudonym=subject.pseudonym, session=session
+        )
+
+    if _runs(erase_pupil_actor_in_session, scope):
+        drosselung += await erase_pupil_actor_in_session(
+            aktionen_collection=aktionen_collection, drosselung_collection=drosselung_collection, pseudonym=subject.pseudonym, session=session
         )
 
     if _runs(redact_address_in_images, scope):

@@ -865,7 +865,7 @@ class TestOneTransaction:
     """A failure at a late write takes every step back: an erasure half done reports one that did not happen."""
 
     def test_a_refused_last_write_leaves_everything_as_it_stood(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
-        """The validator refuses the marker on a person's row, which only the log's step writes, after every step but the address pass."""
+        """The validator refuses the marker on a person's row, which the log's step writes first, after every step removing a record."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database.command(
@@ -1046,7 +1046,9 @@ class TestTheLastOwner:
 class TestTheScope:
     """The season-after rule's deletion takes a pupil's data alone, every other kind at the address standing."""
 
-    def test_the_pupil_scope_takes_the_pupil_and_their_registrations_and_nothing_else(self, mongo_replica_set_url: str):
+    def test_the_pupil_scope_takes_what_the_address_holds_as_a_pupil_and_nothing_else(self, mongo_replica_set_url: str):
+        """The person wrote a log row and holds a day count as a pupil and as a seat holder: the seat's stand with the seat."""
+
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
             await erased_in_scope(database, client, frozenset({"spieler"}))
@@ -1057,13 +1059,23 @@ class TestTheScope:
                 (await the_one(database, Collection.SAISON_TEAMS))["kontakte"]["ansprechperson"]["email"],
                 await database[Collection.SCHIEDSRICHTER].count_documents({"_id": REFEREE_OID}),
                 "adresswechsel" in await the_one(database, Collection.SCHIEDSRICHTER, {"_id": OTHER_REFEREE_OID}),
-                await database[Collection.DROSSELUNG].count_documents({}),
                 await database[Collection.AKTIONEN].count_documents({"actor.email": IDENTIFIER}),
                 await database[Collection.BERECHTIGUNGEN].count_documents({"adresse": IDENTIFIER}),
                 "adresswechsel" in await the_one(database, Collection.SPIELER, {"_id": MOVING_PUPIL_OID}),
+                sorted(
+                    [
+                        (row["actor"]["funktion"], row["actor"]["pseudonym"])
+                        async for row in database[Collection.AKTIONEN].find({"actor.kind": "person_session"})
+                    ]
+                ),
+                sorted([row["_id"] async for row in database[Collection.DROSSELUNG].find()]),
             )
 
-        assert on_a_league(mongo_replica_set_url, body) == (0, 0, TYPED, 1, True, 4, 1, 1, True)
+        *rest, as_a_person, counts = on_a_league(mongo_replica_set_url, body)
+
+        assert rest == [0, 0, TYPED, 1, True, 1, 1, True]
+        assert as_a_person == [("kontakt", PSEUDONYM), ("spieler", ERASED_ACTOR_MARKER)]
+        assert counts == sorted(count_id for count_id in (*COUNT_IDS, OTHER_COUNT_ID) if not count_id.startswith("spieler:"))
 
 
 # The registry's steps by the code each runs, so a write can be put down to the step it was made in.
@@ -1071,12 +1083,13 @@ _STEP_OF_CODE = {step.run.__code__: step.run.__name__ for step in ERASURE_STEPS}
 
 
 def _running_step() -> str | None:
-    frame = sys._getframe()
+    """The outermost step on the stack: the pupil's share hands its count removal to the counts step's function."""
+
+    frame, step = sys._getframe(), None
     while frame is not None:
-        if frame.f_code in _STEP_OF_CODE:
-            return _STEP_OF_CODE[frame.f_code]
+        step = _STEP_OF_CODE.get(frame.f_code, step)
         frame = frame.f_back
-    return None
+    return step
 
 
 class WritesRecorded:
