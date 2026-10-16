@@ -1,16 +1,17 @@
 from datetime import datetime
 from typing import Annotated, Any, Final
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from pydantic import SecretStr
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.errors import PyMongoError
 
-from app.api.identitaet.crud import erase_if_still_due, faellige_spieler, saison_statuses
-from app.api.identitaet.schemas import FLErasure, FLLoeschungLaufResponse
-from app.api.identitaet.services import abgeschlossene_saison_id
+from app.api.identitaet.crud import UNKNOWN_COMMIT_RESULT, erase_if_still_due, faellige_seite, saison_statuses
+from app.api.identitaet.schemas import FLErasure, FLLoeschungLaufParams, FLLoeschungLaufResponse
+from app.api.identitaet.services import abgeschlossene_saison_id, ohne_passende_adresse
+from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.sperrliste.lookup import BanList, SperrlisteLookup
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.db import get_drosselung_collection
@@ -32,7 +33,8 @@ from app.core.dependencies import (
     SpielerCollection,
     get_germany_now,
 )
-from app.core.exception_handlers import DATABASE_FAILED, DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE, UNKNOWN_OUTCOME
+from app.core.exception_handlers import DATABASE_FAILED, DUPLICATE_KEY_RESPONSE, STORED_DATA_INVALID, UNKNOWN_OUTCOME
+from app.core.exceptions import DocumentNotFoundException
 from app.core.logging import fl_logger
 from app.core.recording import log_stamp
 from app.core.security import bind_system_actor, verify_access_system
@@ -45,7 +47,7 @@ router = APIRouter(
     dependencies=[Depends(verify_access_system), Depends(bind_system_actor)],
 )
 
-# Twenty-three commands a pupil, each costing the round trip plus at most 2.03 ms (whole calls timed
+# Twenty-four commands a pupil, each costing the round trip plus at most 2.03 ms (whole calls timed
 # locally, 2026-10-16): this share keeps a call inside `app/core/middlewares.py :: REQUEST_DEADLINE_S`
 # up to a 37 ms round trip (`docs/backend/spec.md :: I322`).
 LOESCHUNGEN_PER_PASS: Final = 10
@@ -110,9 +112,10 @@ async def _erase_one(
     "/lauf",
     response_model=FLLoeschungLaufResponse,
     summary="Delete one share of the pupils the season-after rule makes due",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    responses={409: DUPLICATE_KEY_RESPONSE},
 )
 async def post_loeschung_lauf(
+    params: Annotated[FLLoeschungLaufParams, Query()],
     saisons_collection: SaisonsCollection,
     spieler_collection: SpielerCollection,
     saison_spieler_collection: SaisonSpielerCollection,
@@ -137,81 +140,124 @@ async def post_loeschung_lauf(
     Delete a bounded share of the pupils whose last squad season is over by a whole season, and answer what went and how many remain.
 
     The rule, read from the seasons' stored statuses at each call: a pupil is due once they hold no squad row, live or retired,
-    in the latest `past` season or in any season that is not `past`, and no registration still `eingereicht` at their address,
-    compared as the sign-in folds it. While no season is `past` nobody is due, and `abgeschlossene_saison_id` is null. A pupil
-    holding no address is never due: nothing else erases by a name.
+    in the latest `past` season, in any season with a greater id or in the running one, and no registration still `eingereicht`
+    at their address, compared as the sign-in folds it. While no season is `past` nobody is due, and `abgeschlossene_saison_id`
+    is null. A pupil holding no address is never due: nothing else erases by a name. A pupil whose stored address no request
+    matches, empty, unfolded or refused by the address rule, is passed over and named by id in a warning: a hand correction
+    left it so, and an erasure by another spelling would remove nobody.
 
     Each pupil is deleted in a transaction of their own, which first judges them again: one who has gained a squad row or a
-    pending registration since this call read them, or whom another call deleted first, is counted `uebersprungen` and left
-    standing. Two calls at once therefore delete each pupil once. Deleted are the pupil's own data alone: the pupil record,
-    every squad row it holds and every registration at the address, a declined one included, each with its log images. A
-    contact seat, a referee record, a grant and anything else held at the same address stand, and so do the log images naming
-    them.
+    pending registration since this call read them, the two arriving while that transaction runs included, or whom another call
+    deleted first, is counted `uebersprungen` and left standing. Two calls at once therefore delete each pupil once. Deleted are
+    the pupil's own data alone: the pupil record, every squad row it holds and every registration at the address, a declined
+    one included, each with its log images. A contact seat, a referee record, a grant and anything else held at the same
+    address stand, and so do the log images naming them.
 
-    One call deletes at most a fixed share in `_id` order; `verbleibend` counts the pupils still due afterwards, those beyond the
-    share and those that failed. **A pupil whose deletion the database refuses is counted `fehlgeschlagen` and logged by id, and
-    the call goes on to the next**: one unreachable record holds back nobody else. Such a pupil stays due, so a caller looping
-    until `verbleibend` is zero never ends where one fails; stop at a call that deleted nobody. No body: the call takes no
-    season and no limit.
+    **A pass is a run of calls, each handing the next the `nach` the last answered**, the first naming none; it ends at the call
+    answering `nach` null. A call reaches at most a fixed share of the due pupils after `nach`, in `_id` order, and the pass
+    holds no state on the server. A pupil whose deletion the database refuses is counted `fehlgeschlagen`, logged by id and
+    passed, so a failing record holds back nobody behind it in the pass; it stays due, and the next pass tries it again. Where
+    the request's deadline cuts the call, it stops at that pupil, warns once, and answers what it did; the rest stay due, and
+    the pass goes on from the next call. `verbleibend` counts the pupils due after the call, those it failed or passed over
+    among them, so it is no stopping condition. No body: the call takes no season and no limit.
 
-    The 404 and the 409 are the registry's, published for the steps this call reaches, and neither is answered: each pupil is
-    read in the transaction that deletes them, and a write the database refuses is counted rather than raised.
+    The 409 is published because the duplicate-key trace reaches the registry's insert of the pupils' sentinel and reads no
+    handler; this call counts that failure as any other and never answers it.
     """
 
     statuses = await saison_statuses(saisons_collection=saisons_collection)
-    faellig = await faellige_spieler(statuses, spieler_collection=spieler_collection, registrierungen_collection=registrierungen_collection)
+    # One past the share, so a call ending exactly at the share's last pupil can tell whether any follow.
+    seite, anzahl = await faellige_seite(
+        statuses,
+        nach=params.nach,
+        groesse=LOESCHUNGEN_PER_PASS + 1,
+        spieler_collection=spieler_collection,
+        registrierungen_collection=registrierungen_collection,
+    )
+    share = seite[:LOESCHUNGEN_PER_PASS]
+    ohne_adresse = ohne_passende_adresse(share)
+    if ohne_adresse:
+        # The ids alone, as every line of this run: the address is what the pupil's erasure exists to remove.
+        fl_logger.warning(
+            f"Pupils left out of the deletion, their stored address empty, unfolded or refused by the address rule: "
+            f"{len(ohne_adresse)} ({', '.join(str(spieler_id) for spieler_id in ohne_adresse)})",
+            extra={"error_code": STORED_DATA_INVALID},
+        )
+
     # One instant for every redaction this call makes, as one erasure's steps share one.
     stamp = log_stamp(germany_now)
 
     spieler, saison_spieler, registrierungen = 0, 0, 0
     geloescht, uebersprungen, fehlgeschlagen = 0, 0, 0
-    for spieler_id in faellig[:LOESCHUNGEN_PER_PASS]:
-        # Caught outside the person's session, as `app/api/saisons/admin_router.py :: _mail_one_team` catches
-        # a team's: a failure the session never saw leaves its transaction open (`docs/backend/spec.md :: I539`).
-        try:
-            erased = await _erase_one(
-                spieler_id,
-                saisons_collection=saisons_collection,
-                spieler_collection=spieler_collection,
-                saison_spieler_collection=saison_spieler_collection,
-                saison_teams_collection=saison_teams_collection,
-                bewerbungen_collection=bewerbungen_collection,
-                schiedsrichter_collection=schiedsrichter_collection,
-                spiele_collection=spiele_collection,
-                registrierungen_collection=registrierungen_collection,
-                drosselung_collection=drosselung_collection,
-                aktionen_collection=aktionen_collection,
-                berechtigungen_collection=berechtigungen_collection,
-                berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
-                berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
-                einladungen_collection=einladungen_collection,
-                sperrliste_collection=sperrliste_collection,
-                sperrliste=sperrliste,
-                db=db,
-                schluessel=config.sperrliste_schluessel,
-                stamp=stamp,
-                now=germany_now,
-            )
-        except PyMongoError as failure:
-            ungewiss = failure.has_error_label("UnknownTransactionCommitResult")
-            # The id and the class alone: a line naming the pupil would outlive the erasure it reports.
-            fl_logger.error(
-                f"Pupil {spieler_id} was {'erased or not, the commit unanswered' if ungewiss else 'not erased'}: {type(failure).__name__}",
-                extra={"error_code": UNKNOWN_OUTCOME if ungewiss else DATABASE_FAILED},
-            )
-            fehlgeschlagen += 1
-            continue
+    erreicht: Any = None
+    abgebrochen = False
+    # Each pupil's transaction anchors the seasons, a season write the cache serves.
+    with dropping_the_saison_cache():
+        for row in share:
+            erreicht = row["_id"]
+            if row["_id"] in ohne_adresse:
+                continue
 
-        if erased is None:
-            uebersprungen += 1
-            continue
+            # Caught outside the person's session, as `app/api/saisons/admin_router.py :: _mail_one_team` catches
+            # a team's: a failure the session never saw leaves its transaction open (`docs/backend/spec.md :: I539`).
+            try:
+                erased = await _erase_one(
+                    row["_id"],
+                    saisons_collection=saisons_collection,
+                    spieler_collection=spieler_collection,
+                    saison_spieler_collection=saison_spieler_collection,
+                    saison_teams_collection=saison_teams_collection,
+                    bewerbungen_collection=bewerbungen_collection,
+                    schiedsrichter_collection=schiedsrichter_collection,
+                    spiele_collection=spiele_collection,
+                    registrierungen_collection=registrierungen_collection,
+                    drosselung_collection=drosselung_collection,
+                    aktionen_collection=aktionen_collection,
+                    berechtigungen_collection=berechtigungen_collection,
+                    berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
+                    berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
+                    einladungen_collection=einladungen_collection,
+                    sperrliste_collection=sperrliste_collection,
+                    sperrliste=sperrliste,
+                    db=db,
+                    schluessel=config.sperrliste_schluessel,
+                    stamp=stamp,
+                    now=germany_now,
+                )
+            except DocumentNotFoundException:
+                # A registry step finding its row gone: another writer was first, and the pupil is judged again next pass.
+                uebersprungen += 1
+                continue
+            except PyMongoError as failure:
+                ungewiss = failure.has_error_label(UNKNOWN_COMMIT_RESULT)
+                if failure.timeout:
+                    # Below the handler's ERROR: no record is at fault, and every later pupil would fail the same way.
+                    fl_logger.warning(
+                        f"Database deadline passed at pupil {row['_id']}"
+                        f"{', its erasure unanswered' if ungewiss else ''}: the call stops, and the rest stay due",
+                        extra={"error_code": UNKNOWN_OUTCOME if ungewiss else DATABASE_FAILED},
+                    )
+                    abgebrochen = True
+                    break
 
-        # No journal line, unlike a request's erasure: the rule deletes these pupils again after a restore,
-        # where a replay would erase the whole address (`docs/backend/spec.md :: I690`).
-        geloescht += 1
-        spieler += erased.spieler
-        saison_spieler += erased.saison_spieler
-        registrierungen += erased.registrierungen
+                # The id and the class alone: a line naming the pupil would outlive the erasure it reports.
+                fl_logger.error(
+                    f"Pupil {row['_id']} was {'erased or not, the commit unanswered' if ungewiss else 'not erased'}: {type(failure).__name__}",
+                    extra={"error_code": UNKNOWN_OUTCOME if ungewiss else DATABASE_FAILED},
+                )
+                fehlgeschlagen += 1
+                continue
+
+            if erased is None:
+                uebersprungen += 1
+                continue
+
+            # No journal line, unlike a request's erasure: the rule deletes these pupils again after a restore,
+            # where a replay would erase the whole address (`docs/backend/spec.md :: I691`).
+            geloescht += 1
+            spieler += erased.spieler
+            saison_spieler += erased.saison_spieler
+            registrierungen += erased.registrierungen
 
     return FLLoeschungLaufResponse(
         abgeschlossene_saison_id=abgeschlossene_saison_id(statuses),
@@ -220,5 +266,6 @@ async def post_loeschung_lauf(
         registrierungen=registrierungen,
         uebersprungen=uebersprungen,
         fehlgeschlagen=fehlgeschlagen,
-        verbleibend=len(faellig) - geloescht - uebersprungen,
+        verbleibend=anzahl - geloescht - uebersprungen,
+        nach=erreicht if abgebrochen or len(seite) > LOESCHUNGEN_PER_PASS else None,
     )

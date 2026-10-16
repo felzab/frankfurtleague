@@ -367,6 +367,12 @@ class FLAbmeldungResponse(BaseAPIResponse):
     """The envelope alone: the log row it filed names no address to answer with."""
 
 
+class FLLoeschungLaufParams(BaseModel):
+    """Where in one pass the call starts: after the pupil the call before it reached, or at the lowest id where none is named."""
+
+    nach: CustomObjectId | None = None
+
+
 class FLLoeschungLaufResponse(BaseAPIResponse):
     """One call's share of the season-after rule: what it erased, whom it passed over, and how many are still due."""
 
@@ -380,6 +386,8 @@ class FLLoeschungLaufResponse(BaseAPIResponse):
     fehlgeschlagen: int
     # The failed among them: a person whose erasure failed stays due, so a caller looping on this alone never ends.
     verbleibend: int
+    # The last pupil this call reached, for the next call's `nach`; null once it reached the end, which ends the pass.
+    nach: CustomObjectId | None
 
 
 class FLLoeschungVorschauResponse(BaseAPIResponse):

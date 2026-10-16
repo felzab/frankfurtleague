@@ -688,11 +688,14 @@ Every ruling below is the sign-up flow as it stands for the next season.
   tabulates it (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-09-09.
 - **A pupil's own data is bounded by a condition and never by a clock: it goes once the season after
   their last squad season has ended.** Activating a season makes due every pupil holding no squad
-  row, live or retired, in the season it closes or any later one, and no registration still
-  awaiting a decision at their address (`docs/backend/spec.md :: I690`). Once switched on,
-  activating a season deletes them and an hourly pass finishes any it left, each pupil judged
-  again in the transaction deleting them (`:: I691`), and the season page counts them before the
-  press (`:: I692`). What goes is the pupil's own data alone — the record, every squad row and every
+  row, live or retired, in the season it closes, in any season with a later id or in the season
+  running, and no registration still awaiting a decision at their address
+  (`docs/backend/spec.md :: I690`, `:: I715`). Once switched on, activating a season deletes them
+  and an hourly pass finishes any it left, each pupil judged again in the transaction deleting them,
+  a registration arriving meanwhile keeping them (`:: I691`, `:: I716`), and the season page counts
+  them before the press (`:: I692`). A pupil whose address was corrected by hand into a spelling no
+  request matches is passed over, and named in the log by id, until the address is corrected
+  (`:: I718`). What goes is the pupil's own data alone — the record, every squad row and every
   registration at the address, a declined one included, each with its log images — while a contact
   seat, a referee record or a grant at the same address stands, each bounded by its own purpose. A
   pupil holding no address is outside the rule, the one-off reset of

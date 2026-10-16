@@ -26,7 +26,7 @@ from app.api.einladungen.services import (
     find_saison_vorbei_refusal,
     plan_einladung_versand,
 )
-from app.api.identitaet.crud import faellige_spieler, saison_statuses
+from app.api.identitaet.crud import faellige_anzahl, saison_statuses
 from app.api.identitaet.schemas import FLLoeschungVorschauResponse
 from app.api.identitaet.services import geschlossen_durch, statuses_after_activating
 from app.api.saisons.cache import dropping_the_saison_cache
@@ -1334,19 +1334,20 @@ async def preview_loeschung(
     Judged by the run's own rule over the statuses the activation leaves: the season now `active` turned `past`, this one
     `active`, every other as it stands. A count and never a name, and writes nothing. It judges none of the activation's own
     refusals, and the people it counts are those due at this moment: a squad row or a registration arriving before the run
-    keeps its pupil. `abgeschlossene_saison_id` is null where no season but this one is `active`. 404 where no season holds that id.
+    keeps its pupil, and a pupil whose stored address no request matches is counted though the run passes them over.
+    `abgeschlossene_saison_id` is null where no season but this one is `active`. 404 where no season holds that id.
     """
 
     await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["_id"])
 
     statuses = await saison_statuses(saisons_collection=saisons_collection)
-    faellig = await faellige_spieler(
+    spieler = await faellige_anzahl(
         statuses_after_activating(statuses, saison_id),
         spieler_collection=spieler_collection,
         registrierungen_collection=registrierungen_collection,
     )
 
-    return FLLoeschungVorschauResponse(abgeschlossene_saison_id=geschlossen_durch(statuses, saison_id), spieler=len(faellig))
+    return FLLoeschungVorschauResponse(abgeschlossene_saison_id=geschlossen_durch(statuses, saison_id), spieler=spieler)
 
 
 @router.post(

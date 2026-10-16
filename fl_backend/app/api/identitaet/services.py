@@ -25,7 +25,7 @@ from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.collections import Collection as DbCollection
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import is_confirmed
-from app.shared.folding import canonical_address, sign_in_identifier
+from app.shared.folding import canonical_address, is_stored_identifier, sign_in_identifier
 
 # --- The SELECTIONS, each shared with its record's own person-tier reads rather than spelled again.
 # Unnarrowed by retirement or withdrawal: `_judged` narrows the Funktionen (`docs/backend/spec.md :: I376`).
@@ -681,13 +681,22 @@ def abgeschlossene_saison_id(statuses: Mapping[str, FLSaisonStatus]) -> str | No
 
 
 def behaltene_saison_ids(statuses: Mapping[str, FLSaisonStatus]) -> frozenset[str] | None:
-    """The seasons a squad row keeps its pupil in, or `None` while no season is `past`, nobody being due before one has ended."""
+    """The seasons a squad row keeps its pupil in (`docs/backend/spec.md :: I715`), or `None` while no season is `past`.
+
+    By id, as a planned season below the one just ended may never run: activation refuses no lower id.
+    """
 
     abgeschlossen = abgeschlossene_saison_id(statuses)
     if abgeschlossen is None:
         return None
 
-    return frozenset({abgeschlossen, *(saison_id for saison_id, status in statuses.items() if status != "past")})
+    return frozenset(saison_id for saison_id, status in statuses.items() if saison_id >= abgeschlossen or status == "active")
+
+
+def registrierbare_saison_ids(statuses: Mapping[str, FLSaisonStatus]) -> frozenset[str]:
+    """Every season a registration can still arrive in, as `app/api/registrierungen/services.py :: saison_nimmt_registrierungen_an` judges."""
+
+    return frozenset(saison_id for saison_id, status in statuses.items() if status != "past")
 
 
 def statuses_after_activating(statuses: Mapping[str, FLSaisonStatus], saison_id: str) -> dict[str, FLSaisonStatus]:
@@ -722,11 +731,12 @@ def loeschung_faellig(*, email: Any, kader_saison_ids: Iterable[str], offene: Ab
     A retired squad row keeps its pupil as a live one does: removing a player retires the row.
     """
 
-    return behalten is not None and isinstance(email, str) and email not in offene and behalten.isdisjoint(kader_saison_ids)
+    # Folding a hand-typed address instead would erase by a spelling the stored row does not hold, and remove nobody.
+    return behalten is not None and is_stored_identifier(email) and email not in offene and behalten.isdisjoint(kader_saison_ids)
 
 
 def build_loeschung_pipeline(*, behalten: frozenset[str], offene: AbstractSet[str]) -> list[Mapping[str, Any]]:
-    """Every due pupil's id in `_id` order: `loeschung_faellig` as one read, for the population a call shares out.
+    """Every due pupil's id and address: `loeschung_faellig` as one read, its stored-address test excepted, which no stage spells.
 
     An addressless pupil is never read: the registry erases by address.
     """
@@ -745,6 +755,28 @@ def build_loeschung_pipeline(*, behalten: frozenset[str], offene: AbstractSet[st
             }
         },
         {"$match": {"behalten": {"$size": 0}}},
-        {"$sort": {"_id": 1}},
-        {"$project": {"_id": 1}},
+        {"$project": {"_id": 1, "email": 1}},
     ]
+
+
+def build_loeschung_seite_pipeline(
+    *, behalten: frozenset[str], offene: AbstractSet[str], nach: ObjectId | None, groesse: int
+) -> list[Mapping[str, Any]]:
+    """The due pupils after `nach` in `_id` order, at most `groesse`, beside how many are due in all, as ONE document."""
+
+    seite: list[Mapping[str, Any]] = [{"$sort": {"_id": 1}}, {"$limit": groesse}]
+
+    return [
+        *build_loeschung_pipeline(behalten=behalten, offene=offene),
+        {"$facet": {"seite": seite if nach is None else [{"$match": {"_id": {"$gt": nach}}}, *seite], "anzahl": [{"$count": "anzahl"}]}},
+    ]
+
+
+def build_loeschung_anzahl_pipeline(*, behalten: frozenset[str], offene: AbstractSet[str]) -> list[Mapping[str, Any]]:
+    return [*build_loeschung_pipeline(behalten=behalten, offene=offene), {"$count": "anzahl"}]
+
+
+def ohne_passende_adresse(rows: Iterable[Mapping[str, Any]]) -> list[Any]:
+    """The ids among `rows` whose stored address no request matches (`app/shared/folding.py :: is_stored_identifier`)."""
+
+    return [row["_id"] for row in rows if not is_stored_identifier(row.get("email"))]

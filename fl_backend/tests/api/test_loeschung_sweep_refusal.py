@@ -16,6 +16,8 @@ from app.api.identitaet.services import (
     geschlossen_durch,
     loeschung_faellig,
     offene_adressen,
+    ohne_passende_adresse,
+    registrierbare_saison_ids,
     statuses_after_activating,
 )
 from app.api.saisons.schemas import FLSaisonStatus
@@ -45,6 +47,27 @@ class TestTheKeptSeasons:
 
         assert (behaltene_saison_ids(statuses), abgeschlossene_saison_id(statuses)) == (None, None)
         assert not faellig([], statuses=statuses)
+
+    def test_a_planned_season_below_the_one_just_ended_keeps_nobody(self):
+        """Never activated, it stays planned for good, and a status rule would keep its pupils for ever."""
+
+        statuses: dict[str, FLSaisonStatus] = {"2023": "past", "2024": "future", "2025": "past", "2026": "active"}
+
+        assert behaltene_saison_ids(statuses) == {"2025", "2026"}
+        assert faellig(["2024"], statuses=statuses)
+
+    def test_a_running_season_below_the_one_just_ended_still_keeps_its_pupils(self):
+        """Activation refuses no lower id, so the running season is kept by its status whatever its id."""
+
+        statuses: dict[str, FLSaisonStatus] = {"2024": "active", "2025": "past", "2026": "future"}
+
+        assert behaltene_saison_ids(statuses) == {"2024", "2025", "2026"}
+        assert not faellig(["2024"], statuses=statuses)
+
+    def test_every_season_a_registration_can_arrive_in_is_anchored(self):
+        """The ones not `past`, as the window judges: a registration for one conflicts with the pupil's transaction."""
+
+        assert registrierbare_saison_ids(LEAGUE) == {"2026", "2027"}
 
 
 class TestTheDueJudgement:
@@ -78,6 +101,20 @@ class TestTheDueJudgement:
 
         assert not faellig([], email=None)
 
+    @pytest.mark.parametrize(
+        "email",
+        [
+            pytest.param("Thessaly.Okonkwo@beispielschule.de", id="unfolded"),
+            pytest.param("", id="empty"),
+            pytest.param("thessaly.okonkwo", id="refused by the address rule"),
+        ],
+    )
+    def test_a_stored_address_no_request_matches_is_never_due_and_is_named(self, email: str):
+        """A hand correction leaves such a spelling, and the erasure would remove nobody by it."""
+
+        assert not faellig([], email=email)
+        assert ohne_passende_adresse([{"_id": 1, "email": email}, {"_id": 2, "email": ADDRESS}]) == [1]
+
 
 class TestTheStatusesAnActivationLeaves:
     def test_the_running_season_ends_and_the_target_runs(self):
@@ -97,12 +134,12 @@ class TestTheStatusesAnActivationLeaves:
 
 # One pupil's commands on the wire, pinned by
 # `fl_backend/tests/api/test_loeschung_sweep.py :: TestOnePupilCostsTheCommandsItsShareIsSizedAt`.
-COMMANDS_A_PERSON = 23
+COMMANDS_A_PERSON = 24
 
-# The call's other commands, four on the wire while each read fits the driver's first batch and one
-# more per read past it; the per-command cost the largest of two windows timing whole calls locally,
-# 2026-10-16.
-OTHER_COMMANDS = 4 + 3
+# The call's other commands, four on the wire and one for the pending registrations' read past the
+# driver's first batch, the page being one document; the per-command cost the largest of two windows
+# timing whole calls locally, 2026-10-16.
+OTHER_COMMANDS = 4 + 1
 PER_COMMAND_S = 0.00203
 
 # The round trip `sweep_router.LOESCHUNGEN_PER_PASS`'s comment sizes the share for.

@@ -25,7 +25,8 @@ from app.api.identitaet.services import (
     build_erasure_referee_pipeline,
     build_erasure_registrierung_pipeline,
     build_erasure_seat_pipeline,
-    build_loeschung_pipeline,
+    build_loeschung_anzahl_pipeline,
+    build_loeschung_seite_pipeline,
     build_offene_registrierungen_pipeline,
     build_pending_address_pipeline,
     build_pending_pupil_address_pipeline,
@@ -54,6 +55,7 @@ from app.api.identitaet.services import (
     pupil_address,
     referee_address,
     referenced_addresses,
+    registrierbare_saison_ids,
     seat_is_confirmed,
     seats_naming,
     statuses_of,
@@ -71,7 +73,7 @@ from app.api.spieler.crud import ensure_ghost_spieler, erase_person_in_session, 
 from app.api.spieler.services import SPIELER_ADRESSWECHSEL_FELD, build_spieler_filter
 from app.core.collections import Collection
 from app.core.concurrency import gather_cancelling
-from app.core.crud import aggregate_many_from_db, patch_many_in_db, refuse
+from app.core.crud import aggregate_many_from_db, anchor_in_db, patch_many_in_db, refuse
 from app.core.db import warn_about_the_grants
 from app.core.drosselung import erase_counts_in_session
 from app.core.logging import journal_logger
@@ -797,24 +799,47 @@ async def saison_statuses(*, saisons_collection: AsyncCollection) -> dict[str, F
     return statuses_of(await aggregate_many_from_db(collection=saisons_collection, pipeline=[{"$project": {"status": 1}}]))
 
 
-async def faellige_spieler(
-    statuses: Mapping[str, FLSaisonStatus], *, spieler_collection: AsyncCollection, registrierungen_collection: AsyncCollection
-) -> list[Any]:
-    """Every pupil the rule makes due under `statuses`, by id in `_id` order, read outside any transaction.
+async def _offene(registrierungen_collection: AsyncCollection) -> frozenset[str]:
+    return offene_adressen(
+        await aggregate_many_from_db(collection=registrierungen_collection, pipeline=build_offene_registrierungen_pipeline())
+    )
 
-    Unbounded: the count is what a caller answers as still due. Each erasure re-judges its person in its own transaction.
+
+async def faellige_seite(
+    statuses: Mapping[str, FLSaisonStatus],
+    *,
+    nach: ObjectId | None,
+    groesse: int,
+    spieler_collection: AsyncCollection,
+    registrierungen_collection: AsyncCollection,
+) -> tuple[list[Mapping[str, Any]], int]:
+    """The due pupils after `nach`, at most `groesse` with their id and address, and how many are due in all.
+
+    Read outside any transaction; each erasure judges its pupil again in its own.
     """
 
     behalten = behaltene_saison_ids(statuses)
     if behalten is None:
-        return []
+        return [], 0
 
-    offene = offene_adressen(
-        await aggregate_many_from_db(collection=registrierungen_collection, pipeline=build_offene_registrierungen_pipeline())
-    )
-    rows = await aggregate_many_from_db(collection=spieler_collection, pipeline=build_loeschung_pipeline(behalten=behalten, offene=offene))
+    pipeline = build_loeschung_seite_pipeline(behalten=behalten, offene=await _offene(registrierungen_collection), nach=nach, groesse=groesse)
+    [gelesen] = await aggregate_many_from_db(collection=spieler_collection, pipeline=pipeline)
 
-    return [row["_id"] for row in rows]
+    return gelesen["seite"], sum(row["anzahl"] for row in gelesen["anzahl"])
+
+
+async def faellige_anzahl(
+    statuses: Mapping[str, FLSaisonStatus], *, spieler_collection: AsyncCollection, registrierungen_collection: AsyncCollection
+) -> int:
+    """How many pupils the rule makes due under `statuses`, read outside any transaction."""
+
+    behalten = behaltene_saison_ids(statuses)
+    if behalten is None:
+        return 0
+
+    pipeline = build_loeschung_anzahl_pipeline(behalten=behalten, offene=await _offene(registrierungen_collection))
+
+    return sum(row["anzahl"] for row in await aggregate_many_from_db(collection=spieler_collection, pipeline=pipeline))
 
 
 async def erase_if_still_due(
@@ -849,6 +874,14 @@ async def erase_if_still_due(
     """
 
     statuses = statuses_of(await aggregate_many_from_db(collection=saisons_collection, pipeline=[{"$project": {"status": 1}}], session=session))
+    behalten = behaltene_saison_ids(statuses)
+    if behalten is None:
+        return None
+
+    # A registration inserts a row this snapshot never sees, so only the season both write makes it conflict; the squad
+    # writers already do, each writing the pupil or a row of theirs this erasure removes (`docs/backend/spec.md :: I716`).
+    await anchor_in_db(collection=saisons_collection, db_filter={"_id": {"$in": sorted(registrierbare_saison_ids(statuses))}}, session=session)
+
     # By id through the filter refusing the sentinel, so a hand-given address never makes it due.
     pupils = await aggregate_many_from_db(
         collection=spieler_collection, pipeline=[{"$match": build_spieler_filter(spieler_id)}, {"$project": {"email": 1}}], session=session
@@ -870,7 +903,7 @@ async def erase_if_still_due(
         kader_saison_ids=[row["saison_id"] for row in kader],
         # The pre-filter's rows, the fold deciding: its `i` ignores case beyond ASCII.
         offene=offene_adressen(row for row in registrierungen if folds_to(row.get("email"), email)),
-        behalten=behaltene_saison_ids(statuses),
+        behalten=behalten,
     ):
         return None
 

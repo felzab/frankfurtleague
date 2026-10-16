@@ -15,22 +15,29 @@ from datetime import UTC, datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
+import pymongo
 import pytest
 from bson import ObjectId
 from fastapi import FastAPI
 from pymongo import AsyncMongoClient, ReturnDocument, monitoring
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.identitaet.crud import ERASURE_JOURNAL_LINE, faellige_spieler, saison_statuses
+from app.api.bewerbungen.services import hash_token
+from app.api.identitaet.crud import ERASURE_JOURNAL_EVENT, faellige_seite, saison_statuses
+from app.api.identitaet.schemas import FLLoeschungLaufParams
 from app.api.identitaet.sweep_router import LOESCHUNGEN_PER_PASS, post_loeschung_lauf
+from app.api.registrierungen.public_router import post_registrierung
+from app.api.registrierungen.schemas import FLPostRegistrierungPayload
 from app.api.registrierungen.services import compose_ablehnung_update
 from app.api.saisons.admin_router import activate_saison, preview_loeschung
 from app.api.schiedsrichter.services import build_ghost_schiedsrichter
+from app.api.spieler.admin_router import post_saison_spieler
+from app.api.spieler.schemas import FLPostSaisonSpielerPayload
 from app.api.spieler.services import build_ghost_spieler
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db
-from app.core.exception_handlers import DATABASE_FAILED
+from app.core.exception_handlers import DATABASE_FAILED, STORED_DATA_INVALID, UNKNOWN_OUTCOME
 from app.core.exceptions import DocumentNotFoundException
 from app.main import create_app
 from tests.app_client import app_client
@@ -175,22 +182,67 @@ def the_collections(database: AsyncDatabase, **replaced: Any) -> dict[str, Any]:
     return {**handles, **replaced}
 
 
-async def run(database: AsyncDatabase, client: AsyncMongoClient, **replaced: Any) -> Any:
+async def run(database: AsyncDatabase, client: AsyncMongoClient, *, nach: Any = None, **replaced: Any) -> Any:
     return await post_loeschung_lauf(
-        **the_collections(database, **replaced), sperrliste=ban_list(database), db=client, config=CONFIG, germany_now=NOW
+        params=FLLoeschungLaufParams(nach=nach),
+        **the_collections(database, **replaced),
+        sperrliste=ban_list(database),
+        db=client,
+        config=CONFIG,
+        germany_now=NOW,
     )
+
+
+# More calls than any pass a case seeds can take: a pass that never ends stops here, and the case says so.
+CALLS_A_PASS = 5
+
+
+async def a_pass(database: AsyncDatabase, client: AsyncMongoClient, **replaced: Any) -> list[Any]:
+    """Calls handing each the `nach` the last answered, until one answers null, as the press and the hourly pass loop."""
+
+    answers = [await run(database, client, **replaced)]
+    while answers[-1].nach is not None:
+        assert len(answers) < CALLS_A_PASS, f"the pass did not end in {CALLS_A_PASS} calls: {[answer.nach for answer in answers]}"
+        answers.append(await run(database, client, nach=answers[-1].nach, **replaced))
+
+    return answers
+
+
+def stored_before_its_validator(spieler_id: ObjectId) -> dict[str, Any]:
+    """A log row stored before its validator required `trace_id`, which refuses the redaction's update under strict validation."""
+
+    return {
+        "at": "2025-01-01T00:00:00+00:00",
+        "actor": {"kind": "system", "email": "SYSTEM"},
+        "request": None,
+        "collection": str(Collection.SPIELER),
+        "operation": "patch_one",
+        "document_id": spieler_id,
+        "db_filter": None,
+        "before": pupil(spieler_id, "vorher@beispielschule.de"),
+        "modified_count": None,
+        "redacted_at": None,
+    }
 
 
 def counts(answer: Any) -> dict[str, Any]:
-    return answer.model_dump(exclude={"acknowledged"})
+    return answer.model_dump(exclude={"acknowledged", "nach"})
+
+
+# Past any population a case seeds, so the read names every due pupil at once.
+WHOLE = 1000
 
 
 async def population(database: AsyncDatabase) -> list[Any]:
-    return await faellige_spieler(
+    seite, _ = await faellige_seite(
         await saison_statuses(saisons_collection=database[Collection.SAISONS]),
+        nach=None,
+        groesse=WHOLE,
         spieler_collection=database[Collection.SPIELER],
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
     )
+
+    return [row["_id"] for row in seite]
 
 
 class WrittenAfterThePopulationRead:
@@ -447,6 +499,185 @@ class TestEachPupilIsJudgedAgainInTheirOwnTransaction:
         assert registrations == [stranger]
 
 
+# --- A stored address no request matches: a hand correction left it unfolded.
+
+UNFOLDED = "Thessaly.Okonkwo@beispielschule.de"
+
+
+class TestAStoredAddressNoRequestMatchesIsPassedOver:
+    def test_the_pupil_stands_and_a_warning_names_them_by_id(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+        """Their pending registration at the same spelling would keep them, and nothing compares the two.
+
+        Read the page without the leave-out and no warning names them.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await seeded(database, a_due_pupil(1), a_due_pupil(2))
+            await database[Collection.SPIELER].update_one({"_id": numbered(1)}, {"$set": {"email": UNFOLDED}})
+            await database[Collection.REGISTRIERUNGEN].insert_one(registration(numbered(903), UNFOLDED))
+            answer = await run(database, client)
+
+            return (
+                counts(answer),
+                answer.nach,
+                await database[Collection.SPIELER].count_documents({"_id": numbered(1)}),
+                await database[Collection.REGISTRIERUNGEN].count_documents({"_id": numbered(903)}),
+            )
+
+        with caplog.at_level(logging.WARNING):
+            answer, nach, standing, registered = on_a_league(mongo_replica_set_url, body)
+
+        assert (answer["spieler"], answer["uebersprungen"], answer["verbleibend"], nach, standing, registered) == (1, 0, 1, None, 1, 1)
+        warnings = [record.getMessage() for record in caplog.records if getattr(record, "error_code", None) == STORED_DATA_INVALID]
+        assert [message.endswith(f": 1 ({numbered(1)})") for message in warnings] == [True]
+        assert not [message for message in warnings if "thessaly" in message.lower()]
+
+    def test_one_corrected_so_after_the_read_is_judged_again_and_stands(self, mongo_replica_set_url: str):
+        """The transaction's own judgement: drop its stored-address test and the erasure runs on a spelling no row holds folded."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await seeded(database, a_due_pupil(1))
+
+            async def correct_it() -> None:
+                await database[Collection.SPIELER].update_one({"_id": numbered(1)}, {"$set": {"email": address_of(1).capitalize()}})
+
+            answer = await run(database, client, spieler_collection=WrittenAfterThePopulationRead(database[Collection.SPIELER], correct_it))
+
+            return counts(answer), await database[Collection.SPIELER].count_documents({"_id": numbered(1)})
+
+        answer, standing = on_a_league(mongo_replica_set_url, body)
+
+        assert (answer["spieler"], answer["uebersprungen"], standing) == (0, 1, 1)
+
+
+# --- A rival committing INSIDE a pupil's transaction, after its snapshot and before its first write.
+
+# Waited for the rival at most this long: it contends with nothing before the pupil's first write, so
+# only a rival that failed or hung waits it out, and the case then says so rather than passing.
+RIVAL_BOUND_S = 5.0
+
+EINLADUNG = numbered(950)
+EINLADUNG_TOKEN = "hwGqQ4kP6yJr3VnZbT8sXeM2dLuF9aCwR1oY5iN7pKg"
+
+
+class CommittedInsideThePupilsTransaction:
+    """The seasons, running `rival` to its commit after a pupil's transaction reads the statuses, its first read.
+
+    Bounded rather than awaited outright: a rival waiting on a write of the pupil's would never finish.
+    """
+
+    def __init__(self, collection: Any, rival: Callable[[], Awaitable[Any]]) -> None:
+        self._collection = collection
+        self._rival: Callable[[], Awaitable[Any]] | None = rival
+        self.committed = False
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._collection, name)
+
+    async def aggregate(self, *args: Any, **kwargs: Any) -> Any:
+        cursor = await self._collection.aggregate(*args, **kwargs)
+        if self._rival is not None and kwargs.get("session") is not None:
+            rival, self._rival = self._rival, None
+            task = asyncio.ensure_future(rival())
+            await asyncio.wait({task}, timeout=RIVAL_BOUND_S)
+            self.committed = task.done() and task.exception() is None
+
+        return cursor
+
+
+async def a_squad_row_entered(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+    """The administrator's entry into the running season, which keeps the pupil."""
+
+    return await post_saison_spieler(
+        spieler_id=numbered(1),
+        saison_spieler_data=FLPostSaisonSpielerPayload(saison_id="2026", team_id=TEAM_OID, nummer=None, position=None, stufe=None, rolle=None),
+        spieler_collection=database[Collection.SPIELER],
+        saison_spieler_collection=database[Collection.SAISON_SPIELER],
+        saison_teams_collection=database[Collection.SAISON_TEAMS],
+        saisons_collection=database[Collection.SAISONS],
+        spieltage_collection=database[Collection.SPIELTAGE],
+        db=client,
+        today=TODAY,
+    )
+
+
+async def a_registration_submitted(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+    """The pupil's own registration for the running season, at their address typed otherwise, which keeps them."""
+
+    return await post_registrierung(
+        registrierung_data=FLPostRegistrierungPayload.model_validate(
+            {
+                "token": EINLADUNG_TOKEN,
+                "vorname": "Quintessa",
+                "nachname": "Muster",
+                "email": address_of(1).capitalize(),
+                "position": None,
+                "nummer": None,
+                "stufe": None,
+            }
+        ),
+        idempotency_key=None,
+        teams_collection=database[Collection.TEAMS],
+        registrierungen_collection=database[Collection.REGISTRIERUNGEN],
+        einladungen_collection=database[Collection.EINLADUNGEN],
+        saisons_collection=database[Collection.SAISONS],
+        saison_teams_collection=database[Collection.SAISON_TEAMS],
+        saison_spieler_collection=database[Collection.SAISON_SPIELER],
+        sperrliste=ban_list(database),
+        db=client,
+        today=TODAY,
+    )
+
+
+async def a_running_season_open_to_its_team(database: AsyncDatabase) -> None:
+    """The team entered in 2026, its registration window open today and its link live, so nothing but the race decides."""
+
+    await database[Collection.SAISONS].update_one(
+        {"_id": "2026"}, {"$set": {"registrierung": {"offen": True, "von": "2026-03-01", "bis": "2026-04-30"}}}
+    )
+    await database[Collection.SAISON_TEAMS].insert_one(saison_team_document("2026", TEAM_OID, "Lindenschule", "LS"))
+    await database[Collection.EINLADUNGEN].insert_one(
+        {
+            "_id": EINLADUNG,
+            "saison_id": "2026",
+            "team_id": TEAM_OID,
+            "token_hash": hash_token(EINLADUNG_TOKEN),
+            "erstellt_am": "2026-03-15",
+            "erstellt_von": "admin@frankfurtleague.de",
+            "widerrufen_am": None,
+            "versand": {},
+        }
+    )
+
+
+class TestARivalCommittingInsideThePupilsTransactionKeepsThem:
+    @pytest.mark.parametrize(
+        "rival",
+        [
+            # Held by the person: the entry anchors the pupil, whose deletion then conflicts with it.
+            pytest.param(a_squad_row_entered, id="a squad row"),
+            # Held by the season: the submission inserts a row the deletion never read, so only the
+            # season both write puts the two in one write set.
+            pytest.param(a_registration_submitted, id="a pending registration"),
+        ],
+    )
+    def test_the_pupil_stands(self, mongo_replica_set_url: str, rival: Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]):
+        """Anchor no season in the pupil's transaction and the registration's arm fails: the pupil goes, their registration orphaned."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await seeded(database, a_due_pupil(1))
+            await a_running_season_open_to_its_team(database)
+            seasons = CommittedInsideThePupilsTransaction(database[Collection.SAISONS], lambda: rival(database, client))
+            answer = await run(database, client, saisons_collection=seasons)
+
+            return seasons.committed, counts(answer), await database[Collection.SPIELER].count_documents({"_id": numbered(1)})
+
+        committed, answer, standing = on_a_league(mongo_replica_set_url, body)
+
+        assert committed, "the rival never committed inside the pupil's transaction, so this case proves nothing"
+        assert (answer["spieler"], answer["uebersprungen"], standing) == (0, 1, 1)
+
+
 class TestOneRecordHoldsBackNobody:
     def test_a_refused_erasure_is_counted_and_the_next_pupil_goes(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         """A log row stored before its validator required `trace_id` refuses the redaction's update, a real failure under strict validation.
@@ -456,21 +687,7 @@ class TestOneRecordHoldsBackNobody:
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             await seeded(database, a_due_pupil(1), a_due_pupil(2))
-            await database[Collection.AKTIONEN].insert_one(
-                {
-                    "at": "2025-01-01T00:00:00+00:00",
-                    "actor": {"kind": "system", "email": "SYSTEM"},
-                    "request": None,
-                    "collection": str(Collection.SPIELER),
-                    "operation": "patch_one",
-                    "document_id": numbered(1),
-                    "db_filter": None,
-                    "before": pupil(numbered(1), address_of(1)),
-                    "modified_count": None,
-                    "redacted_at": None,
-                },
-                bypass_document_validation=True,
-            )
+            await database[Collection.AKTIONEN].insert_one(stored_before_its_validator(numbered(1)), bypass_document_validation=True)
 
             async with app_client(mongo_replica_set_url, app=_app(), now=NOW) as http:
                 response = await http.post(PATH, headers=SYSTEM_AUTH)
@@ -489,6 +706,54 @@ class TestOneRecordHoldsBackNobody:
         assert not [record for record in failures if address_of(1) in record.getMessage() or "Quintessa" in record.getMessage()]
 
 
+# Long enough that the pupil before the stall is erased inside it on a loaded machine.
+SHORT_DEADLINE_S = 1.5
+
+
+class StallsOnePupil:
+    """The squad rows, whose in-session read for one pupil is sent once the call's deadline has passed.
+
+    Spent before the read, as earlier pupils spend it: a script sleeping on the server outlives the deadline and holds the abort.
+    """
+
+    def __init__(self, collection: Any, stalled: ObjectId) -> None:
+        self._collection = collection
+        self._stalled = stalled
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._collection, name)
+
+    async def aggregate(self, pipeline: list[Any], *args: Any, **kwargs: Any) -> Any:
+        if pipeline and pipeline[0] == {"$match": {"spieler_id": self._stalled}}:
+            await asyncio.sleep(SHORT_DEADLINE_S)
+
+        return await self._collection.aggregate(pipeline, *args, **kwargs)
+
+
+class TestTheDeadlineStopsTheCall:
+    def test_it_warns_once_and_the_rest_stay_due(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+        """Fail each pupil past the deadline instead and every later one is logged an ERROR naming a refusal that never happened."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await seeded(database, a_due_pupil(1), a_due_pupil(2), a_due_pupil(3))
+            with pymongo.timeout(SHORT_DEADLINE_S):
+                answer = await run(database, client, saison_spieler_collection=StallsOnePupil(database[Collection.SAISON_SPIELER], numbered(2)))
+
+            return counts(answer), answer.nach, await database[Collection.SPIELER].distinct("_id", {"email": {"$type": "string"}})
+
+        with caplog.at_level(logging.WARNING):
+            answer, nach, standing = on_a_league(mongo_replica_set_url, body)
+
+        assert (answer["spieler"], answer["fehlgeschlagen"], answer["verbleibend"], nach) == (1, 0, 2, numbered(2))
+        assert standing == [numbered(2), numbered(3)]
+        lines = [
+            (record.levelname, record.getMessage())
+            for record in caplog.records
+            if getattr(record, "error_code", None) in {DATABASE_FAILED, UNKNOWN_OUTCOME}
+        ]
+        assert lines == [("WARNING", f"Database deadline passed at pupil {numbered(2)}: the call stops, and the rest stay due")]
+
+
 @functools.cache
 def _app() -> FastAPI:
     return create_app(CONFIG)
@@ -502,15 +767,44 @@ def _built_before_any_case() -> None:
 
 
 class TestEachCallTakesAShare:
-    def test_a_share_and_one_more_take_two_calls_and_the_third_finds_nobody(self, mongo_replica_set_url: str):
-        """The shipped share, seeded one over: ignore it and the first call takes everybody."""
+    def test_a_share_and_one_more_take_a_pass_of_two_calls_and_a_later_call_finds_nobody(self, mongo_replica_set_url: str):
+        """The shipped share, seeded one over: ignore it and the first call takes everybody and ends the pass."""
 
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[tuple[int, int]]:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await seeded(database, *(a_due_pupil(position) for position in range(LOESCHUNGEN_PER_PASS + 1)))
+            answers = await a_pass(database, client)
 
-            return [(answer.spieler, answer.verbleibend) for answer in [await run(database, client) for _ in range(3)]]
+            return [(answer.spieler, answer.verbleibend, answer.nach) for answer in answers], await run(database, client)
 
-        assert on_a_league(mongo_replica_set_url, body) == [(LOESCHUNGEN_PER_PASS, 1), (1, 0), (0, 0)]
+        answers, later = on_a_league(mongo_replica_set_url, body)
+
+        assert answers == [(LOESCHUNGEN_PER_PASS, 1, numbered(LOESCHUNGEN_PER_PASS - 1)), (1, 0, None)]
+        assert (later.spieler, later.verbleibend, later.nach) == (0, 0, None)
+
+    def test_a_share_of_failing_pupils_holds_back_none_behind_it_in_the_pass(self, mongo_replica_set_url: str):
+        """A whole share whose erasures the database refuses, and one ordinary pupil after them.
+
+        Restart each call at the lowest id and the same share fails every call, the last pupil never reached.
+        """
+
+        failing = range(1, LOESCHUNGEN_PER_PASS + 1)
+        last = LOESCHUNGEN_PER_PASS + 1
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await seeded(database, *(a_due_pupil(position) for position in [*failing, last]))
+            await database[Collection.AKTIONEN].insert_many(
+                [stored_before_its_validator(numbered(position)) for position in failing], bypass_document_validation=True
+            )
+            answers = await a_pass(database, client)
+
+            return [(answer.spieler, answer.fehlgeschlagen) for answer in answers], await database[Collection.SPIELER].count_documents(
+                {"_id": numbered(last)}
+            )
+
+        answers, standing = on_a_league(mongo_replica_set_url, body)
+
+        assert answers == [(0, LOESCHUNGEN_PER_PASS), (1, 0)]
+        assert standing == 0
 
     def test_two_calls_at_once_erase_each_pupil_once(self, mongo_replica_set_url: str):
         """Count the attempts rather than the erasures and the sum exceeds the pupils; a conflict surfacing as a failure fails it too."""
@@ -557,7 +851,7 @@ class TestNoJournalLine:
             erased = on_a_league(mongo_replica_set_url, body)
 
         assert erased == 1
-        assert not [record for record in caplog.records if record.getMessage().startswith(ERASURE_JOURNAL_LINE)]
+        assert not [record for record in caplog.records if record.getMessage().startswith(ERASURE_JOURNAL_EVENT)]
 
 
 # --- What one pupil costs on the wire, which the share is sized at.
