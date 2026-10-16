@@ -3,9 +3,9 @@ import asyncio
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from functools import partial
-from typing import Any, TypedDict
+from typing import Annotated, Any, TypedDict
 
-from pydantic import TypeAdapter, ValidationError
+from pydantic import StringConstraints, TypeAdapter, ValidationError
 from pymongo import ASCENDING, DESCENDING, AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
@@ -13,8 +13,16 @@ from pymongo.errors import OperationFailure
 from app.core.collections import Collection
 from app.core.config import MONGODB_URI_FILE, get_config  # noqa: TID251
 from app.core.sentinels import GHOST_SPIELER_ID
-from app.shared.schemas.bounds import AKTION_RETENTION_SECONDS
-from app.shared.schemas.custom import CustomDateString, CustomNonEmptyString, CustomOptionalDateString
+from app.shared.schemas.addresses import HAUSNUMMER_PATTERN
+from app.shared.schemas.bounds import AKTION_RETENTION_SECONDS, SAISON_ID_LENGTH, TEAM_SHORTHAND_LENGTH
+from app.shared.schemas.custom import (
+    CustomDateString,
+    CustomErgebnisString,
+    CustomNonEmptyString,
+    CustomOptionalDateString,
+    CustomOptionalExternalUrl,
+    CustomTimeString,
+)
 
 # Handled rather than re-raised: creating the collection with the validator attached reaches the
 # same end state.
@@ -1767,61 +1775,198 @@ async def report_nameless_persons(db: AsyncDatabase) -> RelationReport:
     )
 
 
-@dataclass(frozen=True)
-class ServedValues:
-    """Every stored value of one collection that the models serving it refuse and its validator admits."""
-
-    collection: Collection
-    rule: str
-    # Each dotted path under its model's own type, so the report refuses exactly what a read does.
-    types: Mapping[str, TypeAdapter[Any]]
-
+# One adapter per type a read model gives a stored string, each that model's own, so the report refuses
+# exactly what a read does (`fl_backend/tests/core/test_constraints.py` holds each path's two equal).
+_NON_EMPTY = TypeAdapter(CustomNonEmptyString)
+_NON_EMPTY_OR_NULL = TypeAdapter(CustomNonEmptyString | None)
+_DAY = TypeAdapter(CustomDateString)
+_DAY_OR_NULL = TypeAdapter(CustomDateString | None)
+_OPTIONAL_DAY = TypeAdapter(CustomOptionalDateString)
+_TIME_OR_NULL = TypeAdapter(CustomTimeString | None)
+_ERGEBNIS_OR_NULL = TypeAdapter(CustomErgebnisString | None)
+_OPTIONAL_URL = TypeAdapter(CustomOptionalExternalUrl)
+_SAISON_ID = TypeAdapter(Annotated[str, StringConstraints(min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)])
+_SHORTHAND = TypeAdapter(Annotated[str, StringConstraints(min_length=TEAM_SHORTHAND_LENGTH, max_length=TEAM_SHORTHAND_LENGTH)])
+_HAUSNUMMER = TypeAdapter(Annotated[str, StringConstraints(pattern=HAUSNUMMER_PATTERN)])
+# Restated: `app/shared/schemas/addresses.py :: FLAddress` spells its pattern inline.
+_PLZ = TypeAdapter(Annotated[str, StringConstraints(pattern=r"^[0-9]{5}$")])
 
 # A validator holds types and enums alone (`.claude/rules/backend.md` db), so a hand edit can store an
 # empty name or a day no calendar holds, and a list serving that row answers 500 for every row
 # (`SRV-VAL-001`).
-SERVED_VALUES: tuple[ServedValues, ...] = (
-    # GET /registrierungen serves every row.
-    ServedValues(
-        collection=Collection.REGISTRIERUNGEN,
-        rule="a registration's names and address are non-empty and its dates calendar days (registrierungen)",
-        types={
-            "eingereicht_am": TypeAdapter(CustomDateString),
-            "vorname": TypeAdapter(CustomNonEmptyString),
-            "nachname": TypeAdapter(CustomNonEmptyString),
-            "email": TypeAdapter(CustomNonEmptyString),
-            "geburtsdatum": TypeAdapter(CustomOptionalDateString),
-            "einwilligung.datum": TypeAdapter(CustomOptionalDateString),
-            "einwilligung.bestaetigt_am": TypeAdapter(CustomOptionalDateString),
-            "bestaetigung.verschickt_am": TypeAdapter(CustomDateString),
-            "bestaetigung.erinnert_am": TypeAdapter(CustomOptionalDateString),
-            "bestaetigung.frist": TypeAdapter(CustomDateString),
-            "entscheidung.getroffen_am": TypeAdapter(CustomDateString),
-            "entscheidung.von": TypeAdapter(CustomNonEmptyString),
-        },
-    ),
-    # GET /spieler/memberships serves every pupil.
-    ServedValues(
-        collection=Collection.SPIELER,
-        rule="a pupil's forename is non-empty and their dates calendar days (spieler)",
-        types={
-            # Null is the sentinel's, and `NAMELESS_PERSON_RULE`'s anywhere else.
-            "vorname": TypeAdapter(CustomNonEmptyString | None),
-            "inactive_since": TypeAdapter(CustomOptionalDateString),
-            "geburtsdatum": TypeAdapter(CustomOptionalDateString),
-            "einwilligung.datum": TypeAdapter(CustomOptionalDateString),
-            "einwilligung.bestaetigt_am": TypeAdapter(CustomOptionalDateString),
-            "adresswechsel.verschickt_am": TypeAdapter(CustomDateString),
-            "adresswechsel.frist": TypeAdapter(CustomDateString),
-        },
-    ),
-    # Joined into GET /spieler/memberships, each pupil's squad entries.
-    ServedValues(
-        collection=Collection.SAISON_SPIELER,
-        rule="a squad entry's retirement is a calendar day (saison_spieler)",
-        types={"inactive_since": TypeAdapter(CustomOptionalDateString)},
-    ),
-)
+SERVED_VALUES: Mapping[Collection, Mapping[str, TypeAdapter[Any]]] = {
+    Collection.BERECHTIGUNGEN: {
+        "adresse": _NON_EMPTY,
+    },
+    Collection.BERECHTIGUNGEN_ANGEKUENDIGT: {
+        "adresse": _NON_EMPTY,
+    },
+    Collection.BEWERBUNGEN: {
+        "eingereicht_am": _DAY,
+        "bestaetigungsfrist": _OPTIONAL_DAY,
+        "schule.team_name": _NON_EMPTY,
+        "schule.full_name": _NON_EMPTY,
+        "schule.shorthand": _SHORTHAND,
+        "schule.address.strasse": _NON_EMPTY,
+        "schule.address.hausnummer": _HAUSNUMMER,
+        "schule.address.plz": _PLZ,
+        "schule.address.stadt": _NON_EMPTY,
+        "entscheidung.getroffen_am": _DAY,
+        "kontakte.trainer.vorname": _NON_EMPTY,
+        "kontakte.trainer.nachname": _NON_EMPTY,
+        "kontakte.trainer.geburtsdatum": _OPTIONAL_DAY,
+        "kontakte.ansprechperson.vorname": _NON_EMPTY,
+        "kontakte.ansprechperson.nachname": _NON_EMPTY,
+        "kontakte.ansprechperson.geburtsdatum": _OPTIONAL_DAY,
+        "kontakte.stellvertretung.vorname": _NON_EMPTY,
+        "kontakte.stellvertretung.nachname": _NON_EMPTY,
+        "kontakte.stellvertretung.geburtsdatum": _OPTIONAL_DAY,
+        "kontakte.trainer.einwilligung.datum": _DAY,
+        "kontakte.trainer.einwilligung.bestaetigt_am": _OPTIONAL_DAY,
+        "kontakte.ansprechperson.einwilligung.datum": _DAY,
+        "kontakte.ansprechperson.einwilligung.bestaetigt_am": _OPTIONAL_DAY,
+        "kontakte.stellvertretung.einwilligung.datum": _DAY,
+        "kontakte.stellvertretung.einwilligung.bestaetigt_am": _OPTIONAL_DAY,
+        "bestaetigungen.trainer.verschickt_am": _DAY,
+        "bestaetigungen.trainer.erinnert_am": _OPTIONAL_DAY,
+        "bestaetigungen.trainer.abgelehnt_am": _OPTIONAL_DAY,
+        "bestaetigungen.ansprechperson.verschickt_am": _DAY,
+        "bestaetigungen.ansprechperson.erinnert_am": _OPTIONAL_DAY,
+        "bestaetigungen.ansprechperson.abgelehnt_am": _OPTIONAL_DAY,
+        "bestaetigungen.stellvertretung.verschickt_am": _DAY,
+        "bestaetigungen.stellvertretung.erinnert_am": _OPTIONAL_DAY,
+        "bestaetigungen.stellvertretung.abgelehnt_am": _OPTIONAL_DAY,
+    },
+    Collection.EINLADUNGEN: {
+        "saison_id": _NON_EMPTY,
+        "erstellt_am": _DAY,
+        "erstellt_von": _NON_EMPTY,
+        "widerrufen_am": _OPTIONAL_DAY,
+    },
+    Collection.REGISTRIERUNGEN: {
+        "eingereicht_am": _DAY,
+        "vorname": _NON_EMPTY,
+        "nachname": _NON_EMPTY,
+        "email": _NON_EMPTY,
+        "geburtsdatum": _OPTIONAL_DAY,
+        "einwilligung.datum": _OPTIONAL_DAY,
+        "einwilligung.bestaetigt_am": _OPTIONAL_DAY,
+        "bestaetigung.verschickt_am": _DAY,
+        "bestaetigung.erinnert_am": _OPTIONAL_DAY,
+        "bestaetigung.frist": _DAY,
+        "entscheidung.getroffen_am": _DAY,
+        "entscheidung.von": _NON_EMPTY,
+    },
+    Collection.SAISON_SPIELER: {
+        "inactive_since": _OPTIONAL_DAY,
+    },
+    Collection.SAISON_TEAMS: {
+        "austritt.grund": _NON_EMPTY,
+        "austritt.datum": _DAY,
+        "kontakte.trainer.vorname": _NON_EMPTY,
+        "kontakte.trainer.nachname": _NON_EMPTY,
+        "kontakte.trainer.geburtsdatum": _OPTIONAL_DAY,
+        "kontakte.ansprechperson.vorname": _NON_EMPTY,
+        "kontakte.ansprechperson.nachname": _NON_EMPTY,
+        "kontakte.ansprechperson.geburtsdatum": _OPTIONAL_DAY,
+        "kontakte.stellvertretung.vorname": _NON_EMPTY,
+        "kontakte.stellvertretung.nachname": _NON_EMPTY,
+        "kontakte.stellvertretung.geburtsdatum": _OPTIONAL_DAY,
+        "kontakte.trainer.einwilligung.datum": _DAY,
+        "kontakte.trainer.einwilligung.bestaetigt_am": _OPTIONAL_DAY,
+        "kontakte.ansprechperson.einwilligung.datum": _DAY,
+        "kontakte.ansprechperson.einwilligung.bestaetigt_am": _OPTIONAL_DAY,
+        "kontakte.stellvertretung.einwilligung.datum": _DAY,
+        "kontakte.stellvertretung.einwilligung.bestaetigt_am": _OPTIONAL_DAY,
+        "bestaetigungen.trainer.verschickt_am": _DAY,
+        "bestaetigungen.trainer.frist": _DAY,
+        "bestaetigungen.trainer.abgelehnt_am": _OPTIONAL_DAY,
+        "bestaetigungen.ansprechperson.verschickt_am": _DAY,
+        "bestaetigungen.ansprechperson.frist": _DAY,
+        "bestaetigungen.ansprechperson.abgelehnt_am": _OPTIONAL_DAY,
+        "bestaetigungen.stellvertretung.verschickt_am": _DAY,
+        "bestaetigungen.stellvertretung.frist": _DAY,
+        "bestaetigungen.stellvertretung.abgelehnt_am": _OPTIONAL_DAY,
+    },
+    Collection.SAISONS: {
+        "start_date": _DAY,
+        "end_date": _DAY,
+        "_id": _SAISON_ID,
+        "spielplan.generiert_am": _DAY,
+        "bewerbung.von": _DAY,
+        "bewerbung.bis": _DAY,
+        "registrierung.von": _DAY,
+        "registrierung.bis": _DAY,
+    },
+    Collection.SCHIEDSRICHTER: {
+        "name": _NON_EMPTY_OR_NULL,
+        "inactive_since": _OPTIONAL_DAY,
+        "geburtsdatum": _OPTIONAL_DAY,
+        "bestaetigung.verschickt_am": _DAY,
+        "bestaetigung.erinnert_am": _OPTIONAL_DAY,
+        "bestaetigung.frist": _DAY,
+        "einwilligung.datum": _OPTIONAL_DAY,
+        "einwilligung.bestaetigt_am": _OPTIONAL_DAY,
+        "adresswechsel.verschickt_am": _DAY,
+        "adresswechsel.frist": _DAY,
+    },
+    Collection.SPERRLISTE: {
+        "grund": _NON_EMPTY,
+        "erstellt_von": _NON_EMPTY,
+        "erstellt_am": _DAY,
+        "gesperrt_bis_saison_id": _SAISON_ID,
+    },
+    Collection.SPIELE: {
+        "datum": _DAY_OR_NULL,
+        "uhrzeit": _TIME_OR_NULL,
+        "ergebnis": _ERGEBNIS_OR_NULL,
+        "saison_id": _SAISON_ID,
+        "team1.name": _NON_EMPTY,
+        "team1.shorthand": _SHORTHAND,
+        "team2.name": _NON_EMPTY,
+        "team2.shorthand": _SHORTHAND,
+        "ort.name": _NON_EMPTY,
+        "ort.maps_link": _NON_EMPTY,
+        "schiedsrichter.name": _NON_EMPTY_OR_NULL,
+    },
+    Collection.SPIELER: {
+        "einwilligung.datum": _OPTIONAL_DAY,
+        "einwilligung.bestaetigt_am": _OPTIONAL_DAY,
+        # Null is the sentinel's, and `NAMELESS_PERSON_RULE`'s anywhere else.
+        "vorname": _NON_EMPTY_OR_NULL,
+        "inactive_since": _OPTIONAL_DAY,
+        "geburtsdatum": _OPTIONAL_DAY,
+        "adresswechsel.verschickt_am": _DAY,
+        "adresswechsel.frist": _DAY,
+    },
+    Collection.SPIELORTE: {
+        "name": _NON_EMPTY,
+        "maps_link": _NON_EMPTY,
+        "inactive_since": _OPTIONAL_DAY,
+        "address.strasse": _NON_EMPTY,
+        "address.hausnummer": _HAUSNUMMER,
+        "address.plz": _PLZ,
+        "address.stadt": _NON_EMPTY,
+    },
+    Collection.SPIELTAGE: {
+        "beginn": _DAY_OR_NULL,
+        "ende": _DAY_OR_NULL,
+        "saison_id": _SAISON_ID,
+    },
+    Collection.TEAMS: {
+        "name": _NON_EMPTY,
+        "shorthand": _SHORTHAND,
+        "full_name": _NON_EMPTY,
+        "website_url": _OPTIONAL_URL,
+        "inactive_since": _OPTIONAL_DAY,
+        "address.strasse": _NON_EMPTY,
+        "address.hausnummer": _HAUSNUMMER,
+        "address.plz": _PLZ,
+        "address.stadt": _NON_EMPTY,
+    },
+}
+
+UNSERVABLE_VALUE_RULE = "every stored value is one its read models admit ({})"
 
 
 def _refuses(adapter: TypeAdapter[Any], document: Mapping[str, Any], path: str) -> bool:
@@ -1840,20 +1985,19 @@ def _refuses(adapter: TypeAdapter[Any], document: Mapping[str, Any], path: str) 
     return False
 
 
-async def report_unservable_values(db: AsyncDatabase) -> list[RelationReport]:
-    """Count, per read, the documents holding a value it refuses, writing nothing; each example names its fields."""
+async def report_unservable_values(db: AsyncDatabase) -> dict[Collection, RelationReport]:
+    """Count, per collection, the documents holding a value a read model refuses, writing nothing; each example names its fields."""
 
-    reports: list[RelationReport] = []
+    reports: dict[Collection, RelationReport] = {}
 
-    for served in SERVED_VALUES:
-        holding = {"$or": [{path: {"$exists": True}} for path in served.types]}
+    for collection, types in SERVED_VALUES.items():
         offenders: list[Mapping[str, Any]] = []
 
-        async for document in db[served.collection].find(holding, dict.fromkeys(served.types, 1)):
-            if refused := [path for path, adapter in served.types.items() if _refuses(adapter, document, path)]:
+        async for document in db[collection].find({}, dict.fromkeys(types, 1)):
+            if refused := [path for path, adapter in types.items() if _refuses(adapter, document, path)]:
                 offenders.append({"_id": document["_id"], "fields": refused})
 
-        reports.append(RelationReport(rule=served.rule, groups=len(offenders), examples=offenders[:5]))
+        reports[collection] = RelationReport(rule=UNSERVABLE_VALUE_RULE.format(collection), groups=len(offenders), examples=offenders[:5])
 
     return reports
 
@@ -2052,7 +2196,7 @@ async def _run(check: bool) -> int:
 
         # Counted for the same reason: one such value answers every row of the list serving it 500.
         print("\n  Values the validators admit and a whole-list read refuses")
-        for unservable in await report_unservable_values(database):
+        for unservable in (await report_unservable_values(database)).values():
             marker = "ok " if unservable.groups == 0 else "FAIL"
             print(f"    {marker}  {unservable.rule:<46} {unservable.groups:>4}")
             if unservable.groups:

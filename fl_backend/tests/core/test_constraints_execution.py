@@ -1060,8 +1060,14 @@ def test_a_club_on_both_sides_of_one_fixture_is_one_group_not_two(mongo_url: str
     assert examples[0]["spiele"] == [1]
 
 
-def unservable_by_collection(reports: list[constraints.RelationReport]) -> dict[str, constraints.RelationReport]:
-    return {served.collection: report for served, report in zip(constraints.SERVED_VALUES, reports, strict=True)}
+def counted(reports: Mapping[Collection, constraints.RelationReport]) -> dict[str, tuple[int, list[Any]]]:
+    """Every collection the report counts an offender in, with each example's fields."""
+
+    return {
+        collection: (report.groups, [example["fields"] for example in report.examples])
+        for collection, report in reports.items()
+        if report.groups
+    }
 
 
 # A pending address change as the mint stores it, its deadline overridden per case.
@@ -1069,16 +1075,23 @@ ADRESSWECHSEL = {"email": "neu@example.invalid", "token_hash": "a" * 64, "versch
 
 
 def test_the_values_a_list_refuses_report_a_clean_database_as_clean(mongo_url: str):
-    """First and apart, for the cross-document rules' reason; the optional blanks are values every served model admits."""
+    """First and apart, for the cross-document rules' reason, over a document in every collection.
 
-    async def body(database: AsyncDatabase) -> dict[str, int]:
-        await database.registrierungen.insert_one(valid_document("registrierungen", geburtsdatum=""))
-        await database.spieler.insert_one(valid_document("spieler", adresswechsel=dict(ADRESSWECHSEL), inactive_since=""))
-        await database.saison_spieler.insert_one(valid_documents()["saison_spieler"])
+    The optional blanks are values every read model admits.
+    """
 
-        return {collection: report.groups for collection, report in unservable_by_collection(await report_unservable_values(database)).items()}
+    async def body(database: AsyncDatabase) -> dict[str, tuple[int, list[Any]]]:
+        documents = {
+            **valid_documents(),
+            "registrierungen": valid_document("registrierungen", geburtsdatum=""),
+            "spieler": valid_document("spieler", adresswechsel=dict(ADRESSWECHSEL), inactive_since=""),
+        }
+        for collection, document in documents.items():
+            await database[collection].insert_one(document)
 
-    assert on_the_shipped_schema(mongo_url, body) == {"registrierungen": 0, "spieler": 0, "saison_spieler": 0}
+        return counted(await report_unservable_values(database))
+
+    assert on_the_shipped_schema(mongo_url, body) == {}
 
 
 def test_the_values_a_list_refuses_are_counted_where_the_validators_store_them(mongo_url: str):
@@ -1099,15 +1112,53 @@ def test_the_values_a_list_refuses_are_counted_where_the_validators_store_them(m
         )
         await database.saison_spieler.insert_one(valid_document("saison_spieler", inactive_since="2026-13-01"))
 
-        reports = unservable_by_collection(await report_unservable_values(database))
-
-        return {collection: (report.groups, [example["fields"] for example in report.examples]) for collection, report in reports.items()}
+        return counted(await report_unservable_values(database))
 
     assert on_the_shipped_schema(mongo_url, body) == {
         "registrierungen": (1, [["vorname", "bestaetigung.frist"]]),
         "spieler": (1, [["adresswechsel.frist"]]),
         "saison_spieler": (1, [["inactive_since"]]),
     }
+
+
+def with_value(collection: str, path: str, value: Any) -> dict[str, Any]:
+    document = valid_documents()[collection]
+    *parents, leaf = path.split(".")
+    held = document
+    for parent in parents:
+        held = held[parent]
+    held[leaf] = value
+    return document
+
+
+@pytest.mark.parametrize(
+    ("collection", "path", "value", "fields"),
+    [
+        pytest.param("berechtigungen", "adresse", "", ["adresse"], id="berechtigungen"),
+        pytest.param("berechtigungen_angekuendigt", "adresse", "", ["adresse"], id="berechtigungen_angekuendigt"),
+        pytest.param("bewerbungen", "schule.address.plz", "6031", ["schule.address.plz"], id="bewerbungen"),
+        pytest.param("einladungen", "erstellt_am", "2026-02-31", ["erstellt_am"], id="einladungen"),
+        pytest.param(
+            "saison_teams", "austritt", {"type": "rueckzug", "grund": "", "datum": "2026-04-01"}, ["austritt.grund"], id="saison_teams"
+        ),
+        pytest.param("saisons", "end_date", "2026-06-31", ["end_date"], id="saisons"),
+        pytest.param("schiedsrichter", "name", "", ["name"], id="schiedsrichter"),
+        pytest.param("sperrliste", "gesperrt_bis_saison_id", "31", ["gesperrt_bis_saison_id"], id="sperrliste"),
+        pytest.param("spiele", "uhrzeit", "18 Uhr", ["uhrzeit"], id="spiele"),
+        pytest.param("spielorte", "address.hausnummer", "12/3", ["address.hausnummer"], id="spielorte"),
+        pytest.param("spieltage", "beginn", "2026-02-30", ["beginn"], id="spieltage"),
+        pytest.param("teams", "shorthand", "L", ["shorthand"], id="teams"),
+    ],
+)
+def test_each_collection_counts_a_value_its_read_models_refuse(mongo_url: str, collection: str, path: str, value: Any, fields: list[str]):
+    """One offender in each collection the case above leaves, on the shipped schema for its reason."""
+
+    async def body(database: AsyncDatabase) -> dict[str, tuple[int, list[Any]]]:
+        await database[collection].insert_one(with_value(collection, path, value))
+
+        return counted(await report_unservable_values(database))
+
+    assert on_the_shipped_schema(mongo_url, body) == {collection: (1, [fields])}
 
 
 def test_the_check_counts_a_value_a_list_refuses_into_its_exit(
@@ -1125,7 +1176,7 @@ def test_the_check_counts_a_value_a_list_refuses_into_its_exit(
         return clean, await constraints._run(check=True)
 
     assert on_the_shipped_schema(mongo_url, body) == (0, 1)
-    assert f"FAIL  {constraints.SERVED_VALUES[0].rule}" in capsys.readouterr().out
+    assert f"FAIL  {constraints.UNSERVABLE_VALUE_RULE.format(Collection.REGISTRIERUNGEN)}" in capsys.readouterr().out
 
 
 # Section 6, the support indexes. Dropping one costs speed rather than correctness, which is why
