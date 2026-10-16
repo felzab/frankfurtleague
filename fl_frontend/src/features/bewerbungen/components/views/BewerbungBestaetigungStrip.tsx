@@ -48,7 +48,6 @@ import { benannt } from "@/shared/utils/benannt";
 import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
 import { focusAfterWrite, focusRow, focusSection, focusSlot } from "@/shared/utils/focusAfterWrite";
 import { nichtHinterlegt } from "@/shared/utils/format";
-import { versandGrad } from "@/shared/utils/linkVersand";
 import { LINK_TITEL, meldeLinkVersand } from "@/shared/utils/linkVersandToast";
 import { pressLinkWrite } from "@/shared/utils/linkWrite";
 import { FASSUNG_UNLESBAR } from "@/shared/utils/refusal";
@@ -554,13 +553,7 @@ function AdresseKorrigieren({
     }
 
     schliesse(landing);
-    meldeLinkVersand(
-      res.versand,
-      KORREKTUR_TITEL,
-      versandGrad(res.versand) === "fehlgeschlagen"
-        ? "Die Adresse ist korrigiert, aber die E-Mail mit dem neuen Link ging nicht raus, und der alte Link gilt nicht mehr. Schicke den Link erneut."
-        : res.message,
-    );
+    meldeLinkVersand(res.versand, KORREKTUR_TITEL, res.message);
   };
 
   return (
@@ -745,13 +738,7 @@ function SitzNeuBesetzen({
     }
 
     schliesse(landing);
-    meldeLinkVersand(
-      res.versand,
-      NEUBESETZUNG_TITEL,
-      versandGrad(res.versand) === "fehlgeschlagen"
-        ? "Die Person steht jetzt in der Bewerbung, aber die E-Mail mit ihrem Bestätigungslink ging nicht raus. Schicke den Link erneut."
-        : res.message,
-    );
+    meldeLinkVersand(res.versand, NEUBESETZUNG_TITEL, res.message);
   };
 
   return (

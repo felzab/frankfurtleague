@@ -317,6 +317,12 @@ const MINTS: readonly string[] = [ERNEUT_PATH, KORREKTUR_PATH, SITZ_PATH];
 /** The application read as the page drew it, with the deadline a seat's link stood under before any repair. */
 const VOR_DER_REPARATUR = { bewerbung: { ...GELESEN.bewerbung, bestaetigungsfrist: "2026-09-01" } };
 
+/** The correction's and the reseat's sentence where their link did not go out, which the strip shows as it stands. */
+const KORREKTUR_OHNE_LINK =
+  "Die Adresse ist korrigiert, aber die E-Mail mit dem neuen Link ging nicht raus, und der alte Link gilt nicht mehr. Schicke den Link erneut.";
+const BESETZUNG_OHNE_LINK =
+  "Die Person steht jetzt in der Bewerbung, aber die E-Mail mit ihrem Bestätigungslink ging nicht raus. Schicke den Link erneut.";
+
 /**
  * The application read, answering `before` until a repair's write has landed and `after` from then
  * on, an `Error` as a read that failed: the message is composed from the read that follows the write.
@@ -1087,7 +1093,8 @@ describe("the corrected contact address", () => {
 
     assert.equal(result.success, true, "a refused send reports the correction as one that did not happen");
     assert.equal(result.success ? result.versand : undefined, "fehlgeschlagen", "a refused send reports a link on its way");
-    assert.match(answerOf(result), /Der alte Link gilt nicht mehr/, "the report does not say the previous link is spent");
+    // Its own words, sending the administrator to the re-send: a second correction over the moved row is refused.
+    assert.equal(answerOf(result), KORREKTUR_OHNE_LINK, "the report is not the correction's own");
   });
 
   /* The send throws where the write it follows answered no deadline, and `runAdminMutation` turns a
@@ -1101,7 +1108,7 @@ describe("the corrected contact address", () => {
 
     assert.equal(result.success, true, "a throw from the send escapes the correction as a write that did not happen");
     assert.equal(result.success ? result.versand : undefined, "fehlgeschlagen");
-    assert.match(answerOf(result), /Der alte Link gilt nicht mehr/, "the caught throw answers with something other than no link sent");
+    assert.equal(answerOf(result), KORREKTUR_OHNE_LINK, "the caught throw answers with something other than no link sent");
   });
 
   /* One press writes every seat the person holds (`fl_frontend/src/features/bewerbungen/bestaetigungStand.ts :: gepaarteSitze`), so
@@ -1216,7 +1223,8 @@ describe("the person seated where one stepped out", () => {
     ] as const) {
       assert.equal(result.success, true, `${how} reports the seat as one that was never filled`);
       assert.equal(result.success ? result.versand : undefined, "fehlgeschlagen", `${how} reports a link on its way`);
-      assert.match(answerOf(result), /Der alte Link gilt nicht mehr/, `${how} is reported as something other than no link sent`);
+      // Its own words, sending the administrator to the re-send: a second reseat over the filled seat is refused.
+      assert.equal(answerOf(result), BESETZUNG_OHNE_LINK, `${how} is reported as something other than the reseat's own`);
     }
   });
 
