@@ -228,6 +228,10 @@ def dispatch(
         table, end = ledger.live_table(lines)
         said: list[str] = []
         first = f"{name} `{agent}`" if agent else name
+        rows_naming = {ledger.row_name(lines[k]) for k in range(table + 2, end + 1) if agent and f"`{agent}`" in ledger.first_cell(lines[k])}
+        if others := sorted(rows_naming - {name}):
+            # Two rows naming one id leave a send by that id, and every later write to either row, refused.
+            raise ValueError(f"`{agent}` is named by {', '.join(others)}'s live-agent row already: one id names one agent")
         row = next((k for k in range(table + 2, end + 1) if ledger.row_name(lines[k]) == name), None)
         if row is not None:
             if agent and f"`{agent}`" not in ledger.first_cell(lines[row]):

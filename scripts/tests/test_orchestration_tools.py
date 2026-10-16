@@ -1099,6 +1099,18 @@ def test_dispatch_with_an_id_sets_a_finished_agents_row_running_again(tmp_path: 
     assert "| WORKER `a1b2c3` (implementer) | the work | x | RUNNING (2026-10-16 11:05) |" in register.read_bytes().decode()
 
 
+@pytest.mark.parametrize("name", ["NEWBIE", "OTHER"], ids=["a new row", "another agent's row"])
+def test_dispatch_refuses_an_id_another_live_row_names(tmp_path: Path, name: str) -> None:
+    """Two rows naming one id left every later write to either row refused, and a send by that id in no messages file."""
+    _, register, _ = _fleet(tmp_path)
+    briefs = tmp_path / "plans" / "prog" / "scratch" / "briefs"
+    before = register.read_bytes()
+    done = _run("reg", "dispatch", str(register), name, "--id", "a1b2c3")
+    assert done.returncode == 2 and "`a1b2c3` is named by WORKER's live-agent row already" in done.stderr, done.stderr
+    assert register.read_bytes() == before and not (briefs / f"{name}-messages.md").exists()
+    assert _run("reg", "dispatch", str(register), "WORKER", "--id", "a1b2c3").returncode == 0
+
+
 def test_a_queued_standing_action_is_ticked_by_the_dispatch_of_its_brief(tmp_path: Path) -> None:
     """Standing actions lived in UPDATE text, where nothing read them, and the four rows of the table stayed `no`."""
     _, register, _ = _fleet(tmp_path)
