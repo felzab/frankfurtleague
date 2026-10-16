@@ -144,6 +144,21 @@ async function typeRequest(user: UserEvent, email = ADRESSE, anlass = ANLASS): P
   await user.type(within(erasure).getByRole("textbox", { name: "Anlass" }), anlass);
 }
 
+/** A refusal of the body's fields as the shared reader answers one the API names (`REQ-VAL-001`). */
+const FELD_ABGELEHNT_ANTWORT = (felder: readonly string[]) => ({
+  success: false,
+  error: "Überprüfe Deine Eingaben.",
+  fieldErrors: Object.fromEntries(felder.map((feld) => [feld, "Diese Angabe wurde so nicht übernommen."])),
+  unplacedError: "Einzelne Angaben wurden so nicht übernommen.",
+});
+
+/** The erasure panel's boxes marked invalid, by their labels. */
+const markiert = (): string[] =>
+  within(panel("Person löschen"))
+    .getAllByRole("textbox")
+    .filter((box) => box.getAttribute("aria-invalid") === "true")
+    .map((box) => box.getAttribute("aria-label") ?? box.labels?.[0]?.textContent ?? "");
+
 /** Every read the case makes held open until the case answers it, by the order the reads were made in. */
 function holdReads(): { answer: (read: number, value: unknown) => void } {
   const held: ((value: unknown) => void)[] = [];
@@ -246,6 +261,32 @@ describe("the erasure's press", () => {
 
     await act(async () => reads.answer(1, { success: true, ansicht: NICHTS_GESPEICHERT }));
     assert.ok(await screen.findByRole("textbox", { name: BESTAETIGUNG }));
+  });
+
+  /* Where the API's address rule parts from the panel's, its verdict lands on the box it judged, and the arming is
+     undone as the panel's own verdict would have refused it: restarting would only meet the same refusal. */
+  it("marks the E-Mail box with a field refusal of the reveal and stands disarmed", async () => {
+    const { user } = await renderPage({ readErasureAnsichtAction: FELD_ABGELEHNT_ANTWORT(["email"]) });
+    await typeRequest(user);
+
+    await user.click(screen.getByRole("button", { name: "Person löschen" }));
+    await act(answered);
+
+    assert.equal(screen.queryAllByRole("button", { name: "Abbrechen" }).length, 0, "a refused address left the panel armed");
+    assert.deepEqual(markiert(), ["E-Mail"], "the refusal of the address marked no box, or another");
+  });
+
+  it("marks each box a field refusal of the erasure names", async (t) => {
+    const { user } = await renderPage({ eraseAufAnfrageAction: FELD_ABGELEHNT_ANTWORT(["email", "anlass"]) });
+    await typeRequest(user);
+    t.mock.timers.enable({ apis: ["Date"] });
+    await arm(user);
+    await user.type(await screen.findByRole("textbox", { name: BESTAETIGUNG }), ADRESSE);
+    t.mock.timers.tick(DOUBLE_PRESS_MS);
+    await user.click(screen.getByRole("button", { name: ARMED }));
+    await act(answered);
+
+    assert.deepEqual(markiert(), ["E-Mail", "Anlass"], "a box the erasure's refusal names stands unmarked");
   });
 
   /* The erasure is sent for the address the reveal was read for, then both boxes empty for the next request; no

@@ -43,9 +43,6 @@ type Fehler = { email?: string; anlass?: string };
 const ohneUebersicht = (reason: string): string =>
   `Die Übersicht, was gelöscht wird, konnte nicht geladen werden, und ohne sie wird nichts gelöscht. ${reason}`;
 
-/** The repair where the read answered no sentence of its own: arming again is what reads the list a second time. */
-const ERNEUT_STARTEN = "Brich ab und starte das Löschen erneut.";
-
 /** Each box's verdict in the write's own words, judged at the press and never between keystrokes. */
 function fehlerIn(email: string, anlass: string): Fehler {
   const geprueft = FLErasurePayloadSchema.safeParse({ email: email, anlass: anlass });
@@ -118,8 +115,17 @@ export function FormPersonLoeschenSection() {
       return;
     }
 
-    // A field map the press's own judgement let through points at no box the reveal shows.
-    const satz = res.fieldErrors === undefined ? res.error : ERNEUT_STARTEN;
+    // Where the API's rule parts from the press's own judgement: the box is marked, and the arming undone as that
+    // judgement undoes it, the next press reading the corrected address.
+    const amFeld = res.fieldErrors?.email;
+    if (amFeld !== undefined) {
+      setFehler((vorher) => ({ ...vorher, email: amFeld }));
+      setGelesen(null);
+      confirm.cancel();
+      return;
+    }
+
+    const satz = res.unplacedError ?? res.error;
     // The erasure's own rule alone: that reveal loaded, and a list „not loaded“ invites a retry the rule refuses again.
     setGelesen({ adresse: gelesenFuer, status: "refused", reason: isErasureRefusal(satz) ? satz : ohneUebersicht(satz) });
   };
@@ -143,7 +149,7 @@ export function FormPersonLoeschenSection() {
       // Wrapped again: the press runs this inside its transition, and React leaves an update after an `await` outside it.
       startTransition(() => {
         if (!res.success) {
-          setFehler({ anlass: res.fieldErrors?.anlass });
+          setFehler({ email: res.fieldErrors?.email, anlass: res.fieldErrors?.anlass });
           appToast.failure("Person nicht gelöscht", res);
           return;
         }
