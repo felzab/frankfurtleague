@@ -562,11 +562,16 @@ def _labels_at_fork() -> frozenset[str]:
     """
     text = None if run_fork() is None else fork_page(WORDINGS_SOURCE)
     for node in [] if text is None else ast.parse(text).body:
-        target = node.target if isinstance(node, ast.AnnAssign) else node.targets[0] if isinstance(node, ast.Assign) else None
-        if isinstance(target, ast.Name) and target.id == WORDINGS_REGISTER and node.value is not None:
+        if isinstance(node, ast.AnnAssign):
+            target, value = node.target, node.value
+        elif isinstance(node, ast.Assign):
+            target, value = node.targets[0], node.value
+        else:
+            continue
+        if isinstance(target, ast.Name) and target.id == WORDINGS_REGISTER and value is not None:
             # The outermost mapping, which a breadth-first walk meets first: a wording's own controls
             # are keyed mappings too.
-            register = next((found for found in ast.walk(node.value) if isinstance(found, ast.Dict)), None)
+            register = next((found for found in ast.walk(value) if isinstance(found, ast.Dict)), None)
             keys = [] if register is None else register.keys
             return frozenset(key.value for key in keys if isinstance(key, ast.Constant) and isinstance(key.value, str))
     return frozenset()
