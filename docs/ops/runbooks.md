@@ -651,8 +651,8 @@ as them.
   save keeps the address on file and holds the new one as a pending change with a link of its own;
   the address moves only once its holder confirms there, so until then the referee still signs in,
   and is written to, at the address on file (`docs/backend/spec.md :: I559`). Re-send its
-  link when it lapses, or discard it when the request turns out to be wrong; a lapsed change is
-  the yearly deletion's to remove, which is not built yet, so until it is the change stands
+  link before it lapses, or discard it when the request turns out to be wrong: the day after its
+  link lapses the hourly pass removes the change, and the new address is then entered again
   ([`../datenschutz.md`](../datenschutz.md#6-retention-is-bounded-where-a-bound-was-chosen)).
   Their consent link is not re-minted — the record is already given. **Once the change confirms,
   the account sweep deletes the old address's sign-in account within the hour**, the referee's
@@ -1288,6 +1288,14 @@ in the product replays one
 ([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)), so this is how that
 promise is kept. Two things a restore is contemplated for: a hand-run migration that succeeded against
 a mistyped path (§2), and a mistaken erasure, for which the snapshot window is the only route back.
+
+**Before restoring, let nothing call `POST /identitaet/loeschung/lauf` until every step below is
+done.** The run deletes each pupil the season-after rule makes due under the restored state, a
+returning pupil whose admission the snapshot predates among them, and nothing brings one back. Re-enter
+the squad rows and registrations written since the snapshot, activate again a season whose activation
+it predates, and only then let the run go on. Its deletions are re-derived rather than replayed: it
+journals none ([`../backend/spec.md`](../backend/spec.md#2-invariants) I691), so the steps below never
+list them.
 
 **The action log cannot be the list, because the restore rolls it back too.** Everything written
 between the snapshot and the restore is gone, the log's own rows about the erasures inside that window

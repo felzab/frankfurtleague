@@ -7,6 +7,7 @@ so a judgement left beside a handle is one nothing stops from growing a read of 
 """
 
 from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
+from collections.abc import Set as AbstractSet
 from http import HTTPStatus
 from typing import Any, Literal
 
@@ -21,9 +22,10 @@ from app.api.saisons.schemas import FLSaisonStatus
 from app.api.schiedsrichter.services import ADRESSWECHSEL_FELD, build_real_referees_filter, build_selbst_referee_filter
 from app.api.spieler.services import SPIELER_ADRESSWECHSEL_FELD, build_real_spieler_filter, build_selbst_pupil_filter
 from app.api.teams.schemas import KONTAKT_ROLLEN
+from app.core.collections import Collection as DbCollection
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import is_confirmed
-from app.shared.folding import canonical_address, sign_in_identifier
+from app.shared.folding import canonical_address, is_stored_identifier, sign_in_identifier
 
 # --- The SELECTIONS, each shared with its record's own person-tier reads rather than spelled again.
 # Unnarrowed by retirement or withdrawal: `_judged` narrows the Funktionen (`docs/backend/spec.md :: I376`).
@@ -662,3 +664,119 @@ def find_kein_inhaber_refusal(grant_rows: Sequence[Mapping[str, Any]]) -> WriteR
         status=HTTPStatus.CONFLICT,
         message="the grants hold no live owner, so the database read is not the league's and no address is judged unreferenced",
     )
+
+
+# --- The SEASON-AFTER RULE (`docs/backend/spec.md :: I690`), keyed on the stored statuses and never
+# on a next season's id, which a skipped year leaves naming no season at all.
+
+
+def statuses_of(saison_rows: Iterable[Mapping[str, Any]]) -> dict[str, FLSaisonStatus]:
+    return {row["_id"]: row["status"] for row in saison_rows}
+
+
+def abgeschlossene_saison_id(statuses: Mapping[str, FLSaisonStatus]) -> str | None:
+    """The `past` season with the greatest id, compared as strings: an id is a fixed-length year (`docs/glossary.md :: Saison`)."""
+
+    return max((saison_id for saison_id, status in statuses.items() if status == "past"), default=None)
+
+
+def behaltene_saison_ids(statuses: Mapping[str, FLSaisonStatus]) -> frozenset[str] | None:
+    """The seasons a squad row keeps its pupil in (`docs/backend/spec.md :: I715`), or `None` while no season is `past`.
+
+    By id, as a planned season below the one just ended may never run: activation refuses no lower id.
+    """
+
+    abgeschlossen = abgeschlossene_saison_id(statuses)
+    if abgeschlossen is None:
+        return None
+
+    return frozenset(saison_id for saison_id, status in statuses.items() if saison_id >= abgeschlossen or status == "active")
+
+
+def registrierbare_saison_ids(statuses: Mapping[str, FLSaisonStatus]) -> frozenset[str]:
+    """Every season a registration can still arrive in, as `app/api/registrierungen/services.py :: saison_nimmt_registrierungen_an` judges."""
+
+    return frozenset(saison_id for saison_id, status in statuses.items() if status != "past")
+
+
+def statuses_after_activating(statuses: Mapping[str, FLSaisonStatus], saison_id: str) -> dict[str, FLSaisonStatus]:
+    """The statuses `POST /saisons/{saison_id}/activate` leaves, its refusals unjudged: the incumbent `past`, the target `active`."""
+
+    return {other: "active" if other == saison_id else "past" if status == "active" else status for other, status in statuses.items()}
+
+
+def geschlossen_durch(statuses: Mapping[str, FLSaisonStatus], saison_id: str) -> str | None:
+    """The season activating `saison_id` turns `past`: the `active` one, unless it is the target itself."""
+
+    return next((other for other, status in statuses.items() if status == "active" and other != saison_id), None)
+
+
+def build_offene_registrierungen_pipeline() -> list[Mapping[str, Any]]:
+    """Every pending registration's address, which keeps the pupil it folds to."""
+
+    return [{"$match": {"status": SUBMITTED}}, {"$project": {"status": 1, "email": 1}}]
+
+
+def offene_adressen(registrierung_rows: Iterable[Mapping[str, Any]]) -> frozenset[str]:
+    """The pending registrations' addresses, folded: a registration stores its address unfolded (`docs/glossary.md :: Registrierung`)."""
+
+    return frozenset(
+        sign_in_identifier(row["email"]) for row in registrierung_rows if row.get("status") == SUBMITTED and isinstance(row.get("email"), str)
+    )
+
+
+def loeschung_faellig(*, email: Any, kader_saison_ids: Iterable[str], offene: AbstractSet[str], behalten: frozenset[str] | None) -> bool:
+    """Whether one pupil is due, judged in the erasure's own transaction.
+
+    A retired squad row keeps its pupil as a live one does: removing a player retires the row.
+    """
+
+    # Folding a hand-typed address instead would erase by a spelling the stored row does not hold, and remove nobody.
+    return behalten is not None and is_stored_identifier(email) and email not in offene and behalten.isdisjoint(kader_saison_ids)
+
+
+def build_loeschung_pipeline(*, behalten: frozenset[str], offene: AbstractSet[str]) -> list[Mapping[str, Any]]:
+    """Every due pupil's id and address: `loeschung_faellig` as one read, its stored-address test excepted, which no stage spells.
+
+    An addressless pupil is never read: the registry erases by address.
+    """
+
+    return [
+        # The sentinel twice, by id and by holding no address: either term alone keeps it out.
+        {"$match": build_real_spieler_filter({"email": {"$type": "string", "$nin": sorted(offene)}})},
+        {
+            "$lookup": {
+                "from": DbCollection.SAISON_SPIELER,
+                "localField": "_id",
+                "foreignField": "spieler_id",
+                # Every row, its `inactive_since` unread, for `loeschung_faellig`'s reason.
+                "pipeline": [{"$match": {"saison_id": {"$in": sorted(behalten)}}}, {"$limit": 1}, {"$project": {"_id": 1}}],
+                "as": "behalten",
+            }
+        },
+        {"$match": {"behalten": {"$size": 0}}},
+        {"$project": {"_id": 1, "email": 1}},
+    ]
+
+
+def build_loeschung_seite_pipeline(
+    *, behalten: frozenset[str], offene: AbstractSet[str], nach: ObjectId | None, groesse: int
+) -> list[Mapping[str, Any]]:
+    """The due pupils after `nach` in `_id` order, at most `groesse`, beside how many are due in all, as ONE document."""
+
+    seite: list[Mapping[str, Any]] = [{"$sort": {"_id": 1}}, {"$limit": groesse}]
+
+    return [
+        *build_loeschung_pipeline(behalten=behalten, offene=offene),
+        {"$facet": {"seite": seite if nach is None else [{"$match": {"_id": {"$gt": nach}}}, *seite], "anzahl": [{"$count": "anzahl"}]}},
+    ]
+
+
+def build_loeschung_anzahl_pipeline(*, behalten: frozenset[str], offene: AbstractSet[str]) -> list[Mapping[str, Any]]:
+    return [*build_loeschung_pipeline(behalten=behalten, offene=offene), {"$count": "anzahl"}]
+
+
+def ohne_passende_adresse(rows: Iterable[Mapping[str, Any]]) -> list[Any]:
+    """The ids among `rows` whose stored address no request matches (`app/shared/folding.py :: is_stored_identifier`)."""
+
+    return [row["_id"] for row in rows if not is_stored_identifier(row.get("email"))]

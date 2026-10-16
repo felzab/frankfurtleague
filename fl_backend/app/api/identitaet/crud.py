@@ -18,12 +18,16 @@ from app.api.identitaet.schemas import FLAnmeldung, FLErasure, FLSubjekt, FLSubj
 from app.api.identitaet.services import (
     EintragArt,
     awaits_confirmation,
+    behaltene_saison_ids,
     build_bewerbung_pipeline,
     build_bewerbung_references_pipeline,
     build_erasure_pupil_pipeline,
     build_erasure_referee_pipeline,
     build_erasure_registrierung_pipeline,
     build_erasure_seat_pipeline,
+    build_loeschung_anzahl_pipeline,
+    build_loeschung_seite_pipeline,
+    build_offene_registrierungen_pipeline,
     build_pending_address_pipeline,
     build_pending_pupil_address_pipeline,
     build_pupil_pipeline,
@@ -44,31 +48,36 @@ from app.api.identitaet.services import (
     ist_eigener_schiedsrichter,
     ist_eigener_spieler,
     lebt,
+    loeschung_faellig,
     nicht_ausgetreten,
+    offene_adressen,
     pending_addresses_of,
     pupil_address,
     referee_address,
     referenced_addresses,
+    registrierbare_saison_ids,
     seat_is_confirmed,
     seats_naming,
+    statuses_of,
     unreferenced,
 )
 from app.api.kontakte.crud import erase_kontaktperson_in_session
 from app.api.kontakte.services import rows_naming, same_address
 from app.api.registrierungen.crud import erase_registrierungen_in_session
+from app.api.registrierungen.services import build_eigene_registrierung_filter
 from app.api.saisons.schemas import FLSaisonStatus
 from app.api.schiedsrichter.crud import ensure_ghost_schiedsrichter, erase_referee_in_session, remove_pending_addresses_in_session
 from app.api.schiedsrichter.services import ADRESSWECHSEL_FELD
 from app.api.sperrliste.lookup import BanList, adressen_gesperrt
 from app.api.spieler.crud import ensure_ghost_spieler, erase_person_in_session, remove_pending_pupil_addresses_in_session
-from app.api.spieler.services import SPIELER_ADRESSWECHSEL_FELD
+from app.api.spieler.services import SPIELER_ADRESSWECHSEL_FELD, build_spieler_filter
 from app.core.collections import Collection
 from app.core.concurrency import gather_cancelling
-from app.core.crud import aggregate_many_from_db, patch_many_in_db, refuse
+from app.core.crud import aggregate_many_from_db, anchor_in_db, patch_many_in_db, refuse
 from app.core.db import warn_about_the_grants
 from app.core.drosselung import erase_counts_in_session
 from app.core.logging import journal_logger
-from app.core.recording import ERASED_ACTOR_MARKER
+from app.core.recording import ERASED_ACTOR_MARKER, SYSTEM_ACTOR_EMAIL
 from app.core.security import akteur_pseudonym, loeschung_journal_hash
 from app.shared.einwilligung import is_confirmed
 from app.shared.folding import sign_in_identifier
@@ -775,3 +784,151 @@ async def unreferenced_of(
     )
 
     return unreferenced(identifiers, referenced=referenced, gesperrt=gesperrt)
+
+
+# --- The SEASON-AFTER RULE's two readers (`docs/backend/spec.md :: I690`): one outside any transaction
+# naming the population, one inside each person's re-judging it.
+
+# A pupil's own data alone: a seat, a referee row or a grant at the same address is another purpose's.
+NUR_SPIELER: Final[frozenset[Personengruppe]] = frozenset({"spieler"})
+
+
+async def saison_statuses(*, saisons_collection: AsyncCollection) -> dict[str, FLSaisonStatus]:
+    """Every season's status as stored now, read outside any transaction and never from a cache."""
+
+    return statuses_of(await aggregate_many_from_db(collection=saisons_collection, pipeline=[{"$project": {"status": 1}}]))
+
+
+async def _offene(registrierungen_collection: AsyncCollection) -> frozenset[str]:
+    return offene_adressen(
+        await aggregate_many_from_db(collection=registrierungen_collection, pipeline=build_offene_registrierungen_pipeline())
+    )
+
+
+async def faellige_seite(
+    statuses: Mapping[str, FLSaisonStatus],
+    *,
+    nach: ObjectId | None,
+    groesse: int,
+    spieler_collection: AsyncCollection,
+    registrierungen_collection: AsyncCollection,
+) -> tuple[list[Mapping[str, Any]], int]:
+    """The due pupils after `nach`, at most `groesse` with their id and address, and how many are due in all.
+
+    Read outside any transaction; each erasure judges its pupil again in its own.
+    """
+
+    behalten = behaltene_saison_ids(statuses)
+    if behalten is None:
+        return [], 0
+
+    pipeline = build_loeschung_seite_pipeline(behalten=behalten, offene=await _offene(registrierungen_collection), nach=nach, groesse=groesse)
+    [gelesen] = await aggregate_many_from_db(collection=spieler_collection, pipeline=pipeline)
+
+    return gelesen["seite"], sum(row["anzahl"] for row in gelesen["anzahl"])
+
+
+async def faellige_anzahl(
+    statuses: Mapping[str, FLSaisonStatus], *, spieler_collection: AsyncCollection, registrierungen_collection: AsyncCollection
+) -> int:
+    """How many pupils the rule makes due under `statuses`, read outside any transaction."""
+
+    behalten = behaltene_saison_ids(statuses)
+    if behalten is None:
+        return 0
+
+    pipeline = build_loeschung_anzahl_pipeline(behalten=behalten, offene=await _offene(registrierungen_collection))
+
+    return sum(row["anzahl"] for row in await aggregate_many_from_db(collection=spieler_collection, pipeline=pipeline))
+
+
+async def erase_if_still_due(
+    spieler_id: Any,
+    *,
+    saisons_collection: AsyncCollection,
+    spieler_collection: AsyncCollection,
+    saison_spieler_collection: AsyncCollection,
+    saison_teams_collection: AsyncCollection,
+    bewerbungen_collection: AsyncCollection,
+    schiedsrichter_collection: AsyncCollection,
+    spiele_collection: AsyncCollection,
+    registrierungen_collection: AsyncCollection,
+    drosselung_collection: AsyncCollection,
+    aktionen_collection: AsyncCollection,
+    berechtigungen_collection: AsyncCollection,
+    berechtigungen_angekuendigt_collection: AsyncCollection,
+    berechtigungen_postausgang_collection: AsyncCollection,
+    einladungen_collection: AsyncCollection,
+    sperrliste_collection: AsyncCollection,
+    sperrliste: BanList,
+    schluessel: SecretStr,
+    stamp: str,
+    now: datetime,
+    # REQUIRED: the judgement and the erasure commit together, so a squad row or a registration
+    # landing between the population read and this transaction keeps the person (`docs/backend/spec.md :: I691`).
+    session: AsyncClientSession,
+) -> FLErasure | None:
+    """Erase one pupil's own data where the rule holds in this transaction, or answer `None` where it does not.
+
+    The address is read off the row here and never handed in: a correction by hand moves it between two reads.
+    """
+
+    statuses = statuses_of(await aggregate_many_from_db(collection=saisons_collection, pipeline=[{"$project": {"status": 1}}], session=session))
+    behalten = behaltene_saison_ids(statuses)
+    if behalten is None:
+        return None
+
+    # A registration inserts a row this snapshot never sees, so only the season both write makes it conflict; the squad
+    # writers already do, each writing the pupil or a row of theirs this erasure removes (`docs/backend/spec.md :: I716`).
+    await anchor_in_db(collection=saisons_collection, db_filter={"_id": {"$in": sorted(registrierbare_saison_ids(statuses))}}, session=session)
+
+    # By id through the filter refusing the sentinel, so a hand-given address never makes it due.
+    pupils = await aggregate_many_from_db(
+        collection=spieler_collection, pipeline=[{"$match": build_spieler_filter(spieler_id)}, {"$project": {"email": 1}}], session=session
+    )
+    email = pupils[0].get("email") if pupils else None
+    if not isinstance(email, str):
+        return None
+
+    kader = await aggregate_many_from_db(
+        collection=saison_spieler_collection, pipeline=[{"$match": {"spieler_id": spieler_id}}, {"$project": {"saison_id": 1}}], session=session
+    )
+    registrierungen = await aggregate_many_from_db(
+        collection=registrierungen_collection,
+        pipeline=[{"$match": build_eigene_registrierung_filter(email)}, {"$project": {"status": 1, "email": 1}}],
+        session=session,
+    )
+    if not loeschung_faellig(
+        email=email,
+        kader_saison_ids=[row["saison_id"] for row in kader],
+        # The pre-filter's rows, the fold deciding: its `i` ignores case beyond ASCII.
+        offene=offene_adressen(row for row in registrierungen if folds_to(row.get("email"), email)),
+        behalten=behalten,
+    ):
+        return None
+
+    return await erase_everything(
+        email,
+        scope=NUR_SPIELER,
+        spieler_collection=spieler_collection,
+        saison_spieler_collection=saison_spieler_collection,
+        saison_teams_collection=saison_teams_collection,
+        bewerbungen_collection=bewerbungen_collection,
+        schiedsrichter_collection=schiedsrichter_collection,
+        spiele_collection=spiele_collection,
+        registrierungen_collection=registrierungen_collection,
+        drosselung_collection=drosselung_collection,
+        aktionen_collection=aktionen_collection,
+        berechtigungen_collection=berechtigungen_collection,
+        berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
+        berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
+        einladungen_collection=einladungen_collection,
+        sperrliste_collection=sperrliste_collection,
+        sperrliste=sperrliste,
+        # Read by the grants step alone, which this scope never runs.
+        geaendert_von=SYSTEM_ACTOR_EMAIL,
+        schluessel=schluessel,
+        stamp=stamp,
+        now=now,
+        session=session,
+    )

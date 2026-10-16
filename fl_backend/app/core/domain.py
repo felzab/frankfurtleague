@@ -956,8 +956,8 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "no payload carries the block. `POST /spieler/{spieler_id}/adresswechsel` writes it WHOLE, replacing a pending one, "
         "and `POST /spieler/{spieler_id}/adresswechsel/einladen` replaces it whole for the same address, each answering the raw "
         "token once. `DELETE /spieler/{spieler_id}/adresswechsel` removes it, and so does either answer its person gives through "
-        "`POST /spieler/adresswechsel`, the erasure of the address it names, and the removal of a change the day after its link "
-        "lapsed. The three delivery endpoints write its delivery state on the system key alone",
+        "`POST /spieler/adresswechsel`, the erasure of the address it names and, the day after its link lapses, "
+        "`POST /schiedsrichter/sweep/adresswechsel`. The three delivery endpoints write its delivery state on the system key alone",
         "app.api.spieler.services.compose_spieler_adresswechsel",
     ),
     FieldPolicy(
@@ -1169,8 +1169,9 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Editability.CONTROL_ONLY,
         "no payload carries the block. The save that moves a confirmed referee's address writes it WHOLE, replacing a pending "
         "one, and `POST /schiedsrichter/{schiedsrichter_id}/adresswechsel/einladen` replaces it whole for the same address, "
-        "each answering the raw token once; `DELETE /schiedsrichter/{schiedsrichter_id}/adresswechsel` removes it, and so does "
-        "either answer its person gives through `POST /schiedsrichter/adresswechsel`. The three delivery endpoints write its "
+        "each answering the raw token once; `DELETE /schiedsrichter/{schiedsrichter_id}/adresswechsel` removes it, and so do "
+        "either answer its person gives through `POST /schiedsrichter/adresswechsel` and, the day after its link lapses, "
+        "`POST /schiedsrichter/sweep/adresswechsel`. The three delivery endpoints write its "
         "delivery state as they write `bestaetigung`'s, on the system key alone",
         "app.api.schiedsrichter.services.compose_korrektur_update",
     ),
@@ -2843,13 +2844,15 @@ UNENFORCED: tuple[Unenforced, ...] = (
     Unenforced(
         subject="a retired row kept indefinitely",
         reason=(
-            "Decided 2026-08, Datenschutzexperte consulted: a retired row is never purged on its age, so there is no "
-            "RETENTION sweep to build and none may be added. The application clocks in "
-            "`app/api/bewerbungen/sweep_router.py` are a different subject: they select on a season and a deadline, "
-            "never on `inactive_since`, and remove applications rather than retired rows (`docs/backend/spec.md :: "
-            "I150`). The one removal is an erasure on a request, the person's own or an administrator's answering one, "
-            "which selects a subject by its address, never by an age, and asks no retirement first. "
-            "`inactive_since` stays a date (`docs/backend/spec.md :: I12`): it records WHEN a row retired, "
+            "Decided 2026-08, Datenschutzexperte consulted: a retired row is never purged on its age, and no sweep "
+            "selects on `inactive_since`. The application clocks in `app/api/bewerbungen/sweep_router.py` select on a "
+            "season and a deadline and remove applications rather than retired rows (`docs/backend/spec.md :: I150`). "
+            "The season-after deletion, ruled 2026-10-15, selects pupils on the seasons' statuses and counts a retired "
+            "squad row as keeping its pupil, so retiring a row never brings that deletion nearer "
+            "(`docs/backend/spec.md :: I690`). Beside it, an erasure on a request, the person's own or an "
+            "administrator's answering one, removes a row, selecting a subject by its address, never by an age, and "
+            "asking no retirement first. `inactive_since` stays a date (`docs/backend/spec.md :: I12`): it records "
+            "WHEN a row retired, "
             "not when a sweep may take it. What the proof reaches is a removal through `app/core/crud.py`'s two "
             "helpers: refused where its literal filter names the field at any depth, failed outright where the "
             "filter is a variable. A sweep inside that module, or outside `app/`, is unscanned. NOTHING SHOWS THE "
