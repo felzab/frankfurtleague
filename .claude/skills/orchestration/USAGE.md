@@ -58,7 +58,8 @@ Neither carries a register path.
 Six commands steer a session that has run `/orchestration`; in any other, the session says so and
 stops. Only you can run them: Claude cannot invoke them on its own. Send each as a message of its
 own. One sent while Claude is working waits for that turn to end. A mode a command sets is written
-to the register, so a compaction or a resume keeps it.
+to the register, so a compaction or a resume keeps it. A session started before a command file was
+added or changed finds it after `/reload-skills`, which re-scans the command directories.
 
 | Command         | Use it when                                                        | Example               |
 | --------------- | ------------------------------------------------------------------ | --------------------- |
