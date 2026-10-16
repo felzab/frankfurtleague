@@ -625,9 +625,14 @@ Every ruling below is the sign-up flow as it stands for the next season.
   name search would take a namesake's text with it. The request an administrator's erasure answers
   (`aktionen.anlass`) stands on every log row that erasure files, for the log's twelve months
   (`docs/backend/spec.md :: I683`, `:: I119`). It is refused where it holds an address
-  (`fl_backend/app/api/identitaet/schemas.py :: refuse_an_address_in_the_anlass`) or, as a whole
-  word, a name the person's records hold (`docs/backend/spec.md :: I721`), so a name it still
-  carries past the erasure is one spelled otherwise than stored, a nickname or a misspelling.
+  (`fl_backend/app/api/identitaet/schemas.py :: refuse_an_address_in_the_anlass`) or a name of the
+  person's own records as stored (`docs/backend/spec.md :: I721`), so a name it still carries past
+  the erasure is one of these:
+  - written otherwise than stored: a nickname, a misspelling, or another spelling of an umlaut or
+    „ß“, such as „Mueller“ or „Weiss“;
+  - joined into a longer word, such as „Müllerfamilie“, or of two letters before a genitive s;
+  - a single letter;
+  - a particle that a later word of its field follows, such as „Le“ in a referee's „Le Thi Mai“.
 - **A retired row is never removed because of its age.** A player who left a squad, a referee who
   stopped, a club that left and a past season all keep their rows; a person's row goes only by an
   erasure or by one of the two one-off removals [section 3](#3-the-current-pupil-records-are-reset-once)

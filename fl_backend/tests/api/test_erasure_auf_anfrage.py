@@ -25,7 +25,13 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.identitaet.admin_router import erase_auf_anfrage, get_erasure_ansicht_auf_anfrage
 from app.api.identitaet.crud import ERASURE_JOURNAL_EVENT
 from app.api.identitaet.schemas import FLErasure, FLErasureAnsichtPayload, FLErasureAnsichtResponse, FLErasurePayload, FLErasureResponse
-from app.api.identitaet.services import EIGENE_ADRESSE, INHABER_ADRESSE, NAME_IM_ANLASS, anlass_names, find_name_im_anlass_refusal
+from app.api.identitaet.services import (
+    EIGENE_ADRESSE,
+    INHABER_ADRESSE,
+    NAME_IM_ANLASS,
+    eigene_namen,
+    find_name_im_anlass_refusal,
+)
 from app.api.schiedsrichter.services import build_ghost_schiedsrichter
 from app.api.spieler.services import build_ghost_spieler
 from app.core.collections import Collection
@@ -702,7 +708,7 @@ class TestANameInTheAnlass:
 
 
 class PupilsMeetingARival(InterleavedCollection):
-    """The pupils the erasure removes, a rival write to the grants committing first: inside the attempt, once per attempt."""
+    """The pupils the erasure removes, a rival write committing first: inside the attempt, once per attempt."""
 
     async def delete_many(self, *args: Any, **kwargs: Any) -> Any:
         await self.run_the_rival()
@@ -766,6 +772,50 @@ class TestAnAdministratorRevokedMidRequest:
             )
         else:
             assert (response.status_code, revokes, left) == (200, [], dict.fromkeys(THEIR_VALUES, []))
+
+
+@pytest.mark.db
+class TestANameARivalWritesMidRequest:
+    """`docs/backend/spec.md :: I721` on a retry: a rename committing inside the erasure meets its delete, and the retry reads it."""
+
+    def test_the_retry_refuses_the_name_and_erases_nobody(self, mongo_replica_set_url: str):
+        """Judged once outside the transaction instead, the first attempt's pass stands: the erasure commits and the log keeps the name."""
+
+        racing: list[PupilsMeetingARival] = []
+        # Every value but the surname the rival replaces on the pupil row, which the other records keep.
+        kept = [value for value in THEIR_VALUES if value != NACHNAME]
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            held = await where_held(database, *kept)
+            served = _app()
+            async with app_client(mongo_replica_set_url, app=served, now=NOW) as http:
+
+                async def rename() -> None:
+                    renamed = await database[Collection.SPIELER].update_one({"_id": PUPIL_OID}, {"$set": {"nachname": ANOTHER_SURNAME}})
+                    assert renamed.modified_count == 1
+
+                async def pupils() -> AsyncCollection:
+                    # The app's own client: the request's session belongs to it.
+                    racing.append(PupilsMeetingARival(served.state.db_client[DATABASE_NAME][Collection.SPIELER], rename))
+                    return cast(AsyncCollection, racing[-1])
+
+                served.dependency_overrides[get_spieler_collection] = pupils
+                response = await http.post(
+                    PATH, json=erasure_of(anlass=f"Mail {ANOTHER_SURNAME} vom 30.03.2026"), headers=SignedActor(OPERATOR, ADMIN_KEY)
+                )
+
+            return response, held, await where_held(database, *kept), await where_held(database, ANOTHER_SURNAME)
+
+        response, held, left, renamed = on_a_league(mongo_replica_set_url, body)
+
+        # The status first: an erasure that committed answers no code to compare.
+        assert response.status_code == 422, response.json()
+        assert refused_at(response) == (422, NAME_IM_ANLASS, [["anlass"]])
+        assert left == held
+        # The rename stands on the pupil row, and no log row took the request naming it.
+        assert renamed == {ANOTHER_SURNAME: [str(Collection.SPIELER)]}
+        # The premise last: the first attempt passed its judgement and reached the delete, and the retry was refused before it.
+        assert sum(collection.passes for collection in racing) == 1
 
 
 @pytest.mark.db
@@ -1020,7 +1070,7 @@ def a_seat(email: str, vorname: str, nachname: str) -> dict[str, str]:
 
 
 # One record of each shape a name is stored in, and a seat beside the person's that another person holds.
-NAMES = anlass_names(
+NAMES = eigene_namen(
     IDENTIFIER,
     saison_team_rows=[
         {
@@ -1031,23 +1081,31 @@ NAMES = anlass_names(
         }
     ],
     bewerbung_rows=[],
-    referee_rows=[{"name": "Anna von der Heide"}],
+    referee_rows=[{"name": "Anna von der Heide"}, {"name": "Thi Mai Le"}, {"name": "Seán O'Brien"}],
     pupil_rows=[{"vorname": "Max", "nachname": "Müller"}],
     registrierung_rows=[{"vorname": "Anna Lena", "nachname": "Schmidt"}],
 )
 
+# Each refusal the one matcher answers, with the box it names.
+REFUSALS = {
+    "the erasure's request": (lambda text: find_name_im_anlass_refusal(anlass=text, names=NAMES), NAME_IM_ANLASS, "anlass"),
+}
 
-class TestWhichWordsTheAnlassMayNotHold:
-    def test_each_name_stands_whole_and_each_of_its_words_alone_but_a_particle(self):
+
+class TestWhichWordsAFreeTextMayNotHold:
+    def test_each_name_stands_whole_and_each_of_its_words_but_a_particle_before_a_name_and_a_single_letter(self):
         assert NAMES == {
             *("max", "müller"),
             *("anna von der heide", "anna", "heide"),
+            *("thi mai le", "thi", "mai", "le"),
+            *("seán o'brien", "seán", "brien"),
             *("anna lena", "lena", "schmidt"),
             *("quirin", "müller-lüdenscheidt", "lüdenscheidt"),
         }
 
+    @pytest.mark.parametrize("refusal", REFUSALS)
     @pytest.mark.parametrize(
-        "anlass",
+        "text",
         [
             "Anfrage von max  MÜLLER per Mail vom 3.10.",
             "Mail Müller 3.10.",
@@ -1055,18 +1113,35 @@ class TestWhichWordsTheAnlassMayNotHold:
             "Mail Heide 3.10.",
             "Lena hat am 3.10. gefragt",
             "Betreff Löschung_Müller",
+            "Annas Mail vom 3.10.",
+            "Löschwunsch der Müllers",
+            "Mail von Frau Le",
+            "Löschung Müller03.10.",
+            "Mül\u00adler hat am 3.10. gefragt",
+            "Mail Mül\u200bler 3.10.",
+            # A common word equal to a name, „Thi Mai Le“'s „Mai“, refused with it.
+            "Anfrage vom 3. Mai",
         ],
     )
-    def test_a_name_standing_as_a_whole_word_is_refused_on_the_box(self, anlass: str):
-        refusal = find_name_im_anlass_refusal(anlass=anlass, names=NAMES)
+    def test_a_name_standing_as_a_whole_word_or_before_a_genitive_s_is_refused_on_the_box(self, refusal: str, text: str):
+        find, code, box = REFUSALS[refusal]
+        refused = find(text)
 
-        assert refusal is not None
-        assert (refusal.error_code, refusal.status, refusal.fields) == (NAME_IM_ANLASS, 422, (("anlass",),))
+        assert refused is not None
+        assert (refused.error_code, refused.status, refused.fields) == (code, 422, ((box,),))
 
+    @pytest.mark.parametrize("refusal", REFUSALS)
     @pytest.mark.parametrize(
-        "anlass",
-        ["Anfrage per Mail vom 3.10.", "Brief aus der Müllerstraße", "Bitte um Löschung der Daten von heute"],
-        ids=["no name", "a name inside a longer word", "a particle alone"],
+        "text",
+        [
+            "Anfrage per Mail vom 3.10.",
+            "Brief aus der Müllerstraße",
+            "Bitte um Löschung der Daten von heute",
+            "o. g. Anfrage vom 3.5. i. A. weitergeleitet",
+        ],
+        ids=["no name", "a name inside a longer word", "a particle alone", "a single letter"],
     )
-    def test_no_name_standing_as_a_whole_word_passes(self, anlass: str):
-        assert find_name_im_anlass_refusal(anlass=anlass, names=NAMES) is None
+    def test_no_name_standing_as_a_whole_word_passes(self, refusal: str, text: str):
+        find, _, _ = REFUSALS[refusal]
+
+        assert find(text) is None

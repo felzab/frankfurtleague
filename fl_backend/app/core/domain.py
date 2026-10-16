@@ -2401,7 +2401,10 @@ RULES: tuple[Rule, ...] = (
         status=HTTPStatus.UNPROCESSABLE_CONTENT,
         operation="POST /identitaet/erasure",
         aggregate="Aktion",
-        summary="the request an erasure answers holds no name the person's records hold, as a whole word in any capitals or spacing",
+        summary=(
+            "the request an erasure answers holds no name of the person's own records as stored, capitals and spacing"
+            " aside, as a whole word or before a genitive s"
+        ),
         implemented_by="app.api.identitaet.services.find_name_im_anlass_refusal",
         tested_by="tests/api/test_erasure_auf_anfrage.py::TestANameInTheAnlass",
     ),
