@@ -781,8 +781,10 @@ erasure could not delete goes when the address is erased again
 
 **The page refuses two addresses, and says so before anyone confirms**: the administrator's own,
 which goes through their account page or another administrator, and an owner's to an administrator
-who is not one. It mails nobody, and on the same page „Überall abmelden“ ends every session of an
-address without erasing or barring it.
+who is not one. It mails the person nothing. **Erasing an administrator's address tells every
+administrator, as a revoke does**: the grant's end goes out with the other changes of access, the
+notice naming no address (`docs/backend/spec.md :: I659`). On the same page „Überall abmelden“ ends
+every session of an address without erasing or barring it.
 
 **Answer as soon as what you need is gathered, and where it will take longer say so in the first
 reply rather than after it.** Where the answer needs the Datenschutzexperte, the person is told that
