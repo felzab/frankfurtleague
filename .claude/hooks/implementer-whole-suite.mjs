@@ -233,7 +233,14 @@ function judge(words, depth, escapes) {
     // `-c`, alone or in a cluster such as `-lc`, makes the next word the command line.
     let k = 1;
     let script = false;
-    while (k < w.length && /^-[a-z]+$/.test(w[k])) script ||= w[k++].includes("c");
+    let noexec = false;
+    while (k < w.length && /^-[a-z]+$/.test(w[k])) {
+      script ||= w[k].includes("c");
+      noexec ||= w[k].includes("n");
+      k++;
+    }
+    // `-n`, alone or in a cluster, reads the commands and runs none: a syntax check runs no suite.
+    if (noexec) return null;
     if (!script) return judge(w.slice(k), depth, escapes);
     if (k >= w.length || depth >= 3) return null;
     for (const inner of segments(w[k], escapes)) {

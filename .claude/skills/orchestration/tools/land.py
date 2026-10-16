@@ -5,17 +5,17 @@ worktree, and the merge commit takes git's own message, which `commit-msg` leave
 in a generated document is answered by regenerating it from the merged code, one inside a markdown
 table by row key where a column names one row, and any other aborts the merge and goes back to the
 agent. A merge touching `fl_backend/` regenerates both documents either way: two branches each
-carrying a current document can merge cleanly into one that is not. A row a merged body names in its
-`Rows fixed:` line closes as FIXED by the merge where it is ROUTED to the branch's agent, and every
-row still ROUTED to that agent is named.
+carrying a current document can merge cleanly into one that is not. A `Rows fixed:` row ROUTED to an
+agent whose branch the merge brought in closes as FIXED; an OPEN one is printed as a command, never closed.
 
-    uv run --project fl_backend --frozen python .claude/skills/orchestration/tools/land.py <register> <branch>
+    uv run --project fl_backend --frozen python .claude/skills/orchestration/tools/land.py <register> <branch> [--after-dispatch]
 
 `EXITS` gives each exit; every stop past the refusals leaves the merge aborted and the tree clean.
 """
 
 from __future__ import annotations
 
+import argparse
 import io
 import os
 import re
@@ -26,6 +26,7 @@ from pathlib import Path
 from typing import Final
 
 # Run as a script, python seeds this file's own directory on the path.
+import ci
 import ledger
 import reg
 from merge_rows import merge_file
@@ -51,16 +52,19 @@ INSTALLS: Final = (
     (("fl_backend/pyproject.toml", "fl_backend/uv.lock"), ("uv", "sync", "--project", "fl_backend", "--dev", "--frozen")),
 )
 ROWS_FIXED_RE: Final = re.compile(r"^Rows fixed:\s*(?P<rows>.+)$", re.MULTILINE)
-STANDING_HEADING: Final = "## Standing actions"
+# A rebase of commits another branch already merged lands each twice under two hashes, which the
+# preflight's duplicate-patch check then refuses.
+MERGE_BACK: Final = "the agent merges the session branch into its own branch, rebasing only where no other branch holds its commits"
 EXITS: Final = {
     0: "merged, or nothing to merge",
     2: "refused before the merge",
-    3: "a conflict the tool cannot settle; the merge is aborted, for the agent to rebase",
+    3: f"a conflict the tool cannot settle; the merge is aborted, and {MERGE_BACK}",
     4: "a regeneration failed; the merge is aborted",
     5: "the merged tree fails a touched package's type check, or the check could not run; the merge is aborted",
     6: "a hook refused the merge commit; the merge is aborted",
     7: "git failed during the merge; read `git status`",
     8: "the session branch fails that type check before the merge; the merge is aborted and the branch was not judged",
+    9: "refused before the merge: HEAD's verify run has concluded and a `window` standing action waits undispatched",
 }
 
 
@@ -183,30 +187,60 @@ def type_check(root: Path, touched: list[str]) -> list[str]:
 
 def owners(register: str, branch: str) -> set[str]:
     """The agent a `worktree-agent-<id>` branch belongs to, by its id and by its live-agent row's name."""
-    found = re.fullmatch(r"worktree-agent-(?P<id>[A-Za-z0-9]+)", branch)
+    found = reg.AGENT_BRANCH_RE.match(branch)
     if found is None:
         return set()
-    name = reg.agent_name(register, found["id"])
+    name = ledger.agent_name(register, found["id"])
     return {found["id"], name} if name else {found["id"]}
+
+
+def carried(before: str) -> list[str]:
+    """Every agent branch the merge made part of HEAD: a merge agent's branch carries others' commits."""
+    branches = git("for-each-ref", "--format=%(refname:short)", "refs/heads/worktree-agent-*").split()
+    return [
+        name for name in branches if not _ok("merge-base", "--is-ancestor", name, before) and _ok("merge-base", "--is-ancestor", name, "HEAD")
+    ]
 
 
 def standing(register: str, names: set[str]) -> list[str]:
     """The trigger of each undispatched standing action naming the landed branch or its agent."""
     lines = register.split("\n")
-    at = next((k for k, line in enumerate(lines) if line.startswith(STANDING_HEADING)), None)
-    said: list[str] = []
-    for line in lines[at + 1 :] if at is not None else []:
-        if line.startswith("## "):
-            break
-        cells = [cell.strip() for cell in line.strip().split("|")[1:-1]]
-        # The third cell is ticked only on evidence the action went out (`register-template.md`).
-        pending = len(cells) == 3 and (not cells[2] or cells[2].lower().startswith("no"))
-        if pending and any(re.search(rf"(?<![\w-]){re.escape(name)}(?![\w-])", cells[0]) for name in names):
-            said.append(cells[0])
-    return said
+    try:
+        table, end = reg.standing_table(lines)
+    except ValueError:
+        return []
+    rows = (ledger.cells(lines[k]) for k in range(table + 2, end + 1))
+    return [row[0] for row in rows if reg.unticked(row) and any(re.search(rf"(?<![\w-]){re.escape(name)}(?![\w-])", row[0]) for name in names)]
 
 
-def land(register: Path, branch: str) -> int:
+def window(register: str) -> None:
+    """Refused while HEAD's verify run has concluded and a standing action waits on that window: landing first closes it."""
+    if not (waiting := reg.windows(register)):
+        return
+    head = git("rev-parse", "HEAD").strip()
+    try:
+        run = ci.run_for(head)
+    except ValueError as unread:
+        raise Stop(2, f"{len(waiting)} standing action(s) wait on the window, and HEAD's verify run could not be read: {unread}") from None
+    if run is not None and run.get("status") == "completed":
+        raise Stop(
+            9, f"HEAD's verify run {run.get('databaseId')} has concluded, and these wait on its window:", *waiting, "dispatch them first"
+        )
+
+
+def conflict_owners(conflicted: list[str], branch: str, register: str) -> list[str]:
+    """Each other live worktree changing a conflicted path: the next landing to meet the same conflict."""
+    found = []
+    try:
+        for tree in reg.worktrees():
+            if tree.branch != branch and (shared := sorted(set(conflicted) & reg.touched(tree))):
+                found.append(f"{', '.join(shared)} also changed by {reg.label(register, tree)}")
+    except ValueError as unread:
+        found.append(f"the other worktrees could not be read: {unread}")
+    return found
+
+
+def land(register: Path, branch: str, after_dispatch: bool = False) -> int:
     root = Path(git("rev-parse", "--show-toplevel").strip())
     try:
         ledger.open_rows(register)
@@ -217,7 +251,11 @@ def land(register: Path, branch: str) -> int:
     if _ok("merge-base", "--is-ancestor", branch, "HEAD"):
         print(f"nothing to land: the session branch already holds {branch}")
         return 0
+    if not after_dispatch:
+        window(held)
+    before = git("rev-parse", "HEAD").strip()
     written: list[str] = []
+    conflicted: list[str] = []
     try:
         merged: list[str] = []
         if not _ok("merge", "--no-ff", "--no-commit", branch):
@@ -252,22 +290,30 @@ def land(register: Path, branch: str) -> int:
             stop.code = 8
             head = f"the session branch already fails `{' '.join(stop.recheck[0])}` before this merge, so {branch} was not judged:"
             stop.lines = (head, "route the red at HEAD to its owner and land again once it clears", *stop.lines)
+        if stop.code == 3:
+            stop.lines = (*stop.lines, *conflict_owners(conflicted, branch, held), MERGE_BACK)
         raise
     notes = [f"regenerated {', '.join(Path(document).name for document in moved)}"] if moved else []
     notes += [f"merged by row key: {'; '.join(merged)}"] if merged else []
     notes += [f"type-checked {', '.join(checked)}"] if checked else []
     merge = git("rev-parse", "--short", "HEAD").strip()
     print(f"landed {branch} as {merge}" + (f" ({'; '.join(notes)})" if notes else ""))
-    # Only a `Rows fixed:` line closes, and only a row routed to this branch's agent: a mention, or a
-    # row another fixer holds, stays for the coordinator to judge.
+    # Only a `Rows fixed:` line closes, and only a row routed to an agent the merge landed: a mention,
+    # or a row another fixer holds, stays for the coordinator to judge.
     bodies = git("log", "--format=%B", "HEAD^1..HEAD^2")
     named = sorted({row.rstrip(".") for found in ROWS_FIXED_RE.findall(bodies) for row in re.split(r"[,\s]+", found) if row.rstrip(".")})
-    agent = owners(held, branch)
+    agent = owners(held, branch).union(*(owners(held, other) for other in carried(before)))
     closed = ledger.close_routed(register, named, merge, agent)
     for row in closed:
         print(f"FIXED {row} by {merge}")
     who = ", ".join(sorted(agent)) or "an agent this tool can name"
-    if unclosed := sorted(set(named) - set(closed)):
+    # An OPEN row was never routed, so no fixer was asked for it: the claim is the coordinator's to judge.
+    held_as = ledger.held_as(register, named)
+    if opened := [row for row in named if held_as.get(row) == "OPEN"]:
+        print("named fixed by the merged commits while OPEN; run the line of each row the merge fixed:")
+        for row in opened:
+            print(f"  {ledger.command('close', str(register.resolve()), 'FIXED', merge, row)}")
+    if unclosed := sorted(set(named) - set(closed) - set(opened)):
         print(f"named fixed by the merged commits and not ROUTED to {who}, so left as they stand: {', '.join(unclosed)}")
     # A body naming its report's finding numbers rather than its rows leaves them ROUTED once the fix
     # lands; a warning only, since a row can stay its agent's for a later round.
@@ -283,12 +329,14 @@ def land(register: Path, branch: str) -> int:
 
 
 def main(argv: list[str]) -> int:
-    if len(argv) != 2:
-        print(__doc__, file=sys.stderr)
-        print("\n".join(f"  exit {code}: {meaning}" for code, meaning in EXITS.items()), file=sys.stderr)
-        return 2
+    exits = "\n".join(f"  exit {code}: {meaning}" for code, meaning in EXITS.items())
+    parser = argparse.ArgumentParser(prog="land.py", description=__doc__, epilog=exits, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("register", type=Path)
+    parser.add_argument("branch")
+    parser.add_argument("--after-dispatch", action="store_true", help="land although a `window` standing action is unticked: it went out")
+    args = parser.parse_args(argv)
     try:
-        return land(Path(argv[0]), argv[1])
+        return land(args.register, args.branch, args.after_dispatch)
     except Stop as stop:
         for line in stop.lines:
             print(line, file=sys.stderr)
