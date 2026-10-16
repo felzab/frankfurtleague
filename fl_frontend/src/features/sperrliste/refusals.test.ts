@@ -3,9 +3,10 @@ import { describe, it } from "node:test";
 
 import { answerShown, DUPLICATE_KEY, publishedRefusals, refusedOn, unpublishedOn } from "@/shared/testing/publishedRefusals.ts";
 
-import { mapAdresseRefusal } from "./refusals.ts";
+import { mapAdresseRefusal, mapAnsichtRefusal } from "./refusals.ts";
 
 const CREATE_OPERATION = "POST /sperrliste";
+const ANSICHT_OPERATION = "POST /identitaet/erasure/ansicht";
 
 const ON_THE_BOX = { fieldErrors: { email: "Diese Adresse ist schon gesperrt." } };
 
@@ -69,5 +70,22 @@ describe("the address a unique index already holds", () => {
     // A banner would put the sentence on the page rather than under the box the admin typed into
     // (`docs/frontend/spec.md` §1.12), and both would then say it.
     assert.equal(mapAdresseRefusal(refusedWith(409, "REQ-SPERRLISTE-001"))?.error, undefined);
+  });
+});
+
+describe("the list read ahead of the ban", () => {
+  /* Both refuse an administrator's address, which the ban then refuses as `REQ-SPERRLISTE-003`: one sentence on one
+     box, whether the read foresees the refusal or the ban answers it. */
+  it("lands the reader's own address and an owner's on the address box in the ban's words", () => {
+    for (const code of ["REQ-PURGE-003", "REQ-PURGE-005"]) {
+      assert.deepEqual(mapAnsichtRefusal(refusedOn(ANSICHT_OPERATION, code)), mapAdresseRefusal(refusedWith(409, "REQ-SPERRLISTE-003")), code);
+    }
+  });
+
+  /* The rest are the shared reader's, so a rule the read gains fails here rather than reading as a field it never names. */
+  it("words no other refusal the read publishes", () => {
+    const worded = publishedRefusals(ANSICHT_OPERATION).filter((code) => mapAnsichtRefusal(refusedOn(ANSICHT_OPERATION, code)) !== null);
+
+    assert.deepEqual(worded, ["REQ-PURGE-003", "REQ-PURGE-005"]);
   });
 });

@@ -2,7 +2,6 @@
 
 import { endSessionsOfAddress } from "@/core/auth";
 import { frontend_config } from "@/core/config";
-import { APIBadStatusError, APIMalformedDataError, APINetworkError } from "@/core/errors";
 import { logger } from "@/core/logging";
 import { sendSperreNotice } from "@/core/mail";
 import { runAnsweringOwnCut } from "@/core/requestScope";
@@ -15,21 +14,21 @@ import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { SPERRE_ERFOLG } from "./constants";
 import { deleteSperre, postSperre } from "./mutations";
-import { mapAdresseRefusal } from "./refusals";
+import { mapAdresseRefusal, mapAnsichtRefusal, verwaltungAmFeld } from "./refusals";
 import { FLPostSperrlistePayloadSchema, FLSperrlisteKeyPayloadSchema } from "./schemas";
 
 import type { FLErasureAnsichtResponse } from "@/features/funktionen/schemas";
-import type { ActionResult } from "@/shared/types/types";
+import type { ActionResult, QueryResult } from "@/shared/types/types";
 import type { FLPostSperrlistePayload, FLSperrlisteKeyPayload } from "./schemas";
 
 /**
- * Every record the barred address still holds, as the erasure's reveal names them. No grant among them: an address
- * holding one is refused the ban before this is read (`REQ-SPERRLISTE-003`).
+ * Every record the address holds, as the erasure's reveal names them. No grant among them: the read answers an address
+ * holding one with the ban's own refusal (`REQ-SPERRLISTE-003`).
  */
 export type SperreAnsicht = Omit<FLErasureAnsichtResponse, "acknowledged" | "verwaltung">;
 
-/** What a ban answers its dialog: the row it wrote, and what the address still holds, `null` where that read failed. */
-export type SperreGespeichert = { created_id: string; ansicht: SperreAnsicht | null };
+/** The ban's own address rule, never the erasure's looser lookup: no list is read for an address the ban would refuse. */
+const AnsichtPayloadSchema = FLPostSperrlistePayloadSchema.pick({ email: true });
 
 const SPERRE_STEHT = "Die Sperre steht.";
 const NICHT_BENACHRICHTIGT = "Die Benachrichtigung an die Adresse konnte nicht zugestellt werden.";
@@ -95,18 +94,42 @@ async function benachrichtigen(email: string, grund: string, gesperrtBisSaisonId
   }
 }
 
-/** A failed read of what the barred address holds: the ban stands, as it does past a failed notice. */
-function nichtGelesen(failed: unknown): null {
-  const typed = failed instanceof APIBadStatusError || failed instanceof APINetworkError || failed instanceof APIMalformedDataError;
-  // The NAME alone, as the notice's own failure is logged: the read carries the address in its body.
-  logger.error("sperrliste.ansicht_not_read", undefined, {
-    error_code: typed ? failed.code : "FE-ACT-001",
-    name: failed instanceof Error ? failed.name : "unknown",
+/**
+ * What the address holds, read for the ban's dialog ahead of the ban (`docs/frontend/spec.md :: I724`): the erasure's
+ * own reveal, every record it names being one the ban leaves standing.
+ */
+export async function readSperreAnsichtAction(
+  rawPayload: Pick<FLPostSperrlistePayload, "email">,
+): Promise<QueryResult<{ ansicht: SperreAnsicht }>> {
+  return runAdminMutation("readSperreAnsichtAction", async () => {
+    const validated = AnsichtPayloadSchema.safeParse(rawPayload);
+
+    if (!validated.success) {
+      return {
+        success: false,
+        error: VALIDATION_FAILED,
+        fieldErrors: toFieldErrors(validated.error),
+      };
+    }
+
+    let gelesen: FLErasureAnsichtResponse;
+    try {
+      gelesen = await readErasureAnsicht(validated.data);
+    } catch (error) {
+      const refusal = mapAnsichtRefusal(error);
+      if (refusal !== null) return refusalResult(refusal);
+      throw error;
+    }
+
+    // Refused rather than listed: the ban refuses an address holding a grant, so its list would be work for nothing.
+    const { acknowledged: _umschlag, verwaltung, ...ansicht } = gelesen;
+    if (verwaltung !== null) return refusalResult(verwaltungAmFeld());
+
+    return { success: true, ansicht: ansicht };
   });
-  return null;
 }
 
-export async function postSperreAction(rawPayload: FLPostSperrlistePayload): Promise<ActionResult<SperreGespeichert>> {
+export async function postSperreAction(rawPayload: FLPostSperrlistePayload): Promise<ActionResult> {
   return runAdminMutation("postSperreAction", async () => {
     const validated = FLPostSperrlistePayloadSchema.safeParse(rawPayload);
 
@@ -147,24 +170,8 @@ export async function postSperreAction(rawPayload: FLPostSperrlistePayload): Pro
     // Each is told, and none undoes the ban: the write is acknowledged and no address survives to retry
     // a failure with.
     const told = [abgemeldet.satz, benachrichtigt].filter((sentence) => sentence !== null);
-    const message = told.length === 0 ? SPERRE_ERFOLG : [SPERRE_STEHT, ...told].join(" ");
 
-    // Read now, a ban cascading to no record and the address surviving this press nowhere; last, so a slow read never
-    // spends the deadline the sign-out and the notice are owed (`docs/frontend/spec.md :: I688`).
-    let ansicht: SperreAnsicht | null;
-    try {
-      // Its own cut: a deadline the notice spent ends this read alone, never the answer for the ban written before it.
-      const {
-        acknowledged: _umschlag,
-        verwaltung: _zugang,
-        ...gelesen
-      } = await runAnsweringOwnCut(() => readErasureAnsicht({ email: validated.data.email }));
-      ansicht = gelesen;
-    } catch (failed) {
-      ansicht = nichtGelesen(failed);
-    }
-
-    return { success: true, created_id: postOperation.created_id, ansicht: ansicht, message: message };
+    return { success: true, message: told.length === 0 ? SPERRE_ERFOLG : [SPERRE_STEHT, ...told].join(" ") };
   });
 }
 

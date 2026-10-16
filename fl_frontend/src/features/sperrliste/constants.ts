@@ -42,20 +42,30 @@ export const SPERRE_AUFHEBEN_CONSEQUENCE =
   "Die Sperre verschwindet aus der Liste. Um die Adresse wieder zu sperren, musst Du sie neu eintragen.";
 
 /**
- * What a CLEAN save answers. `EntityForm` shows it beside the form's title only where the two
- * DIFFER, which is how a failed send is told apart.
+ * What a CLEAN save answers, and the title its toast raises: the toast adds the action's message only
+ * where the two DIFFER, which is how a failed send is told apart.
  */
 export const SPERRE_ERFOLG = "Adresse gesperrt";
 
+/** The ban dialog's one press, read and armed by its first press and sent by its second (`docs/frontend/spec.md :: I724`). */
+export const SPERRE_PRESS = {
+  resting: "Adresse sperren",
+  // No „endgültig“, which the list's own lift makes false, as `fl_frontend/src/shared/components/ui/ConfirmDeleteModal.tsx` omits it.
+  armed: "Ja, Adresse sperren",
+  running: "Sperrt...",
+  // The exact negation of `SPERRE_ERFOLG`, so a refused ban reads in the same words as a saved one.
+  nichtGesperrt: "Adresse nicht gesperrt",
+} as const;
+
 /**
- * The create dialog's second state: a ban cascades to no record, so what the address still holds is shown at the one
+ * The ban's armed reveal: a ban cascades to no record, so what the address holds is shown before it, at the one
  * moment anybody holds the address, each record linked to the tool that acts on it.
  */
 export const SPERRE_ANSICHT_COPY = {
-  heading: "Was unter dieser Adresse noch gespeichert ist",
-  lead: "Die Sperre wirkt sofort. Diese Einträge bleiben bestehen, bis Du sie bearbeitest.",
+  heading: "Was unter dieser Adresse gespeichert ist",
+  lead: "Die Sperre ändert an diesen Einträgen nichts. Bearbeite sie, bevor Du die Adresse sperrst.",
   // Its team can only decline it, the admission refusing a barred address, and the clock erases it either way.
-  registrierungen: "Eine Registrierung endet von selbst, denn ihr Team kann sie nicht mehr aufnehmen.",
+  registrierungen: "Eine Registrierung endet nach der Sperre von selbst, denn ihr Team kann sie dann nicht mehr aufnehmen.",
   // A record, never „nichts“: the account and the log below stand whatever the read found, as the erasure's reveal says.
   leer: "Unter dieser Adresse ist kein Eintrag gespeichert.",
   // The account sweep's criterion in the ban mail's kinds, a grant left out: no barred address holds one
@@ -65,9 +75,14 @@ export const SPERRE_ANSICHT_COPY = {
   // What no record read lists and the ban changes nothing of, named as the erasure's reveal names it.
   protokoll:
     "Wo die Adresse im Änderungsprotokoll oder als Urheberin von Sperren, Einladungen, Entscheidungen und Zugängen steht, bleibt sie stehen.",
-  nichtGeladen: "Was unter der Adresse gespeichert ist, konnte nicht geladen werden. Die Sperre steht.",
-  fertig: "Fertig",
 } as const;
+
+/**
+ * A failed read, in the erasure reveal's words for its own: no ban goes out over a list nobody saw, and the failure's
+ * sentence follows.
+ */
+export const sperreOhneUebersicht = (reason: string): string =>
+  `Die Übersicht, was unter der Adresse gespeichert ist, konnte nicht geladen werden, und ohne sie wird nicht gesperrt. ${reason}`;
 
 /** Each record's link, named for what the page it opens does to that record. */
 export const SPERRE_ANSICHT_VERWEISE = {

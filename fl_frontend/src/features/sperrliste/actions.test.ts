@@ -11,13 +11,14 @@ import { userEvent } from "@testing-library/user-event";
 
 import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
-import { doubleActionRequest, doubleToasts, loggedLines } from "@/shared/testing/actionDoubles.ts";
+import { DOUBLE_PRESS_MS } from "@/shared/hooks/useTwoPressConfirm.ts";
+import { doubleActionRequest, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { assertEachAnswered, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { toActionErrorResult } from "@/shared/utils/actionError.ts";
 
-import { mapAdresseRefusal } from "./refusals.ts";
+import { mapAdresseRefusal, mapAnsichtRefusal } from "./refusals.ts";
 import { FLPostSperrlistePayloadSchema } from "./schemas.ts";
 
 import type { MailOutcome } from "@/core/mailDouble.ts";
@@ -47,8 +48,9 @@ const SPERRE_ID = "6890a1b2c3d4e5f607190001";
 /** The create's answer as the backend sends it, acknowledged or not. */
 const banned = (acknowledged: 0 | 1) => ({ acknowledged, created_id: SPERRE_ID, gesperrt_bis_saison_id: ANSWERED_BOUND });
 
-/** The read of what the barred address still holds, which a ban runs once it stands. */
+/** The read of what the address holds, which the ban's dialog makes before the ban. */
 const ANSICHT_ENDPOINT = "/identitaet/erasure/ansicht";
+const ANSICHT_OPERATION = "POST /identitaet/erasure/ansicht";
 
 /** One referee record, the envelope and the grant's field around it, as the reveal answers them. */
 const ANSICHT = {
@@ -107,8 +109,8 @@ const { AdminCreateSperreForm } = await import("./components/forms/AdminCreateSp
 
 const CREATE_OPERATION = "POST /sperrliste";
 
-const { deleteSperreAction, postSperreAction } = await import("./actions.ts");
-const { SPERRE_ERFOLG } = await import("./constants.ts");
+const { deleteSperreAction, postSperreAction, readSperreAnsichtAction } = await import("./actions.ts");
+const { SPERRE_ANSICHT_COPY, SPERRE_ERFOLG, SPERRE_PRESS } = await import("./constants.ts");
 const { ZURUECKGEHALTEN } = await import("@/features/einladungen/meldungen.ts");
 const { boundCall, REQUEST_DEADLINE_MS } = await import("@/core/requestScope");
 
@@ -116,6 +118,7 @@ const BARRED = "zorbanax@beispielschule.de";
 const GRUND = "Falsches Geburtsdatum angegeben";
 
 const anAddressIsBanned = () => postSperreAction({ email: BARRED, grund: GRUND });
+const itsListIsRead = () => readSperreAnsichtAction({ email: BARRED });
 
 describe("the create's refusals", () => {
   /* The create is the one write that sends an address, so it is the one that answers through the
@@ -136,7 +139,7 @@ describe("the message the barred person is sent", () => {
     const result = await anAddressIsBanned();
 
     assert.equal(result.success, true);
-    assert.deepEqual(events, ["post", "mail", "ansicht", "refresh"]);
+    assert.deepEqual(events, ["post", "mail", "refresh"]);
   });
 
   /* The half the order alone cannot show: a send placed after the call but before its answer is
@@ -151,7 +154,8 @@ describe("the message the barred person is sent", () => {
   });
 
   /* The typed address is used for this one send and stored nowhere, so it reaches the mail module
-     from the parsed payload and from no read of the row the write created. */
+     from the parsed payload and from no read of the row the write created. The ban reads no list
+     (`docs/frontend/spec.md :: I724`). */
   it("mails the address that was typed, and the bound the write itself answered", async () => {
     await anAddressIsBanned();
 
@@ -159,10 +163,7 @@ describe("the message the barred person is sent", () => {
     assert.equal(mail.sent[0]?.to, BARRED);
     assert.deepEqual(
       requestsOf(client.calls).map(({ endpoint, body }) => [endpoint, body]),
-      [
-        ["/sperrliste", { email: BARRED, grund: GRUND }],
-        [ANSICHT_ENDPOINT, { email: BARRED }],
-      ],
+      [["/sperrliste", { email: BARRED, grund: GRUND }]],
     );
     // The write's own answer and not the arithmetic's: `ANSWERED_BOUND` is a season no reference
     // season in this file composes, so a second read could not have produced it.
@@ -189,7 +190,7 @@ describe("the message the barred person is sent", () => {
     assert.equal(result.success, true);
     // The list is still refreshed and nothing is removed: the row stands, and only the sentence
     // the administrator reads differs.
-    assert.deepEqual(events, ["post", "mail", "ansicht", "refresh"]);
+    assert.deepEqual(events, ["post", "mail", "refresh"]);
     assert.notEqual("message" in result ? result.message : undefined, SPERRE_ERFOLG);
     assert.match(String("message" in result ? result.message : ""), /nicht zugestellt/);
   });
@@ -215,7 +216,7 @@ describe("the message the barred person is sent", () => {
     // The ban was acknowledged: the general unclear-save sentence sends the administrator to check a row that stands.
     assert.equal(result.success, true, "the acknowledged ban answered as unsaved or of unknown outcome");
     assert.equal("message" in result ? result.message : undefined, "Die Sperre steht. Ob die Benachrichtigung angekommen ist, ist unklar.");
-    assert.deepEqual(events, ["post", "mail", "ansicht", "refresh"], "the ban's page was left standing");
+    assert.deepEqual(events, ["post", "mail", "refresh"], "the ban's page was left standing");
   });
 
   /* The ban is written before its notice, so the request's deadline cutting the notice leaves only the notice in
@@ -238,24 +239,29 @@ describe("the message the barred person is sent", () => {
 
     assert.equal(result.success, true, `the acknowledged ban answered ${JSON.stringify(result)}`);
     assert.equal("message" in result ? result.message : undefined, "Die Sperre steht. Ob die Benachrichtigung angekommen ist, ist unklar.");
-    assert.deepEqual(events, ["post", "mail", "ansicht", "refresh"], "the ban's page was left standing");
+    assert.deepEqual(events, ["post", "mail", "refresh"], "the ban's page was left standing");
   });
 
-  /* `EntityForm` shows the action's message as a description only where it DIFFERS from the title
-     the form passes, so the success sentence and that literal are one string or every clean save
-     grows a second line saying the same thing. */
-  it("answers a clean save the exact title the form raises", async () => {
+  /* The form's toast shows the action's message as a description only where it DIFFERS from its
+     title, so the success sentence and that title are one string or every clean save grows a second
+     line saying the same thing. */
+  it("answers a clean save the exact title the form raises", async (t) => {
     const result = await anAddressIsBanned();
 
     assert.equal("message" in result ? result.message : undefined, SPERRE_ERFOLG);
 
-    // The form over this same action, pressed as an administrator presses it.
+    // The form over this same action, pressed twice as an administrator presses it, the list read between.
     toasts.length = 0;
+    t.mock.timers.enable({ apis: ["Date"] });
     const user = userEvent.setup();
     const { unmount } = render(underNext(h(AdminCreateSperreForm, { onClose: () => undefined })));
     await user.type(screen.getByRole("textbox", { name: /E-Mail/ }), BARRED);
     await user.type(screen.getByRole("textbox", { name: /Grund/ }), GRUND);
-    await user.click(screen.getByRole("button", { name: "Speichern" }));
+    await user.click(screen.getByRole("button", { name: SPERRE_PRESS.resting }));
+    await act(client.answered);
+    await screen.findByText(SPERRE_ANSICHT_COPY.heading);
+    t.mock.timers.tick(DOUBLE_PRESS_MS);
+    await user.click(screen.getByRole("button", { name: SPERRE_PRESS.armed }));
     // The write runs inside a transition, so the press returns before its toast is raised.
     await act(client.answered);
     await waitFor(() => {
@@ -311,7 +317,7 @@ describe("the barred address's live sign-ins", () => {
       "message" in result ? result.message : undefined,
       "Die Sperre steht. Laufende Anmeldungen der Adresse konnten nicht beendet werden. Die Benachrichtigung an die Adresse konnte nicht zugestellt werden.",
     );
-    assert.deepEqual(events, ["post", "ansicht", "refresh"], "a failed sign-out stopped the refresh, or a notice went on a guess");
+    assert.deepEqual(events, ["post", "refresh"], "a failed sign-out stopped the refresh, or a notice went on a guess");
   });
 });
 
@@ -327,7 +333,7 @@ describe("which barred addresses the notice goes to (`docs/frontend/spec.md :: I
       "Die Sperre steht. Die Adresse hat kein Konto, deshalb wurde sie nicht benachrichtigt.",
     );
     assert.deepEqual(mail.sent, [], "an address holding no account was mailed");
-    assert.deepEqual(events, ["post", "ansicht", "refresh"]);
+    assert.deepEqual(events, ["post", "refresh"]);
     assert.deepEqual(request.signedOut(), [BARRED], "the store was not asked, so the case proves nothing");
   });
 
@@ -343,64 +349,47 @@ describe("which barred addresses the notice goes to (`docs/frontend/spec.md :: I
   });
 });
 
-describe("what the barred address still holds (`docs/frontend/spec.md :: I688`)", () => {
-  /* Only this press holds the address, so the read goes in a read's body, after everything the ban owes the
-     person, and its answer reaches the dialog without the envelope, the grant's field or anything of the address. */
-  it("reads it in a body once the ban, its sign-out and its notice stand, and answers the records alone", async () => {
-    let signedOutWhenRead: readonly string[] = [];
-    answerAnsicht = () => {
-      signedOutWhenRead = request.signedOut();
-      // An address the reveal never serves, so a looser parse or a spread of the raw answer would hand it on.
-      return Promise.resolve({ ...ANSICHT, email: BARRED });
-    };
+describe("what the address holds, read before the ban (`docs/frontend/spec.md :: I724`)", () => {
+  /* Only the dialog holds the address, so the read goes in a read's body, and its answer reaches the browser without
+     the envelope, the grant's field or anything of the address. Writing nothing, it refreshes nothing. */
+  it("reads it in a read's body, and answers the records alone", async () => {
+    // An address the reveal never serves, so a looser parse or a spread of the raw answer would hand it on.
+    answerAnsicht = () => Promise.resolve({ ...ANSICHT, email: BARRED });
 
-    const result = await anAddressIsBanned();
+    const result = await itsListIsRead();
 
-    assert.deepEqual(events, ["post", "mail", "ansicht", "refresh"], "the read ran before the notice, or not at all");
-    assert.deepEqual(signedOutWhenRead, [BARRED], "the read ran before the sign-out");
-    assert.deepEqual(requestsOf(client.calls).at(-1), { endpoint: ANSICHT_ENDPOINT, method: "POST", body: { email: BARRED }, readOnly: true });
+    assert.deepEqual(requestsOf(client.calls), [{ endpoint: ANSICHT_ENDPOINT, method: "POST", body: { email: BARRED }, readOnly: true }]);
     const { acknowledged: _umschlag, verwaltung: _zugang, ...records } = ANSICHT;
-    assert.deepEqual("ansicht" in result ? result.ansicht : undefined, records);
+    assert.deepEqual(result.success ? result.ansicht : result, records);
     assert.doesNotMatch(JSON.stringify(result), new RegExp(BARRED), "the address reached the answer the browser is handed");
+    assert.deepEqual(events, ["ansicht"], "the read wrote, mailed or refreshed");
   });
 
-  /* The ban was written and the address survives nowhere to read again with, so the failure is said in the
-     dialog and nothing of the ban is taken back. The line names the failure and never the address. */
-  it("leaves the ban standing and answers no records where the read failed, logging no address", async () => {
-    answerAnsicht = () => Promise.reject(new Error(`no answer for ${BARRED}`));
+  /* The ban refuses an address holding a grant (`REQ-SPERRLISTE-003`): said on its box before anyone works through a
+     list for a ban that cannot follow, in the words the ban's own refusal takes. */
+  it("answers an address holding a grant of either tier on the address box, as the ban would", async () => {
+    const asTheBan = mapAdresseRefusal(refusedOn(CREATE_OPERATION, "REQ-SPERRLISTE-003"));
 
-    const result = await anAddressIsBanned();
+    for (const verwaltung of ["administration", "owner"]) {
+      answerAnsicht = () => Promise.resolve({ ...ANSICHT, verwaltung });
 
-    assert.equal(result.success, true, "a failed read answered the ban as unsaved");
-    assert.equal("ansicht" in result ? result.ansicht : undefined, null);
-    assert.equal("message" in result ? result.message : undefined, SPERRE_ERFOLG);
-    assert.deepEqual(events, ["post", "mail", "ansicht", "refresh"], "the ban's page was left standing");
-    assert.ok(
-      loggedLines.some(({ message }) => message === "sperrliste.ansicht_not_read"),
-      "the failed read was logged nowhere",
-    );
-    assert.doesNotMatch(JSON.stringify(loggedLines), new RegExp(BARRED), "the address reached the log stream");
+      const result = await itsListIsRead();
+
+      assert.deepEqual(result.success ? result : result.fieldErrors, asTheBan?.fieldErrors, `a ${verwaltung} grant was listed`);
+    }
   });
 
-  /* The notice may spend the request's deadline, which then cuts this read: answered as the spine answers a cut
-     write, the press would send the administrator to check a ban that stands (`docs/frontend/spec.md :: I372`). */
-  it("answers a read the request's deadline cut as a saved ban with no records", async (t) => {
-    let clock = 0;
-    t.mock.method(performance, "now", () => clock);
-    answerAnsicht = async () => {
-      // The read bounded as the client bounds it, with a millisecond of the deadline left: the deadline cuts it.
-      clock = REQUEST_DEADLINE_MS - 1;
-      const bound = boundCall(REQUEST_DEADLINE_MS);
-      await new Promise((resolve) => bound.signal.addEventListener("abort", resolve, { once: true }));
-      bound.clear();
-      throw bound.signal.reason;
-    };
-
-    const result = await anAddressIsBanned();
-
-    assert.equal(result.success, true, `the acknowledged ban answered ${JSON.stringify(result)}`);
-    assert.equal("ansicht" in result ? result.ansicht : undefined, null);
-    assert.equal("message" in result ? result.message : undefined, SPERRE_ERFOLG);
+  /* Each refuses an administrator's address, the reader's own or an owner's, which the ban refuses too. */
+  it("answers every refusal the read publishes through the list's own mapper", async () => {
+    await assertEachAnswered({
+      operation: ANSICHT_OPERATION,
+      refuseWith: (next) => {
+        answerAnsicht = next;
+      },
+      act: itsListIsRead,
+      mapped: mapAnsichtRefusal,
+      readOnly: true,
+    });
   });
 });
 

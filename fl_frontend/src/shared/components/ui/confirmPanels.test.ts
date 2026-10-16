@@ -144,6 +144,7 @@ const M = {
   spielplan: "features/saisons/components/forms/AdminSaisonEditForm/FormSpielplanSection.tsx",
   teamErsatz: "features/saisons/components/forms/AdminSaisonEditForm/FormTeamErsatzSection.tsx",
   sperre: "features/sperrliste/components/forms/AdminSperreAufhebenPanel.tsx",
+  sperren: "features/sperrliste/components/forms/AdminCreateSperreForm.tsx",
   zugangEntziehen: "features/berechtigungen/components/forms/AdminBerechtigungEntziehenPanel.tsx",
   zugangStufe: "features/berechtigungen/components/forms/AdminBerechtigungStufePanel.tsx",
   einladung: "features/teams/components/forms/AdminTeamEditForm/FormEinladungSection.tsx",
@@ -169,6 +170,7 @@ const C = {
   spielplan: await component(M.spielplan, "FormSpielplanSection"),
   teamErsatz: await component(M.teamErsatz, "FormTeamErsatzSection"),
   sperre: await component(M.sperre, "AdminSperreAufhebenPanel"),
+  sperren: await component(M.sperren, "AdminCreateSperreForm"),
   zugangEntziehen: await component(M.zugangEntziehen, "AdminBerechtigungEntziehenPanel"),
   zugangStufe: await component(M.zugangStufe, "AdminBerechtigungStufePanel"),
   einladung: await component(M.einladung, "FormEinladungSection"),
@@ -474,6 +476,32 @@ const PANELS: Record<string, Arming[]> = {
     {
       render: () => underNext(el(C.sperre, { sperreId: "6890a1b2c3d4e5f607190001", gesperrtAm: "12.03.2026" })),
       resting: "Sperre vom 12.03.2026 aufheben",
+    },
+  ],
+  [M.sperren]: [
+    {
+      render: () => underNext(el(C.sperren, { onClose: () => undefined })),
+      reach: async (user) => {
+        await user.type(screen.getByRole("textbox", { name: /E-Mail/ }), "ada@example.org");
+        await user.type(screen.getByRole("textbox", { name: /Grund/ }), "Falsches Geburtsdatum angegeben");
+      },
+      // The list the arming reads, answered: unanswered, the reveal holds its placeholder and the press stays held.
+      answer: () =>
+        Promise.resolve({
+          success: true,
+          message: "Adresse gesperrt",
+          ansicht: {
+            spieler: [],
+            schiedsrichter: [],
+            sitze: [],
+            bewerbungen: [],
+            registrierungen: [],
+            adresswechsel: [],
+            spieler_adresswechsel: [],
+          },
+        }),
+      resting: "Adresse sperren",
+      stepUp: false,
     },
   ],
   [M.zugangEntziehen]: [
