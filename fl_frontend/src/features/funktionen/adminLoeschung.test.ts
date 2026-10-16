@@ -157,7 +157,7 @@ const markiert = (): string[] =>
   within(panel("Person löschen"))
     .getAllByRole("textbox")
     .filter((box) => box.getAttribute("aria-invalid") === "true")
-    .map((box) => box.getAttribute("aria-label") ?? box.labels?.[0]?.textContent ?? "");
+    .map((box) => (box as HTMLInputElement).labels?.[0]?.textContent ?? "");
 
 /** Every read the case makes held open until the case answers it, by the order the reads were made in. */
 function holdReads(): { answer: (read: number, value: unknown) => void } {
