@@ -1,16 +1,13 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { after, beforeEach, describe, it, mock } from "node:test";
-
-import ts from "typescript";
 
 import { ACTOR_KEY_FILE } from "@/core/authDoubles.ts";
 import { APIBadStatusError, APIMalformedDataError, APINetworkError } from "@/core/errors.ts";
 import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
-import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
 
 import type { SentMail } from "@/core/mailDouble.ts";
@@ -41,50 +38,17 @@ let appEnv = "production";
 let apiAnswer: (call: ApiEvent) => unknown = () => ({});
 
 const ADRESSWECHSEL = "/schiedsrichter/sweep/adresswechsel";
-const LAUF = "/identitaet/loeschung/lauf";
-
-const LAUF_SENDER = "postLoeschungLauf";
-const LAUF_SENDER_MODULE = "features/saisons/mutations.ts";
-
-function declaresOrImports(node: ts.Identifier, where: string): boolean {
-  if (ts.isFunctionDeclaration(node.parent) && node.parent.name === node) return where === LAUF_SENDER_MODULE;
-
-  return ts.isImportSpecifier(node.parent) && node.parent.propertyName === undefined;
-}
-
-function enclosing(node: ts.Node): string {
-  for (let at = node.parent; !ts.isSourceFile(at); at = at.parent) {
-    if ((ts.isFunctionDeclaration(at) || ts.isMethodDeclaration(at)) && at.name !== undefined) return at.name.getText();
-    if ((ts.isArrowFunction(at) || ts.isFunctionExpression(at)) && ts.isVariableDeclaration(at.parent)) return at.parent.name.getText();
-  }
-
-  return "(module)";
-}
 
 /**
- * The two halves after the season loop, answered apart so a case about a season's clocks never answers them. Each is
- * handed the place its call carried, null on a pass's first.
+ * The half after the season loop, answered apart so a case about a season's clocks never answers it. It is handed the
+ * place its call carried, null on a pass's first.
  */
 let adresswechselAnswer: (nach: string | null) => unknown = () => entfernt(0, 0);
-let laufAnswer: (nach: string | null) => unknown = () => gelaufen(0, 0);
 
 /** One call of the lapsed addresses' half: how many went, how many are still due, and where the pass goes on. */
 const entfernt = (anzahl: number, verbleibend: number, nach: string | null = null) => ({
   acknowledged: 1,
   entfernt: anzahl,
-  verbleibend: verbleibend,
-  nach: nach,
-});
-
-/** One call of the pupils' deletion: whom it erased, who is still due after it, and where the pass goes on. */
-const gelaufen = (spieler: number, verbleibend: number, nach: string | null = null) => ({
-  acknowledged: 1,
-  abgeschlossene_saison_id: "2526",
-  spieler: spieler,
-  saison_spieler: spieler,
-  registrierungen: 0,
-  uebersprungen: 0,
-  fehlgeschlagen: 0,
   verbleibend: verbleibend,
   nach: nach,
 });
@@ -104,7 +68,6 @@ doubleApiClient(({ endpoint, method, params, body }, schema) => {
   // Parsed by the mirror the real client parses with, so an answer this file composes cannot drift
   // from the shape the caller is written against.
   if (endpoint === ADRESSWECHSEL) return schema.parse(adresswechselAnswer(call.params?.nach ?? null));
-  if (endpoint === LAUF) return schema.parse(laufAnswer(call.params?.nach ?? null));
   return schema.parse(apiAnswer(call));
 });
 
@@ -145,22 +108,12 @@ const CONFIG_DOUBLE = {
 
 const INDEXES_DOUBLE = { buildAuthIndexes: () => Promise.resolve() };
 
-/** Each loopback drop the pass asked for, with how many deletion calls had run by then. */
-const drops: { tags: readonly string[]; laufCalls: number }[] = [];
-
-// The loopback call reaches a server no test process runs; its pairing with the route is the route's own suite's.
-const REVALIDATION_DOUBLE = {
-  revalidateOverLoopback: async (tags: readonly string[]) =>
-    void drops.push({ tags: tags, laufCalls: apiCalls().filter(({ endpoint }) => endpoint === LAUF).length }),
-};
-
 registerDoubles({
   modules: {
     "core/logging.ts": LOGGING_DOUBLE,
     "core/config.ts": CONFIG_DOUBLE,
     // A production boot builds the sign-in store's indexes too, over a client this suite never configures.
     "core/authIndexes.ts": INDEXES_DOUBLE,
-    "core/revalidation.ts": REVALIDATION_DOUBLE,
   },
 });
 
@@ -273,7 +226,6 @@ beforeEach(() => {
   events.length = 0;
   logs.length = 0;
   lines.length = 0;
-  drops.length = 0;
   refused.clear();
   withheld.clear();
   // Appended as the send happens, so a send and the calls around it stay in the order they ran.
@@ -286,7 +238,6 @@ beforeEach(() => {
   appEnv = "production";
   sweepAnswers({});
   adresswechselAnswer = () => entfernt(0, 0);
-  laufAnswer = () => gelaufen(0, 0);
 });
 
 describe("the switch the retention sweep is armed by", () => {
@@ -375,34 +326,6 @@ describe("the switch the retention sweep is armed by", () => {
 
     it("refuses anything else by name, rather than reading it as one side or the other", async () => {
       await assert.rejects(parseWith("false", "LOESCHUNG_SWEEP"), (error: Error) => error.message.includes("LOESCHUNG_SWEEP"));
-    });
-
-    /* The API's pass deletes on any system-key call, the switch read at each caller alone, so a third caller would
-       delete while it reads off. Each caller's off arm is driven in its own suite. */
-    it("guards the deletion pass's only callers, the hourly pass and the activation, and its path's one sender", () => {
-      const src = path.resolve(import.meta.dirname, "..", "..");
-      const uses: string[] = [];
-      const senders: string[] = [];
-
-      for (const file of filesUnder(src, (name) => /\.tsx?$/.test(name) && !isTestFile(name), 200)) {
-        const text = readFileSync(file, "utf8");
-        if (!text.includes(LAUF_SENDER) && !text.includes(LAUF)) continue;
-        const where = path.relative(src, file).split(path.sep).join("/");
-
-        const visit = (node: ts.Node): void => {
-          // Every reference, not only a call: the hourly pass hands the function on by name, and an alias or a
-          // wrapper beside the declaration is a third caller.
-          if (ts.isIdentifier(node) && node.text === LAUF_SENDER && !declaresOrImports(node, where))
-            uses.push(`${where} :: ${enclosing(node)}`);
-          if ((ts.isStringLiteralLike(node) || ts.isTemplateLiteralToken(node)) && node.text.includes(LAUF))
-            senders.push(`${where} :: ${enclosing(node)}`);
-          ts.forEachChild(node, visit);
-        };
-        visit(ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true));
-      }
-
-      assert.deepEqual(uses.sort(), ["features/bewerbungen/sweep.ts :: sweepLoeschung", "features/saisons/actions.ts :: activateSaisonAction"]);
-      assert.deepEqual(senders, [`${LAUF_SENDER_MODULE} :: ${LAUF_SENDER}`]);
     });
   });
 });
@@ -1188,15 +1111,15 @@ describe("the line each season half files for a pass", () => {
   });
 });
 
-describe("the two halves after the season loop", () => {
+describe("the half after the season loop", () => {
   /** The season halves' own pass lines, which come first in every pass and are another case's. */
   const SEASON_HALVES = /^(bewerbung|registrierung)\.sweep_pass$/;
 
-  /** The calls of the lapsed addresses' half and of the pupils' half, in the order they ran. */
-  const halves = (): string[] =>
+  /** The place each call of the lapsed addresses' half carried, in the order they ran. */
+  const halfCalls = (): ApiEvent["params"][] =>
     apiCalls()
-      .map((call) => call.endpoint)
-      .filter((endpoint) => endpoint === ADRESSWECHSEL || endpoint === LAUF);
+      .filter(({ endpoint }) => endpoint === ADRESSWECHSEL)
+      .map(({ params }) => params);
 
   /** Answers each call with the next of `answers`, the last one standing for every call after it. */
   const inTurn = <T>(answers: T[]) => {
@@ -1204,10 +1127,10 @@ describe("the two halves after the season loop", () => {
     return (): T => answers[Math.min(turn++, answers.length - 1)] as T;
   };
 
-  /* A lapsed address is a stranger's mailbox kept past its day: no switch holds it back, and no season reaches it.
-     Unset is what a skipped validation leaves, where a test negating "off" would delete. */
-  for (const schalter of ["off", undefined]) {
-    it(`removes the lapsed addresses on every pass after the seasons, and deletes no pupil while the switch reads ${String(schalter)}`, async () => {
+  /* A lapsed address is a stranger's mailbox kept past its day, so no switch holds it back. The pupils' deletion is a
+     timer of its own, and this pass deletes nobody whatever its switch reads, unset included. */
+  for (const schalter of ["on", "off", undefined]) {
+    it(`removes the lapsed addresses on every pass after the seasons, and deletes no pupil while the deletion's switch reads ${String(schalter)}`, async () => {
       loeschungSwitch = schalter;
       sweepAnswers({ saisonIds: ["2627"] });
 
@@ -1220,87 +1143,30 @@ describe("the two halves after the season loop", () => {
     });
   }
 
-  it("deletes the due pupils after the lapsed addresses where the switch reads on", async () => {
-    loeschungSwitch = "on";
-
-    await runBewerbungSweep();
-
-    assert.deepEqual(halves(), [ADRESSWECHSEL, LAUF]);
-  });
-
-  /* An activation's call its deadline cut deletes in the backend after the press dropped the tag, and no pass's count
-     shows those pupils, so the drop follows the pass's last call whatever the pass did. */
-  const ARMED_PASSES = [
-    ["that deleted nobody", () => gelaufen(0, 0)],
-    ["that deleted pupils", () => gelaufen(3, 0)],
-    [
-      "whose call threw",
-      () => {
-        throw new Error("the deletion was refused");
-      },
-    ],
-  ] as const;
-
-  for (const [what, answer] of ARMED_PASSES) {
-    it(`drops the squad cache once, after the last deletion call, on an armed pass ${what}`, async () => {
-      loeschungSwitch = "on";
-      laufAnswer = answer;
-
-      await runBewerbungSweep();
-
-      assert.deepEqual(drops, [{ tags: ["spieler"], laufCalls: 1 }]);
-    });
-  }
-
-  for (const schalter of ["off", undefined]) {
-    it(`drops no cache while the switch reads ${String(schalter)}`, async () => {
-      loeschungSwitch = schalter;
-
-      await runBewerbungSweep();
-
-      assert.deepEqual(drops, []);
-    });
-  }
-
-  /* Neither half takes a season, so a season list the backend could not answer leaves both to run. */
-  it("runs both halves where the season list could not be read", async () => {
-    loeschungSwitch = "on";
+  /* No season reaches the half, so a season list the backend could not answer leaves it to run. */
+  it("runs where the season list could not be read", async () => {
     answerWith(() => {
       throw new Error("the season list was refused");
     });
 
     await runBewerbungSweep();
 
-    assert.deepEqual(halves(), [ADRESSWECHSEL, LAUF]);
+    assert.deepEqual(halfCalls(), [{}]);
   });
-
-  /** Each call of the two halves with the parameters it carried, in the order they ran. */
-  const halfCalls = (): [string, ApiEvent["params"]][] =>
-    apiCalls()
-      .filter(({ endpoint }) => endpoint === ADRESSWECHSEL || endpoint === LAUF)
-      .map(({ endpoint, params }) => [endpoint, params]);
 
   /** Places in the `_id` order, as the mirror demands them. */
   const ORT_ADRESSE = `${"d".repeat(23)}4`;
-  const ORT_SPIELER = `${"e".repeat(23)}5`;
 
   /* The pass is the caller's to hold: each call carries the place the call before it answered, and the first answer
      naming none ends it, whatever `verbleibend` still counts. */
-  it("hands each call of a half the place the last answer named, and calls no further once one names none", async () => {
-    loeschungSwitch = "on";
-    // Each list closes on an answer naming no place, so a loop that ignores the end fails on its count rather than hanging.
+  it("hands each call the place the last answer named, and calls no further once one names none", async () => {
+    // The list closes on an answer naming no place, so a loop that ignores the end fails on its count rather than hanging.
     adresswechselAnswer = inTurn([entfernt(2, 1, ORT_ADRESSE), entfernt(1, 1), entfernt(4, 4)]);
-    laufAnswer = inTurn([gelaufen(3, 2, ORT_SPIELER), gelaufen(2, 1), gelaufen(4, 4)]);
 
     await runBewerbungSweep();
 
     // A first call carrying no `nach` at all, never a null one: present, the server reads it as an id.
-    assert.deepEqual(halfCalls(), [
-      [ADRESSWECHSEL, {}],
-      [ADRESSWECHSEL, { nach: ORT_ADRESSE }],
-      [LAUF, {}],
-      [LAUF, { nach: ORT_SPIELER }],
-    ]);
+    assert.deepEqual(halfCalls(), [{}, { nach: ORT_ADRESSE }]);
   });
 
   /**
@@ -1315,13 +1181,11 @@ describe("the two halves after the season loop", () => {
   /* A share's worth of failing rows fills the front, so the call reaching them removes nobody while a due row stands
      behind them: a pass ending on that call, or reading the front again, never reaches that row. */
   it("goes on past a call that removed nobody to the due rows behind it", async () => {
-    loeschungSwitch = "on";
     adresswechselAnswer = vorneDann(ORT_ADRESSE, entfernt(0, 43, ORT_ADRESSE), entfernt(1, 42), entfernt(0, 43));
-    laufAnswer = vorneDann(ORT_SPIELER, { ...gelaufen(0, 11, ORT_SPIELER), fehlgeschlagen: 10 }, gelaufen(1, 10), gelaufen(0, 11));
 
     await runBewerbungSweep();
 
-    // Warnings, each half leaving rows it failed: a level above INFO would drop the line counting them.
+    // A warning, the half leaving rows it failed: a level above INFO would drop the line counting them.
     assert.deepEqual(
       lines.filter(({ level, event }) => level !== "error" && !SEASON_HALVES.test(event)),
       [
@@ -1329,20 +1193,6 @@ describe("the two halves after the season loop", () => {
           level: "warn",
           event: "schiedsrichter.adresswechsel_sweep_pass",
           fields: { error_code: "FE-SWEEP-001", entfernt: 1, verbleibend: 42 },
-        },
-        {
-          level: "warn",
-          event: "loeschung.sweep_pass",
-          fields: {
-            error_code: "FE-SWEEP-001",
-            abgeschlossene_saison_id: "2526",
-            spieler: 1,
-            saison_spieler: 1,
-            registrierungen: 0,
-            uebersprungen: 0,
-            fehlgeschlagen: 10,
-            verbleibend: 10,
-          },
         },
       ],
     );
@@ -1367,50 +1217,18 @@ describe("the two halves after the season loop", () => {
     );
   });
 
-  /* A pass cut short knows no remainder, so its failures alone make the line a warning beside the half's own error. */
-  it("warns where the pupils' half is cut short after a call that failed pupils", async () => {
-    loeschungSwitch = "on";
-    laufAnswer = inTurn([{ ...gelaufen(3, 5, ORT_SPIELER), fehlgeschlagen: 2 }, gelaufen(1, 4, ORT_SPIELER), gelaufen(0, 0)]);
-
-    await runBewerbungSweep();
-
-    assert.deepEqual(
-      lines.filter(({ event }) => event === "loeschung.sweep_pass"),
-      [
-        {
-          level: "warn",
-          event: "loeschung.sweep_pass",
-          fields: {
-            error_code: "FE-SWEEP-001",
-            abgeschlossene_saison_id: "2526",
-            spieler: 4,
-            saison_spieler: 4,
-            registrierungen: 0,
-            uebersprungen: 0,
-            fehlgeschlagen: 2,
-          },
-        },
-      ],
-    );
-  });
-
   /* A place not past the one sent holds the pass, and every clock behind it, for ever. Each double ends on its third
      answer, so a loop lacking the guard fails on its calls and lines rather than hanging. */
-  const NICHT_WEITER = [
-    ["the same place", ORT_ADRESSE, ORT_SPIELER],
-    ["a place before it", `${"d".repeat(23)}3`, `${"e".repeat(23)}4`],
-  ] as const;
-
-  for (const [wie, adresse, spieler] of NICHT_WEITER) {
-    it(`stops the lapsed addresses' half where a call answers ${wie}, the removals counted and the half's own line filed`, async () => {
+  for (const [wie, adresse] of [
+    ["the same place", ORT_ADRESSE],
+    ["a place before it", `${"d".repeat(23)}3`],
+  ] as const) {
+    it(`stops where a call answers ${wie}, the removals counted and the half's own line filed`, async () => {
       adresswechselAnswer = inTurn([entfernt(2, 5, ORT_ADRESSE), entfernt(1, 4, adresse), entfernt(0, 0)]);
 
       await runBewerbungSweep();
 
-      assert.deepEqual(halfCalls(), [
-        [ADRESSWECHSEL, {}],
-        [ADRESSWECHSEL, { nach: ORT_ADRESSE }],
-      ]);
+      assert.deepEqual(halfCalls(), [{}, { nach: ORT_ADRESSE }]);
       assert.deepEqual(
         lines.filter(({ event }) => event.startsWith("schiedsrichter.")),
         [
@@ -1423,46 +1241,9 @@ describe("the two halves after the season loop", () => {
         ],
       );
     });
-
-    it(`stops the pupils' half where a call answers ${wie}, the deletions counted and the half's own line filed`, async () => {
-      loeschungSwitch = "on";
-      laufAnswer = inTurn([gelaufen(3, 5, ORT_SPIELER), gelaufen(1, 4, spieler), gelaufen(0, 0)]);
-
-      await runBewerbungSweep();
-
-      assert.deepEqual(halfCalls(), [
-        [ADRESSWECHSEL, {}],
-        [LAUF, {}],
-        [LAUF, { nach: ORT_SPIELER }],
-      ]);
-      assert.deepEqual(
-        lines.filter(({ event }) => event.startsWith("loeschung.")),
-        [
-          {
-            level: "info",
-            event: "loeschung.sweep_pass",
-            fields: {
-              abgeschlossene_saison_id: "2526",
-              spieler: 4,
-              saison_spieler: 4,
-              registrierungen: 0,
-              uebersprungen: 0,
-              fehlgeschlagen: 0,
-            },
-          },
-          {
-            level: "error",
-            event: "loeschung.sweep_failed",
-            fields: { error_code: "FE-SWEEP-001", name: "ContractBreakError", saison_id: undefined },
-          },
-        ],
-      );
-    });
   }
 
-  /* Each half is its own clock: a shared `try` would hold every due pupil past the hour the address half fails. */
-  it("deletes the due pupils where the lapsed addresses' half threw, the seasons swept before it, under the half's own line", async () => {
-    loeschungSwitch = "on";
+  it("files a half that threw under its own line, the seasons swept before it", async () => {
     sweepAnswers({ saisonIds: ["2627"] });
     adresswechselAnswer = () => {
       throw new Error("the lapsed addresses were refused");
@@ -1470,7 +1251,6 @@ describe("the two halves after the season loop", () => {
 
     await runBewerbungSweep();
 
-    assert.deepEqual(halves(), [ADRESSWECHSEL, LAUF]);
     assert.deepEqual([...seasonPasses(), ...registrierungPasses()].map(saisonOf), ["2627", "2627"]);
     assert.deepEqual(
       lines.filter(({ level }) => level === "error"),
@@ -1484,49 +1264,16 @@ describe("the two halves after the season loop", () => {
     );
   });
 
-  it("files a failed pupils' half under its own line, the lapsed addresses removed before it", async () => {
-    loeschungSwitch = "on";
-    adresswechselAnswer = () => entfernt(1, 0);
-    laufAnswer = () => {
-      throw new Error("the deletion was refused");
-    };
-
-    await runBewerbungSweep();
-
-    assert.deepEqual(halves(), [ADRESSWECHSEL, LAUF]);
-    assert.deepEqual(
-      lines.filter(({ level }) => level === "error"),
-      [{ level: "error", event: "loeschung.sweep_failed", fields: { error_code: "FE-SWEEP-001", name: "Error", saison_id: undefined } }],
-    );
-  });
-
-  /* What an operator reads to learn the halves ran and what they did: counts and the season the rule kept, never a
-     person, an address or an id. */
-  it("writes one line per pass for each half, holding its counts and nothing else", async () => {
-    loeschungSwitch = "on";
+  /* What an operator reads to learn the half ran and what it did: counts and nothing else, never a person, an address
+     or an id. */
+  it("writes one line per pass, holding its counts and nothing else", async () => {
     adresswechselAnswer = () => entfernt(2, 0);
-    laufAnswer = inTurn([gelaufen(3, 1, ORT_SPIELER), gelaufen(1, 0)]);
 
     await runBewerbungSweep();
 
     assert.deepEqual(
       lines.filter(({ level, event }) => level === "info" && !SEASON_HALVES.test(event)),
-      [
-        { level: "info", event: "schiedsrichter.adresswechsel_sweep_pass", fields: { entfernt: 2, verbleibend: 0 } },
-        {
-          level: "info",
-          event: "loeschung.sweep_pass",
-          fields: {
-            abgeschlossene_saison_id: "2526",
-            spieler: 4,
-            saison_spieler: 4,
-            registrierungen: 0,
-            uebersprungen: 0,
-            fehlgeschlagen: 0,
-            verbleibend: 0,
-          },
-        },
-      ],
+      [{ level: "info", event: "schiedsrichter.adresswechsel_sweep_pass", fields: { entfernt: 2, verbleibend: 0 } }],
     );
   });
 });
