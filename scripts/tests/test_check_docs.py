@@ -290,6 +290,10 @@ LIVE_REASON: Final = (
 # the one index a reason names, and the page an entry is surfaced by, inside a route group.
 BACKEND_CONFIG: Final = "fl_backend/app/core/config.py"
 BACKEND_CONSTRAINTS: Final = "fl_backend/app/core/constraints.py"
+# The consent wordings, which the copy rules read under a label the branch adds, and the label the fork holds.
+WORDINGS: Final = "fl_backend/app/shared/einwilligung.py"
+HELD_LABEL: Final = "2026-01"
+HELD_WORDING: Final = "Die Liga speichert Deinen Namen und Deine E-Mail-Adresse."
 BACKEND_PACKAGE: Final = "fl_backend/app/__init__.py"
 OPENAPI: Final = "fl_backend/openapi.json"
 SAMPLE_PAGE: Final = "fl_frontend/src/app/(site)/sample/page.tsx"
@@ -966,6 +970,24 @@ def _corpus(fragments: tuple[str, ...]) -> dict[str, str]:
             'UNIQUE_INDEXES = (Index(keys=("saison_id", "team_id")),)',
             "SUPPORT_INDEXES = ()",
             "TTL_INDEXES = ()",
+        ),
+        WORDINGS: _page(
+            QUOTES + "BACKEND · the consent wordings, each frozen under its label." + QUOTES,
+            "",
+            "from dataclasses import dataclass, field",
+            "",
+            "",
+            "@dataclass(frozen=True)",
+            "class Fassung:",
+            "    absaetze: tuple[str, ...]",
+            "    schalter: str",
+            "    bedienelemente: dict[str, str] = field(default_factory=dict)",
+            "    absaetze_nach_schluessel: dict[str, str] | None = None",
+            "",
+            "",
+            "FASSUNGEN = {",
+            '    "' + HELD_LABEL + '": Fassung(absaetze=("' + HELD_WORDING + '",), schalter="Ja, ich bin einverstanden."),',
+            "}",
         ),
         OPENAPI: '{"paths": {"/api/v0/sample": {"get": {}}}}\n',
         SAMPLE_PAGE: _page("export default function Page() {", "  return null;", "}"),
@@ -1830,12 +1852,23 @@ def _plant_copy_informal() -> None:
 
 
 def _plant_copy_term() -> None:
-    """Each retired word, in the forms the sweep reads: a plural, a JSX text opening on a capital, a suffixed run-together spelling."""
+    """Each retired word in every form the sweep reads, and in a consent wording a branch adds.
+
+    The label the fork holds takes the word too, and both labels a semicolon: neither speaks.
+    """
     _append(COPY_SAMPLE, 'export const WER = "Die Mannschaft steht in dieser Gruppe.";')
     _append(COPY_SAMPLE, 'export const ALLE = "Alle Mannschaften stehen in der Tabelle.";')
     _append(COPY_SAMPLE, 'export const LINK = "Öffne den Link aus Deiner E-Mail noch einmal.";')
     _append(COPY_SAMPLE, "export function Tausch() {", "  return <p>Noch mal tauschen macht ihn rückgängig.</p>;", "}")
     _append(COPY_SAMPLE, 'export const WIEDER = "Versuche es nochmals.";')
+    _append(COPY_SAMPLE, 'export const PRUEFUNG = "Die nochmalige Prüfung dauert einen Tag.";')
+    _append(COPY_SAMPLE, 'export const MAL = "Sende den Link noch ein Mal.";')
+    _append(COPY_SAMPLE, 'export const GESCHUETZT = "Öffne den Link noch einmal.";')
+    _append(COPY_SAMPLE, 'export const MASKIERT = "Öffne den Link noch\\u00a0einmal.";')
+    _append(COPY_SAMPLE, "export function Entitaet() {", "  return <p>Öffne den Link noch&nbsp;einmal.</p>;", "}")
+    _append(COPY_SAMPLE, "export function Getrennt() {", '  return <p>Öffne den Link noch{" "}einmal.</p>;', "}")
+    _replace(WORDINGS, HELD_WORDING, "Öffne den Link noch einmal; die Liga speichert Deinen Namen.")
+    _replace(WORDINGS, "}\n", '    "2026-02": Fassung(absaetze=("Öffne den Link noch einmal; danach gilt Deine Antwort.",), schalter="Ja."),\n}\n')
 
 
 def _plant_copy_semicolon() -> None:
@@ -1950,7 +1983,7 @@ CASES: Final[tuple[Case, ...]] = (
     Case("copy-formal", _fails("copy-formal", COPY_SAMPLE), _plant_copy_formal),
     Case("copy-informal", _fails("copy-informal", COPY_SAMPLE), _plant_copy_informal),
     Case("copy-semicolon", _fails("copy-semicolon", COPY_SAMPLE, COPY_SAMPLE), _plant_copy_semicolon),
-    Case("copy-term", _fails("copy-term", *[COPY_SAMPLE] * 5), _plant_copy_term),
+    Case("copy-term", _fails("copy-term", *[COPY_SAMPLE] * 11, WORDINGS), _plant_copy_term),
     Case("crlf-write", _fails("crlf-write", SAMPLE), _plant_text_write),
     # The corpus is walked in path order, so the twin under `docs/frontend/` is the home the two
     # copies below it are told to cite.
