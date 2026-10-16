@@ -279,3 +279,9 @@ async def get_drosselung_collection(
     db: AsyncDatabase = Depends(get_database),
 ) -> AsyncCollection:
     return db[Collection.DROSSELUNG]
+
+
+async def get_adressanker_collection(
+    db: AsyncDatabase = Depends(get_database),
+) -> AsyncCollection:
+    return db[Collection.ADRESSANKER]

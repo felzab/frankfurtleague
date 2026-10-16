@@ -248,6 +248,7 @@ async def write_kontakte(
         saison_teams_collection=database[Collection.SAISON_TEAMS] if saison_teams_collection is None else saison_teams_collection,
         saisons_collection=database[Collection.SAISONS],
         sperrliste=ban_list(database),
+        adressanker_collection=database[Collection.ADRESSANKER],
         db=database.client,
         refuse_unconfirmed=FRESH_STEP_UP_CHECK,
         today=TODAY,

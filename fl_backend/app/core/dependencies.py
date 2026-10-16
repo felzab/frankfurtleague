@@ -8,6 +8,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.core.db import (
+    get_adressanker_collection,
     get_aktionen_collection,
     get_berechtigungen_angekuendigt_collection,
     get_berechtigungen_collection,
@@ -66,6 +67,8 @@ BerechtigungenCollection = Annotated[AsyncCollection, Depends(get_berechtigungen
 BerechtigungenAngekuendigtCollection = Annotated[AsyncCollection, Depends(get_berechtigungen_angekuendigt_collection)]
 
 BerechtigungenPostausgangCollection = Annotated[AsyncCollection, Depends(get_berechtigungen_postausgang_collection)]
+
+AdressankerCollection = Annotated[AsyncCollection, Depends(get_adressanker_collection)]
 
 
 # Injected rather than read at the call site, which is what keeps "today" substitutable in tests.

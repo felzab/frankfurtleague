@@ -30,7 +30,7 @@ from app.api.schiedsrichter.services import build_ghost_schiedsrichter
 from app.api.spieler.services import build_ghost_spieler
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.crud import ANCHOR_FIELD, patch_one_in_db
+from app.core.crud import ANCHOR_FIELD, ANCHOR_WRITTEN_AT, patch_one_in_db
 from app.core.db import NO_OWNER, get_aktionen_collection, get_spieler_collection
 from app.core.exception_handlers import DATABASE_FAILED, PAYLOAD_REFUSED, UNKNOWN_OUTCOME
 from app.core.recording import Actor
@@ -240,7 +240,8 @@ def _ranked(value: Any, rank: Mapping[ObjectId, int]) -> Any:
 def what_is_left(collections: Mapping[str, list[Any]]) -> Any:
     """The database, each id by its rank: two seeds mint their ids in one order, so ranks compare where ids cannot.
 
-    Log rows drop their clock, the request's own their filer and `anlass`, the actor's grant its anchor count.
+    Log rows drop their clock, the request's own their filer and `anlass`, the actor's grant its anchor count, and the
+    address's anchor its count and clock, the person's own judge writing it a second time.
     """
 
     left = {name: [dict(document) for document in documents] for name, documents in collections.items()}
@@ -250,6 +251,9 @@ def what_is_left(collections: Mapping[str, list[Any]]) -> Any:
             row.pop(key, None)
     for row in left.get(Collection.BERECHTIGUNGEN, []):
         row.pop(ANCHOR_FIELD, None)
+    for row in left.get(Collection.ADRESSANKER, []):
+        row.pop(ANCHOR_FIELD, None)
+        row.pop(ANCHOR_WRITTEN_AT, None)
 
     return _ranked(left, {object_id: index for index, object_id in enumerate(sorted(set(_object_ids(left))))})
 

@@ -116,8 +116,9 @@ from tests.config import UNANSWERED_URI, build_test_config
 EXPECTED_COLLECTIONS = {collection.value for collection in Collection}
 
 # Named here so giving one a model later fails this file rather than leaving its validator unmirrored.
-# A day's write count has none because no read serves it (`app/core/drosselung.py`).
-MODELLESS_COLLECTIONS = {Collection.SAISON_TEAMS, Collection.DROSSELUNG}
+# A day's write count and an address's anchor have none because no read serves either (`app/core/drosselung.py`,
+# `app/core/adressanker.py`).
+MODELLESS_COLLECTIONS = {Collection.SAISON_TEAMS, Collection.DROSSELUNG, Collection.ADRESSANKER}
 
 # Ranges, formats and lengths stay Pydantic's: reaching for one of these widens the scope.
 OUT_OF_SCOPE_KEYWORDS = {
@@ -293,8 +294,10 @@ MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...],
         Collection.AKTIONEN,
         (),
         "collection",
-        # A day's write count is never logged (`app/core/drosselung.py`); a logged act writes no collection of its own.
-        tuple(c.value for c in Collection if c not in {Collection.AKTIONEN, Collection.DROSSELUNG}) + get_args(LoggedAct),
+        # A day's write count and an address's anchor are never logged (`app/core/drosselung.py`, `app/core/crud.py ::
+        # anchor_by_id_in_db`); a logged act writes no collection of its own.
+        tuple(c.value for c in Collection if c not in {Collection.AKTIONEN, Collection.DROSSELUNG, Collection.ADRESSANKER})
+        + get_args(LoggedAct),
         False,
     ),
     (Collection.SAISONS, (), "status", get_args(FLSaisonStatus), False),

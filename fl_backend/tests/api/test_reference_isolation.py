@@ -404,6 +404,7 @@ async def rename_the_referee(client: AsyncMongoClient, handles: Mapping[Collecti
         schiedsrichter_collection=handles[Collection.SCHIEDSRICHTER],
         spiele_collection=handles[Collection.SPIELE],
         sperrliste=ban_list(handles),
+        adressanker_collection=handles[Collection.ADRESSANKER],
         aktionen_collection=handles[Collection.AKTIONEN],
         db=client,
         today=TODAY,

@@ -137,6 +137,7 @@ async def request(database: AsyncDatabase, client: AsyncMongoClient, *, email: s
         adresswechsel_data=FLSpielerAdresswechselPayload.model_validate({"email": email}),
         spieler_collection=database[Collection.SPIELER],
         sperrliste=ban_list(database),
+        adressanker_collection=database[Collection.ADRESSANKER],
         aktionen_collection=database[Collection.AKTIONEN],
         db=client,
         today=TODAY,

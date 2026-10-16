@@ -30,6 +30,7 @@ from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import aggregate_many_from_db, post_one_to_db, refuse
 from app.core.db import get_drosselung_collection
 from app.core.dependencies import (
+    AdressankerCollection,
     AktionenCollection,
     BerechtigungenAngekuendigtCollection,
     BerechtigungenCollection,
@@ -199,6 +200,7 @@ async def erase_auf_anfrage(
     berechtigungen_postausgang_collection: BerechtigungenPostausgangCollection,
     einladungen_collection: EinladungenCollection,
     sperrliste_collection: SperrlisteCollection,
+    adressanker_collection: AdressankerCollection,
     sperrliste: SperrlisteLookup,
     refuse_unconfirmed: Annotated[Callable[[], None], Depends(get_recent_confirmation_check)],
     db: DBClient,
@@ -257,6 +259,7 @@ async def erase_auf_anfrage(
             berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
             einladungen_collection=einladungen_collection,
             sperrliste_collection=sperrliste_collection,
+            adressanker_collection=adressanker_collection,
             sperrliste=sperrliste,
             geaendert_von=operator,
             schluessel=config.sperrliste_schluessel,

@@ -313,6 +313,19 @@ AGGREGATES: tuple[Aggregate, ...] = (
             "count of theirs, whatever its day, in its own transaction (`docs/backend/spec.md :: I619`)."
         ),
     ),
+    Aggregate(
+        name="Adressanker",
+        root=Collection.ADRESSANKER,
+        members=(),
+        boundary=(
+            "One folded address's conflict point. Held true against nothing: it states no fact about the league and no "
+            "read serves it, and its one purpose is to sit in the write set of every transaction writing that address "
+            "into a record and of that address's erasure, so the two conflict rather than both committing "
+            "(`docs/backend/spec.md :: I719`). It names the address by a keyed hash and never in plain, and the TTL "
+            "index removes it after its last write; its removal is itself a write a transaction still open meets as a "
+            "conflict, so no anchor is ever kept for safety."
+        ),
+    ),
 )
 
 

@@ -138,6 +138,13 @@ where the row carries the stamp the expiry reads (I119).\
 **Trap:** the two routes are not interchangeable after a restore. A requested erasure journals one line so it can be run again (backend spec I666); the rule's deletion journals none, the rule deleting the same pupils again on its own, and running one of them as a request would take the whole address — a contact seat, a referee row or a grant held there included (I691). The rule selects on seasons and never on `inactive_since`, so a retired row is still never purged on its age; and either route deletes the documents outright and empties their log images, so nothing restores a deleted pupil but a snapshot.\
 **See:** backend spec I690–I693 and I715–I718 for the rule, [`datenschutz.md`](datenschutz.md#6-retention-is-bounded-where-a-bound-was-chosen) §6 for the retention it delivers, and [ops runbooks §13](ops/runbooks.md#13-after-a-restore-from-a-snapshot) for a restore.
 
+### `Adressanker` — one address's conflict point, written by every transaction storing that address and by its erasure
+
+**Is:** a row of the `adressanker` collection: a keyed hash of one folded address as its id, a counter, and the instant it was last written. It states no fact and no read serves it. A transaction storing an address taken from a payload writes that address's anchor, so does a signed-in person's own write for theirs, and so does the address's erasure ahead of its steps, so a record committed for the address while its erasure runs sends that erasure round again and goes with it (backend spec I719).\
+**In code:** `fl_backend/app/core/adressanker.py :: anchor_the_addresses` over `fl_backend/app/core/crud.py :: anchor_by_id_in_db`, the id taken by `fl_backend/app/core/adressanker.py :: adressanker_id`; removed by the TTL index in `fl_backend/app/core/constraints.py :: TTL_INDEXES`.\
+**Trap:** it is no lock and no record of anybody: removing a row lets nothing slip past a transaction still open, the removal being a write that transaction meets, which is why the TTL index takes it at its first pass after the last write and nothing keeps it longer. A write copying an address out of a record the erasure writes itself — an admission, an address confirmation, an acceptance — anchors nothing, that record's own write conflicting already; a write storing a payload's address and anchoring nothing reopens the race in silence. An administrator's own write is held by the anchor on their grant instead (backend spec I438).\
+**See:** backend spec I719, and [`datenschutz.md`](datenschutz.md#5-erasure-reaches-everyone-who-asks) §5 for what it holds and how long.
+
 ---
 
 ## Attributes and values

@@ -28,12 +28,14 @@ from app.api.berechtigungen.crud import anchor_the_actors_grant, pull_the_list_t
 from app.api.identitaet.crud import erase_if_still_due
 from app.api.registrierungen.public_router import _anchor_the_season_registered_for
 from app.api.sperrliste.admin_router import _pull_the_season_a_ban_counts_from
+from app.api.sperrliste.lookup import hash_gesperrt
 from app.api.spiele.admin_router import patch_spiel_data
 from app.api.spiele.crud import anchor_a_booked_referee, anchor_a_booked_venue, pull_booked_referee, pull_booked_venue
 from app.api.spieler.crud import pull_a_person_to_enter, refuse_a_full_squad, refuse_a_taken_rolle
 from app.api.spieltage.admin_router import _refuse_an_out_of_order_beginn
 from app.api.teams.crud import pull_a_club_to_enter, refuse_a_full_gruppe
-from app.core.crud import ANCHOR_FIELD, anchor_in_db
+from app.core.adressanker import anchor_the_addresses
+from app.core.crud import ANCHOR_FIELD, anchor_by_id_in_db, anchor_in_db
 from tests.core.app_source import (
     APP_ROOT,
     BACKEND_ROOT,
@@ -406,3 +408,60 @@ def test_every_caller_hands_the_choke_point_a_transactions_session(function: str
     for module, scope, call in app_calls():
         if callee(call) == function:
             assert carries_session(call), f"{module} :: {scope} reaches {function} without the session"
+
+
+# Every scope writing an address's anchor (`docs/backend/spec.md :: I719`): each writer an address enters a record
+# through from a payload, the erasure ahead of its steps, and the person's judge after a write.
+ADDRESS_ANCHORS: frozenset[str] = frozenset(
+    {
+        "app/api/berechtigungen/admin_router.py :: judge_and_grant",
+        "app/api/bewerbungen/admin_router.py :: correct_and_mint",
+        "app/api/bewerbungen/admin_router.py :: seat_and_mint",
+        "app/api/bewerbungen/public_router.py :: store_or_replay",
+        "app/api/registrierungen/public_router.py :: store_or_replay",
+        "app/api/schiedsrichter/admin_router.py :: judge_and_create",
+        "app/api/schiedsrichter/admin_router.py :: rename_and_fan_out",
+        "app/api/spieler/admin_router.py :: judge_and_mint_the_change",
+        "app/api/teams/admin_router.py :: rewrite_the_block",
+        "app/api/identitaet/crud.py :: erase_everything",
+        "app/core/security.py :: judging_the_person",
+    }
+)
+
+# A write asking the ban list of a payload's address is how one storing a NEW address shows itself, a ban
+# refusing exactly that, so each such scope anchors or says why the address it writes was already the record's.
+ASKING_AND_ANCHORING_NOTHING: dict[str, str] = {
+    "app/api/registrierungen/public_router.py :: _answer_as_the_first": "a replay, which stores nothing",
+    "app/api/bewerbungen/public_router.py :: _answer_as_the_first": "a replay, which stores nothing",
+    "app/api/schiedsrichter/admin_router.py :: judge_and_mint": "mints for the stored address",
+    "app/api/schiedsrichter/admin_router.py :: reactivate_and_ask": "mints for the stored address",
+    "app/api/schiedsrichter/admin_router.py :: judge_and_remint_the_change": "re-mints the stored pending address",
+    "app/api/spieler/admin_router.py :: judge_and_remint_the_change": "re-mints the stored pending address",
+    "app/api/sperrliste/admin_router.py :: judge_and_ban": "stores a keyed hash, its author held by the grant anchor",
+    "app/api/identitaet/router.py :: get_anmeldung": "a read",
+    "app/api/identitaet/router.py :: get_subjekt": "a read",
+}
+
+
+def test_every_scope_anchoring_an_address_is_pinned():
+    assert _app_callers_of(anchor_the_addresses.__name__) == ADDRESS_ANCHORS
+
+
+def test_every_write_asking_the_ban_list_of_a_payload_address_anchors_it():
+    """Two listings by different routes: a new writer storing a payload's address asks the ban list, and fails here until it anchors."""
+
+    asking = _app_callers_of(hash_gesperrt.__name__) | _app_callers_of("_any_gesperrt")
+
+    assert asking - ADDRESS_ANCHORS == set(ASKING_AND_ANCHORING_NOTHING)
+
+
+@pytest.mark.parametrize("function", [anchor_the_addresses, anchor_by_id_in_db], ids=lambda function: function.__name__)
+def test_an_address_anchor_cannot_be_written_without_the_transactions_session(function: Callable[..., Any]):
+    session = inspect.signature(function).parameters["session"]
+
+    assert session.kind is inspect.Parameter.KEYWORD_ONLY
+    assert session.default is inspect.Parameter.empty
+
+    for module, scope, call in app_calls():
+        if callee(call) == function.__name__:
+            assert carries_session(call), f"{module} :: {scope} reaches {function.__name__} without the session"

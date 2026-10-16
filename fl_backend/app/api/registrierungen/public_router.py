@@ -32,9 +32,11 @@ from app.api.registrierungen.services import (
 from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.sperrliste.lookup import BanList, SperrlisteLookup, hash_gesperrt, sperrliste_saison
 from app.api.spieltage.crud import nachnominierung_laeuft_in
+from app.core.adressanker import anchor_the_addresses
 from app.core.config import API_VERSION
 from app.core.crud import anchor_in_db, patch_one_in_db, post_one_to_db, pull_one_from_db, refuse
 from app.core.dependencies import (
+    AdressankerCollection,
     DBClient,
     EinladungenCollection,
     RegistrierungenCollection,
@@ -248,6 +250,7 @@ async def post_registrierung(
     saison_teams_collection: SaisonTeamsCollection,
     saison_spieler_collection: SaisonSpielerCollection,
     sperrliste: SperrlisteLookup,
+    adressanker_collection: AdressankerCollection,
     db: DBClient,
     # Version 4 alone: a guessable key lets a stranger store other details under it first, and the
     # pupil's own press is then refused as a changed replay.
@@ -382,6 +385,13 @@ async def post_registrierung(
         )
         # The last write: a refused press anchors nothing, and a second press with this key still meets the insert's conflict.
         await _anchor_the_season_registered_for(saisons_collection=saisons_collection, saison_id=saison_id, session=session)
+        # The address entering here, which an erasure of it running now never read (`docs/backend/spec.md :: I719`).
+        await anchor_the_addresses(
+            [str(registrierung_data.email)],
+            adressanker_collection=adressanker_collection,
+            schluessel=sperrliste.schluessel,
+            session=session,
+        )
 
         return FLPostRegistrierungResponse(
             registrierung_id=created.inserted_id,
