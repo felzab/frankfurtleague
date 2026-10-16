@@ -335,6 +335,13 @@ class TestTheFlagsBesideIt:
             False,
         ]
 
+    def test_an_address_sharing_only_a_local_part_with_an_unconfirmed_referee_awaits_nothing(self, mongo_replica_set_url: str):
+        """The address pre-filter reads that referee's row, and only the fold after the read keeps the flag down and the gate shut."""
+
+        answer = answered(mongo_replica_set_url, PFEIFE_OFFEN.replace("@schule.de", "@anderswo.de"))
+
+        assert (answer.unbestaetigt, answer.konto) == (False, False)
+
     def test_a_barred_address_is_flagged_and_still_counted(self, mongo_replica_set_url: str):
         """The ban narrows nothing beside it: refusing the barred holder is the gate's own decision."""
 
