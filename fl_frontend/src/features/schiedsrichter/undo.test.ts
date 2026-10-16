@@ -141,7 +141,7 @@ describe("the referee save's undo", () => {
 
     assert.equal(answer.success, true);
     assert.equal(answer.success && answer.warn, true);
-    assert.match(said(answer), /konnte nicht an alt@example\.de zugestellt werden/);
+    assert.match(said(answer), /konnte nicht an alt@example\.de verschickt werden/);
   });
 
   it("mails nothing where the replay minted nothing", async () => {

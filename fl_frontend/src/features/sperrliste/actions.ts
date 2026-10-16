@@ -31,7 +31,7 @@ export type SperreAnsicht = Omit<FLErasureAnsichtResponse, "acknowledged" | "ver
 const AnsichtPayloadSchema = FLPostSperrlistePayloadSchema.pick({ email: true });
 
 const SPERRE_STEHT = "Die Sperre steht.";
-const NICHT_BENACHRICHTIGT = "Die Benachrichtigung an die Adresse konnte nicht zugestellt werden.";
+const NICHT_BENACHRICHTIGT = "Die Benachrichtigung an die Adresse konnte nicht verschickt werden.";
 const BENACHRICHTIGUNG_UNKLAR = "Ob die Benachrichtigung angekommen ist, ist unklar.";
 // Said rather than left to a clean save, which an administrator reads as the barred person mailed.
 const KEIN_KONTO = "Die Adresse hat kein Konto, deshalb wurde sie nicht benachrichtigt.";

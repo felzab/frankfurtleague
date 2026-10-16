@@ -471,6 +471,17 @@ describe("the season's bulk invite send", () => {
                 zurueckgehalten: [],
                 gesperrt: 0,
               },
+              // A team whose every send failed: its link never left, and nothing was withheld.
+              {
+                team_id: ID("h"),
+                team_name: "Schillerschule",
+                uebersprungen: null,
+                ersetzt_link: false,
+                zugestellt: [],
+                unerreichbar: ["ida@beispiel.de"],
+                zurueckgehalten: [],
+                gesperrt: 0,
+              },
               // The row every team carries on every stack but production: nobody was written to, and
               // nobody was refused either.
               {
@@ -520,6 +531,8 @@ describe("the season's bulk invite send", () => {
       isInTheFlow("Nicht erreicht: gelöscht@beispiel.de"),
       "the address nobody reached is named nowhere, so nobody can write to it by hand",
     );
+    // „zugestellt“ is the provider's delivery, which a send that never left has no word in.
+    assert.ok(isInTheFlow("Nicht verschickt"), "the team whose every send failed reads in a delivery's word, or not at all");
     /* Outside production this is EVERY row, so grading it as a failure and naming each address in
        danger red teaches an administrator that the red rows mean nothing. */
     assert.ok(isInTheFlow(ZURUECKGEHALTEN), "a row the deployment withheld reads as a team the league failed to reach");

@@ -428,6 +428,6 @@ export function describeBewerbungMail(
   const nichtErreicht = `Nicht erreicht wurden: ${verfehlt.join(", ")}. Melde Dich selbst bei ihnen.`;
 
   return delivered.length === 0
-    ? `Die ${betreff} konnte niemandem zugestellt werden. ${nichtErreicht}${nachSperre}`
+    ? `Die ${betreff} konnte an niemanden verschickt werden. ${nichtErreicht}${nachSperre}`
     : `Die ${betreff} ging raus. ${nichtErreicht}${nachSperre}`;
 }

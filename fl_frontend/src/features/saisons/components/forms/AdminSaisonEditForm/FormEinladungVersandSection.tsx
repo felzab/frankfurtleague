@@ -100,7 +100,7 @@ function zustellSatz(zeile: EinladungVersandErgebnis): string {
   // Ahead of the count, because outside production it is EVERY row: a deployment that sends nothing
   // is not a team the league failed to reach, and grading it as one teaches a reader to ignore red.
   if (versucht > 0 && zeile.zurueckgehalten.length === versucht) return ZURUECKGEHALTEN;
-  if (zeile.zugestellt.length === 0) return "Nicht zugestellt";
+  if (zeile.zugestellt.length === 0) return "Nicht verschickt";
   if (zeile.zugestellt.length < gesamt) return `Gesendet: ${String(zeile.zugestellt.length)} von ${String(gesamt)}`;
 
   return gesamt === 1 ? "An die Adresse gesendet" : `An alle ${String(gesamt)} Adressen gesendet`;

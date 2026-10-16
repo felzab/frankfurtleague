@@ -471,7 +471,7 @@ describe("the message that follows a decision", () => {
       const result = await press();
 
       assert.equal(result.success, true, `${where} fails the whole decision over a message it could not send`);
-      assert.match(answerOf(result), new RegExp(`Die ${betreff} konnte niemandem zugestellt werden`), `${where} drops the delivery report`);
+      assert.match(answerOf(result), new RegExp(`Die ${betreff} konnte an niemanden verschickt werden`), `${where} drops the delivery report`);
     }
   });
 
