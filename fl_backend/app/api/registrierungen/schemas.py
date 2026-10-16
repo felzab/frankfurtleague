@@ -389,6 +389,9 @@ class FLRegistrierungSweepResponse(BaseAPIResponse):
     geloescht_ohne_entscheidung: int
     geloescht_abgelehnt: int
     redigierte_aktionen: int
+    # One sum over every clock rather than a count a clock: the line logging each row names its clock
+    # (`docs/backend/spec.md :: I720`).
+    fehlgeschlagen: int
 
 
 # --- The TEAM's decision, person tier. No model below declares `email`, `telefon`, `geburtsdatum` or

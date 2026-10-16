@@ -246,6 +246,7 @@ export const FLRegistrierungSweepResponseSchema = BaseAPIResponseSchema.extend({
   geloescht_ohne_entscheidung: z.int().nonnegative(),
   geloescht_abgelehnt: z.int().nonnegative(),
   redigierte_aktionen: z.int().nonnegative(),
+  fehlgeschlagen: z.int().nonnegative(),
 });
 export type FLRegistrierungSweepResponse = z.infer<typeof FLRegistrierungSweepResponseSchema>;
 
