@@ -34,6 +34,11 @@ const SPIELER_FORM = "features/spieler/components/forms/AdminSpielerEditForm";
 const TEAM_FORM = "features/teams/components/forms/AdminTeamEditForm";
 const SAISON_FORM = "features/saisons/components/forms/AdminSaisonEditForm";
 const ADMIN = "features/admin/constants.ts";
+const ANTWORTEN = "core/adresswechselAntworten.ts";
+const ADRESSWECHSEL_SEITEN = [
+  "features/schiedsrichter/components/views/SchiedsrichterAdresswechselView.tsx",
+  "features/spieler/components/views/SpielerAdresswechselView.tsx",
+];
 
 /** A sidemenu entry, which the shell renders as its page's heading and the menu's link: its structure is where it shows. */
 const eintrag = (konstante: string, { label }: { label: string }): Benannt => ({
@@ -96,33 +101,26 @@ const REGISTER: readonly Benannt[] = [
     heim: "features/spieler/constants.ts",
     zeigen: [`${SPIELER_FORM}/FormAdresseSection.tsx`],
   },
-  ...[
-    ["JA_MEINE_ADRESSE", JA_MEINE_ADRESSE],
-    ["NICHT_MEINE_ADRESSE", NICHT_MEINE_ADRESSE],
-  ].map(([konstante, wort]) => ({
-    wort: wort,
-    konstante: konstante,
-    heim: "core/adresswechselAntworten.ts",
-    zeigen: [
-      "features/schiedsrichter/components/views/SchiedsrichterAdresswechselView.tsx",
-      "features/spieler/components/views/SpielerAdresswechselView.tsx",
-    ],
-  })),
+  { wort: JA_MEINE_ADRESSE, konstante: "JA_MEINE_ADRESSE", heim: ANTWORTEN, zeigen: ADRESSWECHSEL_SEITEN },
+  { wort: NICHT_MEINE_ADRESSE, konstante: "NICHT_MEINE_ADRESSE", heim: ANTWORTEN, zeigen: ADRESSWECHSEL_SEITEN },
   {
     wort: ADRESSE_KORRIGIEREN,
     konstante: "ADRESSE_KORRIGIEREN",
     heim: "features/bewerbungen/constants.ts",
     zeigen: ["features/bewerbungen/components/views/BewerbungBestaetigungStrip.tsx"],
   },
-  ...[
-    ["SPIELPLAN_NEU_ANLEGEN", SPIELPLAN_NEU_ANLEGEN],
-    ["SPIELPLAN_ZURUECKNEHMEN", SPIELPLAN_ZURUECKNEHMEN],
-  ].map(([konstante, wort]) => ({
-    wort: wort,
-    konstante: konstante,
+  {
+    wort: SPIELPLAN_NEU_ANLEGEN,
+    konstante: "SPIELPLAN_NEU_ANLEGEN",
     heim: "features/saisons/constants.ts",
     zeigen: [`${SAISON_FORM}/FormSpielplanSection.tsx`],
-  })),
+  },
+  {
+    wort: SPIELPLAN_ZURUECKNEHMEN,
+    konstante: "SPIELPLAN_ZURUECKNEHMEN",
+    heim: "features/saisons/constants.ts",
+    zeigen: [`${SAISON_FORM}/FormSpielplanSection.tsx`],
+  },
 ];
 
 /** One piece of German a module writes, where it sits. */
