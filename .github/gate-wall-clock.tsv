@@ -721,18 +721,18 @@
 # from 34 to 44 s and `db` from 123 to 141 s, other changes landing in it too. A change to any of the
 # three files costs one verification in its key's first run. No row moves and none takes a stamp.
 #
-# `frontend` lints with three eslint workers on a runner, where `--concurrency auto` resolves to two
-# on its four vCPUs (`scripts/gate/verify.sh :: do_eslint`). A cold eslint over `fl_frontend` spends
-# about 106 s of CPU linting and 29 s more for each worker's own setup: serial 135-142 s, two workers
-# 167-177 s and four 224-236 s of the whole process's CPU, three interleaved rounds each. The pool of
-# tsc, eslint and both knip runs, pinned to two cores with SMT as a four-vCPU runner may be, took
-# 78.9-106.4 s at two workers, 85.0-117.0 s at three and 96.9-163.9 s at four, three interleaved
+# `frontend` lints at `--concurrency auto` on a runner, two workers on its four vCPUs
+# (`scripts/gate/verify.sh :: do_eslint`), three having been tried. A cold eslint over `fl_frontend`
+# spends about 106 s of CPU linting and 29 s more for each worker's own setup: serial 135-142 s, two
+# workers 167-177 s and four 224-236 s of the whole process's CPU, three interleaved rounds each. The
+# pool of tsc, eslint and both knip runs, pinned to two cores with SMT as a four-vCPU runner may be,
+# took 78.9-106.4 s at two workers, 85.0-117.0 s at three and 96.9-163.9 s at four, three interleaved
 # rounds, the fleet sharing those cores. Measured locally on 2026-10-16 on a sixteen-core Windows
-# machine at 57-90 percent CPU from a fleet of agent sessions, so upper bounds that settle nothing
-# about a runner whose four vCPUs may be four cores. On the runner at two workers eslint took 45-52 s
-# on the fast class of machine, read off knip's 3.0-3.9 s beside it, and 63-86 s on the slow class,
-# over the 23 pull-request runs of 2026-10-16 from 09:52 UTC; whether three beat that is the eslint
-# spans of the runs carrying them to say. No row moves and none takes a stamp.
+# machine at 57-90 percent CPU from a fleet of agent sessions, so upper bounds. On the runner at two
+# workers eslint took 45-52 s on the fast class of machine, read off knip's 3.0-3.9 s beside it, and
+# 63-86 s on the slow class, over the 23 pull-request runs of 2026-10-16 from 09:52 UTC; at three it
+# took 47 s on a fast runner and 84 and 76 s on slow ones, three runs of the same day, none under its
+# class's two-worker floor. No row moves and none takes a stamp.
 #
 # `frontend` gained a fifth syntax ban in `fl_frontend/eslint.config.mjs :: SOURCE_BANS`, a heading
 # typed into `buildRefusal`'s `where`. eslint over `fl_frontend` at four threads with no cache took
