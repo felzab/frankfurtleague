@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { afterEach, describe, it, mock } from "node:test";
 
 import { APIBadStatusError, APINetworkError, RolledBackError } from "@/core/errors.ts";
 import { registerDoubles } from "@/core/exportingModule.ts";
@@ -90,11 +90,87 @@ const unreachable = (): APINetworkError =>
 /* Reached with `await import` and never a static import beside the doubles, which register as they evaluate. */
 const { eraseAufAnfrageAction, endAnmeldungenAction, readErasureAnsichtAction } = await import("./actions.ts");
 const { mapAbmeldungRefusal, mapErasureRefusal } = await import("./refusals.ts");
+const { ENROLMENT_WINDOW_MS } = await import("@/core/sessionLifetimes.ts");
 
 const ADRESSE = "Ada.Byron@Example.org";
 const ANLASS = "E-Mail vom 12.10.2026, Betreff Löschung meiner Daten";
 
 const erase = () => eraseAufAnfrageAction({ email: ADRESSE, anlass: ANLASS });
+
+describe("the enrolment's window an erasure of a grant holder's address is held to (`docs/frontend/spec.md :: I714`)", () => {
+  afterEach(() => mock.timers.reset());
+
+  /** The subject lookup's answer for an address holding `verwaltung`, every other call answered as before. */
+  const grantOf = (verwaltung: "owner" | "administration" | null) =>
+    answerWith((call) =>
+      Promise.resolve(
+        call.endpoint === "/identitaet/subjekt"
+          ? {
+              acknowledged: 1,
+              sitze: [],
+              spieler: [],
+              schiedsrichter: [],
+              unbestaetigt: false,
+              gesperrt: false,
+              verwaltung: verwaltung,
+              berechtigt_seit: verwaltung === null ? null : "2026-09-01T10:00:00+02:00",
+              inhaber_seit: verwaltung === "owner" ? "2026-09-01T10:00:00+02:00" : null,
+            }
+          : answerOf(call),
+      ),
+    );
+
+  /** A session inside the step-up window and past the enrolment's, as one confirmed six minutes ago is. */
+  const pastTheEnrolmentWindow = (): void => {
+    mock.timers.enable({ apis: ["Date"], now: Date.now() });
+    mock.timers.tick(ENROLMENT_WINDOW_MS + 60_000);
+  };
+
+  /* A grant written since the panel read the address: both servers refuse it, the frontend's before the backend is
+     asked, so the page re-reads its window and the next press asks the passkey. */
+  it("refuses a grant holder's address from a session past that window, asking the backend nothing and deleting nothing", async () => {
+    grantOf("administration");
+    pastTheEnrolmentWindow();
+    amAufruf.length = 0;
+
+    const result = await erase();
+
+    assert.equal(Reflect.get(result, "stepUp"), true, "a grant holder's erasure was let past the enrolment's window");
+    assert.deepEqual(
+      amAufruf.map(({ endpoint }) => endpoint),
+      ["/identitaet/subjekt"],
+    );
+    assert.deepEqual(request.deletedAccounts(), []);
+  });
+
+  it("erases an address holding no grant from that session, the step-up's window being the only one it asks", async () => {
+    grantOf(null);
+    pastTheEnrolmentWindow();
+    amAufruf.length = 0;
+
+    const result = await erase();
+
+    assert.equal(result.success, true);
+    assert.deepEqual(
+      amAufruf.map(({ endpoint }) => endpoint),
+      ["/identitaet/subjekt", "/identitaet/erasure"],
+    );
+  });
+
+  /* Read only where it can refuse: a session inside the enrolment's window passes whatever the address holds. */
+  it("reads no grant for a session inside that window", async () => {
+    grantOf("owner");
+    amAufruf.length = 0;
+
+    const result = await erase();
+
+    assert.equal(result.success, true);
+    assert.deepEqual(
+      amAufruf.map(({ endpoint }) => endpoint),
+      ["/identitaet/erasure"],
+    );
+  });
+});
 
 describe("the erasure on request", () => {
   /* The account last, once the league's records are gone: an account deleted ahead of a refused erasure leaves a
