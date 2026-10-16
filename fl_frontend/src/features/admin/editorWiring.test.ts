@@ -242,6 +242,8 @@ const teamProps = (over: { inactiveSince?: string; isMember?: boolean; locked?: 
   // `null` is the club that holds no junction row for the season, which is the one state
   // this sweep's fixture can take without the invite panel's own read.
   einladung: null,
+  // The planned season is the only one this fixture holds, so entered in it the club may not be retired.
+  isRetireable: over.isMember === false,
 });
 
 type Editor = {
@@ -925,6 +927,17 @@ const RECORD_MOVES: Record<string, RecordMove> = {
     press: "Reaktivieren",
     write: "reactivateSpielortAction",
   },
+  "the venue's retirement": {
+    render: async () => {
+      const { AdminSpielortEditView } = await import("@/features/spielorte/components/views/AdminSpielortEditView.tsx");
+
+      return renderEditor(h(AdminSpielortEditView, { spielort: SPIELORT, inactiveSince: null }));
+    },
+    type: (user) => typeInto(user, box("Name"), "Sportpark Nordwest"),
+    press: "Stilllegen",
+    dialog: { resting: "Stilllegen", armed: "Ja, stilllegen" },
+    write: "deleteSpielortAction",
+  },
   "the referee's reactivation": {
     render: async () => {
       const { AdminSchiedsrichterEditView } = await import("@/features/schiedsrichter/components/views/AdminSchiedsrichterEditView.tsx");
@@ -999,6 +1012,17 @@ const RECORD_MOVES: Record<string, RecordMove> = {
     type: (user) => typeInto(user, box("Vorname"), "Lena-Marie"),
     press: "Reaktivieren",
     write: "reactivateSpielerAction",
+  },
+  "the player's retirement": {
+    render: async () => {
+      const { AdminSpielerEditView } = await import("@/features/spieler/components/views/AdminSpielerEditView.tsx");
+
+      return renderEditor(h(AdminSpielerEditView, spielerProps()));
+    },
+    type: (user) => typeInto(user, box("Vorname"), "Lena-Marie"),
+    press: "Stilllegen",
+    dialog: { resting: "Stilllegen", armed: "Ja, stilllegen" },
+    write: "deleteSpielerAction",
   },
   // The address panel's two link writes, each re-keying the editor on the moved block.
   "the player's address change": {
@@ -1088,6 +1112,17 @@ const RECORD_MOVES: Record<string, RecordMove> = {
     press: "Reaktivieren",
     write: "reactivateSpielerAction",
   },
+  "the player's retirement, over a typed new address": {
+    render: async () => {
+      const { AdminSpielerEditView } = await import("@/features/spieler/components/views/AdminSpielerEditView.tsx");
+
+      return renderEditor(h(AdminSpielerEditView, spielerProps()));
+    },
+    type: typeNewAddress,
+    press: "Stilllegen",
+    dialog: { resting: "Stilllegen", armed: "Ja, stilllegen" },
+    write: "deleteSpielerAction",
+  },
   "the player's squad entry, over a typed new address": {
     render: async () => {
       const { AdminSpielerEditView } = await import("@/features/spieler/components/views/AdminSpielerEditView.tsx");
@@ -1118,6 +1153,17 @@ const RECORD_MOVES: Record<string, RecordMove> = {
     type: (user) => typeInto(user, box("PLZ"), "60436"),
     press: "Reaktivieren",
     write: "reactivateTeamAction",
+  },
+  "the club's retirement": {
+    render: async () => {
+      const { AdminTeamEditView } = await import("@/features/teams/components/views/AdminTeamEditView.tsx");
+
+      return renderEditor(h(AdminTeamEditView, teamProps({ isMember: false })));
+    },
+    type: (user) => typeInto(user, box("PLZ"), "60436"),
+    press: "Stilllegen",
+    dialog: { resting: "Stilllegen", armed: "Ja, stilllegen" },
+    write: "deleteTeamAction",
   },
   "the club's season entry": {
     render: async () => {
@@ -1207,6 +1253,23 @@ describe("a press whose write moves the record the page keys its editor by", () 
       );
     });
   }
+});
+
+describe("the club editor's retirement", () => {
+  /* Offered there, the press would open a dialog whose write `REQ-RETIRE-001` refuses; the list's row closes it with
+     the same sentence. */
+  it("stands closed with the list's sentence while a planned season holds the club, and opens no dialog", async () => {
+    const { AdminTeamEditView } = await import("@/features/teams/components/views/AdminTeamEditView.tsx");
+    const { TEAM_NICHT_STILLLEGBAR } = await import("@/features/teams/constants.ts");
+    const user = userEvent.setup();
+    renderEditor(h(AdminTeamEditView, teamProps()));
+    calls.length = 0;
+
+    await user.click(screen.getByRole("button", { name: "Stilllegen", description: TEAM_NICHT_STILLLEGBAR }));
+
+    assert.equal(screen.queryAllByRole("alertdialog").length, 0, "the closed retirement opened its dialog");
+    assert.deepEqual(written(), []);
+  });
 });
 
 /** Four clubs in each of the season's two groups, so a redraw stands open. */

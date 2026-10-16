@@ -31,7 +31,7 @@ import { getGermanTodayStr } from "@/shared/utils/date";
 import { alterAusserhalb, EINWILLIGUNG_UMFANG_OPTIONS } from "./constants";
 
 /** The one thing a visitor's body can be wrong about that no input renders: the token their link carried. */
-const LINK_UNVOLLSTAENDIG = "Bitte öffne den Link noch einmal.";
+const LINK_UNVOLLSTAENDIG = "Bitte öffne den Link erneut.";
 
 /**
  * Mirrors `fl_backend/app/api/bewerbungen/schemas.py :: CustomBewerbungToken`: both of this slice's
