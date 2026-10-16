@@ -3,7 +3,7 @@ import { SPERRLISTE_ADRESSE_GESPERRT } from "@/features/sperrliste/constants";
 import { isRefusal } from "@/shared/utils/actionError";
 import { buildRefusal, LADE_DIE_SEITE_NEU } from "@/shared/utils/refusal";
 
-import { ALREADY_IN_SAISON, STUFE_NICHT_ZUGELASSEN } from "./constants";
+import { ADRESSE_AENDERN, ALREADY_IN_SAISON, STUFE_NICHT_ZUGELASSEN } from "./constants";
 
 import type { FieldErrors } from "@/shared/utils/validation";
 
@@ -115,7 +115,7 @@ export function mapAdresswechselLinkRefusal(error: unknown): string | null {
       return SPERRLISTE_ADRESSE_GESPERRT;
     // The panel has no box, so the sentence names the two ways out it does hold.
     case "REQ-SPIELER-006":
-      return `${ADRESSE_BELEGT} Verwirf die Änderung oder gib unter „Adresse ändern“ eine andere ein.`;
+      return `${ADRESSE_BELEGT} Verwirf die Änderung oder gib unter „${ADRESSE_AENDERN}“ eine andere ein.`;
     // A stored address emptied under a waiting change, which only a hand edit reaches: the link would
     // be refused at the confirmation, so the discard is the one way out.
     case "REQ-SPIELER-008":

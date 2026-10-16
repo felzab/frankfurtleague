@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
+import { NICHT_MEINE_ADRESSE } from "@/core/adresswechselAntworten.ts";
 import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
@@ -250,6 +251,7 @@ describe("the two messages an address change sends", () => {
     });
 
     for (const teil of [mailNeu.text, mailNeu.html]) {
+      assert.ok(teil.includes(`„${NICHT_MEINE_ADRESSE}“`), "a part names a decline the address page does not offer");
       assert.match(teil, /Tust Du nichts, löschen wir sie am Tag nach Ablauf des Links\./);
       assert.doesNotMatch(teil, /abgelaufen ist/);
       assert.doesNotMatch(teil, /ignorier/);

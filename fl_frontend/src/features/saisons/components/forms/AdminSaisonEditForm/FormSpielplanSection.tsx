@@ -13,7 +13,7 @@ import { ToggleButtonGroup } from "@heroui/react/toggle-button-group";
 import { generateSpielplanAction, undrawSpielplanAction } from "@/features/saisons/actions";
 import { SaisonCountSelect, SaisonRuleNumberField } from "@/features/saisons/components/forms/SaisonFormControls";
 import { STUFE_CHIP_CLASSES } from "@/features/saisons/components/forms/StufenPicker";
-import { PHASE_LABELS } from "@/features/saisons/constants";
+import { PHASE_LABELS, SPIELPLAN_NEU_ANLEGEN, SPIELPLAN_ZURUECKNEHMEN } from "@/features/saisons/constants";
 import { FLGenerateSpielplanPayloadSchema } from "@/features/saisons/schemas";
 import {
   drawGroupCountOptions,
@@ -306,12 +306,12 @@ export function FormSpielplanSection({
             <ToggleButton
               id="anlegen"
               className={STUFE_CHIP_CLASSES}>
-              Neu anlegen
+              {SPIELPLAN_NEU_ANLEGEN}
             </ToggleButton>
             <ToggleButton
               id="zuruecknehmen"
               className={STUFE_CHIP_CLASSES}>
-              Zurücknehmen
+              {SPIELPLAN_ZURUECKNEHMEN}
             </ToggleButton>
           </ToggleButtonGroup>
         )}

@@ -6,6 +6,7 @@ import CircleCheck from "@gravity-ui/icons/CircleCheck";
 
 import { Button } from "@heroui/react/button";
 
+import { JA_MEINE_ADRESSE, NICHT_MEINE_ADRESSE } from "@/core/adresswechselAntworten";
 import { KONTAKT_EMAIL } from "@/core/brand";
 import { ABSATZ_CLASSES, Wert } from "@/features/bewerbungen/components/ui/Gefuellt";
 import { SEITE_CLASSES } from "@/features/bewerbungen/components/ui/seite";
@@ -49,9 +50,6 @@ const TITEL: Record<Exclude<Stand["zustand"], "gesperrt">, string> = {
   ungueltig: "Link ungültig",
   unlesbar: LINK_UNLESBAR_TITEL,
 };
-
-export const JA_MEINE_ADRESSE = "Ja, das ist meine Adresse";
-export const NICHT_MEINE_ADRESSE = "Das ist nicht meine Adresse";
 
 /** Sends one answer through the link and hands its outcome to the page: a result, or the state a refused press leaves the link in. */
 function useAntwort(token: string, onAbschluss: (stand: Stand) => void) {

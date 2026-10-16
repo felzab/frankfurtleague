@@ -134,6 +134,10 @@ export const RECORDED_FACTS_NONE =
   "kein Ergebnis, kein Ausfall, kein Ort, kein Schiedsrichter, keine Notiz und keine von Hand geänderte Herkunft";
 export const RECORDED_FACTS_ANY = "ein Ergebnis, ein Ausfall, ein Ort, ein Schiedsrichter, eine Notiz oder eine von Hand geänderte Herkunft";
 
+/** The Spielplan panel's two operations, which its closed press names by these labels: one spelling for the choice and the sentence. */
+export const SPIELPLAN_NEU_ANLEGEN = "Neu anlegen";
+export const SPIELPLAN_ZURUECKNEHMEN = "Zurücknehmen";
+
 /**
  * Here rather than in `actions.ts`, which as a `"use server"` module exports actions alone: the draw's
  * `REQ-SPIELPLAN-004` refusal and the press closed ahead of it read this one sentence, so neither can

@@ -9,6 +9,7 @@ import { act, createElement as h } from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
+import { JA_MEINE_ADRESSE, NICHT_MEINE_ADRESSE } from "@/core/adresswechselAntworten.ts";
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 import { answerReadsWith, pageBody } from "@/shared/testing/pageHarness.ts";
@@ -23,7 +24,7 @@ const { raised: toasts } = doubleToasts();
 const fetchMock = doubleFetch();
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
-const { JA_MEINE_ADRESSE, NICHT_MEINE_ADRESSE, SchiedsrichterAdresswechselView } = await import("./SchiedsrichterAdresswechselView.tsx");
+const { SchiedsrichterAdresswechselView } = await import("./SchiedsrichterAdresswechselView.tsx");
 const { startOf } = await import("@/features/schiedsrichter/adresswechselStart.ts");
 const { LinkUnlesbar } = await import("@/features/bewerbungen/components/views/BestaetigungPanels.tsx");
 const { default: SchiedsrichterAdresswechselPage } = await import("@/app/(public)/bestaetigung/schiedsrichter/adresse/page.tsx");

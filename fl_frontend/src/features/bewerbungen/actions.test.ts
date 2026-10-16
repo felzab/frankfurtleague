@@ -15,7 +15,7 @@ import { formatSpielDatum } from "@/shared/utils/format.ts";
 import { labelBadge } from "../../shared/components/ui/badges.ts";
 import { buildTeamBanners } from "../teams/components/forms/AdminTeamEditForm/banners.ts";
 import { mapAlreadyEnteredRefusal, mapCreatedClubEntryRefusal, mapEntryRefusal, mapReplacementRefusal } from "../teams/refusals.ts";
-import { BEWERBUNG_GRUND_MAX_LENGTH, ERNEUT_OHNE_ADRESSE } from "./constants.ts";
+import { ADRESSE_KORRIGIEREN, BEWERBUNG_GRUND_MAX_LENGTH, ERNEUT_OHNE_ADRESSE } from "./constants.ts";
 import { mapEinwilligungErneutRefusal, mapKontaktEmailRefusal, mapKontaktSitzRefusal, mapTriageRefusal } from "./refusals.ts";
 import { FLAblehnenBewerbungPayloadSchema, FLBewerbungSchema } from "./schemas.ts";
 
@@ -772,7 +772,7 @@ describe("the re-sent confirmation link", () => {
   it("words a barred address with the control the administrator can use from the button", () => {
     const answered = mapEinwilligungErneutRefusal(refusedOn(ERNEUT_OPERATION, "REQ-BEWERBUNG-019", 409));
 
-    assert.match(String(answered), /Adresse korrigieren/);
+    assert.ok(String(answered).includes(`„${ADRESSE_KORRIGIEREN}“`), "the sentence names a control the strip does not label so");
     assert.doesNotMatch(String(answered), /Trage eine andere Adresse ein/);
   });
 

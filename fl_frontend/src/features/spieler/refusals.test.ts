@@ -5,6 +5,7 @@ import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 import { assertEachAnswered, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 
+import { ADRESSE_AENDERN } from "./constants.ts";
 import {
   KEINE_ADRESSE_HINTERLEGT,
   mapAdresswechselAntragRefusal,
@@ -137,6 +138,11 @@ describe("what each address write answers a refusal with", () => {
       assert.deepEqual(mapAdresswechselAntragRefusal(refusedOn(REQUEST_OPERATION, code)), { error: satz, fieldErrors: { email: satz } });
     });
   }
+
+  /* The waiting change's panel has no box, so its refusal sends the administrator to the press that opens one, by that press's label. */
+  it("names the address box's own press where a pending address is taken", () => {
+    assert.match(mapAdresswechselLinkRefusal(refusedOn(RESEND_OPERATION, "REQ-SPIELER-006")) ?? "", new RegExp(`„${ADRESSE_AENDERN}“`));
+  });
 
   /* No box stands for a pupil holding no address, so only a stale page meets this. */
   it("lands the request's REQ-SPIELER-008 on no box", () => {
