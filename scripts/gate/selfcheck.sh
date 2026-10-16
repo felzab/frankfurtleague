@@ -1020,6 +1020,7 @@ import(pathToFileURL(reader).href).then(({ refusal }) => {
   expect_let_through implementer Bash 'uv run --frozen pytest --version'
   expect_let_through implementer Bash 'uv run --frozen pytest -h'
   expect_let_through implementer Bash 'git log -- scripts/gate/verify.sh'
+  expect_let_through implementer Bash 'bash -n scripts/gate/verify.sh'
   expect_let_through implementer Bash "git commit -F - <<'EOF'"$'\n''pnpm test'$'\n''EOF'
   expect_let_through implementer Bash 'true # ; pnpm test'
   expect_let_through implementer Bash 'echo "an unterminated quote'
