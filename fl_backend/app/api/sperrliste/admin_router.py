@@ -108,7 +108,13 @@ async def get_sperrliste(sperrliste_collection: SperrlisteCollection, sperrliste
 
 
 @router.post(
-    "", response_model=FLPostSperrlisteResponse, status_code=201, summary="Ban an email address", responses={409: DUPLICATE_KEY_RESPONSE}
+    "",
+    response_model=FLPostSperrlisteResponse,
+    status_code=201,
+    summary="Ban an email address",
+    responses={409: DUPLICATE_KEY_RESPONSE},
+    # The frontend signs the address out and mails it once this answers, and nothing undoes either.
+    dependencies=[Depends(verify_step_up)],
 )
 async def post_sperrliste_eintrag(
     sperrliste_data: Annotated[FLPostSperrlistePayload, Body()],

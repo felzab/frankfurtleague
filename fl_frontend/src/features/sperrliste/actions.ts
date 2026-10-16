@@ -130,7 +130,7 @@ export async function readSperreAnsichtAction(
 }
 
 export async function postSperreAction(rawPayload: FLPostSperrlistePayload): Promise<ActionResult> {
-  return runAdminMutation("postSperreAction", async () => {
+  return runAdminMutation("postSperreAction", { stepUp: true }, async () => {
     const validated = FLPostSperrlistePayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {

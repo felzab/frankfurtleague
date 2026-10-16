@@ -69,7 +69,8 @@ export function AdminCreateSperreForm({ onClose }: { onClose: () => void }) {
   // Only the latest arming's read answers, and only while the address box is unedited since: Next sends one client's
   // actions one at a time, so an earlier arming's answer lands while the latest waits.
   const letzteLesung = useRef(0);
-  const confirm = useTwoPressConfirm();
+  // The ban's armed press asks the passkey as its lift's does: the sign-out and the notice behind it are undone by nothing.
+  const confirm = useTwoPressConfirm({ stepUp: true });
   const { isConfirming, isPending } = confirm;
   const { setSubmitFieldErrors, reportSubmitFailure, guardSubmit, useForgiveFixed, formWiring } = useDraftFieldErrors({
     schemas: { sperre: FLPostSperrlistePayloadSchema },
