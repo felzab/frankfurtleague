@@ -7,13 +7,13 @@ import { leaveDocumentFor } from "@/shared/utils/documentNavigation";
 
 import { useTwoPressConfirm } from "./useTwoPressConfirm";
 
-import type { FormState } from "@/shared/types/types";
+import type { SignOutResult } from "@/shared/types/types";
 
 /**
  * The sign-out's behaviour without its appearance: two surfaces offer it and look nothing alike, but what pressing either
  * does must not differ. `disarm` is each surface's own escape, that gesture differing where the reset does not.
  */
-export function useSignOut(onSignOut: () => Promise<FormState>) {
+export function useSignOut(onSignOut: () => Promise<SignOutResult>) {
   // The panels' own two-press control, whose double-press window keeps a double-click from ending the
   // session before the armed control was read (`docs/frontend/spec.md :: I37`).
   const confirm = useTwoPressConfirm();
@@ -43,7 +43,7 @@ export function useSignOut(onSignOut: () => Promise<FormState>) {
     try {
       const result = await onSignOut();
 
-      if (result && !result.success) {
+      if (!result.success) {
         appToast.danger("Nicht abgemeldet", { description: result.error });
         return;
       }

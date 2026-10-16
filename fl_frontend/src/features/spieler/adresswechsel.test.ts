@@ -183,6 +183,23 @@ describe("the request for a pupil's new address", () => {
     }
   });
 
+  /* A courtesy beside a saved write words its own doubt (`docs/frontend/spec.md :: I372`): the request and its link
+     stand, so the press is never answered as of unknown outcome for the notice alone. */
+  it("reports a notice whose send broke off unanswered as unclear, beside the link that went", async () => {
+    mail.answerWith(({ to }) => (to === BISHER ? "lost" : "accepted"));
+
+    const requested = await beantrageSpielerAdresswechselAction({ id: SPIELER_ID, email: GETIPPT });
+    const resent = await einladeSpielerAdresswechselAction({ id: SPIELER_ID });
+
+    for (const res of [requested, resent]) {
+      assert.deepEqual(res.success ? [res.versand, res.hinweis] : [res], ["gesendet", "ungewiss"]);
+      assert.match(
+        res.success ? (res.message ?? "") : "",
+        /Ob der Hinweis an die bisherige Adresse angekommen ist, ist unklar\. Sag der Person selbst Bescheid\./,
+      );
+    }
+  });
+
   it("mails nothing where the request was refused", async () => {
     request = () => refusedOn(REQUEST_OPERATION, "REQ-SPIELER-006");
 

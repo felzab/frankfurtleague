@@ -49,7 +49,7 @@ const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
  * The „Stand“ and the words it dates, frozen together: a reader told nothing changed since that day
  * has been misled by any edit that left the date standing.
  */
-const FASSUNG = { stand: "16. Oktober 2026", digest: "193ad6c32c3f51220f1ac1a90eb1670152651ef1d9448a9f59e974d0e0439653" } as const;
+const FASSUNG = { stand: "16. Oktober 2026", digest: "5c7732387cd45440e08bd87a65d2129cdb528ddb0eb3dc5fb2ff4c5fe189f5dc" } as const;
 
 /** Every word the page renders but its date, so moving the date alone never passes for moving the words. */
 const wortlautDigest = (): string =>
@@ -248,6 +248,24 @@ describe("the privacy notice's retention table", () => {
       ),
     );
     assert.equal(ANGABEN.get("Sicherungskopien der Datenbank"), "Etwa acht Tage");
+  });
+
+  /* No erasure reaches the mail provider's copies, every message the league sent among them, and they outlive the
+     backups (`docs/datenschutz.md` §7): a person told only of the backups is told the shorter of the two. */
+  it("tells a person an erasure leaves every copy at the mail provider, where the deletion is explained and in the provider's row", () => {
+    const absatz = ABSAETZE.find((text) => text.startsWith("Was eine Löschung erreicht und was nicht:")) ?? "";
+
+    assert.ok(
+      absatz.endsWith(
+        "Auch die Kopien unserer E-Mails beim Versanddienst Resend erreicht eine Löschung nicht. Wie lange sie dort bleiben, steht in Abschnitt 13.",
+      ),
+      absatz,
+    );
+    assert.equal(
+      ANGABEN.get("E-Mails der Liga beim Versanddienst Resend: Empfängeradresse, Betreff, Inhalt und Zustellstand"),
+      "30 Tage bei Resend, in dessen Sicherungskopien bis zu einer Woche länger. Eine Löschung bei uns erreicht diese E-Mails nicht: " +
+        "Sie bleiben bei Resend bis dahin bestehen",
+    );
   });
 
   it("gives a sign-in code its lifetime in words, at the constant the sign-in enforces", () => {
@@ -469,12 +487,13 @@ const ERSETZT: readonly { weg: string; statt?: string }[] = [
     weg: "30 Tage, damit wir die Löschung erneut ausführen können",
     statt: "in einer eigenen Datei je Tag, die wir 30 Tage nach ihrer letzten Änderung löschen",
   },
-  // A ban's reason refuses a name of the address's own records as stored (`docs/backend/spec.md :: I726`).
+  // A ban's reason refuses a name of the address's own records in lower case or in capitals (`docs/backend/spec.md :: I726`).
   {
     weg: "steht darin ein Name, bleibt er mit dem Eintrag stehen",
     statt:
-      "Einen Namen, so wie er unter der gesperrten Adresse eingetragen ist, lassen wir darin nicht zu. Ein Name, der dort " +
-      "nicht so steht, etwa anders geschrieben, kann darin stehen und bleibt dann mit dem Eintrag stehen.",
+      "Einen Namen, so wie er unter der gesperrten Adresse eingetragen ist, lassen wir darin nicht zu, auch nicht in anderer " +
+      "Groß- oder Kleinschreibung. In den Formen, die Abschnitt 13 für die Angabe zu einer Anfrage nennt, kann ein Name darin " +
+      "stehen und bleibt dann mit dem Eintrag stehen.",
   },
 ];
 
@@ -521,10 +540,10 @@ describe("the privacy notice's account of the site's own protection", () => {
   it("lists an address's short-lived anchor, held as a key and never as the address, with the pass that removes it", () => {
     const frist =
       ANGABEN.get(
-        "Kurzzeitiger Vermerk zu einer E-Mail-Adresse: die Adresse als unlesbarer Schlüssel, ein Zähler und der Zeitpunkt seiner letzten Änderung",
+        "Kurzzeitige Markierung einer E-Mail-Adresse: die Adresse als unlesbarer Schlüssel, ein Zähler und der Zeitpunkt ihrer letzten Änderung",
       ) ?? "";
 
-    assert.ok(frist.startsWith("Kurz nach seiner letzten Änderung: Die Datenbank löscht ihn beim nächsten Aufräumen,"), frist);
+    assert.ok(frist.startsWith("Kurz nach ihrer letzten Änderung: Die Datenbank löscht sie beim nächsten Aufräumen,"), frist);
     assert.ok(frist.includes("verzögern kann"), frist);
     assert.ok(frist.includes("wenn wir die Daten einer Adresse löschen"), frist);
   });
@@ -766,17 +785,19 @@ describe("the privacy notice's publication and retention rows keep their ruled b
     );
   });
 
-  /* Every log row the administrator's erasure files carries the request it answers (`docs/backend/spec.md :: I683`),
-     which refuses the person's names only as stored (`:: I721`): the emptied rows are not all the log keeps of an erasure. */
+  /* Every log row the administrator's erasure files carries its request (`docs/backend/spec.md :: I683`), which refuses
+     only a name of theirs in lower case or capitals (`:: I721`): the emptied rows are not all the log keeps of an erasure. */
   it("promises every erasure asked for an emptied action log, and says the log keeps the erasure with the request's date and kind", () => {
     rendert(
       "Das Änderungsprotokoll: Jede Änderung an den Daten der Liga wird mit dem vorherigen Stand festgehalten, damit ein Fehler " +
         "zurückgenommen werden kann. Dieses Protokoll kann deshalb auch Deine Daten enthalten. Bei einer Löschung auf Wunsch werden " +
         "Deine Einträge darin sofort geleert. Bittest Du uns darum, hält das Protokoll die Löschung selbst fest, mit dem Datum und " +
         "der Art Deiner Anfrage. Das bleibt dort wie jede andere Änderung zwölf Monate stehen. Deinen Namen, so wie er bei uns " +
-        "eingetragen ist, lassen wir in der Angabe zu Deiner Anfrage nicht zu. Anders geschrieben kann er dort für diese zwölf " +
-        "Monate stehen. Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO; unser berechtigtes Interesse ist, Fehler in den Daten der " +
-        "Liga erkennen und rückgängig machen zu können.",
+        "eingetragen ist, lassen wir in der Angabe zu Deiner Anfrage nicht zu, auch nicht in anderer Groß- oder Kleinschreibung. " +
+        "Stehen kann er dort für diese zwölf Monate anders geschrieben, etwa mit „ue“ statt „ü“, als Teil eines längeren Wortes, " +
+        "als einzelner Buchstabe, als kurzer Namensteil wie „von“ oder „Le“, auf den in Deinem Namen ein weiterer folgt, und als " +
+        "früherer Name, der bei uns nicht mehr eingetragen ist. Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO; unser berechtigtes " +
+        "Interesse ist, Fehler in den Daten der Liga erkennen und rückgängig machen zu können.",
     );
   });
 

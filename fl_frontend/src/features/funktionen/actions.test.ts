@@ -100,24 +100,10 @@ const erase = () => eraseAufAnfrageAction({ email: ADRESSE, anlass: ANLASS });
 describe("the enrolment's window an erasure of a grant holder's address is held to (`docs/frontend/spec.md :: I714`)", () => {
   afterEach(() => mock.timers.reset());
 
-  /** The subject lookup's answer for an address holding `verwaltung`, every other call answered as before. */
+  /** The reveal's answer for an address holding `verwaltung`, every other call answered as before. */
   const grantOf = (verwaltung: "owner" | "administration" | null) =>
     answerWith((call) =>
-      Promise.resolve(
-        call.endpoint === "/identitaet/subjekt"
-          ? {
-              acknowledged: 1,
-              sitze: [],
-              spieler: [],
-              schiedsrichter: [],
-              unbestaetigt: false,
-              gesperrt: false,
-              verwaltung: verwaltung,
-              berechtigt_seit: verwaltung === null ? null : "2026-09-01T10:00:00+02:00",
-              inhaber_seit: verwaltung === "owner" ? "2026-09-01T10:00:00+02:00" : null,
-            }
-          : answerOf(call),
-      ),
+      Promise.resolve(call.endpoint === "/identitaet/erasure/ansicht" ? { ...ANSICHT, verwaltung: verwaltung } : answerOf(call)),
     );
 
   /** A session inside the step-up window and past the enrolment's, as one confirmed six minutes ago is. */
@@ -138,7 +124,7 @@ describe("the enrolment's window an erasure of a grant holder's address is held 
     assert.equal(Reflect.get(result, "stepUp"), true, "a grant holder's erasure was let past the enrolment's window");
     assert.deepEqual(
       amAufruf.map(({ endpoint }) => endpoint),
-      ["/identitaet/subjekt"],
+      ["/identitaet/erasure/ansicht"],
     );
     assert.deepEqual(request.deletedAccounts(), []);
   });
@@ -153,8 +139,28 @@ describe("the enrolment's window an erasure of a grant holder's address is held 
     assert.equal(result.success, true);
     assert.deepEqual(
       amAufruf.map(({ endpoint }) => endpoint),
-      ["/identitaet/subjekt", "/identitaet/erasure"],
+      ["/identitaet/erasure/ansicht", "/identitaet/erasure"],
     );
+  });
+
+  /* The subject lookup holds an address to the rule it is stored under today and answers 422 for one stored under an
+     older rule, which the erasure and its reveal take (`docs/backend/spec.md :: I329`). */
+  it("erases an address the subject lookup refuses, asking the reveal whether it holds a grant", async () => {
+    const aelter = "jörg@schule.de";
+    answerWith((call) =>
+      call.endpoint === "/identitaet/subjekt" ? Promise.reject(refused(call.endpoint, "REQ-VAL-001", 422)) : Promise.resolve(answerOf(call)),
+    );
+    pastTheEnrolmentWindow();
+    amAufruf.length = 0;
+
+    const result = await eraseAufAnfrageAction({ email: aelter, anlass: ANLASS });
+
+    assert.equal(result.success, true, "an address stored under an older rule could not be erased past the enrolment's window");
+    assert.deepEqual(
+      amAufruf.map(({ endpoint }) => endpoint),
+      ["/identitaet/erasure/ansicht", "/identitaet/erasure"],
+    );
+    assert.deepEqual(request.deletedAccounts(), [aelter]);
   });
 
   /* Read only where it can refuse: a session inside the enrolment's window passes whatever the address holds. */

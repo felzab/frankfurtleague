@@ -10,7 +10,7 @@ import { IconTooltip } from "../../ui/IconTooltip";
 import { RAIL_GUTTER_CLASSES, RAIL_SQUARE_RING_CLASSES } from "./railGutter";
 import { SidemenuOptionsMenu } from "./SidemenuOptionsMenu";
 
-import type { FormState } from "@/shared/types/types";
+import type { SignOutResult } from "@/shared/types/types";
 
 export function SidemenuFooter({
   isDesktopCollapsed,
@@ -23,7 +23,7 @@ export function SidemenuFooter({
   onToggleDesktopMenu: () => void;
   /** Required, not optional: `Sidemenu` is the only caller and it always owns the drawer's state. */
   onMobileNavigate: () => void;
-  onSignOut?: () => Promise<FormState>;
+  onSignOut?: () => Promise<SignOutResult>;
   kontoHref: string | null;
 }) {
   // Hoisted out of the class template for the reason `AppTopBar` gives.

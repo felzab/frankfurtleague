@@ -154,6 +154,20 @@ describe("the save moving a confirmed referee's address", () => {
     assert.match(res.success ? (res.versandSatz ?? "") : "", /Sag der Person selbst Bescheid/);
   });
 
+  /* A courtesy beside a saved write words its own doubt (`docs/frontend/spec.md :: I372`): the save and its link stand,
+     so the press is never answered as of unknown outcome for the notice alone. */
+  it("reports a notice whose send broke off unanswered as unclear, beside the save and its link", async () => {
+    mail.answerWith(({ to }) => (to === BISHER ? "lost" : "accepted"));
+
+    const res = await patchSchiedsrichterAction(ENTWURF);
+
+    assert.deepEqual(res.success ? [res.versand, res.hinweis] : [res], ["gesendet", "ungewiss"]);
+    assert.match(
+      res.success ? (res.versandSatz ?? "") : "",
+      /Ob der Hinweis an die bisherige Adresse angekommen ist, ist unklar\. Sag der Person selbst Bescheid\./,
+    );
+  });
+
   it("reports a link that did not leave as failed, and says to reach the person", async () => {
     mail.answerWith(({ to }) => (to === NEU ? "refused" : "accepted"));
 
@@ -196,6 +210,18 @@ describe("the pending address change's two controls", () => {
     const res = await einladeAdresswechselAction({ id: SCHIEDSRICHTER_ID });
 
     assert.deepEqual(res.success ? [res.versand, res.hinweis] : [], ["gesendet", "fehlgeschlagen"]);
+  });
+
+  it("reports a re-send's notice whose send broke off unanswered as unclear, beside the link that went", async () => {
+    mail.answerWith(({ to }) => (to === BISHER ? "lost" : "accepted"));
+
+    const res = await einladeAdresswechselAction({ id: SCHIEDSRICHTER_ID });
+
+    assert.deepEqual(res.success ? [res.versand, res.hinweis] : [res], ["gesendet", "ungewiss"]);
+    assert.match(
+      res.success ? (res.message ?? "") : "",
+      /Ob der Hinweis an die bisherige Adresse angekommen ist, ist unklar\. Sag der Person selbst Bescheid\./,
+    );
   });
 
   it("answers a barred pending address in the ban list's words and mails nothing", async () => {

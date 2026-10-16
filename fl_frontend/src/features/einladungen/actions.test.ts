@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 import { answerShown, assertEachAnswered, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
@@ -19,9 +20,11 @@ function landed({ endpoint, method }: ApiCall): Record<string, unknown> {
   return { acknowledged: 1, ...KEY, einladung_id: EINLADUNG_ID, token: "t", erstellt_am: "2026-09-01", erstellt_von: "vorstand@example.org" };
 }
 
-/* The real actions and their mutations, called: the request they run in and the backend client are the doubles. */
+/* The real actions and their mutations, called: the request they run in, the backend client and the config are the
+   doubles. Without the origin every deployment sets, the mint and the send fail past their writes. */
 doubleActionRequest();
 const { answerWith, calls } = doubleApiAnswers((call) => Promise.resolve(landed(call)));
+registerDoubles({ modules: { "core/config.ts": { frontend_config: { AUTH_URL: "https://liga.example.de" } } } });
 const { deleteEinladungAction, postEinladungAction, postEinladungVersandAction } = await import("./actions.ts");
 
 const MINT_OPERATION = "POST /teams/{team_id}/saisons/{saison_id}/einladung";
@@ -30,11 +33,17 @@ const VERSAND_OPERATION = "POST /saisons/{saison_id}/einladungen/versand";
 const REGISTRIERUNG_OPERATION = "POST /registrierungen";
 
 describe("the invite's writes", () => {
-  it("address the mint and the revoke by both ids in the path, and the send by its season", async () => {
-    await postEinladungAction(KEY);
-    await deleteEinladungAction(KEY);
-    await postEinladungVersandAction({ id: KEY.saison_id, erneut: true });
+  it("address the mint and the revoke by both ids in the path, and the send by its season, each answering it landed", async () => {
+    const answers = [
+      await postEinladungAction(KEY),
+      await deleteEinladungAction(KEY),
+      await postEinladungVersandAction({ id: KEY.saison_id, erneut: true }),
+    ];
 
+    assert.deepEqual(
+      answers.map((answer) => answer.success),
+      [true, true, true],
+    );
     const einladung = `/teams/${KEY.team_id}/saisons/${KEY.saison_id}/einladung`;
     assert.deepEqual(requestsOf(calls), [
       { endpoint: einladung, method: "POST", body: undefined },
