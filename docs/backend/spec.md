@@ -204,9 +204,9 @@ taken under `sperrliste_schluessel`, the address itself dropped (§1.5), and the
 even that hash away — so neither a response nor a log line carries a value the barred address can be
 recovered from (I268, I269). **The row is not anonymous for that:** `erstellt_von` is the
 administrator's own address in plain and `grund` is free text, refused a name the address's own
-records hold as stored (I726) and so naming the person barred only spelled otherwise or where no
-record names them, both of them served — `erstellt_von` withheld where the ban list holds that
-administrator too (I452) — `grund` outliving an erasure, and `erstellt_von` reading `ERASED_ACTOR_MARKER` once that administrator's
+records hold (I726) and so naming the person barred in any form I721's refusal passes
+(`docs/datenschutz.md` §5) or where no record names them, both of them served — `erstellt_von`
+withheld where the ban list holds that administrator too (I452) — `grund` outliving an erasure, and `erstellt_von` reading `ERASED_ACTOR_MARKER` once that administrator's
 own erasure has run (I660, `docs/glossary.md :: Sperrliste`). **What asks the
 list:** `fl_backend/app/api/sperrliste/crud.py :: address_is_gesperrt` is reached by
 the ban's own write, by the grant write, refusing `REQ-BERECHTIGUNG-003` (I437), by the public

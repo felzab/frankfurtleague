@@ -618,8 +618,9 @@ Every ruling below is the sign-up flow as it stands for the next season.
   that reaches everything else (`docs/backend/spec.md :: I268`). **The row is pseudonymised personal
   data rather than none** — this controller holds the key that re-identifies it — and the person
   barred is in it past their own erasure. The free-text reason refuses a name the address's own
-  records hold as stored (`docs/backend/spec.md :: I726`), so it may still name them spelled
-  otherwise, or outright where no record of the address names them. The
+  records hold, by the erasure's own rule below (`docs/backend/spec.md :: I726`), so it may still
+  name them in any form that rule lists as passing, or outright where no record of the address
+  names them. The
   administrator who entered it stands in `erstellt_von` in plain until their own erasure gives the
   row a marker naming nobody (`docs/backend/spec.md :: I660`). The basis for keeping either is what
   [section 11](#11-open-and-owed-a-decision) asks the Datenschutzexperte to confirm.
@@ -639,14 +640,17 @@ Every ruling below is the sign-up flow as it stands for the next season.
   name search would take a namesake's text with it. The request an administrator's erasure answers
   (`aktionen.anlass`) stands on every log row that erasure files, for the log's twelve months
   (`docs/backend/spec.md :: I683`, `:: I119`). It is refused where it holds an address
-  (`fl_backend/app/api/identitaet/schemas.py :: refuse_an_address_in_the_anlass`) or a name of the
-  person's own records as stored (`docs/backend/spec.md :: I721`), so a name it still carries past
-  the erasure is one of these:
-  - written otherwise than stored: a nickname, a misspelling, or another spelling of an umlaut or
-    „ß“, such as „Mueller“ or „Weiss“;
+  (`fl_backend/app/api/identitaet/schemas.py :: refuse_an_address_in_the_anlass`) or a word equal
+  to a name of the person's own records in lower case or in capitals
+  (`docs/backend/spec.md :: I721`), so „MÜLLER“ is refused for „Müller“, and „Weiss“ and „WEISS“
+  for „Weiß“, whose capitals they share. A name it still carries past the erasure is one of these:
+  - written otherwise in more than its case: a nickname, a misspelling, an umlaut spelled out or
+    its marks left off, such as „Mueller“ or „Muller“ for „Müller“;
   - joined into a longer word, such as „Müllerfamilie“, or of two letters before a genitive s;
   - a single letter;
-  - a particle that a later word of its field follows, such as „Le“ in a referee's „Le Thi Mai“.
+  - a particle that a later word of its field follows, such as „Le“ in a referee's „Le Thi Mai“;
+  - one the person's records hold nowhere today, such as a surname an edit replaced: the refusal
+    reads the records and never their images in the log.
 - **A retired row is never removed because of its age.** A referee who stopped, a club that left
   and a past season all keep their rows, and a player who left a squad keeps theirs until the
   season after their last squad season has ended; a person's row goes only by an erasure, for a

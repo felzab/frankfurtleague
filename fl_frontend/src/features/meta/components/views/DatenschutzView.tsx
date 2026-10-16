@@ -725,8 +725,11 @@ export function DatenschutzView() {
             zurückgenommen werden kann. Dieses Protokoll kann deshalb auch Deine Daten enthalten. Bei einer Löschung auf Wunsch werden Deine
             Einträge darin sofort geleert. Bittest Du uns darum, hält das Protokoll die Löschung selbst fest, mit dem Datum und der Art Deiner
             Anfrage. Das bleibt dort wie jede andere Änderung zwölf Monate stehen. Deinen Namen, so wie er bei uns eingetragen ist, lassen wir
-            in der Angabe zu Deiner Anfrage nicht zu. Anders geschrieben kann er dort für diese zwölf Monate stehen. Rechtsgrundlage ist Art. 6
-            Abs. 1 lit. f DSGVO; unser berechtigtes Interesse ist, Fehler in den Daten der Liga erkennen und rückgängig machen zu können.
+            in der Angabe zu Deiner Anfrage nicht zu, auch nicht in anderer Groß- oder Kleinschreibung. Stehen kann er dort für diese zwölf
+            Monate anders geschrieben, etwa mit „ue“ statt „ü“, als Teil eines längeren Wortes, als einzelner Buchstabe, als kurzer Namensteil
+            wie „von“ oder „Le“, auf den in Deinem Namen ein weiterer folgt, und als früherer Name, der bei uns nicht mehr eingetragen ist.
+            Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO; unser berechtigtes Interesse ist, Fehler in den Daten der Liga erkennen und
+            rückgängig machen zu können.
           </p>
         </LegalSection>
 
@@ -786,10 +789,10 @@ export function DatenschutzView() {
             Abschnitt 13 bei der Anmeldung aufzählt. Bis die Sperre endet, kann sich damit niemand anmelden. Eine Kopie Deiner Daten oder ihre
             Löschung erhältst Du auch während einer Sperre über eine E-Mail an <MailLink />; wir bestätigen die Anfrage mit einer E-Mail an die
             gesperrte Adresse. Der Grund ist ein freier Text. Einen Namen, so wie er unter der gesperrten Adresse eingetragen ist, lassen wir
-            darin nicht zu. Ein Name, der dort nicht so steht, etwa anders geschrieben, kann darin stehen und bleibt dann mit dem Eintrag
-            stehen. Dieser Eintrag bleibt auch nach einer Löschung bestehen, bis die Sperre nach fünf vollen Saisons endet oder die Verwaltung
-            sie vorher aufhebt. Wir speichern diesen Eintrag auf Grundlage unseres berechtigten Interesses daran, eine gesperrte Adresse nicht
-            erneut zuzulassen (Art. 6 Abs. 1 lit. f DSGVO).
+            darin nicht zu, auch nicht in anderer Groß- oder Kleinschreibung. In den Formen, die Abschnitt 13 für die Angabe zu einer Anfrage
+            nennt, kann ein Name darin stehen und bleibt dann mit dem Eintrag stehen. Dieser Eintrag bleibt auch nach einer Löschung bestehen,
+            bis die Sperre nach fünf vollen Saisons endet oder die Verwaltung sie vorher aufhebt. Wir speichern diesen Eintrag auf Grundlage
+            unseres berechtigten Interesses daran, eine gesperrte Adresse nicht erneut zuzulassen (Art. 6 Abs. 1 lit. f DSGVO).
           </p>
         </LegalSection>
 
