@@ -518,6 +518,13 @@ copy_streams() { # $1 what the copies carry beside the stamp, $2 the verb a fail
   done
   ATTEMPTED_STREAMS=${#held[@]}
   if (( ! ATTEMPTED_STREAMS )); then return 0; fi
+  # Asked before the stop: an unwritable directory is the failure a copy most often meets, and asked
+  # here it refuses with the site untouched.
+  if [[ ! -d "$LOG_DIR" || ! -w "$LOG_DIR" ]]; then
+    "$on_failure" "${LOG_DIR} is missing or not writable by $(id -un), so no stream was copied and no
+container stopped. ${consequence}"
+    return 0
+  fi
   # Stopped first, `stop` keeping the stream: a line written in the seconds before the recreate, an
   # erasure's journal line a restore replays among them, is otherwise in no copy. Never bare, which
   # stops the whole project.
@@ -586,8 +593,8 @@ roll_back() { # $1 how the build being restored is named on screen
   step "Stopping the failed build and copying its logs off before it is replaced"
   # `warn` where the copy before the recreate refuses, and this is the only difference between the
   # two calls: the site is already down by here, so a refusal would trade the outage for a log file.
-  copy_streams "-failed" warn "The rollback goes on without it, so that stream goes with the recreate
-below and nothing keeps a record of it."
+  copy_streams "-failed" warn "The rollback goes on without the copy, and the recreate below discards
+what it would have kept."
   if (( COPIED_STREAMS )); then
     ok "${COPIED_STREAMS} stream(s) copied to ${LOG_DIR}"
   elif (( ATTEMPTED_STREAMS )); then

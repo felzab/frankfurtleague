@@ -263,6 +263,16 @@ def test_a_refused_copy_starts_the_stopped_containers_again() -> None:
     assert "were started again" in output, output
 
 
+def test_a_directory_the_copy_cannot_write_refuses_before_anything_is_stopped() -> None:
+    """Asked after the stop, the refusal would first take the site down for a copy that cannot be made."""
+    code, output, fixture = _run(f'LOG_DIR="${{LOG_DIR}}/absent" ; {BEFORE}')
+
+    assert code == 2, output
+    assert "is missing or not writable" in output, output
+    assert "NOTHING has been recreated" in output, output
+    assert fixture.called() == [], output
+
+
 def test_a_container_that_is_not_running_is_copied_and_neither_stopped_nor_started() -> None:
     """A failed build's backend has often exited or is restarting, and the rollback's recreate discards its stream all the same."""
     code, output, fixture = _run(FAILED, FL_DEPLOY_STOPPED_CONTAINER="backend")
