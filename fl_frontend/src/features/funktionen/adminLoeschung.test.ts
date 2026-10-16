@@ -11,6 +11,7 @@ import { userEvent } from "@testing-library/user-event";
 import { APIBadStatusError } from "@/core/errors.ts";
 import { DOUBLE_PRESS_MS } from "@/shared/hooks/useTwoPressConfirm.ts";
 import { doubleActionRequest, doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import { closedControl } from "@/shared/testing/closedControl.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { pageBody } from "@/shared/testing/pageHarness.ts";
 
@@ -378,15 +379,16 @@ describe("the reveal the arming read answers", () => {
     assert.deepEqual(ziele, [`/bereich/admin/schiedsrichter/${ID}?saison_id=2026`, `/bereich/admin/spieler/${PUPIL_ID}?saison_id=2026`]);
   });
 
-  /* The operator's own address: the backend refuses the reveal too, so the page says so before anyone confirms. */
+  /* The operator's own address: the backend refuses the reveal too, so the page says so before anyone confirms, in
+     the rule's sentence alone, a reveal the rule refused having loaded rather than failed to. */
   it("says the operator's own address is not erased here and never opens the confirmation", async () => {
-    const eigene =
-      "Deine eigene Adresse löschst Du nicht hier. Lösche Dein Konto auf Deiner Kontoseite, oder bitte eine andere Person aus der Verwaltung darum.";
+    const eigene = mapErasureRefusal(refused("REQ-PURGE-003"))?.error ?? "REQ-PURGE-003 unworded";
     const { user } = await renderPage({ readErasureAnsichtAction: { success: false, error: eigene } });
     await typeRequest(user);
     await arm(user);
 
-    assert.match(screen.getByRole("alert").textContent, new RegExp(eigene.replace(/\./g, "\\.")));
+    assert.ok(within(screen.getByRole("alert")).getByText(eigene), "the rule's refusal reads as a list that failed to load");
+    closedControl(ARMED, eigene);
     assert.equal(screen.queryAllByRole("textbox", { name: BESTAETIGUNG }).length, 0, "a refused reveal offers the confirmation");
     for (const control of screen.getAllByRole("button", { name: ARMED })) await user.click(control);
     assert.ok(!offen(ARMED), "the press opened over a refused reveal");

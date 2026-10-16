@@ -10,6 +10,7 @@ import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
 
 import { eraseAufAnfrageAction, readErasureAnsichtAction } from "@/features/funktionen/actions";
+import { isErasureRefusal } from "@/features/funktionen/refusals";
 import { FLErasurePayloadSchema } from "@/features/funktionen/schemas";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
@@ -28,14 +29,17 @@ import { FormLoeschungAnsicht } from "./FormLoeschungAnsicht";
 
 import type { LoeschungAnsicht } from "./FormLoeschungAnsicht";
 
-/** What the arming read left the reveal holding, carried WITH the address it was read for. */
+/**
+ * What the arming read left the reveal holding, carried WITH the address it was read for. A refusal's `reason` is
+ * whole, said once for the reveal's body and the closed press alike, so the two cannot part.
+ */
 type Gelesen = { adresse: string } & (
   { status: "reading" } | { status: "read"; ansicht: LoeschungAnsicht } | { status: "refused"; reason: string }
 );
 
 type Fehler = { email?: string; anlass?: string };
 
-/** A refused read, said once for the reveal's body and the closed press alike, so the two cannot part. */
+/** A read that failed rather than one the erasure's own rule refused. */
 const ohneUebersicht = (reason: string): string =>
   `Die Übersicht, was gelöscht wird, konnte nicht geladen werden, und ohne sie wird nichts gelöscht. ${reason}`;
 
@@ -59,7 +63,7 @@ function fehlerIn(email: string, anlass: string): Fehler {
 function AnsichtBody({ gelesen }: { gelesen: Gelesen | null }) {
   if (gelesen?.status === "read") return <FormLoeschungAnsicht ansicht={gelesen.ansicht} />;
   if (gelesen?.status === "refused") {
-    return <p className="fluid-xxs leading-normal font-medium text-foreground">{ohneUebersicht(gelesen.reason)}</p>;
+    return <p className="fluid-xxs leading-normal font-medium text-foreground">{gelesen.reason}</p>;
   }
 
   // The app's one „not yet here“ treatment: what arrives is a list, so what stands in for it is shaped like one.
@@ -109,9 +113,15 @@ export function FormPersonLoeschenSection() {
     if (lesung !== letzteLesung.current) return;
     const res = settled.status === "rejected" ? unansweredRead() : settled.value;
 
-    if (res.success) setGelesen({ adresse: gelesenFuer, status: "read", ansicht: res.ansicht });
+    if (res.success) {
+      setGelesen({ adresse: gelesenFuer, status: "read", ansicht: res.ansicht });
+      return;
+    }
+
     // A field map the press's own judgement let through points at no box the reveal shows.
-    else setGelesen({ adresse: gelesenFuer, status: "refused", reason: res.fieldErrors === undefined ? res.error : ERNEUT_STARTEN });
+    const satz = res.fieldErrors === undefined ? res.error : ERNEUT_STARTEN;
+    // The erasure's own rule alone: that reveal loaded, and a list „not loaded“ invites a retry the rule refuses again.
+    setGelesen({ adresse: gelesenFuer, status: "refused", reason: isErasureRefusal(satz) ? satz : ohneUebersicht(satz) });
   };
 
   const handlePress = () => {
@@ -155,7 +165,7 @@ export function FormPersonLoeschenSection() {
   // The names ARE the confirmation, so a press taken over the placeholder would confirm nothing.
   const isReading = isConfirming && (ansicht === null || ansicht.status === "reading");
   // A refused read alone names a reason of its own: one still running ends by itself, as the write does.
-  const ansichtReason = !isPending && ansicht?.status === "refused" ? ohneUebersicht(ansicht.reason) : null;
+  const ansichtReason = !isPending && ansicht?.status === "refused" ? ansicht.reason : null;
   const panelReason = email.trim() === "" ? "Gib zuerst die E-Mail-Adresse ein." : anlass.trim() === "" ? "Gib zuerst den Anlass ein." : null;
 
   return (
