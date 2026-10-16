@@ -719,7 +719,9 @@
 # and 21-36 s, median 29 s, over the 158 after the pin, with 65 and 101 s in the run whose registry
 # answered slowly. Over the same boundary the median `frontend` job moved from 94 to 127 s, `format`
 # from 34 to 44 s and `db` from 123 to 141 s, other changes landing in it too. A change to any of the
-# three files costs one verification in its key's first run. No row moves and none takes a stamp.
+# three files costs one verification in its key's first run: under the three-file key, run 38950973913
+# verified and saved, and run 38951684221 and its re-run restored the verdict ("verified 5m ago",
+# "verified 10m ago"). No row moves and none takes a stamp.
 #
 # `frontend` lints at `--concurrency auto` on a runner, two workers on its four vCPUs
 # (`scripts/gate/verify.sh :: do_eslint`), three having been tried. A cold eslint over `fl_frontend`
@@ -866,6 +868,27 @@
 # `fl_frontend/src/features/spieler/adresswechsel.test.ts` 2.2-2.5 s and the step-up sweep,
 # `fl_frontend/src/shared/utils/adminStepUp.test.ts`, 10.9-11.5 s. No row moves and none takes a
 # stamp.
+#
+# The heading lane measured what it added, locally on 2026-10-16 on a sixteen-core Windows machine at
+# 100 percent CPU from about 52 node, python and bash processes, so upper bounds:
+#
+# - `frontend-units`: `fl_frontend/src/app/namedHeadings.test.ts`, reading each sentence whole in any
+#   quotes, median 1.63 s (1.53-3.29 s) and about 1.8-1.9 s with every register entry, against
+#   1.54 s (1.44-1.94 s) for the file it replaced, five interleaved rounds; and the two field-message
+#   cases of `fl_frontend/src/app/refusalCoverage.test.ts`, about 1 ms and 5-11 ms inside a 1.85 s
+#   file
+# - `frontend`: the refusal-heading ban reading every text beneath a `where`, with the ban on taking
+#   `buildRefusal` under another name, 1837 ms (1591-2755 ms) for the ban selectors against 2062 ms
+#   (1543-2509 ms) before, five interleaved rounds, the difference inside the spread
+# - `docs`: the copy check's widened reach over the repeat phrase and the new consent wordings,
+#   894 ms (848-908 ms) whole and 102 ms (98-118 ms) for its wording scan, seven rounds, and the
+#   widened term pattern 35.5 ms against 32.4 ms, seven interleaved rounds
+#
+# The editors' retirement cases, each file run alone three times on 2026-10-16 with other agent
+# sessions running, so upper bounds, by the runner's own case durations: the seven of
+# `fl_frontend/src/features/admin/editorWiring.test.ts`, 3.30-3.41 s together inside 61.1-67.5 s for
+# the file, and the five of `fl_frontend/src/shared/components/ui/focusLandings.test.ts`, 1.66-1.73 s
+# inside 31.2-31.8 s. No row moves and none takes a stamp.
 #
 # The total row is the sum of the seconds above it, compared the same way where it carries a floor.
 # Its floor sums each referenced row's draws, so `--stamp` cuts one only where every row holding a
