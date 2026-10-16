@@ -569,10 +569,11 @@ def resolve_callee(call: ast.Call, chain: tuple[Declaration, ...], module: Path)
     to the figure-taking one nested in the season patch.
     """
 
-    if not isinstance(call.func, ast.Name):
-        return None
+    return resolve_name(call.func.id, chain, module) if isinstance(call.func, ast.Name) else None
 
-    name = call.func.id
+
+def resolve_name(name: str, chain: tuple[Declaration, ...], module: Path) -> tuple[Declaration, Path] | None:
+    """The declaration a bare name read inside `chain` stands for, as `resolve_callee` reads a call's."""
 
     for scope in reversed(chain):
         found = _declared_directly_in(scope).get(name)
