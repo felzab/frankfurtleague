@@ -147,7 +147,10 @@ the machine is outside the repository. What it does tell you:
   to their timeouts and the rollback's do the same. **The failed build's own two streams are copied off
   first** (`scripts/ops/deploy.sh :: copy_streams`), under the deploy's stamp and a `-failed` suffix in
   `/var/log/frankfurtleague/` (§7); that copy warns rather than refusing where it cannot be made, the site
-  being down by then. Nothing is put back where preflight recorded no target,
+  being down by then. **An interrupt during that copy leaves the failed build stopped and nothing put
+  back**, the failed build not being started again after failing its health wait: finish the rollback
+  by deploying the build preflight printed as its rollback target, `./scripts/ops/deploy.sh <tag>`,
+  whose own copy takes the stopped pair's streams. Nothing is put back where preflight recorded no target,
   because nothing was running, because only half the pair was, or because compose could not be asked; nor
   where compose stops answering during the health wait, the run refusing at exit 2 instead, because a
   rollback undoes a build and nothing there reached a verdict on the new one.
