@@ -581,10 +581,11 @@ page and an administrator's erasure each delete the account in the same request 
 sessions, passkeys and waiting codes with it (`fl_frontend/src/core/auth.ts :: deleteOwnAccount`,
 `:: deleteAccountFor`); after any other erasure the account sweep deletes it within the hour once
 nothing references the address ([section 9](#9-checking-that-the-retention-sweep-has-run)).
-**A barred address keeps its account**, frozen until the ban ends
+**A ban keeps no account**
 ([`../datenschutz.md`](../datenschutz.md#6-retention-is-bounded-where-a-bound-was-chosen)): the
-account sweep passes it by, and a barred person cannot sign in to delete it, so an administrator's
-erasure on their request is the one thing that deletes it before then. Read the store for an access request: the `user` row whose `email` is the
+account sweep deletes a barred address's as any other's once nothing references the address. While
+a record still does, a barred person cannot sign in to delete it, so an administrator's erasure on
+their request is what deletes it then. Read the store for an access request: the `user` row whose `email` is the
 address as the sign-in box folds it, in lower case
 (`fl_frontend/src/core/emailAddress.ts :: asSignInIdentifier`), and the `session`, `account` and
 `passkey` rows whose `userId` is that row's `_id`.
@@ -656,7 +657,7 @@ as them.
   ([`../datenschutz.md`](../datenschutz.md#6-retention-is-bounded-where-a-bound-was-chosen)).
   Their consent link is not re-minted — the record is already given. **Once the change confirms,
   the account sweep deletes the old address's sign-in account within the hour**, the referee's
-  passkeys with it, once nothing else references that address, a ban included
+  passkeys with it, once nothing else references that address
   ([section 9](#9-checking-that-the-retention-sweep-has-run)).
 - **The holder of a pending new referee address**, a mailbox an administrator's typing reached. No
   read keys on that address, by design (`docs/backend/spec.md :: I560`), so no page search
@@ -819,7 +820,7 @@ the last season the ban covers, so there is nothing to send by hand; an address 
 is mailed nothing, and the page says so. Where the send fails, or the sign-in store could not say
 whether an account holds the address, the page says the notice did not go, and there is then no
 address left anywhere to try again with. **The same write ends every live sign-in of the address**, keeping its
-account and passkeys for the day the ban ends (`docs/frontend/spec.md :: I402`); where that fails the
+account and passkeys (`docs/frontend/spec.md :: I402`), which then stay only while a record holds the address; where that fails the
 page says so too, every person page refuses the sessions as no session at all
 (`docs/frontend/spec.md :: I406`), and each is deleted the next time its browser reaches the sign-in
 page (`docs/frontend/spec.md :: I518`). **Every later sign-in of the address
@@ -1376,7 +1377,7 @@ does not look erased, and each role's guard reads something the restore took awa
   ([`spec.md`](spec.md) I174), so a restore of the cluster brings back their `user`, `session`,
   `account` and `passkey` rows with everything else. Once the route's erasure above has run again,
   and for an administrator their grant's revoke below, the account sweep deletes each within the
-  hour, a barred address's apart (section 5).
+  hour, a barred address's included (section 5).
 
 **The log's redactions came back as well**, so re-running each erasure is also what redoes the
 redactions it had stamped ([`../backend/spec.md`](../backend/spec.md#2-invariants) I42, I671, I212).

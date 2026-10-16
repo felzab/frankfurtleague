@@ -198,7 +198,6 @@ async def get_gesperrt(gesperrt_data: Annotated[FLGesperrtPayload, Body()], sper
 async def get_referenzen(
     referenzen_data: Annotated[FLReferenzenPayload, Body()],
     records: SubjektLookup,
-    sperrliste: SperrlisteLookup,
     berechtigungen_collection: BerechtigungenCollection,
 ) -> FLReferenzenResponse:
     """
@@ -213,11 +212,11 @@ async def get_referenzen(
     - a pupil or referee record holds it, confirmed or not and live or retired; the placeholder every erased referee's fixtures
       name and the one every erased pupil's entries name hold nothing;
     - a pending registration holds it that its pupil confirmed;
-    - a grant in `berechtigungen` holds it, as stored, before the comparison has seen it too;
-    - a standing ban holds it.
+    - a grant in `berechtigungen` holds it, as stored, before the comparison has seen it too.
 
-    A pending address change holds nothing: its address admits no sign-in until it is confirmed, and the address it replaces
-    stays on the record until then.
+    A ban holds nothing: a barred address is answered as any other once none of these holds it. A pending address change holds
+    nothing either: its address admits no sign-in until it is confirmed, and the address it replaces stays on the record until
+    then.
 
     That is wider than what `POST /identitaet/anmeldung` admits a sign-in on, so no account answered here is one the sign-in
     would admit again: an unconfirmed seat on a `past` season and an unconfirmed retired record keep an account the gate admits
@@ -227,13 +226,10 @@ async def get_referenzen(
     holds one, so such a database is empty or another one, and answering from it would call every address unreferenced.
 
     Each address is compared as `POST /identitaet/subjekt` compares one, on the sign-in fold, and answered in the spelling it was
-    asked in, once however often it was asked. An address today's address rule refuses is answered never rather than refused: no
-    ban can be keyed under it, so whether a ban made under an older rule holds it is unknown, and one refusal would refuse the
-    whole batch. A batch past its published ceiling is refused whole.
+    asked in, once however often it was asked. An address today's address rule refuses is judged as any other and never
+    refused, since one refused address would refuse the whole batch. A batch past its published ceiling is refused whole.
     """
 
     return FLReferenzenResponse(
-        unreferenziert=await unreferenced_of(
-            referenzen_data.identifiers, records, berechtigungen_collection=berechtigungen_collection, sperrliste=sperrliste
-        )
+        unreferenziert=await unreferenced_of(referenzen_data.identifiers, records, berechtigungen_collection=berechtigungen_collection)
     )

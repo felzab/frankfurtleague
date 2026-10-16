@@ -116,8 +116,8 @@ describe("the erasure on request", () => {
     );
   });
 
-  /* A barred person cannot sign in to delete their own account, and the account sweep keeps a barred address's: this
-     erasure is the one that deletes it. Every read that could report the ban says the address is barred. */
+  /* A barred person cannot sign in to delete their own account, so this erasure deletes it at once as any other's.
+     Every read that could report the ban says the address is barred. */
   it("deletes a barred address's account as any other's", async () => {
     const gesperrt = { acknowledged: 1, gesperrt: true };
     const subjekt = {

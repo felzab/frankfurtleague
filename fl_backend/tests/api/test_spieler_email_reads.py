@@ -117,12 +117,7 @@ async def the_references_read(database: AsyncDatabase, client: AsyncMongoClient,
         {"_id": ObjectId(), "adresse": ANNA, "verwaltung": "owner", "erteilt_von": "PLAYGROUND", "erteilt_am": NOW}
     )
 
-    return await unreferenced_of(
-        [FOLDED_EMAIL],
-        record_collections(database),
-        berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
-        sperrliste=ban_list(database),
-    )
+    return await unreferenced_of([FOLDED_EMAIL], record_collections(database), berechtigungen_collection=database[Collection.BERECHTIGUNGEN])
 
 
 async def the_confirmation_view(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:

@@ -25,7 +25,7 @@ from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.collections import Collection as DbCollection
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import is_confirmed
-from app.shared.folding import canonical_address, is_stored_identifier, sign_in_identifier
+from app.shared.folding import is_stored_identifier, sign_in_identifier
 
 # --- The SELECTIONS, each shared with its record's own person-tier reads rather than spelled again.
 # Unnarrowed by retirement or withdrawal: `_judged` narrows the Funktionen (`docs/backend/spec.md :: I376`).
@@ -620,31 +620,10 @@ def referenced_addresses(
     return frozenset(address for address in map(folded, stored) if address is not None)
 
 
-def can_judge(identifier: str) -> bool:
-    """Whether this address may be called unreferenced at all.
-
-    One today's address rule refuses keys no ban (`app/api/sperrliste/services.py :: stored_adresse_hash`),
-    so a ban entered under an older rule may hold it unseen.
-    """
-
-    try:
-        canonical_address(identifier)
-    except ValueError:
-        return False
-
-    return True
-
-
-def unreferenced(identifiers: Iterable[str], *, referenced: Collection[str], gesperrt: Collection[str]) -> list[str]:
+def unreferenced(identifiers: Iterable[str], *, referenced: Collection[str]) -> list[str]:
     """Each once, in the spelling it was asked in: the caller deletes the account holding that spelling."""
 
-    return list(
-        dict.fromkeys(
-            identifier
-            for identifier in identifiers
-            if can_judge(identifier) and sign_in_identifier(identifier) not in referenced and identifier not in gesperrt
-        )
-    )
+    return list(dict.fromkeys(identifier for identifier in identifiers if sign_in_identifier(identifier) not in referenced))
 
 
 # Refused rather than answered: a league always holds a live `owner` (`docs/backend/spec.md :: I479`),

@@ -55,13 +55,15 @@ SPIELER_OFFEN = "spieler.offen@schule.de"
 PFEIFE_RUHESTAND = "pfeife.ruhestand@schule.de"
 REGISTRIERT = "rita.registriert@schule.de"
 VERWALTUNG = "verena.verwaltung@schule.de"
+# Barred while the running season lasts, the one holding a referee record and the other nothing: a ban
+# keeps no account, so the record alone decides.
+GESPERRT_PFEIFE = "gesa.pfeife@schule.de"
 GESPERRT = "gerda.gesperrt@schule.de"
-# Today's address rule refuses a local part beyond ASCII, and no record holds this one: only the
-# judgement keeps it out of the answer.
-UNBEURTEILBAR = "jürgen@schule.de"
+# Today's address rule refuses a local part beyond ASCII, so no ban can be keyed under this one, and no
+# record holds it: a ban keeping no account, it is judged as any other.
+AUSSER_DER_REGEL = "jürgen@schule.de"
 
 REGISTRIERT_OFFEN = "rita.offen@schule.de"
-ABGELAUFEN = "arno.abgelaufen@schule.de"
 GEIST_SCHIEDSRICHTER = "geist.pfeife@schule.de"
 GEIST_SPIELER = "geist.spieler@schule.de"
 # Asked as an account may store it, so the answer is shown to keep the asker's spelling.
@@ -91,9 +93,9 @@ ASKED = [
     REGISTRIERT,
     REGISTRIERT_OFFEN,
     VERWALTUNG,
+    GESPERRT_PFEIFE,
     GESPERRT,
-    ABGELAUFEN,
-    UNBEURTEILBAR,
+    AUSSER_DER_REGEL,
     NIEMAND,
 ]
 
@@ -179,6 +181,7 @@ async def _seed(database: AsyncDatabase, *, inhaberin: str | None) -> None:
     await database[Collection.SCHIEDSRICHTER].insert_many(
         [
             _referee(ObjectId(), PFEIFE_RUHESTAND, "B. Ruhestand", inactive_since="2026-03-01"),
+            _referee(ObjectId(), GESPERRT_PFEIFE, "G. Pfeife"),
             # The ghost, for the sentinel's reason above.
             _referee(GHOST_SCHIEDSRICHTER_ID, GEIST_SCHIEDSRICHTER, "D. Geist"),
         ]
@@ -186,7 +189,9 @@ async def _seed(database: AsyncDatabase, *, inhaberin: str | None) -> None:
     await database[Collection.REGISTRIERUNGEN].insert_many(
         [_registrierung("Rita.Registriert@Schule.de", confirmed=True), _registrierung(REGISTRIERT_OFFEN, confirmed=False)]
     )
-    await database[Collection.SPERRLISTE].insert_many([ban_document(GESPERRT, bis=ACTIVE_SAISON), ban_document(ABGELAUFEN, bis=PAST_SAISON)])
+    await database[Collection.SPERRLISTE].insert_many(
+        [ban_document(GESPERRT_PFEIFE, bis=ACTIVE_SAISON), ban_document(GESPERRT, bis=ACTIVE_SAISON)]
+    )
     granted = datetime(2026, 1, 1, tzinfo=UTC)
     await database[Collection.BERECHTIGUNGEN].insert_one(
         {"_id": GRANT_OID, "adresse": VERWALTUNG, "verwaltung": "administration", "erteilt_von": "PLAYGROUND", "erteilt_am": granted}
@@ -246,11 +251,10 @@ class TestWhatKeepsAnAccount:
             pytest.param(PFEIFE_RUHESTAND, id="a retired referee"),
             pytest.param(REGISTRIERT, id="a confirmed pending registration"),
             pytest.param(VERWALTUNG, id="a grant the comparison has not seen"),
-            pytest.param(GESPERRT, id="a standing ban"),
-            pytest.param(UNBEURTEILBAR, id="an address no ban can be keyed under"),
+            pytest.param(GESPERRT_PFEIFE, id="a referee record at a barred address"),
         ],
     )
-    def test_an_address_a_record_grant_or_ban_holds_is_never_answered(self, mongo_replica_set_url: str, email: str):
+    def test_an_address_a_record_or_grant_holds_is_never_answered(self, mongo_replica_set_url: str, email: str):
         status, body = answered(mongo_replica_set_url)
 
         assert status == 200, body
@@ -263,7 +267,8 @@ class TestWhatLetsAnAccountGo:
         "email",
         [
             pytest.param(REGISTRIERT_OFFEN, id="a pending registration its pupil has not confirmed"),
-            pytest.param(ABGELAUFEN, id="a ban whose last season has passed"),
+            pytest.param(GESPERRT, id="a standing ban and no record"),
+            pytest.param(AUSSER_DER_REGEL, id="an address today's rule refuses and no record holds"),
             pytest.param(GEIST_SCHIEDSRICHTER, id="the referee placeholder, by its id"),
             pytest.param(GEIST_SPIELER, id="the pupil placeholder, by its id"),
             pytest.param(NIEMAND, id="nothing at all"),
@@ -278,7 +283,10 @@ class TestWhatLetsAnAccountGo:
     def test_the_answer_holds_each_once_in_the_spelling_asked_and_nothing_else(self, mongo_replica_set_url: str):
         assert answered(mongo_replica_set_url) == (
             200,
-            {"acknowledged": 1, "unreferenziert": [NIEMAND, GEIST_SCHIEDSRICHTER, GEIST_SPIELER, REGISTRIERT_OFFEN, ABGELAUFEN]},
+            {
+                "acknowledged": 1,
+                "unreferenziert": [NIEMAND, GEIST_SCHIEDSRICHTER, GEIST_SPIELER, REGISTRIERT_OFFEN, GESPERRT, AUSSER_DER_REGEL],
+            },
         )
 
 
