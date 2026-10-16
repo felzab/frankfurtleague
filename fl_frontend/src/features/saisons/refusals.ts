@@ -1,6 +1,6 @@
 import { isRefusal } from "@/shared/utils/actionError";
 
-import { GRUPPEN_OFF_RULES, RECORDED_FACTS_NONE, SPIELTAGE_UNDATED } from "./constants";
+import { GRUPPEN_OFF_RULES, RECORDED_FACTS_NONE, REGELN_ABSCHNITT, SPIELPLAN_ABSCHNITT, SPIELTAGE_UNDATED } from "./constants";
 import { MAX_QUALIFIERS } from "./schemas";
 
 import type { FieldErrors } from "@/shared/utils/validation";
@@ -32,13 +32,13 @@ const SPAN_BELOW_SCHEDULE =
   "hinten oder das Startdatum nach vorne. Das hilft in jedem Fall.";
 
 /** A stored-rules fault as the generator must report it: the rule, then where it is repaired. */
-const rulesFaultMessage = (fault: string): string => `${fault} Ändere die Zahlen im Abschnitt Regeln und speichere sie.`;
+const rulesFaultMessage = (fault: string): string => `${fault} Ändere die Zahlen im Abschnitt ${REGELN_ABSCHNITT} und speichere sie.`;
 
 /**
  * The same fault where the DRAW carried the numbers itself. `REQ-RULES-011` freezes them everywhere
  * else, so sending an admin to the rules panel would name a field they cannot type in.
  */
-const shapeFaultMessage = (fault: string): string => `${fault} Ändere die Zahlen im Abschnitt Spielplan und lege ihn erneut an.`;
+const shapeFaultMessage = (fault: string): string => `${fault} Ändere die Zahlen im Abschnitt ${SPIELPLAN_ABSCHNITT} und lege ihn erneut an.`;
 
 /** A rules refusal as the message it should render, or `null` when the code is none of these. */
 export function mapRulesRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
@@ -92,7 +92,7 @@ export function mapRulesRefusal(error: unknown): { error?: string; fieldErrors?:
         // toast can only hand the reader the condition to evaluate.
         error:
           "Für diese Saison sind Spiele angesetzt, deshalb sind Gruppen, Teams pro Gruppe und Qualifikanten pro Gruppe gesperrt. " +
-          "Lade die Seite neu. Im Abschnitt Regeln steht dann, was sich noch ändern lässt.",
+          `Lade die Seite neu. Im Abschnitt ${REGELN_ABSCHNITT} steht dann, was sich noch ändern lässt.`,
       };
     // Bare too, and for `REQ-DATE-005`'s reason rather than a freeze's: the two counts make the
     // fixture total together, so neither is the field at fault.
@@ -173,7 +173,7 @@ export function mapSpielplanRefusal(error: unknown, carriedShape: boolean): stri
     case "REQ-DATE-009":
       return (
         `${SPAN_BELOW_SCHEDULE} Weniger Spieltage ergeben sich sonst nur aus kleineren Zahlen im Abschnitt ` +
-        `${carriedShape ? "Spielplan" : "Regeln"}, und nicht jede kleinere Zahl spart einen Spieltag.`
+        `${carriedShape ? SPIELPLAN_ABSCHNITT : REGELN_ABSCHNITT}, und nicht jede kleinere Zahl spart einen Spieltag.`
       );
     default:
       return null;

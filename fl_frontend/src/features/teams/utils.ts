@@ -1,5 +1,6 @@
 import { SAISON_PHASE_OPTIONS } from "@/features/saisons/constants";
 import { computeErgebnisFor, PHASE_RANK } from "@/features/spiele/utils";
+import { KADER_ABSCHNITT } from "@/features/spieler/constants";
 
 import { EINWILLIGUNG_UMFANG, GRUPPEN_OPTIONS, KONTAKT_ROLLEN, TRIKOT_FARBE_OPTIONS, WEBSITE_URL_SCHEME } from "./constants";
 
@@ -33,8 +34,7 @@ export const buildGruppeOffer = (saisonId: string, rules: FLSaison["rules"], mem
  * `REQ-SQUAD-001` judges the row's `team_id` on the PATCH as well as on the reactivate, so a row
  * reassigned to a club this season holds comes back without its own club returning.
  */
-const SQUAD_REPAIR =
-  "Um einen solchen Eintrag zu reaktivieren, bearbeite den Spieler und weise den Eintrag im Bereich „Kader“ einem Team dieser Saison zu.";
+const SQUAD_REPAIR = `Um einen solchen Eintrag zu reaktivieren, bearbeite den Spieler und weise den Eintrag im Bereich „${KADER_ABSCHNITT}“ einem Team dieser Saison zu.`;
 
 /**
  * What one replacement moved, for the report that follows it. The squad half says AUSTRAGEN: this

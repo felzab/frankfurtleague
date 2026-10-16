@@ -5,6 +5,7 @@ import { refresh } from "next/cache";
 import { isFreshlySignedIn } from "@/core/auth";
 import { frontend_config } from "@/core/config";
 import { buildEinladungEmail } from "@/core/einladungEmail";
+import { KONTAKTE_ABSCHNITT } from "@/features/teams/constants";
 import { getTeamMemberships } from "@/features/teams/queries";
 import { linkVersandOf, sendZielMail } from "@/features/zustellung/notifications";
 import { refusalResult, refuseUnconfirmed, runAdminMutation } from "@/shared/utils/adminMutation";
@@ -120,7 +121,7 @@ export async function mailEinladungAction(rawPayload: FLEinladungMailPayload): P
         error: buildRefusal({
           reason: "Für dieses Team sind in dieser Saison keine Kontaktdaten hinterlegt",
           repair: "Trage die Kontakte ein, oder gib den Link von Hand weiter",
-          where: "Kontakte",
+          where: KONTAKTE_ABSCHNITT,
         }),
       };
     }

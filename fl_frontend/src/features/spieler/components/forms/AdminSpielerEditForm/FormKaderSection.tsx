@@ -13,7 +13,7 @@ import { postSaisonSpielerAction } from "@/features/spieler/actions";
 import { ClosedSetSelect } from "@/features/spieler/components/forms/ClosedSetSelect";
 import { NummerField } from "@/features/spieler/components/forms/NummerField";
 import { TeamSelect } from "@/features/spieler/components/forms/TeamSelect";
-import { POSITION_OPTIONS, ROLLE_OPTIONS } from "@/features/spieler/constants";
+import { KADER_ABSCHNITT, POSITION_OPTIONS, ROLLE_OPTIONS } from "@/features/spieler/constants";
 import { nummerPayload } from "@/features/spieler/utils";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { formButton } from "@/shared/components/ui/formButtons";
@@ -145,7 +145,7 @@ export function FormKaderSection({
         </span>
         <PanelHeading
           className={panel.heading()}
-          title={`Kader ${saison.saisonId}`}>
+          title={`${KADER_ABSCHNITT} ${saison.saisonId}`}>
           <Hint
             mode="reveal"
             label="Hinweis zum Kadereintrag"

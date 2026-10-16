@@ -98,6 +98,9 @@ export const NUMMER_MUST_BE_DIGITS = `Die Nummer besteht aus 1 bis ${String(NUMM
 export const RETIREMENT_CONSEQUENCE =
   "Die Kadereinträge dieser Person bleiben in jeder Saison erhalten. Für neue Kader steht sie nicht mehr zur Auswahl.";
 
+/** The pupil editor's squad panel, named by its heading where a sentence sends the reader to it, so a renamed panel takes the sentence with it. */
+export const KADER_ABSCHNITT = "Kader";
+
 /**
  * The state after a retirement, which the editor's banner shows for as long as it lasts and the
  * action toasts once. Two readers meeting different words would read them as two different states.
@@ -109,8 +112,7 @@ export const RETIREMENT_KEEPS_SQUAD_ROWS = "Die Kadereinträge dieser Person ble
  * state, which the banner beside the control carries. `actions.ts` words it for a reader elsewhere,
  * and one sentence cannot point both ways.
  */
-export const REACTIVATION_NEEDS_A_TEAM_IN_SAISON =
-  "Reaktivieren lässt sich der Eintrag erst, wenn Du ihn oben im Bereich „Kader“ einem Team dieser Saison zuweist und speicherst.";
+export const REACTIVATION_NEEDS_A_TEAM_IN_SAISON = `Reaktivieren lässt sich der Eintrag erst, wenn Du ihn oben im Bereich „${KADER_ABSCHNITT}“ einem Team dieser Saison zuweist und speicherst.`;
 
 /**
  * The same refusal for a reader standing on the player LIST, where the repair is a page away and no
@@ -119,7 +121,7 @@ export const REACTIVATION_NEEDS_A_TEAM_IN_SAISON =
  */
 export const LIST_REACTIVATION_NEEDS_A_TEAM_IN_SAISON =
   "Das Team dieses Kadereintrags ist in dieser Saison nicht mehr dabei. Bearbeite den Spieler und weise den Eintrag " +
-  "im Bereich „Kader“ einem Team dieser Saison zu.";
+  `im Bereich „${KADER_ABSCHNITT}“ einem Team dieser Saison zu.`;
 
 // One sentence for both readers, where the club refusal above needed one each: the repair is another
 // player's page or the season's rules, so neither the list nor the editor could point within itself.

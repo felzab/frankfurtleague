@@ -1,3 +1,4 @@
+import { SAISON_ABSCHNITT } from "@/features/teams/constants";
 import { isRefusal } from "@/shared/utils/actionError";
 import { buildRefusal } from "@/shared/utils/refusal";
 
@@ -17,7 +18,7 @@ export function mapEinladungRefusal(error: unknown): { error?: string; fieldErro
         error: buildRefusal({
           reason: "Dieses Team steht nicht in dieser Saison",
           repair: "Nimm es zuerst in die Saison auf",
-          where: "Saison",
+          where: SAISON_ABSCHNITT,
         }),
       };
     case "REQ-EINLADUNG-002":

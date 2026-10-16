@@ -29,6 +29,12 @@ export const KONTAKTE_CRUD_COPY = {
   emptyOverall: "Für diese Saison wurden noch keine Kontakte hinterlegt.",
 } as const;
 
+/** The club editor's season panel, named by its heading where a sentence sends the reader to it, so a renamed panel takes the sentence with it. */
+export const SAISON_ABSCHNITT = "Saison";
+
+/** The club editor's contacts panel, named by its heading where a refusal sends the reader to it, so a renamed panel takes the refusal with it. */
+export const KONTAKTE_ABSCHNITT = "Kontakte";
+
 /**
  * The closed set, in the order every picker offers it. The ONE spelling on this surface, and here
  * rather than beside `fl_frontend/src/features/teams/schemas.ts :: FLGruppenNamesSchema`, which

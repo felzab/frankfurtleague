@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { patchSaisonSpielerAction, patchSpielerAction, undoAdminSpielerEditAction } from "@/features/spieler/actions";
-import { rolleLabel } from "@/features/spieler/constants";
+import { KADER_ABSCHNITT, rolleLabel } from "@/features/spieler/constants";
 import { FLPatchSaisonSpielerPayloadSchema, FLPatchSpielerPayloadSchema } from "@/features/spieler/schemas";
 import { deriveSpielerDraftStatus } from "@/features/spieler/spielerDraftStatus";
 import { judgeRowReturn, nummerPayload } from "@/features/spieler/utils";
@@ -202,7 +202,7 @@ function SpielerEditForm({
   const blockedRolle = rolle !== null && heldBy !== undefined ? { label: rolleLabel(rolle), heldBy } : null;
 
   const personDirty = status.changed.some((field) => field.group === "Person");
-  const saisonDirty = storedMembership !== null && status.changed.some((field) => field.group === "Kader");
+  const saisonDirty = storedMembership !== null && status.changed.some((field) => field.group === KADER_ABSCHNITT);
 
   // The STORED club and not the picker's, unlike `isSquadFull` above: the reactivate returns the row to
   // the club it already names, which a transfer in the draft can have moved away from without it.

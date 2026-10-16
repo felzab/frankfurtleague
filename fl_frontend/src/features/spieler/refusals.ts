@@ -3,14 +3,14 @@ import { SPERRLISTE_ADRESSE_GESPERRT } from "@/features/sperrliste/constants";
 import { isRefusal } from "@/shared/utils/actionError";
 import { buildRefusal, LADE_DIE_SEITE_NEU } from "@/shared/utils/refusal";
 
-import { ADRESSE_AENDERN, ALREADY_IN_SAISON, STUFE_NICHT_ZUGELASSEN } from "./constants";
+import { ADRESSE_AENDERN, ALREADY_IN_SAISON, KADER_ABSCHNITT, STUFE_NICHT_ZUGELASSEN } from "./constants";
 
 import type { FieldErrors } from "@/shared/utils/validation";
 
 // Reachable with no picker on screen: a reactivate names the row's STORED club, which a replacement
 // can have taken out of the season.
 const SQUAD_TEAM_NOT_IN_SAISON =
-  "Das Team dieses Kadereintrags ist in dieser Saison nicht dabei. Weise den Eintrag im Bereich „Kader“ auf der Seite " +
+  `Das Team dieses Kadereintrags ist in dieser Saison nicht dabei. Weise den Eintrag im Bereich „${KADER_ABSCHNITT}“ auf der Seite ` +
   "des Spielers zuerst einem Team dieser Saison zu.";
 
 // Neither role is named: the reactivate offers no role on screen, and one sentence has to serve it

@@ -17,6 +17,7 @@ import { ZUSTELLUNG_CHIP } from "@/features/bewerbungen/zustellung";
 import { deleteEinladungAction, mailEinladungAction, postEinladungAction } from "@/features/einladungen/actions";
 import { useEinladungLink } from "@/features/einladungen/components/EinladungLinkHolder";
 import { STUFE_CHIP_CLASSES } from "@/features/saisons/components/forms/StufenPicker";
+import { SAISON_ABSCHNITT } from "@/features/teams/constants";
 import { Leer } from "@/shared/components/ui/Angabe";
 import { Callout } from "@/shared/components/ui/Callout";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
@@ -224,7 +225,7 @@ export function FormEinladungSection({
           <Callout
             severity="info"
             title="Einen Registrierungslink bekommt nur ein Team, das in dieser Saison steht">
-            Nimm das Team oben unter „Saison“ auf.
+            Nimm das Team oben unter „{SAISON_ABSCHNITT}“ auf.
           </Callout>
         ) : (
           <>
