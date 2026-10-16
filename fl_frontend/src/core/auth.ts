@@ -1805,9 +1805,9 @@ export async function getPasskeyStep(): Promise<PasskeyStep | null> {
 }
 
 /**
- * Ends every session of an address's account, which a refused next sign-in does not reach, keeping account and
- * passkeys: for the day a ban ends (`docs/frontend/spec.md :: I402`), or for the next sign-in after an administrator's
- * sign-out (`:: I687`).
+ * Ends every session of an address's account, which a refused next sign-in does not reach, keeping the account: a
+ * barred one is the account sweep's to judge (`docs/frontend/spec.md :: I699`), a signed-out one waits for its next
+ * sign-in (`:: I687`).
  */
 export async function endSessionsOfAddress(address: string): Promise<boolean> {
   // No grant is asked about here: a ban ends every session whatever the address holds, and the administrator's
