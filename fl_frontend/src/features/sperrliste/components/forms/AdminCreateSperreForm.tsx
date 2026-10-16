@@ -11,7 +11,7 @@ import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
 
 import { postSperreAction, readSperreAnsichtAction } from "@/features/sperrliste/actions";
-import { SPERRE_DAUER_HINWEIS, SPERRE_ERFOLG, SPERRE_PRESS, sperreOhneUebersicht } from "@/features/sperrliste/constants";
+import { SPERRE_DAUER_HINWEIS, SPERRE_ERFOLG, SPERRE_MIT_FOLGEN, SPERRE_PRESS, sperreOhneUebersicht } from "@/features/sperrliste/constants";
 import { FLPostSperrlistePayloadSchema } from "@/features/sperrliste/schemas";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
@@ -69,7 +69,8 @@ export function AdminCreateSperreForm({ onClose }: { onClose: () => void }) {
   // Only the latest arming's read answers, and only while the address box is unedited since: Next sends one client's
   // actions one at a time, so an earlier arming's answer lands while the latest waits.
   const letzteLesung = useRef(0);
-  const confirm = useTwoPressConfirm();
+  // The ban's armed press asks the passkey as its lift's does: the sign-out and the notice behind it are undone by nothing.
+  const confirm = useTwoPressConfirm({ stepUp: true });
   const { isConfirming, isPending } = confirm;
   const { setSubmitFieldErrors, reportSubmitFailure, guardSubmit, useForgiveFixed, formWiring } = useDraftFieldErrors({
     schemas: { sperre: FLPostSperrlistePayloadSchema },
@@ -93,8 +94,8 @@ export function AdminCreateSperreForm({ onClose }: { onClose: () => void }) {
       return;
     }
 
-    // A refusal of the address, a grant holder's among them, lands on its box as the ban's would, the arming undone so
-    // the next press reads the corrected address.
+    // A refusal of the address, a grant holder's and one barred already among them, lands on its box as the ban's would,
+    // the arming undone so the next press reads the corrected address.
     if (res.fieldErrors?.email !== undefined) {
       setGelesen(null);
       confirm.cancel();
@@ -126,7 +127,8 @@ export function AdminCreateSperreForm({ onClose }: { onClose: () => void }) {
           setSubmitFieldErrors({}, {});
           // The server's sentence as the body, never a second copy of the title (`docs/frontend/spec.md` §1.12). The
           // dialog closes, as every create's does: its list was worked through before the press.
-          appToast.success(SPERRE_ERFOLG, { description: res.message === SPERRE_ERFOLG ? undefined : res.message });
+          const title = res.warn ? SPERRE_MIT_FOLGEN : SPERRE_ERFOLG;
+          (res.warn ? appToast.warning : appToast.success)(title, { description: res.message === title ? undefined : res.message });
           onClose();
         });
       });

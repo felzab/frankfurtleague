@@ -6448,7 +6448,7 @@
     "/api/v0/identitaet/erasure/ansicht": {
       "post": {
         "summary": "Show what an erasure of an address would remove",
-        "description": "Answer which of this address's records `POST /identitaet/erasure` would remove or empty, by kind, name and the ids a page links each by.\n\nADMIN TIER. Takes that erasure's own payload address and reads through its own selections in one snapshot, so it names\nevery one of them, an unconfirmed seat, a retired row, a pupil's every squad row and a declined registration among them,\nand no other. Another address's referee or pupil row holding a pending change to this address is named by its id, the\nchange going and the row standing. A squad row and a referee row each carry the day it was retired, null while live,\nand a referee row every season holding a fixture still to be played that it is booked on, as `REQ-RETIRE-004` judges\none. Reached and not named: the fixtures booking a referee row, which move onto the ghost, and the referee's name in\neach of those fixtures' log images, which goes; the grants, bans, invitations and decisions the address made for\nothers, which name a marker in its place; its day counts; its rows in the log; every log image of a record the\nerasure removes, emptied whole whether or not it holds the address, and every other log image holding the address;\na dead spelling of its grant, which admits nobody, each grant's announced row, and an announced row holding the\naddress under another grant's id; and the address in every notice still queued, withheld. Written besides: the\nnotice that the address's grant ended, which every administrator is sent. No address and no birthdate is answered.\n`verwaltung` is the tier of the live grant the address holds, or null. Stores nothing.\n\nRefused as the erasure is: the administrator's own address (`REQ-PURGE-003`), an address holding an `owner` grant unless\nthe administrator holds an owner's power (`REQ-PURGE-005`), and with a 422 before any read, an address under the reserved\n`invalid` domain, where every referee row stored without an address shares one placeholder.",
+        "description": "Answer which of this address's records `POST /identitaet/erasure` would remove or empty, by kind, name and the ids a page links each by.\n\nADMIN TIER. Takes that erasure's own payload address and reads through its own selections in one snapshot, so it names\nevery one of them, an unconfirmed seat, a retired row, a pupil's every squad row and a declined registration among them,\nand no other. Another address's referee or pupil row holding a pending change to this address is named by its id, the\nchange going and the row standing. A squad row and a referee row each carry the day it was retired, null while live,\nand a referee row every season holding a fixture still to be played that it is booked on, as `REQ-RETIRE-004` judges\none. Reached and not named: the fixtures booking a referee row, which move onto the ghost, and the referee's name in\neach of those fixtures' log images, which goes; the grants, bans, invitations and decisions the address made for\nothers, which name a marker in its place; its day counts; its rows in the log; every log image of a record the\nerasure removes, emptied whole whether or not it holds the address, and every other log image holding the address;\na dead spelling of its grant, which admits nobody, each grant's announced row, and an announced row holding the\naddress under another grant's id; and the address in every notice still queued, withheld. Written besides: the\nnotice that the address's grant ended, which every administrator is sent. No address and no birthdate is answered.\n`verwaltung` is the tier of the live grant the address holds, or null. `gesperrt` is whether a standing ban holds the\naddress, judged as `POST /identitaet/gesperrt` judges one; the erasure leaves a ban standing. Stores nothing.\n\nRefused as the erasure is: the administrator's own address (`REQ-PURGE-003`), an address holding an `owner` grant unless\nthe administrator holds an owner's power (`REQ-PURGE-005`), and with a 422 before any read, an address under the reserved\n`invalid` domain, where every referee row stored without an address shares one placeholder.",
         "operationId": "get_erasure_ansicht_auf_anfrage_api_v0_identitaet_erasure_ansicht_post",
         "requestBody": {
           "content": {
@@ -6688,7 +6688,7 @@
             "$ref": "#/components/responses/400.REQ-AUTH-005.REQ-VAL-002"
           },
           "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009"
           },
           "403": {
             "$ref": "#/components/responses/403.REQ-AUTH-006"
@@ -15028,6 +15028,10 @@
               }
             ],
             "title": "Verwaltung"
+          },
+          "gesperrt": {
+            "type": "boolean",
+            "title": "Gesperrt"
           }
         },
         "type": "object",
@@ -15039,7 +15043,8 @@
           "registrierungen",
           "adresswechsel",
           "spieler_adresswechsel",
-          "verwaltung"
+          "verwaltung",
+          "gesperrt"
         ],
         "title": "FLErasureAnsichtResponse"
       },

@@ -615,6 +615,7 @@ const CONFIRMED_BY_THE_BACKEND: Record<string, { name: string; payload: unknown 
   "POST /schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen": { name: "einladeSchiedsrichterAction", payload: { id: REFEREE_ID } },
   "POST /schiedsrichter/{schiedsrichter_id}/adresswechsel/einladen": { name: "einladeAdresswechselAction", payload: { id: REFEREE_ID } },
   "DELETE /schiedsrichter/{schiedsrichter_id}/adresswechsel": { name: "verwirfAdresswechselAction", payload: { id: REFEREE_ID } },
+  "POST /sperrliste": { name: "postSperreAction", payload: { email: "zorbanax@beispielschule.de", grund: "Falsches Geburtsdatum angegeben" } },
   "DELETE /sperrliste/{sperrliste_id}": { name: "deleteSperreAction", payload: { id: SPERRE_ID } },
   "POST /spieler/{spieler_id}/adresswechsel": {
     name: "beantrageSpielerAdresswechselAction",

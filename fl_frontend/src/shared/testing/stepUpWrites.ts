@@ -380,6 +380,7 @@ export const STEP_UP_CALLERS: Readonly<Record<string, Readonly<Record<string, St
     verwirfAdresswechselAction: "one-press",
   },
   "features/schiedsrichter/components/views/AdminSchiedsrichterEditView.tsx": { reactivateSchiedsrichterAction: "one-press" },
+  "features/sperrliste/components/forms/AdminCreateSperreForm.tsx": { postSperreAction: "two-press" },
   "features/sperrliste/components/forms/AdminSperreAufhebenPanel.tsx": { deleteSperreAction: "two-press" },
   "features/berechtigungen/components/forms/AdminCreateBerechtigungForm.tsx": { postBerechtigungAction: "create" },
   "features/berechtigungen/components/forms/AdminBerechtigungEntziehenPanel.tsx": { deleteBerechtigungAction: "two-press" },

@@ -43,9 +43,15 @@ export const SPERRE_AUFHEBEN_CONSEQUENCE =
 
 /**
  * What a CLEAN save answers, and the title its toast raises: the toast adds the action's message only
- * where the two DIFFER, which is how a failed send is told apart.
+ * where the two DIFFER, so a clean ban shows no second line saying the same.
  */
 export const SPERRE_ERFOLG = "Adresse gesperrt";
+
+/**
+ * A ban that stands with its sign-out or its notice short of the dialog's hint, at the warning variant alone: the title
+ * moves with the grade (`docs/frontend/spec.md :: I42`).
+ */
+export const SPERRE_MIT_FOLGEN = "Mit Folgen gesperrt";
 
 /** The ban dialog's one press, read and armed by its first press and sent by its second (`docs/frontend/spec.md :: I724`). */
 export const SPERRE_PRESS = {

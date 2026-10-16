@@ -364,6 +364,8 @@ class FLErasureAnsicht(BaseModel):
 class FLErasureAnsichtResponse(FLErasureAnsicht, BaseAPIResponse):
     # The tier of the live grant the address holds, which the erasure removes with the rest.
     verwaltung: FLVerwaltung | None
+    # Whether a standing ban holds the address, which the erasure leaves standing: the ban's dialog refuses it before its press.
+    gesperrt: bool
 
 
 class FLAbmeldungPayload(BaseModel):
