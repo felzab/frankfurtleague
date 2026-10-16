@@ -16,7 +16,7 @@ from app.api.teams.services import compose_kontakte_at_entry, compose_kontakte_h
 from app.core.config import API_VERSION
 from app.core.domain import OPERATION_SEPARATOR, RULES
 from app.shared.einwilligung_nachweis import NACHWEIS, WAHLEN, ist_erteilt
-from tests.core.app_source import api_routes, application, parsed, resolve_callee, scoped_calls
+from tests.core.app_source import Declaration, api_routes, application, parsed, resolve_callee, scoped_calls
 
 # Every write stamping a consent label, enumerated BY HAND rather than read off the routes: the case
 # below holds this list to what the application serves, so a new writer fails by its name until it
@@ -448,7 +448,7 @@ def _block_composers() -> frozenset[str]:
     """
 
     found: set[str] = set()
-    calls: set[tuple[str, str]] = set()
+    calls: list[tuple[str, bool, Path, tuple[Declaration, ...], ast.Call]] = []
     for path in APP.rglob("*.py"):
         tree = parsed(path)
         found |= {
@@ -456,15 +456,32 @@ def _block_composers() -> frozenset[str]:
             for node in ast.walk(tree)
             if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef) and _touches_a_block(node)
         }
-        for chain, call in scoped_calls(tree, ()):
-            if (callee := resolve_callee(call, chain, path)) is not None:
-                # Every function around the call, so a writer's own `write` callback answers for it too.
-                calls |= {(_key(path, caller.name), _key(callee[1], callee[0].name)) for caller in chain}
+        aliases = {alias.asname for node in ast.walk(tree) if isinstance(node, ast.ImportFrom) for alias in node.names if alias.asname}
+        calls += [
+            (call.func.id, call.func.id in aliases, path, chain, call)
+            for chain, call in scoped_calls(tree, ())
+            if isinstance(call.func, ast.Name)
+        ]
 
+    # Resolved only where the name is a writer's, or an import's alias: resolving every call in `app` costs most of the case.
+    resolved: dict[int, str | None] = {}
     # Across modules, so a writer calling another module's composer is one too; never through a function moving no choice.
-    while grown := {caller for caller, callee in calls if callee in found - WRITES_NO_CHOICE} - found:
+    while True:
+        writers = found - WRITES_NO_CHOICE
+        names = {key.rpartition("::")[2] for key in writers}
+        grown: set[str] = set()
+        for name, aliased, path, chain, call in calls:
+            if name not in names and not aliased:
+                continue
+            if id(call) not in resolved:
+                callee = resolve_callee(call, chain, path)
+                resolved[id(call)] = None if callee is None else _key(callee[1], callee[0].name)
+            if resolved[id(call)] in writers:
+                # Every function around the call, so a writer's own `write` callback answers for it too.
+                grown |= {_key(path, caller.name) for caller in chain}
+        if not (grown := grown - found):
+            return frozenset(found)
         found |= grown
-    return frozenset(found)
 
 
 def test_every_composer_of_a_consent_block_is_judged_here():
