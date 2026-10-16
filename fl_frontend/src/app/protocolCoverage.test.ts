@@ -251,7 +251,7 @@ describe("every published credential, request-validation and day-ceiling code ag
       const unclaimed =
         answer.kind === "worded" ? null : await shownBySpines(tier, person, unpublishedOn(operation, unclaimedBeside(code), status));
       for (const [spine, words] of Object.entries(shown)) {
-        const expected =
+        const expected: unknown =
           answer.kind !== "worded" ? unclaimed?.[spine] : spine === "the undo spine" ? (answer.undo ?? answer.words) : answer.words;
         assert.equal(words, expected, `${key}, on ${spine}: ${answer.because}`);
       }
