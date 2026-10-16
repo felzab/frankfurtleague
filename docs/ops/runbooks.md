@@ -762,7 +762,9 @@ by mail instead has two answers, and which one you give is the person's to choos
   the pupil's own answer
   (`fl_backend/app/api/registrierungen/services.py :: compose_person_update`). Where the window is
   shut, no route keeps their place with the name withheld, and „Löschung auf Anfrage“ reaches no
-  record holding no address: which route answers that request is not decided
+  record holding no address: theirs goes with this season's pupil reset
+  ([section 12](#12-deleting-this-seasons-player-records-and-resetting-the-action-log)), which may
+  fall after the month Art. 12(3) gives for answering
   ([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)). Either write that
   withholds the name drops the cached
   squad list, and the next read serves the row as a nameless slot
@@ -801,9 +803,13 @@ administrator's own, which goes through their account page or another administra
 an administrator who is not one; and any under the reserved `.invalid` domain, which every referee
 row stored without an address shares, so that an erasure of it would reach them all at once
 (`fl_backend/app/api/identitaet/schemas.py :: refuse_the_reserved_domain`). Which route answers the
-person behind such a row, or behind a pupil row holding no address, is not decided, and what each
-route open today costs is
-[`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)'s. The page mails the
+person behind such a row is the address route all the same
+([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)): save their own
+address on the row in the referee editor, which on a row still in service mails them a confirmation
+link first, then erase that address; otherwise the row goes with the referee drop, immediately
+before the deploy whose fixture read first consults a referee's own consent
+([section 12](#12-deleting-this-seasons-player-records-and-resetting-the-action-log)). A pupil row
+holding no address waits for that section's pupil reset at the end of this season. The page mails the
 person nothing. **Erasing an administrator's address tells every
 administrator, as a revoke does**: the grant's end goes out with the other changes of access, the
 notice naming no address (`docs/backend/spec.md :: I659`). On the same page „Überall abmelden“ ends
