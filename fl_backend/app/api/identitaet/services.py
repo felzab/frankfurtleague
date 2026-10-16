@@ -162,7 +162,7 @@ def pending_addresses_of(
     ]
 
 
-def build_kader_pipeline(spieler_ids: Iterable[Any]) -> list[Mapping[str, Any]]:
+def build_erasure_kader_pipeline(spieler_ids: Iterable[Any]) -> list[Mapping[str, Any]]:
     """Every squad row of these pupils, a retired one included, as the pupil's step selects what it removes."""
 
     return [

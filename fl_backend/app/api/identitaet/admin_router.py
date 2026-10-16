@@ -18,7 +18,7 @@ from app.api.identitaet.schemas import (
     FLErasureResponse,
 )
 from app.api.identitaet.services import (
-    build_kader_pipeline,
+    build_erasure_kader_pipeline,
     build_season_team_pipeline,
     compose_erasure_ansicht_auf_anfrage,
     find_eigene_adresse_refusal,
@@ -126,7 +126,9 @@ async def get_erasure_ansicht_auf_anfrage(
         )
         kader_rows = (
             await aggregate_many_from_db(
-                collection=saison_spieler_collection, pipeline=build_kader_pipeline(row["_id"] for row in subject.spieler), session=session
+                collection=saison_spieler_collection,
+                pipeline=build_erasure_kader_pipeline(row["_id"] for row in subject.spieler),
+                session=session,
             )
             if subject.spieler
             else []
