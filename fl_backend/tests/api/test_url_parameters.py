@@ -1,6 +1,6 @@
 from typing import Any, Final
 
-from app.core.routing import OBJECT_ID_REGEX
+from app.shared.schemas.custom import OBJECT_ID_REGEX
 from tests.openapi_document import build_document
 
 # Every parameter a URL carries published as a string nothing closes, by where it sits and what it carries: an
@@ -15,7 +15,6 @@ OPEN_STRING_PARAMETERS: Final = {
         "saison_id": "a season's id",
         "saisonbezug": "the season relations a facet picked on the application queue",
         "status": "the states a facet picked on the application queue",
-        "team_id": "a club's id",
         "trace_id": "a request's trace id, from a link a change log row opens",
     },
     "path": {
@@ -26,7 +25,7 @@ OPEN_STRING_PARAMETERS: Final = {
     },
 }
 
-# What closes a string: a set of values, or the record id every `CustomRouteObjectId` publishes.
+# What closes a string: a set of values, or the record id every `CustomObjectId` publishes, in a path, a query or a body alike.
 OBJECT_ID_PATTERN: Final = f"^{OBJECT_ID_REGEX}$"
 
 

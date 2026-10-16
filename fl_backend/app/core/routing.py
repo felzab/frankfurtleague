@@ -1,13 +1,13 @@
 from starlette.convertors import Convertor, register_url_convertor
 
-CONVERTOR_NAME = "objectid"
+from app.shared.schemas.custom import OBJECT_ID_REGEX
 
-# 24 hex characters, what `str(ObjectId(...))` produces. Constraining the parameter keeps a static
-# path out of an id route whatever order the routers load, and makes a malformed id a 404.
-OBJECT_ID_REGEX = "[0-9a-fA-F]{24}"
+CONVERTOR_NAME = "objectid"
 
 
 class ObjectIdConvertor(Convertor[str]):
+    # Constraining the parameter keeps a static path out of an id route whatever order the routers
+    # load, and makes a malformed id a 404.
     regex = OBJECT_ID_REGEX
 
     def convert(self, value: str) -> str:

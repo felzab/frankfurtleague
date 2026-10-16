@@ -21,6 +21,10 @@ DATE_REGEX = r"^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
 
 TIME_REGEX = r"^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$"
 
+# 24 hex characters, what `str(ObjectId(...))` produces, and every string `parse_object_id` takes. Unanchored:
+# `app/core/routing.py :: ObjectIdConvertor` compiles it into a whole path, which carries its own anchors.
+OBJECT_ID_REGEX = "[0-9a-fA-F]{24}"
+
 
 def parse_object_id(value: str) -> ObjectId | None:
     """`None` rather than a raise: the log's search term answers a malformed id with a text match.
@@ -84,7 +88,7 @@ class CustomObjectIdAnnotation:
         Declared rather than inferred: serialization walks to a plain validator no JSON schema can
         describe. Not a `return_schema`, which would warn on every `keep_oid` dump.
         """
-        return handler(core_schema.str_schema())
+        return handler(core_schema.str_schema(pattern=f"^{OBJECT_ID_REGEX}$"))
 
 
 CustomObjectId = Annotated[ObjectId, CustomObjectIdAnnotation]
