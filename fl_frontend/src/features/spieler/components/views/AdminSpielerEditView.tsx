@@ -1,21 +1,25 @@
 "use client";
 
+import { useState } from "react";
+
 import { reactivateSpielerAction } from "@/features/spieler/actions";
 import { AdminSpielerEditForm } from "@/features/spieler/components/forms/AdminSpielerEditForm/AdminSpielerEditForm";
+import { AdminDeleteSpielerModal } from "@/features/spieler/components/modals/AdminDeleteSpielerModal";
 import { kaderName } from "@/features/spieler/constants";
 import { PAGE_RISE_CLASSES } from "@/shared/components/ui/motion";
 import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
+import { useReactivation } from "@/shared/hooks/useReactivation";
+import { focusAfterWrite } from "@/shared/utils/focusAfterWrite";
+
+import type { FLEinwilligung } from "@/features/spieler/schemas";
+import type { AdminSpielerStored, SpielerSaisonMembership, SpielerTeamOption } from "@/features/spieler/types";
+
 /**
  * Every exit routes through the form's discard guard.
  *
  * **The header owns the PERSON's retirement, the form's foot the squad row's** — two controls that
  * read alike invite the wrong one.
  */
-import { useReactivation } from "@/shared/hooks/useReactivation";
-
-import type { FLEinwilligung } from "@/features/spieler/schemas";
-import type { AdminSpielerStored, SpielerSaisonMembership, SpielerTeamOption } from "@/features/spieler/types";
-
 export function AdminSpielerEditView({
   spieler,
   einwilligung,
@@ -32,6 +36,8 @@ export function AdminSpielerEditView({
   teams: SpielerTeamOption[];
 }) {
   const { isReactivating, reactivate } = useReactivation({ action: reactivateSpielerAction, noun: "Spieler" });
+  // The landing read as the dialog opens, which takes the focus off the pressed control.
+  const [retiring, setRetiring] = useState<{ landed: () => void } | null>(null);
 
   const isRetired = spieler.inactive_since !== null;
   const fullName = kaderName(spieler);
@@ -57,8 +63,19 @@ export function AdminSpielerEditView({
               {saison.membership.nummer}
             </span>
           ) : undefined,
-          reactivate: isRetired ? { isPending: isReactivating, onPress: () => reactivate({ id: spieler.id }) } : undefined,
+          stilllegung: {
+            isRetired,
+            reactivate: { isPending: isReactivating, onPress: () => reactivate({ id: spieler.id }) },
+            retire: { onPress: (pressed) => setRetiring(focusAfterWrite(pressed)) },
+          },
         }}
+      />
+      {/* The record itself rather than a picked copy: the dialog retains the last value it was handed by identity. */}
+      <AdminDeleteSpielerModal
+        spielerData={spieler}
+        isOpen={retiring !== null}
+        onClose={() => setRetiring(null)}
+        onRetired={() => retiring?.landed()}
       />
     </div>
   );

@@ -26,6 +26,8 @@ from app.api.bewerbungen.services import (
     build_saison_token_filter,
     build_token_filter,
     compose_confirmation_update,
+    compose_decline_update,
+    compose_saison_decline_update,
     find_already_answered_refusal,
     find_alter_refusal,
     find_einwilligung_gesperrt_refusal,
@@ -47,7 +49,7 @@ from app.api.bewerbungen.services import (
     zustand_of,
 )
 from app.api.einwilligung.services import find_fassung_refusal, find_selbst_medien_refusal
-from app.api.kontakte.crud import take_widerspruch_in_session
+from app.api.kontakte.crud import redact_the_decliner
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
 from app.api.teams.services import kontakt_zeile_of
 from app.core.collections import Collection
@@ -265,24 +267,11 @@ async def post_einwilligung(
     am = log_stamp(germany_now)
     journal = Journal()
 
-    async def widerspruch(
-        home: Collection, row: Mapping[str, Any], seat: str, seats: tuple[str, ...], session: AsyncClientSession
-    ) -> Mapping[str, Any]:
-        updated = await take_widerspruch_in_session(
-            collection=bewerbungen_collection if home == Collection.BEWERBUNGEN else saison_teams_collection,
-            aktionen_collection=aktionen_collection,
-            row=row,
-            seats=seats,
-            today=today,
-            stamp=am,
-            session=session,
-        )
+    def journal_the_widerspruch(home: Collection, row: Mapping[str, Any], seat: str, seats: tuple[str, ...]) -> None:
         # Keyed on the link's own seat, whose person pressed; an emptied one holds nobody a replay could find again.
         for adresse in seat_adressen(kontakte=row.get("kontakte"), seats=(seat,)):
             hashed = loeschung_journal_hash(adresse, schluessel=config.sperrliste_schluessel)
             journal.note(JournalLine(person_hash=hashed, art="widerspruch", collection=home, record_id=row["_id"], am=am, sitze=seats))
-
-        return updated
 
     async def answer_on_the_season_row(session: AsyncClientSession) -> FLSaisonTeamEinwilligungAntwortResponse:
         """The application's judgement in its order, on the season row holding the token; a miss there is the unknown-token refusal."""
@@ -350,7 +339,25 @@ async def post_einwilligung(
                 ergebnis="bestaetigt", geburtsdatum=geburtsdatum, whatsapp=antwort_data.whatsapp, medien=antwort_data.medien
             )
 
-        await widerspruch(Collection.SAISON_TEAMS, row, seat, seats, session)
+        await patch_one_in_db(
+            collection=saison_teams_collection,
+            db_filter={"_id": row["_id"]},
+            update=compose_saison_decline_update(seats=seats, today=today),
+            session=session,
+            return_document=ReturnDocument.BEFORE,
+        )
+
+        # LAST, for the application's reason: it reaches the pre-image the clearing patch just filed,
+        # which still holds the person who refused to be held.
+        await redact_the_decliner(
+            aktionen_collection=aktionen_collection,
+            collection=Collection.SAISON_TEAMS,
+            row_id=row["_id"],
+            adressen=seat_adressen(kontakte=kontakte, seats=seats),
+            stamp=am,
+            session=session,
+        )
+        journal_the_widerspruch(Collection.SAISON_TEAMS, row, seat, seats)
 
         return FLSaisonTeamEinwilligungAntwortResponse(ergebnis="abgelehnt", geburtsdatum=None, whatsapp=antwort_data.whatsapp, medien=False)
 
@@ -449,7 +456,25 @@ async def post_einwilligung(
                 ansprechperson_rollen=bestaetigt_rollen,
             )
 
-        updated_raw = await widerspruch(Collection.BEWERBUNGEN, bewerbung_raw, seat, seats, session)
+        updated_raw = await patch_one_in_db(
+            collection=bewerbungen_collection,
+            db_filter={"_id": bewerbung_raw["_id"]},
+            update=compose_decline_update(seats=seats, today=today),
+            session=session,
+            return_document=ReturnDocument.AFTER,
+        )
+
+        # LAST, so it reaches the pre-image the clearing patch just filed, which still holds the
+        # person who refused to be held (`app/api/kontakte/crud.py :: erase_kontaktperson_in_session`).
+        await redact_the_decliner(
+            aktionen_collection=aktionen_collection,
+            collection=Collection.BEWERBUNGEN,
+            row_id=bewerbung_raw["_id"],
+            adressen=seat_adressen(kontakte=kontakte, seats=seats),
+            stamp=am,
+            session=session,
+        )
+        journal_the_widerspruch(Collection.BEWERBUNGEN, bewerbung_raw, seat, seats)
 
         # Off the UPDATED document, so an Ansprechperson who has just declined leaves this null and
         # the message their decline would have gone to is not composed at all.
