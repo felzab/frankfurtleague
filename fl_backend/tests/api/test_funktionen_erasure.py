@@ -1044,7 +1044,7 @@ class TestTheLastOwner:
 
 
 class TestTheScope:
-    """The yearly deletion takes a pupil's data alone, every other kind at the address standing."""
+    """The season-after rule's deletion takes a pupil's data alone, every other kind at the address standing."""
 
     def test_the_pupil_scope_takes_the_pupil_and_their_registrations_and_nothing_else(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
