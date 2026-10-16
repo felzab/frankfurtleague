@@ -14791,13 +14791,26 @@
               }
             ],
             "title": "Team Name"
+          },
+          "inactive_since": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inactive Since"
           }
         },
         "type": "object",
         "required": [
           "saison_id",
           "team_id",
-          "team_name"
+          "team_name",
+          "inactive_since"
         ],
         "title": "FLErasureAnsichtKader",
         "description": "One squad row of a pupil the erasure reaches."
@@ -14969,12 +14982,25 @@
           "schiedsrichter_id": {
             "type": "string",
             "title": "Schiedsrichter Id"
+          },
+          "inactive_since": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inactive Since"
           }
         },
         "type": "object",
         "required": [
           "name",
-          "schiedsrichter_id"
+          "schiedsrichter_id",
+          "inactive_since"
         ],
         "title": "FLErasureAnsichtSchiedsrichter"
       },

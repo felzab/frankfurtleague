@@ -66,8 +66,15 @@ const NICHTS_GESPEICHERT = {
 
 /** One record of every kind the reveal names, typed against the mirror: a kind added there fails to compile here first. */
 const EIN_EINTRAG_JE_ART = {
-  spieler: [{ spieler_id: ID, vorname: "Lena", nachname: "Meier", kader: [{ saison_id: "2026", team_id: ID, team_name: "SG Alpha" }] }],
-  schiedsrichter: [{ schiedsrichter_id: ID, name: "Pia Kraft" }],
+  spieler: [
+    {
+      spieler_id: ID,
+      vorname: "Lena",
+      nachname: "Meier",
+      kader: [{ saison_id: "2026", team_id: ID, team_name: "SG Alpha", inactive_since: null }],
+    },
+  ],
+  schiedsrichter: [{ schiedsrichter_id: ID, name: "Pia Kraft", inactive_since: null }],
   sitze: [{ saison_id: "2026", team_id: ID, team_name: "SG Alpha", rolle: "trainer", vorname: "Grace", nachname: "Meier" }],
   bewerbungen: [{ bewerbung_id: ID, saison_id: "2027", rolle: "ansprechperson", vorname: "Grace", nachname: "Meier" }],
   registrierungen: [{ registrierung_id: ID, saison_id: "2026", team_id: ID, team_name: "SG Alpha", vorname: "Lena", nachname: "Meier" }],

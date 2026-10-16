@@ -12,7 +12,7 @@ import {
 } from "@/core/schemas";
 import { einzeiligerName, FLKontaktRolleSchema } from "@/features/bewerbungen/schemas";
 import { ADRESSE_IM_GRUND_REGEX } from "@/features/sperrliste/schemas";
-import { addressSchema, CustomObjectIdStringSchema } from "@/shared/schemas";
+import { addressSchema, CustomDateStringSchema, CustomObjectIdStringSchema } from "@/shared/schemas";
 
 import { ERASURE_ANLASS_MAX_LENGTH, REFERENZEN_ADRESSEN_MAX } from "./constants";
 
@@ -86,6 +86,7 @@ export const FLErasureAnsichtKaderSchema = z.object({
   team_id: CustomObjectIdStringSchema,
   // Null where no season row names the team.
   team_name: z.string().nullable(),
+  inactive_since: CustomDateStringSchema.nullable(),
 });
 
 export const FLErasureAnsichtSpielerSchema = FLSelbstErasureSpielerSchema.extend({
@@ -95,6 +96,7 @@ export const FLErasureAnsichtSpielerSchema = FLSelbstErasureSpielerSchema.extend
 
 export const FLErasureAnsichtSchiedsrichterSchema = FLSelbstErasureSchiedsrichterSchema.extend({
   schiedsrichter_id: CustomObjectIdStringSchema,
+  inactive_since: CustomDateStringSchema.nullable(),
 });
 
 export const FLErasureAnsichtSitzSchema = FLSelbstErasureSitzSchema.extend({ team_id: CustomObjectIdStringSchema });

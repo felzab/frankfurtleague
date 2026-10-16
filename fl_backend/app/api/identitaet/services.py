@@ -94,7 +94,11 @@ def build_erasure_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
 
 
 def build_erasure_referee_pipeline(identifier: str) -> list[Mapping[str, Any]]:
-    return [{"$match": build_selbst_referee_filter(identifier)}, {"$project": {"name": 1, "kontakt.email": 1}}, {"$sort": {"_id": 1}}]
+    return [
+        {"$match": build_selbst_referee_filter(identifier)},
+        {"$project": {"name": 1, "kontakt.email": 1, "inactive_since": 1}},
+        {"$sort": {"_id": 1}},
+    ]
 
 
 def build_erasure_pupil_pipeline(identifier: str) -> list[Mapping[str, Any]]:
@@ -167,7 +171,7 @@ def build_erasure_kader_pipeline(spieler_ids: Iterable[Any]) -> list[Mapping[str
 
     return [
         {"$match": {"spieler_id": {"$in": list(spieler_ids)}}},
-        {"$project": {"spieler_id": 1, "saison_id": 1, "team_id": 1}},
+        {"$project": {"spieler_id": 1, "saison_id": 1, "team_id": 1, "inactive_since": 1}},
         {"$sort": {"saison_id": 1, "team_id": 1, "_id": 1}},
     ]
 
@@ -204,7 +208,12 @@ def _team_names(team_rows: Iterable[Mapping[str, Any]]) -> dict[tuple[Any, Any],
 
 
 def _kader_entry(row: Mapping[str, Any], team_names: Mapping[tuple[Any, Any], Any]) -> dict[str, Any]:
-    return {"saison_id": row["saison_id"], "team_id": row["team_id"], "team_name": team_names.get((row["saison_id"], row["team_id"]))}
+    return {
+        "saison_id": row["saison_id"],
+        "team_id": row["team_id"],
+        "team_name": team_names.get((row["saison_id"], row["team_id"])),
+        "inactive_since": row.get("inactive_since"),
+    }
 
 
 def compose_erasure_ansicht(
@@ -264,7 +273,9 @@ def compose_erasure_ansicht_auf_anfrage(
                 }
                 for row in pupil_rows
             ],
-            "schiedsrichter": [{**_referee_entry(row), "schiedsrichter_id": row["_id"]} for row in referee_rows],
+            "schiedsrichter": [
+                {**_referee_entry(row), "schiedsrichter_id": row["_id"], "inactive_since": row.get("inactive_since")} for row in referee_rows
+            ],
             "sitze": [
                 {**_seat_entry(row, slot), "team_name": row.get("name"), "team_id": row["team_id"]}
                 for row, slot in seats_naming(saison_team_rows, identifier)

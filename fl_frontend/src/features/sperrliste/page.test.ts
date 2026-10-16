@@ -69,12 +69,12 @@ const BESTAND = {
       spieler_id: SPIELER,
       ...PERSON,
       kader: [
-        { saison_id: "2024", team_id: TEAM, team_name: "Goethe-Gymnasium" },
-        { saison_id: "2026", team_id: TEAM, team_name: "Goethe-Gymnasium" },
+        { saison_id: "2024", team_id: TEAM, team_name: "Goethe-Gymnasium", inactive_since: null },
+        { saison_id: "2026", team_id: TEAM, team_name: "Goethe-Gymnasium", inactive_since: null },
       ],
     },
   ],
-  schiedsrichter: [{ schiedsrichter_id: SCHIEDSRICHTER, name: "Zorbanax Quell" }],
+  schiedsrichter: [{ schiedsrichter_id: SCHIEDSRICHTER, name: "Zorbanax Quell", inactive_since: null }],
   sitze: [{ team_id: TEAM, saison_id: "2026", team_name: "Goethe-Gymnasium", rolle: "trainer", ...PERSON }],
   bewerbungen: [{ bewerbung_id: BEWERBUNG, saison_id: "2027", rolle: "ansprechperson", ...PERSON }],
   registrierungen: [{ registrierung_id: "6890a1b2c3d4e5f607250015", team_id: TEAM, saison_id: "2026", team_name: null, ...PERSON }],
@@ -172,6 +172,37 @@ describe("what the ban's dialog shows once the ban stands (`docs/frontend/spec.m
     const dialog = await sperren();
 
     assert.deepEqual(verweiseIn(dialog), [["Eintrag ansehen", `/bereich/admin/spieler/${SPIELER}?saison_id=2025`]]);
+  });
+
+  /* A row taken out and a referee retired have nothing left to take out: their editors offer no austragen and no
+     retirement, so a link promising one opens a page without it. */
+  it("offers no austragen of a squad row taken out and no retirement of a referee retired, linking their records", async () => {
+    antwort = () =>
+      Promise.resolve({
+        ...NICHTS,
+        spieler: [
+          {
+            spieler_id: SPIELER,
+            ...PERSON,
+            kader: [
+              { saison_id: "2024", team_id: TEAM, team_name: "Goethe-Gymnasium", inactive_since: "2025-02-01" },
+              { saison_id: "2026", team_id: TEAM, team_name: "Goethe-Gymnasium", inactive_since: null },
+            ],
+          },
+        ],
+        schiedsrichter: [{ schiedsrichter_id: SCHIEDSRICHTER, name: "Zorbanax Quell", inactive_since: "2025-03-01" }],
+      });
+
+    const dialog = await sperren();
+
+    assert.deepEqual(verweiseIn(dialog), [
+      ["Eintrag ansehen", `/bereich/admin/spieler/${SPIELER}?saison_id=2024`],
+      ["Kadereintrag austragen", `/bereich/admin/spieler/${SPIELER}?saison_id=2026`],
+      ["Spiele neu besetzen", `/bereich/admin/spielsuche?schiedsrichter=${SCHIEDSRICHTER}&saison_id=2025`],
+      ["Eintrag ansehen", `/bereich/admin/schiedsrichter/${SCHIEDSRICHTER}?saison_id=2025`],
+    ]);
+    assert.ok(within(dialog).queryByText(/\(2024\), ausgetragen seit 01\.02\.2025$/) !== null, "the row taken out reads as one still in");
+    assert.ok(within(dialog).queryByText(/Zorbanax Quell, stillgelegt seit 01\.03\.2025$/) !== null, "the retired referee reads as active");
   });
 
   /* Opened again, the dialog is the next ban's form: a list left standing would name the last address's records. */

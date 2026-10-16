@@ -60,8 +60,9 @@ export const SPERRE_ANSICHT_COPY = {
 export const SPERRE_ANSICHT_VERWEISE = {
   kontakte: "Kontakte bearbeiten",
   kader: "Kadereintrag austragen",
-  // A pupil holding no squad row, whose record is the whole of what stands.
-  spieler: "Eintrag ansehen",
+  // A record left with nothing to take out, whose record is what stands: a pupil holding no squad row, a squad row
+  // taken out, a referee retired.
+  eintrag: "Eintrag ansehen",
   // The fixtures first: a referee still booked on one is refused retirement (`REQ-RETIRE-004`).
   spiele: "Spiele neu besetzen",
   stilllegen: "Schiedsrichter stilllegen",

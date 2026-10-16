@@ -849,9 +849,10 @@ open beside it; work through it before „Fertig“, since once the dialog close
 records from the ban again.
 
 - a referee: „Spiele neu besetzen“ reassigns their unplayed fixtures, then „Schiedsrichter
-  stilllegen“ retires them, which `REQ-RETIRE-004` holds to that order;
+  stilllegen“ retires them, which `REQ-RETIRE-004` holds to that order; a referee retired already
+  is offered „Eintrag ansehen“ instead;
 - a pupil's squad row: „Kadereintrag austragen“ retires it, which takes the pupil off the public
-  squad list;
+  squad list; a row taken out already is offered „Eintrag ansehen“ instead;
 - a contact seat: „Kontakte bearbeiten“ replaces or clears it on the team's season;
 - a seat on an application: „Bewerbung öffnen“, whose „Neu besetzen“ seats the replacement the
   school names;

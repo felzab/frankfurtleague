@@ -11,7 +11,7 @@ from app.api.saisons.schemas import FLSaisonStatus
 from app.api.sperrliste.schemas import ADDRESS_IN_FREE_TEXT
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.bounds import ERASURE_ANLASS_MAX_LENGTH, KONTAKT_EMAIL_MAX_LENGTH, REFERENZEN_ADRESSEN_MAX
-from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomObjectId
+from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.kontakt import CustomEmail
 from app.shared.schemas.responses import BaseAPIResponse
 
@@ -299,6 +299,8 @@ class FLErasureAnsichtKader(BaseModel):
     team_id: CustomObjectId
     # The season row's name, null where no season row names the team that season.
     team_name: str | None
+    # Null on a live row: a ban's dialog offers to take out only a row still in the squad.
+    inactive_since: CustomOptionalDateString
 
 
 class FLErasureAnsichtSpieler(FLSelbstErasureSpieler):
@@ -309,6 +311,8 @@ class FLErasureAnsichtSpieler(FLSelbstErasureSpieler):
 
 class FLErasureAnsichtSchiedsrichter(FLSelbstErasureSchiedsrichter):
     schiedsrichter_id: CustomObjectId
+    # Null on a live row: a ban's dialog offers to retire only a referee still active.
+    inactive_since: CustomOptionalDateString
 
 
 class FLErasureAnsichtSitz(FLSelbstErasureSitz):
