@@ -598,7 +598,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   the erasure journal ([section 6](#6-retention-is-bounded-where-a-bound-was-chosen)) and matched
   against the addresses the restored records hold
   ([`ops/runbooks.md`](ops/runbooks.md#13-after-a-restore-from-a-snapshot)).
-- **One record outlives an erasure, and it is a record about two people.** An address barred from
+- **A ban outlives an erasure, and it is a record about two people.** An address barred from
   signing up is stored as an HMAC under a key this controller holds, beside the administrator's
   reason, their own address and the day (`docs/glossary.md :: Sperrliste`). The BARRED address is in
   no field and derivable from no row without that key, so the row is neither that person's own

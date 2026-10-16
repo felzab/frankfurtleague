@@ -474,7 +474,7 @@ class TestAPersonsOwnWriteInsideTheirErasureGoesWithIt:
 
 
 class TestAnAdministratorsOwnWriteInsideTheirErasureGoesWithIt:
-    """Held by the administrator's judge, which anchors the actor's grant (`docs/backend/spec.md :: I438`) the erasure removes."""
+    """Held by the administrator's judge, which anchors the actor's grant (`docs/backend/spec.md :: I450`) the erasure removes."""
 
     def test_the_log_row_they_wrote_names_them_no_more(self, mongo_replica_set_url: str):
         """Remove the anchor in `app/core/security.py :: admin_judge` and the venue's log row keeps the erased administrator's address."""

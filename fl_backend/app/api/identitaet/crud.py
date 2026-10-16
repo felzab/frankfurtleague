@@ -614,8 +614,8 @@ async def erase_everything(
     `ErasureJournal`, which journals once it commits.
     """
 
-    # First, ahead of the subject: a writer that committed for this address since the snapshot opened makes
-    # this attempt run again before it has done any work, and one writing later retries until this one ends
+    # The first of the erasure's own writes: a writer that committed for this address since the snapshot opened sends
+    # this attempt round before any step writes, and one writing later retries until this one ends
     # (`docs/backend/spec.md :: I719`).
     await anchor_the_addresses([identifier], adressanker_collection=adressanker_collection, schluessel=schluessel, session=session)
 

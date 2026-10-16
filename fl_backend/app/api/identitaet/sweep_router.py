@@ -151,8 +151,10 @@ async def post_loeschung_lauf(
     left it so, and an erasure by another spelling would remove nobody.
 
     Each pupil is deleted in a transaction of their own, which first judges them again: one who has gained a squad row or a
-    pending registration since this call read them, the two arriving while that transaction runs included, or whom another call
-    deleted first, is counted `uebersprungen` and left standing. Two calls at once therefore delete each pupil once. Deleted are
+    pending registration since this call read them, the two committing before that transaction writes included, or whom another
+    call deleted first, is counted `uebersprungen` and left standing. A squad entry or a registration meeting that transaction's
+    writes waits for it to end: the entry then finds nobody, and the registration is stored for a pupil already gone.
+    Two calls at once therefore delete each pupil once. Deleted are
     the pupil's own data alone: the pupil record, every squad row it holds and every registration at the address, a declined
     one included, each with its log images. A contact seat, a referee record, a grant and anything else held at the same
     address stand, and so do the log images naming them.
