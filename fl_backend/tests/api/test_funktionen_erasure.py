@@ -117,7 +117,7 @@ THEIR_BLOCKLESS_DIGEST = "digest-7f3a1c-ohne-block"
 # Distinctive, so a hit in a whole-database scan is never coincidence: every value the person holds.
 THEIR_VALUES = (VORNAME, NACHNAME, IDENTIFIER, "7771234", GEBURTSDATUM, PSEUDONYM, THEIR_DIGEST, THEIR_BLOCKLESS_DIGEST)
 
-# The people beside them, each asserted still present so a database emptied wholesale fails.
+# The people beside them, each asserted still present: a step taking anybody else's record with theirs fails.
 BYSTANDER_VALUES = ("Quillhilde", "Bramblewick", "Wraxlington", "kraus.bernd@example.com")
 # Those the seed's own edits file into shared log images beside the person, which keep them past the erasure.
 BYSTANDERS_IN_THE_LOG = ("Quillhilde", "Bramblewick", "kraus.bernd@example.com")
@@ -573,6 +573,7 @@ class TestNothingOfTheirsIsLeftAnywhere:
         assert all(before[value] for value in THEIR_VALUES), before
         assert status == 200
         assert {value: after[value] for value in THEIR_VALUES} == dict.fromkeys(THEIR_VALUES, [])
+        assert [value for value in BYSTANDER_VALUES if not after[value]] == []
         # In the log too: a pass emptying a shared image whole would take the people beside them with it.
         assert {value: "aktionen" in before[value] for value in BYSTANDERS_IN_THE_LOG} == dict.fromkeys(BYSTANDERS_IN_THE_LOG, True), before
         assert {value: "aktionen" in after[value] for value in BYSTANDERS_IN_THE_LOG} == dict.fromkeys(BYSTANDERS_IN_THE_LOG, True), after
