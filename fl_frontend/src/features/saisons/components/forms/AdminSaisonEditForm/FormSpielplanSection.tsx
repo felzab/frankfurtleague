@@ -10,6 +10,7 @@ import { Label } from "@heroui/react/label";
 import { ToggleButton } from "@heroui/react/toggle-button";
 import { ToggleButtonGroup } from "@heroui/react/toggle-button-group";
 
+import { TEAMS_EINTRAG } from "@/features/admin/constants";
 import { generateSpielplanAction, undrawSpielplanAction } from "@/features/saisons/actions";
 import { SaisonCountSelect, SaisonRuleNumberField } from "@/features/saisons/components/forms/SaisonFormControls";
 import { STUFE_CHIP_CLASSES } from "@/features/saisons/components/forms/StufenPicker";
@@ -257,7 +258,7 @@ export function FormSpielplanSection({
             body={{
               lead: "Der Spielplan umfasst die Spieltage und Spiele dieser Saison.",
               points: [
-                { term: "Die Teams", text: "verteilst Du über die Teamseite." },
+                { term: "Die Teams", text: `verteilst Du unter „${TEAMS_EINTRAG.label}“.` },
                 {
                   term: "Gruppen, Teams pro Gruppe und Qualifikanten pro Gruppe",
                   text: `änderst Du im Abschnitt ${REGELN_ABSCHNITT}, sobald der Spielplan zurückgenommen ist.`,
