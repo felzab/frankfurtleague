@@ -92,7 +92,7 @@ describe("the waiting address's two controls", () => {
   /* A link that did not go out, failed or held back by the ban list, is a warning titled for what
      happened, as the request's press grades it: the earlier link is dead either way. */
   for (const [versand, title] of [
-    ["fehlgeschlagen", "Link nicht zugestellt"],
+    ["fehlgeschlagen", "Link nicht verschickt"],
     ["gesperrt", "Link zurückgehalten"],
   ] as const) {
     it(`grades a re-send whose link is ${versand} a warning titled „${title}“`, async () => {

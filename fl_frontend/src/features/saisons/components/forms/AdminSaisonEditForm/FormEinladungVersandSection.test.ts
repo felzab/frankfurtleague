@@ -533,7 +533,7 @@ describe("the season's bulk invite send", () => {
     );
     assert.deepEqual(
       raised.map((toast) => [toast.variant, toast.title]),
-      [["warning", "Nicht alle Registrierungslinks zugestellt"]],
+      [["warning", "Nicht alle Registrierungslinks verschickt"]],
     );
   });
 

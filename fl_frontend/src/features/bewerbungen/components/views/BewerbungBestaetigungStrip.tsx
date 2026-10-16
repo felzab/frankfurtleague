@@ -116,7 +116,7 @@ const KORREKTUR_TITEL: VersandTitel = { ...LINK_TITEL, gesendet: "Adresse korrig
  */
 const NEUBESETZUNG_TITEL: VersandTitel = {
   gesendet: "Rolle neu besetzt",
-  fehlgeschlagen: "Rolle besetzt, Link nicht zugestellt",
+  fehlgeschlagen: "Rolle besetzt, Link nicht verschickt",
   abgelegt: "Rolle besetzt, Link zurückgehalten",
 };
 

@@ -383,7 +383,7 @@ describe("the address correction", () => {
     // Its own title rather than the editors' „Änderung nicht gespeichert“, which a sentence-only
     // refusal would otherwise reach through the hook's default raise.
     assert.deepEqual(titles("danger"), ["Adresse nicht korrigiert"]);
-    assert.deepEqual(titles("warning"), ["Link nicht zugestellt", "Link zurückgehalten"]);
+    assert.deepEqual(titles("warning"), ["Link nicht verschickt", "Link zurückgehalten"]);
     assert.deepEqual(titles("success"), ["Adresse korrigiert"]);
   });
 });
@@ -500,7 +500,7 @@ describe("a write whose answer never arrives", () => {
   /* The mint stands whichever way the send went, so a link that failed or that the ban list held back is
      a warning titled for what happened, never the press's sent title. */
   for (const [versand, title] of [
-    ["fehlgeschlagen", "Link nicht zugestellt"],
+    ["fehlgeschlagen", "Link nicht verschickt"],
     ["gesperrt", "Link zurückgehalten"],
   ] as const) {
     it(`reports a re-sent link that is ${versand} as a warning titled „${title}“`, async () => {
@@ -716,7 +716,7 @@ describe("seating another person where one stepped out", () => {
 
     assert.deepEqual(titles("danger"), ["Rolle nicht neu besetzt"]);
     // Its own titles rather than the correction's: the two outcomes differ in what stands afterwards.
-    assert.deepEqual(titles("warning"), ["Rolle besetzt, Link nicht zugestellt", "Rolle besetzt, Link zurückgehalten"]);
+    assert.deepEqual(titles("warning"), ["Rolle besetzt, Link nicht verschickt", "Rolle besetzt, Link zurückgehalten"]);
     assert.deepEqual(titles("success"), ["Rolle neu besetzt"]);
   });
 });

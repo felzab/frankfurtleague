@@ -148,7 +148,7 @@ describe("a re-send whose link did not go out", () => {
   /* Graded as the pupil's twin and the editor's save grade it, failed or held back by the ban list: the
      earlier link is dead either way. */
   for (const [versand, title] of [
-    ["fehlgeschlagen", "Link nicht zugestellt"],
+    ["fehlgeschlagen", "Link nicht verschickt"],
     ["gesperrt", "Link zurückgehalten"],
   ] as const) {
     it(`is a warning titled „${title}“ where the link is ${versand}, never a sent link`, async () => {

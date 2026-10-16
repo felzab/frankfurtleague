@@ -45,7 +45,7 @@ describe("what the address request says of the link it sent", () => {
      back is a warning titled for what happened, never a sent link. */
   for (const [versand, variant, title] of [
     ["gesendet", "success", "Link gesendet"],
-    ["fehlgeschlagen", "warning", "Link nicht zugestellt"],
+    ["fehlgeschlagen", "warning", "Link nicht verschickt"],
     ["gesperrt", "warning", "Link zurückgehalten"],
   ] as const) {
     it(`titles a request whose link is ${versand} „${title}“`, async () => {

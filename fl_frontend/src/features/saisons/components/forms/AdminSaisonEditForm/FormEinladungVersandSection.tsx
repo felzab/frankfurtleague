@@ -109,7 +109,7 @@ function zustellSatz(zeile: EinladungVersandErgebnis): string {
 /** One press writes to many teams, so a link that did not go out is one team's among others that did. */
 const REGISTRIERUNGSLINKS_TITEL: VersandTitel = {
   gesendet: "Registrierungslinks gesendet",
-  fehlgeschlagen: "Nicht alle Registrierungslinks zugestellt",
+  fehlgeschlagen: "Nicht alle Registrierungslinks verschickt",
   abgelegt: "Nicht alle Registrierungslinks gesendet",
 };
 

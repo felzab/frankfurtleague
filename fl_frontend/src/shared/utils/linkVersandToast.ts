@@ -13,13 +13,13 @@ export type VersandTitel = Readonly<Record<VersandGrad, string>>;
 
 export const BESTAETIGUNGSLINK_TITEL: VersandTitel = {
   gesendet: "Bestätigungslink gesendet",
-  fehlgeschlagen: "Bestätigungslink nicht zugestellt",
+  fehlgeschlagen: "Bestätigungslink nicht verschickt",
   abgelegt: "Bestätigungslink zurückgehalten",
 };
 
 export const LINK_TITEL: VersandTitel = {
   gesendet: "Link gesendet",
-  fehlgeschlagen: "Link nicht zugestellt",
+  fehlgeschlagen: "Link nicht verschickt",
   abgelegt: "Link zurückgehalten",
 };
 

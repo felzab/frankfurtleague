@@ -59,7 +59,7 @@ const VON_HAND_KOPIEREN = "Markiere den Link im Feld darüber und kopiere ihn vo
 /** The mail press mints nothing, so a link that reached no seat is the press's failure and never a grade here. */
 const REGISTRIERUNGSLINK_TITEL: VersandTitel = {
   gesendet: "Registrierungslink gesendet",
-  fehlgeschlagen: "Registrierungslink nicht zugestellt",
+  fehlgeschlagen: "Registrierungslink nicht verschickt",
   abgelegt: "Registrierungslink zurückgehalten",
 };
 
