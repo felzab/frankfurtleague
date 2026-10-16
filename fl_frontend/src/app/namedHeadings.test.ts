@@ -126,7 +126,14 @@ const REGISTER: readonly Benannt[] = [
     zeigen: [`${SAISON_FORM}/FormSpielplanSection.tsx`],
   },
   seitenName("SAISONUEBERSICHT_TITEL", SAISONUEBERSICHT_TITEL, [TOP_NAV, "app/dashboard/layout.tsx", "features/dashboard/constants.ts"]),
-  seitenName("DEIN_BEREICH_TITEL", DEIN_BEREICH_TITEL, [TOP_NAV, "features/funktionen/constants.ts", "core/kontaktEmail.ts"]),
+  seitenName("DEIN_BEREICH_TITEL", DEIN_BEREICH_TITEL, [
+    TOP_NAV,
+    "shared/components/layout/sidemenu/FunktionSwitcher.tsx",
+    "features/funktionen/constants.ts",
+    "features/funktionen/components/ui/TeamForbiddenPanel.tsx",
+    `${META_VIEWS}/DatenschutzView.tsx`,
+    "core/kontaktEmail.ts",
+  ]),
   seitenName("ABOUT_TITEL", ABOUT_TITEL, [TOP_NAV, FOOTER, `${META_PAGES}/about/page.tsx`, `${META_VIEWS}/AboutView.tsx`, BEWERBUNG_SEITE]),
   seitenName("ORGANISATION_TITEL", ORGANISATION_TITEL, [
     TOP_NAV,

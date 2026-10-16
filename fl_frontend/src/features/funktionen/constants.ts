@@ -30,7 +30,7 @@ export type PersonIconName = keyof typeof PERSON_SIDEMENU_ICONS;
 export const PERSON_SHELL_FALLBACK = {
   label: DEIN_BEREICH_TITEL,
   hint: {
-    lead: "Diese Adresse gehört zu keiner Seite Deines Bereichs.",
+    lead: `Diese Adresse gehört zu keiner Seite unter „${DEIN_BEREICH_TITEL}“.`,
   },
 } as const satisfies { label: string; hint: SidemenuHint };
 
@@ -41,7 +41,7 @@ export const PERSON_SHELL_FALLBACK = {
 export const PERSON_SHELL_CRASH = {
   label: PERSON_SHELL_FALLBACK.label,
   hint: {
-    lead: "Dein Bereich lässt sich gerade nicht laden.",
+    lead: `„${DEIN_BEREICH_TITEL}“ lässt sich gerade nicht laden.`,
   },
 } as const satisfies { label: string; hint: SidemenuHint };
 

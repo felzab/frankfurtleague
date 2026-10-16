@@ -9,6 +9,7 @@ import { createElement as h } from "react";
 import { render, screen, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
+import { DEIN_BEREICH_TITEL } from "@/core/seitenNamen.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 
 import type { FunktionOrt } from "./FunktionSwitcher.tsx";
@@ -129,7 +130,7 @@ describe("what the switcher lists", () => {
       [
         [GOETHE.href, "Goethe-GymnasiumSaison 2526 · Trainer"],
         [SPIELER.href, "SpielerDein Kadereintrag"],
-        ["/bereich", "Zu Deinem Bereich"],
+        ["/bereich", DEIN_BEREICH_TITEL],
       ],
     );
   });
@@ -166,7 +167,7 @@ describe("what the switcher lists", () => {
     switcherAt(GOETHE.href);
     await openMenu("Goethe-Gymnasium: Funktion wechseln");
     const menu = screen.getByRole("menu");
-    const bereich = within(menu).getByRole("menuitem", { name: "Zu Deinem Bereich" });
+    const bereich = within(menu).getByRole("menuitem", { name: DEIN_BEREICH_TITEL });
 
     assert.equal(bereich.getAttribute("aria-checked"), null, "the way to /bereich is offered as a place to choose");
     assert.ok(bereich.closest('[role="group"]') === null, "the way to /bereich sits in a group of its own name");
