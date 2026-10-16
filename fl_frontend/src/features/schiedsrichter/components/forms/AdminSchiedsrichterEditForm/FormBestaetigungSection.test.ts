@@ -10,7 +10,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { ZUSTELLUNG_CHIP } from "@/features/bewerbungen/zustellung.ts";
-import { SCHIEDSRICHTER_KORREKTUR_HINWEIS } from "@/features/schiedsrichter/constants.ts";
+import { SCHIEDSRICHTER_ANONYM_LABEL, SCHIEDSRICHTER_KORREKTUR_HINWEIS } from "@/features/schiedsrichter/constants.ts";
 import { EINWILLIGUNG_FASSUNG_FRAGE, EINWILLIGUNG_MEDIEN_FRAGE, EINWILLIGUNG_MEDIEN_LABELS } from "@/features/spieler/constants.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { closedControl } from "@/shared/testing/closedControl.ts";
@@ -189,7 +189,7 @@ describe("what the editor shows about a referee's own confirmation", () => {
      panel would otherwise have to infer from an absence. */
   it("says what an outstanding confirmation costs, rather than leaving the panel empty", () => {
     assert.match(words({ bestaetigung: BLOCK }), /noch nicht bestätigt/);
-    assert.match(words({ bestaetigung: BLOCK }), /„anonym“/);
+    assert.ok(words({ bestaetigung: BLOCK }).includes(`„${SCHIEDSRICHTER_ANONYM_LABEL}“`));
   });
 
   it("shows the link's own dates and says a referee is never reminded", () => {

@@ -26,7 +26,8 @@ import {
   SPIELPLAN_ZURUECKNEHMEN,
   ZEITRAUM_ABSCHNITT,
 } from "@/features/saisons/constants.ts";
-import { ADRESSE_AENDERN, KADER_ABSCHNITT } from "@/features/spieler/constants.ts";
+import { SCHIEDSRICHTER_ANONYM_LABEL } from "@/features/schiedsrichter/constants.ts";
+import { ADRESSE_AENDERN, KADER_ABSCHNITT, SPIELER_ANONYM_LABEL } from "@/features/spieler/constants.ts";
 import { KONTAKTE_ABSCHNITT, SAISON_ABSCHNITT } from "@/features/teams/constants.ts";
 
 const SRC_DIR = path.resolve(import.meta.dirname, "..");
@@ -34,7 +35,7 @@ const SRC_DIR = path.resolve(import.meta.dirname, "..");
 const shown = (file: string): string => path.relative(SRC_DIR, file).split(path.sep).join("/");
 
 /**
- * What a sentence sends the reader to: its words, their constant, the module defining it and each
+ * What a sentence names, a place or a value's word: its words, their constant, the module defining it and each
  * module rendering them. `seite` marks a page's name, which a list of names points to as a quotation does.
  */
 type Benannt = {
@@ -146,6 +147,22 @@ const REGISTER: readonly Benannt[] = [
     konstante: "SPIELPLAN_ZURUECKNEHMEN",
     heim: "features/saisons/constants.ts",
     zeigen: [`${SAISON_FORM}/FormSpielplanSection.tsx`],
+  },
+  // A value's word in a name's place, which a sentence telling the reader what a page will show quotes.
+  {
+    wort: SPIELER_ANONYM_LABEL,
+    konstante: "SPIELER_ANONYM_LABEL",
+    heim: "features/spieler/constants.ts",
+    zeigen: ["features/meta/components/views/DatenschutzView.tsx"],
+  },
+  {
+    wort: SCHIEDSRICHTER_ANONYM_LABEL,
+    konstante: "SCHIEDSRICHTER_ANONYM_LABEL",
+    heim: "features/schiedsrichter/constants.ts",
+    zeigen: [
+      "features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormBestaetigungSection.tsx",
+      "features/schiedsrichter/components/views/SchiedsrichterBestaetigungView.tsx",
+    ],
   },
 ];
 
@@ -319,7 +336,7 @@ const read = (relative: string): string => readFileSync(path.join(SRC_DIR, relat
  * rendering module is one the register names. A `where` written as a literal is the lint's
  * (`fl_frontend/eslint.config.mjs`).
  */
-describe("a heading or a control a sentence names", () => {
+describe("a heading, a control or a value's word a sentence names", () => {
   it("reads every fragment kind a module writes its text in, and never a comment", () => {
     const sample = [
       "// „Kader“ in a comment",

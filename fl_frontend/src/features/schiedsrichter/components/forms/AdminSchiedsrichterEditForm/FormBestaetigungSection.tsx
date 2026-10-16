@@ -11,6 +11,7 @@ import { LinkStandAngaben } from "@/features/bewerbungen/components/ui/LinkStand
 import { einladeSchiedsrichterAction } from "@/features/schiedsrichter/actions";
 import {
   SCHIEDSRICHTER_ADRESSWECHSEL_HINWEIS,
+  SCHIEDSRICHTER_ANONYM_LABEL,
   SCHIEDSRICHTER_EINLADEN_OHNE_ADRESSE,
   SCHIEDSRICHTER_EINLADEN_STILLGELEGT,
   SCHIEDSRICHTER_KORREKTUR_HINWEIS,
@@ -222,8 +223,8 @@ export function FormBestaetigungSection({
           // The missing control belongs in the same breath: this panel stands among editable
           // ones, so a reader meeting an empty one goes looking for the way to record a consent.
           <p className="muted-hint">
-            Diese Person hat ihren Eintrag noch nicht bestätigt. Bis dahin steht im Spielplan bei ihren Spielen „anonym“, und eintragen lässt
-            sich die Einwilligung nicht.
+            Diese Person hat ihren Eintrag noch nicht bestätigt. Bis dahin steht im Spielplan bei ihren Spielen „{SCHIEDSRICHTER_ANONYM_LABEL}“,
+            und eintragen lässt sich die Einwilligung nicht.
           </p>
         ) : (
           <>
