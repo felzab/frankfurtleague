@@ -208,9 +208,8 @@ describe("the erasure on request", () => {
     assert.match(satz, /Im Änderungsprotokoll .* ist sie trotzdem gelöscht\.$/, "the result reads as an erasure that did nothing");
   });
 
-  /* A referee's fixtures move onto the ghost, and the unplayed among them stand with nobody to officiate until an
-     administrator assigns one: the one thing the result asks of its reader. The count takes the played ones too, so
-     the sentence says whether any was unplayed rather than claiming one. */
+  /* An erased referee's unplayed fixtures stand with nobody to officiate, the one thing the result asks its reader to
+     act on. `spiele` counts the played ones moved too, so the sentence claims none. */
   it("sends the administrator to „Handlungsbedarf“ where an erased referee's fixtures moved, if any was unplayed", async () => {
     answerWith(() => Promise.resolve({ ...NICHTS, schiedsrichter: 1, spiele: 2 }));
 
