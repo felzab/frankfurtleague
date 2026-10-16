@@ -101,6 +101,39 @@ describe("the create form", () => {
     assert.equal(onClose.mock.callCount(), 0, "the dialog closed over the second state its caller named");
   });
 
+  /* A save that stood at a cost its caller reads off the answer: the success title would announce a
+     clean create over a body saying otherwise. */
+  it("raises a save its caller reads as costly as a warning under the warning's own title", async () => {
+    const user = userEvent.setup();
+    const onClose = mock.fn();
+    render(
+      underNext(
+        h(EntityForm<Draft, Draft, { teuer: boolean }>, {
+          initialDraft: { name: "Ada" },
+          renderFields: () => null,
+          schema: z.object({ name: z.string() }),
+          toPayload: (draft) => draft,
+          onSubmit: () => handedOut("onSubmit", Promise.resolve({ success: true as const, message: "Der Link ging nicht raus.", teuer: true })),
+          successMessage: "Angelegt",
+          warning: { title: "Mit Folgen angelegt", when: (saved) => saved.teuer },
+          onClose,
+        }),
+      ),
+    );
+    raised.length = 0;
+
+    await user.click(screen.getByRole("button", { name: "Speichern" }));
+    await act(answered);
+
+    await waitFor(() =>
+      assert.deepEqual(
+        raised.map((toast) => [toast.variant, toast.title, toast.description]),
+        [["warning", "Mit Folgen angelegt", "Der Link ging nicht raus."]],
+      ),
+    );
+    assert.equal(onClose.mock.callCount(), 1, "a save that stood left the dialog open over the record it created");
+  });
+
   /* The block judges the payload step's output, so handing the write the raw draft sends a value the
      schema never saw, one it would have refused. */
   it("sends the payload the block judged, not the draft it was built from", async () => {

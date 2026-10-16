@@ -58,7 +58,7 @@ import type {
 export async function postSchiedsrichterAction(
   // The DRAFT shape: an emptied money field submits `null`, which the schema below makes a field error.
   rawPayload: FLSchiedsrichterPayloadDraft<FLPostSchiedsrichterPayload>,
-): Promise<ActionResult<{ created_id: string }>> {
+): Promise<ActionResult<{ created_id: string; versand: LinkVersand }>> {
   return runAdminMutation("postSchiedsrichterAction", { stepUp: true }, async () => {
     const validated = FLPostSchiedsrichterPayloadSchema.safeParse(rawPayload);
 
@@ -100,6 +100,7 @@ export async function postSchiedsrichterAction(
       success: true,
       created_id: postOperation.created_id,
       message: describeLinkMail(mint.email, versand),
+      versand: versand,
     };
   });
 }

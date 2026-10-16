@@ -30,6 +30,7 @@ export function EntityForm<TDraft, TPayload = TDraft, TSaved extends object = ob
   schema,
   toPayload,
   successMessage,
+  warning,
   onClose,
   onSaved,
   marksRequired = false,
@@ -57,6 +58,11 @@ export function EntityForm<TDraft, TPayload = TDraft, TSaved extends object = ob
    * what `docs/frontend/spec.md :: I42`'s register reads, having no way to reach a server's words.
    */
   successMessage: string;
+  /**
+   * A save that stood but cost something: `when` reads the caller's own answer, and `title` replaces
+   * `successMessage` at the warning variant, a literal for `successMessage`'s reason.
+   */
+  warning?: { title: string; when: (saved: TSaved & { success: true; message: string }) => boolean };
   onClose: () => void;
   /**
    * Handed a save in place of closing, inside the save's own transition: a caller switching the dialog to a second
@@ -116,7 +122,9 @@ export function EntityForm<TDraft, TPayload = TDraft, TSaved extends object = ob
           setDraft(initialDraft);
           // The server's sentence as the body (`docs/frontend/spec.md` §1.12), and never a second copy of
           // the title: an action with nothing to add sends the title's own words.
-          appToast.success(successMessage, { description: res.message === successMessage ? undefined : res.message });
+          const warnTitle = warning !== undefined && warning.when(res) ? warning.title : null;
+          const title = warnTitle ?? successMessage;
+          (warnTitle === null ? appToast.success : appToast.warning)(title, { description: res.message === title ? undefined : res.message });
           if (onSaved === undefined) onClose();
           else onSaved(res);
         });
