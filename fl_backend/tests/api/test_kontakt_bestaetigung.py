@@ -1549,3 +1549,26 @@ class TestTheReplacementTakesThemOffTheApplication:
         assert kontakte["ansprechperson"]["vorname"] == "Jonas"
         assert [image["before"]["kontakte"]["ansprechperson"]["vorname"] for image in log] == ["Jonas"]
         assert "ida@exmaple.com" not in str(log)
+
+    def test_a_seat_the_application_names_otherwise_leaves_its_log_by_address(self, mongo_replica_set_url: str):
+        """Redact the application's images by name alone and this fails: they spell Ida's name as the club first typed it."""
+
+        applied = {
+            "trainer": {**carried("Ida"), "vorname": "Ida-Marie"},
+            "ansprechperson": carried("Jonas"),
+            "stellvertretung": carried("Klara"),
+            "trainer_ist_zugleich": None,
+        }
+        row = {"trainer": carried("Ida"), "ansprechperson": carried("Jonas"), "stellvertretung": carried("Klara"), "trainer_ist_zugleich": None}
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
+            await database[Collection.BEWERBUNGEN].insert_one(accepted(applied))
+            await replace(database)
+
+            return await the_application(database)
+
+        application, log = on_a_league(mongo_replica_set_url, body, kontakte=row)
+
+        assert application["kontakte"]["trainer"] is None
+        assert log, "the clearing filed no image, so the log's assertion below proves nothing"
+        assert "ida@example.com" not in str(log)
