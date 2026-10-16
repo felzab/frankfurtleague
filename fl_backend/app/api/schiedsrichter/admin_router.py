@@ -513,8 +513,9 @@ async def einladen_adresswechsel(
     Mint a fresh link for this referee's pending address change and answer the raw token once, with both addresses, for the caller to mail.
 
     It replaces the whole pending block but its address, so the previous link stops working at once and the delivery state of
-    the message it went out in goes with it. The deadline restarts from today, and a deadline already passed is no refusal:
-    the re-send is how a lapsed change is asked again.
+    the message it went out in goes with it. The deadline restarts from today, and a deadline already passed is no refusal
+    while the change stands, which is until the hourly pass the day after it removes the change (`docs/backend/spec.md :: I693`):
+    after that the new address is entered again.
 
     Refused where the pending address is on the ban list (`REQ-SCHIEDSRICHTER-007`). 404 where the referee holds no pending
     change, and for an id no referee holds, the ghost's included.
