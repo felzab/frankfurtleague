@@ -85,6 +85,18 @@ export const HANDLUNGSBEDARF_EINTRAG = {
   },
 } as const satisfies SidemenuStructureSubOption<AdminIconName>;
 
+/** The season list's entry, named where a taken season id sends a reader to the existing season, so a rename reaches both. */
+export const SAISONS_EINTRAG = {
+  id: "saisons",
+  label: "Saisons",
+  iconName: "Sliders",
+  hint: {
+    lead: "Alle Saisons, mit Zeitraum und Regeln.",
+    // What an admin comes here to do and cannot: no row carries a delete control, and none ever will.
+    note: "Eine Saison wird nie gelöscht.",
+  },
+} as const satisfies SidemenuStructureSubOption<AdminIconName>;
+
 /** The season's matchdays, named where the season editor sends a reader to date them, so a rename reaches both. */
 export const SPIELTAGE_EINTRAG = {
   id: "spieltage",
@@ -176,18 +188,7 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
   // nor a rule for an empty name.
   {
     category_name: "",
-    sub_options: [
-      {
-        id: "saisons",
-        label: "Saisons",
-        iconName: "Sliders",
-        hint: {
-          lead: "Alle Saisons, mit Zeitraum und Regeln.",
-          // What an admin comes here to do and cannot: no row carries a delete control, and none ever will.
-          note: "Eine Saison wird nie gelöscht.",
-        },
-      },
-    ],
+    sub_options: [SAISONS_EINTRAG],
   },
 
   // Grouped by what an admin DOES here: both are queues worked down to nothing, where every list
