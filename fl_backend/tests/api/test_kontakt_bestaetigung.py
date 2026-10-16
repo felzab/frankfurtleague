@@ -418,8 +418,8 @@ class TestTheSaveMintsForEachPersonItNewlySeats:
 
         response, row, held = on_a_league(mongo_replica_set_url, body)
 
-        assert [(mint.rollen, mint.email, mint.frist, mint.vorname, mint.schule, mint.zeile) for mint in response.bestaetigungen] == [
-            (["trainer"], "ida@example.com", FRIST, "Ida", TEAM_NAME, "offen")
+        assert [(mint.rollen, mint.email, mint.frist, mint.schule, mint.zeile) for mint in response.bestaetigungen] == [
+            (["trainer"], "ida@example.com", FRIST, TEAM_NAME, "offen")
         ]
         assert response.saison_team_id == ROW_OID
         token = response.bestaetigungen[0].token
@@ -616,7 +616,7 @@ class TestTheResend:
             "jonas@example.com",
             FRIST,
         )
-        assert (response.bestaetigung.vorname, response.bestaetigung.schule, response.saison_team_id) == ("Jonas", TEAM_NAME, ROW_OID)
+        assert (response.bestaetigung.schule, response.saison_team_id) == (TEAM_NAME, ROW_OID)
         assert (row["bestaetigungen"]["trainer"], row["bestaetigungen"]["stellvertretung"]) == (None, None)
         assert (view.rolle, view.zustand) == ("ansprechperson", "gueltig")
 

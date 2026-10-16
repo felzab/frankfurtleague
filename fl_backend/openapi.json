@@ -16022,10 +16022,6 @@
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Frist"
           },
-          "vorname": {
-            "type": "string",
-            "title": "Vorname"
-          },
           "schule": {
             "type": "string",
             "title": "Schule"
@@ -16046,7 +16042,6 @@
           "rollen",
           "email",
           "frist",
-          "vorname",
           "schule",
           "zeile"
         ],

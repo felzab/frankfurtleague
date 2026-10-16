@@ -275,7 +275,6 @@ describe("the two messages an address change sends", () => {
   it("puts the link to the address page, carrying the token, on the link mail's one control and in its text", () => {
     const mailNeu = buildSchiedsrichterAdresswechselEmail({
       origin: "https://fl.example",
-      vorname: "Anna",
       token: "t-1",
       fristText: "15.10.2026",
     });
@@ -290,7 +289,6 @@ describe("the two messages an address change sends", () => {
   it("tells the holder of a mistyped address to decline, and that an ignored address goes the day after the link lapses", () => {
     const mailNeu = buildSchiedsrichterAdresswechselEmail({
       origin: "https://fl.example",
-      vorname: "Anna",
       token: "t-1",
       fristText: "15.10.2026",
     });
@@ -301,6 +299,17 @@ describe("the two messages an address change sends", () => {
       assert.doesNotMatch(teil, /abgelaufen ist/);
       assert.doesNotMatch(teil, /ignorier/);
     }
+  });
+
+  /* The new mailbox has proved nothing, and after a typo it is a stranger's: the referee's first name goes to the stored one alone. */
+  it("greets the new mailbox by no name, and the stored one by the referee's", () => {
+    const mailNeu = buildSchiedsrichterAdresswechselEmail({ origin: "https://fl.example", token: "t-1", fristText: "15.10.2026" });
+    const hinweis = buildSchiedsrichterAdresswechselHinweisEmail({ origin: "https://fl.example", vorname: "Anna" });
+
+    for (const teil of [mailNeu.text, mailNeu.html]) {
+      assert.ok(teil.includes("Hallo, die Verwaltung"), "a part of the link mail greets otherwise");
+    }
+    assert.match(hinweis.text, /Hallo Anna,/);
   });
 
   it("gives the notice no control, the stored mailbox having nothing to press", () => {

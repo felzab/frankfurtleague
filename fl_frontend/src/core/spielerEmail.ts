@@ -58,9 +58,9 @@ const adresseIgnorierSatz = `Ist das nicht Deine Adresse? Dann wähle auf der Se
 
 /**
  * The link to a pupil's new address, the referee's twin
- * (`fl_frontend/src/core/schiedsrichterEmail.ts :: buildSchiedsrichterAdresswechselEmail`) but for its
- * greeting. It asks nothing but whether the mailbox is theirs: their consent stands, and asking it
- * again records an answer nobody owed.
+ * (`fl_frontend/src/core/schiedsrichterEmail.ts :: buildSchiedsrichterAdresswechselEmail`). It asks
+ * nothing but whether the mailbox is theirs: their consent stands, and asking it again records an
+ * answer nobody owed.
  */
 export function buildSpielerAdresswechselEmail({ origin, token, fristText }: SpielerAdresswechselData): SpielerEmail {
   const site = mailOrigin(origin);
@@ -68,8 +68,8 @@ export function buildSpielerAdresswechselEmail({ origin, token, fristText }: Spi
   const frist = einzeilig(fristText);
   const url = spielerAdresswechselLink(site, token);
 
-  // Greets nobody by name, unlike the referee's: this mailbox has proved nothing yet, and behind a
-  // mistyped address it is a stranger's, who is owed no minor's first name. The notice keeps the name.
+  // Greets nobody by name: this mailbox has proved nothing yet, and behind a mistyped address it is a
+  // stranger's, who is owed no minor's first name. The notice keeps the name.
   const eintrag = `die Verwaltung der ${BRAND_NAME} hat für Deinen Eintrag als Spielerin oder Spieler diese E-Mail-Adresse eingetragen.`;
   const gilt = "Sie gilt erst, wenn Du sie bestätigst. Bis dahin schreiben wir an Deine bisherige Adresse.";
 

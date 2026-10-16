@@ -91,7 +91,6 @@ export async function postSchiedsrichterAction(
       operation: "postSchiedsrichterAction",
       schiedsrichterId: postOperation.created_id,
       email: mint.email,
-      name: validated.data.name,
       mint: mint,
       anlass: "empfang",
     });
@@ -167,7 +166,6 @@ export async function patchSchiedsrichterAction(
             operation: "patchSchiedsrichterAction",
             schiedsrichterId: validated.data.id,
             email: mint.email,
-            name: validated.data.name,
             mint: mint,
             anlass: "erneut",
           });
@@ -276,7 +274,6 @@ export async function undoAdminSchiedsrichterEditAction(
       schiedsrichterId: payload.id,
       // The address the MINT names, never the payload's: the replay is the older of the two reads.
       email: mint.email,
-      name: payload.name,
       mint: mint,
       anlass: "erneut",
     });
@@ -340,7 +337,6 @@ export async function einladeSchiedsrichterAction(
       operation: "einladeSchiedsrichterAction",
       schiedsrichterId: validated.data.id,
       email: mint.email,
-      name: gelesen.schiedsrichter.name,
       mint: mint,
       anlass: "erneut",
     });
@@ -521,7 +517,6 @@ export async function reactivateSchiedsrichterAction(
             operation: "reactivateSchiedsrichterAction",
             schiedsrichterId: validated.data.id,
             email: mint.email,
-            name: reactivateOperation.updated_document.name,
             mint: mint,
             anlass: "erneut",
           });
