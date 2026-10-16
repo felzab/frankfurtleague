@@ -382,8 +382,8 @@ Every ruling below is the sign-up flow as it stands for the next season.
   (`docs/backend/spec.md :: I663`) and refuses only the administration's last live owner, until they
   make another administrator an owner (`:: I479`), and the administrator's `POST /identitaet/erasure`,
   which runs that same erasure for a person who asked by mail and refuses nothing about them, only
-  the administrator's own address and an owner's address to an administrator holding no owner's power
-  (`docs/backend/spec.md :: I682`); the one-off drop of
+  the administrator's own address and the address of anyone holding a grant to an administrator
+  holding no owner's power (`docs/backend/spec.md :: I682`); the one-off drop of
   [section 3](#3-the-current-pupil-records-are-reset-once) empties the name on every fixture it
   repoints, so it leaves no name with no row behind it. The referee path deletes the document
   and repoints every fixture that named them at the ghost — one permanent row,
