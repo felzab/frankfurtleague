@@ -52,6 +52,7 @@ from app.core.security import (
     get_actor_token,
     get_ban_lookup,
     get_grant_lookup,
+    loeschung_journal_hash,
     verify_admin_actor,
     verify_person_actor,
     verify_step_up,
@@ -1012,3 +1013,32 @@ class TestThePseudonym:
     def test_it_is_never_the_ban_rows_digest_of_the_same_address(self):
         """One label per purpose under one master: a shared one would let the log say who the ban list holds."""
         assert akteur_pseudonym(KNOWN_IDENTIFIER, schluessel=KNOWN_MASTER) != adresse_hash(KNOWN_IDENTIFIER, schluessel=KNOWN_MASTER)
+
+
+# The journal's answer for `KNOWN_IDENTIFIER` under `KNOWN_MASTER`, computed as `KNOWN_PSEUDONYM` was, under "loeschung-v1".
+KNOWN_JOURNAL_HASH = "4bfa0be6fffe4c90adfc3290ec83efeb21a9845508cf2d170b39d047266a84a1"
+
+
+class TestTheJournalHash:
+    def test_it_is_the_value_computed_outside_this_package(self):
+        assert loeschung_journal_hash(KNOWN_IDENTIFIER, schluessel=KNOWN_MASTER) == KNOWN_JOURNAL_HASH
+
+    def test_it_is_neither_the_pseudonym_nor_the_ban_rows_digest(self):
+        """A shared label would let a journal line name the pseudonym an erasure removed, or the ban a person holds."""
+        journal = loeschung_journal_hash(KNOWN_IDENTIFIER, schluessel=KNOWN_MASTER)
+
+        assert journal not in {KNOWN_PSEUDONYM, adresse_hash(KNOWN_IDENTIFIER, schluessel=KNOWN_MASTER)}
+
+
+# A stored spelling as a registration or a contact seat keeps one: case, and the spaces a form trims.
+UNFOLDED_IDENTIFIER = f" {MIXED_CASE} "
+
+
+@pytest.mark.parametrize(
+    ("helper", "folded"),
+    [(akteur_pseudonym, KNOWN_PSEUDONYM), (loeschung_journal_hash, KNOWN_JOURNAL_HASH)],
+    ids=("the pseudonym", "the journal hash"),
+)
+def test_an_unfolded_spelling_hashes_as_its_fold(helper: Callable[..., str], folded: str):
+    """A restore hashes every stored spelling against the journal, so a helper hashing the spelling as given matches nothing."""
+    assert helper(UNFOLDED_IDENTIFIER, schluessel=KNOWN_MASTER) == folded
