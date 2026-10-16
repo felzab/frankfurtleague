@@ -33,7 +33,7 @@ from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.collections import Collection as DbCollection
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import is_confirmed
-from app.shared.folding import is_stored_identifier, person_name_key, sign_in_identifier
+from app.shared.folding import composed_name, is_stored_identifier, sign_in_identifier
 
 # --- The SELECTIONS, each shared with its record's own person-tier reads rather than spelled again.
 # Unnarrowed by retirement or withdrawal: `_judged` narrows the Funktionen (`docs/backend/spec.md :: I376`).
@@ -624,13 +624,15 @@ _GENITIVE_FLOOR = 3
 def _named_words(whole: str) -> list[str]:
     """`whole`'s words, a particle followed by a later word of its own that is not a particle excepted.
 
-    „anna von der heide“ names neither „von“ nor „der“ alone; „thi mai le“ names „le“.
+    „Anna von der Heide“ names neither „von“ nor „der“ alone; „Thi Mai Le“ names „Le“.
     """
 
     words = _LETTERS.findall(whole)
 
     return [
-        word for index, word in enumerate(words) if word not in NAME_PARTICLES or all(later in NAME_PARTICLES for later in words[index + 1 :])
+        word
+        for index, word in enumerate(words)
+        if word.lower() not in NAME_PARTICLES or all(later.lower() in NAME_PARTICLES for later in words[index + 1 :])
     ]
 
 
@@ -643,7 +645,10 @@ def eigene_namen(
     pupil_rows: Iterable[Mapping[str, Any]],
     registrierung_rows: Iterable[Mapping[str, Any]],
 ) -> frozenset[str]:
-    """Every name the person's own records hold, as the reveal names each, folded: each field whole and each of its words (`_named_words`)."""
+    """Every name the person's own records hold, as the reveal names each: each field whole and each of its words (`_named_words`).
+
+    Capitals kept: a lowered „ẞ“ no longer yields its own upper case, which `holds_a_name` compares.
+    """
 
     fields = [
         *(_pupil_entry(row)[part] for row in pupil_rows for part in ("vorname", "nachname")),
@@ -655,26 +660,37 @@ def eigene_namen(
         *(row.get(part) for row in registrierung_rows for part in ("vorname", "nachname")),
         *(_referee_entry(row)["name"] for row in referee_rows),
     ]
-    wholes = {person_name_key(field) for field in fields}
+    wholes = {composed_name(field) for field in fields}
     names = wholes | {word for whole in wholes for word in _named_words(whole)}
 
-    # Without the empty fold of an absent field, which would stand as a whole word everywhere, and without one letter, an
+    # Without the empty name of an absent field, which would stand as a whole word everywhere, and without one letter, an
     # initial or the O' of an elision, which identifies nobody and would refuse „i. A.“.
     return frozenset(name for name in names if len(name) > 1)
 
 
 def holds_a_name(text: str, names: Iterable[str]) -> bool:
-    """Whether a name of `names` stands in `text` as a whole word or words, or before a genitive s, folded as `eigene_namen` folds them."""
+    """Whether a name of `names` stands in `text` as a whole word or words, or before a genitive s.
+
+    Equal in plain lower or plain upper case and no other spelling: „Weiss“ names „Weiß“, „Mueller“ nobody.
+    """
 
     # Unicode's format characters (category Cf) go here alone, never from what is stored: a soft hyphen or a zero-width
-    # space pasted from a mail's subject splits a name, and `person_name_key` keeps both.
-    folded = person_name_key("".join(char for char in text if unicodedata.category(char) != "Cf"))
+    # space pasted from a mail's subject splits a name, and `composed_name` keeps both.
+    composed = composed_name("".join(char for char in text if unicodedata.category(char) != "Cf"))
 
-    def pattern(name: str) -> str:
-        genitive = "s?" if len(name) >= _GENITIVE_FLOOR and not name.endswith(_ENDS_GENITIVE_FREE) else ""
-        return f"{_NO_LETTER_BEFORE}{re.escape(name)}{genitive}{_NO_LETTER_AFTER}"
+    def stands_in(name: str) -> bool:
+        genitive = len(name) >= _GENITIVE_FLOOR and not name.lower().endswith(_ENDS_GENITIVE_FREE)
 
-    return any(re.search(pattern(name), folded) for name in names)
+        # Never `re.IGNORECASE`, which matches one character to one and so never „WEISS“ to „Weiß“: each case form is
+        # searched in the text cased the same way.
+        for cased in (str.lower, str.upper):
+            suffix = f"{cased('s')}?" if genitive else ""
+            if re.search(f"{_NO_LETTER_BEFORE}{re.escape(cased(name))}{suffix}{_NO_LETTER_AFTER}", cased(composed)):
+                return True
+
+        return False
+
+    return any(stands_in(name) for name in names)
 
 
 def find_name_im_anlass_refusal(*, anlass: str, names: Iterable[str]) -> WriteRefusal | None:

@@ -138,10 +138,16 @@ def trimmed_pattern(fragment: str) -> str:
     return f"^{_TRIMMED_CLASS}*{fragment}{_TRIMMED_CLASS}*$"
 
 
-def person_name_key(value: Any) -> str:
-    """NFC and `lower`, never `casefold`: „Weiß“ and „Weiss“ are two families, and a decomposed umlaut is one name typed on another keyboard."""
+def composed_name(value: Any) -> str:
+    """NFC, each run of spaces one space, capitals kept: a decomposed umlaut is one name typed on another keyboard."""
 
-    return " ".join(unicodedata.normalize("NFC", str(value or "")).split()).lower()
+    return " ".join(unicodedata.normalize("NFC", str(value or "")).split())
+
+
+def person_name_key(value: Any) -> str:
+    """`composed_name` and `lower`, never `casefold`: „Weiß“ and „Weiss“ are two families."""
+
+    return composed_name(value).lower()
 
 
 def mailbox_key(address: str) -> str:
