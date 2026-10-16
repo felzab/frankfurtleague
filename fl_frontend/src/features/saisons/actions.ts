@@ -1,11 +1,23 @@
 "use server";
 
+import { frontend_config } from "@/core/config";
+import { logger } from "@/core/logging";
+import { runAnsweringOwnCut } from "@/core/requestScope";
 import { invalidatesOnWrite, refusalResult, refuseUnconfirmed, runAdminMutation } from "@/shared/utils/adminMutation";
 import { refusedReplay, restored, runAdminUndo, unclearReplay, UNDO_UNREADABLE } from "@/shared/utils/adminUndo";
 import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
-import { activateSaison, generateSpielplan, patchSaison, postSaison, swapGruppen, undrawSpielplan } from "./mutations";
+import {
+  activateSaison,
+  generateSpielplan,
+  loeschungLaufen,
+  patchSaison,
+  postLoeschungLauf,
+  postSaison,
+  swapGruppen,
+  undrawSpielplan,
+} from "./mutations";
 import {
   mapActivateRefusal,
   mapRulesRefusal,
@@ -28,6 +40,7 @@ import { describeSpielplanUmfang } from "./utils";
 import type { FLSaisonRulesDraft, SaisonCreateDraft } from "@/features/saisons/types";
 import type { ActionResult } from "@/shared/types/types";
 import type { UndoOutcome } from "@/shared/utils/adminUndo";
+import type { LoeschungLauf } from "./mutations";
 import type {
   FLActivateSaisonPayload,
   FLActivateSaisonResponse,
@@ -195,8 +208,54 @@ export async function activateSaisonAction(rawPayload: FLActivateSaisonPayload):
           ? `Saison ${validated.data.id} ist jetzt aktiv. Die vorherige Saison ist abgeschlossen.`
           : `Saison ${validated.data.id} ist jetzt aktiv. ${String(demoted)} vorher aktive Saisons wurden abgeschlossen.`;
 
-    return { success: true, saison: activateOperation, message };
+    // Compared to "on": a skipped validation leaves it undefined, where a negated test would delete.
+    const geloescht = frontend_config.LOESCHUNG_SWEEP === "on" ? await loeschenNachUmstellung() : [];
+
+    return { success: true, saison: activateOperation, message: [message, ...geloescht].join(" ") };
   });
+}
+
+/**
+ * AWAITED inside the action's body, so the spine drops `invalidateRollover`'s tags after the last deletion: a run
+ * behind the answer lands after that drop, and a squad page names deleted pupils for days (`docs/frontend/spec.md :: I694`).
+ */
+async function loeschenNachUmstellung(): Promise<string[]> {
+  // Each call answering its own cut: one the deadline ends would otherwise answer the whole press as of unknown
+  // outcome, sending the administrator to check an activation that stands.
+  const lauf = await loeschungLaufen(() => runAnsweringOwnCut(postLoeschungLauf));
+
+  // The name alone, as the hourly pass logs its own: no person reaches this line.
+  if (lauf.abgebrochen) {
+    logger.error("loeschung.umstellung_failed", undefined, {
+      error_code: "FE-SWEEP-001",
+      name: lauf.fehler instanceof Error ? lauf.fehler.name : undefined,
+    });
+  }
+
+  return loeschungsSaetze(lauf);
+}
+
+/** Singular and plural spelled out, and nothing said where nobody was due. */
+function loeschungsSaetze(lauf: LoeschungLauf): string[] {
+  const saetze: string[] = [];
+  const seit = lauf.abgeschlossene_saison_id;
+
+  if (seit !== null && lauf.spieler === 1) {
+    saetze.push(`Eine Spielerin oder ein Spieler ohne Kadereintrag seit Saison ${seit} wurde gelöscht.`);
+  } else if (seit !== null && lauf.spieler > 1) {
+    saetze.push(`${String(lauf.spieler)} Spielerinnen und Spieler ohne Kadereintrag seit Saison ${seit} wurden gelöscht.`);
+  }
+
+  // A run cut short cannot say what remains, only who finishes it.
+  if (lauf.abgebrochen) {
+    saetze.push("Die Löschung ist nicht vollständig durchgelaufen. Was noch aussteht, löscht der nächste stündliche Durchlauf.");
+  } else if (lauf.verbleibend === 1) {
+    saetze.push("Eine weitere Löschung steht noch aus.");
+  } else if (lauf.verbleibend > 1) {
+    saetze.push(`${String(lauf.verbleibend)} weitere Löschungen stehen noch aus.`);
+  }
+
+  return saetze;
 }
 
 /**

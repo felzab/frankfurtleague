@@ -5,9 +5,9 @@ import { apiClient } from "@/core/api";
 import { isRecordMissing } from "@/core/errors";
 import { runAdminRead } from "@/shared/utils/adminRead";
 
-import { FLSaisonsListResponseSchema, FLSaisonsSingleResponseSchema } from "./schemas";
+import { FLLoeschungVorschauResponseSchema, FLSaisonsListResponseSchema, FLSaisonsSingleResponseSchema } from "./schemas";
 
-import type { FLSaisonsListResponse, FLSaisonsSingleResponse } from "./schemas";
+import type { FLLoeschungVorschauResponse, FLSaisonsListResponse, FLSaisonsSingleResponse } from "./schemas";
 import type { FLSaisonsFilterParams } from "./types";
 
 export async function getSaisons(filters: FLSaisonsFilterParams = {}): Promise<FLSaisonsListResponse> {
@@ -31,6 +31,18 @@ export async function getSaisons(filters: FLSaisonsFilterParams = {}): Promise<F
 export const getAdminSaisons = cache(async (): Promise<FLSaisonsListResponse> =>
   runAdminRead(() => apiClient<FLSaisonsListResponse>("/saisons/list/admin", FLSaisonsListResponseSchema, { authType: "admin" })),
 );
+
+/**
+ * Whom activating `saisonId` would delete, on the statuses that activation leaves. Read afresh on every
+ * render: a count from before another season's activation names people who are already gone.
+ */
+export async function getLoeschungVorschau(saisonId: string): Promise<FLLoeschungVorschauResponse> {
+  return runAdminRead(() =>
+    apiClient<FLLoeschungVorschauResponse>(`/saisons/${encodeURIComponent(saisonId)}/loeschung/vorschau`, FLLoeschungVorschauResponseSchema, {
+      authType: "admin",
+    }),
+  );
+}
 
 /**
  * `null` where no season is marked active: the backend answers that with a 404 rather than an

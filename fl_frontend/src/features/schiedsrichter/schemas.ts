@@ -388,3 +388,10 @@ export const FLSchiedsrichterSelbstEinwilligungResponseSchema = BaseAPIResponseS
   nachweis_stand: FLEinwilligungStandSchema,
 });
 export type FLSchiedsrichterSelbstEinwilligungResponse = z.infer<typeof FLSchiedsrichterSelbstEinwilligungResponseSchema>;
+
+/** One share of the pending addresses whose link lapsed before today: how many went, and how many are still due. */
+export const FLSchiedsrichterAdresswechselSweepResponseSchema = BaseAPIResponseSchema.extend({
+  entfernt: z.int().nonnegative(),
+  verbleibend: z.int().nonnegative(),
+});
+export type FLSchiedsrichterAdresswechselSweepResponse = z.infer<typeof FLSchiedsrichterAdresswechselSweepResponseSchema>;

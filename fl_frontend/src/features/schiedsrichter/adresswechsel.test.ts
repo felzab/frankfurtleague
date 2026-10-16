@@ -227,8 +227,9 @@ describe("the two messages an address change sends", () => {
     assert.ok(mailNeu.text.includes("15.10.2026") && mailNeu.html.includes("15.10.2026"), "the deadline is missing from a part");
   });
 
-  /* Ignoring the mail leaves the address stored, so the mail offers the decline, which outlives the deadline, and nothing else. */
-  it("tells the holder of a mistyped address the decline stays open past the deadline, and never to ignore the mail", () => {
+  /* Ignoring the mail leaves the address stored until the day after the lapse, when the hourly pass removes it with
+     the block that carried the decline, so the mail promises no decline past the deadline and says when it goes. */
+  it("tells the holder of a mistyped address to decline, and that an ignored address goes the day after the link lapses", () => {
     const mailNeu = buildSchiedsrichterAdresswechselEmail({
       origin: "https://fl.example",
       vorname: "Anna",
@@ -237,7 +238,8 @@ describe("the two messages an address change sends", () => {
     });
 
     for (const teil of [mailNeu.text, mailNeu.html]) {
-      assert.match(teil, /auch wenn der Link schon abgelaufen ist/);
+      assert.match(teil, /Tust Du nichts, löschen wir sie am Tag nach Ablauf des Links\./);
+      assert.doesNotMatch(teil, /abgelaufen ist/);
       assert.doesNotMatch(teil, /ignorier/);
     }
   });

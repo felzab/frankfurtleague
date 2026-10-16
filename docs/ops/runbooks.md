@@ -1128,16 +1128,42 @@ half, and the date alone is not: the application's endpoint stamps its day befor
 follow it, so a throw after that stamp leaves a fresh application date beside a stale registration
 one just as a failed registration call would.
 
+**The two halves after the seasons stamp no day, so their own lines are the record.** Every pass
+ends by removing the referee addresses whose link lapsed before today, and, where `LOESCHUNG_SWEEP`
+reads `on`, by deleting the pupils the season-after rule makes due. Each writes one line per pass
+holding its counts and no person — `schiedsrichter.adresswechsel_sweep_pass` and
+`loeschung.sweep_pass` — and a half that threw files `schiedsrichter.adresswechsel_sweep_failed` or
+`loeschung.sweep_failed` under `FE-SWEEP-001` besides. Activating a season runs the same deletion
+first, inside the press, and files `loeschung.umstellung_failed` where a call of it failed; its
+message then tells the administrator the hourly pass finishes the rest. A pupil the pass deletes,
+rather than the press, can stand on a cached squad page for about a day: the pass drops no cache.
+
+**A pupil counted `fehlgeschlagen` stays due, and every later pass meets them again.** The
+backend's `DB-FAIL-001` line names that pupil's id and the error's class, never an address: the
+erasure's write was refused, and the next pass tries again. Find the record the write was refused
+on and repair it, and the pass after deletes the pupil. `DB-FAIL-002` means the commit's outcome is
+unknown; the next pass judges the pupil afresh, so it needs nothing from you.
+
 **Null means no pass of that kind has ever run against this database**, which on production is one
 of the ways [`spec.md`](spec.md) §1.1 lists: `BEWERBUNG_SWEEP` off,
 `fl_frontend/src/instrumentation-node.ts :: registerOnNode` not reached, or a build that is not a production
-one. One switch arms both passes, so two nulls point at the frontend container's environment and its
-startup rather than at the backend.
+one. `BEWERBUNG_SWEEP` arms the whole pass, so two nulls point at the frontend container's
+environment and its startup rather than at the backend. `LOESCHUNG_SWEEP` holds the pupils'
+deletion alone, in the pass and in the activation press both.
 
 **A date more than a day old means the timer stopped**: the frontend process holds it
 ([`spec.md`](spec.md) I149), so the container is up and the timer inside it is not. Recreating the
-frontend service arms a fresh one, and the clocks are date-selected, so the pass that follows does
-whatever the missed days owed.
+frontend service arms a fresh one, and the clocks select on dates and season statuses rather than
+on the hour that ran them, so the pass that follows does whatever the missed days owed.
+
+**Turn the pupils' deletion on once, after the once-only reset (§12).** `LOESCHUNG_SWEEP` ships off,
+so neither an activation nor a pass deletes a pupil until you set it.
+
+1. Open the planned season's page and read the count beside its rollover press: how many pupils
+   activating it would delete, and which season it closes. A figure naming more people than the
+   league lost is the signal to leave the switch off and ask why.
+2. Add `LOESCHUNG_SWEEP=on` to the server's `fl_frontend/.env` and deploy (§1). The frontend reads
+   it once as it boots, and the season page then says the press will delete them.
 
 **The account sweep stores no date, so its own line in the frontend's log is the answer**
 ([`spec.md`](spec.md) §1.1). Every pass that completes writes one `konto.sweep_completed` line,

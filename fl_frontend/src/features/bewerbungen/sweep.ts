@@ -8,6 +8,8 @@ import { logger } from "@/core/logging";
 import { buildRegistrierungErinnerungEmail, buildRegistrierungSaisonendeEmail } from "@/core/registrierungEmail";
 import { REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE } from "@/features/registrierungen/constants";
 import { postRegistrierungSweep } from "@/features/registrierungen/mutations";
+import { loeschungLaufen, postLoeschungLauf } from "@/features/saisons/mutations";
+import { postSchiedsrichterAdresswechselSweep } from "@/features/schiedsrichter/mutations";
 import { sendZielMail } from "@/features/zustellung/notifications";
 import { getGermanTodayStr } from "@/shared/utils/date";
 import { formatSpielDatum } from "@/shared/utils/format";
@@ -17,6 +19,7 @@ import { rollenText, rolleText, sendBewerbungLinkMail, sendBewerbungMail } from 
 
 import type { BewerbungSeat } from "@/core/bewerbungEmail";
 import type { FLRegistrierungSweepBenachrichtigung, FLRegistrierungSweepErinnerung } from "@/features/registrierungen/schemas";
+import type { FLSchiedsrichterAdresswechselSweepResponse } from "@/features/schiedsrichter/schemas";
 import type { BewerbungEmpfaenger, BewerbungLinkEmpfaenger } from "./notifications";
 import type { FLBewerbungSweepErinnerung, FLBewerbungSweepLoeschung } from "./schemas";
 
@@ -36,8 +39,9 @@ const SWEEP_START_DELAY_MS = 60 * 1000;
 /** The action the mail fan-out logs a refused address under. */
 const SWEEP_OPERATION = "bewerbungSweep";
 
-/** Which half of a season's pass a failure line is about. The two clock families stop for their own reasons. */
-type SweepFailure = "bewerbung.sweep_failed" | "registrierung.sweep_failed";
+/** Which half of the pass a failure line is about. Each clock family stops for its own reasons. */
+type SweepFailure =
+  "bewerbung.sweep_failed" | "registrierung.sweep_failed" | "schiedsrichter.adresswechsel_sweep_failed" | "loeschung.sweep_failed";
 
 /** What a message calls a seat whose person is gone — declined or erased, and outstanding either way. */
 const SEAT_OHNE_NAMEN = "Ohne Namen";
@@ -62,7 +66,7 @@ export function armBewerbungSweep(): void {
 let laeuft = false;
 
 /**
- * One pass over every season, which is what the clocks are (`docs/datenschutz.md :: 6`).
+ * One pass over every season, then the two clocks no season holds (`docs/datenschutz.md :: 6`).
  *
  * Settles rather than throws: nothing awaits this, so a rejection would surface as an unhandled one
  * an hour after the tick that caused it.
@@ -78,9 +82,51 @@ export async function runBewerbungSweep(): Promise<void> {
   laeuft = true;
   try {
     await sweepAlleSaisons();
+    // Each half catches its own throw, as a season's two do: a shared `try` would leave a lapsed address or a due
+    // pupil standing every hour the half before it fails.
+    await sweepAdresswechsel();
+    // Compared to "on", as the activation press compares it: a switch reading anything else deletes nobody.
+    if (frontend_config.LOESCHUNG_SWEEP === "on") await sweepLoeschung();
   } finally {
     laeuft = false;
   }
+}
+
+/** A referee's pending address the day after its link lapsed. On every pass: no switch holds a lapsed address. */
+async function sweepAdresswechsel(): Promise<void> {
+  let entfernt = 0;
+  try {
+    let antwort: FLSchiedsrichterAdresswechselSweepResponse;
+    do {
+      antwort = await postSchiedsrichterAdresswechselSweep();
+      entfernt += antwort.entfernt;
+      // Never `verbleibend` alone: an address the backend cannot remove stays due, and every later call meets it again.
+    } while (antwort.verbleibend > 0 && antwort.entfernt > 0);
+
+    logger.info("schiedsrichter.adresswechsel_sweep_pass", { entfernt: entfernt, verbleibend: antwort.verbleibend });
+  } catch (error) {
+    logger.info("schiedsrichter.adresswechsel_sweep_pass", { entfernt: entfernt });
+    logSweepFailure("schiedsrichter.adresswechsel_sweep_failed", error, undefined);
+  }
+}
+
+/**
+ * The rest the activation press left of the pupils its season made due. Without a deadline of its own: a timer
+ * has no request whose answer a long run would hold back.
+ */
+async function sweepLoeschung(): Promise<void> {
+  const lauf = await loeschungLaufen(postLoeschungLauf);
+
+  // Counts and the season the rule kept, never a person: the backend's own lines name a failed person's id.
+  if (!lauf.abgebrochen) {
+    const { abgebrochen: _durchgelaufen, ...zahlen } = lauf;
+    logger.info("loeschung.sweep_pass", zahlen);
+    return;
+  }
+
+  const { abgebrochen: _abgebrochen, fehler, ...bisher } = lauf;
+  logger.info("loeschung.sweep_pass", bisher);
+  logSweepFailure("loeschung.sweep_failed", fehler, undefined);
 }
 
 async function sweepAlleSaisons(): Promise<void> {

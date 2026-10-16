@@ -2,9 +2,10 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
+import { frontend_config } from "@/core/config";
 import { buildReplacementContext } from "@/features/saisons/components/forms/AdminSaisonEditForm/replacementOffer";
 import { AdminSaisonEditView } from "@/features/saisons/components/views/AdminSaisonEditView";
-import { getAdminSaisons } from "@/features/saisons/queries";
+import { getAdminSaisons, getLoeschungVorschau } from "@/features/saisons/queries";
 import { resolveSaisonIdParam } from "@/features/saisons/resolvers";
 import {
   buildGruppenSwapContext,
@@ -49,12 +50,15 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
   const outgoing = saisonsRes.saisons.find((candidate) => candidate.status === "active") ?? null;
   const outgoingSaisonId = outgoing === null || outgoing.id === saison.id ? null : outgoing.id;
 
-  const [spieltageRes, outgoingSpieleRes, teamsRes, playoffSpieleRes, gruppenSpieleRes, ligaTeamsRes] = await Promise.all([
+  // Only a `future` season has a rollover to present — the running one has nothing to switch to, a
+  // `past` one is refused (`REQ-ACTIVATE-002`) — and no incumbent means no outgoing fixtures and no
+  // season the activation closes.
+  const presentsRollover = outgoingSaisonId !== null && saison.status === "future";
+
+  const [spieltageRes, outgoingSpieleRes, loeschungRes, teamsRes, playoffSpieleRes, gruppenSpieleRes, ligaTeamsRes] = await Promise.all([
     getAdminSpieltage({ saison_id: saison.id }),
-    // Only where there is something to warn about: only a `future` season has a rollover to present —
-    // the running one has nothing to switch to, a `past` one is refused (`REQ-ACTIVATE-002`) — and no
-    // incumbent means no outgoing fixtures.
-    outgoingSaisonId === null || saison.status !== "future" ? Promise.resolve(null) : getAdminSpiele({ saison_id: outgoingSaisonId }),
+    presentsRollover ? getAdminSpiele({ saison_id: outgoingSaisonId }) : Promise.resolve(null),
+    presentsRollover ? getLoeschungVorschau(saison.id) : Promise.resolve(null),
     // `include_inactive` because an admin picker hiding a retired club that still holds a junction
     // row would make a swap the endpoint accepts look impossible.
     getAdminTeams({ saison_id: saison.id, include_inactive: true }),
@@ -85,10 +89,21 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
     }))
     .sort((left, right) => left.spielNr - right.spielNr);
 
+  const abgeschlosseneSaisonId = loeschungRes?.abgeschlossene_saison_id ?? null;
+
   const rollover: SaisonRolloverContext = {
     outgoingSaisonId,
     offeneSpiele,
     hasUndatierteSpieltage: holdsUndatierteSpieltage(spieltageRes.spieltage),
+    loeschung:
+      loeschungRes === null || abgeschlosseneSaisonId === null
+        ? null
+        : {
+            abgeschlosseneSaisonId: abgeschlosseneSaisonId,
+            spieler: loeschungRes.spieler,
+            // The same comparison the press makes, so the panel never says a deletion the press skips.
+            eingeschaltet: frontend_config.LOESCHUNG_SWEEP === "on",
+          },
   };
 
   // The condition `REQ-SPIELPLAN-001`, `REQ-ACTIVATE-003` and `REQ-RULES-011` each read, derived off
