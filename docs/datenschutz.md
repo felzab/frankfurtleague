@@ -743,9 +743,11 @@ Every ruling below is the sign-up flow as it stands for the next season.
   request matches is passed over, and named in the log by id, until the address is corrected
   (`:: I718`). What goes is the pupil's own data alone — the record, every squad row and every
   registration at the address, a declined one included, each with its log images, and their day
-  counts as a pupil, every log row they wrote as one naming a fixed marker in their place
-  (`:: I667`) — while a contact seat, a referee record or a grant at the same address stands, each
-  bounded by its own purpose, with the counts and log rows the person made in that role. A
+  counts as a pupil, every log row they wrote as one under their current address naming a fixed
+  marker in their place (`:: I667`; rows under an earlier address keep its pseudonym, as
+  [section 5](#5-erasure-reaches-everyone-who-asks) records) — while a contact seat, a referee
+  record or a grant at the same address stands, each bounded by its own purpose, with the counts
+  and log rows the person made in that role. A
   pupil holding no address is outside the rule, the one-off reset of
   [section 3](#3-the-current-pupil-records-are-reset-once) removing them. **An erasure deletes the
   document outright** rather than nulling its fields (`docs/backend/spec.md :: I12`), so the row
