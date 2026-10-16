@@ -328,9 +328,9 @@ do_typecheck()  { ( cd fl_frontend && pnpm typecheck:only ); }
 # while a warm local run would pay every worker's configuration load (`docs/ops/spec.md`). The `=`
 # keeps the flag one word under `_lib.sh`'s IFS.
 
-# Three where `auto` takes two on a four-vCPU runner: whether the third worker repays its own setup is
-# the frontend job's eslint spans' to show (`.github/gate-wall-clock.tsv`).
-do_eslint()     { ( cd fl_frontend && pnpm lint ${GITHUB_ACTIONS:+--concurrency=3} ); }
+# `auto`, which takes two on a four-vCPU runner: three ran no faster there, each worker paying about
+# 29 s of setup (`.github/gate-wall-clock.tsv`).
+do_eslint()     { ( cd fl_frontend && pnpm lint ${GITHUB_ACTIONS:+--concurrency=auto} ); }
 do_audit()      { ( cd fl_frontend && pnpm audit:prod ); }
 do_knip()       { ( cd fl_frontend && pnpm knip ); }
 do_knip_prod()  { ( cd fl_frontend && pnpm knip:prod ); }
