@@ -25,7 +25,7 @@ describe("the address a unique index already holds", () => {
   it("answers every refusal the create publishes", () => {
     assert.deepEqual(
       publishedRefusals(CREATE_OPERATION).filter((code) => code !== DUPLICATE_KEY),
-      ["REQ-SPERRLISTE-001", "REQ-SPERRLISTE-002", "REQ-SPERRLISTE-003"],
+      ["REQ-SPERRLISTE-001", "REQ-SPERRLISTE-002", "REQ-SPERRLISTE-003", "REQ-SPERRLISTE-004"],
     );
     for (const code of publishedRefusals(CREATE_OPERATION)) {
       assert.notEqual(answerShown(CREATE_OPERATION, code, mapAdresseRefusal), null, `${code} reaches the admin as an unhandled conflict`);
@@ -46,6 +46,14 @@ describe("the address a unique index already holds", () => {
   it("lands an administrator's address on the address box", () => {
     assert.deepEqual(mapAdresseRefusal(refusedWith(409, "REQ-SPERRLISTE-003")), {
       fieldErrors: { email: "Diese Adresse gehört zur Verwaltung und lässt sich nicht sperren." },
+    });
+  });
+
+  /* The typed reason is what the rule refuses, so the sentence lands under its box and names the way out: the rule names
+     no word and refuses a common word equal to a name with it. */
+  it("lands a name of the address's records in the reason on the reason box", () => {
+    assert.deepEqual(mapAdresseRefusal(refusedOn(CREATE_OPERATION, "REQ-SPERRLISTE-004")), {
+      fieldErrors: { grund: "Ein Wort im Grund gleicht einem Namen der Person. Beschreibe den Vorfall mit anderen Worten und ohne Namen." },
     });
   });
 

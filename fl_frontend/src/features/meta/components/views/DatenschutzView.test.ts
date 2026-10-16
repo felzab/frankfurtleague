@@ -49,7 +49,7 @@ const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
  * The „Stand“ and the words it dates, frozen together: a reader told nothing changed since that day
  * has been misled by any edit that left the date standing.
  */
-const FASSUNG = { stand: "16. Oktober 2026", digest: "55eceabdcdc54149019bd859b6d698fbc6f1f3f19b0da91aba1d2c087a715b55" } as const;
+const FASSUNG = { stand: "16. Oktober 2026", digest: "4414133be9c77e3b4ee284a4d9243ca93872df6fb77cab047e8ae2b2f8e551eb" } as const;
 
 /** Every word the page renders but its date, so moving the date alone never passes for moving the words. */
 const wortlautDigest = (): string =>
@@ -463,6 +463,13 @@ const ERSETZT: readonly { weg: string; statt?: string }[] = [
   {
     weg: "Das betrifft die Zugriffsprotokolle",
     statt: "Das betrifft jede Verarbeitung, für die diese Erklärung Art. 6 Abs. 1 lit. f DSGVO als Rechtsgrundlage nennt",
+  },
+  // A ban's reason refuses a name of the address's own records as stored (`docs/backend/spec.md :: I726`).
+  {
+    weg: "steht darin ein Name, bleibt er mit dem Eintrag stehen",
+    statt:
+      "Einen Namen, so wie er unter der gesperrten Adresse eingetragen ist, lassen wir darin nicht zu. Ein Name, der dort " +
+      "nicht so steht, etwa anders geschrieben, kann darin stehen und bleibt dann mit dem Eintrag stehen.",
   },
 ];
 

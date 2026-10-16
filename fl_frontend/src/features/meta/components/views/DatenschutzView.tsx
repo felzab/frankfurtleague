@@ -768,10 +768,11 @@ export function DatenschutzView() {
             Ein Konto mit dieser Adresse bleibt wie jedes andere nur bestehen, solange es unter der Adresse noch etwas von dem gibt, was
             Abschnitt 13 bei der Anmeldung aufzählt. Bis die Sperre endet, kann sich damit niemand anmelden. Eine Kopie Deiner Daten oder ihre
             Löschung erhältst Du auch während einer Sperre über eine E-Mail an <MailLink />; wir bestätigen die Anfrage mit einer E-Mail an die
-            gesperrte Adresse. Der Grund ist ein freier Text; steht darin ein Name, bleibt er mit dem Eintrag stehen. Dieser Eintrag bleibt auch
-            nach einer Löschung bestehen, bis die Sperre nach fünf vollen Saisons endet oder die Verwaltung sie vorher aufhebt. Wir speichern
-            diesen Eintrag auf Grundlage unseres berechtigten Interesses daran, eine gesperrte Adresse nicht erneut zuzulassen (Art. 6 Abs. 1
-            lit. f DSGVO).
+            gesperrte Adresse. Der Grund ist ein freier Text. Einen Namen, so wie er unter der gesperrten Adresse eingetragen ist, lassen wir
+            darin nicht zu. Ein Name, der dort nicht so steht, etwa anders geschrieben, kann darin stehen und bleibt dann mit dem Eintrag
+            stehen. Dieser Eintrag bleibt auch nach einer Löschung bestehen, bis die Sperre nach fünf vollen Saisons endet oder die Verwaltung
+            sie vorher aufhebt. Wir speichern diesen Eintrag auf Grundlage unseres berechtigten Interesses daran, eine gesperrte Adresse nicht
+            erneut zuzulassen (Art. 6 Abs. 1 lit. f DSGVO).
           </p>
         </LegalSection>
 
