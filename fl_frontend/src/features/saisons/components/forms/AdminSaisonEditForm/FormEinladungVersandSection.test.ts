@@ -617,15 +617,29 @@ describe("the season's bulk invite send", () => {
     );
   });
 
+  const uebersprungen = (team_id: string) => ({
+    team_id,
+    team_name: "Georg-Büchner-Schule",
+    uebersprungen: "kein_kontaktblock",
+    ersetzt_link: false,
+    hatte_link: false,
+    zugestellt: [],
+    unerreichbar: [],
+    zurueckgehalten: [],
+    gesperrt: 0,
+  });
+
   /* A title says whether its grade is every team's or some teams', one team's in the team press's words: „Nicht alle“
      is false over one team and over a local stack sending nothing. */
-  for (const [versendet, variant, title] of [
-    [["gesendet"], "success", "Registrierungslink gesendet"],
-    [["zurueckgehalten"], "warning", "Registrierungslink zurückgehalten"],
-    [["fehlgeschlagen"], "warning", "Registrierungslink nicht verschickt"],
-    [["zurueckgehalten", "zurueckgehalten", "zurueckgehalten"], "warning", "Registrierungslinks zurückgehalten"],
-    [["fehlgeschlagen", "zurueckgehalten"], "warning", "Registrierungslinks nicht verschickt"],
-    [[], "info", "Keine Registrierungslinks gesendet"],
+  for (const [versendet, zeilen, variant, title] of [
+    [["gesendet"], [], "success", "Registrierungslink gesendet"],
+    [["zurueckgehalten"], [], "warning", "Registrierungslink zurückgehalten"],
+    [["fehlgeschlagen"], [], "warning", "Registrierungslink nicht verschickt"],
+    [["zurueckgehalten", "zurueckgehalten", "zurueckgehalten"], [], "warning", "Registrierungslinks zurückgehalten"],
+    [["fehlgeschlagen", "zurueckgehalten"], [], "warning", "Registrierungslinks nicht verschickt"],
+    // Meant for no team: the title counts the season's, so a season of one reads in the singular.
+    [[], [uebersprungen(ID("b"))], "info", "Kein Registrierungslink gesendet"],
+    [[], [uebersprungen(ID("b")), uebersprungen(ID("c"))], "info", "Keine Registrierungslinks gesendet"],
   ] as const) {
     it(`titles a press whose teams' links ended ${versendet.join(", ") || "nowhere"} „${title}“`, async () => {
       const user = userEvent.setup();
@@ -637,7 +651,7 @@ describe("the season's bulk invite send", () => {
         armed: ARMED,
         answered,
         whileArmed: () => {
-          answerWith(() => Promise.resolve({ success: true, zeilen: [], message: "Registrierungslink nicht verschickt.", versendet }));
+          answerWith(() => Promise.resolve({ success: true, zeilen, message: "Das Team hat keinen neuen Link bekommen.", versendet }));
         },
       });
       await act(answered);

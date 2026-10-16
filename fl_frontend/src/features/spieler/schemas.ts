@@ -301,7 +301,7 @@ export const FLSpielerAdresswechselMintResponseSchema = BaseAPIResponseSchema.ex
 export type FLSpielerAdresswechselMintResponse = z.infer<typeof FLSpielerAdresswechselMintResponseSchema>;
 
 /** The one thing a visitor's body can be wrong about that no input renders: the token their link carried. */
-const LINK_UNVOLLSTAENDIG = "Bitte öffne den Link erneut aus Deiner E-Mail.";
+const LINK_UNVOLLSTAENDIG = "Bitte öffne den Link aus Deiner E-Mail erneut.";
 
 /** One sentence for the missing token and the over-long one: a visitor typed neither, so the repair is the link opened again. */
 const adresswechselToken = z

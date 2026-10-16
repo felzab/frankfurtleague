@@ -3,7 +3,8 @@ CORE · the erasure journal: one line for each act a restore from a snapshot wou
 
 A restore rolls the database and its action log back together, so what it must run again is written to the
 backend's stream instead, which the host keeps as day files (`docs/ops/runbooks.md` §13). A line names its
-person by keyed hash alone, beside the act and the record that act changed.
+person by keyed hash, beside the act and the record that act changed; an erasure's line also by the log's
+pseudonym, the one key to the rows a restore brings back where it brings back no address.
 
 Invariants:
 - A line is written once its transaction committed or lost its answer, never by an attempt that rolled back.
@@ -71,10 +72,15 @@ class JournalLine:
     wahlen: Mapping[FLEinwilligungWahl, Any] = field(default_factory=lambda: MappingProxyType({}))
     # The slots a Widerspruch emptied.
     sitze: tuple[str, ...] = ()
+    # An erasure's person as the action log and the day counts key them (`app/core/security.py :: akteur_pseudonym`): the
+    # one way a replay finds those rows where the restored database holds the address nowhere. Absent on an older line.
+    pseudonym: str | None = None
 
     def __post_init__(self) -> None:
         if not _HASH.fullmatch(self.person_hash):
             raise ValueError("a journal line names its person by a journal hash")
+        if self.pseudonym is not None and (self.art != "loeschung" or not _HASH.fullmatch(self.pseudonym)):
+            raise ValueError("an erasure's line alone names its person's log pseudonym")
 
         if self.art == "loeschung":
             if (
@@ -107,10 +113,15 @@ class JournalLine:
         if (self.art == "widerspruch") != (bool(self.sitze) and all(_WORT.fullmatch(sitz) for sitz in self.sitze)):
             raise ValueError("a Widerspruch's line, and only one, names the slots it emptied")
 
-    def text(self, *, with_person: bool = True) -> str:
-        """The line as the stream carries it; without its person, as the replay's log row names it."""
+    def text(self) -> str:
+        """The line as the stream carries it."""
 
-        tokens = [JOURNAL_TOKEN, *([self.person_hash] if with_person else []), self.art]
+        return " ".join([JOURNAL_TOKEN, self.person_hash, self.act(), *([f"pseudonym={self.pseudonym}"] if self.pseudonym is not None else [])])
+
+    def act(self) -> str:
+        """The act and its record, as the listing and a replay's log row name a line: neither the token nor anything keyed on its person."""
+
+        tokens: list[str] = [self.art]
         if self.collection is not None:
             tokens.append(f"{self.collection}/{self.record_id}")
         if self.am is not None:
@@ -164,7 +175,7 @@ def parse_line(message: str) -> JournalLine | None:
             wahlen[key] = _read_value(key, value)
         elif key == "sitze":
             fields["sitze"] = tuple(value.split(","))
-        elif key in ("am", "text_version"):
+        elif key in ("am", "text_version", "pseudonym"):
             fields[key] = value
         else:
             raise ValueError("a journal line names a value no act carries")

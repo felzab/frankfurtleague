@@ -479,7 +479,7 @@ describe("the ban's refusals, placed (`docs/frontend/spec.md :: I724`)", () => {
     const answers: [string, () => Promise<Record<string, unknown>>][] = [
       ["a grant on the list", () => Promise.resolve({ ...NICHTS, verwaltung: "administration" })],
       ["the reader's own address", () => Promise.reject(refusedOn("POST /identitaet/erasure/ansicht", "REQ-PURGE-003"))],
-      ["an owner's address", () => Promise.reject(refusedOn("POST /identitaet/erasure/ansicht", "REQ-PURGE-005"))],
+      ["another grant holder's address", () => Promise.reject(refusedOn("POST /identitaet/erasure/ansicht", "REQ-PURGE-005"))],
     ];
     const verwaltung = mapSperreRefusal(refusedOn(CREATE_OPERATION, "REQ-SPERRLISTE-003"))?.fieldErrors?.email ?? "unworded";
 

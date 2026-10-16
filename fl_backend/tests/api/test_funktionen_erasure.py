@@ -964,8 +964,8 @@ class TestTheJournal:
         expected = loeschung_journal_hash(IDENTIFIER, schluessel=CONFIG.sperrliste_schluessel)
 
         assert status == 200
-        assert lines == [f"{JOURNAL_TOKEN} {expected} loeschung"]
-        # Its own label: under the log's, the journal would name the very pseudonym the erasure removed.
+        assert lines == [f"{JOURNAL_TOKEN} {expected} loeschung pseudonym={PSEUDONYM}"]
+        # Its own label: under the log's, every choice's line would name the pseudonym the erasure's line alone names.
         assert expected != PSEUDONYM
 
     def test_the_line_is_written_whatever_the_application_log_level(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
