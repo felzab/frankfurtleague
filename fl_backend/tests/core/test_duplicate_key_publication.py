@@ -31,6 +31,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import DuplicateKeyError
 from starlette.requests import Request
 
+from app.api.identitaet.crud import ERASURE_STEPS, erase_everything
 from app.api.zustellung.services import zustellung_pfad
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -46,6 +47,8 @@ from tests.core.app_source import (
     BACKEND_ROOT,
     COLLECTION_ARGUMENT_SUFFIX,
     DRIVER_WRITES,
+    REMOVAL_HELPERS,
+    TRANSACTION_RUNNER,
     WRITE_HELPERS,
     Declaration,
     api_routes,
@@ -55,6 +58,7 @@ from tests.core.app_source import (
     module_of,
     parsed,
     resolve_callee,
+    resolve_name,
     scoped_calls,
     unfollowed_references,
 )
@@ -1138,10 +1142,151 @@ def test_every_write_the_application_makes_is_reached_from_a_route():
     )
 
 
-def test_no_write_helper_is_held_as_a_value():
-    """A callback or a partial writes where no call site names the helper, so neither listing above would see the write."""
+def _scoped_nodes(node: ast.AST, chain: tuple[Declaration, ...]) -> Iterator[tuple[tuple[Declaration, ...], ast.AST]]:
+    """Every node under `node` with the functions around it, as `scoped_calls` pairs each call."""
 
-    assert unfollowed_references(WRITE_HELPERS, skip=frozenset({CRUD})) == []
+    for child in ast.iter_child_nodes(node):
+        yield chain, child
+        yield from _scoped_nodes(child, (*chain, child) if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)) else chain)
+
+
+def _writes_itself(call: ast.Call, chain: tuple[Declaration, ...], path: Path) -> bool:
+    if isinstance(call.func, ast.Attribute) and call.func.attr in DRIVER_WRITES:
+        return True
+    resolved = resolve_callee(call, chain, path)
+
+    return resolved is not None and resolved[1] == CRUD and resolved[0].name in WRITE_HELPERS | REMOVAL_HELPERS
+
+
+@functools.cache
+def _writers() -> frozenset[int]:
+    """Every application function whose own body writes, or calls by a name `resolve_callee` follows one that does."""
+
+    writing: set[int] = set()
+    calling: dict[int, set[int]] = {}
+    for path in sorted(APP_ROOT.rglob("*.py")):
+        for chain, call in scoped_calls(parsed(path), ()):
+            if not chain or path == CRUD:
+                continue
+            if _writes_itself(call, chain, path):
+                writing.add(id(chain[-1]))
+            elif (resolved := resolve_callee(call, chain, path)) is not None:
+                calling.setdefault(id(chain[-1]), set()).add(id(resolved[0]))
+
+    while grown := {holder for holder, called in calling.items() if holder not in writing and called & writing}:
+        writing |= grown
+
+    return frozenset(writing)
+
+
+def _module_held_as(name: str, tree: ast.Module) -> Path | None:
+    """The application module `name` holds where an import binds it to one, which a call then reaches through an attribute."""
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            bound = [(alias, alias.name) for alias in node.names]
+        elif isinstance(node, ast.ImportFrom):
+            bound = [(alias, f"{node.module}.{alias.name}") for alias in node.names]
+        else:
+            continue
+        for alias, dotted in bound:
+            if (alias.asname or alias.name) != name:
+                continue
+            candidate = BACKEND_ROOT.joinpath(*dotted.split("."))
+            for origin in (candidate.with_suffix(".py"), candidate / "__init__.py"):
+                if dotted.startswith("app.") and origin.exists():
+                    return origin
+
+    return None
+
+
+def _writers_held_as_values() -> dict[str, frozenset[str]]:
+    """Every scope naming a writer other than at a call `resolve_callee` follows or as a transaction's callback, with the writers it names."""
+
+    writers = _writers()
+    found: dict[str, set[str]] = {}
+    for path in sorted(APP_ROOT.rglob("*.py")):
+        tree = parsed(path)
+        called = {id(node.func) for node in ast.walk(tree) if isinstance(node, ast.Call)}
+        handed = {
+            id(node.args[0]) for node in ast.walk(tree) if isinstance(node, ast.Call) and callee(node) == TRANSACTION_RUNNER and node.args
+        }
+        for chain, node in _scoped_nodes(tree, ()):
+            if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load) and id(node) not in called | handed:
+                resolved = resolve_name(node.id, chain, path)
+            elif isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name) and (held := _module_held_as(node.value.id, tree)):
+                # Called or not: `resolve_callee` follows no attribute, so a writer reached through its module is unseen either way.
+                declaration = next((found for found in parsed(held).body if getattr(found, "name", None) == node.attr), None)
+                resolved = (declaration, held) if isinstance(declaration, (ast.FunctionDef, ast.AsyncFunctionDef)) else None
+            else:
+                continue
+            if resolved is not None and id(resolved[0]) in writers:
+                where = f"{path.relative_to(BACKEND_ROOT).as_posix()} :: {chain[-1].name if chain else '<module>'}"
+                found.setdefault(where, set()).add(resolved[0].name)
+
+    return {where: frozenset(names) for where, names in found.items()}
+
+
+ERASURE_REGISTRY = "app/api/identitaet/crud.py"
+JUDGE = "the actor's judge, run by `app/core/transactions.py :: JudgedSession` inside every attempt of the transaction"
+REPLAY = "the replay's plan, run by `app/api/identitaet/wiederherstellung.py :: replay_line` inside its transaction's callback"
+
+# Each writer held as a value outside the erasure registry, and where its write runs.
+WRITERS_HELD_ELSEWHERE: dict[str, tuple[frozenset[str], str]] = {
+    "app/core/security.py :: admin_judge": (frozenset({"judging_the_administrator"}), JUDGE),
+    "app/core/security.py :: person_judge": (frozenset({"judging_the_person"}), JUDGE),
+    "app/api/identitaet/wiederherstellung.py :: _plan_widerruf": (frozenset({"rewrite_withdrawal"}), REPLAY),
+    "app/api/identitaet/wiederherstellung.py :: _plan_widerspruch": (frozenset({"rewrite_widerspruch"}), REPLAY),
+    "app/api/identitaet/wiederherstellung.py :: _plan_adresswechsel": (frozenset({"rewrite_declined_address"}), REPLAY),
+    # A dependency, which no trace follows: the day count is an upsert outside the transaction by design
+    # (`docs/backend/spec.md :: I617`).
+    "app/core/drosselung.py :: get_drossel": (frozenset({"drosseln"}), "a person's day count, written outside the request's transaction"),
+}
+
+
+def _driver_writes_held_as_values() -> list[str]:
+    """Every driver write named other than as a call's callee: `send = spielorte_collection.update_one` writes under `send`."""
+
+    found: list[str] = []
+    for path in sorted(APP_ROOT.rglob("*.py")):
+        tree = parsed(path)
+        called = {id(node.func) for node in ast.walk(tree) if isinstance(node, ast.Call)}
+        found.extend(
+            f"{path.relative_to(BACKEND_ROOT).as_posix()}:{node.lineno} `{ast.unparse(node)}`"
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Attribute) and node.attr in DRIVER_WRITES and id(node) not in called
+        )
+
+    return found
+
+
+def _steps_called_by_name() -> frozenset[str]:
+    """The registered steps `erase_everything` calls by a name `resolve_callee` follows."""
+
+    erasing = declared(erase_everything)
+
+    return frozenset(
+        resolved[0].name
+        for chain, call in scoped_calls(erasing, (erasing,))
+        if (resolved := resolve_callee(call, chain, module_of(erase_everything))) is not None
+    )
+
+
+def test_no_writer_is_held_as_a_value():
+    """A writer held as a value runs under a name no call site spells, unseen by the listings above and the write-transaction sweep.
+
+    The erasure registry's module names its steps freely: `_runs` compares them, and `erase_everything` calls each by name.
+    """
+
+    held = _writers_held_as_values()
+    steps = frozenset(step.run.__name__ for step in ERASURE_STEPS)
+
+    assert unfollowed_references(WRITE_HELPERS | REMOVAL_HELPERS, skip=frozenset({CRUD})) == []
+    assert _driver_writes_held_as_values() == []
+    assert {where: names for where, names in held.items() if not where.startswith(ERASURE_REGISTRY)} == {
+        where: names for where, (names, _) in WRITERS_HELD_ELSEWHERE.items()
+    }
+    assert {name for where, names in held.items() if where.startswith(ERASURE_REGISTRY) for name in names} <= steps <= _steps_called_by_name()
 
 
 def test_the_draws_bulk_inserts_reach_a_unique_index_on_their_own():
