@@ -2397,6 +2397,42 @@ def test_prune_exits_one_naming_each_removal_git_refuses(tmp_path: Path) -> None
     assert tree.exists()
 
 
+def test_prune_removes_a_tree_holding_a_path_past_windows_limit(tmp_path: Path) -> None:
+    """At the path limit git unregistered the tree, failed to delete it, and the next prune called it removed while the folder stayed."""
+    root = _repo(tmp_path, branch="worktree-agent-a1b2c3")
+    (root / ".git" / "info").mkdir(exist_ok=True)
+    with (root / ".git" / "info" / "exclude").open("ab") as excluded:
+        excluded.write(b"\nnode_modules/\n")
+    tree = tmp_path / "tree"
+    git(root, "worktree", "add", "-q", str(tree), "worktree-agent-a1b2c3")
+    deep = tree / "node_modules" / "x"
+    while len(str(deep)) < 280:
+        deep = deep / "a-package-nested-in-another"
+    # Python hands Windows a path past its limit whole only behind the `\\?\` prefix.
+    (Path("\\\\?\\" + str(deep)) if os.name == "nt" else deep).mkdir(parents=True)
+    pruned = _run("reg", "prune", str(_agents(tmp_path, "| DEEP `a1b2c3` | q |  | DONE 2020-01-01 10:00 x |")), cwd=root, env=_home(tmp_path))
+    assert pruned.returncode == 0 and f"removed {tree} and worktree-agent-a1b2c3 (DEEP)" in pruned.stdout, (pruned.stdout, pruned.stderr)
+    assert not tree.exists()
+
+
+def test_prune_names_a_folder_a_removal_left_until_it_is_gone(tmp_path: Path) -> None:
+    """A tree git unregistered and could not delete was named once, then pruned as having no worktree while its folder stayed."""
+    root = _repo(tmp_path, branch="worktree-agent-a1b2c3")
+    left = root / reg.AGENT_TREES / "agent-a1b2c3"
+    git(root, "worktree", "add", "-q", str(left), "worktree-agent-a1b2c3")
+    # What a removal stopped part-way leaves: the tree unregistered and its `.git` file gone, the folder on disk.
+    (left / ".git").unlink()
+    git(root, "worktree", "prune")
+    register = _agents(tmp_path, "| HALF `a1b2c3` | q |  | DONE 2020-01-01 10:00 x |")
+    for _ in range(2):
+        pruned = _run("reg", "prune", str(register), cwd=root, env=_home(tmp_path))
+        assert pruned.returncode == 1 and f"{left} (HALF) stays on disk" in pruned.stderr, (pruned.stdout, pruned.stderr)
+    assert "worktree-agent-a1b2c3" in git(root, "branch", "--list")
+    shutil.rmtree(left)
+    pruned = _run("reg", "prune", str(register), cwd=root, env=_home(tmp_path))
+    assert pruned.returncode == 0 and "removed no worktree and worktree-agent-a1b2c3 (HALF)" in pruned.stdout, pruned.stderr
+
+
 def test_overlap_names_each_path_a_live_worktree_changes_by_commit_or_by_edit(tmp_path: Path) -> None:
     """Briefs were diffed path by path against nothing, so six overlaps surfaced as landing conflicts."""
     root = _repo(tmp_path, branch="worktree-agent-a1b2c3")

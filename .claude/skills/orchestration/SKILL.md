@@ -169,8 +169,8 @@ independent. Stop once the bar is met.
   `ci.py` exits 0.
 - Run the suites in your checkout every few waves: CI is Linux. The bare gate is the ending's.
 - At a wave boundary `ledger.py open` exits 0, your checkout is clean, and you have judged the
-  reason `reg.py prune` prints for each worktree it leaves. Where Windows stops a removal at the path
-  limit, `rm -rf <path>` in Git Bash, then `git worktree prune -v`.
+  reason `reg.py prune` prints for each worktree it leaves. Where it names a folder a removal left,
+  `rm -rf <path>` in Git Bash, then prune again.
 
 ## The cycle
 

@@ -19,7 +19,7 @@ hook's, records each send and routes its rows one by one.
     overlap <register> (<path>… | --brief <file>)
     context <register> <agent id>…
 
-Exit 0 done, 2 refused; `overlap` 1 while a path is shared; `prune` 1 where git refused a removal;
+Exit 0 done, 2 refused; `overlap` 1 while a path is shared; `prune` 1 where a removal failed or left its folder;
 `message` always 0, a hook's failure being the send's.
 """
 
@@ -66,6 +66,8 @@ REBUILT_DIRS: Final = frozenset({"node_modules", ".venv", ".next", "__pycache__"
 REBUILT_FILE_RE: Final = re.compile(r"\.(?:pyc|tsbuildinfo)$|^(?:next-env\.d\.ts|\.eslintcache)$")
 # The harness copies the checkout's own into every worktree it makes.
 LOCAL_SETTINGS: Final = ".claude/settings.local.json"
+# Where the harness makes each agent's worktree, as `agent-<id>` under the checkout.
+AGENT_TREES: Final = Path(".claude", "worktrees")
 # The messages hook's whole wait on locks and a held file, at most half `.claude/settings.json`'s timeout
 # for it: killed at that timeout, the hook tells the coordinator nothing, and uv's start takes some of it.
 HOOK_SECONDS: Final = 4.0
@@ -601,12 +603,21 @@ def prune(register: Path, projects: Path) -> tuple[list[str], list[str]]:
         if reason := _kept(agent, held, tree, holding or {}, projects, root):
             said.append(f"kept {tree.path if tree else branch} ({held.name}): {reason}")
             continue
+        # Git unregisters a tree before it deletes the files, so a removal stopped part-way leaves a folder git no
+        # longer lists. The branch stays, so every prune names the folder until it is gone.
+        if tree is None and (left := root / AGENT_TREES / f"agent-{agent}").is_dir():
+            failed.append(f"{left} ({held.name}) stays on disk, though git lists no worktree there: delete it, then prune again")
+            continue
         # `remove` drops a worktree whose folder is gone as well, and `prune` would drop every other stale one with it.
         steps = [("worktree", "remove", str(tree.path))] if tree else []
         for step in [*steps, ("branch", "-d", branch)]:
-            done = subprocess.run(("git", *step), capture_output=True, check=False)
+            # Without long paths, git on Windows fails to delete a file past the path limit, an installed package's.
+            done = subprocess.run(("git", "-c", "core.longpaths=true", *step), capture_output=True, check=False)
             if done.returncode != 0:
-                failed.append(f"git {' '.join(step)} ({held.name}) exited {done.returncode}: {done.stderr.decode('utf-8', 'replace').strip()}")
+                stays = f"; {tree.path} stays on disk" if tree and tree.path.is_dir() else ""
+                failed.append(
+                    f"git {' '.join(step)} ({held.name}) exited {done.returncode}: {done.stderr.decode('utf-8', 'replace').strip()}{stays}"
+                )
                 break
         else:
             said.append(f"removed {tree.path if tree else 'no worktree'} and {branch} ({held.name})")
