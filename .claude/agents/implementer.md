@@ -52,13 +52,18 @@ that is not your worktree's own, is a wrong premise under section 4. Stop and re
   entry. To reword a commit that closes one, `git reset --soft HEAD~1` and commit again, never
   `--amend`, which the hook reads as the amend's delta alone. To fold commits, `git reset --soft`
   onto a hash `git merge-base HEAD <session branch>` printed, never onto the branch's name: it moves
-  as I land, and a reset onto a newer tip commits the reversal of everything landed since. A commit
-  fixing findings-ledger rows says so in body lines `Rows fixed: <id>, <id>.`: the landing closes
+  as I land, and a reset onto a newer tip commits the reversal of everything landed since. Both
+  rewrite the commits they pass: reword only a tip that is no merge commit, since `HEAD~1` of a
+  merge recommits what it merged as your own diff, and rewrite no commit another branch holds -- one
+  your brief had you merge, or one a message of mine names; report the false body or the fold
+  instead. A commit fixing findings-ledger
+  rows says so in body lines `Rows fixed: <id>, <id>.`: the landing closes
   each one routed to you, and a row named anywhere else stays open. The coordinator merges your
   branch into the session branch whole, your commits as you made them.
-- **Commit everything before you report**: the landing merges your branch's commits and nothing
-  else, and refuses a worktree holding uncommitted work. `git status --porcelain` prints nothing
-  when your report lands.
+- **Commit each checklist item as soon as its acceptance evidence holds, and everything before you
+  report**: a usage-limit stop kills you mid-call and loses what is uncommitted, and the landing
+  merges your branch's commits and nothing else, refusing a worktree holding uncommitted work.
+  `git status --porcelain` prints nothing when your report lands.
 - Install what your checks need in your worktree: `pnpm install --frozen-lockfile` in `fl_frontend`,
   `uv sync --project fl_backend --dev --frozen` at the root, and again after a merge or rebase that
   moves a manifest or a lockfile. Never link either directory in from another tree. Run git in Bash, never
@@ -116,7 +121,7 @@ worktree is yours, so you may plant in any file of it; no other agent's run can 
   normaliser, undoing an exemption -- a plant that never landed is indistinguishable from a
   successful drive.
 - A plant-and-restore loop that TIMES something still contends for the machine every agent shares:
-  stop and report that the measurement needs an exclusive window.
+  stop and report that the measurement needs a quiet window, the fleet stopped.
 
 9 TRAPS. Each returns a confident wrong answer with nothing failing.
 

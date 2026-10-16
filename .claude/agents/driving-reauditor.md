@@ -27,7 +27,7 @@ violation, observe the failure and its exit code, restore, observe the pass. Rea
 tell you whether it can fail. Where a guard refuses the command that would drive an arm, that arm is
 reported undriven, with the refusal quoted; never reach it through another tool. For a re-audit the
 subject is the fixes and their blast radius; for a document re-audit, take the previous audit's
-findings one at a time and report each closed or open, with the evidence.
+findings one at a time and report each, by its ledger id, closed or open, with the evidence.
 
 4 PUSH BACK. Your brief may be wrong. If a premise does not survive contact with the tree, stop and
 report it instead of building on it. A premise that names its source is a claim: verify it in one
