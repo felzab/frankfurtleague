@@ -25,6 +25,7 @@ from app.core.collections import Collection
 from app.core.logging import journal_logger
 from app.core.transactions import UNKNOWN_COMMIT_RESULT
 from app.shared.einwilligung_nachweis import WAHLEN, FLEinwilligungWahl, ist_erteilt
+from app.shared.schemas.custom import parse_object_id
 
 # What every line opens with: a token rather than a sentence, so the host's export matches a line by it whatever
 # follows (`scripts/ops/export_journal.sh :: JOURNAL_TOKEN`).
@@ -145,11 +146,14 @@ def parse_line(message: str) -> JournalLine | None:
     fields: dict[str, Any] = {"person_hash": tokens[1], "art": tokens[2]}
     rest = tokens[3:]
     if rest and "=" not in rest[0]:
-        collection, _, record_id = rest.pop(0).partition("/")
-        if not ObjectId.is_valid(record_id):
+        collection, _, spelled_id = rest.pop(0).partition("/")
+        # The one reader of an id (`app/shared/schemas/custom.py :: parse_object_id`): bson alone would take twelve
+        # letters as a binary id, and raise its own `InvalidId` past the `ValueError` the replay counts as unreadable.
+        record_id = parse_object_id(spelled_id)
+        if record_id is None:
             raise ValueError("a journal line names its record as a collection and an id")
         # `Collection(...)` refuses a name the database does not hold with the `ValueError` this function promises.
-        fields |= {"collection": Collection(collection), "record_id": ObjectId(record_id)}
+        fields |= {"collection": Collection(collection), "record_id": record_id}
 
     wahlen: dict[str, Any] = {}
     for token in rest:

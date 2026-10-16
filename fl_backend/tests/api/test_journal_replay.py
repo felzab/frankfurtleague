@@ -505,6 +505,8 @@ class TestTheListing:
             ("2026-10-03T11:00:00+00:00", erased.text()),
             ("2026-10-03T11:30:00+00:00", withdrawal.text()),
             ("2026-10-03T11:40:00+00:00", f"{JOURNAL_TOKEN} {'b' * 64} vergessen"),
+            # An id bson's own reader would raise `InvalidId` on: counted as unreadable, never a traceback.
+            ("2026-10-03T11:50:00+00:00", f"{JOURNAL_TOKEN} {'b' * 64} adresswechsel_abgelehnt spieler/{'z' * 24} am={AM}"),
         )
 
         async def steps(_http: AsyncClient, database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -525,7 +527,7 @@ class TestTheListing:
         assert "Journal lines written after 2026-10-03T10:00:00+00:00: 2." in listed
         assert "held in spieler: 1 field(s), " in listed and "held in schiedsrichter: 1 field(s), " in listed
         assert "    to replay" in listed and "    replayed" in applied and "    already done" in settled
-        assert "1 unreadable lines" in listed
+        assert "2 unreadable lines" in listed
         for output in (listed, applied, settled):
             assert "@" not in output
             assert erased.person_hash not in output
