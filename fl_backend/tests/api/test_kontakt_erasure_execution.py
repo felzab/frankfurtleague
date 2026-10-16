@@ -905,7 +905,7 @@ NO_AT_ROW_OIDS = {email: ObjectId(f"6890a1b2c3d4e5f60781{8000 + index:04d}") for
 
 @pytest.mark.db
 def test_an_identifier_holding_no_at_reads_exactly_the_rows_the_fold_claims(mongo_replica_set_url: str):
-    """Anchored at its start alone, the empty local part reads every stored address in the collection."""
+    """The server's engine reading the both-ends pattern as Python's `re` does, which the default tier's no-`@` spelling stands on."""
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         await database[Collection.SAISON_TEAMS].insert_many([a_row_naming(row_id, email) for email, row_id in NO_AT_ROW_OIDS.items()])
@@ -947,6 +947,10 @@ ASCII_DOMAIN_SPELLINGS: tuple[str, ...] = (
             "anna@MÜLLER.de", ("anna@xn--mller-kva.de", "ANNA@xn--mller-kva.de"), ("xanna@xn--mller-kva.de",), id="a Unicode domain asked"
         ),
         pytest.param(UNICODE_DOMAIN, (UNICODE_DOMAIN, *UNICODE_DOMAIN_SPELLINGS), ("xanna@müller.de",), id="a Unicode domain stored otherwise"),
+        # The fold equates it whole, so both ends are anchored; one anchor alone takes the start's or the end's near miss.
+        pytest.param(NO_AT_IDENTIFIER, NO_AT_CLAIMED, NO_AT_UNCLAIMED, id="no @"),
+        # An `@` and an empty local part: a prefix still, the domain folding beyond what a whole-value pattern spells.
+        pytest.param("@x.de", ("@x.de", "@X.DE", f"@{chr(0xFF58)}.de"), ("x@x.de",), id="an empty local part"),
     ],
 )
 def test_the_pre_filter_takes_every_spelling_the_fold_claims_and_no_other_local_part(
