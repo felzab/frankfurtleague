@@ -56,15 +56,36 @@ PAGES: Final = tuple(
         ]
     )
 )
-TOOL_SPAN_RE: Final = re.compile(r"`((?:reg|ledger|ci|land)\.py(?:\s[^`]*)?)`")
+TOOL_NAME_RE: Final = re.compile(r"(?<![\w-])(?:reg|ledger|ci|land)\.py\b")
+FENCE_LINE_RE: Final = re.compile(r"^\s*```")
+# The register template's marker line names a tool in prose.
+COMMENT_RE: Final = re.compile(r"<!--.*?-->", re.DOTALL)
 SPAN_PLACEHOLDER_RE: Final = re.compile(r"<[^<>]+>")
 # What argparse says of a call leaving out a word a full one carries, which a page naming a command may do.
 SHORT_RE: Final = re.compile(r"the following arguments are required|expected one argument")
 
 
 def _calls(text: str) -> list[str]:
-    """Each tool call a page names in a code span, a `path :: symbol` citation aside."""
-    return [span for span in TOOL_SPAN_RE.findall(text) if "::" not in span]
+    """Each tool call a page names, a `path :: symbol` citation aside: from the tool's name to the end of its code span.
+
+    A span opened by a path or `uv run` holds a call too, and a fenced line holds one outside any span, to its end.
+    """
+    calls: list[str] = []
+    fenced, ticks = False, 0
+    lines = COMMENT_RE.sub("", text).split("\n")
+    for k, line in enumerate(lines):
+        if FENCE_LINE_RE.match(line):
+            fenced, ticks = not fenced, 0
+            continue
+        # A code span never crosses a blank line, so the backticks before a name are counted from the paragraph's start.
+        ticks = ticks if line.strip() else 0
+        for found in TOOL_NAME_RE.finditer(line):
+            if (ticks + line.count("`", 0, found.start())) % 2:
+                calls.append(" ".join("\n".join([line[found.start() :], *lines[k + 1 :]]).split("`", 1)[0].split()))
+            elif fenced:
+                calls.append(line[found.start() :].strip())
+        ticks += line.count("`")
+    return [call for call in calls if "::" not in call]
 
 
 def _misnamed(call: str) -> str | None:
@@ -98,6 +119,9 @@ def test_the_judge_of_a_call_refuses_a_misnamed_word_and_passes_a_short_mention(
     assert _misnamed("ci.py expect <register> <run> --cleared-by <landing> --wait") is not None
     assert [_misnamed(call) for call in ("ledger.py bank --from", "reg.py overlap --brief", "ci.py", "land.py")] == [None] * 4
     assert _calls("`reg.py live <register>`, `ledger.py :: STATUSES` and `reg.py`") == ["reg.py live <register>", "reg.py"]
+    # A span a path opens, a span wrapping a line, a fenced shell line, and neither prose nor a comment.
+    page = "`uv run x/tools/reg.py pause <r>` and `ledger.py close\n<r>`, prose reg.py\n<!-- reg.py x -->\n```bash\nuv run ci.py --head\n```\n"
+    assert _calls(page) == ["reg.py pause <r>", "ledger.py close <r>", "ci.py --head"]
 
 
 @pytest.mark.parametrize("page", PAGES, ids=lambda page: f"{page.parent.name}/{page.name}")
