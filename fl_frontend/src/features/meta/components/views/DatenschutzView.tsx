@@ -216,10 +216,10 @@ const FRISTEN = [
   },
   {
     daten:
-      "Kurzzeitiger Vermerk zu einer E-Mail-Adresse: die Adresse als unlesbarer Schlüssel, ein Zähler und der Zeitpunkt seiner letzten Änderung",
+      "Kurzzeitige Markierung einer E-Mail-Adresse: die Adresse als unlesbarer Schlüssel, ein Zähler und der Zeitpunkt ihrer letzten Änderung",
     // MongoDB's expiry pass and its period, mirrored in `docs/datenschutz.md` §5 with the day it was read: the source moves without us.
     frist:
-      "Kurz nach seiner letzten Änderung: Die Datenbank löscht ihn beim nächsten Aufräumen, das ungefähr jede Minute läuft und sich zum Beispiel bei hoher Last verzögern kann. Er entsteht, wenn eine E-Mail-Adresse in unsere Daten kommt, wenn eine angemeldete Person etwas ändert und wenn wir die Daten einer Adresse löschen. Er sorgt dafür, dass Angaben, die während einer Löschung unter dieser Adresse gespeichert werden, mit ihr gelöscht werden",
+      "Kurz nach ihrer letzten Änderung: Die Datenbank löscht sie beim nächsten Aufräumen, das ungefähr jede Minute läuft und sich zum Beispiel bei hoher Last verzögern kann. Sie entsteht, wenn eine E-Mail-Adresse in unsere Daten kommt, wenn eine angemeldete Person etwas ändert und wenn wir die Daten einer Adresse löschen. Sie sorgt dafür, dass Angaben, die während einer Löschung unter dieser Adresse gespeichert werden, mit dieser Löschung gelöscht werden",
   },
   {
     daten: "Zugriffsprotokoll des Servers",
