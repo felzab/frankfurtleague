@@ -1,8 +1,8 @@
 """
 API · the erasure registry's decisions a database need not answer
 
-`app/api/identitaet/crud.py :: ErasureJournal` reads `berechtigungen` with one `find` after the commit, so
-a collection standing in for that read is all a case needs.
+Collections standing in for the reads each decision makes: `app/api/identitaet/crud.py :: ErasureJournal`'s
+one `find` after the commit, and the aggregates `:: resolve_subject` sends.
 """
 
 import asyncio
@@ -10,10 +10,11 @@ import logging
 from typing import Any, cast
 
 import pytest
+from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.errors import NetworkTimeout
 
-from app.api.identitaet.crud import ERASURE_JOURNAL_EVENT, ErasureJournal
+from app.api.identitaet.crud import ERASURE_JOURNAL_EVENT, ErasureJournal, resolve_subject
 from app.api.identitaet.schemas import FLErasure
 from app.core.exception_handlers import DATABASE_FAILED
 from tests.config import build_test_config
@@ -59,3 +60,46 @@ def test_a_committed_erasure_whose_grant_warning_fails_answers_and_journals(capl
     assert [message for message in messages if message.startswith(ERASURE_JOURNAL_EVENT)] != []
     assert [getattr(record, "error_code", None) for record in caplog.records].count(DATABASE_FAILED) == 1
     assert [message for message in messages if IDENTIFIER in message] == []
+
+
+class _NoRows:
+    async def to_list(self, length: int | None) -> list[Any]:
+        return []
+
+
+class _Counted:
+    """A collection answering every aggregate with no rows, counting each one."""
+
+    def __init__(self) -> None:
+        self.reads = 0
+
+    async def aggregate(self, *args: Any, **kwargs: Any) -> _NoRows:
+        self.reads += 1
+        return _NoRows()
+
+
+def test_the_pupil_scope_reads_no_other_kind_and_a_step_reading_one_raises():
+    """Catches a kind read for no step, and a kind left unread answered as an empty list, on which a step erases nothing."""
+
+    collections = {name: _Counted() for name in ("saison_teams", "bewerbungen", "schiedsrichter", "spieler", "registrierungen")}
+
+    subject = asyncio.run(
+        resolve_subject(
+            IDENTIFIER,
+            **{f"{name}_collection": cast(AsyncCollection, collection) for name, collection in collections.items()},
+            schluessel=build_test_config().sperrliste_schluessel,
+            session=cast(AsyncClientSession, None),
+            scope=frozenset({"spieler"}),
+        )
+    )
+
+    assert {name: collection.reads for name, collection in collections.items()} == {
+        "saison_teams": 0,
+        "bewerbungen": 0,
+        "schiedsrichter": 0,
+        "spieler": 1,
+        "registrierungen": 1,
+    }
+    assert (subject.spieler, subject.registrierungen) == ([], [])
+    with pytest.raises(RuntimeError):
+        _ = subject.saison_teams
