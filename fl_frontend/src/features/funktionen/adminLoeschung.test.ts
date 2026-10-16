@@ -123,6 +123,13 @@ const offen = (name: string): boolean =>
 
 const sent = (action: string) => calls.filter((call) => call.action === action);
 
+/** The reveal's list, found under the heading its neighbours' reveals share the form of. */
+const liste = (): HTMLElement => {
+  const block = within(screen.getByRole("alert")).getByRole("heading", { name: "Was dabei gelöscht wird" }).parentElement;
+  assert.ok(block instanceof HTMLElement, "the reveal's heading heads no block");
+  return within(block).getByRole("list");
+};
+
 /** The erasure panel's two boxes, typed. */
 async function typeRequest(user: UserEvent, email = ADRESSE, anlass = ANLASS): Promise<void> {
   const erasure = panel("Person löschen");
@@ -318,7 +325,7 @@ describe("the reveal the arming read answers", () => {
     await typeRequest(user);
     await arm(user);
 
-    const zeilen = within(screen.getByRole("alert")).getAllByRole("listitem");
+    const zeilen = within(liste()).getAllByRole("listitem");
     assert.equal(zeilen.length, ARTEN.length + 1, "a kind the read answered has no line");
     assert.match(zeilen.at(-1)?.textContent ?? "", /^Das Konto der Adresse/);
   });

@@ -76,7 +76,7 @@ export function FormLoeschungAnsicht({ ansicht }: { ansicht: LoeschungAnsicht })
   return (
     <div className="flex w-full flex-col gap-4">
       <div className="flex w-full flex-col gap-y-1">
-        <h3 className={FORM_SECTION_HEADING_CLASSES}>Unter dieser Adresse wird gelöscht:</h3>
+        <h3 className={FORM_SECTION_HEADING_CLASSES}>Was dabei gelöscht wird</h3>
 
         {zeilen.length === 0 ? (
           <p className={ZEILE_CLASSES}>Unter dieser Adresse ist nichts gespeichert. Gelöscht wird nur ein Konto, falls eines besteht.</p>
