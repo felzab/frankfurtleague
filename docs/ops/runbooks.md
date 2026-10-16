@@ -16,7 +16,7 @@ The contracts these depend on — the services, the scripts, the gate scopes and
 | [6. When personal data has been exposed](#6-when-personal-data-has-been-exposed)                                                                | The authority, the clock, and what the logs can establish      |
 | [7. The logs' age bounds, and the copies a deploy leaves behind](#7-the-logs-age-bounds-and-the-copies-a-deploy-leaves-behind)                  | The host files that bound them, and where a deploy's copies go |
 | [8. Taking the tunnel back out](#8-taking-the-tunnel-back-out)                                                                                  | What reverses the tunnel, and the half no commit reaches       |
-| [9. Checking that the retention sweep has run](#9-checking-that-the-retention-sweep-has-run)                                                    | The one call that answers it, and what each answer means       |
+| [9. Checking that the hourly passes have run](#9-checking-that-the-hourly-passes-have-run)                                                      | What answers each, and what each answer means                  |
 | [10. The mail provider's dashboard](#10-the-mail-providers-dashboard)                                                                           | The six steps no code can carry, and what breaks without them  |
 | [11. A contact seat's birthdate that no confirmation stamped](#11-a-contact-seats-birthdate-that-no-confirmation-stamped)                       | What finds the rows, and why no save clears one                |
 | [12. Deleting this season's player records and resetting the action log](#12-deleting-this-seasons-player-records-and-resetting-the-action-log) | Its two halves, the referee drop, and what is lost with them   |
@@ -580,7 +580,7 @@ pupil's, referee's or contact person's as an administrator's is. Their own delet
 page and an administrator's erasure each delete the account in the same request as the records, its
 sessions, passkeys and waiting codes with it (`fl_frontend/src/core/auth.ts :: deleteOwnAccount`,
 `:: deleteAccountFor`); after any other erasure the account sweep deletes it within the hour once
-nothing references the address ([section 9](#9-checking-that-the-retention-sweep-has-run)).
+nothing references the address ([section 9](#9-checking-that-the-hourly-passes-have-run)).
 **A ban keeps no account**
 ([`../datenschutz.md`](../datenschutz.md#6-retention-is-bounded-where-a-bound-was-chosen)): the
 account sweep deletes a barred address's as any other's once nothing references the address. While
@@ -641,7 +641,7 @@ as them.
   ([`../datenschutz.md`](../datenschutz.md#6-retention-is-bounded-where-a-bound-was-chosen)).
   **Once the change confirms, the account sweep deletes the old address's sign-in account within the
   hour**, once nothing else references that address
-  ([section 9](#9-checking-that-the-retention-sweep-has-run)). Registering again from the new address
+  ([section 9](#9-checking-that-the-hourly-passes-have-run)). Registering again from the new address
   instead writes a second person, which the admission joins to the first only where the first holds
   no address. The address a PENDING registration was typed with is not corrected: the answer is to
   register again through the team's link, the unconfirmed row going with the seven-day sweep.
@@ -658,7 +658,7 @@ as them.
   Their consent link is not re-minted — the record is already given. **Once the change confirms,
   the account sweep deletes the old address's sign-in account within the hour**, the referee's
   passkeys with it, once nothing else references that address
-  ([section 9](#9-checking-that-the-retention-sweep-has-run)).
+  ([section 9](#9-checking-that-the-hourly-passes-have-run)).
 - **The holder of a pending new referee address**, a mailbox an administrator's typing reached. No
   read keys on that address, by design (`docs/backend/spec.md :: I560`), so no page search
   finds the referee from it: find the row with a read-only Playground query on `schiedsrichter` for
@@ -847,7 +847,7 @@ cannot confirm since alike — and the ban's row names none of it: a record stay
 away, a registration excepted, which ends by itself. **The dialog the ban was entered in lists every
 such record once the ban stands**, linking each one a page acts on to that page at the record's own
 season (`docs/frontend/spec.md :: I688`), and says beneath them how long the address's sign-in
-account stays ([section 9](#9-checking-that-the-retention-sweep-has-run)) and that its log rows and
+account stays ([section 9](#9-checking-that-the-hourly-passes-have-run)) and that its log rows and
 authorship stay. Each link opens in a tab of its own, so the list stays open beside it; work
 through it before „Fertig“, since once the dialog closes nothing finds those records from the ban
 again.
@@ -1067,10 +1067,48 @@ e /var/log/frankfurtleague - - - m:30d
 x /var/log/frankfurtleague/nginx
 ```
 
+**The erasure journal's lines are copied into a file per day,
+`/var/log/frankfurtleague/<day>-erasure-journal.log`, by a pair of units of their own.** Every
+erasure a person or an administrator asks for leaves one line in the backend's stream
+([`../backend/spec.md`](../backend/spec.md#2-invariants) I666), and a restore runs each of them again
+from those lines (§13). The stream loses them at the next recreate, or sooner once its size cap
+rotates them away; the day files keep them for this directory's thirty days.
+`scripts/ops/export_journal.sh` unions the lines of yesterday and today, read from the stream and
+from every deploy copy above, into what each day's file already holds, so no pass drops a line an
+earlier one copied. **It runs hourly rather than once a day because the size cap can rotate a busy
+day's lines away before a daily pass reads them**; a line still goes unread where more than the
+cap's worth of backend log is written inside one hour. Substitute `<checkout>` as above, and
+`<user>` with the user owning the checkout and `/var/log/frankfurtleague`, a member of the `docker`
+group: the script reads the stream through `docker compose` and needs nothing of root.
+
+```text
+# /etc/systemd/system/frankfurtleague-journal.service
+[Unit]
+Description=Copy the Frankfurt League erasure journal into its day files
+
+[Service]
+Type=oneshot
+User=<user>
+ExecStart=<checkout>/scripts/ops/export_journal.sh
+```
+
+```text
+# /etc/systemd/system/frankfurtleague-journal.timer
+[Unit]
+Description=Hourly copy of the Frankfurt League erasure journal
+
+[Timer]
+OnCalendar=hourly
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+```
+
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable --now frankfurtleague-logrotate.timer
-systemctl list-timers frankfurtleague-logrotate.timer systemd-tmpfiles-clean.timer
+sudo systemctl enable --now frankfurtleague-logrotate.timer frankfurtleague-journal.timer
+systemctl list-timers frankfurtleague-logrotate.timer frankfurtleague-journal.timer systemd-tmpfiles-clean.timer
 sudo systemd-tmpfiles --clean --prefix=/var/log/frankfurtleague
 ```
 
@@ -1118,9 +1156,9 @@ deploy after it is what applies them. **The edge is the other half, and no commi
 two hostnames come off the tunnel, the address records naming the origin are created again, and
 whatever closed the host's inbound 80 and 443 is opened.
 
-## 9. Checking that the retention sweep has run
+## 9. Checking that the hourly passes have run
 
-**One call answers it**, on the system key, from inside the frontend container: the backend publishes
+**One call answers it for the retention sweep**, on the system key, from inside the frontend container: the backend publishes
 no port on the host, and the container holds the key, so it never passes through your shell.
 
     docker compose exec frontend node -e "fetch('http://backend:8000/api/v0/bewerbungen/sweep',{headers:{Authorization:'Bearer '+require('fs').readFileSync('/run/secrets/internal_api_key_system','utf8').trim()}}).then(r=>r.text()).then(console.log)"
@@ -1225,6 +1263,17 @@ alone does not say the sweep works. Either the backend reads another database th
 which `DB_BASE_NAME` in `fl_backend/.env` names, or the `owner` grant is gone; the backend's boot warns
 `SRV-BOOT-005` or `SRV-BOOT-006` in both cases. Repair the setting, or write the `owner` grant as
 [section 3](#3-granting-or-revoking-admin-access) says.
+
+**The erasure journal's export answers in its file names** (§7): every pass writes the day files of
+yesterday and today, an empty one for a day with no erasure, so a day missing from the listing is a
+day no pass ran:
+
+    ls -l /var/log/frankfurtleague/*-erasure-journal.log
+    systemctl status frankfurtleague-journal.service
+
+**A run that ended at 2 could not read the backend's stream**, and its status says so: the deploy
+copies' lines reached the day files all the same, and the stream's own lines wait for the next pass,
+which takes them while the stream still holds them.
 
 ## 10. The mail provider's dashboard
 

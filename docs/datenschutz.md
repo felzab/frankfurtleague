@@ -835,7 +835,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   (`docs/backend/spec.md :: I189`), so a claim that one of their periods was honoured rests on a
   date rather than on reading the data. The lapsed addresses' removal and the pupils' deletion
   stamp no day: their record is the line each writes per pass in the frontend's log
-  ([`ops/runbooks.md`](ops/runbooks.md#9-checking-that-the-retention-sweep-has-run) §9).
+  ([`ops/runbooks.md`](ops/runbooks.md#9-checking-that-the-hourly-passes-have-run) §9).
 - **Access logs stay on the host and are kept for at most eight days. The application logs are
   bounded by size while they run, and by thirty days as the copy each deploy makes.** The access
   log is a file on the host rather than a stream inside the nginx container — it carries the
@@ -850,7 +850,13 @@ Every ruling below is the sign-up flow as it stands for the next season.
   application logs keep the container runtime's size rotation as their only live bound
   (`docs/logging/spec.md :: 1.2`), because the only way to rotate a file the runtime holds open
   loses lines, and the thirty days reach the copy the deploy takes of each stream before replacing
-  its container (`scripts/ops/deploy.sh :: LOG_DIR`). The host files enforcing both figures are
+  its container (`scripts/ops/deploy.sh :: LOG_DIR`). **The erasure journal's lines are kept the same
+  thirty days in a file per day**, each naming a requested erasure by a keyed hash of the address
+  and its moment (`docs/backend/spec.md :: I666`), copied there hourly so that a restore can run
+  every erasure since its snapshot again ([section 5](#5-erasure-reaches-everyone-who-asks)); a line
+  is lost to the stream's size cap only where more than the cap is logged inside one hour, and the
+  published notice tabulates the thirty days (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-10-15.
+  The host files enforcing both figures are
   installed by hand in the same deployment that publishes them
   ([`ops/runbooks.md`](ops/runbooks.md) §7). The
   eight is the backup window an erased person is told about

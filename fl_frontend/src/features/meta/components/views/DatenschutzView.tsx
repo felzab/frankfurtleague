@@ -222,6 +222,11 @@ const FRISTEN = [
     daten: "Betriebsprotokoll der Anwendung",
     frist: "Begrenzt durch eine feste Gesamtgröße; die bei jeder Auslieferung angelegte Kopie wird nach 30 Tagen gelöscht",
   },
+  {
+    daten: "Vermerk einer Löschung auf Wunsch: Deine E-Mail-Adresse als unlesbarer Schlüssel und der Zeitpunkt",
+    frist:
+      "30 Tage, damit wir die Löschung erneut ausführen können, falls wir eine Sicherungskopie der Datenbank einspielen, die Deine Daten noch enthält",
+  },
   { daten: "Sicherungskopien der Datenbank", frist: "Etwa acht Tage" },
   {
     daten: "Daten von Spielerinnen, Spielern und Schiedsrichtern",
