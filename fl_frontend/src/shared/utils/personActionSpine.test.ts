@@ -7,6 +7,7 @@ import { person, sitz, SITZ } from "@/core/subjectFixtures.ts";
 import { serverActionModules } from "@/core/treeWalk.ts";
 import { cacheCalls, doubleActionRequest, loggedLines } from "@/shared/testing/actionDoubles.ts";
 import { PERSON_ACTION_MODULES, srcPathOf } from "@/shared/testing/actionLanes.ts";
+import { RECORD_CLAIMS } from "@/shared/testing/recordClaims.ts";
 
 /* The subject lookup, the sign-in store, the logger and the framework's request packages, doubled
    before the `await import`s below; the spine between them and the action is what is driven. */
@@ -43,18 +44,10 @@ function countingBody() {
 }
 
 /**
- * The person actions claiming a record rather than a seat, by `<slice> :: <export>`; every other export
- * claims a seat. Declared, never read off behaviour: an export behind the wrong entry then fails its
- * kind instead of joining the other.
+ * The person actions claiming a record rather than a seat; every other export claims a seat. Declared,
+ * never read off behaviour: an export behind the wrong entry then fails its kind instead of joining the other.
  */
-const CLAIMS_A_RECORD: ReadonlySet<string> = new Set<string>([
-  "kontakte :: patchBewerbungEinwilligungAction",
-  "kontakte :: patchSitzEinwilligungAction",
-  "konto :: loescheKontoAction",
-  "registrierungen :: patchRegistrierungEinwilligungAction",
-  "schiedsrichter :: patchSchiedsrichterEinwilligungAction",
-  "spieler :: patchSpielerEinwilligungAction",
-]);
+const CLAIMS_A_RECORD: ReadonlySet<string> = new Set(RECORD_CLAIMS.keys());
 
 type PersonAction = (argument: unknown) => Promise<unknown>;
 
