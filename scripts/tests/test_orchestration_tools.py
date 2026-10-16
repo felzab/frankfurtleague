@@ -21,7 +21,7 @@ import subprocess
 import sys
 import threading
 import time
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Final
 
@@ -348,6 +348,56 @@ def test_a_writer_waits_for_the_lock_and_then_writes(tmp_path: Path) -> None:
     writer.join(ledger.LOCK_SECONDS)
     assert done and done[0] in register.read_bytes().decode("utf-8")
     assert not (tmp_path / f"{register.name}.lock").exists()
+
+
+def test_every_register_writer_waits_for_the_lock(tmp_path: Path) -> None:
+    """A writer rewriting the register without the lock drops a concurrent write, and no other case notices one that skips it.
+
+    Each starts while both locks are held, and one that ends before they are released took neither.
+    """
+    plans, register, messages = _fleet(tmp_path)
+    tables = STANDING + EXPECTED_RED.replace("## Next\n", "") + "## Findings ledger"
+    register.write_bytes(register.read_bytes().replace(b"## Findings ledger", tables.encode()))
+    (tmp_path / "C-report.md").write_bytes(b"F1 one\n\nF2 two\n\nF3 three\n\nF4 four\n")
+    ledger.bank(register, tmp_path / "C-report.md")
+    ledger.route(register, "WORKER", ["C-F4"])
+    brief = _brief(tmp_path, "LATER", "")
+    writers = {
+        "reg.py :: append": lambda: reg.append(register, "x"),
+        "reg.py :: resume": lambda: reg.resume(register, "Next action: y\n"),
+        "reg.py :: queue": lambda: reg.queue(register, "window", brief),
+        "reg.py :: tick_windows": lambda: reg.tick_windows(register, "e"),
+        "reg.py :: dispatch": lambda: reg.dispatch(register, "NEWBIE"),
+        "reg.py :: pause": lambda: reg.pause(register, ["FIXER"]),
+        "reg.py :: record": lambda: reg.record(_sent("WORKER", "go"), plans),
+        "ledger.py :: bank_text": lambda: ledger.bank_text(register, "F1 one\n", "B-report.md"),
+        "ledger.py :: route": lambda: ledger.route(register, "OTHER", ["C-F1"]),
+        "ledger.py :: route_each": lambda: ledger.route_each(register, "OTHER", ["C-F2"]),
+        "ledger.py :: close": lambda: ledger.close(register, "MOOT", "e", ["C-F3"]),
+        "ledger.py :: close_routed": lambda: ledger.close_routed(register, ["C-F4"], "e", {"WORKER"}),
+        "ci.py :: clear": lambda: ci.clear(register, {("compaction hook:", None): "CLEARED x"}),
+        "ci.py :: expect": lambda: ci.expect(register, "1", "abc1234", [("job", "a line")], "x"),
+    }
+    errors: dict[str, BaseException] = {}
+
+    def run(name: str, write: Callable[[], object]) -> None:
+        try:
+            write()
+        except BaseException as error:
+            errors[name] = error
+
+    before = (register.read_bytes(), messages.read_bytes())
+    with ledger.locked(register), ledger.locked(messages):
+        threads = {name: threading.Thread(target=run, args=(name, write)) for name, write in writers.items()}
+        for thread in threads.values():
+            thread.start()
+        time.sleep(0.5)
+        ended = sorted(name for name, thread in threads.items() if not thread.is_alive())
+        assert ended == [] and (register.read_bytes(), messages.read_bytes()) == before, (ended, errors)
+    for thread in threads.values():
+        thread.join(ledger.LOCK_SECONDS)
+    assert errors == {} and not any(thread.is_alive() for thread in threads.values()), errors
+    assert "| C-F4 | C-report.md | four | FIXED (e) | was WORKER |" in register.read_bytes().decode("utf-8")
 
 
 @pytest.mark.parametrize(("running", "said"), [(True, "names process {pid}, still running"), (False, "names no process")])
@@ -954,8 +1004,11 @@ def test_open_names_a_running_agent_whose_report_was_saved_after_its_stamp(tmp_p
     flagged = [line for line in done.stderr.splitlines() if "set its Status DONE" in line]
     assert len(flagged) == 2 and flagged[0].startswith("FIXER is `RUNNING (2020-01-01 10:00)` while FIXER-report.md was saved")
     assert flagged[1].startswith("FIXER-1 is `RUNNING` while FIXER-1-r2-report.md")
-    os.utime(reports / "FIXER-report.md", (0, 0))
-    assert not any(line.startswith("FIXER is") for line in _run("ledger", "open", str(register)).stderr.splitlines())
+    # Saved in its stamp's own minute, a report is the round before the resume that wrote the stamp.
+    for saved, flags in ((datetime.datetime(2020, 1, 1, 10, 0, 59), False), (datetime.datetime(2020, 1, 1, 10, 1), True), (None, False)):
+        when = saved.timestamp() if saved else 0
+        os.utime(reports / "FIXER-report.md", (when, when))
+        assert any(line.startswith("FIXER is") for line in _run("ledger", "open", str(register)).stderr.splitlines()) is flags, saved
     # Read after the rows print, an undatable stamp once turned the exit the ending loops on into a refusal.
     register.write_bytes(register.read_bytes().replace(b"RUNNING (2020-01-01 10:00)", b"RUNNING (2020-13-45 10:00)"))
     undated = _run("ledger", "open", str(register))
@@ -1232,16 +1285,26 @@ def test_a_message_to_a_finished_agent_sets_its_row_running(tmp_path: Path) -> N
     assert _live_status(register, "OTHER") == "RUNNING"
 
 
-def test_a_register_write_failing_after_the_record_says_the_message_is_recorded(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize(
+    ("module", "name", "said"),
+    [
+        ("ledger", "route_each", "these rows were not routed to it: the register is locked"),
+        ("reg", "_wake", "its live-agent row was not set RUNNING (OSError: the register is locked)."),
+    ],
+    ids=["the route", "the wake"],
+)
+def test_a_register_write_failing_after_the_record_says_the_message_is_recorded(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, module: str, name: str, said: str
+) -> None:
     """The hook said a message was in no messages file after writing it there, and the coordinator sent it twice."""
     plans, _, messages = _fleet(tmp_path)
 
     def locked(*_: object, **__: object) -> None:
         raise OSError("the register is locked")
 
-    monkeypatch.setattr(ledger, "route_each", locked)
-    said = reg.record(_sent("WORKER", "Fix it.\nRows: A-F1"), plans)
-    assert said == "The message to WORKER is recorded; these rows were not routed to it: the register is locked."
+    monkeypatch.setattr({"ledger": ledger, "reg": reg}[module], name, locked)
+    told = reg.record(_sent("WORKER", "Fix it.\nRows: A-F1"), plans)
+    assert told is not None and told.startswith(f"The message to WORKER is recorded; {said}"), told
     assert "Fix it." in messages.read_bytes().decode("utf-8")
 
 
@@ -2179,6 +2242,29 @@ def test_bookkeeping_that_fails_after_the_merge_is_its_own_exit(tmp_path: Path) 
     done = _land(root, branch)
     assert done.returncode == 10 and "landed as" in done.stderr and "two names" in done.stderr, done.stderr
     assert "Traceback" not in done.stderr and git(root, "rev-parse", "HEAD^1") == head
+
+
+def test_git_failing_in_the_bookkeeping_after_the_merge_is_not_a_refusal(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A git failure reading the carried branches stopped as exit 2, "refused before the merge", with the merge commit made."""
+    branch = "worktree-agent-a1b2c3"
+    root = _repo(tmp_path, branch=branch)
+    _agent_commit(root, "Docs: A note", NOTE, branch=branch)
+    head = git(root, "rev-parse", "HEAD")
+    real_git = land.git
+
+    def listing_fails(*args: str, check: bool = True) -> str:
+        if args[:1] == ("for-each-ref",):
+            raise land.Stop(2, "git for-each-ref exited 128: planted")
+        return real_git(*args, check=check)
+
+    monkeypatch.setattr(land, "git", listing_fails)
+    monkeypatch.chdir(root)
+    code = land.main([str(_register(tmp_path)), branch])
+    said = capsys.readouterr().err
+    assert code == 10 and "landed as" in said and "planted" in said, said
+    assert git(root, "rev-parse", "HEAD^1") == head and git(root, "status", "--porcelain") == ""
 
 
 def test_queue_names_a_row_queued_already_and_done_ticks_it(tmp_path: Path) -> None:
