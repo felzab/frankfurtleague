@@ -2017,8 +2017,8 @@ lower its threshold below 4 GB times the documents' share of documents and index
 ## 20. After a hand edit in MongoDB
 
 **A hand edit invalidates no cached page**: the frontend serves the league's reads as it cached
-them until each entry's lifetime runs out
-([`../frontend/spec.md`](../frontend/spec.md#15-out-of-band-invalidation)). **One call drops them,
+them until a visit refreshes each entry once its day has passed, which may be any time up to its
+week ([`../frontend/spec.md`](../frontend/spec.md#15-out-of-band-invalidation)). **One call drops them,
 from inside the frontend container**, which reads the system key there, so the key never passes
 through your shell or its history. It prints `204`:
 
@@ -2030,7 +2030,8 @@ a season reaches all of them.
 
 **After a season edit, wait out the backend's own season cache first**
 (`fl_backend/app/api/saisons/cache.py :: SAISON_CACHE_TTL_SECONDS`): dropped sooner, the frontend
-refills from the season the backend still holds, and keeps that for another day.
+refills from the season the backend still holds, and serves that until a visit past another day
+refreshes it.
 
 **Any other status dropped nothing.** `401` is a key the server did not boot with: a rewritten
 `secrets/internal_api_key_system` is read once, as the container starts
