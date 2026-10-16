@@ -97,6 +97,7 @@ export const FLErasureAnsichtSpielerSchema = FLSelbstErasureSpielerSchema.extend
 export const FLErasureAnsichtSchiedsrichterSchema = FLSelbstErasureSchiedsrichterSchema.extend({
   schiedsrichter_id: CustomObjectIdStringSchema,
   inactive_since: CustomDateStringSchema.nullable(),
+  spiele_ohne_ergebnis_saison_ids: z.array(z.string()),
 });
 
 export const FLErasureAnsichtSitzSchema = FLSelbstErasureSitzSchema.extend({ team_id: CustomObjectIdStringSchema });

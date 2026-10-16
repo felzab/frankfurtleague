@@ -74,7 +74,7 @@ const EIN_EINTRAG_JE_ART = {
       kader: [{ saison_id: "2026", team_id: ID, team_name: "SG Alpha", inactive_since: null }],
     },
   ],
-  schiedsrichter: [{ schiedsrichter_id: ID, name: "Pia Kraft", inactive_since: null }],
+  schiedsrichter: [{ schiedsrichter_id: ID, name: "Pia Kraft", inactive_since: null, spiele_ohne_ergebnis_saison_ids: ["2026"] }],
   sitze: [{ saison_id: "2026", team_id: ID, team_name: "SG Alpha", rolle: "trainer", vorname: "Grace", nachname: "Meier" }],
   bewerbungen: [{ bewerbung_id: ID, saison_id: "2027", rolle: "ansprechperson", vorname: "Grace", nachname: "Meier" }],
   registrierungen: [{ registrierung_id: ID, saison_id: "2026", team_id: ID, team_name: "SG Alpha", vorname: "Lena", nachname: "Meier" }],
@@ -453,6 +453,21 @@ describe("the reveal the arming read answers", () => {
     );
     assert.doesNotMatch(reveal, /nichts gespeichert|nur ein Konto/);
     assert.doesNotMatch(reveal, /Handlungsbedarf/, "an address holding no referee is told of fixtures to reassign");
+  });
+
+  /* A referee's played fixtures move onto the ghost too, and need nobody afterwards: sending the operator to
+     „Handlungsbedarf“ over them sends them looking for work that is not there. */
+  it("sends nobody to „Handlungsbedarf“ for a referee holding no fixture still to be played", async () => {
+    const ansicht = {
+      ...NICHTS_GESPEICHERT,
+      schiedsrichter: [{ ...EIN_EINTRAG_JE_ART.schiedsrichter[0], spiele_ohne_ergebnis_saison_ids: [] }],
+    };
+    const { user } = await renderPage({ readErasureAnsichtAction: { success: true, ansicht: ansicht } });
+    await typeRequest(user);
+    await arm(user);
+
+    assert.match(screen.getByRole("alert").textContent, /Pia Kraft/, "the reveal names no referee, so the absence below proves nothing");
+    assert.doesNotMatch(screen.getByRole("alert").textContent, /Handlungsbedarf/);
   });
 
   /* A pending change names nobody, so its line opens the record it waits on, on the season the shell shows. */

@@ -63,13 +63,17 @@ export const SPERRE_ANSICHT_VERWEISE = {
   // A record left with nothing to take out, whose record is what stands: a pupil holding no squad row, a squad row
   // taken out, a referee retired.
   eintrag: "Eintrag ansehen",
-  // The fixtures first: a referee still booked on one is refused retirement (`REQ-RETIRE-004`).
-  spiele: "Spiele neu besetzen",
   stilllegen: "Schiedsrichter stilllegen",
   bewerbung: "Bewerbung öffnen",
   registrierungen: "Registrierungen ansehen",
   adresswechsel: "Adressänderung ansehen",
 } as const;
+
+/**
+ * A referee's fixtures link, one per season holding a booking still to be played, ahead of the retirement:
+ * `REQ-RETIRE-004` refuses it while any stands.
+ */
+export const spieleNeuBesetzen = (saisonId: string): string => `Spiele der Saison ${saisonId} neu besetzen`;
 
 /** The eyebrow over the bound on a row, and the phrasing that makes the named season a barred one rather than the first free one. */
 export const SPERRE_BIS_LABEL = "Gesperrt bis";

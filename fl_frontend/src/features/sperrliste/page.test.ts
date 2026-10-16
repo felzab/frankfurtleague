@@ -74,7 +74,9 @@ const BESTAND = {
       ],
     },
   ],
-  schiedsrichter: [{ schiedsrichter_id: SCHIEDSRICHTER, name: "Zorbanax Quell", inactive_since: null }],
+  schiedsrichter: [
+    { schiedsrichter_id: SCHIEDSRICHTER, name: "Zorbanax Quell", inactive_since: null, spiele_ohne_ergebnis_saison_ids: ["2024", "2026"] },
+  ],
   sitze: [{ team_id: TEAM, saison_id: "2026", team_name: "Goethe-Gymnasium", rolle: "trainer", ...PERSON }],
   bewerbungen: [{ bewerbung_id: BEWERBUNG, saison_id: "2027", rolle: "ansprechperson", ...PERSON }],
   registrierungen: [{ registrierung_id: "6890a1b2c3d4e5f607250015", team_id: TEAM, saison_id: "2026", team_name: null, ...PERSON }],
@@ -153,8 +155,10 @@ describe("what the ban's dialog shows once the ban stands (`docs/frontend/spec.m
     assert.deepEqual(verweiseIn(dialog), [
       ["Kadereintrag austragen", `/bereich/admin/spieler/${SPIELER}?saison_id=2024`],
       ["Kadereintrag austragen", `/bereich/admin/spieler/${SPIELER}?saison_id=2026`],
-      // The fixtures first: `REQ-RETIRE-004` refuses to retire a referee still booked on one.
-      ["Spiele neu besetzen", `/bereich/admin/spielsuche?schiedsrichter=${SCHIEDSRICHTER}&saison_id=2025`],
+      // The fixtures first, each season's at that season: `REQ-RETIRE-004` refuses to retire a referee still booked on
+      // one in any season, and the search reads one at a time.
+      ["Spiele der Saison 2024 neu besetzen", `/bereich/admin/spielsuche?schiedsrichter=${SCHIEDSRICHTER}&saison_id=2024`],
+      ["Spiele der Saison 2026 neu besetzen", `/bereich/admin/spielsuche?schiedsrichter=${SCHIEDSRICHTER}&saison_id=2026`],
       ["Schiedsrichter stilllegen", `/bereich/admin/schiedsrichter/${SCHIEDSRICHTER}?saison_id=2025`],
       ["Kontakte bearbeiten", `/bereich/admin/kontakte/${TEAM}?saison_id=2026`],
       ["Bewerbung öffnen", `/bereich/admin/bewerbungen/${BEWERBUNG}?saison_id=2025`],
@@ -190,15 +194,17 @@ describe("what the ban's dialog shows once the ban stands (`docs/frontend/spec.m
             ],
           },
         ],
-        schiedsrichter: [{ schiedsrichter_id: SCHIEDSRICHTER, name: "Zorbanax Quell", inactive_since: "2025-03-01" }],
+        schiedsrichter: [
+          { schiedsrichter_id: SCHIEDSRICHTER, name: "Zorbanax Quell", inactive_since: "2025-03-01", spiele_ohne_ergebnis_saison_ids: [] },
+        ],
       });
 
     const dialog = await sperren();
 
+    // No fixtures link either: the referee holds no booking still to be played.
     assert.deepEqual(verweiseIn(dialog), [
       ["Eintrag ansehen", `/bereich/admin/spieler/${SPIELER}?saison_id=2024`],
       ["Kadereintrag austragen", `/bereich/admin/spieler/${SPIELER}?saison_id=2026`],
-      ["Spiele neu besetzen", `/bereich/admin/spielsuche?schiedsrichter=${SCHIEDSRICHTER}&saison_id=2025`],
       ["Eintrag ansehen", `/bereich/admin/schiedsrichter/${SCHIEDSRICHTER}?saison_id=2025`],
     ]);
     assert.ok(within(dialog).queryByText(/\(2024\), ausgetragen seit 01\.02\.2025$/) !== null, "the row taken out reads as one still in");

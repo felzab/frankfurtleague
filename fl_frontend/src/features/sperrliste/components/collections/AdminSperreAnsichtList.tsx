@@ -1,7 +1,7 @@
 "use client";
 
 import { rollenLangform } from "@/features/bewerbungen/constants";
-import { SPERRE_ANSICHT_COPY, SPERRE_ANSICHT_VERWEISE } from "@/features/sperrliste/constants";
+import { SPERRE_ANSICHT_COPY, SPERRE_ANSICHT_VERWEISE, spieleNeuBesetzen } from "@/features/sperrliste/constants";
 import { FORM_SECTION_HEADING_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { NewTabLink } from "@/shared/components/ui/NewTabLink";
 import { textLink } from "@/shared/components/ui/textLink";
@@ -55,15 +55,19 @@ const EINTRAEGE: Eintraege = {
       });
     }),
   schiedsrichter: (schiedsrichter, saisonHref) =>
-    schiedsrichter.map(({ schiedsrichter_id, name, inactive_since }) => {
+    schiedsrichter.map(({ schiedsrichter_id, name, inactive_since, spiele_ohne_ergebnis_saison_ids }) => {
       const person = name === null ? "Schiedsrichterin oder Schiedsrichter ohne Namen" : `Schiedsrichterin oder Schiedsrichter: ${name}`;
       const href = saisonHref(`/bereich/admin/schiedsrichter/${schiedsrichter_id}`);
 
       return {
         text: inactive_since === null ? person : `${person}, stillgelegt seit ${formatSpielDatum(inactive_since)}`,
         verweise: [
-          // The id the referee list's own link carries, never a typed query.
-          { label: SPERRE_ANSICHT_VERWEISE.spiele, href: saisonHref(`/bereich/admin/spielsuche?schiedsrichter=${schiedsrichter_id}`) },
+          // At each season holding a booking still to be played, the search reading one season at a time; by the id
+          // the referee list's own link carries, never a typed query.
+          ...spiele_ohne_ergebnis_saison_ids.map((saisonId) => ({
+            label: spieleNeuBesetzen(saisonId),
+            href: withSaisonId(`/bereich/admin/spielsuche?schiedsrichter=${schiedsrichter_id}`, saisonId),
+          })),
           { label: inactive_since === null ? SPERRE_ANSICHT_VERWEISE.stilllegen : SPERRE_ANSICHT_VERWEISE.eintrag, href: href },
         ],
       };

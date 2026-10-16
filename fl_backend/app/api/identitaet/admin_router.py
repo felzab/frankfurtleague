@@ -20,6 +20,7 @@ from app.api.identitaet.schemas import (
 from app.api.identitaet.services import (
     build_erasure_kader_pipeline,
     build_season_team_pipeline,
+    build_unplayed_saison_pipeline,
     compose_erasure_ansicht_auf_anfrage,
     find_eigene_adresse_refusal,
     find_inhaber_adresse_refusal,
@@ -79,6 +80,7 @@ async def get_erasure_ansicht_auf_anfrage(
     spieler_collection: SpielerCollection,
     saison_spieler_collection: SaisonSpielerCollection,
     registrierungen_collection: RegistrierungenCollection,
+    spiele_collection: SpieleCollection,
     berechtigungen_collection: BerechtigungenCollection,
     berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
     db: DBClient,
@@ -92,10 +94,12 @@ async def get_erasure_ansicht_auf_anfrage(
     ADMIN TIER. Takes that erasure's own payload address and reads through its own selections in one snapshot, so it names
     every one of them, an unconfirmed seat, a retired row, a pupil's every squad row and a declined registration among them,
     and no other. Another address's referee or pupil row holding a pending change to this address is named by its id, the
-    change going and the row standing. Reached and not named: the fixtures booking a referee row, which move onto the
-    ghost; the grants, bans, invitations and decisions the address made for others, which name a marker in its place; its
-    day counts; its rows in the log and every log image holding it; a dead spelling of its grant, which admits nobody, and
-    each grant's announced row; and the address in every notice still queued, withheld. No address and no birthdate is answered.
+    change going and the row standing. A squad row and a referee row each carry the day it was retired, null while live,
+    and a referee row every season holding a fixture still to be played that it is booked on, as `REQ-RETIRE-004` judges
+    one. Reached and not named: the fixtures booking a referee row, which move onto the ghost; the grants, bans,
+    invitations and decisions the address made for others, which name a marker in its place; its day counts; its rows in
+    the log and every log image holding it; a dead spelling of its grant, which admits nobody, and each grant's announced
+    row; and the address in every notice still queued, withheld. No address and no birthdate is answered.
     `verwaltung` is the tier of the live grant the address holds, or null. Stores nothing.
 
     Refused as the erasure is: the administrator's own address (`REQ-PURGE-003`), an address holding an `owner` grant unless
@@ -140,6 +144,15 @@ async def get_erasure_ansicht_auf_anfrage(
             if named
             else []
         )
+        unplayed_rows = (
+            await aggregate_many_from_db(
+                collection=spiele_collection,
+                pipeline=build_unplayed_saison_pipeline(row["_id"] for row in subject.schiedsrichter),
+                session=session,
+            )
+            if subject.schiedsrichter
+            else []
+        )
 
     ansicht = compose_erasure_ansicht_auf_anfrage(
         identifier,
@@ -152,6 +165,7 @@ async def get_erasure_ansicht_auf_anfrage(
         spieler_adresswechsel_rows=subject.spieler_adresswechsel,
         kader_rows=kader_rows,
         team_rows=team_rows,
+        unplayed_rows=unplayed_rows,
     )
     # A live row is its own fold, so equality is the fold's judgement (`docs/backend/spec.md :: I453`).
     own = next((grant for grant in lebendige(grants) if grant["adresse"] == identifier), None)

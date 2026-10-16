@@ -848,9 +848,10 @@ season (`docs/frontend/spec.md :: I688`). Each link opens in a tab of its own, s
 open beside it; work through it before „Fertig“, since once the dialog closes nothing finds those
 records from the ban again.
 
-- a referee: „Spiele neu besetzen“ reassigns their unplayed fixtures, then „Schiedsrichter
-  stilllegen“ retires them, which `REQ-RETIRE-004` holds to that order; a referee retired already
-  is offered „Eintrag ansehen“ instead;
+- a referee: „Spiele der Saison … neu besetzen“, one link for each season holding an unplayed
+  fixture they are booked on, opens the fixture search at that season to reassign them, then
+  „Schiedsrichter stilllegen“ retires them, which `REQ-RETIRE-004` holds to that order across every
+  season; a referee retired already is offered „Eintrag ansehen“ instead;
 - a pupil's squad row: „Kadereintrag austragen“ retires it, which takes the pupil off the public
   squad list; a row taken out already is offered „Eintrag ansehen“ instead;
 - a contact seat: „Kontakte bearbeiten“ replaces or clears it on the team's season;
