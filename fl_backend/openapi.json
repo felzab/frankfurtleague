@@ -177,7 +177,8 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string"
+                  "type": "string",
+                  "pattern": "^[0-9a-fA-F]{24}$"
                 },
                 {
                   "type": "null"
@@ -276,8 +277,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Spiel Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Spiel Id"
             }
           }
         ],
@@ -326,8 +327,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Spiel Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Spiel Id"
             }
           },
           {
@@ -674,8 +675,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Team Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Team Id"
             }
           },
           {
@@ -754,8 +755,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Team Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Team Id"
             }
           }
         ],
@@ -823,8 +824,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Team Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Team Id"
             }
           }
         ],
@@ -1010,8 +1011,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Spieltag Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Spieltag Id"
             }
           }
         ],
@@ -1060,8 +1061,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Spieltag Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Spieltag Id"
             }
           }
         ],
@@ -1132,7 +1133,8 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string"
+                  "type": "string",
+                  "pattern": "^[0-9a-fA-F]{24}$"
                 },
                 {
                   "type": "null"
@@ -1246,8 +1248,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Spieler Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Spieler Id"
             }
           }
         ],
@@ -1296,8 +1298,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Spieler Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Spieler Id"
             }
           }
         ],
@@ -1362,8 +1364,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Spieler Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Spieler Id"
             }
           }
         ],
@@ -1877,8 +1879,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Spielort Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Spielort Id"
             }
           }
         ],
@@ -1933,8 +1935,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Spielort Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Spielort Id"
             }
           }
         ],
@@ -2002,8 +2004,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Spielort Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Spielort Id"
             }
           }
         ],
@@ -2228,8 +2230,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Schiedsrichter Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Schiedsrichter Id"
             }
           }
         ],
@@ -2284,8 +2286,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Schiedsrichter Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Schiedsrichter Id"
             }
           }
         ],
@@ -2353,8 +2355,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Schiedsrichter Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Schiedsrichter Id"
             }
           }
         ],
@@ -2606,8 +2608,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Bewerbung Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Bewerbung Id"
             }
           }
         ],
@@ -2683,7 +2685,8 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string"
+                  "type": "string",
+                  "pattern": "^[0-9a-fA-F]{24}$"
                 },
                 {
                   "type": "null"
@@ -3022,7 +3025,8 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string"
+                  "type": "string",
+                  "pattern": "^[0-9a-fA-F]{24}$"
                 },
                 {
                   "type": "null"
@@ -3191,8 +3195,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Spiel Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Spiel Id"
             }
           }
         ],
@@ -3574,8 +3578,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Team Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Team Id"
             }
           }
         ],
@@ -3632,8 +3636,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Team Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Team Id"
             }
           }
         ],
@@ -3703,8 +3707,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Team Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Team Id"
             }
           },
           {
@@ -3783,8 +3787,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Team Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Team Id"
             }
           },
           {
@@ -3863,8 +3867,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Team Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Team Id"
             }
           },
           {
@@ -3943,8 +3947,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Team Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Team Id"
             }
           },
           {
@@ -4022,8 +4026,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Team Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Team Id"
             }
           },
           {
@@ -4090,8 +4094,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Team Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Team Id"
             }
           },
           {
@@ -4155,8 +4159,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Team Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Team Id"
             }
           },
           {
@@ -4354,8 +4358,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Spieltag Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Spieltag Id"
             }
           }
         ],
@@ -4509,8 +4513,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Spieler Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Spieler Id"
             }
           }
         ],
@@ -4567,8 +4571,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Spieler Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Spieler Id"
             }
           }
         ],
@@ -4636,8 +4640,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Spieler Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Spieler Id"
             }
           }
         ],
@@ -4694,8 +4698,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Spieler Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Spieler Id"
             }
           }
         ],
@@ -4755,8 +4759,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Spieler Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Spieler Id"
             }
           }
         ],
@@ -4826,8 +4830,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Spieler Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Spieler Id"
             }
           },
           {
@@ -4904,8 +4908,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Spieler Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Spieler Id"
             }
           },
           {
@@ -4971,8 +4975,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Spieler Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Spieler Id"
             }
           },
           {
@@ -5599,8 +5603,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Spielort Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Spielort Id"
             }
           }
         ],
@@ -5657,8 +5661,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Schiedsrichter Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Schiedsrichter Id"
             }
           }
         ],
@@ -5718,8 +5722,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Schiedsrichter Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Schiedsrichter Id"
             }
           }
         ],
@@ -5779,8 +5783,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Schiedsrichter Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Schiedsrichter Id"
             }
           }
         ],
@@ -5840,8 +5844,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Schiedsrichter Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Schiedsrichter Id"
             }
           }
         ],
@@ -6028,8 +6032,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Aktion Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Aktion Id"
             }
           }
         ],
@@ -6086,8 +6090,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Bewerbung Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Bewerbung Id"
             }
           }
         ],
@@ -6157,8 +6161,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Bewerbung Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Bewerbung Id"
             }
           }
         ],
@@ -6228,8 +6232,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Bewerbung Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Bewerbung Id"
             }
           },
           {
@@ -6298,8 +6302,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Bewerbung Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Bewerbung Id"
             }
           },
           {
@@ -6378,8 +6382,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Bewerbung Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Bewerbung Id"
             }
           },
           {
@@ -6718,8 +6722,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Sperrliste Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Sperrliste Id"
             }
           }
         ],
@@ -6870,8 +6874,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Berechtigung Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Berechtigung Id"
             }
           }
         ],
@@ -6929,8 +6933,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Berechtigung Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Berechtigung Id"
             }
           }
         ],
@@ -8702,7 +8706,8 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string"
+                  "type": "string",
+                  "pattern": "^[0-9a-fA-F]{24}$"
                 },
                 {
                   "type": "null"
@@ -8760,7 +8765,8 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string"
+                  "type": "string",
+                  "pattern": "^[0-9a-fA-F]{24}$"
                 },
                 {
                   "type": "null"
@@ -8814,8 +8820,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Team Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Team Id"
             }
           },
           {
@@ -8878,8 +8884,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Team Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Team Id"
             }
           },
           {
@@ -8897,8 +8903,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Spieler Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Spieler Id"
             }
           }
         ],
@@ -8969,8 +8975,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Team Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Team Id"
             }
           },
           {
@@ -8988,8 +8994,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Spieler Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Spieler Id"
             }
           }
         ],
@@ -9049,8 +9055,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Team Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Team Id"
             }
           },
           {
@@ -9139,8 +9145,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Registrierung Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Registrierung Id"
             }
           }
         ],
@@ -9213,8 +9219,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Registrierung Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Registrierung Id"
             }
           }
         ],
@@ -9284,8 +9290,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Team Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Team Id"
             }
           },
           {
@@ -9348,8 +9354,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Team Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Team Id"
             }
           },
           {
@@ -9428,8 +9434,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Bewerbung Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Bewerbung Id"
             }
           }
         ],
@@ -9595,8 +9601,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Registrierung Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Registrierung Id"
             }
           }
         ],
@@ -9703,8 +9709,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Schiedsrichter Id",
-              "pattern": "^[0-9a-fA-F]{24}$"
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Schiedsrichter Id"
             }
           }
         ],
@@ -10130,6 +10136,7 @@
         "properties": {
           "id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Id"
           },
           "at": {
@@ -10271,6 +10278,7 @@
         "properties": {
           "id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Id"
           },
           "at": {
@@ -10715,6 +10723,7 @@
           },
           "team_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Team Id"
           },
           "created_team": {
@@ -10887,10 +10896,12 @@
         "properties": {
           "id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Id"
           },
           "berechtigung_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Berechtigung Id"
           },
           "art": {
@@ -10997,7 +11008,8 @@
           },
           "ids": {
             "items": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^[0-9a-fA-F]{24}$"
             },
             "type": "array",
             "maxItems": 1024,
@@ -11085,6 +11097,7 @@
           },
           "berechtigung_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Berechtigung Id"
           }
         },
@@ -11099,6 +11112,7 @@
         "properties": {
           "id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Id"
           },
           "adresse": {
@@ -11194,6 +11208,7 @@
         "properties": {
           "id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Id"
           },
           "saison_id": {
@@ -11217,7 +11232,8 @@
           "team_id": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "pattern": "^[0-9a-fA-F]{24}$"
               },
               {
                 "type": "null"
@@ -11742,6 +11758,7 @@
           },
           "bewerbung_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Bewerbung Id"
           },
           "saison_id": {
@@ -12361,6 +12378,7 @@
           },
           "bewerbung_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Bewerbung Id"
           },
           "rollen": {
@@ -12470,6 +12488,7 @@
         "properties": {
           "id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Id"
           },
           "name": {
@@ -12604,7 +12623,8 @@
         "properties": {
           "bewerbung_ids": {
             "items": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^[0-9a-fA-F]{24}$"
             },
             "type": "array",
             "maxItems": 125,
@@ -12681,6 +12701,7 @@
         "properties": {
           "bewerbung_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Bewerbung Id"
           },
           "saison_id": {
@@ -12724,7 +12745,8 @@
         "properties": {
           "bewerbung_ids": {
             "items": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^[0-9a-fA-F]{24}$"
             },
             "type": "array",
             "maxItems": 125,
@@ -12775,6 +12797,7 @@
         "properties": {
           "bewerbung_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Bewerbung Id"
           },
           "saison_id": {
@@ -13166,6 +13189,7 @@
         "properties": {
           "bewerbung_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Bewerbung Id"
           },
           "rollen": {
@@ -13208,6 +13232,7 @@
         "properties": {
           "bewerbung_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Bewerbung Id"
           },
           "rollen": {
@@ -13375,6 +13400,7 @@
         "properties": {
           "spiel_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Spiel Id"
           },
           "spiel_nr": {
@@ -13397,6 +13423,7 @@
           },
           "booking_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Booking Id"
           },
           "name": {
@@ -13433,6 +13460,7 @@
         "properties": {
           "spiel_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Spiel Id"
           },
           "spiel_nr": {
@@ -13470,6 +13498,7 @@
           },
           "other_spiel_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Other Spiel Id"
           },
           "other_saison_id": {
@@ -13513,6 +13542,7 @@
         "properties": {
           "spiel_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Spiel Id"
           },
           "spiel_nr": {
@@ -13573,6 +13603,7 @@
         "properties": {
           "spiel_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Spiel Id"
           },
           "spiel_nr": {
@@ -13595,6 +13626,7 @@
           },
           "team_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Team Id"
           },
           "team_name": {
@@ -13647,6 +13679,7 @@
         "properties": {
           "spiel_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Spiel Id"
           },
           "spiel_nr": {
@@ -13684,6 +13717,7 @@
         "properties": {
           "spiel_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Spiel Id"
           },
           "spiel_nr": {
@@ -13741,6 +13775,7 @@
         "properties": {
           "spiel_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Spiel Id"
           },
           "spiel_nr": {
@@ -13767,6 +13802,7 @@
         "properties": {
           "spiel_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Spiel Id"
           },
           "spiel_nr": {
@@ -13781,6 +13817,7 @@
           },
           "spieltag_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Spieltag Id"
           },
           "side": {
@@ -13793,6 +13830,7 @@
           },
           "team_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Team Id"
           },
           "team_name": {
@@ -13961,10 +13999,12 @@
           },
           "team_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Team Id"
           },
           "einladung_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Einladung Id"
           },
           "token": {
@@ -14013,6 +14053,7 @@
           },
           "team_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Team Id"
           },
           "einladung": {
@@ -14137,6 +14178,7 @@
         "properties": {
           "team_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Team Id"
           },
           "team_name": {
@@ -14191,6 +14233,7 @@
         "properties": {
           "team_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Team Id"
           },
           "team_name": {
@@ -14232,7 +14275,8 @@
           "einladung_id": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "pattern": "^[0-9a-fA-F]{24}$"
               },
               {
                 "type": "null"
@@ -14295,10 +14339,12 @@
           },
           "team_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Team Id"
           },
           "einladung_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Einladung Id"
           }
         },
@@ -14315,6 +14361,7 @@
         "properties": {
           "id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Id"
           },
           "saison_id": {
@@ -14324,6 +14371,7 @@
           },
           "team_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Team Id"
           },
           "erstellt_am": {
@@ -14723,6 +14771,7 @@
         "properties": {
           "schiedsrichter_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Schiedsrichter Id"
           }
         },
@@ -14758,6 +14807,7 @@
           },
           "bewerbung_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Bewerbung Id"
           }
         },
@@ -14779,6 +14829,7 @@
           },
           "team_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Team Id"
           },
           "team_name": {
@@ -14859,10 +14910,12 @@
           },
           "registrierung_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Registrierung Id"
           },
           "team_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Team Id"
           },
           "status": {
@@ -14990,6 +15043,7 @@
           },
           "schiedsrichter_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Schiedsrichter Id"
           },
           "inactive_since": {
@@ -15050,6 +15104,7 @@
           },
           "team_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Team Id"
           }
         },
@@ -15083,6 +15138,7 @@
           },
           "spieler_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Spieler Id"
           },
           "kader": {
@@ -15106,6 +15162,7 @@
         "properties": {
           "spieler_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Spieler Id"
           }
         },
@@ -15383,6 +15440,7 @@
         "properties": {
           "id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Id"
           },
           "name": {
@@ -15445,6 +15503,7 @@
           },
           "team_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Team Id"
           },
           "saison_id": {
@@ -15489,6 +15548,7 @@
         "properties": {
           "spieler_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Spieler Id"
           },
           "vorname": {
@@ -15619,6 +15679,7 @@
           },
           "spieler_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Spieler Id"
           },
           "vorname": {
@@ -15785,10 +15846,12 @@
           },
           "team_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Team Id"
           },
           "saison_team_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Saison Team Id"
           },
           "bestaetigung": {
@@ -16092,6 +16155,7 @@
         "properties": {
           "bewerbung_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Bewerbung Id"
           },
           "schule": {
@@ -16224,10 +16288,12 @@
         "properties": {
           "registrierung_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Registrierung Id"
           },
           "team_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Team Id"
           },
           "team_name": {
@@ -16392,6 +16458,7 @@
         "properties": {
           "schiedsrichter_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Schiedsrichter Id"
           },
           "name": {
@@ -16503,6 +16570,7 @@
         "properties": {
           "team_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Team Id"
           },
           "team_name": {
@@ -16600,6 +16668,7 @@
           },
           "spieler_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Spieler Id"
           },
           "geburtsdatum": {
@@ -16739,7 +16808,8 @@
           "nach": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "pattern": "^[0-9a-fA-F]{24}$"
               },
               {
                 "type": "null"
@@ -16801,6 +16871,7 @@
         "properties": {
           "registrierung_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Registrierung Id"
           },
           "eingereicht_am": {
@@ -16924,6 +16995,7 @@
           },
           "team_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Team Id"
           },
           "saison_id": {
@@ -17119,6 +17191,7 @@
         "properties": {
           "team_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Team Id"
           },
           "nummer": {
@@ -17240,10 +17313,12 @@
           },
           "team_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Team Id"
           },
           "saison_team_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Saison Team Id"
           },
           "kontakte": {
@@ -17766,6 +17841,7 @@
           },
           "spiel_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Spiel Id"
           }
         },
@@ -18135,6 +18211,7 @@
           },
           "created_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Created Id"
           }
         },
@@ -18155,7 +18232,8 @@
           "team_id": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "pattern": "^[0-9a-fA-F]{24}$"
               },
               {
                 "type": "null"
@@ -18229,6 +18307,7 @@
           },
           "created_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Created Id"
           },
           "saison_id": {
@@ -18371,6 +18450,7 @@
           },
           "registrierung_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Registrierung Id"
           },
           "bestaetigung_token": {
@@ -18498,6 +18578,7 @@
         "properties": {
           "team_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Team Id"
           },
           "nummer": {
@@ -18678,6 +18759,7 @@
           },
           "created_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Created Id"
           }
         },
@@ -18725,6 +18807,7 @@
           },
           "created_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Created Id"
           },
           "gesperrt_bis_saison_id": {
@@ -18780,6 +18863,7 @@
           },
           "created_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Created Id"
           }
         },
@@ -18875,6 +18959,7 @@
           },
           "created_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Created Id"
           }
         },
@@ -19000,6 +19085,7 @@
         "properties": {
           "id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Id"
           },
           "saison_id": {
@@ -19008,10 +19094,12 @@
           },
           "team_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Team Id"
           },
           "einladung_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Einladung Id"
           },
           "eingereicht_am": {
@@ -19195,10 +19283,12 @@
           },
           "registrierung_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Registrierung Id"
           },
           "team_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Team Id"
           },
           "saison_id": {
@@ -19264,14 +19354,17 @@
           },
           "registrierung_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Registrierung Id"
           },
           "spieler_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Spieler Id"
           },
           "team_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Team Id"
           },
           "saison_id": {
@@ -19361,7 +19454,8 @@
           "spieler_id": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "pattern": "^[0-9a-fA-F]{24}$"
               },
               {
                 "type": "null"
@@ -19807,6 +19901,7 @@
         "properties": {
           "spieler_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Spieler Id"
           },
           "vorname": {
@@ -19888,6 +19983,7 @@
           },
           "registrierung_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Registrierung Id"
           },
           "einwilligung": {
@@ -19910,6 +20006,7 @@
         "properties": {
           "registrierung_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Registrierung Id"
           },
           "saison_id": {
@@ -19946,6 +20043,7 @@
         "properties": {
           "registrierung_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Registrierung Id"
           },
           "saison_id": {
@@ -20047,6 +20145,7 @@
         "properties": {
           "spieler_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Spieler Id"
           },
           "vorname": {
@@ -20110,6 +20209,7 @@
         "properties": {
           "incoming_team_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Incoming Team Id"
           }
         },
@@ -20138,10 +20238,12 @@
           },
           "outgoing_team_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Outgoing Team Id"
           },
           "incoming_team_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Incoming Team Id"
           },
           "gruppe": {
@@ -20515,6 +20617,7 @@
           },
           "team_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Team Id"
           },
           "nummer": {
@@ -20581,6 +20684,7 @@
           },
           "spieler_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Spieler Id"
           },
           "saison_id": {
@@ -20956,6 +21060,7 @@
           },
           "team_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Team Id"
           },
           "saison_id": {
@@ -21019,6 +21124,7 @@
           },
           "team_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Team Id"
           },
           "gruppe": {
@@ -21211,6 +21317,7 @@
           },
           "id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Id"
           },
           "inactive_since": {
@@ -21513,7 +21620,8 @@
           "nach": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "pattern": "^[0-9a-fA-F]{24}$"
               },
               {
                 "type": "null"
@@ -21886,6 +21994,7 @@
         "properties": {
           "schiedsrichter_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Schiedsrichter Id"
           },
           "name": {
@@ -21982,6 +22091,7 @@
           },
           "schiedsrichter_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Schiedsrichter Id"
           },
           "einwilligung": {
@@ -22462,6 +22572,7 @@
           },
           "sperrliste_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Sperrliste Id"
           }
         },
@@ -22476,6 +22587,7 @@
         "properties": {
           "id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Id"
           },
           "grund": {
@@ -22527,6 +22639,7 @@
         "properties": {
           "spiel_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Spiel Id"
           },
           "spiel_nr": {
@@ -22611,6 +22724,7 @@
         "properties": {
           "id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Id"
           },
           "team1": {
@@ -22751,6 +22865,7 @@
           },
           "spieltag_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Spieltag Id"
           },
           "spiel_nr": {
@@ -22831,6 +22946,7 @@
         "properties": {
           "id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Id"
           },
           "team1": {
@@ -22971,6 +23087,7 @@
           },
           "spieltag_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Spieltag Id"
           },
           "spiel_nr": {
@@ -23051,6 +23168,7 @@
         "properties": {
           "spielort_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Spielort Id"
           },
           "name": {
@@ -23083,6 +23201,7 @@
         "properties": {
           "spielort_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Spielort Id"
           },
           "mietpreis": {
@@ -23104,6 +23223,7 @@
         "properties": {
           "spielort_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Spielort Id"
           },
           "name": {
@@ -23130,6 +23250,7 @@
         "properties": {
           "spielort_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Spielort Id"
           },
           "mietpreis": {
@@ -23348,6 +23469,7 @@
           },
           "spiel_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Spiel Id"
           }
         },
@@ -23367,6 +23489,7 @@
         "properties": {
           "schiedsrichter_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Schiedsrichter Id"
           },
           "payment": {
@@ -23461,6 +23584,7 @@
         "properties": {
           "spiel_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Spiel Id"
           },
           "spiel_nr": {
@@ -23539,6 +23663,7 @@
         "properties": {
           "schiedsrichter_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Schiedsrichter Id"
           },
           "name": {
@@ -23572,6 +23697,7 @@
         "properties": {
           "schiedsrichter_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Schiedsrichter Id"
           },
           "payment": {
@@ -23593,6 +23719,7 @@
         "properties": {
           "schiedsrichter_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Schiedsrichter Id"
           },
           "name": {
@@ -23620,6 +23747,7 @@
         "properties": {
           "team_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Team Id"
           },
           "tore": {
@@ -23676,6 +23804,7 @@
         "properties": {
           "team_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Team Id"
           },
           "tore": {
@@ -23884,6 +24013,7 @@
           },
           "spieler_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Spieler Id"
           },
           "vorname": {
@@ -24224,6 +24354,7 @@
         "properties": {
           "team_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Team Id"
           },
           "nummer": {
@@ -24402,6 +24533,7 @@
           },
           "id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Id"
           },
           "nummer": {
@@ -24461,6 +24593,7 @@
           },
           "spieler_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Spieler Id"
           },
           "geburtsdatum": {
@@ -24540,6 +24673,7 @@
           },
           "spieler_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Spieler Id"
           },
           "einwilligung": {
@@ -24562,6 +24696,7 @@
         "properties": {
           "team_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Team Id"
           },
           "team_name": {
@@ -24700,6 +24835,7 @@
           },
           "spieler_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Spieler Id"
           },
           "vorname": {
@@ -24754,6 +24890,7 @@
           },
           "id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Id"
           },
           "inactive_since": {
@@ -24852,6 +24989,7 @@
           },
           "id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Id"
           },
           "maps_link": {
@@ -24985,6 +25123,7 @@
         "properties": {
           "id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Id"
           },
           "beginn": {
@@ -25064,6 +25203,7 @@
           },
           "spieltag_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Spieltag Id"
           },
           "updated_document": {
@@ -25238,6 +25378,7 @@
         "properties": {
           "schiedsrichter_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Schiedsrichter Id"
           }
         },
@@ -25256,6 +25397,7 @@
           },
           "team_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Team Id"
           },
           "rolle": {
@@ -25296,6 +25438,7 @@
         "properties": {
           "spieler_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Spieler Id"
           }
         },
@@ -25310,10 +25453,12 @@
         "properties": {
           "team1_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Team1 Id"
           },
           "team2_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Team2 Id"
           }
         },
@@ -25345,6 +25490,7 @@
           },
           "team1_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Team1 Id"
           },
           "team1_gruppe": {
@@ -25371,6 +25517,7 @@
           },
           "team2_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Team2 Id"
           },
           "team2_gruppe": {
@@ -25470,6 +25617,7 @@
           },
           "id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Id"
           },
           "gruppe": {
@@ -25698,6 +25846,7 @@
           },
           "id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Id"
           },
           "inactive_since": {
@@ -25776,6 +25925,7 @@
           },
           "team_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Team Id"
           },
           "saison_id": {
@@ -25911,6 +26061,7 @@
           },
           "id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Id"
           },
           "inactive_since": {
@@ -26147,6 +26298,7 @@
           },
           "ziel_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Ziel Id"
           },
           "rollen": {
@@ -26209,6 +26361,7 @@
           },
           "ziel_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Ziel Id"
           },
           "rollen": {
@@ -26264,6 +26417,7 @@
           },
           "ziel_id": {
             "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Ziel Id"
           },
           "rollen": {

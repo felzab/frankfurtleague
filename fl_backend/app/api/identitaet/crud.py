@@ -336,7 +336,7 @@ JEDE_PERSONENGRUPPE: Final[frozenset[Personengruppe]] = frozenset(get_args(Perso
 
 def _read(rows: Rows | None, kind: str) -> Rows:
     if rows is None:
-        raise RuntimeError(f"an erasure step reads `{kind}`, which no step of its scope reads it for")
+        raise RuntimeError(f"an erasure step reads `{kind}`, which the subject of its scope never read")
 
     return rows
 

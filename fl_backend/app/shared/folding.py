@@ -118,6 +118,15 @@ def trimmed_prefix_pattern(prefix: str) -> str:
     return f"^{_TRIMMED_CLASS}*{prefix}"
 
 
+def trimmed_pattern(fragment: str) -> str:
+    """`fragment`, an escaped `$regex` fragment, anchored at both ends so that whatever `sign_in_identifier` trims may stand around it.
+
+    For a value the fold equates whole, with no part a pattern may leave open.
+    """
+
+    return f"^{_TRIMMED_CLASS}*{fragment}{_TRIMMED_CLASS}*$"
+
+
 def person_name_key(value: Any) -> str:
     """NFC and `lower`, never `casefold`: „Weiß“ and „Weiss“ are two families, and a decomposed umlaut is one name typed on another keyboard."""
 

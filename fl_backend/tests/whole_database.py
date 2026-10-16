@@ -1,4 +1,4 @@
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterator, Mapping, Sequence
 from typing import Any
 
 from pymongo.asynchronous.database import AsyncDatabase
@@ -14,7 +14,7 @@ _ABOUT: Mapping[str, tuple[str, ...]] = {
 }
 
 
-async def where_held(database: AsyncDatabase, *values: str, folded: bool = False) -> dict[str, list[str]]:
+async def where_held(database: AsyncDatabase, *values: str, folded: bool = False, beside: Sequence[str] = ()) -> dict[str, list[str]]:
     """Per value, the collections holding it, looked for where nobody thought to put it.
 
     Named rather than rendered, so a failure says where. Exact unless `folded`, since a case may tell a typed spelling from
@@ -24,7 +24,16 @@ async def where_held(database: AsyncDatabase, *values: str, folded: bool = False
     def matchable(text: str) -> str:
         return text.casefold() if folded else text
 
-    rendered = {name: matchable(str(await database[name].find().to_list(length=None))) for name in await database.list_collection_names()}
+    # Out before the search, each of `beside` being somebody else's text that spells a value: an address sharing the
+    # person's local part spells their names.
+    def searched(text: str) -> str:
+        for other in map(matchable, beside):
+            text = text.replace(other, "")
+        return text
+
+    rendered = {
+        name: searched(matchable(str(await database[name].find().to_list(length=None)))) for name in await database.list_collection_names()
+    }
 
     return {value: sorted(name for name, text in rendered.items() if matchable(value) in text) for value in values}
 

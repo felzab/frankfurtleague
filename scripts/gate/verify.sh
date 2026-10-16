@@ -1370,8 +1370,9 @@ if (( RUN_DB )); then
     start_steps --db backend_db frontend_db
   fi
 
-  # `loadfile` for cost, not isolation: `fl_backend/tests/worker.py :: worker_database` is what
-  # isolates, so `--dist load` would hold too.
+  # `loadfile` for isolation too: `fl_backend/tests/worker.py :: worker_database` parts the databases,
+  # but `fl_backend/tests/api/test_erasure_commit_fail_points.py` sets the server's one `failCommand`,
+  # so its cases must run one after another on one worker, which `--dist load` breaks.
 
   # Both mongods are shared (`fl_backend/tests/conftest.py :: pytest_configure_node`), so past
   # `GATE_WIDTH_DB_PYTEST` the workers fight over the same servers whatever the core count.

@@ -895,6 +895,30 @@ def test_the_pre_filter_reads_no_row_holding_another_local_part(mongo_replica_se
     assert set(CASE_ROW_OIDS.values()) <= read, "the control: a pre-filter reading nothing passes the assertion above"
 
 
+# An identifier holding no `@`, as the account sweep's references may hand on: the spellings the fold claims, and a
+# value each anchor keeps out, the end two of them and the start one.
+NO_AT_IDENTIFIER = "kein-at"
+NO_AT_CLAIMED: tuple[str, ...] = (NO_AT_IDENTIFIER, "KEIN-AT", f"{chr(0x20)}kein-at{chr(0xA0)}")
+NO_AT_UNCLAIMED: tuple[str, ...] = ("kein-atx", "kein-at@example.com", "xkein-at")
+NO_AT_ROW_OIDS = {email: ObjectId(f"6890a1b2c3d4e5f60781{8000 + index:04d}") for index, email in enumerate((*NO_AT_CLAIMED, *NO_AT_UNCLAIMED))}
+
+
+@pytest.mark.db
+def test_an_identifier_holding_no_at_reads_exactly_the_rows_the_fold_claims(mongo_replica_set_url: str):
+    """Anchored at its start alone, the empty local part reads every stored address in the collection."""
+
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+        await database[Collection.SAISON_TEAMS].insert_many([a_row_naming(row_id, email) for email, row_id in NO_AT_ROW_OIDS.items()])
+        pipeline = build_erasure_seat_pipeline(NO_AT_IDENTIFIER)
+
+        return {row["_id"] for row in await (await database[Collection.SAISON_TEAMS].aggregate(pipeline)).to_list()}
+
+    read = on_a_league(mongo_replica_set_url, body)
+
+    assert [email for email in NO_AT_CLAIMED if sign_in_identifier(email) != NO_AT_IDENTIFIER] == []
+    assert sorted(email for email, row_id in NO_AT_ROW_OIDS.items() if row_id in read) == sorted(NO_AT_CLAIMED)
+
+
 # A stored address carrying what the fold trims, the start and the end each: the pre-filter has to
 # take every value the fold would claim. Built from code points, since both are whitespace.
 PADDED_SPELLINGS: tuple[str, ...] = (f"{chr(0x20)}{ERASED_EMAIL}", f"{ERASED_EMAIL}{chr(0xA0)}")

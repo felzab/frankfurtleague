@@ -37,12 +37,12 @@ from app.core.config import INTERNAL_API_KEY_CHARACTERS
 from app.core.logging import NEEDS_QUOTING
 from app.core.middlewares import TRACEPARENT
 from app.core.recording import ERASED_ACTOR_MARKER
-from app.core.routing import OBJECT_ID_REGEX
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.shared.folding import league_address
 from app.shared.schemas import bounds
 from app.shared.schemas.addresses import HAUSNUMMER_PATTERN, FLAddress, FLAddressPayload
 from app.shared.schemas.custom import (
+    OBJECT_ID_REGEX,
     PERSON_NAME_PATTERN,
     PHONE_REGEX,
     SINGLE_LINE_PATTERN,
@@ -853,7 +853,8 @@ UNPAIRABLE_PATTERNS: Final = (
         "core/objectId.ts",
         "OBJECT_ID_REGEX",
         "app/shared/schemas/custom.py :: CustomObjectIdAnnotation",
-        "the backend end builds a `bson.ObjectId` rather than stating a pattern, so no pattern string reaches `_pydantic_accepted`",
+        "the backend end validates by building a `bson.ObjectId` and states its pattern in the published schema alone, "
+        "so no pattern string reaches `_pydantic_accepted`",
     ),
     Unpairable(
         "features/bewerbungen/zustellung.ts",
@@ -894,10 +895,11 @@ UNPAIRABLE_PATTERNS: Final = (
     ),
 )
 
-# The third site of the ObjectId alphabet, and the only one on this side stating it AS a pattern.
-ROUTE_ID_SITE: Final = "app/core/routing.py :: OBJECT_ID_REGEX"
+# The third site of the ObjectId alphabet, and the only one on this side stating it AS a pattern: the route
+# convertor's, and the one every `CustomObjectId` publishes.
+ROUTE_ID_SITE: Final = "app/shared/schemas/custom.py :: OBJECT_ID_REGEX"
 
-# Only running it says what an id is: `CustomObjectIdAnnotation` states no pattern.
+# Only running it says what an id is: `CustomObjectIdAnnotation` validates without its published pattern.
 OBJECT_ID_ADAPTER: Final = TypeAdapter(CustomObjectId)
 
 # The constructs this check models. `\s`, `\w` and their negations are refused rather than

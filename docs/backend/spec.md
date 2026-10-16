@@ -781,9 +781,12 @@ asks for it. Which of the two a test takes — `fl_backend/tests/conftest.py :: 
 the cap being `scripts/gate/verify.sh :: GATE_WIDTH_DB_PYTEST`, and the gate runs the default tier
 the same way under `:: GATE_WIDTH_BACKEND_PYTEST`. **A bare `pytest` or `pytest -m db` still runs
 serially and is the first thing to try against a failure that only appears distributed.**
-**`loadfile` is a cost choice and not a correctness one**: it keeps a module-scoped corpus built once
-rather than once per worker holding a slice of it, and the per-worker naming below is what would hold
-a run correct under `--dist load`, which splits a file, as well.
+**`loadfile` is a correctness choice as well as a cost one**:
+`fl_backend/tests/api/test_erasure_commit_fail_points.py` configures `failCommand`, one setting the
+server holds for every worker, and holds only while its cases run one after another on one worker,
+which `--dist load`, splitting a file, breaks. Every other module would run correct under `load` on
+the per-worker naming below, and `loadfile` keeps a module-scoped corpus built once rather than once
+per worker holding a slice of it.
 
 **The two servers are the xdist controller's rather than each worker's**
 (`fl_backend/tests/conftest.py :: pytest_configure_node`), and **a run selecting no db test passes

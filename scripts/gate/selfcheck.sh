@@ -22,8 +22,6 @@ for arg in "$@"; do
   esac
 done
 
-RUNNABLE=(ops/local.sh gate/verify.sh ops/deploy.sh gate/selfcheck.sh)
-
 # One EXIT trap for the whole run: bash keeps one, so a second `trap … EXIT` below would silently
 # replace it. INT and TERM stay `scripts/lib/_lib.sh`'s, which exits 130 and so fires this.
 SELFCHECK_TMP="$(mktemp -d)"
@@ -80,6 +78,17 @@ else
   if (( ${#SHELL_FILES[@]} == 0 )); then
     note_fail "no shell script was found anywhere in the repository, so every per-file step below reads nothing"
   fi
+fi
+
+# The scripts a person runs, relative to `scripts/`: every shell script there but `lib/`'s, which
+# are sourced and never run (`scripts/README.md`). Read off the list above for its reason, so a new
+# script joins every step taking this list unlisted.
+RUNNABLE=()
+for f in "${SHELL_FILES[@]}"; do
+  if [[ "$f" == scripts/* && "$f" != scripts/lib/* ]]; then RUNNABLE+=("${f#scripts/}"); fi
+done
+if (( ${#RUNNABLE[@]} == 0 )); then
+  note_fail "no runnable script was found below scripts/, so every step taking them checks nothing"
 fi
 
 # --- Running the independent checks concurrently -------------------------------------------------
@@ -540,10 +549,20 @@ step "7. Machine-specific scripts declare a target platform"
 # Only the scripts that MUST run on one machine: the read-and-build ones would be pinned to an OS
 # for nothing, and that also blocks CI.
 
+# `ops/` is where `scripts/README.md` keeps the machine-specific scripts, read off `RUNNABLE` so a
+# new one is held here unlisted.
+MACHINE_SPECIFIC=()
+for f in "${RUNNABLE[@]}"; do
+  if [[ "$f" == ops/* ]]; then MACHINE_SPECIFIC+=("$f"); fi
+done
+if (( ${#MACHINE_SPECIFIC[@]} == 0 )); then
+  note_fail "no script was found below scripts/ops/, so no platform guard was checked"
+fi
+
 # Through the reader above, not a text search: `grep -q require_platform` is satisfied by the name
 # sitting in a comment. Run, or handed to a wrapper, both count; a mention in a comment or a string
 # does not. Wired is all this proves, not that it fires.
-for f in ops/local.sh ops/deploy.sh; do
+for f in "${MACHINE_SPECIFIC[@]}"; do
   guard="${SELFCHECK_TMP}/platform-sites.tsv"
   if ! awk "$CMD_WORDS" "scripts/$f" > "$guard" 2>/dev/null; then
     note_fail "$f: its call sites could not be read, so its platform guard was not checked"
