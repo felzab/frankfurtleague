@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { after, beforeEach, describe, it, mock } from "node:test";
@@ -8,6 +8,7 @@ import { ACTOR_KEY_FILE } from "@/core/authDoubles.ts";
 import { APIBadStatusError, APIMalformedDataError, APINetworkError } from "@/core/errors.ts";
 import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
+import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
 
 import type { SentMail } from "@/core/mailDouble.ts";
@@ -343,6 +344,18 @@ describe("the switch the retention sweep is armed by", () => {
 
     it("refuses anything else by name, rather than reading it as one side or the other", async () => {
       await assert.rejects(parseWith("false", "LOESCHUNG_SWEEP"), (error: Error) => error.message.includes("LOESCHUNG_SWEEP"));
+    });
+
+    /* The API's pass deletes on any system-key call, the switch read at each caller alone, so a third caller would
+       delete while it reads off. Each caller's off arm is driven in its own suite. */
+    it("guards the deletion pass's only callers, the hourly pass and the activation", () => {
+      const src = path.resolve(import.meta.dirname, "..", "..");
+      const naming = filesUnder(src, (name) => /\.tsx?$/.test(name) && !isTestFile(name), 200)
+        .filter((file) => /\bpostLoeschungLauf\b/.test(readFileSync(file, "utf8")))
+        .map((file) => path.relative(src, file).split(path.sep).join("/"))
+        .filter((file) => file !== "features/saisons/mutations.ts");
+
+      assert.deepEqual(naming.sort(), ["features/bewerbungen/sweep.ts", "features/saisons/actions.ts"]);
     });
   });
 });
