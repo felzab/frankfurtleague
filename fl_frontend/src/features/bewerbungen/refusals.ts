@@ -1,4 +1,4 @@
-import { TEAMS_EINTRAG } from "@/features/admin/constants";
+import { SPERRLISTE_EINTRAG, TEAMS_EINTRAG } from "@/features/admin/constants";
 import { SPERRLISTE_ADRESSE_GESPERRT } from "@/features/sperrliste/constants";
 import { mapAlreadyEnteredRefusal } from "@/features/teams/refusals";
 import { isRefusal } from "@/shared/utils/actionError";
@@ -111,7 +111,8 @@ export function mapTriageRefusal(error: unknown, herkunft: BewerbungHerkunft | n
 
 const ERNEUT_ADRESSE_GESPERRT = buildRefusal({
   reason: "Die E-Mail-Adresse dieser Person steht auf der Sperrliste",
-  repair: `Korrigiere sie über „${ADRESSE_KORRIGIEREN}“ oder hebe die Sperre unter /bereich/admin/sperrliste auf`,
+  repair: { before: `Korrigiere sie über „${ADRESSE_KORRIGIEREN}“ oder hebe die Sperre`, after: "auf" },
+  where: SPERRLISTE_EINTRAG.label,
 });
 
 /** A re-send refusal as the message it should render, or `null` when the code is none of these. */
