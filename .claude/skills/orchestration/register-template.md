@@ -53,9 +53,11 @@ stands>
 distinct lines it matches, past which `ci.py` reads the surplus as new. A row is written by
 `ci.py expect <register> <run> --cleared-by <landing>` from the run of the push that caused it, its
 Status RED; `ci.py` turns it CLEARED <push> when a concluded run shows its job passing, never by
-deletion. The `invariant-number` finding on a reserved invariant id
-that landed above a lower one not yet landed, or above one left unused, is one row, cleared when the
-lower id lands or the ending closes the gap.>
+deletion. A NEW line that is only a job's verdict or its name gets no row, since one would expect
+every later failure of that job: it stays NEW, judged from the job's log at each read, until the job
+passes. `--commit <sha>` reads another commit's run and writes nothing. The `invariant-number`
+finding on a reserved invariant id that landed above a lower one not yet landed, or above one left
+unused, is one row, cleared when the lower id lands or the ending closes the gap.>
 
 ## File ownership -- the plan's map
 <Each agent's files are its brief's `Owns:` lines, which `reg.py overlap --brief` reads, and its
@@ -79,9 +81,11 @@ Tracked generated files: <each agent whose change moves one commits it regenerat
 | Agent name, then the id the Agent tool returned in backticks | The question it settles | Status |
 | ------------------------------------------------------------ | ----------------------- | ------ |
 <The messages hook finds a send's recipient by the name or the id in the first cell, and the id
-names the agent's worktree branch. Status: RUNNING, written by `reg.py dispatch` and again by its
-`--id` on a resume; `DONE <stamp> <report file>`, written by `ledger.py bank --from`.
-`reg.py live` lists the RUNNING rows. What an agent owns is its brief's.>
+names the agent's worktree branch. Status: RUNNING, written by `reg.py dispatch`, and again on a
+resume by its `--id` or by the messages hook when a message reaches a DONE or PAUSED row;
+`PAUSED <stamp>`, written by `reg.py pause`; `DONE <stamp> <report file>`, written by
+`ledger.py bank --from`. `reg.py live` lists the RUNNING rows and, apart from their count, the
+PAUSED ones. What an agent owns is its brief's.>
 
 ## Standing actions
 | Trigger | The whole brief, written out now | Dispatched? |
@@ -115,13 +119,15 @@ report, a fixer's included, written by `ledger.py bank` before the next dispatch
 ROUTED, one owner at a time, by `bank --route`, by a writer's brief's `Rows:` line at
 `reg.py dispatch --brief`, by a sent message's `Rows:` line or by `ledger.py route`; its owner is a
 live agent or one of the queues `ledger.py route` names when it refuses another, and
-`reg.py dispatch --takes <queue>` hands a queue's rows to a new agent. A row owed to a fixer not yet
-briefed stays OPEN until that brief routes it. It moves to FIXED by the
-landing of its owner's branch whose `Rows fixed:` line names it, and otherwise to a closed status
-by `bank --close` or `ledger.py close`, never by hand. The landing prints one
-`ledger.py close … FIXED <merge> <row>` line per row it leaves that its commits name or its agent
-still holds: run the line of each row the merge fixed and no other, since a row can stay routed
-for a later round, and no landing closes an OPEN row itself.
+`reg.py dispatch --takes <owner>` hands a new agent every row routed to that queue or finished
+agent, rows a `Rows:` line naming them cannot take. A row owed to a fixer not yet briefed stays
+OPEN until that brief routes it. It moves to FIXED by the landing of its owner's branch whose
+`Rows fixed:` line names it, and otherwise to a closed status by `bank --close` or
+`ledger.py close`, never by hand. The landing prints one
+`ledger.py close … FIXED <merge> <row>` line per row its commits name while it is OPEN and per row
+its agent still holds, and names alone a row they name that another owner holds or that is closed:
+run the line of each row the merge fixed and no other, since a row can stay routed for a later
+round, and no landing closes an OPEN row itself.
 Status: one of
 `.claude/skills/orchestration/tools/ledger.py :: STATUSES`, a closed one followed by its evidence; a
 word outside it stops every ledger command, a landing included.
@@ -136,15 +142,18 @@ would fail if it were not one.>
 ## Keeping it true
 
 - Keep every row short enough that adding one is cheaper than skipping it.
-- Write the register once per message: two edits in one tool batch each read, append and write the
-  file, and the later drops the earlier.
+- Edit the register by hand at most once per message, and never in a tool batch with a command
+  that writes it: each tool holds a lock file beside the register across its read and its write, so
+  tool writes in one batch, the messages hook's and a background `ci.py --wait`'s all land, while a
+  hand edit takes no lock, and of two whole-file writes that overlap the later drops the earlier.
 - Record in the live-agent table the question an agent settles, and diff dispatches by path, never by
   task.
 - An agent owns every path its brief's `Owns:` lines name until its report lands.
 - Write a standing action's whole brief when you queue it, with
   `reg.py queue <register> <trigger> <brief>`; `reg.py dispatch` ticks the row naming the brief it
-  dispatches, and any other row, a message's among them, is ticked by hand once it went out. The
-  trigger `window` is the next concluded CI run, and `land.py` refuses to land past a concluded run
-  while such a row is unticked, unless `--after-dispatch` says it went out. A live agent waiting on a
-  landing is a standing action too, its trigger naming that branch or its agent, which `land.py`
-  then names when it lands.
+  dispatches, and `reg.py queue <register> <trigger> <brief> --done <evidence>` ticks any other
+  row, a message's among them, once it went out, or withdraws it on the reason given. The trigger
+  `window` is the next concluded CI run, and `land.py` refuses to land past a concluded run while
+  such a row is unticked, naming `--after-dispatch`, which says the rows went out and ticks them. A
+  live agent waiting on a landing is a standing action too, its trigger naming that branch or its
+  agent, which `land.py` then names when it lands.

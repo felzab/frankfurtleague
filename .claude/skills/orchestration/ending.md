@@ -15,7 +15,8 @@ Run once, in this order, when what remains is the last wave plus this list.
    until `check_docs.py` exits 0. An id of the same width re-pads no table.
 3. Run `./scripts/gate/verify.sh`, every scope, over a tree that has stopped moving. The branch is
    stable only once the last fix is committed, the gate is green, no live agent can still return a
-   finding, and `reg.py prune` has left no agent's worktree.
+   finding, and `reg.py prune` leaves no worktree of this session's agents, each one it kept
+   settled by the reason it printed for keeping it.
 4. Replace the draft pull request's body once (`.claude/CLAUDE.md` §2), naming every document a
    merge regenerated, which a merge commit's own message does not say. In the same action start
    `gh pr checks <n> --watch` in the background, which waits on every workflow where `ci.py` waits

@@ -48,8 +48,7 @@ independent. Stop once the bar is met.
 ## State lives in the register
 
 - Write the register ([register-template.md](register-template.md)) before the first dispatch. It is
-  the fleet's only record: record each dispatch before it runs, one write to the register per
-  message.
+  the fleet's only record: record each dispatch before it runs, one hand edit of it per message.
 - This session's id is `${CLAUDE_SESSION_ID}`. Keep the register's `Coordinator session id:` line
   equal to it, rewriting the line wherever it differs.
 - Rewrite the resume point with `reg.py resume` whenever what it names changes: a quota stop loses
@@ -80,8 +79,7 @@ independent. Stop once the bar is met.
 ## Every dispatch
 
 1. Read the live-agent table. Resume an agent still mid-task on the question rather than start
-   another; a resumed agent re-enters its files, so check they are still free, and run
-   `reg.py dispatch <register> <NAME> --id <id>` before a message resumes a banked one. A new round
+   another; a resumed agent re-enters its files, so check they are still free. A new round
    for a finished agent — a fix, a merge, a stopped landing — goes to a fresh agent once
    `reg.py context` reads its context past about 300k tokens (estimated), since every call of a
    resumed agent re-reads its whole context: a full brief, the old report as claims, every order in
@@ -106,8 +104,8 @@ independent. Stop once the bar is met.
    the Agent tool returns; the dispatch prompt names the brief and the messages file by full path.
    Every later message goes by `SendMessage` alone: the messages hook records it there, and a line
    `Rows: <row id>, …` in it routes those ledger rows. A message for later is a standing action,
-   queued with `reg.py queue <register> <trigger> <brief>`: `dispatch` ticks a brief's row, and you
-   tick a message's once it is sent.
+   queued with `reg.py queue <register> <trigger> <brief>` and ticked, once sent or withdrawn, by
+   the same command with `--done <evidence>`; `dispatch` ticks a brief's row.
 7. An agent that writes or plants runs in its own worktree (`isolation: "worktree"`), forked from your
    `HEAD`: commit what it needs first. A reader runs in your checkout.
 8. An `implementer` or `driving-reauditor` may message you mid-task through `SendMessage`, for what
@@ -155,8 +153,8 @@ independent. Stop once the bar is met.
   each commit body against it. A false body goes back to its own agent, the only one that can
   reword it. A stray file or a landing `land.py` stops goes to the agent, or to a fresh one where
   step 1 says so, which merges the session branch into its own; its exit 8 is the session branch's
-  own red. A twin refusal is answered by the rebase it names. A fix to landed work is a new commit
-  naming the one it corrects.
+  own red, and 9 and 10 are yours, as each prints. A twin refusal is answered by the rebase it
+  names. A fix to landed work is a new commit naming the one it corrects.
 - Check a claim you commit against that commit, and qualify every blanket negative to what you
   checked. Only the branch's final state passes the gate; never reorder or probe a commit to make
   it green alone.
@@ -170,8 +168,8 @@ independent. Stop once the bar is met.
   RED row still matching after its clearing landing is a finding. Start no driving re-audit until
   `ci.py` exits 0.
 - Run the suites in your checkout every few waves: CI is Linux. The bare gate is the ending's.
-- At a wave boundary `ledger.py open` exits 0, your checkout is clean, and after `reg.py prune`
-  every `git worktree list` entry left is a live agent's. Where Windows stops a removal at the path
+- At a wave boundary `ledger.py open` exits 0, your checkout is clean, and you have judged the
+  reason `reg.py prune` prints for each worktree it leaves. Where Windows stops a removal at the path
   limit, `rm -rf <path>` in Git Bash, then `git worktree prune -v`.
 
 ## The cycle

@@ -90,9 +90,10 @@ coordinator's rule alone, it is named in no brief.
 - **Above the width, pause gracefully.** Pause the agents beyond it, furthest from the critical path
   first: message each to commit its work in progress on its branch, restore any plant, write its
   state to its scratch folder and end its turn. A hard `TaskStop` leaves an agent mid-plant or
-  mid-edit, and the harness removes a worktree holding no commit. A paused agent's live row stays
-  RUNNING, since no tool writes a paused state: name each in the resume point, count it apart from
-  the gauge, and resume it by a message as the width allows.
+  mid-edit, and the harness removes a worktree holding no commit. Once each has ended its turn,
+  `reg.py pause <register> <NAME>…` sets its live row PAUSED, which `reg.py live` lists apart from
+  the RUNNING count; a message resumes it as the width allows, and the messages hook sets its row
+  RUNNING again.
 - **Where the width allows no agent**, start one background `sleep` ending at the five-hour reset.
 - **The weekly window** is warned of as at full speed: no per-agent rate in weekly points has been
   measured.

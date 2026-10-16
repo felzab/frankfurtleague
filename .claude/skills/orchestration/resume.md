@@ -32,11 +32,13 @@ Resume this session. Do not continue any work until you have finished this proto
      - finished and banked -> mark it done (`ledger.py open` flags such a row still RUNNING);
        finished and not banked -> bank its report from its transcript
        (`ledger.py bank --from <agent id>`, which marks it done and passes over a closing quota
-       error to the report before it), and judge its edits on disk against it.
+       error to the report before it, and refuses a transcript ending mid-turn, in a tool call or
+       a message to the agent, whose last text is an interim note: resume that agent instead), and
+       judge its edits on disk against it.
      - running -> leave it, and note what it owns.
      - paused, killed or unaccounted for -> resume it by the id the Agent tool returned, as a new
-       dispatch (`reg.py dispatch <register> <NAME> --id <id>` sets its row RUNNING again): check
-       its files are still free, and count nothing done until its acceptance evidence is on disk.
+       dispatch (the messages hook sets a PAUSED or DONE row RUNNING again): check its files are
+       still free, and count nothing done until its acceptance evidence is on disk.
        Resume them in one action, critical path first, up to the owner's cap, or under `/pace` up
        to the width with each counted by its `reg.py context` (modes.md): a resumed agent's first
        call re-creates its whole context's cache, and nineteen resumed at once re-created 8.4M
