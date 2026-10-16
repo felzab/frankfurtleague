@@ -70,7 +70,7 @@ _ADRESSWECHSEL_FELD: Final = {Collection.SCHIEDSRICHTER: ADRESSWECHSEL_FELD, Col
 # else or in another state (listed and left), or a record the restored database does not hold.
 Stand = Literal["to replay", "replayed", "already done", "left for review", "no such record"]
 
-Write = Callable[[AsyncClientSession], Awaitable[Any]]
+Rewrite = Callable[[AsyncClientSession], Awaitable[Any]]
 
 
 @dataclass(frozen=True)
@@ -84,7 +84,7 @@ class Read:
 @dataclass(frozen=True)
 class Plan:
     stand: Stand
-    write: Write | None = None
+    rewrite: Rewrite | None = None
 
 
 def read_day_files(lines: Iterable[str], *, since: datetime) -> tuple[list[Read], int]:
@@ -184,12 +184,12 @@ async def _plan_widerruf(line: JournalLine, database: AsyncDatabase, *, schluess
     if update is None:
         return Plan("already done")
 
-    async def write(session: AsyncClientSession) -> Any:
+    async def rewrite_withdrawal(session: AsyncClientSession) -> Any:
         return await patch_one_in_db(
             collection=collection, db_filter={"_id": row["_id"]}, update=update, session=session, return_document=ReturnDocument.BEFORE
         )
 
-    return Plan("to replay", write)
+    return Plan("to replay", rewrite_withdrawal)
 
 
 async def _plan_widerspruch(
@@ -217,7 +217,7 @@ async def _plan_widerspruch(
     # The German day the person declined on; the log's redaction below happens now, so its stamp is the replay's.
     declined_on = datetime.fromisoformat(line.am).astimezone(_GERMANY).strftime("%Y-%m-%d")
 
-    async def write(session: AsyncClientSession) -> Any:
+    async def rewrite_widerspruch(session: AsyncClientSession) -> Any:
         return await take_widerspruch_in_session(
             collection=collection,
             aktionen_collection=database[Collection.AKTIONEN],
@@ -228,7 +228,7 @@ async def _plan_widerspruch(
             session=session,
         )
 
-    return Plan("to replay", write)
+    return Plan("to replay", rewrite_widerspruch)
 
 
 async def _plan_adresswechsel(
@@ -250,7 +250,7 @@ async def _plan_adresswechsel(
     db_filter = {"_id": row["_id"], f"{feld}.email": wechsel["email"]}
 
     # The discard's body, which the person's decline runs too.
-    async def write(session: AsyncClientSession) -> Any:
+    async def rewrite_declined_address(session: AsyncClientSession) -> Any:
         if line.collection == Collection.SCHIEDSRICHTER:
             return await discard_adresswechsel_in_session(
                 schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
@@ -269,10 +269,12 @@ async def _plan_adresswechsel(
             session=session,
         )
 
-    return Plan("to replay", write)
+    return Plan("to replay", rewrite_declined_address)
 
 
-async def plan(line: JournalLine, database: AsyncDatabase, *, schluessel: SecretStr, session: AsyncClientSession | None, now: datetime) -> Plan:
+async def plan_replay(
+    line: JournalLine, database: AsyncDatabase, *, schluessel: SecretStr, session: AsyncClientSession | None, now: datetime
+) -> Plan:
     """What replaying a choice's line would write on the restored record, judged in `session` where one is given."""
 
     match line.art:
@@ -286,7 +288,7 @@ async def plan(line: JournalLine, database: AsyncDatabase, *, schluessel: Secret
             raise ValueError("an erasure is run again on its page, never replayed here")
 
 
-async def replay(line: JournalLine, client: AsyncMongoClient, database: AsyncDatabase, *, schluessel: SecretStr, now: datetime) -> Stand:
+async def replay_line(line: JournalLine, client: AsyncMongoClient, database: AsyncDatabase, *, schluessel: SecretStr, now: datetime) -> Stand:
     """Judge the line again inside one transaction and write it where it stands to be replayed.
 
     Recorded under the system actor, the call naming the line without its person, each line one action on the log's page.
@@ -296,21 +298,21 @@ async def replay(line: JournalLine, client: AsyncMongoClient, database: AsyncDat
     trace_token = trace_id_var.set(resolve_trace_id(None))
     try:
 
-        async def attempt(session: AsyncClientSession) -> Stand:
-            planned = await plan(line, database, schluessel=schluessel, session=session, now=now)
-            if planned.write is None:
+        async def judged_and_rewritten(session: AsyncClientSession) -> Stand:
+            planned = await plan_replay(line, database, schluessel=schluessel, session=session, now=now)
+            if planned.rewrite is None:
                 return planned.stand
-            await planned.write(session)
+            await planned.rewrite(session)
             return "replayed"
 
         async with transaction_session(client) as session:
-            return await session.with_transaction(attempt)
+            return await session.with_transaction(judged_and_rewritten)
     finally:
         trace_id_var.reset(trace_token)
         request_var.reset(request_token)
 
 
-async def run(
+async def run_replay(
     lines: Iterable[str],
     *,
     since: datetime,
@@ -350,9 +352,9 @@ async def run(
 
         try:
             stand = (
-                await replay(line, client, database, schluessel=schluessel, now=now)
+                await replay_line(line, client, database, schluessel=schluessel, now=now)
                 if apply
-                else (await plan(line, database, schluessel=schluessel, session=None, now=now)).stand
+                else (await plan_replay(line, database, schluessel=schluessel, session=None, now=now)).stand
             )
         # The type alone: a driver's or a validator's message can quote the stored document, an address among it.
         except (PyMongoError, BaseAPIException) as failure:
@@ -398,7 +400,7 @@ def _main() -> int:
             uuidRepresentation="standard",
         )
         try:
-            return await run(
+            return await run_replay(
                 sys.stdin,
                 since=since,
                 apply=arguments.apply,

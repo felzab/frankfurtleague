@@ -184,11 +184,11 @@ class Journal:
     ) -> Callable[[AsyncClientSession, *Arguments], Awaitable[T]]:
         """`callback`, noting afresh in each attempt: the driver runs it again on a transient error, and a rolled-back attempt did nothing."""
 
-        async def attempt(session: AsyncClientSession, *arguments: *Arguments) -> T:
+        async def noting_afresh(session: AsyncClientSession, *arguments: *Arguments) -> T:
             self._noted = []
             return await callback(session, *arguments)
 
-        return attempt
+        return noting_afresh
 
     def note(self, line: JournalLine) -> None:
         self._noted.append(line)
