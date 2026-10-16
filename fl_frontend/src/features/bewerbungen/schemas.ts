@@ -955,6 +955,7 @@ export const FLBewerbungSweepResponseSchema = BaseAPIResponseSchema.extend({
   ohne_entscheidung_geloescht: z.int().nonnegative(),
   kontaktbloecke_geleert: z.int().nonnegative(),
   redigierte_aktionen: z.int().nonnegative(),
+  fehlgeschlagen: z.int().nonnegative(),
 });
 export type FLBewerbungSweepResponse = z.infer<typeof FLBewerbungSweepResponseSchema>;
 
@@ -967,6 +968,7 @@ export type FLBewerbungSweepAngekuendigtPayload = z.infer<typeof FLBewerbungSwee
 export const FLBewerbungSweepAngekuendigtResponseSchema = BaseAPIResponseSchema.extend({
   saison_id: z.string(),
   angekuendigt: z.int().nonnegative(),
+  fehlgeschlagen: z.int().nonnegative(),
 });
 export type FLBewerbungSweepAngekuendigtResponse = z.infer<typeof FLBewerbungSweepAngekuendigtResponseSchema>;
 
@@ -980,6 +982,7 @@ export const FLBewerbungSweepLoeschenResponseSchema = BaseAPIResponseSchema.exte
   saison_id: z.string(),
   geloescht: z.int().nonnegative(),
   redigierte_aktionen: z.int().nonnegative(),
+  fehlgeschlagen: z.int().nonnegative(),
 });
 export type FLBewerbungSweepLoeschenResponse = z.infer<typeof FLBewerbungSweepLoeschenResponseSchema>;
 

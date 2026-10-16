@@ -5,6 +5,7 @@ A confirmed referee's pending address and a pupil's go the day after their link'
 administrator's discard takes each. The share's sizing is `tests/api/test_schiedsrichter_sweep_refusal.py`'s.
 """
 
+import re
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
 from typing import Any
@@ -399,12 +400,10 @@ class TestOneRecordHoldsBackNoOther:
         failures = [
             (record.levelname, record.getMessage()) for record in caplog.records if getattr(record, "error_code", None) == UNHANDLED_CRASH
         ]
-        assert failures == [
-            (
-                "ERROR",
-                f"The lapsed address change of referee {numbered(1)} was not removed, the failure not the database's: NotTheDatabases",
-            )
-        ]
+        # Located by the frame that raised it, and never by its message, which can quote a value.
+        [(level, line)] = failures
+        removed = rf"The lapsed address change of referee {numbered(1)} was not removed: NotTheDatabases in find_one at .+\.py:\d+"
+        assert (level, re.fullmatch(removed, line) is not None) == ("ERROR", True), line
 
     def test_a_refused_removal_is_passed_over_and_the_next_goes(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         """A log image stored before its validator required `trace_id` refuses the redaction's update. Remove the catch and the call fails."""

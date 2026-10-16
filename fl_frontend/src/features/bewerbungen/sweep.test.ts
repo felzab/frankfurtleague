@@ -27,7 +27,7 @@ type SweepLog = { event: string; saison_id: string | undefined };
 const logs: SweepLog[] = [];
 
 /** Every line as it was written, its fields whole: what a half reports per pass, and the code its failure carries. */
-const lines: { level: "info" | "error"; event: string; fields: unknown }[] = [];
+const lines: { level: "info" | "warn" | "error"; event: string; fields: unknown }[] = [];
 
 /** The sweep's switch as the doubled config answers it, which a case sets. */
 let sweepSwitch: string | undefined = "on";
@@ -94,7 +94,7 @@ const mail = doubleSendMail();
 const LOGGING_DOUBLE = {
   logger: {
     info: (event: string, fields?: unknown) => void lines.push({ level: "info", event, fields }),
-    warn: () => undefined,
+    warn: (event: string, fields?: unknown) => void lines.push({ level: "warn", event, fields }),
     error: (event: string, _message: unknown, fields?: { saison_id?: string }) => {
       logs.push({ event, saison_id: fields?.saison_id });
       lines.push({ level: "error", event, fields });
@@ -187,8 +187,9 @@ function sweepAnswers({
     }
     if (call.endpoint === "/bewerbungen/zustellung/angenommen") return { acknowledged: 1, angewendet: ["ansprechperson"] };
     if (call.endpoint === "/zustellung/angenommen") return { acknowledged: 1, angewendet: true };
-    if (call.endpoint.endsWith("/angekuendigt")) return { acknowledged: 1, saison_id: saisonId, angekuendigt: 1 };
-    if (call.endpoint.endsWith("/loeschen")) return { acknowledged: 1, saison_id: saisonId, geloescht: 1, redigierte_aktionen: 1 };
+    if (call.endpoint.endsWith("/angekuendigt")) return { acknowledged: 1, saison_id: saisonId, angekuendigt: 1, fehlgeschlagen: 0 };
+    if (call.endpoint.endsWith("/loeschen"))
+      return { acknowledged: 1, saison_id: saisonId, geloescht: 1, redigierte_aktionen: 1, fehlgeschlagen: 0 };
     if (call.endpoint.startsWith("/registrierungen/sweep/")) {
       return {
         acknowledged: 1,
@@ -199,6 +200,7 @@ function sweepAnswers({
         geloescht_ohne_entscheidung: 0,
         geloescht_abgelehnt: 0,
         redigierte_aktionen: 0,
+        fehlgeschlagen: 0,
       };
     }
 
@@ -212,6 +214,7 @@ function sweepAnswers({
       ohne_entscheidung_geloescht: 0,
       kontaktbloecke_geleert: 0,
       redigierte_aktionen: 0,
+      fehlgeschlagen: 0,
     };
   });
 }
@@ -697,6 +700,7 @@ describe("one pass of the sweep", () => {
           geloescht_ohne_entscheidung: 0,
           geloescht_abgelehnt: 0,
           redigierte_aktionen: 0,
+          fehlgeschlagen: 0,
         };
       }
       return {
@@ -709,6 +713,7 @@ describe("one pass of the sweep", () => {
         ohne_entscheidung_geloescht: 0,
         kontaktbloecke_geleert: 0,
         redigierte_aktionen: 0,
+        fehlgeschlagen: 0,
       };
     });
 
@@ -917,6 +922,7 @@ describe("the registration half of one pass", () => {
         ohne_entscheidung_geloescht: 0,
         kontaktbloecke_geleert: 0,
         redigierte_aktionen: 0,
+        fehlgeschlagen: 0,
       };
     });
 
@@ -944,6 +950,7 @@ describe("the registration half of one pass", () => {
         geloescht_ohne_entscheidung: 0,
         geloescht_abgelehnt: 0,
         redigierte_aktionen: 0,
+        fehlgeschlagen: 0,
       };
     });
 
@@ -969,6 +976,7 @@ describe("the registration half of one pass", () => {
           geloescht_ohne_entscheidung: 0,
           geloescht_abgelehnt: 0,
           redigierte_aktionen: 0,
+          fehlgeschlagen: 0,
         };
       }
 
@@ -982,6 +990,7 @@ describe("the registration half of one pass", () => {
         ohne_entscheidung_geloescht: 0,
         kontaktbloecke_geleert: 0,
         redigierte_aktionen: 0,
+        fehlgeschlagen: 0,
       };
     });
 
@@ -1009,6 +1018,7 @@ describe("the registration half of one pass", () => {
           geloescht_ohne_entscheidung: 0,
           geloescht_abgelehnt: 0,
           redigierte_aktionen: 0,
+          fehlgeschlagen: 0,
         };
       }
 
@@ -1022,6 +1032,7 @@ describe("the registration half of one pass", () => {
         ohne_entscheidung_geloescht: 0,
         kontaktbloecke_geleert: 0,
         redigierte_aktionen: 0,
+        fehlgeschlagen: 0,
       };
     });
 
@@ -1031,7 +1042,97 @@ describe("the registration half of one pass", () => {
   });
 });
 
+describe("the line each season half files for a pass", () => {
+  /** The two season halves' lines, as an operator greps them. */
+  const seasonLines = () => lines.filter(({ event }) => event === "bewerbung.sweep_pass" || event === "registrierung.sweep_pass");
+
+  /**
+   * Two seasons: the application half of the first passes rows over in all three calls, the registration half of the
+   * second in its one. Each count is distinct, so a sum missing one reads as another number.
+   */
+  function passingRowsOver(angekuendigtAnswer: (saisonId: string) => unknown): void {
+    answerWith((call) => {
+      const saisonId = saisonOf(call);
+      if (call.method === "GET") {
+        return { acknowledged: 1, saison_ids: ["2526", "2627"], sweep_gelaufen_am: null, registrierung_sweep_gelaufen_am: null };
+      }
+      if (call.endpoint === "/bewerbungen/zustellung/angenommen") return { acknowledged: 1, angewendet: ["ansprechperson"] };
+      if (call.endpoint.endsWith("/angekuendigt")) return angekuendigtAnswer(saisonId);
+      if (call.endpoint.endsWith("/loeschen")) {
+        return { acknowledged: 1, saison_id: saisonId, geloescht: 1, redigierte_aktionen: 1, fehlgeschlagen: 4 };
+      }
+      if (call.endpoint.startsWith("/registrierungen/sweep/")) {
+        return {
+          acknowledged: 1,
+          saison_id: saisonId,
+          erinnerungen: [],
+          benachrichtigt: [],
+          geloescht_unbestaetigt: 0,
+          geloescht_ohne_entscheidung: 0,
+          geloescht_abgelehnt: 0,
+          redigierte_aktionen: 0,
+          fehlgeschlagen: saisonId === "2627" ? 8 : 0,
+        };
+      }
+
+      return {
+        acknowledged: 1,
+        saison_id: saisonId,
+        erinnerungen: [],
+        loeschungen: saisonId === "2526" ? [deletion(ID_REACHED, "reached@schule.de")] : [],
+        abgelehnte_geloescht: 0,
+        angenommene_geloescht: 0,
+        ohne_entscheidung_geloescht: 0,
+        kontaktbloecke_geleert: 0,
+        redigierte_aktionen: 0,
+        fehlgeschlagen: saisonId === "2526" ? 1 : 0,
+      };
+    });
+  }
+
+  it("files one line a pass for each half, at info where no call passed a row over", async () => {
+    sweepAnswers({ saisonIds: ["2526", "2627"] });
+
+    await runBewerbungSweep();
+
+    assert.deepEqual(seasonLines(), [
+      { level: "info", event: "bewerbung.sweep_pass", fields: { fehlgeschlagen: 0 } },
+      { level: "info", event: "registrierung.sweep_pass", fields: { fehlgeschlagen: 0 } },
+    ]);
+  });
+
+  /* A clock failing on every row still answers 200 and stamps the day, so a fresh date cannot tell it from a healthy
+     one: this warning is the one line that can (`docs/ops/runbooks.md` section 9). */
+  it("warns the rows each half passed over, summed over every season and call", async () => {
+    passingRowsOver((saisonId) => ({ acknowledged: 1, saison_id: saisonId, angekuendigt: 1, fehlgeschlagen: 2 }));
+
+    await runBewerbungSweep();
+
+    assert.deepEqual(seasonLines(), [
+      { level: "warn", event: "bewerbung.sweep_pass", fields: { error_code: "FE-SWEEP-001", fehlgeschlagen: 7 } },
+      { level: "warn", event: "registrierung.sweep_pass", fields: { error_code: "FE-SWEEP-001", fehlgeschlagen: 8 } },
+    ]);
+  });
+
+  it("keeps the counts of the calls that answered where a later call of the half throws", async () => {
+    passingRowsOver(() => {
+      throw new Error("the stamp was refused");
+    });
+
+    await runBewerbungSweep();
+
+    assert.deepEqual(seasonLines()[0], {
+      level: "warn",
+      event: "bewerbung.sweep_pass",
+      fields: { error_code: "FE-SWEEP-001", fehlgeschlagen: 1 },
+    });
+  });
+});
+
 describe("the two halves after the season loop", () => {
+  /** The season halves' own pass lines, which come first in every pass and are another case's. */
+  const SEASON_HALVES = /^(bewerbung|registrierung)\.sweep_pass$/;
+
   /** The calls of the lapsed addresses' half and of the pupils' half, in the order they ran. */
   const halves = (): string[] =>
     apiCalls()
@@ -1128,7 +1229,7 @@ describe("the two halves after the season loop", () => {
     await runBewerbungSweep();
 
     assert.deepEqual(
-      lines.filter(({ level }) => level === "info"),
+      lines.filter(({ level, event }) => level === "info" && !SEASON_HALVES.test(event)),
       [
         { level: "info", event: "schiedsrichter.adresswechsel_sweep_pass", fields: { entfernt: 1, verbleibend: 42 } },
         {
@@ -1264,7 +1365,7 @@ describe("the two halves after the season loop", () => {
     await runBewerbungSweep();
 
     assert.deepEqual(
-      lines.filter(({ level }) => level === "info"),
+      lines.filter(({ level, event }) => level === "info" && !SEASON_HALVES.test(event)),
       [
         { level: "info", event: "schiedsrichter.adresswechsel_sweep_pass", fields: { entfernt: 2, verbleibend: 0 } },
         {
