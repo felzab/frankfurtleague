@@ -76,6 +76,7 @@ from app.core.crud import aggregate_many_from_db, anchor_in_db, patch_many_in_db
 from app.core.db import warn_about_the_grants
 from app.core.drosselung import erase_counts_in_session
 from app.core.exception_handlers import DATABASE_FAILED
+from app.core.journal import JournalLine, lost_its_answer
 from app.core.logging import fl_logger, journal_logger
 from app.core.recording import ERASED_ACTOR_MARKER, SYSTEM_ACTOR_EMAIL
 from app.core.security import akteur_pseudonym, loeschung_journal_hash
@@ -775,14 +776,6 @@ async def erase_everything(
     )
 
 
-# What every erasure journal line opens with: a token rather than a sentence, so the host's daily
-# export matches the day's lines by it whatever wording surrounds it.
-ERASURE_JOURNAL_EVENT: Final = "loeschung-journal"
-
-# The driver's label on a commit whose answer was lost: the erasure may have landed.
-UNKNOWN_COMMIT_RESULT: Final = "UnknownTransactionCommitResult"
-
-
 class ErasureJournal[Erased: FLErasure]:
     """Entered around every erasure route's transaction block: the journal and the warnings follow its commit.
 
@@ -818,11 +811,12 @@ class ErasureJournal[Erased: FLErasure]:
         # A lost answer, never a refusal (which raises before any commit): it may have landed, and replaying an
         # erasure the person asked for wrongs nobody. Unwarned: the warning's read would meet the deadline that
         # lost the answer.
-        elif isinstance(failure, PyMongoError) and failure.has_error_label(UNKNOWN_COMMIT_RESULT):
+        elif lost_its_answer(failure):
             self._journal()
 
     def _journal(self) -> None:
-        journal_logger.info(f"{ERASURE_JOURNAL_EVENT} {loeschung_journal_hash(self._identifier, schluessel=self._schluessel)}")
+        line = JournalLine(person_hash=loeschung_journal_hash(self._identifier, schluessel=self._schluessel), art="loeschung")
+        journal_logger.info(line.text())
 
     async def _warn_about_the_grants(self) -> None:
         # Logged, never raised: the erasure committed, and an error answered here, a read meeting the deadline

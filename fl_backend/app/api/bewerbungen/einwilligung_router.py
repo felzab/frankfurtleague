@@ -1,4 +1,4 @@
-from collections.abc import Iterable, Mapping
+from collections.abc import Mapping
 from datetime import datetime
 from typing import Annotated, Any
 
@@ -26,8 +26,6 @@ from app.api.bewerbungen.services import (
     build_saison_token_filter,
     build_token_filter,
     compose_confirmation_update,
-    compose_decline_update,
-    compose_saison_decline_update,
     find_already_answered_refusal,
     find_alter_refusal,
     find_einwilligung_gesperrt_refusal,
@@ -49,11 +47,11 @@ from app.api.bewerbungen.services import (
     zustand_of,
 )
 from app.api.einwilligung.services import find_fassung_refusal, find_selbst_medien_refusal
-from app.api.kontakte.crud import redact_seats_in_documents
+from app.api.kontakte.crud import take_widerspruch_in_session
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
 from app.api.teams.services import kontakt_zeile_of
 from app.core.collections import Collection
-from app.core.config import API_VERSION
+from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import patch_one_in_db, refuse
 from app.core.dependencies import (
     AktionenCollection,
@@ -66,11 +64,11 @@ from app.core.dependencies import (
     get_germany_now,
 )
 from app.core.exception_handlers import stores_nothing
+from app.core.journal import Journal, JournalLine
 from app.core.recording import log_stamp
-from app.core.security import bind_public_actor, verify_access_base
+from app.core.security import bind_public_actor, loeschung_journal_hash, verify_access_base
 from app.core.transactions import transaction_session
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
-from app.shared.folding import sign_in_identifier
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS
 
 # A THIRD router on the prefix, beside the admin one and the public create: the token is the whole
@@ -94,28 +92,6 @@ async def _schule_name(*, bewerbung_raw: Mapping[str, Any], teams_collection: Te
     assert team_raw is not None
 
     return bewerbung_schule(bewerbung_raw=bewerbung_raw, club_name=team_raw.get("name"))
-
-
-async def _redact_the_decliner(
-    *,
-    aktionen_collection: AktionenCollection,
-    collection: Collection,
-    row_id: Any,
-    adressen: Iterable[str],
-    stamp: str,
-    session: AsyncClientSession,
-) -> None:
-    """The declining person's seats out of every log image of this one row, which is all a Widerspruch reaches."""
-
-    await redact_seats_in_documents(
-        aktionen_collection=aktionen_collection,
-        documents=[(collection, [row_id])],
-        identifiers={sign_in_identifier(adresse) for adresse in adressen},
-        # The link stays with the seat, its decline recorded on it, as the live write leaves it.
-        links=False,
-        stamp=stamp,
-        session=session,
-    )
 
 
 async def _saison_ansicht(
@@ -253,6 +229,7 @@ async def post_einwilligung(
     aktionen_collection: AktionenCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
+    config: Annotated[BackendConfig, Depends(get_app_config)],
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLBewerbungEinwilligungAntwortResponse | FLSaisonTeamEinwilligungAntwortResponse:
@@ -284,6 +261,28 @@ async def post_einwilligung(
     # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_gesperrt`), and only for the
     # answer that asks the ban.
     massgebliche_saison_id = await sperrliste_saison(sperrliste) if antwort_data.antwort == "erteilt" else None
+    # One instant for the decline's day and its journal line, so a replay records the day the person declined on.
+    am = log_stamp(germany_now)
+    journal = Journal()
+
+    async def widerspruch(
+        home: Collection, row: Mapping[str, Any], seat: str, seats: tuple[str, ...], session: AsyncClientSession
+    ) -> Mapping[str, Any]:
+        updated = await take_widerspruch_in_session(
+            collection=bewerbungen_collection if home == Collection.BEWERBUNGEN else saison_teams_collection,
+            aktionen_collection=aktionen_collection,
+            row=row,
+            seats=seats,
+            today=today,
+            stamp=am,
+            session=session,
+        )
+        # Keyed on the link's own seat, whose person pressed; an emptied one holds nobody a replay could find again.
+        for adresse in seat_adressen(kontakte=row.get("kontakte"), seats=(seat,)):
+            hashed = loeschung_journal_hash(adresse, schluessel=config.sperrliste_schluessel)
+            journal.note(JournalLine(person_hash=hashed, art="widerspruch", collection=home, record_id=row["_id"], am=am, sitze=seats))
+
+        return updated
 
     async def answer_on_the_season_row(session: AsyncClientSession) -> FLSaisonTeamEinwilligungAntwortResponse:
         """The application's judgement in its order, on the season row holding the token; a miss there is the unknown-token refusal."""
@@ -351,27 +350,11 @@ async def post_einwilligung(
                 ergebnis="bestaetigt", geburtsdatum=geburtsdatum, whatsapp=antwort_data.whatsapp, medien=antwort_data.medien
             )
 
-        await patch_one_in_db(
-            collection=saison_teams_collection,
-            db_filter={"_id": row["_id"]},
-            update=compose_saison_decline_update(seats=seats, today=today),
-            session=session,
-            return_document=ReturnDocument.BEFORE,
-        )
-
-        # LAST, for the application's reason: it reaches the pre-image the clearing patch just filed,
-        # which still holds the person who refused to be held.
-        await _redact_the_decliner(
-            aktionen_collection=aktionen_collection,
-            collection=Collection.SAISON_TEAMS,
-            row_id=row["_id"],
-            adressen=seat_adressen(kontakte=kontakte, seats=seats),
-            stamp=log_stamp(germany_now),
-            session=session,
-        )
+        await widerspruch(Collection.SAISON_TEAMS, row, seat, seats, session)
 
         return FLSaisonTeamEinwilligungAntwortResponse(ergebnis="abgelehnt", geburtsdatum=None, whatsapp=antwort_data.whatsapp, medien=False)
 
+    @journal.attempted
     async def answer_for_the_person(
         session: AsyncClientSession,
     ) -> FLBewerbungEinwilligungAntwortResponse | FLSaisonTeamEinwilligungAntwortResponse:
@@ -466,24 +449,7 @@ async def post_einwilligung(
                 ansprechperson_rollen=bestaetigt_rollen,
             )
 
-        updated_raw = await patch_one_in_db(
-            collection=bewerbungen_collection,
-            db_filter={"_id": bewerbung_raw["_id"]},
-            update=compose_decline_update(seats=seats, today=today),
-            session=session,
-            return_document=ReturnDocument.AFTER,
-        )
-
-        # LAST, so it reaches the pre-image the clearing patch just filed, which still holds the
-        # person who refused to be held (`app/api/kontakte/crud.py :: erase_kontaktperson_in_session`).
-        await _redact_the_decliner(
-            aktionen_collection=aktionen_collection,
-            collection=Collection.BEWERBUNGEN,
-            row_id=bewerbung_raw["_id"],
-            adressen=seat_adressen(kontakte=kontakte, seats=seats),
-            stamp=log_stamp(germany_now),
-            session=session,
-        )
+        updated_raw = await widerspruch(Collection.BEWERBUNGEN, bewerbung_raw, seat, seats, session)
 
         # Off the UPDATED document, so an Ansprechperson who has just declined leaves this null and
         # the message their decline would have gone to is not composed at all.
@@ -505,5 +471,6 @@ async def post_einwilligung(
             ansprechperson_rollen=abgelehnt_rollen,
         )
 
-    async with transaction_session(db) as session:
-        return await session.with_transaction(answer_for_the_person)
+    async with journal:
+        async with transaction_session(db) as session:
+            return await session.with_transaction(answer_for_the_person)

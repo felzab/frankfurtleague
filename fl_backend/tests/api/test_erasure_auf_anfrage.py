@@ -23,7 +23,6 @@ from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.identitaet.admin_router import erase_auf_anfrage, get_erasure_ansicht_auf_anfrage
-from app.api.identitaet.crud import ERASURE_JOURNAL_EVENT
 from app.api.identitaet.schemas import FLErasure, FLErasureAnsichtPayload, FLErasureAnsichtResponse, FLErasurePayload, FLErasureResponse
 from app.api.identitaet.services import (
     EIGENE_ADRESSE,
@@ -42,6 +41,7 @@ from app.core.config import API_VERSION
 from app.core.crud import ANCHOR_FIELD, ANCHOR_WRITTEN_AT, patch_one_in_db
 from app.core.db import DEAD_GRANT, get_aktionen_collection, get_spieler_collection
 from app.core.exception_handlers import DATABASE_FAILED, PAYLOAD_REFUSED, UNKNOWN_OUTCOME
+from app.core.journal import JOURNAL_TOKEN
 from app.core.recording import Actor
 from app.core.security import ACTOR_NOT_ADMIN, get_recent_confirmation_check
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID, GHOST_SPIELER_ID
@@ -219,7 +219,7 @@ async def revealed(database: AsyncDatabase, client: AsyncMongoClient, email: str
 
 
 def journal_lines(caplog: pytest.LogCaptureFixture) -> list[str]:
-    return [record.getMessage() for record in caplog.records if record.getMessage().startswith(ERASURE_JOURNAL_EVENT)]
+    return [record.getMessage() for record in caplog.records if record.getMessage().startswith(JOURNAL_TOKEN)]
 
 
 async def filed_by(database: AsyncDatabase, path: str) -> list[Mapping[str, Any]]:

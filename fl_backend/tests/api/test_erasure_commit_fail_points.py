@@ -14,9 +14,10 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import PyMongoError
 
-from app.api.identitaet.crud import ERASURE_JOURNAL_EVENT, UNKNOWN_COMMIT_RESULT
 from app.core.db import NO_OWNER
+from app.core.journal import JOURNAL_TOKEN
 from app.core.security import loeschung_journal_hash
+from app.core.transactions import UNKNOWN_COMMIT_RESULT
 from tests.whole_database import where_held
 
 from .test_erasure_auf_anfrage import CONFIG as REQUEST_CONFIG
@@ -65,7 +66,7 @@ class TestThePersonsOwnErasure:
         with caplog.at_level(logging.INFO):
             commits, labelled, after = on_their_league(mongo_replica_set_url, body)
 
-        lines = [record.getMessage() for record in caplog.records if record.getMessage().startswith(ERASURE_JOURNAL_EVENT)]
+        lines = [record.getMessage() for record in caplog.records if record.getMessage().startswith(JOURNAL_TOKEN)]
 
         # The premise first, so a failure names its cause: one commit ran, its answer was lost, and the erasure landed.
         assert (commits, labelled, after) == (1, True, {IDENTIFIER: []})
@@ -99,7 +100,7 @@ class TestThePersonsOwnErasure:
         with caplog.at_level(logging.INFO):
             refused, removed = on_their_league(mongo_replica_set_url, body)
 
-        lines = [record for record in caplog.records if record.getMessage().startswith(ERASURE_JOURNAL_EVENT)]
+        lines = [record for record in caplog.records if record.getMessage().startswith(JOURNAL_TOKEN)]
         warnings = [getattr(record, "error_code", None) for record in caplog.records].count(NO_OWNER.error_code)
 
         assert (len(lines), warnings) == (1, 1)
@@ -132,7 +133,7 @@ class TestAnErasureOnRequest:
             refused, erased = on_the_administrators_league(mongo_replica_set_url, body)
 
         assert journal_lines(caplog) == [
-            f"{ERASURE_JOURNAL_EVENT} {loeschung_journal_hash(IDENTIFIER, schluessel=REQUEST_CONFIG.sperrliste_schluessel)}"
+            f"{JOURNAL_TOKEN} {loeschung_journal_hash(IDENTIFIER, schluessel=REQUEST_CONFIG.sperrliste_schluessel)} loeschung"
         ]
         # The premise last: one commit refused, so the line above is the rerun's alone.
         assert (refused, erased) == (1, 1)
@@ -163,5 +164,5 @@ class TestAnErasureOnRequest:
         # The premise first, so a failure names its cause: one commit ran, its answer was lost, and the erasure landed.
         assert (commits, labelled, after) == (1, True, {IDENTIFIER: []})
         assert journal_lines(caplog) == [
-            f"{ERASURE_JOURNAL_EVENT} {loeschung_journal_hash(IDENTIFIER, schluessel=REQUEST_CONFIG.sperrliste_schluessel)}"
+            f"{JOURNAL_TOKEN} {loeschung_journal_hash(IDENTIFIER, schluessel=REQUEST_CONFIG.sperrliste_schluessel)} loeschung"
         ]

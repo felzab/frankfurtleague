@@ -2,10 +2,10 @@
 #
 # SCRIPTS · copy the erasure journal's lines out of the backend's logs into one host file per day.
 #
-# A restore runs again every requested erasure its snapshot predates, read off these lines, and the
-# stream they are written to outlives neither a recreate nor its own size cap: the day files outlive
-# both, for the thirty days `docs/ops/runbooks.md` §7 ages the directory by. The hourly timer that
-# section installs runs it, and it writes no database.
+# A restore runs again every requested erasure and every journalled choice its snapshot predates, read
+# off these lines, and the stream they are written to outlives neither a recreate nor its own size cap:
+# the day files outlive both, for the thirty days `docs/ops/runbooks.md` §7 ages the directory by. The
+# hourly timer that section installs runs it, and it writes no database.
 #
 #   ./scripts/ops/export_journal.sh            union every day the backend's logs still hold into its day file
 #   ./scripts/ops/export_journal.sh --help
@@ -18,8 +18,8 @@ COMPOSE="docker-compose.yml"
 # files land beside them under the one age bound runbooks §7 sets.
 LOG_DIR="/var/log/frankfurtleague"
 
-# The token opening every journal line, `fl_backend/app/api/identitaet/crud.py :: ERASURE_JOURNAL_EVENT`,
-# held to it by `scripts/tests/test_export_journal.py`: a line it misses is an erasure no restore runs again.
+# The token opening every journal line, `fl_backend/app/core/journal.py :: JOURNAL_TOKEN`, held to it by
+# `scripts/tests/test_export_journal.py`: a line it misses is an act no restore runs again.
 JOURNAL_TOKEN="loeschung-journal"
 
 # The days a pass writes, today the last. At most runbooks §7's age bound, held to it by

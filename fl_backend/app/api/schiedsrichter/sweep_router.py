@@ -7,7 +7,6 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.errors import PyMongoError
 
-from app.api.identitaet.crud import UNKNOWN_COMMIT_RESULT
 from app.api.schiedsrichter.crud import discard_adresswechsel_in_session
 from app.api.schiedsrichter.schemas import FLAdresswechselSweepParams, FLSchiedsrichterAdresswechselSweepResponse
 from app.api.schiedsrichter.services import build_lapsed_adresswechsel_filter
@@ -29,7 +28,7 @@ from app.core.exceptions import DocumentNotFoundException
 from app.core.logging import fl_logger
 from app.core.recording import log_stamp
 from app.core.security import bind_system_actor, verify_access_system
-from app.core.transactions import diagnosis_of, transaction_session
+from app.core.transactions import UNKNOWN_COMMIT_RESULT, diagnosis_of, transaction_session
 
 # System tier and the system actor: the clock removes a lapsed address, and no administrator pressed anything.
 router = APIRouter(

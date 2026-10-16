@@ -60,7 +60,7 @@ from app.core.sentinels import GHOST_SPIELER_ID
 from app.core.transactions import transaction_session
 from tests import documents
 from tests.bans import ban_list, ban_through_the_route
-from tests.config import grants_for_the_suite
+from tests.config import build_test_config, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.holds import HeldCollection
 from tests.records import record_collections
@@ -179,6 +179,7 @@ async def answer(
         sperrliste=ban_list(database),
         aktionen_collection=database[Collection.AKTIONEN],
         db=client,
+        config=build_test_config(),
         today=today,
         germany_now=NOW,
     )

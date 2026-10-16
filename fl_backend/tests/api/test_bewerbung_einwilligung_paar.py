@@ -17,6 +17,7 @@ from app.core.exceptions import WriteRefusalException
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from tests import documents
 from tests.bans import ban_list
+from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import kontaktperson_document
 from tests.worker import worker_database
@@ -108,6 +109,7 @@ async def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str, 
         aktionen_collection=database[Collection.AKTIONEN],
         sperrliste=ban_list(database),
         db=client,
+        config=build_test_config(),
         today=TODAY,
         germany_now=NOW,
     )
