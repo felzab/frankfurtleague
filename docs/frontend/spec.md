@@ -795,8 +795,8 @@ unconditionally on every match write.
 
 `saisons`, `spieler` and `spieltage` are cached under Next's `days` profile, so an edit made
 **directly in MongoDB** is served stale until somebody drops it or a visit refreshes the entry: the
-profile's day is a revalidation and not an expiry, so the first visit a day after the entry was filled
-is still answered from it while it refreshes.
+profile's day is a revalidation and not an expiry, so the first visit once that day has passed, up
+to the profile's week, is still answered from the entry while it refreshes.
 
 Each of the three has an admin page that invalidates as it saves (declared by the action, dropped by its spine), so
 an edit made through the app is visible at once and only a hand edit goes around it — the symptom a
