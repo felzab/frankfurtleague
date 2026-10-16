@@ -817,7 +817,6 @@ const reminder = (registrierungId: string, email: string, token: string) => ({
   registrierung_id: registrierungId,
   saison_id: "2627",
   team: "Adler",
-  vorname: "Quillhilde",
   email: email,
   token: token,
 });

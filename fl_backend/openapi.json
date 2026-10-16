@@ -20074,11 +20074,6 @@
             "type": "string",
             "title": "Team"
           },
-          "vorname": {
-            "type": "string",
-            "minLength": 1,
-            "title": "Vorname"
-          },
           "email": {
             "type": "string",
             "minLength": 1,
@@ -20095,7 +20090,6 @@
           "registrierung_id",
           "saison_id",
           "team",
-          "vorname",
           "email",
           "token"
         ],
