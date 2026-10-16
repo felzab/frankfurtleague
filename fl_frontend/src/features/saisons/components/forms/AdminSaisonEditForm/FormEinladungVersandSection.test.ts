@@ -641,7 +641,7 @@ describe("the season's bulk invite send", () => {
     [[], [uebersprungen(ID("b"))], "info", "Kein Registrierungslink gesendet"],
     [[], [uebersprungen(ID("b")), uebersprungen(ID("c"))], "info", "Keine Registrierungslinks gesendet"],
   ] as const) {
-    it(`titles a press of ${String(zeilen.length)} rows whose teams' links ended ${versendet.join(", ") || "nowhere"} „${title}“`, async () => {
+    it(`titles a press whose teams' links ended ${versendet.join(", ") || "nowhere"} „${title}“`, async () => {
       const user = userEvent.setup();
       answerWith(vorschauAntwort(VORSCHAU));
       render(panel());
