@@ -1,5 +1,5 @@
 """
-API · an erasure's journal at a commit the server refuses or whose answer is lost, on both erasure routes
+API · a commit the server refuses or whose answer is lost: both erasures' journal, and each sweep's unanswered line
 
 Every case configuring `failCommand` lives in this module: the fail point is one setting the server holds for all
 workers, so a second module configuring it on another worker would replace this one's configuration, and either case's
@@ -7,6 +7,7 @@ workers, so a second module configuring it on another worker would replace this 
 """
 
 import logging
+from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any
 
@@ -16,7 +17,9 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import PyMongoError
 
 from app.api.identitaet.crud import ERASURE_JOURNAL_EVENT, UNKNOWN_COMMIT_RESULT
+from app.core.collections import Collection
 from app.core.db import NO_OWNER
+from app.core.exception_handlers import DATABASE_FAILED, UNKNOWN_OUTCOME
 from app.core.security import loeschung_journal_hash
 from tests.whole_database import where_held
 
@@ -27,6 +30,14 @@ from .test_erasure_auf_anfrage import on_a_league as on_the_administrators_leagu
 from .test_funktionen_erasure import IDENTIFIER, THEIR_GRANT_OID, a_grant
 from .test_funktionen_erasure import erased_by_the_handler as erased_by_the_person
 from .test_funktionen_erasure import on_a_league as on_their_league
+from .test_loeschung_sweep import a_due_pupil, seeded
+from .test_loeschung_sweep import numbered as pupil_numbered
+from .test_loeschung_sweep import on_a_league as on_the_pupils_league
+from .test_loeschung_sweep import run as a_deletion_call
+from .test_schiedsrichter_sweep_execution import MINTED_TO_LAPSE_YESTERDAY, a_referee
+from .test_schiedsrichter_sweep_execution import numbered as referee_numbered
+from .test_schiedsrichter_sweep_execution import on_a_league as on_the_referees_league
+from .test_schiedsrichter_sweep_execution import sweep as an_address_change_call
 
 # The client a configuration hits, chosen by its name: the commits of every other client, each seed's own among them,
 # run as they would.
@@ -38,6 +49,11 @@ LOST_COMMIT_APP = "erasure-lost-commit"
 # The server's code for an operation out of time, on which `with_transaction` never retries a commit: it raises the
 # unknown result at once, so the case holds no deadline that could run out before the commit is sent.
 MAX_TIME_EXPIRED = 50
+UNANSWERED: dict[str, Any] = {
+    "failCommands": ["commitTransaction"],
+    "appName": LOST_COMMIT_APP,
+    "writeConcernError": {"code": MAX_TIME_EXPIRED, "errmsg": "operation exceeded time limit"},
+}
 
 FAIL_POINT = "failCommand"
 TESTS_ROOT = Path(__file__).resolve().parents[1]
@@ -82,12 +98,7 @@ class TestThePersonsOwnErasure:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             commits = _Commits()
             losing = AsyncMongoClient(mongo_replica_set_url, serverMonitoringMode="poll", appname=LOST_COMMIT_APP, event_listeners=[commits])
-            unanswered = {
-                "failCommands": ["commitTransaction"],
-                "appName": LOST_COMMIT_APP,
-                "writeConcernError": {"code": MAX_TIME_EXPIRED, "errmsg": "operation exceeded time limit"},
-            }
-            await client.admin.command("configureFailPoint", FAIL_POINT, mode={"times": 1}, data=unanswered)
+            await client.admin.command("configureFailPoint", FAIL_POINT, mode={"times": 1}, data=UNANSWERED)
             try:
                 with pytest.raises(PyMongoError) as lost:
                     await erased_by_the_person(losing[database.name], losing)
@@ -185,12 +196,7 @@ class TestAnErasureOnRequest:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             commits = _Commits()
             losing = AsyncMongoClient(mongo_replica_set_url, serverMonitoringMode="poll", appname=LOST_COMMIT_APP, event_listeners=[commits])
-            unanswered = {
-                "failCommands": ["commitTransaction"],
-                "appName": LOST_COMMIT_APP,
-                "writeConcernError": {"code": MAX_TIME_EXPIRED, "errmsg": "operation exceeded time limit"},
-            }
-            await client.admin.command("configureFailPoint", FAIL_POINT, mode={"times": 1}, data=unanswered)
+            await client.admin.command("configureFailPoint", FAIL_POINT, mode={"times": 1}, data=UNANSWERED)
             try:
                 with pytest.raises(PyMongoError) as lost:
                     await erased_on_request(losing[database.name], losing)
@@ -207,4 +213,75 @@ class TestAnErasureOnRequest:
         assert (commits, labelled, after) == ([MAX_TIME_EXPIRED], True, {IDENTIFIER: []})
         assert journal_lines(caplog) == [
             f"{ERASURE_JOURNAL_EVENT} {loeschung_journal_hash(IDENTIFIER, schluessel=REQUEST_CONFIG.sperrliste_schluessel)}"
+        ]
+
+
+async def _first_commit_unanswered(
+    url: str, database: AsyncDatabase, client: AsyncMongoClient, call: Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
+) -> list[int | None]:
+    """`call` on a client of its own, whose first commit lands and answers only that its time ran out; each commit's answer."""
+
+    commits = _Commits()
+    losing = AsyncMongoClient(url, serverMonitoringMode="poll", appname=LOST_COMMIT_APP, event_listeners=[commits])
+    await client.admin.command("configureFailPoint", FAIL_POINT, mode={"times": 1}, data=UNANSWERED)
+    try:
+        await call(losing[database.name], losing)
+    finally:
+        await client.admin.command("configureFailPoint", FAIL_POINT, mode="off")
+        await losing.close()
+
+    return commits.answered
+
+
+def _stopping_lines(caplog: pytest.LogCaptureFixture) -> list[tuple[str | None, str]]:
+    return [
+        (getattr(record, "error_code", None), record.getMessage())
+        for record in caplog.records
+        if getattr(record, "error_code", None) in {DATABASE_FAILED, UNKNOWN_OUTCOME}
+    ]
+
+
+@pytest.mark.db
+class TestTheSweepsNameACommitTheyCannotRead:
+    """Each sweep reads the unknown-result label off the timeout its commit raised: without it, the line says the row stays due."""
+
+    def test_the_deletion_pass_names_the_pupil_whose_erasure_went_unanswered(
+        self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture
+    ):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await seeded(database, a_due_pupil(1), a_due_pupil(2))
+
+            return await _first_commit_unanswered(mongo_replica_set_url, database, client, a_deletion_call)
+
+        with caplog.at_level(logging.WARNING):
+            commits = on_the_pupils_league(mongo_replica_set_url, body)
+
+        assert commits == [MAX_TIME_EXPIRED]
+        assert _stopping_lines(caplog) == [
+            (
+                UNKNOWN_OUTCOME,
+                f"Database deadline passed at pupil {pupil_numbered(1)}, its erasure unanswered: the call stops, and the rest stay due",
+            )
+        ]
+
+    def test_the_address_change_sweep_names_the_referee_whose_removal_went_unanswered(
+        self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture
+    ):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SCHIEDSRICHTER].insert_many(
+                [a_referee(position, minted=MINTED_TO_LAPSE_YESTERDAY) for position in (1, 2)]
+            )
+
+            return await _first_commit_unanswered(mongo_replica_set_url, database, client, an_address_change_call)
+
+        with caplog.at_level(logging.WARNING):
+            commits = on_the_referees_league(mongo_replica_set_url, body)
+
+        assert commits == [MAX_TIME_EXPIRED]
+        assert _stopping_lines(caplog) == [
+            (
+                UNKNOWN_OUTCOME,
+                f"Database deadline passed at the lapsed address change of referee {referee_numbered(1)}, its removal unanswered: "
+                "the call stops, and the rest stay due",
+            )
         ]
