@@ -294,7 +294,7 @@ describe("ending one sign-in", () => {
     const { cookie, row } = await signIn(PERSON_EMAIL);
     arriveAs(cookie);
 
-    assert.deepEqual(await endAnmeldungAction(ended.row.id), { success: true, message: "Abgemeldet" });
+    assert.deepEqual(await endAnmeldungAction(ended.row.id), { success: true });
     assert.deepEqual(store.session.map((entry) => entry.id).sort(), [kept.row.id, row.id].sort());
     assert.deepEqual(cacheCalls, [{ name: "refresh", args: [] }], "the page was left standing");
   });
@@ -347,7 +347,7 @@ describe("ending every other sign-in", () => {
     const { cookie, row } = await signIn(PERSON_EMAIL);
     arriveAs(cookie);
 
-    assert.deepEqual(await endAndereAnmeldungenAction(), { success: true, message: "Alle anderen abgemeldet" });
+    assert.deepEqual(await endAndereAnmeldungenAction(), { success: true });
     assert.deepEqual(store.session.map((entry) => entry.id).sort(), [theirs.row.id, row.id].sort());
   });
 

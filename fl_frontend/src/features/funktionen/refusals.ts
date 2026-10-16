@@ -29,10 +29,10 @@ const LOESCHEN_WORTE: Readonly<Record<string, string>> = { "REQ-PURGE-003": EIGE
 const mapLoeschenRefusal = mapper(LOESCHEN_WORTE);
 
 /**
- * Said on the box, as the address there is. The refusal names no word and takes a common word equal to a name with it,
- * so the sentence names what the box may hold.
+ * Said on the box, one sentence about the value: its hint and placeholder say what it may hold (`docs/frontend/spec.md`
+ * §1.12). The refusal names no word and takes a common word equal to a name.
  */
-const NAME_IM_ANLASS = "Ein Wort im Anlass gleicht einem Namen der Person. Nenne nur das Datum in Ziffern und die Art der Anfrage.";
+const NAME_IM_ANLASS = "Der Anlass enthält ein Wort, das einem Namen der Person gleicht.";
 
 /**
  * The erasure's and its reveal's refusals, which judge the same address the same way, and the erasure's of its Anlass;

@@ -10,16 +10,19 @@ import { isHeldBy, runKontoMutation, runKontoStepUp } from "@/shared/utils/konto
 import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal";
 import { VALIDATION_FAILED } from "@/shared/utils/validation";
 
-import type { ActionResult, QueryResult } from "@/shared/types/types";
+import type { ActionFailure, ActionResult, QueryResult } from "@/shared/types/types";
 
 /** A row another device ended first, or one that was never the holder's: to the holder, a stale list. */
 const SCHON_BEENDET = "Die Anmeldung war schon beendet. Lade die Seite neu.";
+
+/** The panel words each press's toast itself, so a success sentence here would be German nothing renders. */
+type Beendet = { success: true } | ActionFailure;
 
 /**
  * Ends one of the holder's other sign-ins. By id AND the holder's own user id, so an id belonging to
  * another person ends nothing (`docs/frontend/spec.md :: I421`).
  */
-export async function endAnmeldungAction(id: string): Promise<ActionResult> {
+export async function endAnmeldungAction(id: string): Promise<Beendet> {
   return runKontoMutation("endAnmeldungAction", async (served) => {
     // A server action's argument is whatever a caller posted, and this one reaches a store query.
     if (typeof id !== "string" || id === "") return { success: false, error: VALIDATION_FAILED };
@@ -35,17 +38,17 @@ export async function endAnmeldungAction(id: string): Promise<ActionResult> {
 
     if (ended === 0) return { success: false, error: SCHON_BEENDET };
 
-    return { success: true, message: "Abgemeldet" };
+    return { success: true };
   });
 }
 
 /** Ends every sign-in of the holder's but this device's, through the library's own in-process call. */
-export async function endAndereAnmeldungenAction(): Promise<ActionResult> {
+export async function endAndereAnmeldungenAction(): Promise<Beendet> {
   return runKontoMutation("endAndereAnmeldungenAction", async () => {
     recordWriteSent();
     await revokeOtherSessions(await headers());
 
-    return { success: true, message: "Alle anderen abgemeldet" };
+    return { success: true };
   });
 }
 

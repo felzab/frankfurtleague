@@ -316,7 +316,7 @@ export async function postEinladungVersandAction(
     return {
       success: true,
       zeilen: zeilen,
-      message: versandSatz(gemailt, zeilen.length),
+      message: versandSatz(gemailt, versendet.length, zeilen.length),
       // Each team's own grade, the panel's title saying whether its worst is every team's or some teams'.
       versendet: versendet,
     };
