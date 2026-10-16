@@ -25,6 +25,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.berechtigungen.crud import anchor_the_actors_grant, pull_the_list_to_judge
+from app.api.identitaet.crud import erase_if_still_due
 from app.api.sperrliste.admin_router import _pull_the_season_a_ban_counts_from
 from app.api.sperrliste.lookup import hash_gesperrt
 from app.api.spiele.admin_router import patch_spiel_data
@@ -139,6 +140,8 @@ CALLERS: dict[str, frozenset[str]] = {
     # No callback calls it: `app/core/transactions.py :: JudgedSession` runs this judge around every
     # callback, which `HOOKED_CALLERS` below answers for.
     "anchor_the_actors_grant": frozenset({"app/core/security.py :: judging_the_administrator"}),
+    # The season-after deletion pass, one pupil a transaction.
+    "erase_if_still_due": frozenset({"app/api/identitaet/sweep_router.py :: erase_the_pupil_if_still_due"}),
 }
 
 # The callers no `with_transaction` is handed, each run by `transaction_session` inside every attempt
@@ -157,6 +160,7 @@ ANCHORS: tuple[tuple[Callable[..., Any], str], ...] = (
     (_pull_the_season_a_ban_counts_from, "saisons_collection"),
     (pull_the_list_to_judge, "berechtigungen_collection"),
     (anchor_the_actors_grant, "berechtigungen_collection"),
+    (erase_if_still_due, "saisons_collection"),
 )
 
 ANCHORING_FUNCTIONS = tuple(function for function, _ in ANCHORS)

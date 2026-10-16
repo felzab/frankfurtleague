@@ -72,7 +72,7 @@ from app.api.spieler.services import SPIELER_ADRESSWECHSEL_FELD, build_spieler_f
 from app.core.adressanker import anchor_the_addresses
 from app.core.collections import Collection
 from app.core.concurrency import gather_cancelling
-from app.core.crud import aggregate_many_from_db, patch_many_in_db, refuse
+from app.core.crud import aggregate_many_from_db, anchor_in_db, patch_many_in_db, refuse
 from app.core.db import warn_about_the_grants
 from app.core.drosselung import erase_counts_in_session
 from app.core.exception_handlers import DATABASE_FAILED
@@ -936,6 +936,11 @@ async def erase_if_still_due(
     behalten = behaltene_saison_ids(statuses)
     if behalten is None:
         return None
+
+    # A planned season `behalten` leaves out joins it once activated, which no lower id refuses: anchored, an activation
+    # committing after these statuses were read sends this pupil round (`docs/backend/spec.md :: I722`). Normally none.
+    if ausgelassen := sorted(saison_id for saison_id, status in statuses.items() if status == "future" and saison_id not in behalten):
+        await anchor_in_db(collection=saisons_collection, db_filter={"_id": {"$in": ausgelassen}}, session=session)
 
     # By id through the filter refusing the sentinel, so a hand-given address never makes it due.
     pupils = await aggregate_many_from_db(

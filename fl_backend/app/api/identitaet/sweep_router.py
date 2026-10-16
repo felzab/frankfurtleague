@@ -196,8 +196,8 @@ async def post_loeschung_lauf(
     geloescht, uebersprungen, fehlgeschlagen = 0, 0, 0
     erreicht: Any = None
     abgebrochen = False
-    # No write of this pass reaches a document the cache serves, so the drop clears nothing it changed; it stays until I
-    # rule whether `.claude/CLAUDE.md` §7's `saisons` line covers it.
+    # Each pupil's transaction anchors any planned season its kept set leaves out, a season write the cache serves
+    # (`docs/backend/spec.md :: I722`).
     with dropping_the_saison_cache():
         for row in share:
             erreicht = row["_id"]
