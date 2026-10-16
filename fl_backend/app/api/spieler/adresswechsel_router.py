@@ -21,10 +21,12 @@ from app.api.spieler.services import (
     build_spieler_adresswechsel_filter,
     compose_spieler_adresswechsel_antwort,
     find_adresse_vergeben_refusal,
+    find_keine_adresse_refusal,
     find_spieler_bestaetigung_gesperrt_refusal,
     find_spieler_ersetzte_adresse_gesperrt_refusal,
     find_spieler_token_expired_refusal,
     find_spieler_token_unknown_refusal,
+    holds_an_address,
     spieler_adresswechsel_adressen,
     spieler_adresswechsel_image_edits,
     spieler_adresswechsel_zustand_of,
@@ -69,8 +71,10 @@ async def get_adresswechsel_ansicht(
     Refuses only a token no pupil holds (`REQ-SPIELER-001`), which an answered, replaced or discarded change is too: an answer
     removes what the link opens. An expired link is SERVED in that state rather than refused. The state is `gesperrt`, ahead
     of every other, wherever the ban list holds the address the link was mailed to, and `nicht_bestaetigbar`, behind the
-    deadline, wherever it holds the address the change would replace or another pupil signs in on the new one: each state the
-    confirmation would be refused in, the last two alike so the link tells its holder nothing about whose either address is.
+    deadline, wherever it holds the address the change would replace, the pupil holds no address, or another pupil signs in on
+    the new one: each state the confirmation would be refused in. Those three read alike here, though the press answers each by
+    its own code; what keeps the link's holder from telling them apart is the edge, where `nginx/shared/site.conf` routes no
+    public call to this service and the frontend's route handler for the link's page answers all three as this one state.
     """
 
     token_hash = hash_token(ansicht_data.token)
@@ -94,7 +98,12 @@ async def get_adresswechsel_ansicht(
 
     return FLSpielerAdresswechselAnsichtResponse(
         zustand=spieler_adresswechsel_zustand_of(
-            wechsel=wechsel, today=today, gesperrt=neue in gesperrt, ersetzte_gesperrt=ersetzte in gesperrt, vergeben=vergeben
+            wechsel=wechsel,
+            today=today,
+            gesperrt=neue in gesperrt,
+            ersetzte_gesperrt=ersetzte in gesperrt,
+            keine_adresse=not holds_an_address(raw.get("email")),
+            vergeben=vergeben,
         ),
         vorname=str(raw.get("vorname") or ""),
         frist=frist,
@@ -126,9 +135,14 @@ async def post_adresswechsel_antwort(
     Refuses a token no pupil holds (`REQ-SPIELER-001`), and a CONFIRMATION through a link whose deadline has passed
     (`REQ-SPIELER-002`), one mailed to an address the ban list holds now (`REQ-SPIELER-004`), one whose change would replace an
     address the ban list holds now (`REQ-SPIELER-005`), so a barred person cannot move their record off the address the ban
-    keys on, and one to an address another pupil has come to sign in on (`REQ-SPIELER-006`). **A decline is refused none of
-    these**: it removes an address nobody proved, and it takes that address out of every image the action log holds of this
-    pupil, those of every write while the change stood, a re-send included. The rest of each image stays.
+    keys on, one for a pupil who has come to hold no address (`REQ-SPIELER-008`), which a change corrects and never enters, and
+    one to an address another pupil has come to sign in on (`REQ-SPIELER-006`). **A decline is refused none of these**: it
+    removes an address nobody proved, and it takes that address out of every image the action log holds of this pupil, those of
+    every write while the change stood, a re-send included. The rest of each image stays.
+
+    The last three codes, and `DB-COMMON-002` for the race the in-session read misses, tell a caller what the view's
+    `nicht_bestaetigbar` keeps alike. Only the edge keeps them from the link's holder: `nginx/shared/site.conf` routes no public
+    call to this service, and the frontend's route handler for the link's page answers all four as that one state.
     """
 
     token_hash = hash_token(antwort_data.token)
@@ -151,6 +165,8 @@ async def post_adresswechsel_antwort(
             gesperrt = await adressen_gesperrt(sperrliste, [neue, ersetzte], massgebliche_saison_id=massgebliche_saison_id, session=session)
             # The link's own address first: where both are barred, its holder is the barred person.
             refuse(find_spieler_bestaetigung_gesperrt_refusal(gesperrt=neue in gesperrt))
+            # A row edited by hand alone holds a change and no address; confirming it would enter one.
+            refuse(find_keine_adresse_refusal(email=raw.get("email")))
             refuse(find_spieler_ersetzte_adresse_gesperrt_refusal(gesperrt=ersetzte in gesperrt))
             vergeben = await another_pupil_holds(
                 spieler_collection=spieler_collection, identifier=sign_in_identifier(neue), spieler_id=raw["_id"], session=session

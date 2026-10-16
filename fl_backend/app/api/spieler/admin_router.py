@@ -372,8 +372,9 @@ async def einladen_adresswechsel(
     the message it went out in goes with it. The deadline restarts from today, and a deadline already passed is no refusal:
     the re-send is how a lapsed change is asked again.
 
-    Refused where the ban list holds the pending address (`REQ-SPIELER-003`) and where another pupil has come to sign in on it
-    (`REQ-SPIELER-006`). 404 where the pupil holds no pending change, and for an id no pupil holds, the sentinel's included.
+    Refused where the pupil has come to hold no address (`REQ-SPIELER-008`), which leaves no address for the notice, where the ban
+    list holds the pending address (`REQ-SPIELER-003`) and where another pupil has come to sign in on it (`REQ-SPIELER-006`). 404
+    where the pupil holds no pending change, and for an id no pupil holds, the sentinel's included.
     """
 
     raw_token, token_hash = mint_token()
@@ -390,6 +391,10 @@ async def einladen_adresswechsel(
             session=session,
         )
         email = str(stored[SPIELER_ADRESSWECHSEL_FELD]["email"])
+        # The request's own refusal again: no route removes an address while a change waits, but a row edited by hand
+        # can, and the notice would then be mailed to the text "None".
+        bisherige_email = stored.get("email")
+        refuse(find_keine_adresse_refusal(email=bisherige_email))
 
         gesperrt = await hash_gesperrt(sperrliste, sperrliste.hash_of(email), massgebliche_saison_id=massgebliche_saison_id, session=session)
         refuse(find_spieler_adresse_gesperrt_refusal(gesperrt=gesperrt))
@@ -406,7 +411,7 @@ async def einladen_adresswechsel(
             return_document=ReturnDocument.BEFORE,
         )
 
-        return email, str(stored.get("email")), str(stored.get("vorname") or "")
+        return email, str(bisherige_email), str(stored.get("vorname") or "")
 
     async with transaction_session(db) as session:
         gemintet_fuer, bisherige_email, vorname = await session.with_transaction(judge_and_remint_the_change)

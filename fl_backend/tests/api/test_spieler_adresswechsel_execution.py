@@ -210,6 +210,12 @@ async def refused_code(call: Awaitable[Any]) -> str:
     return refused.value.error_code
 
 
+async def remove_the_address_by_hand(database: AsyncDatabase) -> None:
+    """The one way a pupil comes to hold a change and no address: no route removes `email` while a change waits."""
+
+    await database[Collection.SPIELER].update_one({"_id": SPIELER_OID}, {"$unset": {"email": ""}})
+
+
 async def the_pupils_images(database: AsyncDatabase) -> list[Mapping[str, Any]]:
     return (
         await database[Collection.AKTIONEN]
@@ -458,6 +464,21 @@ class TestTheConfirmationsRefusals:
         assert code == SPIELER_ADRESSE_VERGEBEN
         assert row == before
 
+    def test_for_a_pupil_whose_address_was_removed_by_hand(self, mongo_replica_set_url: str):
+        """Confirmed, the change would enter an address on a pupil holding none, which the request never may."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            token = (await request(database, client, email=NEW_EMAIL)).adresswechsel.token
+            await remove_the_address_by_hand(database)
+            before = await stored(database)
+
+            return await refused_code(answer(database, client, token, "bestaetigt")), before, await stored(database)
+
+        code, before, row = on_a_league(mongo_replica_set_url, body)
+
+        assert code == SPIELER_KEINE_ADRESSE
+        assert row == before
+
 
 class TestTheDecline:
     def test_it_removes_the_change_alone(self, mongo_replica_set_url: str):
@@ -543,6 +564,15 @@ class TestTheView:
 
         assert on_a_league(mongo_replica_set_url, body) == SPIELER_TOKEN_UNKNOWN
 
+    def test_a_pupil_whose_address_was_removed_by_hand_reads_as_not_confirmable(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            token = (await request(database, client, email=NEW_EMAIL)).adresswechsel.token
+            await remove_the_address_by_hand(database)
+
+            return (await view(database, token)).zustand
+
+        assert on_a_league(mongo_replica_set_url, body) == "nicht_bestaetigbar"
+
 
 class TestTheReSend:
     def test_it_replaces_the_link_restarts_the_deadline_and_drops_the_delivery_state(self, mongo_replica_set_url: str):
@@ -590,6 +620,21 @@ class TestTheReSend:
             return await refused_code(resend(database, client))
 
         assert on_a_league(mongo_replica_set_url, body) == SPIELER_ADRESSE_VERGEBEN
+
+    def test_a_pupil_whose_address_was_removed_by_hand_is_refused(self, mongo_replica_set_url: str):
+        """The notice goes to the address on file, so a re-send with none would answer the text "None" for the caller to mail."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await request(database, client, email=NEW_EMAIL)
+            await remove_the_address_by_hand(database)
+            before = await stored(database)
+
+            return await refused_code(resend(database, client)), before, await stored(database)
+
+        code, before, row = on_a_league(mongo_replica_set_url, body)
+
+        assert code == SPIELER_KEINE_ADRESSE
+        assert row == before
 
     @pytest.mark.parametrize("spieler_id", [SPIELER_OID, GHOST_SPIELER_ID], ids=["nothing-pending", "the-sentinel"])
     def test_a_pupil_holding_no_pending_change_answers_not_found(self, mongo_replica_set_url: str, spieler_id: ObjectId):
