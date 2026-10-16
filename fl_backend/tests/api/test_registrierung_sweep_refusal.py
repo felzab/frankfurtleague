@@ -642,9 +642,8 @@ class TestTheClocksDrain:
 # `fl_backend/tests/api/test_registrierung_sweep_execution.py :: TestTheReminderClockTakesAShareEachCall`.
 ROUND_TRIPS_A_ROW = 2
 
-# The other commands of the worst call erasing one page per clock, counted on the wire 2026-10-16:
-# eight reads and three commits, and where both clocks erase and the day is stamped, two deletes, three
-# updates and three log rows.
+# The other commands of the worst call erasing one page per clock, counted on the wire by
+# `fl_backend/tests/api/test_registrierung_sweep_execution.py :: TestTheWorstCallSendsTheCommandsItsBudgetCounts`.
 OTHER_COMMANDS = 19
 
 # The per-command cost, from whole passes timed locally, 2026-09-23.
