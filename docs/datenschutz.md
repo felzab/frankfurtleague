@@ -408,7 +408,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   link's own decline and `DELETE /schiedsrichter/{schiedsrichter_id}/adresswechsel` or
   `DELETE /spieler/{spieler_id}/adresswechsel` each remove the address and take it out of every image
   the action log holds of the row, since every write on it while the change stood, a re-send
-  included, filed one carrying it (`docs/backend/spec.md :: I562`, `:: I670`).
+  included, filed one carrying it (`docs/backend/spec.md :: I562`, `:: I704`, `:: I670`).
   The rest of each image stays, the person's own earlier consent states among it, as a contact
   person's Widerspruch leaves the people beside them theirs (`docs/backend/spec.md :: I42`). A save
   or a request replacing the pending address with another mailbox's takes it out the same way, the

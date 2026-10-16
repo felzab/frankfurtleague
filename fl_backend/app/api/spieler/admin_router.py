@@ -444,7 +444,7 @@ async def delete_adresswechsel(
     """
     Discard this pupil's pending address change: the block goes, its link opens nothing, and the stored address stays.
 
-    **The address goes from the action log too** (`docs/backend/spec.md :: I562`): it is taken out of every image the log holds
+    **The address goes from the action log too** (`docs/backend/spec.md :: I704`): it is taken out of every image the log holds
     of this pupil, since every write on the row while the change stood, a re-send or this discard included, filed one carrying
     an address nobody proved; the rest of each image stays. Nothing is mailed. 404 where the pupil holds no pending change, and
     for an id no pupil holds, the sentinel's included.
