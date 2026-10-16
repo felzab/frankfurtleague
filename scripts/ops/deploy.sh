@@ -44,8 +44,16 @@ EDGE_CONFIG_DIRS=("nginx/prod:/etc/nginx/conf.d" "nginx/shared:/etc/nginx/shared
 # reload applied (https://docs.nginx.com/nginx/admin-guide/basic-functionality/runtime-control/);
 # the two spellings move together (`scripts/checks/check_compose_model.py :: control_socket`).
 EDGE_CONTROL_SOCKET="/run/nginx-control/control.sock"
+# The reload through that socket as an operator types it, printing nginx's reply and then its status:
+# 200 applied, 422 refused, its own lines in the reply.
+EDGE_RELOAD_TYPED="docker compose -f ${COMPOSE} exec -T nginx curl -s -w '\n%{http_code}\n' -X PATCH --unix-socket ${EDGE_CONTROL_SOCKET} http://localhost/1/control/config"
 # How many times, 0.2 s apart, a freshly started nginx is given to open that socket.
 EDGE_START_POLLS=50
+
+# Every wait on a service's health, in seconds: `docs/ops/runbooks.md` §1 states the outage reached
+# where a deploy's two waits and its rollback's two all run out.
+HEALTH_WAIT_BACKEND="150"
+HEALTH_WAIT_FRONTEND="180"
 # Every production service `.github/workflows/publish.yml` does not build, held to
 # `scripts/checks/check_compose_model.py :: PRODUCTION_SERVICES` by
 # `scripts/tests/test_deploy_edge_config.py`: one missing here is fetched only after the recreate.
@@ -530,8 +538,10 @@ container stopped. ${consequence}"
   # erasure's journal line a restore replays among them, is otherwise in no copy. Never bare, which
   # stops the whole project.
   if (( ${#to_stop[@]} )); then
-    quietly docker compose -f "$COMPOSE" stop "${to_stop[@]}" || stop_rc=$?
+    # Recorded before the stop is asked for: an interrupt during it reaches the EXIT trap with the
+    # stop half done, and starting one still running changes nothing.
     STOPPED_SERVICES=("${to_stop[@]}")
+    quietly docker compose -f "$COMPOSE" stop "${to_stop[@]}" || stop_rc=$?
   fi
   if (( stop_rc )); then
     warn "compose could not stop the containers before their copy (exit ${stop_rc}), so a line written
@@ -569,22 +579,88 @@ Copy it by hand:  docker compose -f ${COMPOSE} logs --no-color --timestamps ${sv
   done
 }
 
-# The verb of the copy before the recreate. The containers were stopped for it, and `start` resumes
-# each with its stream whole, so the run ends on the build it found serving and a re-run copies it.
-start_again_and_refuse() { # $1 what failed, and what that leaves
-  local start_rc=0 named
-  # Nothing stopped, nothing to start: a bare `start` starts the whole project.
-  if (( ! ${#STOPPED_SERVICES[@]} )); then refuse "$1"; fi
+# Puts back what the copy before the recreate stopped, each step worded by its own answer: 0 where
+# every one answered well, 1 where one answered badly, 2 where one went unanswered.
+start_stopped_again() {
+  local named svc limit start_rc=0 reload_rc=0 reply="" status="" worst=0
   named="$(IFS=' '; printf '%s' "${STOPPED_SERVICES[*]}")"
+  # Never `up`: the pull has moved `:latest` by here, so `up` would recreate the pair from the new build
+  # with no copy taken. `start` resumes each on the build it was running, its stream whole.
   quietly docker compose -f "$COMPOSE" start "${STOPPED_SERVICES[@]}" || start_rc=$?
   if (( start_rc )); then
-    refuse "$1
-The containers stopped for the copy could NOT be started again (exit ${start_rc}), so the site is
-DOWN. Compose's own output is above.
-Start them:  docker compose -f ${COMPOSE} start ${named}"
+    warn "the containers stopped for the copy could NOT be started again (exit ${start_rc}), so the site
+is DOWN. Compose's own output is above.
+Start them:  docker compose -f ${COMPOSE} start ${named}
+Then reload the edge:  ${EDGE_RELOAD_TYPED}"
+    return 1
   fi
-  refuse "$1
-The containers stopped for the copy were started again, on the build they were running."
+  ok "${named} started again, on the build they were running"
+  # A started container takes its address afresh, and nginx resolves its upstreams only as it loads.
+  reply="$(edge_control -X PATCH -w '\n%{http_code}' http://localhost/1/control/config 2>/dev/null)" || reload_rc=$?
+  status="${reply##*$'\n'}"
+  if (( reload_rc )); then
+    worst=2
+    warn "nginx's Control API could not be asked to reload it (exit ${reload_rc}), so it may still be
+proxying to the addresses ${named} had before the stop.
+Reload it:  ${EDGE_RELOAD_TYPED}"
+  elif [[ "$status" == 200 ]]; then
+    ok "nginx reloaded, so it is proxying to the containers started again"
+  elif [[ "$status" == 422 ]]; then
+    worst=1
+    warn "nginx refused the configuration the pull left in nginx/prod/ or nginx/shared/ and kept the one it
+had, so it may still be proxying to the addresses ${named} had before the stop. Its own lines:
+${reply%$'\n'*}
+Fix what they name, then reload it:  ${EDGE_RELOAD_TYPED}"
+  else
+    worst=2
+    warn "nginx's Control API answered the reload with '${status}', which is neither applied nor refused,
+so nothing here says whether it is proxying to ${named} again.
+Reload it:  ${EDGE_RELOAD_TYPED}"
+  fi
+  for svc in "${STOPPED_SERVICES[@]}"; do
+    limit="$HEALTH_WAIT_FRONTEND"
+    if [[ "$svc" == backend ]]; then limit="$HEALTH_WAIT_BACKEND"; fi
+    if ! wait_healthy "$COMPOSE" "$svc" "$limit"; then
+      # A wait compose never answered says nothing of the service, so it cannot outrank a bad answer.
+      if [[ "$WAIT_HEALTHY_REASON" != unasked ]]; then worst=1; elif (( ! worst )); then worst=2; fi
+    fi
+  done
+  return "$worst"
+}
+
+# The verb of the copy before the recreate. Graded as `scripts/lib/_lib.sh` ranks a section holding
+# both: a pair left out of service is a finding and outranks the copy's refusal, which ends the run
+# alone wherever nothing answered badly.
+start_again_and_end() { # $1 what failed, and what that leaves
+  local rc=0
+  if (( ${#STOPPED_SERVICES[@]} )); then start_stopped_again || rc=$?; fi
+  # Lifted only now, so an interrupt during the start above still has the trap put the pair back.
+  trap - EXIT
+  # Nothing stopped, nothing to start: a bare `start` starts the whole project.
+  if (( ! ${#STOPPED_SERVICES[@]} )); then refuse "$1"; fi
+  case "$rc" in
+    0) refuse "$1
+The containers stopped for the copy were started again on the build they were running, nginx was
+reloaded onto them, and each answered healthy." ;;
+    2) refuse "$1
+The containers stopped for the copy were started again on the build they were running; what could
+not be asked after that is named above." ;;
+    *) die "$1
+The containers stopped for the copy are NOT serving the site again: the lines above say which step
+answered badly." ;;
+  esac
+}
+
+# Set from just before the copy to just before the recreate: an interrupt, a hangup or a crash there
+# would leave the pair stopped, `restart: unless-stopped` never restarting a container `stop` stopped.
+restart_on_exit() {
+  if (( ! ${#STOPPED_SERVICES[@]} )); then return 0; fi
+  # Best effort to its last line: after a hangup every line printed fails, and `set -e` or the error
+  # trap would end this at the first, before the `start`.
+  set +e
+  trap - ERR
+  info "putting back the containers this run stopped for its copy"
+  start_stopped_again
 }
 
 # Called only with both previous image ids held: a rollback restoring one service and not the other
@@ -625,9 +701,9 @@ other refused, which leaves a mismatched pair."
 so the site is down. Compose's own output is above."
     return 1
   fi
-  wait_healthy "$COMPOSE" backend 150  || healthy=0
+  wait_healthy "$COMPOSE" backend "$HEALTH_WAIT_BACKEND"   || healthy=0
   if [[ "$WAIT_HEALTHY_REASON" == "unasked" ]]; then unasked=1; fi
-  wait_healthy "$COMPOSE" frontend 180 || healthy=0
+  wait_healthy "$COMPOSE" frontend "$HEALTH_WAIT_FRONTEND" || healthy=0
   if [[ "$WAIT_HEALTHY_REASON" == "unasked" ]]; then unasked=1; fi
   if (( ! healthy )); then
     if (( unasked )); then
@@ -1109,9 +1185,10 @@ NOTHING has been recreated.
 Create them once, owned by the deploying user (docs/ops/runbooks.md §7):
   sudo install -d -o \"\$USER\" -g \"\$USER\" ${LOG_DIR} ${LOG_DIR}/nginx"
 fi
+trap restart_on_exit EXIT
 # A refusal here, and `warn` at the rollback's copy: nothing is recreated yet, so the deploy can
 # simply be re-run once this path can be written.
-copy_streams "" start_again_and_refuse "NOTHING has been recreated."
+copy_streams "" start_again_and_end "NOTHING has been recreated."
 if (( COPIED_STREAMS )); then
   ok "${COPIED_STREAMS} stream(s) copied to ${LOG_DIR}"
 else
@@ -1126,6 +1203,10 @@ section "deploy"
 # changed, and its `service_healthy` gate then holds the edge closed until both are healthy — or for
 # good, where the new build never is.
 step "Recreating the application containers"
+
+# Lifted here and not later: an ending from here on meets containers the recreate replaced, or is
+# replacing, and starting those again would serve neither build.
+trap - EXIT
 
 # Guarded, not bare: a service that cannot be created exits `up` non-zero, and an unguarded call
 # would skip the diagnostics and the rollback below.
@@ -1145,9 +1226,9 @@ HEALTHY=1
 UNASKED=0
 # Both are waited on even when the first fails: chaining them means one deploy reports one problem,
 # and the second is discovered by deploying again.
-wait_healthy "$COMPOSE" backend 150  || HEALTHY=0
+wait_healthy "$COMPOSE" backend "$HEALTH_WAIT_BACKEND"   || HEALTHY=0
 if [[ "$WAIT_HEALTHY_REASON" == "unasked" ]]; then UNASKED=1; fi
-wait_healthy "$COMPOSE" frontend 180 || HEALTHY=0
+wait_healthy "$COMPOSE" frontend "$HEALTH_WAIT_FRONTEND" || HEALTHY=0
 if [[ "$WAIT_HEALTHY_REASON" == "unasked" ]]; then UNASKED=1; fi
 if (( UP_RC )); then HEALTHY=0; fi
 
@@ -1170,7 +1251,7 @@ nginx has NOT been reloaded, so it is still resolving the containers this deploy
 request through it answers 502 whether the new build is healthy or not.
 No rollback runs on that: it would be undoing a build nothing here has judged.
 Reload the edge first, which answers 200 once applied:
-  docker compose -f ${COMPOSE} exec -T nginx curl -s -X PATCH --unix-socket ${EDGE_CONTROL_SOCKET} http://localhost/1/control/config
+  ${EDGE_RELOAD_TYPED}
 Then ask what is running:  docker compose -f ${COMPOSE} ps
 And if the new build turns out to be the problem:  ./scripts/ops/deploy.sh ${PREV_PIN:-<a published tag>}"
   fi

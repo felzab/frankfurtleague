@@ -109,6 +109,25 @@ the machine is outside the repository. What it does tell you:
   (`scripts/lib/_lib.sh :: check_backend_boot_config`), so a file it cannot use and a value its
   validators refuse — an internal key outside its alphabet among them — refuse there, naming the
   variable or the file.
+- **Both application containers are stopped for their logs' copy just before the recreate** (§7),
+  and a run ending in between puts them back on its way out, a failed copy, an interrupt and a
+  dropped SSH session alike: it starts them, reloads nginx onto them and waits for each to be
+  healthy (`scripts/ops/deploy.sh :: start_stopped_again`). **A failed copy ends the run at exit 2,
+  and at 1 where the start, the reload or a health wait answered badly**, the site then out of
+  service. Killed outright, or interrupted again while it puts them back, the run leaves them
+  stopped, which `./scripts/ops/deploy.sh --status` reports as not running, and
+  `restart: unless-stopped` never starts a container `stop` stopped, not even after the daemon
+  restarts
+  ([Docker's restart policies](https://docs.docker.com/engine/containers/start-containers-automatically/),
+  which move without us; read 2026-10-16). **Start them and reload the edge by hand, never with
+  `up`**, which would recreate them from the build the pull fetched, with no copy taken; the reload
+  prints nginx's reply, then `200` once applied:
+
+  ```bash
+  docker compose -f docker-compose.yml start frontend backend
+  docker compose -f docker-compose.yml exec -T nginx curl -s -w '\n%{http_code}\n' -X PATCH --unix-socket /run/nginx-control/control.sock http://localhost/1/control/config
+  ```
+
 - **Only the application containers are recreated**, and nginx is reloaded once they are healthy
   (`scripts/ops/deploy.sh :: serve_through_nginx`), through nginx's Control API, which answers whether
   the reload applied. The edge keeps running across the swap, so a deploy that succeeds costs seconds
@@ -995,7 +1014,7 @@ erasure's journal line among them (§13) — is in the copy. A container already
 build's backend that exited among them, is copied as well and left stopped; one that keeps
 restarting is running to the engine, and is stopped and copied with the other.
 A directory it cannot write refuses at exit 2 before anything is stopped; a copy failing after the
-stop starts the containers it stopped again and refuses alike, nothing recreated either way.
+stop puts back the containers it stopped, as §1 says, nothing recreated either way.
 **A deploy that rolls back
 recreates the pair twice and so copies twice**, the failed build's streams taking the same stamp and a
 `-failed` suffix, so a failed deploy leaves four files that sort together (§1). The same step creates
