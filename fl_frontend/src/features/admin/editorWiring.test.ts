@@ -177,8 +177,8 @@ const SPIELER_MEMBERSHIP = {
   inactive_since: null,
 };
 
-/** The player's editor in the season its squad row stands in, and what the view hands it besides. */
-const spielerProps = (over: { inactiveSince?: string; rowInactiveSince?: string; adresswechsel?: boolean } = {}) => ({
+/** The player's editor in the season its squad row stands in unless told otherwise, and what the view hands it besides. */
+const spielerProps = (over: { inactiveSince?: string; rowInactiveSince?: string; adresswechsel?: boolean; isMember?: boolean } = {}) => ({
   spieler: {
     ...SPIELER,
     inactive_since: over.inactiveSince ?? null,
@@ -191,7 +191,7 @@ const spielerProps = (over: { inactiveSince?: string; rowInactiveSince?: string;
     saisonStatus: "active" as const,
     erlaubteStufen: ["Q1" as const],
     nachnominierungLaeuft: null,
-    membership: { ...SPIELER_MEMBERSHIP, inactive_since: over.rowInactiveSince ?? null },
+    membership: over.isMember === false ? null : { ...SPIELER_MEMBERSHIP, inactive_since: over.rowInactiveSince ?? null },
   },
   teams: [TEAM_A, TEAM_B],
 });
@@ -987,6 +987,18 @@ const RECORD_MOVES: Record<string, RecordMove> = {
     press: "Aus Kader 2026 austragen",
     write: "deleteSaisonSpielerAction",
   },
+  "the player's squad entry": {
+    render: async () => {
+      const { AdminSpielerEditView } = await import("@/features/spieler/components/views/AdminSpielerEditView.tsx");
+
+      return renderEditor(h(AdminSpielerEditView, spielerProps({ isMember: false })));
+    },
+    // The entry's own pick, which the draft leaves out: the player holds no squad row for it to change.
+    ready: async (_user, container) => pick(container, "team_id", TEAM_A.teamId),
+    type: (user) => typeInto(user, box("Vorname"), "Lena-Marie"),
+    press: "In Kader 2026 aufnehmen",
+    write: "postSaisonSpielerAction",
+  },
   // The address box holds no draft field, yet each of these re-keys the editor over its typing.
   "the player's waiting address's re-send, over a typed new address": {
     render: async () => {
@@ -1017,6 +1029,17 @@ const RECORD_MOVES: Record<string, RecordMove> = {
     type: typeNewAddress,
     press: "Reaktivieren",
     write: "reactivateSpielerAction",
+  },
+  "the player's squad entry, over a typed new address": {
+    render: async () => {
+      const { AdminSpielerEditView } = await import("@/features/spieler/components/views/AdminSpielerEditView.tsx");
+
+      return renderEditor(h(AdminSpielerEditView, spielerProps({ isMember: false })));
+    },
+    ready: async (_user, container) => pick(container, "team_id", TEAM_A.teamId),
+    type: typeNewAddress,
+    press: "In Kader 2026 aufnehmen",
+    write: "postSaisonSpielerAction",
   },
   "the squad row's return": {
     render: async () => {

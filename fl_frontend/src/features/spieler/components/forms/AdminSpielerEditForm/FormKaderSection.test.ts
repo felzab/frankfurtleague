@@ -45,6 +45,7 @@ const panel = (teamId: string | null) =>
           onValidateSelection: () => undefined,
           spielerId: "s1",
           banners: [],
+          isDirty: false,
         }),
       }),
     ),
