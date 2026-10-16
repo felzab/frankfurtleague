@@ -626,7 +626,8 @@ async def angekuendigt_bewerbungen(
     Record that the deletion notice reached the applications named, so an erasure that fails afterwards mails nobody twice.
 
     An id whose stamp fails, the database refusing it or anything else, is passed over alone, logged by id, left unstamped and
-    counted in `fehlgeschlagen`.
+    counted in `fehlgeschlagen`. Every later pass then lists it as unannounced, so a caller mailing those mails its notice again,
+    and `/loeschen` skips it: until a stamp lands it stands until its season is `past`.
 
     The ids are re-judged in-session: only one still submitted, past its deadline and with a seat outstanding is stamped, and one
     already carrying a stamp keeps the day it has. An id whose Ansprechperson the mail provider refused between the pass and this

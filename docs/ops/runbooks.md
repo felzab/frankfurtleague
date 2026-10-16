@@ -1194,7 +1194,9 @@ the properties its validator refused; `SRV-VAL-001` a stored value the answer ca
 a hand-edited deadline or an empty first name, with the fields refused; and `SRV-FAIL-001` any other
 failure, with the file, line and function it was raised in. The rest of that clock's rows go, and
 the named one stays due: every later pass names it again until its record is repaired
-([`../backend/spec.md`](../backend/spec.md#2-invariants) I720).
+([`../backend/spec.md`](../backend/spec.md#2-invariants) I720). **An application whose
+announcement stamp is passed over is mailed its deletion notice again each day**, and stands past
+its fourteen days until the stamp lands or its season is `past`.
 
 **A fresh date beside a `bewerbung.sweep_pass` or `registrierung.sweep_pass` warning is a clock
 passing rows over, not a pass that ran clean.** A clock failing on every row still moves its date,
