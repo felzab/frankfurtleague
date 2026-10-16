@@ -1496,7 +1496,9 @@ where a comment quotes a rendered string, which tracks it. The wording rules:
   which no grep for the noun will find; `sideLabel` also numbers a fixture's two seats `Team`, so a
   sentence naming both says the club by name.
 - **Doing something again is „erneut“, a link reopened as much as a press retried** (my rule,
-  2026-10-16): never „noch einmal“ or „nochmal“.
+  2026-10-16): never „noch einmal“ or „nochmal“, and never „wieder“ where it repeats an act.
+  „wieder“ stays where it restores a state, as „wieder frei“ does, which is why no ban holds that
+  half and review does.
 - **A link that never left is „nicht verschickt“** (my rule, 2026-10-16): „zugestellt“ is kept
   for the delivery the mail provider reports (`docs/glossary.md :: Zustellstand`), and „nicht
   gesendet“ for a press refused before anything went out.
