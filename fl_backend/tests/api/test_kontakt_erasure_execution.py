@@ -1169,6 +1169,7 @@ IDNA_SPELLINGS = [
     pytest.param("anna@xn--mller-kva.de", "anna@MÜLLER.de", id="stored in punycode, asked in Unicode"),
     pytest.param("anna@schule.de", f"anna@schule{chr(0x3002)}de", id="an ideographic full stop"),
     pytest.param("anna@xn--58dc.de", f"anna@{CHEROKEE_CAPITALS}.de", id="Cherokee stored in punycode"),
+    pytest.param("anna@xn--x-7p6m.de", f"anna@{chr(0x16D43)}x.de", id="a Unicode 16 letter the URL parser refuses"),
 ]
 
 

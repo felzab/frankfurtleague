@@ -189,7 +189,6 @@ const FIXTURES: Record<string, (origin: string) => { html: string; text: string 
   buildKontaktBestaetigungEmail: (origin) =>
     buildKontaktBestaetigungEmail({
       origin: origin,
-      vorname: "Erika",
       rollenText: "Ansprechperson",
       schule: "Ernst-Reuter-Schule",
       saisonId: "2627",
@@ -232,9 +231,9 @@ const FIXTURES: Record<string, (origin: string) => { html: string; text: string 
       grund: "andere_person",
     }),
   buildSchiedsrichterBestaetigungEmail: (origin) =>
-    buildSchiedsrichterBestaetigungEmail({ origin: origin, vorname: "Anna", token: "beispiel-fuenf", fristText: "05.10.2026" }),
+    buildSchiedsrichterBestaetigungEmail({ origin: origin, token: "beispiel-fuenf", fristText: "05.10.2026" }),
   buildSchiedsrichterAdresswechselEmail: (origin) =>
-    buildSchiedsrichterAdresswechselEmail({ origin: origin, vorname: "Anna", token: "beispiel-sechs", fristText: "05.10.2026" }),
+    buildSchiedsrichterAdresswechselEmail({ origin: origin, token: "beispiel-sechs", fristText: "05.10.2026" }),
   buildSchiedsrichterAdresswechselHinweisEmail: (origin) => buildSchiedsrichterAdresswechselHinweisEmail({ origin: origin, vorname: "Anna" }),
   buildSperreEmail: (origin) =>
     buildSperreEmail({ grund: "Falsches Geburtsdatum bei der Anmeldung", gesperrtBisSaisonId: "2031", origin: origin }),

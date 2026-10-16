@@ -75,8 +75,8 @@ export async function getEinladungAnsicht(token: string): Promise<RegistrierungS
 /**
  * One confirmation link's standing, read for `getEinladungAnsicht`'s reason.
  *
- * Narrowed here rather than at the page, whose payload would carry the name regardless: a dead
- * link's panel names nobody.
+ * Narrowed here rather than at the page, whose payload would carry the team and the season
+ * regardless: a dead link's panel names nothing of the registration.
  */
 export async function getSpielerBestaetigungAnsicht(token: string): Promise<SpielerBestaetigungAnsicht> {
   return runWithIncomingTrace(() =>

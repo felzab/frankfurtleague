@@ -25,17 +25,17 @@ export function gesperrtSatz(gesperrt: number): string {
 }
 
 /**
- * What the whole press reports. **A sentence per count**: a season of one team is the ordinary
- * start of a season, and both figures spelled would read „1 von 1 Teams“ there
- * (`docs/frontend/spec.md :: 1.12`).
+ * Counted over the `gemeint` teams the press meant to write to: one the rule passed over is no shortfall. A team
+ * alone gets its own sentence, saying the team's side under a title naming the link's (`docs/frontend/spec.md :: 1.12`).
  */
-export function versandSatz(gemailt: number, teams: number): string {
+export function versandSatz(gemailt: number, gemeint: number, teams: number): string {
   if (teams === 0) return KEINE_TEAMS;
+  if (gemeint === 0) return teams === 1 ? "Das Team wurde übersprungen." : "Jedes Team wurde übersprungen.";
   // Zero is the answer a local stack always gives, every send being withheld outside production
   // (`docs/frontend/spec.md :: I228`), so the shortfall is spelled rather than folded into a word.
-  if (teams === 1) return gemailt === 1 ? "Registrierungslink gesendet: an das Team." : "Registrierungslink nicht verschickt.";
+  if (gemeint === 1) return gemailt === 1 ? "Der Link ging an das Team." : "Das Team hat keinen neuen Link bekommen.";
 
-  return `Registrierungslinks gesendet: ${String(gemailt)} von ${String(teams)} Teams.`;
+  return `Registrierungslinks gesendet: ${String(gemailt)} von ${String(gemeint)} Teams.`;
 }
 
 /**

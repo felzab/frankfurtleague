@@ -125,4 +125,16 @@ describe("the tags the invalidation route may drop (`docs/frontend/spec.md :: I1
     const tags = new Set(reads.flatMap(({ tag }) => (tag === null || tag === NO_LEAGUE_READ ? [] : [tag])));
     assert.deepEqual([...tags].sort(), [...REVALIDATION_TAGS].sort());
   });
+
+  /* The operator types the list, the route taking no call without one: a tag this list gains and the runbook's
+     command lacks stays cached after every hand edit, and one the list loses refuses the command whole. */
+  it("are every tag the hand edit's command in `docs/ops/runbooks.md` §20 drops, and no other", () => {
+    const runbooks = readFileSync(path.resolve(SRC_DIR, "..", "..", "docs", "ops", "runbooks.md"), "utf8");
+    const commands = runbooks.split("\n").filter((line) => line.includes("/api/revalidate'"));
+    assert.equal(commands.length, 1, `the runbooks hold ${String(commands.length)} commands calling the route, not one`);
+
+    const listed = /tags:\[([^\]]*)\]/.exec(commands[0] ?? "")?.[1];
+    assert.ok(listed !== undefined, "the runbooks' command names no tags:[...] list");
+    assert.deepEqual([...listed.matchAll(/'([^']*)'/g)].map((match) => match[1]).sort(), [...REVALIDATION_TAGS].sort());
+  });
 });

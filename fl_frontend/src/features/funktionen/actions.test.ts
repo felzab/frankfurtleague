@@ -316,13 +316,13 @@ describe("the erasure on request", () => {
   });
 
   /* The typed Anlass is what the rule refuses, so the sentence lands under its box rather than in a banner. */
-  it("marks the Anlass box where the backend finds a name of the person in it, naming what to write instead", async () => {
+  it("marks the Anlass box where the backend finds a name of the person in it", async () => {
     answerWith(() => Promise.reject(refusedOn("POST /identitaet/erasure", "REQ-PURGE-006")));
 
     const result = await erase();
 
     assert.deepEqual(result.success ? undefined : result.fieldErrors, {
-      anlass: "Ein Wort im Anlass gleicht einem Namen der Person. Nenne nur das Datum in Ziffern und die Art der Anfrage.",
+      anlass: "Der Anlass enthält ein Wort, das einem Namen der Person gleicht.",
     });
     assert.deepEqual(request.deletedAccounts(), [], "a refused erasure deleted the account");
   });

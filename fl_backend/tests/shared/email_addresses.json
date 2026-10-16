@@ -208,5 +208,25 @@
     "typed": "anna@m\u00fcnchen.de/x",
     "stored": null,
     "folded": "anna@m\u00fcnchen.de/x"
+  },
+  {
+    "case": "a Unicode 16 letter in the domain, which the URL parser the fold reads first refuses",
+    "typed": "anna@\ud81b\udd43x.de",
+    "stored": "anna@xn--x-7p6m.de",
+    "folded": "anna@xn--x-7p6m.de"
+  },
+  {
+    "case": "a Unicode 17 letter in the domain, which only the frontend's tables hold",
+    "typed": "anna@\ud807\uddb0x.de",
+    "stored": null,
+    "folded": "anna@\ud807\uddb0x.de",
+    "frontend": { "stored": "anna@xn--x-5g3j.de", "folded": "anna@xn--x-5g3j.de" }
+  },
+  {
+    "case": "a Hangul filler as the whole first label, which only the frontend's fold drops",
+    "typed": "anna@\u3164.de",
+    "stored": null,
+    "folded": "anna@\u3164.de",
+    "frontend": { "stored": null, "folded": "anna@.de" }
   }
 ]

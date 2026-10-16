@@ -179,7 +179,10 @@ export function FormEinladungVersandSection({
       setVorschau(null);
       // Graded by the worst team this press meant to write to; none at all is no grade, only a fact.
       const versand = schlechtesterVersand(res.versendet);
-      if (versand === undefined) appToast.info("Keine Registrierungslinks gesendet", { description: res.message });
+      if (versand === undefined)
+        appToast.info(res.zeilen.length === 1 ? "Kein Registrierungslink gesendet" : "Keine Registrierungslinks gesendet", {
+          description: res.message,
+        });
       else meldeLinkVersand(versand, registrierungslinksTitel(res.versendet), res.message);
     });
   };

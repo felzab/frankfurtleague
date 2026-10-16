@@ -49,11 +49,11 @@ describe("the address a unique index already holds", () => {
     });
   });
 
-  /* The typed reason is what the rule refuses, so the sentence lands under its box and names the way out: the rule names
-     no word and refuses a common word equal to a name with it. */
+  /* The typed reason is what the rule refuses, so the sentence lands under its box, the box itself the way out: the rule
+     names no word and refuses a common word equal to a name with it. */
   it("lands a name of the address's records in the reason on the reason box", () => {
     assert.deepEqual(mapSperreRefusal(refusedOn(CREATE_OPERATION, "REQ-SPERRLISTE-004")), {
-      fieldErrors: { grund: "Ein Wort im Grund gleicht einem Namen der Person. Beschreibe den Vorfall mit anderen Worten und ohne Namen." },
+      fieldErrors: { grund: "Der Grund enthält ein Wort, das einem Namen der Person gleicht." },
     });
   });
 

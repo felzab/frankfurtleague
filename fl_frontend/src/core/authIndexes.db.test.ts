@@ -228,8 +228,8 @@ describe("every query the sign-in store serves, with table scans refused (`docs/
     const sicherheit = await withoutTableScans(() => readSicherheit(served));
     const [andere] = sicherheit.anmeldungen.filter(({ diesesGeraet }) => !diesesGeraet);
     assert.ok(andere, "the account page listed no other sign-in");
-    assert.deepEqual(await withoutTableScans(() => endAnmeldungAction(andere.id)), { success: true, message: "Abgemeldet" });
-    assert.deepEqual(await withoutTableScans(() => endAndereAnmeldungenAction()), { success: true, message: "Alle anderen abgemeldet" });
+    assert.deepEqual(await withoutTableScans(() => endAnmeldungAction(andere.id)), { success: true });
+    assert.deepEqual(await withoutTableScans(() => endAndereAnmeldungenAction()), { success: true });
 
     // A second passkey, listed, renamed and removed.
     const second = await withoutTableScans(() => enrol(byPasskey, Buffer.from("fl-index-db-second-authenticator")));

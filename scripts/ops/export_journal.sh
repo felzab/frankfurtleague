@@ -18,6 +18,11 @@ COMPOSE="docker-compose.yml"
 # files land beside them under the one age bound runbooks §7 sets.
 LOG_DIR="/var/log/frankfurtleague"
 
+# Touched only by a pass that read the stream and wrote its day files: the replay after a restore
+# refuses until it is later than the restore's end (`scripts/ops/replay_journal.sh`). Hourly touches
+# keep it within the directory's age bound (runbooks §7).
+PASS_STAMP="${LOG_DIR}/erasure-journal.last-pass"
+
 # The token opening every journal line, `fl_backend/app/core/journal.py :: JOURNAL_TOKEN`, held to it by
 # `scripts/tests/test_export_journal.py`: a line it misses is an act no restore runs again.
 JOURNAL_TOKEN="loeschung-journal"
@@ -91,6 +96,7 @@ The deploy creates it; docs/ops/runbooks.md §7 says how to create it by hand."
   (( live_rc == 0 )) || refuse "the backend's stream could not be read (docker compose logs exit ${live_rc}), so only the
 deploy copies' lines reached the day files. The next pass that reads the stream copies every line it
 still holds, of every day a pass writes, unless its size cap rotates one away first."
+  touch -- "$PASS_STAMP"
 }
 
 require_platform linux

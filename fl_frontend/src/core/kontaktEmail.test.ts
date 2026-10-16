@@ -19,7 +19,6 @@ const FRIST = "05.10.2026";
 
 const daten = {
   origin: ORIGIN,
-  vorname: "Erika",
   rollenText: "Ansprechperson",
   schule: "Ernst-Reuter-Schule",
   saisonId: "2627",
@@ -66,13 +65,14 @@ describe("the message a seated contact person is mailed", () => {
   });
 
   /* Both branches state the same facts: a reader whose client shows the text part must be told what
-     the markup part tells the one beside them. */
-  it("says who entered whom, where and until when, in both branches", () => {
+     the markup part tells the one beside them. No name: behind a typo, an unconfirmed address is a
+     stranger's. */
+  it("greets by no name and says who entered them, where and until when, in both branches", () => {
     for (const [branch, words] of [
       ["html", readable(mail.html)],
       ["text", flat(mail.text)],
     ] as const) {
-      assert.match(words, /Hallo Erika, die Verwaltung der Frankfurt League hat Dich/, `the ${branch} branch does not say who entered them`);
+      assert.match(words, /Hallo, die Verwaltung der Frankfurt League hat Dich/, `the ${branch} branch greets otherwise`);
       assert.match(
         words,
         /hat Dich in der Saison 2627 als Ansprechperson für Ernst-Reuter-Schule eingetragen\./,
@@ -128,19 +128,18 @@ describe("the message a seated contact person is mailed", () => {
 
   /* The subject is a header: a break typed into the school's name would end it and start another. */
   it("folds a multi-line value into one line in the subject and both branches", () => {
-    const gefaltet = buildKontaktBestaetigungEmail({ ...daten, vorname: "Erika\nAbsender: niemand", schule: "Schule\r\nBcc: x@y.de" });
+    const gefaltet = buildKontaktBestaetigungEmail({ ...daten, schule: "Schule\r\nBcc: x@y.de" });
 
     assert.ok(!/[\r\n]/.test(gefaltet.subject), "a typed newline reached the subject");
-    assert.ok(!gefaltet.text.includes("Erika\nAbsender"), "a typed newline reached the text branch");
-    assert.match(flat(gefaltet.text), /Hallo Erika Absender: niemand,/);
+    assert.ok(!gefaltet.text.includes("Schule\r\nBcc"), "a typed newline reached the text branch");
+    assert.match(flat(gefaltet.text), /für Schule Bcc: x@y\.de eingetragen\./);
   });
 
-  it("escapes a forename and a school carrying markup rather than serving them", () => {
-    const feindlich = buildKontaktBestaetigungEmail({ ...daten, vorname: "<script>a</script>", schule: "<b>X</b>" });
+  it("escapes a school carrying markup rather than serving it", () => {
+    const feindlich = buildKontaktBestaetigungEmail({ ...daten, schule: "<script>a</script>" });
 
-    assert.ok(!feindlich.html.includes("<script>"), "the forename reached the markup branch unescaped");
-    assert.ok(!feindlich.html.includes("<b>X</b>"), "the school reached the markup branch unescaped");
-    assert.match(readable(feindlich.html), /Hallo <script>a<\/script>,/);
+    assert.ok(!feindlich.html.includes("<script>"), "the school reached the markup branch unescaped");
+    assert.match(readable(feindlich.html), /für <script>a<\/script> eingetragen\./);
   });
 
   /* `fl_frontend/src/core/emailShell.ts :: mailOrigin` is what keeps a stack that is not production

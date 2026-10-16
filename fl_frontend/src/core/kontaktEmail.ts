@@ -44,11 +44,14 @@ export type KontaktEmail = { subject: string; html: string; text: string };
  */
 export type KontaktZeile = "offen" | "saison_vorbei" | "ausgetreten";
 
-/** What one person an administrator seated on a team's season row is asked to confirm. */
+/**
+ * What one person an administrator seated on a team's season row is asked to confirm. No name: the
+ * administrator typed this address and nobody has confirmed it, so behind a typo its reader is a
+ * stranger, owed none.
+ */
 export interface KontaktBestaetigungData {
   /** The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL` (`docs/frontend/spec.md :: I186`). */
   origin: string;
-  vorname: string;
   /**
    * Every seat this one link answers for, as one phrase, rendered by the caller:
    * `fl_frontend/src/features/bewerbungen/notifications.ts :: rollenText` sits in a layer `core` may not reach.
@@ -71,7 +74,6 @@ function aktionen(url: string, zeile: KontaktZeile): readonly Aktion[] {
 }
 
 type Fakten = {
-  vorname: string;
   rollen: string;
   schule: string;
   saisonId: string;
@@ -81,14 +83,13 @@ type Fakten = {
   zeile: KontaktZeile;
 };
 
-function eintragSatz({ vorname, rollen, schule, saisonId }: Fakten, markup: boolean): string {
-  const name = markup ? strong(escapeHtml(vorname)) : vorname;
+function eintragSatz({ rollen, schule, saisonId }: Fakten, markup: boolean): string {
   const team = markup ? strong(escapeHtml(schule)) : schule;
   // Coloured as the registration and application messages colour the season they name.
   const saison = markup ? brandPhrase(`Saison ${escapeHtml(saisonId)}`) : `Saison ${saisonId}`;
 
   // „für {Team} in der Saison …“, as the registration messages name a team and its season.
-  return `Hallo ${name}, die Verwaltung der ${BRAND_NAME} hat Dich in der ${saison} als ${markup ? escapeHtml(rollen) : rollen} für ${team} eingetragen.`;
+  return `Hallo, die Verwaltung der ${BRAND_NAME} hat Dich in der ${saison} als ${markup ? escapeHtml(rollen) : rollen} für ${team} eingetragen.`;
 }
 
 // „Bereich“, the signed-in area's own name on screen, and never „Zugang“: on screen that word names an
@@ -172,7 +173,6 @@ function renderText(fakten: Fakten): string {
  */
 export function buildKontaktBestaetigungEmail({
   origin,
-  vorname,
   rollenText,
   schule,
   saisonId,
@@ -184,7 +184,6 @@ export function buildKontaktBestaetigungEmail({
   // Folded before either branch, and the subject with them: this message renders no fact panel, so
   // nothing downstream would fold these, and a break in a subject is a header injection.
   const fakten: Fakten = {
-    vorname: einzeilig(vorname),
     rollen: einzeilig(rollenText),
     schule: einzeilig(schule),
     saisonId: einzeilig(saisonId),

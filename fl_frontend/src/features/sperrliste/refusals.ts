@@ -27,10 +27,10 @@ export const verwaltungAmFeld = (): { fieldErrors: FieldErrors } => ({
 export const schonGesperrtAmFeld = (): { fieldErrors: FieldErrors } => ({ fieldErrors: { email: "Diese Adresse ist schon gesperrt." } });
 
 /**
- * Said on the reason's box, as the erasure says one in its Anlass. The refusal names no word and takes a common word
- * equal to a name with it, so the sentence names the way out.
+ * One sentence about the value, in the erasure's words: the box is the way out, its hint asking for no name
+ * (`docs/frontend/spec.md` §1.12). The refusal names no word and takes a common word equal to a name.
  */
-const NAME_IM_GRUND = "Ein Wort im Grund gleicht einem Namen der Person. Beschreibe den Vorfall mit anderen Worten und ohne Namen.";
+const NAME_IM_GRUND = "Der Grund enthält ein Wort, das einem Namen der Person gleicht.";
 
 /** `null` where the refusal is something else. Each lands on the box holding the value it refuses, the address or the reason. */
 export function mapSperreRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {

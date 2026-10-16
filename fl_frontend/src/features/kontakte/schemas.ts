@@ -38,7 +38,6 @@ export const FLKontaktMintSchema = z.object({
   rollen: z.array(FLKontaktRolleSchema),
   // The address the mint's own transaction stored, never the one a caller sent.
   email: z.string(),
-  vorname: z.string(),
   schule: z.string(),
   frist: CustomDateStringSchema,
   // The row's state, read in the mint's own transaction: it fixes what the link's page takes, so the
