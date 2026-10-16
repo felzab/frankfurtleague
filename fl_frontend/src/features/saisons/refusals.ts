@@ -1,3 +1,4 @@
+import { SAISONS_EINTRAG } from "@/features/admin/constants";
 import { isRefusal } from "@/shared/utils/actionError";
 
 import { GRUPPEN_OFF_RULES, RECORDED_FACTS_NONE, REGELN_ABSCHNITT, SPIELPLAN_ABSCHNITT, SPIELTAGE_UNDATED } from "./constants";
@@ -5,7 +6,8 @@ import { MAX_QUALIFIERS } from "./schemas";
 
 import type { FieldErrors } from "@/shared/utils/validation";
 
-const SAISON_ID_TAKEN = "Diese Saison-ID ist schon vergeben.";
+// The box offers another id; editing the season already holding this one is the way out it lacks.
+const SAISON_ID_TAKEN = `Diese Saison-ID ist schon vergeben. Bearbeite die vorhandene Saison unter „${SAISONS_EINTRAG.label}“.`;
 
 /**
  * The stored-rules faults a DRAW raises as well as an edit, each worded once: the rules editor

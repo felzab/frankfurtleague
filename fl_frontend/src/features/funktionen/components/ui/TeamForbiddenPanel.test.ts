@@ -8,6 +8,7 @@ import { createElement as h } from "react";
 import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
+import { DEIN_BEREICH_TITEL } from "@/core/seitenNamen.ts";
 import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
@@ -43,7 +44,7 @@ const SPIELER: Funktion = { art: "spieler", spieler_id: TEAM_B };
 const SCHIEDSRICHTER: Funktion = { art: "schiedsrichter", schiedsrichter_id: TEAM_B };
 const ADMINISTRATION: Funktion = { art: "administration" };
 
-const BEREICH = { href: "/bereich", text: "Zu Deinem Bereich" };
+const BEREICH = { href: "/bereich", text: DEIN_BEREICH_TITEL };
 const GOETHE = { href: `/bereich/team/${TEAM_A}/2526`, text: "Goethe-Gymnasium, Saison 2526" };
 
 /** Each way out the panel offers a person holding `funktionen`: its opening tag, its address and its text. */
