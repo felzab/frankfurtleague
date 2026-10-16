@@ -238,10 +238,10 @@ def _ranked(value: Any, rank: Mapping[ObjectId, int]) -> Any:
 
 
 def what_is_left(collections: Mapping[str, list[Any]]) -> Any:
-    """The database, each id by its rank: two seeds mint their ids in one order, so ranks compare where ids cannot.
+    """The database by rank: two seeds mint ids in one order, so ranks compare where ids cannot.
 
-    Log rows drop their clock, the request's own their filer and `anlass`, the actor's grant its anchor count, and the
-    address's anchor its count and clock, the person's own judge writing it a second time.
+    Log rows drop their clock, the request's own their filer and `anlass`; each anchor drops its count, the address's
+    its clock too.
     """
 
     left = {name: [dict(document) for document in documents] for name, documents in collections.items()}

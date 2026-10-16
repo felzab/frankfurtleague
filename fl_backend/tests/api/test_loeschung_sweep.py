@@ -57,6 +57,7 @@ from tests.documents import (
     team_document,
 )
 from tests.erasure import erasure_collections
+from tests.isolation import InterleavedCollection
 from tests.whole_database import where_held
 from tests.worker import worker_database
 
@@ -561,12 +562,14 @@ class CommittedInsideThePupilsTransaction:
         return cursor
 
 
-async def a_squad_row_entered(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-    """The administrator's entry into the running season, which keeps the pupil."""
+async def a_squad_row_entered(database: AsyncDatabase, client: AsyncMongoClient, *, saison_id: str = "2026") -> Any:
+    """The administrator's entry into a kept season, the running one unless named, which keeps the pupil."""
 
     return await post_saison_spieler(
         spieler_id=numbered(1),
-        saison_spieler_data=FLPostSaisonSpielerPayload(saison_id="2026", team_id=TEAM_OID, nummer=None, position=None, stufe=None, rolle=None),
+        saison_spieler_data=FLPostSaisonSpielerPayload(
+            saison_id=saison_id, team_id=TEAM_OID, nummer=None, position=None, stufe=None, rolle=None
+        ),
         spieler_collection=database[Collection.SPIELER],
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
@@ -577,8 +580,10 @@ async def a_squad_row_entered(database: AsyncDatabase, client: AsyncMongoClient)
     )
 
 
-async def a_registration_submitted(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-    """The pupil's own registration for the running season, at their address typed otherwise, which keeps them."""
+async def a_registration_submitted(
+    database: AsyncDatabase, client: AsyncMongoClient, *, position: int = 1, einladungen_collection: Any = None
+) -> Any:
+    """A pupil's own registration for the running season, the first pupil's unless named, typed otherwise, which keeps them."""
 
     return await post_registrierung(
         registrierung_data=FLPostRegistrierungPayload.model_validate(
@@ -586,7 +591,7 @@ async def a_registration_submitted(database: AsyncDatabase, client: AsyncMongoCl
                 "token": EINLADUNG_TOKEN,
                 "vorname": "Quintessa",
                 "nachname": "Muster",
-                "email": address_of(1).capitalize(),
+                "email": address_of(position).capitalize(),
                 "position": None,
                 "nummer": None,
                 "stufe": None,
@@ -595,7 +600,7 @@ async def a_registration_submitted(database: AsyncDatabase, client: AsyncMongoCl
         idempotency_key=None,
         teams_collection=database[Collection.TEAMS],
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
-        einladungen_collection=database[Collection.EINLADUNGEN],
+        einladungen_collection=database[Collection.EINLADUNGEN] if einladungen_collection is None else einladungen_collection,
         saisons_collection=database[Collection.SAISONS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
@@ -631,19 +636,23 @@ class TestARivalCommittingInsideThePupilsTransactionKeepsThem:
     @pytest.mark.parametrize(
         "rival",
         [
-            # Held by the person: the entry anchors the pupil, whose deletion then conflicts with it.
+            # Held by the person alone: the entry anchors the pupil, whose deletion then conflicts with it, and
+            # the season the entry counts its squad in is no write of the deletion's.
             pytest.param(a_squad_row_entered, id="a squad row"),
-            # Held by the season: the submission inserts a row the deletion never read, so only the
-            # season both write puts the two in one write set.
+            # The same anchor in the season just ended, which no registration reaches.
+            pytest.param(functools.partial(a_squad_row_entered, saison_id=JUST_ENDED), id="a squad row in the season just ended"),
+            # Held by the address: the submission inserts a row the deletion never read, and the address's anchor
+            # both write is what puts the two in one write set (`docs/backend/spec.md :: I719`).
             pytest.param(a_registration_submitted, id="a pending registration"),
         ],
     )
     def test_the_pupil_stands(self, mongo_replica_set_url: str, rival: Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]):
-        """Anchor no season in the pupil's transaction and the registration's arm fails: the pupil goes, their registration orphaned."""
+        """Remove the submission's address anchor and its arm fails; remove the pupil's in `pull_a_person_to_enter` and both squad arms do."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await seeded(database, a_due_pupil(1))
             await a_running_season_open_to_its_team(database)
+            await database[Collection.SAISON_TEAMS].insert_one(saison_team_document(JUST_ENDED, TEAM_OID, "Lindenschule", "LS"))
             seasons = CommittedInsideThePupilsTransaction(database[Collection.SAISONS], lambda: rival(database, client))
             answer = await run(database, client, saisons_collection=seasons)
 
@@ -653,6 +662,29 @@ class TestARivalCommittingInsideThePupilsTransactionKeepsThem:
 
         assert committed, "the rival never committed inside the pupil's transaction, so this case proves nothing"
         assert (answer["spieler"], answer["uebersprungen"], standing) == (0, 1, 1)
+
+
+class LinkReadThenRival(InterleavedCollection):
+    """The invitations, running the rival to its commit once a submission has read its link: its first read, before any write."""
+
+    async def find_one(self, *args: Any, **kwargs: Any) -> Any:
+        found = await self._collection.find_one(*args, **kwargs)
+        await self.run_the_rival()
+        return found
+
+
+class TestTwoAddressesRegisteringForOneSeasonWaitOnNeitherOther:
+    def test_one_committing_inside_the_other_sends_it_round_no_second_time(self, mongo_replica_set_url: str):
+        """`docs/backend/spec.md :: I716`: write the season in the submission again and the outer one meets the inner's commit, read twice."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await a_running_season_open_to_its_team(database)
+            links = LinkReadThenRival(database[Collection.EINLADUNGEN], lambda: a_registration_submitted(database, client, position=2))
+            await a_registration_submitted(database, client, position=3, einladungen_collection=links)
+
+            return links.passes, await database[Collection.REGISTRIERUNGEN].count_documents({})
+
+        assert on_a_league(mongo_replica_set_url, body) == (1, 2)
 
 
 class TestOneRecordHoldsBackNobody:
