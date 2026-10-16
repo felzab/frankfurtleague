@@ -7,6 +7,7 @@ from app.api.berechtigungen.schemas import FLUtcInstant, FLVerwaltung
 # The wire's spelling of the three seats, imported rather than restated: a second closed set here
 # would name a seat no other endpoint publishes.
 from app.api.bewerbungen.schemas import FLKontaktRolle
+from app.api.registrierungen.schemas import FLRegistrierungStatus
 from app.api.saisons.schemas import FLSaisonStatus
 from app.api.sperrliste.schemas import ADDRESS_IN_FREE_TEXT
 from app.shared.folding import sign_in_identifier
@@ -329,6 +330,8 @@ class FLErasureAnsichtBewerbung(FLSelbstErasureBewerbung):
 class FLErasureAnsichtRegistrierung(FLSelbstErasureRegistrierung):
     registrierung_id: CustomObjectId
     team_id: CustomObjectId
+    # The administrator's registrations list serves the pending ones alone, so a ban's dialog links no declined one.
+    status: FLRegistrierungStatus
 
 
 class FLErasureAnsichtAdresswechsel(BaseModel):

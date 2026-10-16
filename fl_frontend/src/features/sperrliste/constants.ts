@@ -51,6 +51,8 @@ export const SPERRE_ERFOLG = "Adresse gesperrt";
 export const SPERRE_ANSICHT_COPY = {
   heading: "Was unter dieser Adresse noch gespeichert ist",
   lead: "Die Sperre wirkt sofort. Diese Einträge bleiben bestehen, bis Du sie bearbeitest.",
+  // Its team can only decline it, the admission refusing a barred address, and the clock erases it either way.
+  registrierungen: "Eine Registrierung endet von selbst, denn ihr Team kann sie nicht mehr aufnehmen.",
   leer: "Unter dieser Adresse ist nichts gespeichert.",
   nichtGeladen: "Was unter der Adresse gespeichert ist, konnte nicht geladen werden. Die Sperre steht.",
   fertig: "Fertig",

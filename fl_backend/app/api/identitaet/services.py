@@ -113,7 +113,7 @@ def build_erasure_pupil_pipeline(identifier: str) -> list[Mapping[str, Any]]:
 def build_erasure_registrierung_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     return [
         {"$match": build_erasure_registrierung_filter(identifier)},
-        {"$project": {"saison_id": 1, "team_id": 1, "email": 1, "vorname": 1, "nachname": 1}},
+        {"$project": {"saison_id": 1, "team_id": 1, "status": 1, "email": 1, "vorname": 1, "nachname": 1}},
         {"$sort": {"saison_id": 1, "_id": 1}},
     ]
 
@@ -307,7 +307,7 @@ def compose_erasure_ansicht_auf_anfrage(
             ],
             "bewerbungen": [{**_seat_entry(row, slot), "bewerbung_id": row["_id"]} for row, slot in seats_naming(bewerbung_rows, identifier)],
             "registrierungen": [
-                {**_registrierung_entry(row, team_names), "registrierung_id": row["_id"], "team_id": row["team_id"]}
+                {**_registrierung_entry(row, team_names), "registrierung_id": row["_id"], "team_id": row["team_id"], "status": row["status"]}
                 for row in registrierung_rows
             ],
             "adresswechsel": [{"schiedsrichter_id": row["_id"]} for row in adresswechsel_rows],

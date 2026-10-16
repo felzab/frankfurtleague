@@ -11,6 +11,7 @@ import {
   FLSubjektResponseSchema,
 } from "@/core/schemas";
 import { einzeiligerName, FLKontaktRolleSchema } from "@/features/bewerbungen/schemas";
+import { FLRegistrierungSchema } from "@/features/registrierungen/schemas";
 import { ADRESSE_IM_GRUND_REGEX } from "@/features/sperrliste/schemas";
 import { addressSchema, CustomDateStringSchema, CustomObjectIdStringSchema } from "@/shared/schemas";
 
@@ -107,6 +108,7 @@ export const FLErasureAnsichtBewerbungSchema = FLSelbstErasureBewerbungSchema.ex
 export const FLErasureAnsichtRegistrierungSchema = FLSelbstErasureRegistrierungSchema.extend({
   registrierung_id: CustomObjectIdStringSchema,
   team_id: CustomObjectIdStringSchema,
+  status: FLRegistrierungSchema.shape.status,
 });
 
 /** A referee row holding a change to the address still to be confirmed, which names no person to show. */

@@ -83,14 +83,22 @@ const EINTRAEGE: Eintraege = {
       text: `${rollenLangform([rolle])} in einer Bewerbung für die Saison ${saison_id}: ${nameOf(vorname, nachname)}`,
       verweise: [{ label: SPERRE_ANSICHT_VERWEISE.bewerbung, href: saisonHref(`/bereich/admin/bewerbungen/${bewerbung_id}`) }],
     })),
+  // The registrations list serves the pending ones alone, so a declined one is named with no link.
   registrierungen: (registrierungen, saisonHref) =>
-    registrierungen.map(({ saison_id, team_name, vorname, nachname }) => ({
-      text:
-        team_name === null
-          ? `Registrierung für die Saison ${saison_id}: ${nameOf(vorname, nachname)}`
-          : `Registrierung bei ${team_name}, Saison ${saison_id}: ${nameOf(vorname, nachname)}`,
-      verweise: [{ label: SPERRE_ANSICHT_VERWEISE.registrierungen, href: saisonHref("/bereich/admin/registrierungen") }],
-    })),
+    registrierungen.map(({ saison_id, team_name, vorname, nachname, status }) => {
+      const art = status === "abgelehnt" ? "Abgelehnte Registrierung" : "Registrierung";
+
+      return {
+        text:
+          team_name === null
+            ? `${art} für die Saison ${saison_id}: ${nameOf(vorname, nachname)}`
+            : `${art} bei ${team_name}, Saison ${saison_id}: ${nameOf(vorname, nachname)}`,
+        verweise:
+          status === "abgelehnt"
+            ? []
+            : [{ label: SPERRE_ANSICHT_VERWEISE.registrierungen, href: saisonHref("/bereich/admin/registrierungen") }],
+      };
+    }),
   adresswechsel: (adresswechsel, saisonHref) =>
     adresswechsel.map(({ schiedsrichter_id }) => ({
       text: "Eine noch nicht bestätigte Adressänderung einer Schiedsrichterin oder eines Schiedsrichters auf diese Adresse",
@@ -119,6 +127,11 @@ export function AdminSperreAnsichtList({ ansicht }: { ansicht: SperreAnsicht | n
   const saisonHref = useSaisonHref();
   const eintraege =
     ansicht === null ? null : (Object.keys(EINTRAEGE) as (keyof SperreAnsicht)[]).flatMap((art) => eintraegeDer(art, ansicht, saisonHref));
+  // The lead promises an edit, which no administrator makes of a registration.
+  const lead =
+    (ansicht?.registrierungen.length ?? 0) === 0
+      ? SPERRE_ANSICHT_COPY.lead
+      : `${SPERRE_ANSICHT_COPY.lead} ${SPERRE_ANSICHT_COPY.registrierungen}`;
 
   return (
     <div className="flex w-full flex-col gap-y-2">
@@ -130,7 +143,7 @@ export function AdminSperreAnsichtList({ ansicht }: { ansicht: SperreAnsicht | n
         <p className={ZEILE_CLASSES}>{SPERRE_ANSICHT_COPY.leer}</p>
       ) : (
         <>
-          <p className={ZEILE_CLASSES}>{SPERRE_ANSICHT_COPY.lead}</p>
+          <p className={ZEILE_CLASSES}>{lead}</p>
           <ul className={`${ZEILE_CLASSES} flex list-disc flex-col gap-y-2 pl-5`}>
             {/* Derived per answer and never reordered, which is what makes the index a key: two seats can read alike. */}
             {eintraege.map(({ text, verweise }, stelle) => (

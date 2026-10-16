@@ -77,7 +77,9 @@ const EIN_EINTRAG_JE_ART = {
   schiedsrichter: [{ schiedsrichter_id: ID, name: "Pia Kraft", inactive_since: null, spiele_ohne_ergebnis_saison_ids: ["2026"] }],
   sitze: [{ saison_id: "2026", team_id: ID, team_name: "SG Alpha", rolle: "trainer", vorname: "Grace", nachname: "Meier" }],
   bewerbungen: [{ bewerbung_id: ID, saison_id: "2027", rolle: "ansprechperson", vorname: "Grace", nachname: "Meier" }],
-  registrierungen: [{ registrierung_id: ID, saison_id: "2026", team_id: ID, team_name: "SG Alpha", vorname: "Lena", nachname: "Meier" }],
+  registrierungen: [
+    { registrierung_id: ID, saison_id: "2026", team_id: ID, team_name: "SG Alpha", status: "eingereicht", vorname: "Lena", nachname: "Meier" },
+  ],
   adresswechsel: [{ schiedsrichter_id: ID }],
   spieler_adresswechsel: [{ spieler_id: PUPIL_ID }],
   verwaltung: "owner",

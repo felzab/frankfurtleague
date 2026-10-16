@@ -79,7 +79,9 @@ const BESTAND = {
   ],
   sitze: [{ team_id: TEAM, saison_id: "2026", team_name: "Goethe-Gymnasium", rolle: "trainer", ...PERSON }],
   bewerbungen: [{ bewerbung_id: BEWERBUNG, saison_id: "2027", rolle: "ansprechperson", ...PERSON }],
-  registrierungen: [{ registrierung_id: "6890a1b2c3d4e5f607250015", team_id: TEAM, saison_id: "2026", team_name: null, ...PERSON }],
+  registrierungen: [
+    { registrierung_id: "6890a1b2c3d4e5f607250015", team_id: TEAM, saison_id: "2026", team_name: null, status: "eingereicht", ...PERSON },
+  ],
   adresswechsel: [{ schiedsrichter_id: WECHSELNDER_SCHIEDSRICHTER }],
   spieler_adresswechsel: [{ spieler_id: WECHSELNDER_SPIELER }],
 };
@@ -151,7 +153,11 @@ describe("what the ban's dialog shows once the ban stands (`docs/frontend/spec.m
     const dialog = await sperren();
 
     assert.ok(screen.queryByRole("dialog") === dialog, "the dialog closed over the list");
-    assert.ok(within(dialog).queryByText(SPERRE_ANSICHT_COPY.lead) !== null, "the list stands under no lead");
+    // The registration's own sentence beside it: the lead's promise of an edit reaches no registration.
+    assert.ok(
+      within(dialog).queryByText(`${SPERRE_ANSICHT_COPY.lead} ${SPERRE_ANSICHT_COPY.registrierungen}`) !== null,
+      "the list stands under no lead, or one promising an edit of a registration",
+    );
     assert.deepEqual(verweiseIn(dialog), [
       ["Kadereintrag austragen", `/bereich/admin/spieler/${SPIELER}?saison_id=2024`],
       ["Kadereintrag austragen", `/bereich/admin/spieler/${SPIELER}?saison_id=2026`],
@@ -167,6 +173,25 @@ describe("what the ban's dialog shows once the ban stands (`docs/frontend/spec.m
       ["Adressänderung ansehen", `/bereich/admin/spieler/${WECHSELNDER_SPIELER}?saison_id=2025`],
     ]);
     for (const [, href] of verweiseIn(dialog)) assert.ok(href !== null && !href.includes("@"), `${String(href)} carries an address`);
+  });
+
+  /* The registrations list serves the pending ones alone: a link to a declined one opens a list it is not on. */
+  it("links no declined registration, and names it declined", async () => {
+    antwort = () =>
+      Promise.resolve({
+        ...NICHTS,
+        registrierungen: [
+          { registrierung_id: "6890a1b2c3d4e5f607250015", team_id: TEAM, saison_id: "2026", team_name: null, status: "abgelehnt", ...PERSON },
+        ],
+      });
+
+    const dialog = await sperren();
+
+    assert.deepEqual(verweiseIn(dialog), []);
+    assert.ok(
+      within(dialog).queryByText(/^Abgelehnte Registrierung für die Saison 2026: Zorbanax Quell$/) !== null,
+      "the line hides its status",
+    );
   });
 
   /* The memberships read lists a pupil holding no squad row, and the editor opens on them: their record is what stands. */

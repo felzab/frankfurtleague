@@ -857,7 +857,9 @@ records from the ban again.
 - a contact seat: „Kontakte bearbeiten“ replaces or clears it on the team's season;
 - a seat on an application: „Bewerbung öffnen“, whose „Neu besetzen“ seats the replacement the
   school names;
-- a registration: „Registrierungen ansehen“, its team deciding it;
+- a registration: „Registrierungen ansehen“ shows a pending one, and a declined one has no link;
+  no administrator decides either, its team cannot admit a barred address, and the clock erases
+  both;
 - another referee's pending change of address to it: „Adressänderung ansehen“ opens that
   referee's editor, whose „Änderung verwerfen“ removes it;
 - a pupil holding no squad row: „Eintrag ansehen“ opens their record.
