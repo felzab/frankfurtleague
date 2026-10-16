@@ -40,6 +40,23 @@ describe("the address the erasure, its reveal and the sign-out look up", () => {
   });
 });
 
+describe("the placeholder every address-less referee row shares", () => {
+  /* One lookup there would reach every such row at once; the API refuses it on the fold, capitals and a bare
+     `invalid` domain included, and the box words it as the API does. */
+  it("is refused by all three lookups, in its own words, whatever its capitals", () => {
+    const satz = (email: string) => FLErasureAnsichtPayloadSchema.safeParse({ email: email }).error?.issues[0]?.message;
+    for (const email of ["schiri@platzhalter.invalid", "SCHIRI@Platzhalter.INVALID", "schiri@invalid"]) {
+      for (const [payload, takes] of LOOKUPS) assert.equal(takes(email), false, `${payload} took "${email}"`);
+      assert.equal(satz(email), "Diese Adresse ist ein Platzhalter und gehört niemandem.", `"${email}" is refused in other words`);
+    }
+  });
+
+  /* The control: a domain merely ending in the letters stays a mailbox. */
+  it("takes a real domain whose name ends in those letters", () => {
+    for (const [payload, takes] of LOOKUPS) assert.equal(takes("ada@noinvalid.example"), true, `${payload} refused a real domain`);
+  });
+});
+
 describe("the request the erasure answers", () => {
   const refused = (anlass: string): string | undefined =>
     FLErasurePayloadSchema.safeParse({ email: "ada@example.org", anlass: anlass }).error?.issues[0]?.message;

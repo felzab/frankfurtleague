@@ -1,5 +1,6 @@
 import z from "zod";
 
+import { asSignInIdentifier } from "@/core/emailAddress";
 import {
   BaseAPIResponseSchema,
   FLSelbstErasureBewerbungSchema,
@@ -38,7 +39,16 @@ export type FLTeamSitzeResponse = z.infer<typeof FLTeamSitzeResponseSchema>;
  * The erasure's lookup, held to no address rule as the API's is: a record stored under an older rule
  * stays erasable (`docs/backend/spec.md :: I329`).
  */
-const ADRESSE_NACHSCHLAGEN = addressSchema((address) => address.includes("@"));
+const ADRESSE_NACHSCHLAGEN = addressSchema((address) => address.includes("@")).refine(
+  (address) => {
+    // Every referee row stored without an address shares one placeholder under RFC 6761's `invalid`, so a lookup
+    // there would reach all of them. Judged on the fold, as the API judges it:
+    // `fl_backend/app/api/identitaet/schemas.py :: refuse_the_reserved_domain`.
+    const domain = asSignInIdentifier(address).split("@").at(-1) ?? "";
+    return domain !== "invalid" && !domain.endsWith(".invalid");
+  },
+  { error: "Diese Adresse ist ein Platzhalter und gehört niemandem." },
+);
 
 /** Mirrors `FLErasureAnsichtPayload`: the address the reveal is read for, in the body for the erasure's own reason. */
 export const FLErasureAnsichtPayloadSchema = z.object({ email: ADRESSE_NACHSCHLAGEN });
