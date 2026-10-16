@@ -9,7 +9,10 @@ export type FacetOption = {
  * importing a feature: each slice declares how its own row answers, and this module never learns what a row is.
  */
 export type Facet<TItem> = {
-  /** The URL parameter this facet reads and writes. Unique per surface; never `q` or `saison_id`. */
+  /**
+   * The URL parameter this facet reads and writes. Unique per surface, and never one the search query or another
+   * control owns (`fl_frontend/src/shared/utils/facets.test.ts :: "never claims a parameter another control owns"`).
+   */
   param: string;
   /** The group heading in the popover, and the prefix on an active chip. */
   label: string;

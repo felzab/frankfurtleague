@@ -50,10 +50,11 @@ function foundAfterTyping(view: ReactElement, query: string, rows: Readonly<Reco
 }
 
 describe("the grants list's search, over the actor and the address its cards print", () => {
-  const zeile = (adresse: string, von: string | null, vonGesperrt: boolean, id: string): FLBerechtigungZeile => ({
+  // A barred grant's own address is withheld as `null`, and only its card's label can be typed.
+  const zeile = (adresse: string | null, von: string | null, vonGesperrt: boolean, id: string): FLBerechtigungZeile => ({
     id: id,
     adresse: adresse,
-    gesperrt: false,
+    gesperrt: adresse === null,
     verwaltung: "administration",
     erteilt_von: von,
     erteilt_von_gesperrt: vonGesperrt,
@@ -64,6 +65,8 @@ describe("the grants list's search, over the actor and the address its cards pri
     geloescht: "kasse@schule.de",
     gesperrt: "beisitz@schule.de",
     eingefuegt: "inhaber@schule.de",
+    // Found by its author, the one address this card prints.
+    gesperrterZugang: "schriftfuehrung@schule.de",
   };
   const view = h(AdminBerechtigungenView, {
     berechtigungen: [
@@ -71,6 +74,7 @@ describe("the grants list's search, over the actor and the address its cards pri
       zeile(ROWS.geloescht, ERASED_ACTOR_MARKER, false, "6890a1b2c3d4e5f6071b0012"),
       zeile(ROWS.gesperrt, null, true, "6890a1b2c3d4e5f6071b0013"),
       zeile(ROWS.eingefuegt, PLAYGROUND_MARKER, false, "6890a1b2c3d4e5f6071b0014"),
+      zeile(null, ROWS.gesperrterZugang, false, "6890a1b2c3d4e5f6071b0015"),
     ],
     uebersprungen: 0,
     inhaberAdresse: null,
@@ -81,8 +85,8 @@ describe("the grants list's search, over the actor and the address its cards pri
     assert.deepEqual(foundAfterTyping(view, ERASED_ACTOR_MARKER, ROWS), []);
   });
 
-  it("finds a barred author as „Gesperrte Adresse“, and a paste by its origin rather than its marker", () => {
-    assert.deepEqual(foundAfterTyping(view, "Gesperrte Adresse", ROWS), ["gesperrt"]);
+  it("finds a barred grant and a barred author as „Gesperrte Adresse“, and a paste by its origin rather than its marker", () => {
+    assert.deepEqual(foundAfterTyping(view, "Gesperrte Adresse", ROWS), ["gesperrt", "gesperrterZugang"]);
     assert.deepEqual(foundAfterTyping(view, "Direkt in der Datenbank", ROWS), ["eingefuegt"]);
     assert.deepEqual(foundAfterTyping(view, PLAYGROUND_MARKER, ROWS), []);
   });

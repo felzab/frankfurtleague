@@ -257,10 +257,11 @@ CASES=(
   "LEAK-REF|http://localhost/signin?token=a%20b${TOK}"
 
   # A typed search query, which no page writes (`docs/frontend/spec.md :: I680`): an address in the
-  # first parameter, a name past another, and the page a visitor came from.
+  # first parameter, a name past another, and the page a visitor came from, plain and encoded.
   "LEAK|${BASE}/bereich/admin/sperrliste?q=${EM}"
   "LEAK|${BASE}/dashboard/spielsuche?saison_id=abc&q=${TOK}"
   "LEAK-REF|http://localhost/dashboard/spielsuche?q=${TOK}"
+  "LEAK-REF|http://localhost/x%3Fq%3D${TOK}"
 
   # Controls. Each is a query an operator reads off this line, and a redaction wide enough to eat
   # them is a different defect rather than a fix.

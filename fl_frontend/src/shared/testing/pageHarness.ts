@@ -427,9 +427,16 @@ async function resolvedNode(node: unknown, depth: number): Promise<unknown> {
   if (Object.entries(props).every(([name, value]) => value === node.props[name])) return node;
   const { children, ...rest } = props;
   // Spread, as JSX hands several children, where the element was built with them.
-  return Array.isArray(children) && children !== node.props.children && Array.isArray(node.props.children)
-    ? cloneElement(node, rest, ...(children as ReactNode[]))
-    : cloneElement(node, props);
+  const clone =
+    Array.isArray(children) && children !== node.props.children && Array.isArray(node.props.children)
+      ? cloneElement(node, rest, ...(children as ReactNode[]))
+      : cloneElement(node, props);
+  // A clone starts without the development mark that its key was checked, which React's Flight server carries with the
+  // element (`renderElement`, Next's bundled copy, read 2026-10-16, moving without us): unmarked, it reads as an
+  // unkeyed child of its static list.
+  const store = (clone as { _store?: { validated?: number } })._store;
+  if (store !== undefined) store.validated = (node as { _store?: { validated?: number } })._store?.validated;
+  return clone;
 }
 
 /**
