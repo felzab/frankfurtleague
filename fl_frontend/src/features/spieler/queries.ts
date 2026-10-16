@@ -138,11 +138,12 @@ export function mapSpielerAdresswechselRefusal(error: unknown): SpielerAdresswec
       return { zustand: "abgelaufen" };
     case "REQ-SPIELER-004":
       return { zustand: "gesperrt" };
-    // The replaced address barred, or the new one taken by another pupil since the page opened, the
-    // unique index answering a race the check missed: one panel, so the link's holder learns nothing
+    // The replaced address barred or gone, or the new one taken by another pupil since the page opened,
+    // the unique index answering a race the check missed: one panel, so the link's holder learns nothing
     // about who holds an address.
     case "REQ-SPIELER-005":
     case "REQ-SPIELER-006":
+    case "REQ-SPIELER-008":
     case "DB-COMMON-002":
       return { zustand: "nicht_bestaetigbar" };
     default:

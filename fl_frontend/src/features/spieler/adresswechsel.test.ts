@@ -191,6 +191,20 @@ describe("the pending change's two controls", () => {
     }
   });
 
+  /* The panel holds no box, so the re-send's refusal names the one control that still helps. */
+  it("answers a re-send for a pupil holding no address with the discard, mailing nobody", async () => {
+    resend = () => refusedOn(RESEND_OPERATION, "REQ-SPIELER-008");
+
+    const res = await einladeSpielerAdresswechselAction({ id: SPIELER_ID });
+
+    assert.equal(res.success, false);
+    assert.equal(
+      res.success ? "" : res.error,
+      "Für diesen Eintrag ist keine Adresse hinterlegt, deshalb lässt sich keine neue bestätigen. Verwirf die Änderung.",
+    );
+    assert.deepEqual(mailedTo(), []);
+  });
+
   it("discards through the DELETE and mails nobody", async () => {
     const res = await verwirfSpielerAdresswechselAction({ id: SPIELER_ID });
 
@@ -235,6 +249,7 @@ describe("what one refused answer asks the address page to show", () => {
     ["REQ-SPIELER-004", "gesperrt"],
     ["REQ-SPIELER-005", "nicht_bestaetigbar"],
     ["REQ-SPIELER-006", "nicht_bestaetigbar"],
+    ["REQ-SPIELER-008", "nicht_bestaetigbar"],
     ["DB-COMMON-002", "nicht_bestaetigbar"],
   ] as const) {
     it(`answers ${code} as the ${zustand} panel`, () => {

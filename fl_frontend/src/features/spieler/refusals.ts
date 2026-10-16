@@ -127,10 +127,19 @@ export function mapAdresswechselLinkRefusal(error: unknown): string | null {
     // The panel has no box, so the sentence names the two ways out it does hold.
     case "REQ-SPIELER-006":
       return `${ADRESSE_BELEGT} Verwirf die Änderung oder gib unter „Adresse ändern“ eine andere ein.`;
+    // A stored address emptied under a waiting change, which only a hand edit reaches: the link would
+    // be refused at the confirmation, so the discard is the one way out.
+    case "REQ-SPIELER-008":
+      return KEINE_ADRESSE_ZU_ERSETZEN;
     default:
       return null;
   }
 }
+
+const KEINE_ADRESSE_ZU_ERSETZEN = buildRefusal({
+  reason: "Für diesen Eintrag ist keine Adresse hinterlegt, deshalb lässt sich keine neue bestätigen",
+  repair: "Verwirf die Änderung",
+});
 
 const KEIN_ADRESSWECHSEL = buildRefusal({
   reason: "Für diesen Eintrag wartet keine neue E-Mail-Adresse mehr auf Bestätigung",
