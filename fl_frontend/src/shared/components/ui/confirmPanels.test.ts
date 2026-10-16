@@ -501,7 +501,6 @@ const PANELS: Record<string, Arming[]> = {
           },
         }),
       resting: "Adresse sperren",
-      stepUp: false,
     },
   ],
   [M.zugangEntziehen]: [

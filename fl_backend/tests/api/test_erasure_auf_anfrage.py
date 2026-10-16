@@ -35,6 +35,7 @@ from app.api.identitaet.services import (
     find_name_im_grund_refusal,
 )
 from app.api.schiedsrichter.services import build_ghost_schiedsrichter
+from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.api.spieler.services import build_ghost_spieler
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -51,7 +52,7 @@ from tests.app_client import app_client
 from tests.bans import ban_list
 from tests.config import ADMIN_KEY, ADMINISTRATORS, UNANSWERED_DEADLINE_S, UNANSWERED_URI, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import schiedsrichter_document, spiel_document
+from tests.documents import ban_document, schiedsrichter_document, spiel_document
 from tests.erasure import erasure_collections
 from tests.isolation import InterleavedCollection
 from tests.whole_database import where_held
@@ -207,6 +208,7 @@ async def revealed(database: AsyncDatabase, client: AsyncMongoClient, email: str
         spiele_collection=database[Collection.SPIELE],
         berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
         berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
+        sperrliste=ban_list(database),
         db=client,
         config=CONFIG,
         operator=OPERATOR,
@@ -326,6 +328,7 @@ EXPECTED_ANSICHT = {
     # Another pupil moving to the address: the change goes and their row stands.
     "spieler_adresswechsel": [{"spieler_id": str(MOVING_PUPIL_OID)}],
     "verwaltung": "administration",
+    "gesperrt": False,
 }
 
 
@@ -554,6 +557,18 @@ class TestTheReveal:
         assert [(row["inactive_since"], row["spiele_ohne_ergebnis_saison_ids"]) for row in answer["schiedsrichter"]] == [
             ("2026-03-21", ["2027", "2028"])
         ]
+
+    def test_it_says_a_standing_ban_holds_the_address_typed_in_another_spelling(self, mongo_replica_set_url: str):
+        """The ban keyed on the fold and read for the capitals the person typed; `EXPECTED_ANSICHT` is the address no ban holds."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SPERRLISTE].insert_one(
+                ban_document(IDENTIFIER, bis=compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID))
+            )
+
+            return (await posted(mongo_replica_set_url, ANSICHT_PATH, ansicht_of(TYPED))).json()
+
+        assert on_a_league(mongo_replica_set_url, body)["gesperrt"] is True
 
     def test_it_names_as_many_of_each_kind_as_the_erasure_then_removes(self, mongo_replica_set_url: str):
         """Read against the erasure's own answer rather than the seed, so a kind it names short is caught whatever the seed holds."""

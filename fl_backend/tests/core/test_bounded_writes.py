@@ -455,6 +455,7 @@ ASKING_AND_ANCHORING_NOTHING: dict[str, str] = {
     "app/api/bewerbungen/public_router.py :: _any_gesperrt": "the submission's question, its callers held here in turn",
     "app/api/bewerbungen/router.py :: _as_served": A_READ,
     "app/api/bewerbungen/sweep_router.py :: remind": STORED_ADDRESS,
+    "app/api/identitaet/admin_router.py :: get_erasure_ansicht_auf_anfrage": A_READ,
     "app/api/identitaet/person_router.py :: erase_the_address": THE_ERASURE,
     "app/api/identitaet/person_router.py :: get_erasure_ansicht": A_READ,
     "app/api/identitaet/router.py :: get_anmeldung": A_READ,

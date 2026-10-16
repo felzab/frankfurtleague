@@ -716,8 +716,8 @@ def signed_in_before(age_s: int) -> dict[str, str]:
     return {**ADMIN_KEY, ACTOR_HEADER: sign({**claims, "auth_time": claims["iat"] - age_s})}
 
 
-# Every write the page steps up on every call: nothing reverses it, or it mints or voids a link to an
-# address. Listed, and held to the declarations by the case below.
+# Every write the page steps up on every call: nothing reverses what it does, or it mints or voids a
+# link to an address. Listed, and held to the declarations by the case below.
 STEP_UP_WRITES = [
     pytest.param("post", "/api/v0/bewerbungen/{bewerbung_id}/annehmen", id="an acceptance"),
     pytest.param("post", "/api/v0/bewerbungen/{bewerbung_id}/ablehnen", id="a decline"),
@@ -733,6 +733,7 @@ STEP_UP_WRITES = [
     pytest.param("post", "/api/v0/schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen", id="a referee's fresh link"),
     pytest.param("post", "/api/v0/schiedsrichter/{schiedsrichter_id}/adresswechsel/einladen", id="a referee's fresh address link"),
     pytest.param("delete", "/api/v0/schiedsrichter/{schiedsrichter_id}/adresswechsel", id="a referee's address change discarded"),
+    pytest.param("post", "/api/v0/sperrliste", id="a ban"),
     pytest.param("delete", "/api/v0/sperrliste/{sperrliste_id}", id="a ban's lift"),
     pytest.param("post", "/api/v0/spieler/{spieler_id}/adresswechsel", id="a pupil's address change asked"),
     pytest.param("post", "/api/v0/spieler/{spieler_id}/adresswechsel/einladen", id="a pupil's fresh address link"),
