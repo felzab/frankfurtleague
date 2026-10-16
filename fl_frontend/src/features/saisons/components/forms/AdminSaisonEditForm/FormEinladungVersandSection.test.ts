@@ -551,7 +551,7 @@ describe("the season's bulk invite send", () => {
     assert.ok(isInTheFlow("Kontaktdaten nicht hinterlegt"), "the skipped team lost its reason in the result");
     assert.ok(isInTheFlow("Registrierungslink nicht angelegt"), "the team whose mint failed is not told apart from one passed over on purpose");
     assert.ok(
-      isInTheFlow("Der bisherige Link dieses Teams gilt weiter. Ein neuer Versand versucht es noch einmal."),
+      isInTheFlow("Der bisherige Link dieses Teams gilt weiter. Ein neuer Versand versucht es erneut."),
       "nothing says the failed team keeps the link it had, so somebody will assume it lost one",
     );
     assert.deepEqual(
@@ -747,10 +747,10 @@ describe("the season's bulk invite send", () => {
       zeile("Ernst-Reuter-Schule"),
       "Ernst-Reuter-Schule" +
         "Registrierungslink nicht angelegt" +
-        "Der bisherige Link dieses Teams gilt weiter. Ein neuer Versand versucht es noch einmal.",
+        "Der bisherige Link dieses Teams gilt weiter. Ein neuer Versand versucht es erneut.",
     );
     for (const team_name of ["Wöhlerschule", "Bettinaschule"]) {
-      assert.equal(zeile(team_name), team_name + "Registrierungslink nicht angelegt" + "Ein neuer Versand versucht es noch einmal.");
+      assert.equal(zeile(team_name), team_name + "Registrierungslink nicht angelegt" + "Ein neuer Versand versucht es erneut.");
     }
   });
 });

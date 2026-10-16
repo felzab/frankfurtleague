@@ -1,3 +1,4 @@
+import { SPERRLISTE_EINTRAG, TEAMS_EINTRAG } from "@/features/admin/constants";
 import { SPERRLISTE_ADRESSE_GESPERRT } from "@/features/sperrliste/constants";
 import { mapAlreadyEnteredRefusal } from "@/features/teams/refusals";
 import { isRefusal } from "@/shared/utils/actionError";
@@ -8,9 +9,6 @@ import { BEWERBUNG_VERALTET } from "./utils";
 
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { BewerbungHerkunft } from "./constants";
-
-/** Where a club is created and reactivated, named as the sidemenu entry reads. */
-const TEAMS_PAGE = "Teams";
 
 /**
  * A triage refusal as the message it should render, or `null` when the code is none of these.
@@ -37,7 +35,7 @@ export function mapTriageRefusal(error: unknown, herkunft: BewerbungHerkunft | n
           reason:
             "Diese Bewerbung nennt weder genau einen bestehenden Verein noch genau eine neue Schule, und damit steht nicht fest, wer aufgenommen würde",
           repair: { before: "Lehne sie ab und lege das Team", after: "selbst an" },
-          where: TEAMS_PAGE,
+          where: TEAMS_EINTRAG.label,
         }),
       };
     // The application's own validator asserts no more than `docs/backend/spec.md :: I16`, while `teams`
@@ -50,7 +48,7 @@ export function mapTriageRefusal(error: unknown, herkunft: BewerbungHerkunft | n
           reason:
             "Die Angaben dieser Schule ergeben kein gültiges Team: Team, vollständiger Name, Kürzel, Adresse oder Website passen nicht in die Form, die ein Team haben muss",
           repair: { before: "Lehne die Bewerbung ab und lege das Team", after: "mit korrigierten Angaben selbst an" },
-          where: TEAMS_PAGE,
+          where: TEAMS_EINTRAG.label,
         }),
       };
     // Reachable from a page that was open while a seat's state moved: the view closes the acceptance
@@ -88,7 +86,7 @@ export function mapTriageRefusal(error: unknown, herkunft: BewerbungHerkunft | n
           error: buildRefusal({
             reason: "Das Kürzel dieser Schule hat schon ein anderes Team, vielleicht ein stillgelegtes",
             repair: { before: "Ändere das Kürzel des anderen Teams", after: "und nimm die Bewerbung danach an" },
-            where: TEAMS_PAGE,
+            where: TEAMS_EINTRAG.label,
           }),
         };
       }
@@ -103,7 +101,7 @@ export function mapTriageRefusal(error: unknown, herkunft: BewerbungHerkunft | n
         error: buildRefusal({
           reason: "Das Team dieser Bewerbung ist stillgelegt und kann in keine Saison aufgenommen werden",
           repair: { before: "Reaktiviere es", after: "und nimm die Bewerbung danach an" },
-          where: TEAMS_PAGE,
+          where: TEAMS_EINTRAG.label,
         }),
       };
     default:
@@ -113,7 +111,8 @@ export function mapTriageRefusal(error: unknown, herkunft: BewerbungHerkunft | n
 
 const ERNEUT_ADRESSE_GESPERRT = buildRefusal({
   reason: "Die E-Mail-Adresse dieser Person steht auf der Sperrliste",
-  repair: `Korrigiere sie über „${ADRESSE_KORRIGIEREN}“ oder hebe die Sperre unter /bereich/admin/sperrliste auf`,
+  repair: { before: `Korrigiere sie über „${ADRESSE_KORRIGIEREN}“ oder hebe die Sperre`, after: "auf" },
+  where: SPERRLISTE_EINTRAG.label,
 });
 
 /** A re-send refusal as the message it should render, or `null` when the code is none of these. */

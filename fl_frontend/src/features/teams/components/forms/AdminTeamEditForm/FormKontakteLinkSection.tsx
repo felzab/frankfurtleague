@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 
-import { KONTAKT_ROLLEN } from "@/features/teams/constants";
+import { KONTAKT_ROLLEN, KONTAKTE_ABSCHNITT } from "@/features/teams/constants";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
@@ -45,7 +45,7 @@ export function FormKontakteLinkSection({
       <div className={panel.header()}>
         <PanelHeading
           className={panel.heading()}
-          title="Kontakte">
+          title={KONTAKTE_ABSCHNITT}>
           <Hint
             mode="reveal"
             label="Hinweis zu den Kontakten"

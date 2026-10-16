@@ -134,6 +134,11 @@ export const RECORDED_FACTS_NONE =
   "kein Ergebnis, kein Ausfall, kein Ort, kein Schiedsrichter, keine Notiz und keine von Hand geänderte Herkunft";
 export const RECORDED_FACTS_ANY = "ein Ergebnis, ein Ausfall, ein Ort, ein Schiedsrichter, eine Notiz oder eine von Hand geänderte Herkunft";
 
+/** The season editor's panels, each named by its heading where a sentence sends the reader to it, so a renamed panel takes the sentence with it. */
+export const ZEITRAUM_ABSCHNITT = "Zeitraum";
+export const REGELN_ABSCHNITT = "Regeln";
+export const SPIELPLAN_ABSCHNITT = "Spielplan";
+
 /** The Spielplan panel's two operations, which its closed press names by these labels: one spelling for the choice and the sentence. */
 export const SPIELPLAN_NEU_ANLEGEN = "Neu anlegen";
 export const SPIELPLAN_ZURUECKNEHMEN = "Zurücknehmen";

@@ -69,6 +69,9 @@ export const KONTAKT_CHANNELS: KontaktChannel[] = [
   },
 ];
 
+/** The organisers' page's heading, named where a sentence sends the reader to the page, so a renamed page takes the sentence with it. */
+export const ORGANISATION_TITEL = "Organisation";
+
 export const QA_QUESTIONS: QaQuestion[] = [
   {
     id: "finanzierung",
@@ -78,7 +81,7 @@ export const QA_QUESTIONS: QaQuestion[] = [
   {
     id: "organisation",
     q: "Wer organisiert die Liga?",
-    a: "Ehrenamtliche Schülerinnen, Schüler und Helfer. Wer dazugehört, steht auf der Seite „Organisation“.",
+    a: `Ehrenamtliche Schülerinnen, Schüler und Helfer. Wer dazugehört, steht auf der Seite „${ORGANISATION_TITEL}“.`,
   },
   {
     id: "regeln",

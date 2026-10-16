@@ -5,6 +5,7 @@ import { RolledBackError } from "@/core/errors";
 import { logger } from "@/core/logging";
 import { isWithinEnrolmentWindow } from "@/core/sessionLifetimes";
 import { verwaltungOf } from "@/core/verwaltung";
+import { HANDLUNGSBEDARF_EINTRAG } from "@/features/admin/constants";
 import { invalidatesOnWrite, refusalResult, refuseUnconfirmed, runAdminMutation } from "@/shared/utils/adminMutation";
 import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
@@ -48,7 +49,7 @@ function loeschungSatz(konto: KontoNachLoeschung, gespeichert: boolean, spiele: 
   // Conditional, as `spiele` counts the played fixtures moved onto the ghost too.
   const folge =
     spiele > 0
-      ? " War diese Person für Spiele ohne Ergebnis eingeteilt, brauchen diese Spiele eine neue Einteilung. Du findest sie unter „Handlungsbedarf“."
+      ? ` War diese Person für Spiele ohne Ergebnis eingeteilt, brauchen diese Spiele eine neue Einteilung. Du findest sie unter „${HANDLUNGSBEDARF_EINTRAG.label}“.`
       : "";
 
   if (konto === "nichtGeloescht") {

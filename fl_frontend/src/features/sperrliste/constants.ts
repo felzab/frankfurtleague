@@ -1,3 +1,4 @@
+import { SPERRLISTE_EINTRAG } from "@/features/admin/constants";
 import { buildRefusal } from "@/shared/utils/refusal";
 
 /**
@@ -127,5 +128,6 @@ export const SPERRE_DAUER_HINWEIS =
  */
 export const SPERRLISTE_ADRESSE_GESPERRT = buildRefusal({
   reason: "Diese E-Mail-Adresse steht auf der Sperrliste",
-  repair: "Trage eine andere Adresse ein oder hebe die Sperre unter /bereich/admin/sperrliste auf",
+  repair: { before: "Trage eine andere Adresse ein oder hebe die Sperre", after: "auf" },
+  where: SPERRLISTE_EINTRAG.label,
 });

@@ -20,7 +20,7 @@ import { DISPLAY_HEADING_CLASSES } from "@/shared/components/ui/displayType";
 import { PAGE_RISE_CLASSES } from "@/shared/components/ui/motion";
 import { textLink } from "@/shared/components/ui/textLink";
 
-import { DATENSCHUTZ_STAND } from "../../constants";
+import { DATENSCHUTZ_STAND, ORGANISATION_TITEL } from "../../constants";
 import { LegalSection } from "../ui/LegalSection";
 
 /** One legal paragraph. Spelled once because the page is nothing but paragraphs, and a copy per section drifts. */
@@ -134,7 +134,7 @@ const VEROEFFENTLICHT = [
     grundlage: "Art. 6 Abs. 1 lit. f DSGVO, Durchführung und Darstellung des Spielbetriebs der Liga",
   },
   {
-    was: "Vornamen der Organisatorinnen und Organisatoren auf der Seite „Organisation“",
+    was: `Vornamen der Organisatorinnen und Organisatoren auf der Seite „${ORGANISATION_TITEL}“`,
     grundlage: "Art. 6 Abs. 1 lit. a DSGVO, mit ausdrücklichem Einverständnis",
   },
   {
@@ -747,10 +747,10 @@ export function DatenschutzView() {
             <li className={ABSATZ_CLASSES}>
               Widerruf einer Einwilligung, jederzeit und mit Wirkung für die Zukunft (Art. 7 Abs. 3 DSGVO). Das betrifft den Namen einer
               Spielerin oder eines Spielers in den Kaderlisten, die Erlaubnis für Fotos, Videos und Interviews, die Vornamen der
-              Organisatorinnen und Organisatoren auf der Seite „Organisation“ und den freiwilligen Schalter für WhatsApp. Ein Vorname auf der
-              Seite „Organisation“ steht auch im öffentlich einsehbaren Quellcode dieser Website: Ein Widerruf nimmt ihn von der Website und aus
-              der aktuellen Fassung des Quellcodes, frühere Fassungen bleiben in dessen öffentlicher Versionsgeschichte erhalten. Was bis zum
-              Widerruf geschah, bleibt rechtmäßig.
+              Organisatorinnen und Organisatoren auf der Seite „{ORGANISATION_TITEL}“ und den freiwilligen Schalter für WhatsApp. Ein Vorname
+              auf der Seite „{ORGANISATION_TITEL}“ steht auch im öffentlich einsehbaren Quellcode dieser Website: Ein Widerruf nimmt ihn von der
+              Website und aus der aktuellen Fassung des Quellcodes, frühere Fassungen bleiben in dessen öffentlicher Versionsgeschichte
+              erhalten. Was bis zum Widerruf geschah, bleibt rechtmäßig.
             </li>
           </ul>
           <p className={ABSATZ_CLASSES}>
