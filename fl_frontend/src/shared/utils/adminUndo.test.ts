@@ -11,7 +11,7 @@ const { setSession, setRefusal } = doubleActionRequest();
 
 const { partlyRestored, refusedReplay, replayRefusal, restored, runAdminUndo, unclearReplay } = await import("./adminUndo.ts");
 const { invalidatesOnWrite, FORBIDDEN_BY_REFUSAL, runAdminMutation } = await import("./adminMutation.ts");
-const { AENDERUNG_STEHT_WEITERHIN } = await import("./actionError.ts");
+const { AENDERUNG_STEHT_WEITERHIN, ZUGANG_WEG } = await import("./actionError.ts");
 const { APIBadStatusError, APIMalformedDataError, APINetworkError } = await import("@/core/errors.ts");
 const { recordWriteSent } = await import("@/core/requestScope.ts");
 const { bodyField } = await import("@/shared/testing/refusedPayload.ts");
@@ -187,6 +187,32 @@ describe("what an undo says where a save offers its press again", () => {
       assert.equal(shown(await save(() => Promise.reject(failure), sent)), UNKNOWN_REFUSAL);
     });
   }
+});
+
+describe("what an undo says where no press repairs its failure", () => {
+  /* A grant gone by the time the backend judged the replay is the guard's own refusal arriving late: worded as the
+     guard's, the change standing (`docs/frontend/spec.md :: I522`), where a save says the cause alone. */
+  it("says the change stands after a grant the backend found gone, as the guard's refusal does", async () => {
+    assert.deepEqual(await undo(() => Promise.reject(failed(403, "REQ-AUTH-006")), false), {
+      success: false,
+      error: `${ZUGANG_WEG} ${AENDERUNG_STEHT_WEITERHIN}`,
+    });
+    assert.deepEqual(await save(() => Promise.reject(failed(403, "REQ-AUTH-006")), false), { success: false, error: ZUGANG_WEG });
+  });
+
+  /* A save's page asks the passkey on its next press; the undo's offer is gone once pressed, so asking for a
+     confirmation first would point at a press nobody can make. */
+  it("says the confirmation lapsed and the change stands, where a save asks for the confirmation", async () => {
+    assert.deepEqual(await undo(() => Promise.reject(failed(403, "REQ-AUTH-009")), false), {
+      success: false,
+      error: `Deine Bestätigung mit dem Passkey ist abgelaufen. ${AENDERUNG_STEHT_WEITERHIN}`,
+    });
+    assert.deepEqual(await save(() => Promise.reject(failed(403, "REQ-AUTH-009")), false), {
+      success: false,
+      error: "Bestätige zuerst, dass Du es bist.",
+      stepUp: true,
+    });
+  });
 });
 
 describe("who the undo spine answers before it does any work", () => {
