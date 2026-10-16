@@ -466,11 +466,7 @@ class TestAnOwnersAddress:
                     return cast(AsyncCollection, racing[-1])
 
                 served.dependency_overrides[get_spieler_collection] = pupils
-                try:
-                    response = await http.post(PATH, json=erasure_of(), headers=SignedActor(OPERATOR, ADMIN_KEY))
-                finally:
-                    # The app is the module's: a rival left on it would run inside every later case's erasure.
-                    del served.dependency_overrides[get_spieler_collection]
+                response = await http.post(PATH, json=erasure_of(), headers=SignedActor(OPERATOR, ADMIN_KEY))
 
             grant = await database[Collection.BERECHTIGUNGEN].find_one({"_id": THEIR_GRANT_OID})
 
@@ -802,10 +798,7 @@ class TestTheSignOut:
                     return cast(AsyncCollection, racing[-1])
 
                 served.dependency_overrides[get_aktionen_collection] = log
-                try:
-                    response = await http.post(ABMELDUNG_PATH, json=ansicht_of(), headers=SignedActor(OPERATOR, ADMIN_KEY))
-                finally:
-                    del served.dependency_overrides[get_aktionen_collection]
+                response = await http.post(ABMELDUNG_PATH, json=ansicht_of(), headers=SignedActor(OPERATOR, ADMIN_KEY))
 
             return response, await filed_by(database, ABMELDUNG_PATH)
 
