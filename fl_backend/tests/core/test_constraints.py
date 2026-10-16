@@ -867,26 +867,27 @@ def test_no_validator_constrains_a_range_or_a_format(collection: Collection):
         assert not out_of_scope, f"{collection} uses {sorted(out_of_scope)}, which is left to Pydantic"
 
 
-# Strings a validator holding `bsonType: string` stores, then a real day and a null: a type's verdicts
-# over all of them tell a bounded length, a malformed date, an optional one and a nullable one apart.
-STORED_STRING_PROBES: tuple[Any, ...] = ("", "x", "x" * 1024, "2026-02-31", "2026-02-28", None)
+# Strings a validator holding `bsonType: string` stores: a type refusing any of them is stricter than its
+# validator, whether by length, by pattern or by calendar.
+STORED_STRINGS: tuple[str, ...] = ("", "x", "x" * 1024, "2026-02-31", "2026-02-28")
 
 
-def verdicts(adapter: TypeAdapter[Any]) -> tuple[bool, ...]:
-    def admits(probe: Any) -> bool:
+def refuses_a_stored_string(adapter: TypeAdapter[Any]) -> bool:
+    for stored in STORED_STRINGS:
         try:
-            adapter.validate_python(probe)
+            adapter.validate_python(stored)
         except ValidationError:
-            return False
-        return True
-
-    return tuple(admits(probe) for probe in STORED_STRING_PROBES)
+            return True
+    return False
 
 
-def stricter_than_the_validator(collection: Collection) -> dict[str, tuple[bool, ...]]:
-    """Every mirrored field of this collection that its validator stores as any string and its model refuses one of."""
+def stricter_than_the_validator(collection: Collection) -> dict[str, list[Any]]:
+    """Every mirrored field of this collection that its validator stores as any string and its model refuses one of.
 
-    found: dict[str, tuple[bool, ...]] = {}
+    Each with the core schema of every model declaring it, `FLTeam` and `FLTeamRecord` both mirroring `teams`.
+    """
+
+    found: dict[str, list[Any]] = {}
 
     for mirrored, path, models, _ in MIRRORED_MODELS:
         if mirrored != collection:
@@ -900,18 +901,26 @@ def stricter_than_the_validator(collection: Collection) -> dict[str, tuple[bool,
                 continue
 
             for _, field in declaring:
-                seen = verdicts(TypeAdapter(Annotated[field.annotation, *field.metadata] if field.metadata else field.annotation))
-                if not all(seen[: STORED_STRING_PROBES.index(None)]):
-                    found[".".join((*path, key))] = seen
+                adapter = TypeAdapter(Annotated[field.annotation, *field.metadata] if field.metadata else field.annotation)
+                if refuses_a_stored_string(adapter):
+                    found.setdefault(".".join((*path, key)), []).append(adapter.core_schema)
 
     return found
 
 
-@pytest.mark.parametrize("served", constraints.SERVED_VALUES, ids=lambda served: served.collection)
-def test_a_reported_collection_is_reported_whole_under_its_models_own_types(served: constraints.ServedValues):
-    """A model gaining a bound the validator cannot hold fails here, rather than `--check` reading clean over a row its list refuses."""
+@pytest.mark.parametrize("collection", sorted(COLLECTION_VALIDATORS))
+def test_every_value_a_read_model_refuses_is_reported_under_its_own_type(collection: Collection):
+    """Every collection, listed or not: a model gaining a bound fails here rather than `--check` reading clean over a row it refuses."""
 
-    assert {path: verdicts(adapter) for path, adapter in served.types.items()} == stricter_than_the_validator(served.collection)
+    expected = stricter_than_the_validator(collection)
+    reported = constraints.SERVED_VALUES.get(collection, {})
+
+    assert set(reported) == set(expected), (
+        f"{collection}: unreported {sorted(set(expected) - set(reported))}, reported but admitted {sorted(set(reported) - set(expected))}"
+    )
+
+    # Core schemas, so a pattern's text and a validator function count where no stored string tells two types apart.
+    assert not [path for path, schemas in expected.items() if any(schema != reported[path].core_schema for schema in schemas)]
 
 
 @pytest.mark.parametrize(
