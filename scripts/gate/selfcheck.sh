@@ -1156,6 +1156,15 @@ process.exit(said.hookEventName === "SessionStart" && pointers && /REGISTER-one\
     if [[ "$messages_said" == "0 "*'"hookEventName": "PostToolUse"'*"is in no messages file"* ]]; then
       info 'messages hook: a send it cannot record — told to the coordinator'
     else note_fail "messages hook: a send to an agent with no messages file must be told as PostToolUse context, got '${messages_said:0:200}'"; fi
+    # A lock naming a process that has ended is a writer killed holding it: broken, inside the timeout
+    # `.claude/settings.json` gives the hook, past which the harness kills the hook unheard.
+    node -e 'process.stdout.write(String(process.pid))' > "${messages_briefs}/WORKER-messages.md.lock"
+    messages_said="$(printf '%s' '{"session_id":"probe-1","tool_name":"SendMessage","tool_input":{"to":"WORKER","message":"probe order past a stale lock"}}' |
+      HOME="$messages_home" timeout 10 bash "$MESSAGES_HOOK" 2>&1)" || messages_said="exit $? ${messages_said}"
+    if [[ -z "$messages_said" && ! -e "${messages_briefs}/WORKER-messages.md.lock" ]] &&
+      grep -q '^probe order past a stale lock$' "${messages_briefs}/WORKER-messages.md"; then
+      info 'messages hook: a lock whose process ended — broken, the send recorded inside the timeout'
+    else note_fail "messages hook: a lock naming an ended process must be broken and the send recorded within 10 s, got '${messages_said:0:200}'"; fi
   fi
 
   # A writing or driving agent's MCP and Skill calls refused, because the app ignores the

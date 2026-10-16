@@ -69,9 +69,47 @@ SYNTHETIC_MODEL: Final = "<synthetic>"
 TOOL: Final = Path(__file__).resolve()
 INVOCATION: Final = ("uv", "run", "--project", str(TOOL.parents[4] / "fl_backend"), "--frozen", "python", str(TOOL))
 PLACEHOLDER_RE: Final = re.compile(r"<[a-z]+>")
-# A write holds the lock for milliseconds, so a lock held this long is a writer stopped holding it.
+# How long a writer waits on a lock whose process still runs, or which names none, before it refuses:
+# a write holds the lock for milliseconds. A lock whose process has ended is broken at once.
 LOCK_SECONDS: Final = 10.0
 LOCK_POLL_SECONDS: Final = 0.02
+
+if sys.platform == "win32":
+    import ctypes
+    from ctypes import wintypes
+
+    _KERNEL32: Final = ctypes.WinDLL("kernel32", use_last_error=True)
+    _KERNEL32.OpenProcess.restype = wintypes.HANDLE
+    _KERNEL32.OpenProcess.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
+    _KERNEL32.WaitForSingleObject.restype = wintypes.DWORD
+    _KERNEL32.WaitForSingleObject.argtypes = (wintypes.HANDLE, wintypes.DWORD)
+    _KERNEL32.CloseHandle.argtypes = (wintypes.HANDLE,)
+    SYNCHRONIZE: Final = 0x00100000
+    WAIT_TIMEOUT: Final = 0x102
+    ERROR_INVALID_PARAMETER: Final = 87
+
+    def _alive(pid: int) -> bool:
+        # Never `os.kill(pid, 0)`: on Windows signal 0 is CTRL_C_EVENT, sent to the process group the id names.
+        handle = _KERNEL32.OpenProcess(SYNCHRONIZE, False, pid)
+        if not handle:
+            # No process has the id; any other refusal is a process this user may not open, so running.
+            return ctypes.get_last_error() != ERROR_INVALID_PARAMETER
+        try:
+            return _KERNEL32.WaitForSingleObject(handle, 0) == WAIT_TIMEOUT
+        finally:
+            _KERNEL32.CloseHandle(handle)
+
+else:
+
+    def _alive(pid: int) -> bool:
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return False
+        # A process another user runs refuses the signal, and runs.
+        except PermissionError:
+            return True
+        return True
 
 
 def command(*args: str) -> str:
@@ -236,28 +274,76 @@ def read(path: Path, deadline: float | None = None) -> bytes:
     return _patient(path.read_bytes, deadline)
 
 
+def _take(lock: Path) -> bool:
+    """The lock made, naming this process; False where it exists."""
+    try:
+        # `x` creates only where no file is: the create and the test for one are a single step.
+        with lock.open("xb") as made:
+            made.write(str(os.getpid()).encode())
+    # Windows refuses a create racing the holder's delete with PermissionError, not FileExistsError.
+    except FileExistsError, PermissionError:
+        return False
+    return True
+
+
+def _holder(lock: Path) -> int | None:
+    """The process the lock names; None where it names none, or cannot be read."""
+    try:
+        named = lock.read_bytes().strip()
+    except OSError:
+        return None
+    return int(named) if named.isdigit() and int(named) > 0 else None
+
+
+def _broken(lock: Path) -> bool:
+    """The lock deleted where the process it names has ended; whether it was."""
+    holder = _holder(lock)
+    if holder is None or _alive(holder):
+        return False
+    # Two takers deleting one stale lock: the second deletes the first's fresh one. So the delete is made
+    # under a lock of its own, a stale one of which is broken the same way, its holder read again there.
+    breaker = lock.with_name(lock.name + ".break")
+    if not (_take(breaker) or (_broken(breaker) and _take(breaker))):
+        return False
+    try:
+        if _holder(lock) != holder or _alive(holder):
+            return False
+        with contextlib.suppress(FileNotFoundError, PermissionError):
+            lock.unlink()
+        return True
+    finally:
+        _patient(lambda: breaker.unlink(missing_ok=True))
+
+
+def _unheld(lock: Path, path: Path, waited: float) -> str:
+    """Why the lock was not taken, and what to do."""
+    if (holder := _holder(lock)) is not None:
+        return f"{lock} names process {holder}, still running after {waited:.1f} s: another tool is writing {path.name}; run this once it ends"
+    if lock.exists():
+        return f"{lock} names no process, so whether its writer stopped cannot be told after {waited:.1f} s: delete it once no tool runs"
+    return f"{lock} could not be made in {waited:.1f} s: {path.parent} refuses a new file"
+
+
 @contextlib.contextmanager
-def locked(path: Path) -> Iterator[None]:
-    """The file's lock, a file beside it created only where none exists, held; a second taker waits, refused past `LOCK_SECONDS`."""
+def locked(path: Path, deadline: float | None = None) -> Iterator[None]:
+    """The file's lock held, a file beside it naming this process; a second taker waits, refused at the deadline.
+
+    A lock whose process has ended is broken, so a writer killed while holding it stops nothing.
+    """
     lock = path.with_name(path.name + ".lock")
-    deadline = time.monotonic() + LOCK_SECONDS
-    while True:
-        try:
-            # `x` creates only where no file is: the create and the test for one are a single step.
-            lock.open("xb").close()
-            break
-        # Windows refuses a create racing the holder's delete with PermissionError, not FileExistsError.
-        except (FileExistsError, PermissionError) as held:
-            if time.monotonic() >= deadline:
-                raise OSError(
-                    f"{lock} could not be taken within {LOCK_SECONDS:g} s ({held}): another tool is writing {path.name}, or one "
-                    "stopped holding the lock; delete the lock file once no tool runs"
-                ) from None
-            time.sleep(LOCK_POLL_SECONDS)
+    started = time.monotonic()
+    until = started + LOCK_SECONDS if deadline is None else deadline
+    while not _take(lock):
+        if _broken(lock):
+            continue
+        if time.monotonic() >= until:
+            raise OSError(_unheld(lock, path, time.monotonic() - started))
+        time.sleep(LOCK_POLL_SECONDS)
     try:
         yield
     finally:
-        lock.unlink()
+        # A taker reading the lock's holder holds it open for that instant.
+        _patient(lock.unlink)
 
 
 def _replace(path: Path, data: bytes, deadline: float | None = None) -> None:
@@ -279,7 +365,7 @@ def update[T](path: Path, edit: Callable[[list[str]], T], deadline: float | None
     unbidden, and overlapping whole-file rewrites drop the earlier. The deadline bounds the whole write.
     """
     until = time.monotonic() + LOCK_SECONDS if deadline is None else deadline
-    with locked(path):
+    with locked(path, until):
         held = read(path, until)
         text = held.decode("utf-8")
         # A register written with carriage returns keeps them, `edit` seeing its lines without.

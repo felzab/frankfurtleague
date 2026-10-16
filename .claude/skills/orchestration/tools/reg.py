@@ -33,6 +33,7 @@ import json
 import re
 import subprocess
 import sys
+import time
 from collections.abc import Callable
 from pathlib import Path, PurePosixPath
 from typing import Final, NamedTuple
@@ -65,6 +66,9 @@ REBUILT_DIRS: Final = frozenset({"node_modules", ".venv", ".next", "__pycache__"
 REBUILT_FILE_RE: Final = re.compile(r"\.(?:pyc|tsbuildinfo)$|^(?:next-env\.d\.ts|\.eslintcache)$")
 # The harness copies the checkout's own into every worktree it makes.
 LOCAL_SETTINGS: Final = ".claude/settings.local.json"
+# The messages hook's whole wait on locks and a held file, at most half `.claude/settings.json`'s timeout
+# for it: killed at that timeout, the hook tells the coordinator nothing, and uv's start takes some of it.
+HOOK_SECONDS: Final = 4.0
 # How each command moves a row another owner holds, named in its refusal: `--reroute` is `ledger.py route`'s alone.
 TAKES_MOVES: Final = "`--takes {by}` moves every row {by} holds once it is a queue or a finished agent"
 REROUTE_MOVES: Final = "a `Reroute: {by}: {row}` line in the message moves it"
@@ -344,13 +348,15 @@ def record(payload: dict[str, object], plans: Path, now: datetime.datetime | Non
     to = re.sub(r"\s*\[[^\]]*\]$", "", to)
     claimed = re.compile(rf"^Coordinator session id: {re.escape(session)}\s*$", re.MULTILINE)
     # Replaced rather than refused: an unreadable register the sending session never claimed stops nothing.
-    registers = [path for path in sorted(plans.glob("*/REGISTER-*.md")) if claimed.search(ledger.read(path).decode("utf-8", "replace"))]
+    # One deadline for every read and write the record makes, so their waits add up to `HOOK_SECONDS` at most.
+    until = time.monotonic() + HOOK_SECONDS
+    registers = [path for path in sorted(plans.glob("*/REGISTER-*.md")) if claimed.search(ledger.read(path, until).decode("utf-8", "replace"))]
     if not registers:
         return None
     lost = f"The message to {to} is in no messages file:"
     if len(registers) > 1:
         return f"{lost} {len(registers)} registers name this session."
-    register = ledger.read(registers[0]).decode("utf-8")
+    register = ledger.read(registers[0], until).decode("utf-8")
     briefs = _briefs(register)
     if briefs is None:
         return f"{lost} the register has no `Briefs:` line."
@@ -366,11 +372,11 @@ def record(payload: dict[str, object], plans: Path, now: datetime.datetime | Non
             lines.pop()
         lines += entry
 
-    ledger.update(target, add)
+    ledger.update(target, add, until)
     # Recorded from here on: a failure past this line is said beside the record, never as a lost send.
     said: list[str] = []
     try:
-        ledger.update(registers[0], lambda lines: _wake(lines, name, now))
+        ledger.update(registers[0], lambda lines: _wake(lines, name, now), until)
     except Exception as failed:
         said.append(f"its live-agent row was not set RUNNING ({type(failed).__name__}: {failed})")
     # Each line routes on its own, and each row within it: a refused row once dropped eight others with it.
@@ -381,7 +387,9 @@ def record(payload: dict[str, object], plans: Path, now: datetime.datetime | Non
         if not rows:
             continue
         try:
-            refused += ledger.route_each(registers[0], name, rows, reroute=held_by is not None, held_by=held_by, moves=REROUTE_MOVES)[1]
+            refused += ledger.route_each(
+                registers[0], name, rows, reroute=held_by is not None, held_by=held_by, moves=REROUTE_MOVES, deadline=until
+            )[1]
         except Exception as failed:
             refused.append(str(failed))
     if refused:

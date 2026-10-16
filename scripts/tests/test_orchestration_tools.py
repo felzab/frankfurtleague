@@ -20,6 +20,7 @@ import shutil
 import subprocess
 import sys
 import threading
+import time
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Final
@@ -304,9 +305,22 @@ def test_text_given_as_arguments_is_refused_naming_the_two_ways(tmp_path: Path, 
     assert written in register.read_bytes().decode("utf-8")
 
 
-def test_twenty_writers_started_together_each_land_their_line(tmp_path: Path) -> None:
-    """Each writer rewrote the whole register through one shared spare, so a concurrent change vanished while its command exited 0."""
+# A writer killed while it holds the lock: its `finally` never runs, so the lock stays.
+KILLED_HOLDER: Final = (
+    "import os, sys; from pathlib import Path; import ledger; held = ledger.locked(Path(sys.argv[1])); held.__enter__(); os._exit(0)"
+)
+
+
+@pytest.mark.parametrize("stale", [False, True], ids=["no lock", "a lock its killed writer left"])
+def test_twenty_writers_started_together_each_land_their_line(tmp_path: Path, stale: bool) -> None:
+    """Each writer rewrote the whole register through one shared spare, so a concurrent change vanished while its command exited 0.
+
+    A lock left by a killed writer stopped every later one; twenty finding it at once must break it once.
+    """
     register = _register(tmp_path)
+    if stale:
+        subprocess.run((sys.executable, "-c", KILLED_HOLDER, str(register)), cwd=TOOLS, check=True)
+        assert (tmp_path / f"{register.name}.lock").exists()
     texts = []
     for k in range(20):
         texts.append(tmp_path / f"u{k}.txt")
@@ -334,6 +348,18 @@ def test_a_writer_waits_for_the_lock_and_then_writes(tmp_path: Path) -> None:
     writer.join(ledger.LOCK_SECONDS)
     assert done and done[0] in register.read_bytes().decode("utf-8")
     assert not (tmp_path / f"{register.name}.lock").exists()
+
+
+@pytest.mark.parametrize(("running", "said"), [(True, "names process {pid}, still running"), (False, "names no process")])
+def test_a_lock_naming_a_running_process_or_none_is_kept_and_named(tmp_path: Path, running: bool, said: str) -> None:
+    """Only a lock whose process has ended is broken: an id reused, or a writer between making its lock and naming itself, still writes."""
+    register = _register(tmp_path)
+    lock = tmp_path / f"{register.name}.lock"
+    lock.write_bytes(str(os.getpid()).encode() if running else b"")
+    before = register.read_bytes()
+    with pytest.raises(OSError, match=re.escape(said.format(pid=os.getpid()))):
+        ledger.update(register, lambda lines: lines.append("x"), time.monotonic() + 0.2)
+    assert register.read_bytes() == before and lock.exists()
 
 
 def test_a_write_waits_out_a_reader_holding_the_register_open(tmp_path: Path) -> None:
@@ -1033,6 +1059,31 @@ def test_the_hook_command_answers_a_notice_and_a_failure_as_hook_json(tmp_path: 
         failed.returncode == 0
         and "The messages hook failed (UnicodeDecodeError" in json.loads(failed.stdout)["hookSpecificOutput"]["additionalContext"]
     )
+
+
+def test_the_messages_hook_says_a_lock_it_cannot_take_inside_its_timeout(tmp_path: Path) -> None:
+    """The hook waited on a held lock as long as its own timeout, so the harness killed it and the coordinator heard nothing.
+
+    The record's whole wait is held to at most half the timeout `.claude/settings.json` gives the hook.
+    """
+    settings = json.loads((REPO_ROOT / ".claude" / "settings.json").read_bytes())
+    hooks = [hook for entry in settings["hooks"]["PostToolUse"] for hook in entry["hooks"] if "orchestration-messages.sh" in hook["command"]]
+    assert len(hooks) == 1 and 2 * reg.HOOK_SECONDS <= hooks[0]["timeout"], hooks
+    plans, _, messages = _fleet(tmp_path)
+    (messages.parent / f"{messages.name}.lock").write_bytes(str(os.getpid()).encode())
+    before = messages.read_bytes()
+    started = time.monotonic()
+    done = subprocess.run(
+        (sys.executable, str(TOOLS / "reg.py"), "message", str(plans)),
+        input=json.dumps(_sent("WORKER", "x")).encode(),
+        capture_output=True,
+        check=False,
+        timeout=hooks[0]["timeout"],
+    )
+    took = time.monotonic() - started
+    said = json.loads(done.stdout)["hookSpecificOutput"]["additionalContext"]
+    assert done.returncode == 0 and took < hooks[0]["timeout"] and messages.read_bytes() == before, (took, done.stderr)
+    assert f"names process {os.getpid()}, still running" in said and "in no messages file" in said, said
 
 
 def test_dispatch_writes_the_messages_file_and_the_row_a_send_resolves_through(tmp_path: Path) -> None:
