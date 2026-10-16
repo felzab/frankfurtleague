@@ -5,17 +5,41 @@ loads as the agent's system prompt and which binds whatever the brief says. A br
 parts below and never restates a standing section of the definition: the definition is that
 section's one home.
 
-A brief whose work answers findings-ledger rows, of any agent type, names them on one line opening
-`Rows:` at the start of the line, each by its ledger id: `reg.py dispatch --brief` routes them to
-the agent, naming each refusal. A brief citing a row only for context leaves it off that line, and
-a brief answering none carries no such line.
+Two lines are read by tools, each at the start of a line, and nothing else in a brief is checked:
+
+- `Owns:` lists every path a writer may write, separated by a comma and a space, each relative to
+  the repository root with forward slashes: a file, a folder for everything under it, or a glob
+  where `*` matches within one folder and `**` across folders, with no `{a,b}` brace sets. A brief
+  may carry several such lines; `reg.py overlap --brief` reads their union. A brief for an agent
+  that writes no repository file carries none, and a path named anywhere else — one forbidden,
+  another agent's region — stays prose.
+- `Rows:` names, each by its ledger id, the findings-ledger rows a writer's work answers, and
+  `reg.py dispatch --brief` routes them to the agent, naming each refusal. An auditor's or a
+  researcher's brief names the rows it judges in its text alone: an agent that lands nothing closes
+  no row, and a `Rows:` line would take the rows from their fixer. A brief citing a row only for
+  context leaves it off the line, and one answering none carries no such line.
 
 ## Contents
 
+- [Sizing a brief](#sizing-a-brief)
 - [The implementer's brief](#the-implementers-brief)
 - [The cold auditor's brief](#the-cold-auditors-brief)
 - [The driving re-auditor's brief](#the-driving-re-auditors-brief)
 - [The researcher's brief](#the-researchers-brief)
+
+## Sizing a brief
+
+A brief is sized by what losing its agent's whole output would cost, and carries:
+
+- every path in full, globbed first;
+- for a signature change, the callers and every test asserting the call's text;
+- for a design, its cost measured and what already constrains its surface read, before it is
+  briefed as the closure;
+- each acceptance check named by what it asserts;
+- every figure with its provenance;
+- a plan's repair briefed to be driven, and reported if it does not close;
+- a judgement test with its parameters and one worked verdict;
+- the version meant, wherever the session is rewriting the rules cited.
 
 ## The implementer's brief
 
@@ -37,16 +61,15 @@ BAR.            Done is every item met in full, nothing traded. Challenge an ite
                 say, the smallest change that fully solves the item, and removing an unneeded test,
                 doc or helper counts as a gain. <What else the skill's bar means for this work.>
 
-1  OWNERSHIP.   The exact files you may write, listed in full:
-                  <path>
-                  <path>
-                Writing any other file is a defect in this brief -- stop and report it, or message
-                me for it, rather than working around it. <N> other agents work in worktrees of
-                their own, and none of you sees another's edits until I land them.
+1  OWNERSHIP.   The exact files you may write, on the `Owns:` lines below. Writing any other file
+                is a defect in this brief -- stop and report it, or message me for it, rather than
+                working around it. <N> other agents work in worktrees of their own, and none of
+                you sees another's edits until I land them.
                 <Where a file is shared: who else is in it, and which region is theirs. Keep at
                 least one unchanged line between your edit and theirs: git merges two hunks one
                 line apart, and conflicts on a line both change or on one insertion point both
                 use. Anchor every edit on a unique fragment.>
+Owns: <path>, <path>
 
 3  THE WORK.    A numbered checklist. Each item states: the change; the anchor it lands at, which
                 is a symbol, a path or a rule id and never a line number; and its own acceptance
@@ -69,8 +92,8 @@ Rows: <row id>, <row id>
 contract and its calibration; the block below is the brief's whole standing text. Check the brief's
 verbs before it goes out: run, measure, drive red and read the diff each need a shell this agent
 lacks. A re-audit's subject is the fixes and their blast radius, by an agent that wrote none of them;
-a document or plan re-audit also takes the previous audit's findings one at a time, each closed or
-open with its evidence.
+a document or plan re-audit also takes the previous audit's findings one at a time, each by its
+ledger id, closed or open with its evidence.
 
 ```
 BAR.            Ask what you cannot verify; never assume it. A test, document or helper with no
