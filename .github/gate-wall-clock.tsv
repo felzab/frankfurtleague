@@ -676,17 +676,29 @@
 # sessions, so upper bounds. It is pooled with tsc and knip, and the row carries `-` for its
 # reference, so the additions move no figure and answer to the budget alone.
 #
-# `frontend-units` gained the test files this branch added under `fl_frontend/src`. Each run alone
-# through `test:base`, twice, they took 250.8 and 288.2 s summed. The longest were
+# `frontend-units` gained the test files this branch added under `fl_frontend/src`. All but five, each
+# run alone through `test:base`, twice, took 250.8 and 288.2 s summed. The longest were
 # `fl_frontend/src/app/typedText.test.ts` at 51.8-85.4 s, which its own commit read at 14.8-19.3 s on a
 # quieter machine, `fl_frontend/src/features/funktionen/adminLoeschung.test.ts` at 48.8-53.0 s and
 # `fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/createDialogSubmit.test.ts`
 # at 18.0-20.4 s, every other under 15 s. `fl_frontend/src/core/auth.test.ts` gained six
 # session-window boundary cases, 43-55 ms together over three runs. Measured locally on 2026-10-16 on
 # a sixteen-core Windows machine at 85 percent CPU from a fleet of agent sessions, so upper bounds
-# reading that load as much as the files. A file's shard follows its position in the sorted list, so
-# what these add to each shard against its 205 s budget, and whether a shard's reference moves past
-# its floor, is the pull request run's `frontend-units` spans to say.
+# reading that load as much as the files. The five, each run alone three times later that day at 59-88
+# percent CPU: `fl_frontend/src/app/namedHeadings.test.ts`, which parses every production module,
+# 2.6-4.2 s; `fl_frontend/src/app/api/revalidate/route.test.ts`, 2.4-2.7 s;
+# `fl_frontend/src/core/instrumentation.test.ts`, 1.7-3.9 s; `fl_frontend/src/core/revalidation.test.ts`,
+# 2.1-2.4 s; and `fl_frontend/src/features/teams/components/collections/AdminTeamsTable.test.ts`,
+# 4.1-5.2 s. `fl_frontend/scripts/eslint.config.test.mjs` gained two plants,
+# `fl_frontend/eslint-plants/refusalWhere.ts.txt` and
+# `fl_frontend/eslint-plants/exemptRevalidateRoute.ts.txt`, whose config resolution and lint took
+# 11.9-14.8 ms and 9.1-25.0 ms a pass over five rounds after one warm pass, against 15.6 ms for the
+# median plant. On the runner the four shards spanned 110-228, 100-200, 119-202 and 108-188 s, medians
+# 159, 140, 161 and 160.5 s, over the pull-request runs of 2026-10-16 from 09:52 UTC, against 103-169,
+# 78-163, 95-165 and 90-169 s, medians 138, 133.5, 124 and 135.5 s, over those from 2026-10-15 21:48
+# UTC before them. Every one of the later runs also re-verified the lockfile, as the toolchain's
+# paragraph below records, and the 228 s carried a 101 s install, shard 1's one break of its 205 s
+# budget. No row moves and none takes a stamp.
 #
 # `scripts` gained a module and cases: `scripts/tests/test_export_journal.py`'s twelve cases took
 # 5.9-6.5 s by pytest's own figure, 6.8-7.3 s of wall clock, over three runs of the module alone at
@@ -696,6 +708,117 @@
 # fleet of agent sessions, so upper bounds. Each module is one chunk under `--dist loadfile`, so the
 # job pays them only where one becomes its longest; the row carries `-` for its reference, so they
 # move no figure and answer to the budget alone.
+#
+# `format`, `frontend`, the `frontend-units` shards and `db` install the frontend through
+# `.github/actions/frontend-toolchain/action.yml`, whose pnpm verification log is keyed on the
+# lockfile, `fl_frontend/pnpm-workspace.yaml` and `fl_frontend/package.json` together: pnpm trusts a
+# recorded verdict only for the same lockfile, policy and pnpm, and an entry keyed on the lockfile
+# alone outlived pnpm's pin at 11.28.6, so every such job re-verified every entry against the
+# registry. On the runner the toolchain step took 12-24 s, median 17 s, over the 242 such jobs of the
+# pull-request runs from 2026-10-15 21:48 to 2026-10-16 08:44 UTC, which restored a trusted verdict,
+# and 21-36 s, median 29 s, over the 158 after the pin, with 65 and 101 s in the run whose registry
+# answered slowly. Over the same boundary the median `frontend` job moved from 94 to 127 s, `format`
+# from 34 to 44 s and `db` from 123 to 141 s, other changes landing in it too. A change to any of the
+# three files costs one verification in its key's first run. No row moves and none takes a stamp.
+#
+# `frontend` lints with three eslint workers on a runner, where `--concurrency auto` resolves to two
+# on its four vCPUs (`scripts/gate/verify.sh :: do_eslint`). A cold eslint over `fl_frontend` spends
+# about 106 s of CPU linting and 29 s more for each worker's own setup: serial 135-142 s, two workers
+# 167-177 s and four 224-236 s of the whole process's CPU, three interleaved rounds each. The pool of
+# tsc, eslint and both knip runs, pinned to two cores with SMT as a four-vCPU runner may be, took
+# 78.9-106.4 s at two workers, 85.0-117.0 s at three and 96.9-163.9 s at four, three interleaved
+# rounds, the fleet sharing those cores. Measured locally on 2026-10-16 on a sixteen-core Windows
+# machine at 57-90 percent CPU from a fleet of agent sessions, so upper bounds that settle nothing
+# about a runner whose four vCPUs may be four cores. On the runner at two workers eslint took 45-52 s
+# on the fast class of machine, read off knip's 3.0-3.9 s beside it, and 63-86 s on the slow class,
+# over the 23 pull-request runs of 2026-10-16 from 09:52 UTC; whether three beat that is the eslint
+# spans of the runs carrying them to say. No row moves and none takes a stamp.
+#
+# `frontend` gained a fifth syntax ban in `fl_frontend/eslint.config.mjs :: SOURCE_BANS`, a heading
+# typed into `buildRefusal`'s `where`. eslint over `fl_frontend` at four threads with no cache took
+# 45.0-71.2 s with it against 48.7-86.0 s without, four interleaved rounds after one warm run of each,
+# and `no-restricted-syntax`, every ban together, 72.1-77.0 ms against 85.8-94.6 ms summed over every
+# file, two runs of each: both pairs overlap, so the ban costs less than this machine resolves.
+# Measured locally on 2026-10-16 on a sixteen-core Windows machine at 76-82 percent CPU from a fleet
+# of agent sessions. The row carries `-` for its reference, so the ban moves no figure and answers to
+# the budget alone.
+#
+# `docs` gained two rules in `scripts/checks/check_public_routes.py`: a handler `:: INTERNAL` records
+# is refused at the edge by an exact match and its twin, and a row no handler answers is a finding.
+# Their reads took 10.3-12.2 microseconds a pass, the whole twin check among them, against 185-206 ms
+# for the checker end to end, seven runs each, measured locally on 2026-10-16 on a sixteen-core
+# Windows machine carrying a fleet of agent sessions, so upper bounds. They sit far inside the floor
+# the `docs` row carries, and no row moves.
+#
+# `ops` gained a stage in `nginx/edge_test.sh` grading each refused location on its status and on
+# Next never seeing the request. The nine pull-request runs carrying it spanned 14-24 s, median 17 s,
+# against 12-23 s, median 18 s, for the eleven runs of 2026-10-16 from 12:00 UTC before it, so the
+# stage costs less than a runner's own spread. It sits inside the floor the `ops` row carries, and no
+# row moves.
+#
+# `backend`'s default tier gained or widened these sweeps and cases, each set run alone three times
+# and timed by pytest's own call durations, measured locally on 2026-10-16 on a sixteen-core Windows
+# machine at 30-85 percent CPU, so upper bounds:
+#
+# - `fl_backend/tests/api/test_malformed_ids.py :: test_every_objectid_path_parameter_reaches_its_handler_as_an_object_id`,
+#   1.38-2.19 s
+# - `fl_backend/tests/api/test_url_parameters.py :: test_a_list_typed_parameter_is_read_through_its_items`,
+#   under 10 ms
+# - the logger walk, `fl_backend/tests/core/test_logging.py :: TestTheApplicationsOneLogger`, eleven
+#   cases 0.87-1.30 s together
+# - the ban-list walk, `fl_backend/tests/core/test_bounded_writes.py :: test_every_write_asking_the_ban_list_of_an_address_anchors_it`,
+#   1.42-1.61 s
+# - the season-cache sweep over every mounted route,
+#   `fl_backend/tests/api/test_saison_cache.py :: TestEverySeasonWriteDropsIt`, 0.67-0.81 s over its
+#   cases, the walk itself about 2 ms once the application and its source index exist
+# - `fl_backend/tests/api/test_erasure_commit_fail_points.py :: test_no_other_module_configures_the_fail_point`,
+#   0.04-0.07 s
+# - two isolation cases,
+#   `fl_backend/tests/core/test_transactions.py :: test_a_row_failing_on_a_page_after_a_committed_one_is_passed_over_alone_too`
+#   and `:: test_a_retry_passes_over_only_the_rows_it_refused_itself`, and the read-model drift case
+#   over every collection,
+#   `fl_backend/tests/core/test_constraints.py :: test_every_value_a_read_model_refuses_is_reported_under_its_own_type`,
+#   under 10 ms a case
+# - `fl_backend/tests/core/test_journal.py` whole, and the journal hash's cases in
+#   `fl_backend/tests/api/test_actor_binding.py :: TestTheJournalHash` and
+#   `:: test_an_unfolded_spelling_hashes_as_its_fold`, under 10 ms a case after a fixture of 0.24-0.47 s
+#
+# The default tier runs over workers, so the job pays these only as its longest worker's share. No
+# row moves and none takes a stamp.
+#
+# `db` gained cases, each set run alone three times, measured locally on 2026-10-16 on a sixteen-core
+# Windows machine at 6-79 percent CPU, so upper bounds; a run's first case also pays the containers'
+# start, which the tier pays once:
+#
+# - each sweep's worst call counted on the wire,
+#   `fl_backend/tests/api/test_bewerbung_sweep_execution.py :: TestTheWorstCallSendsTheCommandsItsBudgetCounts`,
+#   0.33-0.34 s over its two cases, and
+#   `fl_backend/tests/api/test_registrierung_sweep_execution.py :: TestTheWorstCallSendsTheCommandsItsBudgetCounts`,
+#   0.20-0.28 s
+# - the read-model offenders of
+#   `fl_backend/tests/core/test_constraints_execution.py :: test_each_collection_counts_a_value_its_read_models_refuse`,
+#   2.87-2.90 s over its cases
+# - `fl_backend/tests/api/test_journal_replay.py` whole, 1.24-1.92 s of call time, 5.2-12.0 s with the
+#   containers' start
+#
+# No row moves and none takes a stamp.
+#
+# `scripts` gained cases, each set run alone three times, measured locally on 2026-10-16 on a
+# sixteen-core Windows machine carrying a fleet of agent sessions, so upper bounds:
+#
+# - the deploy's stop window in `scripts/tests/test_deploy_streams.py`, 7.83-17.70 s together, each
+#   case spawning bash: `:: test_every_container_is_stopped_before_its_stream_is_read`,
+#   `:: test_a_stop_that_fails_warns_and_takes_the_copy_all_the_same`,
+#   `:: test_a_refused_copy_puts_the_stopped_pair_back_and_reloads_the_edge_onto_it`,
+#   `:: test_a_start_that_fails_after_a_refused_copy_ends_on_the_site_being_down`,
+#   `:: test_a_container_that_is_not_running_is_copied_and_neither_stopped_nor_started`,
+#   `:: test_a_refused_copy_starts_only_what_it_stopped` and
+#   `:: test_a_directory_the_copy_cannot_write_refuses_before_anything_is_stopped`
+# - `scripts/tests/test_check_public_routes.py`'s cases over the refused handlers, under 20 ms together
+# - `scripts/tests/test_replay_journal.py` whole, 2.46-9.25 s
+#
+# Each module is one chunk under `--dist loadfile`; the row carries `-` for its reference, so they move
+# no figure and answer to the budget alone.
 #
 # The total row is the sum of the seconds above it, compared the same way where it carries a floor.
 # Its floor sums each referenced row's draws, so `--stamp` cuts one only where every row holding a
