@@ -647,7 +647,7 @@ def eigene_namen(
 ) -> frozenset[str]:
     """Every name the person's own records hold, as the reveal names each: each field whole and each of its words (`_named_words`).
 
-    Capitals kept: a lowered „ẞ“ no longer yields its own upper case, which `holds_a_name` compares.
+    Capitals kept: a lowered „ẞ“ yields „SS“ in upper case, never its own „ẞ“, which `holds_a_name` compares.
     """
 
     fields = [
