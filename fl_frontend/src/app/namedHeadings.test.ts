@@ -8,9 +8,12 @@ import ts from "typescript";
 import { JA_MEINE_ADRESSE, NICHT_MEINE_ADRESSE } from "@/core/adresswechselAntworten.ts";
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 import {
+  FINALRUNDEN_EINTRAG,
   HANDLUNGSBEDARF_EINTRAG,
   LOESCHUNG_EINTRAG,
   SPERRLISTE_EINTRAG,
+  SPIELSUCHE_EINTRAG,
+  SPIELTAGE_EINTRAG,
   TEAMS_EINTRAG,
   UEBERALL_ABMELDEN,
 } from "@/features/admin/constants.ts";
@@ -101,6 +104,9 @@ const REGISTER: readonly Benannt[] = [
   eintrag("TEAMS_EINTRAG", TEAMS_EINTRAG),
   eintrag("SPERRLISTE_EINTRAG", SPERRLISTE_EINTRAG),
   eintrag("LOESCHUNG_EINTRAG", LOESCHUNG_EINTRAG),
+  eintrag("SPIELTAGE_EINTRAG", SPIELTAGE_EINTRAG),
+  eintrag("FINALRUNDEN_EINTRAG", FINALRUNDEN_EINTRAG),
+  eintrag("SPIELSUCHE_EINTRAG", SPIELSUCHE_EINTRAG),
   {
     wort: UEBERALL_ABMELDEN,
     konstante: "UEBERALL_ABMELDEN",

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 import ArrowRightArrowLeft from "@gravity-ui/icons/ArrowRightArrowLeft";
 
+import { HANDLUNGSBEDARF_EINTRAG, SPIELTAGE_EINTRAG } from "@/features/admin/constants";
 import { activateSaisonAction } from "@/features/saisons/actions";
 import { SaisonBadge } from "@/features/saisons/components/ui/SaisonBadge";
 import { SPIELPLAN_ABSCHNITT, SPIELTAGE_UNDATED } from "@/features/saisons/constants";
@@ -226,7 +227,7 @@ export function FormRolloverSection({
               <Callout
                 severity="warning"
                 title="Diese Saison hat Spieltage ohne Datum">
-                {SPIELTAGE_UNDATED} Trage die Daten unter <strong>Spieltage</strong> ein.
+                {SPIELTAGE_UNDATED} Trage die Daten unter „{SPIELTAGE_EINTRAG.label}“ ein.
               </Callout>
             )}
 
@@ -261,7 +262,7 @@ export function FormRolloverSection({
                     {offene.length - LISTED_OFFENE_SPIELE === 1
                       ? "und ein weiteres."
                       : `und ${String(offene.length - LISTED_OFFENE_SPIELE)} weitere.`}{" "}
-                    Die vollständige Liste steht unter Handlungsbedarf.
+                    Die vollständige Liste steht unter „{HANDLUNGSBEDARF_EINTRAG.label}“.
                   </li>
                 )}
               </ul>
