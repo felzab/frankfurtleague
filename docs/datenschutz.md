@@ -579,7 +579,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
 - **An erasure itself writes one keyed hash of the address, which the database removes at its next
   expiry pass.** The address's anchor (`docs/glossary.md :: Adressanker`) holds a keyed hash of the
   folded address under a label of its own, a counter and the instant of its last write, and no
-  address. Every transaction storing an address taken from a payload writes it, a signed-in person's
+  address. Every transaction an address enters the records through writes it, a signed-in person's
   own write writes theirs, and the address's erasure writes it too, which is what makes a record
   committed for the address while the erasure runs go with it rather than outlive it
   (`docs/backend/spec.md :: I719`). Like the pseudonym it is pseudonymised personal data, this
