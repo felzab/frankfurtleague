@@ -110,6 +110,8 @@ PASTED = IDENTIFIER.replace("example", "".join(chr(ord(letter) + 0xFEE0) for let
 VORNAME, NACHNAME = "Zorbanax", "Quillfeather"
 TELEFON = "+49 69 7771234"
 GEBURTSDATUM = "2008-07-14"
+# The one their referee row holds, which they typed otherwise.
+REFEREE_GEBURTSDATUM = "1990-02-03"
 PSEUDONYM = akteur_pseudonym(IDENTIFIER, schluessel=CONFIG.sperrliste_schluessel)
 
 # The submission digests of two applications the person holds a seat on, the second predating the confirmation block.
@@ -117,7 +119,18 @@ THEIR_DIGEST = "digest-7f3a1c-mit-block"
 THEIR_BLOCKLESS_DIGEST = "digest-7f3a1c-ohne-block"
 
 # Distinctive, so a hit in a whole-database scan is never coincidence: every value the person holds.
-THEIR_VALUES = (VORNAME, NACHNAME, IDENTIFIER, PASTED, "7771234", GEBURTSDATUM, PSEUDONYM, THEIR_DIGEST, THEIR_BLOCKLESS_DIGEST)
+THEIR_VALUES = (
+    VORNAME,
+    NACHNAME,
+    IDENTIFIER,
+    PASTED,
+    "7771234",
+    GEBURTSDATUM,
+    REFEREE_GEBURTSDATUM,
+    PSEUDONYM,
+    THEIR_DIGEST,
+    THEIR_BLOCKLESS_DIGEST,
+)
 
 # The people beside them, each asserted still present: a step taking anybody else's record with theirs fails.
 BYSTANDER_VALUES = ("Quillhilde", "Bramblewick", "Wraxlington", "kraus.bernd@example.com")
@@ -301,7 +314,9 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
     )
     await database[Collection.SCHIEDSRICHTER].insert_many(
         [
-            referee(REFEREE_OID, email=TYPED, name=REFEREE_NAME, geburtsdatum="1990-02-03", kontakt={"telefon": TELEFON, "email": TYPED}),
+            referee(
+                REFEREE_OID, email=TYPED, name=REFEREE_NAME, geburtsdatum=REFEREE_GEBURTSDATUM, kontakt={"telefon": TELEFON, "email": TYPED}
+            ),
             referee(
                 OTHER_REFEREE_OID,
                 email="kraus.bernd@example.com",
