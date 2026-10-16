@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useState } from "react";
+import { startTransition, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import PersonXmark from "@gravity-ui/icons/PersonXmark";
@@ -10,6 +10,7 @@ import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
 
 import { eraseAufAnfrageAction, readErasureAnsichtAction } from "@/features/funktionen/actions";
+import { isErasureRefusal } from "@/features/funktionen/refusals";
 import { FLErasurePayloadSchema } from "@/features/funktionen/schemas";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
@@ -28,19 +29,19 @@ import { FormLoeschungAnsicht } from "./FormLoeschungAnsicht";
 
 import type { LoeschungAnsicht } from "./FormLoeschungAnsicht";
 
-/** What the arming read left the reveal holding, carried WITH the address it was read for. */
+/**
+ * What the arming read left the reveal holding, carried WITH the address it was read for. A refusal's `reason` is
+ * whole, said once for the reveal's body and the closed press alike, so the two cannot part.
+ */
 type Gelesen = { adresse: string } & (
   { status: "reading" } | { status: "read"; ansicht: LoeschungAnsicht } | { status: "refused"; reason: string }
 );
 
 type Fehler = { email?: string; anlass?: string };
 
-/** A refused read, said once for the reveal's body and the closed press alike, so the two cannot part. */
+/** A read that failed rather than one the erasure's own rule refused. */
 const ohneUebersicht = (reason: string): string =>
   `Die Übersicht, was gelöscht wird, konnte nicht geladen werden, und ohne sie wird nichts gelöscht. ${reason}`;
-
-/** The repair where the read answered no sentence of its own: arming again is what reads the list a second time. */
-const ERNEUT_STARTEN = "Brich ab und starte das Löschen erneut.";
 
 /** Each box's verdict in the write's own words, judged at the press and never between keystrokes. */
 function fehlerIn(email: string, anlass: string): Fehler {
@@ -59,7 +60,7 @@ function fehlerIn(email: string, anlass: string): Fehler {
 function AnsichtBody({ gelesen }: { gelesen: Gelesen | null }) {
   if (gelesen?.status === "read") return <FormLoeschungAnsicht ansicht={gelesen.ansicht} />;
   if (gelesen?.status === "refused") {
-    return <p className="fluid-xxs leading-normal font-medium text-foreground">{ohneUebersicht(gelesen.reason)}</p>;
+    return <p className="fluid-xxs leading-normal font-medium text-foreground">{gelesen.reason}</p>;
   }
 
   // The app's one „not yet here“ treatment: what arrives is a list, so what stands in for it is shaped like one.
@@ -84,9 +85,12 @@ export function FormPersonLoeschenSection() {
   const [anlass, setAnlass] = useState("");
   const [fehler, setFehler] = useState<Fehler>({});
   const [gelesen, setGelesen] = useState<Gelesen | null>(null);
+  // Only the latest arming's read answers: Next sends one client's actions one at a time, so an earlier arming's
+  // answer lands while the latest waits. React's "ignore stale responses"
+  // (https://react.dev/learn/you-might-not-need-an-effect#fetching-data).
+  const letzteLesung = useRef(0);
 
-  // What the confirmation compares against and the write sends: the address the arming read was made for. An edit
-  // of the box disarms, so a reveal and a confirmation for one address are never pressed for another.
+  // What the confirmation compares against and the write sends: the address the arming read was made for.
   const adresse = gelesen?.adresse ?? "";
   // The API holds the erasure of an address holding a grant to the enrolment's window: the step-up's alone would
   // meet its refusal, and the next press would ask nothing again.
@@ -97,16 +101,33 @@ export function FormPersonLoeschenSection() {
   const panel = formPanel({ tone: "danger" });
 
   const readAnsicht = async (gelesenFuer: string) => {
+    const lesung = ++letzteLesung.current;
     setGelesen({ adresse: gelesenFuer, status: "reading" });
 
     // Settled, never awaited bare: outside a transition a rejected action leaves the placeholder up and the write
     // closed beneath it for good.
     const [settled] = await Promise.allSettled([readErasureAnsichtAction({ email: gelesenFuer })]);
+    if (lesung !== letzteLesung.current) return;
     const res = settled.status === "rejected" ? unansweredRead() : settled.value;
 
-    if (res.success) setGelesen({ adresse: gelesenFuer, status: "read", ansicht: res.ansicht });
-    // A field map the press's own judgement let through points at no box the reveal shows.
-    else setGelesen({ adresse: gelesenFuer, status: "refused", reason: res.fieldErrors === undefined ? res.error : ERNEUT_STARTEN });
+    if (res.success) {
+      setGelesen({ adresse: gelesenFuer, status: "read", ansicht: res.ansicht });
+      return;
+    }
+
+    // Where the API's rule parts from the press's own judgement: the box is marked, and the arming undone as that
+    // judgement undoes it, the next press reading the corrected address.
+    const amFeld = res.fieldErrors?.email;
+    if (amFeld !== undefined) {
+      setFehler((vorher) => ({ ...vorher, email: amFeld }));
+      setGelesen(null);
+      confirm.cancel();
+      return;
+    }
+
+    const satz = res.unplacedError ?? res.error;
+    // The erasure's own rule alone: that reveal loaded, and a list „not loaded“ invites a retry the rule refuses again.
+    setGelesen({ adresse: gelesenFuer, status: "refused", reason: isErasureRefusal(satz) ? satz : ohneUebersicht(satz) });
   };
 
   const handlePress = () => {
@@ -128,7 +149,7 @@ export function FormPersonLoeschenSection() {
       // Wrapped again: the press runs this inside its transition, and React leaves an update after an `await` outside it.
       startTransition(() => {
         if (!res.success) {
-          setFehler({ anlass: res.fieldErrors?.anlass });
+          setFehler({ email: res.fieldErrors?.email, anlass: res.fieldErrors?.anlass });
           appToast.failure("Person nicht gelöscht", res);
           return;
         }
@@ -138,18 +159,20 @@ export function FormPersonLoeschenSection() {
         setAnlass("");
         setGelesen(null);
         if (res.konto === "nichtGeloescht") appToast.warning("Konto nicht gelöscht", { description: res.message });
-        // The endpoint refuses nothing, so an address holding nothing succeeds, and „gelöscht“ there would be a lie.
-        else if (!res.gespeichert && res.konto === "keines") appToast.warning("Nichts gefunden", { description: res.message });
+        else if (res.konto === "unklar") appToast.warning("Unklar, ob das Konto gelöscht wurde", { description: res.message });
+        // An address holding no record is answered with zeros rather than refused, and „Person gelöscht“ there would claim one.
+        else if (!res.gespeichert && res.konto === "keines") appToast.warning("Kein Eintrag gefunden", { description: res.message });
         else appToast.success("Person gelöscht", { description: res.message });
       });
     });
   };
 
-  const ansicht = isConfirming && gelesen?.adresse === adresse ? gelesen : null;
+  // Against the box, so a reveal and a confirmation for one address are never pressed while it holds another.
+  const ansicht = isConfirming && gelesen?.adresse === email.trim() ? gelesen : null;
   // The names ARE the confirmation, so a press taken over the placeholder would confirm nothing.
   const isReading = isConfirming && (ansicht === null || ansicht.status === "reading");
   // A refused read alone names a reason of its own: one still running ends by itself, as the write does.
-  const ansichtReason = !isPending && ansicht?.status === "refused" ? ohneUebersicht(ansicht.reason) : null;
+  const ansichtReason = !isPending && ansicht?.status === "refused" ? ansicht.reason : null;
   const panelReason = email.trim() === "" ? "Gib zuerst die E-Mail-Adresse ein." : anlass.trim() === "" ? "Gib zuerst den Anlass ein." : null;
 
   return (
@@ -199,14 +222,15 @@ export function FormPersonLoeschenSection() {
           <Label className={FIELD_LABEL_CLASSES}>Anlass</Label>
           <Input
             autoComplete="off"
-            placeholder="z.B. E-Mail vom 12.10.2026, Betreff „Löschung meiner Daten“"
+            placeholder="z.B. E-Mail vom 12.10.2026, Bitte um Löschung"
             className={FIELD_INPUT_CLASSES}
           />
           <FieldError className={FIELD_ERROR_CLASSES}>{fehler.anlass}</FieldError>
-          {/* Every log row the erasure files keeps it a year, past the redaction of anybody it names. */}
+          {/* Every log row the erasure files keeps it a year, past any redaction, and the box refuses addresses, never names:
+              a mail's subject routinely carries its sender's, so the hint asks for the request's kind. */}
           <Hint
             mode="field"
-            text="Datum und Betreff der Anfrage. Nenne hier keine Person beim Namen und keine Adresse. Der Anlass steht zwölf Monate im Änderungsprotokoll."
+            text="Nur das Datum und die Art der Anfrage. Nenne hier keine Person beim Namen und keine Adresse, auch nicht aus dem Betreff. Der Anlass steht zwölf Monate im Änderungsprotokoll."
           />
         </TextField>
 

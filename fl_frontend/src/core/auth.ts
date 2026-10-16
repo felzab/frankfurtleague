@@ -1802,11 +1802,13 @@ export async function getPasskeyStep(): Promise<PasskeyStep | null> {
 }
 
 /**
- * Ends every live session of the account an address holds, which the refusal of its next sign-in does
- * not reach; the account and its passkeys stay for the day the ban ends (`docs/frontend/spec.md :: I402`).
+ * Ends every session of an address's account, which a refused next sign-in does not reach, keeping account and
+ * passkeys: for the day a ban ends (`docs/frontend/spec.md :: I402`), or for the next sign-in after an administrator's
+ * sign-out (`:: I687`).
  */
 export async function endSessionsOfAddress(address: string): Promise<boolean> {
-  // No grant is asked about: a ban ends every session of the address it names, whatever it holds.
+  // No grant is asked about here: a ban ends every session whatever the address holds, and the administrator's
+  // sign-out has the backend judge whose address it is first.
   const folded = asSignInIdentifier(address);
 
   const { adapter } = await auth.$context;

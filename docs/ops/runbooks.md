@@ -760,7 +760,10 @@ by mail instead has two answers, and which one you give is the person's to choos
   squad row rather than writing a second (`docs/backend/spec.md :: I583`) and renews the choice from
   the pupil's own answer
   (`fl_backend/app/api/registrierungen/services.py :: compose_person_update`). Where the window is
-  shut, the erasure above is the only route. Either write that withholds the name drops the cached
+  shut, no route keeps their place with the name withheld, and „Löschung auf Anfrage“ reaches no
+  record holding no address: which route answers that request is not decided
+  ([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)). Either write that
+  withholds the name drops the cached
   squad list, and the next read serves the row as a nameless slot
   (`docs/backend/spec.md :: READ-PUPIL-003`); check the public squad page before you answer.
 
@@ -794,8 +797,10 @@ erasure could not delete goes when the address is erased again
 
 **The page refuses two addresses, and says so before anyone confirms**: the administrator's own,
 which goes through their account page or another administrator, and an owner's to an administrator
-who is not one. It mails nobody, and on the same page „Überall abmelden“ ends every session of an
-address without erasing or barring it.
+who is not one. It mails the person nothing. **Erasing an administrator's address tells every
+administrator, as a revoke does**: the grant's end goes out with the other changes of access, the
+notice naming no address (`docs/backend/spec.md :: I659`). On the same page „Überall abmelden“ ends
+every session of an address without erasing or barring it.
 
 **Answer as soon as what you need is gathered, and where it will take longer say so in the first
 reply rather than after it.** Where the answer needs the Datenschutzexperte, the person is told that

@@ -3,7 +3,7 @@ import { registerHooks } from "node:module";
 import { after, before, beforeEach, describe, it } from "node:test";
 
 // Type-only, so nothing is imported at load: the hook module is pulled in from `before`, below.
-import type { StepUp } from "@/shared/components/ui/stepUp.ts";
+import type { StepUp, StepUpDemand } from "@/shared/components/ui/stepUp.ts";
 import type { useTwoPressConfirm } from "./useTwoPressConfirm.ts";
 
 /** The `useState` cells, by call order, held across the presses of a test the way a mounted component holds them. */
@@ -84,7 +84,7 @@ after(() => {
 });
 
 /** One render pass. React reads the cell fresh on each, and so does the stub above. */
-const render = (guard?: () => boolean, stepUp?: boolean): Control => {
+const render = (guard?: () => boolean, stepUp?: StepUpDemand): Control => {
   refCalls = 0;
   stateCalls = 0;
   return twoPressConfirm({ guard, stepUp });
@@ -396,6 +396,16 @@ describe("the two-press confirm of a step-up write", () => {
 
     assert.equal(stepUp.prompts(), 1, "a press after the window closed sent the write unconfirmed");
     assert.equal(gate.calls(), 1);
+  });
+
+  /* A panel can learn its demand from a read its arming started, as the erasure learns a grant holder's address:
+     a label fixed on the demand declared at arming says the write's own words over a press that prompts. */
+  it("re-decides the passkey label when the declared demand changes while armed", () => {
+    stepUpContext = { isStale: (_at, demand) => demand === "enrolment", confirm: () => Promise.resolve(true) };
+
+    render(undefined, true).press(() => Promise.resolve());
+    assert.equal(render(undefined, true).asksPasskey, false, "a session inside the step-up's window was asked for the passkey");
+    assert.equal(render(undefined, "enrolment").asksPasskey, true, "a demand declared after arming left the label on the write's words");
   });
 
   /* The declaration is the site's: a reversible two-press write, and the sign-out, never ask, whatever

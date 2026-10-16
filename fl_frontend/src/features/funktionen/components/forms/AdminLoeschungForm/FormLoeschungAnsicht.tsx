@@ -29,7 +29,7 @@ function zeilenOf(
   return [
     ...spieler.map(({ vorname, nachname, kader }) => {
       const kaderTeile = kader.map(({ team_name, saison_id }) =>
-        team_name === null ? `im Kader der Saison ${saison_id}` : `im Kader von ${team_name} (${saison_id})`,
+        team_name === null ? `im Kader der Saison ${saison_id}` : `im Kader von ${team_name}, Saison ${saison_id}`,
       );
       const person = `Spielerin oder Spieler: ${nameOf(vorname, nachname)}`;
 
@@ -66,9 +66,19 @@ function zeilenOf(
 }
 
 /**
- * What the erasure of one address reaches, inside its armed reveal: the claim the confirmation rests on. The account
- * is named whatever the read found, the sign-in store answering only once the records are gone.
+ * Named on every reveal whatever the read found: the account goes only after the records, and no read lists the
+ * log's or the authorship's rewrite. Both reach an address holding no record, so „nichts gespeichert“ there is false.
  */
+const IMMER: readonly Zeile[] = [
+  { text: "Das Konto der Adresse mit Passkeys und Anmeldungen, falls eines besteht" },
+  { text: "Die Adresse im Änderungsprotokoll und als Urheberin von Sperren, Einladungen, Entscheidungen und Zugängen" },
+];
+
+/** The one consequence an administrator acts on afterwards: the erased referee's unplayed fixtures stand unassigned. */
+const NEUE_EINTEILUNG =
+  "Spiele ohne Ergebnis, für die diese Person eingeteilt ist, brauchen danach eine neue Einteilung. Du findest sie dann unter „Handlungsbedarf“.";
+
+/** What the erasure of one address reaches, inside its armed reveal: the claim the confirmation rests on. */
 export function FormLoeschungAnsicht({ ansicht }: { ansicht: LoeschungAnsicht }) {
   const saisonHref = useSaisonHref();
   const zeilen = zeilenOf(ansicht, saisonHref);
@@ -76,31 +86,29 @@ export function FormLoeschungAnsicht({ ansicht }: { ansicht: LoeschungAnsicht })
   return (
     <div className="flex w-full flex-col gap-4">
       <div className="flex w-full flex-col gap-y-1">
-        <h3 className={FORM_SECTION_HEADING_CLASSES}>Unter dieser Adresse wird gelöscht:</h3>
+        <h3 className={FORM_SECTION_HEADING_CLASSES}>Was dabei gelöscht wird</h3>
 
-        {zeilen.length === 0 ? (
-          <p className={ZEILE_CLASSES}>Unter dieser Adresse ist nichts gespeichert. Gelöscht wird nur ein Konto, falls eines besteht.</p>
-        ) : (
-          <ul className={`${ZEILE_CLASSES} flex list-disc flex-col gap-y-1 pl-5`}>
-            {/* Derived per press and never reordered, which is what makes the index a key: two seats can read alike. */}
-            {[...zeilen, { text: "Das Konto der Adresse mit Passkeys und Anmeldungen, falls eines besteht" }].map(({ text, href }, stelle) => (
-              <li key={stelle}>
-                {href === undefined ? (
-                  text
-                ) : (
-                  <Link
-                    href={href}
-                    prefetch={false}
-                    className={textLink()}>
-                    {text}
-                  </Link>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
+        {zeilen.length === 0 && <p className={ZEILE_CLASSES}>Unter dieser Adresse ist kein Eintrag gespeichert.</p>}
+        <ul className={`${ZEILE_CLASSES} flex list-disc flex-col gap-y-1 pl-5`}>
+          {/* Derived per press and never reordered, which is what makes the index a key: two seats can read alike. */}
+          {[...zeilen, ...IMMER].map(({ text, href }, stelle) => (
+            <li key={stelle}>
+              {href === undefined ? (
+                text
+              ) : (
+                <Link
+                  href={href}
+                  prefetch={false}
+                  className={textLink()}>
+                  {text}
+                </Link>
+              )}
+            </li>
+          ))}
+        </ul>
       </div>
 
+      {ansicht.schiedsrichter.length > 0 && <p className={ZEILE_CLASSES}>{NEUE_EINTEILUNG}</p>}
       <p className={ZEILE_CLASSES}>Zurückholen lässt sich das nicht.</p>
     </div>
   );

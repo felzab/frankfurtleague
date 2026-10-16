@@ -11,6 +11,7 @@ import { userEvent } from "@testing-library/user-event";
 import { APIBadStatusError } from "@/core/errors.ts";
 import { DOUBLE_PRESS_MS } from "@/shared/hooks/useTwoPressConfirm.ts";
 import { doubleActionRequest, doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import { closedControl } from "@/shared/testing/closedControl.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { pageBody } from "@/shared/testing/pageHarness.ts";
 
@@ -29,7 +30,7 @@ const { raised } = doubleToasts();
 const { default: AdminLoeschungPage } = await import("@/app/bereich/admin/loeschung/page.tsx");
 const { FLErasureAnsichtResponseSchema } = await import("./schemas.ts");
 const { mapAbmeldungRefusal, mapErasureRefusal } = await import("./refusals.ts");
-const { StepUpContext } = await import("@/shared/components/ui/stepUp.ts");
+const { STEP_UP_LABEL, StepUpContext } = await import("@/shared/components/ui/stepUp.ts");
 
 /** A rule's refusal as the client raises one, for the mappers' own words. */
 const refused = (serverErrorCode: string): APIBadStatusError =>
@@ -47,6 +48,7 @@ const refused = (serverErrorCode: string): APIBadStatusError =>
 const ID = "68c1f0a2b3c4d5e6f7a8b9c0";
 const PUPIL_ID = "68c1f0a2b3c4d5e6f7a8b9c1";
 const ADRESSE = "Ada.Byron@Example.org";
+const ANDERE_ADRESSE = "grace.hopper@example.org";
 const ANLASS = "E-Mail vom 12.10.2026, Betreff Löschung meiner Daten";
 const ARMED = "Ja, Person endgültig löschen";
 const BESTAETIGUNG = /^Gib zur Bestätigung die Adresse/;
@@ -73,6 +75,12 @@ const EIN_EINTRAG_JE_ART = {
   spieler_adresswechsel: [{ spieler_id: PUPIL_ID }],
   verwaltung: "owner",
 } satisfies Omit<FLErasureAnsichtResponse, "acknowledged">;
+
+/** The lines every reveal ends on, whatever the read found. */
+const IMMER = [
+  "Das Konto der Adresse mit Passkeys und Anmeldungen, falls eines besteht",
+  "Die Adresse im Änderungsprotokoll und als Urheberin von Sperren, Einladungen, Entscheidungen und Zugängen",
+];
 
 /** The kinds the mirror declares, read off its own keys, so the answer below carries every one there is. */
 const ARTEN = Object.keys(FLErasureAnsichtResponseSchema.shape).filter((key) => key !== "acknowledged");
@@ -122,6 +130,13 @@ const offen = (name: string): boolean =>
 
 const sent = (action: string) => calls.filter((call) => call.action === action);
 
+/** The reveal's list, found under the heading its neighbours' reveals share the form of. */
+const liste = (): HTMLElement => {
+  const block = within(screen.getByRole("alert")).getByRole("heading", { name: "Was dabei gelöscht wird" }).parentElement;
+  assert.ok(block instanceof HTMLElement, "the reveal's heading heads no block");
+  return within(block).getByRole("list");
+};
+
 /** The erasure panel's two boxes, typed. */
 async function typeRequest(user: UserEvent, email = ADRESSE, anlass = ANLASS): Promise<void> {
   const erasure = panel("Person löschen");
@@ -129,11 +144,50 @@ async function typeRequest(user: UserEvent, email = ADRESSE, anlass = ANLASS): P
   await user.type(within(erasure).getByRole("textbox", { name: "Anlass" }), anlass);
 }
 
+/** A refusal of the body's fields as the shared reader answers one the API names (`REQ-VAL-001`). */
+const FELD_ABGELEHNT_ANTWORT = (felder: readonly string[]) => ({
+  success: false,
+  error: "Überprüfe Deine Eingaben.",
+  fieldErrors: Object.fromEntries(felder.map((feld) => [feld, "Diese Angabe wurde so nicht übernommen."])),
+  unplacedError: "Einzelne Angaben wurden so nicht übernommen.",
+});
+
+/** The erasure panel's boxes marked invalid, by their labels. */
+const markiert = (): string[] =>
+  within(panel("Person löschen"))
+    .getAllByRole("textbox")
+    .filter((box) => box.getAttribute("aria-invalid") === "true")
+    .map((box) => (box as HTMLInputElement).labels?.[0]?.textContent ?? "");
+
+/** Every read the case makes held open until the case answers it, by the order the reads were made in. */
+function holdReads(): { answer: (read: number, value: unknown) => void } {
+  const held: ((value: unknown) => void)[] = [];
+  answerWith(() => new Promise((resolve) => void held.push(resolve)));
+
+  return {
+    answer: (read, value) => {
+      const release = held[read];
+      assert.ok(release !== undefined, `no read ${String(read)} was made`);
+      release(value);
+    },
+  };
+}
+
 /** The arming press and the read it makes, answered. */
 async function arm(user: UserEvent): Promise<void> {
   await user.click(screen.getByRole("button", { name: "Person löschen" }));
   await act(answered);
   await screen.findByRole("button", { name: "Abbrechen" });
+}
+
+/** Both presses, the address retyped as `retyped`, the second past the double press's window, and its answer awaited. */
+async function bestaetige(user: UserEvent, t: TestContext, retyped = ADRESSE): Promise<void> {
+  t.mock.timers.enable({ apis: ["Date"] });
+  await arm(user);
+  await user.type(await screen.findByRole("textbox", { name: BESTAETIGUNG }), retyped);
+  t.mock.timers.tick(DOUBLE_PRESS_MS);
+  await user.click(screen.getByRole("button", { name: ARMED }));
+  await act(answered);
 }
 
 describe("the erasure's press", () => {
@@ -153,12 +207,15 @@ describe("the erasure's press", () => {
     assert.ok(offen(ARMED), "the address in other capitals left the press closed");
   });
 
-  it("never sends where the retyped address is another", async () => {
+  /* Past the double press's window, so that the mismatch is what refuses the click and never the window. */
+  it("never sends where the retyped address is another", async (t) => {
     const { user } = await renderPage();
     await typeRequest(user);
+    t.mock.timers.enable({ apis: ["Date"] });
     await arm(user);
 
     await user.type(await screen.findByRole("textbox", { name: BESTAETIGUNG }), "ada.lovelace@example.org");
+    t.mock.timers.tick(DOUBLE_PRESS_MS);
     for (const control of screen.getAllByRole("button", { name: ARMED })) await user.click(control);
 
     assert.ok(!offen(ARMED), "a mismatch opened the press");
@@ -180,18 +237,98 @@ describe("the erasure's press", () => {
     assert.deepEqual(sent("eraseAufAnfrageAction"), []);
   });
 
-  /* The erasure is sent for the address the reveal was read for, then both boxes empty for the next request; no
-     address reaches a URL on the way (`docs/frontend/spec.md :: I686`). */
-  it("erases the retyped address on the second press, empties both boxes and navigates nowhere", async (t) => {
-    const { user, seen } = await renderPage();
+  /* Next sends one client's server actions one at a time, so the first arming's read answers while the second's
+     waits behind it: that answer would otherwise ask for, and erase, an address the box has stopped holding. */
+  it("never lets an earlier arming's answer stand for the address the box holds now", async () => {
+    const { user } = await renderPage();
+    const reads = holdReads();
     await typeRequest(user);
 
-    t.mock.timers.enable({ apis: ["Date"] });
-    await arm(user);
-    await user.type(await screen.findByRole("textbox", { name: BESTAETIGUNG }), ADRESSE);
-    t.mock.timers.tick(DOUBLE_PRESS_MS);
-    await user.click(screen.getByRole("button", { name: ARMED }));
+    await user.click(screen.getByRole("button", { name: "Person löschen" }));
+    await user.click(await screen.findByRole("button", { name: "Abbrechen" }));
+    const box = within(panel("Person löschen")).getByRole("textbox", { name: "E-Mail" });
+    await user.clear(box);
+    await user.type(box, ANDERE_ADRESSE);
+    await user.click(screen.getByRole("button", { name: "Person löschen" }));
+
+    await act(async () => reads.answer(0, { success: true, ansicht: NICHTS_GESPEICHERT }));
+    assert.equal(screen.queryAllByRole("textbox", { name: BESTAETIGUNG }).length, 0, "the first arming's answer asks for its address");
+
+    await act(async () => reads.answer(1, { success: true, ansicht: NICHTS_GESPEICHERT }));
+    assert.ok(await screen.findByRole("textbox", { name: `Gib zur Bestätigung die Adresse „${ANDERE_ADRESSE}“ ein` }));
+  });
+
+  /* The list the press is confirmed over is the one read for this arming: a read for an earlier arming of the same
+     address may name records the erasure does not reach when it runs. */
+  it("holds the press over the latest arming's read, an earlier one for the same address answered first", async () => {
+    const { user } = await renderPage();
+    const reads = holdReads();
+    await typeRequest(user);
+
+    await user.click(screen.getByRole("button", { name: "Person löschen" }));
+    await user.click(await screen.findByRole("button", { name: "Abbrechen" }));
+    await user.click(screen.getByRole("button", { name: "Person löschen" }));
+
+    await act(async () => reads.answer(0, { success: true, ansicht: NICHTS_GESPEICHERT }));
+    assert.equal(screen.queryAllByRole("textbox", { name: BESTAETIGUNG }).length, 0, "an earlier arming's read stands for this one");
+
+    await act(async () => reads.answer(1, { success: true, ansicht: NICHTS_GESPEICHERT }));
+    assert.ok(await screen.findByRole("textbox", { name: BESTAETIGUNG }));
+  });
+
+  /* Where the API's address rule parts from the panel's, its verdict lands on the box it judged, and the arming is
+     undone as the panel's own verdict would have refused it: restarting would only meet the same refusal. */
+  it("marks the E-Mail box with a field refusal of the reveal and stands disarmed", async () => {
+    const { user } = await renderPage({ readErasureAnsichtAction: FELD_ABGELEHNT_ANTWORT(["email"]) });
+    await typeRequest(user);
+
+    await user.click(screen.getByRole("button", { name: "Person löschen" }));
     await act(answered);
+
+    assert.equal(screen.queryAllByRole("button", { name: "Abbrechen" }).length, 0, "a refused address left the panel armed");
+    assert.deepEqual(markiert(), ["E-Mail"], "the refusal of the address marked no box, or another");
+  });
+
+  it("marks each box a field refusal of the erasure names", async (t) => {
+    const { user } = await renderPage({ eraseAufAnfrageAction: FELD_ABGELEHNT_ANTWORT(["email", "anlass"]) });
+    await typeRequest(user);
+    await bestaetige(user, t);
+
+    assert.deepEqual(markiert(), ["E-Mail", "Anlass"], "a box the erasure's refusal names stands unmarked");
+  });
+
+  /* A read still running ends by itself, as a write does: the press is held rather than closed, keeping the focus the
+     arming left on it, names no reason, and erases nothing until the names it is confirmed over stand. */
+  it("holds the press while the read runs, and erases once the names are on screen", async (t) => {
+    const { user } = await renderPage();
+    const reads = holdReads();
+    await typeRequest(user);
+    t.mock.timers.enable({ apis: ["Date"] });
+
+    await user.click(screen.getByRole("button", { name: "Person löschen" }));
+    const press = await screen.findByRole("button", { name: ARMED });
+    // Past the window, so the hold is what refuses this press and never the double press's guard.
+    t.mock.timers.tick(DOUBLE_PRESS_MS);
+    await user.click(press);
+
+    assert.deepEqual(sent("eraseAufAnfrageAction"), [], "the press erased over the placeholder");
+    assert.equal(press.hasAttribute("disabled"), false, "the running read closed the press, dropping the focus on it");
+    assert.equal(press.getAttribute("data-pending"), "true", "a read still running left the press open rather than held");
+    assert.equal(screen.queryAllByRole("button", { name: ARMED, description: /./ }).length, 0, "a read still running names a reason");
+
+    await act(async () => reads.answer(0, { success: true, ansicht: NICHTS_GESPEICHERT }));
+    await user.type(await screen.findByRole("textbox", { name: BESTAETIGUNG }), ADRESSE);
+    await user.click(screen.getByRole("button", { name: ARMED }));
+    assert.equal(sent("eraseAufAnfrageAction").length, 1, "the press stays held over the names it is confirmed over");
+    await act(async () => reads.answer(1, { success: true, konto: "geloescht", gespeichert: true, message: "Alles ist gelöscht." }));
+  });
+
+  /* The erasure is sent for the address the reveal was read for, never the retyped spelling, then both boxes empty for
+     the next request; no address reaches a URL on the way (`docs/frontend/spec.md :: I686`). */
+  it("erases the revealed address however it was retyped, empties both boxes and navigates nowhere", async (t) => {
+    const { user, seen } = await renderPage();
+    await typeRequest(user);
+    await bestaetige(user, t, "  ada.byron@EXAMPLE.ORG ");
 
     assert.deepEqual(sent("readErasureAnsichtAction"), [{ action: "readErasureAnsichtAction", payload: { email: ADRESSE } }]);
     assert.deepEqual(sent("eraseAufAnfrageAction"), [{ action: "eraseAufAnfrageAction", payload: { email: ADRESSE, anlass: ANLASS } }]);
@@ -222,7 +359,8 @@ describe("the passkey the erasure's press asks for", () => {
     return { asked, stepUp };
   };
 
-  const confirmed = async (verwaltung: "owner" | null, stepUp: StepUp, t: TestContext) => {
+  /** Both presses, the confirming one taken by the label it wears once the read has landed. */
+  const confirmed = async (verwaltung: "owner" | null, stepUp: StepUp, t: TestContext, armed: string) => {
     const { user } = await renderPage(
       { readErasureAnsichtAction: { success: true, ansicht: { ...NICHTS_GESPEICHERT, verwaltung } } },
       "",
@@ -233,13 +371,14 @@ describe("the passkey the erasure's press asks for", () => {
     await arm(user);
     await user.type(await screen.findByRole("textbox", { name: BESTAETIGUNG }), ADRESSE);
     t.mock.timers.tick(DOUBLE_PRESS_MS);
-    await user.click(screen.getByRole("button", { name: ARMED }));
+    await user.click(screen.getByRole("button", { name: armed }));
     await act(answered);
   };
 
-  it("asks for it within the enrolment's window where the address holds a grant", async (t) => {
+  /* The grant arrives with the reveal, after the arming: the press says it prompts before it does. */
+  it("asks for it within the enrolment's window where the address holds a grant, saying so on the press", async (t) => {
     const { asked, stepUp } = gate();
-    await confirmed("owner", stepUp, t);
+    await confirmed("owner", stepUp, t, STEP_UP_LABEL);
 
     assert.deepEqual(asked, ["prompt"], "a grant holder's erasure went out without the passkey the API holds it to");
     assert.equal(sent("eraseAufAnfrageAction").length, 1);
@@ -247,7 +386,7 @@ describe("the passkey the erasure's press asks for", () => {
 
   it("asks for nothing more than the step-up's window where the address holds none", async (t) => {
     const { asked, stepUp } = gate();
-    await confirmed(null, stepUp, t);
+    await confirmed(null, stepUp, t, ARMED);
 
     assert.deepEqual(asked, [], "an address holding no grant was held to the enrolment's window");
     assert.equal(sent("eraseAufAnfrageAction").length, 1);
@@ -262,9 +401,34 @@ describe("the reveal the arming read answers", () => {
     await typeRequest(user);
     await arm(user);
 
-    const zeilen = within(screen.getByRole("alert")).getAllByRole("listitem");
-    assert.equal(zeilen.length, ARTEN.length + 1, "a kind the read answered has no line");
-    assert.match(zeilen.at(-1)?.textContent ?? "", /^Das Konto der Adresse/);
+    const zeilen = within(liste()).getAllByRole("listitem");
+    assert.equal(zeilen.length, ARTEN.length + IMMER.length, "a kind the read answered has no line");
+    assert.deepEqual(
+      zeilen.slice(-IMMER.length).map((zeile) => zeile.textContent),
+      IMMER,
+    );
+    // The referee's unplayed fixtures stand unassigned afterwards, the one thing the reveal asks the operator to act on.
+    assert.match(screen.getByRole("alert").textContent, /Spiele ohne Ergebnis, .* brauchen danach eine neue Einteilung\./);
+  });
+
+  /* The log and the address's authorship are cleaned whatever the read found, so an operator answering the person
+     must not read that nothing is held. */
+  it("says an address holding no record holds no record, and still names the account, the log and the authorship", async () => {
+    const { user } = await renderPage();
+    await typeRequest(user);
+    await arm(user);
+
+    const reveal = screen.getByRole("alert").textContent;
+    assert.match(reveal, /Unter dieser Adresse ist kein Eintrag gespeichert\./);
+    assert.deepEqual(
+      within(liste())
+        .getAllByRole("listitem")
+        .map((zeile) => zeile.textContent),
+      IMMER,
+      "an address holding no record reads as an erasure of an account alone",
+    );
+    assert.doesNotMatch(reveal, /nichts gespeichert|nur ein Konto/);
+    assert.doesNotMatch(reveal, /Handlungsbedarf/, "an address holding no referee is told of fixtures to reassign");
   });
 
   /* A pending change names nobody, so its line opens the record it waits on, on the season the shell shows. */
@@ -284,19 +448,77 @@ describe("the reveal the arming read answers", () => {
     assert.deepEqual(ziele, [`/bereich/admin/schiedsrichter/${ID}?saison_id=2026`, `/bereich/admin/spieler/${PUPIL_ID}?saison_id=2026`]);
   });
 
-  /* The operator's own address: the backend refuses the reveal too, so the page says so before anyone confirms. */
+  /* A read nobody answered: the names ARE the confirmation, so the press stays closed and says why on itself as the
+     reveal does, with how to read the list again (`docs/frontend/spec.md` §1.14). */
+  it("closes the press over a read nobody answered, saying on it what the reveal says", async () => {
+    const { user } = await renderPage();
+    answerWith(() => Promise.reject(new TypeError("Failed to fetch")));
+    await typeRequest(user);
+    await arm(user);
+
+    const nichtGeladen = /^Die Übersicht, was gelöscht wird, konnte nicht geladen werden, und ohne sie wird nichts gelöscht\. Lade/;
+    assert.ok(within(screen.getByRole("alert")).getByText(nichtGeladen), "the reveal of an unanswered read says nothing of it");
+    closedControl(ARMED, nichtGeladen);
+  });
+
+  /* The operator's own address: the backend refuses the reveal too, so the page says so before anyone confirms, in
+     the rule's sentence alone, a reveal the rule refused having loaded rather than failed to. */
   it("says the operator's own address is not erased here and never opens the confirmation", async () => {
-    const eigene =
-      "Deine eigene Adresse löschst Du nicht hier. Lösche Dein Konto auf Deiner Kontoseite, oder bitte eine andere Person aus der Verwaltung darum.";
+    const eigene = mapErasureRefusal(refused("REQ-PURGE-003"))?.error ?? "REQ-PURGE-003 unworded";
     const { user } = await renderPage({ readErasureAnsichtAction: { success: false, error: eigene } });
     await typeRequest(user);
     await arm(user);
 
-    assert.match(screen.getByRole("alert").textContent, new RegExp(eigene.replace(/\./g, "\\.")));
+    assert.ok(within(screen.getByRole("alert")).getByText(eigene), "the rule's refusal reads as a list that failed to load");
+    closedControl(ARMED, eigene);
     assert.equal(screen.queryAllByRole("textbox", { name: BESTAETIGUNG }).length, 0, "a refused reveal offers the confirmation");
     for (const control of screen.getAllByRole("button", { name: ARMED })) await user.click(control);
     assert.ok(!offen(ARMED), "the press opened over a refused reveal");
     assert.deepEqual(sent("eraseAufAnfrageAction"), []);
+  });
+});
+
+describe("the Anlass box", () => {
+  it("asks for the date and the request's kind, and for no name, not even the subject's", async () => {
+    await renderPage();
+
+    within(panel("Person löschen")).getByRole("textbox", {
+      name: "Anlass",
+      description:
+        /^Nur das Datum und die Art der Anfrage\. Nenne hier keine Person beim Namen und keine Adresse, auch nicht aus dem Betreff\./,
+    });
+  });
+});
+
+describe("what the erasure reports once it has run", () => {
+  /* „Person gelöscht“ over an account still standing, one that may stand, or an address holding no record tells the
+     operator of a deletion nobody made: each is a warning, under its own title. */
+  it("raises a success for a deletion and a warning for every other outcome", async (t) => {
+    const ausgaenge = [
+      [{ konto: "geloescht", gespeichert: true }, ["success", "Person gelöscht"]],
+      [{ konto: "nichtGeloescht", gespeichert: true }, ["warning", "Konto nicht gelöscht"]],
+      [{ konto: "unklar", gespeichert: true }, ["warning", "Unklar, ob das Konto gelöscht wurde"]],
+      [{ konto: "keines", gespeichert: false }, ["warning", "Kein Eintrag gefunden"]],
+    ] as const;
+    t.mock.timers.enable({ apis: ["Date"] });
+
+    for (const [ausgang, gemeldet] of ausgaenge) {
+      raised.length = 0;
+      const { user } = await renderPage({ eraseAufAnfrageAction: { success: true, message: "Gemeldet.", ...ausgang } });
+      await typeRequest(user);
+      await arm(user);
+      await user.type(await screen.findByRole("textbox", { name: BESTAETIGUNG }), ADRESSE);
+      t.mock.timers.tick(DOUBLE_PRESS_MS);
+      await user.click(screen.getByRole("button", { name: ARMED }));
+      await act(answered);
+
+      assert.deepEqual(
+        raised.map(({ variant, title }) => [variant, title]),
+        [gemeldet],
+        `the outcome ${ausgang.konto} is reported as something else`,
+      );
+      cleanup();
+    }
   });
 });
 
@@ -323,8 +545,9 @@ describe("the words the page names a person in", () => {
     for (const [stand, text] of [["at rest", ruhend], ["armed", gerueckt], ...verweigert.map((satz) => ["refused", satz] as const)] as const) {
       assert.doesNotMatch(text, MASKULIN, `${stand}: the page names a person with a masculine word`);
     }
-    // The control: the reveal did name each kind, so the absence above was read over every word there is.
-    assert.match(gerueckt, /Spielerin oder Spieler: Lena Meier/);
+    // The control: the reveal did name each kind, so the absence above was read over every word there is. The
+    // squad row places its season as every other line does.
+    assert.match(gerueckt, /Spielerin oder Spieler: Lena Meier, im Kader von SG Alpha, Saison 2026/);
   });
 });
 

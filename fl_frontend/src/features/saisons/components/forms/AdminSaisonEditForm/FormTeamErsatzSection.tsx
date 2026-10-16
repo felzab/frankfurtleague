@@ -35,7 +35,7 @@ const PAIR_LABEL_ID = "teamwechsel-paar";
 /**
  * On `POST /teams/{team_id}/saisons/{saison_id}/replace`: a season's junction row, and every fixture
  * on it, change hands. **A confirmation and no undo offer** — the schedule survives, the cleared
- * Austritt and this season's squad rows do not.
+ * Austritt, the outgoing contacts and this season's squad rows do not.
  */
 export function FormTeamErsatzSection({
   saisonId,
@@ -242,9 +242,12 @@ export function FormTeamErsatzSection({
                   </dl>
                 </div>
 
+                {/* The contacts take „Zurückholen“ and not „keinen Weg zurück“: the same transaction takes them out of the log
+                    (`docs/frontend/spec.md` §1.3), leaving no pre-image to restore them from. */}
                 <p className="fluid-xxs leading-normal font-medium text-foreground">
                   Der Wechsel gilt sofort und ist auf jeder Tabelle und jedem Spielplan dieser Saison zu sehen. Es gibt in der Verwaltung keinen
-                  Weg zurück. {describeKaderAustragungDanach(outgoing.name)}
+                  Weg zurück. {describeKaderAustragungDanach(outgoing.name)} Die eingetragenen Kontaktpersonen von {outgoing.name} werden dabei
+                  gelöscht. Zurückholen lässt sich das nicht.
                 </p>
               </ConfirmReveal>
             )}

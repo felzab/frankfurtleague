@@ -23,11 +23,19 @@ function mapper(worte: Readonly<Record<string, string>>): (error: unknown) => { 
   };
 }
 
+const LOESCHEN_WORTE: Readonly<Record<string, string>> = { "REQ-PURGE-003": EIGENE_ADRESSE_LOESCHEN, "REQ-PURGE-005": INHABER_LOESCHEN };
+
 /**
  * The erasure's and its reveal's refusals, which judge the same address the same way; `null` for the rest, the
  * `DB-COMMON` pair among them, which the shared reader words.
  */
-export const mapErasureRefusal = mapper({ "REQ-PURGE-003": EIGENE_ADRESSE_LOESCHEN, "REQ-PURGE-005": INHABER_LOESCHEN });
+export const mapErasureRefusal = mapper(LOESCHEN_WORTE);
+
+/**
+ * Whether a failed reveal answered one of the erasure's own refusals, which the panel says alone: a reveal the rule
+ * refused has loaded, and calling it a list that failed to load invites a retry the rule refuses again.
+ */
+export const isErasureRefusal = (satz: string): boolean => Object.values(LOESCHEN_WORTE).includes(satz);
 
 /** The sign-out's refusals, in the sign-out's own words, `null` for the rest. */
 export const mapAbmeldungRefusal = mapper({ "REQ-PURGE-003": EIGENE_ADRESSE_ABMELDEN, "REQ-PURGE-005": INHABER_ABMELDEN });
