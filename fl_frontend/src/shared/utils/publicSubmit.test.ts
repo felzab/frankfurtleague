@@ -367,8 +367,7 @@ const FORMS: Record<string, PublicForm> = {
   "the pupil's address page": {
     module: "features/spieler/components/views/SpielerAdresswechselView.tsx",
     route: "/api/bestaetigung/spieler/adresse",
-    render: () =>
-      h(SpielerAdresswechselView, { start: { zustand: "gueltig", vorname: "Lena", frist: "2026-10-05", token: "kein-echtes-token" } }),
+    render: () => h(SpielerAdresswechselView, { start: { zustand: "gueltig", frist: "2026-10-05", token: "kein-echtes-token" } }),
     submit: (user) => user.click(screen.getByRole("button", { name: SPIELER_JA_MEINE_ADRESSE })),
   },
   // The sixth digit sends the check by itself.

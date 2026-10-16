@@ -118,6 +118,21 @@ describe("the request for a pupil's new address", () => {
     assert.match(notice.text, /Hallo Lena,/);
   });
 
+  /* The new mailbox has proved nothing, and after a typo it is a stranger's: a minor's first name goes to the stored one alone. */
+  it("greets the new mailbox by no name, and the stored one by the pupil's", async () => {
+    request = () => ({ acknowledged: 1, adresswechsel: { ...mint, vorname: "Mirabel" } });
+
+    await beantrageSpielerAdresswechselAction({ id: SPIELER_ID, email: GETIPPT });
+
+    const link = linkMail();
+    assert.ok(link !== undefined, "the new address was sent no link, so its greeting is judged over nothing");
+    for (const teil of [link.text, link.html]) {
+      assert.ok(!teil.includes("Mirabel"), "a part of the link mail names the pupil");
+      assert.ok(teil.includes("Hallo, die Verwaltung"), "a part of the link mail greets otherwise");
+    }
+    assert.match(hinweis()?.text ?? "", /Hallo Mirabel,/);
+  });
+
   it("files the link's delivery under the pupil's address change", async () => {
     await beantrageSpielerAdresswechselAction({ id: SPIELER_ID, email: GETIPPT });
 

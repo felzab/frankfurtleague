@@ -242,7 +242,7 @@ const FIXTURES: Record<string, (origin: string) => { html: string; text: string 
   buildSperreEmail: (origin) =>
     buildSperreEmail({ grund: "Falsches Geburtsdatum bei der Anmeldung", gesperrtBisSaisonId: "2031", origin: origin }),
   buildSpielerAdresswechselEmail: (origin) =>
-    buildSpielerAdresswechselEmail({ origin: origin, vorname: "Lena", token: "beispiel-sieben", fristText: "05.10.2026" }),
+    buildSpielerAdresswechselEmail({ origin: origin, token: "beispiel-sieben", fristText: "05.10.2026" }),
   buildSpielerAdresswechselHinweisEmail: (origin) => buildSpielerAdresswechselHinweisEmail({ origin: origin, vorname: "Lena" }),
 };
 

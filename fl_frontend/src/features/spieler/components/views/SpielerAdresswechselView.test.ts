@@ -37,7 +37,7 @@ const pageStart = async (): Promise<SpielerAdresswechselStart> =>
     })) as ReactElement<{ start: SpielerAdresswechselStart }>
   ).props.start;
 
-const OFFEN: SpielerAdresswechselStart = { zustand: "gueltig", vorname: "Lena", frist: "2026-10-29", token: "abc123" };
+const OFFEN: SpielerAdresswechselStart = { zustand: "gueltig", frist: "2026-10-29", token: "abc123" };
 
 const words = (start: SpielerAdresswechselStart): string =>
   textOf(renderTree(h(SpielerAdresswechselView, { start })), " ")
@@ -72,10 +72,10 @@ describe("the pupil's address page", () => {
     );
   });
 
-  it("names the pupil, the deadline and both answers on an open link", () => {
+  it("names the entry and the deadline on an open link", () => {
     const shown = words(OFFEN);
 
-    assert.match(shown, /für Lena als Spielerin oder Spieler eingetragen/);
+    assert.match(shown, /für Deinen Eintrag als Spielerin oder Spieler eingetragen/);
     assert.match(shown, /29\.10\.2026/);
   });
 
@@ -178,6 +178,18 @@ describe("the pupil's address page", () => {
     assert.deepEqual(startOf({ zustand: "nicht_bestaetigbar" }, "abc123"), { zustand: "nicht_bestaetigbar", token: "abc123" });
     assert.deepEqual(startOf({ zustand: "ungueltig" }, "abc123"), { zustand: "ungueltig" });
     assert.deepEqual(startOf({ zustand: "gesperrt" }, "abc123"), { zustand: "gesperrt" });
+  });
+});
+
+describe("the pupil's address page over an open link's read", () => {
+  /* Whoever holds the link has proved no mailbox yet, and after a typo is a stranger, owed no minor's first name. */
+  it("hands the view no first name from an open link's read", async () => {
+    answerReadsWith(() => ({ acknowledged: 1, zustand: "gueltig", vorname: "Mirabel", frist: "2026-10-29" }));
+
+    const start = await pageStart();
+
+    assert.deepEqual(start, { zustand: "gueltig", frist: "2026-10-29", token: "kein-echtes-token" });
+    assert.doesNotMatch(words(start), /Mirabel/);
   });
 });
 

@@ -4,7 +4,7 @@ import type { SpielerAdresswechselAnsicht, SpielerAdresswechselNurAblehnbar, Spi
 
 /** What the page opens on. The token rides only with a link a press can still spend. */
 export type SpielerAdresswechselStart =
-  | { zustand: "gueltig"; vorname: string; frist: string; token: string }
+  | { zustand: "gueltig"; frist: string; token: string }
   | { zustand: SpielerAdresswechselNurAblehnbar; token: string }
   | { zustand: Exclude<SpielerAdresswechselZustand, SpielerAdresswechselNurAblehnbar> | "unlesbar" };
 

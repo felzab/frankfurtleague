@@ -104,7 +104,7 @@ export async function getSpielerAdresswechselAnsicht(token: string): Promise<Spi
   return runWithIncomingTrace(() =>
     postSpielerAdresswechselAnsicht({ token: token }).then(
       (ansicht): SpielerAdresswechselAnsicht =>
-        ansicht.zustand === "gueltig" ? { zustand: "gueltig", vorname: ansicht.vorname, frist: ansicht.frist } : { zustand: ansicht.zustand },
+        ansicht.zustand === "gueltig" ? { zustand: "gueltig", frist: ansicht.frist } : { zustand: ansicht.zustand },
       (error: unknown): SpielerAdresswechselAnsicht => {
         // Anything but a refusal is a failed read, which is the page's own state rather than a panel
         // calling a live link void.

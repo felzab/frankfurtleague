@@ -35,7 +35,6 @@ export async function mailSpielerAdresswechsel({
   mint: FLSpielerAdresswechselMint;
   anlass: ZustellAnlass;
 }): Promise<SpielerAdresswechselVersand> {
-  const vorname = mint.vorname;
   const [link, hinweis] = await Promise.all([
     sendZielMail({
       operation: operation,
@@ -50,12 +49,11 @@ export async function mailSpielerAdresswechsel({
           // The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`: a stack that is not
           // production must not mail production links (`docs/frontend/spec.md :: I186`).
           origin: frontend_config.AUTH_URL,
-          vorname: vorname,
           token: mint.token,
           fristText: formatSpielDatum(mint.frist),
         }),
     }).then(linkVersandOf),
-    sendeHinweis(mint.bisherige_email, vorname, operation),
+    sendeHinweis(mint.bisherige_email, mint.vorname, operation),
   ]);
 
   return { link: link, hinweis: hinweis };

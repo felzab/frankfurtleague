@@ -37,7 +37,6 @@ export type SpielerEmail = { subject: string; html: string; text: string };
 export interface SpielerAdresswechselData {
   /** The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL` (`docs/frontend/spec.md :: I186`). */
   origin: string;
-  vorname: string;
   /** The raw token. It is a bearer credential and is never taken apart here. */
   token: string;
   /**
@@ -59,17 +58,18 @@ const adresseIgnorierSatz =
 
 /**
  * The link to a pupil's new address, the referee's twin
- * (`fl_frontend/src/core/schiedsrichterEmail.ts :: buildSchiedsrichterAdresswechselEmail`). It asks
- * nothing but whether the mailbox is theirs: their consent stands, and asking it again records an
- * answer nobody owed.
+ * (`fl_frontend/src/core/schiedsrichterEmail.ts :: buildSchiedsrichterAdresswechselEmail`) but for its
+ * greeting. It asks nothing but whether the mailbox is theirs: their consent stands, and asking it
+ * again records an answer nobody owed.
  */
-export function buildSpielerAdresswechselEmail({ origin, vorname, token, fristText }: SpielerAdresswechselData): SpielerEmail {
+export function buildSpielerAdresswechselEmail({ origin, token, fristText }: SpielerAdresswechselData): SpielerEmail {
   const site = mailOrigin(origin);
   // Folded before either branch: this message renders no fact panel, and the two halves state one string.
-  const name = einzeilig(vorname);
   const frist = einzeilig(fristText);
   const url = spielerAdresswechselLink(site, token);
 
+  // Greets nobody by name, unlike the referee's: this mailbox has proved nothing yet, and behind a
+  // mistyped address it is a stranger's, who is owed no minor's first name. The notice keeps the name.
   const eintrag = `die Verwaltung der ${BRAND_NAME} hat für Deinen Eintrag als Spielerin oder Spieler diese E-Mail-Adresse eingetragen.`;
   const gilt = "Sie gilt erst, wenn Du sie bestätigst. Bis dahin schreiben wir an Deine bisherige Adresse.";
 
@@ -77,7 +77,7 @@ export function buildSpielerAdresswechselEmail({ origin, vorname, token, fristTe
     titel: `${BRAND_NAME}: ${ADRESSE_UEBERSCHRIFT}`,
     ueberschrift: escapeHtml(ADRESSE_UEBERSCHRIFT),
     bloecke: [
-      paragraph(`Hallo ${strong(escapeHtml(name))}, ${eintrag} ${strong(escapeHtml(gilt))}`),
+      paragraph(`Hallo, ${eintrag} ${strong(escapeHtml(gilt))}`),
       paragraph(`Bestätige sie bis zum ${strong(escapeHtml(frist))} über diesen Link. Er funktioniert nur einmal.`),
       ...fallbackBloecke([{ label: "", url: url }], FALLBACK_SATZ),
       paragraph(escapeHtml(adresseIgnorierSatz), "0", ASIDE_TEXT),
@@ -90,7 +90,7 @@ export function buildSpielerAdresswechselEmail({ origin, vorname, token, fristTe
   const oben = [
     `${BRAND_NAME}: ${ADRESSE_UEBERSCHRIFT}`,
     "",
-    `Hallo ${name}, ${eintrag}`,
+    `Hallo, ${eintrag}`,
     gilt,
     "",
     `Bestätige sie bis zum ${frist} über diesen Link. Er funktioniert nur einmal.`,

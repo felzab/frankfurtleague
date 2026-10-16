@@ -106,7 +106,8 @@ export type SpielerAdresswechselZustand = "abgelaufen" | "ungueltig" | "gesperrt
 /** The states whose link the backend still takes the decline through, so the page keeps its token. */
 export type SpielerAdresswechselNurAblehnbar = Extract<SpielerAdresswechselZustand, "abgelaufen" | "nicht_bestaetigbar">;
 
-export type SpielerAdresswechselAnsicht = { zustand: "gueltig"; vorname: string; frist: string } | { zustand: SpielerAdresswechselZustand };
+/** What the link page is handed, never the pupil's first name the read answers: the page is open to whoever holds the link. */
+export type SpielerAdresswechselAnsicht = { zustand: "gueltig"; frist: string } | { zustand: SpielerAdresswechselZustand };
 
 /** Where a retired squad row's return to the club it names stands; the editor and the list each word a refusal for their own reader. */
 export type RowReturn = "open" | "clubLeft" | "squadFull";
