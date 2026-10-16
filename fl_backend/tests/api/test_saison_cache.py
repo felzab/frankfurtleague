@@ -480,26 +480,30 @@ def _reaches_a_season_write(endpoint: Any) -> bool:
     return False
 
 
-def _season_write_handlers() -> dict[str, Any]:
-    """Every write endpoint that writes a season, by function name, whichever tier serves it.
+def _season_write_endpoints() -> list[Any]:
+    """Every write endpoint that writes a season, whichever tier serves it.
 
     Scoped to the writers, not to every write endpoint: a handler touching only the junction rows or
     the fixtures changes nothing the cached projection carries.
     """
 
-    handlers: dict[str, Any] = {}
     # Every route the application mounts, never a list of its groups: the rule is about writing a
     # season, not about who may, and a group a second list leaves out is a writer nothing checks.
-    for route in api_routes(application()):
-        if not (route.methods or set()) & WRITE_METHODS:
-            continue
-        if _reaches_a_season_write(route.endpoint):
-            handlers[route.endpoint.__name__] = route.endpoint
-
-    return handlers
+    return [
+        route.endpoint
+        for route in api_routes(application())
+        if (route.methods or set()) & WRITE_METHODS and _reaches_a_season_write(route.endpoint)
+    ]
 
 
-SEASON_WRITE_HANDLERS = _season_write_handlers()
+def _handler_key(endpoint: Any) -> str:
+    """Qualified by its module: slices name their handlers alike, `patch_einwilligung` among them, and a bare name keeps one of each."""
+
+    return f"{endpoint.__module__}.{endpoint.__qualname__}"
+
+
+SEASON_WRITE_ENDPOINTS = _season_write_endpoints()
+SEASON_WRITE_HANDLERS = {_handler_key(endpoint): endpoint for endpoint in SEASON_WRITE_ENDPOINTS}
 
 # Floored rather than non-empty: an endpoint the recogniser stopped seeing drops out of the parameter
 # set instead of failing (`docs/_standard/standard.md` PRE-4), so a rename costing no behaviour can
@@ -521,7 +525,7 @@ class TestEverySeasonWriteDropsIt:
         The admission writes the season through the squad cap's anchor, a module away from its handler.
         """
 
-        assert "aufnehmen" in SEASON_WRITE_HANDLERS
+        assert "app.api.registrierungen.person_router.aufnehmen" in SEASON_WRITE_HANDLERS
 
     def test_the_season_after_deletion_pass_is_among_the_season_writers(self):
         """Named, as the admission is: the pass writes a season only through I722's anchor, three calls deep.
@@ -529,7 +533,12 @@ class TestEverySeasonWriteDropsIt:
         A rename there drops the pass from the set, and its drop could then go with every case green.
         """
 
-        assert "post_loeschung_lauf" in SEASON_WRITE_HANDLERS
+        assert "app.api.identitaet.sweep_router.post_loeschung_lauf" in SEASON_WRITE_HANDLERS
+
+    def test_no_two_writers_share_a_key(self):
+        """Two under one key leave one of them out of the parameters below, and every case still passes."""
+
+        assert len(set(SEASON_WRITE_ENDPOINTS)) == len(SEASON_WRITE_HANDLERS)
 
     @pytest.mark.parametrize("handler", sorted(SEASON_WRITE_HANDLERS))
     def test_a_handler_writing_a_season_runs_it_inside_the_drop(self, handler: str):
