@@ -470,7 +470,7 @@ class TestTheConfirmationsRefusals:
         """The pre-read refuses it by name; `uniq_spieler_email` stands behind it for the race the read cannot see."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            token = (await request(database, client, email=NEW_EMAIL)).adresswechsel.token
+            token = (await request(database, client, email=NEW_AS_TYPED)).adresswechsel.token
             await database[Collection.SPIELER].update_one({"_id": OTHER_OID}, {"$set": {"email": NEW_EMAIL}})
             before = await stored(database)
 
@@ -563,7 +563,7 @@ class TestTheView:
         self, mongo_replica_set_url: str, ban_on: tuple[str, ...], held_by_another: bool, today: str, zustand: str
     ):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            token = (await request(database, client, email=NEW_EMAIL)).adresswechsel.token
+            token = (await request(database, client, email=NEW_AS_TYPED)).adresswechsel.token
             for email in ban_on:
                 await ban(database, client, email=email)
             if held_by_another:
@@ -631,7 +631,7 @@ class TestTheReSend:
 
     def test_a_pending_address_another_pupil_has_come_to_sign_in_on_is_refused(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await request(database, client, email=NEW_EMAIL)
+            await request(database, client, email=NEW_AS_TYPED)
             await database[Collection.SPIELER].update_one({"_id": OTHER_OID}, {"$set": {"email": NEW_EMAIL}})
 
             return await refused_code(resend(database, client))
