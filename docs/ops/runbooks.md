@@ -566,13 +566,13 @@ record, and the action log records the writes you make rather than the request t
 **Establish who is asking and in which role, because the data sits somewhere different for each.**
 One person can hold several — a referee is a pupil, and a contact person can be both.
 
-| Role           | Where their data is read                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Pupil          | `/bereich/admin/spieler/{spieler_id}`, and the squad rows under each season                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| Referee        | `/bereich/admin/schiedsrichter/{schiedsrichter_id}`, plus every past fixture that embeds the name                                                                                                                                                                                                                                                                                                                                                                                             |
-| Contact person | `/bereich/admin/kontakte/{team_id}` for the season's block, and `/bereich/admin/bewerbungen/{bewerbung_id}` for the application it was collected on                                                                                                                                                                                                                                                                                                                                           |
-| Administrator  | The sign-in store — the `auth` database, holding the address, the sessions, the sign-in codes and the passkey — plus their address as the author of every ban, invite and application decision they made (`sperrliste.erstellt_von`, `einladungen.erstellt_von`, `bewerbungen.entscheidung.von`), and the grants: their own in `berechtigungen` and `berechtigungen_angekuendigt`, `erteilt_von` on every grant they made, and each queued notice naming them in `berechtigungen_postausgang` |
-| Anyone else    | The `auth` database's `verification` collection alone, where the address of whoever typed it into the sign-in form is held until the retention index removes the row (§14)                                                                                                                                                                                                                                                                                                                    |
+| Role           | Where their data is read                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Pupil          | `/bereich/admin/spieler/{spieler_id}`, and the squad rows under each season; `/bereich/admin/registrierungen` for a registration still awaiting its team                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| Referee        | `/bereich/admin/schiedsrichter/{schiedsrichter_id}`, plus every past fixture that embeds the name                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| Contact person | `/bereich/admin/kontakte/{team_id}` for the season's block, and `/bereich/admin/bewerbungen/{bewerbung_id}` for the application it was collected on; plus their address on every registration they declined for their team (`registrierungen.entscheidung.von`), which no page renders and a read-only Playground query on that field finds                                                                                                                                                                                                                                                    |
+| Administrator  | The sign-in store — the `auth` database, holding the address, the sessions, the sign-in codes and the passkey — plus their address as the actor of every log row they wrote (`aktionen.actor.email`, `/bereich/admin/aktionen`) and as the author of every ban, invite and application decision they made (`sperrliste.erstellt_von`, `einladungen.erstellt_von`, `bewerbungen.entscheidung.von`), and the grants: their own in `berechtigungen` and `berechtigungen_angekuendigt`, `erteilt_von` on every grant they made, and each queued notice naming them in `berechtigungen_postausgang` |
+| Anyone else    | The `auth` database's `verification` collection alone, where the address of whoever typed it into the sign-in form is held until the retention index removes the row (§14)                                                                                                                                                                                                                                                                                                                                                                                                                     |
 
 **Anybody who has signed in is in the sign-in store too, and no erasure leaves their account
 behind.** A person's first sign-in writes their `user` row and a session in the `auth` database, a
@@ -636,8 +636,9 @@ as them.
   another pupil already holding the address (`docs/backend/spec.md :: I702`) each refuse the request,
   and a pupil holding no address takes none: an address arrives with their registration
   (`docs/backend/spec.md :: I703`).
-  Re-send the link when it lapses, or discard the change when the request turns out to be wrong; a
-  change whose link lapsed goes the day after
+  Re-send its link before it lapses, or discard the change when the request turns out to be wrong:
+  the day after its link lapses the hourly pass removes the change, and the new address is then
+  entered again
   ([`../datenschutz.md`](../datenschutz.md#6-retention-is-bounded-where-a-bound-was-chosen)).
   **Once the change confirms, the account sweep deletes the old address's sign-in account within the
   hour**, once nothing else references that address
@@ -659,20 +660,19 @@ as them.
   the account sweep deletes the old address's sign-in account within the hour**, the referee's
   passkeys with it, once nothing else references that address
   ([section 9](#9-checking-that-the-hourly-passes-have-run)).
-- **The holder of a pending new referee address**, a mailbox an administrator's typing reached. No
-  read keys on that address, by design (`docs/backend/spec.md :: I560`), so no page search
-  finds the referee from it: find the row with a read-only Playground query on `schiedsrichter` for
-  `adresswechsel.email` equal to the address, matched in any case and projecting `_id` and `name`
-  alone, then open that referee's editor and press „Änderung verwerfen“
-  (`DELETE /schiedsrichter/{schiedsrichter_id}/adresswechsel`), which removes the address and the
-  log's images of it (`docs/backend/spec.md :: I562`). The link's own „Das ist nicht meine
-  Adresse“ does the same, past its deadline too.
-- **The holder of a pending new pupil address**, the referee's case above on a pupil's row. Find the
-  row with a read-only Playground query on `spieler` for `adresswechsel.email` equal to the address,
-  matched in any case and projecting `_id`, `vorname` and `nachname` alone, then open that pupil's
-  editor and discard the change (`DELETE /spieler/{spieler_id}/adresswechsel`), which removes the
-  address and the log's images of it (`docs/backend/spec.md :: I704`). The link's own decline does
-  the same, past its deadline too.
+- **The holder of a pending new referee address**, a mailbox an administrator's typing reached. Until
+  it confirms, that address reaches nothing of the referee's (`docs/backend/spec.md :: I560`), and
+  only the erasure's own read finds the row from it: type it on „Löschung auf Anfrage“, whose list
+  names the pending change and links to that referee's editor, follow the link without pressing,
+  and press „Änderung verwerfen“ there (`DELETE /schiedsrichter/{schiedsrichter_id}/adresswechsel`),
+  which removes the address and the log's images of it (`docs/backend/spec.md :: I562`). Where the
+  holder asked for their data to be deleted, the erasure itself removes the change alone and leaves
+  the row standing (`docs/backend/spec.md :: I668`). The link's own „Das ist nicht meine Adresse“
+  does the same as the discard, past its deadline too.
+- **The holder of a pending new pupil address**, the referee's case above on a pupil's row: the
+  erasure page's list links to that pupil's editor, whose discard
+  (`DELETE /spieler/{spieler_id}/adresswechsel`) removes the address and the log's images of it
+  (`docs/backend/spec.md :: I704`). The link's own decline does the same, past its deadline too.
 - **A referee who is RETIRED and has not confirmed.** Correct `kontakt.email` in the referee editor.
   The save stores the address, mails nothing and kills the old link, since a retired referee takes
   no booking to consent for; reactivating them later mints a fresh link and mails it to the
@@ -796,9 +796,15 @@ Read the result afterwards: it says whether the address's account went too, and 
 erasure could not delete goes when the address is erased again
 ([`../frontend/spec.md`](../frontend/spec.md#2-invariants) I685).
 
-**The page refuses two addresses, and says so before anyone confirms**: the administrator's own,
-which goes through their account page or another administrator, and an owner's to an administrator
-who is not one. It mails the person nothing. **Erasing an administrator's address tells every
+**The page refuses three kinds of address, and says so before anyone confirms**: the
+administrator's own, which goes through their account page or another administrator; an owner's to
+an administrator who is not one; and any under the reserved `.invalid` domain, which every referee
+row stored without an address shares, so that an erasure of it would reach them all at once
+(`fl_backend/app/api/identitaet/schemas.py :: refuse_the_reserved_domain`). Which route answers the
+person behind such a row, or behind a pupil row holding no address, is not decided, and what each
+route open today costs is
+[`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)'s. The page mails the
+person nothing. **Erasing an administrator's address tells every
 administrator, as a revoke does**: the grant's end goes out with the other changes of access, the
 notice naming no address (`docs/backend/spec.md :: I659`). On the same page „Überall abmelden“ ends
 every session of an address without erasing or barring it.
@@ -1209,7 +1215,13 @@ than a refusal: the pass goes on from the next call, and it needs nothing from y
 **A `SRV-VAL-001` warning naming pupils left out of the deletion is a stored address no request
 matches** — empty, not in the form sign-in folds it to, or refused by the address rule, which only
 a hand edit of the record leaves ([`../backend/spec.md`](../backend/spec.md#2-invariants) I718).
-The run passes those pupils over on every pass until their address is stored in that form.
+The run passes those pupils over on every pass until their address is stored in that form. **An
+address the rule refuses is replaced through the pupil editor's change**, to the person's own, which
+stores it folded once its mailbox confirms. **A spelling that differs from its fold only in case,
+surrounding spaces or the domain's form is refused there as the address already held**
+(`REQ-SPIELER-007`), so it is rewritten to its fold by hand, as a MongoDB Playground paste kept in
+the operator's checklist (§2). An empty one is a pupil holding no address, whom no route reaches
+([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)).
 
 **Null means no pass of that kind has ever run against this database**, which on production is one
 of the ways [`spec.md`](spec.md) §1.1 lists: `BEWERBUNG_SWEEP` off,
