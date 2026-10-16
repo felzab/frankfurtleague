@@ -1567,11 +1567,18 @@ stream, and so did every consent a person withdrew, every Widerspruch made throu
 every address change declined through its link, each naming its person by a keyed hash and never
 by an address, an erasure's line also by the pseudonym the log keys their signed-in rows by, whether
 its commit landed or lost its answer ([`../backend/spec.md`](../backend/spec.md#2-invariants) I666,
-I745). §7's day files keep those lines outside the database for thirty days. Run the export
-once more, which reads every journal line the backend's stream and the deploy copies of those thirty
-days still hold into the day files:
+I745). §7's day files keep those lines outside the database for thirty days. **Once the restore has
+completed, run the export once more**, which reads every journal line the backend's stream and the
+deploy copies of those thirty days still hold into the day files:
 
     sudo systemctl start frankfurtleague-journal.service
+
+A pass before the restore's end can have left its last hour's lines in the stream alone, so the
+replay below refuses until a pass has read the stream since. Each pass that read it touches
+`/var/log/frankfurtleague/erasure-journal.last-pass`, which the replay compares with the restore's
+end; the day files cannot say it, since a pass rewrites one only where it found a new line. The
+hourly passes keep the stamp's mtime inside §7's age bound, so only thirty days with no pass reading
+the stream remove it, and the replay refuses then as well.
 
 **`python -m app.core.constraints --check` BEFORE anything else** (§2). A snapshot taken before a
 constraint landed restores rows the current validators reject, and the validators are attached strict,

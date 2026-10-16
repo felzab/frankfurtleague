@@ -11,6 +11,8 @@ Invariants:
 from __future__ import annotations
 
 import os
+import re
+from datetime import datetime
 from pathlib import Path
 from typing import Final
 
@@ -20,9 +22,12 @@ from conftest import BASH, REPO_ROOT, base_env, lift_assignment, lift_function, 
 SCRIPTS: Final = Path(__file__).resolve().parent.parent
 LIB: Final = SCRIPTS / "lib" / "_lib.sh"
 REPLAY: Final = SCRIPTS / "ops" / "replay_journal.sh"
+EXPORT: Final = SCRIPTS / "ops" / "export_journal.sh"
 
 SNAPSHOT: Final = "2026-10-15T03:00:00+00:00"
 RESTORED: Final = "2026-10-15T09:40:00Z"
+# An export pass an hour after the restore ended, as runbooks §13 has the operator run one.
+PASSED: Final = datetime.fromisoformat(RESTORED).timestamp() + 3600
 
 # The module's closing line, which a 1 carries when it is lines left rather than no listing at all.
 LEFT: Final = "\\nLeft: 0 erasures to run, 1 lines to replay, 0 records to review, 0 replays that failed.\\n"
@@ -40,6 +45,12 @@ exit 1
 """
 
 
+def _pass_stamp(script: Path) -> str:
+    found = re.fullmatch(r'PASS_STAMP="\$\{LOG_DIR\}/([^"/]+)"', lift_assignment(script, "PASS_STAMP"))
+    assert found is not None, f"{script.name} :: PASS_STAMP is no longer a file in the log directory"
+    return found.group(1)
+
+
 class _Fixture:
     def __init__(self) -> None:
         self.root = new_root("fl-replay-journal-")
@@ -47,6 +58,16 @@ class _Fixture:
         self.logs.mkdir()
         self.argv = self.root / "argv.txt"
         self.stdin = self.root / "stdin.txt"
+        self.passed(PASSED)
+
+    def passed(self, moment: float | None) -> None:
+        """The export's stamp of its last pass at `moment`, or none at all."""
+        stamp = self.logs / _pass_stamp(REPLAY)
+        if moment is None:
+            stamp.unlink(missing_ok=True)
+            return
+        stamp.write_bytes(b"")
+        os.utime(stamp, (moment, moment))
 
     def day(self, day: str, *lines: str) -> None:
         (self.logs / f"{day}-erasure-journal.log").write_bytes("".join(f"{entry}\n" for entry in lines).encode())
@@ -81,6 +102,7 @@ def _run(
         lift_assignment(REPLAY, "REPLAY_MODULE"),
         lift_assignment(REPLAY, "INSTANT"),
         f'LOG_DIR="{fixture.logs.as_posix()}"',
+        lift_assignment(REPLAY, "PASS_STAMP"),
         f'JOURNAL_LINES="{(fixture.root / "lines.txt").as_posix()}"',
         f'REPLAY_OUTPUT="{(fixture.root / "output.txt").as_posix()}"',
         lift_function(REPLAY, "day_files"),
@@ -99,6 +121,33 @@ def test_the_module_handed_the_lines_is_the_backend_s_replay() -> None:
     module = REPO_ROOT / "fl_backend" / Path(*found.split(".")).with_suffix(".py")
 
     assert module.read_text(encoding="utf-8").rstrip().endswith('if __name__ == "__main__":\n    raise SystemExit(_main())')
+
+
+def test_the_stamp_read_is_the_one_the_export_writes() -> None:
+    """Read anywhere else, the guard below refuses every restore, or passes one no pass has read since."""
+    assert lift_assignment(REPLAY, "LOG_DIR") == lift_assignment(EXPORT, "LOG_DIR")
+    assert _pass_stamp(REPLAY) == _pass_stamp(EXPORT)
+
+
+@pytest.mark.parametrize(
+    "moment",
+    [
+        pytest.param(None, id="no pass ever stamped"),
+        pytest.param(datetime.fromisoformat(RESTORED).timestamp(), id="the last pass at the restore's end"),
+    ],
+)
+def test_a_journal_no_pass_has_read_since_the_restore_ended_is_refused_before_the_container_is_asked(moment: float | None) -> None:
+    """A line of the last hour before the restore's end can be in the stream alone, and a missed erasure is silent."""
+    fixture = _Fixture()
+    fixture.day("2026-10-15")
+    fixture.passed(moment)
+
+    code, output = _run(fixture)
+
+    assert code == 2, output
+    assert "No export pass has read the backend's stream since the restore ended" in output
+    assert "sudo systemctl start frankfurtleague-journal.service" in output
+    assert fixture.called_with() is None
 
 
 def test_the_day_files_from_the_snapshot_s_day_on_are_handed_in_oldest_first() -> None:
