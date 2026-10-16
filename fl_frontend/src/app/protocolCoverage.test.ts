@@ -130,6 +130,7 @@ const PERSON_ROUTES = new Set(PUBLISHED.filter(({ code }) => code === "REQ-AUTH-
  */
 const RECORD_ROUTES: ReadonlySet<string> = new Set([
   "PATCH /spieler/selbst/einwilligung",
+  "PATCH /registrierungen/selbst/{registrierung_id}/einwilligung",
   "PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung",
   "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung",
   "PATCH /bewerbungen/{bewerbung_id}/person/einwilligung",

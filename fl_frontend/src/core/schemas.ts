@@ -193,7 +193,7 @@ export const FLSelbstErasureAnsichtResponseSchema = BaseAPIResponseSchema.extend
   sitze: z.array(FLSelbstErasureSitzSchema),
   bewerbungen: z.array(FLSelbstErasureBewerbungSchema),
   registrierungen: z.array(FLSelbstErasureRegistrierungSchema),
-  // Another referee's pending change to this mailbox, which names no person to show.
+  // Another referee's or pupil's pending change to this mailbox, which names no person to show.
   adresswechsel: z.int(),
   verwaltung: FLSubjektResponseSchema.shape.verwaltung,
   // Whether the erasure would be refused as the league's last live owner's, as the store stood at the read:

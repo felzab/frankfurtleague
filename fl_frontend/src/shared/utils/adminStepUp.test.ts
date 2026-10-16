@@ -601,17 +601,22 @@ const CONFIRMED_BY_THE_BACKEND: Record<string, { name: string; payload: unknown 
   },
 };
 
+/**
+ * Per person's route publishing the confirmation refusal, the action sending it, driven in its own suite
+ * (`fl_frontend/src/features/konto/loeschung.test.ts :: "the backend's confirmation refusal"`). Named, never told apart by
+ * REQ-AUTH-008: an administrator's route publishing that too would escape the sweep.
+ */
+const CONFIRMED_ON_A_PERSON_ROUTE: Readonly<Record<string, string>> = { "POST /identitaet/selbst/erasure": "loescheKontoAction" };
+
 describe("a write the backend refuses for want of a recent confirmation", () => {
   /* Read off the document rather than kept by hand: an operation that starts publishing the refusal
-     and is driven by nothing here answers its administrator with the generic fallback. */
+     and is driven by nothing answers its caller with the generic fallback. */
   it("is driven for every operation publishing it", () => {
     const publishing = publishedOperations()
       .filter(({ answers }) => answers.some(({ code }) => code === "REQ-AUTH-009"))
-      // A person's route meets it on the person record spine, which `fl_frontend/src/app/protocolCoverage.test.ts :: RECORD_ROUTES` asks.
-      .filter(({ answers }) => !answers.some(({ code }) => code === "REQ-AUTH-008"))
       .map(({ operation }) => operation);
 
-    assert.deepEqual(publishing.sort(), Object.keys(CONFIRMED_BY_THE_BACKEND).sort());
+    assert.deepEqual(publishing.sort(), [...Object.keys(CONFIRMED_BY_THE_BACKEND), ...Object.keys(CONFIRMED_ON_A_PERSON_ROUTE)].sort());
   });
 
   /* The session is inside the spine's window, so only the backend refuses: the answer has to be the
