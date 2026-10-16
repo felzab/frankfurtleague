@@ -50,6 +50,7 @@ const ANSICHT = {
   adresswechsel: [],
   spieler_adresswechsel: [],
   verwaltung: null,
+  gesperrt: false,
 };
 
 /** What the sign-in store had done when each backend call went out, in order: the order no render shows. */

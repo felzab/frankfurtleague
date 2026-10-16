@@ -21,6 +21,12 @@ export const verwaltungAmFeld = (): { fieldErrors: FieldErrors } => ({
 });
 
 /**
+ * No repair sentence: the box carrying the message is itself the way out (`docs/frontend/spec.md` §1.12). Said alike where
+ * the ban refuses a second ban and where the list's read finds one standing.
+ */
+export const schonGesperrtAmFeld = (): { fieldErrors: FieldErrors } => ({ fieldErrors: { email: "Diese Adresse ist schon gesperrt." } });
+
+/**
  * Said on the reason's box, as the erasure says one in its Anlass. The refusal names no word and takes a common word
  * equal to a name with it, so the sentence names the way out.
  */
@@ -32,10 +38,7 @@ export function mapAdresseRefusal(error: unknown): { error?: string; fieldErrors
 
   // Both codes: the rule refuses a second ban and `uniq_sperrliste_adresse_hash` refuses it again
   // where two administrators press together, so which of them answers is a race.
-  if (error.serverErrorCode === "REQ-SPERRLISTE-001" || error.serverErrorCode === "DB-COMMON-002") {
-    // No repair sentence: the box carrying the message is itself the way out (`docs/frontend/spec.md` §1.12).
-    return { fieldErrors: { email: "Diese Adresse ist schon gesperrt." } };
-  }
+  if (error.serverErrorCode === "REQ-SPERRLISTE-001" || error.serverErrorCode === "DB-COMMON-002") return schonGesperrtAmFeld();
 
   if (error.serverErrorCode === "REQ-SPERRLISTE-002") {
     return { error: KEINE_SAISON };

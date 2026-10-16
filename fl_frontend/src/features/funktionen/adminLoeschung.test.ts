@@ -62,6 +62,7 @@ const NICHTS_GESPEICHERT = {
   adresswechsel: [],
   spieler_adresswechsel: [],
   verwaltung: null,
+  gesperrt: false,
 };
 
 /** One record of every kind the reveal names, typed against the mirror: a kind added there fails to compile here first. */
@@ -83,6 +84,7 @@ const EIN_EINTRAG_JE_ART = {
   adresswechsel: [{ schiedsrichter_id: ID }],
   spieler_adresswechsel: [{ spieler_id: PUPIL_ID }],
   verwaltung: "owner",
+  gesperrt: true,
 } satisfies Omit<FLErasureAnsichtResponse, "acknowledged">;
 
 /** The lines every reveal ends on, whatever the read found. */
@@ -91,8 +93,11 @@ const IMMER = [
   "Die Adresse im Änderungsprotokoll und als Urheberin von Sperren, Einladungen, Entscheidungen und Zugängen",
 ];
 
-/** The kinds the mirror declares, read off its own keys, so the answer below carries every one there is. */
-const ARTEN = Object.keys(FLErasureAnsichtResponseSchema.shape).filter((key) => key !== "acknowledged");
+/**
+ * The kinds the mirror declares, read off its own keys, so the answer below carries every one there is. `gesperrt` is
+ * none: the erasure leaves a ban standing, so the page names no line for it.
+ */
+const ARTEN = Object.keys(FLErasureAnsichtResponseSchema.shape).filter((key) => key !== "acknowledged" && key !== "gesperrt");
 
 /** What each action answers, by its name, until a case names other answers. */
 let answers: Record<string, unknown> = {};
@@ -422,7 +427,11 @@ describe("the passkey the erasure's press asks for", () => {
 describe("the reveal the arming read answers", () => {
   /* Built off the mirror's keys: a kind the backend adds and the panel leaves unnamed is a line short. */
   it("names one line for every kind the read answers, and the account beside them", async () => {
-    const ansicht = Object.fromEntries(ARTEN.map((art) => [art, EIN_EINTRAG_JE_ART[art as keyof typeof EIN_EINTRAG_JE_ART]]));
+    // Barred as well, which adds no line: the count below holds the ban out of what the erasure takes.
+    const ansicht = {
+      ...Object.fromEntries(ARTEN.map((art) => [art, EIN_EINTRAG_JE_ART[art as keyof typeof EIN_EINTRAG_JE_ART]])),
+      gesperrt: EIN_EINTRAG_JE_ART.gesperrt,
+    };
     const { user } = await renderPage({ readErasureAnsichtAction: { success: true, ansicht: ansicht } });
     await typeRequest(user);
     await arm(user);
