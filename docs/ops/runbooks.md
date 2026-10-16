@@ -900,7 +900,8 @@ command and not from a keyboard.
 disarms every ban in silence ([`../backend/spec.md`](../backend/spec.md#15-environment)), the one
 sign being a second ban of an address already on the list admitted rather than refused. It keys the
 action log's pseudonyms of signed-in people too, so a replacement leaves one person's rows under two
-pseudonyms and the older can never be recomputed. Treat it as
+pseudonyms and the older can never be recomputed, and the erasure journal's hashes, so every line
+written before a replacement matches no address a restore holds (§13). Treat it as
 the one backend secret with no recovery: back it up where the database's own access details are
 backed up, and where it is genuinely gone, clear the list and enter the bans again from whatever
 record names the addresses.
@@ -1403,11 +1404,11 @@ fixtures is ever reported.
 ## 13. After a restore from a snapshot
 
 **The published notice promises that nothing comes back from a backup without the person's erasure
-being run again** (`fl_frontend/src/features/meta/components/views/DatenschutzView.tsx`), and nothing
-in the product replays one
-([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)), so this is how that
-promise is kept. Two things a restore is contemplated for: a hand-run migration that succeeded against
-a mistyped path (§2), and a mistaken erasure, for which the snapshot window is the only route back.
+being run again** (`fl_frontend/src/features/meta/components/views/DatenschutzView.tsx`), and this is
+how that promise is kept ([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)).
+Two things a restore is contemplated for: a hand-run migration that succeeded against a mistyped path
+(§2), and a mistaken erasure, for which the snapshot window is the only route back. Write down the
+moment the restored snapshot was taken: every step below reads from it.
 
 **Before restoring, switch `LOESCHUNG_SWEEP` off (§9), and switch it on again only once every step
 below is done:** until then nothing may call `POST /identitaet/loeschung/lauf`. The run deletes each
@@ -1417,34 +1418,60 @@ registrations written since the snapshot, and activate again a season whose acti
 the switch still off. Its deletions are re-derived rather than replayed: it journals none
 ([`../backend/spec.md`](../backend/spec.md#2-invariants) I691), so the steps below never list them.
 
-**The action log cannot be the list, because the restore rolls it back too.** Everything written
-between the snapshot and the restore is gone, the log's own rows about the erasures inside that window
-included, so the record is the mail thread — which is the record in any case, there being no ticket
-system ([section 5](#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)). Write down which
-snapshot was restored, so which requests fall after it is answerable later.
+**The action log cannot be the list, because the restore rolls it back too; the erasure journal is.**
+Everything written between the snapshot and the restore is gone, the log's own rows about the
+erasures inside that window included. Every erasure a person or an administrator asked for left one
+line in the backend's stream naming the address by a keyed hash, whether its commit landed or lost
+its answer ([`../backend/spec.md`](../backend/spec.md#2-invariants) I666), and §7's day files keep
+those lines outside the database for thirty days. Copy in the lines written since the last hourly
+pass, then read every line of the day files from the snapshot's day on whose `timestamp` falls after
+the snapshot:
+
+    sudo systemctl start frankfurtleague-journal.service
+    cat /var/log/frankfurtleague/<day>-erasure-journal.log
+
+**A hash names nobody until an address is hashed to it.** Hash every address the restored database
+and the restored `auth` database hold — the derivation
+`fl_backend/app/core/security.py :: loeschung_journal_hash` performs, label and fold included,
+under `secrets/sperrliste_schluessel` — and each address whose hash a line after the snapshot
+carries is a person whose erasure the restore undid. The paste that does it belongs in the operator's
+own checklist and in no file here, as the ban list's lookup does (§5). A line whose commit lost its
+answer may name an erasure that never landed, and running it again wrongs nobody, the person having
+asked for it. **Read the mail thread beside the journal** for every request that arrived by mail: a
+line the stream's size cap rotated away before an hourly pass read it is in no day file (§7). **The
+key can never be rotated**: it is the ban list's, and a replacement leaves every journal line
+matchable by nothing (§5).
 
 **`python -m app.core.constraints --check` BEFORE anything else** (§2). A snapshot taken before a
 constraint landed restores rows the current validators reject, and the validators are attached strict,
 so such a row refuses any erasure below that writes over it rather than removing it.
 
-**Then read every erasure the mailbox answered inside the window, and run each again.** A restored row
-does not look erased, and each role's guard reads something the restore took away:
+**Then run each of those erasures again on „Löschung auf Anfrage“, with the address its hash
+matched.** A restored row does not look erased, and each role's guard reads something the restore
+took away:
 
 - **A referee.** The whole row is back, with its name, school and contact members, and every fixture
   the erasure had repointed names them again in place of the ghost, so nothing reads as erased and
-  they are editable and bookable. „Löschung auf Anfrage“ on the address off the thread does all of it
-  again.
-- **A pupil.** The person and their squad rows are back and standing, and „Löschung auf Anfrage“ takes
-  them again, asking no retirement first.
-- **A contact seat.** Every seat that address held is back and filled. „Löschung auf Anfrage“ is keyed
-  on the address, so the address off the thread is the whole input — and the armed panel's list now
-  names records written since the snapshot as well, which is why section 5 says to read it before
-  pressing.
+  they are editable and bookable. The erasure does all of it again.
+- **A pupil.** The person and their squad rows are back and standing, and the erasure takes them
+  again, asking no retirement first.
+- **A contact seat.** Every seat that address held is back and filled. The erasure is keyed on the
+  address, so the matched address is the whole input — and the armed panel's list now names records
+  written since the snapshot as well, which is why section 5 says to read it before pressing.
+- **An administrator.** Every grant the address held, an `owner` grant included, is back and admits
+  them, and so is their address on every grant, ban, invitation and decision they made. The erasure
+  removes the grants and marks the rest again, where a `DELETE` of the grant would not do: it refuses
+  an `owner` grant ([`../backend/spec.md`](../backend/spec.md#2-invariants) I436), and the floor of
+  two live grants may refuse any (I435).
+- **A record holding no address.** No erasure reaches one
+  ([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)), so no line names
+  it. A placeholder referee whose person's address was saved before their erasure comes back holding
+  the placeholder where the snapshot predates the save, matching no hash: the mail thread is its
+  record, and the save and the erasure are repeated.
 - **Anybody who had signed in, whatever their role.** The `auth` database is on the same cluster
   ([`spec.md`](spec.md) I174), so a restore of the cluster brings back their `user`, `session`,
-  `account` and `passkey` rows with everything else. Once the route's erasure above has run again,
-  and for an administrator their grant's revoke below, the account sweep deletes each within the
-  hour, a barred address's included (section 5).
+  `account` and `passkey` rows with everything else. Once the erasure above has run again, the
+  account sweep deletes each within the hour, a barred address's included (section 5).
 
 **The log's redactions came back as well**, so re-running each erasure is also what redoes the
 redactions it had stamped ([`../backend/spec.md`](../backend/spec.md#2-invariants) I42, I671, I212).
@@ -1454,7 +1481,7 @@ undid the erasures, and which nothing re-runs:
 
 - **A grant revoked, or a tier changed, after the snapshot is back as it was.** The grant and its
   announced row return together, so the reconciliation mails nobody, and the grant admits its
-  holder again, an erased administrator among them. Revoke it again with
+  holder again; an erased administrator's goes with their erasure above. Revoke any other again with
   `DELETE /berechtigungen/{berechtigung_id}`, or repeat the tier change
   ([section 3](#3-granting-or-revoking-admin-access)). A grant made after the snapshot is gone and
   is made again. The record of each is the mail every change sent every administrator
@@ -1466,9 +1493,11 @@ undid the erasures, and which nothing re-runs:
 **Two consequences more.** The retention sweep repairs itself, its clocks being
 stored dates — but a deletion notice already sent whose stamp the restore took back is sent a second
 time, that sweep mailing before it erases ([`../backend/spec.md`](../backend/spec.md#2-invariants)
-I151). And **an erasure with no mail thread behind it is reachable by nothing here**: the log cannot
-answer for it and no check finds it, so a request answered outside the mailbox is one this procedure
-misses.
+I151). And **a person's own write inside the window comes back undone with nothing to name it**: a
+consent withdrawn on the account page, a seat's Widerspruch and a declined address change are in
+neither the journal nor the mailbox, and the log that recorded them rolled back, so nothing here
+re-runs them, and a withdrawn publication consent stands again until its person withdraws it once
+more.
 
 ## 14. The `auth` database's indexes
 
