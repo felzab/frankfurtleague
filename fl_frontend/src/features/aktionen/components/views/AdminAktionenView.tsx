@@ -104,7 +104,7 @@ export function AdminAktionenView({
         <Callout
           severity="warning"
           title="Das Protokoll ist unvollständig">
-          Geladen sind nur {richtung === "desc" ? "die neuesten" : "die ältesten"} Änderungen; die übrigen stehen nicht auf dieser Seite. Auch
+          Geladen sind nur {richtung === "desc" ? "die neuesten" : "die ältesten"} Änderungen. Die übrigen stehen nicht auf dieser Seite. Auch
           die Suche erfasst nur die geladenen Zeilen. Ein Filter holt dagegen auch Zeilen, die hier fehlen. Jede Zahl an einem Filter sagt Dir,
           wie viele Zeilen übrig bleiben, wenn Du diesen Wert auswählst.
         </Callout>

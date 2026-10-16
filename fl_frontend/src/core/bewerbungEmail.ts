@@ -48,7 +48,7 @@ const WEBSITE_SATZ = { vor: "Spielplan, Tabelle und Ergebnisse veröffentlichen 
  * can be met, and „wir versuchen“ would promise a result of a draw that has not run (my wording).
  */
 const wunschgegnerSatz = (gegner: string): string =>
-  `Als Wunschgegner für den ersten Spieltag haben wir ${gegner} notiert; über die Paarungen entscheidet der Spielplan.`;
+  `Als Wunschgegner für den ersten Spieltag haben wir ${gegner} notiert. Über die Paarungen entscheidet der Spielplan.`;
 
 /**
  * For the reader who never applied: anybody can type any address into a public form. Last in the
@@ -482,7 +482,7 @@ function fallbackZeilen(adressen: readonly Fallback[]): string[] {
  * holding two people arrives as one message under two floors, and one figure would be wrong for one.
  */
 const ALTERS_SATZ =
-  "Trainerin oder Trainer kann sein, wer mindestens 16 Jahre alt ist; Ansprechperson oder Stellvertretung, wer mindestens 18 Jahre alt ist.";
+  "Trainerin oder Trainer kann sein, wer mindestens 16 Jahre alt ist. Ansprechperson oder Stellvertretung kann sein, wer mindestens 18 Jahre alt ist.";
 
 /** Both link messages open on this, and only the school and the season in it are theirs to differ on. */
 function eingereichtSatz(schuleText: string, saisonId: string, markup: boolean): string {
@@ -534,8 +534,8 @@ export function buildBewerbungBestaetigungEmail({ saisonId, origin, schule, seat
     ),
     paragraph(
       mehrere
-        ? "Ohne Eure Bestätigungen bleibt die Bewerbung unvollständig. Nach drei Tagen erinnern wir Euch einmal; ist die Bewerbung vierzehn Tage nach dem Versand dieser Links noch unvollständig, löschen wir sie mit allen Angaben. Ersetzen wir später einen Link durch einen neuen, beginnt diese Frist für die ganze Bewerbung von vorn; eine Erinnerung verschiebt sie nicht."
-        : "Ohne Deine Bestätigung bleibt die Bewerbung unvollständig. Nach drei Tagen erinnern wir Dich einmal; ist die Bewerbung vierzehn Tage nach dem Versand dieses Links noch unvollständig, löschen wir sie mit allen Angaben. Ersetzen wir später einen Link durch einen neuen, beginnt diese Frist für die ganze Bewerbung von vorn; eine Erinnerung verschiebt sie nicht.",
+        ? "Ohne Eure Bestätigungen bleibt die Bewerbung unvollständig. Nach drei Tagen erinnern wir Euch einmal. Ist die Bewerbung vierzehn Tage nach dem Versand dieser Links noch unvollständig, löschen wir sie mit allen Angaben. Ersetzen wir später einen Link durch einen neuen, beginnt diese Frist für die ganze Bewerbung von vorn. Eine Erinnerung verschiebt sie nicht."
+        : "Ohne Deine Bestätigung bleibt die Bewerbung unvollständig. Nach drei Tagen erinnern wir Dich einmal. Ist die Bewerbung vierzehn Tage nach dem Versand dieses Links noch unvollständig, löschen wir sie mit allen Angaben. Ersetzen wir später einen Link durch einen neuen, beginnt diese Frist für die ganze Bewerbung von vorn. Eine Erinnerung verschiebt sie nicht.",
     ),
     // The address as a marked link, as every address standing in this card's prose is.
     // Its own paragraph, never beside the sentence offering to contradict the entry: that `Widerspruch` is a different door.
@@ -560,12 +560,12 @@ export function buildBewerbungBestaetigungEmail({ saisonId, origin, schule, seat
     ...fallbackZeilen(seatFallbacks(seats)),
     "",
     mehrere
-      ? "Ohne Eure Bestätigungen bleibt die Bewerbung unvollständig. Nach drei Tagen erinnern wir Euch einmal;"
-      : "Ohne Deine Bestätigung bleibt die Bewerbung unvollständig. Nach drei Tagen erinnern wir Dich einmal;",
+      ? "Ohne Eure Bestätigungen bleibt die Bewerbung unvollständig. Nach drei Tagen erinnern wir Euch einmal."
+      : "Ohne Deine Bestätigung bleibt die Bewerbung unvollständig. Nach drei Tagen erinnern wir Dich einmal.",
     mehrere
-      ? "ist die Bewerbung vierzehn Tage nach dem Versand dieser Links noch unvollständig, löschen wir sie mit allen Angaben."
-      : "ist die Bewerbung vierzehn Tage nach dem Versand dieses Links noch unvollständig, löschen wir sie mit allen Angaben.",
-    "Ersetzen wir später einen Link durch einen neuen, beginnt diese Frist für die ganze Bewerbung von vorn; eine Erinnerung verschiebt sie nicht.",
+      ? "Ist die Bewerbung vierzehn Tage nach dem Versand dieser Links noch unvollständig, löschen wir sie mit allen Angaben."
+      : "Ist die Bewerbung vierzehn Tage nach dem Versand dieses Links noch unvollständig, löschen wir sie mit allen Angaben.",
+    "Ersetzen wir später einen Link durch einen neuen, beginnt diese Frist für die ganze Bewerbung von vorn. Eine Erinnerung verschiebt sie nicht.",
     "",
     art21Satz(KONTAKT_EMAIL, { mehrere }),
   ]);
@@ -890,14 +890,14 @@ export function buildBewerbungWiderspruchEmail({
       `${strong(`${escapeHtml(wer)} hat dem Eintrag als Kontaktperson widersprochen.`)} Diese Angaben haben wir aus der Bewerbung entfernt.`,
     ),
     paragraph(
-      `So kann die Bewerbung nicht vollständig werden; am ${strong(escapeHtml(frist))} löschen wir sie. Möchte Deine Schule trotzdem mitspielen, bewirb Dich neu, mit einer anderen Person an ihrer Stelle. Frag sie vorher.`,
+      `So kann die Bewerbung nicht vollständig werden. Am ${strong(escapeHtml(frist))} löschen wir sie. Möchte Deine Schule trotzdem mitspielen, bewirb Dich neu, mit einer anderen Person an ihrer Stelle. Frag sie vorher.`,
     ),
   ]);
 
   const text = renderText(nachricht, [
     `${wer} hat dem Eintrag als Kontaktperson widersprochen. Diese Angaben haben wir aus der Bewerbung entfernt.`,
     "",
-    `So kann die Bewerbung nicht vollständig werden; am ${frist} löschen wir sie.`,
+    `So kann die Bewerbung nicht vollständig werden. Am ${frist} löschen wir sie.`,
     "Möchte Deine Schule trotzdem mitspielen, bewirb Dich neu, mit einer anderen Person an ihrer Stelle. Frag sie vorher.",
   ]);
 

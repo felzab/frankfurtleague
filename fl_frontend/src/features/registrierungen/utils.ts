@@ -129,8 +129,8 @@ export function mapRegistrierungSubmitRefusal(
  * registering again mints a fresh link.
  */
 export const MAIL_ABGEWIESEN =
-  "An diese Adresse konnten wir keine E-Mail schicken. Prüfe sie und registriere Dich über denselben Link erneut; " +
-  `der Eintrag von eben löscht sich nach ${String(REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE)} Tagen von selbst.`;
+  "An diese Adresse konnten wir keine E-Mail schicken. Prüfe sie und registriere Dich über denselben Link erneut. " +
+  `Der Eintrag von eben löscht sich nach ${String(REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE)} Tagen von selbst.`;
 
 /** The refused send as the form shows it. */
 export function abgewiesenerVersand(): { error?: string; fieldErrors?: FieldErrors } {
@@ -272,7 +272,7 @@ export function mapAufnahmeRefusal(error: unknown): string | null {
     case "REQ-REGISTRIERUNG-018":
       return buildRefusal({
         reason: "Die Person zu dieser Registrierung ist bei uns nicht mehr gespeichert",
-        repair: "Lehne die Registrierung ab; die Person kann sich danach erneut registrieren",
+        repair: "Lehne die Registrierung ab. Die Person kann sich danach erneut registrieren",
       });
     case "REQ-REGISTRIERUNG-015":
       return buildRefusal({

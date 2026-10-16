@@ -169,6 +169,10 @@ UNBRIDGED_TOKENS: Final = ("--focus", "--skeleton-sweep")
 COPY_SAMPLE: Final = "fl_frontend/src/copy.tsx"
 # What a copy-rules finding names when the corpus rather than one file is the subject.
 COPY_ROOT: Final = "fl_frontend/src"
+# The legal sources the semicolon rule exempts by path, at the paths it names. The notice carries a
+# semicolon, so every case runs the exemption and a broken one fails the clean corpus.
+LEGAL_NOTICE: Final = "fl_frontend/src/features/meta/components/views/DatenschutzView.tsx"
+LEGAL_IMPRINT: Final = "fl_frontend/src/features/meta/components/views/ImpressumView.tsx"
 # A tracked path no ASCII listing can spell: without `git ls-files -z` it comes back quoted, resolves
 # to nothing, and drops out of the scan with whatever it carried.
 UMLAUT_MODULE: Final = "fl_backend/app/übersicht.py"
@@ -984,6 +988,8 @@ def _corpus(fragments: tuple[str, ...]) -> dict[str, str]:
             '  return <p title="Der Zeitraum dieser Saison, und nichts weiter.">{zeitraum}</p>;',
             "}",
         ),
+        LEGAL_NOTICE: _page('export const GRUNDLAGE = "Rechtsgrundlage ist Art. 6 DSGVO; unser Interesse ist der Spielbetrieb.";'),
+        LEGAL_IMPRINT: _page('export const VERTRETEN = "Vertreten wird der Verein durch seinen Vorstand.";'),
         # Each opens on a titled block: the `#` reader answers for every one of these kinds, so the
         # opening block is a module header held to INC-2's shape, a page's H1 alone excepted.
         TOML_CONFIG: _page(
@@ -1829,13 +1835,21 @@ def _plant_copy_term() -> None:
     _append(COPY_SAMPLE, 'export const ALLE = "Alle Mannschaften stehen in der Tabelle.";')
 
 
+def _plant_copy_semicolon() -> None:
+    """A semicolon in a string and in a JSX element's text, beside a character reference that renders none."""
+    _append(COPY_SAMPLE, 'export const FRIST = "Der Link gilt sieben Tage; danach schickt Dir die Verwaltung einen neuen.";')
+    _append(COPY_SAMPLE, "export function Sperre() {", "  return <p>Die Sperre wirkt sofort; {grund} bleibt stehen.</p>;", "}")
+    _append(COPY_SAMPLE, "export function Saison() {", "  return <p>Die Saison&nbsp;2026 beginnt im September.</p>;", "}")
+
+
 def _plant_copy_corpus() -> None:
     """A corpus with no German left in it, and so no date range to exempt either.
 
     Both producers at once: the scan going quiet and an exemption outliving what it exempted are
     the same failure seen from two ends.
     """
-    write(_gate().root, COPY_SAMPLE, _page('export const SAMPLE = "a rendered string, and no reader in sight";'))
+    for rel in (COPY_SAMPLE, LEGAL_NOTICE, LEGAL_IMPRINT):
+        write(_gate().root, rel, _page('export const SAMPLE = "a rendered string, and no reader in sight";'))
 
 
 def _plant_comment_bounds() -> None:
@@ -1932,6 +1946,7 @@ CASES: Final[tuple[Case, ...]] = (
     Case("copy-dash", _fails("copy-dash", *[COPY_SAMPLE] * 3), _plant_copy_dash),
     Case("copy-formal", _fails("copy-formal", COPY_SAMPLE), _plant_copy_formal),
     Case("copy-informal", _fails("copy-informal", COPY_SAMPLE), _plant_copy_informal),
+    Case("copy-semicolon", _fails("copy-semicolon", COPY_SAMPLE, COPY_SAMPLE), _plant_copy_semicolon),
     Case("copy-term", _fails("copy-term", COPY_SAMPLE, COPY_SAMPLE), _plant_copy_term),
     Case("crlf-write", _fails("crlf-write", SAMPLE), _plant_text_write),
     # The corpus is walked in path order, so the twin under `docs/frontend/` is the home the two
@@ -2546,7 +2561,8 @@ def test_a_copy_root_holding_no_copy_bearing_file_refuses_too() -> None:
     copy_rules = _module("docs_gate.copy_rules")
     with _swapped(copy_rules, "COPY_GLOB", copy_rules.COPY_ROOT + "/**/*.no-such-suffix"):
         found = copy_rules.check_copy_rules()
-    assert [finding.check for finding in found] == ["copy-corpus", "copy-corpus"], [f.detail for f in found]
+    # Four: the empty corpus, then the date formatter and both legal sources exempting nothing read.
+    assert [finding.check for finding in found] == ["copy-corpus"] * 4, [f.detail for f in found]
     assert "holds no copy-bearing file" in found[0].detail, found[0].detail
 
 
@@ -2568,8 +2584,9 @@ def test_a_copy_file_the_scanner_cannot_read_is_reported_rather_than_passed_over
     finally:
         unreadable.unlink()
         _reset()
-    # Three: the file's own refusal, then the two the sweep raises once nothing German is left in it.
-    assert [finding.check for finding in found] == ["copy-corpus"] * 3, [f.detail for f in found]
+    # Five: the file's own refusal, the two the sweep raises once nothing German is left in it, and
+    # one per legal source the swapped corpus leaves unread.
+    assert [finding.check for finding in found] == ["copy-corpus"] * 5, [f.detail for f in found]
     assert "could not be read as TypeScript" in found[0].detail, found[0].detail
     _assert_corpus_restored()
 

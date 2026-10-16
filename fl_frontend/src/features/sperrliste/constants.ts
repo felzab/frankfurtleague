@@ -27,10 +27,10 @@ export const SPERRLISTE_CRUD_COPY = {
   // `fl_frontend/src/shared/components/ui/AdminCrudView.tsx :: classifyEmptiness` can reach
   // `filtered` on no press a reader can make.
 
-  // Two sentences where every sibling list has one: „nichts gefunden“ reads here as „nicht
+  // Three sentences where every sibling list has one: „nichts gefunden“ reads here as „nicht
   // gesperrt“, and the reader cannot see that the bar never had an address to match.
   emptyForQuery:
-    "Keine Sperren für diese Suche. Die Suche liest den Grund und wer die Sperre eingetragen hat; die gesperrte Adresse steht in keiner Zeile.",
+    "Keine Sperren für diese Suche. Die Suche liest den Grund und wer die Sperre eingetragen hat. Die gesperrte Adresse steht in keiner Zeile.",
   emptyOverall: "Es ist noch keine Adresse gesperrt.",
 } as const;
 

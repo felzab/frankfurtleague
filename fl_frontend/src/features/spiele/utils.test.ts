@@ -541,7 +541,7 @@ describe("formatSpielUpdateMessage", () => {
       ],
     );
 
-    assert.match(message, /dessen Ergebnis 3:0 damit gelöscht wurde; das dort eingetragene Nichtantreten wurde ebenfalls entfernt/);
+    assert.match(message, /dessen Ergebnis 3:0 damit gelöscht wurde\. Das dort eingetragene Nichtantreten wurde ebenfalls entfernt/);
   });
 });
 

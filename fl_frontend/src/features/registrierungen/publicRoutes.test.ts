@@ -258,7 +258,7 @@ describe("the state the registration page renders", () => {
     assert.ok(
       paragraphsOf(seite("gueltig")).includes(
         "Der Verarbeitung Deiner Angaben für den Spielbetrieb kannst Du jederzeit aus Gründen widersprechen, die sich aus Deiner " +
-          `besonderen Situation ergeben (Art. 21 DSGVO); eine formlose E-Mail an ${KONTAKT_EMAIL} genügt.`,
+          `besonderen Situation ergeben (Art. 21 DSGVO). Eine formlose E-Mail an ${KONTAKT_EMAIL} genügt.`,
       ),
       "the registration form states no objection of its own",
     );

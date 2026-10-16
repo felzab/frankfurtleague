@@ -88,7 +88,7 @@ describe("the referee's confirmation message", () => {
   it("states the objection in a paragraph of its own, in both parts", () => {
     assert.match(
       mail.html,
-      /<p\b[^>]*>Der Verarbeitung Deiner Angaben für den Spielbetrieb kannst Du jederzeit aus Gründen widersprechen, die sich aus Deiner besonderen Situation ergeben \(Art\. 21 DSGVO\); eine formlose E-Mail an <a href="mailto:[^"]+"[^>]*>[^<]+<\/a> genügt\.<\/p>/,
+      /<p\b[^>]*>Der Verarbeitung Deiner Angaben für den Spielbetrieb kannst Du jederzeit aus Gründen widersprechen, die sich aus Deiner besonderen Situation ergeben \(Art\. 21 DSGVO\)\. Eine formlose E-Mail an <a href="mailto:[^"]+"[^>]*>[^<]+<\/a> genügt\.<\/p>/,
       "the card carries no objection of its own",
     );
     assert.match(

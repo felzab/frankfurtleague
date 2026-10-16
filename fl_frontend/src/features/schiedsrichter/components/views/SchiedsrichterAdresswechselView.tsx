@@ -229,7 +229,7 @@ export function SchiedsrichterAdresswechselView({ start }: { start: Schiedsricht
             panelRef={ergebnisRef}
             tone="hinweis">
             <p className={ABSATZ_CLASSES}>
-              Dieser Link ist abgelaufen. Ein Link gilt {String(SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE)} Tage; einen neuen schickt Dir die
+              Dieser Link ist abgelaufen. Ein Link gilt {String(SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE)} Tage. Einen neuen schickt Dir die
               Verwaltung, wenn Du an {KONTAKT_EMAIL} schreibst. Bis dahin gilt die bisherige Adresse.
             </p>
           </BestaetigungErgebnis>
@@ -268,7 +268,7 @@ export function SchiedsrichterAdresswechselView({ start }: { start: Schiedsricht
             Dieser Link ist ungültig: Er wurde schon beantwortet oder durch einen neueren ersetzt, oder die Änderung gibt es nicht mehr.
           </p>
           <p className={ABSATZ_CLASSES}>
-            Hast Du die neue Adresse schon bestätigt, gilt sie bereits; sonst gilt die bisherige weiter. Fragen jederzeit per E-Mail an{" "}
+            Hast Du die neue Adresse schon bestätigt, gilt sie bereits. Sonst gilt die bisherige weiter. Fragen jederzeit per E-Mail an{" "}
             {KONTAKT_EMAIL}.
           </p>
           <FrageStellen />

@@ -13,7 +13,7 @@ export function describeSpieleFanOut(count: number): string {
  * no junction row reaches it too — the state a failed entry leaves, and the one being repaired.
  */
 export function describeSaisonTeamsFanOut(count: number): string {
-  if (count === 0) return "Kein Eintrag in einer laufenden oder geplanten Saison wurde geändert; nur dort werden Name und Kürzel nachgezogen.";
+  if (count === 0) return "Kein Eintrag in einer laufenden oder geplanten Saison wurde geändert. Nur dort werden Name und Kürzel nachgezogen.";
   if (count === 1) return "1 Saison trägt den neuen Namen und das neue Kürzel.";
   return `${count} Saisons tragen den neuen Namen und das neue Kürzel.`;
 }

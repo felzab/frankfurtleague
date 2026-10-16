@@ -109,7 +109,7 @@ export function RegistrierungView({ start, siteKey }: { start: RegistrierungStar
         {stand === "gueltig" && (
           <p className={ABSATZ_CLASSES}>
             Der Verarbeitung Deiner Angaben für den Spielbetrieb kannst Du jederzeit aus Gründen widersprechen, die sich aus Deiner besonderen
-            Situation ergeben (Art. 21 DSGVO); eine formlose E-Mail an{" "}
+            Situation ergeben (Art. 21 DSGVO). Eine formlose E-Mail an{" "}
             <Link
               href={`mailto:${KONTAKT_EMAIL}`}
               className={textLink()}>

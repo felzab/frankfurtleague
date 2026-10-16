@@ -96,7 +96,7 @@ describe("the save moving a confirmed referee's address", () => {
 
     assert.equal(res.success, true);
     assert.deepEqual(mailedTo().sort(), [BISHER, NEU].sort());
-    assert.match(res.success ? (res.versandSatz ?? "") : "", /ging an anna@neu\.example; bis zur Bestätigung gilt die bisherige/);
+    assert.match(res.success ? (res.versandSatz ?? "") : "", /ging an anna@neu\.example\. Bis zur Bestätigung gilt die bisherige/);
   });
 
   /* The notice names no new address: the change may be somebody's mistake, and the stored mailbox is
@@ -217,7 +217,7 @@ describe("what the administrator is told about an address change's messages", ()
   it("names the new address on the link and asks for a second route only where the notice failed", () => {
     assert.match(describeAdresswechselMail(NEU, { link: "gesendet", hinweis: "gesendet" }), /ging an anna@neu\.example/);
     assert.doesNotMatch(describeAdresswechselMail(NEU, { link: "gesendet", hinweis: "gesperrt" }), /Hinweis/);
-    assert.match(describeAdresswechselMail(NEU, { link: "gesendet", hinweis: "fehlgeschlagen" }), /sag der Person selbst Bescheid/);
+    assert.match(describeAdresswechselMail(NEU, { link: "gesendet", hinweis: "fehlgeschlagen" }), /Sag der Person selbst Bescheid/);
   });
 
   /* Naming no address, for the consent link's barred send's reason (`docs/frontend/spec.md :: I542`). */
@@ -262,7 +262,7 @@ describe("the two messages an address change sends", () => {
     const hinweis = buildSchiedsrichterAdresswechselHinweisEmail({ origin: "https://fl.example", vorname: "Anna" });
 
     assert.doesNotMatch(hinweis.html, /token=/);
-    assert.match(hinweis.text, /bis dahin bleibt diese Adresse in Kraft/);
+    assert.match(hinweis.text, /Bis dahin bleibt diese Adresse in Kraft/);
   });
 });
 

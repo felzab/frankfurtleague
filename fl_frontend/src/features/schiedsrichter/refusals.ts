@@ -75,7 +75,7 @@ export function mapEinladenRefusal(error: unknown): string | null {
  */
 const SCHON_BESTAETIGT = buildRefusal({
   reason: "Diese Person hat ihren Eintrag schon bestätigt",
-  repair: "Ein neuer Link führt auf keine Seite mehr; Änderungen an der Einwilligung nimmt die Person selbst vor",
+  repair: "Ein neuer Link führt auf keine Seite mehr. Änderungen an der Einwilligung nimmt die Person selbst vor",
 });
 
 /** Raised at the action as well, where the row already says so: a round trip to be told what the page can see is one nobody owes. */

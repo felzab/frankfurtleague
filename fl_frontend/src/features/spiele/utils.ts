@@ -439,9 +439,10 @@ const movedSpielSentences = (
         ? `${released.team_name} wurde aus Spiel ${released.spiel_nr} entfernt, da beide am selben Spieltag stattfinden`
         : `${released.team_name} wurde aus Spiel ${released.spiel_nr} entfernt, dessen Ergebnis ${released.voided_ergebnis} damit gelöscht wurde`;
 
-    sentences.push(
-      released.voided_sonderereignis === null ? removal : `${removal}; das dort eingetragene Nichtantreten wurde ebenfalls entfernt`,
-    );
+    sentences.push(removal);
+    if (released.voided_sonderereignis !== null) {
+      sentences.push("Das dort eingetragene Nichtantreten wurde ebenfalls entfernt");
+    }
   }
 
   // Named individually rather than counted: "zwei Bracket-Verweise sind offen" is not actionable.

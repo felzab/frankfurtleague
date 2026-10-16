@@ -465,7 +465,7 @@ function SchiedsrichterFormPanel({
             severity="warning"
             isAnnounced
             title="Mit diesem Geburtsdatum kannst Du noch nicht pfeifen.">
-            Schiedsrichterinnen und Schiedsrichter müssen mindestens {String(mindestalter)} Jahre alt sein. Dein Eintrag bleibt bestehen; melde
+            Schiedsrichterinnen und Schiedsrichter müssen mindestens {String(mindestalter)} Jahre alt sein. Dein Eintrag bleibt bestehen. Melde
             Dich bei der Verwaltung, wenn das Datum nicht stimmt.
           </Callout>
         )}

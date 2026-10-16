@@ -529,7 +529,7 @@ function SpielerBestaetigungForm({
             severity="warning"
             isAnnounced
             title="Mit diesem Geburtsdatum kannst Du noch nicht mitspielen.">
-            Hast Du Dich vertippt? Dann korrigiere das Datum. Stimmt es, kannst Du in dieser Saison leider nicht mitspielen; wir löschen Deine
+            Hast Du Dich vertippt? Dann korrigiere das Datum. Stimmt es, kannst Du in dieser Saison leider nicht mitspielen. Wir löschen Deine
             Registrierung von selbst.
           </Callout>
         )}

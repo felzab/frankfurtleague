@@ -104,8 +104,8 @@ describe("the notice a cut-short log carries", () => {
   });
 
   it("names the end the rows were served from", () => {
-    assert.match(noticeText(view({ vollstaendig: false, richtung: "desc" }), HEADING.gekappt), /Geladen sind nur die neuesten Änderungen;/);
-    assert.match(noticeText(view({ vollstaendig: false, richtung: "asc" }), HEADING.gekappt), /Geladen sind nur die ältesten Änderungen;/);
+    assert.match(noticeText(view({ vollstaendig: false, richtung: "desc" }), HEADING.gekappt), /Geladen sind nur die neuesten Änderungen\./);
+    assert.match(noticeText(view({ vollstaendig: false, richtung: "asc" }), HEADING.gekappt), /Geladen sind nur die ältesten Änderungen\./);
   });
 
   /* Non-vacuity for every case above, which would each pass on a notice that stands unconditionally
