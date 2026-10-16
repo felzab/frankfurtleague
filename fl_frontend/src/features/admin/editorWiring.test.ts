@@ -167,6 +167,9 @@ const SPIELER = {
 /** A new address waiting on its mailbox, whose panel's re-send moves the record as the request does. */
 const SPIELER_ADRESSWECHSEL = { email: "lena@neu.example", verschickt_am: "2026-10-01", frist: "2099-12-31", zustellung: null };
 
+/** The referee's twin of the pupil's waiting address. */
+const SCHIEDSRICHTER_ADRESSWECHSEL = { email: "pia@neu.example", verschickt_am: "2026-10-01", frist: "2099-12-31", zustellung: null };
+
 const SPIELER_MEMBERSHIP = {
   team_id: TEAM_A.teamId,
   nummer: "10",
@@ -942,6 +945,38 @@ const RECORD_MOVES: Record<string, RecordMove> = {
     press: "Bestätigungslink senden",
     write: "einladeSchiedsrichterAction",
   },
+  "the referee's waiting address's re-send": {
+    render: async () => {
+      const { AdminSchiedsrichterEditView } = await import("@/features/schiedsrichter/components/views/AdminSchiedsrichterEditView.tsx");
+
+      return renderEditor(
+        h(AdminSchiedsrichterEditView, {
+          istFassungBekannt: true,
+          schiedsrichter: { ...SCHIEDSRICHTER, adresswechsel: SCHIEDSRICHTER_ADRESSWECHSEL },
+          inactiveSince: null,
+        }),
+      );
+    },
+    type: (user) => typeInto(user, box("Name"), "Pia Kraft-Meier"),
+    press: "Link erneut senden: Neue E-Mail-Adresse",
+    write: "einladeAdresswechselAction",
+  },
+  "the referee's waiting address's discard": {
+    render: async () => {
+      const { AdminSchiedsrichterEditView } = await import("@/features/schiedsrichter/components/views/AdminSchiedsrichterEditView.tsx");
+
+      return renderEditor(
+        h(AdminSchiedsrichterEditView, {
+          istFassungBekannt: true,
+          schiedsrichter: { ...SCHIEDSRICHTER, adresswechsel: SCHIEDSRICHTER_ADRESSWECHSEL },
+          inactiveSince: null,
+        }),
+      );
+    },
+    type: (user) => typeInto(user, box("Name"), "Pia Kraft-Meier"),
+    press: "Änderung verwerfen",
+    write: "verwirfAdresswechselAction",
+  },
   "the player's reactivation": {
     render: async () => {
       const { AdminSpielerEditView } = await import("@/features/spieler/components/views/AdminSpielerEditView.tsx");
@@ -976,6 +1011,16 @@ const RECORD_MOVES: Record<string, RecordMove> = {
     type: (user) => typeInto(user, box("Vorname"), "Lena-Marie"),
     press: "Link erneut senden",
     write: "einladeSpielerAdresswechselAction",
+  },
+  "the player's waiting address's discard": {
+    render: async () => {
+      const { AdminSpielerEditView } = await import("@/features/spieler/components/views/AdminSpielerEditView.tsx");
+
+      return renderEditor(h(AdminSpielerEditView, spielerProps({ adresswechsel: true })));
+    },
+    type: (user) => typeInto(user, box("Vorname"), "Lena-Marie"),
+    press: "Änderung verwerfen",
+    write: "verwirfSpielerAdresswechselAction",
   },
   "the squad row's removal": {
     render: async () => {
