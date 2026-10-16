@@ -734,7 +734,10 @@
 # workers eslint took 45-52 s on the fast class of machine, read off knip's 3.0-3.9 s beside it, and
 # 63-86 s on the slow class, over the 23 pull-request runs of 2026-10-16 from 09:52 UTC; at three it
 # took 47 s on a fast runner and 84 and 76 s on slow ones, three runs of the same day, none under its
-# class's two-worker floor. No row moves and none takes a stamp.
+# class's two-worker floor. A fourth run still carrying three, 38953739527, took 83 s on a slow runner,
+# and its `frontend` job 150 s against the 145 s budget: the toolchain 18 s, the Next cache 14 s and
+# the scope 108 s, its build 20 s against 4.6 s in run 38950973913. No row moves and none takes a
+# stamp.
 #
 # `frontend` gained a fifth syntax ban in `fl_frontend/eslint.config.mjs :: SOURCE_BANS`, a heading
 # typed into `buildRefusal`'s `where`. eslint over `fl_frontend` at four threads with no cache took
@@ -889,6 +892,34 @@
 # `fl_frontend/src/features/admin/editorWiring.test.ts`, 3.30-3.41 s together inside 61.1-67.5 s for
 # the file, and the five of `fl_frontend/src/shared/components/ui/focusLandings.test.ts`, 1.66-1.73 s
 # inside 31.2-31.8 s. No row moves and none takes a stamp.
+#
+# Two lanes landing together measured what each added, locally on 2026-10-16 on a sixteen-core
+# Windows machine carrying other agent sessions, at 29-39 percent CPU where the lane read it, so
+# upper bounds:
+#
+# - `backend`, in one process with the shared caches warm, each arm interleaved with the check it
+#   replaces, three rounds: the write-transaction sweep following calls lexically,
+#   `fl_backend/tests/api/test_write_transactions.py`, 0.56-1.02 s to load its module against
+#   0.16-0.36 s; the check refusing a writer held as a value,
+#   `fl_backend/tests/core/test_duplicate_key_publication.py`, 2.2-2.8 s against 0.33-0.74 s; the
+#   not-found sweep's stricter safe write, `fl_backend/tests/core/test_not_found_publication.py`,
+#   1.6-3.3 s against 1.1-2.0 s; and the frontend mirror's deadline case in
+#   `fl_backend/tests/shared/test_frontend_mirrors.py`, under 10 ms, its selection's run 0.84-1.02 s
+# - `db`, by pytest's call durations over three runs: the seat pre-filter's read held to Python's in
+#   `fl_backend/tests/api/test_kontakt_erasure_execution.py`, 0.23-0.24 s; a person's press journalled
+#   after its commit, two cases in `fl_backend/tests/api/test_erasure_commit_fail_points.py`,
+#   0.19-0.20 s and 0.28-0.30 s, the first after 3.2 s of setup when its class runs alone; and the
+#   replacement taken off the application's log by address in
+#   `fl_backend/tests/api/test_kontakt_bestaetigung.py`, 0.16-0.20 s
+# - `frontend-units`, by the runner's own durations, interleaved: the new
+#   `fl_frontend/src/features/saisons/sweep.test.ts` alone, 851-884 ms over four rounds, against
+#   958-996 ms for the slimmer `fl_frontend/src/features/bewerbungen/sweep.test.ts` it took the
+#   deletion cases from, about one more test process of roughly 0.86 s net; the write-deadline cases
+#   of `fl_frontend/src/core/api.test.ts`, 0.75-1.6 ms each, and of
+#   `fl_frontend/src/core/requestScope.test.ts`, 0.5 ms; and the reworked season-deadline cases of
+#   `fl_frontend/src/features/saisons/deadline.test.ts`, 94, 4.4 and 4.1 ms
+#
+# No row moves and none takes a stamp.
 #
 # The total row is the sum of the seconds above it, compared the same way where it carries a floor.
 # Its floor sums each referenced row's draws, so `--stamp` cuts one only where every row holding a
