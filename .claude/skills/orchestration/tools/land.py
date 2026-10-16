@@ -65,7 +65,9 @@ EXITS: Final = {
     7: "git failed during the merge; read `git status`",
     8: "the session branch fails that type check before the merge; the merge is aborted and the branch was not judged",
     9: "refused before the merge: HEAD's verify run has concluded and a `window` standing action waits undispatched",
+    10: "merged, and the ledger's bookkeeping after the merge failed: the merge stands, and its rows are closed by hand",
 }
+AFTER_DISPATCH: Final = "land with --after-dispatch where they went out, which ticks them"
 
 
 class Stop(Exception):
@@ -221,11 +223,11 @@ def window(register: str) -> None:
     try:
         run = ci.run_for(head)
     except ValueError as unread:
-        raise Stop(2, f"{len(waiting)} standing action(s) wait on the window, and HEAD's verify run could not be read: {unread}") from None
+        said = f"{len(waiting)} standing action(s) wait on the window, and HEAD's verify run could not be read: {unread}"
+        raise Stop(2, said, AFTER_DISPATCH) from None
     if run is not None and run.get("status") == "completed":
-        raise Stop(
-            9, f"HEAD's verify run {run.get('databaseId')} has concluded, and these wait on its window:", *waiting, "dispatch them first"
-        )
+        said = f"HEAD's verify run {run.get('databaseId')} has concluded, and these wait on its window:"
+        raise Stop(9, said, *waiting, f"dispatch them first, or {AFTER_DISPATCH}")
 
 
 def conflict_owners(conflicted: list[str], branch: str, register: str) -> list[str]:
@@ -251,7 +253,14 @@ def land(register: Path, branch: str, after_dispatch: bool = False) -> int:
     if _ok("merge-base", "--is-ancestor", branch, "HEAD"):
         print(f"nothing to land: the session branch already holds {branch}")
         return 0
-    if not after_dispatch:
+    if after_dispatch:
+        # Unticked, the same row would refuse every later landing in the window.
+        try:
+            for line in reg.tick_windows(register, "`land.py --after-dispatch`"):
+                print(line)
+        except (ValueError, OSError) as unwritten:
+            raise Stop(2, f"the standing actions could not be ticked: {unwritten}") from None
+    else:
         window(held)
     before = git("rev-parse", "HEAD").strip()
     written: list[str] = []
@@ -298,6 +307,17 @@ def land(register: Path, branch: str, after_dispatch: bool = False) -> int:
     notes += [f"type-checked {', '.join(checked)}"] if checked else []
     merge = git("rev-parse", "--short", "HEAD").strip()
     print(f"landed {branch} as {merge}" + (f" ({'; '.join(notes)})" if notes else ""))
+    try:
+        credit(register, held, branch, before, merge)
+    # Past the merge commit no stop is a refusal, and none may leave a traceback in place of the rows.
+    except (Stop, ValueError, OSError) as failed:
+        why = "; ".join(failed.lines) if isinstance(failed, Stop) else str(failed)
+        raise Stop(10, f"{branch} landed as {merge}, and the bookkeeping after it stopped: {why}", EXITS[10]) from None
+    return 0
+
+
+def credit(register: Path, held: str, branch: str, before: str, merge: str) -> None:
+    """The rows the merged commits fixed closed, and each row and standing action the landing leaves named."""
     # Only a `Rows fixed:` line closes, and only a row routed to an agent the merge landed: a mention,
     # or a row another fixer holds, stays for the coordinator to judge.
     bodies = git("log", "--format=%B", "HEAD^1..HEAD^2")
@@ -325,16 +345,21 @@ def land(register: Path, branch: str, after_dispatch: bool = False) -> int:
             print(f"  {ledger.command('close', str(register.resolve()), 'FIXED', merge, row)}")
     for trigger in standing(held, agent | {branch}):
         print(f"a standing action waits on this landing: {trigger}")
-    return 0
+
+
+def parser() -> argparse.ArgumentParser:
+    exits = "\n".join(f"  exit {code}: {meaning}" for code, meaning in EXITS.items())
+    reading = argparse.ArgumentParser(prog="land.py", description=__doc__, epilog=exits, formatter_class=argparse.RawDescriptionHelpFormatter)
+    reading.add_argument("register", type=Path)
+    reading.add_argument("branch")
+    reading.add_argument(
+        "--after-dispatch", action="store_true", help="land although a `window` standing action is unticked, ticking it: it went out"
+    )
+    return reading
 
 
 def main(argv: list[str]) -> int:
-    exits = "\n".join(f"  exit {code}: {meaning}" for code, meaning in EXITS.items())
-    parser = argparse.ArgumentParser(prog="land.py", description=__doc__, epilog=exits, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("register", type=Path)
-    parser.add_argument("branch")
-    parser.add_argument("--after-dispatch", action="store_true", help="land although a `window` standing action is unticked: it went out")
-    args = parser.parse_args(argv)
+    args = parser().parse_args(argv)
     try:
         return land(args.register, args.branch, args.after_dispatch)
     except Stop as stop:

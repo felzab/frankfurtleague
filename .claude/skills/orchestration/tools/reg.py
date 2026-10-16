@@ -11,7 +11,7 @@ hook's, records each send and routes its rows one by one.
     append <register> [--file <path>]
     resume <register> [--file <path>]
     dispatch <register> <NAME> [--id <agent id>] [--question <text>] [--brief <file>] [--takes <queue>]
-    queue <register> <trigger> <brief>
+    queue <register> <trigger> <brief> [--done <evidence>]
     message <plans directory>
     live <register>
     prune <register>
@@ -31,6 +31,7 @@ import json
 import re
 import subprocess
 import sys
+from collections.abc import Callable
 from pathlib import Path, PurePosixPath
 from typing import Final, NamedTuple
 
@@ -136,27 +137,37 @@ def _same_file(cell: str, target: Path) -> bool:
         return False
 
 
-def queue(register: Path, trigger: str, brief: Path) -> str:
-    """A standing action naming the brief added under its trigger; what was done."""
+def queue(register: Path, trigger: str, brief: Path, done: str | None = None, now: datetime.datetime | None = None) -> str:
+    """A standing action naming the brief added under its trigger, or with `done` ticked on that evidence; what was done."""
     trigger = " ".join(trigger.split())
-    if not trigger or not brief.is_file():
-        raise ValueError(f"a standing action needs a trigger and a saved brief: {brief} is no file" if trigger else "the trigger is empty")
+    if not trigger:
+        raise ValueError("the trigger is empty")
+    if done is None and not brief.is_file():
+        raise ValueError(f"a standing action needs a saved brief: {brief} is no file")
+    if done is not None and not ledger.escaped(done):
+        raise ValueError("a standing action is ticked on its evidence, and the evidence is empty")
     target = brief.resolve()
+
+    def held(row: list[str]) -> bool:
+        return row[0] == ledger.escaped(trigger) and _same_file(row[1], target)
 
     def edit(lines: list[str]) -> str:
         table, end = standing_table(lines)
-        for k in range(table + 2, end + 1):
-            row = ledger.cells(lines[k])
-            if unticked(row) and row[0] == ledger.escaped(trigger) and _same_file(row[1], target):
-                return f"already queued: {trigger} -> {target}"
+        if done is not None:
+            # A message or a withdrawal is the action's end too: unticked, the row held the next landing back.
+            if not (ticked := _tick(lines, held, done, now)):
+                raise ValueError(f"no unticked standing action `{trigger}` names {target}")
+            return "; ".join(ticked)
+        if any(unticked(row := ledger.cells(lines[k])) and held(row) for k in range(table + 2, end + 1)):
+            return f"already queued: {trigger} -> {target}"
         lines.insert(end + 1, ledger.joined([ledger.escaped(trigger), f"`{target}`", ""]))
         return f"queued {target.name} for {trigger}"
 
     return ledger.update(register, edit)
 
 
-def _tick(lines: list[str], target: Path, name: str, now: datetime.datetime | None) -> list[str]:
-    """Each unticked standing action naming the brief ticked in `lines`; what was done."""
+def _tick(lines: list[str], held: Callable[[list[str]], bool], evidence: str, now: datetime.datetime | None) -> list[str]:
+    """Each unticked standing action `held` picks ticked in `lines` on the evidence; what was done."""
     try:
         table, end = standing_table(lines)
     except ValueError:
@@ -164,11 +175,16 @@ def _tick(lines: list[str], target: Path, name: str, now: datetime.datetime | No
     said = []
     for k in range(table + 2, end + 1):
         row = ledger.cells(lines[k])
-        if unticked(row) and _same_file(row[1], target):
-            row[2] = f"yes {ledger.stamp(now)} (`reg.py dispatch {name}`)"
+        if unticked(row) and held(row):
+            row[2] = f"yes {ledger.stamp(now)} ({ledger.escaped(evidence)})"
             lines[k] = ledger.joined(row)
-            said.append(f"ticked the standing action `{row[0]}` for {target.name}")
+            said.append(f"ticked the standing action `{row[0]}` for {row[1]}")
     return said
+
+
+def tick_windows(register: Path, evidence: str) -> list[str]:
+    """Each unticked `window` standing action ticked on the evidence; what was done."""
+    return ledger.update(register, lambda lines: _tick(lines, lambda row: row[0].strip("`").lower() == WINDOW, evidence, None))
 
 
 def brief_rows(brief: Path) -> list[str]:
@@ -218,7 +234,8 @@ def dispatch(
             made = [first, question, *[""] * max(width - 3, 0), f"RUNNING ({ledger.stamp(now)})"][:width]
             lines.insert(end + 1, "| " + " | ".join(made) + " |")
             said.append(f"added {name}'s live-agent row")
-        said += _tick(lines, (brief or briefs / f"{name}.md").resolve(), name, now)
+        target = (brief or briefs / f"{name}.md").resolve()
+        said += _tick(lines, lambda row: _same_file(row[1], target), f"`reg.py dispatch {name}`", now)
         if brief is not None and not rows:
             said.append(f"{brief.name} carries no `Rows:` line, so it routed no row")
         return said, _take_rows(register, lines, name, rows, takes, said)
@@ -494,6 +511,7 @@ def _parser() -> argparse.ArgumentParser:
     queueing.add_argument("register", type=Path)
     queueing.add_argument("trigger", help=f"`{WINDOW}` for the next concluded CI window, which `land.py` holds a landing for")
     queueing.add_argument("brief", type=Path)
+    queueing.add_argument("--done", metavar="EVIDENCE", help="tick the row on this evidence: sent by message, or withdrawn and why")
     messaging = commands.add_parser("message")
     messaging.add_argument("plans", type=Path, help="the plans directory; the PostToolUse payload arrives on stdin")
     for read in ("live", "prune"):
@@ -537,7 +555,7 @@ def _run(args: argparse.Namespace) -> int:
             print(f"not routed: {line}", file=sys.stderr)
         return 0
     if args.command == "queue":
-        print(queue(args.register, args.trigger, args.brief))
+        print(queue(args.register, args.trigger, args.brief, args.done))
         return 0
     if args.command == "live":
         print("\n".join(live(args.register)))

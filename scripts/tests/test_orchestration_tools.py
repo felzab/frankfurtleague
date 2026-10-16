@@ -1909,8 +1909,71 @@ def test_a_landing_waits_while_a_standing_action_waits_on_the_open_window(tmp_pa
     done = _land(root, "agent", env)
     assert done.returncode == code, done.stderr
     if code == 9:
-        assert "dispatch them first" in done.stderr and str(brief) in done.stderr and git(root, "rev-parse", "HEAD") == head
+        assert "dispatch them first, or land with --after-dispatch" in done.stderr and str(brief) in done.stderr
+        assert git(root, "rev-parse", "HEAD") == head
         assert _land(root, "agent", env, "--after-dispatch").returncode == 0
+        # Ticked by the flag, the row no longer holds back the next landing in the same concluded window.
+        assert re.search(r"\| yes \d{4}-\d\d-\d\d \d\d:\d\d \(`land.py --after-dispatch`\) \|", register.read_bytes().decode())
+        git(root, "branch", "second")
+        _agent_commit(root, "Docs: A second note", {"other.txt": "new\n"}, branch="second")
+        assert _land(root, "second", env).returncode == 0
+
+
+def test_a_window_whose_run_cannot_be_read_refuses_naming_the_flag(tmp_path: Path) -> None:
+    root = _repo(tmp_path)
+    _agent_commit(root, "Docs: A note", NOTE)
+    register, brief = _register(tmp_path), tmp_path / "NEXT.md"
+    brief.write_bytes(b"the brief\n")
+    standing = "## Standing actions\n\n| Trigger | The whole brief | Dispatched? |\n| --- | --- | --- |\n"
+    register.write_bytes(
+        register.read_bytes().replace(b"## Findings ledger", f"{standing}| window | `{brief}` | |\n\n## Findings ledger".encode())
+    )
+    head = git(root, "rev-parse", "HEAD")
+    done = _land(root, "agent", _gh(tmp_path, {}, code=1, lists=([],)))
+    assert done.returncode == 2 and "could not be read" in done.stderr and "--after-dispatch" in done.stderr, done.stderr
+    assert git(root, "rev-parse", "HEAD") == head
+
+
+def test_a_landing_credits_no_agent_whose_branch_had_landed_before_it(tmp_path: Path) -> None:
+    """An agent landed earlier keeps a row for a later round, which another branch's claim must not close."""
+    root = _repo(tmp_path, branch="worktree-agent-a1b2c3")
+    register = _banked(tmp_path, ("A-report.md", "F1 one\n\nF2 two\n"))
+    ledger.route(register, "WORKER", ["A-F2"])
+    _agent_commit(root, "Docs: A note", NOTE, branch="worktree-agent-a1b2c3")
+    assert _land(root, "worktree-agent-a1b2c3").returncode == 0
+    git(root, "branch", "worktree-agent-d4e5f6")
+    _agent_commit(root, "Docs: Another file\n\nRows fixed: A-F2.", {"other.txt": "new\n"}, branch="worktree-agent-d4e5f6")
+    done = _land(root, "worktree-agent-d4e5f6")
+    assert done.returncode == 0, done.stderr
+    assert _status(register, "A-F2") == ["ROUTED", "WORKER"] and "still ROUTED" not in done.stdout
+
+
+def test_bookkeeping_that_fails_after_the_merge_is_its_own_exit(tmp_path: Path) -> None:
+    """Two live rows naming one id raised a traceback after the merge commit, and a git failure there read as refused before it."""
+    branch = "worktree-agent-a1b2c3"
+    root = _repo(tmp_path, branch=branch)
+    _register(tmp_path, live=LIVE.replace("| OTHER `d4e5f6` |", "| OTHER `a1b2c3` |"))
+    _agent_commit(root, "Docs: A note", NOTE, branch=branch)
+    head = git(root, "rev-parse", "HEAD")
+    done = _land(root, branch)
+    assert done.returncode == 10 and "landed as" in done.stderr and "two names" in done.stderr, done.stderr
+    assert "Traceback" not in done.stderr and git(root, "rev-parse", "HEAD^1") == head
+
+
+def test_queue_names_a_row_queued_already_and_done_ticks_it(tmp_path: Path) -> None:
+    """A message's standing action, ticked by nothing, held back every later landing in a concluded window."""
+    _, register, _ = _fleet(tmp_path)
+    register.write_bytes(register.read_bytes().replace(b"## Findings ledger", (STANDING + "## Findings ledger").encode()))
+    brief = _brief(tmp_path, "LATER", "")
+    assert _run("reg", "queue", str(register), "window", str(brief)).returncode == 0
+    again = _run("reg", "queue", str(register), "window", str(brief))
+    assert again.returncode == 0 and again.stdout.startswith("already queued: window")
+    assert reg.windows(register.read_bytes().decode()) == [f"`{brief.resolve()}`"]
+    done = _run("reg", "queue", str(register), "window", str(brief), "--done", "sent by message")
+    assert done.returncode == 0 and reg.windows(register.read_bytes().decode()) == [], done.stderr
+    assert re.search(r"\| window \| `[^`]+` \| yes \d{4}-\d\d-\d\d \d\d:\d\d \(sent by message\) \|", register.read_bytes().decode())
+    none = _run("reg", "queue", str(register), "window", str(brief), "--done", "again")
+    assert none.returncode == 2 and "no unticked standing action `window`" in none.stderr
 
 
 def _agents(tmp_path: Path, *rows: str) -> Path:
