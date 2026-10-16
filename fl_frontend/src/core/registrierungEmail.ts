@@ -69,7 +69,7 @@ export interface RegistrierungNotizEmailData {
  * Why a team declined, as the decline stores it: the backend's fixed choice, never free text. Spelled
  * here because `core` may not import the slice's mirror, which is passed in and so checked against this.
  */
-export type RegistrierungAbsageGrund = "andere_person" | null;
+type RegistrierungAbsageGrund = "andere_person" | null;
 
 /**
  * What the decline note is addressed with. Like the season-end note it carries no confirmation link,

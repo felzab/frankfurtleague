@@ -27,7 +27,7 @@ export const SPIELER_ADRESSWECHSEL_PATH = "/bestaetigung/spieler/adresse";
  * `nginx/shared/http.conf :: $credential_free_uri` matches that name; a second spelling reaches the
  * access line and the referer unredacted.
  */
-export function spielerAdresswechselLink(origin: string, token: string): string {
+function spielerAdresswechselLink(origin: string, token: string): string {
   return `${origin}${SPIELER_ADRESSWECHSEL_PATH}?token=${encodeURIComponent(token)}`;
 }
 
