@@ -1,0 +1,21 @@
+{
+  "email": [
+    { "value": "schiri@platzhalter.invalid", "refused": true },
+    { "value": "SCHIRI@Platzhalter.INVALID", "refused": true },
+    { "value": "schiri@invalid", "refused": true },
+    { "value": "  schiri@platzhalter.invalid  ", "refused": true },
+    { "value": "ada@noinvalid.example", "refused": false },
+    { "value": "ada@invalid.example", "refused": false },
+    { "value": "invalid@schule.de", "refused": false },
+    { "value": "ada@example.org", "refused": false }
+  ],
+  "anlass": [
+    { "value": "E-Mail von ada@example.org vom 12.10.2026", "refused": true },
+    { "value": "ADA@SCHULE.DE", "refused": true },
+    { "value": "Antwort an käthe@schule.de", "refused": true },
+    { "value": "E-Mail vom 12.10.2026, Betreff Löschung meiner Daten", "refused": false },
+    { "value": "Nach Absprache @ Schulleitung", "refused": false },
+    { "value": "Rückmeldung an ada@schule", "refused": false },
+    { "value": "Rückmeldung an ada@schule.d", "refused": false }
+  ]
+}
