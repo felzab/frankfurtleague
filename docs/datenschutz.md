@@ -597,10 +597,13 @@ Every ruling below is the sign-up flow as it stands for the next season.
   erasure leaves it to that index, its own write being what holds a late writer off. The published
   notice tabulates it, that pass's period in words (`DatenschutzView.tsx :: FRISTEN`). Ruled
   2026-10-16.
-- **Backups outlive an erasure by the snapshot window, and the person is told so.** The hosting
+- **Backups outlive an erasure by the snapshot window, the mail provider's copies by its own
+  period, and the person is told both.** The hosting
   keeps snapshots for about eight days, taken daily — a figure mirrored from the provider's own
   console, which moves without us, as it stood on 2026-09-01. An erased person is gone from the live
-  database at once and from backups within that window, and that sentence is what a requester
+  database at once and from backups within that window, while the mail provider keeps every
+  message the league sent, theirs among them, for the longer period of
+  [section 7](#7-processors-and-third-parties), which no erasure reaches. Both are what a requester
   receives, from the published notice and from the runbook alike
   (`DatenschutzView.tsx :: Was eine Löschung erreicht und was nicht`). A restore is followed by
   running again every erasure asked for since its snapshot, each found by the keyed hash it left in

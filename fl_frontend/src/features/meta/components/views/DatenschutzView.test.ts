@@ -49,7 +49,7 @@ const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
  * The „Stand“ and the words it dates, frozen together: a reader told nothing changed since that day
  * has been misled by any edit that left the date standing.
  */
-const FASSUNG = { stand: "16. Oktober 2026", digest: "193ad6c32c3f51220f1ac1a90eb1670152651ef1d9448a9f59e974d0e0439653" } as const;
+const FASSUNG = { stand: "16. Oktober 2026", digest: "b865e63a962182bf01e2d9240e320b2a28c241dcb6497ee3803c963b292bb01c" } as const;
 
 /** Every word the page renders but its date, so moving the date alone never passes for moving the words. */
 const wortlautDigest = (): string =>
@@ -248,6 +248,24 @@ describe("the privacy notice's retention table", () => {
       ),
     );
     assert.equal(ANGABEN.get("Sicherungskopien der Datenbank"), "Etwa acht Tage");
+  });
+
+  /* No erasure reaches the mail provider's copies, every message the league sent among them, and they outlive the
+     backups (`docs/datenschutz.md` §7): a person told only of the backups is told the shorter of the two. */
+  it("tells a person an erasure leaves every copy at the mail provider, where the deletion is explained and in the provider's row", () => {
+    const absatz = ABSAETZE.find((text) => text.startsWith("Was eine Löschung erreicht und was nicht:")) ?? "";
+
+    assert.ok(
+      absatz.endsWith(
+        "Auch die Kopien unserer E-Mails beim Versanddienst Resend erreicht eine Löschung nicht. Wie lange sie dort bleiben, steht in Abschnitt 13.",
+      ),
+      absatz,
+    );
+    assert.equal(
+      ANGABEN.get("E-Mails der Liga beim Versanddienst Resend: Empfängeradresse, Betreff, Inhalt und Zustellstand"),
+      "30 Tage bei Resend, in dessen Sicherungskopien bis zu einer Woche länger. Eine Löschung bei uns erreicht diese E-Mails nicht: " +
+        "Sie bleiben bei Resend bis dahin bestehen",
+    );
   });
 
   it("gives a sign-in code its lifetime in words, at the constant the sign-in enforces", () => {

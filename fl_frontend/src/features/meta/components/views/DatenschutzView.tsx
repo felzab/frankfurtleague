@@ -242,7 +242,7 @@ const FRISTEN = [
   {
     daten: "E-Mails der Liga beim Versanddienst Resend: Empfängeradresse, Betreff, Inhalt und Zustellstand",
     frist:
-      "30 Tage bei Resend, in dessen Sicherungskopien bis zu einer Woche länger. Löschen wir Deine Daten, bleiben diese Kopien bis dahin bestehen",
+      "30 Tage bei Resend, in dessen Sicherungskopien bis zu einer Woche länger. Eine Löschung bei uns erreicht diese E-Mails nicht: Sie bleiben bei Resend bis dahin bestehen",
   },
   {
     daten: "Daten von Spielerinnen, Spielern und Schiedsrichtern",
@@ -764,7 +764,8 @@ export function DatenschutzView() {
           <p className={ABSATZ_CLASSES}>
             Was eine Löschung erreicht und was nicht: Aus der laufenden Datenbank sind Deine Daten sofort verschwunden. In den Sicherungskopien
             bleiben sie bis zu etwa acht Tage länger, weil eine Sicherung nicht einzeln geändert werden kann; danach laufen die Kopien von
-            selbst aus, und wir stellen aus einer Sicherung nichts wieder her, ohne Deine Löschung erneut auszuführen.
+            selbst aus, und wir stellen aus einer Sicherung nichts wieder her, ohne Deine Löschung erneut auszuführen. Auch die Kopien unserer
+            E-Mails beim Versanddienst Resend erreicht eine Löschung nicht. Wie lange sie dort bleiben, steht in Abschnitt 13.
           </p>
           <p className={ABSATZ_CLASSES}>
             Deine E-Mail-Adresse steht bei uns für Dich allein: Alles, was unter ihr eingetragen ist, gehört zu Deinem Konto.
