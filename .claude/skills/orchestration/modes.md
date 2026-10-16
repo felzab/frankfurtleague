@@ -26,13 +26,17 @@ before the first command writes it: `reg.py resume` refuses a field the block do
 `/fullspeed` writes `full speed` into `Mode:`, ending any `/pace`. A session starts at full speed
 and returns to it on no word but the owner's.
 
-- **Dispatch every agent the critical path can use**, up to the owner's cap, attended or not. No
-  usage reading holds an agent back.
+Full speed is a dispatch rule and nothing more: the quota is never a reason to hold work back, and
+every ready agent goes out. It never shortens a brief, a check, an audit or a cycle, never tells an
+agent to be quick, sets no time limit, and leaves the skill's quality bar as it stands. Being the
+coordinator's rule alone, it is named in no brief.
+
+- **Dispatch every agent the critical path can use**, up to the owner's cap, attended or not.
 - **Make a stop cheap instead.** Each writer commits every item as soon as its acceptance evidence
   holds (`.claude/agents/implementer.md` section 5), so a stop loses only the item in hand; the
-  resume point is current (SKILL.md); and the usage is read at each notification. The desktop app's
-  `get_usage` gives each window's percent used and its reset; where no such tool answers, as in a
-  terminal session, say so once and judge by notifications alone.
+  resume point is current (SKILL.md); and the usage is read at each notification, for the warnings
+  below alone. The desktop app's `get_usage` gives each window's percent used and its reset; where
+  no such tool answers, as in a terminal session, say so once and judge by notifications alone.
 - **The five-hour window.** Where the slope between your last two readings, carried forward,
   reaches 100% before the reset, bring the resume point current, naming every live agent, and,
   attended, tell the owner in one line when the stop is due and, in the desktop app, that ticking

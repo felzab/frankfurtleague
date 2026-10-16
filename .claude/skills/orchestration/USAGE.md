@@ -80,11 +80,12 @@ added or changed finds it after `/reload-skills`, which re-scans the command dir
   step on the critical path and what it waits on, CI, both usage readings, and what waits on you. It
   changes nothing.
 - **Full speed is the default** in every session, attended or not: every agent the work can use is
-  dispatched, and a usage-limit stop is made cheap instead of avoided. Agents commit each finished
-  item, and the resume point is kept current. After a stop, the terminal continues on its own once
-  the limit resets. The desktop app continues only if you tick _Auto-continue when limits reset_ on
-  the session-limit card, which appears at the stop. A weekly limit never continues on its own, so
-  Claude tells you before one nears.
+  dispatched, and a usage-limit stop is made cheap instead of avoided. It changes only how many
+  agents run: no brief, check, audit or review round is shortened, and no agent is told to hurry.
+  Agents commit each finished item, and the resume point is kept current. After a stop, the
+  terminal continues on its own once the limit resets. The desktop app continues only if you tick
+  _Auto-continue when limits reset_ on the session-limit card, which appears at the stop. A weekly
+  limit never continues on its own, so Claude tells you before one nears.
 - **`/pace [n]`** keeps the five-hour window under a line that reaches n percent at its reset, 95
   when you give no number, by sizing the fleet to it and pausing agents gracefully above it. It holds
   until `/fullspeed`.

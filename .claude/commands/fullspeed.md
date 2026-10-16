@@ -1,5 +1,5 @@
 ---
-description: Run the fleet at full speed, every ready agent dispatched, ending any /pace
+description: Run the fleet at full speed — every ready agent dispatched whatever the quota, nothing hurried or cut short — ending any /pace
 disable-model-invocation: true
 ---
 

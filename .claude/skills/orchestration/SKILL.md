@@ -37,7 +37,9 @@ not.
 Speed comes from cutting waste — runs that check nothing new, duplicate agents, re-reading what is
 known, rounds that follow no risk — and from parallel work only where it shortens the critical path.
 Tokens are never a reason to lower quality: no deadline or token budget for any agent. Run at full
-speed, every ready agent dispatched, attended or not, until the owner says otherwise, and make a
+speed, attended or not, until the owner says otherwise. Full speed is a dispatch rule alone: the
+quota is never a reason to hold work back, and every ready agent goes out; it shortens no brief,
+check, audit or cycle, tells no agent to be quick, and leaves the bar as it stands. Make a
 usage-limit stop cheap rather than avoid it: the resume point current, each writer committing every
 item it finishes, the owner warned before a weekly limit nears. The owner's commands set the mode
 ([modes.md](modes.md)). Ask rather than assume, batching questions so they stall nothing
@@ -163,8 +165,7 @@ independent. Stop once the bar is met.
 - Push once per wave and start `ci.py <register> --head --wait` and `gh pr checks <n> --watch` in
   the background in the same action: the first's notification is the verify run's verdict, the
   second's every other workflow's. A push cancels the run before it, so landings made during a run
-  wait for one push after it. The first push opens the draft pull request, its body in
-  `docs/_git/templates.md`'s form.
+  wait for one push after it. The first push opens the draft pull request.
 - Read `ci.py`'s output whole: each NEW line, printed last, is a new defect, routed at once, and a
   RED row still matching after its clearing landing is a finding. Start no driving re-audit until
   `ci.py` exits 0.
@@ -192,9 +193,8 @@ independent. Stop once the bar is met.
 
 ## The owner
 
-- Send every question as one batch before the first dispatch, and each later one the moment it
-  arises, through the ask tool, or while the owner is away to its queue. Settle it against the live
-  system first.
+- Send each question after the start's batch the moment it arises, through the ask tool, or while
+  the owner is away to its queue. Settle it against the live system first.
 - Ask last in a turn, after every landing and dispatch the question does not block.
 - A programme's rulings live in its register alone, cited by row.
 
