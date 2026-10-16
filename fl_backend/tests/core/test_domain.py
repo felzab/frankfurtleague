@@ -13,7 +13,7 @@ from pydantic import BaseModel
 
 from app.api.aktionen.crud import redact_address_in_images
 from app.api.berechtigungen.erasure import erase_grants_and_authorship_in_session
-from app.api.identitaet.crud import ERASURE_STEPS, JEDE_PERSONENGRUPPE, _runs, erase_everything
+from app.api.identitaet.crud import ERASURE_STEPS, JEDE_PERSONENGRUPPE, Personengruppe, _runs, erase_everything
 from app.api.saisons.schemas import FLSaison
 from app.api.schiedsrichter.crud import remove_pending_addresses_in_session
 from app.api.schiedsrichter.schemas import FLSchiedsrichter
@@ -584,9 +584,12 @@ PERSON_COLLECTIONS = frozenset({Collection.SPIELER, Collection.SCHIEDSRICHTER})
 
 REFERENCES_TO_A_PERSON = [reference for reference in REFERENCES if reference.target in PERSON_COLLECTIONS]
 
+# Every scope `erase_everything` could be handed, so a step moved into a narrower one fails before any caller asks for that scope.
+SCOPES = [frozenset(scope) for size in range(len(JEDE_PERSONENGRUPPE) + 1) for scope in combinations(sorted(JEDE_PERSONENGRUPPE), size)]
 
-def _steps_reaching(collection: Collection) -> list[int]:
-    return [index for index, step in enumerate(ERASURE_STEPS) if collection in step.reaches]
+
+def _steps_reaching(collection: Collection, scope: frozenset[Personengruppe] = JEDE_PERSONENGRUPPE) -> list[int]:
+    return [index for index, step in enumerate(ERASURE_STEPS) if collection in step.reaches and _runs(step.run, scope)]
 
 
 def test_every_reference_to_a_person_has_an_erasure_step_reaching_its_source():
@@ -599,14 +602,19 @@ def test_every_reference_to_a_person_has_an_erasure_step_reaching_its_source():
     assert [f"{reference.source}.{reference.fields[0]}" for reference in REFERENCES_TO_A_PERSON if not _steps_reaching(reference.source)] == []
 
 
-def test_a_cascade_onto_a_persons_references_runs_before_the_person_goes():
-    """A step reaching a cascading reference AFTER the person's removal finds no person to repoint from, and answers zero."""
+def test_in_every_scope_a_cascade_onto_a_persons_references_runs_before_the_person_goes():
+    """A step serving no one kind runs in the full scope alone, so a repoint declared so passes there.
+
+    In the pupil scope it leaves the reference naming nobody; one running after the removal finds no person to repoint from.
+    """
 
     cascading = [reference for reference in REFERENCES_TO_A_PERSON if reference.on_target_removed is Action.CASCADE]
     late = [
-        f"{reference.source}.{reference.fields[0]}"
+        (sorted(scope), f"{reference.source}.{reference.fields[0]}")
+        for scope in SCOPES
         for reference in cascading
-        if min(_steps_reaching(reference.source), default=len(ERASURE_STEPS)) > max(_steps_reaching(reference.target))
+        if (removing := _steps_reaching(reference.target, scope))
+        and min(_steps_reaching(reference.source, scope), default=len(ERASURE_STEPS)) > max(removing)
     ]
 
     assert cascading, "no reference cascades onto a person, so the comparison below holds of nothing"
@@ -639,19 +647,15 @@ _LEAVING_THE_ADDRESS_IN_IMAGES = (
 
 
 def test_no_scope_runs_a_step_leaving_the_address_in_an_image_without_the_address_pass():
-    """Every scope `erase_everything` could be handed, so a step moved into a narrower one fails before any caller asks for that scope.
+    """Running without the pass, such a step leaves the address in the images its writes filed."""
 
-    Running without the pass, such a step leaves the address in the images its writes filed.
-    """
-
-    scopes = [frozenset(scope) for size in range(len(JEDE_PERSONENGRUPPE) + 1) for scope in combinations(sorted(JEDE_PERSONENGRUPPE), size)]
     unredacted = [
         sorted(scope)
-        for scope in scopes
+        for scope in SCOPES
         if any(_runs(run, scope) for run in _LEAVING_THE_ADDRESS_IN_IMAGES) and not _runs(redact_address_in_images, scope)
     ]
 
-    assert any(_runs(redact_address_in_images, scope) for scope in scopes), "no scope runs the pass, so the comparison holds of nothing"
+    assert any(_runs(redact_address_in_images, scope) for scope in SCOPES), "no scope runs the pass, so the comparison holds of nothing"
     assert unredacted == []
 
 
