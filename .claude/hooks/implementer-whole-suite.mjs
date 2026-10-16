@@ -16,6 +16,7 @@ const NODE_VALUE = new Set(["--import", "--test-name-pattern"]);
 const PYTEST_VALUE = new Set(["-m", "-k"]);
 const UV_RUN_VALUE = new Set(["--project", "--directory"]);
 const PNPM_VALUE = new Set(["-C", "--dir", "--filter"]);
+const SHELL_VALUE = new Set(["--rcfile", "--init-file"]);
 // Flags with which pytest collects or answers and runs no test.
 const RUNS_NO_TEST = new Set(["--collect-only", "--co", "--version", "-V", "--help", "-h"]);
 const WRAPPERS = new Set(["time", "exec", "command", "!", "if", "then", "else", "do", "while", "until"]);
@@ -93,9 +94,19 @@ function segments(text, escapes) {
       let j = i + 1;
       let s = "";
       while (j < text.length && text[j] !== '"') {
-        if (escapes && text[j] === "\\" && j + 1 < text.length) {
+        if (text[j] === (escapes ? "\\" : "`") && j + 1 < text.length) {
           s += text[j + 1];
           j += 2;
+          continue;
+        }
+        // Both shells run a substitution inside double quotes, before the command it sits in.
+        if (text.startsWith("$(", j) || (escapes && text[j] === "`")) {
+          const tick = text[j] === "`";
+          const k = tick ? text.indexOf("`", j + 1) : closing(text, j + 2);
+          if (k === -1) throw new Error("unterminated substitution");
+          out.push(...segments(text.slice(j + (tick ? 1 : 2), k), escapes));
+          s += SUBSTITUTION;
+          j = k + 1;
           continue;
         }
         s += text[j++];
@@ -234,13 +245,24 @@ function judge(words, depth, escapes) {
     let k = 1;
     let script = false;
     let noexec = false;
-    while (k < w.length && /^-[a-z]+$/.test(w[k])) {
-      script ||= w[k].includes("c");
-      noexec ||= w[k].includes("n");
-      k++;
+    let interactive = false;
+    while (k < w.length && /^(?:[-+][A-Za-z]+|--[a-z-]*)$/.test(w[k])) {
+      const flag = w[k++];
+      if (flag === "--") break;
+      if (flag.startsWith("--")) {
+        if (SHELL_VALUE.has(flag)) k++;
+        continue;
+      }
+      const on = flag[0] === "-";
+      script ||= on && flag.includes("c");
+      noexec ||= on && flag.includes("n");
+      interactive ||= on && flag.includes("i");
+      // `-o` and `-O` take the next word as their option's name, in a cluster such as `-euo` too.
+      k += (flag.match(/[oO]/g) ?? []).length;
     }
-    // `-n`, alone or in a cluster, reads the commands and runs none: a syntax check runs no suite.
-    if (noexec) return null;
+    // `-n` reads a script and runs none of it. An interactive shell ignores it, and a `-c` line is
+    // judged as the line it is rather than trusted to a flag beside it.
+    if (noexec && !interactive && !script) return null;
     if (!script) return judge(w.slice(k), depth, escapes);
     if (k >= w.length || depth >= 3) return null;
     for (const inner of segments(w[k], escapes)) {
