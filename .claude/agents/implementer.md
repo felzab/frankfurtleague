@@ -73,8 +73,12 @@ that is not your worktree's own, is a wrong premise under section 4. Stop and re
   refuses whenever the machine's own Node is not that release.
 - **Run the checks your items name and then your targeted set, never a whole suite.** The set is the
   test files of every file you changed and of every module importing one, found by every import form
-  in use -- the `@/` alias, a relative path, a dotted Python module -- and the tests naming any
-  registry gaining a member, run as `pnpm run test:base <files>` and
+  in use -- the `@/` alias, a relative path, a dotted Python module -- the tests naming any
+  registry gaining a member, and the sweeps, which read a whole tree's source rather than import
+  what they judge: where you touched `fl_backend/app`, every test importing
+  `fl_backend/tests/core/app_source.py`, and where you touched `fl_frontend/src`, every test
+  importing `fl_frontend/src/core/treeWalk.ts`, each directly or through a module importing it; run
+  as `pnpm run test:base <files>` and
   `uv run --frozen pytest <paths>`; `pnpm run typecheck`, `pnpm run lint`, `pnpm run knip` and
   `pnpm run knip:prod` where you touched `fl_frontend` (typecheck runs `next typegen` before tsc,
   without which a fresh worktree's tsc passes a page breaking Next's route types; the two knip runs
