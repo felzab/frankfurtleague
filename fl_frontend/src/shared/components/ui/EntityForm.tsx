@@ -23,7 +23,7 @@ import type { StepUpDemand } from "./stepUp";
  * The create and edit form skeleton, once. A call site guarding its own result does so to narrow a
  * payload field, never because this form reads one: what it answers is `ActionResult` and nothing more.
  */
-export function EntityForm<TDraft, TPayload = TDraft>({
+export function EntityForm<TDraft, TPayload = TDraft, TSaved extends object = object>({
   initialDraft,
   renderFields,
   onSubmit,
@@ -31,6 +31,7 @@ export function EntityForm<TDraft, TPayload = TDraft>({
   toPayload,
   successMessage,
   onClose,
+  onSaved,
   marksRequired = false,
   stepUp: due = false,
 }: {
@@ -40,7 +41,7 @@ export function EntityForm<TDraft, TPayload = TDraft>({
    * Handed the payload the block judged, never the draft: a payload step that normalises would otherwise judge
    * one value and send another. Answers the action's own result, the caller's guard on its created record folded in.
    */
-  onSubmit: (payload: TPayload) => Promise<ActionResult>;
+  onSubmit: (payload: TPayload) => Promise<ActionResult<TSaved>>;
   /**
    * The one the action parses, so the block and the server state the same rules (`docs/frontend/spec.md` I18).
    * Parameterised: unparameterised it takes any schema, and a caller's own action then applies other rules.
@@ -57,6 +58,11 @@ export function EntityForm<TDraft, TPayload = TDraft>({
    */
   successMessage: string;
   onClose: () => void;
+  /**
+   * Handed a save in place of closing, inside the save's own transition: a caller switching the dialog to a second
+   * state from its `onSubmit` instead races this form's toast and close.
+   */
+  onSaved?: (saved: TSaved & { success: true; message: string }) => void;
   /**
    * The required asterisks, and only a form that creates something sets it. It governs the marks alone: the
    * fields are required either way, by the schema this form submits.
@@ -111,7 +117,8 @@ export function EntityForm<TDraft, TPayload = TDraft>({
           // The server's sentence as the body (`docs/frontend/spec.md` §1.12), and never a second copy of
           // the title: an action with nothing to add sends the title's own words.
           appToast.success(successMessage, { description: res.message === successMessage ? undefined : res.message });
-          onClose();
+          if (onSaved === undefined) onClose();
+          else onSaved(res);
         });
       }),
     );
