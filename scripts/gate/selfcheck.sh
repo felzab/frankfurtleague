@@ -520,6 +520,20 @@ check_documented_helpers() { # $1 the sheet
 check_documented_helpers "$VOCAB_SHEET"
 
 step "5. --help works from an unrelated directory"
+# Steps 5 and 6 run each script, so they take the ones git tracks alone: an untracked draft runs
+# whatever its body does ahead of an argument loop, on every gate. Read off step 3's modes.
+TRACKED_RUNNABLE=()
+if (( GIT_MODES_RC != 0 )); then
+  note_fail "step 3 could not read git's index, so steps 5 and 6 ran no script"
+else
+  for f in "${RUNNABLE[@]}"; do
+    if [[ -n "${GIT_MODE["scripts/$f"]:-}" ]]; then
+      TRACKED_RUNNABLE+=("$f")
+    else
+      note_skip "$f is not tracked by git, so steps 5 and 6 did not run it"
+    fi
+  done
+fi
 unit_help() { # $1 index · $2 script name · $3 label
   if ( cd / && bash "${REPO_ROOT}/scripts/$2" --help >/dev/null 2>&1 ); then
     printf 'info\t%s --help\n' "$2"
@@ -527,7 +541,7 @@ unit_help() { # $1 index · $2 script name · $3 label
     printf 'fail\t%s --help failed (a relative path that stops resolving after the cd?)\n' "$2"
   fi
 }
-for f in "${RUNNABLE[@]}"; do par_add "$f" "$f"; done
+for f in "${TRACKED_RUNNABLE[@]}"; do par_add "$f" "$f"; done
 par_run unit_help
 
 step "6. Unknown options are rejected, without requiring Docker"
@@ -542,7 +556,7 @@ unit_unknown_option() { # $1 index · $2 script name · $3 label
     printf 'fail\t%s did not reject an unknown option (is the arg loop after an environmental check?)\n' "$2"
   fi
 }
-for f in "${RUNNABLE[@]}"; do par_add "$f" "$f"; done
+for f in "${TRACKED_RUNNABLE[@]}"; do par_add "$f" "$f"; done
 par_run unit_unknown_option
 
 step "7. Machine-specific scripts declare a target platform"

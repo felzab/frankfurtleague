@@ -26,8 +26,7 @@ from app.api.saisons.cache import (
 from app.api.saisons.crud import pull_current_saison, pull_saison_id_and_rules
 from app.core import crud, dependencies
 from app.core.exceptions import DocumentNotFoundException
-from app.main import PERSON_ROUTERS, SYSTEM_ROUTERS, WRITE_ROUTERS
-from tests.core.app_source import APP_ROOT, DRIVER_WRITES, WRITE_HELPERS, parsed
+from tests.core.app_source import APP_ROOT, DRIVER_WRITES, WRITE_HELPERS, api_routes, application, parsed
 from tests.documents import rules_document
 
 # The three a case below reads back or reshapes, passed rather than defaulted.
@@ -489,15 +488,13 @@ def _season_write_handlers() -> dict[str, Any]:
     """
 
     handlers: dict[str, Any] = {}
-    # Every group that writes, the rule being about writing a season rather than about who may: the
-    # retention sweep and a representative's squad edit each write one from a router of their own.
-    for router in (*WRITE_ROUTERS, *SYSTEM_ROUTERS, *PERSON_ROUTERS):
-        for route in router.routes:
-            endpoint = getattr(route, "endpoint", None)
-            if endpoint is None or not getattr(route, "methods", set()) & WRITE_METHODS:
-                continue
-            if _reaches_a_season_write(endpoint):
-                handlers[endpoint.__name__] = endpoint
+    # Every route the application mounts, never a list of its groups: the rule is about writing a
+    # season, not about who may, and a group a second list leaves out is a writer nothing checks.
+    for route in api_routes(application()):
+        if not (route.methods or set()) & WRITE_METHODS:
+            continue
+        if _reaches_a_season_write(route.endpoint):
+            handlers[route.endpoint.__name__] = route.endpoint
 
     return handlers
 
@@ -507,7 +504,7 @@ SEASON_WRITE_HANDLERS = _season_write_handlers()
 # Floored rather than non-empty: an endpoint the recogniser stopped seeing drops out of the parameter
 # set instead of failing (`docs/_standard/standard.md` PRE-4), so a rename costing no behaviour can
 # shrink the sweep and still report success.
-SEASON_WRITE_HANDLER_FLOOR = 17
+SEASON_WRITE_HANDLER_FLOOR = 18
 
 # Ahead of `pyproject.toml :: empty_parameter_set_mark`, which refuses an empty parametrize without
 # naming what to look at when the recognition stops matching.
@@ -525,6 +522,14 @@ class TestEverySeasonWriteDropsIt:
         """
 
         assert "aufnehmen" in SEASON_WRITE_HANDLERS
+
+    def test_the_season_after_deletion_pass_is_among_the_season_writers(self):
+        """Named, as the admission is: the pass writes a season only through I722's anchor, three calls deep.
+
+        A rename there drops the pass from the set, and its drop could then go with every case green.
+        """
+
+        assert "post_loeschung_lauf" in SEASON_WRITE_HANDLERS
 
     @pytest.mark.parametrize("handler", sorted(SEASON_WRITE_HANDLERS))
     def test_a_handler_writing_a_season_runs_it_inside_the_drop(self, handler: str):
