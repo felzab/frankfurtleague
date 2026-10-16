@@ -38,7 +38,6 @@ from app.api.identitaet.services import (
     build_registrierung_references_pipeline,
     build_seat_pipeline,
     build_seat_references_pipeline,
-    can_judge,
     eigene_eintraege,
     eigene_sitze,
     find_funktion_refusal,
@@ -68,7 +67,7 @@ from app.api.registrierungen.services import build_eigene_registrierung_filter
 from app.api.saisons.schemas import FLSaisonStatus
 from app.api.schiedsrichter.crud import ensure_ghost_schiedsrichter, erase_referee_in_session, remove_pending_addresses_in_session
 from app.api.schiedsrichter.services import ADRESSWECHSEL_FELD
-from app.api.sperrliste.lookup import BanList, adressen_gesperrt
+from app.api.sperrliste.lookup import BanList
 from app.api.spieler.crud import ensure_ghost_spieler, erase_person_in_session, remove_pending_pupil_addresses_in_session
 from app.api.spieler.services import SPIELER_ADRESSWECHSEL_FELD, build_spieler_filter
 from app.core.collections import Collection
@@ -740,36 +739,31 @@ class ErasureJournal[Erased: FLErasure]:
         journal_logger.info(f"{ERASURE_JOURNAL_EVENT} {loeschung_journal_hash(self._identifier, schluessel=self._schluessel)}")
 
 
-async def unreferenced_of(
-    identifiers: Sequence[str], records: RecordCollections, *, berechtigungen_collection: AsyncCollection, sperrliste: BanList
-) -> list[str]:
-    """Which of these addresses no record references and no ban holds (`docs/backend/spec.md :: I698`).
+async def unreferenced_of(identifiers: Sequence[str], records: RecordCollections, *, berechtigungen_collection: AsyncCollection) -> list[str]:
+    """Which of these addresses no record references (`docs/backend/spec.md :: I698`).
 
     Each collection is read once for the whole batch rather than once per address, which is what
     `app/shared/schemas/bounds.py :: REFERENZEN_ADRESSEN_MAX` is measured against.
     """
 
-    judged = [identifier for identifier in identifiers if can_judge(identifier)]
-    folded = sorted({sign_in_identifier(identifier) for identifier in judged})
+    folded = sorted({sign_in_identifier(identifier) for identifier in identifiers})
 
     # No address, no read: an empty `$or` is a query the server refuses.
     if not folded:
         return []
 
-    rows, gesperrt = await gather_cancelling(
-        gather_cancelling(
-            aggregate_many_from_db(collection=records.saison_teams_collection, pipeline=build_seat_references_pipeline(folded)),
-            aggregate_many_from_db(collection=records.bewerbungen_collection, pipeline=build_bewerbung_references_pipeline(folded)),
-            aggregate_many_from_db(collection=records.schiedsrichter_collection, pipeline=build_referee_references_pipeline(folded)),
-            aggregate_many_from_db(collection=records.spieler_collection, pipeline=build_pupil_references_pipeline(folded)),
-            aggregate_many_from_db(collection=records.registrierungen_collection, pipeline=build_registrierung_references_pipeline(folded)),
-            # Every row as stored, never `app/api/berechtigungen/crud.py :: verwaltung_of`: a grant edited in
-            # the database is in effect for nobody until the comparison sees it, and its account outlasts that.
-            read_berechtigungen(berechtigungen_collection=berechtigungen_collection),
-        ),
-        adressen_gesperrt(sperrliste, judged),
+    # No ban read beside these: a ban keeps no account, a barred address's going once no record holds it
+    # (`docs/datenschutz.md :: 6`).
+    (seat_rows, bewerbung_rows, referee_rows, pupil_rows, registrierung_rows, grant_rows) = await gather_cancelling(
+        aggregate_many_from_db(collection=records.saison_teams_collection, pipeline=build_seat_references_pipeline(folded)),
+        aggregate_many_from_db(collection=records.bewerbungen_collection, pipeline=build_bewerbung_references_pipeline(folded)),
+        aggregate_many_from_db(collection=records.schiedsrichter_collection, pipeline=build_referee_references_pipeline(folded)),
+        aggregate_many_from_db(collection=records.spieler_collection, pipeline=build_pupil_references_pipeline(folded)),
+        aggregate_many_from_db(collection=records.registrierungen_collection, pipeline=build_registrierung_references_pipeline(folded)),
+        # Every row as stored, never `app/api/berechtigungen/crud.py :: verwaltung_of`: a grant edited in
+        # the database is in effect for nobody until the comparison sees it, and its account outlasts that.
+        read_berechtigungen(berechtigungen_collection=berechtigungen_collection),
     )
-    seat_rows, bewerbung_rows, referee_rows, pupil_rows, registrierung_rows, grant_rows = rows
 
     # Before any address is judged: the whole batch answers nothing rather than all of it unreferenced.
     refuse(find_kein_inhaber_refusal(grant_rows))
@@ -783,7 +777,7 @@ async def unreferenced_of(
         grant_rows=grant_rows,
     )
 
-    return unreferenced(identifiers, referenced=referenced, gesperrt=gesperrt)
+    return unreferenced(identifiers, referenced=referenced)
 
 
 # --- The SEASON-AFTER RULE's two readers (`docs/backend/spec.md :: I690`): one outside any transaction
