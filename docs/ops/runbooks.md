@@ -908,8 +908,10 @@ command and not from a keyboard.
 disarms every ban in silence ([`../backend/spec.md`](../backend/spec.md#15-environment)), the one
 sign being a second ban of an address already on the list admitted rather than refused. It keys the
 action log's pseudonyms of signed-in people too, so a replacement leaves one person's rows under two
-pseudonyms and the older can never be recomputed, and the erasure journal's hashes, so every line
-written before a replacement matches no address a restore holds (§13). Treat it as
+pseudonyms and the older can never be recomputed; the erasure journal's hashes, so every line
+written before a replacement matches no address a restore holds and its erasure cannot be run again
+after the restore (§13); and the addresses' anchors, which a replacement merely strands until their
+next expiry pass ([`../backend/spec.md`](../backend/spec.md#15-environment)). Treat it as
 the one backend secret with no recovery: back it up where the database's own access details are
 backed up, and where it is genuinely gone, clear the list and enter the bans again from whatever
 record names the addresses.

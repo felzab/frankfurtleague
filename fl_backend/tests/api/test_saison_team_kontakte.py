@@ -26,6 +26,7 @@ from app.api.teams.services import (
     compose_kontakte_herkunft,
     kontakte_stand_of,
 )
+from app.core.adressanker import adressanker_id
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
@@ -495,6 +496,27 @@ class TestAPairNoRowAnswers:
             return await row_now(database)
 
         assert on_a_league(mongo_replica_set_url, body)["kontakte"] == SEEDED_KONTAKTE
+
+
+@pytest.mark.db
+class TestOnlyANewlySeatedAddressIsAnchored:
+    def test_a_save_keeping_two_seats_anchors_the_third_persons_address_alone(self, mongo_replica_set_url: str):
+        """A kept seat's address is on the row an erasure of it writes already (`docs/backend/spec.md :: I719`).
+
+        Anchored too, it sends that person's own writes round against an administrator's save.
+        """
+
+        handed_on = {**RESAVED_AS_RENDERED, "stellvertretung": person("Nils")}
+
+        async def body(database: AsyncDatabase) -> Any:
+            await write_kontakte(database, handed_on)
+            expected = adressanker_id(str(handed_on["stellvertretung"]["email"]), schluessel=ban_list(database).schluessel)
+
+            return [row["_id"] async for row in database[Collection.ADRESSANKER].find()], expected
+
+        anchored, expected = on_a_league(mongo_replica_set_url, body)
+
+        assert anchored == [expected]
 
 
 @pytest.mark.db

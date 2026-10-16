@@ -687,6 +687,49 @@ class TestTwoAddressesRegisteringForOneSeasonWaitOnNeitherOther:
         assert on_a_league(mongo_replica_set_url, body) == (1, 2)
 
 
+# Planned below the season just ended, which activation does not refuse, beside a running season whose fixtures are all played.
+PLANNED_BELOW = "2023"
+BELOW_THE_ENDED = {PLANNED_BELOW: "future", "2024": "active", "2025": "past"}
+
+
+class TestAnActivationInsideThePupilsTransactionKeepsThem:
+    def test_the_pupil_stands(self, mongo_replica_set_url: str):
+        """`docs/backend/spec.md :: I722`: remove the planned season's anchor in `erase_if_still_due` and the pupil goes.
+
+        The pupil's only row is in the planned season, which activating it keeps; the transaction read it planned.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await seeded(
+                database,
+                {Collection.SPIELER: [pupil(numbered(1), address_of(1))], Collection.SAISON_SPIELER: [squad_row(numbered(1), PLANNED_BELOW)]},
+            )
+            # What makes the planned season activatable (`REQ-ACTIVATE-003`).
+            await database[Collection.SPIELE].insert_one(
+                spiel_document(spiel_id=numbered(900), saison_id=PLANNED_BELOW, spiel_nr=1, spieltag_id=numbered(901))
+            )
+
+            async def activate() -> Any:
+                return await activate_saison(
+                    saison_id=PLANNED_BELOW,
+                    saisons_collection=database[Collection.SAISONS],
+                    spiele_collection=database[Collection.SPIELE],
+                    spieltage_collection=database[Collection.SPIELTAGE],
+                    sperrliste_collection=database[Collection.SPERRLISTE],
+                    db=client,
+                )
+
+            seasons = CommittedInsideThePupilsTransaction(database[Collection.SAISONS], activate)
+            answer = await run(database, client, saisons_collection=seasons)
+
+            return seasons.committed, counts(answer), await database[Collection.SPIELER].count_documents({"_id": numbered(1)})
+
+        committed, answer, standing = on_a_league(mongo_replica_set_url, body, saisons=BELOW_THE_ENDED)
+
+        assert committed, "the activation never committed inside the pupil's transaction, so this case proves nothing"
+        assert (answer["spieler"], answer["uebersprungen"], standing) == (0, 1, 1)
+
+
 class TestOneRecordHoldsBackNobody:
     def test_a_refused_erasure_is_counted_and_the_next_pupil_goes(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         """A log row stored before its validator required `trace_id` refuses the redaction's update, a real failure under strict validation.
