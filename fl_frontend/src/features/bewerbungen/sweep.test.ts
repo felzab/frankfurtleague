@@ -4,6 +4,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { after, beforeEach, describe, it, mock } from "node:test";
 
+import ts from "typescript";
+
 import { ACTOR_KEY_FILE } from "@/core/authDoubles.ts";
 import { APIBadStatusError, APIMalformedDataError, APINetworkError } from "@/core/errors.ts";
 import { registerDoubles } from "@/core/exportingModule.ts";
@@ -40,6 +42,24 @@ let apiAnswer: (call: ApiEvent) => unknown = () => ({});
 
 const ADRESSWECHSEL = "/schiedsrichter/sweep/adresswechsel";
 const LAUF = "/identitaet/loeschung/lauf";
+
+const LAUF_SENDER = "postLoeschungLauf";
+const LAUF_SENDER_MODULE = "features/saisons/mutations.ts";
+
+function declaresOrImports(node: ts.Identifier, where: string): boolean {
+  if (ts.isFunctionDeclaration(node.parent) && node.parent.name === node) return where === LAUF_SENDER_MODULE;
+
+  return ts.isImportSpecifier(node.parent) && node.parent.propertyName === undefined;
+}
+
+function enclosing(node: ts.Node): string {
+  for (let at = node.parent; !ts.isSourceFile(at); at = at.parent) {
+    if ((ts.isFunctionDeclaration(at) || ts.isMethodDeclaration(at)) && at.name !== undefined) return at.name.getText();
+    if ((ts.isArrowFunction(at) || ts.isFunctionExpression(at)) && ts.isVariableDeclaration(at.parent)) return at.parent.name.getText();
+  }
+
+  return "(module)";
+}
 
 /**
  * The two halves after the season loop, answered apart so a case about a season's clocks never answers them. Each is
@@ -359,14 +379,30 @@ describe("the switch the retention sweep is armed by", () => {
 
     /* The API's pass deletes on any system-key call, the switch read at each caller alone, so a third caller would
        delete while it reads off. Each caller's off arm is driven in its own suite. */
-    it("guards the deletion pass's only callers, the hourly pass and the activation", () => {
+    it("guards the deletion pass's only callers, the hourly pass and the activation, and its path's one sender", () => {
       const src = path.resolve(import.meta.dirname, "..", "..");
-      const naming = filesUnder(src, (name) => /\.tsx?$/.test(name) && !isTestFile(name), 200)
-        .filter((file) => /\bpostLoeschungLauf\b/.test(readFileSync(file, "utf8")))
-        .map((file) => path.relative(src, file).split(path.sep).join("/"))
-        .filter((file) => file !== "features/saisons/mutations.ts");
+      const uses: string[] = [];
+      const senders: string[] = [];
 
-      assert.deepEqual(naming.sort(), ["features/bewerbungen/sweep.ts", "features/saisons/actions.ts"]);
+      for (const file of filesUnder(src, (name) => /\.tsx?$/.test(name) && !isTestFile(name), 200)) {
+        const text = readFileSync(file, "utf8");
+        if (!text.includes(LAUF_SENDER) && !text.includes(LAUF)) continue;
+        const where = path.relative(src, file).split(path.sep).join("/");
+
+        const visit = (node: ts.Node): void => {
+          // Every reference, not only a call: the hourly pass hands the function on by name, and an alias or a
+          // wrapper beside the declaration is a third caller.
+          if (ts.isIdentifier(node) && node.text === LAUF_SENDER && !declaresOrImports(node, where))
+            uses.push(`${where} :: ${enclosing(node)}`);
+          if ((ts.isStringLiteralLike(node) || ts.isTemplateLiteralToken(node)) && node.text.includes(LAUF))
+            senders.push(`${where} :: ${enclosing(node)}`);
+          ts.forEachChild(node, visit);
+        };
+        visit(ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true));
+      }
+
+      assert.deepEqual(uses.sort(), ["features/bewerbungen/sweep.ts :: sweepLoeschung", "features/saisons/actions.ts :: activateSaisonAction"]);
+      assert.deepEqual(senders, [`${LAUF_SENDER_MODULE} :: ${LAUF_SENDER}`]);
     });
   });
 });
