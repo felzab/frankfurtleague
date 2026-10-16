@@ -130,9 +130,9 @@ def _end(lines: list[str], start: int, starts: set[int]) -> int:
 
 
 def _finding(found: list[Label]) -> Label:
-    # An index list, an acceptance table or an evidence line naming another report's finding carries
-    # the number too, often first: the finding is the prose label whose paragraph runs longest, and a
-    # table row only where no prose line carries the number.
+    # An index line, an acceptance table or an evidence line citing another report carries the number
+    # too, often first: the finding is the prose label with the longest paragraph, a table row only
+    # where no prose carries it.
     prose = [label for label in found if not label.table]
     return max(prose, key=lambda label: label.size) if prose else found[0]
 
@@ -225,7 +225,8 @@ def locked(path: Path) -> Iterator[None]:
     deadline = time.monotonic() + LOCK_SECONDS
     while True:
         try:
-            handle = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            # `x` creates only where no file is: the create and the test for one are a single step.
+            lock.open("xb").close()
             break
         # Windows refuses a create racing the holder's delete with PermissionError, not FileExistsError.
         except (FileExistsError, PermissionError) as held:
@@ -236,10 +237,6 @@ def locked(path: Path) -> Iterator[None]:
                 ) from None
             time.sleep(LOCK_POLL_SECONDS)
     try:
-        try:
-            os.write(handle, f"{os.getpid()}\n".encode())
-        finally:
-            os.close(handle)
         yield
     finally:
         lock.unlink()
@@ -258,11 +255,10 @@ def _replace(path: Path, data: bytes) -> None:
 
 
 def update[T](path: Path, edit: Callable[[list[str]], T]) -> T:
-    """`edit` applied to the file's lines under its lock; what it returned.
+    """`edit` applied to the file's lines under its lock, writing nothing where it raises; what it returned.
 
     Every register write comes through here: the messages hook and a background `ci.py --wait` write
-    unbidden, and two overlapping whole-file rewrites drop the earlier. A refusal `edit` raises writes
-    nothing.
+    unbidden, and overlapping whole-file rewrites drop the earlier.
     """
     with locked(path):
         held = path.read_bytes()

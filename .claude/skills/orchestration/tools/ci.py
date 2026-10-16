@@ -3,10 +3,9 @@
 A failed job carrying an expected red was read as wholly expected while it held a second, unlisted
 finding, so every finding of every failed job is named expected or NEW, NEW lines last and a count
 closing the output, which no tail hides. A finding is an error annotation, a test runner's or tsc's
-own line; a job printing none stays NEW by its verdict lines or its name, which `expect` writes no
-row for, since one matching them would expect every later failure of the job. Only the verify
-workflow's run for the branch's upstream commit is read, `--commit` naming another to read without
-writing: three workflows start per push, and a landing during a run moves HEAD past it.
+own line; a job printing none stays NEW by its verdict lines or its name. Only the verify workflow's
+run for the branch's upstream commit is read: three workflows start per push, and a landing during a
+run moves HEAD past it.
 
     uv run --project fl_backend --frozen python .claude/skills/orchestration/tools/ci.py <command>
 
@@ -401,6 +400,7 @@ def _expect(argv: list[str]) -> int:
         print(f"run {args.run} succeeded: no NEW line to expect")
         return 0
     reading = report(_gh("run", "view", args.run, "--log-failed"), held)
+    # A job's summary or name stands in for no finding: a row matching it would expect every later failure of the job.
     specific = [pair for pair in reading.new if pair not in reading.generic]
     if not reading.new:
         print(f"run {args.run} printed no NEW line: nothing to expect")

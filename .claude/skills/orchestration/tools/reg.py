@@ -4,7 +4,7 @@ A typed time runs ahead of the clock, so `append` and `resume` stamp from it; te
 or stdin, since a backtick inside a double-quoted argument ran as a command and dropped words. A
 table no tool writes drifts, so `dispatch` writes the live-agent row, routes the brief's `Rows:`,
 ticks the standing action naming the brief and marks a resume RUNNING, and `message`, the messages
-hook's, records each send, routes its rows one by one and marks the agent it resumes RUNNING.
+hook's, records each send and routes its rows one by one.
 
     uv run --project fl_backend --frozen python .claude/skills/orchestration/tools/reg.py <command>
 
@@ -322,7 +322,7 @@ def pause(register: Path, names: list[str], now: datetime.datetime | None = None
 
 
 def record(payload: dict[str, object], plans: Path, now: datetime.datetime | None = None) -> str | None:
-    """The sent message written to its recipient's messages file and its rows routed one by one; what the coordinator is told, if anything."""
+    """The sent message recorded, the recipient a send resumes set RUNNING and its rows routed one by one; what the coordinator is told."""
     if "agent_id" in payload or payload.get("tool_name") != "SendMessage":
         return None
     session, sent = payload.get("session_id"), payload.get("tool_input")

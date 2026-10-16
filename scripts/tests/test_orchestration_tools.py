@@ -1349,8 +1349,8 @@ def _stub(tmp_path: Path, name: str, script: str) -> dict[str, str]:
 
 
 # Answers `run list` from `list-<n>.json`, the nth call's file or the last one, `run view --log-failed`
-# from `log.txt` and any other view from `run.json`, recording every call; the nth call exits with
-# the nth code in `exits.txt`, and past them with `exit.txt`.
+# from `log.txt` and any other view from `run.json`, recording every call; call n exits with code n
+# of `exits.txt`, else `exit.txt`'s.
 GH: Final = (
     "import sys\nfrom pathlib import Path\nhere = Path(__file__).parent\nargs = sys.argv[1:]\ncalls = here / 'calls.txt'\n"
     "calls.write_bytes((calls.read_bytes() if calls.exists() else b'') + ' '.join(args).encode() + b'\\n')\n"
@@ -1563,7 +1563,7 @@ def test_ci_names_a_cancelled_run_rather_than_reading_its_log(tmp_path: Path) ->
 
 
 def test_ci_reads_another_commits_run_with_commit_and_writes_no_row(tmp_path: Path) -> None:
-    """Main's verify runs could no longer be read, and a run of another commit says nothing of the pushed head's rows."""
+    """Every run of another commit was refused, main's among them, and such a run says nothing of the pushed head's rows."""
     root, sha = _pushed(tmp_path)
     head = git(root, "rev-parse", "HEAD")
     jobs = [{"name": "frontend", "conclusion": "success"}]
@@ -2045,7 +2045,7 @@ def test_a_landing_waits_while_a_standing_action_waits_on_the_open_window(tmp_pa
         assert "dispatch them first, or land with --after-dispatch" in done.stderr and str(brief) in done.stderr
         assert git(root, "rev-parse", "HEAD") == head
         assert _land(root, "agent", env, "--after-dispatch").returncode == 0
-        # Ticked by the flag, the row no longer holds back the next landing in the same concluded window.
+        # Ticked by the flag, the row lets the next landing in the same concluded window through.
         assert re.search(r"\| yes \d{4}-\d\d-\d\d \d\d:\d\d \(`land.py --after-dispatch`\) \|", register.read_bytes().decode())
         git(root, "branch", "second")
         _agent_commit(root, "Docs: A second note", {"other.txt": "new\n"}, branch="second")
