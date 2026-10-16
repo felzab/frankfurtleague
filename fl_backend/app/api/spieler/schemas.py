@@ -341,10 +341,9 @@ class FLSpielerAdresswechselAnsichtPayload(BaseModel):
 
 
 class FLSpielerAdresswechselAnsichtResponse(BaseAPIResponse):
-    """What one address link opens, declared from nothing (`READ-PUPIL-005`): never either address, the id or the surname."""
+    """What one address link opens, declared from nothing (`READ-PUPIL-005`): never a name, either address or the id."""
 
     zustand: FLSpielerAdresswechselZustand
-    vorname: str
     frist: CustomDateString
 
 

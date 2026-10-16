@@ -7752,7 +7752,7 @@
     "/api/v0/spieler/adresswechsel/ansicht": {
       "post": {
         "summary": "What one Spieler address link opens",
-        "description": "Answer what this token opens: the pupil's first name, the link's state and its deadline.\n\n**A first name and nothing else about the row** (`READ-PUPIL-005`): never either address, the surname or the id. A POST\nthat reads, so the token travels in a body and never in a second URL.\n\nRefuses only a token no pupil holds (`REQ-SPIELER-001`), which an answered, replaced or discarded change is too: an answer\nremoves what the link opens. An expired link is SERVED in that state rather than refused. The state is `gesperrt`, ahead\nof every other, wherever the ban list holds the address the link was mailed to, and `nicht_bestaetigbar`, behind the\ndeadline, wherever it holds the address the change would replace, the pupil holds no address, or another pupil signs in on\nthe new one: each state the confirmation would be refused in. Those three read alike here, though the press answers each by\nits own code; what keeps the link's holder from telling them apart is the edge, where `nginx/shared/site.conf` routes no\npublic call to this service and the frontend's route handler for the link's page answers all three as this one state.",
+        "description": "Answer what this token opens: the link's state and its deadline.\n\n**Nothing else about the row** (`READ-PUPIL-005`): never a name, either address or the id. A POST that reads, so the token\ntravels in a body and never in a second URL.\n\nRefuses only a token no pupil holds (`REQ-SPIELER-001`), which an answered, replaced or discarded change is too: an answer\nremoves what the link opens. An expired link is SERVED in that state rather than refused. The state is `gesperrt`, ahead\nof every other, wherever the ban list holds the address the link was mailed to, and `nicht_bestaetigbar`, behind the\ndeadline, wherever it holds the address the change would replace, the pupil holds no address, or another pupil signs in on\nthe new one: each state the confirmation would be refused in. Those three read alike here, though the press answers each by\nits own code; what keeps the link's holder from telling them apart is the edge, where `nginx/shared/site.conf` routes no\npublic call to this service and the frontend's route handler for the link's page answers all three as this one state.",
         "operationId": "get_adresswechsel_ansicht_api_v0_spieler_adresswechsel_ansicht_post",
         "requestBody": {
           "content": {
@@ -24128,10 +24128,6 @@
             ],
             "title": "Zustand"
           },
-          "vorname": {
-            "type": "string",
-            "title": "Vorname"
-          },
           "frist": {
             "type": "string",
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -24141,11 +24137,10 @@
         "type": "object",
         "required": [
           "zustand",
-          "vorname",
           "frist"
         ],
         "title": "FLSpielerAdresswechselAnsichtResponse",
-        "description": "What one address link opens, declared from nothing (`READ-PUPIL-005`): never either address, the id or the surname."
+        "description": "What one address link opens, declared from nothing (`READ-PUPIL-005`): never a name, either address or the id."
       },
       "FLSpielerAdresswechselAntwortPayload": {
         "properties": {
