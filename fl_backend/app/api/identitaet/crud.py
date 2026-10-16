@@ -67,7 +67,8 @@ from app.core.concurrency import gather_cancelling
 from app.core.crud import aggregate_many_from_db, patch_many_in_db, refuse
 from app.core.db import warn_about_the_grants
 from app.core.drosselung import erase_counts_in_session
-from app.core.logging import journal_logger
+from app.core.exception_handlers import DATABASE_FAILED
+from app.core.logging import fl_logger, journal_logger
 from app.core.recording import ERASED_ACTOR_MARKER
 from app.core.security import akteur_pseudonym, loeschung_journal_hash
 from app.shared.einwilligung import is_confirmed
@@ -721,7 +722,7 @@ class ErasureJournal[Erased: FLErasure]:
             # It fires on a list left holding no live grant, no owner or a dead row, never on one merely a
             # grant short: the ended grant's queued notice is what tells the other administrators.
             if self._erased.berechtigungen:
-                await warn_about_the_grants(self._berechtigungen_collection)
+                await self._warn_about_the_grants()
         # A lost answer, never a refusal (which raises before any commit): it may have landed, and replaying an
         # erasure the person asked for wrongs nobody. Unwarned: the warning's read would meet the deadline that
         # lost the answer.
@@ -730,6 +731,14 @@ class ErasureJournal[Erased: FLErasure]:
 
     def _journal(self) -> None:
         journal_logger.info(f"{ERASURE_JOURNAL_EVENT} {loeschung_journal_hash(self._identifier, schluessel=self._schluessel)}")
+
+    async def _warn_about_the_grants(self) -> None:
+        # Logged, never raised: the erasure committed, and an error answered here, a read meeting the deadline
+        # say, keeps the person's sign-in account until they ask again.
+        try:
+            await warn_about_the_grants(self._berechtigungen_collection)
+        except PyMongoError as failure:
+            fl_logger.error(f"The grants went unchecked after an erasure: {type(failure).__name__}", extra={"error_code": DATABASE_FAILED})
 
 
 async def unreferenced_of(
