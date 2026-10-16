@@ -135,8 +135,9 @@ service_cid() {
   docker compose -f "$COMPOSE" ps -q "$1" 2>/dev/null
 }
 
-# `service_cid` with a container that exited or is restarting counted too, which `ps` leaves out
-# without `--all`: a failed build's backend is often one, and a recreate discards its stream alike.
+# `service_cid` with a container that exited counted too, which `ps` leaves out without `--all`: a
+# failed build's backend is often one, and a recreate discards its stream alike. One restarting is
+# running to the engine, so `service_cid` already lists it.
 service_cid_any() {
   docker compose -f "$COMPOSE" ps --all -q "$1" 2>/dev/null
 }

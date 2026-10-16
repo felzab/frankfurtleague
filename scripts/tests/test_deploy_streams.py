@@ -274,7 +274,7 @@ def test_a_directory_the_copy_cannot_write_refuses_before_anything_is_stopped() 
 
 
 def test_a_container_that_is_not_running_is_copied_and_neither_stopped_nor_started() -> None:
-    """A failed build's backend has often exited or is restarting, and the rollback's recreate discards its stream all the same."""
+    """A failed build's backend has often exited, and the rollback's recreate discards its stream all the same."""
     code, output, fixture = _run(FAILED, FL_DEPLOY_STOPPED_CONTAINER="backend")
 
     assert code == 0, output

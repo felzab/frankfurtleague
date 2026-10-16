@@ -992,7 +992,8 @@ no log above outlives its bound.
 `/var/log/frankfurtleague/` before it recreates them** (`scripts/ops/deploy.sh :: copy_streams`), one
 file per service stamped to the second, so a line written in the seconds before the recreate — an
 erasure's journal line among them (§13) — is in the copy. A container already stopped, a failed
-build's backend that exited or keeps restarting among them, is copied as well and left stopped.
+build's backend that exited among them, is copied as well and left stopped; one that keeps
+restarting is running to the engine, and is stopped and copied with the other.
 A directory it cannot write refuses at exit 2 before anything is stopped; a copy failing after the
 stop starts the containers it stopped again and refuses alike, nothing recreated either way.
 **A deploy that rolls back
