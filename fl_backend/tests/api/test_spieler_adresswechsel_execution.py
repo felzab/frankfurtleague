@@ -46,8 +46,8 @@ from app.api.spieler.services import (
     SPIELER_KEINE_ADRESSE,
     SPIELER_TOKEN_EXPIRED,
     SPIELER_TOKEN_UNKNOWN,
+    build_address_holder_filter,
     build_pending_spieler_adresswechsel_filter,
-    build_selbst_pupil_filter,
     build_spieler_adresswechsel_filter,
     spieler_adresswechsel_frist_from,
 )
@@ -603,20 +603,18 @@ class TestTheConfirmationsRefusals:
         assert row == before
 
     def test_to_an_address_the_sentinel_was_given_by_hand(self, mongo_replica_set_url: str):
-        """The one path to `DB-COMMON-002`: the holder read passes over the sentinel, and `uniq_spieler_email` covers it."""
+        """The holder read takes `uniq_spieler_email`'s whole population, the sentinel included, so the view's state and this refusal agree."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             token = (await request(database, client, email=NEW_EMAIL)).adresswechsel.token
             await database[Collection.SPIELER].insert_one(documents.spieler_document(GHOST_SPIELER_ID, VORNAME, None, email=NEW_EMAIL))
             before = await stored(database)
-            with pytest.raises(DuplicateKeyError) as refused:
-                await answer(database, client, token, "bestaetigt")
 
-            return refusal_of(refused.value), before, await stored(database)
+            return await refused_code(answer(database, client, token, "bestaetigt")), before, await stored(database)
 
         code, before, row = on_a_league(mongo_replica_set_url, body)
 
-        assert code == DUPLICATE_KEY
+        assert code == SPIELER_ADRESSE_VERGEBEN
         assert row == before
 
     def test_for_a_pupil_whose_address_was_removed_by_hand(self, mongo_replica_set_url: str):
@@ -913,7 +911,7 @@ class TestTwoWritersAtOnce:
             ours = (await request(database, client, email=NEW_EMAIL)).adresswechsel.token
             theirs = (await request(database, client, email=NEW_EMAIL, spieler_id=OTHER_OID)).adresswechsel.token
             committed = asyncio.Event()
-            held = _HoldsAfterItsRead(database[Collection.SPIELER], committed, read=build_selbst_pupil_filter(NEW_EMAIL))
+            held = _HoldsAfterItsRead(database[Collection.SPIELER], committed, read=build_address_holder_filter(NEW_EMAIL))
             _, outcome = await held_against(
                 held,
                 committed,
