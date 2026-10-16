@@ -258,8 +258,8 @@ describe("the erasure's press", () => {
     assert.ok(await screen.findByRole("textbox", { name: `Gib zur Bestätigung die Adresse „${ANDERE_ADRESSE}“ ein` }));
   });
 
-  /* The list the press is confirmed over is the one read for this arming: one read for an earlier arming of the
-     same address may name records the erasure no longer reaches. */
+  /* The list the press is confirmed over is the one read for this arming: a read for an earlier arming of the same
+     address may name records the erasure does not reach when it runs. */
   it("holds the press over the latest arming's read, an earlier one for the same address answered first", async () => {
     const { user } = await renderPage();
     const reads = holdReads();
