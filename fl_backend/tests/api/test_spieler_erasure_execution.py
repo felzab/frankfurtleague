@@ -13,15 +13,12 @@ from app.api.identitaet.schemas import FLErasureResponse
 from app.api.spieler.admin_router import (
     delete_saison_spieler,
     delete_spieler,
-    erase_spieler,
     patch_saison_spieler,
     patch_spieler,
     post_saison_spieler,
 )
 from app.api.spieler.schemas import FLPatchSaisonSpielerPayload, FLPatchSpielerPayload, FLPostSaisonSpielerPayload
-from app.api.spieler.services import ERASURE_NOT_RETIRED
 from app.core.collections import Collection
-from app.core.exceptions import WriteRefusalException
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.documents import saison_document, saison_team_document, spieler_document
 from tests.erasure import erased
@@ -189,17 +186,6 @@ async def erase_the_pupil(database: AsyncDatabase, client: AsyncMongoClient, spi
     assert person is not None, f"no pupil {spieler_id} to erase"
 
     return await erased(database, client, person["email"], germany_now=NOW)
-
-
-async def call_erasure(database: AsyncDatabase, client: AsyncMongoClient, spieler_id: ObjectId) -> Any:
-    return await erase_spieler(
-        spieler_id=spieler_id,
-        spieler_collection=database[Collection.SPIELER],
-        saison_spieler_collection=database[Collection.SAISON_SPIELER],
-        aktionen_collection=database[Collection.AKTIONEN],
-        db=client,
-        germany_now=NOW,
-    )
 
 
 async def log_rows_naming(database: AsyncDatabase, spieler_id: ObjectId) -> list[dict[str, Any]]:
@@ -439,53 +425,6 @@ class TestAPupilWhoNeverJoinedASquad:
 
         assert remaining == 0
         assert held == {LONE_VORNAME: []}
-
-
-class TestTheErasureIsRefusedUntilTheyAreRetired:
-    """`REQ-PURGE-001`: the reversible step has to have been taken and left standing."""
-
-    def test_a_pupil_still_in_the_league_is_refused(self, mongo_replica_set_url: str):
-        """Catches dropping the precondition, which would put an unrecoverable write one click from the squad list."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> WriteRefusalException:
-            spieler_id = await a_pupil_with_a_history(database, vorname="Max", team_id=HOME_TEAM_OID, retired=False)
-
-            with pytest.raises(WriteRefusalException) as excinfo:
-                await call_erasure(database, client, spieler_id)
-
-            return excinfo.value
-
-        assert on_a_league(mongo_replica_set_url, body).error_code == ERASURE_NOT_RETIRED
-
-    def test_the_refused_call_removes_and_redacts_nothing(self, mongo_replica_set_url: str):
-        """The refusal is raised INSIDE the transaction, so it has to abort rather than leave half a write."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            spieler_id = await a_pupil_with_a_history(database, vorname="Max", team_id=HOME_TEAM_OID, retired=False)
-
-            with pytest.raises(WriteRefusalException):
-                await call_erasure(database, client, spieler_id)
-
-            return (
-                await database[Collection.SPIELER].count_documents({"_id": spieler_id}),
-                await database[Collection.SAISON_SPIELER].count_documents({"spieler_id": spieler_id}),
-                await database[Collection.AKTIONEN].count_documents({"redacted_at": {"$ne": None}}),
-            )
-
-        assert on_a_league(mongo_replica_set_url, body) == (1, 2, 0)
-
-    def test_retiring_them_first_lets_the_same_call_through(self, mongo_replica_set_url: str):
-        """The floor under the refusal: without it, a blanket failure would read as the precondition working."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            spieler_id = await a_pupil_with_a_history(database, vorname="Max", team_id=HOME_TEAM_OID, retired=False)
-            await delete_spieler(spieler_id=spieler_id, spieler_collection=database[Collection.SPIELER], today=TODAY, db=database.client)
-
-            return await call_erasure(database, client, spieler_id)
-
-        response = on_a_league(mongo_replica_set_url, body)
-
-        assert (response.erased_saison_spieler, response.acknowledged) == (2, 1)
 
 
 class TestAHalfDoneErasureCommitsNothing:

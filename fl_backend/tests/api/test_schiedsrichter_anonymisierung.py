@@ -13,7 +13,6 @@ from app.api.bewerbungen.services import hash_token
 from app.api.identitaet.schemas import FLErasureResponse
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.schiedsrichter.admin_router import (
-    anonymise_schiedsrichter,
     delete_schiedsrichter,
     patch_schiedsrichter,
     reactivate_schiedsrichter,
@@ -27,14 +26,12 @@ from app.api.schiedsrichter.schemas import (
     FLSchiedsrichterWriteResponse,
 )
 from app.api.schiedsrichter.services import (
-    GHOST_ERASED,
     build_booked_image_filter,
     build_ghost_repoint,
     build_ghost_schiedsrichter,
     build_unplayed_assignment_filter,
     compose_bestaetigung,
     compose_einwilligung,
-    find_ghost_erasure_refusal,
     first_stamped,
 )
 from app.api.spiele.schemas import (
@@ -49,7 +46,7 @@ from app.api.spiele.services import BOOKING_UNKNOWN_RESOURCE, BookedReferee, Res
 from app.core.collections import Collection
 from app.core.constraints import SUPPORT_INDEXES, UNIQUE_INDEXES
 from app.core.crud import delete_many_from_db, patch_one_in_db
-from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
+from app.core.exceptions import DocumentNotFoundException
 from app.core.recording import build_redaction_filter
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
 from app.shared.schemas.kontakt import FLKontakt, FLKontaktPayload
@@ -254,33 +251,6 @@ class TestTheGhostTheFixturesAreHandedTo:
         assert FLSpielSchiedsrichterFieldPublic.model_validate(booking).name is None
 
 
-class TestErasingTheGhostIsRefused:
-    """`REQ-ANONYMISE-004`.
-
-    The ghost stands behind nobody, and deleting it would leave every erased referee's fixtures
-    naming a row that is gone.
-    """
-
-    def test_the_ghosts_own_id_is_refused(self):
-        refusal = find_ghost_erasure_refusal(schiedsrichter_id=GHOST_SCHIEDSRICHTER_ID)
-
-        assert refusal is not None
-        assert refusal.error_code == GHOST_ERASED
-
-    def test_the_sentence_says_there_is_nothing_on_it_to_delete(self):
-        """A bare 404 would read as a mistyped id, where the refusal an administrator needs is that there is no person here."""
-
-        refusal = find_ghost_erasure_refusal(schiedsrichter_id=GHOST_SCHIEDSRICHTER_ID)
-
-        assert refusal is not None
-        assert "stands behind nobody" in refusal.message
-
-    def test_any_other_referee_is_not(self):
-        """The control: a guard refusing every id would refuse the erasure itself."""
-
-        assert find_ghost_erasure_refusal(schiedsrichter_id=SCHIEDSRICHTER_OID) is None
-
-
 class TestTheRetirementKeepsTheDayItAlreadyCarries:
     """`first_stamped` on its own, the retire endpoint being its one caller."""
 
@@ -448,19 +418,6 @@ async def erase_the_referee(
     """The registry's erasure of the address the referee's history left them holding: the erasure is keyed on a mailbox, never on an id."""
 
     return await erased(database, client, KONTAKT[schiedsrichter_id]["email"], germany_now=NOW)
-
-
-async def call_anonymisation(
-    database: AsyncDatabase, client: AsyncMongoClient, schiedsrichter_id: ObjectId = SCHIEDSRICHTER_OID
-) -> FLSchiedsrichterWriteResponse:
-    return await anonymise_schiedsrichter(
-        schiedsrichter_id=schiedsrichter_id,
-        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-        spiele_collection=database[Collection.SPIELE],
-        aktionen_collection=database[Collection.AKTIONEN],
-        db=client,
-        germany_now=NOW,
-    )
 
 
 async def call_reactivation(database: AsyncDatabase, client: AsyncMongoClient, schiedsrichter_id: ObjectId) -> Any:
@@ -652,39 +609,6 @@ def test_the_single_read_answers_for_neither_the_erased_referee_nor_the_ghost(mo
         return answers
 
     assert on_a_league(mongo_replica_set_url, body) == ["not found", "not found"]
-
-
-@pytest.mark.db
-def test_erasing_the_ghost_is_refused_at_the_endpoint(mongo_replica_set_url: str):
-    """Kills a guard the router never consults: the ghost would be deleted and every fixture already repointed left naming nothing."""
-
-    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        await call_anonymisation(database, client)
-
-        with pytest.raises(WriteRefusalException) as refused:
-            await call_anonymisation(database, client, GHOST_SCHIEDSRICHTER_ID)
-
-        return refused.value.error_code, await stored_referees(database)
-
-    code, referees = on_a_league(mongo_replica_set_url, body)
-
-    assert code == GHOST_ERASED
-    assert GHOST_SCHIEDSRICHTER_ID in referees
-
-
-@pytest.mark.db
-def test_an_id_already_erased_answers_not_found(mongo_replica_set_url: str):
-    """Kills an erasure that repoints and deletes for an id holding nothing, which would file a log row about nobody."""
-
-    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        await call_anonymisation(database, client)
-
-        with pytest.raises(DocumentNotFoundException):
-            await call_anonymisation(database, client)
-
-        return "not found"
-
-    assert on_a_league(mongo_replica_set_url, body) == "not found"
 
 
 @pytest.mark.db

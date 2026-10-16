@@ -27,9 +27,9 @@ from app.api.bewerbungen.router import router as bewerbungen_router
 from app.api.bewerbungen.sweep_router import router as bewerbungen_sweep_router
 from app.api.bewerbungen.zustellung_router import router as bewerbungen_zustellung_router
 from app.api.einwilligung.router import router as einwilligung_router
+from app.api.identitaet.admin_router import router as identitaet_admin_router
 from app.api.identitaet.person_router import router as identitaet_person_router
 from app.api.identitaet.router import router as identitaet_router
-from app.api.kontakte.admin_router import router as kontakte_admin_router
 from app.api.konto.router import router as konto_router
 from app.api.registrierungen.einwilligung_router import router as registrierungen_einwilligung_router
 from app.api.registrierungen.person_router import router as registrierungen_person_router
@@ -94,6 +94,7 @@ from app.core.security import (
     WRONG_SYSTEM_KEY,
     get_actor_token,
     get_person_confirmation_check,
+    get_recent_confirmation_check,
     get_step_up_check,
     get_token,
     verify_access_admin,
@@ -133,7 +134,7 @@ WRITE_ROUTERS = (
     schiedsrichter_admin_router,
     aktionen_admin_router,
     bewerbungen_admin_router,
-    kontakte_admin_router,
+    identitaet_admin_router,
     sperrliste_admin_router,
     berechtigungen_admin_router,
 )
@@ -225,6 +226,9 @@ DEPENDENCY_REFUSALS: Mapping[Callable[..., Any], DependencyRefusal] = {
     # A check handed to the handler, which calls it on the calls it judges.
     get_step_up_check: DependencyRefusal(status=HTTPStatus.UNAUTHORIZED, code=CONFIRMATION_REQUIRED, driven_by=RefusalDriver.STEP_UP),
     get_person_confirmation_check: DependencyRefusal(
+        status=HTTPStatus.UNAUTHORIZED, code=CONFIRMATION_REQUIRED, driven_by=RefusalDriver.STEP_UP
+    ),
+    get_recent_confirmation_check: DependencyRefusal(
         status=HTTPStatus.UNAUTHORIZED, code=CONFIRMATION_REQUIRED, driven_by=RefusalDriver.STEP_UP
     ),
     get_drossel: DependencyRefusal(status=HTTPStatus.TOO_MANY_REQUESTS, code=DROSSELUNG_ERREICHT, driven_by=RefusalDriver.COUNT),

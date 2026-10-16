@@ -258,6 +258,11 @@ demand a tree spell every code below.
 - **`REQ-ANONYMISE-002`** — a save would have written a detail back onto an anonymised referee; there
   is no anonymised row to write onto.
 - **`REQ-ANONYMISE-003`** — a referee the erasure retired was asked back; the deleted row cannot be.
+- **`REQ-ANONYMISE-004`** — the ghost every erased referee's fixtures name was asked to be erased by
+  its id. No erasure is keyed on an id: each selects the records an address holds, and the ghost holds
+  none.
+- **`REQ-PURGE-001`** — a pupil still in the league was refused an administrator's erasure until
+  retired. No erasure asks anything of the person's own state, a pupil in a live squad included.
 - **`REQ-RETIRE-002`** — a matchday holding a played match was asked to retire, which would unpublish
   that result.
 - **`REQ-SQUAD-002`** — a squad row took a `nummer` another live row of the same team and season

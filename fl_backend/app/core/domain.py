@@ -367,15 +367,15 @@ REFERENCES: tuple[Reference, ...] = (
             "Read at the write when NEWLY assigned, or kept on a fixture the save puts back among those still to be "
             "played, as the venue beside it is, and refused where no row holds it or the row it holds is retired; "
             "retiring the referee is refused from the other side for the reason the venue's is (`REQ-RETIRE-004`). "
-            "The erasure is the one removal, run by the administrator's anonymisation and by a person's own erasure alike "
+            "The erasure is the one removal, run for a person's own request and for an administrator answering one alike "
             "(`app/api/schiedsrichter/crud.py :: erase_referee_in_session`), and it CASCADES rather than being refused: a request "
             "to be forgotten is not something a booking may block, so the row is deleted and every fixture naming it is "
             "repointed at the ghost in the same transaction, each keeping its own `payment`. The once-only drop of "
             "never-asked referees repoints the same way, emptying the name as the erasure does. The ghost is "
             "permanently retired, so a fixture holding it takes no new booking and is refused a save putting it back "
             "among those still to be played; one a bracket resolution or a Spieltag release reopens keeps it and is "
-            "reported as a retired booking, exactly as a merely retired referee is. Erasing the ghost itself is refused "
-            "(`REQ-ANONYMISE-004`). "
+            "reported as a retired booking, exactly as a merely retired referee is. No erasure reaches the ghost: each "
+            "selects the referees an address holds, and the ghost holds none. "
             "The name is read from that row and fans out; `payment` does neither, for the reason `mietpreis` does not."
         ),
     ),
@@ -1206,7 +1206,7 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Editability.CONTROL_ONLY,
         "`DELETE` stamps it and `POST /schiedsrichter/{schiedsrichter_id}/reactivate` clears it, `DELETE` being refused "
         "while an unplayed fixture still "
-        "names this referee; the anonymisation writes it on no row, deleting the referee instead and leaving their "
+        "names this referee; the erasure writes it on no row, deleting the referee instead and leaving their "
         "fixtures on the ghost, which carries a stamp of its own and is reachable by neither control",
         "app.api.schiedsrichter.services.find_referee_retire_refusal",
     ),
@@ -1938,15 +1938,6 @@ RULES: tuple[Rule, ...] = (
         tested_by="tests/api/test_containment_refusals.py::TestRetiringAVenueOrAReferee",
     ),
     Rule(
-        code="REQ-ANONYMISE-004",
-        status=HTTPStatus.CONFLICT,
-        operation="POST /schiedsrichter/{schiedsrichter_id}/anonymisieren",
-        aggregate="Schiedsrichter",
-        summary="the row every erased referee's fixtures were repointed at holds no person and may not itself be erased",
-        implemented_by="app.api.schiedsrichter.services.find_ghost_erasure_refusal",
-        tested_by="tests/api/test_schiedsrichter_anonymisierung.py::TestErasingTheGhostIsRefused",
-    ),
-    Rule(
         code="REQ-SCHIEDSRICHTER-001",
         status=HTTPStatus.CONFLICT,
         operation="POST /schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen",
@@ -2272,13 +2263,25 @@ RULES: tuple[Rule, ...] = (
         tested_by="tests/api/test_bewerbung_einwilligung_execution.py::TestALinkToABarredAddress",
     ),
     Rule(
-        code="REQ-PURGE-001",
-        status=HTTPStatus.CONFLICT,
-        operation="DELETE /spieler/{spieler_id}/erasure",
-        aggregate="Spieler",
-        summary="a player still in the league is not erased, retirement being the step that comes first",
-        implemented_by="app.api.spieler.services.find_erasure_refusal",
-        tested_by="tests/api/test_spieler_erasure_execution.py::TestTheErasureIsRefusedUntilTheyAreRetired",
+        code="REQ-PURGE-003",
+        status=HTTPStatus.FORBIDDEN,
+        operation="POST /identitaet/erasure/ansicht · POST /identitaet/erasure · POST /identitaet/abmeldung",
+        aggregate="Berechtigung",
+        summary="an administrator's route on a mailbox refuses the mailbox they act as, their own account page serving it",
+        implemented_by="app.api.identitaet.services.find_eigene_adresse_refusal",
+        tested_by="tests/api/test_erasure_auf_anfrage.py::TestTheirOwnAddress",
+    ),
+    Rule(
+        code="REQ-PURGE-005",
+        status=HTTPStatus.FORBIDDEN,
+        operation="POST /identitaet/erasure/ansicht · POST /identitaet/erasure · POST /identitaet/abmeldung",
+        aggregate="Berechtigung",
+        summary=(
+            "an address holding a live `owner` grant is acted on by an administrator's route only for an actor holding an"
+            " owner's power, judged on the grants that route reads"
+        ),
+        implemented_by="app.api.identitaet.services.find_inhaber_adresse_refusal",
+        tested_by="tests/api/test_erasure_auf_anfrage.py::TestAnOwnersAddress",
     ),
     Rule(
         code="REQ-PURGE-004",
@@ -2754,9 +2757,9 @@ UNENFORCED: tuple[Unenforced, ...] = (
             "RETENTION sweep to build and none may be added. The application clocks in "
             "`app/api/bewerbungen/sweep_router.py` are a different subject: they select on a season and a deadline, "
             "never on `inactive_since`, and remove applications rather than retired rows (`docs/backend/spec.md :: "
-            "I150`). The one removal is a pupil's own erasure request, which "
-            "selects a subject, never an age, and `REQ-PURGE-001` makes retirement its precondition rather than its "
-            "trigger. `inactive_since` stays a date (`docs/backend/spec.md :: I12`): it records WHEN a row retired, "
+            "I150`). The one removal is an erasure on a request, the person's own or an administrator's answering one, "
+            "which selects a subject by its address, never by an age, and asks no retirement first. "
+            "`inactive_since` stays a date (`docs/backend/spec.md :: I12`): it records WHEN a row retired, "
             "not when a sweep may take it. What the proof reaches is a removal through `app/core/crud.py`'s two "
             "helpers: refused where its literal filter names the field at any depth, failed outright where the "
             "filter is a variable. A sweep inside that module, or outside `app/`, is unscanned. NOTHING SHOWS THE "

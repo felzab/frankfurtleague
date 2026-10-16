@@ -279,10 +279,6 @@ SQUAD_FULL = "REQ-SQUAD-003"
 # against two values rather than two failure modes.
 SQUAD_ROLLE_TAKEN = "REQ-SQUAD-004"
 
-# The erasure's precondition (`docs/backend/spec.md :: I12`): a person still in the league is one
-# somebody would notice missing.
-ERASURE_NOT_RETIRED = "REQ-PURGE-001"
-
 
 def build_live_squad_filter(*, saison_id: str, team_id: CustomObjectId, excluding_spieler_id: CustomObjectId) -> Mapping[str, Any]:
     """Which rows count towards `max_kadergroesse`.
@@ -370,23 +366,6 @@ def find_squad_rolle_refusal(*, rolle: FLSpielerRolle | None, taken: bool) -> Wr
         status=HTTPStatus.CONFLICT,
         message=f"another live squad row in this team already holds '{rolle}' for this season; a squad holds each role once",
     )
-
-
-def find_erasure_refusal(*, inactive_since: str | None) -> WriteRefusal | None:
-    """Why this person may not be erased, or `None`.
-
-    Retirement first (`REQ-PURGE-001`): the erasure answers no undo, so the step that does have one
-    has to have been taken and left standing.
-    """
-
-    if inactive_since is None:
-        return WriteRefusal(
-            error_code=ERASURE_NOT_RETIRED,
-            status=HTTPStatus.CONFLICT,
-            message="the player is still in the league; retire them first, because an erasure removes every trace and cannot be undone",
-        )
-
-    return None
 
 
 def build_kader_pipeline(*, saison_id: str, team_id: CustomObjectId) -> list[Mapping[str, Any]]:

@@ -131,11 +131,10 @@ refusal a retirement meets.
 a season's draw takes its matchdays and fixtures away and writes fresh ones; an **undraw** takes the same two
 sets away and writes nothing back, and what it is for is [the rules
 below](#a-seasons-rules-are-the-interesting-case). A pupil's **erasure** removes the person, every one of
-their squad rows and their values in the action log, as one transaction over all three — any one of the three
-alone would leave the erasure defeated while reporting success, the squad read joining from the person outward
-and a log row holding what was erased being exactly the record the erasure exists to remove. The
-administrator's `DELETE /spieler/{spieler_id}/erasure` requires the person to be retired first
-(`REQ-PURGE-001`); the person's own erasure asks no retirement.
+their squad rows and their values in the action log, as one transaction over all three, and asks no
+retirement first — any one of the three alone would leave the erasure defeated
+while reporting success, the squad read joining from the person outward and a log row holding what was erased
+being exactly the record the erasure exists to remove.
 
 ### A season's rules are the interesting case
 
