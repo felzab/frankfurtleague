@@ -188,7 +188,8 @@ is addressed resource-first, with the subject in the path — `POST /identitaet/
 | POST   | `/identitaet/erasure`                                                        | Erases every record a mailbox holds, on its person's mailed request, as their own erasure does and refusing nothing about them (I682, I683)                                           |
 |        | `/identitaet/erasure`                                                        | `REQ-PURGE-003` refuses the administrator's own address, `-005` a grant holder's to one holding no owner's power; I524's window, I489's where it ends a grant                         |
 |        | `/identitaet/erasure`                                                        | `REQ-PURGE-006` refuses an `anlass` holding a name the person's records hold (I721)                                                                                                   |
-| POST   | `/identitaet/abmeldung`                                                      | Files one log row saying an administrator ended an address's sessions, never the address (I689); refused on `REQ-PURGE-003` and `-005`; I524's window                                 |
+| POST   | `/identitaet/abmeldung`                                                      | Files one log row saying an administrator ended an address's sessions, never the address (I689); I524's window                                                                        |
+|        | `/identitaet/abmeldung`                                                      | `REQ-PURGE-003` refuses the administrator's own address, `-005` an owner's to one holding no owner's power: signing in again repairs any other's                                      |
 | POST   | `/sperrliste`                                                                | Records a ban on one address; no row and no log line holds it (I268), and the answer carries the last season it covers (I273)                                                         |
 |        | `/sperrliste`                                                                | `REQ-SPERRLISTE-001` refuses a second ban, `-002` one while no season runs, `-003` a granted address (I437); I524's window                                                            |
 |        | `/sperrliste`                                                                | `REQ-SPERRLISTE-004` refuses a `grund` holding a name the address's own records hold (I726)                                                                                           |
@@ -203,9 +204,9 @@ taken under `sperrliste_schluessel`, the address itself dropped (§1.5), and the
 even that hash away — so neither a response nor a log line carries a value the barred address can be
 recovered from (I268, I269). **The row is not anonymous for that:** `erstellt_von` is the
 administrator's own address in plain and `grund` is free text, refused a name the address's own
-records hold as stored (I726) and so naming the person barred only spelled otherwise or where no
-record names them, both of them served — `erstellt_von` withheld where the ban list holds that
-administrator too (I452) — `grund` outliving an erasure, and `erstellt_von` reading `ERASED_ACTOR_MARKER` once that administrator's
+records hold (I726) and so naming the person barred in any form I721's refusal passes
+(`docs/datenschutz.md` §5) or where no record names them, both of them served — `erstellt_von`
+withheld where the ban list holds that administrator too (I452) — `grund` outliving an erasure, and `erstellt_von` reading `ERASED_ACTOR_MARKER` once that administrator's
 own erasure has run (I660, `docs/glossary.md :: Sperrliste`). **What asks the
 list:** `fl_backend/app/api/sperrliste/crud.py :: address_is_gesperrt` is reached by
 the ban's own write, by the grant write, refusing `REQ-BERECHTIGUNG-003` (I437), by the public
@@ -222,7 +223,9 @@ whose view answers it `gesperrt`, the tier change, whose promotion of a barred a
 admin read naming an author, which withhold what it finds (I452), the actor check on every
 admin-tier request, which admits no barred holder (I463), the person check every person's
 binder carries, which serves no barred person (I488), the season's invite press and its preview,
-which skip a team whose every confirmed address it holds (I544), and `POST /identitaet/gesperrt`, which the
+which skip a team whose every confirmed address it holds (I544), the administrator's reveal
+`POST /identitaet/erasure/ansicht`, which answers it as `gesperrt` to the ban's dialog
+(`docs/frontend/spec.md :: I730`), and `POST /identitaet/gesperrt`, which the
 frontend's mailer asks about every address it sends to and which answers it as `gesperrt` (I543).
 Each asks through the request's `fl_backend/app/api/sperrliste/lookup.py :: get_ban_list`, which reads the season a ban is judged
 against unless its caller already holds it. **The two sweeps' reminders withhold rather than refuse**
