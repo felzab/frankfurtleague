@@ -17,6 +17,7 @@ import { focusRow } from "@/shared/utils/focusAfterWrite";
 import { FocusSlot } from "./FocusSlot";
 import { Hint } from "./Hint";
 import { IconTooltip } from "./IconTooltip";
+import { NEW_TAB_ATTRIBUTES } from "./NewTabLink";
 import { ROW_ACTION_SIZE_CLASSES } from "./rowActionSize";
 
 import type { ReactNode } from "react";
@@ -239,7 +240,7 @@ export function RowActionMenuItem({
       id={id}
       textValue={label}
       href={href}
-      {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+      {...(external ? NEW_TAB_ATTRIBUTES : {})}
       className="flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors data-hovered:bg-hover">
       <Label className="min-w-0 flex-1 fluid-sm font-semibold text-foreground">{label}</Label>
       {children}
