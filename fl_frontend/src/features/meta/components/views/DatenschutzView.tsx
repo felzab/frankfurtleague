@@ -230,6 +230,12 @@ const FRISTEN = [
       "Wie das Betriebsprotokoll der Anwendung, in dem er steht, und außerdem in einer eigenen Datei je Tag, die wir 30 Tage nach ihrer letzten Änderung löschen. Damit können wir die Löschung erneut ausführen, falls wir eine Sicherungskopie der Datenbank einspielen, die Deine Daten noch enthält",
   },
   { daten: "Sicherungskopien der Datenbank", frist: "Etwa acht Tage" },
+  // Resend's own period, mirrored in `docs/datenschutz.md` §7 with the day it was read: no erasure of ours reaches it.
+  {
+    daten: "E-Mails der Liga beim Versanddienst Resend: Empfängeradresse, Betreff, Inhalt und Zustellstand",
+    frist:
+      "30 Tage bei Resend, in dessen Sicherungskopien bis zu einer Woche länger. Löschen wir Deine Daten, bleiben diese Kopien bis dahin bestehen",
+  },
   {
     daten: "Daten von Spielerinnen, Spielern und Schiedsrichtern",
     frist:
@@ -356,7 +362,7 @@ export function DatenschutzView() {
             Alle E-Mails der Liga versenden wir über Resend. Unser Vertragspartner dafür ist die Plus Five Five, Inc. mit Sitz in den
             Vereinigten Staaten, die den Dienst unter diesem Namen betreibt. Absender ist no-reply@frankfurtleague.de. Zu Resend gelangen die
             Empfängeradresse, der Betreff, der vollständige Inhalt der Nachricht und eine Kennung, mit der wir eine Zustellmeldung dem Eintrag
-            zuordnen, um den es geht.
+            zuordnen, um den es geht. Wie lange Resend diese Daten aufbewahrt, steht in Abschnitt 13.
           </p>
           <p className={ABSATZ_CLASSES}>
             Resend speichert diese Daten in den Vereinigten Staaten. Das ist eine Übermittlung in ein Drittland. Sie stützt sich auf die

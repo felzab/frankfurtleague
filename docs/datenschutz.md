@@ -915,6 +915,14 @@ Framework list, both read on 2026-09-22.
 | WhatsApp (consumer app)          | Phone numbers and messages of the people the league writes to there one by one, and of anyone who writes to it that way                                                                                                                                              | **None for the consumer app**; the consent text discloses the channel. Accepted for now, as a known gap                                                                                                                                                                                        | Ireland (WhatsApp Ireland Limited), with its onward transfer to the United States on the Framework                       |
 | Instagram (the league's account) | The photographs, videos and interviews the league publishes on its account, each on the pictured person's own consent from eighteen                                                                                                                                  | **None**; Meta runs the platform under its own terms as a controller of its own; whether the league shares control of anything is open ([section 11](#11-open-and-owed-a-decision))                                                                                                            | Not committed; Meta Platforms, Inc. in the United States stands on the Framework list, its re-certification under review |
 
+**Resend keeps every message it sends for the league, with its delivery events and its logs, for
+thirty days, and its backups up to seven days longer**, on its Free, Pro and Scale plans alike, an
+Enterprise plan's period being agreed apart; which plan this account is on is recorded nowhere in
+this repository. Mirrored from https://resend.com/security/gdpr and https://resend.com/security,
+which move without us; read 2026-10-16. No erasure reaches those copies, the deletion link's mail
+and a ban's notice with its reason among them, and the published notice states the period
+(`DatenschutzView.tsx :: FRISTEN`).
+
 **Nothing is left to sign for Resend, Cloudflare and MongoDB Atlas.** Ruled 2026-09-02. What is
 owed:
 
