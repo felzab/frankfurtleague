@@ -198,8 +198,7 @@ function GruppenTauschControl({
           {isConfirming && partner !== null && (
             <ConfirmReveal>
               <p className="fluid-xxs leading-normal font-medium text-foreground">
-                Der Tausch gilt unabhängig vom Speichern-Knopf unten. Rückgängig machst Du ihn, indem Du dieselben beiden Teams noch einmal
-                tauschst.
+                Der Tausch gilt unabhängig vom Speichern-Knopf unten. Rückgängig machst Du ihn, indem Du dieselben beiden Teams erneut tauschst.
               </p>
             </ConfirmReveal>
           )}

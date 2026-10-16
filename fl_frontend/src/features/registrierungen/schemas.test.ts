@@ -55,7 +55,7 @@ describe("the label a confirmation's answer names", () => {
       const parsed = FLRegistrierungBestaetigungPayloadSchema.safeParse({ ...antwort, text_version });
       assert.deepEqual(
         parsed.error?.issues.map((issue) => [issue.path.join("."), issue.message]),
-        [["text_version", "Deine Antwort nennt keine Fassung. Öffne den Link aus Deiner E-Mail noch einmal."]],
+        [["text_version", "Deine Antwort nennt keine Fassung. Öffne den Link aus Deiner E-Mail erneut."]],
         JSON.stringify(text_version),
       );
     }

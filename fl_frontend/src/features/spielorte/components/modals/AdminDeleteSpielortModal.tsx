@@ -13,7 +13,7 @@ export function AdminDeleteSpielortModal({
   onClose,
   onRetired,
 }: {
-  ortData: FLSpielort | null;
+  ortData: Pick<FLSpielort, "id" | "name"> | null;
   isOpen: boolean;
   onClose: () => void;
   onRetired: () => void;
