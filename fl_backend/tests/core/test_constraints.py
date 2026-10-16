@@ -6,7 +6,7 @@ from typing import Annotated, Any, Literal, Union, get_args, get_origin
 
 import pytest
 from bson import ObjectId
-from pydantic import BaseModel, SecretStr
+from pydantic import BaseModel, SecretStr, TypeAdapter, ValidationError
 from pydantic.fields import FieldInfo
 from pymongo.errors import OperationFailure
 
@@ -865,6 +865,53 @@ def test_no_validator_constrains_a_range_or_a_format(collection: Collection):
     for schema in walk_schemas(COLLECTION_VALIDATORS[collection]["$jsonSchema"]):
         out_of_scope = set(schema) & OUT_OF_SCOPE_KEYWORDS
         assert not out_of_scope, f"{collection} uses {sorted(out_of_scope)}, which is left to Pydantic"
+
+
+# Strings a validator holding `bsonType: string` stores, then a real day and a null: a type's verdicts
+# over all of them tell a bounded length, a malformed date, an optional one and a nullable one apart.
+STORED_STRING_PROBES: tuple[Any, ...] = ("", "x", "x" * 1024, "2026-02-31", "2026-02-28", None)
+
+
+def verdicts(adapter: TypeAdapter[Any]) -> tuple[bool, ...]:
+    def admits(probe: Any) -> bool:
+        try:
+            adapter.validate_python(probe)
+        except ValidationError:
+            return False
+        return True
+
+    return tuple(admits(probe) for probe in STORED_STRING_PROBES)
+
+
+def stricter_than_the_validator(collection: Collection) -> dict[str, tuple[bool, ...]]:
+    """Every mirrored field of this collection that its validator stores as any string and its model refuses one of."""
+
+    found: dict[str, tuple[bool, ...]] = {}
+
+    for mirrored, path, models, _ in MIRRORED_MODELS:
+        if mirrored != collection:
+            continue
+
+        properties = properties_at(collection, path)
+        for key, declaring in stored_fields(models).items():
+            schema = properties.get(key, {})
+            spelled = schema.get("bsonType")
+            if "enum" in schema or "string" not in ({spelled} if isinstance(spelled, str) else set(spelled or ())):
+                continue
+
+            for _, field in declaring:
+                seen = verdicts(TypeAdapter(Annotated[field.annotation, *field.metadata] if field.metadata else field.annotation))
+                if not all(seen[: STORED_STRING_PROBES.index(None)]):
+                    found[".".join((*path, key))] = seen
+
+    return found
+
+
+@pytest.mark.parametrize("served", constraints.SERVED_VALUES, ids=lambda served: served.collection)
+def test_a_reported_collection_is_reported_whole_under_its_models_own_types(served: constraints.ServedValues):
+    """A model gaining a bound the validator cannot hold fails here, rather than `--check` reading clean over a row its list refuses."""
+
+    assert {path: verdicts(adapter) for path, adapter in served.types.items()} == stricter_than_the_validator(served.collection)
 
 
 @pytest.mark.parametrize(

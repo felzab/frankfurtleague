@@ -317,13 +317,12 @@ export const FLSpielerAdresswechselAnsichtPayloadSchema = z.object({
 export type FLSpielerAdresswechselAnsichtPayload = z.infer<typeof FLSpielerAdresswechselAnsichtPayloadSchema>;
 
 /**
- * What an address link is told before any press: a first name, its standing and its deadline. Never
+ * What an address link is told before any press: its standing and its deadline. Never a name or
  * either address: a leaked link learns no mailbox to write to (`READ-PUPIL-005`).
  */
 export const FLSpielerAdresswechselAnsichtResponseSchema = BaseAPIResponseSchema.extend({
   // No `bestaetigt`: an answer removes what the link opens, so a reopened link is an unknown token.
   zustand: z.enum(["gueltig", "abgelaufen", "gesperrt", "nicht_bestaetigbar"]),
-  vorname: z.string(),
   frist: CustomDateStringSchema,
 });
 export type FLSpielerAdresswechselAnsichtResponse = z.infer<typeof FLSpielerAdresswechselAnsichtResponseSchema>;
