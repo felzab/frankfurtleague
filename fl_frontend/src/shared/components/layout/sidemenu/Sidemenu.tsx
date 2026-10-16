@@ -10,7 +10,7 @@ import { SidemenuFooter } from "./SidemenuFooter";
 import { SidemenuNavLinks, SidemenuNavLinksWithSaisonQuery } from "./SidemenuNavLinks";
 import { SidemenuStateProvider } from "./SidemenuState";
 
-import type { FormState, SidemenuStructure } from "@/shared/types/types";
+import type { SidemenuStructure, SignOutResult } from "@/shared/types/types";
 
 /**
  * The navigation rail, fully controlled by `AppShell`. Generic over the icon key, so the structure and the dictionary
@@ -38,7 +38,7 @@ export function Sidemenu<TIcon extends string>({
   funktionSwitcher: React.ReactNode;
   iconDictionary: Record<TIcon, React.ElementType>;
   /** Forwarded to the footer's options menu; the bar carries the same control. */
-  onSignOut?: () => Promise<FormState>;
+  onSignOut?: () => Promise<SignOutResult>;
   /** Forwarded to that same menu, which is where a phone reaches the account page the bar links from `lg`. */
   kontoHref: string | null;
   pathname: string;
