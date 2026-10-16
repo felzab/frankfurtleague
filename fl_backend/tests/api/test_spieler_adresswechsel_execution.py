@@ -7,6 +7,7 @@ keeping the record and the sign-in meanwhile: the referee's flow, twinned
 `tests/api/test_spieler_adresswechsel_refusal.py`'s.
 """
 
+import asyncio
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
 from typing import Any
@@ -17,6 +18,7 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.database import AsyncDatabase
+from pymongo.errors import DuplicateKeyError
 
 from app.api.bewerbungen.services import hash_token
 from app.api.identitaet.crud import find_subjekt
@@ -26,8 +28,10 @@ from app.api.spieler.admin_router import delete_adresswechsel, einladen_adresswe
 from app.api.spieler.adresswechsel_router import get_adresswechsel_ansicht, post_adresswechsel_antwort
 from app.api.spieler.crud import erase_person_in_session
 from app.api.spieler.schemas import (
+    FLSpielerAdminSingleResponse,
     FLSpielerAdresswechselAnsichtPayload,
     FLSpielerAdresswechselAntwortPayload,
+    FLSpielerAdresswechselAntwortResponse,
     FLSpielerAdresswechselPayload,
 )
 from app.api.spieler.services import (
@@ -45,7 +49,7 @@ from app.api.spieler.services import (
 from app.api.zustellung.router import angenommen_zustellung
 from app.api.zustellung.schemas import FLZustellungAngenommenPayload
 from app.core.collections import Collection
-from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
+from app.core.exceptions import DOCUMENT_NOT_FOUND, DUPLICATE_KEY, DocumentNotFoundException, WriteRefusalException
 from app.core.recording import log_stamp
 from app.core.sentinels import GHOST_SPIELER_ID
 from app.core.transactions import transaction_session
@@ -214,6 +218,18 @@ async def remove_the_address_by_hand(database: AsyncDatabase) -> None:
     """The one way a pupil comes to hold a change and no address: no route removes `email` while a change waits."""
 
     await database[Collection.SPIELER].update_one({"_id": SPIELER_OID}, {"$unset": {"email": ""}})
+
+
+def refusal_of(outcome: BaseException | object) -> str:
+    """The code one refused writer answers with: its own refusal, or the index's, which the API answers as `DB-COMMON-002`."""
+
+    if isinstance(outcome, WriteRefusalException):
+        return outcome.error_code
+    if isinstance(outcome, DuplicateKeyError):
+        return DUPLICATE_KEY
+    if isinstance(outcome, DocumentNotFoundException):
+        return outcome.error_code
+    raise AssertionError(f"{outcome!r} is neither an answer nor a refusal")
 
 
 async def the_pupils_images(database: AsyncDatabase) -> list[Mapping[str, Any]]:
@@ -691,6 +707,57 @@ class TestTheDiscard:
             return "not found"
 
         assert on_a_league(mongo_replica_set_url, body) == "not found"
+
+
+class TestTwoWritersAtOnce:
+    """Each writer judges inside its own transaction, so two running at once settle to one outcome, whichever commits first."""
+
+    def test_two_pupils_confirming_one_address_leave_it_one_holder(self, mongo_replica_set_url: str):
+        """The loser meets the winner's write: the in-session read refuses it on a retry, or `uniq_spieler_email` at its own write."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            ours = (await request(database, client, email=NEW_EMAIL)).adresswechsel.token
+            theirs = (await request(database, client, email=NEW_EMAIL, spieler_id=OTHER_OID)).adresswechsel.token
+            outcomes = await asyncio.gather(
+                answer(database, client, ours, "bestaetigt"), answer(database, client, theirs, "bestaetigt"), return_exceptions=True
+            )
+            holders = await database[Collection.SPIELER].find({"email": NEW_EMAIL}, projection={"_id": 1}).to_list(length=None)
+
+            return outcomes, [holder["_id"] for holder in holders], {row: await stored(database, row) for row in (SPIELER_OID, OTHER_OID)}
+
+        outcomes, holders, rows = on_a_league(mongo_replica_set_url, body)
+
+        answered = [outcome for outcome in outcomes if isinstance(outcome, FLSpielerAdresswechselAntwortResponse)]
+        assert len(answered) == 1, outcomes
+        assert [refusal_of(outcome) for outcome in outcomes if not isinstance(outcome, FLSpielerAdresswechselAntwortResponse)] in (
+            [SPIELER_ADRESSE_VERGEBEN],
+            [DUPLICATE_KEY],
+        )
+        assert len(holders) == 1
+        # The loser moved nothing: its address on file stands, and so does its change.
+        loser = rows[OTHER_OID if holders == [SPIELER_OID] else SPIELER_OID]
+        assert (loser["email"], loser[SPIELER_ADRESSWECHSEL_FELD]["email"]) == (
+            EMAIL if loser["_id"] == SPIELER_OID else OTHER_EMAIL,
+            NEW_EMAIL,
+        )
+
+    def test_a_confirmation_and_a_discard_of_one_change_leave_one_of_them(self, mongo_replica_set_url: str):
+        """Both write the pupil's one row, so whichever commits second meets the first and finds the change gone."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            token = (await request(database, client, email=NEW_EMAIL)).adresswechsel.token
+            outcomes = await asyncio.gather(answer(database, client, token, "bestaetigt"), discard(database, client), return_exceptions=True)
+
+            return outcomes, await stored(database)
+
+        (confirmed, discarded), row = on_a_league(mongo_replica_set_url, body)
+
+        assert SPIELER_ADRESSWECHSEL_FELD not in row
+        if isinstance(confirmed, FLSpielerAdresswechselAntwortResponse):
+            assert (refusal_of(discarded), row["email"]) == (DOCUMENT_NOT_FOUND, NEW_EMAIL)
+        else:
+            assert isinstance(discarded, FLSpielerAdminSingleResponse), (confirmed, discarded)
+            assert (refusal_of(confirmed), row["email"]) == (SPIELER_TOKEN_UNKNOWN, EMAIL)
 
 
 class TestThePupilsOwnTrailStays:
