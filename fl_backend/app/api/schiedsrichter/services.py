@@ -25,10 +25,6 @@ from app.shared.schemas.kontakt import FLKontakt
 # A played fixture never blocks: its `schiedsrichter` is a record of who officiated.
 REFEREE_STILL_ASSIGNED = "REQ-RETIRE-004"
 
-# Its own code rather than the 404 every other endpoint answers for this id: an administrator who
-# reached the ghost is owed the reason it cannot be erased, not the claim that it is not there.
-GHOST_ERASED = "REQ-ANONYMISE-004"
-
 
 def build_ghost_schiedsrichter() -> dict[str, Any]:
     """The row an erased referee's fixtures are repointed to, as it is first written.
@@ -142,22 +138,6 @@ def first_stamped(*, stored: Mapping[str, Any], field: str, today: str) -> str:
     stamped = stored.get(field)
 
     return today if stamped is None else str(stamped)
-
-
-def find_ghost_erasure_refusal(*, schiedsrichter_id: Any) -> WriteRefusal | None:
-    """Why erasing this id must be refused, or `None`."""
-
-    if schiedsrichter_id != GHOST_SCHIEDSRICHTER_ID:
-        return None
-
-    return WriteRefusal(
-        error_code=GHOST_ERASED,
-        status=HTTPStatus.CONFLICT,
-        message=(
-            "this row stands behind nobody: it is what the fixtures of every already-erased referee name, so it holds "
-            "no personal data to delete and deleting it would leave those fixtures naming a referee that is gone"
-        ),
-    )
 
 
 def find_referee_retire_refusal(*, upcoming_spiel_nrs: Sequence[int]) -> WriteRefusal | None:

@@ -346,3 +346,56 @@ class TestAGrantHoldersOwnErasure:
             return (await http.post(self.URL, headers=older)).status_code
 
         assert on_a_season(mongo_replica_set_url, body) == 200
+
+
+# An administrator's address beside the suite's, whose erasure on request takes that grant with the rest.
+ERASED_ADMINISTRATOR = "zugang.anfrage@example.com"
+
+
+async def an_administrators_grant(database: AsyncDatabase) -> None:
+    await database[Collection.BERECHTIGUNGEN].insert_one(
+        {
+            "adresse": ERASED_ADMINISTRATOR,
+            "verwaltung": "administration",
+            "erteilt_von": "PLAYGROUND",
+            "erteilt_am": datetime(2026, 1, 1, tzinfo=UTC),
+        }
+    )
+
+
+def an_erasure_of(email: str) -> dict[str, str]:
+    return {"email": email, "anlass": "Mail vom 30.03.2026"}
+
+
+class TestAnErasureOnRequestEndingAGrant:
+    """An administrator's erasure asks the revoke's window on the calls taking a live grant (`docs/backend/spec.md :: I489`)."""
+
+    URL = f"/api/v{API_VERSION}/identitaet/erasure"
+
+    def test_an_erasure_ending_a_grant_from_a_sign_in_past_that_window_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, http: AsyncClient) -> tuple[bool, int, int]:
+            # Inside the step-up window, past the revoke's by a minute: this suite's `OLDER` is past both.
+            OLDER = SignedActor(ADMIN, ADMIN_KEY, signed_in_before_s=ENROLMENT_WINDOW_S + 60)
+            logged = await database[Collection.AKTIONEN].count_documents({})
+            response = await http.post(self.URL, headers=OLDER, json=an_erasure_of(ERASED_ADMINISTRATOR))
+            return (
+                refused(response),
+                await database[Collection.BERECHTIGUNGEN].count_documents({"adresse": ERASED_ADMINISTRATOR}),
+                await database[Collection.AKTIONEN].count_documents({}) - logged,
+            )
+
+        assert on_a_season(mongo_replica_set_url, body, seed=an_administrators_grant) == (True, 1, 0)
+
+    def test_an_erasure_ending_a_grant_from_a_fresh_sign_in_takes_it(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, http: AsyncClient) -> tuple[int, int]:
+            response = await http.post(self.URL, headers=FRESH, json=an_erasure_of(ERASED_ADMINISTRATOR))
+            return response.status_code, response.json()["berechtigungen"]
+
+        assert on_a_season(mongo_replica_set_url, body, seed=an_administrators_grant) == (200, 1)
+
+    def test_an_address_holding_no_grant_asks_the_step_up_window_alone(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, http: AsyncClient) -> int:
+            past_the_revokes = SignedActor(ADMIN, ADMIN_KEY, signed_in_before_s=ENROLMENT_WINDOW_S + 60)
+            return (await http.post(self.URL, headers=past_the_revokes, json=an_erasure_of("niemand@example.com"))).status_code
+
+        assert on_a_season(mongo_replica_set_url, body) == 200

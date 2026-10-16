@@ -12,11 +12,9 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
 from app.api.bewerbungen.services import compose_bestaetigungen, hash_token
-from app.api.identitaet.schemas import FLErasureResponse
+from app.api.identitaet.schemas import FLErasureAnsichtResponse, FLErasureResponse
 from app.api.identitaet.services import build_erasure_seat_pipeline
-from app.api.kontakte.admin_router import get_kontakt_erasure_ansicht
 from app.api.kontakte.crud import erase_kontaktperson_in_session
-from app.api.kontakte.schemas import FLKontaktErasureAnsichtResponse, FLKontaktErasurePayload
 from app.api.kontakte.services import (
     build_clearing_update,
     contact_block_image_edits,
@@ -36,6 +34,8 @@ from tests import documents
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.erasure import erased
 from tests.worker import worker_database
+
+from .test_erasure_auf_anfrage import revealed
 
 DATABASE_NAME = worker_database("fl_kontakt_erasure_test")
 
@@ -289,12 +289,10 @@ async def call_erasure(database: AsyncDatabase, client: AsyncMongoClient, email:
     return await erased(database, client, email, germany_now=NOW)
 
 
-async def call_ansicht(database: AsyncDatabase, email: str = ERASED_EMAIL) -> FLKontaktErasureAnsichtResponse:
-    return await get_kontakt_erasure_ansicht(
-        erasure_data=FLKontaktErasurePayload(email=email),
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        bewerbungen_collection=database[Collection.BEWERBUNGEN],
-    )
+async def call_ansicht(database: AsyncDatabase, client: AsyncMongoClient, email: str = ERASED_EMAIL) -> FLErasureAnsichtResponse:
+    """The administrator's reveal of the address, whose seats are the erasure's own selection."""
+
+    return await revealed(database, client, email)
 
 
 async def stored_rows(database: AsyncDatabase) -> dict[Any, Mapping[str, Any]]:
@@ -1098,14 +1096,14 @@ def test_the_asker_is_keyed_as_the_stored_address_folds(stored: str, asked: str)
 def test_a_seat_asked_for_in_another_spelling_of_its_domain_is_named_and_cleared(mongo_replica_set_url: str, stored: str, asked: str):
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         await database[Collection.SAISON_TEAMS].insert_one(a_row_naming(IDNA_ROW_OID, stored))
-        ansicht = await call_ansicht(database, asked)
+        ansicht = await call_ansicht(database, client, asked)
         await call_erasure(database, client, asked)
 
         return ansicht, (await stored_rows(database))[IDNA_ROW_OID]["kontakte"]["trainer"]
 
     ansicht, trainer = on_a_league(mongo_replica_set_url, body)
 
-    assert [(sitz.nachname, sitz.saison_id) for sitz in ansicht.saison_teams] == [(UNREACHED_NACHNAME, LATER_SAISON)]
+    assert [(sitz.nachname, sitz.saison_id) for sitz in ansicht.sitze] == [(UNREACHED_NACHNAME, LATER_SAISON)]
     assert trainer is None
 
 
@@ -1117,7 +1115,7 @@ def test_an_address_holding_a_nul_names_nobody_and_clears_nothing(mongo_replica_
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         return (
-            await call_ansicht(database, asked),
+            await call_ansicht(database, client, asked),
             await call_erasure(database, client, asked),
             await stored_rows(database),
             await database[Collection.AKTIONEN].count_documents({"redacted_at": {"$ne": None}}),
@@ -1125,7 +1123,7 @@ def test_an_address_holding_a_nul_names_nobody_and_clears_nothing(mongo_replica_
 
     ansicht, response, rows, stamped = on_a_league(mongo_replica_set_url, body)
 
-    assert (ansicht.saison_teams, ansicht.bewerbungen) == ([], [])
+    assert (ansicht.sitze, ansicht.bewerbungen) == ([], [])
     assert (response.kontakt_sitze, stamped) == (0, 0)
     assert all(rows[row_id]["kontakte"] == LIVE_BLOCKS[row_id] for row_id in (*SAISON_TEAM_OIDS, *BEWERBUNG_OIDS))
 
@@ -1141,7 +1139,7 @@ def test_a_label_decoding_to_a_lone_surrogate_names_nobody_and_clears_nothing(mo
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         return (
-            await call_ansicht(database, asked),
+            await call_ansicht(database, client, asked),
             await call_erasure(database, client, asked),
             await stored_rows(database),
             await database[Collection.AKTIONEN].count_documents({"redacted_at": {"$ne": None}}),
@@ -1149,7 +1147,7 @@ def test_a_label_decoding_to_a_lone_surrogate_names_nobody_and_clears_nothing(mo
 
     ansicht, response, rows, stamped = on_a_league(mongo_replica_set_url, body)
 
-    assert (ansicht.saison_teams, ansicht.bewerbungen) == ([], [])
+    assert (ansicht.sitze, ansicht.bewerbungen) == ([], [])
     assert (response.kontakt_sitze, stamped) == (0, 0)
     assert all(rows[row_id]["kontakte"] == LIVE_BLOCKS[row_id] for row_id in (*SAISON_TEAM_OIDS, *BEWERBUNG_OIDS))
 
@@ -1274,11 +1272,11 @@ def sharing_the_inbox(nachname: str, telefon: str) -> dict[str, Any]:
     return {**person(nachname, telefon), "email": SHARED_INBOX}
 
 
-def after_revealing_a_shared_inbox(url: str) -> FLKontaktErasureAnsichtResponse:
+def after_revealing_a_shared_inbox(url: str) -> FLErasureAnsichtResponse:
     """Its own league rather than the seeded one, whose people each hold an address nobody else does."""
 
     async def _run() -> Any:
-        async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_, database):
+        async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
             await database[Collection.SAISON_TEAMS].insert_many(
                 [
                     a_junction_row(SHARED_EARLIER_OID, EARLIER_SAISON, a_block_holding(sharing_the_inbox(ERASED_NACHNAME, ERASED_TELEFON))),
@@ -1286,7 +1284,7 @@ def after_revealing_a_shared_inbox(url: str) -> FLKontaktErasureAnsichtResponse:
                 ]
             )
 
-            return await call_ansicht(database, SHARED_INBOX)
+            return await call_ansicht(database, client, SHARED_INBOX)
 
     return on_the_seed_loop(_run())
 
@@ -1297,7 +1295,7 @@ def test_both_colleagues_on_one_shared_inbox_are_named(mongo_replica_set_url: st
 
     ansicht = after_revealing_a_shared_inbox(mongo_replica_set_url)
 
-    assert [(sitz.nachname, sitz.saison_id) for sitz in ansicht.saison_teams] == [
+    assert [(sitz.nachname, sitz.saison_id) for sitz in ansicht.sitze] == [
         (ERASED_NACHNAME, EARLIER_SAISON),
         (BYSTANDER_NACHNAME, LATER_SAISON),
     ]
@@ -1309,10 +1307,10 @@ def test_the_reveal_lists_exactly_the_seats_the_erasure_then_clears(mongo_replic
     """What one matcher buys: a confirmation naming a different set from the one the write reaches is worse than none."""
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        return await call_ansicht(database), await call_erasure(database, client)
+        return await call_ansicht(database, client), await call_erasure(database, client)
 
     ansicht, response = on_a_league(mongo_replica_set_url, body)
-    named = len(ansicht.saison_teams) + len(ansicht.bewerbungen)
+    named = len(ansicht.sitze) + len(ansicht.bewerbungen)
 
     # Against the table above as well as the count: two figures agreeing on zero agree on nothing.
     assert named == sum(EXPECTED_SLOTS.values())

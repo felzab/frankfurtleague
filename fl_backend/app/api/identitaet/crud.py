@@ -106,8 +106,8 @@ Rows = list[Mapping[str, Any]]
 def _reads(identifier: str, records: RecordCollections) -> tuple[tuple[AsyncCollection, Rows], ...]:
     """The three record reads a Funktion stands on, in the order every lookup unpacks them.
 
-    Unbounded, as `app/api/kontakte/admin_router.py`'s are: a capped list reads as a person holding
-    fewer records rather than as a truncated answer.
+    Unbounded, as `resolve_subject`'s are: a capped list reads as a person holding fewer records
+    rather than as a truncated answer.
     """
 
     return (

@@ -12,9 +12,9 @@ from typing import Any, Literal
 
 from bson import ObjectId
 
-from app.api.berechtigungen.services import OWNER, lebendige
+from app.api.berechtigungen.services import OWNER, holds_an_owners_power, lebendige
 from app.api.bewerbungen.services import build_eigene_bewerbung_filter
-from app.api.identitaet.schemas import FLSelbstErasureAnsicht, FLSubjekt, FLSubjektSitz
+from app.api.identitaet.schemas import FLErasureAnsicht, FLSelbstErasureAnsicht, FLSubjekt, FLSubjektSitz
 from app.api.kontakte.services import rows_possibly_naming, same_address
 from app.api.registrierungen.services import SUBMITTED, build_eigene_registrierung_filter, build_erasure_registrierung_filter
 from app.api.saisons.schemas import FLSaisonStatus
@@ -80,6 +80,8 @@ def build_erasure_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
         {
             "$project": {
                 "saison_id": 1,
+                # A season row's team, which the administrator's reveal links each seat to.
+                "team_id": 1,
                 "name": 1,
                 "bestaetigungen": 1,
                 **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in ERASURE_SEAT_FIELDS},
@@ -105,13 +107,13 @@ def build_erasure_registrierung_pipeline(identifier: str) -> list[Mapping[str, A
     ]
 
 
-def build_registrierung_team_pipeline(registrierung_rows: Iterable[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
-    """The season rows naming each registration's team that season.
+def build_season_team_pipeline(rows: Iterable[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
+    """The season rows naming each of these registrations' or squad rows' team that season.
 
-    Never asked of no registration: the server refuses an empty `$or`.
+    Never asked of no row: the server refuses an empty `$or`.
     """
 
-    pairs = dict.fromkeys((row["saison_id"], row["team_id"]) for row in registrierung_rows)
+    pairs = dict.fromkeys((row["saison_id"], row["team_id"]) for row in rows)
 
     return [
         {"$match": {"$or": [{"saison_id": saison_id, "team_id": team_id} for saison_id, team_id in pairs]}},
@@ -160,10 +162,49 @@ def pending_addresses_of(
     ]
 
 
+def build_kader_pipeline(spieler_ids: Iterable[Any]) -> list[Mapping[str, Any]]:
+    """Every squad row of these pupils, a retired one included, as the pupil's step selects what it removes."""
+
+    return [
+        {"$match": {"spieler_id": {"$in": list(spieler_ids)}}},
+        {"$project": {"spieler_id": 1, "saison_id": 1, "team_id": 1}},
+        {"$sort": {"saison_id": 1, "team_id": 1, "_id": 1}},
+    ]
+
+
+# One entry per kind, named alike in both previews: the person's own and the administrator's, which
+# adds the ids its links need, can then never name one record two ways.
+
+
+def _pupil_entry(row: Mapping[str, Any]) -> dict[str, Any]:
+    return {"vorname": row.get("vorname"), "nachname": row.get("nachname")}
+
+
+def _referee_entry(row: Mapping[str, Any]) -> dict[str, Any]:
+    return {"name": row.get("name")}
+
+
 def _seat_entry(row: Mapping[str, Any], slot: str) -> dict[str, Any]:
     person = (row.get("kontakte") or {}).get(slot) or {}
 
     return {"saison_id": row.get("saison_id"), "rolle": slot, "vorname": person.get("vorname"), "nachname": person.get("nachname")}
+
+
+def _registrierung_entry(row: Mapping[str, Any], team_names: Mapping[tuple[Any, Any], Any]) -> dict[str, Any]:
+    return {
+        "saison_id": row["saison_id"],
+        "team_name": team_names.get((row["saison_id"], row["team_id"])),
+        "vorname": row.get("vorname"),
+        "nachname": row.get("nachname"),
+    }
+
+
+def _team_names(team_rows: Iterable[Mapping[str, Any]]) -> dict[tuple[Any, Any], Any]:
+    return {(row["saison_id"], row["team_id"]): row.get("name") for row in team_rows}
+
+
+def _kader_entry(row: Mapping[str, Any], team_names: Mapping[tuple[Any, Any], Any]) -> dict[str, Any]:
+    return {"saison_id": row["saison_id"], "team_id": row["team_id"], "team_name": team_names.get((row["saison_id"], row["team_id"]))}
 
 
 def compose_erasure_ansicht(
@@ -179,24 +220,62 @@ def compose_erasure_ansicht(
 ) -> FLSelbstErasureAnsicht:
     """The preview, from the rows the erasure's own subject read holds; no address and no birthdate reaches it."""
 
-    team_names = {(row["saison_id"], row["team_id"]): row.get("name") for row in team_rows}
+    team_names = _team_names(team_rows)
 
     return FLSelbstErasureAnsicht.model_validate(
         {
-            "spieler": [{"vorname": row.get("vorname"), "nachname": row.get("nachname")} for row in pupil_rows],
-            "schiedsrichter": [{"name": row.get("name")} for row in referee_rows],
+            "spieler": [_pupil_entry(row) for row in pupil_rows],
+            "schiedsrichter": [_referee_entry(row) for row in referee_rows],
             "sitze": [{**_seat_entry(row, slot), "team_name": row.get("name")} for row, slot in seats_naming(saison_team_rows, identifier)],
             "bewerbungen": [_seat_entry(row, slot) for row, slot in seats_naming(bewerbung_rows, identifier)],
-            "registrierungen": [
+            "registrierungen": [_registrierung_entry(row, team_names) for row in registrierung_rows],
+            "adresswechsel": len(adresswechsel_rows),
+        }
+    )
+
+
+def compose_erasure_ansicht_auf_anfrage(
+    identifier: str,
+    *,
+    saison_team_rows: Sequence[Mapping[str, Any]],
+    bewerbung_rows: Sequence[Mapping[str, Any]],
+    referee_rows: Sequence[Mapping[str, Any]],
+    pupil_rows: Sequence[Mapping[str, Any]],
+    registrierung_rows: Sequence[Mapping[str, Any]],
+    adresswechsel_rows: Sequence[Mapping[str, Any]],
+    spieler_adresswechsel_rows: Sequence[Mapping[str, Any]],
+    kader_rows: Sequence[Mapping[str, Any]],
+    team_rows: Sequence[Mapping[str, Any]],
+) -> FLErasureAnsicht:
+    """The administrator's reveal, from the rows the erasure's own subject read holds, by the ids the page links each record by.
+
+    The pending changes are named, never counted: the page links each row to the tool acting on it.
+    """
+
+    team_names = _team_names(team_rows)
+
+    return FLErasureAnsicht.model_validate(
+        {
+            "spieler": [
                 {
-                    "saison_id": row["saison_id"],
-                    "team_name": team_names.get((row["saison_id"], row["team_id"])),
-                    "vorname": row.get("vorname"),
-                    "nachname": row.get("nachname"),
+                    **_pupil_entry(row),
+                    "spieler_id": row["_id"],
+                    "kader": [_kader_entry(kader, team_names) for kader in kader_rows if kader["spieler_id"] == row["_id"]],
                 }
+                for row in pupil_rows
+            ],
+            "schiedsrichter": [{**_referee_entry(row), "schiedsrichter_id": row["_id"]} for row in referee_rows],
+            "sitze": [
+                {**_seat_entry(row, slot), "team_name": row.get("name"), "team_id": row["team_id"]}
+                for row, slot in seats_naming(saison_team_rows, identifier)
+            ],
+            "bewerbungen": [{**_seat_entry(row, slot), "bewerbung_id": row["_id"]} for row, slot in seats_naming(bewerbung_rows, identifier)],
+            "registrierungen": [
+                {**_registrierung_entry(row, team_names), "registrierung_id": row["_id"], "team_id": row["team_id"]}
                 for row in registrierung_rows
             ],
-            "adresswechsel": len(adresswechsel_rows),
+            "adresswechsel": [{"schiedsrichter_id": row["_id"]} for row in adresswechsel_rows],
+            "spieler_adresswechsel": [{"spieler_id": row["_id"]} for row in spieler_adresswechsel_rows],
         }
     )
 
@@ -420,6 +499,49 @@ def find_letzter_inhaber_erasure_refusal(*, identifier: str, grants: Iterable[Ma
         error_code=LETZTER_INHABER_ERASURE,
         status=HTTPStatus.CONFLICT,
         message="the administration keeps at least one owner; make another administrator an owner before erasing yourself",
+    )
+
+
+# 403 and not 409, `REQ-BERECHTIGUNG-005`'s precedent: the refusal is about who asks. An administrator's
+# own records go through their account page, or through another administrator.
+EIGENE_ADRESSE = "REQ-PURGE-003"
+
+
+def find_eigene_adresse_refusal(*, identifier: str, akteur: str) -> WriteRefusal | None:
+    """`REQ-PURGE-003`: an administrator's route on a mailbox refuses the mailbox they act as, both folded."""
+
+    if identifier != akteur:
+        return None
+
+    return WriteRefusal(
+        error_code=EIGENE_ADRESSE,
+        status=HTTPStatus.FORBIDDEN,
+        message="an administrator does not act on their own address here; their own account page does, or another administrator",
+    )
+
+
+# 403 for who asks, as `REQ-PURGE-003`: without it an administrator removes the owners above them,
+# which a revoke refuses them (`REQ-BERECHTIGUNG-005`).
+INHABER_ADRESSE = "REQ-PURGE-005"
+
+
+def find_inhaber_adresse_refusal(
+    *, identifier: str, akteur: str, auth_time: int, grants: Sequence[Mapping[str, Any]], announced: Sequence[Mapping[str, Any]]
+) -> WriteRefusal | None:
+    """`REQ-PURGE-005`: an address holding a live `owner` grant is acted on only by an actor holding an owner's power.
+
+    `grants` and `announced` as stored, read where the caller judges, so a retry judges them afresh.
+    """
+
+    if not holds_an_owner_grant(identifier, lebendige(grants)) or holds_an_owners_power(
+        akteur=akteur, auth_time=auth_time, grants=grants, announced=announced
+    ):
+        return None
+
+    return WriteRefusal(
+        error_code=INHABER_ADRESSE,
+        status=HTTPStatus.FORBIDDEN,
+        message="this address holds an owner's access to the administration; only an owner, signed in since becoming one, acts on it here",
     )
 
 

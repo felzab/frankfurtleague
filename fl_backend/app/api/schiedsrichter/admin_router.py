@@ -8,7 +8,6 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.aktionen.crud import redact_images_in_session
 from app.api.bewerbungen.services import mint_token
-from app.api.schiedsrichter.crud import ensure_ghost_schiedsrichter, erase_referee_in_session
 from app.api.schiedsrichter.schemas import (
     FLPatchSchiedsrichterPayload,
     FLPatchSchiedsrichterResponse,
@@ -40,7 +39,6 @@ from app.api.schiedsrichter.services import (
     compose_mint_update,
     find_already_confirmed_refusal,
     find_gesperrt_refusal,
-    find_ghost_erasure_refusal,
     find_missing_address_refusal,
     find_referee_retire_refusal,
     find_retired_refusal,
@@ -617,60 +615,3 @@ async def delete_adresswechsel(
         updated_document_raw = await session.with_transaction(discard_the_change)
 
     return FLSchiedsrichterWriteResponse(updated_document=FLSchiedsrichter(**updated_document_raw))
-
-
-@router.post(
-    f"{by_id('schiedsrichter_id')}/anonymisieren",
-    response_model=FLSchiedsrichterWriteResponse,
-    summary="Anonymise a Schiedsrichter",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
-    dependencies=[Depends(verify_step_up)],
-)
-async def anonymise_schiedsrichter(
-    schiedsrichter_id: CustomRouteObjectId,
-    schiedsrichter_collection: SchiedsrichterCollection,
-    spiele_collection: SpieleCollection,
-    aktionen_collection: AktionenCollection,
-    db: DBClient,
-    germany_now: datetime = Depends(get_germany_now),
-) -> FLSchiedsrichterWriteResponse:
-    """Delete the referee's document and repoint every fixture that named them at the ghost.
-
-    The row does not survive, and nothing on it is nulled in place: the fixtures keep their own
-    `payment` and read from then on as officiated by nobody. It cannot be undone, and an id already
-    erased answers 404. Erasing the ghost itself is refused (`REQ-ANONYMISE-004`).
-
-    **The response carries the ghost rather than the person**: the row the path named is gone, and
-    answering an erasure with the name and contact details it just destroyed would serve them once
-    more. `updated_document.id` is therefore the ghost's, which is what those fixtures now name.
-
-    **The repointed fixtures inherit the ghost's retirement**, so one still to be played is reported
-    by `GET /spiele/action_required` as a retired booking until somebody assigns a referee to it, and
-    a save putting a played or called-off one back among those still to be played is refused it
-    (`REQ-BOOKING-001`).
-    """
-
-    # Before the transaction: the ghost is refused whatever the database holds, and a read of it
-    # inside the callback would answer 404 and hide the reason.
-    refuse(find_ghost_erasure_refusal(schiedsrichter_id=schiedsrichter_id))
-
-    async def erase_the_referee(session: AsyncClientSession) -> FLSchiedsrichterWriteResponse:
-        ghost = await ensure_ghost_schiedsrichter(schiedsrichter_collection=schiedsrichter_collection, session=session)
-        await erase_referee_in_session(
-            schiedsrichter_collection=schiedsrichter_collection,
-            spiele_collection=spiele_collection,
-            aktionen_collection=aktionen_collection,
-            schiedsrichter_id=schiedsrichter_id,
-            stamp=log_stamp(germany_now),
-            session=session,
-        )
-
-        return FLSchiedsrichterWriteResponse(updated_document=FLSchiedsrichter(**ghost))
-
-    # ONE transaction over all of it (`docs/backend/spec.md :: I42`): a referee deleted while a
-    # fixture still names them strands that fixture, and one deleted while the log still holds their
-    # details reports an erasure that did not happen.
-    async with transaction_session(db) as session:
-        # `with_transaction` over a bare one -- the callback derives every write from the path id,
-        # so a retry is safe.
-        return await session.with_transaction(erase_the_referee)

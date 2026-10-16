@@ -2,7 +2,7 @@ import asyncio
 import importlib
 import pkgutil
 import warnings
-from collections.abc import Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from typing import Annotated, Any
 
 import pymongo
@@ -12,7 +12,7 @@ from pydantic import BaseModel, EmailStr, TypeAdapter, ValidationError
 from pydantic.warnings import UnsupportedFieldAttributeWarning
 
 import app
-from app.api.kontakte.schemas import FLKontaktErasurePayload
+from app.api.identitaet.schemas import FLAbmeldungPayload, FLErasureAnsichtPayload, FLErasurePayload
 from app.core.config import API_VERSION
 from app.core.exception_handlers import DATABASE_FAILED, PAYLOAD_REFUSED, UNKNOWN_OUTCOME
 from app.shared.schemas.bounds import KONTAKT_EMAIL_MAX_LENGTH
@@ -203,12 +203,21 @@ class TestEveryAddressPayloadHoldsTheSameRule:
         assert local_part not in raised.value.errors()[0]["msg"]
 
 
+# The reveal's payload, the erasure's, which takes the same lookup beside the request it answers, and the sign-out's.
+ERASURE_PAYLOADS: Mapping[str, Callable[[str], Any]] = {
+    "the reveal": lambda email: FLErasureAnsichtPayload(email=email),
+    "the erasure": lambda email: FLErasurePayload(email=email, anlass="Mail vom 30.03.2026"),
+    "the sign-out": lambda email: FLAbmeldungPayload(email=email),
+}
+
+
 class TestTheErasureLooksUpWhatAnyRuleStored:
     """GDPR Art. 17: a seat stored before today's rules may hold an address they refuse, and refusing it here leaves that person unerasable."""
 
+    @pytest.mark.parametrize("payload", list(ERASURE_PAYLOADS.values()), ids=list(ERASURE_PAYLOADS))
     @pytest.mark.parametrize("email", [*BEYOND_ASCII, pytest.param("anna..mueller@schule.de", id="an address the installed EmailStr refuses")])
-    def test_the_erasure_takes_an_address_no_address_rule_admits(self, email: str):
-        assert FLKontaktErasurePayload(email=email).email == email
+    def test_the_erasure_takes_an_address_no_address_rule_admits(self, email: str, payload: Callable[[str], Any]):
+        assert payload(email).email == email
 
     @pytest.mark.parametrize(
         "email",
@@ -218,16 +227,17 @@ class TestTheErasureLooksUpWhatAnyRuleStored:
             pytest.param(f"{'a' * KONTAKT_EMAIL_MAX_LENGTH}@schule.de", id="past the ceiling"),
         ],
     )
-    def test_the_erasure_refuses_what_names_no_stored_seat(self, email: str):
+    @pytest.mark.parametrize("payload", list(ERASURE_PAYLOADS.values()), ids=list(ERASURE_PAYLOADS))
+    def test_the_erasure_refuses_what_names_no_stored_seat(self, email: str, payload: Callable[[str], Any]):
         with pytest.raises(ValidationError):
-            FLKontaktErasurePayload(email=email)
+            payload(email)
 
 
 # The routes whose `email` reaches a `$regex` under no address rule. Raw bytes, because a lone
 # surrogate is a JSON escape no encoder of a `str` writes.
 FREE_STRING_ROUTES = {
-    "POST /kontakte/erasure/ansicht": "/kontakte/erasure/ansicht",
-    "POST /kontakte/erasure": "/kontakte/erasure",
+    "POST /identitaet/erasure/ansicht": ("/identitaet/erasure/ansicht", ""),
+    "POST /identitaet/erasure": ("/identitaet/erasure", ', "anlass": "Mail vom 30.03.2026"'),
 }
 
 PLAIN_ADDRESS = "a@schule.de"
@@ -236,9 +246,10 @@ PLAIN_ADDRESS = "a@schule.de"
 def posted_raw(route: str, value: str) -> Response:
     """`value` is JSON string content, escapes included, placed between the quotes unchanged."""
 
-    body = f'{{"email": "{value}"}}'.encode("ascii")
+    path, rest = FREE_STRING_ROUTES[route]
+    body = f'{{"email": "{value}"{rest}}}'.encode("ascii")
 
-    return requested("POST", FREE_STRING_ROUTES[route], {**ADMIN_HEADERS, "content-type": "application/json"}, content=body)
+    return requested("POST", path, {**ADMIN_HEADERS, "content-type": "application/json"}, content=body)
 
 
 class TestAStringNoDatabaseStoresIsRefusedAtTheBox:
