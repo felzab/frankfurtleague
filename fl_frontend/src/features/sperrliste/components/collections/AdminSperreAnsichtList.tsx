@@ -169,6 +169,14 @@ export function AdminSperreAnsichtList({ ansicht }: { ansicht: SperreAnsicht | n
           </ul>
         </>
       )}
+
+      {/* Whatever the read found: the account and the log hold the address past every record, and no read lists them. */}
+      {eintraege !== null && (
+        <>
+          <p className={ZEILE_CLASSES}>{SPERRE_ANSICHT_COPY.konto}</p>
+          <p className={ZEILE_CLASSES}>{SPERRE_ANSICHT_COPY.protokoll}</p>
+        </>
+      )}
     </div>
   );
 }

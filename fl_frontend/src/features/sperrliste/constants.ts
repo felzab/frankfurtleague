@@ -53,7 +53,15 @@ export const SPERRE_ANSICHT_COPY = {
   lead: "Die Sperre wirkt sofort. Diese Einträge bleiben bestehen, bis Du sie bearbeitest.",
   // Its team can only decline it, the admission refusing a barred address, and the clock erases it either way.
   registrierungen: "Eine Registrierung endet von selbst, denn ihr Team kann sie nicht mehr aufnehmen.",
-  leer: "Unter dieser Adresse ist nichts gespeichert.",
+  // A record, never „nichts“: the account and the log below stand whatever the read found, as the erasure's reveal says.
+  leer: "Unter dieser Adresse ist kein Eintrag gespeichert.",
+  // The account sweep's criterion in the ban mail's kinds, a grant left out: no barred address holds one
+  // (`REQ-SPERRLISTE-003`). The sweep, and never the ban, ends it.
+  konto:
+    "Ein Konto mit dieser Adresse bleibt nur bestehen, solange unter der Adresse noch etwas davon gespeichert ist: ein Platz als Kontaktperson eines Teams in einer Saison oder in einer Bewerbung, über die noch nicht entschieden ist, ein Eintrag als Spielerin, Spieler, Schiedsrichterin oder Schiedsrichter oder eine bestätigte Registrierung, über die das Team noch nicht entschieden hat. Bis die Sperre endet, kann sich damit niemand anmelden.",
+  // What no record read lists and the ban changes nothing of, named as the erasure's reveal names it.
+  protokoll:
+    "Wo die Adresse im Änderungsprotokoll oder als Urheberin von Sperren, Einladungen, Entscheidungen und Zugängen steht, bleibt sie stehen.",
   nichtGeladen: "Was unter der Adresse gespeichert ist, konnte nicht geladen werden. Die Sperre steht.",
   fertig: "Fertig",
 } as const;

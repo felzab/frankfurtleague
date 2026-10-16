@@ -242,14 +242,18 @@ describe("what the ban's dialog shows once the ban stands (`docs/frontend/spec.m
     assert.ok(within(dialog).queryByText(/Zorbanax Quell, stillgelegt seit 01\.03\.2025$/) !== null, "the retired referee reads as active");
   });
 
-  /* Opened again, the dialog is the next ban's form: a list left standing would name the last address's records. */
-  it("says the address holds nothing where it holds nothing, and closes on „Fertig“ to open on the form again", async () => {
+  /* The account and the log hold the address whatever the read found, so „nothing stored“ would be false. Opened again,
+     the dialog is the next ban's form: a list left standing would name the last address's records. */
+  it("says the address holds no record, names its account and the log, and closes on „Fertig“ to open on the form again", async () => {
     antwort = () => Promise.resolve(NICHTS);
     const user = userEvent.setup();
 
     const dialog = await sperren();
 
-    assert.ok(within(dialog).queryByText(SPERRE_ANSICHT_COPY.leer) !== null, "an empty answer reads as something else");
+    for (const satz of [SPERRE_ANSICHT_COPY.leer, SPERRE_ANSICHT_COPY.konto, SPERRE_ANSICHT_COPY.protokoll]) {
+      assert.ok(within(dialog).queryByText(satz) !== null, `an empty answer leaves out „${satz}“`);
+    }
+    assert.doesNotMatch(dialog.textContent, /nichts gespeichert/, "the empty answer says nothing is stored");
     assert.deepEqual(verweiseIn(dialog), []);
     await user.click(within(dialog).getByRole("button", { name: SPERRE_ANSICHT_COPY.fertig }));
     await waitFor(() => assert.ok(screen.queryByRole("dialog") === null, "„Fertig“ left the dialog open"));
