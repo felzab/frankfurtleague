@@ -1628,16 +1628,22 @@ describe("the words the two contact pages are handed", () => {
     assert.deepEqual(await bestaetigungStart(), { zustand: "unlesbar" });
   });
 
-  /* The published floor is a positive whole number: the read refuses a view serving 0, which would offer
-     the media switch to every age, so no form opens on it. */
-  it("opens no form on a view serving a media floor of 0", async () => {
+  it("opens a link on the failed read's panel where the link's own read fails", async () => {
+    backend({ scheitert: "/bewerbungen/einwilligung/ansicht" });
+
+    assert.deepEqual(await bestaetigungStart(), { zustand: "unlesbar" });
+  });
+
+  /* The read refuses a view serving a media floor of 0, which would offer the media switch to every age:
+     a broken contract, which the error boundary logs and the reload panel would hide. */
+  it("lets a view serving a media floor of 0 reach the error boundary", async () => {
     answerReadsWith((endpoint, schema, params) =>
       endpoint === "/bewerbungen/einwilligung/ansicht"
         ? { ...GEOEFFNET, medien_mindestalter: 0 }
         : (einwilligungAnswer(endpoint) ?? EMPTIEST_ANSWER(endpoint, schema, params)),
     );
 
-    assert.deepEqual(await bestaetigungStart(), { zustand: "unlesbar" }, "the page took a media floor of 0");
+    await assert.rejects(bestaetigungStart(), { name: "APIMalformedDataError" }, "the page took a media floor of 0");
   });
 
   /* A closed season row's link takes a Widerspruch alone, which shows no stamped words. */

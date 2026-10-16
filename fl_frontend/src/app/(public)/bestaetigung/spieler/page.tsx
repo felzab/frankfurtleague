@@ -3,7 +3,7 @@ import { connection } from "next/server";
 
 import { getLaufendeFassung } from "@/core/einwilligung";
 import { gekeyteFassung, SPIELER_ABSATZ_SCHLUESSEL, SPIELER_WIEDERKEHREND_ABSATZ_SCHLUESSEL } from "@/core/einwilligungSeiten";
-import { nullUnlessContractBreak } from "@/core/errors";
+import { isContractBreak, nullUnlessContractBreak } from "@/core/errors";
 import { SpielerBestaetigungView } from "@/features/registrierungen/components/views/SpielerBestaetigungView";
 import { EINWILLIGUNG_UMFANG_OPTIONS } from "@/features/registrierungen/constants";
 import { getSpielerBestaetigungAnsicht } from "@/features/registrierungen/queries";
@@ -49,14 +49,18 @@ async function SpielerBestaetigungContent(props: NextPageProps) {
   const { token } = await props.searchParams;
 
   // Beside the link's read, which names the page, and per request: a deploy moves the stamped label.
-  // Settled together, so a contract break in either words' read reaches the error boundary rather than
-  // rejecting unobserved.
+  // Settled together, so a contract break in any of the three reads reaches the error boundary rather
+  // than rejecting unobserved.
   const [start, neu, wiederkehrend] = await Promise.all([
     typeof token === "string" && token !== ""
       ? getSpielerBestaetigungAnsicht(token).then(
           (gelesen): SpielerBestaetigungStart =>
             gelesen.zustand === "gueltig" ? { zustand: "gueltig", ansicht: gelesen.ansicht, token: token } : gelesen,
-          (): SpielerBestaetigungStart => ({ zustand: "unlesbar" }),
+          // A failed read is its own state, the dead-link panel calling a live link void.
+          (error: unknown): SpielerBestaetigungStart => {
+            if (isContractBreak(error)) throw error;
+            return { zustand: "unlesbar" };
+          },
         )
       : ({ zustand: "ungueltig" } satisfies SpielerBestaetigungStart),
     runWithIncomingTrace(() => getLaufendeFassung("bestaetigung_spieler")).catch(nullUnlessContractBreak),

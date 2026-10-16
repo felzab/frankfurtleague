@@ -4,7 +4,7 @@ import { connection } from "next/server";
 
 import { frontend_config } from "@/core/config";
 import { getLaufendeFassung } from "@/core/einwilligung";
-import { nullUnlessContractBreak } from "@/core/errors";
+import { isContractBreak, nullUnlessContractBreak } from "@/core/errors";
 import { BewerbungView } from "@/features/bewerbungen/components/views/BewerbungView";
 import { getBewerbungFenster, getBewerbungSchulen, getBewerbungTrikotfarben } from "@/features/bewerbungen/queries";
 import { parseSaisonIdParam, resolveSaisonIdParam } from "@/features/saisons/resolvers";
@@ -62,9 +62,12 @@ async function BewerbungContent(props: NextPageProps<{ saison_id: string }>) {
   // from the base tier, and a season taking applications IS `future`.
 
   // Caught, so a failure reaches the view as its own state: „abgelaufen“ would be a deadline this
-  // read never learnt.
+  // read never learnt. A broken contract is no failed read: it reaches the error boundary, which logs it.
 
-  const antwort = await getBewerbungFenster(saison_id).catch(() => undefined);
+  const antwort = await getBewerbungFenster(saison_id).catch((error: unknown) => {
+    if (isContractBreak(error)) throw error;
+    return undefined;
+  });
   // Outside the read's own handlers: a `notFound()` thrown inside `.then` would be caught as a failed read.
   if (antwort === null) notFound();
   const fenster = antwort === undefined ? { isUnlesbar: true, fenster: null } : { isUnlesbar: false, fenster: antwort.fenster };
@@ -76,17 +79,23 @@ async function BewerbungContent(props: NextPageProps<{ saison_id: string }>) {
     fenster.fenster?.laeuft === true
       ? await getBewerbungSchulen().then(
           (antwort) => ({ isSchulenLesbar: true, schulen: antwort.schulen }),
-          () => ({ isSchulenLesbar: false, schulen: [] }),
+          (error: unknown) => {
+            if (isContractBreak(error)) throw error;
+            return { isSchulenLesbar: false, schulen: [] };
+          },
         )
       : { isSchulenLesbar: true, schulen: [] };
 
-  // Degraded to the EMPTY set: an unreadable answer means nothing is KNOWN to be taken, offering
-  // the whole palette.
+  // Degraded to the EMPTY set: a failed read means nothing is KNOWN to be taken, offering the whole
+  // palette.
   const vergeben =
     fenster.fenster?.laeuft === true
       ? await getBewerbungTrikotfarben(saison_id).then(
           (antwort) => antwort.vergeben,
-          () => [],
+          (error: unknown) => {
+            if (isContractBreak(error)) throw error;
+            return [];
+          },
         )
       : [];
 
