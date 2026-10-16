@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { parseDate } from "@internationalized/date";
 
 import { patchSaisonTeamAction, patchTeamAction, undoAdminTeamEditAction } from "@/features/teams/actions";
-import { austrittZustand } from "@/features/teams/constants";
+import { austrittZustand, SAISON_ABSCHNITT } from "@/features/teams/constants";
 import { FLPatchSaisonTeamPayloadSchema, FLPatchTeamPayloadSchema } from "@/features/teams/schemas";
 import { deriveTeamDraftStatus } from "@/features/teams/teamDraftStatus";
 import { ConfirmDiscardModal } from "@/shared/components/ui/ConfirmDiscardModal";
@@ -173,8 +173,8 @@ export function AdminTeamEditForm({
     validatePaths("saisonTeam", { ...buildSaisonPayload(), ...selected }, paths);
 
   const isChanged = (path: TeamFieldPath) => fieldStatus(status, path)?.isChanged ?? false;
-  const clubDirty = status.changed.some((field) => field.group !== "Saison");
-  const saisonDirty = storedMembership !== null && status.changed.some((field) => field.group === "Saison");
+  const clubDirty = status.changed.some((field) => field.group !== SAISON_ABSCHNITT);
+  const saisonDirty = storedMembership !== null && status.changed.some((field) => field.group === SAISON_ABSCHNITT);
 
   // Read by the banners AND by the season panel, whose entry affordance it closes: one derivation,
   // so the sentence and the control it explains cannot disagree.

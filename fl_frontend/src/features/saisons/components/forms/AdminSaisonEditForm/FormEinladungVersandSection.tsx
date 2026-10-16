@@ -57,7 +57,7 @@ const UEBERSPRUNGEN_SATZ: Record<FLEinladungVersandGrund, string> = {
  * What the one failure leaves standing, said in the row rather than in a toast that goes: the team's
  * transaction rolled back whole, so nothing was sent.
  */
-const FEHLGESCHLAGEN_FOLGE = "Ein neuer Versand versucht es noch einmal.";
+const FEHLGESCHLAGEN_FOLGE = "Ein neuer Versand versucht es erneut.";
 
 /** Only beside a link the press found, which the rollback left opening: a team that held none must not read about one. */
 const FEHLGESCHLAGEN_BISHERIGER = "Der bisherige Link dieses Teams gilt weiter.";

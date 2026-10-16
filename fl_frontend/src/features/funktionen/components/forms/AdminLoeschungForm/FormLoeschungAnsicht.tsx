@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { joinUnd } from "@/core/joinUnd";
+import { HANDLUNGSBEDARF_EINTRAG } from "@/features/admin/constants";
 import { rollenLangform } from "@/features/bewerbungen/constants";
 import { FORM_SECTION_HEADING_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { textLink } from "@/shared/components/ui/textLink";
@@ -78,8 +79,7 @@ const IMMER: readonly Zeile[] = [
  * The one consequence an administrator acts on afterwards: the erased referee's unplayed fixtures stand unassigned.
  * Said only where the reveal found one, the referee's played fixtures moving onto the ghost too.
  */
-const NEUE_EINTEILUNG =
-  "Spiele ohne Ergebnis, für die diese Person eingeteilt ist, brauchen danach eine neue Einteilung. Du findest sie dann unter „Handlungsbedarf“.";
+const NEUE_EINTEILUNG = `Spiele ohne Ergebnis, für die diese Person eingeteilt ist, brauchen danach eine neue Einteilung. Du findest sie dann unter „${HANDLUNGSBEDARF_EINTRAG.label}“.`;
 
 /** What the erasure of one address reaches, inside its armed reveal: the claim the confirmation rests on. */
 export function FormLoeschungAnsicht({ ansicht }: { ansicht: LoeschungAnsicht }) {

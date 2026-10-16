@@ -69,6 +69,49 @@ export const ADMIN_SHELL_UNLISTED_SECTIONS = {
   },
 } as const satisfies Readonly<Record<string, { label: string; hint: SidemenuHint }>>;
 
+/** The page of fixtures waiting on an entry, named where the erasure sends a reader to it, so a rename reaches both. */
+export const HANDLUNGSBEDARF_EINTRAG = {
+  id: "action_required",
+  label: "Handlungsbedarf",
+  iconName: "ExclamationShape",
+  hint: {
+    // No list of the categories: the page's own hint reads the active tab's
+    // `ACTION_REQUIRED_LABELS` entry, and a second telling here would go stale against it.
+    lead: "Jedes Spiel der Saison, das eine Eingabe braucht, sortiert nach dem, was es aufhält.",
+    note: "Ein abgebrochenes Spiel wartet weiter auf sein Ergebnis.",
+  },
+} as const satisfies SidemenuStructureSubOption<AdminIconName>;
+
+/** The club list's entry, named where an application's refusal sends a reader to it, so a rename reaches both. */
+export const TEAMS_EINTRAG = {
+  id: "teams",
+  label: "Teams",
+  iconName: "Persons",
+  hint: {
+    // The appositive rather than the columns: the list spans every season, while what each row
+    // shows beside the name is the selected season's.
+    lead: "Alle Teams über alle Saisons, mit den Angaben der gewählten Saison.",
+  },
+} as const satisfies SidemenuStructureSubOption<AdminIconName>;
+
+/** The ban list's entry, named where a refused address sends a reader to lift its ban, so a rename reaches both. */
+export const SPERRLISTE_EINTRAG = {
+  id: "sperrliste",
+  label: "Sperrliste",
+  iconName: "Ban",
+  hint: {
+    lead: "Adressen, die von der Liga gesperrt wurden.",
+    // What a reader would otherwise hunt the list for: the search bar reaches the reason and
+    // the administrator, and a stored ban holds no address to match against.
+    points: [{ term: "Die Adresse selbst", detail: "steht in keiner Zeile und lässt sich hier nicht suchen." }],
+    // Both ways a row goes, since an admin reading the list takes a missing ban for a lifted one.
+    note: "Eine Sperre endet nach fünf vollen Saisons von selbst, oder wenn sie hier aufgehoben wird.",
+  },
+} as const satisfies SidemenuStructureSubOption<AdminIconName>;
+
+/** The erasure page's sign-out panel and its press, named by the page's hint: one spelling, so a renamed panel takes the hint with it. */
+export const UEBERALL_ABMELDEN = "Überall abmelden";
+
 /** The erasure page's entry, named where another page sends a reader to it, so a rename reaches both. */
 export const LOESCHUNG_EINTRAG = {
   id: "loeschung",
@@ -79,7 +122,7 @@ export const LOESCHUNG_EINTRAG = {
     points: [
       { term: "Die Adresse", detail: "gibst Du zweimal ein, zum Anzeigen und zum Bestätigen." },
       // The page's second panel, which its label does not name: an admin opening the menu for a sign-out finds it here.
-      { term: "„Überall abmelden“", detail: "beendet jede Anmeldung einer Adresse, ohne ihre Daten zu löschen." },
+      { term: `„${UEBERALL_ABMELDEN}“`, detail: "beendet jede Anmeldung einer Adresse, ohne ihre Daten zu löschen." },
     ],
     // What an admin comes here to do and cannot: no control on this page takes an erasure back.
     note: "Eine Löschung lässt sich nicht zurücknehmen.",
@@ -111,17 +154,7 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
   {
     category_name: "Zu erledigen",
     sub_options: [
-      {
-        id: "action_required",
-        label: "Handlungsbedarf",
-        iconName: "ExclamationShape",
-        hint: {
-          // No list of the categories: the page's own hint reads the active tab's
-          // `ACTION_REQUIRED_LABELS` entry, and a second telling here would go stale against it.
-          lead: "Jedes Spiel der Saison, das eine Eingabe braucht, sortiert nach dem, was es aufhält.",
-          note: "Ein abgebrochenes Spiel wartet weiter auf sein Ergebnis.",
-        },
-      },
+      HANDLUNGSBEDARF_EINTRAG,
       {
         id: "bewerbungen",
         label: "Bewerbungen",
@@ -179,16 +212,7 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
   {
     category_name: "Vereine",
     sub_options: [
-      {
-        id: "teams",
-        label: "Teams",
-        iconName: "Persons",
-        hint: {
-          // The appositive rather than the columns: the list spans every season, while what each row
-          // shows beside the name is the selected season's.
-          lead: "Alle Teams über alle Saisons, mit den Angaben der gewählten Saison.",
-        },
-      },
+      TEAMS_EINTRAG,
       {
         id: "kontakte",
         label: "Kontakte",
@@ -253,19 +277,7 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
   {
     category_name: "Zugang",
     sub_options: [
-      {
-        id: "sperrliste",
-        label: "Sperrliste",
-        iconName: "Ban",
-        hint: {
-          lead: "Adressen, die von der Liga gesperrt wurden.",
-          // What a reader would otherwise hunt the list for: the search bar reaches the reason and
-          // the administrator, and a stored ban holds no address to match against.
-          points: [{ term: "Die Adresse selbst", detail: "steht in keiner Zeile und lässt sich hier nicht suchen." }],
-          // Both ways a row goes, since an admin reading the list takes a missing ban for a lifted one.
-          note: "Eine Sperre endet nach fünf vollen Saisons von selbst, oder wenn sie hier aufgehoben wird.",
-        },
-      },
+      SPERRLISTE_EINTRAG,
       {
         id: "administratoren",
         label: "Administratoren",

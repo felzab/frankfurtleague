@@ -1,6 +1,7 @@
 import asyncio
 import functools
 import logging
+from collections import Counter
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
 from typing import Any
@@ -26,6 +27,7 @@ from app.core.logging import FL_LOGGER_NAME
 from app.core.recording import SYSTEM_ACTOR_EMAIL
 from app.core.transactions import StalledPage
 from app.main import create_app
+from tests.api import test_registrierung_sweep_refusal as budget
 from tests.app_client import app_client
 from tests.bans import ban_list
 from tests.config import ADMIN_AUTH, BASE_AUTH, SYSTEM_AUTH, build_test_config
@@ -941,6 +943,44 @@ class TestTheReminderClockTakesAShareEachCall:
         without, beside, left = on_a_league(mongo_replica_set_url, body)
 
         assert (beside, SECOND_OID in left, DECLINED_OID in left) == (without, True, False)
+
+
+class _ByName(_Counting):
+    def __init__(self) -> None:
+        super().__init__()
+        self.names: Counter[str] = Counter()
+
+    def started(self, event: monitoring.CommandStartedEvent) -> None:
+        super().started(event)
+        self.names[event.command_name] += 1
+
+
+async def commands_by_name(url: str, call: Body) -> tuple[Any, Counter[str]]:
+    """The call's answer and its commands, read before the close sends `endSessions`, which is no command of the call's."""
+
+    listener = _ByName()
+    counting = AsyncMongoClient(url, event_listeners=[listener])
+    try:
+        return await call(counting[DATABASE_NAME], counting), Counter(listener.names)
+    finally:
+        await counting.close()
+
+
+class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
+    def test_the_sweep(self, mongo_replica_set_url: str):
+        """`tests/api/test_registrierung_sweep_refusal.py`'s budget: both erasing clocks take a page and the day is not yet stamped.
+
+        A command added to the call turns this red, so the share is judged against the deadline again.
+        """
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[Any, Counter[str]]:
+            return await commands_by_name(mongo_replica_set_url, sweep)
+
+        answer, names = on_a_league(mongo_replica_set_url, body)
+        rows = len(answer.erinnerungen)
+
+        assert (answer.geloescht_abgelehnt, answer.geloescht_unbestaetigt, rows) == (1, 1, 2)
+        assert sum(names.values()) - budget.ROUND_TRIPS_A_ROW * rows == budget.OTHER_COMMANDS, names
 
 
 class TestAnswerAndMessagesCommitTogether:

@@ -1,7 +1,7 @@
 import { deriveDraftStatus, emptyAsNull } from "@/shared/utils/draftStatus";
 import { formatSpielDatum } from "@/shared/utils/format";
 
-import { rolleLabel } from "./constants";
+import { KADER_ABSCHNITT, rolleLabel } from "./constants";
 
 import type { FLDraftStatus, FLFieldDescriptor } from "@/shared/utils/draftStatus";
 import type { FieldErrors } from "@/shared/utils/validation";
@@ -25,7 +25,7 @@ export type FLSpielerDraftFields = {
   } | null;
 };
 
-type FLSpielerFieldGroup = "Person" | "Kader";
+type FLSpielerFieldGroup = "Person" | typeof KADER_ABSCHNITT;
 
 export type FLSpielerDraftStatus = FLDraftStatus<FLSpielerFieldGroup>;
 
@@ -50,7 +50,7 @@ function squadDescriptors(teams: readonly SpielerTeamOption[]) {
     {
       path: "team_id",
       label: "Team",
-      group: "Kader",
+      group: KADER_ABSCHNITT,
       appliesTo: (source) => source.membership !== null,
       // An unknown id renders as itself rather than as null: the player is in a team the selected
       // season does not offer, which is a real state worth seeing rather than an empty change row.
@@ -62,28 +62,28 @@ function squadDescriptors(teams: readonly SpielerTeamOption[]) {
     {
       path: "nummer",
       label: "Nummer",
-      group: "Kader",
+      group: KADER_ABSCHNITT,
       appliesTo: (source) => source.membership !== null,
       read: (source) => emptyAsNull(source.membership?.nummer ?? ""),
     },
     {
       path: "position",
       label: "Position",
-      group: "Kader",
+      group: KADER_ABSCHNITT,
       appliesTo: (source) => source.membership !== null,
       read: (source) => source.membership?.position ?? null,
     },
     {
       path: "stufe",
       label: "Stufe",
-      group: "Kader",
+      group: KADER_ABSCHNITT,
       appliesTo: (source) => source.membership !== null,
       read: (source) => source.membership?.stufe ?? null,
     },
     {
       path: "rolle",
       label: "Rolle",
-      group: "Kader",
+      group: KADER_ABSCHNITT,
       appliesTo: (source) => source.membership !== null,
       // `null` where no role is held, so giving one up renders as a REMOVAL in the change list. The
       // German comes from `ROLLE_OPTIONS`, which is what the control beside it reads.

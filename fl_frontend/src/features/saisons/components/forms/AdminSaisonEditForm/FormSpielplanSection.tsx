@@ -13,7 +13,13 @@ import { ToggleButtonGroup } from "@heroui/react/toggle-button-group";
 import { generateSpielplanAction, undrawSpielplanAction } from "@/features/saisons/actions";
 import { SaisonCountSelect, SaisonRuleNumberField } from "@/features/saisons/components/forms/SaisonFormControls";
 import { STUFE_CHIP_CLASSES } from "@/features/saisons/components/forms/StufenPicker";
-import { PHASE_LABELS, SPIELPLAN_NEU_ANLEGEN, SPIELPLAN_ZURUECKNEHMEN } from "@/features/saisons/constants";
+import {
+  PHASE_LABELS,
+  REGELN_ABSCHNITT,
+  SPIELPLAN_ABSCHNITT,
+  SPIELPLAN_NEU_ANLEGEN,
+  SPIELPLAN_ZURUECKNEHMEN,
+} from "@/features/saisons/constants";
 import { FLGenerateSpielplanPayloadSchema } from "@/features/saisons/schemas";
 import {
   drawGroupCountOptions,
@@ -242,7 +248,7 @@ export function FormSpielplanSection({
         </span>
         <PanelHeading
           className={panel.heading()}
-          title="Spielplan">
+          title={SPIELPLAN_ABSCHNITT}>
           {/* The two bullets are the second half of the repair `REQ-RULES-011` sends an admin on, so
               this hint keeps its wayfinding where an ordinary one would lose it. */}
           <Hint
@@ -254,7 +260,7 @@ export function FormSpielplanSection({
                 { term: "Die Teams", text: "verteilst Du über die Teamseite." },
                 {
                   term: "Gruppen, Teams pro Gruppe und Qualifikanten pro Gruppe",
-                  text: "änderst Du im Abschnitt Regeln, sobald der Spielplan zurückgenommen ist.",
+                  text: `änderst Du im Abschnitt ${REGELN_ABSCHNITT}, sobald der Spielplan zurückgenommen ist.`,
                 },
               ],
             }}

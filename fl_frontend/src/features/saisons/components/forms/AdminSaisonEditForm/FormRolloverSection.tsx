@@ -7,7 +7,7 @@ import ArrowRightArrowLeft from "@gravity-ui/icons/ArrowRightArrowLeft";
 
 import { activateSaisonAction } from "@/features/saisons/actions";
 import { SaisonBadge } from "@/features/saisons/components/ui/SaisonBadge";
-import { SPIELTAGE_UNDATED } from "@/features/saisons/constants";
+import { SPIELPLAN_ABSCHNITT, SPIELTAGE_UNDATED } from "@/features/saisons/constants";
 import { Leer } from "@/shared/components/ui/Angabe";
 import { Callout } from "@/shared/components/ui/Callout";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
@@ -215,8 +215,8 @@ export function FormRolloverSection({
               <Callout
                 severity="warning"
                 title="Diese Saison hat noch keinen Spielplan">
-                Eine Saison ohne Spiele wird nicht zur laufenden Saison. Lege den Spielplan im Abschnitt <strong>Spielplan</strong> an, dann
-                lässt sich umstellen.
+                Eine Saison ohne Spiele wird nicht zur laufenden Saison. Lege den Spielplan im Abschnitt <strong>{SPIELPLAN_ABSCHNITT}</strong>{" "}
+                an, dann lässt sich umstellen.
               </Callout>
             )}
 

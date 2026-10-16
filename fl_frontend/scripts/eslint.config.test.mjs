@@ -111,6 +111,7 @@ const BANS = [
   ["route-tag-drop", /Hand a route's cache tags to its spine/],
   ["declare-first", /Declare a write's first cache tags before/],
   ["unanswered-rejection", /Hand `unansweredAction` the rejection it answers/],
+  ["refusal-where", /Name a refusal's `where` by the constant/],
   ["logged-error", /Hand `logger\.error` `undefined`/],
   ["unknown-class", /^Unknown class detected/],
   ["class-order", /^Incorrect class order/],

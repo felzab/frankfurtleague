@@ -1,7 +1,7 @@
 import { deriveDraftStatus, emptyAsNull } from "@/shared/utils/draftStatus";
 import { formatSpielDatum, nichtHinterlegt } from "@/shared/utils/format";
 
-import { AUSTRITT_OPTIONS, schulformLabel, trikotFarbeLabel } from "./constants";
+import { AUSTRITT_OPTIONS, SAISON_ABSCHNITT, schulformLabel, trikotFarbeLabel } from "./constants";
 
 import type { FLAddress } from "@/shared/schemas";
 import type { FLDraftStatus, FLFieldDescriptor } from "@/shared/utils/draftStatus";
@@ -30,7 +30,7 @@ export type FLTeamDraftFields = {
   } | null;
 };
 
-type FLTeamFieldGroup = "Team" | "Adresse" | "Saison";
+type FLTeamFieldGroup = "Team" | "Adresse" | typeof SAISON_ABSCHNITT;
 
 export type FLTeamDraftStatus = FLDraftStatus<FLTeamFieldGroup>;
 
@@ -60,14 +60,14 @@ const FIELD_DESCRIPTORS = [
   {
     path: "gruppe",
     label: "Gruppe",
-    group: "Saison",
+    group: SAISON_ABSCHNITT,
     appliesTo: inSaison,
     read: (source) => (source.membership?.gruppe ? `Gruppe ${source.membership.gruppe}` : null),
   },
   {
     path: "austritt",
     label: "Austritt",
-    group: "Saison",
+    group: SAISON_ABSCHNITT,
     appliesTo: inSaison,
     read: (source) => {
       const record = source.membership?.austritt ?? null;
@@ -84,7 +84,7 @@ const FIELD_DESCRIPTORS = [
   {
     path: "trikot_farbe",
     label: "Trikotfarbe",
-    group: "Saison",
+    group: SAISON_ABSCHNITT,
     appliesTo: inSaison,
     read: (source) => {
       const farbe = source.membership?.trikot_farbe ?? null;

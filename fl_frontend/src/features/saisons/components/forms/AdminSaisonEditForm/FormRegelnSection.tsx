@@ -5,6 +5,7 @@ import { Separator } from "@heroui/react/separator";
 
 import { SaisonCountSelect, SaisonRuleNumberField, SaisonTiebreakSelect } from "@/features/saisons/components/forms/SaisonFormControls";
 import { StufenPicker } from "@/features/saisons/components/forms/StufenPicker";
+import { REGELN_ABSCHNITT, SPIELPLAN_ABSCHNITT } from "@/features/saisons/constants";
 import { groupCountOptions, MAX_TEAMS_PER_GROUP, qualifierCountOptions, teamsPerGroupFloor } from "@/features/saisons/shapeOffer";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import {
@@ -42,8 +43,7 @@ const SHAPE_NOTE: Record<SpielplanWindowState, string> = {
   open: "Die Qualifikanten pro Gruppe änderst Du, indem Du den Spielplan mit der neuen Zahl neu anlegst. Für Gruppen und Teams pro Gruppe nimmst Du den Spielplan zurück, passt die Teams an und legst ihn danach neu an.",
   // What counts as entered is the Spielplan panel's own list, stated there in full on exactly this
   // state: a second copy would put one sentence on the page twice.
-  recorded:
-    "Solange zu mindestens einem Spiel dieser Saison etwas eingetragen ist, lässt sich der Spielplan weder neu anlegen noch zurücknehmen, und diese drei Zahlen bleiben gesperrt. Im Abschnitt Spielplan steht, was dazu zählt.",
+  recorded: `Solange zu mindestens einem Spiel dieser Saison etwas eingetragen ist, lässt sich der Spielplan weder neu anlegen noch zurücknehmen, und diese drei Zahlen bleiben gesperrt. Im Abschnitt ${SPIELPLAN_ABSCHNITT} steht, was dazu zählt.`,
   // The freeze stated rather than left conditional: nothing returns a season to `future`
   // (`docs/backend/spec.md :: I18`), so a way out worded here would name one nobody can reach.
   closed:
@@ -112,7 +112,7 @@ export function FormRegelnSection({
       <div className={panel.header()}>
         <PanelHeading
           className={panel.heading()}
-          title="Regeln">
+          title={REGELN_ABSCHNITT}>
           <Hint
             mode="reveal"
             label="Hinweis zu den Regeln"

@@ -6,7 +6,7 @@ import { DISPLAY_HEADING_CLASSES } from "@/shared/components/ui/displayType";
 import { CARDS_CASCADE_CLASSES, PAGE_RISE_CLASSES } from "@/shared/components/ui/motion";
 import { typedObjectEntries } from "@/shared/utils/type";
 
-import { GROUPED_MEMBERS, TAG_EYEBROWS, TAG_TITLES } from "../../constants";
+import { GROUPED_MEMBERS, ORGANISATION_TITEL, TAG_EYEBROWS, TAG_TITLES } from "../../constants";
 import { MetaSection } from "../ui/MetaSection";
 
 // Each step is n columns of 10.75rem plus the gaps between them: 10.75rem is the narrowest member card, at a
@@ -17,7 +17,7 @@ export function MetaOrganisationView() {
   return (
     <div className={`${PAGE_RISE_CLASSES} flex w-full flex-col gap-y-8 sm:gap-y-12`}>
       <BrandHero
-        title="Organisation"
+        title={ORGANISATION_TITEL}
         lead="Alle hier sind Schülerinnen, Schüler und Helfer, die die Liga ehrenamtlich am Laufen halten."
       />
 

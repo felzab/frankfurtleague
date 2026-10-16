@@ -9,6 +9,7 @@ import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
 
+import { UEBERALL_ABMELDEN } from "@/features/admin/constants";
 import { endAnmeldungenAction } from "@/features/funktionen/actions";
 import { FLAbmeldungPayloadSchema } from "@/features/funktionen/schemas";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
@@ -70,7 +71,7 @@ export function FormAbmeldenSection() {
       <div className={panel.header()}>
         <PanelHeading
           className={panel.heading()}
-          title="Überall abmelden"
+          title={UEBERALL_ABMELDEN}
         />
       </div>
 
@@ -108,7 +109,7 @@ export function FormAbmeldenSection() {
           <ConfirmPressButton
             confirm={twoPress}
             reason={email.trim() === "" ? "Gib zuerst die E-Mail-Adresse ein." : null}
-            resting="Überall abmelden"
+            resting={UEBERALL_ABMELDEN}
             armed="Ja, überall abmelden"
             running="Meldet ab..."
             icon={

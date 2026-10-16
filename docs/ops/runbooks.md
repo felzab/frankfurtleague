@@ -147,12 +147,15 @@ the machine is outside the repository. What it does tell you:
   than deploying the restored one by the tag the script names.
 - **Never deploy by tag a build declaring no
   `fl_backend/app/core/sentinels.py :: GHOST_SPIELER_ID` once a later build has erased a pupil or an
-  administrator; roll forward instead.** Each erasure writes a row such a build cannot read, and
+  administrator; roll forward instead.** Each erasure writes a row such a build mishandles, and
   nothing refuses the deploy:
   - a pupil's, the season-after deletion's among them, writes the erased pupils' sentinel with no
-    name, so that build's player list in the administration answers 500;
-  - an administrator's queues a grant notice withheld as `geloescht`, which that build's hourly grant
-    pass cannot parse, so every pass fails and no change of access is mailed again, where the row is
+    name, so that build's player list in the administration answers 500, and its public
+    `GET /spieler`, asked for neither a team nor a season, serves the sentinel as a player with no
+    name;
+  - an administrator's queues a grant notice withheld as `geloescht`, and that build's hourly grant
+    pass writes its claim on the row before reading anything, a write that build's validator refuses
+    with code 121, so every pass fails and no change of access is mailed again, where the row is
     still queued as that build boots;
   - that build's boot attaches its own validators again (§2), which refuse any write over either row.
 - **After serving a build older than the season-row confirmation links, re-send the link of every
