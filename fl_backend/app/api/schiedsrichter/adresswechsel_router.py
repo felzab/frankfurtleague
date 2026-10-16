@@ -30,12 +30,13 @@ from app.api.schiedsrichter.services import (
 )
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
 from app.core.collections import Collection
-from app.core.config import API_VERSION
+from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import patch_one_in_db, refuse
 from app.core.dependencies import AktionenCollection, DBClient, SchiedsrichterCollection, get_german_date_str, get_germany_now
 from app.core.exception_handlers import stores_nothing
+from app.core.journal import Journal, JournalLine
 from app.core.recording import build_redaction_filter, log_stamp
-from app.core.security import bind_public_actor, verify_access_base
+from app.core.security import bind_public_actor, loeschung_journal_hash, verify_access_base
 from app.core.transactions import transaction_session
 from app.shared.folding import sign_in_identifier
 
@@ -106,6 +107,7 @@ async def post_adresswechsel(
     sperrliste: SperrlisteLookup,
     aktionen_collection: AktionenCollection,
     db: DBClient,
+    config: Annotated[BackendConfig, Depends(get_app_config)],
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLSchiedsrichterAdresswechselResponse:
@@ -127,7 +129,9 @@ async def post_adresswechsel(
     token_hash = hash_token(antwort_data.token)
     # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_gesperrt`).
     massgebliche_saison_id = await sperrliste_saison(sperrliste)
+    journal = Journal()
 
+    @journal.attempted
     async def answer_for_the_mailbox(session: AsyncClientSession) -> FLSchiedsrichterAdresswechselResponse:
         """Judge, then write, everything judged read in-session, so a second press is refused by the gone block rather than writing twice."""
 
@@ -165,8 +169,19 @@ async def post_adresswechsel(
                 stamp=log_stamp(germany_now),
                 session=session,
             )
+            hashed = loeschung_journal_hash(str(wechsel.get("email") or ""), schluessel=config.sperrliste_schluessel)
+            journal.note(
+                JournalLine(
+                    person_hash=hashed,
+                    art="adresswechsel_abgelehnt",
+                    collection=Collection.SCHIEDSRICHTER,
+                    record_id=raw["_id"],
+                    am=log_stamp(germany_now),
+                )
+            )
 
         return FLSchiedsrichterAdresswechselResponse(antwort=antwort_data.antwort)
 
-    async with transaction_session(db) as session:
-        return await session.with_transaction(answer_for_the_mailbox)
+    async with journal:
+        async with transaction_session(db) as session:
+            return await session.with_transaction(answer_for_the_mailbox)

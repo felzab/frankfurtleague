@@ -32,12 +32,13 @@ from app.api.spieler.services import (
     spieler_adresswechsel_zustand_of,
 )
 from app.core.collections import Collection
-from app.core.config import API_VERSION
+from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import patch_one_in_db, refuse
 from app.core.dependencies import AktionenCollection, DBClient, SpielerCollection, get_german_date_str, get_germany_now
 from app.core.exception_handlers import DUPLICATE_KEY_RESPONSE, stores_nothing
+from app.core.journal import Journal, JournalLine
 from app.core.recording import build_redaction_filter, log_stamp
-from app.core.security import bind_public_actor, verify_access_base
+from app.core.security import bind_public_actor, loeschung_journal_hash, verify_access_base
 from app.core.transactions import transaction_session
 from app.shared.folding import sign_in_identifier
 
@@ -123,6 +124,7 @@ async def post_adresswechsel_antwort(
     sperrliste: SperrlisteLookup,
     aktionen_collection: AktionenCollection,
     db: DBClient,
+    config: Annotated[BackendConfig, Depends(get_app_config)],
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLSpielerAdresswechselAntwortResponse:
@@ -148,7 +150,9 @@ async def post_adresswechsel_antwort(
     token_hash = hash_token(antwort_data.token)
     # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_gesperrt`).
     massgebliche_saison_id = await sperrliste_saison(sperrliste)
+    journal = Journal()
 
+    @journal.attempted
     async def answer_for_the_mailbox(session: AsyncClientSession) -> FLSpielerAdresswechselAntwortResponse:
         """Judge, then write, everything judged read in-session, so a second press is refused by the gone block rather than writing twice."""
 
@@ -192,8 +196,19 @@ async def post_adresswechsel_antwort(
                 stamp=log_stamp(germany_now),
                 session=session,
             )
+            hashed = loeschung_journal_hash(str(wechsel.get("email") or ""), schluessel=config.sperrliste_schluessel)
+            journal.note(
+                JournalLine(
+                    person_hash=hashed,
+                    art="adresswechsel_abgelehnt",
+                    collection=Collection.SPIELER,
+                    record_id=raw["_id"],
+                    am=log_stamp(germany_now),
+                )
+            )
 
         return FLSpielerAdresswechselAntwortResponse(antwort=antwort_data.antwort)
 
-    async with transaction_session(db) as session:
-        return await session.with_transaction(answer_for_the_mailbox)
+    async with journal:
+        async with transaction_session(db) as session:
+            return await session.with_transaction(answer_for_the_mailbox)

@@ -64,7 +64,7 @@ from tests import documents
 from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
 from tests.bans import ban_list
-from tests.config import ADMIN_AUTH, ADMIN_KEY, grants_for_the_suite
+from tests.config import ADMIN_AUTH, ADMIN_KEY, build_test_config, grants_for_the_suite
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.documents import ADDRESS, ban_document, rules_document, saison_document, saison_team_document, team_document
 from tests.erasure import erased
@@ -1818,6 +1818,7 @@ async def answer_for(database: AsyncDatabase, client: AsyncMongoClient, token: s
         aktionen_collection=database[Collection.AKTIONEN],
         sperrliste=ban_list(database),
         db=client,
+        config=build_test_config(),
         today=TODAY,
         germany_now=NOW,
     )

@@ -7,15 +7,17 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.identitaet.services import ist_eigene_registrierung
 from app.api.konto.crud import press_widerruf
-from app.api.konto.services import KONTO_SEITE_SPIELER, compose_person_move, find_eigener_eintrag_refusal
+from app.api.konto.services import KONTO_SEITE_SPIELER, compose_person_move, find_eigener_eintrag_refusal, widerruf_line
 from app.api.registrierungen.schemas import FLRegistrierungSelbstEinwilligungPayload, FLRegistrierungSelbstEinwilligungResponse
 from app.api.registrierungen.services import traegt_wahlen
-from app.core.config import API_VERSION
+from app.core.collections import Collection
+from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import patch_one_in_db, refuse
 from app.core.dependencies import DBClient, RegistrierungenCollection, get_germany_now
+from app.core.journal import Journal
 from app.core.recording import log_stamp
 from app.core.routing import by_id
-from app.core.security import PERSON_ACTOR_BINDERS, SpielerIdentifier, verify_access_admin
+from app.core.security import PERSON_ACTOR_BINDERS, SpielerIdentifier, loeschung_journal_hash, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.einwilligung_nachweis import FLEinwilligungWahl, nachweis_stand_of
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -39,6 +41,7 @@ async def patch_einwilligung(
     identifier: SpielerIdentifier,
     registrierungen_collection: RegistrierungenCollection,
     db: DBClient,
+    config: Annotated[BackendConfig, Depends(get_app_config)],
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLRegistrierungSelbstEinwilligungResponse:
     """
@@ -59,7 +62,11 @@ async def patch_einwilligung(
     """
 
     gewaehlt: dict[FLEinwilligungWahl, object] = {"umfang": einwilligung_data.umfang, "medien": einwilligung_data.medien}
+    # For `app/api/spieler/selbst_router.py :: patch_einwilligung`'s reason: a replay stamps the moment the person pressed.
+    am = log_stamp(germany_now)
+    journal = Journal()
 
+    @journal.attempted
     async def write(session: AsyncClientSession) -> FLRegistrierungSelbstEinwilligungResponse:
         # By the id alone: the predicate judges the status, the fold, the confirmation and the choices.
         row = await registrierungen_collection.find_one(
@@ -83,9 +90,7 @@ async def patch_einwilligung(
             seite=KONTO_SEITE_SPIELER,
         )
 
-        update = compose_person_move(
-            gespeichert=gespeichert, gewaehlt=gewaehlt, am=log_stamp(germany_now), text_version=einwilligung_data.text_version
-        )
+        update = compose_person_move(gespeichert=gespeichert, gewaehlt=gewaehlt, am=am, text_version=einwilligung_data.text_version)
         updated = (
             None
             if update is None
@@ -97,6 +102,17 @@ async def patch_einwilligung(
                 return_document=ReturnDocument.AFTER,
             )
         )
+        line = widerruf_line(
+            person_hash=loeschung_journal_hash(identifier, schluessel=config.sperrliste_schluessel),
+            collection=Collection.REGISTRIERUNGEN,
+            record_id=row["_id"],
+            bloecke=[gespeichert],
+            gewaehlt=gewaehlt,
+            am=am,
+            text_version=einwilligung_data.text_version,
+        )
+        if line is not None:
+            journal.note(line)
         # A press moving neither choice is no act, so nothing was written and the record answers as stored.
         einwilligung = gespeichert if updated is None else updated["einwilligung"]
 
@@ -108,5 +124,6 @@ async def patch_einwilligung(
             }
         )
 
-    async with transaction_session(db) as session:
-        return await session.with_transaction(write)
+    async with journal:
+        async with transaction_session(db) as session:
+            return await session.with_transaction(write)

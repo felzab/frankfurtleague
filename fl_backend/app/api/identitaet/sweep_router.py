@@ -8,7 +8,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.errors import PyMongoError
 
-from app.api.identitaet.crud import UNKNOWN_COMMIT_RESULT, erase_if_still_due, faellige_seite, saison_statuses
+from app.api.identitaet.crud import erase_if_still_due, faellige_seite, saison_statuses
 from app.api.identitaet.schemas import FLErasure, FLLoeschungLaufParams, FLLoeschungLaufResponse
 from app.api.identitaet.services import abgeschlossene_saison_id, ohne_passende_adresse
 from app.api.saisons.cache import dropping_the_saison_cache
@@ -39,7 +39,7 @@ from app.core.exceptions import DocumentNotFoundException
 from app.core.logging import fl_logger
 from app.core.recording import log_stamp
 from app.core.security import bind_system_actor, verify_access_system
-from app.core.transactions import diagnosis_of, transaction_session
+from app.core.transactions import UNKNOWN_COMMIT_RESULT, diagnosis_of, transaction_session
 
 # System tier and the system actor, as the application sweep's router is: the rule deletes, whichever
 # caller triggers it, and neither the hourly pass nor an activation's press holds a person's session here.

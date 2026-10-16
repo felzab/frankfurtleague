@@ -884,11 +884,20 @@ Every ruling below is the sign-up flow as it stands for the next season.
   (`docs/logging/spec.md :: 1.2`), because the only way to rotate a file the runtime holds open
   loses lines, and the thirty days reach the copy the deploy takes of each stream before replacing
   its container (`scripts/ops/deploy.sh :: LOG_DIR`). **The erasure journal's lines are kept the same
-  thirty days in a file per day**, each naming a requested erasure by a keyed hash of the address
-  and its moment (`docs/backend/spec.md :: I666`), copied there hourly so that a restore can run
-  every erasure since its snapshot again ([section 5](#5-erasure-reaches-everyone-who-asks)); a line
-  is lost to the stream's size cap only where more than the cap is logged inside one hour, and the
-  published notice tabulates the thirty days (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-10-15.
+  thirty days in a file per day**, each naming by a keyed hash of the address a requested erasure, or
+  a consent its person withdrew, a Widerspruch or an address change declined through its link, with
+  the record that act changed and its moment (`docs/backend/spec.md :: I666`, `:: I745`), copied
+  there hourly so that a restore can run every erasure since its snapshot again
+  ([section 5](#5-erasure-reaches-everyone-who-asks)) and replay every such choice. **A replay
+  writes a choice only onto a record still holding its person, stamped with that person's own moment
+  and never a later one, and a second run writes nothing** (`docs/backend/spec.md :: I746`). A record
+  whose addresses none match the line's hash is listed and left as it stands; an erasure is listed for an
+  administrator to run again on its page; the action log records each replay under the system,
+  naming the line it replays without its person; and the listing prints no address and no key
+  ([`ops/runbooks.md`](ops/runbooks.md#13-after-a-restore-from-a-snapshot)). A line is lost to the
+  stream's size cap only where more than the cap is logged inside one hour, and the published notice
+  tabulates the thirty days (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-10-15, the choices' lines
+  and their replay 2026-10-16.
   The host files enforcing both figures are
   installed by hand in the same deployment that publishes them
   ([`ops/runbooks.md`](ops/runbooks.md) §7). The
@@ -1119,8 +1128,9 @@ the `Entry` column carries a token only where one still resolves in that file.
   consent under Art. 7 (1) is the stored record: each of its choices, the publication scope and the
   media consent, keeps when its person last set it and under which wording, and a withdrawal keeps
   the grant it ended, for as long as the record stands. Only the person's own answer grants a choice
-  or stamps its evidence: their own write, on their confirmation page or their account page, or an
-  admission carrying their own registration's answer (`docs/backend/spec.md :: I613`). An act before
+  or stamps its evidence: their own write, on their confirmation page or their account page, an
+  admission carrying their own registration's answer, or a restore replaying a withdrawal of theirs at
+  the moment they made it (`docs/backend/spec.md :: I613`, `:: I746`). An act before
   those survives only in the log row its write left, whose image an erasure empties and which
   expires twelve months after the write ([section 6](#6-retention-is-bounded-where-a-bound-was-chosen)).
   The question to put: whether the latest act and the grant a withdrawal ended are proof enough,

@@ -57,7 +57,7 @@ from tests import documents
 from tests.actor_tokens import FRESH_STEP_UP_CHECK, SignedActor, verified_actor
 from tests.app_client import app_client
 from tests.bans import ban_list, ban_through_the_route
-from tests.config import ADMIN_KEY, ADMINISTRATORS, grants_for_the_suite
+from tests.config import ADMIN_KEY, ADMINISTRATORS, build_test_config, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.erasure import erased
 from tests.isolation import InterleavedCollection
@@ -291,6 +291,7 @@ async def answer(
         aktionen_collection=database[Collection.AKTIONEN],
         sperrliste=ban_list(database),
         db=database.client,
+        config=build_test_config(),
         today=today,
         germany_now=NOW,
     )

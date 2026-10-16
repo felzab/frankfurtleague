@@ -24,7 +24,7 @@ from pymongo import AsyncMongoClient, ReturnDocument, monitoring
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.services import hash_token
-from app.api.identitaet.crud import ERASURE_JOURNAL_EVENT, faellige_seite, saison_statuses
+from app.api.identitaet.crud import faellige_seite, saison_statuses
 from app.api.identitaet.schemas import FLLoeschungLaufParams
 from app.api.identitaet.sweep_router import LOESCHUNGEN_PER_PASS, post_loeschung_lauf
 from app.api.registrierungen.public_router import post_registrierung
@@ -40,6 +40,7 @@ from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db
 from app.core.exception_handlers import DATABASE_FAILED, STORED_DATA_INVALID, UNHANDLED_CRASH, UNKNOWN_OUTCOME
 from app.core.exceptions import DocumentNotFoundException
+from app.core.journal import JOURNAL_TOKEN
 from app.main import create_app
 from tests.app_client import app_client
 from tests.bans import ban_list
@@ -971,7 +972,7 @@ class TestNoJournalLine:
             erased = on_a_league(mongo_replica_set_url, body)
 
         assert erased == 1
-        assert not [record for record in caplog.records if record.getMessage().startswith(ERASURE_JOURNAL_EVENT)]
+        assert not [record for record in caplog.records if record.getMessage().startswith(JOURNAL_TOKEN)]
 
 
 # --- What one pupil costs on the wire, which the share is sized at.

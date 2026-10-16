@@ -1,4 +1,4 @@
-from collections.abc import Mapping, Sequence, Set
+from collections.abc import Iterable, Mapping, Sequence, Set
 from typing import Any, NamedTuple
 
 from pymongo import ReturnDocument
@@ -99,6 +99,31 @@ async def erase_kontaktperson_in_session(
     )
 
     return SeatsCleared(kontakt_slots=cleared_slots, redacted_aktionen=redacted)
+
+
+async def redact_the_decliner(
+    *,
+    aktionen_collection: AsyncCollection,
+    collection: Collection,
+    row_id: Any,
+    adressen: Iterable[str],
+    stamp: str,
+    session: AsyncClientSession,
+) -> None:
+    """The declining person's seats out of every log image of this one row, which is all a Widerspruch reaches.
+
+    The link's Widerspruch and a restore's replay of its journal line both run it, after the patch emptying the seats.
+    """
+
+    await redact_seats_in_documents(
+        aktionen_collection=aktionen_collection,
+        documents=[(collection, [row_id])],
+        identifiers={sign_in_identifier(adresse) for adresse in adressen},
+        # The link stays with the seat, its decline recorded on it, as the live write leaves it.
+        links=False,
+        stamp=stamp,
+        session=session,
+    )
 
 
 async def redact_seats_in_documents(

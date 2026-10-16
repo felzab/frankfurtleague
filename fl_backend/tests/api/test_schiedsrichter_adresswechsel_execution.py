@@ -215,6 +215,7 @@ async def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str, 
         sperrliste=ban_list(database),
         aktionen_collection=database[Collection.AKTIONEN],
         db=client,
+        config=CONFIG,
         today=today,
         germany_now=NOW,
     )

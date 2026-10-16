@@ -19,6 +19,7 @@ import {
   computeSaisonVerlauf,
   describeReplacementUmfang,
   holdsNobody,
+  isRetireable,
   offeredTrikotFarben,
   toWebsiteUrl,
 } from "./utils.ts";
@@ -847,5 +848,29 @@ describe("which kit colours the wish picker offers", () => {
      the assigned ones -- so an editor reopening such a row still reads what it holds. */
   it("keeps the field's own colour even where every colour is assigned", () => {
     assert.deepEqual(values(alle, "rot"), ["rot"]);
+  });
+});
+
+describe("whether the list and the editor offer a club's retirement", () => {
+  const SAISONS = [
+    { id: "2025", status: "past" as const },
+    { id: "2026", status: "active" as const },
+    { id: "2027", status: "future" as const },
+  ];
+  const inSaisons = (...ids: string[]) =>
+    isRetireable(
+      SAISONS,
+      ids.map((saison_id) => ({ saison_id })),
+    );
+
+  /* `REQ-RETIRE-001` reads every season the club stands in, so the selected one alone would offer a write it refuses. */
+  it("withholds it while a running or a planned season holds the club, whichever season is selected", () => {
+    assert.equal(inSaisons("2025", "2026"), false);
+    assert.equal(inSaisons("2025", "2027"), false);
+  });
+
+  it("offers it to a club whose seasons are all past, and to one in none", () => {
+    assert.equal(inSaisons("2025"), true);
+    assert.equal(inSaisons(), true);
   });
 });
