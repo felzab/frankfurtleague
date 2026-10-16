@@ -402,9 +402,8 @@ export const FLSwapGruppenResponseSchema = BaseAPIResponseSchema.extend({
 export type FLSwapGruppenResponse = z.infer<typeof FLSwapGruppenResponseSchema>;
 
 /**
- * `verbleibend` counts the persons who failed too, so a caller looping on it alone never ends: a call
- * erasing nobody stops it. `abgeschlossene_saison_id` is null where no season is `past`, nobody then
- * being due.
+ * `nach` is where the pass's next call starts, null once it reached the end; `verbleibend` counts the failed and
+ * the passed-over too, so it never ends a pass. `abgeschlossene_saison_id` is null where no season is `past`.
  */
 export const FLLoeschungLaufResponseSchema = BaseAPIResponseSchema.extend({
   abgeschlossene_saison_id: saisonIdReference.nullable(),
@@ -414,6 +413,7 @@ export const FLLoeschungLaufResponseSchema = BaseAPIResponseSchema.extend({
   uebersprungen: z.int().nonnegative(),
   fehlgeschlagen: z.int().nonnegative(),
   verbleibend: z.int().nonnegative(),
+  nach: CustomObjectIdStringSchema.nullable(),
 });
 export type FLLoeschungLaufResponse = z.infer<typeof FLLoeschungLaufResponseSchema>;
 

@@ -536,8 +536,12 @@ const LAUF = "/identitaet/loeschung/lauf";
 /** The activation's own message where it closed one season, as `landed` answers it. */
 const AKTIVIERT = `Saison ${SAISON_ID} ist jetzt aktiv. Die vorherige Saison ist abgeschlossen.`;
 
-/** One call of the deletion: whom it erased, and who is still due after it. */
-const gelaufen = (spieler: number, verbleibend: number, seit: string | null = "2025") => ({
+/** Places in the `_id` order, as the mirror demands them. */
+const ORT = `${"d".repeat(23)}4`;
+const VORNE = `${"e".repeat(23)}5`;
+
+/** One call of the deletion: whom it erased, who is still due after it, and where the pass goes on. */
+const gelaufen = (spieler: number, verbleibend: number, nach: string | null = null, seit: string | null = "2025") => ({
   acknowledged: 1,
   abgeschlossene_saison_id: seit,
   spieler: spieler,
@@ -546,11 +550,12 @@ const gelaufen = (spieler: number, verbleibend: number, seit: string | null = "2
   uebersprungen: 0,
   fehlgeschlagen: 0,
   verbleibend: verbleibend,
+  nach: nach,
 });
 
 /**
- * The activation landing, then each deletion call answered by the next of `laeufe` and every later one with nobody
- * due: a loop that ignores its stop then fails on what it says rather than hanging the file.
+ * The activation landing, then each deletion call answered by the next of `laeufe` and every later one with the
+ * pass's end: a loop that ignores the end then fails on what it says rather than hanging the file.
  */
 function aktivierungUndLaeufe(...laeufe: (() => Promise<unknown>)[]): void {
   let lauf = 0;
@@ -578,14 +583,14 @@ describe("the deletion the activation runs", () => {
 
   /* The spine drops the tags once the body settles: a run behind the answer lands after the drop, and a squad page
      names deleted pupils for days. One list reads the order rather than assuming it. */
-  it("runs after the activation until nobody is due, every tag dropped after the last run's answer", async () => {
+  it("runs the pass to its end after the activation, every tag dropped after the last call's answer", async () => {
     const order: string[] = [];
     let gelesen = 0;
     const nachtragen = (): void => {
       for (const { name, args } of cacheCalls.slice(gelesen)) order.push(`${name}(${args.join(", ")})`);
       gelesen = cacheCalls.length;
     };
-    const laeufeAntworten = [gelaufen(2, 1), gelaufen(1, 0)];
+    const laeufeAntworten = [gelaufen(2, 1, ORT), gelaufen(1, 0)];
     answerWith(async (call) => {
       nachtragen();
       if (call.endpoint !== LAUF) {
@@ -668,7 +673,7 @@ describe("the deletion the activation runs", () => {
   ] as const) {
     it(`answers the activation saved after ${fall}, says what the hourly pass finishes, and still drops the tags`, async () => {
       aktivierungUndLaeufe(
-        () => Promise.resolve(gelaufen(1, 4)),
+        () => Promise.resolve(gelaufen(1, 4, ORT)),
         () => Promise.reject(fehler()),
       );
 
@@ -690,30 +695,33 @@ describe("the deletion the activation runs", () => {
     });
   }
 
-  /* A person whose erasure fails stays due, and every call meets them again: the run ends on the call erasing
-     nobody. The answers bound the run, so a loop on `verbleibend` alone fails here rather than hanging. */
-  it("ends the run on a call that erased nobody, and says what remains", async () => {
-    aktivierungUndLaeufe(
-      () => Promise.resolve(gelaufen(2, 3)),
-      () => Promise.resolve(gelaufen(0, 3)),
-      () => Promise.resolve(gelaufen(0, 3)),
-      () => Promise.resolve(gelaufen(0, 0)),
-    );
+  /* Ten pupils whose deletion keeps failing fill the front of the `_id` order, so the call reaching them erases
+     nobody while a due pupil stands behind them: a pass ending on that call, or reading the front again, never
+     reaches that pupil. Answered by the place each call carries, the front bounded so a loop dropping the place
+     fails here rather than hanging. */
+  it("hands each call the place the last answer named, past a call that erased nobody, until one names none", async () => {
+    let vorne = 0;
+    answerWith((call) => {
+      if (call.endpoint !== LAUF) return Promise.resolve(landed(call));
+      const { nach } = call.params as { nach: string | null };
+      if (nach === VORNE) return Promise.resolve(gelaufen(1, 10));
+      return Promise.resolve(++vorne <= 3 ? { ...gelaufen(0, 11, VORNE), fehlgeschlagen: 10 } : gelaufen(0, 11));
+    });
 
     const message = await umgestellt();
 
-    assert.equal(laeufe(), 2, "the run went on past a call that erased nobody");
+    assert.deepEqual(
+      calls.filter(({ endpoint }) => endpoint === LAUF).map(({ params }) => params),
+      [{ nach: null }, { nach: VORNE }],
+    );
     assert.equal(
       message,
-      `${AKTIVIERT} 2 Spielerinnen und Spieler ohne Kadereintrag seit Saison 2025 wurden gelöscht. 3 weitere Löschungen stehen noch aus.`,
+      `${AKTIVIERT} Eine Spielerin oder ein Spieler ohne Kadereintrag seit Saison 2025 wurde gelöscht. 10 weitere Löschungen stehen noch aus.`,
     );
   });
 
   it("words one deleted pupil and one remaining in the singular", async () => {
-    aktivierungUndLaeufe(
-      () => Promise.resolve(gelaufen(1, 1)),
-      () => Promise.resolve(gelaufen(0, 1)),
-    );
+    aktivierungUndLaeufe(() => Promise.resolve(gelaufen(1, 1)));
 
     assert.equal(
       await umgestellt(),
@@ -724,7 +732,7 @@ describe("the deletion the activation runs", () => {
   /* No season `past`, as on the league's first activation: nobody is due, and a sentence counting zero reads as a
      deletion that went wrong. */
   it("adds nothing to the message where nobody was due", async () => {
-    aktivierungUndLaeufe(() => Promise.resolve(gelaufen(0, 0, null)));
+    aktivierungUndLaeufe(() => Promise.resolve(gelaufen(0, 0, null, null)));
 
     assert.equal(await umgestellt(), AKTIVIERT);
     assert.equal(laeufe(), 1);

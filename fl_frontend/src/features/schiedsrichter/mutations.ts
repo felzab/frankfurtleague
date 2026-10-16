@@ -95,14 +95,18 @@ export async function einladeAdresswechsel({
   );
 }
 
-/** The hourly pass's, on the system tier: a timer holds no session, and a lapsed address is the clock's to remove. */
-export async function postSchiedsrichterAdresswechselSweep(): Promise<FLSchiedsrichterAdresswechselSweepResponse> {
+/**
+ * The hourly pass's, on the system tier: a timer holds no session, and a lapsed address is the clock's to remove.
+ * `nach` is the previous call's answer.
+ */
+export async function postSchiedsrichterAdresswechselSweep(nach: string | null): Promise<FLSchiedsrichterAdresswechselSweepResponse> {
   return apiClient<FLSchiedsrichterAdresswechselSweepResponse>(
     "/schiedsrichter/sweep/adresswechsel",
     FLSchiedsrichterAdresswechselSweepResponseSchema,
     {
       method: "POST",
       authType: "system",
+      params: { nach: nach },
     },
   );
 }

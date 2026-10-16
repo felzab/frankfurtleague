@@ -92,27 +92,31 @@ export async function swapGruppen({ saison_id, ...teams }: FLSwapGruppenPayload)
 
 /**
  * The system tier, whoever presses: the season-after rule deletes, never the administrator who activated a
- * season. No season in the call, which reads the statuses itself.
+ * season. No season in the call, which reads the statuses itself; `nach` is the previous call's answer.
  */
-export async function postLoeschungLauf(): Promise<FLLoeschungLaufResponse> {
+export async function postLoeschungLauf(nach: string | null): Promise<FLLoeschungLaufResponse> {
   return apiClient<FLLoeschungLaufResponse>("/identitaet/loeschung/lauf", FLLoeschungLaufResponseSchema, {
     method: "POST",
     authType: "system",
+    params: { nach: nach },
   });
 }
 
 /**
- * Every call of one run summed, the last answered call's season and remainder beside the sums. A person who fails
- * stays due and meets each later call, so `fehlgeschlagen` and `uebersprungen` count attempts, never persons.
+ * Every call of one pass summed, the last answered call's season and remainder beside the sums. A pass reaches each
+ * person once, so the sums count persons; one who failed stays due for the next pass.
  */
-type LoeschungSumme = Omit<FLLoeschungLaufResponse, "acknowledged">;
+type LoeschungSumme = Omit<FLLoeschungLaufResponse, "acknowledged" | "nach">;
 
-/** A run that ended on a call's answer, or on a call that threw: what remains is then unknown. */
+/** A pass that ended on a call's answer, or on a call that threw: what remains is then unknown. */
 export type LoeschungLauf =
   (LoeschungSumme & { abgebrochen: false }) | (Omit<LoeschungSumme, "verbleibend"> & { abgebrochen: true; fehler: unknown });
 
-/** Settles rather than throws, so a caller words what the calls before a failure erased. */
-export async function loeschungLaufen(lauf: () => Promise<FLLoeschungLaufResponse>): Promise<LoeschungLauf> {
+/**
+ * One pass, each call handed the `nach` the call before it answered. Settles rather than throws, so a caller words
+ * what the calls before a failure erased.
+ */
+export async function loeschungLaufen(lauf: (nach: string | null) => Promise<FLLoeschungLaufResponse>): Promise<LoeschungLauf> {
   let summe: LoeschungSumme = {
     abgeschlossene_saison_id: null,
     spieler: 0,
@@ -124,9 +128,9 @@ export async function loeschungLaufen(lauf: () => Promise<FLLoeschungLaufRespons
   };
 
   try {
-    let antwort: FLLoeschungLaufResponse;
+    let nach: string | null = null;
     do {
-      antwort = await lauf();
+      const antwort = await lauf(nach);
       summe = {
         abgeschlossene_saison_id: antwort.abgeschlossene_saison_id,
         spieler: summe.spieler + antwort.spieler,
@@ -136,8 +140,10 @@ export async function loeschungLaufen(lauf: () => Promise<FLLoeschungLaufRespons
         fehlgeschlagen: summe.fehlgeschlagen + antwort.fehlgeschlagen,
         verbleibend: antwort.verbleibend,
       };
-      // Never `verbleibend` alone: a person whose erasure fails stays due, and every later call meets them again.
-    } while (antwort.verbleibend > 0 && antwort.spieler > 0);
+      // The pass's one end: `verbleibend` counts a failing person, who stays due, and a call erasing nobody may stand
+      // in front of a due person the next call reaches.
+      nach = antwort.nach;
+    } while (nach !== null);
   } catch (fehler) {
     const { verbleibend: _unbekannt, ...bisher } = summe;
     return { ...bisher, abgebrochen: true, fehler: fehler };

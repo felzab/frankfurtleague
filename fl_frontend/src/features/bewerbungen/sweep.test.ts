@@ -14,7 +14,7 @@ import type { SentMail } from "@/core/mailDouble.ts";
 
 /** One thing that happened, in the order it happened: the two orderings this slice owes are orderings between the two kinds. */
 type SweepEvent =
-  { kind: "api"; endpoint: string; method: string; params?: Record<string, string>; body?: string } | ({ kind: "mail" } & SentMail);
+  { kind: "api"; endpoint: string; method: string; params?: Record<string, string | null>; body?: string } | ({ kind: "mail" } & SentMail);
 
 const events: SweepEvent[] = [];
 /** Addresses the doubled provider refuses, so a deletion notice can fail for one application alone. */
@@ -40,12 +40,23 @@ let apiAnswer: (call: ApiEvent) => unknown = () => ({});
 const ADRESSWECHSEL = "/schiedsrichter/sweep/adresswechsel";
 const LAUF = "/identitaet/loeschung/lauf";
 
-/** The two halves after the season loop, answered apart so a case about a season's clocks never answers them. */
-let adresswechselAnswer: () => unknown = () => ({ acknowledged: 1, entfernt: 0, verbleibend: 0 });
-let laufAnswer: () => unknown = () => gelaufen(0, 0);
+/**
+ * The two halves after the season loop, answered apart so a case about a season's clocks never answers them. Each is
+ * handed the place its call carried, null on a pass's first.
+ */
+let adresswechselAnswer: (nach: string | null) => unknown = () => entfernt(0, 0);
+let laufAnswer: (nach: string | null) => unknown = () => gelaufen(0, 0);
 
-/** One call of the pupils' deletion: whom it erased, and who is still due after it. */
-const gelaufen = (spieler: number, verbleibend: number) => ({
+/** One call of the lapsed addresses' half: how many went, how many are still due, and where the pass goes on. */
+const entfernt = (anzahl: number, verbleibend: number, nach: string | null = null) => ({
+  acknowledged: 1,
+  entfernt: anzahl,
+  verbleibend: verbleibend,
+  nach: nach,
+});
+
+/** One call of the pupils' deletion: whom it erased, who is still due after it, and where the pass goes on. */
+const gelaufen = (spieler: number, verbleibend: number, nach: string | null = null) => ({
   acknowledged: 1,
   abgeschlossene_saison_id: "2526",
   spieler: spieler,
@@ -54,6 +65,7 @@ const gelaufen = (spieler: number, verbleibend: number) => ({
   uebersprungen: 0,
   fehlgeschlagen: 0,
   verbleibend: verbleibend,
+  nach: nach,
 });
 
 /** The grants' claim with nothing to announce. */
@@ -70,8 +82,8 @@ doubleApiClient(({ endpoint, method, params, body }, schema) => {
   events.push(call);
   // Parsed by the mirror the real client parses with, so an answer this file composes cannot drift
   // from the shape the caller is written against.
-  if (endpoint === ADRESSWECHSEL) return schema.parse(adresswechselAnswer());
-  if (endpoint === LAUF) return schema.parse(laufAnswer());
+  if (endpoint === ADRESSWECHSEL) return schema.parse(adresswechselAnswer(call.params?.nach ?? null));
+  if (endpoint === LAUF) return schema.parse(laufAnswer(call.params?.nach ?? null));
   return schema.parse(apiAnswer(call));
 });
 
@@ -238,7 +250,7 @@ beforeEach(() => {
   loeschungSwitch = "off";
   appEnv = "production";
   sweepAnswers({});
-  adresswechselAnswer = () => ({ acknowledged: 1, entfernt: 0, verbleibend: 0 });
+  adresswechselAnswer = () => entfernt(0, 0);
   laufAnswer = () => gelaufen(0, 0);
 });
 
@@ -1011,37 +1023,72 @@ describe("the two halves after the season loop", () => {
     assert.deepEqual(halves(), [ADRESSWECHSEL, LAUF]);
   });
 
-  it("calls each half again while some are due, and no further once nobody is", async () => {
+  /** Each call of the two halves with the place it carried, in the order they ran. */
+  const halfCalls = (): [string, string | null][] =>
+    apiCalls()
+      .filter(({ endpoint }) => endpoint === ADRESSWECHSEL || endpoint === LAUF)
+      .map(({ endpoint, params }) => [endpoint, params?.nach ?? null]);
+
+  /** Places in the `_id` order, as the mirror demands them. */
+  const ORT_ADRESSE = `${"d".repeat(23)}4`;
+  const ORT_SPIELER = `${"e".repeat(23)}5`;
+
+  /* The pass is the caller's to hold: each call carries the place the call before it answered, and the first answer
+     naming none ends it, whatever `verbleibend` still counts. */
+  it("hands each call of a half the place the last answer named, and calls no further once one names none", async () => {
     loeschungSwitch = "on";
-    adresswechselAnswer = inTurn([
-      { acknowledged: 1, entfernt: 2, verbleibend: 1 },
-      { acknowledged: 1, entfernt: 1, verbleibend: 0 },
-      { acknowledged: 1, entfernt: 4, verbleibend: 4 },
-      { acknowledged: 1, entfernt: 0, verbleibend: 0 },
-    ]);
-    // Each list closes on nobody due, so a loop that ignores the stop fails on its count rather than hanging.
-    laufAnswer = inTurn([gelaufen(3, 2), gelaufen(2, 0), gelaufen(4, 4), gelaufen(0, 0)]);
+    // Each list closes on an answer naming no place, so a loop that ignores the end fails on its count rather than hanging.
+    adresswechselAnswer = inTurn([entfernt(2, 1, ORT_ADRESSE), entfernt(1, 1), entfernt(4, 4)]);
+    laufAnswer = inTurn([gelaufen(3, 2, ORT_SPIELER), gelaufen(2, 1), gelaufen(4, 4)]);
 
     await runBewerbungSweep();
 
-    assert.deepEqual(halves(), [ADRESSWECHSEL, ADRESSWECHSEL, LAUF, LAUF]);
+    assert.deepEqual(halfCalls(), [
+      [ADRESSWECHSEL, null],
+      [ADRESSWECHSEL, ORT_ADRESSE],
+      [LAUF, null],
+      [LAUF, ORT_SPIELER],
+    ]);
   });
 
-  /* An address or a person the backend cannot remove stays due, so a loop on the remainder alone calls every hour
-     for ever. The answers end the run themselves, so a loop ignoring the stop fails here rather than hanging. */
-  it("ends each half on a call that removed nobody, though some stay due", async () => {
+  /**
+   * Rows the backend cannot remove at the front of the `_id` order, one due row behind them: a call carrying no place
+   * reaches the front alone, the call carrying `ort` the row behind. Bounded, so a loop dropping the place ends on its
+   * fourth call rather than hanging.
+   */
+  const vorneDann = <T>(ort: string, vorne: T, dahinter: T, ende: T) => {
+    let ohneOrt = 0;
+    return (nach: string | null): T => (nach === ort ? dahinter : ++ohneOrt <= 3 ? vorne : ende);
+  };
+
+  /* A share's worth of failing rows fills the front, so the call reaching them removes nobody while a due row stands
+     behind them: a pass ending on that call, or reading the front again, never reaches that row. */
+  it("goes on past a call that removed nobody to the due rows behind it", async () => {
     loeschungSwitch = "on";
-    adresswechselAnswer = inTurn([
-      { acknowledged: 1, entfernt: 2, verbleibend: 1 },
-      { acknowledged: 1, entfernt: 0, verbleibend: 1 },
-      { acknowledged: 1, entfernt: 0, verbleibend: 1 },
-      { acknowledged: 1, entfernt: 0, verbleibend: 0 },
-    ]);
-    laufAnswer = inTurn([gelaufen(3, 2), gelaufen(0, 2), gelaufen(0, 2), gelaufen(0, 0)]);
+    adresswechselAnswer = vorneDann(ORT_ADRESSE, entfernt(0, 43, ORT_ADRESSE), entfernt(1, 42), entfernt(0, 43));
+    laufAnswer = vorneDann(ORT_SPIELER, { ...gelaufen(0, 11, ORT_SPIELER), fehlgeschlagen: 10 }, gelaufen(1, 10), gelaufen(0, 11));
 
     await runBewerbungSweep();
 
-    assert.deepEqual(halves(), [ADRESSWECHSEL, ADRESSWECHSEL, LAUF, LAUF]);
+    assert.deepEqual(
+      lines.filter(({ level }) => level === "info"),
+      [
+        { level: "info", event: "schiedsrichter.adresswechsel_sweep_pass", fields: { entfernt: 1, verbleibend: 42 } },
+        {
+          level: "info",
+          event: "loeschung.sweep_pass",
+          fields: {
+            abgeschlossene_saison_id: "2526",
+            spieler: 1,
+            saison_spieler: 1,
+            registrierungen: 0,
+            uebersprungen: 0,
+            fehlgeschlagen: 10,
+            verbleibend: 10,
+          },
+        },
+      ],
+    );
   });
 
   /* Each half is its own clock: a shared `try` would hold every due pupil past the hour the address half fails. */
@@ -1070,7 +1117,7 @@ describe("the two halves after the season loop", () => {
 
   it("files a failed pupils' half under its own line, the lapsed addresses removed before it", async () => {
     loeschungSwitch = "on";
-    adresswechselAnswer = () => ({ acknowledged: 1, entfernt: 1, verbleibend: 0 });
+    adresswechselAnswer = () => entfernt(1, 0);
     laufAnswer = () => {
       throw new Error("the deletion was refused");
     };
@@ -1088,8 +1135,8 @@ describe("the two halves after the season loop", () => {
      person, an address or an id. */
   it("writes one line per pass for each half, holding its counts and nothing else", async () => {
     loeschungSwitch = "on";
-    adresswechselAnswer = () => ({ acknowledged: 1, entfernt: 2, verbleibend: 0 });
-    laufAnswer = inTurn([gelaufen(3, 1), gelaufen(1, 0)]);
+    adresswechselAnswer = () => entfernt(2, 0);
+    laufAnswer = inTurn([gelaufen(3, 1, ORT_SPIELER), gelaufen(1, 0)]);
 
     await runBewerbungSweep();
 

@@ -92,16 +92,18 @@ export async function runBewerbungSweep(): Promise<void> {
   }
 }
 
-/** A referee's pending address the day after its link lapsed. On every pass: no switch holds a lapsed address. */
+/** A referee's or a pupil's pending address the day after its link lapsed. On every pass: no switch holds a lapsed address. */
 async function sweepAdresswechsel(): Promise<void> {
   let entfernt = 0;
   try {
     let antwort: FLSchiedsrichterAdresswechselSweepResponse;
+    let nach: string | null = null;
     do {
-      antwort = await postSchiedsrichterAdresswechselSweep();
+      antwort = await postSchiedsrichterAdresswechselSweep(nach);
       entfernt += antwort.entfernt;
-      // Never `verbleibend` alone: an address the backend cannot remove stays due, and every later call meets it again.
-    } while (antwort.verbleibend > 0 && antwort.entfernt > 0);
+      // The pass's one end, as the pupils' deletion's (`fl_frontend/src/features/saisons/mutations.ts :: loeschungLaufen`).
+      nach = antwort.nach;
+    } while (nach !== null);
 
     logger.info("schiedsrichter.adresswechsel_sweep_pass", { entfernt: entfernt, verbleibend: antwort.verbleibend });
   } catch (error) {

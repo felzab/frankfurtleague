@@ -222,7 +222,7 @@ export async function activateSaisonAction(rawPayload: FLActivateSaisonPayload):
 async function loeschenNachUmstellung(): Promise<string[]> {
   // Each call answering its own cut: one the deadline ends would otherwise answer the whole press as of unknown
   // outcome, sending the administrator to check an activation that stands.
-  const lauf = await loeschungLaufen(() => runAnsweringOwnCut(postLoeschungLauf));
+  const lauf = await loeschungLaufen((nach) => runAnsweringOwnCut(() => postLoeschungLauf(nach)));
 
   // The name alone, as the hourly pass logs its own: no person reaches this line.
   if (lauf.abgebrochen) {

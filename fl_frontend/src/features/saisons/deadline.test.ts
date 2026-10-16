@@ -65,6 +65,7 @@ const ERSTER_LAUF = {
   uebersprungen: 0,
   fehlgeschlagen: 0,
   verbleibend: 5,
+  nach: `${"d".repeat(23)}4`,
 };
 
 /** Every call the press sent, with the signal that could abort it. */
@@ -125,7 +126,7 @@ describe("an activation whose deletion the request's deadline cuts", () => {
     advance(CALL_MS);
 
     const cut = await untilCall(3);
-    assert.ok(cut.url.endsWith("/identitaet/loeschung/lauf"));
+    assert.ok(cut.url.endsWith(`/identitaet/loeschung/lauf?nach=${ERSTER_LAUF.nach}`));
     advance(REQUEST_DEADLINE_MS - 2 * CALL_MS - 1);
     assert.equal(cut.signal.aborted, false, "the deletion call was aborted before the deadline");
     advance(1);
