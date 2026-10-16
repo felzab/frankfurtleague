@@ -1,6 +1,7 @@
 import asyncio
 import functools
 import logging
+from collections import Counter
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
 from typing import Any
@@ -50,6 +51,7 @@ from app.core.logging import FL_LOGGER_NAME
 from app.core.recording import SYSTEM_ACTOR_EMAIL
 from app.main import create_app
 from tests import documents
+from tests.api import test_bewerbung_sweep_refusal as budget
 from tests.app_client import app_client
 from tests.bans import ban_list
 from tests.config import ADMIN_AUTH, BASE_AUTH, SYSTEM_AUTH, build_test_config
@@ -1726,6 +1728,71 @@ class TestEachPerRowLoopCostsTheRoundTripsItsShareIsSizedAt:
         few, twice = on_a_league(mongo_replica_set_url, body)
 
         assert (twice - few) / FEW == ROUND_TRIPS_A_ROW
+
+
+class _ByName(_Counting):
+    def __init__(self) -> None:
+        super().__init__()
+        self.names: Counter[str] = Counter()
+
+    def started(self, event: monitoring.CommandStartedEvent) -> None:
+        super().started(event)
+        self.names[event.command_name] += 1
+
+
+async def commands_by_name(url: str, call: Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]) -> tuple[Any, Counter[str]]:
+    """The call's answer and its commands, read before the close sends `endSessions`, which is no command of the call's."""
+
+    listener = _ByName()
+    counting = AsyncMongoClient(url, event_listeners=[listener])
+    try:
+        return await call(counting[DATABASE_NAME], counting), Counter(listener.names)
+    finally:
+        await counting.close()
+
+
+class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
+    """`tests/api/test_bewerbung_sweep_refusal.py`'s budget, its rows at the per-row cost and the rest as it names them.
+
+    A command added to either call turns its case red, so the share is judged against the deadline again.
+    """
+
+    def test_the_sweep(self, mongo_replica_set_url: str):
+        """Every clock takes a page and every conditional read is made: two applications name a club, and the images take all three shapes."""
+
+        link = {"token_hash": "a" * 64, "verschickt_am": "2026-03-02", "frist": "2026-03-16", "abgelehnt_am": None, "zustellung": None}
+        links = {"trainer": link, "ansprechperson": None, "stellvertretung": None}
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[Any, Counter[str]]:
+            await database[Collection.BEWERBUNGEN].update_many(
+                {"_id": {"$in": [REMIND_OID, DELETE_OID]}}, {"$set": {"team_id": CLUB_OID, "schule": None}}
+            )
+            await database[Collection.SAISON_TEAMS].insert_many(
+                [
+                    {**junction_row(), "_id": numbered(1), "team_id": numbered(1), "kontakte": None, "bestaetigungen": links},
+                    {**junction_row(), "_id": numbered(2), "team_id": numbered(2), "bestaetigungen": links},
+                ]
+            )
+
+            return await commands_by_name(mongo_replica_set_url, sweep)
+
+        answer, names = on_a_league(mongo_replica_set_url, body, status="future", next_status="past")
+        rows = len(reminded(answer)) + answer.kontaktbloecke_geleert
+
+        assert (answer.abgelehnte_geloescht, answer.angenommene_geloescht, len(answer.loeschungen), rows) == (1, 1, 1, 4)
+        assert sum(names.values()) - budget.ROUND_TRIPS_A_ROW * rows == budget.SWEEP_OTHER_COMMANDS, names
+
+    def test_angekuendigt(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[Any, Counter[str]]:
+            ids = [numbered(position) for position in range(FEW)]
+            await database[Collection.BEWERBUNGEN].insert_many([application(row_id, bestaetigungsfrist=YESTERDAY) for row_id in ids])
+
+            return await commands_by_name(mongo_replica_set_url, lambda database, client: announce(database, client, ids))
+
+        answer, names = on_a_league(mongo_replica_set_url, body)
+
+        assert answer.angekuendigt == FEW
+        assert sum(names.values()) - budget.ROUND_TRIPS_A_ROW * FEW == budget.ANGEKUENDIGT_OTHER_COMMANDS, names
 
 
 class TestAPageAndOneMoreIsDrained:
