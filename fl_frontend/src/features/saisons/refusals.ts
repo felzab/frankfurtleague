@@ -5,7 +5,7 @@ import { MAX_QUALIFIERS } from "./schemas";
 
 import type { FieldErrors } from "@/shared/utils/validation";
 
-const SAISON_ID_TAKEN = "Diese Saison-ID ist schon vergeben. Wähle eine andere oder bearbeite die vorhandene Saison.";
+const SAISON_ID_TAKEN = "Diese Saison-ID ist schon vergeben.";
 
 /**
  * The stored-rules faults a DRAW raises as well as an edit, each worded once: the rules editor
@@ -16,7 +16,7 @@ const BRACKET_HAS_NO_SHAPE = `Die Zahl der Gruppen mal die Qualifikanten pro Gru
 const GROUP_OVER_QUALIFIES = "Eine Gruppe kann nicht mehr Teams qualifizieren, als sie fasst.";
 const DRAW_BEATS_WIN = "Ein Unentschieden darf nicht mehr Punkte bringen als ein Sieg.";
 const FORFEIT_CANNOT_DECIDE =
-  "Diese Saison spielt eine KO-Runde, in der ein Unentschieden niemanden weiterbringt. Sieger und Verlierer brauchen unterschiedliche Tore.";
+  "Sieger und Verlierer brauchen unterschiedliche Tore, denn in der KO-Runde bringt ein Unentschieden niemanden weiter.";
 // No count and no ceiling: both follow from the shape, and a figure typed into German is a second
 // bound nothing holds to the backend's own.
 const TOO_MANY_FIXTURES =

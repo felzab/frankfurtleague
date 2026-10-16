@@ -250,7 +250,7 @@ describe("the referee's confirmation handler", () => {
 
     assert.deepEqual(answer.body, {
       success: false,
-      fieldErrors: { geburtsdatum: "Mit diesem Geburtsdatum bist Du zu jung oder zu alt. Prüfe Dein Geburtsdatum." },
+      fieldErrors: { geburtsdatum: "Mit diesem Geburtsdatum bist Du zu jung oder zu alt." },
     });
   });
 

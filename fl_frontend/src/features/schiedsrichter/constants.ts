@@ -62,7 +62,7 @@ export const SCHIEDSRICHTER_UMFANG_FRAGE = "Was darf im Spielplan von Deinem Nam
 // The pupil's sentence word for word, and NOT the contact seat's: the two public consent pages ask
 // one person one question, and `fl_backend/app/shared/alter.py` judges both by the same span.
 export const alterAusserhalb = (mindestalter: number): string =>
-  `Du musst mindestens ${String(mindestalter)} und höchstens ${String(BEWERBUNG_MAX_ALTER)} Jahre alt sein. Prüfe Dein Geburtsdatum.`;
+  `Du musst mindestens ${String(mindestalter)} und höchstens ${String(BEWERBUNG_MAX_ALTER)} Jahre alt sein.`;
 
 /** The publication question's answers in the order the chips stand; their words are the stamped label's. */
 export const SCHIEDSRICHTER_UMFANG_WERTE = ["kader_oeffentlich", "intern"] as const satisfies readonly FLEinwilligung["umfang"][];

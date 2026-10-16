@@ -1,3 +1,4 @@
+import { SAISONUEBERSICHT_TITEL } from "@/core/seitenNamen";
 import { DashboardShell } from "@/features/dashboard/components/ui/DashboardShell";
 import { SaisonMetadataDisplay } from "@/features/saisons/components/ui/SaisonMetadataDisplay";
 import { openGraphFor } from "@/shared/utils/metadata";
@@ -5,7 +6,7 @@ import { openGraphFor } from "@/shared/utils/metadata";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: { default: "Saisonübersicht", template: "%s | Frankfurt League" },
+  title: { default: SAISONUEBERSICHT_TITEL, template: "%s | Frankfurt League" },
   description: "Der Spielplan, die Tabellen und die Teams der laufenden Saison der Frankfurt League.",
   openGraph: openGraphFor("/dashboard"),
   alternates: {

@@ -4,6 +4,7 @@ import At from "@gravity-ui/icons/At";
 import CircleInfo from "@gravity-ui/icons/CircleInfo";
 import Eye from "@gravity-ui/icons/Eye";
 
+import { ABOUT_TITEL, KONTAKT_TITEL } from "@/core/seitenNamen";
 import { BewerbungForm } from "@/features/bewerbungen/components/forms/BewerbungForm/BewerbungForm";
 import { BewerbungInstagramBand } from "@/features/bewerbungen/components/ui/BewerbungInstagramBand";
 import { SEITE_CLASSES } from "@/features/bewerbungen/components/ui/seite";
@@ -27,8 +28,8 @@ const ZUM_KONTAKT = { href: "/kontakt", label: "Zum Kontakt" };
  * season, not the nav's „Saisonübersicht“.
  */
 const KOPF_LINKS = [
-  { href: "/about", label: "About", anlass: "Mehr erfahren", Icon: CircleInfo },
-  { href: "/kontakt", label: "Kontakt", anlass: "Bei Fragen", Icon: At },
+  { href: "/about", label: ABOUT_TITEL, anlass: "Mehr erfahren", Icon: CircleInfo },
+  { href: "/kontakt", label: KONTAKT_TITEL, anlass: "Bei Fragen", Icon: At },
   { href: "/dashboard", label: "Laufende Saison", anlass: "Zum Mitfiebern", Icon: Eye },
 ] as const;
 

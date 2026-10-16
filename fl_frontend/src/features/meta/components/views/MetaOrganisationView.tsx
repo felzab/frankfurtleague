@@ -1,3 +1,4 @@
+import { ORGANISATION_TITEL } from "@/core/seitenNamen";
 import { BrandHero } from "@/shared/components/ui/BrandHero";
 import { BRAND_TILE_CLASSES } from "@/shared/components/ui/brandTile";
 import { card } from "@/shared/components/ui/card";
@@ -6,7 +7,7 @@ import { DISPLAY_HEADING_CLASSES } from "@/shared/components/ui/displayType";
 import { CARDS_CASCADE_CLASSES, PAGE_RISE_CLASSES } from "@/shared/components/ui/motion";
 import { typedObjectEntries } from "@/shared/utils/type";
 
-import { GROUPED_MEMBERS, ORGANISATION_TITEL, TAG_EYEBROWS, TAG_TITLES } from "../../constants";
+import { GROUPED_MEMBERS, TAG_EYEBROWS, TAG_TITLES } from "../../constants";
 import { MetaSection } from "../ui/MetaSection";
 
 // Each step is n columns of 10.75rem plus the gaps between them: 10.75rem is the narrowest member card, at a

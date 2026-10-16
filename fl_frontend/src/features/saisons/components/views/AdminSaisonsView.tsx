@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 
+import { FINALRUNDEN_EINTRAG, HANDLUNGSBEDARF_EINTRAG, SPIELSUCHE_EINTRAG } from "@/features/admin/constants";
 import { AdminSaisonsTable } from "@/features/saisons/components/collections/AdminSaisonsTable";
 import { AdminCrudView } from "@/shared/components/ui/AdminCrudView";
 import { Callout } from "@/shared/components/ui/Callout";
@@ -20,7 +21,8 @@ const SEARCH_KEYS = ["id", "start_date", "end_date", "searchable_start_date", "s
  */
 function noticeBody(saisons: readonly AdminSaisonRow[]): string | undefined {
   // An empty league is the one the season-reading pages send here (`docs/frontend/spec.md :: I363`).
-  if (saisons.length === 0) return "Lege eine Saison an, damit Handlungsbedarf, Finalrunden und Spielsuche etwas zeigen.";
+  if (saisons.length === 0)
+    return `Lege eine Saison an, damit „${HANDLUNGSBEDARF_EINTRAG.label}“, „${FINALRUNDEN_EINTRAG.label}“ und „${SPIELSUCHE_EINTRAG.label}“ etwas zeigen.`;
   // The page it names is the planned season's, which a league holding ended seasons alone lacks.
   if (saisons.some((saison) => saison.status === "future")) return "Umgestellt wird auf der Seite der geplanten Saison.";
 

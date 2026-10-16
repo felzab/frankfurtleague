@@ -1496,7 +1496,9 @@ where a comment quotes a rendered string, which tracks it. The wording rules:
   which no grep for the noun will find; `sideLabel` also numbers a fixture's two seats `Team`, so a
   sentence naming both says the club by name.
 - **Doing something again is „erneut“, a link reopened as much as a press retried** (my rule,
-  2026-10-16): never „noch einmal“ or „nochmal“.
+  2026-10-16): never „noch einmal“ or „nochmal“, and never „wieder“ where it repeats an act.
+  „wieder“ stays where it restores a state, as „wieder frei“ does, which is why no ban holds that
+  half and review does.
 - **A link that never left is „nicht verschickt“** (my rule, 2026-10-16): „zugestellt“ is kept
   for the delivery the mail provider reports (`docs/glossary.md :: Zustellstand`), and „nicht
   gesendet“ for a press refused before anything went out.
@@ -1519,9 +1521,11 @@ where a comment quotes a rendered string, which tracks it. The wording rules:
   navigation is scanned rather than read, so a label reading as a headline is the wrong label, and
   where a word is barred for another reason the answer is a different short word, never a phrase.
 - **Refusal copy carries a second register on top of this**, declared at
-  `fl_frontend/src/shared/utils/validation.ts :: VALIDATION_FAILED`: a FIELD message stays one
-  sentence about the value, a FORM message is two with the action second, and field messages are
-  the one place "Bitte" stays — a field nudges toward input, a banner refuses it.
+  `fl_frontend/src/shared/utils/validation.ts :: VALIDATION_FAILED`: a FIELD message is one
+  sentence about the value, plus at most one naming a way out the box itself cannot offer, a page or
+  a ban to lift (my rule, 2026-10-16), a repair the box already offers being dropped; a FORM message
+  is two with the action second, and field messages are the one place "Bitte" stays — a field nudges
+  toward input, a banner refuses it.
 - **A message under the control that is itself the way out needs no repair sentence** (my rule,
   2026-09-06). Naming a picker the reader is already looking at repairs nothing, so the second
   sentence would restate the control rather than route to one.
@@ -1705,12 +1709,16 @@ The banner rules:
 **The rules held mechanically are the ones `scripts/checks/docs_gate/copy_rules.py` reaches** — the
 dash rule with its date-range exception, the retired words `:: BANNED_TERMS` names, the register rules, and the semicolon
 ban with the legal sources `:: LEGAL_SOURCES` exempts by path — over every string literal and JSX
-element of `fl_frontend/src`, comments and tests excluded; it recognises a date by the name of the function
+element of `fl_frontend/src`, comments and tests excluded, and, the semicolon ban apart, over each
+consent wording under a label the branch adds to `fl_backend/app/shared/einwilligung.py :: FASSUNGEN`,
+a label already landed being frozen; it recognises a date by the name of the function
 that formats it, a coupling `copy-corpus` fails when the name stops matching, rather than letting
 the exception widen unseen. **The heading rule is held where a check can name the heading**:
-`fl_frontend/src/app/namedHeadings.test.ts` over the headings and controls it registers, and
-`fl_frontend/eslint.config.mjs :: SOURCE_BANS` over a refusal's `where`. **Every other rule here
-holds by review**: a lint over agreement, register or a list's completeness would first have to
+`fl_frontend/src/app/namedHeadings.test.ts` over the headings, pages, controls and value words it
+registers, and `fl_frontend/eslint.config.mjs :: SOURCE_BANS` over a refusal's `where`. **The field
+register is held over every mapper's field message** by `fl_frontend/src/app/refusalCoverage.test.ts`,
+which reads a way out by what names one: a quoted name, the ban, an address, the reload. **Every
+other rule here holds by review**: a lint over agreement, register or a list's completeness would first have to
 know which string reaches a reader, in what company, and what the surface it describes offers.
 
 ### 1.13 Metadata and indexing

@@ -138,7 +138,7 @@ export function abgewiesenerVersand(): { error?: string; fieldErrors?: FieldErro
 }
 
 /** `alterAusserhalb` where the link's view serves no floor to name: both bounds, never a number of its own. */
-const ALTER_AUSSERHALB_UNGELESEN = "Mit diesem Geburtsdatum bist Du zu jung oder zu alt. Prüfe Dein Geburtsdatum.";
+const ALTER_AUSSERHALB_UNGELESEN = "Mit diesem Geburtsdatum bist Du zu jung oder zu alt.";
 
 /** What one refused confirmation asks its caller to do. */
 export type BestaetigungRefusal = { error?: string; fieldErrors?: FieldErrors; unplacedError?: string; zustand?: SpielerLinkZustand };

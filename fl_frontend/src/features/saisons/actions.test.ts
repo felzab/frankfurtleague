@@ -5,12 +5,13 @@ import { beforeEach, describe, it } from "node:test";
 
 import { registerDoubles } from "@/core/exportingModule.ts";
 import { withoutPythonComments } from "@/core/pythonComments.ts";
+import { TEAMS_EINTRAG } from "@/features/admin/constants.ts";
 import { cacheCalls, doubleActionRequest, loggedLines } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 import { answerShown, assertEachAnswered, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { saisonRules } from "@/shared/testing/saisonRules.ts";
 
-import { GRUPPEN_OFF_RULES, RECORDED_FACTS_NONE, SPIELTAGE_UNDATED } from "./constants.ts";
+import { GRUPPEN_OFF_RULES, RECORDED_FACTS_NONE, REGELN_ABSCHNITT, SPIELTAGE_UNDATED } from "./constants.ts";
 import { mapActivateRefusal, mapRulesRefusal, mapSaisonIdRefusal, mapSpielplanRefusal, mapSwapRefusal, mapUndrawRefusal } from "./refusals.ts";
 
 import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
@@ -368,7 +369,8 @@ describe("the undraw action", () => {
 
     const result = await undrawSpielplanAction({ id: SAISON_ID });
 
-    assert.match(result.success ? (result.message ?? "") : result.error, /im Abschnitt Regeln ändern, die Teams über die Teamseite/);
+    const text = result.success ? (result.message ?? "") : result.error;
+    assert.ok(text.includes(`im Abschnitt ${REGELN_ABSCHNITT} ändern, die Teams unter „${TEAMS_EINTRAG.label}“.`), text);
   });
 
   /* The panel closes the control for both halves of `REQ-SPIELPLAN-006`, so the code can only arrive

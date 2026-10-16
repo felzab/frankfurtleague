@@ -196,7 +196,54 @@ describe("every published refusal against the mapper answering it", () => {
 
     assert.deepEqual(unworded, []);
   });
+
+  it("reads a second sentence as a way out only where it names one", () => {
+    for (const [message, astray] of [
+      ["Dieses Kürzel ist schon vergeben.", false],
+      ["Dieses Kürzel ist schon vergeben. Bitte wähle ein anderes.", true],
+      ["Diese E-Mail-Adresse steht auf der Sperrliste. Hebe die Sperre unter „Sperrliste“ auf.", false],
+      ["Diese Auswahl gilt nicht mehr. Lade die Seite neu, oder trage die Schule neu ein.", false],
+      ["Das geht nicht. Schreib uns an liga@example.org.", false],
+      ["Das geht nicht. Lade die Seite neu. Schreib uns an liga@example.org.", true],
+    ] as const) {
+      assert.equal(feldAbweichung(message) !== null, astray, message);
+    }
+  });
+
+  it("marks a field with one sentence about the value, and a second only for a way out the box cannot offer", async () => {
+    const astray: string[] = [];
+    for (const [operation, codes] of REFUSING) {
+      const mapper = ANSWERED_BY[operation];
+      if (mapper === undefined) continue;
+
+      for (const code of codes) {
+        const answer = await answerSettled(operation, code, mapper);
+        const marked = typeof answer === "object" && answer !== null && "fieldErrors" in answer ? (answer.fieldErrors ?? {}) : {};
+        for (const [field, message] of Object.entries(marked as Record<string, string>)) {
+          const fault = feldAbweichung(message);
+          if (fault !== null) astray.push(`${code} on ${operation} marks ${field} ${fault}: ${message}`);
+        }
+      }
+    }
+
+    assert.deepEqual(astray, []);
+  });
 });
+
+/**
+ * Where a way out the box cannot offer is named: a page or a control by its quoted name, the ban to
+ * lift, an address to write to, the reload. What else a second sentence says repeats the box.
+ */
+const AUSWEG = /„[^“]+“|\bSperre\b|@|Lade die Seite neu/u;
+
+/** How a field message breaks `docs/frontend/spec.md` §1.12's field register, or null where it keeps it. */
+function feldAbweichung(message: string): string | null {
+  // A sentence ending and a capital opening the next, which an abbreviation inside one never pairs.
+  const [, second, ...more] = message.split(/(?<=[.!?])\s+(?=\p{Lu})/u);
+  if (more.length > 0) return `in ${String(more.length + 2)} sentences`;
+
+  return second === undefined || AUSWEG.test(second) ? null : "with a second sentence the box itself is the way out of";
+}
 
 /** Each undo's replay table, with the operations its replay sends. */
 const REPLAYED: readonly (readonly [table: Readonly<Record<string, string>>, ...operations: string[]])[] = [

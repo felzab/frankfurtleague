@@ -530,7 +530,9 @@ export function SchiedsrichterBestaetigungView({ start }: { start: Schiedsrichte
           <GespeicherteAngaben
             zeilen={[
               { label: "Geburtsdatum", wert: formatSpielDatum(stand.geburtsdatum) },
-              { label: "Name im Spielplan", wert: stand.umfang === "kader_oeffentlich" ? "wird angezeigt" : "anonym" },
+              // The answer as a permission, as the media row reads one, never what the schedule
+              // shows: the public fixture read consults no consent record, and serves the name either way.
+              { label: "Name im Spielplan", wert: stand.umfang === "kader_oeffentlich" ? "erlaubt" : "nicht erlaubt" },
               medienZeile(stand.medien),
             ]}
           />

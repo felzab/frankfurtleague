@@ -7,6 +7,7 @@ import StarFill from "@gravity-ui/icons/StarFill";
 import { Accordion } from "@heroui/react/accordion";
 import { Chip } from "@heroui/react/chip";
 
+import { ABOUT_TITEL } from "@/core/seitenNamen";
 import { SaisonChip } from "@/features/saisons/components/ui/SaisonChip";
 import { getCurrentSaisonOrNull } from "@/features/saisons/queries";
 import { AustrittKuerzel } from "@/features/teams/components/ui/AustrittKuerzel";
@@ -37,7 +38,7 @@ export function AboutView() {
   return (
     <div className={`${PAGE_RISE_CLASSES} flex w-full flex-col gap-y-8 sm:gap-y-12`}>
       <BrandHero
-        title="About"
+        title={ABOUT_TITEL}
         lead="Alles auf dem Platz. Von Schülern, für Schüler."
       />
 

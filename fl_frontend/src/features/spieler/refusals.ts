@@ -1,5 +1,5 @@
 import { isRecordMissing } from "@/core/errors";
-import { SPERRLISTE_ADRESSE_GESPERRT } from "@/features/sperrliste/constants";
+import { SPERRLISTE_ADRESSE_GESPERRT, SPERRLISTE_ADRESSE_GESPERRT_FELD } from "@/features/sperrliste/constants";
 import { isRefusal } from "@/shared/utils/actionError";
 import { buildRefusal, LADE_DIE_SEITE_NEU } from "@/shared/utils/refusal";
 
@@ -89,7 +89,7 @@ export function mapAdresswechselAntragRefusal(error: unknown): { error?: string;
 
   switch (error.serverErrorCode) {
     case "REQ-SPIELER-003":
-      return { error: SPERRLISTE_ADRESSE_GESPERRT, fieldErrors: { email: SPERRLISTE_ADRESSE_GESPERRT } };
+      return { error: SPERRLISTE_ADRESSE_GESPERRT, fieldErrors: { email: SPERRLISTE_ADRESSE_GESPERRT_FELD } };
     case "REQ-SPIELER-006":
       return { error: ADRESSE_BELEGT, fieldErrors: { email: ADRESSE_BELEGT } };
     case "REQ-SPIELER-007":

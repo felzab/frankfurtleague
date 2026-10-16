@@ -162,7 +162,7 @@ describe("the contact seat's confirmation handler", () => {
 
     assert.deepEqual(answer.body, {
       success: false,
-      fieldErrors: { geburtsdatum: "Mit diesem Geburtsdatum bist Du für Deine Bestätigung zu jung oder zu alt. Prüfe das Geburtsdatum." },
+      fieldErrors: { geburtsdatum: "Mit diesem Geburtsdatum bist Du für Deine Bestätigung zu jung oder zu alt." },
     });
   });
 

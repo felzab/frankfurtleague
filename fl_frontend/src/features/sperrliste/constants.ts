@@ -126,8 +126,20 @@ export const SPERRE_DAUER_HINWEIS =
  * admin-tier, and hiding the ban from the person who keeps the list hides it from the one reader who
  * can act on it.
  */
+const ADRESSE_AUF_DER_SPERRLISTE = "Diese E-Mail-Adresse steht auf der Sperrliste";
+
 export const SPERRLISTE_ADRESSE_GESPERRT = buildRefusal({
-  reason: "Diese E-Mail-Adresse steht auf der Sperrliste",
+  reason: ADRESSE_AUF_DER_SPERRLISTE,
   repair: { before: "Trage eine andere Adresse ein oder hebe die Sperre", after: "auf" },
+  where: SPERRLISTE_EINTRAG.label,
+});
+
+/**
+ * Under the box holding the barred address, which is itself the way to another address: only the
+ * way out it cannot offer, the ban lifted on its list (`docs/frontend/spec.md` §1.12's field register).
+ */
+export const SPERRLISTE_ADRESSE_GESPERRT_FELD = buildRefusal({
+  reason: ADRESSE_AUF_DER_SPERRLISTE,
+  repair: { before: "Hebe die Sperre", after: "auf" },
   where: SPERRLISTE_EINTRAG.label,
 });
