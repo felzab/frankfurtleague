@@ -113,7 +113,8 @@ async function sweepAdresswechsel(): Promise<void> {
       nach = antwort.nach;
     } while (nach !== null);
 
-    logger.info("schiedsrichter.adresswechsel_sweep_pass", { entfernt: entfernt, verbleibend: antwort.verbleibend });
+    // The last call's count, never a sum: each call counts every lapsed change standing, an earlier page's failures among them.
+    logPass("schiedsrichter.adresswechsel_sweep_pass", { entfernt: entfernt, verbleibend: antwort.verbleibend }, antwort.verbleibend);
   } catch (error) {
     logger.info("schiedsrichter.adresswechsel_sweep_pass", { entfernt: entfernt });
     logSweepFailure("schiedsrichter.adresswechsel_sweep_failed", error, undefined);
@@ -128,14 +129,15 @@ async function sweepLoeschung(): Promise<void> {
   const lauf = await loeschungLaufen(postLoeschungLauf);
 
   // Counts and the season the rule kept, never a person: the backend's own lines name a failed person's id.
+  // A finished pass's remainder is the pupils it failed or passed over; one cut short knows only its failures.
   if (!lauf.abgebrochen) {
     const { abgebrochen: _durchgelaufen, ...zahlen } = lauf;
-    logger.info("loeschung.sweep_pass", zahlen);
+    logPass("loeschung.sweep_pass", zahlen, zahlen.verbleibend);
     return;
   }
 
   const { abgebrochen: _abgebrochen, fehler, ...bisher } = lauf;
-  logger.info("loeschung.sweep_pass", bisher);
+  logPass("loeschung.sweep_pass", bisher, bisher.fehlgeschlagen);
   logSweepFailure("loeschung.sweep_failed", fehler, undefined);
 }
 
@@ -160,17 +162,21 @@ async function sweepAlleSaisons(): Promise<void> {
     }
   }
 
-  logSeasonsPass("bewerbung.sweep_pass", uebergangen.bewerbung);
-  logSeasonsPass("registrierung.sweep_pass", uebergangen.registrierung);
+  logPass("bewerbung.sweep_pass", { fehlgeschlagen: uebergangen.bewerbung }, uebergangen.bewerbung);
+  logPass("registrierung.sweep_pass", { fehlgeschlagen: uebergangen.registrierung }, uebergangen.registrierung);
 }
 
 /**
- * A warning where a season half's calls passed rows over: their day moves whatever their clocks did, so only this
- * count tells a clock failing on every row from a healthy one.
+ * A half's pass line, a warning where `offen` rows it failed or passed over stand: each pass moves on past them, so only
+ * this count tells a half failing on every row from a healthy one, and a level above INFO keeps it.
  */
-function logSeasonsPass(event: "bewerbung.sweep_pass" | "registrierung.sweep_pass", fehlgeschlagen: number): void {
-  if (fehlgeschlagen === 0) logger.info(event, { fehlgeschlagen: fehlgeschlagen });
-  else logger.warn(event, { error_code: "FE-SWEEP-001", fehlgeschlagen: fehlgeschlagen });
+function logPass(
+  event: "bewerbung.sweep_pass" | "registrierung.sweep_pass" | "schiedsrichter.adresswechsel_sweep_pass" | "loeschung.sweep_pass",
+  felder: Record<string, unknown>,
+  offen: number,
+): void {
+  if (offen === 0) logger.info(event, felder);
+  else logger.warn(event, { error_code: "FE-SWEEP-001", ...felder });
 }
 
 /**

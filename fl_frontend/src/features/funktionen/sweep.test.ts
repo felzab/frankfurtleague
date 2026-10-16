@@ -358,8 +358,9 @@ describe("one pass at a time", () => {
 });
 
 describe("the line a completed pass writes", () => {
-  /* Nothing is stored, so this line is the whole answer to whether the sweep runs and what it did. */
-  it("counts what it listed, what was answered unreferenced, deleted, already gone and failed", async () => {
+  /* Nothing is stored, so this line is the whole answer to whether the sweep runs and what it did. A failure keeping an
+     account makes it a warning, which a level above INFO keeps: a clean pass's is the INFO the skipped tick's case holds. */
+  it("counts what it listed, what was answered unreferenced, deleted, already gone and failed, warning over a failure", async () => {
     accounts = ["geloescht@schule.de", "fort@schule.de", "referenziert@schule.de", "neu@schule.de", "fehler@schule.de"];
     referenzen = (identifiers) =>
       identifiers.length > 1 ? unreferencedBut("referenziert@schule.de")(identifiers) : unreferencedBut("neu@schule.de")(identifiers);
@@ -369,10 +370,10 @@ describe("the line a completed pass writes", () => {
     await runKontoSweep();
 
     assert.deepEqual(lines.at(-1), {
-      level: "INFO",
+      level: "WARN",
       event: "konto.sweep_completed",
       error: undefined,
-      fields: { gelistet: 5, unreferenziert: 4, geloescht: 1, bereits_geloescht: 1, fehlgeschlagen: 1 },
+      fields: { error_code: "FE-SWEEP-003", gelistet: 5, unreferenziert: 4, geloescht: 1, bereits_geloescht: 1, fehlgeschlagen: 1 },
     });
   });
 });
