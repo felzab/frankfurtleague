@@ -129,7 +129,7 @@ export async function readSperreAnsichtAction(
   });
 }
 
-export async function postSperreAction(rawPayload: FLPostSperrlistePayload): Promise<ActionResult> {
+export async function postSperreAction(rawPayload: FLPostSperrlistePayload): Promise<ActionResult<{ warn: boolean }>> {
   return runAdminMutation("postSperreAction", { stepUp: true }, async () => {
     const validated = FLPostSperrlistePayloadSchema.safeParse(rawPayload);
 
@@ -171,7 +171,13 @@ export async function postSperreAction(rawPayload: FLPostSperrlistePayload): Pro
     // a failure with.
     const told = [abgemeldet.satz, benachrichtigt].filter((sentence) => sentence !== null);
 
-    return { success: true, message: told.length === 0 ? SPERRE_ERFOLG : [SPERRE_STEHT, ...told].join(" ") };
+    return {
+      success: true,
+      message: told.length === 0 ? SPERRE_ERFOLG : [SPERRE_STEHT, ...told].join(" "),
+      // A warning wherever a sign-out or a notice the dialog's hint promises did not happen (`docs/frontend/spec.md :: I729`).
+      // An address no account holds is mailed by nobody, as that hint says, so its sentence alone leaves the ban clean.
+      warn: told.some((sentence) => sentence !== KEIN_KONTO),
+    };
   });
 }
 

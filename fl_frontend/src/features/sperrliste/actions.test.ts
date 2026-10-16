@@ -23,6 +23,7 @@ import { FLPostSperrlistePayloadSchema } from "./schemas.ts";
 
 import type { MailOutcome } from "@/core/mailDouble.ts";
 import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
+import type { TestContext } from "node:test";
 
 /* The ORDER between the write and the send decides whether somebody is told they are barred by a
    request that then failed, and no render shows it (`docs/frontend/spec.md` §1.9). Each double
@@ -110,7 +111,7 @@ const { AdminCreateSperreForm } = await import("./components/forms/AdminCreateSp
 const CREATE_OPERATION = "POST /sperrliste";
 
 const { deleteSperreAction, postSperreAction, readSperreAnsichtAction } = await import("./actions.ts");
-const { SPERRE_ANSICHT_COPY, SPERRE_ERFOLG, SPERRE_PRESS } = await import("./constants.ts");
+const { SPERRE_ANSICHT_COPY, SPERRE_ERFOLG, SPERRE_MIT_FOLGEN, SPERRE_PRESS } = await import("./constants.ts");
 const { ZURUECKGEHALTEN } = await import("@/features/einladungen/meldungen.ts");
 const { boundCall, REQUEST_DEADLINE_MS } = await import("@/core/requestScope");
 
@@ -119,6 +120,32 @@ const GRUND = "Falsches Geburtsdatum angegeben";
 
 const anAddressIsBanned = () => postSperreAction({ email: BARRED, grund: GRUND });
 const itsListIsRead = () => readSperreAnsichtAction({ email: BARRED });
+
+/** A toast as a case reads it: its variant, its title and its body. */
+type Toast = [string, string, string | undefined];
+
+/** The form over the real action, pressed twice as an administrator presses it, the list read between; what it raised. */
+async function bannedThroughTheForm(t: TestContext): Promise<Toast[]> {
+  toasts.length = 0;
+  t.mock.timers.enable({ apis: ["Date"] });
+  const user = userEvent.setup();
+  const { unmount } = render(underNext(h(AdminCreateSperreForm, { onClose: () => undefined })));
+  await user.type(screen.getByRole("textbox", { name: /E-Mail/ }), BARRED);
+  await user.type(screen.getByRole("textbox", { name: /Grund/ }), GRUND);
+  await user.click(screen.getByRole("button", { name: SPERRE_PRESS.resting }));
+  await act(client.answered);
+  await screen.findByText(SPERRE_ANSICHT_COPY.heading);
+  t.mock.timers.tick(DOUBLE_PRESS_MS);
+  await user.click(screen.getByRole("button", { name: SPERRE_PRESS.armed }));
+  // The write runs inside a transition, so the press returns before its toast is raised.
+  await act(client.answered);
+  await waitFor(() => {
+    assert.ok(toasts.length > 0, "the save raised no toast at all");
+  });
+  unmount();
+
+  return toasts.map(({ variant, title, description }) => [variant, title, description]);
+}
 
 describe("the create's refusals", () => {
   /* The create is the one write that sends an address, so it is the one that answers through the
@@ -239,6 +266,7 @@ describe("the message the barred person is sent", () => {
 
     assert.equal(result.success, true, `the acknowledged ban answered ${JSON.stringify(result)}`);
     assert.equal("message" in result ? result.message : undefined, "Die Sperre steht. Ob die Benachrichtigung angekommen ist, ist unklar.");
+    assert.equal(result.success && result.warn, true, "a notice the deadline cut was answered as a clean ban");
     assert.deepEqual(events, ["post", "mail", "refresh"], "the ban's page was left standing");
   });
 
@@ -249,32 +277,43 @@ describe("the message the barred person is sent", () => {
     const result = await anAddressIsBanned();
 
     assert.equal("message" in result ? result.message : undefined, SPERRE_ERFOLG);
-
-    // The form over this same action, pressed twice as an administrator presses it, the list read between.
-    toasts.length = 0;
-    t.mock.timers.enable({ apis: ["Date"] });
-    const user = userEvent.setup();
-    const { unmount } = render(underNext(h(AdminCreateSperreForm, { onClose: () => undefined })));
-    await user.type(screen.getByRole("textbox", { name: /E-Mail/ }), BARRED);
-    await user.type(screen.getByRole("textbox", { name: /Grund/ }), GRUND);
-    await user.click(screen.getByRole("button", { name: SPERRE_PRESS.resting }));
-    await act(client.answered);
-    await screen.findByText(SPERRE_ANSICHT_COPY.heading);
-    t.mock.timers.tick(DOUBLE_PRESS_MS);
-    await user.click(screen.getByRole("button", { name: SPERRE_PRESS.armed }));
-    // The write runs inside a transition, so the press returns before its toast is raised.
-    await act(client.answered);
-    await waitFor(() => {
-      assert.ok(toasts.length > 0, "the save raised no toast at all");
-    });
-    unmount();
-
     assert.deepEqual(
-      toasts.map(({ variant, title, description }) => [variant, title, description]),
+      await bannedThroughTheForm(t),
       [["success", SPERRE_ERFOLG, undefined]],
       "the form raises a title the action never answers, so a clean save shows it twice",
     );
   });
+});
+
+/* The ban stands whatever its sign-out and its notice did, and a success title reads as the person told
+   (`docs/frontend/spec.md :: I729`). An address no account holds is mailed by nobody, as the dialog's hint says. */
+describe("the toast of each way the ban's sign-out and notice ended", () => {
+  const mitFolgen = (told: string): Toast => ["warning", SPERRE_MIT_FOLGEN, `Die Sperre steht. ${told}`];
+  const outcomes: [string, () => void, Toast][] = [
+    [
+      "no account holds the address",
+      () => request.holdNoAccount(),
+      ["success", SPERRE_ERFOLG, "Die Sperre steht. Die Adresse hat kein Konto, deshalb wurde sie nicht benachrichtigt."],
+    ],
+    ["the notice was refused", () => sendWith("refused"), mitFolgen("Die Benachrichtigung an die Adresse konnte nicht zugestellt werden.")],
+    ["the notice's connection broke off", () => sendWith("lost"), mitFolgen("Ob die Benachrichtigung angekommen ist, ist unklar.")],
+    ["this deployment withheld the notice", () => sendWith("withheld"), mitFolgen(ZURUECKGEHALTEN)],
+    [
+      "the sessions could not be ended",
+      () => request.failSignOut(new Error("the store answered nothing")),
+      mitFolgen(
+        "Laufende Anmeldungen der Adresse konnten nicht beendet werden. Die Benachrichtigung an die Adresse konnte nicht zugestellt werden.",
+      ),
+    ],
+  ];
+
+  for (const [fall, arrange, raised] of outcomes) {
+    it(`raises ${raised[0]} where ${fall}`, async (t) => {
+      arrange();
+
+      assert.deepEqual(await bannedThroughTheForm(t), [raised]);
+    });
+  }
 });
 
 describe("the barred address's live sign-ins", () => {

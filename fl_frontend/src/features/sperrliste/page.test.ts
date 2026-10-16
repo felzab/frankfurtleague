@@ -8,6 +8,7 @@ import { act, createElement as h } from "react";
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
+import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { DOUBLE_PRESS_MS } from "@/shared/hooks/useTwoPressConfirm.ts";
 import { doubleActionRequest, doubleToasts } from "@/shared/testing/actionDoubles.ts";
@@ -33,6 +34,10 @@ import type { TestContext } from "node:test";
 doubleActionRequest();
 doubleSendMail();
 const { raised: toasts } = doubleToasts();
+// The origin the ban's notice links from: without one the notice fails to build, and the ban's toast is its warning.
+registerDoubles({
+  modules: { "core/config.ts": { frontend_config: { AUTH_URL: "http://localhost:3000", LOG_LEVEL: "ERROR", LOG_FORMAT: "json" } } },
+});
 
 /* Reached with `await import` and never a static import beside the harness, which registers the JSX
    compile step as it evaluates (`docs/frontend/spec.md` §1.9). */
@@ -341,8 +346,8 @@ describe("the order of the list and the ban (`docs/frontend/spec.md :: I724`)", 
 
     await waitFor(() => assert.ok(screen.queryByRole("dialog") === null, "the ban left the dialog open"));
     assert.deepEqual(
-      toasts.map(({ variant, title }) => [variant, title]),
-      [["success", SPERRE_ERFOLG]],
+      toasts.map(({ variant, title, description }) => [variant, title, description]),
+      [["success", SPERRE_ERFOLG, undefined]],
     );
     await user.click(screen.getByRole("button", { name: "Adresse sperren" }));
     const reopened = await screen.findByRole("dialog");

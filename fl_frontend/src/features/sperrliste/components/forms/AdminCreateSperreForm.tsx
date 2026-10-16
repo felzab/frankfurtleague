@@ -11,7 +11,7 @@ import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
 
 import { postSperreAction, readSperreAnsichtAction } from "@/features/sperrliste/actions";
-import { SPERRE_DAUER_HINWEIS, SPERRE_ERFOLG, SPERRE_PRESS, sperreOhneUebersicht } from "@/features/sperrliste/constants";
+import { SPERRE_DAUER_HINWEIS, SPERRE_ERFOLG, SPERRE_MIT_FOLGEN, SPERRE_PRESS, sperreOhneUebersicht } from "@/features/sperrliste/constants";
 import { FLPostSperrlistePayloadSchema } from "@/features/sperrliste/schemas";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
@@ -127,7 +127,8 @@ export function AdminCreateSperreForm({ onClose }: { onClose: () => void }) {
           setSubmitFieldErrors({}, {});
           // The server's sentence as the body, never a second copy of the title (`docs/frontend/spec.md` §1.12). The
           // dialog closes, as every create's does: its list was worked through before the press.
-          appToast.success(SPERRE_ERFOLG, { description: res.message === SPERRE_ERFOLG ? undefined : res.message });
+          const title = res.warn ? SPERRE_MIT_FOLGEN : SPERRE_ERFOLG;
+          (res.warn ? appToast.warning : appToast.success)(title, { description: res.message === title ? undefined : res.message });
           onClose();
         });
       });
