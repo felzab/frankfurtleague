@@ -135,6 +135,12 @@ service_cid() {
   docker compose -f "$COMPOSE" ps -q "$1" 2>/dev/null
 }
 
+# `service_cid` with a container that exited or is restarting counted too, which `ps` leaves out
+# without `--all`: a failed build's backend is often one, and a recreate discards its stream alike.
+service_cid_any() {
+  docker compose -f "$COMPOSE" ps --all -q "$1" 2>/dev/null
+}
+
 # Asked before the pull rather than at the recreate: an `up` that cannot parse this touches no
 # container, so the recreate, the health read and the rollback behind it all fail on one unread file.
 check_compose_config() {
@@ -497,23 +503,35 @@ STOPPED_SERVICES=()
 # deploy recreates the pair twice (`docs/logging/spec.md` §1.2).
 copy_streams() { # $1 what the copies carry beside the stamp, $2 the verb a failure takes, $3 what that verb says of the run
   local suffix="$1" on_failure="$2" consequence="$3" svc cid target partial copy_rc mv_rc stop_rc=0
-  local -a held=()
+  local -a held=() to_stop=()
   COPIED_STREAMS=0
   ATTEMPTED_STREAMS=0
   STOPPED_SERVICES=()
   for svc in frontend backend; do
     # Only a service with a container has a stream: a first deploy has nothing to copy, and an empty
-    # file would read as a build that logged nothing. Asked before the stop: `ps` lists running
-    # containers alone.
-    cid="$(service_cid "$svc")" || cid=""
+    # file would read as a build that logged nothing.
+    cid="$(service_cid_any "$svc")" || cid=""
     if [[ -n "$cid" ]]; then held+=("$svc"); fi
+    # The running ones alone are stopped and started again: a container found stopped stays so.
+    cid="$(service_cid "$svc")" || cid=""
+    if [[ -n "$cid" ]]; then to_stop+=("$svc"); fi
   done
   ATTEMPTED_STREAMS=${#held[@]}
   if (( ! ATTEMPTED_STREAMS )); then return 0; fi
+  # Asked before the stop: an unwritable directory is the failure a copy most often meets, and asked
+  # here it refuses with the site untouched.
+  if [[ ! -d "$LOG_DIR" || ! -w "$LOG_DIR" ]]; then
+    "$on_failure" "${LOG_DIR} is missing or not writable by $(id -un), so no stream was copied and no
+container stopped. ${consequence}"
+    return 0
+  fi
   # Stopped first, `stop` keeping the stream: a line written in the seconds before the recreate, an
-  # erasure's journal line a restore replays among them, is otherwise in no copy.
-  quietly docker compose -f "$COMPOSE" stop "${held[@]}" || stop_rc=$?
-  STOPPED_SERVICES=("${held[@]}")
+  # erasure's journal line a restore replays among them, is otherwise in no copy. Never bare, which
+  # stops the whole project.
+  if (( ${#to_stop[@]} )); then
+    quietly docker compose -f "$COMPOSE" stop "${to_stop[@]}" || stop_rc=$?
+    STOPPED_SERVICES=("${to_stop[@]}")
+  fi
   if (( stop_rc )); then
     warn "compose could not stop the containers before their copy (exit ${stop_rc}), so a line written
 between the copy and the recreate is in no file. The copy is taken all the same."
@@ -554,6 +572,8 @@ Copy it by hand:  docker compose -f ${COMPOSE} logs --no-color --timestamps ${sv
 # each with its stream whole, so the run ends on the build it found serving and a re-run copies it.
 start_again_and_refuse() { # $1 what failed, and what that leaves
   local start_rc=0 named
+  # Nothing stopped, nothing to start: a bare `start` starts the whole project.
+  if (( ! ${#STOPPED_SERVICES[@]} )); then refuse "$1"; fi
   named="$(IFS=' '; printf '%s' "${STOPPED_SERVICES[*]}")"
   quietly docker compose -f "$COMPOSE" start "${STOPPED_SERVICES[@]}" || start_rc=$?
   if (( start_rc )); then
@@ -573,8 +593,8 @@ roll_back() { # $1 how the build being restored is named on screen
   step "Stopping the failed build and copying its logs off before it is replaced"
   # `warn` where the copy before the recreate refuses, and this is the only difference between the
   # two calls: the site is already down by here, so a refusal would trade the outage for a log file.
-  copy_streams "-failed" warn "The rollback goes on without it, so that stream goes with the recreate
-below and nothing keeps a record of it."
+  copy_streams "-failed" warn "The rollback goes on without the copy, and the recreate below discards
+what it would have kept."
   if (( COPIED_STREAMS )); then
     ok "${COPIED_STREAMS} stream(s) copied to ${LOG_DIR}"
   elif (( ATTEMPTED_STREAMS )); then
