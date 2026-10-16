@@ -1497,6 +1497,12 @@ where a comment quotes a rendered string, which tracks it. The wording rules:
   sentence naming both says the club by name.
 - **Doing something again is „erneut“, a link reopened as much as a press retried** (my rule,
   2026-10-16): never „noch einmal“ or „nochmal“.
+- **A link that never left is „nicht verschickt“** (my rule, 2026-10-16): „zugestellt“ is kept
+  for the delivery the mail provider reports (`docs/glossary.md :: Zustellstand`), and „nicht
+  gesendet“ for a press refused before anything went out.
+- **A sentence naming a section's heading or a page reads it from the constant that renders it**,
+  as a button's label is read (my rule, 2026-10-16): typed again, it goes on naming the old
+  heading once the section is renamed.
 - **An empty stored field reads „Nicht hinterlegt“, whatever the field is about** (my rule,
   2026-10-07): `fl_frontend/src/shared/utils/format.ts :: NICHT_HINTERLEGT` where a label stands
   beside the value, a table's column heading included, a glyph such as `#` too, and `:: nichtHinterlegt`'s „<Feld> nicht hinterlegt“ where none does, a chip, a
@@ -1699,9 +1705,11 @@ dash rule with its date-range exception, the retired words `:: BANNED_TERMS` nam
 ban with the legal sources `:: LEGAL_SOURCES` exempts by path — over every string literal and JSX
 element of `fl_frontend/src`, comments and tests excluded; it recognises a date by the name of the function
 that formats it, a coupling `copy-corpus` fails when the name stops matching, rather than letting
-the exception widen unseen. **Every other rule here holds by review**: a lint over agreement,
-register or a list's completeness would first have to know which string reaches a reader, in what
-company, and what the surface it describes offers.
+the exception widen unseen. **The heading rule is held where a check can name the heading**:
+`fl_frontend/src/app/namedHeadings.test.ts` over the headings and controls it registers, and
+`fl_frontend/eslint.config.mjs :: SOURCE_BANS` over a refusal's `where`. **Every other rule here
+holds by review**: a lint over agreement, register or a list's completeness would first have to
+know which string reaches a reader, in what company, and what the surface it describes offers.
 
 ### 1.13 Metadata and indexing
 
