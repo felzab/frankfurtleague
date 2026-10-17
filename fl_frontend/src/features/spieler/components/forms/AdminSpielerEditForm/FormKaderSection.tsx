@@ -13,7 +13,7 @@ import { postSaisonSpielerAction } from "@/features/spieler/actions";
 import { ClosedSetSelect } from "@/features/spieler/components/forms/ClosedSetSelect";
 import { NummerField } from "@/features/spieler/components/forms/NummerField";
 import { TeamSelect } from "@/features/spieler/components/forms/TeamSelect";
-import { POSITION_OPTIONS, ROLLE_OPTIONS } from "@/features/spieler/constants";
+import { KADER_ABSCHNITT, POSITION_OPTIONS, ROLLE_OPTIONS } from "@/features/spieler/constants";
 import { nummerPayload } from "@/features/spieler/utils";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { formButton } from "@/shared/components/ui/formButtons";
@@ -25,6 +25,7 @@ import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { TextField } from "@/shared/components/ui/TextField";
 import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
+import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
 import { focusAfterWrite, focusSection } from "@/shared/utils/focusAfterWrite";
 
 import type { FLSpielerPosition, FLSpielerRolle, FLSpielerStufe } from "@/features/spieler/schemas";
@@ -59,6 +60,7 @@ export function FormKaderSection({
   onValidateSelection,
   spielerId,
   banners,
+  isDirty,
 }: {
   saison: SpielerSaisonContext & { erlaubteStufen: readonly FLSpielerStufe[] };
   /** The selected season's teams, not the league's. */
@@ -80,6 +82,8 @@ export function FormKaderSection({
   onValidateSelection: (paths: readonly string[], selected: { team_id: string }) => void;
   spielerId: string;
   banners: readonly SpielerBanner[];
+  /** The editor's unsaved typing, which the entry's write re-keys the editor over. */
+  isDirty: boolean;
 }) {
   const panel = formPanel();
   const [isEntering, startEntering] = useTransition();
@@ -91,6 +95,8 @@ export function FormKaderSection({
   const [entryTeamError, setEntryTeamError] = useState<string | null>(null);
 
   const handleEnterSaison = () => {
+    if (!guardAgainstDraft(isDirty, DRAFT_DISCARDED)) return;
+
     // The entry draws the squad row's own fields where its control stood, so the panel's heading takes the focus.
     const landing = focusAfterWrite();
     startEntering(async () => {
@@ -139,7 +145,7 @@ export function FormKaderSection({
         </span>
         <PanelHeading
           className={panel.heading()}
-          title={`Kader ${saison.saisonId}`}>
+          title={`${KADER_ABSCHNITT} ${saison.saisonId}`}>
           <Hint
             mode="reveal"
             label="Hinweis zum Kadereintrag"

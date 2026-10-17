@@ -23,6 +23,7 @@ import { LINK_ERNEUT_OHNE_ANTWORT, LINK_UNKLAR } from "@/shared/utils/actionErro
 import { appToast } from "@/shared/utils/appToast";
 import { benannt } from "@/shared/utils/benannt";
 import { focusAfterWrite, focusSection } from "@/shared/utils/focusAfterWrite";
+import { meldeAdresswechselVersand } from "@/shared/utils/linkVersandToast";
 import { pressLinkWrite } from "@/shared/utils/linkWrite";
 
 import type { FLSchiedsrichterAdresswechsel } from "@/features/schiedsrichter/schemas";
@@ -37,6 +38,9 @@ export const ADRESSWECHSEL_VERWERFEN = "Änderung verwerfen";
 
 /** Unlike a re-send, a second discard of a change already gone is refused, so the page, reloaded, decides. */
 const VERWERFEN_OHNE_ANTWORT = "Prüfe die Verbindung und lade die Seite neu. Wartet die neue Adresse dann noch, verwirf die Änderung erneut.";
+
+/** Either write's answer, named: inferred from the two, it takes the first alone. */
+type Antwort = Awaited<ReturnType<typeof einladeAdresswechselAction>> | Awaited<ReturnType<typeof verwirfAdresswechselAction>>;
 
 /**
  * Shown only while a confirmed referee's new address waits on its mailbox. **The address above is
@@ -63,7 +67,7 @@ export function FormAdresswechselSection({
   // Both writes mint or void a link to an address.
   const schreibe = async (art: "senden" | "verwerfen") => {
     const landing = focusAfterWrite();
-    const res = await pressLinkWrite({
+    const res = await pressLinkWrite<Antwort>({
       isDirty,
       stepUp,
       router,
@@ -80,7 +84,9 @@ export function FormAdresswechselSection({
     }
 
     landing.landed();
-    appToast.success(art === "senden" ? "Link gesendet" : "Änderung verworfen", { description: res.message });
+    // Graded as the editor's save grades its link: the earlier link is dead whichever way this one went.
+    if ("versand" in res) meldeAdresswechselVersand(res, res.message);
+    else appToast.success("Änderung verworfen", { description: res.message });
   };
 
   return (

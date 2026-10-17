@@ -1,9 +1,16 @@
 import z from "zod";
 
 import { BaseAPIResponseSchema } from "@/core/schemas";
+import { BEWERBUNG_TOKEN_MAX_LENGTH } from "@/features/bewerbungen/constants";
 import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
 import { EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH, KONTAKT_NAME_MAX_LENGTH, KONTAKT_NAME_ZU_LANG } from "@/features/teams/constants";
-import { CustomDateStringSchema, CustomObjectIdStringSchema, PersonNameSchema } from "@/shared/schemas";
+import {
+  CustomDateStringSchema,
+  CustomObjectIdStringSchema,
+  FLBewerbungZustellungSchema,
+  KontaktEmailSchema,
+  PersonNameSchema,
+} from "@/shared/schemas";
 
 import { NUMMER_MUST_BE_DIGITS } from "./constants";
 
@@ -123,6 +130,20 @@ export const FLSpielerMembershipSchema = z.object({
 export type FLSpielerMembership = z.infer<typeof FLSpielerMembershipSchema>;
 
 /**
+ * Mirrors a pupil's new address waiting on its own mailbox, the referee's twin
+ * (`fl_frontend/src/features/schiedsrichter/schemas.ts :: FLSchiedsrichterAdresswechselSchema`). No
+ * `token_hash`: the credential is read by the confirming query alone, so no read model carries it.
+ */
+export const FLSpielerAdresswechselSchema = z.object({
+  // The address on its way in, which nothing but the editor shows: no read keys on it until it confirms.
+  email: z.string(),
+  verschickt_am: CustomDateStringSchema,
+  frist: CustomDateStringSchema,
+  zustellung: FLBewerbungZustellungSchema.nullable(),
+});
+export type FLSpielerAdresswechsel = z.infer<typeof FLSpielerAdresswechselSchema>;
+
+/**
  * Mirrors `FLSpielerWithMemberships`. A different question from `FLSpieler`, not a projection of it:
  * that shape flattens against one season, so it can report neither a player in two nor one in none.
  */
@@ -137,9 +158,13 @@ export const FLSpielerWithMembershipsSchema = z.object({
   // Nullable rather than optional, mirroring the backend default: a person stored before consent
   // was collected has no record, and this tier is the only one that may read one.
   einwilligung: FLEinwilligungSchema.nullable(),
-  // The address the person signs in on, folded. Read-only wherever it renders: no payload carries
-  // it, so a control bound to this key would offer a write the API refuses.
+  // The sign-in address, folded. No save carries it: it moves through its own link alone, so a field
+  // bound to this key in the save's draft would offer a write the API refuses.
   email: z.string().nullable(),
+  // Null unless an administrator asked for a new address and its mailbox has not answered.
+  adresswechsel: FLSpielerAdresswechselSchema.nullable(),
+  // The backend's judgement of the link's deadline today, so the editor reads no day of its own.
+  adresswechsel_abgelaufen: z.boolean(),
   memberships: z.array(FLSpielerMembershipSchema),
 });
 export type FLSpielerWithMemberships = z.infer<typeof FLSpielerWithMembershipsSchema>;
@@ -175,16 +200,6 @@ export const FLReactivateSpielerPayloadSchema = z.object({
   id: CustomObjectIdStringSchema,
 });
 export type FLReactivateSpielerPayload = z.infer<typeof FLReactivateSpielerPayloadSchema>;
-
-/**
- * The ERASURE's whole argument: the id in the path, no request body. Its own schema and not the
- * retire's — one stamps a date and the other removes the person, and a shared payload would let a
- * caller reach the second while reading as the first.
- */
-export const FLEraseSpielerPayloadSchema = z.object({
-  id: CustomObjectIdStringSchema,
-});
-export type FLEraseSpielerPayload = z.infer<typeof FLEraseSpielerPayloadSchema>;
 
 // Named rather than written into the field below, so `fl_backend/tests/shared/test_frontend_mirrors.py :: MIRRORED_PATTERNS`
 // can pair it with the backend's spelling.
@@ -244,17 +259,85 @@ export const FLSpielerAdminSingleResponseSchema = BaseAPIResponseSchema.extend({
 });
 export type FLSpielerAdminSingleResponse = z.infer<typeof FLSpielerAdminSingleResponseSchema>;
 
-/**
- * Mirrors `FLSpielerErasureResponse` — what the erasure removed, and never an echo of the person: a
- * name or a consent record here would hand back a fresh copy of exactly what was erased.
- */
-export const FLSpielerErasureResponseSchema = BaseAPIResponseSchema.extend({
-  spieler_id: CustomObjectIdStringSchema,
-  erased_saison_spieler: z.int().nonnegative(),
-  // No log row is dropped — images are emptied in place and stamped — so this is never a deletion count.
-  redacted_aktionen: z.int().nonnegative(),
+/** Mirrors `FLSpielerAdresswechselPayload`: the address an administrator asks the pupil's link to go to. `id` travels in the path. */
+export const FLSpielerAdresswechselPayloadSchema = z.object({
+  id: CustomObjectIdStringSchema,
+  email: KontaktEmailSchema,
 });
-export type FLSpielerErasureResponse = z.infer<typeof FLSpielerErasureResponseSchema>;
+export type FLSpielerAdresswechselPayload = z.infer<typeof FLSpielerAdresswechselPayloadSchema>;
+
+/** The re-send and the discard: the id in the path, no request body. One schema per control: a shared payload lets a caller reach one write while reading as another. */
+export const FLSpielerAdresswechselEinladenPayloadSchema = z.object({
+  id: CustomObjectIdStringSchema,
+});
+export type FLSpielerAdresswechselEinladenPayload = z.infer<typeof FLSpielerAdresswechselEinladenPayloadSchema>;
+
+export const FLSpielerAdresswechselVerwerfenPayloadSchema = z.object({
+  id: CustomObjectIdStringSchema,
+});
+export type FLSpielerAdresswechselVerwerfenPayload = z.infer<typeof FLSpielerAdresswechselVerwerfenPayloadSchema>;
+
+/**
+ * A freshly minted address link, answered ONCE: the raw token exists here and in the new mailbox
+ * alone, so no read model and no log line may carry this shape.
+ */
+export const FLSpielerAdresswechselMintSchema = z.object({
+  token: z.string(),
+  frist: CustomDateStringSchema,
+  // The address the mint's own transaction read. Mailing the one a caller typed or read BEFORE the
+  // mint sends the credential to a mailbox a rival request has already replaced.
+  email: z.string().nonempty(),
+  // The address still in force, which is told a change was asked and never which one.
+  bisherige_email: z.string().nonempty(),
+  // What both mails greet with, read in the mint's own transaction: no admin read serves one pupil by id.
+  vorname: z.string(),
+});
+export type FLSpielerAdresswechselMint = z.infer<typeof FLSpielerAdresswechselMintSchema>;
+
+/** The request's and the re-send's echo. Never null: a pupil the endpoint cannot mint for is refused. */
+export const FLSpielerAdresswechselMintResponseSchema = BaseAPIResponseSchema.extend({
+  adresswechsel: FLSpielerAdresswechselMintSchema,
+});
+export type FLSpielerAdresswechselMintResponse = z.infer<typeof FLSpielerAdresswechselMintResponseSchema>;
+
+/** The one thing a visitor's body can be wrong about that no input renders: the token their link carried. */
+const LINK_UNVOLLSTAENDIG = "Bitte öffne den Link aus Deiner E-Mail erneut.";
+
+/** One sentence for the missing token and the over-long one: a visitor typed neither, so the repair is the link opened again. */
+const adresswechselToken = z
+  .string()
+  .trim()
+  .nonempty({ error: LINK_UNVOLLSTAENDIG })
+  .max(BEWERBUNG_TOKEN_MAX_LENGTH, { error: LINK_UNVOLLSTAENDIG });
+
+/** The address link's read, its token in a body: a second URL carrying the credential is a second line the edge has to redact. */
+export const FLSpielerAdresswechselAnsichtPayloadSchema = z.object({
+  token: adresswechselToken,
+});
+export type FLSpielerAdresswechselAnsichtPayload = z.infer<typeof FLSpielerAdresswechselAnsichtPayloadSchema>;
+
+/**
+ * What an address link is told before any press: its standing and its deadline. Never a name or
+ * either address: a leaked link learns no mailbox to write to (`READ-PUPIL-005`).
+ */
+export const FLSpielerAdresswechselAnsichtResponseSchema = BaseAPIResponseSchema.extend({
+  // No `bestaetigt`: an answer removes what the link opens, so a reopened link is an unknown token.
+  zustand: z.enum(["gueltig", "abgelaufen", "gesperrt", "nicht_bestaetigbar"]),
+  frist: CustomDateStringSchema,
+});
+export type FLSpielerAdresswechselAnsichtResponse = z.infer<typeof FLSpielerAdresswechselAnsichtResponseSchema>;
+
+/** Whether the mailbox the link reached is the pupil's: `bestaetigt` moves the address there, `abgelehnt` discards the change. */
+export const FLSpielerAdresswechselAntwortPayloadSchema = z.object({
+  token: adresswechselToken,
+  antwort: z.enum(["bestaetigt", "abgelehnt"], { error: LINK_UNVOLLSTAENDIG }),
+});
+export type FLSpielerAdresswechselAntwortPayload = z.infer<typeof FLSpielerAdresswechselAntwortPayloadSchema>;
+
+export const FLSpielerAdresswechselAntwortResponseSchema = BaseAPIResponseSchema.extend({
+  antwort: z.enum(["bestaetigt", "abgelehnt"]),
+});
+export type FLSpielerAdresswechselAntwortResponse = z.infer<typeof FLSpielerAdresswechselAntwortResponseSchema>;
 
 /** A junction row, echoed as it was written — it has no read model of its own. */
 export const FLSaisonSpielerResponseSchema = BaseAPIResponseSchema.extend({
@@ -411,7 +494,7 @@ export type FLSpielerSelbstEinwilligungPayload = z.infer<typeof FLSpielerSelbstE
 export const LinkAntwortTextVersionSchema = z
   .string()
   .trim()
-  .nonempty({ error: "Deine Antwort nennt keine Fassung. Öffne den Link aus Deiner E-Mail noch einmal." })
+  .nonempty({ error: "Deine Antwort nennt keine Fassung. Öffne den Link aus Deiner E-Mail erneut." })
   .max(EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH, {
     error: `Die Fassung darf höchstens ${String(EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)} Zeichen lang sein.`,
   });

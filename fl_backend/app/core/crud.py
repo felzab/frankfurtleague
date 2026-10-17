@@ -19,6 +19,7 @@ from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import Any, Final
 
+import bson
 from pydantic import BaseModel
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
@@ -117,8 +118,8 @@ async def patch_one_in_db(
 ) -> Mapping[str, Any]:
     """`return_document` has no default, so every caller weighs the two images.
 
-    `AFTER` re-reads the document, a round trip wasted where the result is discarded; `BEFORE` answers
-    the state the write just replaced.
+    `BEFORE` answers the state the write just replaced. `AFTER` re-reads the document, which a patch
+    inside a transaction reads anyway and one outside it pays a round trip for.
     """
 
     _sending_a_write()
@@ -127,23 +128,41 @@ async def patch_one_in_db(
     before = await collection.find_one_and_update(filter=db_filter, update=update, session=session, return_document=ReturnDocument.BEFORE)
     if before is None:
         raise DocumentNotFoundException(filter=db_filter, error_code=DOCUMENT_NOT_FOUND)
+    replaced_id = before["_id"]
 
-    await record_write(
-        collection=collection,
-        operation="patch_one",
-        document_id=before.get("_id"),
-        before=before,
-        session=session,
-    )
+    async def read_back() -> Mapping[str, Any]:
+        stored = await collection.find_one(filter={"_id": replaced_id}, projection=None, session=session)
+        if stored is None:
+            raise DocumentNotFoundException(filter=db_filter, error_code=DOCUMENT_NOT_FOUND)
+
+        return stored
+
+    # Read back, never taken from the driver: `findAndModify` answers a match it left unchanged as one it
+    # rewrote (`docs/backend/spec.md :: I765`). Inside a transaction alone, where no rival writes between
+    # the two reads.
+    after = await read_back() if session is not None and session.in_transaction else None
+    if after is None or _as_stored(after, collection) != _as_stored(before, collection):
+        await record_write(
+            collection=collection,
+            operation="patch_one",
+            document_id=before.get("_id"),
+            before=before,
+            session=session,
+        )
 
     if return_document is ReturnDocument.BEFORE:
         return before
 
-    after = await collection.find_one(filter={"_id": before["_id"]}, projection=None, session=session)
-    if after is None:
-        raise DocumentNotFoundException(filter=db_filter, error_code=DOCUMENT_NOT_FOUND)
+    return after if after is not None else await read_back()
 
-    return after
+
+def _as_stored(document: Mapping[str, Any], collection: AsyncCollection) -> bytes:
+    """The document's BSON, encoded as the collection decoded it, so two images differ wherever a field's type or order does.
+
+    Python's own equality takes 1, 1.0 and True for one value and a sub-document's keys in any order.
+    """
+
+    return bson.encode(document, codec_options=collection.codec_options)
 
 
 async def patch_many_in_db(
@@ -192,6 +211,36 @@ async def anchor_in_db(
     _sending_a_write()
     # `$inc`, never a `$set` of a constant, which rewrites nothing the second time and joins no write set.
     await collection.update_many(filter=db_filter, update={"$inc": {ANCHOR_FIELD: 1}}, session=session)
+
+
+# When an anchor written by id was last written, the one field its collection's TTL index reads
+# (`app/core/constraints.py :: TTL_INDEXES`).
+ANCHOR_WRITTEN_AT: Final = "geschrieben_am"
+
+
+async def anchor_by_id_in_db(
+    *,
+    collection: AsyncCollection,
+    ids: Sequence[str],
+    # REQUIRED, for `anchor_in_db`'s reason.
+    session: AsyncClientSession,
+) -> None:
+    """Write the document of each id, creating any not yet written, so a rival writing one conflicts (`docs/backend/spec.md :: I53`).
+
+    Logs no row, for `anchor_in_db`'s reason.
+    """
+
+    _sending_a_write()
+    # An upsert, as a document nobody has written joins no write set; two transactions upserting one meet as a
+    # write conflict, never a duplicate key. One command an id: `bulk_write` can remove, which
+    # `tests/core/test_unenforced.py` refuses.
+    for anchor_id in ids:
+        await collection.update_one(
+            filter={"_id": anchor_id},
+            update={"$inc": {ANCHOR_FIELD: 1}, "$currentDate": {ANCHOR_WRITTEN_AT: True}},
+            upsert=True,
+            session=session,
+        )
 
 
 async def post_one_to_db(

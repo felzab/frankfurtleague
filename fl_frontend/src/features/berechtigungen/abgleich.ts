@@ -1,8 +1,11 @@
 import "server-only";
 
+import { createHash } from "node:crypto";
+
 import { buildBerechtigungEmail } from "@/core/berechtigungEmail";
 import { BERECHTIGUNG_HINWEIS, BERECHTIGUNG_TAG } from "@/core/berechtigungTag";
 import { frontend_config } from "@/core/config";
+import { requestOf } from "@/core/errors";
 import { logger } from "@/core/logging";
 import { MailRecipientError, sendMail } from "@/core/mail";
 import { mailIdempotencyKey } from "@/core/mailIdempotencyKey";
@@ -10,7 +13,7 @@ import { versandAusfallOf } from "@/core/versandAusfall";
 
 import { postBerechtigungenAbgleich, postBerechtigungenAngekuendigt } from "./mutations";
 
-import type { Urheber, Zugangsaenderung } from "@/core/berechtigungEmail";
+import type { Urheber, Vorenthalten, Zugangsaenderung } from "@/core/berechtigungEmail";
 import type { FLBerechtigungAenderung } from "./schemas";
 
 /**
@@ -128,19 +131,25 @@ async function ankuendigen(aenderung: FLBerechtigungAenderung, empfaenger: reado
   }
 
   const message = buildBerechtigungEmail(zugangsaenderung(aenderung), urheber(aenderung), frontend_config.AUTH_URL);
+  // The body a key is reused over: an erasure or a ban committing between two passes rewrites it, and the provider refuses
+  // a key reused over another body for its day (`409 invalid_idempotent_request`), the recipient left untold.
+  const fassung = createHash("sha256")
+    .update(JSON.stringify([message.subject, message.html, message.text]))
+    .digest("hex")
+    .slice(0, 16);
 
   let alleErledigt = true;
   // A recipient an earlier pass told is not mailed again: past the provider's day its key collapses nothing.
   for (const adresse of adressen.filter((adresse) => !erreicht.has(adresse))) {
     try {
-      // Keyed on the outbox row, so a lapsed claim mailing it again reaches nobody twice inside the
-      // provider's day; the body depends on the row alone, which the provider needs to collapse it.
+      // Keyed on the outbox row and its body, so a lapsed claim mailing it again reaches nobody twice inside
+      // the provider's day; the body depends on the row alone, which the provider needs to collapse it.
       await sendMail({
         to: adresse,
         ...message,
         // A bounce is then a line an operator reads (`fl_frontend/src/app/api/mail/zustellung/route.ts`).
         tags: { [BERECHTIGUNG_TAG]: BERECHTIGUNG_HINWEIS },
-        idempotencyKey: mailIdempotencyKey(["berechtigung", aenderung.id], adresse),
+        idempotencyKey: mailIdempotencyKey(["berechtigung", aenderung.id, fassung], adresse),
       });
       erreicht.add(adresse);
     } catch (error) {
@@ -174,9 +183,12 @@ async function ankuendigen(aenderung: FLBerechtigungAenderung, empfaenger: reado
  * removal and the new address's grant, so a `geaendert` is a change of tier alone.
  */
 function zugangsaenderung(aenderung: FLBerechtigungAenderung): Zugangsaenderung {
-  if (aenderung.art === "entzogen") return { art: "entzogen", adresse: aenderung.vorher?.adresse ?? null };
+  // `geloescht` read rather than the null: an erased holder's address is withheld as a barred one's is, and
+  // every other withheld grant address is a barred one's (`docs/backend/spec.md :: I661`).
+  const ohneAdresse: Vorenthalten = { vorenthalten: aenderung.geloescht ? "geloescht" : "gesperrt" };
+  const stand = aenderung.art === "entzogen" ? aenderung.vorher : aenderung.jetzt;
 
-  return { art: aenderung.art, adresse: aenderung.jetzt?.adresse ?? null, inhaber: aenderung.jetzt?.verwaltung === "owner" };
+  return { art: aenderung.art, adresse: stand?.adresse ?? ohneAdresse, inhaber: stand?.verwaltung === "owner" };
 }
 
 /** Read off `urheber`, never off a null actor: a barred administrator's change is no database edit. */
@@ -186,7 +198,7 @@ function urheber(aenderung: FLBerechtigungAenderung): Urheber {
   return { von: aenderung.geaendert_von_gesperrt ? null : aenderung.geaendert_von, am: aenderung.geaendert_am };
 }
 
-/** Which half stopped and the error's name, never a person. */
+/** Which half stopped, the error's name and what the call says of its request, never a person. */
 function logAbgleichFailure(event: "berechtigung.abgleich_failed" | "berechtigung.stempel_failed", error: unknown): void {
-  logger.error(event, undefined, { error_code: "FE-SWEEP-002", name: error instanceof Error ? error.name : undefined });
+  logger.error(event, undefined, { error_code: "FE-SWEEP-002", name: error instanceof Error ? error.name : undefined, ...requestOf(error) });
 }

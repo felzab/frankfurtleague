@@ -7,8 +7,8 @@ disallowedTools: Agent, Skill, mcp__*
 
 These sections bind you whatever your brief says; your brief carries its BAR line, sections 1
 (ownership) and 3 (the work), the traps specific to your work, and the values its VALUES line gives: your agent
-name, the session branch and the commit your worktree forked from, the coordinator's checkout and
-the scratch path.
+name, the session branch and the commit your worktree forked from, the coordinator's checkout, the
+scratch path and the invariant ids reserved for you.
 
 Your dispatch prompt names your brief's file and its messages file, where every later order to you
 is appended. **If your context opens with a summary of earlier work, re-read both before your next
@@ -37,34 +37,54 @@ edit: a top level other than your worktree -- the coordinator's checkout above a
 that is not your worktree's own, is a wrong premise under section 4. Stop and report it.
 
 - Inside your worktree you add, commit, restore and stash as you need, on your own branch only. You
-  never check out, create, rebase or delete another branch unless asked to rebase onto the session
-  branch; never push, and no `gh` at all. The stash list is shared by every worktree, so name what
+  never check out, create, rebase or delete another branch. Asked to take the session branch's
+  newer state, you merge it into your branch, and rebase onto it only where I say no other branch
+  holds your commits: a rebase rewrites commits another branch has merged, and the landing refuses
+  the twins. Never push, and no `gh` at all. The stash list is shared by every worktree, so name what
   you stash and pop it by its `stash@{n}`.
 - One commit per reason: `commit-msg` checks the message and `.githooks/pre-commit` formats what you
-  stage, where prettier is installed in your worktree. Commit with `git commit -F <file>`; the hook prints its advisory tier as a notice on a
-  message it lets through, so report the commit's exit code and any notice. The hook judges a
+  stage, where prettier is installed in your worktree. Commit with `git commit -F <file>`, its
+  subject within the length `scripts/checks/check_commits.py :: SUBJECT_TARGET` sets, read there:
+  past it the hook reports GitHub's truncation, and a reword costs a `reset --soft`. The hook prints
+  its advisory tier as a notice on a message it lets through, so report the commit's exit code and
+  any notice. The hook judges a
   `Closes:` trailer against the staged diff: write one exactly when your commit retires a roadmap
   entry. To reword a commit that closes one, `git reset --soft HEAD~1` and commit again, never
   `--amend`, which the hook reads as the amend's delta alone. To fold commits, `git reset --soft`
   onto a hash `git merge-base HEAD <session branch>` printed, never onto the branch's name: it moves
-  as I land, and a reset onto a newer tip commits the reversal of everything landed since. A commit
-  fixing findings-ledger rows says so in body lines `Rows fixed: <id>, <id>.`: the landing closes
+  as I land, and a reset onto a newer tip commits the reversal of everything landed since. Both
+  rewrite the commits they pass: reword only a tip that is no merge commit, since `HEAD~1` of a
+  merge recommits what it merged as your own diff, and rewrite no commit another branch holds -- one
+  your brief had you merge, or one a message of mine names; report the false body or the fold
+  instead. A commit fixing findings-ledger
+  rows says so in body lines `Rows fixed: <id>, <id>.`: the landing closes
   each one routed to you, and a row named anywhere else stays open. The coordinator merges your
   branch into the session branch whole, your commits as you made them.
-- **Commit everything before you report**: the landing merges your branch's commits and nothing
-  else, and refuses a worktree holding uncommitted work. `git status --porcelain` prints nothing
-  when your report lands.
+- **Commit each checklist item as soon as its acceptance evidence holds, and everything before you
+  report**: a usage-limit stop kills you mid-call and loses what is uncommitted, and the landing
+  merges your branch's commits and nothing else, refusing a worktree holding uncommitted work.
+  `git status --porcelain` prints nothing when your report lands.
 - Install what your checks need in your worktree: `pnpm install --frozen-lockfile` in `fl_frontend`,
-  `uv sync --project fl_backend --dev --frozen` at the root, and again after a rebase that moves a
-  manifest or a lockfile. Never link either directory in from another tree. Run git in Bash, never
+  `uv sync --project fl_backend --dev --frozen` at the root, and again after a merge or rebase that
+  moves a manifest or a lockfile. Never link either directory in from another tree. Run git in Bash, never
   PowerShell: the harness checks a PowerShell command's directory only, not where its git points.
+  The frontend install also fetches the Node release `fl_frontend/package.json`'s `devEngines` pins,
+  which pnpm runs: a tool there runs as `pnpm run <script>` or `pnpm exec <bin>`, never `npx`, which
+  refuses whenever the machine's own Node is not that release.
 - **Run the checks your items name and then your targeted set, never a whole suite.** The set is the
   test files of every file you changed and of every module importing one, found by every import form
-  in use -- the `@/` alias, a relative path, a dotted Python module -- and the tests naming any
-  registry gaining a member, run as `pnpm run test:base <files>` and
-  `uv run --frozen pytest <paths>`; `npx tsc --noEmit -p .` and eslint over the side you touched in
-  `fl_frontend`, pyright over the backend where you touched it; every `scripts/checks/` checker
-  whose population you add to, from the root as `uv run --project fl_backend --frozen python
+  in use -- the `@/` alias, a relative path, a dotted Python module -- the tests naming any
+  registry gaining a member, and the sweeps, which read a whole tree's source rather than import
+  what they judge: where you touched `fl_backend/app`, every test importing
+  `fl_backend/tests/core/app_source.py`, and where you touched `fl_frontend/src`, every test
+  importing `fl_frontend/src/core/treeWalk.ts`, each directly or through a module importing it; run
+  as `pnpm run test:base <files>` and
+  `uv run --frozen pytest <paths>`; `pnpm run typecheck`, `pnpm run lint`, `pnpm run knip` and
+  `pnpm run knip:prod` where you touched `fl_frontend` (typecheck runs `next typegen` before tsc,
+  without which a fresh worktree's tsc passes a page breaking Next's route types; the two knip runs
+  fail an export or file your change left unread, which no test file of yours reaches), pyright over
+  the backend where you touched it; every
+  `scripts/checks/` checker whose population you add to, from the root as `uv run --project fl_backend --frozen python
 scripts/checks/<name>.py` -- `check_tracked_text.py` always, `check_public_routes.py` for a route
   handler, a page or `nginx/shared/site.conf`, `check_test_estate.py` for a backend test or fixture;
   and every plant your items need. CI
@@ -105,7 +125,7 @@ worktree is yours, so you may plant in any file of it; no other agent's run can 
   normaliser, undoing an exemption -- a plant that never landed is indistinguishable from a
   successful drive.
 - A plant-and-restore loop that TIMES something still contends for the machine every agent shares:
-  stop and report that the measurement needs an exclusive window.
+  stop and report that the measurement needs a quiet window, the fleet stopped.
 
 9 TRAPS. Each returns a confident wrong answer with nothing failing.
 
@@ -124,8 +144,11 @@ worktree is yours, so you may plant in any file of it; no other agent's run can 
   the hook refuses (`pytest -m db` with no path, `pnpm run test:db`). Never a formatter over a
   directory, which rewrites files other agents own, or a check against an environment's database,
   which reaches real data, unless your brief names that exact command.
-- An invariant row you add is numbered `I_NEW_<your agent name>_<n>`, never with a real number:
-  agents allocating in parallel collide, so the coordinator numbers every new row once, at the end.
+- An invariant row you add takes the lowest unused id of the block your brief reserves, never one
+  outside it, which another agent may hold; where the block runs out, ask me for more. Never write
+  a placeholder id: a longer id re-pads a whole spec-sheet table, and every agent editing that table
+  collides with you at landing. `check_docs.py`'s `invariant-number` finding on your id while a
+  lower reserved id has not landed is expected: report it, never renumber to clear it.
 - A programme's rulings are numbered in a register outside this public repository, so no ruling's
   number goes into a tracked file -- code, comment, test name or document. Cite one in a commit body
   only where your brief gives its number.
@@ -196,7 +219,10 @@ evidence where it can be found. No length limit; no narration of your own proces
 of the brief. Every finding -- a wrong premise, something you could not verify, a defect outside your
 scope, a cheaper shape that shipped, a check your commits leave red until another lane lands --
 opens with its label `F<n>`, numbered once through the report: the coordinator's ledger tool writes
-one row per label and sees nothing else. Exactly, in this order:
+one row per label and sees nothing else. A line naming another report's finding -- an acceptance
+table's row included -- names it by its ledger id as your brief or a message spells it
+(`<report>-F<n>`), never a bare `F<n>`, which the ledger banks as a finding of yours. Exactly, in
+this order:
 
 - (a) the commits this report covers, `git log --format='%h %s' <session branch>..HEAD`, which is
   what the landing merges, the files each changed, and the tip itself;

@@ -14,6 +14,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.bewerbungen.services import hash_token
 from app.api.identitaet.services import FUNKTION_NICHT_GEHALTEN
 from app.api.konto.services import compose_person_move
+from app.api.registrierungen.crud import person_at_the_address, persons_without_an_address
 from app.api.registrierungen.einwilligung_router import get_bestaetigung_ansicht, post_bestaetigung
 from app.api.registrierungen.person_router import ablehnen, aufnehmen, get_offene_registrierungen
 from app.api.registrierungen.schemas import (
@@ -36,11 +37,11 @@ from app.api.registrierungen.services import (
 )
 from app.api.saisons.cache import invalidate_saison_cache
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
-from app.api.spieler.admin_router import erase_spieler
-from app.api.spieler.services import SQUAD_FULL
+from app.api.spieler.services import SQUAD_FULL, build_ghost_spieler
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
+from app.core.sentinels import GHOST_SPIELER_ID
 from app.main import create_app
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.einwilligung_nachweis import nachweis_stand_of
@@ -50,6 +51,7 @@ from tests.app_client import app_client
 from tests.bans import ban_list
 from tests.config import ADMIN_KEY, build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.erasure import erased
 from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
 from tests.records import record_collections
 from tests.whole_database import where_held
@@ -765,6 +767,7 @@ class TestThePersonAnAdmissionNames:
                 identifier=FOLDED_EMAIL,
                 registrierungen_collection=database[Collection.REGISTRIERUNGEN],
                 db=client,
+                config=build_test_config(),
                 germany_now=WITHDRAWN_AT,
             )
             await admit(database, client, registrierung_id)
@@ -851,6 +854,78 @@ class TestThePersonAnAdmissionNames:
         assert after == before
 
 
+class TestTheSentinelIsNobodyToAdmit:
+    """A hand edit can match the sentinel to a registration by name or by address, so its id alone keeps it out of the admission.
+
+    Admitted into, it would take that registration's name onto every erased pupil's surviving entry.
+    """
+
+    WHITESPACE: Mapping[str, Any] = {"vorname": "   ", "nachname": "   "}
+
+    def test_it_is_never_among_the_persons_a_name_may_propose(self, mongo_replica_set_url: str):
+        addressless = ObjectId()
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SPIELER].insert_many([build_ghost_spieler(), a_stored_person(addressless, email=None)])
+
+            return [row["_id"] for row in await persons_without_an_address(spieler_collection=database[Collection.SPIELER], session=None)]
+
+        # The control is the addressless person beside it, whom a read matching nothing would drop too.
+        assert on_a_league(mongo_replica_set_url, body) == [addressless]
+
+    def test_a_registration_naming_it_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SPIELER].insert_one(build_ghost_spieler())
+            registrierung_id = await seed(database, registrierung_document(**self.WHITESPACE))
+            before = await snapshot(database)
+            code = await refused(admit(database, client, registrierung_id, spieler_id=GHOST_SPIELER_ID))
+
+            return code, before, await snapshot(database)
+
+        code, before, after = on_a_league(mongo_replica_set_url, body)
+
+        assert code == REGISTRIERUNG_PERSON_NICHT_BENANNT
+        assert after == before
+
+    def test_it_holding_the_registrations_address_and_a_confirmed_record_is_still_refused(self, mongo_replica_set_url: str):
+        """Matched by the address, the admission would take the sentinel for the person and write the registration onto it."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            confirmed = documents.eigene_einwilligung_document(text_version="2026-09", bestaetigt_am="2026-03-01")
+            await database[Collection.SPIELER].insert_one({**build_ghost_spieler(), "email": FOLDED_EMAIL, "einwilligung": confirmed})
+            registrierung_id = await seed(database, registrierung_document())
+            before = await snapshot(database)
+            code = await refused(admit(database, client, registrierung_id, spieler_id=GHOST_SPIELER_ID))
+
+            return code, before, await snapshot(database)
+
+        code, before, after = on_a_league(mongo_replica_set_url, body)
+
+        assert code == REGISTRIERUNG_PERSON_NICHT_BENANNT
+        assert after == before
+
+    def test_the_confirmation_page_resolves_the_address_to_a_person_and_never_to_it(self, mongo_replica_set_url: str):
+        """The page the pupil confirms on is chosen by the person the address holds, so the sentinel holding it would choose it."""
+
+        person_id = ObjectId()
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            collection = database[Collection.SPIELER]
+            await collection.insert_one({**build_ghost_spieler(), "email": FOLDED_EMAIL})
+            sentinel_answer = await person_at_the_address(
+                spieler_collection=collection, registrierung_raw=registrierung_document(), session=None
+            )
+
+            # The control: the same address on a person, whom the read does resolve.
+            await collection.update_one({"_id": GHOST_SPIELER_ID}, {"$unset": {"email": ""}})
+            await collection.insert_one(a_stored_person(person_id))
+            person_answer = await person_at_the_address(spieler_collection=collection, registrierung_raw=registrierung_document(), session=None)
+
+            return sentinel_answer, None if person_answer is None else person_answer["_id"]
+
+        assert on_a_league(mongo_replica_set_url, body) == (None, person_id)
+
+
 async def confirm_as_returning(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
     """The returning pupil's page pressed: a birthdate, its label, and no choice."""
 
@@ -879,29 +954,19 @@ class TestAReturningRegistration:
     HELD = {**documents.EINWILLIGUNG, "text_version": "2025-09", "medien": True}
 
     @pytest.mark.parametrize("namesake", [False, True], ids=("a new person", "an addressless namesake the body names"))
-    def test_its_person_erased_before_the_admission_admits_nobody(self, mongo_replica_set_url: str, namesake: bool):
-        """Erased through the administrator's own erasure between the press and the admission, which needs the person retired first.
-
-        Neither a new person nor a namesake: the registration carries no choice for either to stand on.
-        """
+    def test_its_person_moved_off_the_address_before_the_admission_admits_nobody(self, mongo_replica_set_url: str, namesake: bool):
+        """Neither a new person nor a namesake: the registration carries no choice for either to stand on."""
 
         stored_id = ObjectId()
         legacy_id = ObjectId()
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SPIELER].insert_one(a_stored_person(stored_id, einwilligung=dict(self.HELD), inactive_since="2025-07-01"))
+            await database[Collection.SPIELER].insert_one(a_stored_person(stored_id, einwilligung=dict(self.HELD)))
             if namesake:
                 await database[Collection.SPIELER].insert_one(a_stored_person(legacy_id, email=None, geburtsdatum=None))
             registrierung_id = await seed(database, registrierung_document(confirmed=False))
             await confirm_as_returning(database, client)
-            await erase_spieler(
-                spieler_id=stored_id,
-                spieler_collection=database[Collection.SPIELER],
-                saison_spieler_collection=database[Collection.SAISON_SPIELER],
-                aktionen_collection=database[Collection.AKTIONEN],
-                db=client,
-                germany_now=NOW,
-            )
+            await database[Collection.SPIELER].update_one({"_id": stored_id}, {"$set": {"email": "thessaly.umgezogen@beispielschule.de"}})
             before = await snapshot(database)
             code = await refused(admit(database, client, registrierung_id, spieler_id=legacy_id if namesake else None))
 
@@ -911,6 +976,35 @@ class TestAReturningRegistration:
 
         assert code == REGISTRIERUNG_PERSON_FEHLT
         assert after == before
+
+    @pytest.mark.parametrize("namesake", [False, True], ids=("a new person", "an addressless namesake the body names"))
+    def test_its_person_erased_before_the_admission_takes_the_registration_with_them(self, mongo_replica_set_url: str, namesake: bool):
+        """The erasure is keyed on the address the registration holds too, so the admission finds nothing to admit.
+
+        The namesake holds no address, so it stands.
+        """
+
+        stored_id = ObjectId()
+        legacy_id = ObjectId()
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SPIELER].insert_one(a_stored_person(stored_id, einwilligung=dict(self.HELD)))
+            if namesake:
+                await database[Collection.SPIELER].insert_one(a_stored_person(legacy_id, email=None, geburtsdatum=None))
+            registrierung_id = await seed(database, registrierung_document(confirmed=False))
+            await confirm_as_returning(database, client)
+            gone = await erased(database, client, TYPED_EMAIL, germany_now=NOW)
+            before = await snapshot(database)
+            with pytest.raises(DocumentNotFoundException):
+                await admit(database, client, registrierung_id, spieler_id=legacy_id if namesake else None)
+
+            return (gone.spieler, gone.registrierungen), before, await snapshot(database)
+
+        counted, before, after = on_a_league(mongo_replica_set_url, body)
+
+        assert counted == (1, 1)
+        assert after == before
+        assert [person["_id"] for person in after[Collection.SPIELER] if person["_id"] != GHOST_SPIELER_ID] == ([legacy_id] if namesake else [])
 
     def test_the_admission_leaves_the_persons_record_byte_for_byte(self, mongo_replica_set_url: str):
         stored_id = ObjectId()

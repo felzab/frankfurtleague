@@ -45,15 +45,17 @@ from app.api.bewerbungen.services import (
     saison_zustand_of,
     seat_adressen,
     seat_holding,
+    seat_opens_nobody,
     seat_vorname,
     zustand_of,
 )
 from app.api.einwilligung.services import find_fassung_refusal, find_selbst_medien_refusal
+from app.api.kontakte.crud import redact_the_decliner
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
 from app.api.teams.services import kontakt_zeile_of
 from app.core.collections import Collection
-from app.core.config import API_VERSION
-from app.core.crud import patch_many_in_db, patch_one_in_db, refuse
+from app.core.config import API_VERSION, BackendConfig, get_app_config
+from app.core.crud import patch_one_in_db, refuse
 from app.core.dependencies import (
     AktionenCollection,
     BewerbungenCollection,
@@ -65,8 +67,9 @@ from app.core.dependencies import (
     get_germany_now,
 )
 from app.core.exception_handlers import stores_nothing
-from app.core.recording import build_redaction_filter, build_redaction_update, log_stamp
-from app.core.security import bind_public_actor, verify_access_base
+from app.core.journal import Journal, JournalLine
+from app.core.recording import log_stamp
+from app.core.security import bind_public_actor, loeschung_journal_hash, verify_access_base
 from app.core.transactions import transaction_session
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS
@@ -120,15 +123,17 @@ async def _saison_ansicht(
     saison_raw = await saisons_collection.find_one({"_id": row["saison_id"]}, projection={"status": 1})
     assert saison_raw is not None
 
+    zustand = saison_zustand_of(row=row, seat=seat, today=today, gesperrt=bool(gesperrt), saison_status=saison_raw.get("status"))
+    refuse(find_unknown_token_refusal(seat=None if seat_opens_nobody(slot=slot, zustand=zustand) else seat))
+
     return FLBewerbungEinwilligungAnsichtResponse(
         quelle="saison",
-        zustand=saison_zustand_of(row=row, seat=seat, today=today, gesperrt=bool(gesperrt), saison_status=saison_raw.get("status")),
+        zustand=zustand,
         zeile=kontakt_zeile_of(saison_status=saison_raw.get("status"), austritt=row.get("austritt")),
         saison_id=str(row["saison_id"]),
         schule=saison_schule(row),
         rolle=seat,
         zugleich_rolle=zugleich,
-        vorname=str(slot["vorname"]) if isinstance(slot, Mapping) else None,
         text_version=str(einwilligung["text_version"]) if isinstance(einwilligung, Mapping) else None,
         laufende_fassung=LAUFENDE_FASSUNGEN[saison_antwort_seite(row=row, seats=seats)],
         mindestalter=mindestalter_for(seats),
@@ -154,17 +159,18 @@ async def get_einwilligung_ansicht(
     """
     Answer what the page renders for the seat this token opens, and no contact record (`READ-BEWERBUNG-002`).
 
-    The seat's state, the school, the season, the role, the holder's first name and the consent wording's version,
-    and `zugleich_rolle`: the second seat the same person holds, which an answer on this link writes too, or null.
+    The seat's state, the school, the season, the role and the consent wording's version, and `zugleich_rolle`: the
+    second seat the same person holds, which an answer on this link writes too, or null. Never the holder's name: the
+    link went to an address nobody has confirmed, which behind a typo is a stranger's.
     `mindestalter` is the age this link's person has to reach, over both seats where they hold two, so the page offers
     exactly the dates the answer will take. `laufende_fassung` is the label of the page the person is shown and their
     answer must name: the applicant's where the applicant named them in every seat the link answers, else the one for a
     person the administration seated.
     A POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no
-    seat holds (`REQ-BEWERBUNG-009`): a confirmed, declined or expired link is SERVED in that state rather than refused,
-    so a reopened link shows what became of it. The state is `gesperrt`, ahead of every other, wherever the ban list
-    holds an address a consent on this link would be refused for (`REQ-BEWERBUNG-020`), so the page offers a barred
-    person nothing to press.
+    seat holds (`REQ-BEWERBUNG-009`), an open link whose seat holds nobody among them: a confirmed, declined or
+    expired link is SERVED in that state rather than refused, so a reopened link shows what became of it. The state
+    is `gesperrt`, ahead of every other, wherever the ban list holds an address a consent on this link would be
+    refused for (`REQ-BEWERBUNG-020`), so the page offers a barred person nothing to press.
 
     The same token may open a seat an administrator entered on a team's season row (`quelle: saison`): `schule` is then
     the name the club carries that season, and the link is over once its seat's own deadline has passed. Before that, a
@@ -189,7 +195,7 @@ async def get_einwilligung_ansicht(
     refuse(find_unknown_token_refusal(seat=seat))
     assert seat is not None
 
-    # A declined or erased seat holds nobody, so the two fields naming the person are null there.
+    # A declined or erased seat holds nobody, so the wording's version is null there.
     slot = (bewerbung_raw.get("kontakte") or {}).get(seat)
     einwilligung = slot.get("einwilligung") if isinstance(slot, Mapping) else None
 
@@ -200,15 +206,17 @@ async def get_einwilligung_ansicht(
 
     gesperrt = await adressen_gesperrt(sperrliste, seat_adressen(kontakte=bewerbung_raw.get("kontakte"), seats=seats))
 
+    zustand = zustand_of(bewerbung_raw=bewerbung_raw, seat=seat, today=today, gesperrt=bool(gesperrt))
+    refuse(find_unknown_token_refusal(seat=None if seat_opens_nobody(slot=slot, zustand=zustand) else seat))
+
     return FLBewerbungEinwilligungAnsichtResponse(
         quelle="bewerbung",
-        zustand=zustand_of(bewerbung_raw=bewerbung_raw, seat=seat, today=today, gesperrt=bool(gesperrt)),
+        zustand=zustand,
         zeile=None,
         saison_id=str(bewerbung_raw["saison_id"]),
         schule=await _schule_name(bewerbung_raw=bewerbung_raw, teams_collection=teams_collection),
         rolle=seat,
         zugleich_rolle=zugleich,
-        vorname=str(slot["vorname"]) if isinstance(slot, Mapping) else None,
         text_version=str(einwilligung["text_version"]) if isinstance(einwilligung, Mapping) else None,
         laufende_fassung=LAUFENDE_FASSUNGEN[bewerbung_antwort_seite(bewerbung_raw=bewerbung_raw, seats=seats)],
         mindestalter=mindestalter_for(seats),
@@ -229,6 +237,7 @@ async def post_einwilligung(
     aktionen_collection: AktionenCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
+    config: Annotated[BackendConfig, Depends(get_app_config)],
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLBewerbungEinwilligungAntwortResponse | FLSaisonTeamEinwilligungAntwortResponse:
@@ -260,6 +269,15 @@ async def post_einwilligung(
     # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_gesperrt`), and only for the
     # answer that asks the ban.
     massgebliche_saison_id = await sperrliste_saison(sperrliste) if antwort_data.antwort == "erteilt" else None
+    # One instant for the decline's day and its journal line, so a replay records the day the person declined on.
+    am = log_stamp(germany_now)
+    journal = Journal()
+
+    def journal_the_widerspruch(home: Collection, row: Mapping[str, Any], seat: str, seats: tuple[str, ...]) -> None:
+        # Keyed on the link's own seat, whose person pressed; an emptied one holds nobody a replay could find again.
+        for adresse in seat_adressen(kontakte=row.get("kontakte"), seats=(seat,)):
+            hashed = loeschung_journal_hash(adresse, schluessel=config.sperrliste_schluessel)
+            journal.note(JournalLine(person_hash=hashed, art="widerspruch", collection=home, record_id=row["_id"], am=am, sitze=seats))
 
     async def answer_on_the_season_row(session: AsyncClientSession) -> FLSaisonTeamEinwilligungAntwortResponse:
         """The application's judgement in its order, on the season row holding the token; a miss there is the unknown-token refusal."""
@@ -337,15 +355,19 @@ async def post_einwilligung(
 
         # LAST, for the application's reason: it reaches the pre-image the clearing patch just filed,
         # which still holds the person who refused to be held.
-        await patch_many_in_db(
-            collection=aktionen_collection,
-            db_filter=build_redaction_filter([(Collection.SAISON_TEAMS, [row["_id"]])]),
-            update=build_redaction_update(at=log_stamp(germany_now)),
+        await redact_the_decliner(
+            aktionen_collection=aktionen_collection,
+            collection=Collection.SAISON_TEAMS,
+            row_id=row["_id"],
+            adressen=seat_adressen(kontakte=kontakte, seats=seats),
+            stamp=am,
             session=session,
         )
+        journal_the_widerspruch(Collection.SAISON_TEAMS, row, seat, seats)
 
         return FLSaisonTeamEinwilligungAntwortResponse(ergebnis="abgelehnt", geburtsdatum=None, whatsapp=antwort_data.whatsapp, medien=False)
 
+    @journal.attempted
     async def answer_for_the_person(
         session: AsyncClientSession,
     ) -> FLBewerbungEinwilligungAntwortResponse | FLSaisonTeamEinwilligungAntwortResponse:
@@ -449,13 +471,16 @@ async def post_einwilligung(
         )
 
         # LAST, so it reaches the pre-image the clearing patch just filed, which still holds the
-        # person who refused to be held (`app/api/kontakte/admin_router.py :: erase_kontaktperson`).
-        await patch_many_in_db(
-            collection=aktionen_collection,
-            db_filter=build_redaction_filter([(Collection.BEWERBUNGEN, [bewerbung_raw["_id"]])]),
-            update=build_redaction_update(at=log_stamp(germany_now)),
+        # person who refused to be held (`app/api/kontakte/crud.py :: erase_kontaktperson_in_session`).
+        await redact_the_decliner(
+            aktionen_collection=aktionen_collection,
+            collection=Collection.BEWERBUNGEN,
+            row_id=bewerbung_raw["_id"],
+            adressen=seat_adressen(kontakte=kontakte, seats=seats),
+            stamp=am,
             session=session,
         )
+        journal_the_widerspruch(Collection.BEWERBUNGEN, bewerbung_raw, seat, seats)
 
         # Off the UPDATED document, so an Ansprechperson who has just declined leaves this null and
         # the message their decline would have gone to is not composed at all.
@@ -477,5 +502,6 @@ async def post_einwilligung(
             ansprechperson_rollen=abgelehnt_rollen,
         )
 
-    async with transaction_session(db) as session:
-        return await session.with_transaction(answer_for_the_person)
+    async with journal:
+        async with transaction_session(db) as session:
+            return await session.with_transaction(answer_for_the_person)

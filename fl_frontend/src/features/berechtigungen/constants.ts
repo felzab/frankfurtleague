@@ -1,3 +1,4 @@
+import { ERASED_ACTOR_MARKER } from "@/core/erasedActor";
 import { benannt } from "@/shared/utils/benannt";
 
 import type { FLVerwaltung } from "./schemas";
@@ -20,18 +21,26 @@ export const BERECHTIGUNGEN_CRUD_COPY = {
   emptyOverall: "Es hat noch niemand Zugang zur Verwaltung.",
 } as const;
 
-/** The badge on an `owner` grant, which only an owner's tier change on this page gives or takes. */
-export const INHABER_LABEL = "Inhaber";
+/**
+ * The badge on an `owner` grant, which only an owner's tier change gives or takes. Both genders, as every sentence
+ * names the tier: a shorter badge word would be its second name.
+ */
+export const INHABER_LABEL = "Inhaberin oder Inhaber";
 
 /** A barred address is served withheld, so the row names the state rather than an address it does not have. */
 export const GESPERRTE_ADRESSE = "Gesperrte Adresse";
 
+/** An erased person in an actor's place, which the backend serves as a marker naming nobody. */
+export const GELOESCHTE_PERSON = "Gelöschte Person";
+
 /**
  * An actor as every admin card names one a read may withhold: a barred administrator by that state,
- * their address served as `null` beside a flag (`docs/frontend/spec.md :: I492`).
+ * their address served as `null` beside a flag, and an erased person by theirs (`docs/frontend/spec.md :: I492`).
  */
 export function vonOderGesperrt(von: string | null, gesperrt: boolean): string {
-  return gesperrt || von === null ? GESPERRTE_ADRESSE : von;
+  if (gesperrt || von === null) return GESPERRTE_ADRESSE;
+
+  return von === ERASED_ACTOR_MARKER ? GELOESCHTE_PERSON : von;
 }
 
 /** What the runbook's Playground paste writes as `erteilt_von` (`docs/ops/runbooks.md` §3), which names nobody. */
@@ -40,6 +49,16 @@ export const PLAYGROUND_MARKER = "PLAYGROUND";
 /** Shown for that marker under „Erteilt von“: the row came from the database, not from an administrator. */
 export const DIREKT_IN_DER_DATENBANK = "Direkt in der Datenbank";
 
+/**
+ * A grant's „Erteilt von“ as its card prints it, which the grants list's search reads too: a search
+ * over the stored value finds the marker nobody sees (`docs/frontend/spec.md :: I681`).
+ */
+export function erteiltVonAnzeige(von: string | null, gesperrt: boolean): string {
+  const angezeigt = vonOderGesperrt(von, gesperrt);
+
+  return angezeigt === PLAYGROUND_MARKER || angezeigt === "" ? DIREKT_IN_DER_DATENBANK : angezeigt;
+}
+
 /** The eyebrows over a row's two facts. */
 export const ERTEILT_VON_LABEL = "Erteilt von";
 export const ERTEILT_AM_LABEL = "Erteilt am";
@@ -47,8 +66,14 @@ export const ERTEILT_AM_LABEL = "Erteilt am";
 /** What a CLEAN grant answers, beside the form's title only where the two differ. */
 export const ZUGANG_ERTEILT = "Zugang erteilt";
 
-/** Why the revoke is closed to an administrator holding no `owner` grant, and the backend's `-005` in the same words. */
-export const NUR_INHABER_ENTZIEHT = "Den Zugang entziehen kann nur der Inhaber.";
+/**
+ * Closes every refusal of an owner's power. A promotion holds for a sign-in after it alone (`docs/backend/spec.md :: I534`),
+ * so an owner signed in before it is refused too, and would read the refusal as false of them.
+ */
+export const NACH_ERNENNUNG_NEU_ANMELDEN = "Bist Du erst nach Deiner Anmeldung Inhaberin oder Inhaber geworden, melde Dich neu an.";
+
+/** Why the revoke is closed to a session holding no owner's power, and the backend's `-005` in the same words. */
+export const NUR_INHABER_ENTZIEHT = `Den Zugang entziehen können nur Inhaberinnen und Inhaber. ${NACH_ERNENNUNG_NEU_ANMELDEN}`;
 
 /** The row a control's name tells apart after its words: the address, or the grant's day where the address is withheld. */
 const zugang = (adresse: string | null, erteiltAm: string): string => adresse ?? `Zugang vom ${erteiltAm}`;
@@ -73,7 +98,7 @@ export const ZUGANG_ENTZOGEN_MESSAGE = "Diese Adresse hat keinen Zugang zur Verw
 export const ADRESSE_GESPERRT = "Diese Adresse ist gesperrt. Hebe zuerst die Sperre auf, wenn sie Zugang zur Verwaltung erhalten soll.";
 
 /** A barred address already holds its grant here, so the sentence names what it would become. */
-export const INHABER_GESPERRT = "Diese Adresse ist gesperrt. Hebe zuerst die Sperre auf, wenn sie Inhaber werden soll.";
+export const INHABER_GESPERRT = "Diese Adresse ist gesperrt. Hebe zuerst die Sperre auf, wenn sie Inhaberin oder Inhaber werden soll.";
 
 /**
  * Each row's tier change in words: the control at rest and armed, its running label, and what the armed state
@@ -103,33 +128,33 @@ export function stufeWorte({
       armed: "Ja, mich zur Verwaltung herabstufen",
       running: "Stuft herab...",
       // Said before the press: nothing on this page makes the administrator an owner again.
-      folge: `Du bist dann nicht mehr Inhaber der Verwaltung und behältst den Zugang. Inhaber wirst Du nur wieder, wenn Dich ein anderer Inhaber ernennt. ${mail}`,
+      folge: `Du bist dann nicht mehr Inhaberin oder Inhaber der Verwaltung und behältst den Zugang. Wieder ernennen kann Dich nur, wer Inhaberin oder Inhaber ist. ${mail}`,
     };
   }
 
   const wer = adresse ?? `Wer den Zugang vom ${erteiltAm} hat,`;
   return ziel === "owner"
     ? {
-        resting: "Zum Inhaber ernennen",
-        name: benannt("Zum Inhaber ernennen", zugang(adresse, erteiltAm)),
-        armed: "Ja, zum Inhaber ernennen",
+        resting: "Zur Inhaberin oder zum Inhaber ernennen",
+        name: benannt("Zur Inhaberin oder zum Inhaber ernennen", zugang(adresse, erteiltAm)),
+        armed: "Ja, zur Inhaberin oder zum Inhaber ernennen",
         running: "Ernennt...",
         // What an owner can do that an administrator cannot, the acting owner's own tier included.
-        folge: `${wer} wird Inhaber der Verwaltung und kann dann Zugänge entziehen und jede Stufe ändern, auch Deine. ${mail}`,
+        folge: `${wer} wird Inhaberin oder Inhaber der Verwaltung und kann dann Zugänge entziehen und jede Stufe ändern, auch Deine. ${mail}`,
       }
     : {
         resting: "Zur Verwaltung herabstufen",
         name: benannt("Zur Verwaltung herabstufen", zugang(adresse, erteiltAm)),
         armed: "Ja, zur Verwaltung herabstufen",
         running: "Stuft herab...",
-        folge: `${wer} ist dann nicht mehr Inhaber der Verwaltung und behält den Zugang. ${mail}`,
+        folge: `${wer} ist dann nicht mehr Inhaberin oder Inhaber der Verwaltung und behält den Zugang. ${mail}`,
       };
 }
 
 /** What a tier change answers, done or already so, the notice's sentence for the tier with the address left out. */
 export const STUFE_GEAENDERT_MESSAGE: Readonly<Record<FLVerwaltung, string>> = {
-  owner: "Diese Adresse ist jetzt Inhaber der Verwaltung.",
-  administration: "Diese Adresse ist nicht mehr Inhaber der Verwaltung und behält den Zugang.",
+  owner: "Diese Adresse ist jetzt Inhaberin oder Inhaber der Verwaltung.",
+  administration: "Diese Adresse ist nicht mehr Inhaberin oder Inhaber der Verwaltung und behält den Zugang.",
 };
 
 /** Rows the backend left out as no request can match them: a database paste to repair, never one this page can make. */

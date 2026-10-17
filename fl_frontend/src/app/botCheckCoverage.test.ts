@@ -32,14 +32,15 @@ registerDoubles({
   },
 });
 
+const { AENDERUNG_STEHT_WEITERHIN } = await import("@/shared/utils/actionError.ts");
 const { ADMIN_FORBIDDEN } = await import("@/shared/utils/adminMutation.ts");
 const { KONTO_FORBIDDEN } = await import("@/shared/utils/kontoMutation.ts");
 
-/** The answers a session spine gives a caller nobody signed in as: a write behind one is a signed-in person's. */
-const SESSION_REFUSALS: ReadonlySet<unknown> = new Set([ADMIN_FORBIDDEN, KONTO_FORBIDDEN]);
-
-/** The statuses the undo spine turns such a caller away with, its body read by nobody. */
-const SESSION_STATUSES: ReadonlySet<number> = new Set([401, 403]);
+/**
+ * The answers a session spine gives a caller nobody signed in as, the undo spine's closing on the change
+ * standing: a write behind one is a signed-in person's.
+ */
+const SESSION_REFUSALS: ReadonlySet<unknown> = new Set([ADMIN_FORBIDDEN, `${ADMIN_FORBIDDEN} ${AENDERUNG_STEHT_WEITERHIN}`, KONTO_FORBIDDEN]);
 
 /**
  * Every anonymous entry point that may go without the bot check, and why; none is called. A reason names
@@ -47,9 +48,9 @@ const SESSION_STATUSES: ReadonlySet<number> = new Set([401, 403]);
  */
 const EXEMPT: Readonly<Record<string, string>> = {
   "app/api/auth/[...all]/route.ts GET":
-    "the sign-in library's own surface, every mailing endpoint of which `fl_frontend/src/core/auth.test.ts :: IN_PROCESS_ONLY` and `:: DISABLED_PATHS` keep off it",
+    "the sign-in library's own surface, every mailing endpoint of which `fl_frontend/src/core/auth.test.ts :: IN_PROCESS_ONLY` and `fl_frontend/src/core/auth.ts :: DISABLED_PATHS` keep off it",
   "app/api/auth/[...all]/route.ts POST":
-    "the sign-in library's own surface, every mailing endpoint of which `fl_frontend/src/core/auth.test.ts :: IN_PROCESS_ONLY` and `:: DISABLED_PATHS` keep off it",
+    "the sign-in library's own surface, every mailing endpoint of which `fl_frontend/src/core/auth.test.ts :: IN_PROCESS_ONLY` and `fl_frontend/src/core/auth.ts :: DISABLED_PATHS` keep off it",
   "app/api/client-error/route.ts POST": "it writes one bounded log line and mails nobody",
   "app/api/signin/code/route.ts POST": "it checks a code already mailed, held to its per-address failure bound, and mails nobody",
   "app/api/mail/zustellung/route.ts POST":
@@ -60,7 +61,10 @@ const EXEMPT: Readonly<Record<string, string>> = {
     "its credential is a link the league minted and mailed; it mails no address the request types",
   "app/api/bestaetigung/schiedsrichter/adresse/route.ts POST":
     "its credential is a link the league minted and mailed; it mails no address the request types",
+  "app/api/bestaetigung/spieler/adresse/route.ts POST":
+    "its credential is a link the league minted and mailed; it mails no address the request types",
   "app/api/bewerbung/kuerzel/route.ts GET": "a read: it writes nothing and mails nobody",
+  "app/api/revalidate/route.ts POST": "its credential is the system key, which no visitor holds, and the edge refuses it; it mails nobody",
   "features/auth/actions.ts :: signOutAction": "it ends the caller's own session and mails nobody",
 };
 
@@ -83,7 +87,7 @@ function sameOriginRequest(): Request {
 // Every route handler and every export of every server-action module, by import rather than by reading
 // their source: a handler written without a spine, or asking the check past a parse, is called like the rest.
 const SUBJECTS: Subject[] = [];
-for (const file of routeHandlerFiles(15)) {
+for (const file of routeHandlerFiles(11)) {
   const handlers = (await import(pathToFileURL(file).href)) as Partial<
     Record<(typeof METHODS)[number], (...args: unknown[]) => Promise<unknown>>
   >;
@@ -122,11 +126,10 @@ async function verdictOf(subject: Subject): Promise<Verdict> {
     fetched.mock.restore();
   }
 
-  const status = answer instanceof Response ? answer.status : null;
   const body = answer instanceof Response ? ((await answer.json().catch(() => null)) as unknown) : answer;
   const error = typeof body === "object" && body !== null && "error" in body ? body.error : undefined;
 
-  if ((status !== null && SESSION_STATUSES.has(status)) || SESSION_REFUSALS.has(error)) return "session";
+  if (SESSION_REFUSALS.has(error)) return "session";
   // Asked, its refusal the answer, and nothing sent: the check stood before every other step.
   return asked > 0 && error === REFUSED && fetched.mock.callCount() === 0 ? "checked" : "unchecked";
 }

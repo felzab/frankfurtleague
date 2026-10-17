@@ -17,7 +17,7 @@ paths:
 - **db** — Add a second direct `MongoClient`
 - **openapi** — Generate the Zod mirror; compare past presence, required, nullable, type, enum or a published ceiling
 - **system** — Remove `checkIsReady`, `getSystemInfo`, or the system key
-- **cache** — Re-add a reference-data invalidation endpoint; fault sub-24h staleness
+- **cache** — Add a second invalidation endpoint beside `fl_frontend/src/app/api/revalidate/route.ts`, a tag past its base-tag allowlist, or an edge location forwarding it; fault sub-24h staleness
 - **csp** — Disable `react/no-danger`; add a second enforcing CSP
 - **logging** — Let nginx honour a client's traceparent; log outside the envelope
 - **bracket** — Store the bracket's German label; flag an override beside `quelle`
@@ -47,10 +47,10 @@ paths:
 
 - A backend refusal and its German are three sites. `fl_backend/app/core/domain.py` declares the rule
   and its code; a mapper in the feature slice words it for the save, and where the replayed
-  endpoint declares refusals the undo route words it again in its own replay table. The frontend
+  endpoint declares refusals the undo action words it again in its own replay table. The frontend
   reads a refusal by its code, and the backend answers it at the status its rule's check chose, so a
   code either path leaves unmapped falls through, at any status, to the shared fallback in
-  `fl_frontend/src/shared/utils/actionError.ts`, which names no reason and sends the admin to a retry
-  the same rule refuses again. Each slice's test asks its mapper about every refusal code
+  `fl_frontend/src/shared/utils/actionError.ts`, which names no reason, and on a save sends the admin
+  to a retry the same rule refuses again. Each slice's test asks its mapper about every refusal code
   `fl_backend/openapi.json` publishes on that endpoint (`fl_frontend/src/shared/testing/publishedRefusals.ts`),
   and `fl_frontend/src/app/refusalCoverage.test.ts` fails for a published code its table's mapper leaves unworded.

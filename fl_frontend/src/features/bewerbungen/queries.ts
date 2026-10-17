@@ -150,14 +150,14 @@ export async function getBewerbungTrikotfarben(saisonId: string): Promise<FLBewe
 export async function getEinwilligungAnsicht(token: string): Promise<EinwilligungAnsicht> {
   return runWithIncomingTrace(() =>
     postEinwilligungAnsicht({ token: token }).then(
-      // Narrowed here and never at the page, which would carry the name in its payload regardless:
-      // a dead link's panel names nobody, and an open link with no name left has nobody to name.
+      // Narrowed here and never at the page, which would carry the school and the season regardless: a
+      // dead link's panel names nothing of the seat. An emptied seat arrives as an unknown token.
       (ansicht): EinwilligungAnsicht => {
         const { zustand } = ansicht;
-        // A closed season row's link still takes a Widerspruch, so it names its person as an open one does.
+        // A closed season row's link still takes a Widerspruch, so it keeps its read as an open one does.
         if (zustand !== "gueltig" && zustand !== "saison_vorbei") return { zustand: zustand, quelle: ansicht.quelle };
 
-        return ansicht.vorname === null ? { zustand: "ungueltig" } : { zustand: zustand, ansicht: { ...ansicht, vorname: ansicht.vorname } };
+        return { zustand: zustand, ansicht: ansicht };
       },
       (error: unknown) => {
         // Anything but a refusal is a failed read, which is the page's own state rather than a panel

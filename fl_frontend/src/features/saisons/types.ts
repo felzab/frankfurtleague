@@ -77,6 +77,19 @@ export type SaisonRolloverContext = {
    * rather than beside `hasDrawnSpiele` because only the rollover reads it.
    */
   hasUndatierteSpieltage: boolean;
+  /**
+   * Whom the activation's deletion takes, counted and never named, and whether the switch lets it. `null` without a
+   * rollover or a season it closes; `"unlesbar"` where the count's read failed, the page standing.
+   */
+  loeschung: SaisonLoeschungVorschau | "unlesbar" | null;
+};
+
+/** The page's reading of `LOESCHUNG_SWEEP` beside the count: a client component never reads the config itself. */
+export type SaisonLoeschungVorschau = {
+  /** The season the activation closes, which the rule counts its squad rows from. */
+  abgeschlosseneSaisonId: string;
+  spieler: number;
+  eingeschaltet: boolean;
 };
 
 /**

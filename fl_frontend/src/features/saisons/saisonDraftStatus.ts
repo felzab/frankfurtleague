@@ -2,13 +2,13 @@ import { STUFE_OPTIONS } from "@/features/spieler/constants";
 import { deriveDraftStatus, emptyAsNull, numberAsNull } from "@/shared/utils/draftStatus";
 import { formatSpielDatum } from "@/shared/utils/format";
 
-import { tiebreakLabel } from "./constants";
+import { REGELN_ABSCHNITT, tiebreakLabel, ZEITRAUM_ABSCHNITT } from "./constants";
 
 import type { FLDraftStatus, FLFieldDescriptor } from "@/shared/utils/draftStatus";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { SaisonDraftFields } from "./types";
 
-type FLSaisonFieldGroup = "Zeitraum" | "Regeln" | "Bewerbung" | "Registrierung";
+type FLSaisonFieldGroup = typeof ZEITRAUM_ABSCHNITT | typeof REGELN_ABSCHNITT | "Bewerbung" | "Registrierung";
 
 export type FLSaisonDraftStatus = FLDraftStatus<FLSaisonFieldGroup>;
 
@@ -18,30 +18,30 @@ const forfeitAsNull = ({ sieger_tore, verlierer_tore }: { sieger_tore: number | 
 
 /** Every field the season editor can change, in the order the change list reads them. */
 const FIELD_DESCRIPTORS = [
-  { path: "start_date", label: "Beginn", group: "Zeitraum", read: (source) => emptyAsNull(source.start_date) },
-  { path: "end_date", label: "Ende", group: "Zeitraum", read: (source) => emptyAsNull(source.end_date) },
+  { path: "start_date", label: "Beginn", group: ZEITRAUM_ABSCHNITT, read: (source) => emptyAsNull(source.start_date) },
+  { path: "end_date", label: "Ende", group: ZEITRAUM_ABSCHNITT, read: (source) => emptyAsNull(source.end_date) },
   {
     path: "rules.win_points",
     label: "Punkte für einen Sieg",
-    group: "Regeln",
+    group: REGELN_ABSCHNITT,
     read: (source) => numberAsNull(source.rules.win_points),
   },
   {
     path: "rules.draw_points",
     label: "Punkte für ein Unentschieden",
-    group: "Regeln",
+    group: REGELN_ABSCHNITT,
     read: (source) => numberAsNull(source.rules.draw_points),
   },
   {
     path: "rules.tiebreak_order",
     label: "Tiebreak",
-    group: "Regeln",
+    group: REGELN_ABSCHNITT,
     read: (source) => tiebreakLabel(source.rules.tiebreak_order),
   },
   {
     path: "rules.forfeit_ergebnis",
     label: "Wertung bei Nichtantreten",
-    group: "Regeln",
+    group: REGELN_ABSCHNITT,
     // One row over both sides: the season regulates them together, so a row per number would report
     // half a decision. `errorPaths` is what still lands each field's own message on it.
     read: (source) => forfeitAsNull(source.rules.forfeit_ergebnis),
@@ -50,31 +50,31 @@ const FIELD_DESCRIPTORS = [
   {
     path: "rules.number_of_groups",
     label: "Gruppen",
-    group: "Regeln",
+    group: REGELN_ABSCHNITT,
     read: (source) => numberAsNull(source.rules.number_of_groups),
   },
   {
     path: "rules.teams_per_group",
     label: "Teams pro Gruppe",
-    group: "Regeln",
+    group: REGELN_ABSCHNITT,
     read: (source) => numberAsNull(source.rules.teams_per_group),
   },
   {
     path: "rules.qualifiers_per_group",
     label: "Qualifikanten pro Gruppe",
-    group: "Regeln",
+    group: REGELN_ABSCHNITT,
     read: (source) => numberAsNull(source.rules.qualifiers_per_group),
   },
   {
     path: "rules.max_kadergroesse",
     label: "Maximale Kadergröße",
-    group: "Regeln",
+    group: REGELN_ABSCHNITT,
     read: (source) => numberAsNull(source.rules.max_kadergroesse),
   },
   {
     path: "rules.erlaubte_stufen",
     label: "Erlaubte Stufen",
-    group: "Regeln",
+    group: REGELN_ABSCHNITT,
     // Read in the LEAGUE's order, so pressing a level off and back on is not a change. Empty renders
     // as null, so clearing the last level reads as a removal — which it is, and the schema refuses it.
     read: (source) => {

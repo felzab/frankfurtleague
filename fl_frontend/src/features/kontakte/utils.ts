@@ -1,7 +1,6 @@
 import { asSignInIdentifier } from "@/core/emailAddress";
 import { EINWILLIGUNG_UMFANG, KONTAKT_ROLLEN } from "@/features/teams/constants";
 import { buildEmptyKontaktperson } from "@/features/teams/utils";
-import { unansweredRead } from "@/shared/utils/actionError";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { mirrorTrainerSeat } from "@/shared/utils/trainerSeat";
 import { toFieldErrors } from "@/shared/utils/validation";
@@ -18,15 +17,8 @@ import type {
   FLTrainerZugleich,
 } from "@/features/teams/schemas";
 import type { KontaktpersonDraft, SaisonTeamKontakteDraft, TeamSaisonMembership } from "@/features/teams/types";
-import type { QueryResult } from "@/shared/types/types";
-import type { FLKontaktErasureAnsichtResponse, FLKontaktErasureResponse, FLPatchSaisonTeamKontaktePayload } from "./schemas";
-import type { ErasureAnsicht, SaisonTeamKontaktePayloadDraft } from "./types";
-
-/**
- * The erasure panel's repair where the read answered no sentence of its own: arming it again is what
- * reads the list a second time.
- */
-const ERNEUT_STARTEN = "Brich ab und starte das Löschen erneut.";
+import type { FLPatchSaisonTeamKontaktePayload } from "./schemas";
+import type { SaisonTeamKontaktePayloadDraft } from "./types";
 
 /**
  * The block with every seat naming `textVersion`, the form's running label: a handed seat is a new
@@ -43,73 +35,6 @@ export function mitLaufenderFassung(kontakte: FLSaisonTeamKontaktePayload, textV
     ansprechperson: gestempelt(kontakte.ansprechperson),
     stellvertretung: gestempelt(kontakte.stellvertretung),
   };
-}
-
-/** One count as German reads it, with a word for none and a word for one. */
-function countPhrase(count: number, singular: string, plural: string): string {
-  if (count === 0) return `keiner ${singular}`;
-  if (count === 1) return `einer ${singular}`;
-
-  return `${String(count)} ${plural}`;
-}
-
-/**
- * Counts and never the address: a report repeating the person hands back a copy of what was
- * destroyed. The applications are named even at zero, no admin surface listing them beside the
- * season's contacts.
- */
-export function describeKontaktErasureUmfang(erasure: FLKontaktErasureResponse): string {
-  // One sentence, because as two they contradict each other: „nichts gespeichert“ denies the person
-  // the log still named. This is what an erasure meets after someone was swapped out of every seat.
-  if (erasure.cleared_kontakt_slots === 0 && erasure.redacted_aktionen > 0) {
-    const eintraege = erasure.redacted_aktionen === 1 ? "ein Eintrag" : `${String(erasure.redacted_aktionen)} Einträge`;
-
-    return `Zu dieser E-Mail-Adresse war kein aktueller Kontakteintrag gespeichert, nur noch ${eintraege} im Änderungsprotokoll, und dort ist jetzt kein gesicherter Stand mehr hinterlegt.`;
-  }
-
-  const wo = `${countPhrase(erasure.cleared_saison_teams, "Saison-Zugehörigkeit", "Saison-Zugehörigkeiten")} und ${countPhrase(
-    erasure.cleared_bewerbungen,
-    "Bewerbung",
-    "Bewerbungen",
-  )}`;
-
-  // Zero is a sentence rather than a figure: German counts nothing with a word, and „0 Kontakteinträge“
-  // reads as a failed count. Past the branch above, no slot cleared means nothing matched anywhere.
-  const kontakte =
-    erasure.cleared_kontakt_slots === 0
-      ? "Zu dieser E-Mail-Adresse war nichts gespeichert."
-      : erasure.cleared_kontakt_slots === 1
-        ? `Ein Kontakteintrag wurde geleert, in ${wo}.`
-        : `${String(erasure.cleared_kontakt_slots)} Kontakteinträge wurden geleert, in ${wo}.`;
-
-  // Never „geleert“: `build_redaction_filter` is not narrowed to rows holding an image, so a row
-  // recording an insert is stamped while losing nothing. What holds for both is that no saved state
-  // is left on it.
-  const protokoll =
-    erasure.redacted_aktionen === 0
-      ? "Im Änderungsprotokoll gab es dazu keinen Eintrag."
-      : erasure.redacted_aktionen === 1
-        ? "Bei einem Eintrag im Änderungsprotokoll ist kein gesicherter Stand mehr hinterlegt."
-        : `Bei ${String(erasure.redacted_aktionen)} Einträgen im Änderungsprotokoll ist kein gesicherter Stand mehr hinterlegt.`;
-
-  return `${kontakte} ${protokoll}`;
-}
-
-/** What the erasure panel holds once its read has SETTLED, either way. */
-export function settledErasureAnsicht(
-  email: string,
-  settled: PromiseSettledResult<QueryResult<{ ansicht?: FLKontaktErasureAnsichtResponse }>>,
-): ErasureAnsicht {
-  // A rejection reached no judgement, so it answers as every rejected admin read does.
-  const res = settled.status === "rejected" ? unansweredRead() : settled.value;
-  if (res.success && res.ansicht !== undefined) return { email, status: "read", sitze: res.ansicht };
-
-  // A field map with no field to lay it on: the address came off the stored record, so
-  // `fl_frontend/src/shared/utils/validation.ts :: VALIDATION_FAILED` would send the reader to a
-  // box this panel does not render.
-  const gesagt = res.success || res.fieldErrors !== undefined ? undefined : res.error;
-
-  return { email, status: "refused", reason: gesagt ?? ERNEUT_STARTEN };
 }
 
 /**

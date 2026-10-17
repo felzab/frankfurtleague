@@ -3,15 +3,30 @@ import asyncio
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from functools import partial
-from typing import Any, TypedDict
+from typing import Annotated, Any, TypedDict
 
+from pydantic import Field, StringConstraints, TypeAdapter, ValidationError
 from pymongo import ASCENDING, DESCENDING, AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
+from app.api.saisons.schemas import NumberOfGroups, QualifiersPerGroup, TeamsPerGroup
+from app.api.spiele.schemas import FLSpielElfmeterschiessen
+from app.api.spieler.schemas import FLSpielerStufe
 from app.core.collections import Collection
 from app.core.config import MONGODB_URI_FILE, get_config  # noqa: TID251
-from app.shared.schemas.bounds import AKTION_RETENTION_SECONDS
+from app.core.sentinels import GHOST_SPIELER_ID
+from app.shared.schemas.addresses import HAUSNUMMER_PATTERN
+from app.shared.schemas.bounds import AKTION_RETENTION_SECONDS, SAISON_ID_LENGTH, TEAM_DESCRIPTION_MAX_LENGTH, TEAM_SHORTHAND_LENGTH
+from app.shared.schemas.custom import (
+    CustomDateString,
+    CustomErgebnisString,
+    CustomNonEmptyString,
+    CustomOptionalDateString,
+    CustomOptionalExternalUrl,
+    CustomSpielNr,
+    CustomTimeString,
+)
 
 # Handled rather than re-raised: creating the collection with the validator attached reaches the
 # same end state.
@@ -82,8 +97,13 @@ _KONTAKT_EINGETRAGEN_VON = ["bewerbung", "liga"]
 _BEWERBUNG_STATUS = ["eingereicht", "angenommen", "abgelehnt"]
 
 # Derived, not spelled: these ARE the collection names. The log never records itself, nor the day's
-# write counts, which bypass `app/core/crud.py` (`app/core/drosselung.py`).
-_LOGGED_COLLECTIONS = [str(name) for name in Collection if name not in {Collection.AKTIONEN, Collection.DROSSELUNG}]
+# write counts, which bypass `app/core/crud.py` (`app/core/drosselung.py`), nor an address's anchor,
+# which changes nothing a reader sees.
+_LOGGED_COLLECTIONS = [str(name) for name in Collection if name not in {Collection.AKTIONEN, Collection.DROSSELUNG, Collection.ADRESSANKER}]
+
+# Mirrors `app/core/recording.py :: LoggedAct`, hand-copied as the literals below are: a row's
+# `collection` for an act that writes none of the application's own.
+_LOGGED_ACTS = ["anmeldungen", "pseudonyme"]
 
 # Mirrors `app/core/recording.py :: Operation`, `:: Actor.kind`, `:: PersonActor.kind` and
 # `:: AktorFunktion`, hand-copied. `tests/core/test_constraints.py` pins each against the recording
@@ -354,6 +374,23 @@ _SCHIEDSRICHTER_ADRESSWECHSEL = _object(
     },
 )
 
+# A pupil's new address waiting on its own mailbox. Spelled out rather than assigned
+# `_SCHIEDSRICHTER_ADRESSWECHSEL`, for `_SAISON_REGISTRIERUNG`'s reason: one name over both blocks
+# would let a widening of either widen the other silently.
+_SPIELER_ADRESSWECHSEL = _object(
+    nullable=True,
+    required=("email", "token_hash", "verschickt_am", "frist"),
+    properties={
+        "email": {"bsonType": "string"},
+        "token_hash": {"bsonType": "string"},
+        "verschickt_am": {"bsonType": "string"},
+        # STORED for `_SCHIEDSRICHTER_BESTAETIGUNG`'s reason.
+        "frist": {"bsonType": "string"},
+        # Out of `required` for `_BEWERBUNG_BESTAETIGUNG`'s reason.
+        "zustellung": _ZUSTELLUNG,
+    },
+)
+
 # A seat's link on a team's season row. Never `_BEWERBUNG_BESTAETIGUNG`: no reminder chases these
 # links, so a second hash and a reminder stamp are keys nothing writes, and each link carries its own
 # deadline.
@@ -466,9 +503,9 @@ _REGISTRIERUNG_STATUS = ["eingereicht", "abgelehnt"]
 _VERWALTUNG = ["owner", "administration"]
 _BERECHTIGUNG_AENDERUNGEN = ["erteilt", "entzogen", "geaendert"]
 _BERECHTIGUNG_URHEBER = ["anwendung", "datenbank"]
-_BERECHTIGUNG_VORENTHALTEN = ["gesperrt"]
+_BERECHTIGUNG_VORENTHALTEN = ["gesperrt", "geloescht"]
 
-# One grant's state in an outbox row; the address null where it was barred when queued.
+# One grant's state in an outbox row; the address null where it was barred or its holder erased.
 _BERECHTIGUNG_STAND = _object(
     nullable=True,
     required=("adresse", "verwaltung"),
@@ -706,15 +743,22 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
             required=("_id", "vorname", "nachname", "einwilligung", "inactive_since"),
             properties={
                 "_id": {"bsonType": "objectId"},
-                "vorname": {"bsonType": "string"},
+                # This and `einwilligung` nullable for the erased pupils' sentinel
+                # (`app/core/sentinels.py :: GHOST_SPIELER_ID`), never an `anyOf` on its id, which is no
+                # type or enum; a person is held to both where written
+                # (`app/api/registrierungen/services.py :: compose_person`).
+                "vorname": {"bsonType": _STRING_OR_NULL},
                 "nachname": {"bsonType": _STRING_OR_NULL},
                 # Out of `required` for `saisons.spielplan`'s reason.
                 "geburtsdatum": {"bsonType": _STRING_OR_NULL},
-                "einwilligung": _EINWILLIGUNG,
+                "einwilligung": {**_EINWILLIGUNG, "bsonType": ["object", "null"]},
                 # Out of `required` for `saisons.spielplan`'s reason. Stored as
                 # `app/shared/folding.py :: sign_in_identifier` folds it, which is the form the
                 # sign-in seam's equality compares against.
                 "email": {"bsonType": _STRING_OR_NULL},
+                # A delivery carrier (`app/api/zustellung/services.py :: ZIEL_PFADE`). Out of `required`:
+                # only a pupil whose address an administrator asked to move carries one, until its mailbox answers.
+                "adresswechsel": _SPIELER_ADRESSWECHSEL,
                 # The person has left the LEAGUE; leaving one squad retires the junction row below.
                 "inactive_since": _INACTIVE_SINCE,
             },
@@ -938,7 +982,7 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 # staying optional (`docs/ops/runbooks.md` §2 has that order and what it costs).
                 "trace_id": {"bsonType": "string"},
                 "request": _AKTION_REQUEST,
-                "collection": {"bsonType": "string", "enum": _LOGGED_COLLECTIONS},
+                "collection": {"bsonType": "string", "enum": [*_LOGGED_COLLECTIONS, *_LOGGED_ACTS]},
                 "operation": {"bsonType": "string", "enum": _AKTION_OPERATIONS},
                 # Whatever the recorded collection uses for its `_id`: an objectId everywhere but
                 # `saisons`, whose is the season string. An array is `delete_many`'s removed ids,
@@ -951,6 +995,9 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "before": {"bsonType": ["object", "array", "null"]},
                 "modified_count": {"bsonType": _INT_OR_NULL},
                 "redacted_at": {"bsonType": _STRING_OR_NULL},
+                # Out of `required` for `at_date`'s reason: the rows the log already holds carry none,
+                # and a backfill would be a one-off migration.
+                "anlass": {"bsonType": _STRING_OR_NULL},
             },
         )
     },
@@ -1112,7 +1159,8 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "vorher": _BERECHTIGUNG_STAND,
                 "geaendert_von": {"bsonType": _STRING_OR_NULL},
                 "geaendert_am": {"bsonType": ["date", "null"]},
-                # Why the row's addresses are withheld; a null address never says it by itself.
+                # Why the grant's address is withheld, which its null never says by itself; a null actor
+                # does, as a ban (`docs/backend/spec.md :: I661`).
                 "vorenthalten": {"bsonType": _STRING_OR_NULL, "enum": [*_BERECHTIGUNG_VORENTHALTEN, None]},
                 "erfasst_am": {"bsonType": "date"},
                 # Required as keys and null until a pass claims the row: the claim asks for a null
@@ -1132,6 +1180,18 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "_id": {"bsonType": "string"},
                 "n": {"bsonType": "int"},
                 "ablauf": {"bsonType": "date"},
+            },
+        )
+    },
+    Collection.ADRESSANKER: {
+        "$jsonSchema": _object(
+            # `geschrieben_am` too, for the day count's reason: a row without it is never expired. The anchor field is
+            # left undeclared, as on every collection an anchor advances.
+            required=("_id", "geschrieben_am"),
+            properties={
+                # The keyed hash of a folded address (`app/core/adressanker.py :: adressanker_id`), never the address.
+                "_id": {"bsonType": "string"},
+                "geschrieben_am": {"bsonType": "date"},
             },
         )
     },
@@ -1276,6 +1336,15 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         (("collection", ASCENDING), ("operation", ASCENDING), ("actor.kind", ASCENDING)),
         "the counts the log page's three facets are told, over every recorded row",
     ),
+    # `actor.pseudonym` leads: an erasure for a person's request matches on it alone, and the pupils' pass,
+    # running for a whole season at once, on both (`app/api/identitaet/crud.py :: unattribute_in_session`,
+    # `:: erase_pupil_actor_in_session`).
+    SupportIndex(
+        Collection.AKTIONEN,
+        "aktionen_actor_pseudonym",
+        (("actor.pseudonym", ASCENDING), ("actor.funktion", ASCENDING)),
+        "the rows a person wrote, which their erasure marks inside its transaction",
+    ),
     # Each ends in the read's own sort order, `eingereicht_am` then `_id`. Measured: with the sort
     # key unindexed every request scans the collection and sorts it in memory, which is work
     # proportional to an archive an anonymous form can grow.
@@ -1331,6 +1400,13 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         "schiedsrichter_adresswechsel_token_hash",
         (("adresswechsel.token_hash", ASCENDING),),
         "the referee address page's lookup, driven by strangers",
+    ),
+    # PLAIN for the referee's above's reason.
+    SupportIndex(
+        Collection.SPIELER,
+        "spieler_adresswechsel_token_hash",
+        (("adresswechsel.token_hash", ASCENDING),),
+        "the pupil address page's lookup, driven by strangers",
     ),
     # Not a unique one, though a hash collides with nothing: a revoked row keeps its hash, so the
     # key holds as many rows as the team has been reissued links.
@@ -1420,6 +1496,15 @@ TTL_INDEXES: Sequence[TTLIndex] = (
     ),
     # Zero: `ablauf` is already the German midnight ending the day the row counts.
     TTLIndex(Collection.DROSSELUNG, "drosselung_ablauf", "ablauf", 0, "a day's write count is removed once its German day has ended"),
+    # Zero: an anchor serves only the transactions open while it is written, and its removal is itself a
+    # write that one of them meets as a conflict, so no later removal is ever safer (`docs/backend/spec.md :: I719`).
+    TTLIndex(
+        Collection.ADRESSANKER,
+        "adressanker_geschrieben_am",
+        "geschrieben_am",
+        0,
+        "an address's anchor is removed once the TTL monitor next passes after its last write",
+    ),
 )
 
 
@@ -1680,6 +1765,301 @@ async def report_relations(db: AsyncDatabase) -> list[RelationReport]:
     ]
 
 
+# The rule the `spieler` validator cannot state, its two nullable keys being the sentinel's alone.
+NAMELESS_PERSON_RULE = "a person is named and holds a consent record (spieler)"
+
+
+async def report_nameless_persons(db: AsyncDatabase) -> RelationReport:
+    """Count the persons with a null forename or a null consent record, writing nothing.
+
+    The first 500s the admin's membership list and the team's squad, every served model requiring a
+    forename; the admission refuses to admit into the second.
+    """
+
+    # By its id, as every read excludes the sentinel, and by `$type` rather than null, so a missing key
+    # stays the validator report's alone.
+    nameless = {"_id": {"$ne": GHOST_SPIELER_ID}, "$or": [{"vorname": {"$type": "null"}}, {"einwilligung": {"$type": "null"}}]}
+    collection = db[Collection.SPIELER]
+
+    return RelationReport(
+        rule=NAMELESS_PERSON_RULE,
+        groups=await collection.count_documents(nameless),
+        examples=[doc["_id"] for doc in await collection.find(nameless, {"_id": 1}).limit(5).to_list(length=5)],
+    )
+
+
+# One adapter per type a read model gives a stored value, each that model's own, so the report refuses
+# exactly what a read does (`fl_backend/tests/core/test_constraints.py` holds each path's two equal).
+_NON_EMPTY = TypeAdapter(CustomNonEmptyString)
+_NON_EMPTY_OR_NULL = TypeAdapter(CustomNonEmptyString | None)
+_DAY = TypeAdapter(CustomDateString)
+_DAY_OR_NULL = TypeAdapter(CustomDateString | None)
+_OPTIONAL_DAY = TypeAdapter(CustomOptionalDateString)
+_TIME_OR_NULL = TypeAdapter(CustomTimeString | None)
+_ERGEBNIS_OR_NULL = TypeAdapter(CustomErgebnisString | None)
+_OPTIONAL_URL = TypeAdapter(CustomOptionalExternalUrl)
+_SAISON_ID = TypeAdapter(Annotated[str, StringConstraints(min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)])
+_SHORTHAND = TypeAdapter(Annotated[str, StringConstraints(min_length=TEAM_SHORTHAND_LENGTH, max_length=TEAM_SHORTHAND_LENGTH)])
+_HAUSNUMMER = TypeAdapter(Annotated[str, StringConstraints(pattern=HAUSNUMMER_PATTERN)])
+# Restated: `app/shared/schemas/addresses.py :: FLAddress` spells its pattern inline.
+_PLZ = TypeAdapter(Annotated[str, StringConstraints(pattern=r"^[0-9]{5}$")])
+_DESCRIPTION = TypeAdapter(Annotated[str, StringConstraints(max_length=TEAM_DESCRIPTION_MAX_LENGTH)])
+# Restated where a model spells its bound inline, as `_PLZ` is.
+_Count = Annotated[int, Field(ge=0)]
+_COUNT = TypeAdapter(_Count)
+_POSITION = TypeAdapter(Annotated[int, Field(ge=1)])
+_TORE_OR_NULL = TypeAdapter(_Count | None)
+_ABOVE_ZERO = TypeAdapter(CustomSpielNr)
+_QUALIFIERS = TypeAdapter(QualifiersPerGroup)
+_GROUPS = TypeAdapter(NumberOfGroups)
+_TEAMS_PER_GROUP = TypeAdapter(TeamsPerGroup)
+_STUFEN = TypeAdapter(Annotated[list[FLSpielerStufe], Field(min_length=1)])
+# The model whole: its validator refuses a level shoot-out, which no bound on either count states.
+_SHOOTOUT_OR_NULL = TypeAdapter(FLSpielElfmeterschiessen | None)
+
+# A validator holds types and enums alone (`.claude/rules/backend.md` db), so a hand edit can store an
+# empty name or a day no calendar holds, and a list serving that row answers 500 for every row
+# (`SRV-VAL-001`).
+SERVED_VALUES: Mapping[Collection, Mapping[str, TypeAdapter[Any]]] = {
+    Collection.BERECHTIGUNGEN: {
+        "adresse": _NON_EMPTY,
+    },
+    Collection.BERECHTIGUNGEN_ANGEKUENDIGT: {
+        "adresse": _NON_EMPTY,
+    },
+    Collection.BERECHTIGUNGEN_POSTAUSGANG: {
+        "versuche": _COUNT,
+    },
+    Collection.BEWERBUNGEN: {
+        "eingereicht_am": _DAY,
+        "bestaetigungsfrist": _OPTIONAL_DAY,
+        "schule.team_name": _NON_EMPTY,
+        "schule.full_name": _NON_EMPTY,
+        "schule.shorthand": _SHORTHAND,
+        "schule.address.strasse": _NON_EMPTY,
+        "schule.address.hausnummer": _HAUSNUMMER,
+        "schule.address.plz": _PLZ,
+        "schule.address.stadt": _NON_EMPTY,
+        "entscheidung.getroffen_am": _DAY,
+        "kontakte.trainer.vorname": _NON_EMPTY,
+        "kontakte.trainer.nachname": _NON_EMPTY,
+        "kontakte.trainer.geburtsdatum": _OPTIONAL_DAY,
+        "kontakte.ansprechperson.vorname": _NON_EMPTY,
+        "kontakte.ansprechperson.nachname": _NON_EMPTY,
+        "kontakte.ansprechperson.geburtsdatum": _OPTIONAL_DAY,
+        "kontakte.stellvertretung.vorname": _NON_EMPTY,
+        "kontakte.stellvertretung.nachname": _NON_EMPTY,
+        "kontakte.stellvertretung.geburtsdatum": _OPTIONAL_DAY,
+        "kontakte.trainer.einwilligung.datum": _DAY,
+        "kontakte.trainer.einwilligung.bestaetigt_am": _OPTIONAL_DAY,
+        "kontakte.ansprechperson.einwilligung.datum": _DAY,
+        "kontakte.ansprechperson.einwilligung.bestaetigt_am": _OPTIONAL_DAY,
+        "kontakte.stellvertretung.einwilligung.datum": _DAY,
+        "kontakte.stellvertretung.einwilligung.bestaetigt_am": _OPTIONAL_DAY,
+        "bestaetigungen.trainer.verschickt_am": _DAY,
+        "bestaetigungen.trainer.erinnert_am": _OPTIONAL_DAY,
+        "bestaetigungen.trainer.abgelehnt_am": _OPTIONAL_DAY,
+        "bestaetigungen.ansprechperson.verschickt_am": _DAY,
+        "bestaetigungen.ansprechperson.erinnert_am": _OPTIONAL_DAY,
+        "bestaetigungen.ansprechperson.abgelehnt_am": _OPTIONAL_DAY,
+        "bestaetigungen.stellvertretung.verschickt_am": _DAY,
+        "bestaetigungen.stellvertretung.erinnert_am": _OPTIONAL_DAY,
+        "bestaetigungen.stellvertretung.abgelehnt_am": _OPTIONAL_DAY,
+    },
+    Collection.EINLADUNGEN: {
+        "saison_id": _NON_EMPTY,
+        "erstellt_am": _DAY,
+        "erstellt_von": _NON_EMPTY,
+        "widerrufen_am": _OPTIONAL_DAY,
+    },
+    Collection.REGISTRIERUNGEN: {
+        "eingereicht_am": _DAY,
+        "vorname": _NON_EMPTY,
+        "nachname": _NON_EMPTY,
+        "email": _NON_EMPTY,
+        "geburtsdatum": _OPTIONAL_DAY,
+        "einwilligung.datum": _OPTIONAL_DAY,
+        "einwilligung.bestaetigt_am": _OPTIONAL_DAY,
+        "bestaetigung.verschickt_am": _DAY,
+        "bestaetigung.erinnert_am": _OPTIONAL_DAY,
+        "bestaetigung.frist": _DAY,
+        "entscheidung.getroffen_am": _DAY,
+        "entscheidung.von": _NON_EMPTY,
+    },
+    Collection.SAISON_SPIELER: {
+        "inactive_since": _OPTIONAL_DAY,
+    },
+    Collection.SAISON_TEAMS: {
+        "austritt.grund": _NON_EMPTY,
+        "austritt.datum": _DAY,
+        "kontakte.trainer.vorname": _NON_EMPTY,
+        "kontakte.trainer.nachname": _NON_EMPTY,
+        "kontakte.trainer.geburtsdatum": _OPTIONAL_DAY,
+        "kontakte.ansprechperson.vorname": _NON_EMPTY,
+        "kontakte.ansprechperson.nachname": _NON_EMPTY,
+        "kontakte.ansprechperson.geburtsdatum": _OPTIONAL_DAY,
+        "kontakte.stellvertretung.vorname": _NON_EMPTY,
+        "kontakte.stellvertretung.nachname": _NON_EMPTY,
+        "kontakte.stellvertretung.geburtsdatum": _OPTIONAL_DAY,
+        "kontakte.trainer.einwilligung.datum": _DAY,
+        "kontakte.trainer.einwilligung.bestaetigt_am": _OPTIONAL_DAY,
+        "kontakte.ansprechperson.einwilligung.datum": _DAY,
+        "kontakte.ansprechperson.einwilligung.bestaetigt_am": _OPTIONAL_DAY,
+        "kontakte.stellvertretung.einwilligung.datum": _DAY,
+        "kontakte.stellvertretung.einwilligung.bestaetigt_am": _OPTIONAL_DAY,
+        "bestaetigungen.trainer.verschickt_am": _DAY,
+        "bestaetigungen.trainer.frist": _DAY,
+        "bestaetigungen.trainer.abgelehnt_am": _OPTIONAL_DAY,
+        "bestaetigungen.ansprechperson.verschickt_am": _DAY,
+        "bestaetigungen.ansprechperson.frist": _DAY,
+        "bestaetigungen.ansprechperson.abgelehnt_am": _OPTIONAL_DAY,
+        "bestaetigungen.stellvertretung.verschickt_am": _DAY,
+        "bestaetigungen.stellvertretung.frist": _DAY,
+        "bestaetigungen.stellvertretung.abgelehnt_am": _OPTIONAL_DAY,
+    },
+    Collection.SAISONS: {
+        "start_date": _DAY,
+        "end_date": _DAY,
+        "_id": _SAISON_ID,
+        "spielplan.generiert_am": _DAY,
+        "bewerbung.von": _DAY,
+        "bewerbung.bis": _DAY,
+        "registrierung.von": _DAY,
+        "registrierung.bis": _DAY,
+        "rules.win_points": _ABOVE_ZERO,
+        "rules.draw_points": _COUNT,
+        "rules.qualifiers_per_group": _QUALIFIERS,
+        "rules.number_of_groups": _GROUPS,
+        "rules.teams_per_group": _TEAMS_PER_GROUP,
+        "rules.max_kadergroesse": _ABOVE_ZERO,
+        "rules.forfeit_ergebnis.sieger_tore": _COUNT,
+        "rules.forfeit_ergebnis.verlierer_tore": _COUNT,
+        "rules.erlaubte_stufen": _STUFEN,
+        "spielplan.spieltage": _COUNT,
+        "spielplan.spiele": _COUNT,
+    },
+    Collection.SCHIEDSRICHTER: {
+        "name": _NON_EMPTY_OR_NULL,
+        "default_payment": _COUNT,
+        "inactive_since": _OPTIONAL_DAY,
+        "geburtsdatum": _OPTIONAL_DAY,
+        "bestaetigung.verschickt_am": _DAY,
+        "bestaetigung.erinnert_am": _OPTIONAL_DAY,
+        "bestaetigung.frist": _DAY,
+        "einwilligung.datum": _OPTIONAL_DAY,
+        "einwilligung.bestaetigt_am": _OPTIONAL_DAY,
+        "adresswechsel.verschickt_am": _DAY,
+        "adresswechsel.frist": _DAY,
+    },
+    Collection.SPERRLISTE: {
+        "grund": _NON_EMPTY,
+        "erstellt_von": _NON_EMPTY,
+        "erstellt_am": _DAY,
+        "gesperrt_bis_saison_id": _SAISON_ID,
+    },
+    Collection.SPIELE: {
+        "datum": _DAY_OR_NULL,
+        "uhrzeit": _TIME_OR_NULL,
+        "ergebnis": _ERGEBNIS_OR_NULL,
+        "saison_id": _SAISON_ID,
+        "team1.name": _NON_EMPTY,
+        "team1.shorthand": _SHORTHAND,
+        "team2.name": _NON_EMPTY,
+        "team2.shorthand": _SHORTHAND,
+        "ort.name": _NON_EMPTY,
+        "ort.maps_link": _NON_EMPTY,
+        "ort.mietpreis": _COUNT,
+        "schiedsrichter.name": _NON_EMPTY_OR_NULL,
+        "schiedsrichter.payment": _COUNT,
+        "spiel_nr": _ABOVE_ZERO,
+        "team1.tore": _TORE_OR_NULL,
+        "team2.tore": _TORE_OR_NULL,
+        "team1_quelle.platz": _ABOVE_ZERO,
+        "team1_quelle.spiel_nr": _ABOVE_ZERO,
+        "team2_quelle.platz": _ABOVE_ZERO,
+        "team2_quelle.spiel_nr": _ABOVE_ZERO,
+        "elfmeterschiessen": _SHOOTOUT_OR_NULL,
+        "elfmeterschiessen.team1": _COUNT,
+        "elfmeterschiessen.team2": _COUNT,
+    },
+    Collection.SPIELER: {
+        "einwilligung.datum": _OPTIONAL_DAY,
+        "einwilligung.bestaetigt_am": _OPTIONAL_DAY,
+        # Null is the sentinel's, and `NAMELESS_PERSON_RULE`'s anywhere else.
+        "vorname": _NON_EMPTY_OR_NULL,
+        "inactive_since": _OPTIONAL_DAY,
+        "geburtsdatum": _OPTIONAL_DAY,
+        "adresswechsel.verschickt_am": _DAY,
+        "adresswechsel.frist": _DAY,
+    },
+    Collection.SPIELORTE: {
+        "name": _NON_EMPTY,
+        "maps_link": _NON_EMPTY,
+        "default_mietpreis": _COUNT,
+        "inactive_since": _OPTIONAL_DAY,
+        "address.strasse": _NON_EMPTY,
+        "address.hausnummer": _HAUSNUMMER,
+        "address.plz": _PLZ,
+        "address.stadt": _NON_EMPTY,
+    },
+    Collection.SPIELTAGE: {
+        "beginn": _DAY_OR_NULL,
+        "ende": _DAY_OR_NULL,
+        "saison_id": _SAISON_ID,
+        "position": _POSITION,
+    },
+    Collection.TEAMS: {
+        "name": _NON_EMPTY,
+        "shorthand": _SHORTHAND,
+        "full_name": _NON_EMPTY,
+        "description": _DESCRIPTION,
+        "website_url": _OPTIONAL_URL,
+        "inactive_since": _OPTIONAL_DAY,
+        "address.strasse": _NON_EMPTY,
+        "address.hausnummer": _HAUSNUMMER,
+        "address.plz": _PLZ,
+        "address.stadt": _NON_EMPTY,
+    },
+}
+
+UNSERVABLE_VALUE_RULE = "every value its row models bound is one they admit ({})"
+
+
+def _refuses(adapter: TypeAdapter[Any], document: Mapping[str, Any], path: str) -> bool:
+    value: Any = document
+    for step in path.split("."):
+        # A parent stored null, or a key stored nowhere: the validator's own report names a missing key.
+        if not isinstance(value, Mapping) or step not in value:
+            return False
+        value = value[step]
+
+    try:
+        adapter.validate_python(value)
+    except ValidationError:
+        return True
+
+    return False
+
+
+async def report_unservable_values(db: AsyncDatabase) -> dict[Collection, RelationReport]:
+    """Count, per collection, the documents holding a value a read model refuses, writing nothing; each example names its fields."""
+
+    reports: dict[Collection, RelationReport] = {}
+
+    for collection, types in SERVED_VALUES.items():
+        offenders: list[Mapping[str, Any]] = []
+        # A path under another listed path is projected through it: the server refuses the pair as a path collision.
+        projection = {path: 1 for path in types if not any(path.startswith(f"{outer}.") for outer in types)}
+
+        async for document in db[collection].find({}, projection):
+            if refused := [path for path, adapter in types.items() if _refuses(adapter, document, path)]:
+                offenders.append({"_id": document["_id"], "fields": refused})
+
+        reports[collection] = RelationReport(rule=UNSERVABLE_VALUE_RULE.format(collection), groups=len(offenders), examples=offenders[:5])
+
+    return reports
+
+
 async def probe_collmod_privilege(db: AsyncDatabase) -> str:
     """Answer whether this connection may run `collMod`, writing nothing.
 
@@ -1861,6 +2241,25 @@ async def _run(check: bool) -> int:
             if relation.groups:
                 blocking += relation.groups
                 print(f"          first offenders: {relation.examples}")
+
+        # Counted for the cross-document rules' reason: the validator admits such a row, and every read
+        # serving it refuses it.
+        print("\n  Rows the validator admits for the erased pupils' sentinel alone")
+        nameless = await report_nameless_persons(database)
+        marker = "ok " if nameless.groups == 0 else "FAIL"
+        print(f"    {marker}  {nameless.rule:<46} {nameless.groups:>4}")
+        if nameless.groups:
+            blocking += nameless.groups
+            print(f"          first offenders: {nameless.examples}")
+
+        # Counted for the same reason: one such value answers every row of the list serving it 500.
+        print("\n  Values the validators admit and a whole-list read refuses")
+        for unservable in (await report_unservable_values(database)).values():
+            marker = "ok " if unservable.groups == 0 else "FAIL"
+            print(f"    {marker}  {unservable.rule:<46} {unservable.groups:>4}")
+            if unservable.groups:
+                blocking += unservable.groups
+                print(f"          first offenders: {unservable.examples}")
 
         print("\n  Clean — safe to apply.\n" if blocking == 0 else "\n  NOT clean. Correct the data above before applying.\n")
         return 0 if blocking == 0 else 1

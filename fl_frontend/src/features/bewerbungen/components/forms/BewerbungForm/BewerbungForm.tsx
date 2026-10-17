@@ -322,7 +322,7 @@ export function BewerbungForm({
               chase the other two, which is why the panel asks rather than reassures. */}
           <p className="max-w-md muted-hint">
             Jede Kontaktperson hat eine E-Mail mit einem eigenen Link zur Bestätigung bekommen. Vollständig ist Deine Bewerbung, sobald alle
-            drei bestätigt haben; dann schauen wir sie uns an und melden uns bei allen drei Kontaktpersonen. Fehlt nach{" "}
+            drei bestätigt haben. Dann schauen wir sie uns an und melden uns bei allen drei Kontaktpersonen. Fehlt nach{" "}
             {String(BEWERBUNG_BESTAETIGUNG_FRIST_TAGE)} Tagen eine Bestätigung, löschen wir die Bewerbung mit allen Angaben und sagen Dir
             Bescheid. Sag den anderen am besten selbst Bescheid, dann geht es schneller.
           </p>

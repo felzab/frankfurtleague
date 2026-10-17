@@ -18,7 +18,7 @@ const ABSCHNITT_CLASSES = "flex flex-col gap-y-2";
  * The slots a record fills from the person who opened the link
  * (`fl_frontend/src/features/bewerbungen/components/ui/Gefuellt.tsx :: Gefuellt`).
  */
-const EIGENE_SLOTS = new Set(["vorname", "schule", "saison", "rolle"]);
+const EIGENE_SLOTS = new Set(["schule", "saison", "rolle"]);
 
 /** A stamped paragraph, whichever key it stands under, filled as this page fills it wherever else it is quoted. */
 export function Absatz({ text, werte }: { text: string; werte: Slots }) {
@@ -205,7 +205,6 @@ export function MedienHinweis({ absaetze, medienMindestalter }: { absaetze: Kont
 export function KlickBestaetigung({
   absaetze,
   id,
-  vorname,
   schule,
   rolle,
   mindestalter,
@@ -213,12 +212,11 @@ export function KlickBestaetigung({
   absaetze: KontaktAbsaetze;
   /** Published for the submit button's `aria-describedby`, so the points reach a reader who cannot see them. */
   id: string;
-  vorname: string;
   schule: string;
   rolle: string;
   mindestalter: number;
 }) {
-  const werte = { ...FESTE_WERTE, minAlter: String(mindestalter), vorname: vorname, schule: schule, rolle: rolle };
+  const werte = { ...FESTE_WERTE, minAlter: String(mindestalter), schule: schule, rolle: rolle };
 
   return (
     <div

@@ -44,7 +44,8 @@ model holds; read this for the shape those tables are stating.
   (`sperrliste`), one address's access to the administration (`berechtigungen`), what the
   administrators have been told of it (`berechtigungen_angekuendigt`) and what they are still to be
   told (`berechtigungen_postausgang`), one recorded write (`aktionen`), and one person's count of
-  writes on one day (`drosselung`), operational state rather than a fact about the league.
+  writes on one day (`drosselung`) and one address's conflict point (`adressanker`), each operational
+  state rather than a fact about the league.
 
 A school's kind survives the year and its Trainer does not, which is what puts those two on different
 documents.
@@ -131,8 +132,8 @@ refusal a retirement meets.
 a season's draw takes its matchdays and fixtures away and writes fresh ones; an **undraw** takes the same two
 sets away and writes nothing back, and what it is for is [the rules
 below](#a-seasons-rules-are-the-interesting-case). A pupil's **erasure** removes the person, every one of
-their squad rows and their values in the action log, as one transaction over all three, and requires the
-person to be retired first (`REQ-PURGE-001`) — any one of the three alone would leave the erasure defeated
+their squad rows and their values in the action log, as one transaction over all three, and asks no
+retirement first — any one of the three alone would leave the erasure defeated
 while reporting success, the squad read joining from the person outward and a log row holding what was erased
 being exactly the record the erasure exists to remove.
 

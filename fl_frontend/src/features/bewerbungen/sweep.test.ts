@@ -5,6 +5,7 @@ import path from "node:path";
 import { after, beforeEach, describe, it, mock } from "node:test";
 
 import { ACTOR_KEY_FILE } from "@/core/authDoubles.ts";
+import { APIBadStatusError, APIMalformedDataError, APINetworkError } from "@/core/errors.ts";
 import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
@@ -13,7 +14,7 @@ import type { SentMail } from "@/core/mailDouble.ts";
 
 /** One thing that happened, in the order it happened: the two orderings this slice owes are orderings between the two kinds. */
 type SweepEvent =
-  { kind: "api"; endpoint: string; method: string; params?: Record<string, string>; body?: string } | ({ kind: "mail" } & SentMail);
+  { kind: "api"; endpoint: string; method: string; params?: Record<string, string | null>; body?: string } | ({ kind: "mail" } & SentMail);
 
 const events: SweepEvent[] = [];
 /** Addresses the doubled provider refuses, so a deletion notice can fail for one application alone. */
@@ -25,11 +26,32 @@ type SweepLog = { event: string; saison_id: string | undefined };
 
 const logs: SweepLog[] = [];
 
+/** Every line as it was written, its fields whole: what a half reports per pass, and the code its failure carries. */
+const lines: { level: "info" | "warn" | "error"; event: string; fields: unknown }[] = [];
+
 /** The sweep's switch as the doubled config answers it, which a case sets. */
 let sweepSwitch: string | undefined = "on";
+/** The pupils' deletion switch, off where a case sets nothing, as production's default is. */
+let loeschungSwitch: string | undefined = "off";
 let appEnv = "production";
 
 let apiAnswer: (call: ApiEvent) => unknown = () => ({});
+
+const ADRESSWECHSEL = "/schiedsrichter/sweep/adresswechsel";
+
+/**
+ * The half after the season loop, answered apart so a case about a season's clocks never answers it. It is handed the
+ * place its call carried, null on a pass's first.
+ */
+let adresswechselAnswer: (nach: string | null) => unknown = () => entfernt(0, 0);
+
+/** One call of the lapsed addresses' half: how many went, how many are still due, and where the pass goes on. */
+const entfernt = (anzahl: number, verbleibend: number, nach: string | null = null) => ({
+  acknowledged: 1,
+  entfernt: anzahl,
+  verbleibend: verbleibend,
+  nach: nach,
+});
 
 /** The grants' claim with nothing to announce. */
 const NOTHING_CLAIMED = { acknowledged: 1, beanspruchung: null, beansprucht_bis: null, aenderungen: [], empfaenger: [], uebersprungen: 0 };
@@ -45,6 +67,7 @@ doubleApiClient(({ endpoint, method, params, body }, schema) => {
   events.push(call);
   // Parsed by the mirror the real client parses with, so an answer this file composes cannot drift
   // from the shape the caller is written against.
+  if (endpoint === ADRESSWECHSEL) return schema.parse(adresswechselAnswer(call.params?.nach ?? null));
   return schema.parse(apiAnswer(call));
 });
 
@@ -54,9 +77,12 @@ const mail = doubleSendMail();
 // of a season's pass stopped, and that is a line rather than a call the transport shows.
 const LOGGING_DOUBLE = {
   logger: {
-    info: () => undefined,
-    warn: () => undefined,
-    error: (event: string, _message: unknown, fields?: { saison_id?: string }) => void logs.push({ event, saison_id: fields?.saison_id }),
+    info: (event: string, fields?: unknown) => void lines.push({ level: "info", event, fields }),
+    warn: (event: string, fields?: unknown) => void lines.push({ level: "warn", event, fields }),
+    error: (event: string, _message: unknown, fields?: { saison_id?: string }) => {
+      logs.push({ event, saison_id: fields?.saison_id });
+      lines.push({ level: "error", event, fields });
+    },
   },
 };
 
@@ -70,6 +96,9 @@ const CONFIG_DOUBLE = {
     ACTOR_SIGNING_KEY_FILE: ACTOR_KEY_FILE,
     get BEWERBUNG_SWEEP() {
       return sweepSwitch;
+    },
+    get LOESCHUNG_SWEEP() {
+      return loeschungSwitch;
     },
     get APP_ENV() {
       return appEnv;
@@ -142,8 +171,9 @@ function sweepAnswers({
     }
     if (call.endpoint === "/bewerbungen/zustellung/angenommen") return { acknowledged: 1, angewendet: ["ansprechperson"] };
     if (call.endpoint === "/zustellung/angenommen") return { acknowledged: 1, angewendet: true };
-    if (call.endpoint.endsWith("/angekuendigt")) return { acknowledged: 1, saison_id: saisonId, angekuendigt: 1 };
-    if (call.endpoint.endsWith("/loeschen")) return { acknowledged: 1, saison_id: saisonId, geloescht: 1, redigierte_aktionen: 1 };
+    if (call.endpoint.endsWith("/angekuendigt")) return { acknowledged: 1, saison_id: saisonId, angekuendigt: 1, fehlgeschlagen: 0 };
+    if (call.endpoint.endsWith("/loeschen"))
+      return { acknowledged: 1, saison_id: saisonId, geloescht: 1, redigierte_aktionen: 1, fehlgeschlagen: 0 };
     if (call.endpoint.startsWith("/registrierungen/sweep/")) {
       return {
         acknowledged: 1,
@@ -154,6 +184,7 @@ function sweepAnswers({
         geloescht_ohne_entscheidung: 0,
         geloescht_abgelehnt: 0,
         redigierte_aktionen: 0,
+        fehlgeschlagen: 0,
       };
     }
 
@@ -167,6 +198,7 @@ function sweepAnswers({
       ohne_entscheidung_geloescht: 0,
       kontaktbloecke_geleert: 0,
       redigierte_aktionen: 0,
+      fehlgeschlagen: 0,
     };
   });
 }
@@ -193,6 +225,7 @@ const deletion = (bewerbungId: string, address: string | null, rollen: string[] 
 beforeEach(() => {
   events.length = 0;
   logs.length = 0;
+  lines.length = 0;
   refused.clear();
   withheld.clear();
   // Appended as the send happens, so a send and the calls around it stay in the order they ran.
@@ -201,8 +234,10 @@ beforeEach(() => {
     return refused.has(sent.to) ? "refused" : withheld.has(sent.to) ? "withheld" : "accepted";
   });
   sweepSwitch = "on";
+  loeschungSwitch = "off";
   appEnv = "production";
   sweepAnswers({});
+  adresswechselAnswer = () => entfernt(0, 0);
 });
 
 describe("the switch the retention sweep is armed by", () => {
@@ -238,20 +273,24 @@ describe("the switch the retention sweep is armed by", () => {
 
   let probe = 0;
 
-  /** The real module's own parse, with the gate the `test:base` script stands down put back up. */
-  async function parseWith(value: string | undefined): Promise<{ BEWERBUNG_SWEEP: string }> {
+  /** The real module's own parse of one switch, with the gate the `test:base` script stands down put back up. */
+  async function parseWith(
+    value: string | undefined,
+    variable: "BEWERBUNG_SWEEP" | "LOESCHUNG_SWEEP" = "BEWERBUNG_SWEEP",
+  ): Promise<Record<"BEWERBUNG_SWEEP" | "LOESCHUNG_SWEEP", string>> {
     const before = { ...process.env };
     Object.assign(process.env, COMPLETE_ENV, { SECRETS_DIR });
     delete process.env.SKIP_ENV_VALIDATION;
-    if (value === undefined) delete process.env.BEWERBUNG_SWEEP;
-    else process.env.BEWERBUNG_SWEEP = value;
+    delete process.env.BEWERBUNG_SWEEP;
+    delete process.env.LOESCHUNG_SWEEP;
+    if (value !== undefined) process.env[variable] = value;
 
     probe += 1;
     try {
       // A fresh module per case, and one the double above steps past, matching the bare path alone:
       // one registry entry would otherwise answer every case.
       const parsed = (await import(`../../core/config.ts?probe=${String(probe)}`)) as {
-        frontend_config: { BEWERBUNG_SWEEP: string };
+        frontend_config: Record<"BEWERBUNG_SWEEP" | "LOESCHUNG_SWEEP", string>;
       };
       return parsed.frontend_config;
     } finally {
@@ -271,6 +310,23 @@ describe("the switch the retention sweep is armed by", () => {
 
   it("refuses anything else by name, rather than reading it as one side or the other", async () => {
     await assert.rejects(parseWith("false"), (error: Error) => error.message.includes("BEWERBUNG_SWEEP"));
+  });
+
+  /* The pupils' deletion: off by default, so the first activation after a deploy deletes nobody until an operator
+     has read the season page's count and turned it on. */
+  describe("and the switch the pupils' deletion is armed by", () => {
+    it("leaves the deletion off where the server sets nothing", async () => {
+      assert.equal((await parseWith(undefined, "LOESCHUNG_SWEEP")).LOESCHUNG_SWEEP, "off");
+    });
+
+    it("reads on in either case", async () => {
+      assert.equal((await parseWith("on", "LOESCHUNG_SWEEP")).LOESCHUNG_SWEEP, "on");
+      assert.equal((await parseWith("ON", "LOESCHUNG_SWEEP")).LOESCHUNG_SWEEP, "on");
+    });
+
+    it("refuses anything else by name, rather than reading it as one side or the other", async () => {
+      await assert.rejects(parseWith("false", "LOESCHUNG_SWEEP"), (error: Error) => error.message.includes("LOESCHUNG_SWEEP"));
+    });
   });
 });
 
@@ -334,23 +390,25 @@ describe("what register arms", () => {
   it("runs one pass a minute after start and one an hour after arming", async () => {
     const restore = underNodeEnv("production");
     mock.timers.enable({ apis: ["setInterval", "setTimeout"] });
+    // By its season-list read: the halves after the season loop add calls of their own to every pass.
+    const passes = (): number => apiCalls().filter((call) => call.method === "GET" && call.endpoint === "/bewerbungen/sweep").length;
 
     try {
       await register();
       await settle();
-      const atOnce = apiCalls().length;
+      const atOnce = passes();
 
       mock.timers.tick(MINUTE_MS);
       await settle();
-      const afterTheMinute = apiCalls().length;
+      const afterTheMinute = passes();
 
       mock.timers.tick(HOUR_MS - MINUTE_MS - 1000);
       await settle();
-      const beforeTheHour = apiCalls().length;
+      const beforeTheHour = passes();
 
       mock.timers.tick(1000);
       await settle();
-      const afterTheHour = apiCalls().length;
+      const afterTheHour = passes();
 
       assert.equal(atOnce, 0, "nothing runs at arming: the backend may not answer yet after a deploy");
       assert.equal(afterTheMinute, 1, "the first pass runs a minute in, a container recreated daily never reaching the first tick");
@@ -393,10 +451,10 @@ describe("one pass of the sweep", () => {
 
     assert.deepEqual(
       events.map((event) => event.kind),
-      // The fourth is the accepted send recording itself, which follows the message rather than
-      // preceding it: no id exists to record until the provider has answered. The fifth is the
-      // registration pass, which closes every season.
-      ["api", "api", "mail", "api", "api"],
+      // The fourth is the accepted send recording itself, after the message: no id exists to record
+      // until the provider has answered. The fifth is the registration pass closing every season, the
+      // last the lapsed addresses' half.
+      ["api", "api", "mail", "api", "api", "api"],
     );
   });
 
@@ -447,8 +505,8 @@ describe("one pass of the sweep", () => {
     assert.deepEqual(
       events.map((event) => event.kind),
       // The record after the delivered notice, and none after the refused one; the registration
-      // pass closes the season.
-      ["api", "api", "mail", "api", "mail", "api", "api", "api"],
+      // pass closes the season, and the lapsed addresses' half the pass.
+      ["api", "api", "mail", "api", "mail", "api", "api", "api", "api"],
       "both notices go out before anything is stamped or erased",
     );
     assert.equal(stamp?.endpoint, "/bewerbungen/sweep/2627/angekuendigt");
@@ -514,7 +572,7 @@ describe("one pass of the sweep", () => {
     const erasure = callTo("/bewerbungen/sweep/2627/loeschen");
     assert.deepEqual(
       events.map((event) => event.kind),
-      ["api", "api", "api", "api"],
+      ["api", "api", "api", "api", "api"],
       "an announced candidate was mailed or stamped again",
     );
     assert.equal(erasure?.endpoint, "/bewerbungen/sweep/2627/loeschen");
@@ -553,7 +611,7 @@ describe("one pass of the sweep", () => {
     const erasure = callTo("/bewerbungen/sweep/2627/loeschen");
     assert.deepEqual(
       events.map((event) => event.kind),
-      ["api", "api", "api", "api", "api"],
+      ["api", "api", "api", "api", "api", "api"],
       "no message is composed for a candidate with no address",
     );
     assert.deepEqual(JSON.parse(erasure?.body ?? "{}"), { bewerbung_ids: [ID_NOBODY] });
@@ -625,6 +683,7 @@ describe("one pass of the sweep", () => {
           geloescht_ohne_entscheidung: 0,
           geloescht_abgelehnt: 0,
           redigierte_aktionen: 0,
+          fehlgeschlagen: 0,
         };
       }
       return {
@@ -637,12 +696,99 @@ describe("one pass of the sweep", () => {
         ohne_entscheidung_geloescht: 0,
         kontaktbloecke_geleert: 0,
         redigierte_aktionen: 0,
+        fehlgeschlagen: 0,
       };
     });
 
     await runBewerbungSweep();
 
     assert.deepEqual(seasonPasses().map(saisonOf), ["2526", "2627"]);
+  });
+});
+
+describe("the line a failed call files", () => {
+  /* A refusal and a crash carry the same name: the status and code tell them apart, and the trace joins
+     the line to the backend's own for that request. */
+  it("names a refused call's status, code and trace on its failure line", async () => {
+    answerWith(() => {
+      throw new APIBadStatusError({
+        message: "The backend failed the request.",
+        url: "http://backend:8000/api/v0/bewerbungen/sweep",
+        endpoint: "/bewerbungen/sweep",
+        method: "GET",
+        readOnly: false,
+        statusCode: 500,
+        serverErrorCode: "DB-FAIL-001",
+        traceId: "4bf92f3577b34da6a3ce929d0e0e4736",
+      });
+    });
+
+    await runBewerbungSweep();
+
+    assert.deepEqual(
+      lines.filter(({ level }) => level === "error").map(({ fields }) => fields),
+      [
+        {
+          error_code: "FE-SWEEP-001",
+          name: "APIBadStatusError",
+          status: 500,
+          server_error_code: "DB-FAIL-001",
+          trace_id: "4bf92f3577b34da6a3ce929d0e0e4736",
+          saison_id: undefined,
+        },
+      ],
+    );
+  });
+
+  /* No status: the backend never answered, so the trace is all that finds the request in its log, if it
+     arrived there at all (`docs/logging/error-codes.md`, `FE-SWEEP-001`). */
+  it("names an unanswered call's trace on its failure line", async () => {
+    answerWith(() => {
+      throw new APINetworkError({
+        message: "The backend did not answer.",
+        url: "http://backend:8000/api/v0/bewerbungen/sweep",
+        method: "GET",
+        readOnly: true,
+        traceId: "4bf92f3577b34da6a3ce929d0e0e4736",
+        isTimeout: true,
+      });
+    });
+
+    await runBewerbungSweep();
+
+    assert.deepEqual(
+      lines.filter(({ level }) => level === "error").map(({ fields }) => fields),
+      [{ error_code: "FE-SWEEP-001", name: "APINetworkError", trace_id: "4bf92f3577b34da6a3ce929d0e0e4736", saison_id: undefined }],
+    );
+  });
+
+  it("names a malformed answer's status and trace on its failure line", async () => {
+    answerWith(() => {
+      throw new APIMalformedDataError({
+        message: "The backend's answer did not match its schema.",
+        url: "http://backend:8000/api/v0/bewerbungen/sweep",
+        endpoint: "/bewerbungen/sweep",
+        method: "GET",
+        readOnly: true,
+        statusCode: 200,
+        traceId: "4bf92f3577b34da6a3ce929d0e0e4736",
+      });
+    });
+
+    await runBewerbungSweep();
+
+    assert.deepEqual(
+      lines.filter(({ level }) => level === "error").map(({ fields }) => fields),
+      [
+        {
+          error_code: "FE-SWEEP-001",
+          name: "APIMalformedDataError",
+          status: 200,
+          trace_id: "4bf92f3577b34da6a3ce929d0e0e4736",
+          saison_id: undefined,
+        },
+      ],
+    );
   });
 });
 
@@ -654,7 +800,6 @@ const reminder = (registrierungId: string, email: string, token: string) => ({
   registrierung_id: registrierungId,
   saison_id: "2627",
   team: "Adler",
-  vorname: "Quillhilde",
   email: email,
   token: token,
 });
@@ -685,7 +830,7 @@ describe("the registration half of one pass", () => {
 
     assert.deepEqual(
       apiCalls().map((call) => call.endpoint),
-      ["/bewerbungen/sweep", "/bewerbungen/sweep/2627", "/registrierungen/sweep/2627"],
+      ["/bewerbungen/sweep", "/bewerbungen/sweep/2627", "/registrierungen/sweep/2627", ADRESSWECHSEL],
     );
   });
 
@@ -722,8 +867,8 @@ describe("the registration half of one pass", () => {
     assert.deepEqual(
       events.map((event) => event.kind),
       // The erasure is behind the second call already; the record after the message is the accepted
-      // send, which reaches no row and is filed as such.
-      ["api", "api", "api", "mail", "api"],
+      // send, which reaches no row and is filed as such, and the lapsed addresses' half ends the pass.
+      ["api", "api", "api", "mail", "api", "api"],
     );
     const note = events.find((event) => event.kind === "mail");
     assert.match(String(note?.idempotencyKey), /^loeschung_registrierung_/);
@@ -759,6 +904,7 @@ describe("the registration half of one pass", () => {
         ohne_entscheidung_geloescht: 0,
         kontaktbloecke_geleert: 0,
         redigierte_aktionen: 0,
+        fehlgeschlagen: 0,
       };
     });
 
@@ -786,6 +932,7 @@ describe("the registration half of one pass", () => {
         geloescht_ohne_entscheidung: 0,
         geloescht_abgelehnt: 0,
         redigierte_aktionen: 0,
+        fehlgeschlagen: 0,
       };
     });
 
@@ -811,6 +958,7 @@ describe("the registration half of one pass", () => {
           geloescht_ohne_entscheidung: 0,
           geloescht_abgelehnt: 0,
           redigierte_aktionen: 0,
+          fehlgeschlagen: 0,
         };
       }
 
@@ -824,6 +972,7 @@ describe("the registration half of one pass", () => {
         ohne_entscheidung_geloescht: 0,
         kontaktbloecke_geleert: 0,
         redigierte_aktionen: 0,
+        fehlgeschlagen: 0,
       };
     });
 
@@ -851,6 +1000,7 @@ describe("the registration half of one pass", () => {
           geloescht_ohne_entscheidung: 0,
           geloescht_abgelehnt: 0,
           redigierte_aktionen: 0,
+          fehlgeschlagen: 0,
         };
       }
 
@@ -864,11 +1014,266 @@ describe("the registration half of one pass", () => {
         ohne_entscheidung_geloescht: 0,
         kontaktbloecke_geleert: 0,
         redigierte_aktionen: 0,
+        fehlgeschlagen: 0,
       };
     });
 
     await runBewerbungSweep();
 
     assert.deepEqual(registrierungPasses().map(saisonOf), ["2526", "2627"]);
+  });
+});
+
+describe("the line each season half files for a pass", () => {
+  /** The two season halves' lines, as an operator greps them. */
+  const seasonLines = () => lines.filter(({ event }) => event === "bewerbung.sweep_pass" || event === "registrierung.sweep_pass");
+
+  /**
+   * Two seasons: the application half of the first passes rows over in all three calls, the registration half of the
+   * second in its one. Each count is distinct, so a sum missing one reads as another number.
+   */
+  function passingRowsOver(angekuendigtAnswer: (saisonId: string) => unknown): void {
+    answerWith((call) => {
+      const saisonId = saisonOf(call);
+      if (call.method === "GET") {
+        return { acknowledged: 1, saison_ids: ["2526", "2627"], sweep_gelaufen_am: null, registrierung_sweep_gelaufen_am: null };
+      }
+      if (call.endpoint === "/bewerbungen/zustellung/angenommen") return { acknowledged: 1, angewendet: ["ansprechperson"] };
+      if (call.endpoint.endsWith("/angekuendigt")) return angekuendigtAnswer(saisonId);
+      if (call.endpoint.endsWith("/loeschen")) {
+        return { acknowledged: 1, saison_id: saisonId, geloescht: 1, redigierte_aktionen: 1, fehlgeschlagen: 4 };
+      }
+      if (call.endpoint.startsWith("/registrierungen/sweep/")) {
+        return {
+          acknowledged: 1,
+          saison_id: saisonId,
+          erinnerungen: [],
+          benachrichtigt: [],
+          geloescht_unbestaetigt: 0,
+          geloescht_ohne_entscheidung: 0,
+          geloescht_abgelehnt: 0,
+          redigierte_aktionen: 0,
+          fehlgeschlagen: saisonId === "2627" ? 8 : 0,
+        };
+      }
+
+      return {
+        acknowledged: 1,
+        saison_id: saisonId,
+        erinnerungen: [],
+        loeschungen: saisonId === "2526" ? [deletion(ID_REACHED, "reached@schule.de")] : [],
+        abgelehnte_geloescht: 0,
+        angenommene_geloescht: 0,
+        ohne_entscheidung_geloescht: 0,
+        kontaktbloecke_geleert: 0,
+        redigierte_aktionen: 0,
+        fehlgeschlagen: saisonId === "2526" ? 1 : 0,
+      };
+    });
+  }
+
+  it("files one line a pass for each half, at info where no call passed a row over", async () => {
+    sweepAnswers({ saisonIds: ["2526", "2627"] });
+
+    await runBewerbungSweep();
+
+    assert.deepEqual(seasonLines(), [
+      { level: "info", event: "bewerbung.sweep_pass", fields: { fehlgeschlagen: 0 } },
+      { level: "info", event: "registrierung.sweep_pass", fields: { fehlgeschlagen: 0 } },
+    ]);
+  });
+
+  /* A clock failing on every row still answers 200 and stamps the day, so a fresh date cannot tell it from a healthy
+     one: this warning is the one line that can (`docs/ops/runbooks.md` section 9). */
+  it("warns the rows each half passed over, summed over every season and call", async () => {
+    passingRowsOver((saisonId) => ({ acknowledged: 1, saison_id: saisonId, angekuendigt: 1, fehlgeschlagen: 2 }));
+
+    await runBewerbungSweep();
+
+    assert.deepEqual(seasonLines(), [
+      { level: "warn", event: "bewerbung.sweep_pass", fields: { error_code: "FE-SWEEP-001", fehlgeschlagen: 7 } },
+      { level: "warn", event: "registrierung.sweep_pass", fields: { error_code: "FE-SWEEP-001", fehlgeschlagen: 8 } },
+    ]);
+  });
+
+  it("keeps the counts of the calls that answered where a later call of the half throws", async () => {
+    passingRowsOver(() => {
+      throw new Error("the stamp was refused");
+    });
+
+    await runBewerbungSweep();
+
+    assert.deepEqual(seasonLines()[0], {
+      level: "warn",
+      event: "bewerbung.sweep_pass",
+      fields: { error_code: "FE-SWEEP-001", fehlgeschlagen: 1 },
+    });
+  });
+});
+
+describe("the half after the season loop", () => {
+  /** The season halves' own pass lines, which come first in every pass and are another case's. */
+  const SEASON_HALVES = /^(bewerbung|registrierung)\.sweep_pass$/;
+
+  /** The place each call of the lapsed addresses' half carried, in the order they ran. */
+  const halfCalls = (): ApiEvent["params"][] =>
+    apiCalls()
+      .filter(({ endpoint }) => endpoint === ADRESSWECHSEL)
+      .map(({ params }) => params);
+
+  /** Answers each call with the next of `answers`, the last one standing for every call after it. */
+  const inTurn = <T>(answers: T[]) => {
+    let turn = 0;
+    return (): T => answers[Math.min(turn++, answers.length - 1)] as T;
+  };
+
+  /* A lapsed address is a stranger's mailbox kept past its day, so no switch holds it back. The pupils' deletion is a
+     timer of its own, and this pass deletes nobody whatever its switch reads, unset included. */
+  for (const schalter of ["on", "off", undefined]) {
+    it(`removes the lapsed addresses on every pass after the seasons, and deletes no pupil while the deletion's switch reads ${String(schalter)}`, async () => {
+      loeschungSwitch = schalter;
+      sweepAnswers({ saisonIds: ["2627"] });
+
+      await runBewerbungSweep();
+
+      assert.deepEqual(
+        apiCalls().map((call) => call.endpoint),
+        ["/bewerbungen/sweep", "/bewerbungen/sweep/2627", "/registrierungen/sweep/2627", ADRESSWECHSEL],
+      );
+    });
+  }
+
+  /* No season reaches the half, so a season list the backend could not answer leaves it to run. */
+  it("runs where the season list could not be read", async () => {
+    answerWith(() => {
+      throw new Error("the season list was refused");
+    });
+
+    await runBewerbungSweep();
+
+    assert.deepEqual(halfCalls(), [{}]);
+  });
+
+  /** Places in the `_id` order, as the mirror demands them. */
+  const ORT_ADRESSE = `${"d".repeat(23)}4`;
+
+  /* The pass is the caller's to hold: each call carries the place the call before it answered, and the first answer
+     naming none ends it, whatever `verbleibend` still counts. */
+  it("hands each call the place the last answer named, and calls no further once one names none", async () => {
+    // The list closes on an answer naming no place, so a loop that ignores the end fails on its count rather than hanging.
+    adresswechselAnswer = inTurn([entfernt(2, 1, ORT_ADRESSE), entfernt(1, 1), entfernt(4, 4)]);
+
+    await runBewerbungSweep();
+
+    // A first call carrying no `nach` at all, never a null one: present, the server reads it as an id.
+    assert.deepEqual(halfCalls(), [{}, { nach: ORT_ADRESSE }]);
+  });
+
+  /**
+   * Answers a call carrying no place with the failing front, and the call carrying `ort` with the due row behind it.
+   * Bounded: a loop dropping the place ends on its fourth call rather than hanging.
+   */
+  const vorneDann = <T>(ort: string, vorne: T, dahinter: T, ende: T) => {
+    let ohneOrt = 0;
+    return (nach: string | null): T => (nach === ort ? dahinter : ++ohneOrt <= 3 ? vorne : ende);
+  };
+
+  /* A share's worth of failing rows fills the front, so the call reaching them removes nobody while a due row stands
+     behind them: a pass ending on that call, or reading the front again, never reaches that row. */
+  it("goes on past a call that removed nobody to the due rows behind it", async () => {
+    adresswechselAnswer = vorneDann(ORT_ADRESSE, entfernt(0, 43, ORT_ADRESSE), entfernt(1, 42), entfernt(0, 43));
+
+    await runBewerbungSweep();
+
+    // A warning, the half leaving rows it failed: a level above INFO would drop the line counting them.
+    assert.deepEqual(
+      lines.filter(({ level, event }) => level !== "error" && !SEASON_HALVES.test(event)),
+      [
+        {
+          level: "warn",
+          event: "schiedsrichter.adresswechsel_sweep_pass",
+          fields: { error_code: "FE-SWEEP-001", entfernt: 1, verbleibend: 42 },
+        },
+      ],
+    );
+  });
+
+  /* Each call counts every lapsed change standing, an earlier page's failures among them, so the pass's remainder is
+     the last call's: a sum would count the first page's unreached rows as left behind. */
+  it("warns with the last call's remainder of a pass over two pages, never a sum of them", async () => {
+    adresswechselAnswer = inTurn([entfernt(2, 5, ORT_ADRESSE), entfernt(3, 1)]);
+
+    await runBewerbungSweep();
+
+    assert.deepEqual(
+      lines.filter(({ event }) => event.startsWith("schiedsrichter.")),
+      [
+        {
+          level: "warn",
+          event: "schiedsrichter.adresswechsel_sweep_pass",
+          fields: { error_code: "FE-SWEEP-001", entfernt: 5, verbleibend: 1 },
+        },
+      ],
+    );
+  });
+
+  /* A place not past the one sent holds the pass, and every clock behind it, for ever. Each double ends on its third
+     answer, so a loop lacking the guard fails on its calls and lines rather than hanging. */
+  for (const [wie, adresse] of [
+    ["the same place", ORT_ADRESSE],
+    ["a place before it", `${"d".repeat(23)}3`],
+  ] as const) {
+    it(`stops where a call answers ${wie}, the removals counted and the half's own line filed`, async () => {
+      adresswechselAnswer = inTurn([entfernt(2, 5, ORT_ADRESSE), entfernt(1, 4, adresse), entfernt(0, 0)]);
+
+      await runBewerbungSweep();
+
+      assert.deepEqual(halfCalls(), [{}, { nach: ORT_ADRESSE }]);
+      assert.deepEqual(
+        lines.filter(({ event }) => event.startsWith("schiedsrichter.")),
+        [
+          { level: "info", event: "schiedsrichter.adresswechsel_sweep_pass", fields: { entfernt: 3 } },
+          {
+            level: "error",
+            event: "schiedsrichter.adresswechsel_sweep_failed",
+            fields: { error_code: "FE-SWEEP-001", name: "ContractBreakError", saison_id: undefined },
+          },
+        ],
+      );
+    });
+  }
+
+  it("files a half that threw under its own line, the seasons swept before it", async () => {
+    sweepAnswers({ saisonIds: ["2627"] });
+    adresswechselAnswer = () => {
+      throw new Error("the lapsed addresses were refused");
+    };
+
+    await runBewerbungSweep();
+
+    assert.deepEqual([...seasonPasses(), ...registrierungPasses()].map(saisonOf), ["2627", "2627"]);
+    assert.deepEqual(
+      lines.filter(({ level }) => level === "error"),
+      [
+        {
+          level: "error",
+          event: "schiedsrichter.adresswechsel_sweep_failed",
+          fields: { error_code: "FE-SWEEP-001", name: "Error", saison_id: undefined },
+        },
+      ],
+    );
+  });
+
+  /* What an operator reads to learn the half ran and what it did: counts and nothing else, never a person, an address
+     or an id. */
+  it("writes one line per pass, holding its counts and nothing else", async () => {
+    adresswechselAnswer = () => entfernt(2, 0);
+
+    await runBewerbungSweep();
+
+    assert.deepEqual(
+      lines.filter(({ level, event }) => level === "info" && !SEASON_HALVES.test(event)),
+      [{ level: "info", event: "schiedsrichter.adresswechsel_sweep_pass", fields: { entfernt: 2, verbleibend: 0 } }],
+    );
   });
 });

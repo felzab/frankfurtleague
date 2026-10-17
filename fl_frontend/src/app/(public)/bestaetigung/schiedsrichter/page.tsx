@@ -50,10 +50,10 @@ async function SchiedsrichterBestaetigungContent(props: NextPageProps) {
   if (typeof token !== "string" || token === "") return <SchiedsrichterBestaetigungView start={{ zustand: "ungueltig" }} />;
 
   // Beside the link's read, and per request: a deploy moves the label the answer must stamp. Settled
-  // together, so a contract break in the words' read reaches the error boundary whatever the link's
-  // state rather than rejecting unobserved.
+  // together, so a contract break in either read reaches the error boundary whatever the link's state
+  // rather than rejecting unobserved.
   const [gelesen, geleseneWorte] = await Promise.all([
-    getSchiedsrichterBestaetigungAnsicht(token).catch((): null => null),
+    getSchiedsrichterBestaetigungAnsicht(token).catch(nullUnlessContractBreak),
     runWithIncomingTrace(() => getLaufendeFassung("bestaetigung_schiedsrichter")).catch(nullUnlessContractBreak),
   ]);
 

@@ -23,8 +23,8 @@ export function mayHaveWritten({ method, readOnly }: SentRequest): boolean {
 }
 
 /**
- * A failure its own code proves wrote nothing: thrown inside a transaction, before its commit, so the
- * transaction rolled back. A write request answers it as failed rather than as of unknown outcome.
+ * A failure its own code proves wrote nothing: thrown before a transaction's commit, inside it or before it
+ * opened. A write request answers it as failed rather than as of unknown outcome.
  */
 export class RolledBackError extends Error {
   override name = "RolledBackError";
@@ -47,12 +47,15 @@ export class UnattributedAdminCallError extends Error {
   }
 }
 
-/** An admin-tier read made for a session that is no administrator's: a caller outside the admin guards. */
-export class AdminReadWithoutAdministratorError extends Error {
-  override name = "AdminReadWithoutAdministratorError";
+/**
+ * An admin-tier read whose grant the backend left unread: an outage, answered by the admin boundary's
+ * retry, never a sign-in, which would meet the same unread grant.
+ */
+export class UnreadGrantError extends Error {
+  override name = "UnreadGrantError";
 
   constructor() {
-    super("An admin-tier read was made for a session that is no administrator's.");
+    super("The backend left the administrator's grant unread.");
   }
 }
 
@@ -69,16 +72,16 @@ export class PersonReadWithoutSubjectError extends Error {
 }
 
 /**
- * A write the request's deadline refused before it was sent: nothing left, so it changed nothing, as
- * `fl_frontend/src/core/mail.ts :: MailUnsentError` says of a message. `FE-NET-001`, a call the network
- * never answered.
+ * A write the request's deadline refused before it was sent, too little being left to wait out its answer
+ * (`fl_frontend/src/core/api.ts :: WRITE_NEEDS_MS`): it changed nothing, as `fl_frontend/src/core/mail.ts ::
+ * MailUnsentError` says of a message. `FE-NET-001`, a call the network never answered.
  */
 export class ApiUnsentError extends Error {
   readonly code = "FE-NET-001";
   override name = "ApiUnsentError";
 
   constructor(method: string) {
-    super(`The request's deadline had passed before this ${method} was sent.`);
+    super(`Too little of the request's deadline was left to wait out this ${method}, so it was never sent.`);
   }
 }
 
@@ -256,6 +259,18 @@ export class APINetworkError extends Error {
     this.readOnly = readOnly;
     this.isTimeout = isTimeout;
   }
+}
+
+/**
+ * What a failed call says of its request, for a sweep's line, and nothing of a person: the status and code
+ * tell a refusal from a crash, and the trace joins the backend's own line.
+ */
+export function requestOf(error: unknown): { status?: number; server_error_code?: string; trace_id?: string } {
+  if (error instanceof APIBadStatusError)
+    return { status: error.statusCode, server_error_code: error.serverErrorCode, trace_id: error.traceId };
+  if (error instanceof APIMalformedDataError) return { status: error.statusCode, trace_id: error.traceId };
+  if (error instanceof APINetworkError) return { trace_id: error.traceId };
+  return {};
 }
 
 /**

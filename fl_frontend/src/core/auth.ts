@@ -1,5 +1,7 @@
 import "server-only";
 
+import { AsyncLocalStorage } from "node:async_hooks";
+
 import { cache } from "react";
 import { headers } from "next/headers";
 
@@ -22,13 +24,14 @@ import { asSignInIdentifier } from "./emailAddress";
 import { BRAND_NAME } from "./emailShell";
 import { RolledBackError } from "./errors";
 import { KONTO_HREF } from "./kontoHref";
+import { buildLoeschungEmail, LOESCHUNG_LINK_GUELTIG_STUNDEN } from "./loeschungEmail";
 import { logger } from "./logging";
 import { sendMail } from "./mail";
 import { declaredCredentialId, PASSKEY_ASSERTION_PATH } from "./passkeyCeremony";
 import { buildPasskeyGeloeschtEmail, buildPasskeyHinzugefuegtEmail } from "./passkeyEmail";
 import { passkeyLastUse } from "./passkeyLastUse";
 import { SIGN_IN_BARRED, SIGN_IN_HOLDS_NOTHING, USER_VERIFICATION_REFUSED } from "./passkeyRefusal";
-import { oncePerRequest, setRequestActor } from "./requestScope";
+import { getRequestActor, oncePerRequest, setRequestActor } from "./requestScope";
 import {
   ADMIN_LIFETIME,
   isWithinEnrolmentWindow,
@@ -58,10 +61,10 @@ export const PASSKEY_LIMIT = 5;
 
 const SESSION_EXPIRES_IN_SECONDS = SESSION_EXPIRES_IN_DAYS * 24 * 60 * 60;
 
-// What the refresh costs, and so how closely `updatedAt` tracks activity: the idle windows in
-// `fl_frontend/src/core/sessionLifetimes.ts` are compared against it, and this is the width of their
-// granularity.
-const SESSION_UPDATE_AGE_SECONDS = 60 * 60;
+// A pause shorter than the administrator's idle hour can still be refused once it and this reach the
+// hour together: kept under the seventh of a window Better Auth's documented example slides at.
+// Global, so persons' rows slide as often.
+const SESSION_UPDATE_AGE_SECONDS = 5 * 60;
 
 const CODE_VALIDITY_SECONDS = CODE_VALIDITY_MINUTES * 60;
 
@@ -100,6 +103,15 @@ const MAIL_ROW_PREFIX = "sign-in-mail-";
 
 /** Every address's mails in one count, under the mail rows' prefix so the runbook's sweep of those reaches it. */
 const MAIL_TOTAL_IDENTIFIER = `${MAIL_ROW_PREFIX}every-address`;
+
+/** The library's own prefix for an outstanding deletion token's row, whose value is the account's user id. */
+const DELETE_TOKEN_ROW_PREFIX = "delete-account-";
+
+/** The one path that mails a deletion link, without a token, and completes one with it, both called in process. */
+const DELETE_USER_PATH = "/delete-user";
+
+/** The library's answer to a mailed link, which a capped request answers too (`better-auth/api :: deleteUser`). */
+const DELETION_LINK_SENT = "Verification email sent";
 
 // The per-address cap lets a flood grow with every member's address, and codes spending the
 // provider's quota stop every other mail the league sends. Set well above an hour of real sign-ins.
@@ -318,22 +330,12 @@ async function refuseEnrolment(
   if (credentialID !== undefined && held.some((row) => row.credentialID === credentialID)) throw APIError.fromStatus("NOT_FOUND");
 }
 
-// The server's code for a write refused over another transaction's write to the same document; the
-// driver exports no name for it.
-const WRITE_CONFLICT = 112;
-
-// The server's code for an insert a unique index refused; the driver exports no name for it either.
+// The server's code for an insert a unique index refused; the driver exports no name for it.
 const DUPLICATE_KEY = 11000;
 
 /** A second row for a credential `fl_frontend/src/core/authIndexes.ts` already holds one of. */
 function isDuplicateCredential(failed: unknown): boolean {
   return failed instanceof MongoServerError && failed.code === DUPLICATE_KEY && "credentialID" in (failed.keyPattern ?? {});
-}
-
-function isWriteConflict(failed: unknown): boolean {
-  // The code, not the `TransientTransactionError` label: the driver labels a lost connection and a
-  // stepped-down primary that way too, and neither is another change to these passkeys.
-  return failed instanceof MongoServerError && failed.code === WRITE_CONFLICT;
 }
 
 /** Named, because the library's failure line records an error's name and nothing else. */
@@ -347,9 +349,9 @@ class RemovalOutsideTransaction extends Error {
 }
 
 /**
- * The write every removal of one administrator's passkeys makes, inside the transaction holding its
- * count and its delete: the database refuses the second of two, where the count alone admits both
- * (`docs/frontend/spec.md :: I341`).
+ * The write every removal of an administrator's passkeys makes inside its transaction: where the count
+ * alone admits two removals, the database refuses the second's write and the adapter re-runs it on the
+ * first's commit (`docs/frontend/spec.md :: I341`).
  */
 async function claimAccount(adapter: Pick<DBTransactionAdapter, "update">, userId: string): Promise<void> {
   // Any field of the account's own row conflicts; `updatedAt` is one the row already carries, so the
@@ -624,6 +626,34 @@ async function unlessUnsettled(settle: () => Promise<void>): Promise<void> {
   }
 }
 
+/** Whether a `/delete-user` body asks for a link, as the library reads it: any token it holds completes one instead. */
+function asksForDeletionLink(body: unknown): boolean {
+  const token: unknown = typeof body === "object" && body !== null ? Reflect.get(body, "token") : undefined;
+  return !token;
+}
+
+/**
+ * Whether a deletion link would mail past its address's hour or every address's: counted on the code's own
+ * rows, so one bound holds every mail sent at the person's own request (`docs/frontend/spec.md :: I713`).
+ */
+async function deletionLinkCapped(context: BoundContext, email: string): Promise<boolean> {
+  const capped = (bound: "address" | "total"): true => {
+    logger.info("auth.deletion_link_capped", { bound: bound });
+    return true;
+  };
+
+  // In the code send's order: the total read first, writing nothing, then each count.
+  if (await mailTotalReached(context)) return capped("total");
+
+  const perAddress = await boundIdentifier(MAIL_ROW_PREFIX, email, context.secret);
+  if ((await withinBound(context, perAddress, CODE_MAIL_LIMIT, CODE_MAIL_WINDOW_HOURS * HOUR_MS)) === null) return capped("address");
+  if ((await withinBound(context, MAIL_TOTAL_IDENTIFIER, CODE_MAIL_TOTAL_LIMIT, CODE_MAIL_WINDOW_HOURS * HOUR_MS)) === null) {
+    return capped("total");
+  }
+
+  return false;
+}
+
 /** The address a sign-in code is asked for, or `null` for a send of any other type. */
 function codeSendAddress(body: unknown): string | null {
   const type: unknown = typeof body === "object" && body !== null ? Reflect.get(body, "type") : undefined;
@@ -735,8 +765,9 @@ const LIBRARY_EVENTS: readonly (readonly [string, string])[] = [
   ["Invalid errorCallbackURL", "auth.callback_refused"],
   ["Invalid newUserCallbackURL", "auth.callback_refused"],
   ["Blocked cross-site navigation login attempt", "auth.cross_site_login_blocked"],
-  // The adapter's own line, `fl_frontend/patches/@better-auth__mongo-adapter@1.7.7.patch` (`docs/frontend/spec.md :: I537`).
-  ["Transaction left open", "auth.transaction_left_open"],
+  // The adapter's line for an abort after a failed commit that failed too, which leaves the transaction
+  // open on the server (`@better-auth/mongo-adapter :: abortTransactionCommand`, `docs/frontend/spec.md :: I537`).
+  ["Failed to abort a MongoDB transaction", "auth.transaction_left_open"],
 ];
 
 const LIBRARY_EVENT_UNKNOWN = "auth.library_failed";
@@ -760,6 +791,9 @@ const sessionOptions = {
     // The `credentialID` of the passkey that made the session, so removing that passkey ends its
     // sessions and no other (`docs/frontend/spec.md :: I400`).
     passkeyCredentialId: { type: "string", required: false, input: false },
+    // Marked by the refresh alone (`input: false`, as above): a session clearing its own mark would undo
+    // the administrator's idle window (`docs/frontend/spec.md :: I658`).
+    adminLapsed: { type: "boolean", required: false, input: false },
     // Never returned: no guard reads it, and nothing but another sign-in's stamp is compared with it.
     [REPLACED_SESSION_FIELD]: { type: "string", required: false, input: false, returned: false },
   },
@@ -771,7 +805,71 @@ const userOptions = {
     // `input: false`, so no session writes it for itself.
     [SESSIONS_ENDED_FIELD]: { type: "date", required: false, input: false },
   },
+  // Both halves run in process alone, `DISABLED_PATHS` refusing `/delete-user` and its callback over HTTP.
+  deleteUser: {
+    enabled: true,
+    deleteTokenExpiresIn: LOESCHUNG_LINK_GUELTIG_STUNDEN * 60 * 60,
+    sendDeleteAccountVerification: sendDeletionLink,
+    beforeDelete: eraseBeforeTheAccount,
+  },
 } satisfies BetterAuthOptions["user"];
+
+/**
+ * Mails the interstitial's link, spelled from the token: the library's own `url` deletes on a GET
+ * (`docs/frontend/spec.md :: I674`). The library swallows a throw from here, logging it.
+ */
+async function sendDeletionLink({ user, token }: { user: { email: string }; token: string }): Promise<void> {
+  try {
+    // The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL` (`docs/frontend/spec.md :: I186`).
+    await sendMail({ to: user.email, ...buildLoeschungEmail({ origin: frontend_config.AUTH_URL, token: token }) });
+  } catch (failed) {
+    // Filed by a deployment that mails nothing, or kept from a barred address, each recorded by the
+    // mailer's own line (`docs/frontend/spec.md :: I542`).
+    const ausfall = versandAusfallOf(failed);
+    if (ausfall === "zurueckgehalten" || ausfall === "gesperrt") return;
+
+    throw failed;
+  }
+}
+
+/** Named, because the library's failure line records an error's name and nothing else. */
+class DeletionWithoutErasure extends Error {
+  override name = "DeletionWithoutErasure";
+}
+
+/** The library's answer to a link it completed (`better-auth/api :: deleteUser`), its one answer that deletes. */
+const ACCOUNT_DELETED = "User deleted";
+
+/** A deletion the library answered with something other than a deletion, which no caller may read as one. */
+class DeletionNotAnswered extends Error {
+  override name = "DeletionNotAnswered";
+}
+
+// Our own dependency injection, never a compensation for the library: the hook takes no per-call
+// value, the backend's write lives in a slice's mutations module, and `core` imports no slice.
+/** The erasure of the league's records one press hands `deleteOwnAccount`, for the deletion that call makes. */
+const ownErasure = new AsyncLocalStorage<() => Promise<unknown>>();
+
+/**
+ * Runs after the library has checked the token against the signed-in user and before it deletes anything:
+ * an account never goes while the league's records of its address stand (`docs/frontend/spec.md :: I675`).
+ */
+async function eraseBeforeTheAccount(user: { id: string; email: string }): Promise<void> {
+  const erase = ownErasure.getStore();
+  // The backend erases the request's person and the library deletes the session's user, so the two must
+  // be one address; with no erasure handed in, no deletion goes ahead at all.
+  const actor = getRequestActor();
+  if (erase === undefined || actor?.lane !== "person" || actor.email !== asSignInIdentifier(user.email)) throw new DeletionWithoutErasure();
+
+  // Thrown on as it came, so the press reads the backend's refusal, or a write of unknown outcome, as every
+  // person write does; the account and its passkeys stand for a fresh link.
+  await erase();
+
+  // Before the library deletes the user row: a failure past here leaves that row for the account sweep,
+  // never passkeys whose account is gone.
+  const { adapter, secret } = await auth.$context;
+  await deleteSignInRowsOf(adapter, secret, user.email, user.id);
+}
 
 // Called by `build`, never at import: `next build` imports this module in every page-data worker
 // holding no environment, where neither the URL nor the client can be built
@@ -874,6 +972,19 @@ const authOptions = (origin: URL, client: MongoClient) =>
             await unlessUnsettled(() => clearCodeFailures(ctx.context, session.userId));
           },
         },
+        update: {
+          // The refresh moves `updatedAt` to now, erasing the idle gap every later read judges: the row as
+          // read before this write is judged instead, so a session the administrator's window refused stays
+          // refused (`docs/frontend/spec.md :: I658`).
+          before: async (data, ctx) => {
+            // Only a write moving `updatedAt` erases the gap; any other leaves the stamp to judge by.
+            if (data.updatedAt === undefined) return;
+            const prior = ctx?.context.session?.session;
+            // No row to judge is no window kept, as `withinLifetime` reads an unreadable stamp.
+            if (prior !== undefined && withinLifetime(prior, ADMIN_LIFETIME)) return;
+            return { data: { ...data, adminLapsed: true } };
+          },
+        },
       },
     },
 
@@ -899,9 +1010,9 @@ const authOptions = (origin: URL, client: MongoClient) =>
         // `fl_frontend/src/core/logFormat.ts :: serializeError` writes with its message and stack.
         const raised = args.find((argument) => argument instanceof Error);
 
-        // One authenticator enrolled twice at once: the credential index refuses the second row, inside a set-up's
-        // transaction as a write conflict. Any conflict there maps here, so a write added to that transaction joins it.
-        if (message.startsWith(REGISTRATION_FAILED) && (isDuplicateCredential(raised) || isWriteConflict(raised))) {
+        // A second row for a credential the index holds: one authenticator enrolled twice at once without signing in, or
+        // a credential another account holds. Set-ups of one authenticator at once conflict in a transaction retried to a 404.
+        if (message.startsWith(REGISTRATION_FAILED) && isDuplicateCredential(raised)) {
           logger.warn("auth.passkey_enrolment_conflict", { error_code: "FE-AUTH-005" });
           return;
         }
@@ -954,6 +1065,15 @@ const authOptions = (origin: URL, client: MongoClient) =>
           logger.info("auth.code_mail_capped");
           // The plugin's own answer to a send, so a capped one reads as a mailed one.
           return ctx.json({ success: true });
+        }
+
+        // Ahead of the library, which mints the token row before its sender runs: capped, nothing is minted or
+        // mailed and the answer reads as mailed, as a capped code send's does. No session is the library's to refuse.
+        if (ctx.path === DELETE_USER_PATH && asksForDeletionLink(ctx.body)) {
+          const asking = await getSessionFromCtx(ctx);
+          if (asking !== null && (await deletionLinkCapped(ctx.context, asking.user.email))) {
+            return ctx.json({ success: true, message: DELETION_LINK_SENT });
+          }
         }
 
         // Both arms: an in-process assertion answered by another account's passkey is no less that account's.
@@ -1159,9 +1279,9 @@ const authOptions = (origin: URL, client: MongoClient) =>
 
       passkeyLastUse(),
 
-      // No `customSession` while its read answers a store that does not answer as no session: until a
-      // release lets that failure throw, `projected` below builds the guards' copy over the library's
-      // own read (`docs/frontend/spec.md :: I519`).
+      // No `customSession`: it reshapes `/get-session`, which `DISABLED_PATHS` closes to every browser, so
+      // `readLibrarySession` would be its one reader, and `projected` below already builds that reader's
+      // copy over the library's own read (`docs/frontend/spec.md :: I198`).
 
       // Last, which the library warns about: it copies a response's `set-cookie` into Next's store.
       nextCookies(),
@@ -1260,7 +1380,7 @@ export async function passkeysOf(userId: string): Promise<Passkey[]> {
 }
 
 /** What a removal found inside its transaction, each answered differently by the one caller. */
-type PasskeyRemoval = "removed" | "last" | "absent" | "conflict";
+type PasskeyRemoval = "removed" | "last" | "absent";
 
 /**
  * One transaction around the count, the claim, the delete and the sign-out: two removals started
@@ -1268,36 +1388,37 @@ type PasskeyRemoval = "removed" | "last" | "absent" | "conflict";
  * Exported for `fl_frontend/src/features/passkeys/actions.ts`, the one place a removal happens.
  */
 export async function removePasskey(holder: { readonly id: string; readonly verwaltung: boolean }, id: string): Promise<PasskeyRemoval> {
-  const { adapter } = await auth.$context;
-
   // Set once the callback has returned. A throw before that aborted a transaction that never
   // committed, so nothing was written; one after it came from the commit, whose outcome may be unknown.
   let committing = false;
 
   try {
+    // Inside the `try`, for `deleteAccountFor`'s reason: the caller has recorded its write as sent, so a failure
+    // here reads as of unknown outcome unless it is told nothing was written.
+    const { adapter } = await auth.$context;
+
     return await adapter.transaction(async (held) => {
+      // Cleared on every run: the adapter runs this again after a commit that failed transiently, and
+      // a throw from that run rolled back like the first run's would.
+      committing = false;
+
+      // The adapter hands itself back where it opens no transaction, and there the claim below
+      // conflicts with nothing: refused rather than admitted unguarded.
+      if (held === adapter) throw new RemovalOutsideTransaction();
+
       const outcome = await removeInside(held);
       committing = true;
       return outcome;
     });
   } catch (failed) {
-    // Tested on the whole transaction rather than on the claim alone: another device refreshing or
-    // ending its own session meets the sign-out above the same way.
-    if (!isWriteConflict(failed)) throw committing ? failed : new RolledBackError(failed);
-
-    // The line is the record: the holder is refused, and nothing else notes that the removal met a
-    // change to their passkeys or sessions.
-    logger.warn("auth.passkey_removal_conflict", { error_code: "FE-AUTH-005" });
-    return "conflict";
+    // No conflict reaches here as one: the adapter retries a write conflict on a fresh snapshot, which
+    // answers the other change's result, until the client's `timeoutMS` turns it into a timeout.
+    throw committing ? failed : new RolledBackError(failed);
   }
 
   async function removeInside(
     held: Pick<DBTransactionAdapter, "findOne" | "count" | "update" | "delete" | "deleteMany">,
-  ): Promise<Exclude<PasskeyRemoval, "conflict">> {
-    // The adapter hands itself back where it opens no transaction, and there the claim below
-    // conflicts with nothing: refused rather than admitted unguarded.
-    if (held === adapter) throw new RemovalOutsideTransaction();
-
+  ): Promise<PasskeyRemoval> {
     // By the holder's id as well, so another account's identifier is absent rather than taken; by no
     // window, since enrolments at once can leave more rows than the cap (`docs/frontend/spec.md` §4).
     const removed = await held.findOne<{ credentialID: string }>({
@@ -1361,7 +1482,7 @@ type LibraryRead = NonNullable<Awaited<ReturnType<typeof auth.api.getSession>>>;
  */
 type ServedSession = {
   user: { id: string; email: string; sessionsEndedAt?: Date | null };
-  session: Pick<LibraryRead["session"], "id" | "createdAt" | "updatedAt" | "authFactor" | "passkeyCredentialId">;
+  session: Pick<LibraryRead["session"], "id" | "createdAt" | "updatedAt" | "authFactor" | "passkeyCredentialId" | "adminLapsed">;
 };
 
 function projected({ user, session }: LibraryRead): ServedSession {
@@ -1374,6 +1495,7 @@ function projected({ user, session }: LibraryRead): ServedSession {
       updatedAt: session.updatedAt,
       authFactor: session.authFactor,
       passkeyCredentialId: session.passkeyCredentialId,
+      adminLapsed: session.adminLapsed,
     },
   };
 }
@@ -1493,7 +1615,8 @@ export function isWithinPersonLifetime(session: { createdAt: Date; updatedAt: Da
 }
 
 function isAdminWithinWindow(served: ServedSession): boolean {
-  return withinLifetime(served.session, ADMIN_LIFETIME);
+  // A refreshed `updatedAt` shows none of the idle gap before it, and the mark does.
+  return served.session.adminLapsed !== true && withinLifetime(served.session, ADMIN_LIFETIME);
 }
 
 /** Every administrator's condition the grant itself does not decide: a passkey session inside both of the administrator's figures. */
@@ -1622,7 +1745,8 @@ async function ended(read: ServedSession): Promise<Landing> {
 async function destinationOf(served: ServedSession, verwaltung: Verwaltung): Promise<SignInDestination> {
   if (verwaltung.verwaltung !== null) {
     // The guard's own verdict rather than a second spelling of it: `/bereich` sends a granted session
-    // the guard refuses on to `/bereich/admin`, which the proxy bounces back here.
+    // the guard refuses on to `/bereich/admin`, which the proxy (a session no passkey made) or
+    // `runAdminRead` (any other refused one) sends back here.
     if (isAdminSession(served, verwaltung)) return "/bereich";
 
     // Where the passkey page has no step to offer, the session is spent, and an administrator signs in
@@ -1681,11 +1805,13 @@ export async function getPasskeyStep(): Promise<PasskeyStep | null> {
 }
 
 /**
- * Ends every live session of the account an address holds, which the refusal of its next sign-in does
- * not reach; the account and its passkeys stay for the day the ban ends (`docs/frontend/spec.md :: I402`).
+ * Ends every session of an address's account, which a refused next sign-in does not reach, keeping the account: a
+ * barred one is the account sweep's to judge (`docs/frontend/spec.md :: I699`), a signed-out one waits for its next
+ * sign-in (`:: I687`).
  */
 export async function endSessionsOfAddress(address: string): Promise<boolean> {
-  // No grant is asked about: a ban ends every session of the address it names, whatever it holds.
+  // No grant is asked about here: a ban ends every session whatever the address holds, and the administrator's
+  // sign-out has the backend judge whose address it is first.
   const folded = asSignInIdentifier(address);
 
   const { adapter } = await auth.$context;
@@ -1712,4 +1838,123 @@ export async function endSessionsOfAddress(address: string): Promise<boolean> {
     });
   }
   return true;
+}
+
+/**
+ * The sign-in store's rows of one address the library's own deletion leaves: its code row, its two keyed
+ * counts, and with an account its passkeys and outstanding deletion tokens. Both deletions call this, so
+ * they reach the same rows.
+ */
+async function deleteSignInRowsOf(
+  adapter: Pick<DBTransactionAdapter, "deleteMany">,
+  secret: string,
+  address: string,
+  userId: string | null,
+): Promise<void> {
+  const folded = asSignInIdentifier(address);
+  await adapter.deleteMany({
+    model: "verification",
+    where: [
+      {
+        field: "identifier",
+        operator: "in",
+        value: [
+          `${CODE_ROW_PREFIX}${folded}`,
+          await boundIdentifier(FAILURE_ROW_PREFIX, folded, secret),
+          await boundIdentifier(MAIL_ROW_PREFIX, folded, secret),
+        ],
+      },
+    ],
+  });
+  if (userId === null) return;
+
+  await adapter.deleteMany({ model: "passkey", where: [{ field: "userId", value: userId }] });
+  await adapter.deleteMany({
+    model: "verification",
+    where: [
+      { field: "identifier", operator: "starts_with", value: DELETE_TOKEN_ROW_PREFIX },
+      { field: "value", value: userId },
+    ],
+  });
+}
+
+/**
+ * Mails the signed-in person a link to delete their account, through the library's own request: with a
+ * sender set it mints the token and deletes nothing.
+ */
+export const requestAccountDeletion = (requestHeaders: Headers) => auth.api.deleteUser({ body: {}, headers: requestHeaders });
+
+/** What a mailed deletion link came to short of a throw: the account gone, or the link refused by the library. */
+export type OwnAccountDeletion = "deleted" | "linkRefused";
+
+/**
+ * Completes a mailed deletion link for the session `requestHeaders` names, `eraseRecords` erasing that
+ * person's league records first; a throw of the erasure, or of the store past it, comes back as thrown.
+ */
+export async function deleteOwnAccount(
+  token: string,
+  requestHeaders: Headers,
+  eraseRecords: () => Promise<unknown>,
+): Promise<OwnAccountDeletion> {
+  // The library reads an empty token as a request for a new link, which it would mint and mail: no link at all.
+  if (token === "") return "linkRefused";
+
+  try {
+    const answer = await ownErasure.run(eraseRecords, () => auth.api.deleteUser({ body: { token: token }, headers: requestHeaders }));
+    // The library's own word for a deletion, never the absence of a throw. Its one other answer, a link's, comes
+    // only for an empty token, which the guard above refuses first: no case reaches this check alone.
+    if (answer.message !== ACCOUNT_DELETED) throw new DeletionNotAnswered();
+    return "deleted";
+  } catch (failed) {
+    // The library's own refusals alone: a token spent, lapsed or another account's -- spent all the same
+    // -- or no session it reads. Nothing was erased or deleted for any of them.
+    if (isAPIError(failed)) return "linkRefused";
+    throw failed;
+  }
+}
+
+/**
+ * Every sign-in-store row of the account `identifier` names, in one transaction, and the address's pending
+ * rows; answers whether an account was there. Its callers first establish the league holds nothing of the
+ * address, erased or unreferenced (`docs/frontend/spec.md :: I675`).
+ */
+export async function deleteAccountFor(identifier: string): Promise<boolean> {
+  // Set once the callback has returned, for `removePasskey`'s reason: a throw after it came from the commit.
+  let committing = false;
+
+  try {
+    // Inside the `try`: a failure reading the store's context comes before any write, and its caller tells a
+    // deletion that never ran apart from a commit that may have landed only by the error this throws.
+    const folded = asSignInIdentifier(identifier);
+    const { adapter, secret } = await auth.$context;
+
+    return await adapter.transaction(async (held) => {
+      // Cleared on every run, for `removePasskey`'s reason: the adapter runs this again after a transient
+      // commit failure, and a throw from that run rolled back like the first run's would.
+      committing = false;
+
+      // A store opening no transaction hands the adapter back, and a failure part-way would leave an
+      // account missing its sessions or its passkeys: refused rather than run piecemeal.
+      if (held === adapter) throw new RemovalOutsideTransaction();
+
+      const account = await held.findOne<{ id: string }>({ model: "user", where: [{ field: "email", value: folded }] });
+      if (account !== null) {
+        await held.deleteMany({ model: "session", where: [{ field: "userId", value: account.id }] });
+        await held.deleteMany({ model: "account", where: [{ field: "userId", value: account.id }] });
+      }
+      await deleteSignInRowsOf(held, secret, folded, account?.id ?? null);
+      if (account !== null) await held.delete({ model: "user", where: [{ field: "id", value: account.id }] });
+
+      committing = true;
+      return account !== null;
+    });
+  } catch (failed) {
+    throw committing ? failed : new RolledBackError(failed);
+  }
+}
+
+/** Every account's folded address, for the account sweep: by `EVERY_ROW`, past the library's default page of 100. */
+export async function listAccounts(): Promise<string[]> {
+  const { internalAdapter } = await auth.$context;
+  return (await internalAdapter.listUsers(EVERY_ROW)).map((account) => asSignInIdentifier(account.email));
 }

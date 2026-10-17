@@ -188,7 +188,7 @@ class TestSpieler:
     def test_accepts_a_valid_spieler(self, spieler):
         assert FLSpieler.model_validate(spieler()).vorname == "Max"
 
-    # A player must have a first name; the rest fills in over time, and the frontend mirrors the split.
+    # An empty forename is no name: the erased pupils' sentinel stores null, and nothing stores "".
     def test_requires_a_first_name(self, spieler):
         with pytest.raises(ValidationError):
             FLSpieler.model_validate(spieler(vorname=""))
@@ -260,7 +260,9 @@ class TestEinwilligung:
     def test_accepts_a_collected_consent(self, spieler, einwilligung):
         collected = einwilligung(umfang="kader_oeffentlich", erteilt_von="erziehungsberechtigt")
 
-        assert FLSpieler.model_validate(spieler(einwilligung=collected)).einwilligung.umfang == "kader_oeffentlich"
+        einwilligung = FLSpieler.model_validate(spieler(einwilligung=collected)).einwilligung
+
+        assert einwilligung is not None and einwilligung.umfang == "kader_oeffentlich"
 
     @pytest.mark.parametrize("field", ["umfang", "datum", "bestaetigt_am"])
     def test_requires_every_key(self, einwilligung, field, assert_rejects):
@@ -367,7 +369,7 @@ class TestTheConsentRecordAgainstTheDatabasesOwnValidator:
 
         assert set(stored["einwilligung"]) == {"umfang", "erteilt_von", "datum", "bestaetigt_am"}
 
-        parsed = FLSpielerWithMemberships.model_validate({**stored, "memberships": []})
+        parsed = FLSpielerWithMemberships.model_validate({**stored, "adresswechsel_abgelaufen": False, "memberships": []})
 
         assert parsed.einwilligung is not None
         assert (parsed.einwilligung.text_version, parsed.einwilligung.medien) == (None, False)
@@ -376,7 +378,7 @@ class TestTheConsentRecordAgainstTheDatabasesOwnValidator:
         """The other direction: a validator declaring neither key would refuse the record the registration flow is built to write."""
 
         stored = self._written(mongo_url, einwilligung(text_version="liga-2026-03", medien=True))
-        parsed = FLSpielerWithMemberships.model_validate({**stored, "memberships": []})
+        parsed = FLSpielerWithMemberships.model_validate({**stored, "adresswechsel_abgelaufen": False, "memberships": []})
 
         assert parsed.einwilligung is not None
         assert (parsed.einwilligung.text_version, parsed.einwilligung.medien) == ("liga-2026-03", True)

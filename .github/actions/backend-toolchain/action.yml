@@ -1,6 +1,6 @@
 name: Backend toolchain
 description: >-
-  uv at the version fl_backend's manifest pins, and fl_backend's locked virtualenv, in one step.
+  uv at the release the backend image copies in, and fl_backend's locked virtualenv, in one step.
   Several jobs of the verify workflow want exactly this block, and a copy per job is a copy that can
   drift.
 
@@ -52,10 +52,10 @@ runs:
         # One writer: on a miss every saving job archives the whole cache at job end and all but the
         # first fail to reserve its key. An exact hit, the only restore setup-uv makes, saves nothing.
         save-cache: ${{ inputs.save-cache }}
-        # setup-uv reads `[tool.uv] required-version` from the repository root alone, and the pin
-        # lives in fl_backend's manifest. Without this line CI's uv is that day's latest, and the
-        # sync below refuses the moment the two differ.
-        version-file: fl_backend/pyproject.toml
+        # The release the backend image's `FROM ghcr.io/astral-sh/uv:` tag names
+        # (`scripts/gate/selfcheck.sh :: check_uv_pin`). Neither unset nor `version-file` serves: each
+        # installs that day's newest uv, fl_backend's `required-version` being a range.
+        version: "0.13.1"
     # `--locked`: a bare sync REWRITES uv.lock in the working tree, so a branch with a stale
     # committed lockfile passes every later check against the rewritten file. `--locked` refuses
     # it; `--frozen` would accept it.

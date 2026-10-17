@@ -2,11 +2,13 @@ import "server-only";
 
 import { buildBewerbungErinnerungEmail, buildBewerbungGeloeschtEmail } from "@/core/bewerbungEmail";
 import { frontend_config } from "@/core/config";
+import { ContractBreakError, requestOf } from "@/core/errors";
 import { kontaktBestaetigungsLink } from "@/core/kontaktLink";
 import { logger } from "@/core/logging";
 import { buildRegistrierungErinnerungEmail, buildRegistrierungSaisonendeEmail } from "@/core/registrierungEmail";
 import { REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE } from "@/features/registrierungen/constants";
 import { postRegistrierungSweep } from "@/features/registrierungen/mutations";
+import { postSchiedsrichterAdresswechselSweep } from "@/features/schiedsrichter/mutations";
 import { sendZielMail } from "@/features/zustellung/notifications";
 import { getGermanTodayStr } from "@/shared/utils/date";
 import { formatSpielDatum } from "@/shared/utils/format";
@@ -16,6 +18,7 @@ import { rollenText, rolleText, sendBewerbungLinkMail, sendBewerbungMail } from 
 
 import type { BewerbungSeat } from "@/core/bewerbungEmail";
 import type { FLRegistrierungSweepBenachrichtigung, FLRegistrierungSweepErinnerung } from "@/features/registrierungen/schemas";
+import type { FLSchiedsrichterAdresswechselSweepResponse } from "@/features/schiedsrichter/schemas";
 import type { BewerbungEmpfaenger, BewerbungLinkEmpfaenger } from "./notifications";
 import type { FLBewerbungSweepErinnerung, FLBewerbungSweepLoeschung } from "./schemas";
 
@@ -35,8 +38,11 @@ const SWEEP_START_DELAY_MS = 60 * 1000;
 /** The action the mail fan-out logs a refused address under. */
 const SWEEP_OPERATION = "bewerbungSweep";
 
-/** Which half of a season's pass a failure line is about. The two clock families stop for their own reasons. */
-type SweepFailure = "bewerbung.sweep_failed" | "registrierung.sweep_failed";
+/** Which half of the pass a failure line is about. Each clock family stops for its own reasons. */
+type SweepFailure = "bewerbung.sweep_failed" | "registrierung.sweep_failed" | "schiedsrichter.adresswechsel_sweep_failed";
+
+/** The rows each season half's calls passed over in one pass, summed over the seasons that answered. */
+type Uebergangen = { bewerbung: number; registrierung: number };
 
 /** What a message calls a seat whose person is gone — declined or erased, and outstanding either way. */
 const SEAT_OHNE_NAMEN = "Ohne Namen";
@@ -61,7 +67,7 @@ export function armBewerbungSweep(): void {
 let laeuft = false;
 
 /**
- * One pass over every season, which is what the clocks are (`docs/datenschutz.md :: 6`).
+ * One pass over every season, then the clock no season holds (`docs/datenschutz.md :: 6`).
  *
  * Settles rather than throws: nothing awaits this, so a rejection would surface as an unhandled one
  * an hour after the tick that caused it.
@@ -77,8 +83,36 @@ export async function runBewerbungSweep(): Promise<void> {
   laeuft = true;
   try {
     await sweepAlleSaisons();
+    // Catching its own throw, as a season's two halves do: a shared `try` would leave a lapsed address standing every
+    // hour the seasons' loop fails.
+    await sweepAdresswechsel();
   } finally {
     laeuft = false;
+  }
+}
+
+/** A referee's or a pupil's pending address the day after its link lapsed. On every pass: no switch holds a lapsed address. */
+async function sweepAdresswechsel(): Promise<void> {
+  let entfernt = 0;
+  try {
+    let antwort: FLSchiedsrichterAdresswechselSweepResponse;
+    let nach: string | null = null;
+    do {
+      antwort = await postSchiedsrichterAdresswechselSweep(nach);
+      entfernt += antwort.entfernt;
+      // The pass's one end and its guard against a place not past the one sent, as the pupils' deletion's
+      // (`fl_frontend/src/features/saisons/loeschung.ts :: loeschungLaufen`).
+      if (nach !== null && antwort.nach !== null && antwort.nach <= nach) {
+        throw new ContractBreakError("The lapsed addresses answered a place not past the one they were sent.");
+      }
+      nach = antwort.nach;
+    } while (nach !== null);
+
+    // The last call's count, never a sum: each call counts every lapsed change standing, an earlier page's failures among them.
+    logPass("schiedsrichter.adresswechsel_sweep_pass", { entfernt: entfernt, verbleibend: antwort.verbleibend }, antwort.verbleibend);
+  } catch (error) {
+    logger.info("schiedsrichter.adresswechsel_sweep_pass", { entfernt: entfernt });
+    logSweepFailure("schiedsrichter.adresswechsel_sweep_failed", error, undefined);
   }
 }
 
@@ -92,15 +126,32 @@ async function sweepAlleSaisons(): Promise<void> {
     return;
   }
 
+  const uebergangen: Uebergangen = { bewerbung: 0, registrierung: 0 };
   // Season by season and never in parallel: the sweep is on the clock of a day, and one slow pass
   // costs nothing, where a fan-out would put every season's mail on the transport at once.
   for (const saisonId of saisonIds) {
     try {
-      await sweepSaison(saisonId);
+      await sweepSaison(saisonId, uebergangen);
     } catch (error) {
       logSweepFailure("bewerbung.sweep_failed", error, saisonId);
     }
   }
+
+  logPass("bewerbung.sweep_pass", { fehlgeschlagen: uebergangen.bewerbung }, uebergangen.bewerbung);
+  logPass("registrierung.sweep_pass", { fehlgeschlagen: uebergangen.registrierung }, uebergangen.registrierung);
+}
+
+/**
+ * A warning where `offen` rows the half failed or passed over stand: each pass moves on past them, so only this count
+ * tells a half failing on every row from a healthy one.
+ */
+function logPass(
+  event: "bewerbung.sweep_pass" | "registrierung.sweep_pass" | "schiedsrichter.adresswechsel_sweep_pass",
+  felder: Record<string, unknown>,
+  offen: number,
+): void {
+  if (offen === 0) logger.info(event, felder);
+  else logger.warn(event, { error_code: "FE-SWEEP-001", ...felder });
 }
 
 /**
@@ -109,9 +160,9 @@ async function sweepAlleSaisons(): Promise<void> {
  * A shared `try` holds the registrations past their deadline every hour the application half fails
  * (`docs/backend/spec.md :: I294`).
  */
-async function sweepSaison(saisonId: string): Promise<void> {
+async function sweepSaison(saisonId: string, uebergangen: Uebergangen): Promise<void> {
   try {
-    await sweepBewerbungen(saisonId);
+    await sweepBewerbungen(saisonId, uebergangen);
   } catch (error) {
     logSweepFailure("bewerbung.sweep_failed", error, saisonId);
   }
@@ -119,15 +170,17 @@ async function sweepSaison(saisonId: string): Promise<void> {
   // Its own event beside the application's: one line for both halves cannot say which stopped, and
   // that is the question `docs/ops/runbooks.md` section 9 sends an operator to the logs with.
   try {
-    await sweepRegistrierungen(saisonId);
+    await sweepRegistrierungen(saisonId, uebergangen);
   } catch (error) {
     logSweepFailure("registrierung.sweep_failed", error, saisonId);
   }
 }
 
 /** The application's own clocks: the endpoint takes one season because a retention removal's filter names one (`docs/backend/spec.md :: I150`). */
-async function sweepBewerbungen(saisonId: string): Promise<void> {
-  const { erinnerungen, loeschungen } = await postBewerbungSweep(saisonId);
+async function sweepBewerbungen(saisonId: string, uebergangen: Uebergangen): Promise<void> {
+  const { erinnerungen, loeschungen, fehlgeschlagen } = await postBewerbungSweep(saisonId);
+  // Added as each call answers, so a later call that throws keeps the earlier counts.
+  uebergangen.bewerbung += fehlgeschlagen;
 
   // Stamped by the call above and mailed here: a failed send costs one person one reminder, where
   // mailing first would re-send every day until the address worked.
@@ -144,17 +197,22 @@ async function sweepBewerbungen(saisonId: string): Promise<void> {
 
   // Mail, then stamp: the floor is one notice repeated once, where stamping first would erase an
   // application nobody was told about. That is the worse failure, so the order is this way round.
-  if (zugestellt.length > 0) await postBewerbungSweepAngekuendigt(saisonId, { bewerbung_ids: zugestellt });
+  if (zugestellt.length > 0) {
+    uebergangen.bewerbung += (await postBewerbungSweepAngekuendigt(saisonId, { bewerbung_ids: zugestellt })).fehlgeschlagen;
+  }
 
   // Everything announced: the ids just stamped, and those a previous pass announced and then failed
   // to erase. The endpoint re-judges each, so one that has stopped qualifying is skipped.
   const angekuendigt = [...loeschungen.filter((kandidat) => kandidat.angekuendigt).map((kandidat) => kandidat.bewerbung_id), ...zugestellt];
-  if (angekuendigt.length > 0) await postBewerbungSweepLoeschen(saisonId, { bewerbung_ids: angekuendigt });
+  if (angekuendigt.length > 0) {
+    uebergangen.bewerbung += (await postBewerbungSweepLoeschen(saisonId, { bewerbung_ids: angekuendigt })).fehlgeschlagen;
+  }
 }
 
 /** The registration's clocks, one season at a time: the erasures are done before this answers, and what comes back is what to mail. */
-async function sweepRegistrierungen(saisonId: string): Promise<void> {
-  const { erinnerungen, benachrichtigt } = await postRegistrierungSweep(saisonId);
+async function sweepRegistrierungen(saisonId: string, uebergangen: Uebergangen): Promise<void> {
+  const { erinnerungen, benachrichtigt, fehlgeschlagen } = await postRegistrierungSweep(saisonId);
+  uebergangen.registrierung += fehlgeschlagen;
 
   // Stamped by the call above and mailed here, as the application's reminder is: a failed send costs
   // one pupil one reminder, where mailing first would re-send every hour until the address worked.
@@ -183,7 +241,6 @@ async function mailRegistrierungErinnerung(erinnerung: FLRegistrierungSweepErinn
     recipients: [erinnerung.email],
     buildMail: () =>
       buildRegistrierungErinnerungEmail({
-        vorname: erinnerung.vorname,
         teamName: erinnerung.team,
         saisonId: erinnerung.saison_id,
         origin: origin,
@@ -303,6 +360,7 @@ function logSweepFailure(event: SweepFailure, error: unknown, saisonId: string |
   logger.error(event, undefined, {
     error_code: "FE-SWEEP-001",
     name: error instanceof Error ? error.name : undefined,
+    ...requestOf(error),
     saison_id: saisonId,
   });
 }

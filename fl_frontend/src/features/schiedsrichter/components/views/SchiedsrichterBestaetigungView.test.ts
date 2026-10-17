@@ -38,7 +38,7 @@ const { AdresseGesperrt, LinkUnlesbar } = await import("@/features/bewerbungen/c
 const { unshownRefusal } = await import("@/shared/hooks/useServerFieldErrors.ts");
 
 const TOKEN = "abc123";
-/** Typed rather than taken from `SCHIEDSRICHTER_MIN_ALTER`: the page judges by the floor the read serves, which is the one the link was minted under. */
+/** The floor this fixture's read serves: the page judges by it, the one the link was minted under. */
 const MINDESTALTER = 16;
 /** The media age this fixture's read answers, for `MINDESTALTER`'s reason. */
 const MEDIEN_ALTER = 18;
@@ -52,7 +52,6 @@ const OFFEN: SchiedsrichterBestaetigungStart = {
   ansicht: {
     acknowledged: 1,
     zustand: "gueltig",
-    vorname: "Anna",
     text_version: FASSUNG,
     mindestalter: MINDESTALTER,
     medien_mindestalter: MEDIEN_ALTER,
@@ -82,7 +81,6 @@ async function tippeGeburtsdatum(user: ReturnType<typeof userEvent.setup>, datum
 const SLOTS = {
   minAlter: String(MINDESTALTER),
   medienMinAlter: String(MEDIEN_ALTER),
-  vorname: "Anna",
   kontakt: KONTAKT_EMAIL,
   loeschung: "Konto löschen",
   datenschutz: "Datenschutzerklärung",
@@ -141,14 +139,6 @@ describe("the referee's confirmation page", () => {
       if (schluessel.startsWith("klick")) continue;
 
       assert.ok(!shown.includes(words(filledSlots(absatz, SLOTS))), `the page renders the contact page's ${schluessel}`);
-    }
-  });
-
-  it("names the person once the link is open and nowhere else", () => {
-    assert.match(words(markup(OFFEN)), /Anna/);
-
-    for (const zustand of ["bestaetigt", "abgelaufen", "ungueltig", "unlesbar"] as const) {
-      assert.ok(!words(markup({ zustand })).includes("Anna"), `the ${zustand} panel names the person`);
     }
   });
 
@@ -346,6 +336,23 @@ describe("what the press sends", () => {
     await user.click(screen.getByRole("button", { name: "Eintrag bestätigen" }));
 
     const zeile = await screen.findByText("Fotos, Videos und Interviews");
+    assert.equal(zeile.nextElementSibling?.textContent, "nicht erlaubt");
+  });
+
+  /* The answer as the permission it is, as the media row reads one: the public fixture read consults no
+     consent record, so a word for a hidden name would promise what the schedule does not do. */
+  it("reads the publication answer back as a permission, never as a name the schedule hides", async () => {
+    answerEveryFetch({ success: true, umfang: "intern", medien: false, bestaetigt_am: "2026-09-21" });
+
+    render(h(SchiedsrichterBestaetigungView, { start: OFFEN }));
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("spinbutton", { name: /Tag/ }));
+    await user.keyboard("01011990");
+    await user.click(screen.getByRole("radio", { name: WORTE.bedienelemente.intern }));
+    await user.click(screen.getByRole("button", { name: "Eintrag bestätigen" }));
+
+    const zeile = await screen.findByText("Name im Spielplan");
     assert.equal(zeile.nextElementSibling?.textContent, "nicht erlaubt");
   });
 });

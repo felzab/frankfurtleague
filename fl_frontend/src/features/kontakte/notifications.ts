@@ -8,11 +8,11 @@ import { linkVersandOf, sendZielMail } from "@/features/zustellung/notifications
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import type { ZustellAnlass } from "@/features/bewerbungen/zustellung";
-import type { LinkVersand } from "@/features/zustellung/notifications";
+import type { LinkVersand } from "@/shared/utils/linkVersand";
 import type { FLKontaktMint } from "./schemas";
 
-// Outside `actions.ts`, which is `"use server"` and whose every export is a callable endpoint: the
-// undo route mints links too, and a helper it could not import would leave those tokens unmailed.
+// Outside `actions.ts`, which is `"use server"` and whose every export is a callable endpoint: exported
+// there, this would mail a link to whatever address a caller hands it, past every guard.
 /**
  * Never thrown from: the seat's link is written and the token spent by the time this runs, so a caller
  * told otherwise would report a mint that happened as one that did not.
@@ -48,7 +48,6 @@ export async function mailKontaktLink({
         // The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`: a stack that is not
         // production must not mail production links (`docs/frontend/spec.md :: I186`).
         origin: frontend_config.AUTH_URL,
-        vorname: mint.vorname,
         rollenText: rollenText(mint.rollen),
         schule: mint.schule,
         saisonId: saisonId,

@@ -105,23 +105,28 @@ describe("a local part above ASCII", () => {
   });
 });
 
+/** What one side's rule takes the address as, `null` where it refuses it, and how its fold spells it. */
+const ANSWER = z.object({ stored: z.string().nullable(), folded: z.string() });
+
 /** One table both suites run their own rule and fold over; `fl_backend/tests/shared/test_email_address.py` holds the API's half. */
 const ROWS = z
-  .array(z.object({ case: z.string(), typed: z.string(), stored: z.string().nullable(), folded: z.string() }))
+  .array(z.object({ case: z.string(), typed: z.string(), ...ANSWER.shape, frontend: ANSWER.optional() }))
   .parse(JSON.parse(readFileSync(path.resolve(REPO_ROOT, "fl_backend", "tests", "shared", "email_addresses.json"), "utf8")));
 
-/* Each runtime converts a Unicode domain with its own tables: this table is where the two are held to one answer. */
+/* Each runtime converts a Unicode domain on its own tables, held here to one answer, or each to its own where they part
+   (`docs/backend/spec.md :: The two runtimes' folds part on a domain no payload stores`). */
 describe("the address table the API is held to as well", () => {
   for (const row of ROWS) {
-    it(`answers ${row.case} as the API does`, () => {
+    it(`answers ${row.case} as the table records`, () => {
+      const { stored, folded } = row.frontend ?? row;
       // Trimmed first, as the address box trims before the rule reads the value.
       const typed = row.typed.trim();
-      assert.equal(isDeliverableAddress(typed), row.stored !== null);
-      assert.equal(asSignInIdentifier(row.typed), row.folded);
-      if (row.stored !== null) {
+      assert.equal(isDeliverableAddress(typed), stored !== null);
+      assert.equal(asSignInIdentifier(row.typed), folded);
+      if (stored !== null) {
         // The domain converted as the API stores it, the local part untouched.
-        assert.equal(mailboxKey(typed), row.stored);
-        assert.equal(asSignInIdentifier(row.stored), row.folded);
+        assert.equal(mailboxKey(typed), stored);
+        assert.equal(asSignInIdentifier(stored), folded);
       }
     });
   }

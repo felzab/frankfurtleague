@@ -118,8 +118,7 @@ export const VERTRETUNG_MIN_ALTER = 18;
 // Both bounds, never the floor alone: named for the floor, a mistyped year would answer a
 // 190-year-old date with „mindestens 16“, which is a different fault.
 export const alterAusserhalb = (mindestalter: number): string =>
-  `Für Deine Bestätigung musst Du mindestens ${String(mindestalter)} und höchstens ${String(BEWERBUNG_MAX_ALTER)} Jahre alt sein. ` +
-  `Prüfe das Geburtsdatum.`;
+  `Für Deine Bestätigung musst Du mindestens ${String(mindestalter)} und höchstens ${String(BEWERBUNG_MAX_ALTER)} Jahre alt sein.`;
 
 /**
  * The two clocks a confirmation link runs on, mirrored from `fl_backend/app/shared/schemas/bounds.py`
@@ -140,7 +139,7 @@ export const BEWERBUNG_TOKEN_MAX_LENGTH = 128;
  * `fl_backend/app/api/bewerbungen/schemas.py :: DELETIONS_LISTED_PER_PASS` and held to the
  * `maxItems` both sweep payloads publish by `fl_frontend/src/core/payloadBounds.test.ts`.
  */
-export const DELETIONS_LISTED_PER_PASS = 125;
+export const DELETIONS_LISTED_PER_PASS = 84;
 
 /**
  * The picker key standing for „meine Schule ist nicht dabei“.
@@ -153,12 +152,14 @@ export const SCHULE_NICHT_IN_LISTE = "neue-schule";
 /** What that option reads as, in the trigger as well as in the list — one string, so the two agree. */
 export const SCHULE_NICHT_IN_LISTE_LABEL = "Meine Schule steht nicht in der Liste";
 
+/** The confirmation strip's correction press, which two refusals send the administrator to by its label: one spelling for all three. */
+export const ADRESSE_KORRIGIEREN = "Adresse korrigieren";
+
 /**
  * A re-send's answer for a seat holding no address, whether the action refuses the press or the strip closes the
  * control first: one sentence, naming the correction that stands beside the control on the strip.
  */
-export const ERNEUT_OHNE_ADRESSE =
-  "Zu dieser Rolle steht keine E-Mail-Adresse in der Bewerbung. Trage zuerst eine über „Adresse korrigieren“ ein.";
+export const ERNEUT_OHNE_ADRESSE = `Zu dieser Rolle steht keine E-Mail-Adresse in der Bewerbung. Trage zuerst eine über „${ADRESSE_KORRIGIEREN}“ ein.`;
 
 /**
  * `KONTAKT_ROLLEN` under its long wording, never a second table: two lists of one set drift, and the

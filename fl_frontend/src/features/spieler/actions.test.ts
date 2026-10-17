@@ -12,33 +12,31 @@ import { userEvent } from "@testing-library/user-event";
 import { ContractBreakError } from "@/core/errors.ts";
 import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleActions } from "@/shared/testing/actionDoubles.ts";
+import { assertLeer } from "@/shared/testing/leerGrade.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { pageBody } from "@/shared/testing/pageHarness.ts";
 import { answerShown, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { refusalWrappers, renderTree } from "@/shared/testing/renderTest.ts";
 import { spokenText } from "@/shared/testing/spokenText.ts";
-import { pressTwice } from "@/shared/testing/twoPress.ts";
-import { withSaisonId } from "@/shared/utils/saisonHref.ts";
 
 import {
-  ERASURE_NEEDS_RETIREMENT,
   LIST_REACTIVATION_NEEDS_A_TEAM_IN_SAISON,
   REACTIVATION_NEEDS_A_TEAM_IN_SAISON,
   REACTIVATION_NEEDS_ROOM_IN_SQUAD,
 } from "./constants.ts";
-import { mapAlreadyInSaisonRefusal, mapErasureRefusal, mapSquadRefusal } from "./refusals.ts";
+import { mapAlreadyInSaisonRefusal, mapSquadRefusal } from "./refusals.ts";
 
 import type { ReactElement, ReactNode } from "react";
-import type { FLSpielerRolle } from "./schemas.ts";
+import type { FLSpielerAdresswechsel, FLSpielerRolle } from "./schemas.ts";
 import type { AdminSpielerRow, SpielerSaisonMembership, SpielerTeamOption } from "./types.ts";
 
 const SPIELER_ID = "68c1f0a2b3c4d5e6f7a8b9c0";
 const SAISON_ID = "2026";
 
-/* Every write answers as landed; this file still reads the real module's text. */
-const { calls, answered } = doubleActions({
+/* Every write answers as landed, a link press's with its link sent; this file still reads the real module's text. */
+const { calls, answered, answerWith } = doubleActions({
   modules: ["/src/features/spieler/actions.ts"],
-  answer: () => Promise.resolve({ success: true, message: "Gespeichert.", spieler_id: SPIELER_ID }),
+  answer: () => Promise.resolve({ success: true, message: "Gespeichert.", spieler_id: SPIELER_ID, versand: "gesendet" }),
 });
 
 /* A hook, not a first line in each case: one that throws before its own reset leaves the array
@@ -50,7 +48,6 @@ beforeEach(() => {
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { FormAustragenSection } = await import("./components/forms/AdminSpielerEditForm/FormAustragenSection.tsx");
-const { FormLoeschenSection } = await import("./components/forms/AdminSpielerEditForm/FormLoeschenSection.tsx");
 const { AdminSpielerEditForm } = await import("./components/forms/AdminSpielerEditForm/AdminSpielerEditForm.tsx");
 const { AdminSpielerTable } = await import("./components/collections/AdminSpielerTable.tsx");
 const { TeamSelect } = await import("./components/forms/TeamSelect.tsx");
@@ -122,6 +119,17 @@ const refusalNamed = (html: string, name: string): string | null =>
 /** What a reader hears, the JSX line breaks collapsed. */
 const read = (html: string): string => spokenText(html, " ").replace(/\s+/g, " ");
 
+const OHNE_ADRESSE = {
+  id: SPIELER_ID,
+  vorname: "Lena",
+  nachname: "Meier",
+  inactive_since: null,
+  geburtsdatum: null,
+  email: null,
+  adresswechsel: null,
+  adresswechsel_abgelaufen: false,
+};
+
 /** The player's editor on this season's squad row, which names the stored club. */
 function renderEditor({
   teams,
@@ -136,7 +144,7 @@ function renderEditor({
     underSaison(
       h(AdminSpielerEditForm, {
         istFassungBekannt: true,
-        spieler: { id: SPIELER_ID, vorname: "Lena", nachname: "Meier", inactive_since: null, geburtsdatum: null },
+        spieler: OHNE_ADRESSE,
         einwilligung: null,
         saison: {
           saisonId: SAISON_ID,
@@ -154,7 +162,6 @@ function renderEditor({
           },
         },
         teams,
-        membershipCount: 1,
         pageHeader: { title: "Lena Meier" },
       }),
     ),
@@ -171,7 +178,6 @@ async function pickTeam(user: ReturnType<typeof userEvent.setup>, team: SpielerT
   assert.ok(screen.getByRole("button", TEAM_PICKER).textContent.includes(team.name), "the pick never landed, so nothing after it is judged");
 }
 
-const ERASURE_OPERATION = "DELETE /spieler/{spieler_id}/erasure";
 const ENTRY_OPERATION = "POST /spieler/{spieler_id}/saisons";
 const SQUAD_PATCH_OPERATION = "PATCH /spieler/{spieler_id}/saisons/{saison_id}";
 const REACTIVATE_ROW_OPERATION = "POST /spieler/{spieler_id}/saisons/{saison_id}/reactivate";
@@ -180,17 +186,6 @@ const REACTIVATE_ROW_OPERATION = "POST /spieler/{spieler_id}/saisons/{saison_id}
 const squadAnswer = (code: string) => mapSquadRefusal(refusedOn(SQUAD_PATCH_OPERATION, code));
 
 describe("the player actions against the codes their endpoints publish", () => {
-  /* `DELETE /spieler/{spieler_id}` is a prefix of the erasure's operation, and the erasure's mapper
-     answers its own set alone. */
-  it("maps every refusal the erasure endpoint publishes", () => {
-    const published = publishedRefusals(ERASURE_OPERATION);
-
-    assert.deepEqual(published, ["REQ-PURGE-001"]);
-    for (const code of published) {
-      assert.notEqual(answerShown(ERASURE_OPERATION, code, mapErasureRefusal), null, `${code} reaches the admin as an unhandled conflict`);
-    }
-  });
-
   /* The squad's rules first and the unique index after, whose mapper answers every 409 it is handed:
      pinned, so a rule published later fails here rather than reading as a repeat row. */
   it("maps every refusal the squad entry publishes", () => {
@@ -209,149 +204,6 @@ describe("the player actions against the codes their endpoints publish", () => {
     for (const code of publishedRefusals(REACTIVATE_ROW_OPERATION)) {
       assert.notEqual(answerShown(REACTIVATE_ROW_OPERATION, code, mapSquadRefusal), null, `${code} reaches the admin as an unhandled conflict`);
     }
-  });
-});
-
-/** The erasure panel at rest, for a person retired or still in the league. */
-const loeschenPanel = (isRetired: boolean): string =>
-  renderTree(underSaison(h(FormLoeschenSection, { spielerId: SPIELER_ID, fullName: "Lena Meier", isRetired, membershipCount: 2 })));
-
-const ERASE_LABEL = "Spieler endgültig löschen";
-
-describe("REQ-PURGE-001 as the admin reads it", () => {
-  /* One string, imported by the mapper and by the control that disables itself on it: a race —
-     somebody reactivating the player in another tab — must read as the state the page already showed. */
-  it("is stated once and reused by both", () => {
-    assert.equal(
-      mapErasureRefusal(refusedOn(ERASURE_OPERATION, "REQ-PURGE-001")),
-      ERASURE_NEEDS_RETIREMENT,
-      "the mapper words the refusal its own way",
-    );
-    assert.equal(refusalNamed(loeschenPanel(false), ERASE_LABEL), ERASURE_NEEDS_RETIREMENT, "the panel words the refusal its own way");
-  });
-
-  it("names the repair and where it is done", () => {
-    assert.match(ERASURE_NEEDS_RETIREMENT, /still/, "the message does not name retirement as the step that comes first");
-    assert.match(ERASURE_NEEDS_RETIREMENT, /Spielerliste/, "the message does not say where a player is retired");
-    assert.match(ERASURE_NEEDS_RETIREMENT, /Stilllegen/, "the message does not name the control that does it");
-  });
-});
-
-/** The erasure panel for a retired person, mounted so a press can arm and run it. */
-function renderErasure(router = recordingRouter().router): void {
-  render(underSaison(h(FormLoeschenSection, { spielerId: SPIELER_ID, fullName: "Lena Meier", isRetired: true, membershipCount: 2 }), router));
-}
-
-const erasures = (): unknown[] => calls.filter((call) => call.action === "eraseSpielerAction").map((call) => call.payload);
-
-describe("the erasure's copy", () => {
-  it("says the person, the squad rows and the log entries all go", () => {
-    const resting = read(loeschenPanel(true));
-
-    assert.match(resting, /die Person selbst/, "the confirmation does not say the person goes");
-    assert.match(resting, /Kadereinträge/, "the confirmation does not say the squad rows go");
-    assert.match(resting, /Änderungsprotokoll/, "the confirmation does not say the log is reached");
-  });
-
-  it("arms a confirmation saying the log entries are emptied and none of it comes back", async () => {
-    renderErasure();
-    await userEvent.setup().click(screen.getByRole("button", { name: ERASE_LABEL }));
-
-    const armed = document.body.textContent;
-    assert.match(armed, /Angaben werden geleert/, "the confirmation does not say the log entries are EMPTIED rather than removed");
-    assert.match(armed, /Zurückholen lässt sich das nicht/, "the confirmation does not refuse an undo in words");
-    assert.doesNotMatch(armed, /Rückgängig/, "the armed panel offers an undo, and no endpoint can honour one");
-  });
-
-  /* The escalation is two presses, the draw's shape. One press would put a permanent removal behind
-     the same gesture as a name edit. */
-  it("arms before it writes", async () => {
-    const user = userEvent.setup();
-    renderErasure();
-
-    await pressTwice(user, {
-      resting: ERASE_LABEL,
-      armed: `Ja, ${ERASE_LABEL}`,
-      whileArmed: () => void assert.deepEqual(erasures(), [], "the first press erases rather than arming"),
-    });
-
-    assert.deepEqual(erasures(), [{ id: SPIELER_ID }], "the armed press writes nothing, or writes for another person");
-    await act(answered);
-  });
-});
-
-describe("the erasure's gate and its exit", () => {
-  /* `REQ-PURGE-001` refuses the erasure while the person is still in the league, so the press is
-     offered the other way round. Inverted, the button is live exactly where the endpoint refuses. */
-  it("offers the press only while the person is retired", () => {
-    assert.equal(
-      refusalNamed(loeschenPanel(false), ERASE_LABEL),
-      ERASURE_NEEDS_RETIREMENT,
-      "the press is offered to a person still in the league",
-    );
-    assert.equal(refusalNamed(loeschenPanel(true), ERASE_LABEL), null, "the gate reads the wrong way round");
-  });
-
-  /* This page is the erased player's own and answers not-found once the write lands, so Back must not
-     return to it, and the list it lands on keeps the season the admin was working in. */
-  it("leaves by replacing the page, never by pushing", async () => {
-    const user = userEvent.setup();
-    const { router, seen } = recordingRouter();
-    renderErasure(router);
-
-    await pressTwice(user, { resting: ERASE_LABEL, armed: `Ja, ${ERASE_LABEL}` });
-    await act(answered);
-
-    await waitFor(() =>
-      assert.deepEqual(
-        seen.replaced,
-        [withSaisonId("/bereich/admin/spieler", SAISON_ID)],
-        "the erasure does not leave the page it just emptied",
-      ),
-    );
-    assert.deepEqual(seen.pushed, [], "Back is left pointing at a page that now answers not-found");
-  });
-
-  /* Every season's rows: the erasure takes them all, so a figure narrowed to the selected season
-     understates what the press destroys — and the reader agrees to the figure. */
-  it("is handed the squad rows of every season, not the selected one's", async () => {
-    const row = (saison_id: string) => ({
-      saison_id,
-      team_id: STORED_TEAM.teamId,
-      nummer: "10",
-      position: null,
-      stufe: null,
-      ist_nachnominiert: false,
-      rolle: null,
-      inactive_since: RETIRED_ON,
-    });
-    const saison = (id: string, status: string) => ({ id, status, rules: { erlaubte_stufen: ["Q1"], max_kadergroesse: 20 } });
-
-    pageAnswers = {
-      memberships: {
-        spieler: [
-          {
-            id: SPIELER_ID,
-            vorname: "Lena",
-            nachname: "Meier",
-            inactive_since: RETIRED_ON,
-            geburtsdatum: null,
-            einwilligung: null,
-            email: null,
-            memberships: [row("2025"), row(SAISON_ID)],
-          },
-        ],
-      },
-      saisons: { saisons: [saison("2025", "finished"), saison(SAISON_ID, "active")] },
-      teams: {
-        teams: [{ id: STORED_TEAM.teamId, name: STORED_TEAM.name, shorthand: STORED_TEAM.shorthand, memberships: [{ saison_id: SAISON_ID }] }],
-      },
-    };
-
-    render(underSaison(await editorPageBody()));
-    await userEvent.setup().click(screen.getByRole("button", { name: ERASE_LABEL }));
-
-    assert.equal(screen.getByText("Kadereinträge").nextElementSibling?.textContent, "2", "the figure is narrowed to the selected season's row");
   });
 });
 
@@ -378,7 +230,9 @@ function person(id: string, vorname: string, rows: { saison_id: string; team_id:
     inactive_since: null,
     geburtsdatum: null,
     einwilligung: null,
-    email: null,
+    email: null as string | null,
+    adresswechsel: null as FLSpielerAdresswechsel | null,
+    adresswechsel_abgelaufen: false,
     memberships: rows.map(({ saison_id, team_id, rolle = null }) => ({
       saison_id,
       team_id,
@@ -774,7 +628,7 @@ describe("REQ-SQUAD-003 before the press", () => {
     ]);
     const body = await pageBody(AdminSpielerPage, {
       params: Promise.resolve({}),
-      searchParams: Promise.resolve({ saison_id: SAISON_ID, q: "Lena" }),
+      searchParams: Promise.resolve({ saison_id: SAISON_ID, team: OTHER_TEAM.teamId }),
     });
 
     assert.deepEqual(fullIn(body), { [STORED_TEAM.teamId]: true, [OTHER_TEAM.teamId]: false });
@@ -859,11 +713,10 @@ describe("the late-entry marker, which the backend derives", () => {
       underSaison(
         h(AdminSpielerEditForm, {
           istFassungBekannt: true,
-          spieler: { id: SPIELER_ID, vorname: "Lena", nachname: "Meier", inactive_since: null, geburtsdatum: null },
+          spieler: OHNE_ADRESSE,
           einwilligung: null,
           saison: { saisonId: SAISON_ID, saisonStatus: "active", erlaubteStufen: ["Q1"], nachnominierungLaeuft, membership: null },
           teams: [STORED_TEAM],
-          membershipCount: 0,
           pageHeader: { title: "Lena Meier" },
         }),
       ),
@@ -922,5 +775,123 @@ describe("the late-entry marker, which the backend derives", () => {
     answerPages([person(SPIELER_ID, "Lena", [{ saison_id: SAISON_ID, team_id: STORED_TEAM.teamId }])]);
     assert.equal(saisonOf(await editorPageBody()).nachnominierungLaeuft, null, "a player holding a row is handed a verdict no entry uses");
     assert.deepEqual(pageReads().asked, [], "the page asks for a verdict no banner can use");
+  });
+});
+
+const GESPEICHERT = "lena@schule.example";
+const WARTEND: FLSpielerAdresswechsel = { email: "lena@neu.example", verschickt_am: "2026-10-01", frist: "2026-10-15", zustellung: null };
+
+/** The editor page over one pupil holding `adresse`, rendered as its reads answer it. */
+async function renderAdressePage(adresse: { email: string | null; adresswechsel: FLSpielerAdresswechsel | null; abgelaufen: boolean }) {
+  answerPages([
+    {
+      ...person(SPIELER_ID, "Lena", [{ saison_id: SAISON_ID, team_id: STORED_TEAM.teamId }]),
+      email: adresse.email,
+      adresswechsel: adresse.adresswechsel,
+      adresswechsel_abgelaufen: adresse.abgelaufen,
+    },
+  ]);
+  render(underSaison(await editorPageBody()));
+}
+
+/** The value beside a stored fact's label. */
+const angabe = (label: string): Element | null => screen.getByText(label).nextElementSibling;
+
+describe("the pupil's address on the editor", () => {
+  it("shows the stored address, and the waiting one with its deadline marked lapsed as the read judged it", async () => {
+    await renderAdressePage({ email: GESPEICHERT, adresswechsel: WARTEND, abgelaufen: true });
+
+    assert.equal(angabe("Hinterlegte Adresse")?.textContent, GESPEICHERT);
+    assert.equal(angabe("Neue Adresse")?.textContent, WARTEND.email);
+    assert.match(angabe("Gültig bis")?.textContent ?? "", /^15\.10\.2026\s*abgelaufen$/);
+    assert.ok(screen.getByRole("button", { name: "Link erneut senden" }), "the waiting change has no re-send");
+  });
+
+  /* A pupil holding no address takes no change (`REQ-SPIELER-008`), and the empty value reads in the one muted grade. */
+  it("shows a pupil holding no address „Nicht hinterlegt“, muted, and no control to change one", async () => {
+    await renderAdressePage({ email: null, adresswechsel: null, abgelaufen: false });
+
+    assertLeer(angabe("Hinterlegte Adresse")?.firstElementChild, "Nicht hinterlegt");
+    assert.equal(screen.queryAllByRole("button", { name: "Adresse ändern" }).length, 0, "a pupil holding no address is offered a change");
+  });
+
+  it("sends the typed address through the request, the press its only way in", async () => {
+    await renderAdressePage({ email: GESPEICHERT, adresswechsel: null, abgelaufen: false });
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Adresse ändern" }));
+    const box = screen.getByRole("textbox", { name: /Neue E-Mail-Adresse/ });
+    await user.clear(box);
+    await user.type(box, "Lena@Neu.Example");
+    calls.length = 0;
+    await user.click(screen.getByRole("button", { name: "Link an neue Adresse senden" }));
+    await act(answered);
+
+    assert.deepEqual(
+      calls.map((call) => [call.action, call.payload]),
+      [["beantrageSpielerAdresswechselAction", { id: SPIELER_ID, email: "Lena@Neu.Example" }]],
+    );
+  });
+
+  /* Enter in the box presses the box's own control: inside the editor's form it would otherwise submit the person's draft. */
+  it("takes Enter in the box as the request's press", async () => {
+    await renderAdressePage({ email: GESPEICHERT, adresswechsel: null, abgelaufen: false });
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Adresse ändern" }));
+    const box = screen.getByRole("textbox", { name: /Neue E-Mail-Adresse/ });
+    await user.clear(box);
+    calls.length = 0;
+    await user.type(box, "lena@neu.example{Enter}");
+    await act(answered);
+
+    assert.deepEqual(
+      calls.map((call) => call.action),
+      ["beantrageSpielerAdresswechselAction"],
+    );
+  });
+
+  /* Over a typed draft, the one state in which the save stands enabled for Enter to submit through: over a clean one
+     it is disabled, and the case above would pass with the box letting Enter through. */
+  it("submits nothing from Enter in the box while the draft beside it holds typing", async () => {
+    await renderAdressePage({ email: GESPEICHERT, adresswechsel: null, abgelaufen: false });
+    const user = userEvent.setup();
+
+    const vorname = screen.getByRole("textbox", { name: "Vorname" });
+    await user.clear(vorname);
+    await user.type(vorname, "Lena-Marie");
+    await user.click(screen.getByRole("button", { name: "Adresse ändern" }));
+    const box = screen.getByRole("textbox", { name: /Neue E-Mail-Adresse/ });
+    let submits = 0;
+    (box.closest("form") ?? assert.fail("the box stands in no form")).addEventListener("submit", () => (submits += 1));
+    await user.clear(box);
+    calls.length = 0;
+    await user.type(box, "lena@neu.example{Enter}");
+    await act(answered);
+
+    assert.equal(submits, 0, "Enter in the box submitted the editor's form");
+    assert.deepEqual(
+      calls.map((call) => call.action),
+      [],
+      "Enter in the box wrote over the draft",
+    );
+  });
+
+  it("keeps a refusal of the address on the box, which stays open on the typed value", async () => {
+    const BELEGT = "Diese Adresse ist schon bei einer anderen Spielerin oder einem anderen Spieler hinterlegt.";
+    answerWith(() => Promise.resolve({ success: false, error: BELEGT, fieldErrors: { email: BELEGT } }));
+    await renderAdressePage({ email: GESPEICHERT, adresswechsel: null, abgelaufen: false });
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Adresse ändern" }));
+    const box = screen.getByRole<HTMLInputElement>("textbox", { name: /Neue E-Mail-Adresse/ });
+    await user.clear(box);
+    await user.type(box, "lena@neu.example");
+    await user.click(screen.getByRole("button", { name: "Link an neue Adresse senden" }));
+    await act(answered);
+
+    await waitFor(() => assert.equal(box.getAttribute("aria-invalid"), "true", "the refusal is not on the box"));
+    assert.equal(box.value, "lena@neu.example");
+    assert.ok(box.closest('[data-slot="textfield"]')?.textContent.includes(BELEGT), "the box does not say why");
   });
 });

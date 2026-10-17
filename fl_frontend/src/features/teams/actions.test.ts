@@ -146,15 +146,15 @@ describe("the club's writes", () => {
  */
 const PARTLY_SAVED: Readonly<Record<string, string>> = {
   "REQ-ENTER-001":
-    "Das Team wurde angelegt, konnte aber nicht in die Saison aufgenommen werden: Diese Saison ist nicht mehr in Planung, und aufgenommen wird nur in eine geplante Saison. Nimm es auf seiner Seite in eine Saison auf; ein erneutes Anlegen scheitert am Kürzel.",
+    "Das Team wurde angelegt, konnte aber nicht in die Saison aufgenommen werden: Diese Saison ist nicht mehr in Planung, und aufgenommen wird nur in eine geplante Saison. Nimm es auf seiner Seite in eine Saison auf. Ein erneutes Anlegen scheitert am Kürzel.",
   "REQ-ENTER-002":
-    "Das Team wurde angelegt, konnte aber nicht in die Saison aufgenommen werden: Diese Gruppe gibt es in dieser Saison nicht. Nimm es auf seiner Seite in eine Saison auf; ein erneutes Anlegen scheitert am Kürzel.",
+    "Das Team wurde angelegt, konnte aber nicht in die Saison aufgenommen werden: Diese Gruppe gibt es in dieser Saison nicht. Nimm es auf seiner Seite in eine Saison auf. Ein erneutes Anlegen scheitert am Kürzel.",
   "REQ-ENTER-003":
-    "Das Team wurde angelegt, konnte aber nicht in die Saison aufgenommen werden: Diese Gruppe ist schon voll. Nimm es auf seiner Seite in eine Saison auf; ein erneutes Anlegen scheitert am Kürzel.",
+    "Das Team wurde angelegt, konnte aber nicht in die Saison aufgenommen werden: Diese Gruppe ist schon voll. Nimm es auf seiner Seite in eine Saison auf. Ein erneutes Anlegen scheitert am Kürzel.",
   "REQ-ENTER-005":
-    "Das Team wurde angelegt, ist aber inzwischen stillgelegt und kann in keine Saison aufgenommen werden. Reaktiviere es auf seiner Seite und nimm es danach dort in eine Saison auf; ein erneutes Anlegen scheitert am Kürzel.",
+    "Das Team wurde angelegt, ist aber inzwischen stillgelegt und kann in keine Saison aufgenommen werden. Reaktiviere es auf seiner Seite und nimm es danach dort in eine Saison auf. Ein erneutes Anlegen scheitert am Kürzel.",
   [DUPLICATE_KEY]:
-    "Das Team wurde angelegt, konnte aber nicht in die Saison aufgenommen werden. Nimm es auf seiner Seite in eine Saison auf; ein erneutes Anlegen scheitert am Kürzel.",
+    "Das Team wurde angelegt, konnte aber nicht in die Saison aufgenommen werden. Nimm es auf seiner Seite in eine Saison auf. Ein erneutes Anlegen scheitert am Kürzel.",
 };
 
 describe("a club created whose entry into the season is refused", () => {
@@ -188,7 +188,7 @@ describe("a club created whose entry into the season is refused", () => {
     assert.deepEqual(result, {
       success: false,
       error:
-        "Das Team wurde angelegt, konnte aber nicht in die Saison aufgenommen werden. Nimm es auf seiner Seite in eine Saison auf; ein erneutes Anlegen scheitert am Kürzel.",
+        "Das Team wurde angelegt, konnte aber nicht in die Saison aufgenommen werden. Nimm es auf seiner Seite in eine Saison auf. Ein erneutes Anlegen scheitert am Kürzel.",
       outcome: "partial",
     });
   });
@@ -419,7 +419,7 @@ describe("the German each replacement refusal renders", () => {
 
 describe("the junction edit's refusals", () => {
   /* `PATCH /teams/{team_id}` is a prefix of it, and the club patch refuses on no rule: its one refusal,
-     the duplicate shorthand, the undo route words with the junction's table. */
+     the duplicate shorthand, the undo words with the junction's table. */
   it("reads the junction patch's own rules, and none on the club patch", () => {
     assert.deepEqual(publishedRefusals(JUNCTION_OPERATION), ["REQ-ENTER-002", "REQ-ENTER-003", "REQ-ENTER-004"]);
     assert.deepEqual(

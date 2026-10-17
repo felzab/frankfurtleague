@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { DEIN_BEREICH_TITEL } from "@/core/seitenNamen";
 import { ctaButton } from "@/shared/components/ui/formButtons";
 import { NAME_WRAP_CLASSES } from "@/shared/components/ui/nameWrap";
 import { StatusPanel } from "@/shared/components/ui/StatusPanel";
@@ -8,7 +9,7 @@ import { zieleOf } from "../../utils";
 
 import type { Funktion } from "@/core/funktionen";
 
-const BEREICH = { href: "/bereich", label: "Zu Deinem Bereich" };
+const BEREICH = { href: "/bereich", label: DEIN_BEREICH_TITEL };
 
 /**
  * A team and season the person holds no seat on. It names nothing of the address — who holds a seat

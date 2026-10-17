@@ -3,8 +3,8 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import { patchSaisonSpielerAction, patchSpielerAction } from "@/features/spieler/actions";
-import { kaderName, rolleLabel } from "@/features/spieler/constants";
+import { patchSaisonSpielerAction, patchSpielerAction, undoAdminSpielerEditAction } from "@/features/spieler/actions";
+import { KADER_ABSCHNITT, rolleLabel } from "@/features/spieler/constants";
 import { FLPatchSaisonSpielerPayloadSchema, FLPatchSpielerPayloadSchema } from "@/features/spieler/schemas";
 import { deriveSpielerDraftStatus } from "@/features/spieler/spielerDraftStatus";
 import { judgeRowReturn, nummerPayload } from "@/features/spieler/utils";
@@ -23,13 +23,15 @@ import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { unansweredAction } from "@/shared/utils/actionError";
 import { fieldStatus } from "@/shared/utils/draftStatus";
+import { focusSection } from "@/shared/utils/focusAfterWrite";
 import { offerUndo } from "@/shared/utils/undoDispatch";
 
 import { buildSpielerBanners } from "./banners";
+import { FormAdresseSection, istAndereAdresse } from "./FormAdresseSection";
+import { FormAdresswechselSection } from "./FormAdresswechselSection";
 import { FormAustragenSection } from "./FormAustragenSection";
 import { FormEinwilligungSection } from "./FormEinwilligungSection";
 import { FormKaderSection } from "./FormKaderSection";
-import { FormLoeschenSection } from "./FormLoeschenSection";
 import { FormPersonSection } from "./FormPersonSection";
 
 import type {
@@ -41,7 +43,7 @@ import type {
   FLSpielerStufe,
 } from "@/features/spieler/schemas";
 import type { FLSpielerDraftFields, SpielerFieldPath } from "@/features/spieler/spielerDraftStatus";
-import type { SpielerPersonFields, SpielerSaisonMembership, SpielerTeamOption } from "@/features/spieler/types";
+import type { AdminSpielerStored, SpielerPersonFields, SpielerSaisonMembership, SpielerTeamOption } from "@/features/spieler/types";
 import type { EditPageHeaderContent } from "@/shared/components/ui/EditPageHeader";
 import type { BlockingBanners } from "@/shared/components/ui/railBanner";
 import type { ActionFailure } from "@/shared/types/types";
@@ -53,17 +55,8 @@ type SpielerUndoPayloads = {
   saison?: FLPatchSaisonSpielerPayload;
 };
 
-/** **One save bar over TWO endpoints**: a partial failure is toasted as well as shown inline. */
-export function AdminSpielerEditForm({
-  spieler,
-  einwilligung,
-  istFassungBekannt,
-  saison,
-  teams,
-  membershipCount,
-  pageHeader,
-}: {
-  spieler: { id: string; vorname: string; nachname: string | null; inactive_since: string | null; geburtsdatum: string | null };
+type AdminSpielerEditFormProps = {
+  spieler: AdminSpielerStored;
   /** `null` for a person stored before consent was collected. */
   einwilligung: FLEinwilligung | null;
   /** Whether the registry holds the stored label. */
@@ -72,9 +65,46 @@ export function AdminSpielerEditForm({
   saison: SpielerSaisonMembership;
   /** The selected season's teams, for the picker and for reading a `team_id` as a name. */
   teams: readonly SpielerTeamOption[];
-  /** Squad rows across EVERY season, retired ones included: what the erasure would take with it. */
-  membershipCount: number;
   pageHeader: EditPageHeaderContent;
+};
+
+/**
+ * Holds what outlives a save, as the season editor's holder does: the address box's typing, which no save
+ * writes, and the save's exit waiting over it. The editor below is keyed by the stored state its drafts mirror.
+ */
+export function AdminSpielerEditForm(props: AdminSpielerEditFormProps) {
+  const [adresseEntwurf, setAdresseEntwurf] = useState<string | null>(null);
+  const [isSaveExitAsked, setSaveExitAsked] = useState(false);
+
+  return (
+    <SpielerEditForm
+      key={JSON.stringify({ spieler: props.spieler, saison: props.saison })}
+      {...props}
+      adresseEntwurf={adresseEntwurf}
+      onAdresseEntwurfChange={setAdresseEntwurf}
+      isSaveExitAsked={isSaveExitAsked}
+      onSaveExitAskedChange={setSaveExitAsked}
+    />
+  );
+}
+
+/** **One save bar over TWO endpoints**: a partial failure is toasted as well as shown inline. */
+function SpielerEditForm({
+  spieler,
+  einwilligung,
+  istFassungBekannt,
+  saison,
+  teams,
+  pageHeader,
+  adresseEntwurf,
+  onAdresseEntwurfChange,
+  isSaveExitAsked,
+  onSaveExitAskedChange,
+}: AdminSpielerEditFormProps & {
+  adresseEntwurf: string | null;
+  onAdresseEntwurfChange: (next: string | null) => void;
+  isSaveExitAsked: boolean;
+  onSaveExitAskedChange: (asked: boolean) => void;
 }) {
   const router = useRouter();
   const saisonHref = useSaisonHref();
@@ -139,11 +169,16 @@ export function AdminSpielerEditForm({
   };
 
   const status = deriveSpielerDraftStatus({ stored: storedFields, draft: draftFields, fieldErrors, teams });
-  const isDirty = status.isDirty && !hasSaved;
+  const isDraftDirty = status.isDirty && !hasSaved;
 
   // The latch's job ends when the revalidated player arrives and the two agree — left latched, every
   // later edit on a restored tree reads as not-dirty.
   if (hasSaved && !status.isDirty) setHasSaved(false);
+
+  // The address box's typing is unsaved work like the draft's, though no save carries it: every way off
+  // the page asks over it, and every write here re-keying the editor refuses over it.
+  const adresseGetippt = adresseEntwurf !== null && spieler.email !== null && istAndereAdresse(adresseEntwurf, spieler.email);
+  const isDirty = isDraftDirty || adresseGetippt;
 
   useUnsavedChangesWarning(isDirty);
 
@@ -167,7 +202,7 @@ export function AdminSpielerEditForm({
   const blockedRolle = rolle !== null && heldBy !== undefined ? { label: rolleLabel(rolle), heldBy } : null;
 
   const personDirty = status.changed.some((field) => field.group === "Person");
-  const saisonDirty = storedMembership !== null && status.changed.some((field) => field.group === "Kader");
+  const saisonDirty = storedMembership !== null && status.changed.some((field) => field.group === KADER_ABSCHNITT);
 
   // The STORED club and not the picker's, unlike `isSquadFull` above: the reactivate returns the row to
   // the club it already names, which a transfer in the draft can have moved away from without it.
@@ -200,10 +235,17 @@ export function AdminSpielerEditForm({
   const { isLeaving, leavePage, isConfirmingDiscard, closeDiscard, hasLeftViaDiscard, requestLeave, discardAndLeave } = useEditorExit({
     fallbackHref: saisonHref("/bereich/admin/spieler"),
     isDirty,
-    resetDraftToStored,
+    // The box too: it is left, like the draft, on a tree the router keeps.
+    resetDraftToStored: () => {
+      resetDraftToStored();
+      onAdresseEntwurfChange(null);
+    },
   });
 
-  useSaveShortcut(formRef, !isPending && !isConfirmingDiscard && confirmingBanners === null && isDirty);
+  const isDiscardOpen = isConfirmingDiscard || isSaveExitAsked;
+
+  // The draft alone: typing in the address box leaves the save nothing to write.
+  useSaveShortcut(formRef, !isPending && !isDiscardOpen && confirmingBanners === null && isDraftDirty);
 
   const requestSave = () => {
     // Only the halves this press writes: judging an untouched half refuses a save over a field nobody sends.
@@ -305,8 +347,7 @@ export function AdminSpielerEditForm({
         };
         // A success rather than a warning: this save destroys nothing without another copy.
         offerUndo({
-          endpoint: "/api/admin/spieler/undo",
-          body: undoPayloads,
+          undo: () => undoAdminSpielerEditAction(undoPayloads),
           message: consequenceNotes.join(" ") || undefined,
           fallback: "Die Spielerdaten wurden aktualisiert.",
           router,
@@ -315,7 +356,10 @@ export function AdminSpielerEditForm({
         // AFTER the undo payloads are built: leaving with typed values still in state lets a
         // save-then-undo reopen on values the player does not hold.
         resetDraftToStored();
-        leavePage();
+        // Asked rather than left over a typed new address, and held above this editor's key: the refresh this
+        // save ends on remounts the editor, which would close a dialog of its own.
+        if (adresseGetippt) onSaveExitAskedChange(true);
+        else leavePage();
       });
     });
   };
@@ -342,6 +386,32 @@ export function AdminSpielerEditForm({
             onChange={setPersonDraft}
             onFieldLeft={validatePersonFields}
           />
+
+          {/* One place for the address and its waiting change, laid out as if absent: a discard takes the
+              change's panel away, and the focus lands on the address panel's heading rather than the page's
+              (`docs/frontend/spec.md :: I536`). */}
+          <div
+            className="contents"
+            {...focusSection("adresse")}>
+            {/* The draft alone, never the box's own typing, which is what this press sends. */}
+            <FormAdresseSection
+              spielerId={spieler.id}
+              email={spieler.email}
+              isDirty={isDraftDirty}
+              entwurf={adresseEntwurf}
+              onEntwurfChange={onAdresseEntwurfChange}
+            />
+
+            {/* Beside the address it would replace, and only while one waits. */}
+            {spieler.adresswechsel !== null && (
+              <FormAdresswechselSection
+                spielerId={spieler.id}
+                adresswechsel={spieler.adresswechsel}
+                istAbgelaufen={spieler.adresswechsel_abgelaufen}
+                isDirty={isDirty}
+              />
+            )}
+          </div>
 
           {/* Beside the name and above the season's panels: consent is the person's, and it does not
               change when the sidemenu's season does. */}
@@ -373,6 +443,7 @@ export function AdminSpielerEditForm({
             onValidateSelection={validateTeamSelection}
             spielerId={spieler.id}
             banners={banners}
+            isDirty={isDirty}
           />
 
           {/* Only where a row exists: there is nothing to take out of a squad the player is not in,
@@ -387,16 +458,6 @@ export function AdminSpielerEditForm({
               banners={banners}
             />
           )}
-
-          {/* Last on the page, the position the season editor's rollover holds: the one control here
-              that no later edit reverses, and the only one that removes rather than retires. Always
-              rendered — closed, it is where the admin reads that retirement comes first. */}
-          <FormLoeschenSection
-            spielerId={spieler.id}
-            fullName={kaderName(spieler)}
-            isRetired={spieler.inactive_since !== null}
-            membershipCount={membershipCount}
-          />
         </EditFormLayout>
 
         <FormActionBar
@@ -408,10 +469,16 @@ export function AdminSpielerEditForm({
 
       {!hasLeftViaDiscard && (
         <ConfirmDiscardModal
-          isOpen={isConfirmingDiscard}
-          onClose={closeDiscard}
-          onDiscard={discardAndLeave}
-          changeCount={status.changed.length}
+          isOpen={isDiscardOpen}
+          onClose={() => {
+            closeDiscard();
+            onSaveExitAskedChange(false);
+          }}
+          onDiscard={() => {
+            onSaveExitAskedChange(false);
+            discardAndLeave();
+          }}
+          changeCount={(isDraftDirty ? status.changed.length : 0) + (adresseGetippt ? 1 : 0)}
         />
       )}
 

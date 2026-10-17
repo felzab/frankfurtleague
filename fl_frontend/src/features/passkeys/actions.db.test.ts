@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { beforeEach, describe, it } from "node:test";
 
-import { MongoServerError } from "mongodb";
+import { MongoOperationTimeoutError, MongoServerError } from "mongodb";
 
 import {
   ADMIN_EMAIL,
@@ -15,7 +15,7 @@ import {
   registerAuthDoubles,
   signInByCode,
 } from "@/core/authDoubles.ts";
-import { startJudgedReplicaSet } from "@/core/expiredTransactions.ts";
+import { replicaSetUrl, startJudgedReplicaSet } from "@/core/expiredTransactions.ts";
 import { overridingModule } from "@/core/exportingModule.ts";
 import { NEXT_CACHE_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 
@@ -23,7 +23,7 @@ import { NEXT_CACHE_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 const { mongod, closing } = await startJudgedReplicaSet();
 
 // The set advertises its container-internal address, which topology discovery would follow and find nothing.
-const MONGO_URL = `${mongod.getConnectionString()}/?directConnection=true`;
+const MONGO_URL = replicaSetUrl(mongod);
 
 // A second URL for the production module, which the load hook's match on a path's end lets past the
 // double: the client under test is the one `fl_frontend/src/core/db.ts` builds, Stable API included.
@@ -102,9 +102,10 @@ const DB_DOUBLE = overridingModule(PRODUCTION_DB, {
         if (prop === "db") return (name: string, options?: unknown) => wrapDb((value as Method).call(target, name, options) as object);
         if (prop === "startSession") {
           return (...args: unknown[]) => {
-            const session = (value as Method).apply(target, args) as { commitTransaction: () => Promise<unknown> };
+            const session = (value as Method).apply(target, args) as HeldSession;
             const commit = session.commitTransaction.bind(session);
             session.commitTransaction = async () => {
+              await committing(session);
               const done = await commit();
               await committed();
               return done;
@@ -178,6 +179,12 @@ let readGate: { arrive: () => Promise<unknown> } = OPEN_GATE;
 /** What runs as a removal reaches its sign-out: inside its transaction, after its delete. */
 let signingOut: () => Promise<unknown> = async () => undefined;
 
+/** What the double hands `committing`: the session whose commit is about to be sent. */
+type HeldSession = { commitTransaction: () => Promise<unknown>; abortTransaction: () => Promise<unknown> };
+
+/** What runs as a removal's commit is asked for, before it is sent. */
+let committing: (session: HeldSession) => Promise<unknown> = async () => undefined;
+
 /** What runs once a removal's commit has been taken by the server, before its answer reaches the removal. */
 let committed: () => Promise<unknown> = async () => undefined;
 
@@ -204,6 +211,7 @@ beforeEach(async () => {
   barrier.disarm();
   warnings.length = 0;
   signingOut = async () => undefined;
+  committing = async () => undefined;
   committed = async () => undefined;
   readGate = OPEN_GATE;
   await authDb().dropDatabase();
@@ -285,28 +293,28 @@ async function removeAtOnce(cookie: string, ids: readonly string[]) {
 
 const GLEICHZEITIG_GEAENDERT = "Gleichzeitig wurde an Deinen Passkeys oder Anmeldungen etwas geändert. Lade die Seite neu.";
 
-/** One removal stands and the other is refused as the loser of two changes, on one warning line. */
-const ONE_WINS = {
-  successes: [false, true],
-  refusals: [GLEICHZEITIG_GEAENDERT],
-  notices: 1,
-  warnings: ["auth.passkey_removal_conflict"],
-};
+const LETZTER_PASSKEY = "Der letzte Passkey lässt sich nicht löschen.";
+
+/**
+ * One removal stands. The other's claim conflicts with it, and the run the adapter retries on a fresh
+ * snapshot answers on what the first left, on no line of its own.
+ */
+const ONE_WINS = { successes: [false, true], notices: 1, warnings: [] };
 
 describe("two removals by one administrator at once, against a real database (`docs/frontend/spec.md :: I312`)", () => {
-  it("keeps the last row when two removals start from two rows", async () => {
+  it("keeps the last row when two removals start from two rows, refusing the second as the last", async () => {
     const { cookie, userId } = await steppedUpAdmin();
     const ids = await seedPasskeys(userId, 2);
 
-    assert.deepEqual(await removeAtOnce(cookie, ids), { ...ONE_WINS, rows: 1 });
+    assert.deepEqual(await removeAtOnce(cookie, ids), { ...ONE_WINS, refusals: [LETZTER_PASSKEY], rows: 1 });
   });
 
-  it("removes one row once when the same row is asked for twice at once", async () => {
+  it("removes one row once when the same row is asked for twice at once, the second finding it gone", async () => {
     const { cookie, userId } = await steppedUpAdmin();
     const [first] = await seedPasskeys(userId, 3);
     assert.ok(first);
 
-    assert.deepEqual(await removeAtOnce(cookie, [first, first]), { ...ONE_WINS, rows: 2 });
+    assert.deepEqual(await removeAtOnce(cookie, [first, first]), { ...ONE_WINS, refusals: [GLEICHZEITIG_GEAENDERT], rows: 2 });
   });
 
   /* The other order: the second removal's snapshot is taken only once the first has committed whole,
@@ -328,7 +336,7 @@ describe("two removals by one administrator at once, against a real database (`d
 
       assert.deepEqual(
         { first: first.success, second: await second, rows: (await passkeyRows()).length },
-        { first: true, second: { success: false, error: "Der letzte Passkey lässt sich nicht löschen." }, rows: 1 },
+        { first: true, second: { success: false, error: LETZTER_PASSKEY }, rows: 1 },
       );
     } finally {
       gate.release();
@@ -363,9 +371,10 @@ describe("the sessions a removal ends, against a real database (`docs/frontend/s
     );
   });
 
-  /* Another device's hourly `updatedAt` refresh, landing while the sign-out runs: the sign-out's own
-     write meets it, and the delete before it rolls back with it rather than standing alone. */
-  it("answers the conflict and keeps both rows where another session is written during the sign-out", async () => {
+  /* Another device's `updatedAt` refresh, landing while the sign-out runs on every run the adapter
+     retries: the delete before the sign-out rolls back with it rather than standing alone, until the
+     client's `timeoutMS` ends the retries. */
+  it("rolls the removal back whole where every run's sign-out meets another write to the sessions", async () => {
     const other = await steppedUpAdmin(REMOVED);
     const own = await steppedUpAdmin();
     const [first] = await seedPasskeys(own.userId, 2, [REMOVED]);
@@ -385,34 +394,42 @@ describe("the sessions a removal ends, against a real database (`docs/frontend/s
         open: [await opens(other.cookie), await opens(own.cookie)],
         warnings: [...warnings],
       },
-      {
-        answer: { success: false, error: GLEICHZEITIG_GEAENDERT },
-        rows: 2,
-        open: [true, true],
-        warnings: ["auth.passkey_removal_conflict"],
-      },
+      { answer: { success: false, error: UNKNOWN_REFUSAL }, rows: 2, open: [true, true], warnings: [] },
     );
   });
 
-  /* A stepped-down primary or a lost connection carries the transient label a write conflict does,
-     and is not another change to these passkeys: the code decides, and the label never. */
-  it("answers a transient failure that is not a write conflict as the generic failure", async () => {
+  /* The first run's commit fails transiently and writes nothing, so the adapter runs the removal
+     again; that run fails before its commit, and the removal answers the rollback it is rather than
+     an unknown outcome. */
+  it("answers the generic failure where the run retried after a transient commit failure fails", async () => {
     const other = await steppedUpAdmin(REMOVED);
     const own = await steppedUpAdmin();
     const [first] = await seedPasskeys(own.userId, 2, [REMOVED]);
     assert.ok(first);
     requestHeaders = new Headers({ ...ORIGIN, cookie: own.cookie });
-    signingOut = async () => {
+    let commits = 0;
+    committing = async (session) => {
+      commits += 1;
+      if (commits > 1) return;
+      // The server's answer to a commit whose transaction it already dropped, as across a failover.
       // Built rather than raised by the server: the test container refuses `configureFailPoint`.
+      await session.abortTransaction();
       throw new MongoServerError({
-        message: "planted: the primary stepped down",
-        code: 91,
-        codeName: "ShutdownInProgress",
+        message: "planted: the transaction was gone at its commit",
+        code: 251,
+        codeName: "NoSuchTransaction",
         errorLabels: ["TransientTransactionError"],
       });
     };
+    let runs = 0;
+    signingOut = async () => {
+      runs += 1;
+      if (runs > 1) throw new Error("planted: the retried run fails");
+    };
 
     const answer = await removePasskeyAction(first);
+
+    assert.equal(runs, 2, "the adapter ran the removal once, so no retry followed a commit");
 
     assert.deepEqual(
       {
@@ -425,8 +442,7 @@ describe("the sessions a removal ends, against a real database (`docs/frontend/s
     );
   });
 
-  // Any other failure at the sign-out rolls back the same way, and is not answered as the conflict:
-  // the removal tests the server's code, never the mere fact that its transaction threw.
+  // A failure the adapter does not retry rolls the delete back with it, before any commit.
   it("rolls back and answers the generic failure where the sign-out fails for another reason", async () => {
     const other = await steppedUpAdmin(REMOVED);
     const own = await steppedUpAdmin();
@@ -450,8 +466,8 @@ describe("the sessions a removal ends, against a real database (`docs/frontend/s
     );
   });
 
-  /* The commit landed and its answer did not: the rows say the removal stands, and nobody can tell
-     that from the throw, so a failure's title would send the administrator to remove it again. */
+  /* The commit landed and the client timed out before its answer came back: nobody can tell from the
+     timeout that the removal stands, so a failure's title would send the administrator to remove it again. */
   it("answers the outcome as unknown where the commit's own answer is lost, the removal standing", async () => {
     const other = await steppedUpAdmin(REMOVED);
     const own = await steppedUpAdmin();
@@ -459,7 +475,7 @@ describe("the sessions a removal ends, against a real database (`docs/frontend/s
     assert.ok(first);
     requestHeaders = new Headers({ ...ORIGIN, cookie: own.cookie });
     committed = async () => {
-      throw new Error("planted: the commit's answer lost");
+      throw new MongoOperationTimeoutError("planted: the time ran out before the commit's answer came back");
     };
 
     const answer = await removePasskeyAction(first);

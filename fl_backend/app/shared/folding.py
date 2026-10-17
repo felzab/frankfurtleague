@@ -3,6 +3,7 @@ import unicodedata
 from typing import Any, Final
 
 from email_validator import EmailNotValidError, ValidatedEmail, validate_email
+from pydantic_core import Url, ValidationError
 
 # ECMAScript's `WhiteSpace` and `LineTerminator`, never `str.strip()`'s set, which takes U+0085 and
 # leaves U+FEFF: the two ends would part on a character nobody can see. Code points rather than an
@@ -14,18 +15,35 @@ _TRIMMED: Final = "".join(
 
 # ASCII's letters alone, never `str.lower`, whose tables move with the interpreter's Unicode release:
 # the frontend lowers the same 26, so this step cannot part the two folds; their domain conversions
-# are held to one answer by `fl_backend/tests/shared/email_addresses.json`.
+# are held to the answers `fl_backend/tests/shared/email_addresses.json` records.
 _ASCII_LOWER: Final = str.maketrans("ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")
 
 
+# The ASCII a URL parser reads as structure, which `fl_frontend/src/core/emailAddress.ts :: EMAIL_HOST_CHARS_REGEX`
+# keeps out of a host beside every separator, control and format character: parsed, a host holding one answers a
+# name nobody typed.
+_NOT_IN_A_HOST: Final = frozenset("!\"#$%&'()*+,/:;<=>?@[\\]^_`{|}~")
+
+
 def _ascii_domain(domain: str) -> str | None:
-    """The domain as `league_address` converts it, or `None` where that refuses it."""
+    """The domain as the URL Standard's parser hosts it, pydantic-core's `Url` as the frontend's `new URL`, or `None` where it cannot."""
+
+    if not domain or any(character in _NOT_IN_A_HOST or unicodedata.category(character)[0] in "ZC" for character in domain):
+        return None
 
     try:
-        # Inside a stand-in address: `validate_email` is the library's one public entry, and the
-        # local part `x` passes each of its rules, so the domain is all it judges.
-        return validate_email(f"x@{domain}", allow_smtputf8=False, check_deliverability=False).ascii_domain
-    except EmailNotValidError:
+        return Url(f"https://{domain}").host
+    except ValidationError:
+        return None
+
+
+def _stored_domain(domain: str) -> str | None:
+    """The domain as `league_address` stores it, or `None` where the address rule refuses it."""
+
+    # Any local part the rule takes: it converts the domain alone.
+    try:
+        return _league_validated(f"a@{domain}").ascii_domain
+    except ValueError:
         return None
 
 
@@ -33,16 +51,24 @@ def _folded_domain(domain: str) -> str:
     # A lookup held to no address rule may name its domain in Unicode (`docs/backend/spec.md :: I329`),
     # and converting it here is what joins it to the punycode spelling every payload stores (`:: I333`).
     if not domain.isascii():
-        domain = _ascii_domain(domain) or domain
+        # `Url` first: the frontend converts as it does, and the address rule refuses a special-use or dotless domain.
+        # The rule where `Url` refuses: its Unicode tables run ahead, and a domain it stored converted would be asked unconverted.
+        domain = _ascii_domain(domain) or _stored_domain(domain) or domain
 
     return domain.translate(_ASCII_LOWER)
+
+
+def trimmed(address: str) -> str:
+    """`address` as a page's `.trim()` leaves it, so a value judged on both sides starts from one spelling."""
+
+    return address.strip(_TRIMMED)
 
 
 def _league_validated(address: str) -> ValidatedEmail:
     """`allow_smtputf8=False` is the address rule's whole choice: a local part in ASCII, and a Unicode domain converted to punycode."""
 
     try:
-        return validate_email(address.strip(_TRIMMED), allow_smtputf8=False, check_deliverability=False)
+        return validate_email(trimmed(address), allow_smtputf8=False, check_deliverability=False)
     except EmailNotValidError:
         # `from None`, for the reason `app/core/config.py :: get_config` suppresses its own cause:
         # the library's message quotes the value it rejected, and no address reaches a traceback or
@@ -67,10 +93,10 @@ def sign_in_identifier(address: str) -> str:
     nothing fails. It never raises, so an address no rule takes today still folds.
     """
 
-    trimmed = address.strip(_TRIMMED)
-    local, at, domain = trimmed.rpartition("@")
+    bare = trimmed(address)
+    local, at, domain = bare.rpartition("@")
 
-    return f"{local.translate(_ASCII_LOWER)}@{_folded_domain(domain)}" if at else trimmed.translate(_ASCII_LOWER)
+    return f"{local.translate(_ASCII_LOWER)}@{_folded_domain(domain)}" if at else bare.translate(_ASCII_LOWER)
 
 
 def is_stored_identifier(value: Any) -> bool:
@@ -109,19 +135,34 @@ def canonical_address(address: str) -> str:
 _TRIMMED_CLASS: Final = "[" + "".join(re.escape(character) for character in _TRIMMED) + "]"
 
 
-def trimmed_pattern(alternation: str) -> str:
-    """`alternation`, an escaped `$regex` fragment, anchored so that whatever `sign_in_identifier` trims may stand at either end.
+def trimmed_prefix_pattern(prefix: str) -> str:
+    """`prefix`, an escaped `$regex` fragment, anchored at the start so that whatever `sign_in_identifier` trims may stand before it.
 
     A pre-filter taking less than the fold leaves a row the fold would have claimed unread.
     """
 
-    return f"^{_TRIMMED_CLASS}*(?:{alternation}){_TRIMMED_CLASS}*$"
+    return f"^{_TRIMMED_CLASS}*{prefix}"
+
+
+def trimmed_pattern(fragment: str) -> str:
+    """`fragment`, an escaped `$regex` fragment, anchored at both ends so that whatever `sign_in_identifier` trims may stand around it.
+
+    For a value the fold equates whole, with no part a pattern may leave open.
+    """
+
+    return f"^{_TRIMMED_CLASS}*{fragment}{_TRIMMED_CLASS}*$"
+
+
+def composed_name(value: Any) -> str:
+    """NFC, each run of spaces one space, capitals kept: a decomposed umlaut is one name typed on another keyboard."""
+
+    return " ".join(unicodedata.normalize("NFC", str(value or "")).split())
 
 
 def person_name_key(value: Any) -> str:
-    """NFC and `lower`, never `casefold`: „Weiß“ and „Weiss“ are two families, and a decomposed umlaut is one name typed on another keyboard."""
+    """`composed_name` and `lower`, never `casefold`: „Weiß“ and „Weiss“ are two families."""
 
-    return " ".join(unicodedata.normalize("NFC", str(value or "")).split()).lower()
+    return composed_name(value).lower()
 
 
 def mailbox_key(address: str) -> str:

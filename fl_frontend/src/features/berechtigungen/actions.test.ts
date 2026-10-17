@@ -136,7 +136,7 @@ describe("the tier change", () => {
   it("sends the tier alone to the grant's path and schedules the announcement behind the answer", async () => {
     const result = await patchBerechtigungAction({ id: GRANT_ID, verwaltung: "owner" });
 
-    assert.deepEqual(result, { success: true, message: "Diese Adresse ist jetzt Inhaber der Verwaltung." });
+    assert.deepEqual(result, { success: true, message: "Diese Adresse ist jetzt Inhaberin oder Inhaber der Verwaltung." });
     assert.deepEqual(
       requestsOf(client.calls).map(({ endpoint, method, body }) => [method, endpoint, body]),
       [["PATCH", `/berechtigungen/${GRANT_ID}`, { verwaltung: "owner" }]],
@@ -150,7 +150,7 @@ describe("the tier change", () => {
     for (let press = 1; press <= 2; press += 1) {
       assert.deepEqual(await patchBerechtigungAction({ id: GRANT_ID, verwaltung: "administration" }), {
         success: true,
-        message: "Diese Adresse ist nicht mehr Inhaber der Verwaltung und behält den Zugang.",
+        message: "Diese Adresse ist nicht mehr Inhaberin oder Inhaber der Verwaltung und behält den Zugang.",
       });
     }
   });

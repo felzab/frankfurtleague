@@ -75,6 +75,10 @@ export const GAP = "flex gap-5"; // expect: gap
 export const GAP_X = "grid sm:gap-x-7"; // expect: gap
 export const LINK = "text-brand hover:underline"; // expect: link-decoration
 export const GRADE = "dark:hover:text-brand-solid-accent"; // expect: brand-grade
+export const NEW_TAB = <a href="https://example.org" target="_blank" rel="noopener noreferrer">Profil</a>; // expect: new-tab
+export const NEW_TAB_EXPRESSION = <a href="https://example.org" target={"_blank"} rel="noopener noreferrer">Profil</a>; // expect: new-tab
+export const NEW_TAB_SPREAD = { href: "https://example.org", target: "_blank" }; // expect: new-tab
+export const NEW_TAB_TEMPLATE = `_blank`; // expect: new-tab
 export const HINT_COPY = "font-medium fluid-sm text-foreground-muted"; // expect: muted-hint
 export const TILE = "bg-brand-solid flex size-10 rounded-xl shadow-sm"; // expect: BRAND_TILE
 export const TILE_ACROSS_A_HOLE = `bg-brand-solid size-10 ${extra} rounded-xl`; // expect: BRAND_TILE

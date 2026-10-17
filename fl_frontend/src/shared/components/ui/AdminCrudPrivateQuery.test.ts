@@ -2,14 +2,14 @@ import "@/shared/testing/dom.ts";
 import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, it, mock } from "node:test";
 
-import { createElement as h } from "react";
+import { act, createElement as h, memo, Profiler } from "react";
 
-import { render, waitFor, within } from "@testing-library/react";
-import { userEvent } from "@testing-library/user-event";
+import { fireEvent, render, within } from "@testing-library/react";
 
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
+import { renderTree } from "@/shared/testing/renderTest.ts";
 
 import type { Navigations } from "@/shared/testing/nextContexts.ts";
 
@@ -17,30 +17,28 @@ const { AdminCrudSearch } = await import("./AdminCrudSearch.tsx");
 const { AdminCrudShell } = await import("./AdminCrudShell.tsx");
 const { AdminCrudView } = await import("./AdminCrudView.tsx");
 
-type Row = { id: string; grund: string };
+type Row = { id: string; name: string };
 
 const ROWS: Row[] = [
-  { id: "6890a1b2c3d4e5f607190001", grund: "Falsches Geburtsdatum angegeben" },
-  { id: "6890a1b2c3d4e5f607190002", grund: "Fremde Namen eingetragen" },
+  { id: "6890a1b2c3d4e5f607190001", name: "Lena Brückner" },
+  { id: "6890a1b2c3d4e5f607190002", name: "Jonas Okafor" },
 ];
 
-const SEARCH_KEYS = ["grund"] as const;
+const SEARCH_KEYS = ["name"] as const;
 
-const LABEL = "Sperren suchen";
+const LABEL = "Spieler suchen";
 
-/* What an administrator asking „ist die gesperrt?“ types, which matches no row: the address is a
-   keyed hash, so the list it narrows to is empty however the query travels. */
-const ADDRESS = "zorbanax@beispielschule.de";
+/** What an administrator types: a person's name, which no request line may carry. */
+const NAME = "Lena";
 
 /** The shape every admin list has: the bar in the shell's slot, the list under the boundary, joined by the shell alone. */
-function mount(privateQuery: boolean): { seen: Navigations; container: HTMLElement } {
+function mount(search = ""): { seen: Navigations; container: HTMLElement } {
   const { router, seen } = recordingRouter();
 
   const { container } = render(
     underNext(
       h(AdminCrudShell, {
-        privateQuery: privateQuery,
-        search: h(AdminCrudSearch, { searchLabel: LABEL, searchPlaceholder: "z.B. falsches Geburtsdatum" }),
+        search: h(AdminCrudSearch, { searchLabel: LABEL, searchPlaceholder: "z.B. Erika Mustermann" }),
         children: h(AdminCrudView<Row>, {
           items: ROWS,
           searchKeys: SEARCH_KEYS,
@@ -49,58 +47,98 @@ function mount(privateQuery: boolean): { seen: Navigations; container: HTMLEleme
             h(
               "ul",
               null,
-              filteredItems.map((row) => h("li", { key: row.id }, row.grund)),
+              filteredItems.map((row) => h("li", { key: row.id }, row.name)),
             ),
         }),
       }),
-      { router: router, pathname: "/bereich/admin/sperrliste" },
+      { router: router, pathname: "/bereich/admin/spieler", search: search },
     ),
   );
 
   return { seen, container };
 }
 
-const rowsIn = (container: HTMLElement): number => ROWS.filter((row) => within(container).queryByText(row.grund) !== null).length;
+const shown = (container: HTMLElement): string[] =>
+  ROWS.filter((row) => within(container).queryByText(row.name) !== null).map((row) => row.name);
 
-describe("the query a page holds rather than writing", () => {
-  /* The defect this exists against: a segment that awaits the request logs every `?q=` as a request
-     line, and the one box this page offers is the box an address gets typed into. */
-  it("narrows the list and makes no navigation at all", async () => {
-    const user = userEvent.setup();
-    const { seen, container } = mount(true);
+describe("the query every admin list holds in the page", () => {
+  /* The defect this exists against: a URL is a request line nginx keeps eight days, a history entry and
+     a `Referer`, and the box an administrator types a person's name into must reach none of them. */
+  it("narrows the list as it is typed and writes no URL at all", async () => {
+    // Every timer held to the case's own clock, so a write owed after any debounce is flushed below.
+    mock.timers.enable({ apis: ["setTimeout"] });
+    try {
+      const before = window.location.href;
+      const { seen, container } = mount();
 
-    assert.equal(rowsIn(container), ROWS.length, "the list renders no row, so narrowing it below proves nothing");
+      assert.deepEqual(shown(container), ["Lena Brückner", "Jonas Okafor"], "the list renders no row, so narrowing it proves nothing");
 
-    await user.type(within(container).getByRole("searchbox", { name: LABEL }), ADDRESS);
-    // Timed by an ordinary bar typed after it rather than by a clock: once that one has written, a write this
-    // one owed has landed too, however long the debounce runs.
-    const ordinary = mount(false);
-    await user.type(within(ordinary.container).getByRole("searchbox", { name: LABEL }), "Fremde");
-    await waitFor(() => {
-      assert.equal(ordinary.seen.replaced.length, 1, "the ordinary bar wrote no query to the URL, so nothing times this case");
-    });
+      fireEvent.change(within(container).getByRole("searchbox", { name: LABEL }), { target: { value: NAME } });
+      assert.deepEqual(shown(container), ["Lena Brückner"], "the typed query never reached the list, so the two halves are joined by nothing");
 
-    assert.deepEqual(seen.replaced, [], "the page replaced the URL, which is the request line nginx logs");
-    assert.deepEqual(seen.pushed, [], "the page pushed a URL, which is the request line nginx logs");
-    assert.equal(rowsIn(container), 0, "the typed query never reached the list, so the two halves are joined by nothing");
+      await act(async () => {
+        mock.timers.runAll();
+      });
+
+      assert.deepEqual(seen.replaced, [], "the bar replaced the URL, which is the request line nginx logs");
+      assert.deepEqual(seen.pushed, [], "the bar pushed a URL, which is the request line nginx logs");
+      assert.equal(window.location.href, before, "the bar wrote the query into the browser's history");
+    } finally {
+      mock.timers.reset();
+    }
   });
 
-  /* The control the case above needs, and the neighbours' own behaviour: every other route narrows
-     through `?q=`, where back and forward are what the reader expects to work. */
-  it("still reaches the URL on a page that asks for none", async () => {
-    const user = userEvent.setup();
-    const { seen, container } = mount(false);
-
-    await user.type(within(container).getByRole("searchbox", { name: LABEL }), "Fremde");
-
-    await waitFor(() => {
-      assert.equal(seen.replaced.length, 1, "the ordinary bar wrote no query to the URL");
+  /* A list thousands of rows long takes long enough to re-render that a keystroke waiting on it lags:
+     the bar's own commit has to leave the memoised table alone, and the table catch up after it. */
+  it("commits a keystroke before the table re-renders behind it", () => {
+    let tableRenders = 0;
+    const perCommit: number[] = [];
+    const Table = memo(function Table({ rows }: { rows: Row[]; onDelete: unknown }) {
+      tableRenders += 1;
+      return h(
+        "ul",
+        null,
+        rows.map((row) => h("li", { key: row.id }, row.name)),
+      );
     });
-    assert.match(
-      seen.replaced[0] ?? "",
-      /^\/bereich\/admin\/sperrliste\?q=Fremde$/,
-      "the ordinary bar wrote something other than the typed query",
+    const { container } = render(
+      underNext(
+        h(Profiler, {
+          id: "liste",
+          onRender: () => void perCommit.push(tableRenders),
+          children: h(AdminCrudShell, {
+            search: h(AdminCrudSearch, { searchLabel: LABEL, searchPlaceholder: LABEL }),
+            children: h(AdminCrudView<Row>, {
+              items: ROWS,
+              searchKeys: SEARCH_KEYS,
+              shape: "cards",
+              renderTable: ({ filteredItems, onDelete }) => h(Table, { rows: filteredItems, onDelete }),
+            }),
+          }),
+        }),
+      ),
     );
-    assert.equal(rowsIn(container), ROWS.length, "the list narrowed off the field rather than off the URL the router never changed");
+
+    perCommit.length = 0;
+    const before = tableRenders;
+    fireEvent.change(within(container).getByRole("searchbox", { name: LABEL }), { target: { value: NAME } });
+
+    assert.equal(perCommit[0], before, "the keystroke's own commit re-rendered the table, so typing waits on every row");
+    assert.equal(tableRenders, before + 1, "the table never caught up with the keystroke, or rendered it more than once");
+    assert.deepEqual(shown(container), ["Lena Brückner"]);
+  });
+
+  /* A bar mounted outside the shell has nothing holding what is typed into it: it fails where it is
+     mounted rather than taking keystrokes that go nowhere. */
+  it("refuses a bar mounted with no holder", () => {
+    assert.throws(() => renderTree(underNext(h(AdminCrudSearch, { searchLabel: LABEL, searchPlaceholder: LABEL }))), /AdminCrudShell/);
+  });
+
+  /* The read half of the same rule: a link or a bookmark carrying `?q=` is no way into a search. */
+  it("narrows nothing by a query the URL carries", () => {
+    const { container } = mount(`q=${NAME}`);
+
+    assert.equal(within(container).getByRole<HTMLInputElement>("searchbox", { name: LABEL }).value, "", "the bar took its query from the URL");
+    assert.deepEqual(shown(container), ["Lena Brückner", "Jonas Okafor"], "the list narrowed by the URL's query");
   });
 });

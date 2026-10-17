@@ -8,7 +8,7 @@ import type { ReactNode } from "react";
 
 /**
  * The admin layout's failing read is the session guard's or the season slot's. A throw in the switcher
- * is a defect: its lookup is the guard's memoised one, whose failure the guard redirects before the
+ * is a defect: its lookup is the guard's memoised one, whose failure the guard turns away before the
  * switcher renders.
  */
 function AdminCrashShell({ children }: { children: ReactNode }) {

@@ -115,6 +115,10 @@ def entry_rows(saison_id: str = SAISON_ID) -> list[dict[str, Any]]:
     ]
 
 
+# The rival's player, one past the seeded squad and stored as a person, which the create reads.
+ADDED_PLAYER_ID = ObjectId(f"6890a1b2c3d4e5f6075{SEEDED_SQUAD:05d}")
+
+
 def squad_rows(count: int) -> list[dict[str, Any]]:
     """One club's live squad at `count`."""
 
@@ -240,7 +244,7 @@ async def call_add_a_player(database: AsyncDatabase) -> Any:
     """The rival write: one more player into the seeded squad, through the route and so inside its own transaction."""
 
     return await post_saison_spieler(
-        spieler_id=ObjectId(f"6890a1b2c3d4e5f6075{SEEDED_SQUAD:05d}"),
+        spieler_id=ADDED_PLAYER_ID,
         saison_spieler_data=FLPostSaisonSpielerPayload(
             saison_id=SAISON_ID,
             team_id=SQUAD_TEAM_ID,
@@ -249,6 +253,7 @@ async def call_add_a_player(database: AsyncDatabase) -> Any:
             stufe=None,
             rolle=None,
         ),
+        spieler_collection=database[Collection.SPIELER],
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
@@ -332,6 +337,7 @@ class TestAPlayerAddedMidPatchIsJudgedAgain:
     def test_the_narrowing_is_refused_on_the_player_added_under_it(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.SAISON_SPIELER].insert_many(squad_rows(SEEDED_SQUAD))
+            await database[Collection.SPIELER].insert_one(documents.spieler_document(ADDED_PLAYER_ID, "Vorname", "Nachname"))
 
             async def add_between() -> None:
                 await call_add_a_player(database)

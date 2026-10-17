@@ -17,6 +17,7 @@ Invariants:
 
 from __future__ import annotations
 
+import base64
 import os
 import re
 import shlex
@@ -56,13 +57,32 @@ if [[ "${1:-}" == "compose" && " ${*:2:3} " == *" run "* ]]; then
 fi
 if [[ "${1:-}" == "compose" ]]; then
   case " $* " in
+    # nginx's Control API, answering a reload as `FL_DEPLOY_RELOAD_STATUS` says.
+    *" -X PATCH "*)
+      printf 'reload\\n' >> "${FL_DEPLOY_CALLS}"
+      if [[ -n "${FL_DEPLOY_RELOAD_RC:-}" ]]; then exit "${FL_DEPLOY_RELOAD_RC}"; fi
+      printf '{"logs":[]}\\n%s' "${FL_DEPLOY_RELOAD_STATUS:-200}"; exit 0 ;;
+    *" up "*)
+      printf 'up %s\\n' "${*:5}" >> "${FL_DEPLOY_CALLS}"; exit 0 ;;
     *" ps "*)
       printf '%s\\n' "$@" > "${FL_DEPLOY_PS_ARGV}"
       case ":${FL_DEPLOY_NO_CONTAINER:-}:" in *":${last}:"*) exit 0 ;; esac
+      # A stopped container answers only a `ps` that asks for every one.
+      if [[ " $* " != *" --all "* && ":${FL_DEPLOY_STOPPED_CONTAINER:-}:" == *":${last}:"* ]]; then exit 0; fi
       printf 'cid-%s\\n' "$last"; exit 0 ;;
     *" logs "*)
+      printf 'logs %s\\n' "$last" >> "${FL_DEPLOY_CALLS}"
+      # A signal to the run itself while this command is in hand; the pause lets it land first.
+      if [[ "${FL_DEPLOY_SIGNAL_AT:-}" == logs ]]; then kill -s "${FL_DEPLOY_SIGNAL}" "${FL_DEPLOY_SHELL_PID}"; sleep 0.3; fi
       case ":${FL_DEPLOY_LOGS_FAIL:-}:" in *":${last}:"*) exit "${FL_DEPLOY_LOGS_RC:-1}" ;; esac
       printf '%s line one\\n%s line two\\n' "$last" "$last"; exit 0 ;;
+    *" stop "*)
+      printf 'stop %s\\n' "${*:5}" >> "${FL_DEPLOY_CALLS}"
+      if [[ "${FL_DEPLOY_SIGNAL_AT:-}" == stop ]]; then kill -s "${FL_DEPLOY_SIGNAL}" "${FL_DEPLOY_SHELL_PID}"; sleep 0.3; fi
+      exit "${FL_DEPLOY_STOP_RC:-0}" ;;
+    *" start "*)
+      printf 'start %s\\n' "${*:5}" >> "${FL_DEPLOY_CALLS}"
+      exit "${FL_DEPLOY_START_RC:-0}" ;;
     *" config "*)
       printf '%s\\n' "$@" > "${FL_DEPLOY_ARGV}"
       # On BOTH streams: without --quiet this subcommand prints the resolved configuration, every
@@ -76,7 +96,7 @@ if [[ "${1:-}" == "compose" ]]; then
   esac
   exit 0
 fi
-if [[ "${1:-}" == "inspect" ]]; then printf 'healthy\\n'; exit 0; fi
+if [[ "${1:-}" == "inspect" ]]; then printf '%s\\n' "${FL_DEPLOY_HEALTH:-healthy}"; exit 0; fi
 if [[ "${1:-}" == "run" ]]; then
   printf '%s\\n' "$@" > "${FL_DEPLOY_ARGV}"
   if [[ -n "${FL_DEPLOY_RUN_SAYS:-}" ]]; then printf '%s\\n' "${FL_DEPLOY_RUN_SAYS}" >&2; fi
@@ -94,8 +114,10 @@ def _assignment(name: str) -> str:
     return lift_assignment(DEPLOY, name)
 
 
-# Every assignment the environment readers build their containers from.
+# Every assignment the environment readers build their containers from, and the ones putting a
+# stopped pair back reads, after `COMPOSE`, which the typed reload spells.
 ENV_ASSIGNMENTS: Final = ("ENV_MOUNTS", "ENV_NAME_CHECK")
+RESTART_ASSIGNMENTS: Final = ("EDGE_CONTROL_SOCKET", "EDGE_RELOAD_TYPED", "HEALTH_WAIT_BACKEND", "HEALTH_WAIT_FRONTEND")
 
 
 class _Fixture:
@@ -112,6 +134,10 @@ class _Fixture:
         (self.checkout / ".env").write_bytes(b"A_NAME_NOTHING_DECLARES=a value no case reads\n")
         self.argv = self.root / "argv.txt"
         self.ps_argv = self.root / "ps-argv.txt"
+        self.calls = self.root / "calls.txt"
+
+    def called(self) -> list[str]:
+        return self.calls.read_text(encoding="utf-8").splitlines() if self.calls.exists() else []
 
 
 def _run(body: str, **overrides: str) -> tuple[int, str, _Fixture]:
@@ -128,6 +154,7 @@ def _run(body: str, **overrides: str) -> tuple[int, str, _Fixture]:
     environment["PATH"] = str(stubs) + os.pathsep + environment["PATH"]
     environment["FL_DEPLOY_ARGV"] = str(fixture.argv)
     environment["FL_DEPLOY_PS_ARGV"] = str(fixture.ps_argv)
+    environment["FL_DEPLOY_CALLS"] = str(fixture.calls)
     environment.update(overrides)
     script = fixture.root / "parent.sh"
     lines = (
@@ -142,11 +169,17 @@ def _run(body: str, **overrides: str) -> tuple[int, str, _Fixture]:
         f'LOG_STAMP="{STAMP}"',
         "COPIED_STREAMS=0",
         "ATTEMPTED_STREAMS=0",
+        "STOPPED_SERVICES=()",
         'IMAGE_BACKEND="backend-image"',
-        *(_assignment(name) for name in ENV_ASSIGNMENTS),
+        *(_assignment(name) for name in ENV_ASSIGNMENTS + RESTART_ASSIGNMENTS),
         _lifted("service_cid"),
+        _lifted("service_cid_any"),
         _lifted("check_compose_config"),
+        _lifted("edge_control"),
         _lifted("copy_streams"),
+        _lifted("start_stopped_again"),
+        _lifted("start_again_and_end"),
+        _lifted("restart_on_exit"),
         _lifted("read_env_names"),
         _lifted("check_env_names"),
         body,
@@ -163,7 +196,7 @@ def _copies(fixture: _Fixture) -> list[str]:
 # --- the copy taken before each recreate -------------------------------------------------------------
 
 COUNTS: Final = 'printf "copied=%s attempted=%s\\n" "$COPIED_STREAMS" "$ATTEMPTED_STREAMS"'
-BEFORE: Final = f'copy_streams "" refuse "NOTHING has been recreated." ; {COUNTS}'
+BEFORE: Final = f'copy_streams "" start_again_and_end "NOTHING has been recreated." ; {COUNTS}'
 FAILED: Final = f'copy_streams "-failed" warn "The rollback goes on without it." ; {COUNTS}'
 
 
@@ -175,13 +208,34 @@ def test_the_copy_before_the_recreate_names_one_file_per_running_service() -> No
     assert _copies(fixture) == [f"{STAMP}-backend.log", f"{STAMP}-frontend.log"], output
 
 
+def test_every_container_is_stopped_before_its_stream_is_read() -> None:
+    """A line written between the copy and the recreate, an erasure's journal line among them, is otherwise in no file."""
+    code, output, fixture = _run(BEFORE)
+
+    assert code == 0, output
+    assert fixture.called() == ["stop frontend backend", "logs frontend", "logs backend"], output
+
+
 def test_a_service_with_no_container_is_skipped_rather_than_written_empty() -> None:
-    """A first deploy has nothing to copy, and an empty file would read as a build that logged nothing."""
+    """A first deploy has nothing to copy, and an empty file would read as a build that logged nothing.
+
+    Nor is anything stopped: a `stop` naming no service stops the whole project, the edge included.
+    """
     code, output, fixture = _run(BEFORE, FL_DEPLOY_NO_CONTAINER="frontend:backend")
 
     assert code == 0, output
     assert "copied=0" in output, output
     assert _copies(fixture) == [], output
+    assert fixture.called() == [], output
+
+
+def test_a_stop_that_fails_warns_and_takes_the_copy_all_the_same() -> None:
+    """A copy without the stop lacks only the lines of the seconds before the recreate, and the recreate stops the containers anyway."""
+    code, output, fixture = _run(BEFORE, FL_DEPLOY_STOP_RC="5")
+
+    assert code == 0, output
+    assert "could not stop the containers before their copy (exit 5)" in output, output
+    assert _copies(fixture) == [f"{STAMP}-backend.log", f"{STAMP}-frontend.log"], output
 
 
 def test_the_rollbacks_copy_carries_the_suffix_beside_the_same_stamp() -> None:
@@ -213,6 +267,127 @@ def test_a_copy_that_fails_before_the_recreate_refuses_with_nothing_left_behind(
     assert "NOTHING has been recreated" in output, output
     assert "(exit 7)" in output, output
     assert _copies(fixture) == [f"{STAMP}-frontend.log"], output
+
+
+def test_a_refused_copy_puts_the_stopped_pair_back_and_reloads_the_edge_onto_it() -> None:
+    """The reload is the load-bearing call: a started container takes its address afresh, and nginx keeps the old one.
+
+    Never `up`, which would recreate the pair from the build the pull just fetched.
+    """
+    code, output, fixture = _run(BEFORE, FL_DEPLOY_LOGS_FAIL="frontend", FL_DEPLOY_LOGS_RC="7")
+
+    assert code == 2, output
+    assert fixture.called()[-2:] == ["start frontend backend", "reload"], output
+    assert "'frontend' is healthy" in output and "'backend' is healthy" in output, output
+    assert "reloaded onto them, and each answered healthy" in output, output
+    assert not [call for call in fixture.called() if call.startswith("up")], output
+
+
+# Each answer a step putting the pair back can give short of a healthy pair, the exit it ends on,
+# and what the run says of it. A reload's arms each name the reload as an operator types it.
+PUT_BACK_ANSWERS: Final = [
+    pytest.param({"FL_DEPLOY_RELOAD_STATUS": "422"}, 1, "nginx refused the configuration", True, id="reload-refused"),
+    pytest.param({"FL_DEPLOY_RELOAD_RC": "7"}, 2, "could not be asked to reload it (exit 7)", True, id="reload-unanswered"),
+    pytest.param({"FL_DEPLOY_RELOAD_STATUS": "500"}, 2, "answered the reload with '500'", True, id="reload-neither"),
+    pytest.param({"FL_DEPLOY_HEALTH": "unhealthy"}, 1, "reports UNHEALTHY", False, id="unhealthy"),
+]
+
+
+@pytest.mark.parametrize(("answers", "ending", "said", "typed"), PUT_BACK_ANSWERS)
+def test_each_step_putting_the_pair_back_ends_the_run_by_its_own_answer(answers: dict[str, str], ending: int, said: str, typed: bool) -> None:
+    """A bad answer leaves the site out of service, a finding outranking the copy's refusal; one nobody gave leaves that refusal the ending."""
+    code, output, _ = _run(BEFORE, FL_DEPLOY_LOGS_FAIL="frontend", FL_DEPLOY_LOGS_RC="7", **answers)
+
+    assert code == ending, output
+    assert said in output, output
+    assert ("-X PATCH --unix-socket /run/nginx-control/control.sock http://localhost/1/control/config" in output) is typed, output
+
+
+def test_a_directory_the_copy_cannot_write_refuses_before_anything_is_stopped() -> None:
+    """Asked after the stop, the refusal would first take the site down for a copy that cannot be made."""
+    code, output, fixture = _run(f'LOG_DIR="${{LOG_DIR}}/absent" ; {BEFORE}')
+
+    assert code == 2, output
+    assert "is missing or not writable" in output, output
+    assert "NOTHING has been recreated" in output, output
+    assert fixture.called() == [], output
+
+
+def test_a_container_that_is_not_running_is_copied_and_neither_stopped_nor_started() -> None:
+    """A failed build's backend has often exited, and the rollback's recreate discards its stream all the same."""
+    code, output, fixture = _run(FAILED, FL_DEPLOY_STOPPED_CONTAINER="backend")
+
+    assert code == 0, output
+    assert _copies(fixture) == [f"{STAMP}-backend-failed.log", f"{STAMP}-frontend-failed.log"], output
+    assert fixture.called() == ["stop frontend", "logs frontend", "logs backend"], output
+
+
+def test_a_refused_copy_starts_only_what_it_stopped() -> None:
+    """A container found stopped stays stopped, and a bare `start` would start the whole project."""
+    code, output, fixture = _run(BEFORE, FL_DEPLOY_STOPPED_CONTAINER="backend", FL_DEPLOY_LOGS_FAIL="backend", FL_DEPLOY_LOGS_RC="7")
+    assert code == 2, output
+    assert [call for call in fixture.called() if call.startswith("start")] == ["start frontend"], output
+    assert "waiting for 'backend'" not in output, output
+
+    code, output, fixture = _run(BEFORE, FL_DEPLOY_STOPPED_CONTAINER="frontend:backend", FL_DEPLOY_LOGS_FAIL="frontend", FL_DEPLOY_LOGS_RC="7")
+    assert code == 2, output
+    assert fixture.called() == ["logs frontend"], output
+    assert "were started again" not in output, output
+
+
+def test_a_start_that_fails_after_a_refused_copy_ends_on_the_site_being_down() -> None:
+    """Exit 1 and never the copy's 2: a section holding a refusal and a finding ends on the finding, the definite verdict."""
+    code, output, fixture = _run(BEFORE, FL_DEPLOY_LOGS_FAIL="backend", FL_DEPLOY_LOGS_RC="7", FL_DEPLOY_START_RC="1")
+
+    assert code == 1, output
+    assert "could NOT be started again (exit 1)" in output, output
+    assert "docker compose -f docker-compose.yml start frontend backend" in output, output
+    assert "were started again" not in output, output
+    assert "reload" not in fixture.called(), output
+
+
+# The deploy's copy as its top level runs it, the run's own process id handed to the stand-in.
+WINDOW: Final = f"export FL_DEPLOY_SHELL_PID=$$\ntrap restart_on_exit EXIT\n{BEFORE}\necho went-on"
+
+
+@pytest.mark.parametrize(
+    ("signal", "during", "copied"),
+    [
+        pytest.param("INT", "logs", ["logs frontend"], id="interrupt-during-the-copy"),
+        pytest.param("TERM", "logs", ["logs frontend"], id="terminate-during-the-copy"),
+        pytest.param("HUP", "logs", ["logs frontend"], id="hangup-during-the-copy"),
+        pytest.param("INT", "stop", [], id="interrupt-during-the-stop"),
+    ],
+)
+def test_a_signal_inside_the_stop_window_puts_the_stopped_pair_back(signal: str, during: str, copied: list[str]) -> None:
+    """A hangup, a dropped SSH session's, left to bash ends the run at 129 with no statement.
+
+    The stop's row needs the pair recorded before the stop is asked for: recorded after, the trap starts nothing.
+    """
+    code, output, fixture = _run(WINDOW, FL_DEPLOY_SIGNAL=signal, FL_DEPLOY_SIGNAL_AT=during)
+
+    assert code == 130, output
+    assert fixture.called() == ["stop frontend backend", *copied, "start frontend backend", "reload"], output
+    assert "'backend' is healthy" in output, output
+    assert "went-on" not in output, output
+
+
+def _top_level(text: str) -> list[str]:
+    """The script's statements at column 0, its comments and blank lines dropped."""
+    return [line for line in text.splitlines() if line and not line.startswith(("#", " ", "\t"))]
+
+
+def test_the_trap_is_set_just_before_the_deploys_copy_and_lifted_just_before_the_recreate() -> None:
+    """Set later, an interrupt during the stop leaves the pair stopped; lifted later, one during the recreate starts containers it replaced."""
+    lines = _top_level(DEPLOY.read_text(encoding="utf-8"))
+    armed = lines.index("trap restart_on_exit EXIT")
+    lifted = lines.index("trap - EXIT")
+    recreated = next(i for i, line in enumerate(lines) if "up -d --force-recreate frontend backend" in line)
+
+    assert lines[armed + 1].startswith('copy_streams "" start_again_and_end '), lines[armed + 1]
+    assert armed < lifted < recreated, (armed, lifted, recreated)
+    assert lines[lifted + 1 : recreated] == ["UP_RC=0"], lines[lifted:recreated]
+    assert [line for line in lines[armed:lifted] if line.startswith("trap ")] == ["trap restart_on_exit EXIT"], lines[armed:lifted]
 
 
 def test_the_same_failure_inside_the_rollback_warns_and_copies_the_other_service() -> None:
@@ -267,7 +442,7 @@ def test_the_two_call_sites_differ_in_the_suffix_and_in_the_verb_alone() -> None
     """
     calls = re.findall(r"^\s*copy_streams (\"[^\"]*\") (\w+) ", DEPLOY.read_text(encoding="utf-8"), re.MULTILINE)
 
-    assert calls == [('"-failed"', "warn"), ('""', "refuse")], calls
+    assert calls == [('"-failed"', "warn"), ('""', "start_again_and_end")], calls
 
 
 # --- the environment file, read by the build about to run --------------------------------------------
@@ -352,11 +527,22 @@ def test_the_snippet_answers_3_naming_the_variables_and_never_a_rejected_value()
     # The application is installed wherever this scope runs, CI's job included, so an import failure
     # here is the case failing, never the advisory arm the case below pins.
     assert "snippet=3" in output, output
-    assert "A_NAME_NOTHING_DECLARES" in output, output
+    assert "Undeclared environment variables on 1 line(s): 1" in output, output
+    assert "A_NAME_NOTHING_DECLARES" not in output, output
     assert "a value no case reads" not in output, output
     # The fixture's file declares nothing the backend requires either, so a missing required variable
     # reaches exit 3 beside the undeclared name -- both remedies the deploy's refusal words.
     assert "DB_BASE_NAME" in output, output
+
+
+def test_the_snippet_numbers_a_key_s_line_keeping_the_dotenv_shape_and_never_names_it() -> None:
+    """The backend's own refusal, read in its image as the deploy reads it: a name the settings do not declare is the file's text."""
+    code, output, _ = _run(f"{_written('fl_backend/.env', 'KEYDATAvxq==\n')}{SNIPPET}", PYTHONPATH=(REPO_ROOT / "fl_backend").as_posix())
+
+    assert code == 0, output
+    assert "snippet=3" in output, output
+    assert "Undeclared environment variables on 1 line(s): 1" in output, output
+    assert "vxq" not in output.lower(), output
 
 
 # A backend environment the settings accept, its public key a pair's of the case's own, and the five
@@ -411,62 +597,177 @@ def test_a_settings_module_the_snippet_cannot_import_answers_the_advisory_arm() 
     assert "Traceback" not in output, output
 
 
-# --- each package's `.env`, judged as text for the spellings its readers disagree on -----------------
+# --- each package's `.env`, judged as text: one line every reader takes alike -------------------------
 
 
-def _env_spellings(text: str) -> tuple[int, str]:
-    """`scripts/lib/_lib.sh :: check_env_spellings` over a file holding `text`, the fixture's own."""
-    body = f"printf '%s' {shlex.quote(text)} > fl_backend/.env\ncheck_env_spellings fl_backend/.env\necho judged-clean\n"
-    code, output, _ = _run(body)
+def _written(path: str, text: str) -> str:
+    """A shell line writing `text` to `path` byte for byte: Git Bash drops every carriage return from a script's own source, quoted or not."""
+    return f"printf '%s' '{base64.b64encode(text.encode()).decode()}' | base64 -d > {path}\n"
+
+
+def _env_spellings(text: str, frontend: str | None = None) -> tuple[int, str]:
+    """`scripts/lib/_lib.sh :: check_env_spellings` over `fl_backend/.env` holding `text`, and `fl_frontend/.env` where given."""
+    body = _written("fl_backend/.env", text)
+    named = "fl_backend/.env"
+    if frontend is not None:
+        body += "mkdir -p fl_frontend\n" + _written("fl_frontend/.env", frontend)
+        named = "fl_frontend/.env fl_backend/.env"
+    code, output, _ = _run(f"{body}check_env_spellings {named}\necho judged-clean\n")
     return code, output
 
 
-def test_a_file_every_reader_takes_alike_is_clean() -> None:
-    """Comments say anything; an encoded URI, a spaced comment, a matched quote pair and a bare backslash read alike."""
-    lines = ("# costs $5 #1", "MONGODB_URI=mongodb://user:pa%24ss%23@db/x", "", "LOG_FORMAT='json' # the stream")
-    lines += ('FROM="a#b"', "PATHLIKE=a\\b", "TICK=a`b")
-    code, output = _env_spellings("\n".join(lines) + "\n")
+# A value of each shape the two settings schemas declare, `fl_frontend/src/core/config.ts` and
+# `fl_backend/app/core/config.py`, at its widest; the two URLs carry every character of RFC 3986's.
+SCHEMA_SHAPES: Final = [
+    pytest.param("API_URL=http://backend:8000/api?x=1&y=[2]", id="url-query"),
+    pytest.param("AUTH_URL=https://a@frankfurtleague.de:443/~b/c;d=(e)!f*g+h,i%20-_.", id="url-every-character"),
+    pytest.param("API_VERSION=0", id="integer"),
+    pytest.param("LOG_LEVEL_APP=WARNING", id="enum"),
+    pytest.param("ACTOR_SIGNING_KEY_FILE=/run/secrets/fl_actor_signing_key", id="path"),
+    pytest.param("SECRETS_DIR=../secrets", id="relative-path"),
+    pytest.param("ACTOR_TOKEN_PUBLIC_KEY=0123456789-_abcdefghijklmnopqrstuvwxyzABCDE", id="base64url-key"),
+    pytest.param("API_TRUSTED_HOSTS=*.frankfurtleague.de,backend,*", id="host-list"),
+    pytest.param("API_CORS_ALLOWED_ORIGINS=https://frankfurtleague.de,http://localhost:3000", id="origin-list"),
+    pytest.param("DB_BASE_NAME=fl_db-1", id="database-name"),
+    pytest.param("BEWERBUNG_SWEEP=", id="empty"),
+]
+
+
+@pytest.mark.parametrize("line", SCHEMA_SHAPES)
+def test_each_value_shape_the_schemas_declare_is_clean(line: str) -> None:
+    """Beside a comment saying anything, a blank line and a carriage return, none of which a reader takes as data."""
+    code, output = _env_spellings(f'# costs $5, "quoted" #1\n\n \t\n{line}\r\nLOG_FORMAT=json\n')
 
     assert code == 0, output
     assert "judged-clean" in output, output
 
 
+# Each line carries `vxq` or a name, neither of which a refusal may print: a line is listed by its
+# number alone, whatever it opens with.
 @pytest.mark.parametrize(
-    ("line", "said"),
+    "line",
     [
-        pytest.param("MONGODB_URI=mongodb://user:pa$ss@db/x", "holds a $", id="dollar-bare"),
-        pytest.param("SECRET=${OTHER}", "holds a $", id="dollar-braced"),
-        pytest.param("QUOTED='a$b'", "holds a $", id="dollar-single-quoted"),
-        pytest.param('DOUBLE="a$b"', "holds a $", id="dollar-double-quoted"),
-        pytest.param("export SPACED = a$b", "holds a $", id="dollar-export-and-spaces"),
-        pytest.param("TRAILING=plain # was $5", "holds a $", id="dollar-in-a-trailing-comment"),
-        pytest.param("HASH=a#b", "holds a # with no space before it", id="hash-unspaced"),
-        pytest.param("HASH=#abc", "holds a # with no space before it", id="hash-leading"),
-        pytest.param("SLASH='a\\b'", "holds a backslash inside quotes", id="backslash-single-quoted"),
-        pytest.param('SLASH="a\\b"', "holds a backslash inside quotes", id="backslash-double-quoted"),
-        pytest.param("TICK=`abc`", "opens with a backtick", id="backtick-leading"),
+        pytest.param('LOG_FORMAT="vxq"', id="double-quoted"),
+        pytest.param("LOG_FORMAT='vxq'", id="single-quoted"),
+        pytest.param("LOG_FORMAT=`vxq`", id="backtick-quoted"),
+        pytest.param("log_format='vxq'", id="lower-case-name"),
+        pytest.param("API_TRUSTED_HOSTS=vxq, backend", id="space-inside"),
+        pytest.param("LOG_FORMAT = vxq", id="space-around-the-equals"),
+        pytest.param("  LOG_FORMAT=vxq", id="space-leading"),
+        pytest.param("LOG_FORMAT=vxq ", id="space-trailing"),
+        pytest.param("LOG_FORMAT=a\tvxq", id="tab"),
+        pytest.param("LOG_FORMAT=vxq # the stream", id="inline-comment"),
+        pytest.param("HASH=vxq#b", id="hash-unspaced"),
+        pytest.param("SECRET=vxq$OTHER", id="dollar"),
+        pytest.param("SECRET=${vxq}", id="dollar-braced"),
+        pytest.param("PATHLIKE=vxq\\b", id="backslash"),
+        pytest.param("BRACED={vxq}", id="brace"),
+        pytest.param("ANGLED=<vxq>", id="angle-bracket"),
+        pytest.param("PIPED=vxq|b", id="pipe"),
+        pytest.param("ACCENTED=jsön-vxq", id="non-ascii"),
+        pytest.param("export LOG_FORMAT=vxq", id="export"),
+        pytest.param("LOG_FORMAT: vxq", id="colon"),
+        pytest.param("LOG_FORMAT:vxq", id="colon-unspaced"),
+        pytest.param("LOG_FORMAT", id="bare-pass-through"),
+        pytest.param("  # vxq", id="comment-indented"),
+        # python-dotenv ends a line at a lone carriage return, `@next/env` at U+2028 and U+2029 too,
+        # and compose at neither, so a comment holding one declares a name for some readers alone.
+        pytest.param("# vxq\rLOG_LEVEL_APP=DEBUG", id="comment-carriage-return"),
+        pytest.param("# vxq\u2028LOG_LEVEL_APP=DEBUG", id="comment-line-separator"),
+        pytest.param("# vxq\u2029LOG_LEVEL_APP=DEBUG", id="comment-paragraph-separator"),
+        # `read` drops a NUL unseen, so the line would keep the shape to the shell alone.
+        pytest.param("TURNSTILE_SITE_KEY=vxq\x00b", id="nul-in-a-value"),
+        pytest.param("# vxq\x00", id="nul-in-a-comment"),
+        pytest.param("1_NAME=vxq", id="name-opening-on-a-digit"),
+        pytest.param("A.NAMED=vxq", id="name-with-a-dot"),
+        # An upper-case token before `:` or `=` reads as a name, and a pasted key's line can be one.
+        pytest.param("KEYDATAVXQ:token", id="upper-case-token-and-colon"),
+        pytest.param("KEYDATAVXQ=to ken", id="upper-case-token-and-equals"),
     ],
 )
-def test_a_spelling_the_readers_disagree_on_refuses_naming_the_line_never_the_value(line: str, said: str) -> None:
-    """Each was read apart by python-dotenv, `@next/env` and `node:util :: parseEnv`; `$` even inside single quotes."""
+def test_a_line_outside_the_one_shape_refuses_by_its_number_and_prints_nothing_it_holds(line: str) -> None:
     code, output = _env_spellings(f"FIRST=1\n{line}\n")
-    name = line.removeprefix("export ").split("=", 1)[0].strip()
+    word = re.search(r"[A-Za-z_]{3,}", line)
 
     assert code == 2, output
-    assert f"line 2: {name} {said}" in output, output
-    assert line.split("=", 1)[1].strip() not in output, output
+    assert "fl_backend/.env:2\n" in output.replace("\r", ""), output
+    assert "1 line(s)" in output, output
+    assert "vxq" not in output.lower(), output
+    assert word is not None and word.group() not in output, output
     assert "judged-clean" not in output, output
 
 
-@pytest.mark.parametrize("line", ["LOG_FORMAT: json", "  LOG_FORMAT :json", "export LOG_FORMAT: json"], ids=["bare", "spaced", "export"])
-def test_a_line_written_with_a_colon_refuses_naming_the_line_never_the_value(line: str) -> None:
-    """Compose's parser takes each; python-dotenv and `parseEnv` skip each, driven; `@next/env` 16.3.8, driven, takes the bare one alone."""
-    code, output = _env_spellings(f"FIRST=1\n{line}\n")
+@pytest.mark.parametrize("quote", ['"', "'", "`"], ids=["double", "single", "backtick"])
+def test_a_value_running_over_several_lines_lists_its_lines_by_number_alone(quote: str) -> None:
+    """python-dotenv takes `"` and `'` over several lines, `@next/env` the backtick too.
+
+    Line 2 is shaped as a name, a key's data; line 3 keeps the whole shape and is no finding.
+    """
+    text = f"NOTE={quote}first vxq\nKEYVXQ:MATERIAL\nDATAvxq=x\nlast vxq{quote}\nLOG_FORMAT=json\n"
+    code, output = _env_spellings(text)
 
     assert code == 2, output
-    assert "line 2: LOG_FORMAT is written with a colon" in output, output
-    assert "json" not in output.replace("LOG_FORMAT", ""), output
-    assert "judged-clean" not in output, output
+    assert "fl_backend/.env:1\n" in output.replace("\r", ""), output
+    assert "fl_backend/.env:2\n" in output.replace("\r", ""), output
+    assert "fl_backend/.env:4\n" in output.replace("\r", ""), output
+    assert "NOTE" not in output and "KEYVXQ" not in output, output
+    assert "3 line(s)" in output, output
+    assert "vxq" not in output.lower(), output
+
+
+def test_a_pasted_key_s_lines_are_listed_by_number_alone() -> None:
+    """A bare word, a lower-case one before `=` and one before `:` would each have been printed whole as a name.
+
+    `vxqKEY==` keeps the shape, a declaration to every reader, so it is no finding here at all.
+    """
+    code, output = _env_spellings("LOG_FORMAT=json\nvxqKEYMATERIAL0123\nvxqKEY==\nvxquser:pw@host\nvxqkey+part/x==\n")
+
+    assert code == 2, output
+    assert "fl_backend/.env:2\n" in output.replace("\r", ""), output
+    assert "fl_backend/.env:4\n" in output.replace("\r", ""), output
+    assert "fl_backend/.env:5\n" in output.replace("\r", ""), output
+    assert "3 line(s)" in output, output
+    assert "vxq" not in output, output
+
+
+def test_a_last_line_of_nul_bytes_alone_is_refused() -> None:
+    """With no newline after it, `read` hands such a line back empty and ends the loop before visiting it."""
+    code, output = _env_spellings("FIRST=1\n\x00\x00")
+
+    assert code == 2, output
+    assert "fl_backend/.env:2\n" in output.replace("\r", ""), output
+    assert "1 line(s)" in output, output
+
+
+def test_a_shell_trace_prints_no_line_of_either_check() -> None:
+    """`bash -x`, or an exported `SHELLOPTS` holding xtrace, would otherwise expand each line and each name read in any form."""
+    text = "LOG_FORMAT='vxq'\nvxqKEYMATERIAL0123\n"
+    code, output, _ = _run(f"{_written('fl_backend/.env', text)}set -x\njudge_env_files fl_backend/.env\n")
+
+    assert code == 2, output
+    assert "+ " in output, output
+    assert "vxq" not in output.lower(), output
+
+
+def test_a_byte_order_mark_refuses_its_line_and_names_the_file() -> None:
+    """Compose, python-dotenv 1.2.4 and `@next/env` drop the mark; `parseEnv`, driven, keeps it in the first name."""
+    code, output = _env_spellings("\ufeffAPI_URL=http://backend:8000\nLOG_FORMAT=json\n")
+
+    assert code == 2, output
+    assert "fl_backend/.env:1\n" in output.replace("\r", ""), output
+    assert "API_URL" not in output, output
+    assert "byte-order mark" in output, output
+    assert "backend:8000" not in output, output
+
+
+def test_every_file_named_is_judged_before_the_refusal() -> None:
+    """One refusal over both files, so one visit to the host corrects every line."""
+    code, output = _env_spellings("LOG_FORMAT='vxq'\n", frontend='APP_ENV=local\nAPI_URL="vxq"\n')
+
+    assert code == 2, output
+    assert "fl_frontend/.env:2\n" in output.replace("\r", ""), output
+    assert "fl_backend/.env:1\n" in output.replace("\r", ""), output
+    assert "2 line(s)" in output, output
 
 
 # --- the actor token's key pair ---------------------------------------------------------------------------
@@ -944,8 +1245,10 @@ def test_every_credential_line_refuses_naming_each_in_any_case_and_no_value() ->
 
     assert code == 2, output
     assert "credential-lines-passed" not in output, output
-    assert "fl_backend/.env: mongodb_uri" in output, output
-    assert "fl_frontend/.env: INTERNAL_API_KEY_BASE AUTH_SECRET" in output, output
+    assert "fl_backend/.env:2 MONGODB_URI" in output, output
+    assert "mongodb_uri" not in output, output
+    assert "fl_frontend/.env:1 INTERNAL_API_KEY_BASE" in output, output
+    assert "fl_frontend/.env:2 AUTH_SECRET" in output, output
     assert "LOG_FORMAT" not in output, output
     assert "a value no case reads" not in output, output
     assert "Delete them" in output, output
@@ -968,19 +1271,9 @@ def test_a_credential_line_in_any_form_compose_reads_refuses(line: str) -> None:
     code, output, _ = _run(body)
 
     assert code == 2, output
-    assert "fl_backend/.env: AUTH_SECRET" in output, output
+    assert "fl_backend/.env:1 AUTH_SECRET" in output, output
     assert "a value no case reads" not in output, output
     assert "credential-lines-passed" not in output, output
-
-
-def test_a_multi_line_quoted_value_declares_nothing_and_the_line_after_it_is_judged() -> None:
-    """Compose reads the middle line as the value's data; the line after the closing quote is a declaration again."""
-    text = 'NOTE="first\nAUTH_SECRET: data the value carries\nlast"\nAUTH_SECRET=a value no case reads\n'
-    code, output, _ = _run(f"printf '%s' {shlex.quote(text)} > fl_backend/.env\nrefuse_credential_lines fl_backend/.env\n")
-
-    assert code == 2, output
-    assert "fl_backend/.env: AUTH_SECRET\n" in output.replace("\r", ""), output
-    assert "data the value carries" not in output and "a value no case reads" not in output, output
 
 
 def test_a_credential_line_behind_a_byte_order_mark_refuses() -> None:
@@ -990,50 +1283,20 @@ def test_a_credential_line_behind_a_byte_order_mark_refuses() -> None:
     )
 
     assert code == 2, output
-    assert "fl_backend/.env: AUTH_SECRET" in output, output
+    assert "fl_backend/.env:1 AUTH_SECRET" in output, output
     assert "a value no case reads" not in output, output
 
 
-def test_a_multi_line_quoted_value_every_reader_takes_alike_is_clean() -> None:
-    """Next, `parseEnv` and python-dotenv each read this three-line value alike; its middle line opens `word:`."""
-    code, output = _env_spellings('NOTE="first line\nhttps://example.org/a\nlast"\nLOG_FORMAT=json\n')
-
-    assert code == 0, output
-    assert "judged-clean" in output, output
-
-
-@pytest.mark.parametrize(
-    ("text", "said"),
-    [
-        pytest.param('NOTE="first\nsecond $base\nlast"\n', "line 2: NOTE's quoted value holds a $", id="dollar-inside"),
-        pytest.param('NOTE="first\nsecond\n', "line 1: NOTE's quoted value never closes", id="unclosed"),
-        # The credential check reads the colon form's quote as opening a value too, so both read line 2 as data.
-        pytest.param('NOTE: "first\nBASE=$base\nlast"\n', "line 2: NOTE's quoted value holds a $", id="opened-by-a-colon-line"),
-    ],
-)
-def test_a_multi_line_quoted_value_the_readers_disagree_on_refuses(text: str, said: str) -> None:
-    code, output = _env_spellings(text)
+def test_a_credential_line_after_a_multi_line_value_is_still_judged() -> None:
+    """The credential check reads every line, so no quote above a credential's line hides it; the data line naming one is refused with it."""
+    text = 'NOTE="first\nAUTH_SECRET: data the value carries\nlast"\nAUTH_SECRET=a value no case reads\n'
+    code, output, _ = _run(_written("fl_backend/.env", text) + "refuse_credential_lines fl_backend/.env\n")
 
     assert code == 2, output
-    assert said in output, output
-
-
-def test_a_byte_order_mark_refuses_as_a_spelling_and_the_line_is_still_judged() -> None:
-    """Compose, python-dotenv 1.2.4 and `@next/env` 16.3.8 drop the mark; `parseEnv`, driven, keeps it in the first name."""
-    code, output = _env_spellings("\ufeffAPI_URL=http://backend:8000/$base\nLOG_FORMAT=json\n")
-
-    assert code == 2, output
-    assert "line 1 opens with a byte-order mark" in output, output
-    assert "line 1: API_URL holds a $" in output, output
-    assert "backend:8000" not in output, output
-
-
-def test_a_byte_order_mark_alone_refuses() -> None:
-    code, output = _env_spellings("\ufeffLOG_FORMAT=json\n")
-
-    assert code == 2, output
-    assert "line 1 opens with a byte-order mark" in output, output
-    assert "json" not in output.replace("LOG_FORMAT", ""), output
+    assert "fl_backend/.env:2 AUTH_SECRET" in output, output
+    assert "fl_backend/.env:4 AUTH_SECRET" in output, output
+    assert "data the value carries" not in output, output
+    assert "a value no case reads" not in output, output
 
 
 def test_the_retired_administrator_list_refuses_naming_it_and_no_address() -> None:
@@ -1046,7 +1309,7 @@ def test_the_retired_administrator_list_refuses_naming_it_and_no_address() -> No
     code, output, _ = _run(body)
 
     assert code == 2, output
-    assert "fl_frontend/.env: ALLOWED_ADMIN_EMAILS" in output, output
+    assert "fl_frontend/.env:2 ALLOWED_ADMIN_EMAILS" in output, output
     assert "vorstand@schule.de" not in output, output
     assert "APP_ENV" not in output, output
     assert "credential-lines-passed" not in output, output
@@ -1072,8 +1335,10 @@ START_MODES: Final = [
 ]
 
 
-def _start(script: str, uname: str, args: tuple[str, ...], frontend_env: str) -> tuple[int, str, list[str]]:
-    """One start mode, run whole from a checkout of its own.
+def _start(
+    script: str, uname: str, args: tuple[str, ...], frontend_env: str, *, stray: bool = False, backend_env: str = "LOG_FORMAT=json\n"
+) -> tuple[int, str, list[str]]:
+    """One start mode, run whole from a checkout of its own, `stray` putting compose's own `.env` beside it.
 
     Copied, because `_lib.sh` roots every path at its own checkout; the compose files need only
     exist, the stand-in `docker` reading neither.
@@ -1087,10 +1352,12 @@ def _start(script: str, uname: str, args: tuple[str, ...], frontend_env: str) ->
         ("docker-compose.yml", "services: {}\n"),
         ("docker-compose.local.yml", "services: {}\n"),
         ("fl_frontend/.env", frontend_env),
-        ("fl_backend/.env", "LOG_FORMAT=json\n"),
+        ("fl_backend/.env", backend_env),
     ):
         (root / rel).parent.mkdir(parents=True, exist_ok=True)
         (root / rel).write_bytes(text.encode())
+    if stray:
+        (root / ".env").write_bytes(b"COMPOSE_PROJECT_NAME=a-value-no-case-reads\n")
     stubs = root / "stubs"
     stubs.mkdir()
     os.chmod(write_shell(stubs / "docker", RECORDING_DOCKER), 0o755)
@@ -1108,12 +1375,12 @@ def _start(script: str, uname: str, args: tuple[str, ...], frontend_env: str) ->
 
 @pytest.mark.parametrize(("script", "uname", "args"), START_MODES)
 def test_a_credential_line_stops_every_start_before_compose_is_asked_anything(script: str, uname: str, args: tuple[str, ...]) -> None:
-    """Written with a colon, the one form the spelling check also refuses, so its remedy reaching the operator first fails this too."""
+    """Written with a colon, which the shape check refuses too, so its remedy reaching the operator first fails this."""
     code, output, calls = _start(script, uname, args, "APP_ENV=local\nAUTH_SECRET: a value no case reads\n")
 
     assert code == 2, output
     assert "these lines name a value no service reads from its environment" in output, output
-    assert "fl_frontend/.env: AUTH_SECRET" in output, output
+    assert "fl_frontend/.env:2 AUTH_SECRET" in output, output
     assert "a value no case reads" not in output, output
     # The stand-in answered the daemon check, so a compose call made before the refusal is one it recorded.
     assert any(call.startswith("version") for call in calls), calls
@@ -1124,12 +1391,108 @@ def test_a_credential_line_stops_every_start_before_compose_is_asked_anything(sc
 def test_a_spelling_the_readers_disagree_on_stops_every_start_before_compose_is_asked_anything(
     script: str, uname: str, args: tuple[str, ...]
 ) -> None:
-    code, output, calls = _start(script, uname, args, "APP_ENV=local\nAPI_URL=http://backend:8000/$base\n")
+    """Both files in one refusal, so a refused frontend file never hides the backend file's lines."""
+    code, output, calls = _start(script, uname, args, "APP_ENV=local\nAPI_URL=http://backend:8000/$base\n", backend_env="LOG_FORMAT='json'\n")
 
     assert code == 2, output
-    assert "line 2: API_URL holds a $" in output, output
+    assert "fl_frontend/.env:2\n" in output.replace("\r", ""), output
+    assert "fl_backend/.env:1\n" in output.replace("\r", ""), output
+    assert "2 line(s)" in output, output
     assert any(call.startswith("version") for call in calls), calls
     assert [call for call in calls if call.startswith("compose")] == [], calls
+
+
+def test_the_dry_run_over_clean_files_answers_0_and_asks_docker_nothing() -> None:
+    code, output, calls = _start("deploy.sh", "Linux", ("--check-env",), "APP_ENV=production\nAPI_URL=http://backend:8000\n")
+
+    assert code == 0, output
+    assert "0 lines refused" in output, output
+    assert calls == [], calls
+
+
+def test_the_dry_run_lists_each_refused_line_by_name_and_number_and_never_its_value() -> None:
+    code, output, calls = _start("deploy.sh", "Linux", ("--check-env",), "APP_ENV=production\nAPI_URL='http://vxq:8000'\n")
+
+    assert code == 2, output
+    assert "fl_frontend/.env:2\n" in output.replace("\r", ""), output
+    assert "API_URL" not in output, output
+    assert "1 line(s)" in output, output
+    assert "vxq" not in output, output
+    assert calls == [], calls
+
+
+@pytest.mark.parametrize("other", [("sha-0123abc",), ("--status",)], ids=["tag", "status"])
+def test_the_dry_run_takes_no_other_mode(other: tuple[str, ...]) -> None:
+    code, output, calls = _start("deploy.sh", "Linux", ("--check-env", *other), "APP_ENV=production\n")
+
+    assert code == 2, output
+    assert "--check-env reads the two .env files and nothing else" in output, output
+    assert calls == [], calls
+
+
+def test_the_dry_run_refuses_a_credential_line_as_the_deploy_does() -> None:
+    """The shape alone would pass this line, and the dry run would answer 0 over a file the deploy refuses."""
+    code, output, calls = _start("deploy.sh", "Linux", ("--check-env",), "APP_ENV=production\nAUTH_SECRET=vxq\n")
+
+    assert code == 2, output
+    assert "fl_frontend/.env:2 AUTH_SECRET" in output, output
+    assert "vxq" not in output, output
+    assert calls == [], calls
+
+
+def test_the_dry_run_refuses_compose_s_own_dotenv_as_the_deploy_does() -> None:
+    code, output, calls = _start("deploy.sh", "Linux", ("--check-env",), "APP_ENV=production\n", stray=True)
+
+    assert code == 2, output
+    assert "a .env stands beside the compose files" in output, output
+    assert "a-value-no-case-reads" not in output, output
+    assert calls == [], calls
+
+
+def test_the_dry_run_runs_on_the_deploy_s_platform_alone() -> None:
+    code, output, calls = _start("deploy.sh", "MINGW64_NT-10.0", ("--check-env",), "APP_ENV=production\n")
+
+    assert code == 2, output
+    assert "This script targets linux" in output, output
+    assert calls == [], calls
+
+
+# Each printable ASCII character, a tab, `ö` and a byte-order mark first, inside and last in a value;
+# each printable ASCII character first in and inside a name; then the other shapes, NUL and
+# one-reader line breaks among them.
+PARITY_LINES: Final = (
+    [
+        f"PARITY_{n}={value}"
+        for n, value in enumerate(
+            value for c in [chr(code) for code in range(0x20, 0x7F)] + ["\t", "ö", "\ufeff"] for value in (f"{c}b", f"a{c}b", f"a{c}")
+        )
+    ]
+    + [line for c in [chr(code) for code in range(0x20, 0x7F)] for line in (f"{c}N=1", f"N{c}N=1")]
+    + ["", " \t", "\f", "\v", "\u00a0", "\u2028", "# a comment", "  # indented", "BARE", "export E=1", "C: 1", "C:1", "1N=x"]
+    + ["A.B=x", "E=", "R=1\r", "R=1\r\r", "# a\rB=1", "# a\u2028B=1", "# a\u2029B=1", "PARITY_NUL=a\x00b", "# a\x00b", "\x00"]
+)
+
+
+def test_the_frontend_reader_refuses_exactly_the_lines_the_preflight_refuses() -> None:
+    """`check-environment-names.mjs :: STRICT_LINE` spells `_lib.sh :: ENV_LINE_RE` again; both are driven over one file here."""
+    checker = (REPO_ROOT / "fl_frontend" / "scripts" / "check-environment-names.mjs").as_uri()
+    reader = f"import {{ scanNames }} from '{checker}'; import {{ readFileSync }} from 'node:fs';"
+    reader += " for (const n of scanNames(readFileSync(process.argv[1], 'utf8')).unreadable) console.log(`node ${n}`);"
+    text = "\ufeffFIRST=1\n" + "\n".join(PARITY_LINES) + "\n"
+    body = (
+        f"{_written('fl_backend/.env', text)}env_lines fl_backend/.env\n"
+        'for i in "${!ENV_LINE_NUMBER[@]}"; do (( ENV_LINE_KEPT[i] )) || printf \'shell %s\\n\' "${ENV_LINE_NUMBER[i]}"; done\n'
+        f"node --input-type=module -e {shlex.quote(reader)} fl_backend/.env\n"
+    )
+    code, output, _ = _run(body)
+    shell = re.findall(r"^shell (\d+)$", output, re.MULTILINE)
+    node = re.findall(r"^node (\d+)$", output, re.MULTILINE)
+
+    assert code == 0, output
+    # Both verdicts present, so an empty side cannot agree by reading nothing: the marked first line
+    # refused, the empty value kept.
+    assert "1" in shell and str(PARITY_LINES.index("E=") + 2) not in shell, output
+    assert shell == node, output
 
 
 def test_a_file_holding_no_credential_line_passes_in_silence() -> None:
@@ -1252,6 +1615,35 @@ def test_a_model_mounting_no_sink_is_refused_naming_the_mount() -> None:
     assert code == 2, output
     assert "mounts nothing at /app/.tmp-mail" in output, output
     assert "sink-emptied" not in output, output
+
+
+# A connection string in what a container or compose answers, which each capture holds unfiltered.
+SAID: Final = "MONGODB_URI mongodb://user:pw@cluster.example.net/x"
+
+
+@pytest.mark.parametrize(
+    ("prelude", "check", "answer"),
+    [
+        pytest.param("", NAMES, {"FL_DEPLOY_RUN_RC": "3", "FL_DEPLOY_RUN_SAYS": SAID}, id="names"),
+        pytest.param("", FRONTEND_BOOT, {"FL_DEPLOY_RUN_RC": "3", "FL_DEPLOY_RUN_SAYS": SAID}, id="frontend-boot"),
+        pytest.param("", BOOT_CHECK, {"FL_DEPLOY_RUN_RC": "3", "FL_DEPLOY_RUN_SAYS": SAID}, id="backend-boot"),
+        pytest.param("", KEY_CHECK, {"FL_DEPLOY_RUN_RC": "3", "FL_DEPLOY_RUN_SAYS": SAID}, id="actor-key"),
+        # Compose's rendered model carries every value of both `.env` files; this one mounts no sink.
+        pytest.param(
+            SINK,
+            "empty_mail_sink",
+            {"FL_DEPLOY_CONFIG_SAYS": f'{{"services": {{"frontend": {{"environment": {{"X": "{SAID}"}}}}}}}}'},
+            id="mail-sink",
+        ),
+    ],
+)
+def test_a_shell_trace_never_prints_what_a_container_said_before_the_filter(prelude: str, check: str, answer: dict[str, str]) -> None:
+    """`bash -x` would trace each capture's assignment, the raw words in it, before `redact_uri_credentials` or any reader sees them."""
+    code, output, _ = _run(f"{prelude}set -x\n{check}", **answer)
+
+    assert code == 2, output
+    assert "+ " in output, output
+    assert "user:pw@" not in output, output
 
 
 def test_every_start_empties_the_sink_before_the_build() -> None:

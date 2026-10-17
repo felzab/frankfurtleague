@@ -52,6 +52,7 @@ from app.core.security import (
     get_actor_token,
     get_ban_lookup,
     get_grant_lookup,
+    loeschung_journal_hash,
     verify_admin_actor,
     verify_person_actor,
     verify_step_up,
@@ -363,6 +364,9 @@ PUBLIC_WRITES = [
     # The holder of a referee's new mailbox holds no session either, for the same reason.
     ("/api/v0/schiedsrichter/adresswechsel/ansicht", "POST"),
     ("/api/v0/schiedsrichter/adresswechsel", "POST"),
+    # The holder of a pupil's new mailbox, for the same reason.
+    ("/api/v0/spieler/adresswechsel/ansicht", "POST"),
+    ("/api/v0/spieler/adresswechsel", "POST"),
     # A pupil answering their own link holds no session either, so both endpoints bind the public
     # actor and the confirmation's write is recorded under it.
     ("/api/v0/registrierungen/bestaetigung/ansicht", "POST"),
@@ -391,10 +395,14 @@ SYSTEM_WRITES = [
     ("/api/v0/identitaet/subjekt", "POST"),
     ("/api/v0/identitaet/anmeldung", "POST"),
     ("/api/v0/identitaet/gesperrt", "POST"),
+    ("/api/v0/identitaet/referenzen", "POST"),
     # The grants' reconciliation: the read's reason above for the one, and the stamp is recorded
     # under `SYSTEM` because a change made in the database directly had no administrator.
     ("/api/v0/berechtigungen/abgleich", "POST"),
     ("/api/v0/berechtigungen/abgleich/angekuendigt", "POST"),
+    # Recorded under `SYSTEM`: the rule and the clock delete, never the administrator whose press may run one.
+    ("/api/v0/identitaet/loeschung/lauf", "POST"),
+    ("/api/v0/schiedsrichter/sweep/adresswechsel", "POST"),
 ]
 
 # The writes a signed-in person makes on the admin key, binding one of `PERSON_ACTOR_BINDERS` in
@@ -409,6 +417,7 @@ PERSON_WRITES: list[tuple[str, str]] = [
     ("/api/v0/teams/{team_id:objectid}/saisons/{saison_id}/person/einwilligung", "PATCH"),
     ("/api/v0/bewerbungen/{bewerbung_id:objectid}/person/einwilligung", "PATCH"),
     ("/api/v0/registrierungen/selbst/{registrierung_id:objectid}/einwilligung", "PATCH"),
+    ("/api/v0/identitaet/selbst/erasure", "POST"),
 ]
 
 # Split by the methods `SAFE_METHODS` names as recording nothing, since a read binding no actor
@@ -708,26 +717,29 @@ def signed_in_before(age_s: int) -> dict[str, str]:
     return {**ADMIN_KEY, ACTOR_HEADER: sign({**claims, "auth_time": claims["iat"] - age_s})}
 
 
-# Every write the page steps up on every call: nothing reverses it, or it mints or voids a link to an
-# address. Listed, and held to the declarations by the case below.
+# Every write the page steps up on every call: nothing reverses what it does, or it mints or voids a
+# link to an address. Listed, and held to the declarations by the case below.
 STEP_UP_WRITES = [
     pytest.param("post", "/api/v0/bewerbungen/{bewerbung_id}/annehmen", id="an acceptance"),
     pytest.param("post", "/api/v0/bewerbungen/{bewerbung_id}/ablehnen", id="a decline"),
     pytest.param("post", "/api/v0/bewerbungen/{bewerbung_id}/einwilligung/{seat}/erneut", id="a seat's re-send"),
     pytest.param("post", "/api/v0/bewerbungen/{bewerbung_id}/kontakte/{seat}/email", id="a seat's address correction"),
     pytest.param("post", "/api/v0/bewerbungen/{bewerbung_id}/kontakte/{seat}", id="a reseat"),
-    pytest.param("post", "/api/v0/kontakte/erasure", id="a contact person's erasure"),
+    pytest.param("post", "/api/v0/identitaet/erasure", id="an erasure on a mailed request"),
+    pytest.param("post", "/api/v0/identitaet/abmeldung", id="an address's sign-out of every session"),
     pytest.param("post", "/api/v0/saisons", id="a season's creation"),
     pytest.param("post", "/api/v0/saisons/{saison_id}/activate", id="the rollover"),
     pytest.param("delete", "/api/v0/saisons/{saison_id}/spielplan", id="the undraw"),
     pytest.param("post", "/api/v0/saisons/{saison_id}/einladungen/versand", id="the season's invitation send"),
     pytest.param("post", "/api/v0/schiedsrichter", id="a referee's entry"),
     pytest.param("post", "/api/v0/schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen", id="a referee's fresh link"),
-    pytest.param("post", "/api/v0/schiedsrichter/{schiedsrichter_id}/anonymisieren", id="a referee's anonymisation"),
     pytest.param("post", "/api/v0/schiedsrichter/{schiedsrichter_id}/adresswechsel/einladen", id="a referee's fresh address link"),
     pytest.param("delete", "/api/v0/schiedsrichter/{schiedsrichter_id}/adresswechsel", id="a referee's address change discarded"),
+    pytest.param("post", "/api/v0/sperrliste", id="a ban"),
     pytest.param("delete", "/api/v0/sperrliste/{sperrliste_id}", id="a ban's lift"),
-    pytest.param("delete", "/api/v0/spieler/{spieler_id}/erasure", id="a player's erasure"),
+    pytest.param("post", "/api/v0/spieler/{spieler_id}/adresswechsel", id="a pupil's address change asked"),
+    pytest.param("post", "/api/v0/spieler/{spieler_id}/adresswechsel/einladen", id="a pupil's fresh address link"),
+    pytest.param("delete", "/api/v0/spieler/{spieler_id}/adresswechsel", id="a pupil's address change discarded"),
     pytest.param("post", "/api/v0/teams/{team_id}/saisons", id="a club's entry into a season"),
     pytest.param("post", "/api/v0/teams/{team_id}/saisons/{saison_id}/kontakte/{seat}/bestaetigung/einladen", id="a contact seat's fresh link"),
     pytest.param("post", "/api/v0/teams/{team_id}/saisons/{saison_id}/replace", id="a club's replacement"),
@@ -1002,3 +1014,32 @@ class TestThePseudonym:
     def test_it_is_never_the_ban_rows_digest_of_the_same_address(self):
         """One label per purpose under one master: a shared one would let the log say who the ban list holds."""
         assert akteur_pseudonym(KNOWN_IDENTIFIER, schluessel=KNOWN_MASTER) != adresse_hash(KNOWN_IDENTIFIER, schluessel=KNOWN_MASTER)
+
+
+# The journal's answer for `KNOWN_IDENTIFIER` under `KNOWN_MASTER`, computed as `KNOWN_PSEUDONYM` was, under "loeschung-v1".
+KNOWN_JOURNAL_HASH = "4bfa0be6fffe4c90adfc3290ec83efeb21a9845508cf2d170b39d047266a84a1"
+
+
+class TestTheJournalHash:
+    def test_it_is_the_value_computed_outside_this_package(self):
+        assert loeschung_journal_hash(KNOWN_IDENTIFIER, schluessel=KNOWN_MASTER) == KNOWN_JOURNAL_HASH
+
+    def test_it_is_neither_the_pseudonym_nor_the_ban_rows_digest(self):
+        """A shared label would let a journal line name the pseudonym an erasure removed, or the ban a person holds."""
+        journal = loeschung_journal_hash(KNOWN_IDENTIFIER, schluessel=KNOWN_MASTER)
+
+        assert journal not in {KNOWN_PSEUDONYM, adresse_hash(KNOWN_IDENTIFIER, schluessel=KNOWN_MASTER)}
+
+
+# A stored spelling as a registration or a contact seat keeps one: case, and the spaces a form trims.
+UNFOLDED_IDENTIFIER = f" {MIXED_CASE} "
+
+
+@pytest.mark.parametrize(
+    ("helper", "folded"),
+    [(akteur_pseudonym, KNOWN_PSEUDONYM), (loeschung_journal_hash, KNOWN_JOURNAL_HASH)],
+    ids=("the pseudonym", "the journal hash"),
+)
+def test_an_unfolded_spelling_hashes_as_its_fold(helper: Callable[..., str], folded: str):
+    """A restore hashes every stored spelling against the journal, so a helper hashing the spelling as given matches nothing."""
+    assert helper(UNFOLDED_IDENTIFIER, schluessel=KNOWN_MASTER) == folded

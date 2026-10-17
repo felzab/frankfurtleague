@@ -12,6 +12,7 @@ export const srcPathOf = (file: string): string => path.relative(SRC_DIR, file).
  */
 export const PERSON_ACTION_MODULES: ReadonlySet<string> = new Set([
   "features/kontakte/personActions.ts",
+  "features/konto/personActions.ts",
   "features/registrierungen/personActions.ts",
   "features/schiedsrichter/personActions.ts",
   "features/spieler/personActions.ts",

@@ -21,66 +21,60 @@ import { ExpectedMarker } from "./ExpectedMarker";
 
 import type { SpielFieldPath } from "@/features/spiele/draftStatus";
 import type { Key } from "@heroui/react/rac";
-import type { ReactNode } from "react";
 
 /**
- * **The create form is a modal**, portalled out of the match form's `<form>` — a nested one is
- * illegal. **A record created here is selected immediately**: an "angelegt" toast over an empty
- * picker is how a match got saved with no referee.
+ * **The create form is its caller's dialog, rendered beside the match form and never inside it**
+ * (`docs/frontend/spec.md :: I711`), so this picker only asks for it.
  */
 export function PickOrCreateAutocomplete<TItem extends { id: string; name: string; nameIstPlatzhalter?: boolean }>({
   label,
   fieldPath,
   placeholder,
   items,
+  created,
   selectedId,
   onSelect,
   createLabel,
   emptyStateText,
-  renderCreateModal,
+  onRequestCreate,
 }: {
   label: string;
   /** The dotted payload path: also its `name`, its error key and its anchor. */
   fieldPath: SpielFieldPath;
   placeholder: string;
   items: TItem[];
+  /** Records the caller created, still absent from the server-rendered `items`. */
+  created: TItem[];
   selectedId: string | null;
   /**
-   * The resolved item, not the key: a record created in the modal lives only in `createdItems` until
-   * the next server render, so a caller resolving against its own list would silently miss it.
+   * The resolved item, not the key: a record created in the dialog lives only in `created` until the
+   * next server render, so a caller resolving against its own list would silently miss it.
    */
   onSelect: (item: TItem | null) => void;
   /** The footer button, and the empty state's call to action. */
   createLabel: string;
   emptyStateText: string;
   /**
-   * Rendered by the caller, so this knows nothing of the entity's draft shape, action or fields. The
-   * caller hands the finished record to `onCreated`, which is what selects it.
+   * Opens the caller's create dialog, which selects what it creates: an "angelegt" toast over an
+   * empty picker is how a match got saved with no referee.
    */
-  renderCreateModal: (args: { isOpen: boolean; onClose: () => void; onCreated: (created: TItem) => void }) => ReactNode;
+  onRequestCreate: () => void;
 }) {
   const { contains } = useFilter({ sensitivity: "base" });
 
   const [isOpen, setIsOpen] = useState(false);
-  const [isCreating, setIsCreating] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  // Records created in this session, still absent from the server-rendered `items`.
-  const [createdItems, setCreatedItems] = useState<TItem[]>([]);
 
   // Deduplicated on id, so a created record collapses into the real one once the server catches
   // up.
-  const options = [...createdItems.filter((created) => !items.some((item) => item.id === created.id)), ...items];
+  const options = [...created.filter((record) => !items.some((item) => item.id === record.id)), ...items];
 
   const openCreateModal = () => {
-    // The popover closes as the modal opens, or two react-aria overlays contend for focus.
+    // The popover closes as the dialog opens, or two react-aria overlays contend for focus.
     setIsOpen(false);
-    setIsCreating(true);
-  };
-
-  const handleCreated = (created: TItem) => {
-    setCreatedItems((previous) => [...previous, created]);
+    // The dialog takes no search term, so one left standing would filter the list it returns to.
     setSearchQuery("");
-    onSelect(created);
+    onRequestCreate();
   };
 
   const hasMatches = searchQuery.trim() === "" ? options.length > 0 : options.some((item) => contains(item.name, searchQuery));
@@ -99,6 +93,9 @@ export function PickOrCreateAutocomplete<TItem extends { id: string; name: strin
         value={selectedId}
         isOpen={isOpen}
         onOpenChange={setIsOpen}
+        // Opens over a league holding none yet: react-stately opens no select over an empty list, and the
+        // empty state below is then the only way to the create.
+        allowsEmptyCollection
         onChange={(key: Key | null) => onSelect(key ? (options.find((item) => item.id === key) ?? null) : null)}>
         <FieldLabel<SpielFieldPath>
           path={fieldPath}
@@ -193,8 +190,6 @@ export function PickOrCreateAutocomplete<TItem extends { id: string; name: strin
           )}
         </Autocomplete.Popover>
       </Autocomplete>
-
-      {renderCreateModal({ isOpen: isCreating, onClose: () => setIsCreating(false), onCreated: handleCreated })}
     </div>
   );
 }

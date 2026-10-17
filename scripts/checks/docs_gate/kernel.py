@@ -316,6 +316,7 @@ CHECKS: Final[dict[str, Check]] = {
     "copy-dash": Check(FAIL, claimed("docs/frontend/spec.md :: 1.12 The copy rules")),
     "copy-formal": Check(FAIL, claimed("docs/frontend/spec.md :: 1.12 The copy rules")),
     "copy-informal": Check(FAIL, claimed("docs/frontend/spec.md :: 1.12 The copy rules")),
+    "copy-semicolon": Check(FAIL, claimed("docs/frontend/spec.md :: 1.12 The copy rules")),
     "copy-term": Check(FAIL, claimed("docs/frontend/spec.md :: 1.12 The copy rules")),
     "crlf-write": Check(FAIL, claimed("docs/ops/spec.md :: I16")),
     "echo": Check(FAIL, claimed("COR-2")),

@@ -119,8 +119,9 @@ class FLRegistrierung(BaseModel):
     # link was mailed to, and the admission is what folds it onto the person it writes.
     email: CustomNonEmptyString
     # The three a squad often does not know at registration, each stated by the caller rather than
-    # defaulted. Unbounded on read, as every stored value here is (`docs/backend/spec.md :: I254`).
+    # defaulted.
     position: FLSpielerPosition | None
+    # Patterned on the submission's payload alone (`docs/backend/spec.md :: I254`).
     nummer: str | None
     stufe: FLSpielerStufe | None
     # Null until the pupil confirms, which is the pairing `docs/backend/spec.md :: I141` rests on.
@@ -272,7 +273,6 @@ class FLRegistrierungBestaetigungAnsichtResponse(BaseAPIResponse):
     team: CustomNonEmptyString
     schule: CustomNonEmptyString
     saison_id: str
-    vorname: CustomNonEmptyString
     # Served rather than left to the page to infer from the three below: a stored person with no
     # birthdate is a returning pupil all the same, and the press refuses the other page's label.
     seite: FLRegistrierungSeite
@@ -281,7 +281,7 @@ class FLRegistrierungBestaetigungAnsichtResponse(BaseAPIResponse):
     mindestalter: int
     # The age the media answer is judged by, served for `mindestalter`'s reason: the page offers the
     # switch only from it, and a copy of its own would offer it where the write refuses.
-    medien_mindestalter: int
+    medien_mindestalter: int = Field(gt=0)
     # The returning pupil's stored answers, all three null on the new pupil's page; the birthdate is
     # null on the returning one too where the stored person has none.
     geburtsdatum: CustomOptionalDateString
@@ -353,7 +353,8 @@ class FLRegistrierungSweepErinnerung(BaseModel):
     # Empty where the team row is gone, as the application sweep's `schule` is: a message naming no
     # team is worth more than a pass that stops.
     team: str
-    vorname: CustomNonEmptyString
+    # No first name: this address is unconfirmed, after a typo a stranger's, and the message to it
+    # greets nobody by name.
     email: CustomNonEmptyString
     # No deadline: the message names the window in days from the mirrored bound rather than a date,
     # so a chase cannot state a day the stored one has moved away from.
@@ -389,6 +390,9 @@ class FLRegistrierungSweepResponse(BaseAPIResponse):
     geloescht_ohne_entscheidung: int
     geloescht_abgelehnt: int
     redigierte_aktionen: int
+    # One sum over every clock rather than a count a clock: the line logging each row names its clock
+    # (`docs/backend/spec.md :: I720`).
+    fehlgeschlagen: int
 
 
 # --- The TEAM's decision, person tier. No model below declares `email`, `telefon`, `geburtsdatum` or

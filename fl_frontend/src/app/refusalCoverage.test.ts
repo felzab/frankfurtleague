@@ -9,31 +9,33 @@ import ts from "typescript";
 import { isRefusalCode } from "@/core/errors.ts";
 import { keyTierOf } from "@/core/keyTiers.ts";
 import { publishedOperations } from "@/core/openapiDocument.ts";
-import { routeHandlerFiles } from "@/core/treeWalk.ts";
+import { serverActionModules } from "@/core/treeWalk.ts";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 
-/* The request the public mappers' reads and the undo spine load in, doubled before the `await import`s below. */
+/* The request the public mappers' reads and the undo actions load in, doubled before the `await import`s below. */
 doubleActionRequest();
 
 const { answerSettled, publishedRefusals } = await import("@/shared/testing/publishedRefusals.ts");
 const { isFunktionLost } = await import("@/shared/utils/actionError.ts");
-const { replayRefusal } = await import("@/shared/utils/undoRoute.ts");
+const { replayRefusal } = await import("@/shared/utils/adminUndo.ts");
 const berechtigungen = await import("@/features/berechtigungen/refusals.ts");
 const bewerbungen = await import("@/features/bewerbungen/refusals.ts");
 const { BEWERBUNG_MIN_ALTER } = await import("@/features/bewerbungen/constants.ts");
 const bewerbungUtils = await import("@/features/bewerbungen/utils.ts");
 const einladungen = await import("@/features/einladungen/refusals.ts");
+const funktionen = await import("@/features/funktionen/refusals.ts");
+const kontoLoeschung = await import("@/features/konto/refusals.ts");
 const kontakte = await import("@/features/kontakte/refusals.ts");
 const konto = await import("@/features/konto/einwilligung.ts");
 const registrierungen = await import("@/features/registrierungen/utils.ts");
-const { REGISTRIERUNG_MIN_ALTER } = await import("@/features/registrierungen/constants.ts");
+const { MEDIEN_MIN_ALTER, REGISTRIERUNG_MIN_ALTER } = await import("@/features/registrierungen/constants.ts");
 const saisons = await import("@/features/saisons/refusals.ts");
 const schiedsrichter = await import("@/features/schiedsrichter/refusals.ts");
 const schiedsrichterQueries = await import("@/features/schiedsrichter/queries.ts");
-const { SCHIEDSRICHTER_MIN_ALTER } = await import("@/features/schiedsrichter/constants.ts");
 const sperrliste = await import("@/features/sperrliste/refusals.ts");
 const spiele = await import("@/features/spiele/refusals.ts");
 const spieler = await import("@/features/spieler/refusals.ts");
+const spielerQueries = await import("@/features/spieler/queries.ts");
 const spielorte = await import("@/features/spielorte/refusals.ts");
 const spieltage = await import("@/features/spieltage/refusals.ts");
 const teams = await import("@/features/teams/refusals.ts");
@@ -62,7 +64,7 @@ const ANSWERED_BY: Readonly<Record<string, Mapper>> = {
   "DELETE /berechtigungen/{berechtigung_id}": berechtigungen.mapEntziehenRefusal,
   "PATCH /berechtigungen/{berechtigung_id}": berechtigungen.mapStufeRefusal,
   "POST /bewerbungen": bewerbungUtils.mapBewerbungSubmitRefusal,
-  "POST /bewerbungen/einwilligung": (error) => bewerbungUtils.mapEinwilligungRefusal(error, BEWERBUNG_MIN_ALTER),
+  "POST /bewerbungen/einwilligung": (error) => bewerbungUtils.mapEinwilligungRefusal(error, BEWERBUNG_MIN_ALTER, MEDIEN_MIN_ALTER),
   "POST /bewerbungen/einwilligung/ansicht": bewerbungUtils.mapEinwilligungAnsichtRefusal,
   "POST /bewerbungen/{bewerbung_id}/annehmen": (error) => bewerbungen.mapTriageRefusal(error, "neue_schule"),
   "POST /bewerbungen/{bewerbung_id}/ablehnen": (error) => bewerbungen.mapTriageRefusal(error, null),
@@ -74,7 +76,11 @@ const ANSWERED_BY: Readonly<Record<string, Mapper>> = {
   "PATCH /teams/{team_id}/saisons/{saison_id}/kontakte": kontakte.mapKontakteRefusal,
   "POST /teams/{team_id}/saisons/{saison_id}/kontakte/{seat}/bestaetigung/einladen": kontakte.mapEinladenRefusal,
   "POST /registrierungen": registrierungen.mapRegistrierungSubmitRefusal,
-  "POST /registrierungen/bestaetigung": (error) => registrierungen.mapBestaetigungRefusal(error, async () => REGISTRIERUNG_MIN_ALTER),
+  "POST /registrierungen/bestaetigung": (error) =>
+    registrierungen.mapBestaetigungRefusal(error, async () => ({
+      mindestalter: REGISTRIERUNG_MIN_ALTER,
+      medien_mindestalter: MEDIEN_MIN_ALTER,
+    })),
   "POST /registrierungen/einladung/ansicht": registrierungen.mapRegistrierungAnsichtRefusal,
   "POST /registrierungen/bestaetigung/ansicht": registrierungen.mapRegistrierungAnsichtRefusal,
   "GET /registrierungen/kader/{team_id}/{saison_id}": TEAM_FORBIDDEN_PANEL,
@@ -92,18 +98,31 @@ const ANSWERED_BY: Readonly<Record<string, Mapper>> = {
   "DELETE /schiedsrichter/{schiedsrichter_id}": schiedsrichter.mapRetireRefusal,
   "POST /schiedsrichter/{schiedsrichter_id}/reactivate": schiedsrichter.mapReactivateRefusal,
   "POST /schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen": schiedsrichter.mapEinladenRefusal,
-  "POST /schiedsrichter/{schiedsrichter_id}/anonymisieren": schiedsrichter.mapAnonymiseRefusal,
   "POST /schiedsrichter/bestaetigung": (error) =>
-    schiedsrichterQueries.mapSchiedsrichterBestaetigungRefusal(error, async () => SCHIEDSRICHTER_MIN_ALTER),
+    schiedsrichterQueries.mapSchiedsrichterBestaetigungRefusal(error, async () => ({
+      // The floor the link's read serves, as the referee page takes it.
+      mindestalter: 16,
+      medien_mindestalter: MEDIEN_MIN_ALTER,
+    })),
   "POST /schiedsrichter/bestaetigung/ansicht": schiedsrichterQueries.mapSchiedsrichterAnsichtRefusal,
   "POST /schiedsrichter/{schiedsrichter_id}/adresswechsel/einladen": schiedsrichter.mapAdresswechselRefusal,
   "POST /schiedsrichter/adresswechsel": schiedsrichterQueries.mapSchiedsrichterAdresswechselRefusal,
   "POST /schiedsrichter/adresswechsel/ansicht": schiedsrichterQueries.mapSchiedsrichterAnsichtRefusal,
-  "POST /sperrliste": sperrliste.mapAdresseRefusal,
+  // The last owner's refusal is the slice's; the unique index's, which no request reaches without a hand
+  // edit racing it, the shared reader's.
+  "POST /identitaet/selbst/erasure": kontoLoeschung.mapLoeschungRefusal,
+  // The operator's own address and a grant holder's are the slice's; the unique index's is the shared reader's.
+  "POST /identitaet/erasure/ansicht": funktionen.mapErasureRefusal,
+  "POST /identitaet/erasure": funktionen.mapErasureRefusal,
+  "POST /identitaet/abmeldung": funktionen.mapAbmeldungRefusal,
+  "POST /sperrliste": sperrliste.mapSperreRefusal,
   "PATCH /spiele/{spiel_id}": spiele.mapSpielRefusal,
-  // Written by the undo route's replay alone.
+  // Written by the match undo's replay alone.
   "PATCH /spiele/paarungen": (error) => replayRefusal(error, spiele.PAARUNGEN_REPLAY_REFUSALS) ?? null,
-  "DELETE /spieler/{spieler_id}/erasure": spieler.mapErasureRefusal,
+  "POST /spieler/{spieler_id}/adresswechsel": spieler.mapAdresswechselAntragRefusal,
+  "POST /spieler/{spieler_id}/adresswechsel/einladen": spieler.mapAdresswechselLinkRefusal,
+  "POST /spieler/adresswechsel": spielerQueries.mapSpielerAdresswechselRefusal,
+  "POST /spieler/adresswechsel/ansicht": spielerQueries.mapSpielerAdresswechselAnsichtRefusal,
   "GET /spieler/kader/{team_id}/{saison_id}": TEAM_FORBIDDEN_PANEL,
   "PATCH /spieler/kader/{team_id}/{saison_id}/{spieler_id}": spieler.mapKaderZeileRefusal,
   "DELETE /spieler/kader/{team_id}/{saison_id}/{spieler_id}": SHARED_READER,
@@ -111,9 +130,9 @@ const ANSWERED_BY: Readonly<Record<string, Mapper>> = {
   // landing, as each page's own check sends a person holding none.
   "GET /spieler/selbst": (error) => (isFunktionLost(error) ? "the landing, in the page's stead" : null),
   "GET /schiedsrichter/selbst": (error) => (isFunktionLost(error) ? "the landing, in the page's stead" : null),
-  "PATCH /spieler/selbst/einwilligung": konto.mapEigeneEinwilligungRefusal,
-  "PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung": konto.mapEigeneEinwilligungRefusal,
-  "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung": konto.mapEigeneEinwilligungRefusal,
+  "PATCH /spieler/selbst/einwilligung": (error) => konto.mapEigeneEinwilligungRefusal(error, MEDIEN_MIN_ALTER),
+  "PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung": (error) => konto.mapEigeneEinwilligungRefusal(error, MEDIEN_MIN_ALTER),
+  "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung": (error) => konto.mapEigeneEinwilligungRefusal(error, MEDIEN_MIN_ALTER),
   "PATCH /bewerbungen/{bewerbung_id}/person/einwilligung": konto.mapBewerbungEinwilligungRefusal,
   "PATCH /registrierungen/selbst/{registrierung_id}/einwilligung": konto.mapRegistrierungEinwilligungRefusal,
   "GET /teams/{team_id}/saisons/{saison_id}/person/sitze": TEAM_FORBIDDEN_PANEL,
@@ -177,9 +196,56 @@ describe("every published refusal against the mapper answering it", () => {
 
     assert.deepEqual(unworded, []);
   });
+
+  it("reads a second sentence as a way out only where it names one", () => {
+    for (const [message, astray] of [
+      ["Dieses Kürzel ist schon vergeben.", false],
+      ["Dieses Kürzel ist schon vergeben. Bitte wähle ein anderes.", true],
+      ["Diese E-Mail-Adresse steht auf der Sperrliste. Hebe die Sperre unter „Sperrliste“ auf.", false],
+      ["Diese Auswahl gilt nicht mehr. Lade die Seite neu, oder trage die Schule neu ein.", false],
+      ["Das geht nicht. Schreib uns an liga@example.org.", false],
+      ["Das geht nicht. Lade die Seite neu. Schreib uns an liga@example.org.", true],
+    ] as const) {
+      assert.equal(feldAbweichung(message) !== null, astray, message);
+    }
+  });
+
+  it("marks a field with one sentence about the value, and a second only for a way out the box cannot offer", async () => {
+    const astray: string[] = [];
+    for (const [operation, codes] of REFUSING) {
+      const mapper = ANSWERED_BY[operation];
+      if (mapper === undefined) continue;
+
+      for (const code of codes) {
+        const answer = await answerSettled(operation, code, mapper);
+        const marked = typeof answer === "object" && answer !== null && "fieldErrors" in answer ? (answer.fieldErrors ?? {}) : {};
+        for (const [field, message] of Object.entries(marked as Record<string, string>)) {
+          const fault = feldAbweichung(message);
+          if (fault !== null) astray.push(`${code} on ${operation} marks ${field} ${fault}: ${message}`);
+        }
+      }
+    }
+
+    assert.deepEqual(astray, []);
+  });
 });
 
-/** Each undo route's replay table, with the operations its replay sends. */
+/**
+ * Where a way out the box cannot offer is named: a page or a control by its quoted name, the ban to
+ * lift, an address to write to, the reload. What else a second sentence says repeats the box.
+ */
+const AUSWEG = /„[^“]+“|\bSperre\b|@|Lade die Seite neu/u;
+
+/** How a field message breaks `docs/frontend/spec.md` §1.12's field register, or null where it keeps it. */
+function feldAbweichung(message: string): string | null {
+  // A sentence ending and a capital opening the next, which an abbreviation inside one never pairs.
+  const [, second, ...more] = message.split(/(?<=[.!?])\s+(?=\p{Lu})/u);
+  if (more.length > 0) return `in ${String(more.length + 2)} sentences`;
+
+  return second === undefined || AUSWEG.test(second) ? null : "with a second sentence the box itself is the way out of";
+}
+
+/** Each undo's replay table, with the operations its replay sends. */
 const REPLAYED: readonly (readonly [table: Readonly<Record<string, string>>, ...operations: string[]])[] = [
   [kontakte.KONTAKTE_REPLAY_REFUSALS, "PATCH /teams/{team_id}/saisons/{saison_id}/kontakte"],
   [kontakte.STALE_BLOCK_REFUSAL, "PATCH /teams/{team_id}/saisons/{saison_id}/kontakte"],
@@ -194,18 +260,28 @@ const REPLAYED: readonly (readonly [table: Readonly<Record<string, string>>, ...
 
 const SRC = path.resolve(import.meta.dirname, "..");
 
-/** Every undo route Next serves: a route handler under `api/admin/<slice>/undo`. */
-const UNDO_ROUTES = routeHandlerFiles(15).filter((file) => /^api\/admin\/[^/]+\/undo\/route\.tsx?$/.test(relativeTo(file)));
+/** Every server action module, where each page-owned editor's undo replays through its table. */
+const ACTION_MODULES = serverActionModules(20);
 
-function relativeTo(file: string, root = path.join(SRC, "app")): string {
+/** The page-owned editors' undos, a floor under the actions found running on `runAdminUndo`. */
+const UNDO_FLOOR = 8;
+
+/**
+ * Each undo replaying through no table of its own, by `<module> :: <export>`, and why: one answered by
+ * the spine's fallback alone never names the reason its rule refused for.
+ */
+const REPLAYS_THROUGH_NO_TABLE: Readonly<Record<string, string>> = {};
+
+function relativeTo(file: string, root = SRC): string {
   return path.relative(root, file).split(path.sep).join("/");
 }
 
 /**
- * Each table `file` hands `refusedReplay` or `replayRefusal`, read off its syntax tree, as the module
- * it imports the table from exports it: `undefined` for one no import reaches, a table of the route's own.
+ * Each undo `file` declares at its top level, a function or a variable holding one, found by its
+ * `runAdminUndo` call, with every table it hands a replay's wording: `undefined` for a table no import
+ * reaches, one of the module's own.
  */
-async function replayTablesOf(file: string): Promise<{ name: string; table: unknown }[]> {
+async function undosOf(file: string): Promise<{ undo: string; tables: { name: string; table: unknown }[] }[]> {
   const source = ts.createSourceFile(file, readFileSync(file, "utf8"), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   const imported = new Map<string, { module: string; name: string }>();
   for (const statement of source.statements) {
@@ -218,43 +294,77 @@ async function replayTablesOf(file: string): Promise<{ name: string; table: unkn
       imported.set(element.name.text, { module: resolved, name: (element.propertyName ?? element.name).text });
   }
 
-  const passed: string[] = [];
-  const visit = (node: ts.Node): void => {
-    if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && /^(?:refusedReplay|replayRefusal)$/.test(node.expression.text)) {
-      passed.push(node.arguments[1]?.getText(source) ?? "");
-    }
-    ts.forEachChild(node, visit);
+  /** Whether `node` calls the function `name` anywhere below it, and the table each such call hands on. */
+  const callsOf = (node: ts.Node, name: RegExp): string[] => {
+    const found: string[] = [];
+    const visit = (child: ts.Node): void => {
+      if (ts.isCallExpression(child) && ts.isIdentifier(child.expression) && name.test(child.expression.text)) {
+        found.push(child.arguments[1]?.getText(source) ?? "");
+      }
+      ts.forEachChild(child, visit);
+    };
+    visit(node);
+    return found;
   };
-  visit(source);
+
+  // A variable's initializer as well as a declaration: `export const undo… = (…) => runAdminUndo(…)` is
+  // an undo as much as the function form is.
+  const declared = source.statements.flatMap((statement): { name: string; node: ts.Node }[] => {
+    if (ts.isFunctionDeclaration(statement)) return statement.name === undefined ? [] : [{ name: statement.name.text, node: statement }];
+    if (!ts.isVariableStatement(statement)) return [];
+    return statement.declarationList.declarations.flatMap((declaration) =>
+      ts.isIdentifier(declaration.name) && declaration.initializer !== undefined
+        ? [{ name: declaration.name.text, node: declaration.initializer }]
+        : [],
+    );
+  });
+  const undos = declared.flatMap(({ name, node }) =>
+    callsOf(node, /^runAdminUndo$/).length > 0
+      ? [{ undo: `${relativeTo(file)} :: ${name}`, passed: callsOf(node, /^(?:refusedReplay|replayRefusal|partlyRestored)$/) }]
+      : [],
+  );
 
   return Promise.all(
-    passed.map(async (name) => {
-      const from = imported.get(name);
-      if (from === undefined) return { name, table: undefined };
-      const exports = (await import(pathToFileURL(`${from.module}.ts`).href)) as Record<string, unknown>;
-      return { name, table: exports[from.name] };
-    }),
+    undos.map(async ({ undo, passed }) => ({
+      undo,
+      tables: await Promise.all(
+        passed.map(async (name) => {
+          const from = imported.get(name);
+          if (from === undefined) return { name, table: undefined };
+          const exports = (await import(pathToFileURL(`${from.module}.ts`).href)) as Record<string, unknown>;
+          return { name, table: exports[from.name] };
+        }),
+      ),
+    })),
   );
 }
 
-describe("every undo route's replay table", () => {
-  /* Read off the undo routes rather than this table, so a table a route replays through and this file
-     leaves out, or one the route keeps to itself, fails here instead of going unjudged. */
-  it("is judged here, each one an undo route replays through", async () => {
-    const replayed = (await Promise.all(UNDO_ROUTES.map(async (file) => ({ file, tables: await replayTablesOf(file) })))).flatMap(
-      ({ file, tables }) => tables.map(({ name, table }) => ({ route: relativeTo(file), name, table })),
-    );
+describe("every undo's replay table", () => {
+  /* Read off each undo, found by its spine call, rather than this table: an undo with no table, a table
+     this file leaves out, or one a module keeps to itself fails here instead of going unjudged. */
+  it("is judged here, and every undo replays through one", async () => {
+    const undos = (await Promise.all(ACTION_MODULES.map(undosOf))).flat();
+    const replayed = undos.flatMap(({ undo, tables }) => tables.map(({ name, table }) => ({ undo, name, table })));
 
-    assert.ok(UNDO_ROUTES.length >= 8, `${String(UNDO_ROUTES.length)} undo routes, under this sweep's floor of 8`);
-    assert.ok(replayed.length >= UNDO_ROUTES.length, "the reader found fewer replay tables than undo routes");
+    assert.ok(undos.length >= UNDO_FLOOR, `${String(undos.length)} undos found, under this sweep's floor of ${String(UNDO_FLOOR)}`);
     assert.deepEqual(
-      replayed.filter(({ table }) => !REPLAYED.some(([judged]) => judged === table)).map(({ route, name }) => `${route}: ${name}`),
+      undos.filter(({ undo, tables }) => tables.length === 0 && !Object.hasOwn(REPLAYS_THROUGH_NO_TABLE, undo)).map(({ undo }) => undo),
+      [],
+      "an undo replaying through no table of its own, which the shared fallback alone answers",
+    );
+    assert.deepEqual(
+      replayed.filter(({ table }) => !REPLAYED.some(([judged]) => judged === table)).map(({ undo, name }) => `${undo}: ${name}`),
       [],
       "a replay table this file does not judge",
     );
+    // An exemption outliving its undo would excuse the next one written under its name.
+    assert.deepEqual(
+      Object.keys(REPLAYS_THROUGH_NO_TABLE).filter((undo) => !undos.some((found) => found.undo === undo)),
+      [],
+    );
   });
 
-  /* `fl_frontend/src/shared/testing/undoRoutes.ts :: assertEachRefusalCloses` holds the other direction:
+  /* `fl_frontend/src/shared/testing/undoActions.ts :: assertEachRefusalCloses` holds the other direction:
      a row for a code nothing sends is German nobody meets. */
   it("words only codes one of its replayed operations publishes", () => {
     const stray = REPLAYED.flatMap(([table, ...operations]) => {

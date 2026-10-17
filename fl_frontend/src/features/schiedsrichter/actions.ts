@@ -1,14 +1,15 @@
 "use server";
 
+import z from "zod";
+
 import { isFreshlySignedIn } from "@/core/auth";
 import { invalidatesOnWrite, refusalResult, refuseUnconfirmed, runAdminMutation } from "@/shared/utils/adminMutation";
+import { refusedReplay, restored, runAdminUndo, unclearReplay, UNDO_UNREADABLE } from "@/shared/utils/adminUndo";
 import { buildRefusal, LADE_DIE_SEITE_NEU, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
-import { SCHIEDSRICHTER_ANONYM_LABEL } from "./constants";
 import { returnMayMint, saveMayMint } from "./linkMint";
 import {
-  anonymiseSchiedsrichter,
   deleteSchiedsrichter,
   einladeAdresswechsel,
   einladeSchiedsrichter,
@@ -22,15 +23,14 @@ import { getSchiedsrichterById } from "./queries";
 import {
   KEINE_ADRESSE,
   mapAdresswechselRefusal,
-  mapAnonymiseRefusal,
   mapEinladenRefusal,
   mapGesperrteAdresseRefusal,
   mapNameRefusal,
   mapReactivateRefusal,
   mapRetireRefusal,
+  SCHIEDSRICHTER_REPLAY_REFUSALS,
 } from "./refusals";
 import {
-  FLAnonymiseSchiedsrichterPayloadSchema,
   FLPatchSchiedsrichterPayloadSchema,
   FLPostSchiedsrichterPayloadSchema,
   FLSchiedsrichterAdresswechselEinladenPayloadSchema,
@@ -41,9 +41,11 @@ import {
 } from "./schemas";
 
 import type { FLSchiedsrichterPayloadDraft } from "@/features/schiedsrichter/schemas";
+import type { FLKontakt } from "@/shared/schemas";
 import type { ActionResult } from "@/shared/types/types";
+import type { UndoOutcome } from "@/shared/utils/adminUndo";
+import type { HinweisVersand, LinkVersand } from "@/shared/utils/linkVersand";
 import type {
-  FLAnonymiseSchiedsrichterPayload,
   FLPatchSchiedsrichterPayload,
   FLPostSchiedsrichterPayload,
   FLSchiedsrichter,
@@ -56,7 +58,7 @@ import type {
 export async function postSchiedsrichterAction(
   // The DRAFT shape: an emptied money field submits `null`, which the schema below makes a field error.
   rawPayload: FLSchiedsrichterPayloadDraft<FLPostSchiedsrichterPayload>,
-): Promise<ActionResult<{ created_id: string }>> {
+): Promise<ActionResult<{ created_id: string; versand: LinkVersand }>> {
   return runAdminMutation("postSchiedsrichterAction", { stepUp: true }, async () => {
     const validated = FLPostSchiedsrichterPayloadSchema.safeParse(rawPayload);
 
@@ -89,7 +91,6 @@ export async function postSchiedsrichterAction(
       operation: "postSchiedsrichterAction",
       schiedsrichterId: postOperation.created_id,
       email: mint.email,
-      name: validated.data.name,
       mint: mint,
       anlass: "empfang",
     });
@@ -98,6 +99,7 @@ export async function postSchiedsrichterAction(
       success: true,
       created_id: postOperation.created_id,
       message: describeLinkMail(mint.email, versand),
+      versand: versand,
     };
   });
 }
@@ -105,13 +107,14 @@ export async function postSchiedsrichterAction(
 export async function patchSchiedsrichterAction(
   // The DRAFT shape: an emptied money field submits `null`, which the schema below makes a field error.
   rawPayload: FLSchiedsrichterPayloadDraft<FLPatchSchiedsrichterPayload>,
-  // A flag beside the message rather than a sentence the caller parses: the editor grades the toast
-  // a warning on it, and the save landed either way.
+  // The send's outcome beside the message rather than a sentence the caller parses: the editor grades
+  // the toast on it, and the save landed either way.
 ): Promise<
   ActionResult<{
     updated_document?: FLSchiedsrichter;
     versandSatz?: string;
-    versandFehlgeschlagen?: boolean;
+    versand?: LinkVersand;
+    hinweis?: HinweisVersand | null;
     adresswechselGespeichert?: boolean;
   }>
 > {
@@ -163,7 +166,6 @@ export async function patchSchiedsrichterAction(
             operation: "patchSchiedsrichterAction",
             schiedsrichterId: validated.data.id,
             email: mint.email,
-            name: validated.data.name,
             mint: mint,
             anlass: "erneut",
           });
@@ -193,11 +195,92 @@ export async function patchSchiedsrichterAction(
           : wechsel !== null && wechselVersand !== null
             ? describeAdresswechselMail(wechsel.email, wechselVersand)
             : undefined,
-      versandFehlgeschlagen: versand === "fehlgeschlagen" || wechselVersand?.link === "fehlgeschlagen",
+      // One save mints the consent link or the address change's, never both.
+      versand: versand ?? wechselVersand?.link,
+      hinweis: wechselVersand?.hinweis ?? null,
       // The backend's own word that THIS save left a new address waiting, for the undo to tell apart
       // from a save that moved only the fee while an earlier change waited.
       adresswechselGespeichert: wechsel !== null,
     };
+  });
+}
+
+const ADRESSWECHSEL_WARTET_WEITER =
+  "Die neue E-Mail-Adresse wartet weiter auf Bestätigung. Soll sie nicht gelten, verwirf die Änderung im Eintrag.";
+
+/**
+ * The stored values, and the save's own report of whether it left the waiting address: no read after
+ * the replay tells that save from one that moved only the fee while an earlier change waited.
+ */
+const SchiedsrichterUndoSchema = FLPatchSchiedsrichterPayloadSchema.extend({ adresswechsel_gespeichert: z.boolean() });
+
+export async function undoAdminSchiedsrichterEditAction(
+  // The STORED record as it stood, which the payload type cannot hold: the editor withholds an offer the schema refuses.
+  rawPayload: Omit<FLPatchSchiedsrichterPayload, "name" | "kontakt"> & {
+    name: string | null;
+    kontakt: FLKontakt;
+    adresswechsel_gespeichert: boolean;
+  },
+): Promise<UndoOutcome> {
+  return runAdminUndo("undoAdminSchiedsrichterEditAction", async (session) => {
+    const validated = SchiedsrichterUndoSchema.safeParse(rawPayload);
+    if (!validated.success) return { success: false, error: UNDO_UNREADABLE };
+    const { adresswechsel_gespeichert, ...payload } = validated.data;
+
+    // `spiele` alone: the rename fans out into cached fixtures embedding this row (`docs/frontend/spec.md` §1.4).
+    invalidatesOnWrite("spiele");
+    // The replay is a save, its mint judged as the save's own action judges one: without this the undo
+    // is a second door to that save with no step-up (`docs/frontend/spec.md :: I432`).
+    const stored = isFreshlySignedIn(session) ? null : await getSchiedsrichterById(payload.id);
+    const unconfirmed = stored !== null && saveMayMint(stored.schiedsrichter, payload.kontakt.email) ? refuseUnconfirmed(session) : null;
+    if (unconfirmed !== null) return unconfirmed;
+
+    let operation;
+    try {
+      operation = await patchSchiedsrichter(payload);
+    } catch (error) {
+      return refusedReplay(error, SCHIEDSRICHTER_REPLAY_REFUSALS);
+    }
+
+    if (!operation.acknowledged) return unclearReplay("Die Rücknahme wurde abgebrochen. Prüfe die Schiedsrichterdaten.");
+
+    // A confirmed referee's address never moved on the save, so the replay asks the earlier address
+    // again only where that change was confirmed since; unmailed, that link reaches nobody.
+    const wechsel = operation.adresswechsel;
+    if (wechsel !== null) {
+      const wechselVersand = await mailSchiedsrichterAdresswechsel({
+        operation: "undoAdminSchiedsrichterEditAction",
+        schiedsrichterId: payload.id,
+        name: payload.name,
+        mint: wechsel,
+        anlass: "erneut",
+      });
+
+      return restored(describeAdresswechselMail(wechsel.email, wechselVersand));
+    }
+
+    // The replay leaves a pending address standing, its link already in that mailbox, the discard
+    // being the editor's control. Said only after undoing the save that left it: an undone fee edit
+    // has nothing to do with it.
+    if (adresswechsel_gespeichert && operation.updated_document.adresswechsel !== null) return restored(ADRESSWECHSEL_WARTET_WEITER);
+
+    // The replay puts the earlier address back, which the endpoint reads as a correction and mints
+    // for: unmailed, that token exists in the database alone and the referee's own link is dead.
+    const mint = operation.bestaetigung;
+    if (mint === null) return restored();
+
+    const versand = await mailSchiedsrichterLink({
+      operation: "undoAdminSchiedsrichterEditAction",
+      schiedsrichterId: payload.id,
+      // The address the MINT names, never the payload's: the replay is the older of the two reads.
+      email: mint.email,
+      mint: mint,
+      anlass: "erneut",
+    });
+
+    // A cost either way: the undo silently replaced a live link, which is a fact about the person
+    // rather than about the rows it put back.
+    return restored(describeLinkMail(mint.email, versand));
   });
 }
 
@@ -208,7 +291,9 @@ const EINTRAG_WEG = buildRefusal({ reason: "Diesen Eintrag gibt es nicht mehr", 
  * The address is read BEFORE the mint, which replaces the whole block: a read failing afterwards
  * would leave the referee with no working link and no message.
  */
-export async function einladeSchiedsrichterAction(rawPayload: FLSchiedsrichterEinladenPayload): Promise<ActionResult<object>> {
+export async function einladeSchiedsrichterAction(
+  rawPayload: FLSchiedsrichterEinladenPayload,
+): Promise<ActionResult<{ versand: LinkVersand }>> {
   return runAdminMutation("einladeSchiedsrichterAction", { stepUp: true }, async () => {
     const validated = FLSchiedsrichterEinladenPayloadSchema.safeParse(rawPayload);
 
@@ -252,7 +337,6 @@ export async function einladeSchiedsrichterAction(rawPayload: FLSchiedsrichterEi
       operation: "einladeSchiedsrichterAction",
       schiedsrichterId: validated.data.id,
       email: mint.email,
-      name: gelesen.schiedsrichter.name,
       mint: mint,
       anlass: "erneut",
     });
@@ -262,12 +346,15 @@ export async function einladeSchiedsrichterAction(rawPayload: FLSchiedsrichterEi
       // Said whichever way the send went: the previous link is dead either way, which is the fact an
       // administrator has to act on when the message did not leave.
       message: `${describeLinkMail(mint.email, versand)} Der vorherige Link gilt nicht mehr.`,
+      versand: versand,
     };
   });
 }
 
 /** A fresh link to the pending address, mailed with a fresh notice to the stored one: the earlier link is dead either way. */
-export async function einladeAdresswechselAction(rawPayload: FLSchiedsrichterAdresswechselEinladenPayload): Promise<ActionResult<object>> {
+export async function einladeAdresswechselAction(
+  rawPayload: FLSchiedsrichterAdresswechselEinladenPayload,
+): Promise<ActionResult<{ versand: LinkVersand; hinweis: HinweisVersand | null }>> {
   return runAdminMutation("einladeAdresswechselAction", { stepUp: true }, async () => {
     const validated = FLSchiedsrichterAdresswechselEinladenPayloadSchema.safeParse(rawPayload);
 
@@ -304,7 +391,12 @@ export async function einladeAdresswechselAction(rawPayload: FLSchiedsrichterAdr
       anlass: "erneut",
     });
 
-    return { success: true, message: `${describeAdresswechselMail(wechsel.email, versand)} Der vorherige Link gilt nicht mehr.` };
+    return {
+      success: true,
+      message: `${describeAdresswechselMail(wechsel.email, versand)} Der vorherige Link gilt nicht mehr.`,
+      versand: versand.link,
+      hinweis: versand.hinweis,
+    };
   });
 }
 
@@ -335,7 +427,7 @@ export async function verwirfAdresswechselAction(
     return {
       success: true,
       updated_document: operation.updated_document,
-      message: "Der Link an die neue Adresse gilt nicht mehr; die bisherige Adresse bleibt.",
+      message: "Der Link an die neue Adresse gilt nicht mehr. Die bisherige Adresse bleibt.",
     };
   });
 }
@@ -382,9 +474,9 @@ export async function deleteSchiedsrichterAction(
  */
 export async function reactivateSchiedsrichterAction(
   rawPayload: FLSchiedsrichterKeyPayload,
-  // The save's flag, for the save's reason: the reactivation landed either way, and the row grades
-  // its toast a warning where the link it minted did not leave.
-): Promise<ActionResult<{ updated_document?: FLSchiedsrichter; versandFehlgeschlagen?: boolean }>> {
+  // The send's outcome, for the save's reason: the reactivation landed either way, and the row grades
+  // its toast on the link it minted.
+): Promise<ActionResult<{ updated_document?: FLSchiedsrichter; versand?: LinkVersand }>> {
   return runAdminMutation("reactivateSchiedsrichterAction", async (session) => {
     const validated = FLSchiedsrichterKeyPayloadSchema.safeParse(rawPayload);
 
@@ -425,7 +517,6 @@ export async function reactivateSchiedsrichterAction(
             operation: "reactivateSchiedsrichterAction",
             schiedsrichterId: validated.data.id,
             email: mint.email,
-            name: reactivateOperation.updated_document.name,
             mint: mint,
             anlass: "erneut",
           });
@@ -434,56 +525,7 @@ export async function reactivateSchiedsrichterAction(
       success: true,
       updated_document: reactivateOperation.updated_document,
       message: mint === null || versand === null ? "Schiedsrichter reaktiviert" : describeLinkMail(mint.email, versand),
-      versandFehlgeschlagen: versand === "fehlgeschlagen",
-    };
-  });
-}
-
-/**
- * Deletes the referee's document and repoints every fixture that named them at the ghost, whose
- * retirement they inherit. **Permanent, with no undo.** It refuses `REQ-ANONYMISE-004` alone — the
- * ghost itself, which stands for nobody.
- */
-export async function anonymiseSchiedsrichterAction(
-  rawPayload: FLAnonymiseSchiedsrichterPayload,
-): Promise<ActionResult<{ updated_document?: FLSchiedsrichter }>> {
-  return runAdminMutation("anonymiseSchiedsrichterAction", { stepUp: true }, async () => {
-    const validated = FLAnonymiseSchiedsrichterPayloadSchema.safeParse(rawPayload);
-
-    if (!validated.success) {
-      return {
-        success: false,
-        error: VALIDATION_FAILED,
-        fieldErrors: toFieldErrors(validated.error),
-      };
-    }
-
-    // The repointed booking fans into every match as a rename does, so the same one cached read is
-    // stale here. The referee list and the log are uncached.
-    invalidatesOnWrite("spiele");
-    // The refusal belongs in the dialog that asked, not on the error page.
-    let anonymiseOperation;
-    try {
-      anonymiseOperation = await anonymiseSchiedsrichter(validated.data);
-    } catch (error) {
-      const refusal = mapAnonymiseRefusal(error);
-      if (refusal !== null) return { success: false, error: refusal };
-      throw error;
-    }
-
-    if (!anonymiseOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Die Daten wurden nicht gelöscht", repair: VERSUCHE_ES_ERNEUT }) };
-    }
-
-    return {
-      success: true,
-      updated_document: anonymiseOperation.updated_document,
-      message:
-        `Der Eintrag ist gelöscht; auf jedem Spiel dieser Person steht jetzt „${SCHIEDSRICHTER_ANONYM_LABEL}“. ` +
-        // The one sentence here an administrator must act on: without it a match still to be played
-        // sits with nobody to officiate it and nothing says so.
-        "Spiele ohne Ergebnis brauchen jetzt einen neuen Schiedsrichter. " +
-        "Im Änderungsprotokoll ist der gesicherte Stand jeder Zeile gelöscht, die diese Person betrifft.",
+      versand: versand ?? undefined,
     };
   });
 }

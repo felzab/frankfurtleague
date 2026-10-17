@@ -1,0 +1,131 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { describe, it } from "node:test";
+
+import { z } from "zod";
+
+import { asSignInIdentifier } from "@/core/emailAddress.ts";
+
+import { ERASURE_ANLASS_MAX_LENGTH } from "./constants.ts";
+import { FLAbmeldungPayloadSchema, FLErasureAnsichtPayloadSchema, FLErasurePayloadSchema } from "./schemas.ts";
+
+const ANLASS = "E-Mail vom 12.10.2026, Betreff Löschung meiner Daten";
+
+const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
+
+// Read rather than retyped: the API's two validators answer the same rows in their own suite, the only
+// comparison the two predicates get, since the API's sentence reaches its log line and never this box.
+const PROBE = z.array(z.object({ value: z.string(), refused: z.boolean() }));
+const REFUSALS = z
+  .object({ email: PROBE, anlass: PROBE })
+  .parse(JSON.parse(readFileSync(path.resolve(REPO_ROOT, "fl_backend", "tests", "shared", "erasure_refusals.json"), "utf8")));
+
+/** The three payloads keyed on an address, each judged on the address alone. */
+const LOOKUPS = [
+  ["the reveal", (email: unknown) => FLErasureAnsichtPayloadSchema.safeParse({ email: email }).success],
+  ["the erasure", (email: unknown) => FLErasurePayloadSchema.safeParse({ email: email, anlass: ANLASS }).success],
+  ["the sign-out", (email: unknown) => FLAbmeldungPayloadSchema.safeParse({ email: email }).success],
+] as const;
+
+describe("the address the erasure, its reveal and the sign-out look up", () => {
+  /* The records an erasure removes are keyed on whatever a rule of their day stored; refusing that erases
+     nobody (GDPR Art. 17, `docs/backend/spec.md :: I329`). The full-width at sign is built from its code point. */
+  it("takes every address any rule stored, so the request can name any record", () => {
+    const stored = [
+      "käthe@example.de",
+      "kaethe@käthe-schule.example",
+      "a!b@example.de",
+      "anna..mueller@schule.de",
+      "erika@example",
+      `erika${String.fromCharCode(0xff20)}x@example.de`,
+    ];
+    for (const [payload, takes] of LOOKUPS) {
+      for (const email of stored) assert.equal(takes(email), true, `${payload} refused "${email}"`);
+    }
+  });
+
+  /* The endpoints answer these with a REQ-VAL-001 whose mark names no rule, so the box has to say it first. */
+  it("refuses what the API's lookup refuses, so the box carries the message", () => {
+    for (const [payload, takes] of LOOKUPS) {
+      for (const email of ["", "   ", "erika.example.de", `${"a".repeat(250)}@schule.de`]) {
+        assert.equal(takes(email), false, `${payload} took "${email}"`);
+      }
+    }
+  });
+});
+
+describe("the placeholder every address-less referee row shares", () => {
+  /* One lookup there would reach every such row at once; the API refuses it on the fold, capitals and a bare
+     `invalid` domain included, and a domain merely ending in the letters stays a mailbox. */
+  it("is refused by all three lookups where the API's table refuses it, in the box's own words", () => {
+    const satz = (email: string) => FLErasureAnsichtPayloadSchema.safeParse({ email: email }).error?.issues[0]?.message;
+    for (const { value, refused } of REFUSALS.email) {
+      for (const [payload, takes] of LOOKUPS) assert.equal(takes(value), !refused, `${payload} judged "${value}" otherwise`);
+      assert.equal(satz(value), refused ? "Diese Adresse ist ein Platzhalter und gehört niemandem." : undefined, `"${value}"`);
+    }
+  });
+});
+
+/**
+ * The mirror table both folds are held to, the frontend's own fold recorded where the two runtimes' tables part;
+ * `fl_backend/tests/shared/test_email_address.py` holds the API's lookup to it too.
+ */
+const ADDRESSES = z
+  .array(z.object({ case: z.string(), typed: z.string(), folded: z.string(), frontend: z.object({ folded: z.string() }).optional() }))
+  .parse(JSON.parse(readFileSync(path.resolve(REPO_ROOT, "fl_backend", "tests", "shared", "email_addresses.json"), "utf8")));
+
+describe("the mailbox each lookup asks for", () => {
+  /* The action ends the sign-in account of what the box trimmed, so a box trimming otherwise than the API's erases one
+     mailbox's records and leaves another's account. The placeholder's rows are the box's own refusal, above. */
+  it("is the one the mirror table folds each row to on this side, the API's lookup answering its own", () => {
+    const rows = ADDRESSES.filter(({ folded }) => folded.split(".").at(-1) !== "invalid");
+    assert.ok(
+      rows.some(({ typed }) => typed.trim() !== typed),
+      "no row is trimmed, so the case compares nothing",
+    );
+    const parsed = [
+      ["the reveal", (email: string) => FLErasureAnsichtPayloadSchema.parse({ email: email }).email],
+      ["the erasure", (email: string) => FLErasurePayloadSchema.parse({ email: email, anlass: ANLASS }).email],
+      ["the sign-out", (email: string) => FLAbmeldungPayloadSchema.parse({ email: email }).email],
+    ] as const;
+    for (const [payload, asked] of parsed) {
+      for (const row of rows) {
+        assert.equal(asSignInIdentifier(asked(row.typed)), (row.frontend ?? row).folded, `${payload}: ${row.case}`);
+      }
+    }
+  });
+});
+
+describe("the request the erasure answers", () => {
+  const refused = (anlass: string): string | undefined =>
+    FLErasurePayloadSchema.safeParse({ email: "ada@example.org", anlass: anlass }).error?.issues[0]?.message;
+
+  it("takes a date and a subject", () => {
+    assert.equal(refused(ANLASS), undefined);
+  });
+
+  /* Each a refusal the API makes too (`fl_backend/app/api/sperrliste/schemas.py :: ADDRESS_IN_FREE_TEXT` for the
+     address): the log keeps the Anlass a year, past the redaction of anybody it names. */
+  it("refuses a blank one, an over-long one, one of two lines and one holding an address, each in German", () => {
+    assert.equal(refused("   "), "Bitte gib einen Anlass ein.");
+    assert.equal(
+      refused("a".repeat(ERASURE_ANLASS_MAX_LENGTH + 1)),
+      `Der Anlass darf höchstens ${String(ERASURE_ANLASS_MAX_LENGTH)} Zeichen lang sein.`,
+    );
+    assert.equal(refused("E-Mail vom 12.10.2026\nBetreff Löschung"), "Der Anlass darf keine Zeilenumbrüche oder Steuerzeichen enthalten.");
+    assert.equal(refused("E-Mail von ada@example.org vom 12.10.2026"), "Der Anlass darf keine E-Mail-Adresse enthalten.");
+  });
+
+  /* Measured as the API measures it, after the strip. */
+  it("counts the bound on the trimmed request", () => {
+    assert.equal(refused(` ${"a".repeat(ERASURE_ANLASS_MAX_LENGTH)} `), undefined);
+  });
+
+  /* A deliverable shape only: an at sign in prose, or a domain with no top level, stays an Anlass. */
+  it("refuses an address where the API's table refuses one", () => {
+    for (const { value, refused: verweigert } of REFUSALS.anlass) {
+      assert.equal(refused(value), verweigert ? "Der Anlass darf keine E-Mail-Adresse enthalten." : undefined, `"${value}"`);
+    }
+  });
+});

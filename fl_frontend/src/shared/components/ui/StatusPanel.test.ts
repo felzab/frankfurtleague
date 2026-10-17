@@ -27,7 +27,7 @@ const shelledPanelClasses = (markup: string): string => markup.match(/<main [^>]
 
 const underRouter = (tree: ReactNode): string => renderTree(underNext(tree, { pathname: "/nirgendwo" }));
 
-const boundaryProps = { error: new globalThis.Error("kaputt"), reset: () => undefined };
+const boundaryProps = { error: new globalThis.Error("kaputt"), retry: () => undefined };
 
 const rootBoundary = underRouter(h(ErrorPanel, boundaryProps));
 const publicBoundary = underRouter(h(PublicShell, { serverStatusSlot: null, children: h(PublicErrorBoundary, boundaryProps) }));

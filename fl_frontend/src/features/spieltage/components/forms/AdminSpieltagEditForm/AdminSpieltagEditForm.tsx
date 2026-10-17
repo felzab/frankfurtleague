@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import { patchSpieltagAction } from "@/features/spieltage/actions";
+import { patchSpieltagAction, undoAdminSpieltagEditAction } from "@/features/spieltage/actions";
 import { buildPatchSpieltagPayloadSchema } from "@/features/spieltage/schemas";
 import { deriveSpieltagDraftStatus } from "@/features/spieltage/spieltagDraftStatus";
 import { ConfirmDiscardModal } from "@/shared/components/ui/ConfirmDiscardModal";
@@ -145,8 +145,7 @@ export function AdminSpieltagEditForm({
           // The replay can be refused: it is an ordinary `PATCH`, so a span narrowed meanwhile comes
           // back as `REQ-DATE-003` rather than a restore.
           offerUndo({
-            endpoint: "/api/admin/spieltage/undo",
-            body: undoPayload,
+            undo: () => undoAdminSpieltagEditAction(undoPayload),
             fallback: "Der Spieltag wurde aktualisiert.",
             router,
           });

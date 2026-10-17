@@ -12,7 +12,6 @@ from app.api.bewerbungen.services import hash_token
 from app.api.einwilligung.services import FASSUNG_UNZULAESSIG
 from app.api.saisons.cache import invalidate_saison_cache
 from app.api.schiedsrichter.admin_router import (
-    anonymise_schiedsrichter,
     delete_schiedsrichter,
     einladen_schiedsrichter,
     patch_schiedsrichter,
@@ -55,6 +54,7 @@ from tests.actor_tokens import FRESH_STEP_UP_CHECK
 from tests.bans import ban_list, ban_through_the_route
 from tests.config import grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.erasure import erased
 from tests.worker import worker_database
 
 # Module level: every case below reaches a real mongod, the whole slice being one transaction each.
@@ -168,6 +168,7 @@ async def create(database: AsyncDatabase, client: AsyncMongoClient, *, email: st
         schiedsrichter_data=FLPostSchiedsrichterPayload.model_validate(payload_body(email=email)),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         sperrliste=ban_list(database),
+        adressanker_collection=database[Collection.ADRESSANKER],
         db=client,
         today=today,
     )
@@ -180,6 +181,7 @@ async def correct(database: AsyncDatabase, client: AsyncMongoClient, *, email: s
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         spiele_collection=database[Collection.SPIELE],
         sperrliste=ban_list(database),
+        adressanker_collection=database[Collection.ADRESSANKER],
         aktionen_collection=database[Collection.AKTIONEN],
         db=client,
         today=today,
@@ -274,7 +276,8 @@ class TestTheCreateIsTheInvitation:
 
         view = on_a_league(mongo_replica_set_url, body, referees=[])
 
-        assert (view.zustand, view.vorname, view.text_version) == ("gueltig", "Pierluigi", None)
+        assert (view.zustand, view.text_version) == ("gueltig", None)
+        assert "Pierluigi" not in view.model_dump_json()
 
     def test_a_banned_address_leaves_no_referee_behind(self, mongo_replica_set_url: str):
         """What the create's transaction is for: judged outside one, the row stands with a live link the caller was told had been refused."""
@@ -806,14 +809,7 @@ class TestTheConfirmation:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             minted = await resend(database, client)
-            await anonymise_schiedsrichter(
-                schiedsrichter_id=SCHIEDSRICHTER_OID,
-                schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-                spiele_collection=database[Collection.SPIELE],
-                aktionen_collection=database[Collection.AKTIONEN],
-                db=client,
-                germany_now=NOW,
-            )
+            await erased(database, client, EMAIL, germany_now=NOW)
 
             with pytest.raises(WriteRefusalException) as refused:
                 await ansicht(database, minted.bestaetigung.token)

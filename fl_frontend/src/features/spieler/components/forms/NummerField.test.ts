@@ -49,7 +49,16 @@ const renderEditor = () =>
     underSaison(
       h(AdminSpielerEditForm, {
         istFassungBekannt: true,
-        spieler: { id: "68c1f0a2b3c4d5e6f7a8b9c0", vorname: "Lena", nachname: "Meier", inactive_since: null, geburtsdatum: null },
+        spieler: {
+          id: "68c1f0a2b3c4d5e6f7a8b9c0",
+          vorname: "Lena",
+          nachname: "Meier",
+          inactive_since: null,
+          geburtsdatum: null,
+          email: null,
+          adresswechsel: null,
+          adresswechsel_abgelaufen: false,
+        },
         einwilligung: null,
         saison: {
           saisonId: "2026",
@@ -67,7 +76,6 @@ const renderEditor = () =>
           },
         },
         teams: [TEAM],
-        membershipCount: 1,
         pageHeader: { title: "Lena Meier" },
       }),
     ),

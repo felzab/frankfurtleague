@@ -114,6 +114,8 @@ def on_a_database(url: str, body: Body, *, constrained: bool = True) -> Any:
                     saison_team_document(SAISON_ID, AWAY_TEAM_OID, "Bieber", "BI", gruppe="B"),
                 ]
             )
+            # The one person `enter` names: the create reads them, and an id nobody holds is a 404 there.
+            await database.spieler.insert_one(person_row(spieler_number=90))
             return await body(database)
 
     return on_the_seed_loop(_run())
@@ -131,6 +133,7 @@ async def enter(database: AsyncDatabase, spieler_id: ObjectId, team_id: ObjectId
         saison_spieler_data=FLPostSaisonSpielerPayload(
             saison_id=SAISON_ID, team_id=team_id, nummer=None, position=None, stufe=None, rolle=rolle
         ),
+        spieler_collection=database.spieler,
         saison_spieler_collection=database.saison_spieler,
         saison_teams_collection=database.saison_teams,
         saisons_collection=database.saisons,
@@ -233,7 +236,7 @@ class TestThePersonsBirthdate:
 
         async def body(database: AsyncDatabase) -> Any:
             # A year as an int is what a hand-edit or an unvalidated import writes.
-            return await refusal_code_for(database, 90, GEBURTSDATUM), await refusal_code_for(database, 91, 2008)
+            return await refusal_code_for(database, 94, GEBURTSDATUM), await refusal_code_for(database, 95, 2008)
 
         # The floor is the first half: that code is every `$jsonSchema` refusal alike, so a document
         # differing from it only in this field is what makes the second half this field's answer.

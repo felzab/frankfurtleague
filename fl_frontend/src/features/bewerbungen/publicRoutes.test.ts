@@ -32,6 +32,7 @@ import { answerReadsWith, backendNotFound, EMPTIEST_ANSWER, pageBody, renderPage
 import { renderMarkup, renderTree, textOf } from "@/shared/testing/renderTest";
 import { assertOwnPanel, resultPanels } from "@/shared/testing/resultPanels.ts";
 import { TEST_SITE_KEY } from "@/shared/testing/siteverifyDouble.ts";
+import { shownText } from "@/shared/testing/spokenText.ts";
 import { filledSlots } from "@/shared/testing/stampedText.ts";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
 import { getGermanTodayStr } from "@/shared/utils/date";
@@ -78,6 +79,7 @@ const { default: KontaktPage } = await import("@/app/(public)/(meta)/kontakt/pag
 const { default: BestaetigungPage } = await import("@/app/(public)/bestaetigung/kontakt/page.tsx");
 const { BewerbungBandSkeleton } = await import("./components/ui/BewerbungBandSkeleton.tsx");
 const { BewerbungInstagramBand } = await import("./components/ui/BewerbungInstagramBand.tsx");
+const { IN_NEUEM_TAB } = await import("@/shared/components/ui/NewTabLink.tsx");
 const { band } = await import("./components/ui/band.ts");
 const { ctaButton } = await import("@/shared/components/ui/formButtons.ts");
 const { textLink } = await import("@/shared/components/ui/textLink.ts");
@@ -218,7 +220,6 @@ function renderBestaetigung(mindestalter = VERTRETUNG_MIN_ALTER) {
     h(BestaetigungFormPanel, {
       fassung: KONTAKT,
       token: "kein-echtes-token",
-      vorname: "Mira",
       schule: "Lessing-Kolleg",
       saison: "2026",
       rolle: "Ansprechperson",
@@ -247,7 +248,6 @@ const pageFor = (rolle: FLKontaktRolle, zugleich_rolle: FLKontaktRolle | null, m
         schule: "Lessing-Kolleg",
         rolle: rolle,
         zugleich_rolle: zugleich_rolle,
-        vorname: "Mira",
         text_version: KONTAKT_LABEL,
         laufende_fassung: KONTAKT_LABEL,
         mindestalter: mindestalter,
@@ -336,7 +336,7 @@ describe("how the application page invites a post about the application", () => 
   /* Pinned as one string because I dictated it: every other rule the page's copy keeps would produce
      a different sentence, so a pass tidying the page toward them is what this case refuses. */
   it("renders the sentence I dictated, whole", () => {
-    assert.equal(textOf(INVITATION).replace(/\s+/g, " ").trim(), INVITATION_SENTENCE, "the invitation was reworded");
+    assert.equal(shownText(INVITATION).replace(/\s+/g, " ").trim(), INVITATION_SENTENCE, "the invitation was reworded");
   });
 
   it("wears the band recipe's box", () => {
@@ -350,7 +350,8 @@ describe("how the application page invites a post about the application", () => 
     assert.equal(links.length, 1, "the strip offers a number of links other than the handle alone");
     // A strip that is one large link takes a half-filled form off the screen on any stray press.
     assert.match(INVITATION.slice(0, INVITATION.indexOf(">")), /^<div\b/, "the whole strip is pressable");
-    assert.equal(textOf(links[0]?.[2] ?? "").trim(), INSTAGRAM_HANDLE, "the link names something other than the handle");
+    // The handle, then what a screen reader alone hears: the page stays behind the profile.
+    assert.equal(textOf(links[0]?.[2] ?? "").trim(), `${INSTAGRAM_HANDLE} ${IN_NEUEM_TAB}`, "the link names something other than the handle");
     assert.ok(attribute.includes(`href="${INSTAGRAM_URL}"`), "the handle points somewhere other than the profile");
     assert.ok(attribute.includes(`class="${textLink()}"`), "the handle wears a treatment of its own");
     // The form is half filled in behind it, and this tab is where the applicant has to come back to.
@@ -797,7 +798,6 @@ describe("which of the confirmation page's words its stamped version covers", ()
     schule: "Lessing-Kolleg",
     saison: "2026",
     rolle: "Ansprechperson",
-    vorname: "Mira",
     ablehnen: ABLEHNEN_LABEL,
     // The Ansprechperson's own floor, because `SLOTS.rolle` is that seat: a stamped paragraph is
     // compared against what THIS reader was shown, and the two seats are shown different numbers.
@@ -832,7 +832,6 @@ describe("which of the confirmation page's words its stamped version covers", ()
     renderMarkup(KlickBestaetigung, {
       absaetze: KONTAKT.absaetze,
       id: "klick-punkte",
-      vorname: SLOTS.vorname,
       schule: SLOTS.schule,
       rolle: SLOTS.rolle,
       mindestalter: VERTRETUNG_MIN_ALTER,
@@ -843,7 +842,6 @@ describe("which of the confirmation page's words its stamped version covers", ()
   const FORM_PANEL = renderMarkup(BestaetigungFormPanel, {
     fassung: KONTAKT,
     token: "kein-echtes-token",
-    vorname: SLOTS.vorname,
     schule: SLOTS.schule,
     saison: SLOTS.saison,
     rolle: SLOTS.rolle,
@@ -929,7 +927,6 @@ describe("how wide the confirmation page stands, and how many boxes it draws", (
     schule: "Lessing-Kolleg",
     rolle: "ansprechperson",
     zugleich_rolle: null,
-    vorname: "Mira",
     text_version: KONTAKT_LABEL,
     laufende_fassung: KONTAKT_LABEL,
     mindestalter: VERTRETUNG_MIN_ALTER,
@@ -937,13 +934,12 @@ describe("how wide the confirmation page stands, and how many boxes it draws", (
   } as const;
 
   /** The reader's own facts, each distinctive enough that finding one in the markup means this reader. */
-  const OWN_VALUES = ["Mira", "Lessing-Kolleg", "2026", "Ansprechperson"];
+  const OWN_VALUES = ["Lessing-Kolleg", "2026", "Ansprechperson"];
 
   const SLOTS = {
     schule: OPENED_LINK.schule,
     saison: OPENED_LINK.saison_id,
     rolle: "Ansprechperson",
-    vorname: OPENED_LINK.vorname,
     ablehnen: ABLEHNEN_LABEL,
     minAlter: String(OPENED_LINK.mindestalter),
     medienMinAlter: String(OPENED_LINK.medien_mindestalter),
@@ -1414,7 +1410,6 @@ const OFFEN = {
   schule: "Lessing-Kolleg",
   rolle: "ansprechperson",
   zugleich_rolle: null,
-  vorname: "Mira",
   text_version: KONTAKT_LABEL,
   laufende_fassung: KONTAKT_LABEL,
   mindestalter: BEWERBUNG_MIN_ALTER,
@@ -1529,7 +1524,6 @@ describe("the words the two contact pages are handed", () => {
     schule: "Lessing-Kolleg",
     rolle: "ansprechperson",
     zugleich_rolle: null,
-    vorname: "Mira",
     text_version: KONTAKT_LABEL,
     laufende_fassung: KONTAKT_LABEL,
     mindestalter: VERTRETUNG_MIN_ALTER,
@@ -1623,6 +1617,24 @@ describe("the words the two contact pages are handed", () => {
     backend({ scheitert: `/einwilligung/fassungen/${KONTAKT_LABEL}` });
 
     assert.deepEqual(await bestaetigungStart(), { zustand: "unlesbar" });
+  });
+
+  it("opens a link on the failed read's panel where the link's own read fails", async () => {
+    backend({ scheitert: "/bewerbungen/einwilligung/ansicht" });
+
+    assert.deepEqual(await bestaetigungStart(), { zustand: "unlesbar" });
+  });
+
+  /* The read refuses a view serving a media floor of 0, which would offer the media switch to every age:
+     a broken contract, which the error boundary logs and the reload panel would hide. */
+  it("lets a view serving a media floor of 0 reach the error boundary", async () => {
+    answerReadsWith((endpoint, schema, params) =>
+      endpoint === "/bewerbungen/einwilligung/ansicht"
+        ? { ...GEOEFFNET, medien_mindestalter: 0 }
+        : (einwilligungAnswer(endpoint) ?? EMPTIEST_ANSWER(endpoint, schema, params)),
+    );
+
+    await assert.rejects(bestaetigungStart(), { name: "APIMalformedDataError" }, "the page took a media floor of 0");
   });
 
   /* A closed season row's link takes a Widerspruch alone, which shows no stamped words. */

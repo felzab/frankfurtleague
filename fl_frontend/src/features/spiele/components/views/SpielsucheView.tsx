@@ -1,11 +1,10 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
 import { FilterLeiste } from "@/shared/components/ui/FilterLeiste";
 import { CARDS_CASCADE_CLASSES } from "@/shared/components/ui/motion";
 import { SearchBar } from "@/shared/components/ui/SearchBar";
-import { useDebouncedUrlQuery } from "@/shared/hooks/useDebouncedUrlQuery";
 import { useFacetSelection } from "@/shared/hooks/useFacetSelection";
 import { useFuzzySearch } from "@/shared/hooks/useFuzzySearch";
 import { applyFacets, countActiveFacets } from "@/shared/utils/facets";
@@ -62,7 +61,9 @@ export function SpielsucheView({
   spielorte?: readonly { id: string; name: string }[];
   schiedsrichter?: readonly { id: string; name: string | null }[];
 }) {
-  const { urlValue: spielQuery, inputValue, setInputValue } = useDebouncedUrlQuery();
+  // Held here, the one ancestor of both the bar and the list, and never in the URL: the search
+  // reaches a referee's name (`docs/frontend/spec.md :: I680`).
+  const [spielQuery, setSpielQuery] = useState("");
 
   // A reader types the spelling they have seen, so the rendered date is the only one `SEARCH_KEYS` names.
   // Formatting it through the site's own date helper is what keeps the searched spelling on the rendered one.
@@ -115,8 +116,8 @@ export function SpielsucheView({
         <SearchBar
           label="Spiele suchen"
           placeholder="z.B. Sportpark Nord oder 14.03."
-          value={inputValue}
-          onChange={setInputValue}
+          value={spielQuery}
+          onChange={setSpielQuery}
           className="w-full max-w-toolbar"
         />
         {/* Counted over the whole season, so an option says what it would leave rather

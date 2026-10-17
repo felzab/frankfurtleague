@@ -42,7 +42,7 @@ const REFUSAL_BY_CODE: Readonly<Record<string, string>> = {
   INVALID_OTP: FALSCH,
   OTP_EXPIRED: "Der Code ist abgelaufen. Fordere einen neuen an.",
   TOO_MANY_ATTEMPTS: "Zu viele Versuche mit diesem Code. Fordere einen neuen an.",
-  [ADDRESS_ATTEMPTS_EXHAUSTED]: `Zu viele Versuche mit dieser Adresse. Melde Dich mit einem Passkey an oder versuche es in ${String(CODE_FAILURE_WINDOW_HOURS)} Stunden wieder.`,
+  [ADDRESS_ATTEMPTS_EXHAUSTED]: `Zu viele Versuche mit dieser Adresse. Melde Dich mit einem Passkey an oder versuche es in ${String(CODE_FAILURE_WINDOW_HOURS)} Stunden erneut.`,
   // The mint's own refusals, met only past a right code, so only the mailbox's holder reads them; the
   // passkey's answers word the same two.
   [SIGN_IN_BARRED]: GESPERRT,

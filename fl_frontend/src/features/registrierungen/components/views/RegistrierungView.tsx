@@ -109,7 +109,7 @@ export function RegistrierungView({ start, siteKey }: { start: RegistrierungStar
         {stand === "gueltig" && (
           <p className={ABSATZ_CLASSES}>
             Der Verarbeitung Deiner Angaben für den Spielbetrieb kannst Du jederzeit aus Gründen widersprechen, die sich aus Deiner besonderen
-            Situation ergeben (Art. 21 DSGVO); eine formlose E-Mail an{" "}
+            Situation ergeben (Art. 21 DSGVO). Eine formlose E-Mail an{" "}
             <Link
               href={`mailto:${KONTAKT_EMAIL}`}
               className={textLink()}>
@@ -137,9 +137,7 @@ export function RegistrierungView({ start, siteKey }: { start: RegistrierungStar
           <p className={ABSATZ_CLASSES}>
             Der Kader dieses Teams ist für diese Saison voll, deshalb können wir gerade keine weitere Registrierung annehmen.
           </p>
-          <p className={ABSATZ_CLASSES}>
-            Sag Deinem Team Bescheid. Wird im Kader wieder ein Platz frei, kannst Du den Link noch einmal öffnen.
-          </p>
+          <p className={ABSATZ_CLASSES}>Sag Deinem Team Bescheid. Wird im Kader wieder ein Platz frei, kannst Du den Link erneut öffnen.</p>
           <FrageStellen />
         </BestaetigungErgebnis>
       )}

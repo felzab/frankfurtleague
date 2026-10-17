@@ -6,11 +6,11 @@ from typing import Annotated, Any, Literal, Union, get_args, get_origin
 
 import pytest
 from bson import ObjectId
-from pydantic import BaseModel, SecretStr
+from pydantic import BaseModel, Field, SecretStr, StringConstraints, TypeAdapter
 from pydantic.fields import FieldInfo
 from pymongo.errors import OperationFailure
 
-from app.api.aktionen.schemas import FLAktion, FLAktionMitStand, FLAktionRequest, FLAktorKind, FLAktorMitAdresse, FLAktorPerson
+from app.api.aktionen.schemas import FLAktion, FLAktionMitStand, FLAktionRequest, FLAktorKind, FLAktorMitAdresse, FLAktorPerson, _served_prefix
 from app.api.berechtigungen.schemas import (
     FLBerechtigung,
     FLBerechtigungAenderungArt,
@@ -47,6 +47,7 @@ from app.api.saisons.schemas import (
     FLSaisonRules,
     FLSaisonSpielplan,
     FLSaisonStatus,
+    TeamsPerGroup,
 )
 from app.api.schiedsrichter.schemas import FLSchiedsrichter, FLSchiedsrichterAdresswechsel, FLSchiedsrichterBestaetigung
 from app.api.sperrliste.schemas import FLSperrlisteEintrag
@@ -66,6 +67,7 @@ from app.api.spieler.schemas import (
     FLEinwilligungQuelle,
     FLSaisonSpielerRow,
     FLSpieler,
+    FLSpielerAdresswechsel,
     FLSpielerPosition,
     FLSpielerRolle,
     FLSpielerStufe,
@@ -95,6 +97,7 @@ from app.core.constraints import (
     _AKTOR,
     _AKTOR_FUNKTIONEN,
     _AKTOR_KINDS,
+    _LOGGED_ACTS,
     COLLECTION_VALIDATORS,
     SUPPORT_INDEXES,
     TTL_INDEXES,
@@ -102,9 +105,10 @@ from app.core.constraints import (
     _apply_concurrently,
     diagnose_failure,
 )
-from app.core.recording import Actor, AktorFunktion, Operation, PersonActor
+from app.core.recording import Actor, AktorFunktion, LoggedAct, Operation, PersonActor
 from app.shared.einwilligung_nachweis import WAHLEN
 from app.shared.schemas.addresses import FLAddress
+from app.shared.schemas.custom import CustomDateString, CustomObjectId, CustomOptionalString, parse_empty_string_to_none
 from app.shared.schemas.einwilligung import FLEinwilligungBeleg, FLEinwilligungNachweis, FLEinwilligungNachweise
 from app.shared.schemas.kontakt import FLKontakt
 from app.shared.schemas.zustellung import FLBewerbungZustellstand, FLBewerbungZustellung
@@ -114,8 +118,9 @@ from tests.config import UNANSWERED_URI, build_test_config
 EXPECTED_COLLECTIONS = {collection.value for collection in Collection}
 
 # Named here so giving one a model later fails this file rather than leaving its validator unmirrored.
-# A day's write count has none because no read serves it (`app/core/drosselung.py`).
-MODELLESS_COLLECTIONS = {Collection.SAISON_TEAMS, Collection.DROSSELUNG}
+# A day's write count and an address's anchor have none because no read serves either (`app/core/drosselung.py`,
+# `app/core/adressanker.py`).
+MODELLESS_COLLECTIONS = {Collection.SAISON_TEAMS, Collection.DROSSELUNG, Collection.ADRESSANKER}
 
 # Ranges, formats and lengths stay Pydantic's: reaching for one of these widens the scope.
 OUT_OF_SCOPE_KEYWORDS = {
@@ -196,6 +201,9 @@ MIRRORED_MODELS: list[tuple[Collection, tuple[str, ...], type[BaseModel] | tuple
     # Everything but the two names comes from the saison_spieler junction.
     (Collection.SPIELER, ("einwilligung",), FLEinwilligung, frozenset()),
     (Collection.SPIELER, (), FLSpieler, frozenset({"team_id", "stufe", "nummer", "position", "ist_nachnominiert", "rolle"})),
+    # A pupil's pending address and its delivery state, the referee's twin carrier on another collection.
+    (Collection.SPIELER, ("adresswechsel",), FLSpielerAdresswechsel, frozenset()),
+    (Collection.SPIELER, ("adresswechsel", "zustellung"), FLBewerbungZustellung, frozenset()),
     # The sub-documents of a modelless row that DO have models, so the drift check reaches them.
     (Collection.SAISON_TEAMS, ("austritt",), FLAustritt, frozenset()),
     (Collection.SAISON_TEAMS, ("kontakte",), FLSaisonTeamKontakte, frozenset()),
@@ -288,8 +296,10 @@ MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...],
         Collection.AKTIONEN,
         (),
         "collection",
-        # A day's write count is never logged (`app/core/drosselung.py`).
-        tuple(c.value for c in Collection if c not in {Collection.AKTIONEN, Collection.DROSSELUNG}),
+        # A day's write count and an address's anchor are never logged (`app/core/drosselung.py`, `app/core/crud.py ::
+        # anchor_by_id_in_db`); a logged act writes no collection of its own.
+        tuple(c.value for c in Collection if c not in {Collection.AKTIONEN, Collection.DROSSELUNG, Collection.ADRESSANKER})
+        + get_args(LoggedAct),
         False,
     ),
     (Collection.SAISONS, (), "status", get_args(FLSaisonStatus), False),
@@ -440,6 +450,7 @@ MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...],
     # walk still reaches each path on its own (`app/api/zustellung/services.py :: ZIEL_PFADE`).
     (Collection.SCHIEDSRICHTER, ("bestaetigung", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
     (Collection.SCHIEDSRICHTER, ("adresswechsel", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
+    (Collection.SPIELER, ("adresswechsel", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
     (Collection.EINLADUNGEN, ("versand", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
     (Collection.REGISTRIERUNGEN, ("bestaetigung", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
     (Collection.SAISON_TEAMS, ("bestaetigungen", "trainer", "zustellung"), "stand", get_args(FLBewerbungZustellstand), False),
@@ -572,6 +583,7 @@ STORED_BUT_NOT_SERVED: Mapping[tuple[Collection, tuple[str, ...]], frozenset[str
     (Collection.SCHIEDSRICHTER, ("bestaetigung",)): frozenset({"token_hash"}),
     # The address link's hash, for the confirmation link's reason.
     (Collection.SCHIEDSRICHTER, ("adresswechsel",)): frozenset({"token_hash"}),
+    (Collection.SPIELER, ("adresswechsel",)): frozenset({"token_hash"}),
     # Served on a read, every live link of the season would be recoverable from an admin page. The
     # action log's pre-image of a REVOKED row serves one, safely: the hash rebuilds nothing, and
     # that operation revoked the row it imaged.
@@ -753,6 +765,7 @@ RECORDED_LITERALS: list[tuple[str, tuple[object, ...], list[str]]] = [
     ("Operation", get_args(Operation), _AKTION_OPERATIONS),
     ("Actor.kind | PersonActor.kind", get_args(Actor.__annotations__["kind"]) + get_args(PersonActor.__annotations__["kind"]), _AKTOR_KINDS),
     ("AktorFunktion", get_args(AktorFunktion), _AKTOR_FUNKTIONEN),
+    ("LoggedAct", get_args(LoggedAct), _LOGGED_ACTS),
 ]
 
 
@@ -854,6 +867,137 @@ def test_no_validator_constrains_a_range_or_a_format(collection: Collection):
     for schema in walk_schemas(COLLECTION_VALIDATORS[collection]["$jsonSchema"]):
         out_of_scope = set(schema) & OUT_OF_SCOPE_KEYWORDS
         assert not out_of_scope, f"{collection} uses {sorted(out_of_scope)}, which is left to Pydantic"
+
+
+# What a core schema refuses a value of its own type by: a length, a pattern or a range. A validator
+# holds none of them (`test_no_validator_constrains_a_range_or_a_format`).
+BOUND_KEYS: frozenset[str] = frozenset({"min_length", "max_length", "pattern", "ge", "gt", "le", "lt", "multiple_of"})
+
+# A read model's functions that refuse nothing, each reshaping what it is handed. Any other function
+# counts as a bound, since nothing short of running it says what it refuses.
+RESHAPING_FUNCTIONS: frozenset[Any] = frozenset(
+    {
+        parse_empty_string_to_none,
+        _served_prefix,
+        FLAktion._as_text.__func__,
+        FLAktion._judge_the_stored_image.__func__,
+        FLAktionMitStand._json_safe.__func__,
+    }
+)
+
+
+def bounds(schema: Mapping[str, Any]) -> bool:
+    """Whether a value this core schema's type admits can still be refused."""
+
+    kind = schema["type"]
+    # A row of its own, judged there. A function wrapping one is judged below and bounds this field.
+    if kind == "model":
+        return False
+    if kind.startswith("function-") and schema["function"]["function"] not in RESHAPING_FUNCTIONS:
+        return True
+    # Refused only where every member refuses, so an ObjectId's string branch bounds no stored ObjectId.
+    if kind == "union":
+        return all(bounds(choice[0] if isinstance(choice, tuple) else choice) for choice in schema["choices"])
+    if kind == "json-or-python":
+        return bounds(schema["python_schema"])
+
+    children = [schema[key] for key in ("schema", "items_schema") if key in schema] + list(schema.get("steps", ()))
+    return bool(BOUND_KEYS & set(schema)) or any(bounds(child) for child in children)
+
+
+def stricter_than_the_validator(collection: Collection) -> dict[str, list[Any]]:
+    """Every stored field of this collection whose model bounds it, whatever its bsonType: a validator holds types and enums alone.
+
+    Each with the core schema of every model declaring it, `FLTeam` and `FLTeamRecord` both mirroring `teams`.
+    """
+
+    found: dict[str, list[Any]] = {}
+
+    for mirrored, path, models, not_stored in MIRRORED_MODELS:
+        if mirrored != collection:
+            continue
+
+        for key, declaring in stored_fields(models).items():
+            if key in not_stored:
+                continue
+
+            for _, field in declaring:
+                adapter = TypeAdapter(Annotated[field.annotation, *field.metadata] if field.metadata else field.annotation)
+                if bounds(adapter.core_schema):
+                    found.setdefault(".".join((*path, key)), []).append(adapter.core_schema)
+
+    return found
+
+
+@pytest.mark.parametrize(
+    ("annotation", "bounded"),
+    [
+        pytest.param(Annotated[str, StringConstraints(max_length=4)], True, id="a length"),
+        pytest.param(CustomDateString, True, id="a pattern and a calendar"),
+        pytest.param(Annotated[int, Field(ge=1)], True, id="a floor"),
+        pytest.param(TeamsPerGroup | None, True, id="a range beside null"),
+        pytest.param(Annotated[list[str], Field(min_length=1)], True, id="an array's length"),
+        pytest.param(FLSpielElfmeterschiessen | None, True, id="a validator around a nested model"),
+        pytest.param(CustomOptionalString, False, id="a blank read as null"),
+        pytest.param(CustomObjectId, False, id="an ObjectId"),
+        pytest.param(FLSaisonForfeitErgebnis, False, id="a nested model, bounded at its own row"),
+        pytest.param(int | None, False, id="a type alone"),
+    ],
+)
+def test_the_bound_reader_tells_a_bound_from_a_type(annotation: Any, bounded: bool):
+    """The control: the case below holds the reader to a table one hand writes, so a shape both miss passes it."""
+
+    assert bounds(TypeAdapter(annotation).core_schema) is bounded
+
+
+def test_a_row_model_refuses_nothing_its_field_annotations_leave_out():
+    """`stricter_than_the_validator` reads annotations, which carry neither a `field_validator` nor a root row's `model_validator`.
+
+    A nested row's model validator is its parent field's, as the shoot-out's is.
+    """
+
+    unread = {
+        f"{model.__name__}.{name}"
+        for _, path, models, _ in MIRRORED_MODELS
+        for model in (models if isinstance(models, tuple) else (models,))
+        for name, decorator in {
+            **model.__pydantic_decorators__.field_validators,
+            **({} if path else model.__pydantic_decorators__.model_validators),
+        }.items()
+        if getattr(decorator.func, "__func__", decorator.func) not in RESHAPING_FUNCTIONS
+    }
+
+    assert not unread, f"{sorted(unread)} refuse on a read, and no annotation the report mirrors carries them"
+
+
+@pytest.mark.parametrize("collection", sorted(COLLECTION_VALIDATORS))
+def test_every_value_a_read_model_refuses_is_reported_under_its_own_type(collection: Collection):
+    """Every collection, listed or not: a model gaining a bound fails here rather than `--check` reading clean over a row it refuses."""
+
+    expected = stricter_than_the_validator(collection)
+    reported = constraints.SERVED_VALUES.get(collection, {})
+
+    assert set(reported) == set(expected), (
+        f"{collection}: unreported {sorted(set(expected) - set(reported))}, reported but admitted {sorted(set(reported) - set(expected))}"
+    )
+
+    # Core schemas, so a pattern's text and a validator function count where no stored value tells two types apart.
+    assert not [
+        path for path, schemas in expected.items() if any(validating(schema) != validating(reported[path].core_schema) for schema in schemas)
+    ]
+
+
+def validating(schema: Any) -> Any:
+    """A core schema without its `metadata`, which pydantic-core documents as unused by validation.
+
+    A `Field` inside `Annotated` adds an empty one where the same bound on a model field adds none.
+    """
+
+    if isinstance(schema, Mapping):
+        return {key: validating(value) for key, value in schema.items() if key != "metadata"}
+    if isinstance(schema, list | tuple):
+        return [validating(item) for item in schema]
+    return schema
 
 
 @pytest.mark.parametrize(
@@ -962,7 +1106,7 @@ def test_every_ttl_index_expires_on_a_date_field_the_validator_declares(ttl):
 
 # The TTL indexes built over a collection already holding rows without the key, each by name. Its
 # rows stand unexpired (`fl_backend/tests/core/test_aktionen_validator_execution.py ::
-# test_a_row_stored_before_the_retention_stamp_is_still_redactable`).
+# test_a_row_stored_before_a_key_existed_is_still_redactable`).
 RETROFITTED_TTL_INDEXES = frozenset({"aktionen_retention"})
 
 

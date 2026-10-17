@@ -13,7 +13,7 @@ from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
 from app.shared.alter import whole_years_between
 from app.shared.einwilligung import is_confirmed
 from app.shared.einwilligung_nachweis import compose_geboren
-from app.shared.folding import canonical_address, mailbox_key
+from app.shared.folding import canonical_address, mailbox_key, sign_in_identifier
 from app.shared.schemas.bounds import (
     BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
     MEDIEN_MIN_AGE_YEARS,
@@ -24,10 +24,6 @@ from app.shared.schemas.kontakt import FLKontakt
 
 # A played fixture never blocks: its `schiedsrichter` is a record of who officiated.
 REFEREE_STILL_ASSIGNED = "REQ-RETIRE-004"
-
-# Its own code rather than the 404 every other endpoint answers for this id: an administrator who
-# reached the ghost is owed the reason it cannot be erased, not the claim that it is not there.
-GHOST_ERASED = "REQ-ANONYMISE-004"
 
 
 def build_ghost_schiedsrichter() -> dict[str, Any]:
@@ -54,10 +50,18 @@ def build_ghost_schiedsrichter() -> dict[str, Any]:
 _NOT_THE_GHOST: Mapping[str, Any] = {"$ne": GHOST_SCHIEDSRICHTER_ID}
 
 
-def build_real_referees_filter() -> Mapping[str, Any]:
-    """Every referee a person stands behind, which is the whole collection but the ghost."""
+def build_real_referees_filter(terms: Mapping[str, Any] | None = None) -> Mapping[str, Any]:
+    """The referees `terms` match, the ghost never among them; with none, every referee a person stands behind.
 
-    return {"_id": dict(_NOT_THE_GHOST)}
+    Composed as `app/api/spieler/services.py :: build_real_spieler_filter` composes, for its reason.
+    """
+
+    composed = dict(terms or {})
+
+    if "_id" in composed:
+        return {"$and": [composed, {"_id": dict(_NOT_THE_GHOST)}]}
+
+    return {**composed, "_id": dict(_NOT_THE_GHOST)}
 
 
 def build_referee_filter(schiedsrichter_id: Any) -> Mapping[str, Any]:
@@ -104,10 +108,24 @@ def build_booked_image_filter(schiedsrichter_id: Any) -> Mapping[str, Any]:
     """
 
     # `collection` first, the one half an index serves — nothing indexes inside `before`, as the
-    # contact erasure's orphan sweep also finds
-    # (`app/api/kontakte/services.py :: build_orphaned_images_pipeline`). A `delete_many` row's image is
+    # contact erasure's seat pass also finds
+    # (`app/api/kontakte/services.py :: build_seat_images_filter`). A `delete_many` row's image is
     # an ARRAY, matched on its members.
     return {"collection": str(Collection.SPIELE), "before.schiedsrichter.schiedsrichter_id": schiedsrichter_id}
+
+
+def booked_image_edits(image: Mapping[str, Any], schiedsrichter_id: Any) -> dict[str, Any]:
+    """One fixture image booked to this referee, repointed as the fixture itself is.
+
+    Its result and every other value stay: the match is the league's record, and only the booking
+    named the person.
+    """
+
+    booking = image.get("schiedsrichter")
+    if not isinstance(booking, Mapping) or booking.get("schiedsrichter_id") != schiedsrichter_id:
+        return {}
+
+    return dict(build_ghost_repoint()["$set"])
 
 
 def first_stamped(*, stored: Mapping[str, Any], field: str, today: str) -> str:
@@ -120,22 +138,6 @@ def first_stamped(*, stored: Mapping[str, Any], field: str, today: str) -> str:
     stamped = stored.get(field)
 
     return today if stamped is None else str(stamped)
-
-
-def find_ghost_erasure_refusal(*, schiedsrichter_id: Any) -> WriteRefusal | None:
-    """Why erasing this id must be refused, or `None`."""
-
-    if schiedsrichter_id != GHOST_SCHIEDSRICHTER_ID:
-        return None
-
-    return WriteRefusal(
-        error_code=GHOST_ERASED,
-        status=HTTPStatus.CONFLICT,
-        message=(
-            "this row stands behind nobody: it is what the fixtures of every already-erased referee name, so it holds "
-            "no personal data to delete and deleting it would leave those fixtures naming a referee that is gone"
-        ),
-    )
 
 
 def find_referee_retire_refusal(*, upcoming_spiel_nrs: Sequence[int]) -> WriteRefusal | None:
@@ -250,8 +252,8 @@ def build_token_filter(*, token_hash: str) -> Mapping[str, Any]:
 def vorname_of(name: Any) -> str | None:
     """The forename inside the one `name` field this collection stores.
 
-    Split rather than stored apart, because every other referee surface reads and writes the whole
-    name; a leaked link learns this much and no more (`docs/backend/spec.md :: READ-REFEREE-002`).
+    Split rather than stored apart, as every other referee surface reads the whole name. Only the
+    account page fills a slot with it (`docs/backend/spec.md :: READ-REFEREE-002`).
     """
 
     parts = str(name).split() if isinstance(name, str) else []
@@ -564,6 +566,20 @@ def build_pending_adresswechsel_filter(schiedsrichter_id: Any) -> Mapping[str, A
     return {**build_referee_filter(schiedsrichter_id), ADRESSWECHSEL_FELD: {"$type": "object"}}
 
 
+def build_lapsed_adresswechsel_filter(*, today: str, schiedsrichter_id: Any = None) -> Mapping[str, Any]:
+    """Every real referee, retired or not, whose pending change's link lapsed before `today`; given an id, that one alone.
+
+    `$lt` as `link_is_over` reads the deadline, its own day still taking the link. The validator requires the block's `frist`.
+    """
+
+    lapsed = {f"{ADRESSWECHSEL_FELD}.frist": {"$lt": today}}
+
+    if schiedsrichter_id is None:
+        return build_real_referees_filter({ADRESSWECHSEL_FELD: {"$type": "object"}, **lapsed})
+
+    return {**build_pending_adresswechsel_filter(schiedsrichter_id), **lapsed}
+
+
 def save_drops_a_pending_address(*, stored: Mapping[str, Any], payload_email: str) -> bool:
     """Whether this save replaces a pending address with another mailbox's, dropping an address nobody proved.
 
@@ -575,6 +591,19 @@ def save_drops_a_pending_address(*, stored: Mapping[str, Any], payload_email: st
         return False
 
     return mailbox_key(pending) != mailbox_key(payload_email)
+
+
+def adresswechsel_image_edits(image: Mapping[str, Any], identifier: str) -> dict[str, None]:
+    """The pending block in one log image of a referee, emptied where it names this mailbox on the fold.
+
+    Another address's block stays, and so does the referee's own record beside it: their earlier
+    consent states are theirs.
+    """
+
+    wechsel = image.get(ADRESSWECHSEL_FELD)
+    email = wechsel.get("email") if isinstance(wechsel, Mapping) else None
+
+    return {ADRESSWECHSEL_FELD: None} if isinstance(email, str) and sign_in_identifier(email) == identifier else {}
 
 
 def compose_adresswechsel_antwort(*, antwort: str, email: Any) -> Mapping[str, Any]:
@@ -612,7 +641,6 @@ def adresswechsel_zustand_of(
 # An INCLUSION, for `BESTAETIGUNG_ANSICHT_FIELDS`' reason. Both addresses are read for the ban list
 # alone, and no answer carries either.
 ADRESSWECHSEL_ANSICHT_FIELDS: Mapping[str, int] = {
-    "name": 1,
     "kontakt.email": 1,
     f"{ADRESSWECHSEL_FELD}.email": 1,
     f"{ADRESSWECHSEL_FELD}.frist": 1,
@@ -635,8 +663,6 @@ ADRESSWECHSEL_EINLADEN_FIELDS: Mapping[str, int] = {"kontakt.email": 1, f"{ADRES
 # An INCLUSION and never an exclusion: a base-tier caller holds the whole credential, so the rest
 # of the row is what must not reach them (`docs/backend/spec.md :: READ-REFEREE-002`).
 BESTAETIGUNG_ANSICHT_FIELDS: Mapping[str, int] = {
-    # Read whole and cut by `vorname_of` before the response: no `find` projection splits a string.
-    "name": 1,
     f"{EINWILLIGUNG_FELD}.bestaetigt_am": 1,
     f"{EINWILLIGUNG_FELD}.text_version": 1,
     f"{BESTAETIGUNG_FELD}.frist": 1,
@@ -650,7 +676,6 @@ BESTAETIGUNG_ANSICHT_FIELDS: Mapping[str, int] = {
 # Narrower than the view's: the answer takes its wording from the payload rather than the row. The
 # address is what the press asks the ban list of, and no answer carries it.
 BESTAETIGUNG_ANTWORT_FIELDS: Mapping[str, int] = {
-    "name": 1,
     f"{EINWILLIGUNG_FELD}.bestaetigt_am": 1,
     f"{BESTAETIGUNG_FELD}.frist": 1,
     "kontakt.email": 1,
@@ -663,8 +688,8 @@ EINLADEN_FIELDS: Mapping[str, int] = {"inactive_since": 1, "kontakt.email": 1, f
 def build_selbst_referee_filter(identifier: str, *, schiedsrichter_id: Any = None) -> Mapping[str, Any]:
     """The referee rows that may be this address's own, retired ones included: a withdrawal reaches them too.
 
-    A pre-filter: a stored address keeps its typed case, so the caller keeps the rows
-    `app/api/identitaet/services.py :: folds_to` confirms.
+    A pre-filter reading every mailbox sharing the local part, in any case or domain: the caller keeps
+    the rows `app/api/identitaet/services.py :: folds_to` confirms.
     """
 
     return {

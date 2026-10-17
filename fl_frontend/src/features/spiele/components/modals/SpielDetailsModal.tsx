@@ -1,7 +1,5 @@
 "use client";
 
-import Link from "next/link";
-
 import CircleInfo from "@gravity-ui/icons/CircleInfo";
 
 import { Modal } from "@heroui/react/modal";
@@ -11,6 +9,7 @@ import { dismissControl } from "@/core/dismissControl";
 import { spielSchiedsrichterAnzeige } from "@/features/schiedsrichter/constants";
 import { TeamPopoverMenu } from "@/features/teams/components/ui/TeamPopoverMenu";
 import { Leer } from "@/shared/components/ui/Angabe";
+import { NewTabLink } from "@/shared/components/ui/NewTabLink";
 import { textLink } from "@/shared/components/ui/textLink";
 import { buildMapsSearchUrl, formatSpielDatum, formatUhrzeit, PLACEHOLDER } from "@/shared/utils/format";
 
@@ -176,13 +175,11 @@ export function SpielDetailsModal({
                   <div>
                     <h4 className="font-semibold text-foreground-muted">Ort</h4>
                     {spielData.ort ? (
-                      <Link
+                      <NewTabLink
                         href={mapUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
                         className={`${textLink()} font-bold`}>
                         {spielData.ort.name}
-                      </Link>
+                      </NewTabLink>
                     ) : (
                       <p className="font-bold text-foreground">
                         <Leer>{PLACEHOLDER.entity}</Leer>

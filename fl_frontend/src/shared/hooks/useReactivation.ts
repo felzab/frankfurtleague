@@ -7,10 +7,12 @@ import { STEP_UP_REFUSED } from "@/shared/components/ui/stepUp";
 import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { focusAfterWrite } from "@/shared/utils/focusAfterWrite";
+import { versandWarnt } from "@/shared/utils/linkVersand";
 
 import { useStepUp } from "./useStepUp";
 
 import type { ActionResult } from "@/shared/types/types";
+import type { LinkVersand } from "@/shared/utils/linkVersand";
 
 /**
  * The reactivation every retired row offers: one transition, and the pair of announcements, composed
@@ -20,7 +22,7 @@ export function useReactivation<TPayload>({
   action,
   noun,
 }: {
-  action: (payload: TPayload) => Promise<ActionResult<{ versandFehlgeschlagen?: boolean }>>;
+  action: (payload: TPayload) => Promise<ActionResult<{ versand?: LinkVersand }>>;
   /** What comes back, nominative and without an article: both titles are built around it. */
   noun: string;
 }): {
@@ -54,9 +56,9 @@ export function useReactivation<TPayload>({
 
           landing.landed();
           const title = `${noun} reaktiviert`;
-          // A warning where the link the return minted did not leave, graded and titled as the save's
+          // A warning where the link the return minted did not go out, graded and titled as the save's
           // `offerUndo` grades the same send: the person holds no working link and nobody else is told.
-          const warn = res.versandFehlgeschlagen === true;
+          const warn = versandWarnt(res.versand);
           const raise = warn ? appToast.warning : appToast.success;
           // Dropped where the action's sentence IS the title: every row-level reactivation answers with
           // the words the title already carries, and only the squad row answers with a detail.

@@ -1,3 +1,5 @@
+import z from "zod";
+
 import { isFunktionLost, isRefusal } from "@/shared/utils/actionError";
 
 export const WAHL_GESPEICHERT = "Deine Wahl ist gespeichert";
@@ -8,9 +10,18 @@ export const WAHL_NICHT_GESPEICHERT = "Deine Wahl wurde nicht gespeichert";
 // only a reload draws what the press would be recorded against.
 export const SEITE_VERALTET = "Diese Seite ist nicht mehr aktuell. Lade sie neu und wähle erneut.";
 
-// No age named: the server action mapping the backend's refusal holds no entry to read the served floor
-// from, and the switch's own paragraph, filled from it, names the age once the page is reloaded.
-export const MEDIEN_ZU_JUNG = "Fotos, Videos und Interviews kannst Du in Deinem Alter noch nicht erlauben. Lade die Seite neu.";
+/**
+ * `alter` is the media floor the record's entry serves, never a number of the page's own: one would name
+ * another age the day the backend's rule moves.
+ */
+export const medienZuJung = (alter: number): string => `Fotos, Videos und Interviews kannst Du erst ab ${String(alter)} Jahren erlauben.`;
+
+/**
+ * The served media floor's one shape: the account page's read, the three public confirmation views' reads,
+ * and the argument a granting control binds to its write, which only words `medienZuJung`. A floor the
+ * writes refuse fails every read.
+ */
+export const MedienMindestalterSchema = z.int().positive();
 
 // `REQ-FUNKTION-001` on a record admitting a grant: the address holds no such record of its own now.
 export const EINTRAG_WEG = "Diese Angaben sind nicht mehr bei Dir eingetragen. Lade die Seite neu.";
@@ -25,12 +36,13 @@ export const REGISTRIERUNG_NICHT_MEHR_OFFEN =
   "Diese Registrierung ist nicht mehr offen. Lade die Seite neu. Dort steht, was jetzt für Dich gilt.";
 
 // A grant on the person's own record that takes a withdrawal alone (`REQ-EINWILLIGUNG-004`): the page
-// offers none there, so a page drawn before the record stopped admitting one sent it.
+// offers none there, so a page drawn before the record stopped admitting one sent it, and a refused write
+// never refreshes the page.
 export const NUR_WIDERRUF = "Hier kannst Du eine Erlaubnis nur zurücknehmen. Lade die Seite neu.";
 
 // A grant past the person's ceiling for the day (`REQ-DROSSELUNG-001`): the count starts again at
 // German midnight, and a withdrawal is never counted, so the page says both.
-export const ZUSTIMMEN_MORGEN = "Zustimmen kannst Du morgen wieder. Widerrufen geht jederzeit.";
+export const ZUSTIMMEN_MORGEN = "Zustimmen kannst Du erst morgen. Widerrufen geht jederzeit.";
 
 /**
  * The code set every consent write shares, each with its sentence, so a refusal reads the same whichever
@@ -40,8 +52,6 @@ export const ZUSTIMMEN_MORGEN = "Zustimmen kannst Du morgen wieder. Widerrufen g
 export const EINWILLIGUNG_WAHL_SAETZE: Readonly<Record<string, string>> = {
   "REQ-EINWILLIGUNG-001": SEITE_VERALTET,
   "REQ-EINWILLIGUNG-003": SEITE_VERALTET,
-  // The switch is offered only from the floor, so this reaches a page drawn before a birthdate was corrected.
-  "REQ-EINWILLIGUNG-002": MEDIEN_ZU_JUNG,
   "REQ-EINWILLIGUNG-004": NUR_WIDERRUF,
   // Only a grant is counted, so this reaches a press that would have switched a choice on.
   "REQ-DROSSELUNG-001": ZUSTIMMEN_MORGEN,
@@ -64,8 +74,17 @@ const einwilligungRefusalMapper =
   (error: unknown): { error: string } | null =>
     isFunktionLost(error) ? { error: eintragWeg } : mapEinwilligungWahlRefusal(error);
 
-/** A pupil's, a referee's or a season's seats' consent write. */
-export const mapEigeneEinwilligungRefusal = einwilligungRefusalMapper(EINTRAG_WEG);
+const mapEigeneWahlRefusal = einwilligungRefusalMapper(EINTRAG_WEG);
+
+/** A pupil's, a referee's or a season's seats' consent write, the three taking a grant, by its record's served media floor. */
+export function mapEigeneEinwilligungRefusal(error: unknown, medienMindestalter: number): { error: string } | null {
+  // The switch is offered only from the floor, so this reaches a page drawn before a birthdate was corrected.
+  if (isRefusal(error) && error.serverErrorCode === "REQ-EINWILLIGUNG-002") {
+    return { error: `${medienZuJung(medienMindestalter)} Lade die Seite neu.` };
+  }
+
+  return mapEigeneWahlRefusal(error);
+}
 
 /** A pending application's seats' consent write. */
 export const mapBewerbungEinwilligungRefusal = einwilligungRefusalMapper(BEWERBUNG_NICHT_MEHR_OFFEN);

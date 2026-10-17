@@ -1,19 +1,26 @@
 import json
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Final, NamedTuple
+from typing import Any, Final, NamedTuple
 
 import pytest
+from pydantic import TypeAdapter
 
+from app.api.identitaet.schemas import ErasureAdresse
 from app.shared.folding import canonical_address, league_address, mailbox_key, sign_in_identifier
 
-# One table both suites run their own rule and fold over (`fl_frontend/src/core/emailAddress.test.ts`
-# holds the frontend half): each runtime converts a Unicode domain with its own tables, and this is
-# where the two are held to one answer.
+# One table both suites run their own rule and fold over, the frontend half in `fl_frontend/src/core/emailAddress.test.ts`:
+# each runtime converts a Unicode domain on its own tables, held here to one answer, or each to its own where they part.
 EMAIL_ADDRESSES: Final = Path(__file__).resolve().parent / "email_addresses.json"
 
 # Recorded under the keying every stored ban was hashed with, and only ever appended to: a null is a
 # probe the address rule now refuses (`docs/backend/spec.md :: I330`).
 BAN_KEYS: Final = Path(__file__).resolve().parent / "ban_keys.json"
+
+
+class Answer(NamedTuple):
+    stored: str | None
+    folded: str
 
 
 class Row(NamedTuple):
@@ -22,10 +29,19 @@ class Row(NamedTuple):
     # What a payload stores, or `None` where the rule refuses the address.
     stored: str | None
     folded: str
+    # The frontend's own answer where the two runtimes' tables part
+    # (`docs/backend/spec.md :: The two runtimes' folds part on a domain no payload stores`).
+    frontend: Answer | None = None
+
+
+def _row(row: Mapping[str, Any]) -> Row:
+    frontend = row.get("frontend")
+
+    return Row(**{**row, "frontend": None if frontend is None else Answer(**frontend)})
 
 
 def _rows() -> tuple[Row, ...]:
-    return tuple(Row(**row) for row in json.loads(EMAIL_ADDRESSES.read_bytes().decode("utf-8")))
+    return tuple(_row(row) for row in json.loads(EMAIL_ADDRESSES.read_bytes().decode("utf-8")))
 
 
 ROWS: Final = _rows()
@@ -59,6 +75,23 @@ def test_a_payload_stores_each_row_as_the_table_records(row: Row):
 @pytest.mark.parametrize("row", ROWS, ids=lambda row: row.case)
 def test_the_fold_answers_each_row_as_the_table_records(row: Row):
     assert sign_in_identifier(row.typed) == row.folded
+
+
+def test_every_parting_recorded_still_parts():
+    """An upgrade closing one leaves the two sides one answer, which its row then records once, its `frontend` removed."""
+
+    assert [row.case for row in ROWS if row.frontend == Answer(row.stored, row.folded)] == []
+
+
+ERASURE_LOOKUP: Final = TypeAdapter(ErasureAdresse)
+
+
+# Every row but those the lookup refuses for the placeholder's reserved domain, judged on the fold as it judges them.
+@pytest.mark.parametrize("row", [row for row in ROWS if row.folded.rpartition(".")[2] != "invalid"], ids=lambda row: row.case)
+def test_the_erasure_lookup_asks_for_the_mailbox_the_row_folds_to(row: Row):
+    """The page ends the sign-in account its own trimmed box folds to: a lookup trimming otherwise erases another mailbox's records."""
+
+    assert sign_in_identifier(ERASURE_LOOKUP.validate_python(row.typed)) == row.folded
 
 
 @pytest.mark.parametrize("row", [row for row in ROWS if row.stored is not None], ids=lambda row: row.case)

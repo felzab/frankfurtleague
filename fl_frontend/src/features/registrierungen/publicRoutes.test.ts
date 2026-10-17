@@ -56,6 +56,7 @@ const { AdresseGesperrt, LinkUnlesbar } = await import("@/features/bewerbungen/c
 const { NUMMER_MAX_LENGTH, STUFE_OPTIONS } = await import("@/features/spieler/constants.ts");
 
 const { default: SpielerBestaetigungPage } = await import("@/app/(public)/bestaetigung/spieler/page.tsx");
+const { default: RegistrierungPage } = await import("@/app/(public)/registrierung/page.tsx");
 
 /**
  * The team the invite opens, and a SECOND team of the same season that it does not.
@@ -119,7 +120,6 @@ const GEOEFFNET: SpielerBestaetigungGeoeffnet = {
   team: TEAM.name,
   schule: TEAM.full_name,
   saison_id: "2026",
-  vorname: "Mira",
   seite: FASSUNG.seite,
   mindestalter: MIN_ALTER,
   medien_mindestalter: MEDIEN_ALTER,
@@ -172,7 +172,6 @@ const paragraphsOf = (html: string): string[] =>
 
 /** The slots a record fills, as the page fills them, so a comparison reads what a reader read. */
 const SLOTS: Readonly<Record<string, string>> = {
-  vorname: GEOEFFNET.vorname,
   team: TEAM.name,
   schule: TEAM.full_name,
   saison: GEOEFFNET.saison_id,
@@ -216,11 +215,10 @@ describe("the state the registration page renders", () => {
     assert.equal(new Set(titel).size, titel.length, "two closed states give the reader the same answer");
   });
 
-  /* „erneut“ is a retry's word: a link opened again is „noch einmal“, as every reopening sentence says it. */
   it("tells a pupil whose team's squad is full to open the link again once a place frees up", () => {
     assert.ok(
-      textOf(seite("kader-voll")).includes("Wird im Kader wieder ein Platz frei, kannst Du den Link noch einmal öffnen."),
-      "the full-squad page names no way back, or names it in a retry's words",
+      textOf(seite("kader-voll")).includes("Wird im Kader wieder ein Platz frei, kannst Du den Link erneut öffnen."),
+      "the full-squad page names no way back",
     );
   });
 
@@ -257,7 +255,7 @@ describe("the state the registration page renders", () => {
     assert.ok(
       paragraphsOf(seite("gueltig")).includes(
         "Der Verarbeitung Deiner Angaben für den Spielbetrieb kannst Du jederzeit aus Gründen widersprechen, die sich aus Deiner " +
-          `besonderen Situation ergeben (Art. 21 DSGVO); eine formlose E-Mail an ${KONTAKT_EMAIL} genügt.`,
+          `besonderen Situation ergeben (Art. 21 DSGVO). Eine formlose E-Mail an ${KONTAKT_EMAIL} genügt.`,
       ),
       "the registration form states no objection of its own",
     );
@@ -309,6 +307,32 @@ describe("the state the registration page renders", () => {
       "the banner gives the season's start as the reason, or drops what the marker leaves unchanged",
     );
     assert.doesNotMatch(textOf(seite("gueltig"), " "), /nachnominiert/, "an ordinary registration is called a Nachnominierung");
+  });
+});
+
+describe("the registration page over an invite read that did not answer", () => {
+  /** What the page opens its view on, the invite's read answered as the case sets it. */
+  const registrierungStart = async (): Promise<unknown> =>
+    (
+      (await pageBody(RegistrierungPage, {
+        params: Promise.resolve({}),
+        searchParams: Promise.resolve({ token: "kein-echtes-token" }),
+      })) as ReactElement<{ start: unknown }>
+    ).props.start;
+
+  it("opens on its own state where the read failed, rather than calling a live invite void", async () => {
+    answerReadsWith(() => {
+      throw new TypeError("fetch failed");
+    });
+
+    assert.deepEqual(await registrierungStart(), { zustand: "unlesbar" });
+  });
+
+  /* An answer off its schema is a broken contract, never a failed read: the error boundary logs it, and the reload panel would hide it. */
+  it("lets a read off its contract reach the error boundary", async () => {
+    answerReadsWith(() => ({ acknowledged: 1 }));
+
+    await assert.rejects(registrierungStart(), { name: "APIMalformedDataError" });
   });
 });
 
@@ -654,6 +678,35 @@ describe("which of the confirmation page's words its stamped version covers", ()
     await assert.rejects(handedFassung({ seiten: { acknowledged: 1, laufende_fassungen: ohneWiederkehrend } }), { name: "ContractBreakError" });
     await assert.rejects(handedFassung({ laufend: "2026-01-nirgends" }), { name: "ContractBreakError" }, "a label serving no words");
     await assert.rejects(handedFassung({ seiten: { acknowledged: 1 } }), { name: "APIMalformedDataError" }, "an answer off its schema");
+  });
+
+  /* The read refuses a view serving a media floor of 0, which would offer the media switch to every age:
+     a broken contract, which the error boundary logs and the reload panel would hide. */
+  it("lets a view serving a media floor of 0 reach the error boundary", async () => {
+    answerReadsWith((endpoint, schema, params) =>
+      endpoint === "/registrierungen/bestaetigung/ansicht"
+        ? { ...GEOEFFNET, medien_mindestalter: 0 }
+        : (einwilligungAnswer(endpoint) ?? EMPTIEST_ANSWER(endpoint, schema, params)),
+    );
+
+    await assert.rejects(
+      pageBody(SpielerBestaetigungPage, { params: Promise.resolve({}), searchParams: Promise.resolve({ token: "kein-echtes-token" }) }),
+      { name: "APIMalformedDataError" },
+      "the page took a media floor of 0",
+    );
+  });
+
+  it("opens a link on the failed read's panel where the link's own read fails", async () => {
+    answerReadsWith((endpoint, schema, params) => {
+      if (endpoint === "/registrierungen/bestaetigung/ansicht") throw new TypeError("fetch failed");
+      return einwilligungAnswer(endpoint) ?? EMPTIEST_ANSWER(endpoint, schema, params);
+    });
+    const body = (await pageBody(SpielerBestaetigungPage, {
+      params: Promise.resolve({}),
+      searchParams: Promise.resolve({ token: "kein-echtes-token" }),
+    })) as ReactElement<{ start: unknown }>;
+
+    assert.deepEqual(body.props.start, { zustand: "unlesbar" });
   });
 
   /* The read failing is a state of its own, which a reload may clear. */

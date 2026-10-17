@@ -18,7 +18,7 @@ import { Label } from "@heroui/react/label";
 import { besetzeKontaktSitzAction, einwilligungErneutSendenAction, kontaktEmailKorrigierenAction } from "@/features/bewerbungen/actions";
 import { adressenAndererPersonen, istOffen, linkAngebot, loeschungsSatz, sitzAngebot } from "@/features/bewerbungen/bestaetigungStand";
 import { FESTE_WERTE } from "@/features/bewerbungen/components/ui/Gefuellt";
-import { ERNEUT_OHNE_ADRESSE } from "@/features/bewerbungen/constants";
+import { ADRESSE_KORRIGIEREN, ERNEUT_OHNE_ADRESSE } from "@/features/bewerbungen/constants";
 import {
   FLBewerbungKontaktEmailPayloadSchema,
   FLBewerbungKontaktSitzPayloadSchema,
@@ -48,6 +48,7 @@ import { benannt } from "@/shared/utils/benannt";
 import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
 import { focusAfterWrite, focusRow, focusSection, focusSlot } from "@/shared/utils/focusAfterWrite";
 import { nichtHinterlegt } from "@/shared/utils/format";
+import { LINK_TITEL, meldeLinkVersand } from "@/shared/utils/linkVersandToast";
 import { pressLinkWrite } from "@/shared/utils/linkWrite";
 import { FASSUNG_UNLESBAR } from "@/shared/utils/refusal";
 
@@ -58,6 +59,7 @@ import type { SitzBestaetigung } from "@/features/bewerbungen/bestaetigungStand"
 import type { KontaktRolle } from "@/features/teams/constants";
 import type { PillTone } from "@/shared/components/ui/badges";
 import type { RaiseFailure } from "@/shared/hooks/useServerFieldErrors";
+import type { VersandTitel } from "@/shared/utils/linkVersandToast";
 import type { KontaktFassung } from "./BestaetigungHinweise";
 
 /**
@@ -102,6 +104,25 @@ const KORREKTUR_OHNE_ANTWORT = "Prüfe die Verbindung und lade die Seite neu. St
 
 /** Unlike a re-send, a second reseat over a seat already filled is refused, so the row, reloaded, decides. */
 const BESETZUNG_OHNE_ANTWORT = "Prüfe die Verbindung und lade die Seite neu. Steht in der Zeile noch niemand, besetze die Rolle erneut.";
+
+const ERNEUT_TITEL: VersandTitel = { ...LINK_TITEL, gesendet: "Link erneut gesendet" };
+
+/** Each says the address moved, the strip's re-send raising the bare link titles for a link alone. */
+const KORREKTUR_TITEL: VersandTitel = {
+  gesendet: "Adresse korrigiert",
+  fehlgeschlagen: "Adresse korrigiert, Link nicht verschickt",
+  abgelegt: "Adresse korrigiert, Link zurückgehalten",
+};
+
+/**
+ * Its own titles, never the correction's: one title names one outcome, and these say the seat is filled
+ * where those say an address moved.
+ */
+const NEUBESETZUNG_TITEL: VersandTitel = {
+  gesendet: "Rolle neu besetzt",
+  fehlgeschlagen: "Rolle besetzt, Link nicht verschickt",
+  abgelegt: "Rolle besetzt, Link zurückgehalten",
+};
 
 /** Which of the two editors one row has open. One at a time for the whole strip (`docs/frontend/spec.md :: I66`). */
 type Bearbeitung = "korrektur" | "neubesetzung";
@@ -189,7 +210,7 @@ export function BewerbungBestaetigungStrip({
     }
 
     landing.landed();
-    appToast.success("Link erneut gesendet", { description: res.message });
+    meldeLinkVersand(res.versand, ERNEUT_TITEL, res.message);
   };
 
   return (
@@ -322,11 +343,11 @@ function SitzZeile({
             control on this site stands where the value it edits is. */}
         {hatAngebot && bearbeitet === null && (
           <FocusSlot name="korrektur">
-            <IconTooltip label="Adresse korrigieren">
+            <IconTooltip label={ADRESSE_KORRIGIEREN}>
               <Button
                 type="button"
                 isPending={sendet}
-                aria-label={benannt("Adresse korrigieren", sitz.nameSatz)}
+                aria-label={benannt(ADRESSE_KORRIGIEREN, sitz.nameSatz)}
                 onPress={() => {
                   onOeffne("korrektur");
                 }}
@@ -537,16 +558,7 @@ function AdresseKorrigieren({
     }
 
     schliesse(landing);
-
-    if (res.verschickt === false) {
-      appToast.warning("Link nicht gesendet", {
-        description:
-          "Die Adresse ist korrigiert, aber die E-Mail mit dem neuen Link ging nicht raus, und der alte Link gilt nicht mehr. Schicke den Link erneut.",
-      });
-      return;
-    }
-
-    appToast.success("Adresse korrigiert", { description: res.message });
+    meldeLinkVersand(res.versand, KORREKTUR_TITEL, res.message);
   };
 
   return (
@@ -731,18 +743,7 @@ function SitzNeuBesetzen({
     }
 
     schliesse(landing);
-
-    if (res.verschickt === false) {
-      // Its own title, never the correction's „Link nicht gesendet“: one title names one outcome,
-      // and this one says the seat is filled where that one says an address moved.
-      appToast.warning("Rolle besetzt, Link nicht gesendet", {
-        description:
-          "Die Person steht jetzt in der Bewerbung, aber die E-Mail mit ihrem Bestätigungslink ging nicht raus. Schicke den Link erneut.",
-      });
-      return;
-    }
-
-    appToast.success("Rolle neu besetzt", { description: res.message });
+    meldeLinkVersand(res.versand, NEUBESETZUNG_TITEL, res.message);
   };
 
   return (

@@ -22,10 +22,8 @@ for arg in "$@"; do
   esac
 done
 
-RUNNABLE=(ops/local.sh gate/verify.sh ops/deploy.sh gate/selfcheck.sh)
-
 # One EXIT trap for the whole run: bash keeps one, so a second `trap … EXIT` below would silently
-# replace it. INT and TERM stay `scripts/lib/_lib.sh`'s, which exits 130 and so fires this.
+# replace it. INT, TERM and HUP stay `scripts/lib/_lib.sh`'s, which exits 130 and so fires this.
 SELFCHECK_TMP="$(mktemp -d)"
 cleanup() {
   rm -rf "$SELFCHECK_TMP"
@@ -80,6 +78,17 @@ else
   if (( ${#SHELL_FILES[@]} == 0 )); then
     note_fail "no shell script was found anywhere in the repository, so every per-file step below reads nothing"
   fi
+fi
+
+# The scripts a person runs, relative to `scripts/`: every shell script there but `lib/`'s, which
+# are sourced and never run (`scripts/README.md`). Read off the list above for its reason, so a new
+# script joins every step taking this list unlisted.
+RUNNABLE=()
+for f in "${SHELL_FILES[@]}"; do
+  if [[ "$f" == scripts/* && "$f" != scripts/lib/* ]]; then RUNNABLE+=("${f#scripts/}"); fi
+done
+if (( ${#RUNNABLE[@]} == 0 )); then
+  note_fail "no runnable script was found below scripts/, so every step taking them checks nothing"
 fi
 
 # --- Running the independent checks concurrently -------------------------------------------------
@@ -511,6 +520,20 @@ check_documented_helpers() { # $1 the sheet
 check_documented_helpers "$VOCAB_SHEET"
 
 step "5. --help works from an unrelated directory"
+# Steps 5 and 6 run each script, so they take the ones git tracks alone: an untracked draft runs
+# whatever its body does ahead of an argument loop, on every gate. Read off step 3's modes.
+TRACKED_RUNNABLE=()
+if (( GIT_MODES_RC != 0 )); then
+  note_fail "step 3 could not read git's index, so steps 5 and 6 ran no script"
+else
+  for f in "${RUNNABLE[@]}"; do
+    if [[ -n "${GIT_MODE["scripts/$f"]:-}" ]]; then
+      TRACKED_RUNNABLE+=("$f")
+    else
+      note_skip "$f is not tracked by git, so steps 5 and 6 did not run it"
+    fi
+  done
+fi
 unit_help() { # $1 index · $2 script name · $3 label
   if ( cd / && bash "${REPO_ROOT}/scripts/$2" --help >/dev/null 2>&1 ); then
     printf 'info\t%s --help\n' "$2"
@@ -518,7 +541,7 @@ unit_help() { # $1 index · $2 script name · $3 label
     printf 'fail\t%s --help failed (a relative path that stops resolving after the cd?)\n' "$2"
   fi
 }
-for f in "${RUNNABLE[@]}"; do par_add "$f" "$f"; done
+for f in "${TRACKED_RUNNABLE[@]}"; do par_add "$f" "$f"; done
 par_run unit_help
 
 step "6. Unknown options are rejected, without requiring Docker"
@@ -533,17 +556,27 @@ unit_unknown_option() { # $1 index · $2 script name · $3 label
     printf 'fail\t%s did not reject an unknown option (is the arg loop after an environmental check?)\n' "$2"
   fi
 }
-for f in "${RUNNABLE[@]}"; do par_add "$f" "$f"; done
+for f in "${TRACKED_RUNNABLE[@]}"; do par_add "$f" "$f"; done
 par_run unit_unknown_option
 
 step "7. Machine-specific scripts declare a target platform"
 # Only the scripts that MUST run on one machine: the read-and-build ones would be pinned to an OS
 # for nothing, and that also blocks CI.
 
+# `ops/` is where `scripts/README.md` keeps the machine-specific scripts, read off `RUNNABLE` so a
+# new one is held here unlisted.
+MACHINE_SPECIFIC=()
+for f in "${RUNNABLE[@]}"; do
+  if [[ "$f" == ops/* ]]; then MACHINE_SPECIFIC+=("$f"); fi
+done
+if (( ${#MACHINE_SPECIFIC[@]} == 0 )); then
+  note_fail "no script was found below scripts/ops/, so no platform guard was checked"
+fi
+
 # Through the reader above, not a text search: `grep -q require_platform` is satisfied by the name
 # sitting in a comment. Run, or handed to a wrapper, both count; a mention in a comment or a string
 # does not. Wired is all this proves, not that it fires.
-for f in ops/local.sh ops/deploy.sh; do
+for f in "${MACHINE_SPECIFIC[@]}"; do
   guard="${SELFCHECK_TMP}/platform-sites.tsv"
   if ! awk "$CMD_WORDS" "scripts/$f" > "$guard" 2>/dev/null; then
     note_fail "$f: its call sites could not be read, so its platform guard was not checked"
@@ -898,6 +931,10 @@ import(pathToFileURL(reader).href).then(({ refusal }) => {
 });
 ' "${HOOKS_DIR}/implementer-whole-suite.mjs" "$arms" > "$answers" 2>"${SELFCHECK_TMP}/suite-driver.err" || rc=$?
     mapfile -d '' -t answered < "$answers"
+    # A split answer or a stray write shifts every answer after it, and at the last arm shows nothing.
+    if (( ${#answered[@]} > ${#SUITE_EXPECTS[@]} )); then
+      note_fail "whole-suite hook: the reader's driver gave ${#answered[@]} answers to ${#SUITE_EXPECTS[@]} arms, so the arms after the surplus read another arm's answer"
+    fi
     # Read now: an arm through the script below rewrites that script's own stderr file.
     unanswered="no answer, the reader's driver exited ${rc}: $(tr '\n' ' ' < "${SELFCHECK_TMP}/suite-driver.err")"
     for i in "${!SUITE_EXPECTS[@]}"; do
@@ -950,10 +987,21 @@ import(pathToFileURL(reader).href).then(({ refusal }) => {
   expect_refused Bash 'uv run --project fl_backend --frozen python -m pytest -m db'
   expect_refused Bash 'uv run --frozen pytest -m db -n 2'
   expect_refused Bash 'uv run --frozen pytest -m db tests/api/test_spiele.py tests/api/test_teams.py'
+  expect_refused Bash 'uv run --frozen pytest -m db tests/api/test_spiele.py::test_one tests/api/test_teams.py::test_two'
+  expect_refused Bash "uv run --frozen pytest -m db \$(git ls-files 'tests/api/*.py')"
   expect_refused Bash 'node --test --test-reporter spec'
   expect_refused Bash 'pnpm run test:base -- --test-reporter dot'
   expect_refused Bash 'npm t'
   expect_refused Bash 'bash -x ./scripts/gate/verify.sh'
+  # `-n` runs nothing of a script alone: an interactive shell ignores it, and a `-c` line is judged.
+  expect_refused Bash 'bash -in scripts/gate/verify.sh'
+  expect_refused Bash "bash -n -c 'pnpm test'"
+  expect_refused Bash "bash -n -c \"\$(pnpm test)\""
+  # A shell's long options, `--` and an option's name are read past to the script they run.
+  expect_refused Bash 'bash --norc scripts/gate/verify.sh'
+  expect_refused Bash 'bash --rcfile x.rc scripts/gate/verify.sh'
+  expect_refused Bash 'bash -euo pipefail scripts/gate/verify.sh'
+  expect_refused Bash 'bash -- scripts/gate/verify.sh'
   expect_refused Bash 'uv run --directory fl_backend pytest'
   expect_refused Bash './scripts/gate/verify.sh --docs'
   expect_refused Bash 'bash scripts/ops/local.sh --down'
@@ -971,6 +1019,10 @@ import(pathToFileURL(reader).href).then(({ refusal }) => {
   expect_refused Bash "echo \$(uv run --frozen pytest)"
   suite_tick='`'
   expect_refused Bash "echo ${suite_tick}pnpm test${suite_tick}"
+  # Inside double quotes a substitution still runs, in both shells.
+  expect_refused Bash "echo \"\$(pnpm test)\""
+  expect_refused Bash "echo \"${suite_tick}pnpm test${suite_tick}\""
+  expect_refused PowerShell "echo \"\$(pnpm test)\""
   expect_refused Bash '(cd fl_frontend && pnpm test)'
   expect_refused Bash '{ pnpm test; }'
   expect_refused Bash 'bash -c "cd fl_frontend && pnpm test"'
@@ -987,8 +1039,11 @@ import(pathToFileURL(reader).href).then(({ refusal }) => {
   through_hook expect_let_through implementer Bash 'uv run --frozen pytest tests/api/test_spiele.py'
   expect_let_through implementer Bash 'uv run --frozen pytest tests/api/test_spiele.py::test_one'
   expect_let_through implementer Bash 'uv run --frozen pytest -m db tests/api/test_spiele.py'
+  # A node id names its file, so ids from one database file are that one file.
+  expect_let_through implementer Bash 'uv run --frozen pytest -m db tests/api/test_spiele.py::test_one tests/api/test_spiele.py::test_two'
   # A substitution's output is the operand, whatever it lists.
   expect_let_through implementer Bash "uv run --frozen pytest \$(git diff --name-only HEAD~1 -- tests)"
+  expect_let_through implementer Bash "uv run --frozen pytest \"\$(git diff --name-only HEAD~1 -- tests)\""
   expect_let_through implementer Bash "uv run --frozen pytest ${suite_tick}cat files.txt${suite_tick}"
   expect_let_through implementer Bash "pnpm run test:base \$(git ls-files 'src/features/x/*.test.ts')"
   expect_let_through implementer PowerShell "uv run --frozen pytest ${suite_tick}"$'\n'"  tests/api/test_spiele.py"
@@ -997,6 +1052,7 @@ import(pathToFileURL(reader).href).then(({ refusal }) => {
   expect_let_through implementer Bash 'uv run --frozen pytest --version'
   expect_let_through implementer Bash 'uv run --frozen pytest -h'
   expect_let_through implementer Bash 'git log -- scripts/gate/verify.sh'
+  expect_let_through implementer Bash 'bash -n scripts/gate/verify.sh'
   expect_let_through implementer Bash "git commit -F - <<'EOF'"$'\n''pnpm test'$'\n''EOF'
   expect_let_through implementer Bash 'true # ; pnpm test'
   expect_let_through implementer Bash 'echo "an unterminated quote'
@@ -1061,6 +1117,16 @@ process.exit(said.hookEventName === "SessionStart" && pointers && /REGISTER-one\
   if [[ "$messages_said" == *'"additionalContext":"The messages hook found no uv'* ]]; then
     info 'messages hook: no uv — told to the coordinator'
   else note_fail "messages hook: with no uv it must tell the coordinator, got '${messages_said:0:200}'"; fi
+  # A uv refusing to start reg.py, as it does under a `required-version` it does not meet, reaches no
+  # line of reg.py, so only the hook can say so.
+  mkdir -p "${SELFCHECK_TMP}/refusing-uv"
+  printf '#!/usr/bin/env bash\nexit 2\n' > "${SELFCHECK_TMP}/refusing-uv/uv"
+  chmod +x "${SELFCHECK_TMP}/refusing-uv/uv"
+  messages_said="$(printf '%s' '{"session_id":"probe-1","tool_name":"SendMessage","tool_input":{"to":"W","message":"x"}}' |
+    PATH="${SELFCHECK_TMP}/refusing-uv:${PATH}" "$BASH" "$MESSAGES_HOOK" 2>&1)" || messages_said="exit $? ${messages_said}"
+  if [[ "$messages_said" == *"\"additionalContext\":\"The messages hook's uv run exited 2"* ]]; then
+    info 'messages hook: uv refusing to start — told to the coordinator'
+  else note_fail "messages hook: with uv refusing to start it must tell the coordinator, got '${messages_said:0:200}'"; fi
   if ! command -v uv >/dev/null 2>&1; then
     if [[ -n "${GITHUB_ACTIONS:-}" ]]; then note_fail "uv is absent, and this is CI, which installs it for every python scope"
     else note_skip "the messages hook's probe did not run: uv is absent, and the hook records through it"; fi
@@ -1090,6 +1156,15 @@ process.exit(said.hookEventName === "SessionStart" && pointers && /REGISTER-one\
     if [[ "$messages_said" == "0 "*'"hookEventName": "PostToolUse"'*"is in no messages file"* ]]; then
       info 'messages hook: a send it cannot record — told to the coordinator'
     else note_fail "messages hook: a send to an agent with no messages file must be told as PostToolUse context, got '${messages_said:0:200}'"; fi
+    # A lock naming a process that has ended is a writer killed holding it: broken, inside the timeout
+    # `.claude/settings.json` gives the hook, past which the harness kills the hook unheard.
+    node -e 'process.stdout.write(String(process.pid))' > "${messages_briefs}/WORKER-messages.md.lock"
+    messages_said="$(printf '%s' '{"session_id":"probe-1","tool_name":"SendMessage","tool_input":{"to":"WORKER","message":"probe order past a stale lock"}}' |
+      HOME="$messages_home" timeout 10 bash "$MESSAGES_HOOK" 2>&1)" || messages_said="exit $? ${messages_said}"
+    if [[ -z "$messages_said" && ! -e "${messages_briefs}/WORKER-messages.md.lock" ]] &&
+      grep -q '^probe order past a stale lock$' "${messages_briefs}/WORKER-messages.md"; then
+      info 'messages hook: a lock whose process ended — broken, the send recorded inside the timeout'
+    else note_fail "messages hook: a lock naming an ended process must be broken and the send recorded within 10 s, got '${messages_said:0:200}'"; fi
   fi
 
   # A writing or driving agent's MCP and Skill calls refused, because the app ignores the
@@ -1276,30 +1351,39 @@ first_disagreeing_tag() { # $1 exact, or series for a pin naming a series · $2 
 }
 
 # The one judgement every pin step makes; each step's reader differs and hands it the two values.
-judge_pin() { # $1 what is pinned · $2 exact, or series · $3 the manifest · $4 the Dockerfile · $5 what a disagreement costs · $6 the pin · $7… the tags
-  local what="$1" mode="$2" manifest="$3" dockerfile="$4" cost="$5" pin="$6" other
+judge_pin() { # $1 what is pinned · $2 exact, or series · $3 the file holding the pin · $4 the Dockerfile · $5 what a disagreement costs, or how to mend it · $6 the pin · $7… the tags
+  local what="$1" mode="$2" pinning="$3" dockerfile="$4" last_clause="$5" pin="$6" other
   shift 6
   if [[ -z "$pin" || $# -eq 0 ]]; then
     # Not a skip: a spelling this cannot read is the same silence the step exists to remove.
-    note_fail "could not read the ${what} version from both files — ${manifest} '${pin:-none}', ${dockerfile} '${*:-none}'"
+    note_fail "could not read the ${what} version from both files — ${pinning} '${pin:-none}', ${dockerfile} '${*:-none}'"
     return 0
   fi
   other="$(first_disagreeing_tag "$mode" "$pin" "$@")"
   if [[ -n "$other" ]]; then
-    note_fail "${manifest} pins ${what} ${pin} and ${dockerfile} carries ${other}; ${cost}"
+    note_fail "${pinning} pins ${what} ${pin} and ${dockerfile} carries ${other}; ${last_clause}"
   elif [[ "$mode" == series ]]; then
     info "${what} ${*} in the image, inside the ${pin} the repository pins"
   else
-    info "${what} ${pin} in the manifest and the image"
+    info "${what} ${pin} in ${pinning} and ${dockerfile}"
   fi
 }
 
-check_uv_pin() { # $1 the manifest · $2 the Dockerfile
+check_uv_pin() { # $1 the action installing CI's uv · $2 the Dockerfile
   local pin
   local -a tags
-  pin="$(sed -n 's/^required-version = "==\([0-9][^"]*\)"/\1/p' "$1")"
+  # Scoped to the setup-uv step's own inputs: another step's `version:` names something else.
+  pin="$(awk '
+    /uses:[[:space:]]*astral-sh\/setup-uv@/ { step = 1; next }
+    step && /^[[:space:]]*-[[:space:]]/ { exit }
+    step && match($0, /^[[:space:]]*version:[[:space:]]*"[0-9][^"]*"/) {
+      pin = substr($0, RSTART, RLENGTH); sub(/^[[:space:]]*version:[[:space:]]*"/, "", pin); sub(/"$/, "", pin)
+      print pin; exit
+    }
+  ' "$1")"
   mapfile -t tags < <(sed -n 's|^FROM ghcr.io/astral-sh/uv:\([^ @]*\)[@ ].*|\1|p' "$2")
-  judge_pin uv exact "$1" "$2" "uv sync refuses the pair, so the backend image cannot build" "$pin" "${tags[@]}"
+  # The range names the third file: two pins agreeing past its ceiling pass here and fail every uv run.
+  judge_pin uv exact "$1" "$2" "move the one the bot left behind, which after a Dependabot image bump is setup-uv's version, and keep both inside fl_backend/pyproject.toml's required-version, raising its ceiling where the release is past it" "$pin" "${tags[@]}"
 }
 
 check_node_pin() { # $1 the manifest · $2 the Dockerfile
@@ -1335,9 +1419,9 @@ check_python_series() { # $1 the .python-version file · $2 the Dockerfile
 }
 
 step "15. The uv version is one number in two files"
-# A bot moves one and not the other, and `uv sync` then refuses outright, so the backend image
-# stops building on every branch at once — including branches that touched neither file.
-check_uv_pin fl_backend/pyproject.toml fl_backend/Dockerfile
+# Dependabot's docker ecosystem moves the image's tag alone, and with no publication date to wait
+# on, so this refusal is also the only age gate that release meets (`docs/ops/spec.md :: I657`).
+check_uv_pin .github/actions/backend-toolchain/action.yml fl_backend/Dockerfile
 
 step "16. The Node version is one number in two files"
 # pnpm downloads the pinned Node for the checkout and CI, and the image runs its base's own, so a

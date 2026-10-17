@@ -42,7 +42,6 @@ const VORBEI: BestaetigungStart = {
     schule: "Lessing-Kolleg",
     rolle: "ansprechperson",
     zugleich_rolle: null,
-    vorname: "Mira",
     text_version: LABEL,
     laufende_fassung: LABEL,
     mindestalter: VERTRETUNG_MIN_ALTER,

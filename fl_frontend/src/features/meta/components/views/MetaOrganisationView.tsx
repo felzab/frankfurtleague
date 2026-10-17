@@ -1,3 +1,4 @@
+import { ORGANISATION_TITEL } from "@/core/seitenNamen";
 import { BrandHero } from "@/shared/components/ui/BrandHero";
 import { BRAND_TILE_CLASSES } from "@/shared/components/ui/brandTile";
 import { card } from "@/shared/components/ui/card";
@@ -17,7 +18,7 @@ export function MetaOrganisationView() {
   return (
     <div className={`${PAGE_RISE_CLASSES} flex w-full flex-col gap-y-8 sm:gap-y-12`}>
       <BrandHero
-        title="Organisation"
+        title={ORGANISATION_TITEL}
         lead="Alle hier sind Schülerinnen, Schüler und Helfer, die die Liga ehrenamtlich am Laufen halten."
       />
 

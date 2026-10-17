@@ -88,11 +88,14 @@ export const FLBerechtigungAenderungSchema = z.object({
   urheber: z.enum(["anwendung", "datenbank"]),
   jetzt: FLBerechtigungStandSchema.nullable(),
   vorher: FLBerechtigungStandSchema.nullable(),
-  // Null for a change made in the database, and for one whose administrator is barred, which the flag says.
+  // Null for a change made in the database, and for one whose administrator is barred, which the flag says;
+  // `ERASED_ACTOR_MARKER` (`@/core/erasedActor`) for one erased since.
   geaendert_von: z.string().nullable(),
   geaendert_von_gesperrt: z.boolean(),
   geaendert_am: z.string().nullable(),
+  // Why the grant's own address is null, each the subject's alone: the actor's state is read off `geaendert_von`.
   gesperrt: z.boolean(),
+  geloescht: z.boolean(),
   // Counted by the backend on the row (`docs/backend/spec.md :: I480`), so a restart of this process never
   // hands a notice a second budget of passes.
   aufgegeben: z.boolean(),

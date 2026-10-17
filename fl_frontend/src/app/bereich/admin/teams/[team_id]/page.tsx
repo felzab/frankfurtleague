@@ -4,13 +4,14 @@ import { connection } from "next/server";
 
 import { EinladungLinkHolder } from "@/features/einladungen/components/EinladungLinkHolder";
 import { getEinladung } from "@/features/einladungen/queries";
+import { getAdminSaisons } from "@/features/saisons/queries";
 import { resolveAdminSaison } from "@/features/saisons/resolvers";
 import { buildGruppenSwapContext } from "@/features/saisons/utils";
 import { getAdminSpiele } from "@/features/spiele/queries";
 import { AdminTeamEditView } from "@/features/teams/components/views/AdminTeamEditView";
 import { getTeamMemberships } from "@/features/teams/queries";
 import { resolveTeamId } from "@/features/teams/resolvers";
-import { buildGruppeOffer } from "@/features/teams/utils";
+import { buildGruppeOffer, isRetireable } from "@/features/teams/utils";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { getGermanTodayStr } from "@/shared/utils/date";
 
@@ -44,7 +45,12 @@ async function AdminTeamEditContent({
   await connection();
   const teamId = await resolveTeamId(params);
 
-  const [membershipsRes, selectedSaison] = await Promise.all([getTeamMemberships(), resolveAdminSaison(searchParams)]);
+  // Every season's status for the retirement's refusal: the request-cached list the season's resolution reads anyway.
+  const [membershipsRes, selectedSaison, saisonsRes] = await Promise.all([
+    getTeamMemberships(),
+    resolveAdminSaison(searchParams),
+    getAdminSaisons(),
+  ]);
   if (!selectedSaison) {
     notFound();
   }
@@ -125,6 +131,7 @@ async function AdminTeamEditContent({
         gruppeOffer={gruppeOffer}
         swap={swap}
         einladung={einladung}
+        isRetireable={isRetireable(saisonsRes.saisons, team.memberships)}
         today={getGermanTodayStr()}
       />
     </EinladungLinkHolder>

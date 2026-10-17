@@ -2,23 +2,28 @@ import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
 import { registerDoubles } from "@/core/exportingModule.ts";
+import { SIGN_IN_LANDING } from "@/core/signInLanding.ts";
 import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 
+import type { AdminRefusal } from "@/core/auth.ts";
 import type { RequestActor } from "@/core/requestScope.ts";
 
 const ADMINISTRATOR: RequestActor = { email: "vorstand@example.org", lane: "admin", token: "admin-token-double" };
 
 /* Its own sign-in double rather than `doubleActionRequest`'s, so a case can count the reads. It records
    the actor on every call, as the real guard does: into whichever scope is open, or none. */
-const store: { session: { user: { email: string } } | null; reads: number } = { session: null, reads: 0 };
+const store: { session: { user: { email: string } } | null; refused: AdminRefusal; reads: number } = {
+  session: null,
+  refused: "signIn",
+  reads: 0,
+};
 const AUTH = {
-  getAdminSession: async () => {
+  judgeAdminRequest: async () => {
     store.reads += 1;
-    if (store.session !== null) {
-      const { setRequestActor } = await import("@/core/requestScope.ts");
-      setRequestActor(ADMINISTRATOR);
-    }
-    return store.session;
+    if (store.session === null) return { refused: store.refused };
+    const { setRequestActor } = await import("@/core/requestScope.ts");
+    setRequestActor(ADMINISTRATOR);
+    return { session: store.session };
   },
 };
 
@@ -26,13 +31,14 @@ registerDoubles({ modules: { "core/auth.ts": AUTH }, specifiers: { "next/headers
 
 const { runAdminRead } = await import("./adminRead.ts");
 const { getRequestActor, runWithRequestScope } = await import("@/core/requestScope.ts");
-const { AdminReadWithoutAdministratorError } = await import("@/core/errors.ts");
+const { UnreadGrantError } = await import("@/core/errors.ts");
 
 const TRACE = "a".repeat(32);
 const SPAN = "b".repeat(16);
 
 beforeEach(() => {
   store.session = null;
+  store.refused = "signIn";
   store.reads = 0;
 });
 
@@ -77,9 +83,28 @@ describe("an admin-tier read's scope", () => {
     assert.equal(ran, 0, "the read ran under an actor that is not the session's administrator");
   });
 
-  /* Thrown rather than answered: a read has no failure value, and only a caller outside the admin
-     guards reaches this, which must be loud rather than a page that renders empty. */
-  it("throws for a session that is no administrator's, the read never running", async () => {
+  /* Redirected rather than thrown to the error boundary: every admin page reaches this with such a
+     session, its layout's guard stopping none of them. */
+  for (const refused of ["signIn", "noGrant", "grantGone"] as const) {
+    it(`sends a session refused as ${refused} to the sign-in landing, the read never running`, async () => {
+      store.refused = refused;
+      let ran = 0;
+
+      await assert.rejects(
+        runAdminRead(() => {
+          ran += 1;
+          return Promise.resolve(undefined);
+        }),
+        (error: { digest?: unknown }) => error.digest === `NEXT_REDIRECT;replace;${SIGN_IN_LANDING};307;`,
+      );
+      assert.equal(ran, 0, "the read ran for a session nobody authorized");
+    });
+  }
+
+  /* Thrown to the admin boundary, whose retry keeps the administrator on the page: a sign-in would meet
+     the same unread grant. */
+  it("throws a grant the backend left unread, the read never running", async () => {
+    store.refused = "unread";
     let ran = 0;
 
     await assert.rejects(
@@ -87,8 +112,8 @@ describe("an admin-tier read's scope", () => {
         ran += 1;
         return Promise.resolve(undefined);
       }),
-      AdminReadWithoutAdministratorError,
+      UnreadGrantError,
     );
-    assert.equal(ran, 0, "the read ran for a session nobody authorized");
+    assert.equal(ran, 0, "the read ran for a grant nobody read");
   });
 });

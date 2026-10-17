@@ -10,7 +10,7 @@ log stream: a restore replays what a write replaced, so the prior document is th
 makes retention and redaction this module's problem rather than the stream's.
 """
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -34,6 +34,11 @@ SYSTEM_ACTOR_EMAIL = "SYSTEM"
 # What a write made through a request by NOBODY is attributed to. Spelled like the sentinel above
 # because it is one: the public form authenticates no person, so no address is held.
 PUBLIC_ACTOR_EMAIL = "PUBLIC"
+
+# Stands where an erased person was a record's actor: fixed, never their keyed pseudonym, which
+# singles them out. No `@` and non-hex letters, so no address or pseudonym equals it; within
+# `AKTEUR_PSEUDONYM_SHOWN` characters, so a log row shows it whole.
+ERASED_ACTOR_MARKER = "ERASED"
 
 
 @dataclass(frozen=True)
@@ -89,6 +94,10 @@ actor_var: ContextVar[Actor | PersonActor] = ContextVar("actor", default=SYSTEM_
 # renamed" rather than "an update ran on `teams`", which the collection alone cannot distinguish.
 request_var: ContextVar[tuple[str, str] | None] = ContextVar("request", default=None)
 
+# The request an administrator's erasure answers, set around that erasure's whole transaction alone and
+# reset after it: a value left standing lands on the next request's rows (`docs/backend/spec.md :: I683`).
+anlass_var: ContextVar[str | None] = ContextVar("anlass", default=None)
+
 
 def log_stamp(moment: datetime) -> str:
     """A log row's instant, spelled the one way both its string stamps are.
@@ -121,13 +130,52 @@ async def record_write(
         # write. What a redaction did is recoverable from the erasure row that caused it.
         return
 
+    row = _row(
+        collection=str(collection.name),
+        operation=operation,
+        document_id=document_id,
+        db_filter=_stringify_filter(db_filter) if db_filter is not None else None,
+        before=_stored_image(before),
+        modified_count=modified_count,
+    )
+
+    # The target's own database handle, not an injected one: that is what keeps this module off
+    # `app/core/db.py`'s import path and out of a cycle.
+    await collection.database[Collection.AKTIONEN].insert_one(row, session=session)
+
+
+# An act the log records, writing none of the logged collections: ending an address's sessions writes the
+# sign-in store, out of this backend's reach; replaying an erasure's pseudonym writes the log and the day
+# counts, which it never records.
+LoggedAct = Literal["anmeldungen", "pseudonyme"]
+
+
+def act_row(act: LoggedAct, *, operation: Operation) -> dict[str, Any]:
+    """A logged act's row, built as a recorded write's is, naming no document, filter, image or count.
+
+    Inserted by the caller through `app/core/crud.py :: post_one_to_db`, which marks the write sent and
+    records nothing for the log's own collection.
+    """
+
+    return _row(collection=act, operation=operation, document_id=None, db_filter=None, before=None, modified_count=None)
+
+
+def _row(
+    *,
+    collection: str,
+    operation: Operation,
+    document_id: Any,
+    db_filter: dict[str, str] | None,
+    before: dict[str, Any] | list[dict[str, Any]] | None,
+    modified_count: int | None,
+) -> dict[str, Any]:
     actor = actor_var.get()
     request = request_var.get()
 
     # One instant for both stamps: read twice, a row's two clocks straddle a second boundary.
     moment = datetime.now(UTC)
 
-    row: dict[str, Any] = {
+    return {
         "at": log_stamp(moment),
         # A BSON date because a TTL index expires on one alone, skipping a string in silence, which
         # is why `at` cannot carry the retention (`app/core/constraints.py :: TTL_INDEXES`).
@@ -137,20 +185,17 @@ async def record_write(
         # caused them are one action on the page instead of forty only because they share it.
         "trace_id": trace_id_var.get(),
         "request": {"method": request[0], "path": request[1]} if request is not None else None,
-        "collection": str(collection.name),
+        "collection": collection,
         "operation": operation,
         "document_id": document_id,
-        "db_filter": _stringify_filter(db_filter) if db_filter is not None else None,
-        "before": _stored_image(before),
+        "db_filter": db_filter,
+        "before": before,
         "modified_count": modified_count,
-        # Set when a person's erasure or a referee's anonymisation overwrites the values here. Null
-        # means the row still holds what it recorded (`docs/backend/spec.md :: I42`).
+        # Set when a write destroying a person's values overwrites theirs here. Null means the image
+        # still holds what it recorded (`docs/backend/spec.md :: I42`, `:: I671`).
         "redacted_at": None,
+        "anlass": anlass_var.get(),
     }
-
-    # The target's own database handle, not an injected one: that is what keeps this module off
-    # `app/core/db.py`'s import path and out of a cycle.
-    await collection.database[Collection.AKTIONEN].insert_one(row, session=session)
 
 
 def _stored_image(before: Mapping[str, Any] | Sequence[Mapping[str, Any]] | None) -> dict[str, Any] | list[dict[str, Any]] | None:
@@ -180,10 +225,10 @@ def _stringify_filter(db_filter: Mapping[str, Any]) -> dict[str, str]:
 
 
 def build_redaction_filter(targets: Sequence[RedactionTarget]) -> Mapping[str, Any]:
-    """Every log row whose `(collection, document_id)` names one of the documents handed in.
+    """Every log row naming one of the documents handed in.
 
-    NOT narrowed to rows holding an image: every row naming a redacted document carries a stamp,
-    so "was this reached" is one query rather than a judgement per row.
+    NOT narrowed to rows holding an image: a whole-image redaction stamps every row naming the
+    document, so "was this reached" is one query; a per-image one stamps those it changed.
     """
 
     # Equality on `collection` and a match on `document_id` in each branch, the shape
@@ -197,10 +242,50 @@ def build_redaction_filter(targets: Sequence[RedactionTarget]) -> Mapping[str, A
 
 
 def build_redaction_update(*, at: str) -> Mapping[str, Any]:
-    """Overwrite the IMAGE a row recorded and stamp it, in one `$set` (`docs/backend/spec.md :: I42`).
+    """Overwrite the IMAGE a row recorded and stamp it, in one `$set` (`docs/backend/spec.md :: I671`).
 
     `document_id` stays: it names what the row was about, and dropping it would leave a row
     nothing can attribute to the write that redacted it.
     """
 
     return {"$set": {"before": None, "redacted_at": at}}
+
+
+# One image's verdict: each path inside it, relative to the image, and what overwrites it there.
+ImageEdits = Mapping[str, Any]
+
+
+def row_images(row: Mapping[str, Any]) -> list[tuple[str, Any]]:
+    """Each image one log row holds, with the path addressing it.
+
+    By index where `before` is an array, a `delete_many` row's: a dotted path naming no index is
+    refused inside one.
+    """
+
+    before = row.get("before")
+
+    return [(f"before.{index}", image) for index, image in enumerate(before)] if isinstance(before, list) else [("before", before)]
+
+
+def build_image_redactions(
+    rows: Sequence[Mapping[str, Any]], *, judge: Callable[[Mapping[str, Any]], ImageEdits], at: str
+) -> list[tuple[list[Any], Mapping[str, Any]]]:
+    """Overwrite only what `judge` finds of the departing person in each image, one update per overwrite (`docs/backend/spec.md :: I42`).
+
+    Never the whole image where others share the document: their earlier states are their consent trail.
+    """
+
+    grouped: dict[frozenset[tuple[str, Any]], list[Any]] = {}
+    for row in rows:
+        edits = frozenset(
+            (f"{prefix}.{path}", value)
+            for prefix, image in row_images(row)
+            if isinstance(image, Mapping)
+            for path, value in judge(image).items()
+        )
+        # Unstamped where no image names them: this redaction stamps the rows it took a value from, where
+        # `build_redaction_update` stamps every row naming a document, an insert's included.
+        if edits:
+            grouped.setdefault(edits, []).append(row["_id"])
+
+    return [(ids, {"$set": {**dict(edits), "redacted_at": at}}) for edits, ids in grouped.items()]

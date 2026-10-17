@@ -1,10 +1,12 @@
 import { cache } from "react";
 
 import { apiClient } from "@/core/api";
+import { FLSelbstErasureAnsichtResponseSchema } from "@/core/schemas";
 import { runPersonRead } from "@/shared/utils/personRead";
 
 import { FLKontoEinwilligungenResponseSchema } from "./schemas";
 
+import type { FLSelbstErasureAnsichtResponse } from "@/core/schemas";
 import type { FLKontoEinwilligungenResponse } from "./schemas";
 
 /**
@@ -15,5 +17,15 @@ import type { FLKontoEinwilligungenResponse } from "./schemas";
 export const getKontoEinwilligungen = cache(async (): Promise<FLKontoEinwilligungenResponse> =>
   runPersonRead(() =>
     apiClient<FLKontoEinwilligungenResponse>("/konto/einwilligungen", FLKontoEinwilligungenResponseSchema, { authType: "admin" }),
+  ),
+);
+
+/** Every record the signed-in person's erasure would reach, read off the backend rather than inferred here, so the list shown is the list erased. */
+// Never `"use cache"`, for `getKontoEinwilligungen`'s reason.
+export const getLoeschungAnsicht = cache(async (): Promise<FLSelbstErasureAnsichtResponse> =>
+  runPersonRead(() =>
+    apiClient<FLSelbstErasureAnsichtResponse>("/identitaet/selbst/erasure/ansicht", FLSelbstErasureAnsichtResponseSchema, {
+      authType: "admin",
+    }),
   ),
 );

@@ -13,7 +13,7 @@ import {
   registerAuthDoubles,
   signInByCode,
 } from "./authDoubles.ts";
-import { startJudgedReplicaSet } from "./expiredTransactions.ts";
+import { replicaSetUrl, startJudgedReplicaSet } from "./expiredTransactions.ts";
 import { overridingModule } from "./exportingModule.ts";
 import { assertionFor, CREDENTIAL_RAW_ID, registrationFor } from "./testAuthenticator.ts";
 
@@ -70,7 +70,7 @@ let requestHeaders: Headers | undefined;
 
 const { sent } = registerAuthDoubles({
   core: {
-    config: configDouble(GATE_BACKEND_CONFIG, { mongodbUri: () => `${mongod.getConnectionString()}/?directConnection=true` }),
+    config: configDouble(GATE_BACKEND_CONFIG, { mongodbUri: () => replicaSetUrl(mongod) }),
     db: DB_DOUBLE,
     logging: LOGGING_DOUBLE,
   },
@@ -100,7 +100,7 @@ beforeEach(async () => {
 
 // The server parameter is outside the Stable API the production client is held to, so it is set over a
 // client of the suite's own.
-const operator = new MongoClient(`${mongod.getConnectionString()}/?directConnection=true`);
+const operator = new MongoClient(replicaSetUrl(mongod));
 closing(() => operator.close());
 
 /** Runs `body` with table scans refused, recording each query the store could not serve from an index. */
@@ -228,8 +228,8 @@ describe("every query the sign-in store serves, with table scans refused (`docs/
     const sicherheit = await withoutTableScans(() => readSicherheit(served));
     const [andere] = sicherheit.anmeldungen.filter(({ diesesGeraet }) => !diesesGeraet);
     assert.ok(andere, "the account page listed no other sign-in");
-    assert.deepEqual(await withoutTableScans(() => endAnmeldungAction(andere.id)), { success: true, message: "Abgemeldet" });
-    assert.deepEqual(await withoutTableScans(() => endAndereAnmeldungenAction()), { success: true, message: "Alle anderen abgemeldet" });
+    assert.deepEqual(await withoutTableScans(() => endAnmeldungAction(andere.id)), { success: true });
+    assert.deepEqual(await withoutTableScans(() => endAndereAnmeldungenAction()), { success: true });
 
     // A second passkey, listed, renamed and removed.
     const second = await withoutTableScans(() => enrol(byPasskey, Buffer.from("fl-index-db-second-authenticator")));

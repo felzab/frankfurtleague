@@ -105,6 +105,11 @@ SAISON_ID_LENGTH: Final = 4
 LIST_LIMIT_DEFAULT: Final = 1024
 LIST_LIMIT_MAX: Final = 1024
 
+# The most addresses one references call judges, about a millisecond each: 250 took a median of 0.24 s
+# over 400 season rows and 2,000 pupils (a local server, 2026-10-15), far inside
+# `app/core/middlewares.py :: REQUEST_DEADLINE_S` on a slower one.
+REFERENZEN_ADRESSEN_MAX: Final = 250
+
 # How long the action log keeps a row, counted from the write it recorded. Seconds because that is
 # the unit `create_index(expireAfterSeconds=)` takes, and a plain year because the database counts
 # no calendar months.
@@ -113,6 +118,10 @@ AKTION_RETENTION_SECONDS: Final = 365 * 24 * 60 * 60
 # Why an address was barred, in an administrator's own words. A reason is a sentence rather than a
 # page, and the row is read on a card. Named so the frontend mirror refuses at the same length.
 SPERRLISTE_GRUND_MAX_LENGTH: Final = 500
+
+# The request an administrator's erasure answers, written onto every log row it files: a mail's date
+# and subject fit, and the log keeps it twelve months beyond every redaction, so a letter does not.
+ERASURE_ANLASS_MAX_LENGTH: Final = 200
 
 # How many FULL seasons a ban outlives the one it was entered under. The season it is entered in
 # does not count, so the fifth one after it is the last the ban covers.
@@ -127,6 +136,10 @@ AKTEUR_PSEUDONYM_SHOWN: Final = 8
 # days, which is the window a mistyped address is caught in: this link waits on an adult with no
 # second route in.
 SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE: Final = 14
+
+# How long a pupil's new address has to confirm its link; a re-send restarts it. The referee's figure
+# and its own constant, for the floors' reason below: the two links wait on different people.
+SPIELER_ADRESSWECHSEL_FRIST_TAGE: Final = 14
 
 # The age a referee consents at. Its own constant rather than the application contact's, though the
 # numbers agree: the two floors are separate judgements, so raising one must not silently raise the
@@ -152,10 +165,10 @@ REGISTRIERUNG_MIN_ALTER_JAHRE: Final = 16
 # photograph or video, or interviewed (`docs/backend/spec.md :: I338`).
 MEDIEN_MIN_AGE_YEARS: Final = 18
 
-# The frontend expires an administrator's session this long after its sign-in, and the backend
-# refuses an actor token whose sign-in is older: a looser backend honours a session the frontend
-# believes gone.
-ADMIN_WINDOW_HOURS: Final = 48
+# The frontend's administrator cap, NIST SP 800-63B-4 §2.2.3's AAL2 overall timeout (read 2026-10-15):
+# the backend refuses an actor token whose sign-in is older, as a looser backend honours a session the
+# frontend believes gone.
+ADMIN_WINDOW_HOURS: Final = 24
 
 # The frontend ends a person's session this long after its sign-in however recently it was used, and
 # the backend refuses a person-lane token whose sign-in is older, for the administrator's reason above.

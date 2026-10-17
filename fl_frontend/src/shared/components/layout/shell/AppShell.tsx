@@ -9,7 +9,7 @@ import { AppTopBar } from "./AppTopBar";
 import { KONTO_SECTION } from "./kontoSection";
 import { ShellSaisonQueryProvider } from "./ShellSaisonQuery";
 
-import type { FormState, SidemenuHint, SidemenuStructure, SidemenuStructureSubOption } from "@/shared/types/types";
+import type { SidemenuHint, SidemenuStructure, SidemenuStructureSubOption, SignOutResult } from "@/shared/types/types";
 import type React from "react";
 
 type ShellSection = { label: string; hint: SidemenuHint };
@@ -65,7 +65,7 @@ export function AppShell<TIcon extends string>({
    */
   kontoHref: string | null;
   /** Passed to the bar's options menu; a shell for the public dashboard supplies none. */
-  onSignOut?: () => Promise<FormState>;
+  onSignOut?: () => Promise<SignOutResult>;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();

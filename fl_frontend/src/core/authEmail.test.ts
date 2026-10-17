@@ -20,7 +20,7 @@ const CODE = "048213";
 /** The one interpolated value, carrying every character `escapeHtml` covers: the builder takes a string. */
 const HOSTILE_CODE = `a"<script>&b='c'`;
 
-const FUSS_SATZ = `Antworten an die Absenderadresse liest niemand; unsere Adresse ist ${KONTAKT_EMAIL}.`;
+const FUSS_SATZ = `Antworten an die Absenderadresse liest niemand. Unsere Adresse ist ${KONTAKT_EMAIL}.`;
 const NUR_HIER_SATZ = "Gib ihn nur auf localhost:3000 ein. Wir fragen Dich nie auf anderem Weg nach diesem Code.";
 const IGNORIER_SATZ = "Du hast keinen Code angefordert? Dann ignoriere diese E-Mail einfach. Ohne den Code passiert nichts.";
 

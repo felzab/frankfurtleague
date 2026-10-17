@@ -1,5 +1,5 @@
 """
-API · the reads a pupil's confirmation and a team's decision on a registration are judged against
+API · what a registration is read and judged by, and the erasure's removal of an address's registrations
 
 Here rather than in `services.py`, which decides from its arguments and names no handle
 (`fl_backend/tests/core/test_write_shapes.py :: TestEveryServiceModuleDecidesFromItsArguments`).
@@ -19,7 +19,10 @@ from app.api.registrierungen.services import (
     build_offene_filter,
     build_registrierungen_sort,
 )
-from app.core.crud import aggregate_many_from_db, pull_one_from_db
+from app.api.spieler.services import build_real_spieler_filter
+from app.core.collections import Collection
+from app.core.crud import aggregate_many_from_db, erase_many_from_db, patch_many_in_db, pull_one_from_db
+from app.core.recording import build_redaction_filter, build_redaction_update
 from app.shared.folding import sign_in_identifier
 
 # What the admission reads of a person: who they are, for the question, and what it overwrites.
@@ -41,8 +44,9 @@ async def person_at_the_address(
 ) -> Mapping[str, Any] | None:
     """The one person `uniq_spieler_email` holds to this registration's address, matched on the folded form `spieler.email` stores."""
 
+    # Never the sentinel, whose missing address a hand edit can fill: matched, it picks the pupil's page and what it shows back.
     return await spieler_collection.find_one(
-        build_adressen_filter([sign_in_identifier(str(registrierung_raw.get("email") or ""))]),
+        build_real_spieler_filter(build_adressen_filter([sign_in_identifier(str(registrierung_raw.get("email") or ""))])),
         projection=list(PERSON_ANSICHT_FIELDS),
         session=session,
     )
@@ -93,9 +97,11 @@ async def persons_at(
     if not adressen:
         return []
 
+    # Never the sentinel, whose missing address a hand edit can fill: matched, the admission writes the
+    # registration's person onto it.
     return await aggregate_many_from_db(
         collection=spieler_collection,
-        pipeline=[{"$match": build_adressen_filter(adressen)}, {"$project": {field: 1 for field in PERSON_FIELDS}}],
+        pipeline=[{"$match": build_real_spieler_filter(build_adressen_filter(adressen))}, {"$project": {field: 1 for field in PERSON_FIELDS}}],
         session=session,
     )
 
@@ -103,13 +109,15 @@ async def persons_at(
 async def persons_without_an_address(*, spieler_collection: AsyncCollection, session: AsyncClientSession | None) -> list[Mapping[str, Any]]:
     """Every stored person holding no address, whom a name may be proposed for.
 
-    Unbounded and unindexed on purpose: every person the admission makes or matches takes an address
-    and nothing else creates one, so this set only shrinks.
+    Unbounded and unindexed on purpose: every person the admission makes or matches takes an address,
+    so this set only shrinks.
     """
 
+    # Never the sentinel, the one other row holding no address: proposed and confirmed, it would take a
+    # name onto every erased pupil's entry.
     return await aggregate_many_from_db(
         collection=spieler_collection,
-        pipeline=[{"$match": {"email": None}}, {"$project": {field: 1 for field in PERSON_FIELDS}}],
+        pipeline=[{"$match": build_real_spieler_filter({"email": None})}, {"$project": {field: 1 for field in PERSON_FIELDS}}],
         session=session,
     )
 
@@ -124,3 +132,39 @@ async def nummern_rows(
         pipeline=[{"$match": {"saison_id": saison_id, "team_id": team_id, "inactive_since": None}}, {"$project": {"nummer": 1}}],
         session=session,
     )
+
+
+async def erase_registrierungen_in_session(
+    *,
+    registrierungen_collection: AsyncCollection,
+    aktionen_collection: AsyncCollection,
+    # Each carrying its `_id` and `saison_id`, as the erasure's subject read them.
+    registrierungen: Sequence[Mapping[str, Any]],
+    stamp: str,
+    # REQUIRED, so a caller forgetting it is a TypeError rather than writes committing one by one
+    # (`docs/backend/spec.md :: I52`).
+    session: AsyncClientSession,
+) -> int:
+    """Remove these registrations whole, then empty every log image of them, answering how many went: the document is the person's own."""
+
+    # No write for none: a removal matching nothing still files a log row.
+    if not registrierungen:
+        return 0
+
+    ids = [row["_id"] for row in registrierungen]
+    # Ids and their seasons alone: the log keeps a filter as text, so a key naming the person would
+    # keep what this removal destroys (`docs/backend/spec.md :: I48`).
+    erased = await erase_many_from_db(
+        collection=registrierungen_collection,
+        db_filter={"saison_id": {"$in": sorted({row["saison_id"] for row in registrierungen})}, "_id": {"$in": ids}},
+        session=session,
+    )
+    # A delivery record and every pre-image a confirmation or a decline filed go with the document.
+    await patch_many_in_db(
+        collection=aktionen_collection,
+        db_filter=build_redaction_filter([(Collection.REGISTRIERUNGEN, ids)]),
+        update=build_redaction_update(at=stamp),
+        session=session,
+    )
+
+    return erased.deleted_count

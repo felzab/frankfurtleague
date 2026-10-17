@@ -474,6 +474,33 @@ _SPIELERSEITE_WIEDERKEHREND: Final[Mapping[str, str]] = MappingProxyType(
     }
 )
 
+# Every link page once its identity line names nobody: the link went to an address nobody has
+# confirmed, which behind a typo is a stranger's, so the line names the team or the role instead.
+_SPIELERSEITE_5: Final[Mapping[str, str]] = MappingProxyType(
+    {
+        **_SPIELERSEITE_4,
+        "klickIdentitaet": "dass Du Dich selbst für {team} registriert hast und diese E-Mail-Adresse Dir gehört,",
+    }
+)
+_SPIELERSEITE_WIEDERKEHREND_2: Final[Mapping[str, str]] = MappingProxyType(
+    {**_SPIELERSEITE_WIEDERKEHREND, "klickIdentitaet": _SPIELERSEITE_5["klickIdentitaet"]}
+)
+_SCHIEDSRICHTERSEITE_4: Final[Mapping[str, str]] = MappingProxyType(
+    {
+        **_SCHIEDSRICHTERSEITE_3,
+        "klickIdentitaet": "dass Du selbst als Schiedsrichterin oder Schiedsrichter eingetragen bist und diese E-Mail-Adresse Dir gehört,",
+    }
+)
+# One line for the three contact pages, whose seat the slot names.
+_KONTAKT_KLICK_IDENTITAET: Final = "dass Du selbst als {rolle} eingetragen bist und diese E-Mail-Adresse Dir gehört,"
+_BESTAETIGUNGSSEITE_8: Final[Mapping[str, str]] = MappingProxyType({**_BESTAETIGUNGSSEITE_7, "klickIdentitaet": _KONTAKT_KLICK_IDENTITAET})
+_BESTAETIGUNGSSEITE_VERWALTUNG_2: Final[Mapping[str, str]] = MappingProxyType(
+    {**_BESTAETIGUNGSSEITE_VERWALTUNG, "klickIdentitaet": _KONTAKT_KLICK_IDENTITAET}
+)
+_BESTAETIGUNGSSEITE_SAISON_2: Final[Mapping[str, str]] = MappingProxyType(
+    {**_BESTAETIGUNGSSEITE_SAISON, "klickIdentitaet": _KONTAKT_KLICK_IDENTITAET}
+)
+
 # The account page's three controls, each a page of its own: a press there is no confirmation, so
 # it never stamps a confirmation page's label, and the words beside the switch say what it does now.
 _KONTO_SPIELER: Final[Mapping[str, str]] = MappingProxyType(
@@ -1523,6 +1550,70 @@ FASSUNGEN: Final[Mapping[str, Fassung]] = MappingProxyType(
             # A switch's words, keyed by the scope it writes when on: off writes `kontaktdaten`, which has none.
             bedienelemente=MappingProxyType({"kontaktdaten_whatsapp": "Die Liga darf mich auch über WhatsApp erreichen."}),
         ),
+        "2026-10-spielerseite-5": Fassung(
+            seite="bestaetigung_spieler",
+            gilt_ab=date(2026, 10, 16),
+            absaetze=tuple(_SPIELERSEITE_5.values()),
+            absaetze_nach_schluessel=_SPIELERSEITE_5,
+            schalter=_MEDIEN_SCHALTER,
+            bedienelemente=MappingProxyType(
+                {
+                    "kader_oeffentlich": "Vorname und erster Buchstabe des Nachnamens",
+                    "intern": "Intern: nur Nummer und Position, ohne Namen",
+                }
+            ),
+        ),
+        "2026-10-spielerseite-wiederkehrend-2": Fassung(
+            seite="bestaetigung_spieler_wiederkehrend",
+            gilt_ab=date(2026, 10, 16),
+            absaetze=tuple(_SPIELERSEITE_WIEDERKEHREND_2.values()),
+            absaetze_nach_schluessel=_SPIELERSEITE_WIEDERKEHREND_2,
+            # The new pupil page's, offered nothing here: the page labels the choices it shows back with them.
+            schalter=_MEDIEN_SCHALTER,
+            bedienelemente=MappingProxyType(
+                {
+                    "kader_oeffentlich": "Vorname und erster Buchstabe des Nachnamens",
+                    "intern": "Intern: nur Nummer und Position, ohne Namen",
+                }
+            ),
+        ),
+        "2026-10-schiedsrichterseite-4": Fassung(
+            seite="bestaetigung_schiedsrichter",
+            gilt_ab=date(2026, 10, 16),
+            absaetze=tuple(_SCHIEDSRICHTERSEITE_4.values()),
+            absaetze_nach_schluessel=_SCHIEDSRICHTERSEITE_4,
+            schalter=_MEDIEN_SCHALTER,
+            bedienelemente=MappingProxyType(
+                {
+                    "kader_oeffentlich": "Erster Namensteil und Anfangsbuchstabe des nächsten",
+                    "intern": "Intern: dort steht „anonym“",
+                }
+            ),
+        ),
+        "2026-10-bestaetigungsseite-8": Fassung(
+            seite="bestaetigung_kontakt",
+            gilt_ab=date(2026, 10, 16),
+            absaetze=tuple(_BESTAETIGUNGSSEITE_8.values()),
+            absaetze_nach_schluessel=_BESTAETIGUNGSSEITE_8,
+            schalter="Die Liga darf mich auch über WhatsApp erreichen.",
+            bedienelemente=MappingProxyType({"medien": _MEDIEN_SCHALTER}),
+        ),
+        "2026-10-bestaetigungsseite-verwaltung-2": Fassung(
+            seite="bestaetigung_kontakt_verwaltung",
+            gilt_ab=date(2026, 10, 16),
+            absaetze=tuple(_BESTAETIGUNGSSEITE_VERWALTUNG_2.values()),
+            absaetze_nach_schluessel=_BESTAETIGUNGSSEITE_VERWALTUNG_2,
+            schalter="Die Liga darf mich auch über WhatsApp erreichen.",
+            bedienelemente=MappingProxyType({"medien": _MEDIEN_SCHALTER}),
+        ),
+        "2026-10-bestaetigungsseite-saison-2": Fassung(
+            seite="bestaetigung_kontakt_saison",
+            gilt_ab=date(2026, 10, 16),
+            absaetze=tuple(_BESTAETIGUNGSSEITE_SAISON_2.values()),
+            absaetze_nach_schluessel=_BESTAETIGUNGSSEITE_SAISON_2,
+            schalter="Die Liga darf mich auch über WhatsApp erreichen.",
+            bedienelemente=MappingProxyType({"medien": _MEDIEN_SCHALTER}),
+        ),
     }
 )
 
@@ -1532,12 +1623,12 @@ FASSUNGEN: Final[Mapping[str, Fassung]] = MappingProxyType(
 LAUFENDE_FASSUNGEN: Final[Mapping[Seite, str]] = MappingProxyType(
     {
         "bewerbung": "2026-09-bestaetigung-5",
-        "bestaetigung_kontakt": "2026-10-bestaetigungsseite-7",
-        "bestaetigung_kontakt_verwaltung": "2026-10-bestaetigungsseite-verwaltung",
-        "bestaetigung_kontakt_saison": "2026-10-bestaetigungsseite-saison",
-        "bestaetigung_spieler": "2026-10-spielerseite-4",
-        "bestaetigung_spieler_wiederkehrend": "2026-10-spielerseite-wiederkehrend",
-        "bestaetigung_schiedsrichter": "2026-09-schiedsrichterseite-3",
+        "bestaetigung_kontakt": "2026-10-bestaetigungsseite-8",
+        "bestaetigung_kontakt_verwaltung": "2026-10-bestaetigungsseite-verwaltung-2",
+        "bestaetigung_kontakt_saison": "2026-10-bestaetigungsseite-saison-2",
+        "bestaetigung_spieler": "2026-10-spielerseite-5",
+        "bestaetigung_spieler_wiederkehrend": "2026-10-spielerseite-wiederkehrend-2",
+        "bestaetigung_schiedsrichter": "2026-10-schiedsrichterseite-4",
         "konto_spieler": "2026-10-konto-spieler",
         "konto_schiedsrichter": "2026-10-konto-schiedsrichter",
         "konto_kontakt": "2026-10-konto-kontakt",

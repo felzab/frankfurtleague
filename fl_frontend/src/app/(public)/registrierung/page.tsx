@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 
 import { frontend_config } from "@/core/config";
+import { isContractBreak } from "@/core/errors";
 import { RegistrierungView } from "@/features/registrierungen/components/views/RegistrierungView";
 import { getEinladungAnsicht } from "@/features/registrierungen/queries";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
@@ -40,13 +41,17 @@ async function RegistrierungContent(props: NextPageProps) {
   await connection();
   const { token } = await props.searchParams;
 
-  // A missing or repeated parameter is no link at all and reads as the dead link. Caught, so a
-  // failed read is its own state: the dead-link panel there would call a live invite void.
+  // A missing or repeated parameter is no link at all and reads as the dead link.
   const start: RegistrierungStart =
     typeof token === "string" && token !== ""
       ? await getEinladungAnsicht(token).then(
           (gelesen) => gelesen,
-          () => ({ zustand: "unlesbar" }),
+          // A failed read is its own state, the dead-link panel calling a live invite void. A broken contract
+          // is no failed read: it reaches the error boundary, which logs it.
+          (error: unknown): RegistrierungStart => {
+            if (isContractBreak(error)) throw error;
+            return { zustand: "unlesbar" };
+          },
         )
       : { zustand: "ungueltig" };
 

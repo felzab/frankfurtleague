@@ -1,4 +1,13 @@
-import { GRUPPEN_OFF_RULES, RECORDED_FACTS_ANY, SPIELTAGE_UNDATED } from "@/features/saisons/constants";
+import {
+  GRUPPEN_OFF_RULES,
+  RECORDED_FACTS_ANY,
+  REGELN_ABSCHNITT,
+  SPIELPLAN_ABSCHNITT,
+  SPIELPLAN_NEU_ANLEGEN,
+  SPIELPLAN_ZURUECKNEHMEN,
+  SPIELTAGE_UNDATED,
+  ZEITRAUM_ABSCHNITT,
+} from "@/features/saisons/constants";
 import { drawGruppenRefusal, drawnSpieltage, drawShapeRefusal, fitsAnOfferedShape } from "@/features/saisons/shapeOffer";
 
 import type { FLSaisonStatus, FLSpielplanShape } from "@/features/saisons/schemas";
@@ -33,7 +42,7 @@ const MS_PER_DAY = 86_400_000;
  * One spelling for both closures: the repair is the season's own dates whichever of them closed the
  * press, and a second could send two admins to two different panels for one fault.
  */
-const SPAN_TOO_SHORT_REPAIR = "Verlege im Abschnitt Zeitraum das Enddatum nach hinten oder das Startdatum nach vorne und speichere die Saison.";
+const SPAN_TOO_SHORT_REPAIR = `Verlege im Abschnitt ${ZEITRAUM_ABSCHNITT} das Enddatum nach hinten oder das Startdatum nach vorne und speichere die Saison.`;
 
 /** Inclusive as `find_saison_span_refusal` counts: a season running one day offers one. */
 function offeredDays(startDate: string, endDate: string): number {
@@ -97,7 +106,7 @@ export function spielplanBlockedReason(input: SpielplanControlInput): string | n
   // After the groups, as the endpoint asks it: `find_rules_refusal` runs after the whole spielplan
   // pass, and on its `stored=None` path `REQ-RULES-014` reduces to a qualifier product reaching no
   // bracket, which is exactly an empty knockout list.
-  if (!hasKoRunden) return "Aus diesen Regeln entsteht keine KO-Runde. Ändere die Zahlen im Abschnitt Regeln und speichere sie.";
+  if (!hasKoRunden) return `Aus diesen Regeln entsteht keine KO-Runde. Ändere die Zahlen im Abschnitt ${REGELN_ABSCHNITT} und speichere sie.`;
 
   // Last, as `find_saison_span_refusal` runs after the rules: no bracket implies no matchday count
   // worth measuring.
@@ -171,7 +180,7 @@ export function spielplanPress({
   // Said on the control alone rather than in the panel's body, where a pick or a step would take it away under
   // the reader's hands (`docs/frontend/spec.md` §1.14).
   const closedReason = isUnchosen
-    ? "Wähle „Neu anlegen“ oder „Zurücknehmen“."
+    ? `Wähle „${SPIELPLAN_NEU_ANLEGEN}“ oder „${SPIELPLAN_ZURUECKNEHMEN}“.`
     : (standingReason ??
       (isReplacing
         ? spielplanShapeBlockedReason({ shape, occupancy: input.gruppen.occupancy, startDate: input.startDate, endDate: input.endDate })
@@ -234,7 +243,7 @@ export function rolloverBlockedReason({
   // Ahead of the incumbent's open fixtures, as
   // `fl_backend/app/api/saisons/services.py :: find_activation_refusal` orders them: an incumbent
   // an admin can go and finish is beside the point where this season may not be promoted at all.
-  if (!hasDrawnSpiele) return "Umstellen geht erst, wenn diese Saison einen Spielplan hat. Lege ihn im Abschnitt Spielplan an.";
+  if (!hasDrawnSpiele) return `Umstellen geht erst, wenn diese Saison einen Spielplan hat. Lege ihn im Abschnitt ${SPIELPLAN_ABSCHNITT} an.`;
 
   // After the draw for the endpoint's reason: an undrawn season holds no matchday to date, so this
   // sentence would name a repair nobody can make.

@@ -20,7 +20,6 @@ from app.api.bewerbungen.services import hash_token
 from app.api.identitaet.router import get_anmeldung
 from app.api.identitaet.schemas import FLSubjektPayload
 from app.api.schiedsrichter.admin_router import (
-    anonymise_schiedsrichter,
     delete_adresswechsel,
     einladen_adresswechsel,
     einladen_schiedsrichter,
@@ -59,6 +58,7 @@ from tests.app_client import app_client
 from tests.bans import ban_list, ban_through_the_route
 from tests.config import ADMIN_KEY, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.erasure import erased
 from tests.records import record_collections
 from tests.whole_database import where_held
 from tests.worker import worker_database
@@ -77,6 +77,8 @@ A_LATER_DAY = "2026-04-05"
 # One day past the deadline a link minted on `TODAY` carries.
 AFTER_THE_DEADLINE = "2026-04-16"
 NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
+# Written out rather than computed from `log_stamp`, which would agree with any conversion of `NOW`.
+REDACTED_AT = "2026-04-01T10:30:00+00:00"
 
 SCHIEDSRICHTER_OID = ObjectId("6890a1b2c3d4e5f607830001")
 
@@ -166,6 +168,7 @@ async def save(database: AsyncDatabase, client: AsyncMongoClient, *, email: str,
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         spiele_collection=database[Collection.SPIELE],
         sperrliste=ban_list(database),
+        adressanker_collection=database[Collection.ADRESSANKER],
         aktionen_collection=database[Collection.AKTIONEN],
         db=client,
         today=today,
@@ -212,6 +215,7 @@ async def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str, 
         sperrliste=ban_list(database),
         aktionen_collection=database[Collection.AKTIONEN],
         db=client,
+        config=CONFIG,
         today=today,
         germany_now=NOW,
     )
@@ -478,7 +482,7 @@ class TestAChangeReplacingABarredAddress:
 
         seen = on_a_league(mongo_replica_set_url, body)
 
-        assert (seen.zustand, seen.vorname) == ("nicht_bestaetigbar", "Ortwin")
+        assert seen.zustand == "nicht_bestaetigbar"
 
     def test_the_confirmation_is_refused_and_moves_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -562,7 +566,7 @@ class TestTheDecline:
 
 
 class TestTheView:
-    def test_it_answers_the_first_name_the_state_and_the_deadline(self, mongo_replica_set_url: str):
+    def test_it_answers_exactly_the_state_and_the_deadline(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             saved = await save(database, client, email=NEW_EMAIL)
 
@@ -570,7 +574,7 @@ class TestTheView:
 
         seen = on_a_league(mongo_replica_set_url, body)
 
-        assert (seen.zustand, seen.vorname, seen.frist) == ("gueltig", "Ortwin", bestaetigung_frist_from(today=TODAY))
+        assert seen.model_dump() == {"acknowledged": 1, "zustand": "gueltig", "frist": bestaetigung_frist_from(today=TODAY)}
 
     def test_a_lapsed_link_is_served_as_lapsed(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -707,6 +711,46 @@ class TestTheDiscard:
         assert on_a_league(mongo_replica_set_url, body) == {NEW_EMAIL: []}
 
 
+class TestTheRefereesOwnTrailStays:
+    """Each way a pending address ends takes that address out of the referee's log images and leaves the rest of each."""
+
+    @pytest.mark.parametrize("ending", ["declined", "discarded", "replaced"])
+    def test_only_the_pending_block_leaves_the_log(self, mongo_replica_set_url: str, ending: str):
+        """Restore the redaction by document and this fails: the referee's state before their own consent is in the log alone."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await save(database, client, email=NEW_EMAIL)
+            resent = await resend(database, client)
+            if ending == "declined":
+                await answer(database, client, resent.adresswechsel.token, "abgelehnt")
+            elif ending == "discarded":
+                await discard(database, client)
+            else:
+                await save(database, client, email=THIRD_EMAIL)
+
+            return (
+                await database[Collection.AKTIONEN]
+                .find({"collection": str(Collection.SCHIEDSRICHTER), "document_id": SCHIEDSRICHTER_OID})
+                .sort("_id", 1)
+                .to_list(length=None)
+            )
+
+        rows = on_a_league(mongo_replica_set_url, body)
+        held = [row for row in rows if ADRESSWECHSEL_FELD in row["before"]]
+
+        assert held, "no image held the pending block, so the redaction proves nothing"
+        assert [(row["before"][ADRESSWECHSEL_FELD], row["redacted_at"]) for row in held] == [(None, REDACTED_AT)] * len(held)
+        # The referee's own record beside the block stands in every image holding it.
+        assert {(row["before"]["kontakt"]["email"], row["before"][EINWILLIGUNG_FELD]["umfang"]) for row in held} == {
+            (EMAIL, "kader_oeffentlich")
+        }
+        # The consent trail: the image the referee's own answer filed holds no change and stands as recorded.
+        trail = [row for row in rows if EINWILLIGUNG_FELD not in row["before"]]
+        assert trail, "the seeded history filed no image from before the referee's answer"
+        assert [(row["before"]["name"], row["redacted_at"]) for row in trail] == [(NAME, None)] * len(trail)
+        assert NEW_EMAIL not in str(rows)
+
+
 class TestTheDeliveryState:
     def test_a_report_on_the_address_link_lands_on_its_block_and_not_on_the_consent_links(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -755,14 +799,7 @@ class TestTheErasure:
                 db=database,
                 db_client=client,
             )
-            await anonymise_schiedsrichter(
-                schiedsrichter_id=SCHIEDSRICHTER_OID,
-                schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-                spiele_collection=database[Collection.SPIELE],
-                aktionen_collection=database[Collection.AKTIONEN],
-                db=client,
-                germany_now=NOW,
-            )
+            await erased(database, client, EMAIL, germany_now=NOW)
 
             return await where_held(database, NEW_EMAIL)
 

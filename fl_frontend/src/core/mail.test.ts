@@ -732,6 +732,8 @@ describe("a refusal the mail transport tries again", () => {
       logs.map((line) => line.message),
       ["mail.send_retried"],
     );
+    // Under the key every other frontend line spells a status with.
+    assert.equal(logs[0]!.meta?.["status"], 429);
   });
 
   /* A key reused over a changed body is refused rather than ignored, and no attempt can repair it;
@@ -960,7 +962,7 @@ describe("what the mail transport reports when a send fails", () => {
 
     assert.equal(logs.length, 1, `expected exactly one log line, saw ${logs.length}`);
     assert.equal(logs[0]!.meta?.["error_code"], "FE-MAIL-001");
-    assert.equal(logs[0]!.meta?.["status_code"], 422);
+    assert.equal(logs[0]!.meta?.["status"], 422);
     assert.equal(logs[0]!.meta?.["provider_error_name"], "validation_error");
     assert.match(String(logs[0]!.meta?.["trace_id"]), /^[a-f0-9]{32}$/);
   });

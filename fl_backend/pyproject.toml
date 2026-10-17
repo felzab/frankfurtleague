@@ -20,6 +20,9 @@ dependencies = [
     # The driver, through `AsyncMongoClient`. Also the home of `bson`, which app/ imports under
     # that name.
     "pymongo>=4.17.0",
+    # Imported as `dotenv`, for the parser pydantic-settings reads `.env` with: a refusal numbers an
+    # undeclared name's line by it rather than printing the name the file spells.
+    "python-dotenv>=1.2.4",
     "starlette>=1.3.1",
     # `ZoneInfo("Europe/Berlin")` in app/core/dependencies.py reads the operating system's time-zone
     # database. Windows has none at all and a slim image promises none, so this package is where the
@@ -80,10 +83,10 @@ dev = [
 DEP002 = ["tzdata", "uvicorn"]
 
 [tool.uv]
-# The uv the Dockerfile copies in, so one resolver builds the gate's venv and the image's;
-# setup-uv's `version-file` reads it too. Moves with the Dockerfile's `FROM ghcr.io/astral-sh/uv:`
-# line, and `scripts/gate/selfcheck.sh :: check_uv_pin` refuses the pair when it does not.
-required-version = "==0.12.22"
+# The floor stays at or below the uv Dependabot relocks with (0.12.18, read 2026-10-15), which fails
+# outside this range; the ceiling stops before the next minor release, the only kind that may change
+# the lockfile's schema (`docs/ops/spec.md :: I657`).
+required-version = ">=0.12.18,<0.14"
 # A release younger than a day is left out of every resolution, the day `.github/dependabot.yml`'s
 # cooldown waits. Relative, so it moves with the clock rather than freezing the graph at a date.
 exclude-newer = "1 day"
@@ -133,30 +136,30 @@ ignore = ["B008"]
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 # Each permitted import carries its own `noqa`, which RUF100 reports once nothing there needs it;
 # the preflight in `scripts/ops/deploy.sh` is a shell string ruff never reads.
-"app.core.config.get_config".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI and the deploy preflight."
+"app.core.config.get_config".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI, the journal replay and the deploy preflight."
 # The readers `get_config` is built from, each the same hazard under another name.
-"app.core.config.read_environment".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI and the deploy preflight."
-"app.core.config.read_secrets".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI and the deploy preflight."
-"app.core.config.BackendEnvironment".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI and the deploy preflight."
-"app.core.config.BackendSecrets".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI and the deploy preflight."
+"app.core.config.read_environment".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI, the journal replay and the deploy preflight."
+"app.core.config.read_secrets".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI, the journal replay and the deploy preflight."
+"app.core.config.BackendEnvironment".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI, the journal replay and the deploy preflight."
+"app.core.config.BackendSecrets".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI, the journal replay and the deploy preflight."
 # The environment read raw, or through a settings source of a module's own, without even
 # `read_environment`'s validation. Each package is banned whole: ruff matches the path an import
 # spells, so a member's entry misses the submodule defining it.
-"os.environ".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI and the deploy preflight."
-"os.environb".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI and the deploy preflight."
-"os.getenv".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI and the deploy preflight."
-"os.getenvb".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI and the deploy preflight."
-"pydantic_settings".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI and the deploy preflight."
-"dotenv".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI and the deploy preflight."
+"os.environ".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI, the journal replay and the deploy preflight."
+"os.environb".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI, the journal replay and the deploy preflight."
+"os.getenv".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI, the journal replay and the deploy preflight."
+"os.getenvb".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI, the journal replay and the deploy preflight."
+"pydantic_settings".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI, the journal replay and the deploy preflight."
+"dotenv".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI, the journal replay and the deploy preflight."
 # The platform mapping `os.environ` is copied from, a path expansion reading it, and the two other
 # settings readers installed beside the backend: Starlette's, and pydantic's legacy namespace.
-"posix.environ".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI and the deploy preflight."
-"nt.environ".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI and the deploy preflight."
-"starlette.config".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI and the deploy preflight."
-"pydantic.v1".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI and the deploy preflight."
-"os.path.expandvars".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI and the deploy preflight."
-"posixpath.expandvars".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI and the deploy preflight."
-"ntpath.expandvars".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI and the deploy preflight."
+"posix.environ".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI, the journal replay and the deploy preflight."
+"nt.environ".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI, the journal replay and the deploy preflight."
+"starlette.config".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI, the journal replay and the deploy preflight."
+"pydantic.v1".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI, the journal replay and the deploy preflight."
+"os.path.expandvars".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI, the journal replay and the deploy preflight."
+"posixpath.expandvars".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI, the journal replay and the deploy preflight."
+"ntpath.expandvars".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI, the journal replay and the deploy preflight."
 # Ruff matches the path an import spells rather than the function it binds, so the same function
 # imported from the module building the app would pass the entry above.
 "app.main.get_config".msg = "Read the request's settings through `get_app_config`; `app.main` holds no `get_config` for a caller."
@@ -166,6 +169,19 @@ ignore = ["B008"]
 # The module that transport is defined in, which the entry above never matches: ruff reads the path an
 # import spells, and an entry for a module bans every module under it.
 "httpx2._transports".msg = "Serve the app in process through `tests/app_client.py :: app_client`; a transport of your own is a copy of it."
+# `logging`'s root writers and the root logger itself: a root record is no child of ours, so
+# `app/core/logging.py :: ForwardedFailureFilter` codes it as a library's failure, hiding a missing
+# code. Ruff flags the attribute and the import alike.
+"logging.critical".msg = "Write through `fl_logger`: the root logger's records are coded as a library's forwarded failure."
+"logging.debug".msg = "Write through `fl_logger`: the root logger's records are coded as a library's forwarded failure."
+"logging.error".msg = "Write through `fl_logger`: the root logger's records are coded as a library's forwarded failure."
+"logging.exception".msg = "Write through `fl_logger`: the root logger's records are coded as a library's forwarded failure."
+"logging.fatal".msg = "Write through `fl_logger`: the root logger's records are coded as a library's forwarded failure."
+"logging.info".msg = "Write through `fl_logger`: the root logger's records are coded as a library's forwarded failure."
+"logging.log".msg = "Write through `fl_logger`: the root logger's records are coded as a library's forwarded failure."
+"logging.warn".msg = "Write through `fl_logger`: the root logger's records are coded as a library's forwarded failure."
+"logging.warning".msg = "Write through `fl_logger`: the root logger's records are coded as a library's forwarded failure."
+"logging.root".msg = "Write through `fl_logger`: the root logger's records are coded as a library's forwarded failure."
 
 [tool.ruff.format]
 quote-style = "double"

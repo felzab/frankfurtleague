@@ -13,7 +13,7 @@ import { ToggleButton } from "@heroui/react/toggle-button";
 import { ToggleButtonGroup } from "@heroui/react/toggle-button-group";
 
 import { KONTAKT_EMAIL } from "@/core/brand";
-import { ABSATZ_CLASSES, FESTE_WERTE, Gefuellt, Wert } from "@/features/bewerbungen/components/ui/Gefuellt";
+import { ABSATZ_CLASSES, FESTE_WERTE, Gefuellt } from "@/features/bewerbungen/components/ui/Gefuellt";
 import { SEITE_CLASSES } from "@/features/bewerbungen/components/ui/seite";
 import {
   AdresseGesperrt,
@@ -83,7 +83,7 @@ type SchiedsrichterFassung = GekeyteFassung<SchiedsrichterAbsatzSchluessel, FLSc
 
 type Absaetze = SchiedsrichterFassung["absaetze"];
 
-type Gespeichert = { vorname: string; geburtsdatum: string; umfang: FLSchiedsrichterUmfang; medien: boolean };
+type Gespeichert = { geburtsdatum: string; umfang: FLSchiedsrichterUmfang; medien: boolean };
 
 type Stand = SchiedsrichterBestaetigungStart | ({ zustand: "erfolg" } & Gespeichert);
 
@@ -102,9 +102,10 @@ const ABSCHNITT_CLASSES = "flex flex-col gap-y-2";
 
 /**
  * The slots a record fills from the person who opened the link
- * (`fl_frontend/src/features/bewerbungen/components/ui/Gefuellt.tsx :: Gefuellt`).
+ * (`fl_frontend/src/features/bewerbungen/components/ui/Gefuellt.tsx :: Gefuellt`): none, the page
+ * naming nobody to whoever holds the link.
  */
-const EIGENE_SLOTS = new Set(["vorname"]);
+const EIGENE_SLOTS: ReadonlySet<string> = new Set();
 
 /** A stamped sentence, filled as `:: Gefuellt` fills one. */
 function Absatz({ text, werte }: { text: string; werte: Slots }) {
@@ -245,8 +246,7 @@ function antwortPayload(token: string, textVersion: string, entwurf: Entwurf, me
   };
 }
 
-type BestaetigungAntwort =
-  ({ success: true } & Omit<Gespeichert, "vorname">) | (PublicEnvelope & { success: false; zustand?: SchiedsrichterLinkZustand });
+type BestaetigungAntwort = ({ success: true } & Gespeichert) | (PublicEnvelope & { success: false; zustand?: SchiedsrichterLinkZustand });
 
 /**
  * **The acknowledgement is the press, not a switch**: the points above the button say what the
@@ -255,14 +255,12 @@ type BestaetigungAntwort =
 function SchiedsrichterFormPanel({
   fassung,
   token,
-  vorname,
   mindestalter,
   medienMindestalter,
   onAbschluss,
 }: {
   fassung: SchiedsrichterFassung;
   token: string;
-  vorname: string;
   /** The floor the link's own read answered; a constant here would be a number the endpoint never judges by. */
   mindestalter: number;
   /** The media age the link's own read answered, for `mindestalter`'s reason. */
@@ -275,7 +273,7 @@ function SchiedsrichterFormPanel({
   const panel = formPanel();
   const klickPunkteId = useId();
 
-  const werte = { ...FESTE_WERTE, minAlter: String(mindestalter), medienMinAlter: String(medienMindestalter), vorname: vorname };
+  const werte = { ...FESTE_WERTE, minAlter: String(mindestalter), medienMinAlter: String(medienMindestalter) };
 
   // Built from the floor the link answered, never a module constant: a schema on a floor of its own
   // would let the press through at a number the endpoint refuses.
@@ -337,7 +335,7 @@ function SchiedsrichterFormPanel({
       }
 
       setSubmitFieldErrors({}, {});
-      onAbschluss({ zustand: "erfolg", vorname: vorname, geburtsdatum: payload.geburtsdatum, umfang: antwort.umfang, medien: antwort.medien });
+      onAbschluss({ zustand: "erfolg", geburtsdatum: payload.geburtsdatum, umfang: antwort.umfang, medien: antwort.medien });
     });
   };
 
@@ -465,7 +463,7 @@ function SchiedsrichterFormPanel({
             severity="warning"
             isAnnounced
             title="Mit diesem Geburtsdatum kannst Du noch nicht pfeifen.">
-            Schiedsrichterinnen und Schiedsrichter müssen mindestens {String(mindestalter)} Jahre alt sein. Dein Eintrag bleibt bestehen; melde
+            Schiedsrichterinnen und Schiedsrichter müssen mindestens {String(mindestalter)} Jahre alt sein. Dein Eintrag bleibt bestehen. Melde
             Dich bei der Verwaltung, wenn das Datum nicht stimmt.
           </Callout>
         )}
@@ -508,7 +506,6 @@ export function SchiedsrichterBestaetigungView({ start }: { start: Schiedsrichte
         <SchiedsrichterFormPanel
           fassung={stand.fassung}
           token={stand.token}
-          vorname={stand.ansicht.vorname}
           mindestalter={stand.ansicht.mindestalter}
           medienMindestalter={stand.ansicht.medien_mindestalter}
           onAbschluss={(naechster) => {
@@ -522,15 +519,15 @@ export function SchiedsrichterBestaetigungView({ start }: { start: Schiedsrichte
         <BestaetigungErgebnis
           panelRef={ergebnisRef}
           tone="erfolg">
-          <p className={ABSATZ_CLASSES}>
-            Danke, <Wert>{stand.vorname}</Wert>. Dein Eintrag als Schiedsrichterin oder Schiedsrichter ist bestätigt.
-          </p>
+          <p className={ABSATZ_CLASSES}>Danke. Dein Eintrag als Schiedsrichterin oder Schiedsrichter ist bestätigt.</p>
           {/* What the press stored and nothing the reader already knows: the three answers they just
               gave, in the words the panels above asked them in. */}
           <GespeicherteAngaben
             zeilen={[
               { label: "Geburtsdatum", wert: formatSpielDatum(stand.geburtsdatum) },
-              { label: "Name im Spielplan", wert: stand.umfang === "kader_oeffentlich" ? "wird angezeigt" : "anonym" },
+              // The answer as a permission, as the media row reads one, never what the schedule
+              // shows: the public fixture read consults no consent record, and serves the name either way.
+              { label: "Name im Spielplan", wert: stand.umfang === "kader_oeffentlich" ? "erlaubt" : "nicht erlaubt" },
               medienZeile(stand.medien),
             ]}
           />

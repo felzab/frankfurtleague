@@ -42,7 +42,14 @@ afterEach(() => {
   // A landing a case armed and never resolved would otherwise move the next case's focus.
   document.dispatchEvent(new window.KeyboardEvent("keydown"));
   document.body.replaceChildren();
+  window.history.replaceState(null, "", "/");
 });
+
+/** Another page at another path, its heading marked as every page's is, as a client navigation commits it. */
+function navigate(path: string): void {
+  window.history.pushState(null, "", path);
+  document.body.replaceChildren(el("h1", FOCUS_HEADING, "Sperrliste"), list(["x"]));
+}
 
 describe("where a landed write's focus goes", () => {
   it("drops to the page when the focused control is removed, which is what the landing answers", () => {
@@ -351,6 +358,44 @@ describe("what a landing leaves alone", () => {
     await settle();
 
     assert.ok(document.activeElement === landed, `the focus moved on to „${focused()}“`);
+  });
+
+  /* The browser's back button and a toast's `router.replace` leave the page with no key or press the page
+     hears, and the next page's heading is no place the reader left. */
+  it("stands down once the page's path changes under it", async () => {
+    document.body.append(list(["a", "b"]));
+    const landing = focusAfterWrite(pressed("a löschen"));
+
+    landing.landed();
+    navigate("/anderswo");
+    await settle();
+
+    assert.ok(document.activeElement === document.body, `the next page's „${focused()}“ took the focus`);
+  });
+
+  it("lands nowhere where the write answers after the reader left the page", async () => {
+    document.body.append(list(["a", "b"]));
+    const landing = focusAfterWrite(pressed("a löschen"));
+
+    navigate("/anderswo");
+    landing.landed();
+    document.body.append(el("p", {}, "Toast"));
+    await settle();
+
+    assert.ok(document.activeElement === document.body, `the next page's „${focused()}“ took the focus`);
+  });
+
+  /* A filter writes its query with `router.replace` on the page the place stands on. */
+  it("lands as ever where only the query changed", async () => {
+    document.body.append(list(["a", "b"]));
+    const landing = focusAfterWrite(pressed("a löschen"));
+
+    landing.landed();
+    window.history.replaceState(null, "", "/?saison_id=2526");
+    document.querySelector(`[data-focus-row="a"]`)?.remove();
+    await settle();
+
+    assert.equal(focused(), "b löschen");
   });
 
   /* Without the section the rows and the slot are keyed in, the page's heading would be a guess. */

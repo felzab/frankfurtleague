@@ -10,6 +10,7 @@
 #   ./scripts/ops/deploy.sh                    deploy the current :latest tag of both packages
 #   ./scripts/ops/deploy.sh sha-1a2b3c4        deploy, or ROLL BACK to, one published build
 #   ./scripts/ops/deploy.sh --status           report what is running and what the edge serves, change nothing
+#   ./scripts/ops/deploy.sh --check-env        run the deploy's Docker-free checks of the .env files alone, change nothing
 #   ./scripts/ops/deploy.sh --verbose          stream each command's own output instead of capturing it
 #   ./scripts/ops/deploy.sh --help
 
@@ -43,8 +44,16 @@ EDGE_CONFIG_DIRS=("nginx/prod:/etc/nginx/conf.d" "nginx/shared:/etc/nginx/shared
 # reload applied (https://docs.nginx.com/nginx/admin-guide/basic-functionality/runtime-control/);
 # the two spellings move together (`scripts/checks/check_compose_model.py :: control_socket`).
 EDGE_CONTROL_SOCKET="/run/nginx-control/control.sock"
+# The reload through that socket as an operator types it, printing nginx's reply and then its status:
+# 200 applied, 422 refused, its own lines in the reply.
+EDGE_RELOAD_TYPED="docker compose -f ${COMPOSE} exec -T nginx curl -s -w '\n%{http_code}\n' -X PATCH --unix-socket ${EDGE_CONTROL_SOCKET} http://localhost/1/control/config"
 # How many times, 0.2 s apart, a freshly started nginx is given to open that socket.
 EDGE_START_POLLS=50
+
+# Every wait on a service's health, in seconds: `docs/ops/runbooks.md` §1 states the outage reached
+# where a deploy's two waits and its rollback's two all run out.
+HEALTH_WAIT_BACKEND="150"
+HEALTH_WAIT_FRONTEND="180"
 # Every production service `.github/workflows/publish.yml` does not build, held to
 # `scripts/checks/check_compose_model.py :: PRODUCTION_SERVICES` by
 # `scripts/tests/test_deploy_edge_config.py`: one missing here is fetched only after the recreate.
@@ -54,11 +63,12 @@ EDGE_IMAGE_SERVICES=(nginx cloudflared)
 # settings class takes from the directory it is built in.
 ENV_MOUNTS="/run/fl-env"
 
-PIN=""; STATUS_ONLY=0
+PIN=""; STATUS_ONLY=0; ENV_ONLY=0
 # shellcheck disable=SC2034  # the --verbose arm assigns VERBOSE for _lib.sh's `quietly`
 for arg in "$@"; do
   case "$arg" in
     --status)  STATUS_ONLY=1 ;;
+    --check-env) ENV_ONLY=1 ;;
     --verbose) VERBOSE=1 ;;
     --help|-h) usage ;;
     # 2 throughout this block, never `die`'s 1: an argument this script cannot read is "the input
@@ -77,6 +87,11 @@ if (( STATUS_ONLY )) && [[ -n "$PIN" ]]; then
 To deploy ${PIN}, drop --status."
 fi
 
+if (( ENV_ONLY )) && { [[ -n "$PIN" ]] || (( STATUS_ONLY )); }; then
+  refuse "--check-env reads the two .env files and nothing else; it takes neither a tag nor --status.
+Run it alone, then the deploy or the report you meant."
+fi
+
 # Validated with the other argument handling: without it the registry answers "manifest unknown"
 # after a platform and Docker check, instead of a sentence naming the problem.
 if [[ -n "$PIN" && ! "$PIN" =~ $PIN_RE ]]; then
@@ -86,6 +101,20 @@ See what is available:  ./scripts/ops/deploy.sh --status"
 fi
 
 require_platform linux
+
+# Before the daemon is asked anything, so a host's files are judged ahead of the deploy that would
+# refuse them: every check of them the deploy makes without Docker, in its order.
+if (( ENV_ONLY )); then
+  section "environment files"
+  step "fl_frontend/.env and fl_backend/.env, as the preflight judges them"
+  refuse_compose_dotenv
+  require_file "fl_frontend/.env"
+  require_file "fl_backend/.env"
+  judge_env_files "fl_frontend/.env" "fl_backend/.env"
+  ok "0 lines refused: no credential, and every line is a comment, blank, or NAME=VALUE in the characters every reader takes alike"
+  finish
+fi
+
 require_docker
 require_file "$COMPOSE"
 refuse_compose_dotenv
@@ -112,6 +141,13 @@ running_image() {
 # and reading the first as the second prints "not running" about a stack this never asked.
 service_cid() {
   docker compose -f "$COMPOSE" ps -q "$1" 2>/dev/null
+}
+
+# `service_cid` with a container that exited counted too, which `ps` leaves out without `--all`: a
+# failed build's backend is often one, and a recreate discards its stream alike. One restarting is
+# running to the engine, so `service_cid` already lists it.
+service_cid_any() {
+  docker compose -f "$COMPOSE" ps --all -q "$1" 2>/dev/null
 }
 
 # Asked before the pull rather than at the recreate: an `up` that cannot parse this touches no
@@ -184,6 +220,9 @@ except Exception as unexpected:
 # One mount, one user and one filter for either package's reader: the two judge different things and
 # each says so itself, but a second copy of this is how one arm's mount drifts from the other's.
 read_env_names() {
+  # Off, so a trace never prints what the container said before `redact_uri_credentials` reads it.
+  local -
+  set +x
   local package="$1" image="$2"; shift 2
   local rc=0 said=""
   # The caller's own identity, never the image's user, whose uid this host does not have: the files
@@ -208,11 +247,11 @@ check_env_names() {
   read_env_names fl_backend "$IMAGE_BACKEND" python -c "$ENV_NAME_CHECK" "$ENV_MOUNTS" || rc=$?
   if (( rc == 3 )); then
     refuse "the backend refuses this host's fl_backend/.env, and the line above is its own answer: the
-variables it could not accept, or the type of a read that failed before it reached one. No value is
-printed either way, and which remedy the line asks for is read off the names it carries. A name the
-backend declares is a value to correct; any other name is a line to delete or a field to add to the
-settings class, nothing in that class reading such a name -- so it reads as omitted and the shipped
-default serves production.
+variables it declares and could not accept, by name; the lines declaring a name it does not, by
+number alone; or the type of a read that failed before it reached one. No value is printed, and no
+name the backend does not declare. A named variable is a value to correct; a numbered line is one
+to open, then delete or answer with a field in the settings class, nothing in that class reading
+its name -- so it reads as omitted and the shipped default serves production.
 NOTHING has been recreated, and the site is untouched."
   elif (( rc )); then
     # An advisory rather than a refusal: this reads a file the running stack never reads, so a check
@@ -231,12 +270,14 @@ check_frontend_env_names() {
   local rc=0
   read_env_names fl_frontend "$IMAGE_FRONTEND" node check-environment-names.mjs "${ENV_MOUNTS}/.env" || rc=$?
   if (( rc == 3 )); then
-    refuse "the frontend refuses this host's fl_frontend/.env, and the line above names the variables.
-An undeclared name is one nothing in the schema reads, so the line reads as omitted and the shipped
-default serves production -- delete it, correct its spelling, or declare it in the schema. A missing
-required name is one the boot gate would meet instead, after the recreate and behind an edge already
-answering 502 -- write it into the file WITH A VALUE, a bare \`NAME\` line taking its value from the
-shell that ran compose, which here holds none.
+    refuse "the frontend refuses this host's fl_frontend/.env, and the lines above give each undeclared
+variable by its line number alone, never by name, and each missing one by name. An undeclared name
+is one nothing in the schema reads, so the line reads as omitted and the shipped default serves
+production -- open the line, then delete it, correct its spelling, or declare it in the schema. A missing
+name is one the frontend requires that the file omits, which the boot gate would meet instead,
+after the recreate and behind an edge already answering 502 -- write it into the file with its
+value. Whether a value, an empty one included, is accepted is the boot gate's to judge, in the step
+below.
 NOTHING has been recreated, and the site is untouched."
   elif (( rc )); then
     # An advisory rather than a refusal, for the reason `check_env_names` carries.
@@ -463,20 +504,50 @@ COPIED_STREAMS=0
 # Counted beside it, because zero copies has two causes and only one of them has already been
 # printed: no container answered at all, or every container's copy failed with its own warning.
 ATTEMPTED_STREAMS=0
+# What the last call stopped, for the verb that starts it again.
+STOPPED_SERVICES=()
 
 # One loop for both calls, so the path taken only by a failed deploy cannot drift from the path
 # every deploy takes. `--force-recreate` discards a container's `json-file` stream, and a failed
 # deploy recreates the pair twice (`docs/logging/spec.md` §1.2).
 copy_streams() { # $1 what the copies carry beside the stamp, $2 the verb a failure takes, $3 what that verb says of the run
-  local suffix="$1" on_failure="$2" consequence="$3" svc cid target partial copy_rc mv_rc
+  local suffix="$1" on_failure="$2" consequence="$3" svc cid target partial copy_rc mv_rc stop_rc=0
+  local -a held=() to_stop=()
   COPIED_STREAMS=0
   ATTEMPTED_STREAMS=0
+  STOPPED_SERVICES=()
   for svc in frontend backend; do
-    # Only a service with a container has a stream: on a first deploy there is nothing to copy, and
-    # an empty file would read as a build that logged nothing.
+    # Only a service with a container has a stream: a first deploy has nothing to copy, and an empty
+    # file would read as a build that logged nothing.
+    cid="$(service_cid_any "$svc")" || cid=""
+    if [[ -n "$cid" ]]; then held+=("$svc"); fi
+    # The running ones alone are stopped and started again: a container found stopped stays so.
     cid="$(service_cid "$svc")" || cid=""
-    [[ -n "$cid" ]] || continue
-    ATTEMPTED_STREAMS=$(( ATTEMPTED_STREAMS + 1 ))
+    if [[ -n "$cid" ]]; then to_stop+=("$svc"); fi
+  done
+  ATTEMPTED_STREAMS=${#held[@]}
+  if (( ! ATTEMPTED_STREAMS )); then return 0; fi
+  # Asked before the stop: an unwritable directory is the failure a copy most often meets, and asked
+  # here it refuses with the site untouched.
+  if [[ ! -d "$LOG_DIR" || ! -w "$LOG_DIR" ]]; then
+    "$on_failure" "${LOG_DIR} is missing or not writable by $(id -un), so no stream was copied and no
+container stopped. ${consequence}"
+    return 0
+  fi
+  # Stopped first, `stop` keeping the stream: a line written in the seconds before the recreate, an
+  # erasure's journal line a restore replays among them, is otherwise in no copy. Never bare, which
+  # stops the whole project.
+  if (( ${#to_stop[@]} )); then
+    # Recorded before the stop is asked for: an interrupt during it reaches the EXIT trap with the
+    # stop half done, and starting one still running changes nothing.
+    STOPPED_SERVICES=("${to_stop[@]}")
+    quietly docker compose -f "$COMPOSE" stop "${to_stop[@]}" || stop_rc=$?
+  fi
+  if (( stop_rc )); then
+    warn "compose could not stop the containers before their copy (exit ${stop_rc}), so a line written
+between the copy and the recreate is in no file. The copy is taken all the same."
+  fi
+  for svc in "${held[@]}"; do
     target="${LOG_DIR}/${LOG_STAMP}-${svc}${suffix}.log"
     # Written beside the target and moved in once the copy succeeded: a copy failing midway would
     # otherwise leave a short `.log` reading as the build's whole stream.
@@ -488,10 +559,9 @@ copy_streams() { # $1 what the copies carry beside the stamp, $2 the verb a fail
     timeout 120 docker compose -f "$COMPOSE" logs --no-color --timestamps "$svc" > "$partial" 2>/dev/null || copy_rc=$?
     if (( copy_rc )); then
       rm -f "$partial" 2>/dev/null || true
-      "$on_failure" "the ${svc} log could not be copied to ${target} (exit ${copy_rc}), so that stream goes
-with the recreate below and nothing keeps a record of it. ${consequence}
+      "$on_failure" "the ${svc} log could not be copied to ${target} (exit ${copy_rc}). ${consequence}
 Copy it by hand:  docker compose -f ${COMPOSE} logs --no-color --timestamps ${svc} > ${target}"
-      # Reached under `warn` alone -- `refuse` has ended the run by here -- and the other service's
+      # Reached under `warn` alone -- the refusing verb has ended the run by here -- and the other service's
       # stream is worth copying whatever this one did.
       continue
     fi
@@ -509,14 +579,103 @@ Copy it by hand:  docker compose -f ${COMPOSE} logs --no-color --timestamps ${sv
   done
 }
 
+# Puts back what the copy before the recreate stopped, each step worded by its own answer: 0 where
+# every one answered well, 1 where one answered badly, 2 where one went unanswered.
+start_stopped_again() {
+  local named svc limit start_rc=0 reload_rc=0 reply="" status="" worst=0
+  named="$(IFS=' '; printf '%s' "${STOPPED_SERVICES[*]}")"
+  # Never `up`: the pull has moved `:latest` by here, so `up` would recreate the pair from the new build
+  # with no copy taken. `start` resumes each on the build it was running, its stream whole.
+  quietly docker compose -f "$COMPOSE" start "${STOPPED_SERVICES[@]}" || start_rc=$?
+  if (( start_rc )); then
+    warn "the containers stopped for the copy could NOT be started again (exit ${start_rc}), so the site
+is DOWN. Compose's own output is above.
+Start them:  docker compose -f ${COMPOSE} start ${named}
+Then reload the edge:  ${EDGE_RELOAD_TYPED}"
+    return 1
+  fi
+  ok "${named} started again, on the build they were running"
+  # A started container takes its address afresh, and nginx resolves its upstreams only as it loads.
+  reply="$(edge_control -X PATCH -w '\n%{http_code}' http://localhost/1/control/config 2>/dev/null)" || reload_rc=$?
+  status="${reply##*$'\n'}"
+  if (( reload_rc )); then
+    worst=2
+    warn "nginx's Control API could not be asked to reload it (exit ${reload_rc}), so it may still be
+proxying to the addresses ${named} had before the stop.
+Reload it:  ${EDGE_RELOAD_TYPED}"
+  elif [[ "$status" == 200 ]]; then
+    ok "nginx reloaded, so it is proxying to the containers started again"
+  elif [[ "$status" == 422 ]]; then
+    worst=1
+    warn "nginx refused the configuration the pull left in nginx/prod/ or nginx/shared/ and kept the one it
+had, so it may still be proxying to the addresses ${named} had before the stop. Its own lines:
+${reply%$'\n'*}
+Fix what they name, then reload it:  ${EDGE_RELOAD_TYPED}"
+  else
+    worst=2
+    warn "nginx's Control API answered the reload with '${status}', which is neither applied nor refused,
+so nothing here says whether it is proxying to ${named} again.
+Reload it:  ${EDGE_RELOAD_TYPED}"
+  fi
+  for svc in "${STOPPED_SERVICES[@]}"; do
+    limit="$HEALTH_WAIT_FRONTEND"
+    if [[ "$svc" == backend ]]; then limit="$HEALTH_WAIT_BACKEND"; fi
+    if ! wait_healthy "$COMPOSE" "$svc" "$limit"; then
+      # A wait compose never answered says nothing of the service, so it cannot outrank a bad answer.
+      if [[ "$WAIT_HEALTHY_REASON" != unasked ]]; then worst=1; elif (( ! worst )); then worst=2; fi
+    fi
+  done
+  return "$worst"
+}
+
+# The verb of the copy before the recreate. Graded as `scripts/lib/_lib.sh` ranks a section holding
+# both: a pair left out of service is a finding and outranks the copy's refusal, which ends the run
+# alone wherever nothing answered badly.
+start_again_and_end() { # $1 what failed, and what that leaves
+  local rc=0
+  if (( ${#STOPPED_SERVICES[@]} )); then start_stopped_again || rc=$?; fi
+  # Lifted only now, so an interrupt during the start above still has the trap put the pair back.
+  trap - EXIT
+  # Nothing stopped, nothing to start: a bare `start` starts the whole project.
+  if (( ! ${#STOPPED_SERVICES[@]} )); then refuse "$1"; fi
+  case "$rc" in
+    0) refuse "$1
+The containers stopped for the copy were started again on the build they were running, nginx was
+reloaded onto them, and each answered healthy." ;;
+    2) refuse "$1
+The containers stopped for the copy were started again on the build they were running; what could
+not be asked after that is named above." ;;
+    *) die "$1
+The containers stopped for the copy are NOT serving the site again: the lines above say which step
+answered badly." ;;
+  esac
+}
+
+# Set from just before the copy to just before the recreate: an interrupt, a hangup or a crash there
+# would leave the pair stopped, `restart: unless-stopped` never restarting a container `stop` stopped.
+restart_on_exit() {
+  if (( ! ${#STOPPED_SERVICES[@]} )); then return 0; fi
+  # Best effort to its last line: after a hangup every line printed fails, and `set -e` or the error
+  # trap would end this at the first, before the `start`.
+  set +e
+  trap - ERR
+  info "putting back the containers this run stopped for its copy"
+  start_stopped_again
+}
+
 # Called only with both previous image ids held: a rollback restoring one service and not the other
 # leaves the mismatched pair `--status` refuses to call live.
 roll_back() { # $1 how the build being restored is named on screen
   local name="$1" tag_rc=0 up_rc=0 healthy=1 edge_rc=0 unasked=0
-  step "Copying the failed build's logs off before it is replaced"
-  # `warn` where the copy before the recreate `refuse`s, and this is the only difference between the
+  step "Stopping the failed build and copying its logs off before it is replaced"
+  # Interrupted here, the failed pair stays stopped rather than put back: it has just failed its
+  # health wait, so starting it restores no service, and the rollback is finished by tag
+  # (`docs/ops/runbooks.md` §1).
+
+  # `warn` where the copy before the recreate refuses, and this is the only difference between the
   # two calls: the site is already down by here, so a refusal would trade the outage for a log file.
-  copy_streams "-failed" warn "The rollback goes on without it."
+  copy_streams "-failed" warn "The rollback goes on without the copy, and the recreate below discards
+what it would have kept."
   if (( COPIED_STREAMS )); then
     ok "${COPIED_STREAMS} stream(s) copied to ${LOG_DIR}"
   elif (( ATTEMPTED_STREAMS )); then
@@ -546,9 +705,9 @@ other refused, which leaves a mismatched pair."
 so the site is down. Compose's own output is above."
     return 1
   fi
-  wait_healthy "$COMPOSE" backend 150  || healthy=0
+  wait_healthy "$COMPOSE" backend "$HEALTH_WAIT_BACKEND"   || healthy=0
   if [[ "$WAIT_HEALTHY_REASON" == "unasked" ]]; then unasked=1; fi
-  wait_healthy "$COMPOSE" frontend 180 || healthy=0
+  wait_healthy "$COMPOSE" frontend "$HEALTH_WAIT_FRONTEND" || healthy=0
   if [[ "$WAIT_HEALTHY_REASON" == "unasked" ]]; then unasked=1; fi
   if (( ! healthy )); then
     if (( unasked )); then
@@ -732,10 +891,7 @@ section "preflight"
 step "Files and directories the stack mounts, before anything is stopped or pulled"
 require_file "fl_frontend/.env" "The frontend cannot start without it. Restore it from your password manager."
 require_file "fl_backend/.env"  "The backend cannot start without it."
-# Before the spellings, whose remedy would have a credential's line rewritten rather than deleted.
-refuse_credential_lines fl_frontend/.env fl_backend/.env
-check_env_spellings "fl_frontend/.env"
-check_env_spellings "fl_backend/.env"
+judge_env_files "fl_frontend/.env" "fl_backend/.env"
 # Each file and never its directory alone: Docker mounts a missing directory empty, where nginx
 # loads no server of this site's or refuses the include, the edge serving its previous
 # configuration until it restarts.
@@ -1020,7 +1176,7 @@ check_actor_key "NOTHING has been recreated, and the site is untouched." \
 
 section "logs"
 
-step "Copying the application logs off the containers about to be replaced"
+step "Stopping the application containers and copying their logs off"
 # `nginx/` is created here rather than left to the `up` below, which would invent it root-owned:
 # `docker-compose.yml` bind-mounts it for the edge's two logs, and one refusal covers the
 # copies and the directory `logrotate` bounds by age (docs/ops/runbooks.md §7).
@@ -1033,9 +1189,10 @@ NOTHING has been recreated.
 Create them once, owned by the deploying user (docs/ops/runbooks.md §7):
   sudo install -d -o \"\$USER\" -g \"\$USER\" ${LOG_DIR} ${LOG_DIR}/nginx"
 fi
-# `refuse` here, and `warn` at the rollback's copy: nothing is stopped or recreated yet, so the
-# deploy can simply be re-run once this path can be written.
-copy_streams "" refuse "NOTHING has been recreated, and the site is untouched."
+trap restart_on_exit EXIT
+# A refusal here, and `warn` at the rollback's copy: nothing is recreated yet, so the deploy can
+# simply be re-run once this path can be written.
+copy_streams "" start_again_and_end "NOTHING has been recreated."
 if (( COPIED_STREAMS )); then
   ok "${COPIED_STREAMS} stream(s) copied to ${LOG_DIR}"
 else
@@ -1050,6 +1207,10 @@ section "deploy"
 # changed, and its `service_healthy` gate then holds the edge closed until both are healthy — or for
 # good, where the new build never is.
 step "Recreating the application containers"
+
+# Lifted here and not later: an ending from here on meets containers the recreate replaced, or is
+# replacing, and starting those again would serve neither build.
+trap - EXIT
 
 # Guarded, not bare: a service that cannot be created exits `up` non-zero, and an unguarded call
 # would skip the diagnostics and the rollback below.
@@ -1069,9 +1230,9 @@ HEALTHY=1
 UNASKED=0
 # Both are waited on even when the first fails: chaining them means one deploy reports one problem,
 # and the second is discovered by deploying again.
-wait_healthy "$COMPOSE" backend 150  || HEALTHY=0
+wait_healthy "$COMPOSE" backend "$HEALTH_WAIT_BACKEND"   || HEALTHY=0
 if [[ "$WAIT_HEALTHY_REASON" == "unasked" ]]; then UNASKED=1; fi
-wait_healthy "$COMPOSE" frontend 180 || HEALTHY=0
+wait_healthy "$COMPOSE" frontend "$HEALTH_WAIT_FRONTEND" || HEALTHY=0
 if [[ "$WAIT_HEALTHY_REASON" == "unasked" ]]; then UNASKED=1; fi
 if (( UP_RC )); then HEALTHY=0; fi
 
@@ -1094,7 +1255,7 @@ nginx has NOT been reloaded, so it is still resolving the containers this deploy
 request through it answers 502 whether the new build is healthy or not.
 No rollback runs on that: it would be undoing a build nothing here has judged.
 Reload the edge first, which answers 200 once applied:
-  docker compose -f ${COMPOSE} exec -T nginx curl -s -X PATCH --unix-socket ${EDGE_CONTROL_SOCKET} http://localhost/1/control/config
+  ${EDGE_RELOAD_TYPED}
 Then ask what is running:  docker compose -f ${COMPOSE} ps
 And if the new build turns out to be the problem:  ./scripts/ops/deploy.sh ${PREV_PIN:-<a published tag>}"
   fi

@@ -19,13 +19,12 @@ import {
   REQUESTS_NAMED,
   STEP_UP_CALLERS,
   STEP_UP_REQUESTS,
-  STEP_UP_ROUTES,
+  STEP_UP_SENDS,
   STEP_UP_WRITES,
+  stepUpRequestsOf,
   UNDECLARED_SENDS,
-  UNDO_REPLAYS,
   UNREAD_SENDS,
 } from "@/shared/testing/stepUpWrites.ts";
-import { undo } from "@/shared/testing/undoRoutes.ts";
 
 import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
 
@@ -99,7 +98,6 @@ function landed({ endpoint, method }: ApiCall): Record<string, unknown> {
         token: "t",
         rollen: ["ansprechperson"],
         email: STORED_EMAIL,
-        vorname: "Anna",
         schule: "Lessing-Kolleg",
         frist: "2026-10-17",
         zeile: "offen",
@@ -125,6 +123,7 @@ doubleActions({ modules: ["/src/core/einwilligung.ts"], answer: () => Promise.re
 const { calls, answerWith } = doubleApiAnswers((call: ApiCall) => Promise.resolve(landed(call)));
 
 const { stepUpRequired } = await import("./adminMutation.ts");
+const { UNDO_UNBESTAETIGT } = await import("./adminUndo.ts");
 
 /** The two actions that authorize nobody, which `fl_frontend/src/shared/utils/adminActionSpine.test.ts` exempts for their own reasons. */
 const AUTHORIZES_NOBODY: ReadonlySet<string> = new Set(["auth :: handleSignIn", "auth :: signOutAction"]);
@@ -143,6 +142,9 @@ async function action(name: string): Promise<(payload?: unknown) => Promise<unkn
 }
 
 const refused = stepUpRequired();
+
+/** The same refusal of an undo, in its own words: the offer pressed is gone, so it asks for no press first. */
+const undoRefused = { ...refused, error: UNDO_UNBESTAETIGT };
 
 const standingLink = {
   id: "b".repeat(24),
@@ -206,7 +208,7 @@ describe("an administrator write the server holds to the step-up window", () => 
   /* The case above sees what the reader attributes, and the reader reads direct calls alone: a request
      sent any other way is undeclared and unseen, so every way of naming one is held to a call it reads. */
   it("sends every request it names where the reader reads it", () => {
-    const read = new Set([...STEP_UP_REQUESTS, ...Object.values(UNDECLARED_SENDS).flat(), ...Object.values(UNDO_REPLAYS).flat()]);
+    const read = new Set([...STEP_UP_SENDS, ...Object.values(UNDECLARED_SENDS).flat()]);
 
     assert.deepEqual(UNREAD_SENDS, []);
     assert.deepEqual([...REQUESTS_NAMED].sort(), [...read].sort(), "the walk and the reader disagree on what the tree sends");
@@ -283,6 +285,43 @@ describe("an administrator write the server holds to the step-up window", () => 
     assert.deepEqual(inQueries('export const send = async () => (await import("./mutations")).postSaisonTeam;'), [
       "./mutations imported dynamically",
     ]);
+  });
+
+  /* Over a synthetic sample, since the tree holds one request off the admin key and none whose key hides: the
+     activation's deletion run goes on the system key, which the hourly timer sends with no session to step up. */
+  it("takes a step-up action's admin-key write for a step-up write's, and names one whose key it cannot read", () => {
+    const mutations = ts.createSourceFile(
+      "mutations.ts",
+      [
+        'export async function postWrite() { return apiClient("/w", S, { method: "POST", authType: "admin" }); }',
+        'export async function postLauf() { return apiClient("/l", S, { method: "POST", authType: "system" }); }',
+        'export async function postForm() { return apiClient("/f", S, { method: "POST" }); }',
+        'export async function postSpread(o: never) { return apiClient("/s", S, { method: "POST", ...o }); }',
+        'export async function postComputed(k: never) { return apiClient("/c", S, { [k]: "system" }); }',
+        'export async function postTwo() { await apiClient("/a", S, { authType: "admin" }); return apiClient("/b", S, { authType: "system" }); }',
+        "export async function laufen(lauf: () => Promise<void>) { await lauf(); }",
+        // A read beside the write, as the erasure's reveal is, steps nothing up.
+        'export async function readAnsicht() { return apiClient("/r", S, { method: "POST", readOnly: true, authType: "admin" }); }',
+        'export async function postNachLesen() { await apiClient("/r", S, { readOnly: true, authType: "admin" }); return apiClient("/w", S, { authType: "admin" }); }',
+        'export async function readSpread(o: never) { return apiClient("/r", S, { readOnly: true, authType: "admin", ...o }); }',
+      ].join("\n"),
+      ts.ScriptTarget.Latest,
+      true,
+    );
+    const request = (name: string) => `saisons :: ${name}`;
+    const unread = [...["postSpread", "postComputed", "postTwo", "laufen"].map(request), "teams :: postGone"];
+
+    const kept = ["postNachLesen", "readSpread"].map(request);
+
+    assert.deepEqual(
+      stepUpRequestsOf([...["postWrite", "postLauf", "postForm", "readAnsicht"].map(request), ...kept, ...unread], (slice) =>
+        slice === "saisons" ? mutations : null,
+      ),
+      {
+        requests: [request("postWrite"), ...kept, ...unread],
+        unread: [...kept.slice(1), ...unread].map((each) => `${each} sent on a key the reader cannot read`),
+      },
+    );
   });
 
   /* Each export called, never its source read: an action that dropped its declaration validates the
@@ -417,11 +456,9 @@ describe("an administrator write the server holds to the step-up window", () => 
   });
 });
 
-const ROUTES = path.resolve(import.meta.dirname, "..", "..", "app", "api", "admin");
-
 /**
  * A referee's undo body as the editor sends it: the save's payload, its address `email`, and the
- * route's own field, as the kontakte drive carries its route's `kontakte_stand`.
+ * undo's own field, as the kontakte drive carries its save's `kontakte_stand`.
  */
 const refereeReplay = (email: string) => ({
   id: REFEREE_ID,
@@ -433,11 +470,11 @@ const refereeReplay = (email: string) => ({
 });
 
 /**
- * Per undo route declaring a step-up, a replay a stale session is refused and one it is not, over what
- * `landed` answers, and the operation the replay sends.
+ * Per undo the server holds to the step-up window, a replay a stale session is refused and one it is not,
+ * over what `landed` answers, and the operation the replay sends.
  */
-const ROUTE_DRIVES: Record<string, { refused: unknown; admitted: unknown; operation: string }> = {
-  kontakte: {
+const UNDO_DRIVES: Record<string, { refused: unknown; admitted: unknown; operation: string }> = {
+  undoAdminKontakteEditAction: {
     operation: "PATCH /teams/{team_id}/saisons/{saison_id}/kontakte",
     refused: { team_id: TEAM_ID, saison_id: "2526", kontakte: null, kontakte_stand: "9f2c" },
     admitted: {
@@ -448,7 +485,7 @@ const ROUTE_DRIVES: Record<string, { refused: unknown; admitted: unknown; operat
     },
   },
   // The stored referee has not answered, so moving the address back mints them a link.
-  schiedsrichter: {
+  undoAdminSchiedsrichterEditAction: {
     operation: "PATCH /schiedsrichter/{schiedsrichter_id}",
     refused: refereeReplay("anna@neu.example"),
     admitted: refereeReplay(STORED_EMAIL),
@@ -458,65 +495,58 @@ const ROUTE_DRIVES: Record<string, { refused: unknown; admitted: unknown; operat
 /** A request that writes, as `landed` tells a read from a write. */
 const writes = (sent: number): ApiCall[] => calls.slice(sent).filter(({ method }) => method !== undefined);
 
-describe("an undo route the server holds to the step-up window", () => {
-  /* A replay is a save, so a route declaring the step-up and driven by nothing here is a second door
-     to that save which nothing holds to the window. */
-  it("is driven for every route declaring one", () => {
-    assert.deepEqual(Object.keys(ROUTE_DRIVES).sort(), [...STEP_UP_ROUTES].sort());
+describe("an undo the server holds to the step-up window", () => {
+  /* A replay is a save, so an undo the registry says asks through its offer and driven by nothing here
+     is a second door to that save which nothing holds to the window. */
+  it("is driven for every undo a caller offers behind the step-up", () => {
+    const offered = Object.values(STEP_UP_CALLERS).flatMap((writes) =>
+      Object.entries(writes)
+        .filter(([, press]) => press === "undo")
+        .map(([name]) => name),
+    );
+
+    assert.deepEqual(Object.keys(UNDO_DRIVES).sort(), offered.sort());
   });
 
-  /* Two listings by different routes, what each replay sends against what each route declares: a route
-     replaying a step-up write's request with no `stepUp` of its own drops out of the declared one alone. */
-  it("is declared by every route whose replay sends a request a step-up write sends", () => {
-    const replaying = Object.entries(UNDO_REPLAYS)
-      .filter(([, sent]) => sent.some((request) => STEP_UP_REQUESTS.has(request)))
-      .map(([slice]) => slice);
-
-    assert.deepEqual(replaying.sort(), [...STEP_UP_ROUTES].sort());
-  });
-
-  /* A replay the reader finds no request in would pass the case above having been asked nothing. */
-  it("reads a request off every undo route's replay", () => {
-    const unread = Object.entries(UNDO_REPLAYS)
-      .filter(([, sent]) => sent.length === 0)
-      .map(([slice]) => slice);
-
-    assert.deepEqual(unread, []);
-  });
-
-  for (const [slice, drive] of Object.entries(ROUTE_DRIVES)) {
-    it(`${slice}'s replay is refused where it steps up and no other, and a fresh session reads nothing to judge it`, async () => {
-      const { POST } = (await import(pathToFileURL(path.join(ROUTES, slice, "undo", "route.ts")).href)) as {
-        POST: Parameters<typeof undo>[0];
-      };
+  for (const [name, drive] of Object.entries(UNDO_DRIVES)) {
+    it(`${name} is refused where its replay steps up and no other, and a fresh session reads nothing to judge it`, async () => {
+      const undo = await action(name);
       setFresh(false);
 
       let sent = calls.length;
-      assert.deepEqual(await undo(POST, drive.refused), { ...refused }, `a stale session's ${slice} replay ran`);
-      assert.deepEqual(writes(sent), [], `a stale session's ${slice} replay reached the backend`);
+      assert.deepEqual(await undo(drive.refused), undoRefused, `a stale session's ${name} replay ran`);
+      assert.deepEqual(writes(sent), [], `a stale session's ${name} replay reached the backend`);
 
       sent = calls.length;
-      assert.notDeepEqual(await undo(POST, drive.admitted), { ...refused }, `a stale session was refused a ${slice} replay minting nothing`);
-      assert.ok(writes(sent).length > 0, `the ${slice} replay stopped short of the backend`);
+      assert.notDeepEqual(await undo(drive.admitted), undoRefused, `a stale session was refused a ${name} replay minting nothing`);
+      assert.ok(writes(sent).length > 0, `the ${name} replay stopped short of the backend`);
 
       setFresh(true);
       sent = calls.length;
-      assert.notDeepEqual(await undo(POST, drive.refused), { ...refused }, `a fresh session was refused a ${slice} replay`);
-      assert.equal(calls.length - sent, writes(sent).length, `a fresh session's ${slice} replay read the store to judge a step-up`);
+      assert.notDeepEqual(await undo(drive.refused), undoRefused, `a fresh session was refused a ${name} replay`);
+      assert.equal(calls.length - sent, writes(sent).length, `a fresh session's ${name} replay read the store to judge a step-up`);
     });
   }
 
   /* The backend judges the replay on the save's own condition and may refuse it at the window's edge,
      where the page admitted it: a slice's replay table swallowing the code would answer in other words. */
-  for (const [slice, drive] of Object.entries(ROUTE_DRIVES)) {
-    it(`${slice}'s replay answers the backend's own refusal of it as the step-up refusal`, async () => {
-      const { POST } = (await import(pathToFileURL(path.join(ROUTES, slice, "undo", "route.ts")).href)) as {
-        POST: Parameters<typeof undo>[0];
-      };
+  for (const [name, drive] of Object.entries(UNDO_DRIVES)) {
+    it(`${name} answers the backend's own refusal of its replay as the step-up refusal, and the page's figure is read again`, async () => {
       setFresh(true);
       answerWith(() => Promise.reject(refusedOn(drive.operation, "REQ-AUTH-009")));
 
-      assert.deepEqual(await undo(POST, drive.refused), { ...refused }, `the ${slice} replay answered the backend's refusal in other words`);
+      assert.deepEqual(
+        await (
+          await action(name)
+        )(drive.refused),
+        undoRefused,
+        `the ${name} replay answered the backend's refusal in other words`,
+      );
+      assert.deepEqual(
+        cacheCalls.map((call) => call.name),
+        ["refresh"],
+        "the refusal left the page's figure standing, so its next press is refused again",
+      );
     });
   }
 });
@@ -579,7 +609,8 @@ const CONFIRMED_BY_THE_BACKEND: Record<string, { name: string; payload: unknown 
     payload: { team_id: TEAM_ID, saison_id: SAISON_ID },
   },
   "POST /saisons/{saison_id}/einladungen/versand": { name: "postEinladungVersandAction", payload: { id: SAISON_ID } },
-  "POST /kontakte/erasure": { name: "eraseKontaktpersonAction", payload: { email: "berta@example.de" } },
+  "POST /identitaet/erasure": { name: "eraseAufAnfrageAction", payload: { email: "berta@example.de", anlass: "E-Mail vom 12.10.2026" } },
+  "POST /identitaet/abmeldung": { name: "endAnmeldungenAction", payload: { email: "berta@example.de" } },
   // Clearing the block, one of the two calls of the contacts save the backend steps up, the other
   // being a save that seats somebody new.
   "PATCH /teams/{team_id}/saisons/{saison_id}/kontakte": {
@@ -603,11 +634,16 @@ const CONFIRMED_BY_THE_BACKEND: Record<string, { name: string; payload: unknown 
   "PATCH /schiedsrichter/{schiedsrichter_id}": { name: "patchSchiedsrichterAction", payload: refereeReplay("anna@neu.example") },
   "POST /schiedsrichter/{schiedsrichter_id}/reactivate": { name: "reactivateSchiedsrichterAction", payload: { id: REFEREE_ID } },
   "POST /schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen": { name: "einladeSchiedsrichterAction", payload: { id: REFEREE_ID } },
-  "POST /schiedsrichter/{schiedsrichter_id}/anonymisieren": { name: "anonymiseSchiedsrichterAction", payload: { id: REFEREE_ID } },
   "POST /schiedsrichter/{schiedsrichter_id}/adresswechsel/einladen": { name: "einladeAdresswechselAction", payload: { id: REFEREE_ID } },
   "DELETE /schiedsrichter/{schiedsrichter_id}/adresswechsel": { name: "verwirfAdresswechselAction", payload: { id: REFEREE_ID } },
+  "POST /sperrliste": { name: "postSperreAction", payload: { email: "zorbanax@beispielschule.de", grund: "Falsches Geburtsdatum angegeben" } },
   "DELETE /sperrliste/{sperrliste_id}": { name: "deleteSperreAction", payload: { id: SPERRE_ID } },
-  "DELETE /spieler/{spieler_id}/erasure": { name: "eraseSpielerAction", payload: { id: SPIELER_ID } },
+  "POST /spieler/{spieler_id}/adresswechsel": {
+    name: "beantrageSpielerAdresswechselAction",
+    payload: { id: SPIELER_ID, email: "lena@neu.example" },
+  },
+  "POST /spieler/{spieler_id}/adresswechsel/einladen": { name: "einladeSpielerAdresswechselAction", payload: { id: SPIELER_ID } },
+  "DELETE /spieler/{spieler_id}/adresswechsel": { name: "verwirfSpielerAdresswechselAction", payload: { id: SPIELER_ID } },
   "POST /teams/{team_id}/saisons": { name: "postSaisonTeamAction", payload: { team_id: TEAM_ID, saison_id: SAISON_ID, gruppe: "A" } },
   "POST /teams/{team_id}/saisons/{saison_id}/replace": {
     name: "replaceSaisonTeamAction",
@@ -615,15 +651,22 @@ const CONFIRMED_BY_THE_BACKEND: Record<string, { name: string; payload: unknown 
   },
 };
 
+/**
+ * Per person's route publishing the confirmation refusal, the action sending it, driven in its own suite
+ * (`fl_frontend/src/features/konto/loeschung.test.ts :: "the backend's confirmation refusal"`). Named, never told apart by
+ * REQ-AUTH-008: an administrator's route publishing that too would escape the sweep.
+ */
+const CONFIRMED_ON_A_PERSON_ROUTE: Readonly<Record<string, string>> = { "POST /identitaet/selbst/erasure": "loescheKontoAction" };
+
 describe("a write the backend refuses for want of a recent confirmation", () => {
   /* Read off the document rather than kept by hand: an operation that starts publishing the refusal
-     and is driven by nothing here answers its administrator with the generic fallback. */
+     and is driven by nothing answers its caller with the generic fallback. */
   it("is driven for every operation publishing it", () => {
     const publishing = publishedOperations()
       .filter(({ answers }) => answers.some(({ code }) => code === "REQ-AUTH-009"))
       .map(({ operation }) => operation);
 
-    assert.deepEqual(publishing.sort(), Object.keys(CONFIRMED_BY_THE_BACKEND).sort());
+    assert.deepEqual(publishing.sort(), [...Object.keys(CONFIRMED_BY_THE_BACKEND), ...Object.keys(CONFIRMED_ON_A_PERSON_ROUTE)].sort());
   });
 
   /* The session is inside the spine's window, so only the backend refuses: the answer has to be the

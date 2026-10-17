@@ -1,16 +1,18 @@
-from typing import Annotated
+from typing import Annotated, Any
 
-from pydantic import BaseModel, ConfigDict, StringConstraints
+from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints
 
 from app.api.berechtigungen.schemas import FLUtcInstant, FLVerwaltung
 
-# The wire's spelling of the three seats, imported rather than restated as
-# `app/api/kontakte/schemas.py` imports it: a second closed set here would name a seat no other
-# endpoint publishes.
+# The wire's spelling of the three seats, imported rather than restated: a second closed set here
+# would name a seat no other endpoint publishes.
 from app.api.bewerbungen.schemas import FLKontaktRolle
+from app.api.registrierungen.schemas import FLRegistrierungStatus
 from app.api.saisons.schemas import FLSaisonStatus
-from app.shared.schemas.bounds import KONTAKT_EMAIL_MAX_LENGTH
-from app.shared.schemas.custom import CustomObjectId
+from app.api.sperrliste.schemas import ADDRESS_IN_FREE_TEXT
+from app.shared.folding import sign_in_identifier, trimmed
+from app.shared.schemas.bounds import ERASURE_ANLASS_MAX_LENGTH, KONTAKT_EMAIL_MAX_LENGTH, REFERENZEN_ADRESSEN_MAX
+from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.kontakt import CustomEmail
 from app.shared.schemas.responses import BaseAPIResponse
 
@@ -28,8 +30,8 @@ class FLSubjektPayload(BaseModel):
 class FLSubjektSitz(BaseModel):
     """One contact seat the mailbox holds on a season's junction row.
 
-    Per seat and never per person, as `app/api/kontakte/schemas.py :: FLKontaktSitz` is: one row
-    seats one person twice where `trainer_ist_zugleich` says so.
+    Per seat and never per person, as the erasure's `FLSelbstErasureSitz` is: one row seats one
+    person twice where `trainer_ist_zugleich` says so.
     """
 
     saison_id: str
@@ -131,3 +133,289 @@ class FLGesperrtResponse(BaseAPIResponse):
     """Whether a standing ban holds that address, and nothing of any record: the mailer needs none."""
 
     gesperrt: bool
+
+
+class FLErasure(BaseModel):
+    """How many of each kind of record one erasure removed or emptied, zero for a kind the address held none of.
+
+    Records alone: an emptied log row is no record of the person's, and two passes may reach one.
+    """
+
+    spieler: int = Field(ge=0)
+    saison_spieler: int = Field(ge=0)
+    schiedsrichter: int = Field(ge=0)
+    # The fixtures moved onto the ghost, which stay as the league's record of the match.
+    spiele: int = Field(ge=0)
+    # Per seat and never per row, as both reveals name them: one row seats one person twice.
+    kontakt_sitze: int = Field(ge=0)
+    registrierungen: int = Field(ge=0)
+    # Another referee's or pupil's pending address change, removed alone: that row is the old address's person's.
+    adresswechsel: int = Field(ge=0)
+    # The person's own grants, a dead spelling of their address among them.
+    berechtigungen: int = Field(ge=0)
+    drosselung: int = Field(ge=0)
+
+
+class FLErasureResponse(FLErasure, BaseAPIResponse):
+    pass
+
+
+class FLSelbstErasureSpieler(BaseModel):
+    vorname: str
+    nachname: str | None
+
+
+class FLSelbstErasureSchiedsrichter(BaseModel):
+    name: str | None
+
+
+class FLSelbstErasureSitz(BaseModel):
+    """One seat on a team's season row, named as the row names it."""
+
+    saison_id: str
+    # The row's own name, the one the club played that season under (`docs/backend/spec.md :: I13`).
+    team_name: str
+    rolle: FLKontaktRolle
+    vorname: str
+    nachname: str
+
+
+class FLSelbstErasureBewerbung(BaseModel):
+    """One seat on an application, of any status."""
+
+    saison_id: str
+    rolle: FLKontaktRolle
+    vorname: str
+    nachname: str
+
+
+class FLSelbstErasureRegistrierung(BaseModel):
+    """One registration, pending or declined."""
+
+    saison_id: str
+    # Null where no season row of that season names the registration's team, a replacement having repointed it.
+    team_name: str | None
+    vorname: str
+    nachname: str
+
+
+class FLSelbstErasureAnsicht(BaseModel):
+    """What an erasure of one address would remove, by kind and by name, and never an address or a birthdate."""
+
+    spieler: list[FLSelbstErasureSpieler]
+    schiedsrichter: list[FLSelbstErasureSchiedsrichter]
+    sitze: list[FLSelbstErasureSitz]
+    bewerbungen: list[FLSelbstErasureBewerbung]
+    registrierungen: list[FLSelbstErasureRegistrierung]
+    # A count and no name: each is a pending change on another address's referee or pupil row.
+    adresswechsel: int = Field(ge=0)
+
+
+class FLSelbstErasureAnsichtResponse(FLSelbstErasureAnsicht, BaseAPIResponse):
+    # The tier of the live grant the address holds, read in the preview's snapshot as the press reads it.
+    verwaltung: FLVerwaltung | None
+    # Advisory: read apart from the erasure's transaction, whose own `REQ-PURGE-004` alone decides.
+    letzter_inhaber: bool
+
+
+class FLReferenzenPayload(BaseModel):
+    """The sign-in addresses a pass of the account sweep asks about."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    # Each held to no address rule, as `FLGesperrtPayload`'s is, nor to a length: one address refused
+    # refuses the whole batch, and every pass asks again, so the sweep would delete nothing ever after.
+    identifiers: list[str] = Field(min_length=1, max_length=REFERENZEN_ADRESSEN_MAX)
+
+
+class FLReferenzenResponse(BaseAPIResponse):
+    """Which of them nothing references, and nothing of the records that reference the others."""
+
+    unreferenziert: list[str]
+
+
+# --- The ADMINISTRATOR's erasure on a mailed request, and its reveal.
+
+# German, as every refusal a payload's own validator raises is worded. It reaches `REQ-VAL-001`'s log
+# line, never the page, whose box words its own; `fl_backend/tests/shared/erasure_refusals.json` holds
+# the two predicates to one verdict.
+ADRESSE_UNTER_INVALID = "Diese Adresse ist ein Platzhalter und gehört niemandem."
+
+
+def refuse_the_reserved_domain(value: str) -> str:
+    """No mailbox sits under RFC 6761's reserved `invalid`, and every referee row stored without an address shares one placeholder there.
+
+    Looked up, it would reach all of them at once, so it is refused on its fold, before any read.
+    """
+
+    domain = sign_in_identifier(value).rpartition("@")[2]
+    if domain == "invalid" or domain.endswith(".invalid"):
+        raise ValueError(ADRESSE_UNTER_INVALID)
+
+    return value
+
+
+def _trimmed_as_the_page_trims(value: Any) -> Any:
+    return trimmed(value) if isinstance(value, str) else value
+
+
+# A lookup asking no more than any payload stores, an `@` within the stored ceiling, and refusing the
+# reserved domain (`docs/backend/spec.md :: I329`): a record stored under an older rule stays
+# erasable.
+ErasureAdresse = Annotated[
+    str,
+    StringConstraints(max_length=KONTAKT_EMAIL_MAX_LENGTH, pattern="@"),
+    # Never `strip_whitespace`, whose set adds U+0085, which the page keeps: one spelling's records would be erased and
+    # another spelling's sign-in account left (`fl_backend/tests/shared/test_email_address.py`).
+    BeforeValidator(_trimmed_as_the_page_trims),
+    AfterValidator(refuse_the_reserved_domain),
+]
+
+# German, as the ban's `grund` words its own, and like it read on the log line alone: the box words
+# its own, held to this one's verdict by `fl_backend/tests/shared/erasure_refusals.json`.
+ANLASS_HOLDS_AN_ADDRESS = "Der Anlass darf keine E-Mail-Adresse enthalten."
+
+
+def refuse_an_address_in_the_anlass(value: str) -> str:
+    """The log keeps `anlass` twelve months and no erasure's redaction reaches it, so an address typed here outlives the erasure it answers."""
+
+    if ADDRESS_IN_FREE_TEXT.search(value) is not None:
+        raise ValueError(ANLASS_HOLDS_AN_ADDRESS)
+
+    return value
+
+
+class FLErasureAnsichtPayload(BaseModel):
+    """The mailbox the reveal is read for, in the BODY for `FLSubjektPayload`'s reason."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    email: ErasureAdresse
+
+
+class FLErasurePayload(FLErasureAnsichtPayload):
+    """The mailbox, and the request the erasure answers, which every log row the erasure files keeps."""
+
+    anlass: Annotated[
+        str,
+        StringConstraints(strip_whitespace=True, min_length=1, max_length=ERASURE_ANLASS_MAX_LENGTH, pattern=SINGLE_LINE_PATTERN),
+        AfterValidator(refuse_an_address_in_the_anlass),
+    ]
+
+
+class FLErasureAnsichtKader(BaseModel):
+    """One squad row of a pupil the erasure reaches."""
+
+    saison_id: str
+    team_id: CustomObjectId
+    # The season row's name, null where no season row names the team that season.
+    team_name: str | None
+    # Null on a live row: a ban's dialog offers to take out only a row still in the squad.
+    inactive_since: CustomOptionalDateString
+
+
+class FLErasureAnsichtSpieler(FLSelbstErasureSpieler):
+    spieler_id: CustomObjectId
+    # A retired row too: the pupil's step removes every squad row of the person.
+    kader: list[FLErasureAnsichtKader]
+
+
+class FLErasureAnsichtSchiedsrichter(FLSelbstErasureSchiedsrichter):
+    schiedsrichter_id: CustomObjectId
+    # Null on a live row: a ban's dialog offers to retire only a referee still active.
+    inactive_since: CustomOptionalDateString
+    # Every season, in order, holding a fixture still to be played that this referee is booked on, as
+    # `REQ-RETIRE-004` judges one: the fixture search opens on one season, so each is reached in its own.
+    spiele_ohne_ergebnis_saison_ids: list[str]
+
+
+class FLErasureAnsichtSitz(FLSelbstErasureSitz):
+    team_id: CustomObjectId
+
+
+class FLErasureAnsichtBewerbung(FLSelbstErasureBewerbung):
+    bewerbung_id: CustomObjectId
+
+
+class FLErasureAnsichtRegistrierung(FLSelbstErasureRegistrierung):
+    registrierung_id: CustomObjectId
+    team_id: CustomObjectId
+    # The administrator's registrations list serves the pending ones alone, so a ban's dialog links no declined one.
+    status: FLRegistrierungStatus
+
+
+class FLErasureAnsichtAdresswechsel(BaseModel):
+    """Another address's referee row whose pending change names this one: the change goes and the row stands."""
+
+    schiedsrichter_id: CustomObjectId
+
+
+class FLErasureAnsichtSpielerAdresswechsel(BaseModel):
+    """Another address's pupil row whose pending change names this one, for `FLErasureAnsichtAdresswechsel`'s reason."""
+
+    spieler_id: CustomObjectId
+
+
+class FLErasureAnsicht(BaseModel):
+    """What the administrator's erasure of one address reaches, by kind, name and the ids the page links by.
+
+    Never an address or a birthdate, at any depth.
+    """
+
+    spieler: list[FLErasureAnsichtSpieler]
+    schiedsrichter: list[FLErasureAnsichtSchiedsrichter]
+    sitze: list[FLErasureAnsichtSitz]
+    bewerbungen: list[FLErasureAnsichtBewerbung]
+    registrierungen: list[FLErasureAnsichtRegistrierung]
+    adresswechsel: list[FLErasureAnsichtAdresswechsel]
+    spieler_adresswechsel: list[FLErasureAnsichtSpielerAdresswechsel]
+
+
+class FLErasureAnsichtResponse(FLErasureAnsicht, BaseAPIResponse):
+    # The tier of the live grant the address holds, which the erasure removes with the rest.
+    verwaltung: FLVerwaltung | None
+    # Whether a standing ban holds the address, which the erasure leaves standing: the ban's dialog refuses it before its press.
+    gesperrt: bool
+
+
+class FLAbmeldungPayload(BaseModel):
+    """The mailbox whose every session the page ends next, looked up as the erasure looks one up."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    email: ErasureAdresse
+
+
+class FLAbmeldungResponse(BaseAPIResponse):
+    """The envelope alone: the log row it filed names no address to answer with."""
+
+
+class FLLoeschungLaufParams(BaseModel):
+    """Where in one pass the call starts: after the pupil the call before it reached, or at the lowest id where none is named."""
+
+    nach: CustomObjectId | None = None
+
+
+class FLLoeschungLaufResponse(BaseAPIResponse):
+    """One call's share of the season-after rule: what it erased, whom it passed over, and how many are still due."""
+
+    # The latest `past` season, which the rule keeps a squad row in; null where none is `past`, nobody then being due.
+    abgeschlossene_saison_id: str | None
+    spieler: int
+    saison_spieler: int
+    registrierungen: int
+    # Due when the call read them and not in their own transaction: a squad row or a registration arrived between.
+    uebersprungen: int
+    fehlgeschlagen: int
+    # The failed among them: a person whose erasure failed stays due, so a caller looping on this alone never ends.
+    verbleibend: int
+    # The last pupil this call reached, for the next call's `nach`; null once it reached the end, which ends the pass.
+    nach: CustomObjectId | None
+
+
+class FLLoeschungVorschauResponse(BaseAPIResponse):
+    """How many pupils the run erases once this season is activated, counted and never named."""
+
+    # The season that activation turns `past`; null where none is `active` but the target.
+    abgeschlossene_saison_id: str | None
+    spieler: int

@@ -22,7 +22,7 @@ const UNMATCHED_URL = renderTree(underNext(h(NotfoundPage, {})));
    route throws. */
 const MATCHED_NOT_FOUND = renderTree(underNext(h(PublicLayout, { children: h(PublicNotFound, {}) })));
 const MATCHED_CRASH = renderTree(
-  underNext(h(PublicLayout, { children: h(PublicErrorBoundary, { error: new globalThis.Error("kaputt"), reset: () => undefined }) }), {
+  underNext(h(PublicLayout, { children: h(PublicErrorBoundary, { error: new globalThis.Error("kaputt"), retry: () => undefined }) }), {
     pathname: "/bewerbung/abc",
   }),
 );

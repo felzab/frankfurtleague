@@ -96,6 +96,8 @@ const { patchSpielerEinwilligungAction } = await import("./personActions.ts");
 const { EINTRAG_WEG, mapEigeneEinwilligungRefusal, WAHL_GESPEICHERT, ZUSTIMMEN_MORGEN } = await import("@/features/konto/einwilligung.ts");
 
 const EINWILLIGUNG_OPERATION = "PATCH /spieler/selbst/einwilligung";
+/** The media floor the page binds, one no record is served today, so a refusal naming it took the bound one. */
+const MEDIEN_ALTER = 21;
 const WAHL = {
   umfang: "intern" as const,
   medien: false,
@@ -128,7 +130,7 @@ describe("a pupil's own consent write", () => {
     answerWith(() => Promise.resolve(EINWILLIGUNG_LANDED));
     calls.length = 0;
 
-    const answer = await patchSpielerEinwilligungAction(WAHL);
+    const answer = await patchSpielerEinwilligungAction(MEDIEN_ALTER, WAHL);
 
     assert.deepEqual(answer, { success: true, message: WAHL_GESPEICHERT, nachweis_stand: EINWILLIGUNG_LANDED.nachweis_stand });
     assert.deepEqual(requestsOf(calls), [{ endpoint: "/spieler/selbst/einwilligung", method: "PATCH", body: WAHL }]);
@@ -141,7 +143,7 @@ describe("a pupil's own consent write", () => {
     answerWith(() => Promise.resolve(EINWILLIGUNG_LANDED));
     calls.length = 0;
 
-    await patchSpielerEinwilligungAction(WAHL);
+    await patchSpielerEinwilligungAction(MEDIEN_ALTER, WAHL);
 
     assert.equal(requestsOf(calls).length, 1, "a withdrawal from a record granting no panel never reached the backend");
   });
@@ -163,7 +165,7 @@ describe("a pupil's own consent write", () => {
       ),
     );
 
-    const answer = await patchSpielerEinwilligungAction(WAHL);
+    const answer = await patchSpielerEinwilligungAction(MEDIEN_ALTER, WAHL);
 
     assert.deepEqual(answer, outcomeUnknown());
     assert.deepEqual(invalidations(), [["updateTag", "spieler"], ["refresh"]]);
@@ -173,10 +175,18 @@ describe("a pupil's own consent write", () => {
     setSubject(person({ spieler: [{ spieler_id: KEY.spieler_id }] }));
     answerWith(() => Promise.reject(refusedOn(EINWILLIGUNG_OPERATION, "REQ-FUNKTION-001", 403)));
 
-    const answer = await patchSpielerEinwilligungAction(WAHL);
+    const answer = await patchSpielerEinwilligungAction(MEDIEN_ALTER, WAHL);
 
     assert.deepEqual(answer, { success: false, error: EINTRAG_WEG, fieldErrors: undefined });
     assert.deepEqual(invalidations(), [], "a refused write dropped a cache or refreshed the page");
+  });
+
+  it("refuses a bound media floor that is no positive whole number before the backend", async () => {
+    setSubject(person({ spieler: [{ spieler_id: KEY.spieler_id }] }));
+    calls.length = 0;
+
+    for (const boden of [0, -1, 17.5]) assert.equal((await patchSpielerEinwilligungAction(boden, WAHL)).success, false);
+    assert.deepEqual(calls, [], "a malformed floor reached the backend");
   });
 });
 
@@ -188,8 +198,8 @@ describe("what a pupil's own consent write answers a refusal with", () => {
     await assertEachAnswered({
       operation: EINWILLIGUNG_OPERATION,
       refuseWith: answerWith,
-      act: () => patchSpielerEinwilligungAction(WAHL),
-      mapped: mapEigeneEinwilligungRefusal,
+      act: () => patchSpielerEinwilligungAction(MEDIEN_ALTER, WAHL),
+      mapped: (refusal) => mapEigeneEinwilligungRefusal(refusal, MEDIEN_ALTER),
     });
   });
 
@@ -199,6 +209,10 @@ describe("what a pupil's own consent write answers a refusal with", () => {
     setSubject(person({ spieler: [{ spieler_id: KEY.spieler_id }] }));
     answerWith(() => Promise.reject(refusedOn(EINWILLIGUNG_OPERATION, "REQ-DROSSELUNG-001")));
 
-    assert.deepEqual(await (() => patchSpielerEinwilligungAction(WAHL))(), { success: false, error: ZUSTIMMEN_MORGEN, fieldErrors: undefined });
+    assert.deepEqual(await (() => patchSpielerEinwilligungAction(MEDIEN_ALTER, WAHL))(), {
+      success: false,
+      error: ZUSTIMMEN_MORGEN,
+      fieldErrors: undefined,
+    });
   });
 });

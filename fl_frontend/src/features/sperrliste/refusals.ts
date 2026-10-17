@@ -12,26 +12,52 @@ const KEINE_SAISON = buildRefusal({
   repair: "Aktiviere zuerst eine Saison",
 });
 
-/** `null` where the refusal is something else. It lands on the ADDRESS box, the only value the create sent. */
-export function mapAdresseRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
+/**
+ * On the box, as the duplicate is, and with no repair: the grant in the way is changed on another page, by whoever
+ * may. Said alike where the ban refuses it and where the list's read foresees the refusal.
+ */
+export const verwaltungAmFeld = (): { fieldErrors: FieldErrors } => ({
+  fieldErrors: { email: "Diese Adresse gehört zur Verwaltung und lässt sich nicht sperren." },
+});
+
+/**
+ * No repair sentence: the box carrying the message is itself the way out (`docs/frontend/spec.md` §1.12). Said alike where
+ * the ban refuses a second ban and where the list's read finds one standing.
+ */
+export const schonGesperrtAmFeld = (): { fieldErrors: FieldErrors } => ({ fieldErrors: { email: "Diese Adresse ist schon gesperrt." } });
+
+/**
+ * One sentence about the value, in the erasure's words: the box is the way out, its hint asking for no name
+ * (`docs/frontend/spec.md` §1.12). The refusal names no word and takes a common word equal to a name.
+ */
+const NAME_IM_GRUND = "Der Grund enthält ein Wort, das einem Namen der Person gleicht.";
+
+/** `null` where the refusal is something else. Each lands on the box holding the value it refuses, the address or the reason. */
+export function mapSperreRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
   if (!isRefusal(error)) return null;
 
   // Both codes: the rule refuses a second ban and `uniq_sperrliste_adresse_hash` refuses it again
   // where two administrators press together, so which of them answers is a race.
-  if (error.serverErrorCode === "REQ-SPERRLISTE-001" || error.serverErrorCode === "DB-COMMON-002") {
-    // No repair sentence: the box carrying the message is itself the way out (`docs/frontend/spec.md` §1.12).
-    return { fieldErrors: { email: "Diese Adresse ist schon gesperrt." } };
-  }
+  if (error.serverErrorCode === "REQ-SPERRLISTE-001" || error.serverErrorCode === "DB-COMMON-002") return schonGesperrtAmFeld();
 
   if (error.serverErrorCode === "REQ-SPERRLISTE-002") {
     return { error: KEINE_SAISON };
   }
 
-  // On the box, as the duplicate is: the typed address is what is refused. No repair sentence: the
-  // grant standing in the way is changed on another page, and by whoever may change it.
-  if (error.serverErrorCode === "REQ-SPERRLISTE-003") {
-    return { fieldErrors: { email: "Diese Adresse gehört zur Verwaltung und lässt sich nicht sperren." } };
-  }
+  if (error.serverErrorCode === "REQ-SPERRLISTE-003") return verwaltungAmFeld();
+
+  if (error.serverErrorCode === "REQ-SPERRLISTE-004") return { fieldErrors: { grund: NAME_IM_GRUND } };
 
   return null;
+}
+
+/**
+ * The list read's two refusals, `null` for the rest. Each refuses a grant holder's address, the administrator's own
+ * (`REQ-PURGE-003`) or, to one holding no owner's power, any other (`REQ-PURGE-005`), which the ban would refuse too:
+ * answered in the ban's words.
+ */
+export function mapAnsichtRefusal(error: unknown): { fieldErrors: FieldErrors } | null {
+  if (!isRefusal(error)) return null;
+
+  return error.serverErrorCode === "REQ-PURGE-003" || error.serverErrorCode === "REQ-PURGE-005" ? verwaltungAmFeld() : null;
 }

@@ -1,3 +1,5 @@
+import { TEAMS_EINTRAG } from "@/features/admin/constants";
+
 import type { PillTone } from "@/shared/components/ui/badges";
 import type { FLSaisonPhase, FLSaisonTiebreakOrder } from "./schemas";
 
@@ -134,6 +136,15 @@ export const RECORDED_FACTS_NONE =
   "kein Ergebnis, kein Ausfall, kein Ort, kein Schiedsrichter, keine Notiz und keine von Hand geänderte Herkunft";
 export const RECORDED_FACTS_ANY = "ein Ergebnis, ein Ausfall, ein Ort, ein Schiedsrichter, eine Notiz oder eine von Hand geänderte Herkunft";
 
+/** The season editor's panels, each named by its heading where a sentence sends the reader to it, so a renamed panel takes the sentence with it. */
+export const ZEITRAUM_ABSCHNITT = "Zeitraum";
+export const REGELN_ABSCHNITT = "Regeln";
+export const SPIELPLAN_ABSCHNITT = "Spielplan";
+
+/** The Spielplan panel's two operations, which its closed press names by these labels: one spelling for the choice and the sentence. */
+export const SPIELPLAN_NEU_ANLEGEN = "Neu anlegen";
+export const SPIELPLAN_ZURUECKNEHMEN = "Zurücknehmen";
+
 /**
  * Here rather than in `actions.ts`, which as a `"use server"` module exports actions alone: the draw's
  * `REQ-SPIELPLAN-004` refusal and the press closed ahead of it read this one sentence, so neither can
@@ -141,7 +152,7 @@ export const RECORDED_FACTS_ANY = "ein Ergebnis, ein Ausfall, ein Ort, ein Schie
  */
 export const GRUPPEN_OFF_RULES =
   "Für einen Spielplan muss jede Gruppe dieser Saison genau so viele Teams halten, wie die Regeln vorsehen, und kein Team darf in " +
-  "einer Gruppe stehen, die diese Saison nicht anbietet. Passe die Gruppen über die Teamseite an.";
+  `einer Gruppe stehen, die diese Saison nicht anbietet. Passe die Gruppen unter „${TEAMS_EINTRAG.label}“ an.`;
 
 /**
  * `REQ-ACTIVATE-004`'s one sentence, here for `GRUPPEN_OFF_RULES`' reason: the rollover's blocked
@@ -162,5 +173,6 @@ export const PLACING_RULES_FIELDS = ["tiebreak_order"] as const;
  * The rest of that tuple, and warned about nowhere: `REQ-RULES-011` shuts this field the moment the
  * season holds fixtures, so nothing has been played when it moves. Declared for the sweep, which
  * partitions the tuple across the three lists.
+ * @internal
  */
 export const PREDRAW_RULES_FIELDS = ["qualifiers_per_group"] as const;

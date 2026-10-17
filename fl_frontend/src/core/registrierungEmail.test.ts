@@ -25,7 +25,6 @@ const LINK = `${ORIGIN}${SPIELER_BESTAETIGUNG_PATH}?token=${TOKEN}`;
 const FRIST_TAGE = 7;
 
 const LINK_DATEN: RegistrierungLinkEmailData = {
-  vorname: "Mira",
   teamName: "Lessing-Kolleg",
   saisonId: "2026",
   origin: ORIGIN,
@@ -91,9 +90,21 @@ describe("what every message of the registration flow carries", () => {
     }
   });
 
-  it("addresses the reader by the forename and never by a surname it was never given", () => {
-    for (const [name, mail] of Object.entries(MESSAGES)) {
-      assert.ok(mail.text.includes(LINK_DATEN.vorname), `${name} names nobody`);
+  /* A link goes to an address nobody has confirmed, after a typo a stranger's: only the notes, which
+     reach a confirmed address, may name the pupil. */
+  it("greets a link's reader by no name, and a note's reader by the forename alone", () => {
+    for (const [name, mail, gruss] of [
+      ["the confirmation link", MESSAGES.bestaetigung, "Hallo, Du hast Dich für"],
+      ["the reminder", MESSAGES.erinnerung, "Hallo, Deine Registrierung für"],
+    ] as const) {
+      assert.ok(mail.text.includes(gruss), `${name}'s text branch greets otherwise`);
+      assert.ok(mail.html.includes(gruss), `${name}'s card greets otherwise`);
+    }
+    for (const [name, mail] of [
+      ["the season-end note", MESSAGES.saisonende],
+      ["the decline note", MESSAGES.absage],
+    ] as const) {
+      assert.ok(mail.text.includes(`Hallo ${NOTIZ_DATEN.vorname},`), `${name} names nobody`);
     }
   });
 
@@ -148,7 +159,7 @@ describe("what the confirmation link's own message says", () => {
   it("states the objection in a paragraph of its own, in both parts", () => {
     assert.match(
       MAIL.html,
-      /<p\b[^>]*>Der Verarbeitung Deiner Angaben für den Spielbetrieb kannst Du jederzeit aus Gründen widersprechen, die sich aus Deiner besonderen Situation ergeben \(Art\. 21 DSGVO\); eine formlose E-Mail an <a href="mailto:[^"]+"[^>]*>[^<]+<\/a> genügt\.<\/p>/,
+      /<p\b[^>]*>Der Verarbeitung Deiner Angaben für den Spielbetrieb kannst Du jederzeit aus Gründen widersprechen, die sich aus Deiner besonderen Situation ergeben \(Art\. 21 DSGVO\)\. Eine formlose E-Mail an <a href="mailto:[^"]+"[^>]*>[^<]+<\/a> genügt\.<\/p>/,
       "the card carries no objection of its own",
     );
     assert.match(
@@ -188,7 +199,7 @@ describe("what the season-end note says after the row is gone", () => {
   it("says that the deletion has happened rather than that it will", () => {
     assert.match(MAIL.text, /gelöscht/, "the note never says what happened");
     assert.match(MAIL.text, /Du musst nichts tun/, "the note asks a reader to act on something they cannot change");
-    assert.match(MAIL.text, /wieder registrieren/, "the note leaves a returning pupil no way back");
+    assert.match(MAIL.text, /erneut registrieren/, "the note leaves a returning pupil no way back");
   });
 });
 

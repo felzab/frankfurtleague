@@ -16,7 +16,7 @@ import { person } from "@/core/subjectFixtures.ts";
 import { filesUnder } from "@/core/treeWalk.ts";
 import { doubleActionRequest, doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
-import { underNext } from "@/shared/testing/nextContexts.ts";
+import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { callPage, clearSteps, pageBody, steps } from "@/shared/testing/pageHarness.ts";
 
 import type { ComponentType, ReactElement, ReactNode } from "react";
@@ -169,6 +169,30 @@ describe("a read failing in an area's layout", () => {
         assert.ok(container.textContent.includes("Ansicht neu laden"), `${area.name}'s panel offers no retry`);
         assert.equal(container.querySelectorAll("h1").length, 1, `${area.name}'s panel raises a heading the shell owns`);
         assert.ok(container.querySelector('[aria-label="Abmelden"]'), `${area.name} leaves its person no way to sign out`);
+      } finally {
+        cleanup();
+      }
+    }
+  });
+
+  /* `catchError` hands the fallback a `reset` beside the `retry`, and either types as the panel's
+     press: a reset alone replays the failed read the router holds rather than asking for it again. */
+  it("retries the failed read through the router when the panel is pressed", async () => {
+    fetchDouble.mock.mockImplementation(() => Promise.resolve(new Response(null, { status: 204 })));
+
+    for (const area of AREAS) {
+      const { router, seen } = recordingRouter();
+      render(
+        underNext(h(area.boundary, null, h(Throwing)), {
+          router,
+          pathname: area.pathname,
+          ...(area.params === null ? {} : { params: area.params }),
+        }),
+      );
+      try {
+        await userEvent.setup().click(screen.getByRole("button", { name: "Ansicht neu laden" }));
+
+        assert.equal(seen.refresh, 1, `${area.name}'s panel refreshed the router ${String(seen.refresh)} times on one press`);
       } finally {
         cleanup();
       }

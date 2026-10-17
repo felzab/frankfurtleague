@@ -14,6 +14,7 @@ from app.api.konto.services import (
     compose_person_move,
     compose_schiedsrichter_selbst,
     find_eigener_eintrag_refusal,
+    widerruf_line,
 )
 from app.api.schiedsrichter.schemas import (
     FLSchiedsrichterSelbstEinwilligungPayload,
@@ -21,7 +22,8 @@ from app.api.schiedsrichter.schemas import (
     FLSchiedsrichterSelbstResponse,
 )
 from app.api.schiedsrichter.services import EINWILLIGUNG_FELD, build_selbst_referee_filter, build_selbst_referee_pipeline
-from app.core.config import API_VERSION
+from app.core.collections import Collection
+from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import aggregate_many_from_db, patch_one_in_db, refuse
 from app.core.dependencies import (
     DBClient,
@@ -30,9 +32,10 @@ from app.core.dependencies import (
     get_germany_now,
 )
 from app.core.drosselung import Drossel
+from app.core.journal import Journal
 from app.core.recording import log_stamp
 from app.core.routing import by_id
-from app.core.security import PERSON_ACTOR_BINDERS, SchiedsrichterIdentifier, verify_access_admin
+from app.core.security import PERSON_ACTOR_BINDERS, SchiedsrichterIdentifier, loeschung_journal_hash, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.einwilligung_nachweis import FLEinwilligungWahl, nachweis_stand_of
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -78,6 +81,7 @@ async def patch_einwilligung(
     records: SubjektLookup,
     db: DBClient,
     drossel: Drossel,
+    config: Annotated[BackendConfig, Depends(get_app_config)],
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLSchiedsrichterSelbstEinwilligungResponse:
@@ -104,7 +108,11 @@ async def patch_einwilligung(
 
     eigener_eintrag = build_selbst_referee_filter(identifier, schiedsrichter_id=schiedsrichter_id)
     gewaehlt: dict[FLEinwilligungWahl, object] = {"umfang": einwilligung_data.umfang, "medien": einwilligung_data.medien}
+    # For `app/api/spieler/selbst_router.py :: patch_einwilligung`'s reason: a replay stamps the moment the person pressed.
+    am = log_stamp(germany_now)
+    journal = Journal()
 
+    @journal.attempted
     async def write(session: AsyncClientSession) -> FLSchiedsrichterSelbstEinwilligungResponse:
         row = await schiedsrichter_collection.find_one(
             eigener_eintrag, projection={"kontakt.email": 1, "geburtsdatum": 1, EINWILLIGUNG_FELD: 1}, session=session
@@ -129,9 +137,7 @@ async def patch_einwilligung(
             today=today,
         )
 
-        update = compose_person_move(
-            gespeichert=gespeichert, gewaehlt=gewaehlt, am=log_stamp(germany_now), text_version=einwilligung_data.text_version
-        )
+        update = compose_person_move(gespeichert=gespeichert, gewaehlt=gewaehlt, am=am, text_version=einwilligung_data.text_version)
         updated = (
             None
             if update is None
@@ -143,6 +149,17 @@ async def patch_einwilligung(
                 return_document=ReturnDocument.AFTER,
             )
         )
+        line = widerruf_line(
+            person_hash=loeschung_journal_hash(identifier, schluessel=config.sperrliste_schluessel),
+            collection=Collection.SCHIEDSRICHTER,
+            record_id=row["_id"],
+            bloecke=[gespeichert],
+            gewaehlt=gewaehlt,
+            am=am,
+            text_version=einwilligung_data.text_version,
+        )
+        if line is not None:
+            journal.note(line)
         # A press moving neither choice is no act, so nothing was written and the record answers as stored.
         einwilligung = gespeichert if updated is None else updated[EINWILLIGUNG_FELD]
 
@@ -154,5 +171,6 @@ async def patch_einwilligung(
             }
         )
 
-    async with transaction_session(db) as session:
-        return await session.with_transaction(write)
+    async with journal:
+        async with transaction_session(db) as session:
+            return await session.with_transaction(write)

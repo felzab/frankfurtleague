@@ -1,43 +1,26 @@
-import { SIGN_IN_LANDING } from "@/core/signInLanding";
+import { unstable_isUnrecognizedActionError, unstable_rethrow } from "next/navigation";
+
 import { STEP_UP_REFUSED } from "@/shared/components/ui/stepUp";
 
-import { AENDERUNG_STEHT_WEITERHIN, RUECKNAHME_UNKLAR } from "./actionError";
+import { AENDERUNG_STEHT_WEITERHIN, edgeRefusedSend, rejectedWrite, RUECKNAHME_UNKLAR } from "./actionError";
 import { appToast, UNDO_TIMEOUT_MS } from "./appToast";
 
 import type { StepUp } from "@/shared/components/ui/stepUp";
 import type { ActionFailure } from "@/shared/types/types";
+import type { UndoOutcome } from "./adminUndo";
 
-/** `warn` where the committed restore cost something, which is what grades the outcome toast below. */
-type UndoOutcome = { success: true; message: string; warn: boolean } | { success: false; error: string; outcome?: ActionFailure["outcome"] };
+/** The edge refused the press before Next ran it, so nothing was taken back, and the offer it came from is gone. */
+const ZU_VIELE_RUECKNAHMEN = `Zu viele Versuche in kurzer Zeit. ${AENDERUNG_STEHT_WEITERHIN}`;
 
-/**
- * Where the route turned the caller away rather than judging the replay, and what the danger toast
- * says before the page is left: one of `fl_frontend/src/proxy.ts`'s two destinations, whose sign-in
- * lands on `/bereich/admin` rather than back on this change.
- */
-type TurnedAway = { readonly destination: string; readonly description: string };
+/** A deploy since the page loaded retired the action the offer names, so nothing ran; a reload loads the running build. */
+const SEITE_VERALTET = `Die Website wurde inzwischen aktualisiert. Lade die Seite neu. ${AENDERUNG_STEHT_WEITERHIN}`;
 
-const SIGNED_OUT: TurnedAway = { destination: "/signin", description: `Melde Dich neu an. ${AENDERUNG_STEHT_WEITERHIN}` };
-
-/**
- * The route's own sentence off a 403 that carries its envelope, which words it by the guard's reason;
- * `null` for anything else, an edge challenge answering 403 in markup.
- */
-const turnedAwaySentence = (body: unknown): string | null =>
-  typeof body === "object" &&
-  body !== null &&
-  "success" in body &&
-  typeof body.success === "boolean" &&
-  "error" in body &&
-  typeof body.error === "string"
-    ? body.error
-    : null;
-
-type UndoOffer<TPayload> = {
-  /** The slice's own route on `fl_frontend/src/shared/utils/undoRoute.ts :: handleUndoRequest`, whose schema parses `body`. */
-  endpoint: `/api/admin/${string}/undo`;
-  /** The pre-save values the press replays, built from the render's props before the save moved them. */
-  body: TPayload;
+type UndoOffer = {
+  /**
+   * The slice's undo action, called with the pre-save values it replays, which the caller builds from
+   * the render's props before the save moved them.
+   */
+  undo: () => Promise<UndoOutcome>;
   /** The save's own sentence, where it produced one. */
   message?: string;
   /**
@@ -55,55 +38,15 @@ type UndoOffer<TPayload> = {
    * the press asks through the provider it was offered under.
    */
   stepUp?: StepUp;
-  /** A stable singleton, so the detached press closure may call its `refresh` and its `replace`. */
-  router: { refresh: () => void; replace: (href: string) => void };
+  /** A stable singleton, so the detached press closure may call its `refresh`. */
+  router: { refresh: () => void };
 };
 
 /**
- * A `fetch`, not a server action: by the time the offer is pressed the editor is unmounted and the
- * browser elsewhere, and an action dispatched from there trips Next's E592 invariant. Revert to a
- * server action once E592 is fixed upstream.
+ * The undo offer every page-owned editor raises: the offer toast, then on press the pending toast, the
+ * slice's undo action and its outcomes. The toast outlives the editor, so the press runs detached.
  */
-async function postUndo<TPayload>(endpoint: string, body: TPayload): Promise<UndoOutcome | TurnedAway> {
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-
-  // Before the transport check: nothing standing in front of the route answers 401.
-  if (response.status === 401) {
-    return SIGNED_OUT;
-  }
-
-  // No repair beside the route's sentence: signing in again grants no administration to an address holding no grant.
-  const sentence = response.status === 403 ? turnedAwaySentence(await response.json().catch(() => null)) : null;
-  if (sentence !== null) return { destination: SIGN_IN_LANDING, description: sentence };
-
-  // The route answers 200 with the outcome in the body for every other reportable case, so a non-2xx
-  // is a genuine transport failure.
-  if (!response.ok) {
-    throw new Error(`HTTP ${String(response.status)}`);
-  }
-
-  return response.json() as Promise<UndoOutcome>;
-}
-
-/**
- * The client half of `fl_frontend/src/shared/utils/undoRoute.ts :: handleUndoRequest`'s flow: the
- * offer toast, then on press the pending toast, the dispatch and its outcomes. The toast outlives
- * the editor, so the press runs detached.
- */
-export function offerUndo<TPayload>({
-  endpoint,
-  body,
-  message,
-  fallback,
-  warn = false,
-  unrestorable = null,
-  stepUp,
-  router,
-}: UndoOffer<TPayload>): void {
+export function offerUndo({ undo, message, fallback, warn = false, unrestorable = null, stepUp, router }: UndoOffer): void {
   const raise = warn ? appToast.warning : appToast.success;
 
   // The title moves with the grade: one outcome per title, or the colour carries a meaning the same
@@ -138,59 +81,44 @@ export function offerUndo<TPayload>({
     },
   });
 
+  /**
+   * The action's rejection: the edge's refusal and an action the running build does not hold took
+   * nothing back, and anything else may follow a landed restore.
+   */
+  function rejected(error: unknown): Pick<ActionFailure, "error" | "outcome"> {
+    if (edgeRefusedSend(error) !== null) return { error: ZU_VIELE_RUECKNAHMEN };
+    if (unstable_isUnrecognizedActionError(error)) return { error: SEITE_VERALTET };
+
+    return rejectedWrite(router, RUECKNAHME_UNKLAR)(error);
+  }
+
   function dispatch(): void {
     // Closed by its own key: a toast with no explicit timeout inherits a default that would
     // retire it mid-flight.
     const pendingKey = appToast.pending("Nimmt Änderung zurück...");
 
-    // Best-effort: a refresh that cannot run costs a stale screen, never the restore.
-    const refreshTheScreen = () => {
-      try {
-        router.refresh();
-      } catch {
-        // Unlogged: the browser's one path into the log is the crash report (`docs/logging/spec.md`
-        // §1.3), and a bare `console` call writes outside the envelope.
-      }
-    };
-
     // The TWO-ARGUMENT `then`: a trailing `.catch` would also catch what the success handler
-    // throws, blaming a committed restore on the transport.
-    void postUndo(endpoint, body).then(
+    // throws, blaming a committed restore on the transport. The action re-reads the page itself
+    // wherever its replay wrote, so neither arm answering refreshes it.
+    void undo().then(
       (result) => {
         appToast.close(pendingKey);
-        if ("destination" in result) {
-          // Raised BEFORE leaving, and it outlives the navigation: `AppToaster` is mounted above
-          // every route. The destination is the one a save is sent to (`docs/frontend/spec.md :: I251`).
-          appToast.danger("Änderung nicht zurückgenommen", { description: result.description });
-          router.replace(result.destination);
-          return;
-        }
-
         if (!result.success) {
-          // The route's own sentence under either title: it names what to check.
-          if (result.outcome === "unknown") appToast.danger("Rücknahme unklar", { description: result.error });
-          else appToast.failure("Änderung nicht zurückgenommen", { error: result.error });
-
-          // Re-read on a refusal too: a restore that stopped part-way put rows back, and `success`
-          // says the undo did not finish rather than that nothing moved.
-          refreshTheScreen();
+          // The action's own sentence under its outcome's title: it names what to check.
+          appToast.failure("Änderung nicht zurückgenommen", result, "Rücknahme unklar", "Nur teilweise zurückgenommen");
           return;
         }
 
-        // Reported BEFORE the refresh: the restore is committed and nothing below changes that.
         // The title moves with the grade, for the reason the offer's does.
-        const withCost = result.warn === true;
-        const raiseOutcome = withCost ? appToast.warning : appToast.success;
-        raiseOutcome(withCost ? "Mit Folgen zurückgenommen" : "Änderung zurückgenommen", { description: result.message });
-
-        refreshTheScreen();
+        const raiseOutcome = result.warn ? appToast.warning : appToast.success;
+        raiseOutcome(result.warn ? "Mit Folgen zurückgenommen" : "Änderung zurückgenommen", { description: result.message });
       },
-      () => {
+      (error: unknown) => {
         appToast.close(pendingKey);
-        // Unlogged, for the reason the refresh's catch gives: the toast is the whole report.
-        appToast.danger("Rücknahme unklar", { description: RUECKNAHME_UNKLAR });
-        // Re-read as the route's unknown outcome is: the restore may have landed on its way.
-        refreshTheScreen();
+        // Next's own redirect, the proxy turning a lapsed session away: the page leaves for `/signin`
+        // as a save's does, and a toast raised here would call unclear an undo that never ran.
+        unstable_rethrow(error);
+        appToast.failure("Änderung nicht zurückgenommen", rejected(error), "Rücknahme unklar");
       },
     );
   }

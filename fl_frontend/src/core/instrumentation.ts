@@ -48,6 +48,8 @@ export async function onRequestError(err: Error, request: unknown, context: Next
     fetch_trace_id: fetchId !== requestId ? fetchId : undefined,
     digest: context.digest,
     route: context.routePath,
-    status: cause.statusCode || 500,
+    // The failing call's own status, and none where it carries none: Next hands this hook no response
+    // status, so a default here would be a figure nothing answered.
+    status: cause.statusCode,
   });
 }

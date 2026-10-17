@@ -4,20 +4,6 @@ import type { Facet } from "@/shared/utils/facets";
 import type { AdminKontakteRow, AdminTeamRow } from "./types";
 
 /**
- * Spelled once so the facet below and a link that has to outrank its default cannot name it
- * differently. NOT the season itself, whose name `fl_frontend/src/shared/utils/saisonHref.ts ::
- * SAISON_PARAM` owns.
- */
-const ZUGEHOERIGKEIT_PARAM = "zugehoerigkeit";
-
-/**
- * What a link INTO this list carries to reach a club whatever its season: the default answers for an
- * ABSENT parameter, an empty one turns the facet off
- * (`fl_frontend/src/shared/utils/facets.ts :: readFacetSelection`).
- */
-export const TEAMS_ANY_SAISON_QUERY = `${ZUGEHOERIGKEIT_PARAM}=`;
-
-/**
  * Its own binding so `buildTeamFacets` below can replace one field of it: a second literal there
  * would be a second label and a second `read` to keep in step.
  */
@@ -36,7 +22,8 @@ const GRUPPE_FACET: Facet<AdminTeamRow> = {
  */
 export const TEAM_FACETS: readonly Facet<AdminTeamRow>[] = [
   {
-    param: ZUGEHOERIGKEIT_PARAM,
+    // NOT the season itself, whose name `fl_frontend/src/shared/utils/saisonHref.ts :: SAISON_PARAM` owns.
+    param: "zugehoerigkeit",
     label: "Saison",
     options: [
       { value: "aufgenommen", label: "In dieser Saison" },

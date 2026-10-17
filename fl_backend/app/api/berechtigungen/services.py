@@ -158,6 +158,19 @@ def find_vorhanden_refusal(*, adresse: str, grants: Sequence[Mapping[str, Any]])
     )
 
 
+def holds_an_owners_power(*, akteur: str, auth_time: int, grants: Sequence[Mapping[str, Any]], announced: Sequence[Mapping[str, Any]]) -> bool:
+    """Whether the acting administrator's own live grant is `owner`, from a sign-in made since that tier took effect.
+
+    One judgement for every refusal keyed on an owner's power, so no two of them can part on who holds it.
+    """
+
+    row = next((grant for grant in lebendige(grants) if grant["adresse"] == akteur), None)
+    record = None if row is None else next((entry for entry in announced if entry["_id"] == row["_id"]), None)
+    seit = None if row is None else inhaber_seit(row, record)
+
+    return seit is not None and signed_in_since(auth_time, seit)
+
+
 def find_nur_inhaber_refusal(
     *, akteur: str, auth_time: int, grants: Sequence[Mapping[str, Any]], announced: Sequence[Mapping[str, Any]]
 ) -> WriteRefusal | None:
@@ -167,10 +180,7 @@ def find_nur_inhaber_refusal(
     then shelter behind it, nor make themselves an owner.
     """
 
-    row = next((grant for grant in lebendige(grants) if grant["adresse"] == akteur), None)
-    record = None if row is None else next((entry for entry in announced if entry["_id"] == row["_id"]), None)
-    seit = None if row is None else inhaber_seit(row, record)
-    if seit is not None and signed_in_since(auth_time, seit):
+    if holds_an_owners_power(akteur=akteur, auth_time=auth_time, grants=grants, announced=announced):
         return None
 
     return WriteRefusal(
@@ -302,8 +312,6 @@ def compose_postausgang(
 
     rows = (withheld(jetzt, gesperrt), withheld(vorher, gesperrt))
     actor = None if geaendert_von is None else sign_in_identifier(geaendert_von)
-    stored_actor = withheld_actor(actor, gesperrt)
-    withholds = any(stand is not None and stand.adresse is None for stand in rows) or stored_actor != actor
 
     return {
         "berechtigung_id": berechtigung_id,
@@ -311,9 +319,10 @@ def compose_postausgang(
         "urheber": "datenbank" if geaendert_von is None else "anwendung",
         "jetzt": None if rows[0] is None else rows[0].model_dump(),
         "vorher": None if rows[1] is None else rows[1].model_dump(),
-        "geaendert_von": stored_actor,
+        "geaendert_von": withheld_actor(actor, gesperrt),
         "geaendert_am": None if geaendert_von is None else now,
-        "vorenthalten": "gesperrt" if withholds else None,
+        # The grant's address alone: a null actor on an application's change already says it is barred.
+        "vorenthalten": "gesperrt" if any(stand is not None and stand.adresse is None for stand in rows) else None,
         "erfasst_am": now,
         "beansprucht_bis": None,
         "beanspruchung": None,

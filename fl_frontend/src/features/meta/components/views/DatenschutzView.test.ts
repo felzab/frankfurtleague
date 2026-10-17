@@ -14,8 +14,9 @@ import {
   VERTRETUNG_MIN_ALTER,
 } from "@/features/bewerbungen/constants.ts";
 import { MEDIEN_MIN_ALTER, REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE, REGISTRIERUNG_MIN_ALTER } from "@/features/registrierungen/constants.ts";
-import { SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE, SCHIEDSRICHTER_MIN_ALTER } from "@/features/schiedsrichter/constants.ts";
+import { SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE } from "@/features/schiedsrichter/constants.ts";
 import { SPERRE_DAUER_HINWEIS, SPERRE_DAUER_SAISONS } from "@/features/sperrliste/constants.ts";
+import { SPIELER_ADRESSWECHSEL_FRIST_TAGE } from "@/features/spieler/constants.ts";
 import { renderMarkup, textOf } from "@/shared/testing/renderTest";
 
 const { DatenschutzView } = await import("./DatenschutzView.tsx");
@@ -48,7 +49,7 @@ const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
  * The „Stand“ and the words it dates, frozen together: a reader told nothing changed since that day
  * has been misled by any edit that left the date standing.
  */
-const FASSUNG = { stand: "12. Oktober 2026", digest: "a5fe22b42bb815843e002dd223b774dc1e6f6efa97f1c978e0813012be4cbdf5" } as const;
+const FASSUNG = { stand: "16. Oktober 2026", digest: "fe094ddb041e1be9192675ee3f4977be83a0ec79c4c686ba587c77e829b8d377" } as const;
 
 /** Every word the page renders but its date, so moving the date alone never passes for moving the words. */
 const wortlautDigest = (): string =>
@@ -113,11 +114,10 @@ describe("the privacy notice's account of a birthdate", () => {
     );
   });
 
-  it("is a sentence the three floors it merges still permit", () => {
-    assert.deepEqual(
-      { pfeifen: SCHIEDSRICHTER_MIN_ALTER, kontaktperson: BEWERBUNG_MIN_ALTER },
-      { pfeifen: REGISTRIERUNG_MIN_ALTER, kontaktperson: REGISTRIERUNG_MIN_ALTER },
-    );
+  // The referee's floor has no copy here: `fl_backend/tests/shared/test_frontend_mirrors.py :: MIRRORED_BOUNDS`
+  // holds the served one to this sentence's number.
+  it("is a sentence the contact person's floor still permits", () => {
+    assert.equal(BEWERBUNG_MIN_ALTER, REGISTRIERUNG_MIN_ALTER);
   });
 });
 
@@ -167,7 +167,7 @@ describe("the privacy notice's retention table", () => {
       "Kein eigener Zeitraum: Der Link endet mit der Registrierungsfrist der Saison, für die er gilt, oder sobald die Verwaltung ihn " +
         "zurückzieht oder durch einen neuen ersetzt. Der Eintrag dazu enthält den Link nur als unlesbaren Schlüssel, nennt keine " +
         "Spielerin und keinen Spieler und bleibt mit dem Datum und der E-Mail-Adresse der Person aus der Verwaltung, die ihn angelegt " +
-        "hat, bestehen.",
+        "hat, bestehen. Werden die Daten dieser Person gelöscht, steht dort statt ihrer Adresse ein Vermerk, der niemanden nennt",
     );
   });
 
@@ -185,6 +185,21 @@ describe("the privacy notice's retention table", () => {
     );
   });
 
+  /* A journal line keeps the person's address as keyed hashes alone, and its envelope's trace id joins it to the access
+     log's line, which holds the visitor's address (`docs/datenschutz.md` §6): the row says both. */
+  it("names everything a journal line holds, the address only as unreadable keys and the ids joining it to the access log", () => {
+    assert.ok(
+      ANGABEN.has(
+        "Vermerk eines Schritts, den Du veranlasst hast: einer Löschung auf Wunsch, eines Widerrufs Deiner Einwilligung, Deines " +
+          "Widerspruchs als Kontaktperson oder der Ablehnung einer neuen E-Mail-Adresse. Deine E-Mail-Adresse steht darin nur als " +
+          "unlesbarer Schlüssel, bei einer Löschung als zwei solche Schlüssel. Außerdem enthält er die Art des Schritts und den " +
+          "Zeitpunkt, bei den übrigen Schritten den betroffenen Eintrag, bei einem Widerruf die Fassung des Textes und die Antworten, " +
+          "die er setzt, bei einem Widerspruch die Rollen, die er leert, und Kennungen der Anfrage, über die er sich dem Eintrag im " +
+          "Zugriffsprotokoll zuordnen lässt",
+      ),
+    );
+  });
+
   it("names everything a referee's confirmation record holds, the birthdate included", () => {
     assert.equal(
       ANGABEN.get(
@@ -197,16 +212,17 @@ describe("the privacy notice's retention table", () => {
     );
   });
 
-  /* The address may be a stranger's, so its retention is stated with the clock that ends it once its link has lapsed. */
-  it("gives a referee's unconfirmed new address its retention and the removal once its link has lapsed", () => {
+  /* The address may be a stranger's, so its retention is stated with the clock that ends it once its link has lapsed:
+     the hourly pass removes it the day after (`fl_frontend/src/features/bewerbungen/sweep.ts :: runBewerbungSweep`). */
+  it("gives a referee's unconfirmed new address its retention and the removal the day after its link lapsed", () => {
     assert.equal(
       ANGABEN.get(
         "Neue E-Mail-Adresse einer Schiedsrichterin oder eines Schiedsrichters, solange sie nicht bestätigt ist, dazu ihr " +
           "Link als unlesbarer Schlüssel mit Versanddatum und Frist",
       ),
-      "Bis die Adresse über ihren Link bestätigt oder abgelehnt wird oder die Verwaltung die Änderung verwirft; mit dem Eintrag " +
+      "Bis die Adresse über ihren Link bestätigt oder abgelehnt wird oder die Verwaltung die Änderung verwirft. Mit dem Eintrag " +
         "wird sie gelöscht. Ihr Link gilt so lange wie der Bestätigungslink des Eintrags und wird durch jeden neuen ersetzt. Ist er abgelaufen," +
-        " löschen wir die Adresse bei der jährlichen Löschung nach dem Ende der Registrierungsfrist",
+        " löschen wir die Adresse am Tag danach",
     );
   });
 
@@ -216,6 +232,26 @@ describe("the privacy notice's retention table", () => {
       "Ändert die Verwaltung Deine E-Mail-Adresse, nachdem Du Deinen Eintrag bestätigt hast, gilt die neue erst, wenn Du sie über den " +
         "Link bestätigt hast, den wir an sie schicken; bis dahin bleibt die bisherige in Kraft, und an die bisherige schicken wir einen " +
         "Hinweis auf die Änderung.",
+    );
+  });
+
+  /* The referee's twin, on the clock the pupil's has: the lapsed address goes the day after. */
+  it("gives a pupil's unconfirmed new address its retention, its link's clock in words and the removal the day after it lapses", () => {
+    assert.equal(
+      ANGABEN.get(
+        "Neue E-Mail-Adresse einer Spielerin oder eines Spielers, solange sie nicht bestätigt ist, dazu ihr Link als unlesbarer " +
+          "Schlüssel mit Versanddatum und Frist",
+      ),
+      "Bis die Adresse über ihren Link bestätigt oder abgelehnt wird oder die Verwaltung die Änderung verwirft. Mit dem Eintrag wird " +
+        `sie gelöscht. Ihr Link gilt ${inWorten(SPIELER_ADRESSWECHSEL_FRIST_TAGE)} Tage ab dem Versand, und jeder neue Link ersetzt ` +
+        "den vorigen. Ist er abgelaufen, löschen wir die Adresse am Tag danach",
+    );
+  });
+
+  it("says the address on file stays in force and is the one told of a pupil's address change", () => {
+    rendert(
+      "Ändert die Verwaltung Deine E-Mail-Adresse, gilt die neue erst, wenn Du sie über den Link bestätigt hast, den wir an sie " +
+        "schicken. Bis dahin bleibt die bisherige in Kraft, und an die bisherige schicken wir einen Hinweis auf die Änderung.",
     );
   });
 
@@ -229,10 +265,47 @@ describe("the privacy notice's retention table", () => {
     assert.equal(ANGABEN.get("Sicherungskopien der Datenbank"), "Etwa acht Tage");
   });
 
+  /* No erasure reaches the mail provider's copies, every message the league sent among them, and they outlive the
+     backups (`docs/datenschutz.md` §7): a person told only of the backups is told the shorter of the two. */
+  it("tells a person an erasure leaves every copy at the mail provider, where the deletion is explained and in the provider's row", () => {
+    const absatz = ABSAETZE.find((text) => text.startsWith("Was eine Löschung erreicht und was nicht:")) ?? "";
+
+    assert.ok(
+      absatz.endsWith(
+        "Auch die Kopien unserer E-Mails beim Versanddienst Resend erreicht eine Löschung nicht. Wie lange sie dort bleiben, steht in Abschnitt 13.",
+      ),
+      absatz,
+    );
+    assert.equal(
+      ANGABEN.get("E-Mails der Liga beim Versanddienst Resend: Empfängeradresse, Betreff, Inhalt und Zustellstand"),
+      "30 Tage bei Resend, in dessen Sicherungskopien bis zu einer Woche länger. Eine Löschung bei uns erreicht diese E-Mails nicht: " +
+        "Sie bleiben bei Resend bis dahin bestehen",
+    );
+  });
+
   it("gives a sign-in code its lifetime in words, at the constant the sign-in enforces", () => {
     assert.ok(
       ANGABEN.get("Anmeldung: E-Mail-Adresse, Anmeldecode, Sitzung und Passkey")?.startsWith(
         `Ein Anmeldecode gilt ${inWorten(CODE_VALIDITY_MINUTES)} Minuten und wird danach gelöscht;`,
+      ),
+    );
+  });
+
+  /* Stated in advance because the account sweep mails nothing when it deletes one: this sentence is
+     the whole of what a person is told about it, so it names each kind the sweep counts and nothing it does not. */
+  it("says the account goes on its own once the address holds none of the records and grants that keep it", () => {
+    assert.ok(
+      ANGABEN.get("Anmeldung: E-Mail-Adresse, Anmeldecode, Sitzung und Passkey")?.endsWith(
+        "Adresse und Passkeys bleiben, solange das Konto besteht. Das Konto löschen wir auf Wunsch und von selbst, sobald Du unter Deiner Adresse nichts davon mehr bei uns hast: einen Platz als Kontaktperson eines Teams in einer Saison oder in einer Bewerbung, über die noch nicht entschieden ist, einen Eintrag als Spielerin, Spieler, Schiedsrichterin oder Schiedsrichter, eine bestätigte Registrierung, über die das Team noch nicht entschieden hat, oder einen Zugang zur Verwaltung",
+      ),
+    );
+  });
+
+  // A ban keeps no account: a barred address's goes as any other's (`docs/datenschutz.md :: 6`).
+  it("tells a barred address its account stays only as long as any other", () => {
+    assert.ok(
+      SEITE.includes(
+        "Ein Konto mit dieser Adresse bleibt wie jedes andere nur bestehen, solange es unter der Adresse noch etwas von dem gibt, was Abschnitt 13 bei der Anmeldung aufzählt. Bis die Sperre endet, kann sich damit niemand anmelden.",
       ),
     );
   });
@@ -266,11 +339,13 @@ describe("the privacy notice writes its small counts in words", () => {
   });
 });
 
-/* The sign-in's two session figures, in both places the notice states them: typed, they stay true
-   only until `fl_frontend/src/core/sessionLifetimes.ts` moves. */
+/* The sign-in's session figures, in both places the notice states them: typed, they stay true
+   only until `fl_frontend/src/core/sessionLifetimes.ts` moves. The administrator's hour is written
+   out, the view's own word map failing `tsc` on any other count. */
 describe("the privacy notice states the sign-in's session figures at the constants the sign-in enforces", () => {
   const LEERLAUF = `${String(SESSION_EXPIRES_IN_DAYS)} Tage lang nicht genutzt`;
-  const VERWALTUNG = `${String(ADMIN_WINDOW_HOURS)} Stunden`;
+  const VERWALTUNG = "nach einer Stunde ohne Nutzung";
+  const VERWALTUNG_SPAETESTENS = `spätestens aber ${String(ADMIN_WINDOW_HOURS)} Stunden nach der Anmeldung.`;
 
   // A person's two figures, never the library's one: the longest of all four is nobody's idle window.
   it("in the retention table", () => {
@@ -280,14 +355,15 @@ describe("the privacy notice states the sign-in's session figures at the constan
     assert.ok(
       zeile.includes(
         `Eine Sitzung endet, wenn sie ${tage(PERSON_LIFETIME.idle)} Tage lang nicht genutzt wurde, spätestens aber ` +
-          `${tage(PERSON_LIFETIME.absolute)} Tage nach der Anmeldung; für die Verwaltung gilt sie höchstens ${VERWALTUNG}.`,
+          `${tage(PERSON_LIFETIME.absolute)} Tage nach der Anmeldung. Für die Verwaltung gilt sie ${VERWALTUNG} nicht mehr, ` +
+          VERWALTUNG_SPAETESTENS,
       ),
     );
   });
 
   it("in the cookie section", () => {
-    assert.ok(SEITE.includes(`Das Cookie selbst läuft ab, wenn die Sitzung ${LEERLAUF} wurde`));
-    assert.ok(SEITE.includes(`für den Zugang zur Verwaltung nicht länger als ${VERWALTUNG}, und verlangen danach eine neue Anmeldung`));
+    assert.ok(SEITE.includes(`Das Cookie selbst läuft ab, wenn die Sitzung ${LEERLAUF} wurde.`));
+    assert.ok(SEITE.includes(`Für den Zugang zur Verwaltung verlangen wir sie spätestens ${VERWALTUNG}, ${VERWALTUNG_SPAETESTENS}`));
   });
 });
 
@@ -421,6 +497,19 @@ const ERSETZT: readonly { weg: string; statt?: string }[] = [
     weg: "Das betrifft die Zugriffsprotokolle",
     statt: "Das betrifft jede Verarbeitung, für die diese Erklärung Art. 6 Abs. 1 lit. f DSGVO als Rechtsgrundlage nennt",
   },
+  // The journal's line stands in the application log as well, and its day file ages from its last write.
+  {
+    weg: "30 Tage, damit wir die Löschung erneut ausführen können",
+    statt: "in einer eigenen Datei je Tag, die wir 30 Tage nach ihrer letzten Änderung löschen",
+  },
+  // A ban's reason refuses a name of the address's own records in lower case or in capitals (`docs/backend/spec.md :: I726`).
+  {
+    weg: "steht darin ein Name, bleibt er mit dem Eintrag stehen",
+    statt:
+      "Einen Namen, so wie er unter der gesperrten Adresse eingetragen ist, lassen wir darin nicht zu, auch nicht in anderer " +
+      "Groß- oder Kleinschreibung. In den Formen, die Abschnitt 13 für die Angabe zu einer Anfrage nennt, kann ein Name darin " +
+      "stehen und bleibt dann mit dem Eintrag stehen.",
+  },
 ];
 
 describe("the privacy notice's account of the site's own protection", () => {
@@ -459,6 +548,19 @@ describe("the privacy notice's account of the site's own protection", () => {
     assert.ok(frist.includes("unter einem unlesbaren Schlüssel statt Deiner Adresse"), frist);
     // A Funktion is one record, and a person holding two seats holds one counter for them.
     assert.ok(!frist.includes("Funktion"), frist);
+  });
+
+  /* The address's anchor is pseudonymised personal data however briefly it stands (`docs/datenschutz.md` §5), so the table
+     lists it, with the expiry pass that ends it rather than a minute nothing keeps: the pass can be late. */
+  it("lists an address's short-lived anchor, held as a key and never as the address, with the pass that removes it", () => {
+    const frist =
+      ANGABEN.get(
+        "Kurzzeitige Markierung einer E-Mail-Adresse: die Adresse als unlesbarer Schlüssel, ein Zähler und der Zeitpunkt ihrer letzten Änderung",
+      ) ?? "";
+
+    assert.ok(frist.startsWith("Kurz nach ihrer letzten Änderung: Die Datenbank löscht sie beim nächsten Aufräumen,"), frist);
+    assert.ok(frist.includes("verzögern kann"), frist);
+    assert.ok(frist.includes("wenn wir die Daten einer Adresse löschen"), frist);
   });
 });
 
@@ -627,17 +729,18 @@ describe("the privacy notice's publication and retention rows keep their ruled b
     );
   });
 
-  /* The granter's address on each grant outlives their own revoke and erasure (docs/datenschutz.md,
-     section 5), so the notice names it where it names what else an administrator's erasure leaves. */
-  it("keeps the granter's address on a grant past their own revoke and erasure, among the administrators' limits", () => {
+  /* An administrator's address outlives their revoke on every record they authored and not their erasure, which
+     leaves a marker in its place (docs/datenschutz.md, section 5), so the notice promises neither less nor more. */
+  it("keeps an administrator's address on what they authored past their revoke, until their own erasure", () => {
     rendert(
-      "Eine Einschränkung gilt für Administratorinnen und Administratoren der Liga: Ihre E-Mail-Adresse bleibt in den Zeilen des " +
-        "Änderungsprotokolls stehen, die ihre eigenen Änderungen festhalten, auch nach einer Löschung. Das Protokoll hat nur dann " +
-        "einen Sinn, wenn nachvollziehbar bleibt, wer eine Änderung vorgenommen hat. Diese Zeilen werden wie alle anderen gelöscht. " +
-        "Außerdem bleibt ihre E-Mail-Adresse bei jedem Registrierungslink eines Teams stehen, den sie angelegt haben; dieser Eintrag " +
-        "wird nicht gelöscht (Abschnitt 13). Wer einer Person Zugang zur Verwaltung erteilt hat, bleibt mit seiner E-Mail-Adresse an " +
-        "diesem Zugang vermerkt, auch nachdem der eigene Zugang entzogen oder die eigenen Daten gelöscht wurden; alle Personen mit " +
-        "Zugang zur Verwaltung sehen diesen Vermerk, solange der erteilte Zugang besteht.",
+      "Eine Einschränkung gilt für Administratorinnen und Administratoren der Liga: Ihre E-Mail-Adresse steht in den Zeilen des " +
+        "Änderungsprotokolls, die ihre eigenen Änderungen festhalten. Das Protokoll hat nur dann einen Sinn, wenn nachvollziehbar " +
+        "bleibt, wer eine Änderung vorgenommen hat. Diese Zeilen werden wie alle anderen gelöscht. Ebenso steht ihre E-Mail-Adresse " +
+        "bei jedem Registrierungslink eines Teams, den sie angelegt haben, bei jeder Sperre, die sie eingetragen haben, bei jeder " +
+        "Entscheidung über eine Bewerbung, die sie getroffen haben, und bei jedem Zugang zur Verwaltung, den sie erteilt haben. Dort " +
+        "bleibt sie auch, nachdem ihr eigener Zugang entzogen wurde, und alle Personen mit Zugang zur Verwaltung sehen sie, solange " +
+        "der Eintrag besteht. Werden ihre Daten gelöscht, ersetzen wir ihre E-Mail-Adresse an all diesen Stellen durch einen " +
+        "Vermerk, der niemanden nennt.",
     );
   });
 
@@ -654,8 +757,8 @@ describe("the privacy notice's publication and retention rows keep their ruled b
     );
   });
 
-  /* Only the admission enforces it (`docs/datenschutz.md :: "One address is one person"`); every other
-     writer assumes it, so this sentence and the forms' hints are what make it known to the person it binds. */
+  /* Only the admission and a pupil's address change enforce it (`docs/datenschutz.md :: "One address is one person"`);
+     every other writer assumes it, so this sentence and the forms' hints are what make it known to the person it binds. */
   it("tells a person that their address stands for them alone and everything under it is their account's", () => {
     rendert("Deine E-Mail-Adresse steht bei uns für Dich allein: Alles, was unter ihr eingetragen ist, gehört zu Deinem Konto.");
   });
@@ -697,17 +800,36 @@ describe("the privacy notice's publication and retention rows keep their ruled b
     );
   });
 
-  it("promises every erasure asked for an emptied action log", () => {
+  /* Every log row the administrator's erasure files carries its request (`docs/backend/spec.md :: I683`), which refuses
+     only a name of theirs in lower case or capitals (`:: I721`): the emptied rows are not all the log keeps of an erasure. */
+  it("promises every erasure asked for an emptied action log, and says the log keeps the erasure with the request's date and kind", () => {
     rendert(
       "Das Änderungsprotokoll: Jede Änderung an den Daten der Liga wird mit dem vorherigen Stand festgehalten, damit ein Fehler " +
         "zurückgenommen werden kann. Dieses Protokoll kann deshalb auch Deine Daten enthalten. Bei einer Löschung auf Wunsch werden " +
-        "Deine Einträge darin sofort geleert. Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO; unser berechtigtes Interesse ist, " +
-        "Fehler in den Daten der Liga erkennen und rückgängig machen zu können.",
+        "Deine Einträge darin sofort geleert. Bittest Du uns darum, hält das Protokoll die Löschung selbst fest, mit dem Datum und " +
+        "der Art Deiner Anfrage. Das bleibt dort wie jede andere Änderung zwölf Monate stehen. Deinen Namen, so wie er bei uns " +
+        "eingetragen ist, lassen wir in der Angabe zu Deiner Anfrage nicht zu, auch nicht in anderer Groß- oder Kleinschreibung. " +
+        "Stehen kann er dort für diese zwölf Monate anders geschrieben, etwa mit „ue“ statt „ü“, als Teil eines längeren Wortes, " +
+        "als einzelner Buchstabe, als kurzer Namensteil wie „von“ oder „Le“, auf den in Deinem Namen ein weiterer folgt, und als " +
+        "früherer Name, der bei uns nicht mehr eingetragen ist. Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO; unser berechtigtes " +
+        "Interesse ist, Fehler in den Daten der Liga erkennen und rückgängig machen zu können.",
     );
   });
 
-  /* A referee kept only while taking part would close the cell on „bis zu einer Löschung auf Wunsch“,
-     words the players' half carries too, so the referee half is read by its own words and the end apart. */
+  /* The season-after rule, which activating a season runs: a cell keeping a pupil while taking part alone would
+     promise a deletion nothing triggers (`fl_frontend/src/features/saisons/actions.ts :: activateSaisonAction`). */
+  it("keeps a pupil until the season after their last squad season ends, and once resets every pupil", () => {
+    assert.equal(
+      ANGABEN.get("Daten von Spielerinnen, Spielern und Schiedsrichtern"),
+      "Bei Spielerinnen und Spielern: bis zum Ende der Saison nach ihrer letzten Saison im Kader. Mit dem Beginn der Saison danach " +
+        "löschen wir ihre Daten, außer sie stehen wieder in einem Kader oder haben eine offene Registrierung. Auf Wunsch löschen wir " +
+        "früher. Am Ende dieser Saison löschen wir einmalig die Daten aller Spielerinnen und Spieler. Bei Schiedsrichterinnen und " +
+        "Schiedsrichtern: bis die Verwaltung den Eintrag endgültig löscht, von sich aus oder weil Du es verlangst",
+    );
+  });
+
+  /* A referee kept only while taking part would close the cell on „bis zu einer Löschung auf Wunsch“, so the referee
+     half is read by its own words and the end apart. */
   it("keeps a referee until the entry is deleted rather than only while taking part", () => {
     const zeile = ANGABEN.get("Daten von Spielerinnen, Spielern und Schiedsrichtern") ?? "";
 

@@ -107,10 +107,10 @@ class TestTheSeasonAfter:
             next_saison_id(saison_id)
 
     @pytest.mark.parametrize(("status", "ended"), [("past", True), ("active", False), ("future", False), (None, False)])
-    def test_only_a_past_successor_ends_the_clock(self, status: str | None, ended: bool):
+    def test_only_a_past_later_season_ends_the_clock(self, status: str | None, ended: bool):
         """`None` is a season not yet created, which is not one that has ended."""
 
-        assert season_after_has_ended(next_saison_status=status) == ended
+        assert season_after_has_ended(later_saison_status=status) == ended
 
 
 class TestOneMonth:
@@ -400,10 +400,10 @@ class TestTheOneMonthClock:
 
 class TestTheSeasonAndOneClock:
     @pytest.mark.parametrize(
-        ("status", "next_status", "due"), [("angenommen", "past", True), ("angenommen", "active", False), ("eingereicht", "past", False)]
+        ("status", "later_status", "due"), [("angenommen", "past", True), ("angenommen", "active", False), ("eingereicht", "past", False)]
     )
-    def test_an_accepted_application_goes_when_the_next_season_has_ended(self, status: str, next_status: str, due: bool):
-        assert acceptance_erasure_is_due(bewerbung_raw=application(status=status), next_saison_status=next_status) == due
+    def test_an_accepted_application_goes_when_a_later_season_has_ended(self, status: str, later_status: str, due: bool):
+        assert acceptance_erasure_is_due(bewerbung_raw=application(status=status), later_saison_status=later_status) == due
 
 
 class TestWhatTheNoticesNeed:
@@ -460,17 +460,23 @@ class TestTheIdPayloadsTakeOnePassList:
         assert payload.model_json_schema()["properties"]["bewerbung_ids"]["maxItems"] == DELETIONS_LISTED_PER_PASS
 
 
-# The per-row loops' two commands a row, pinned on the wire by
+# The per-row loops' three commands a row -- the update, its read-back and its log row -- pinned on the wire by
 # `fl_backend/tests/api/test_bewerbung_sweep_execution.py :: TestEachPerRowLoopCostsTheRoundTripsItsShareIsSizedAt`.
-ROUND_TRIPS_A_ROW = 2
+ROUND_TRIPS_A_ROW = 3
 
 
+# Each worst call's commands beside its rows, counted on the wire by
+# `fl_backend/tests/api/test_bewerbung_sweep_execution.py :: TestTheWorstCallSendsTheCommandsItsBudgetCounts`.
+SWEEP_OTHER_COMMANDS = 32
+ANGEKUENDIGT_OTHER_COMMANDS = 3
+
+
+# The per-command cost from whole passes timed locally, 2026-09-23.
 @pytest.mark.parametrize(
     ("rows", "other_commands", "per_command_s", "round_trip_s"),
     [
-        # Other commands and the per-command cost from whole passes timed locally, 2026-09-23.
-        pytest.param(REMINDERS_PER_PASS + BLOCKS_CLEARED_PER_PASS, 18, 0.00135, 0.036, id="the sweep"),
-        pytest.param(DELETIONS_LISTED_PER_PASS, 4, 0.00101, 0.038, id="/angekuendigt"),
+        pytest.param(REMINDERS_PER_PASS + BLOCKS_CLEARED_PER_PASS, SWEEP_OTHER_COMMANDS, 0.00135, 0.036, id="the sweep"),
+        pytest.param(DELETIONS_LISTED_PER_PASS, ANGEKUENDIGT_OTHER_COMMANDS, 0.00101, 0.038, id="/angekuendigt"),
     ],
 )
 def test_a_full_share_finishes_inside_the_deadline_at_the_round_trip_its_comment_names(
@@ -482,8 +488,8 @@ def test_a_full_share_finishes_inside_the_deadline_at_the_round_trip_its_comment
 
 
 # Named, not derived: the clocks whose read can hold rows their predicate refuses, `sweep_saison` being
-# the handler's own deletion list. The season's-end, acceptance and contact-block clocks read only rows
-# they take, so a full page there always moves something.
+# the handler's own deletion list. The season's-end, acceptance and contact-block clocks take something
+# from every page, and answer a kept season's page as empty.
 PAGED_CLOCKS = ("remind", "erase_declined", "sweep_saison")
 
 SWEEP_HANDLER = ast.parse(textwrap.dedent(inspect.getsource(sweep_router.sweep_saison))).body[0]

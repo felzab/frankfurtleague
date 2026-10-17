@@ -156,7 +156,7 @@ class TestTheRecordTheConfirmationWrites:
 
 
 class TestWhatALeakedLinkLearns:
-    """`READ-REFEREE-002`: a first name and a role, and no field the admin tier holds."""
+    """`READ-REFEREE-002`: no name, and no field the admin tier holds."""
 
     @pytest.mark.parametrize(
         ("projection", "asked_of_the_ban_list"),
@@ -166,24 +166,28 @@ class TestWhatALeakedLinkLearns:
     def test_neither_projection_reaches_a_field_behind_the_contact_rule(self, projection: Mapping[str, int], asked_of_the_ban_list: set[str]):
         """Both read the address for the ban list alone; `test_neither_base_tier_answer_carries_the_mint` keeps it off both answers."""
 
-        withheld = {"schule", "kontakt", "default_payment", "geburtsdatum", "inactive_since"}
+        withheld = {"name", "schule", "kontakt", "default_payment", "geburtsdatum", "inactive_since"}
         read = {key for key, kept in projection.items() if kept}
 
         assert asked_of_the_ban_list <= read
         assert not {key.partition(".")[0] for key in read - asked_of_the_ban_list} & withheld
 
-    def test_the_view_declares_exactly_the_six_names_it_may_answer(self):
+    def test_the_view_declares_exactly_the_five_names_it_may_answer(self):
         """An EQUALITY, not a subset: a field added to this model reaches a caller holding nothing but a token."""
 
         assert set(FLSchiedsrichterBestaetigungAnsichtResponse.model_fields) == {
             "acknowledged",
             "zustand",
-            "vorname",
             "text_version",
             "mindestalter",
             "medien_mindestalter",
             "frist",
         }
+
+    def test_the_answer_declares_exactly_what_the_press_echoes(self):
+        """The same equality on the press's answer, which the same token holder reads."""
+
+        assert set(FLSchiedsrichterBestaetigungResponse.model_fields) == {"acknowledged", "umfang", "medien", "bestaetigt_am"}
 
     def test_the_mint_answers_the_address_the_link_was_minted_for(self):
         """REQUIRED and not optional: a caller left to its own earlier read mails the credential to a mailbox a rival save has replaced."""
@@ -208,12 +212,13 @@ class TestWhatALeakedLinkLearns:
         assert BESTAETIGUNG_ANSICHT_FIELDS["_id"] == 0
         assert BESTAETIGUNG_ANTWORT_FIELDS.get("_id", 1) == 1
 
-    @pytest.mark.parametrize(
-        ("name", "vorname"),
-        [("Pierluigi Collina", "Pierluigi"), ("  Quillhilde  ", "Quillhilde"), ("Anna Lena Bramblewick", "Anna"), (None, None), ("", None)],
-    )
-    def test_only_the_first_part_of_the_stored_name_is_served(self, name: Any, vorname: str | None):
-        assert vorname_of(name) == vorname
+
+@pytest.mark.parametrize(
+    ("name", "vorname"),
+    [("Pierluigi Collina", "Pierluigi"), ("  Quillhilde  ", "Quillhilde"), ("Anna Lena Bramblewick", "Anna"), (None, None), ("", None)],
+)
+def test_the_account_page_takes_the_first_part_of_the_stored_name(name: Any, vorname: str | None):
+    assert vorname_of(name) == vorname
 
 
 class TestWhatAReopenedLinkShows:

@@ -1,4 +1,7 @@
-import { AKTION_COLLECTION_LABELS, AKTOR_FUNKTION_LABELS, AKTOR_HERKUNFT } from "./constants";
+import { ERASED_ACTOR_MARKER } from "@/core/erasedActor";
+import { GELOESCHTE_PERSON, vonOderGesperrt } from "@/features/berechtigungen/constants";
+
+import { AKTION_COLLECTION_LABELS, AKTION_HERKUNFT_LABELS, AKTOR_FUNKTION_LABELS, AKTOR_HERKUNFT } from "./constants";
 
 import type { AktionHerkunft } from "./constants";
 import type { FLAktion, FLAktor, FLAktorPerson } from "./schemas";
@@ -13,10 +16,24 @@ export function herkunftOfAktor(actor: FLAktor): AktionHerkunft {
 
 /**
  * How a signed-in person's row names them: the kind of person the write was made as and their pseudonym,
- * which the read serves already cut to the start a page may show (`fl_backend/app/api/aktionen/schemas.py :: FLAktorPerson`).
+ * served cut to the start a page may show (`fl_backend/app/api/aktionen/schemas.py :: FLAktorPerson`), or the
+ * admin cards' word for one erased since.
  */
 export function personAkteurLabel(actor: FLAktorPerson): string {
-  return `${AKTOR_FUNKTION_LABELS[actor.funktion]} · ${actor.pseudonym}`;
+  const wer = actor.pseudonym === ERASED_ACTOR_MARKER ? GELOESCHTE_PERSON : actor.pseudonym;
+
+  return `${AKTOR_FUNKTION_LABELS[actor.funktion]} · ${wer}`;
+}
+
+/**
+ * What a row's actor cell prints, through the functions the cell renders with, which the log's search
+ * reads too: the stored sentinels and markers are on no screen to type (`docs/frontend/spec.md :: I681`).
+ */
+export function aktorAnzeige(actor: FLAktor): string {
+  if (actor.kind === "person_session") return personAkteurLabel(actor);
+  if (actor.kind === "admin_session") return vonOderGesperrt(actor.email, actor.email_gesperrt);
+
+  return AKTION_HERKUNFT_LABELS[herkunftOfAktor(actor)];
 }
 
 /** Falls back to the stored name, so a collection the backend adds lists as itself rather than as an empty cell. */

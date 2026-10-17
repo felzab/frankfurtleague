@@ -66,6 +66,7 @@ def recorded_row(**overrides: Any) -> dict[str, Any]:
         "before": team_document(),
         "modified_count": None,
         "redacted_at": None,
+        "anlass": None,
         **overrides,
     }
 
@@ -212,15 +213,20 @@ def test_a_removals_row_is_selected_by_an_erasure_shaped_redaction(mongo_replica
     assert [image["shorthand"] for image in rows[1]["before"]] == ["CS"] and rows[1]["redacted_at"] is None
 
 
-def test_a_row_stored_before_the_retention_stamp_is_still_redactable(mongo_url: str):
-    """Strict validation validates an UPDATE too, so requiring `at_date` would invalidate every row already in the log.
+# Each key the log's rows gained after rows without it were stored: the validator requires neither.
+LATER_KEYS = ["at_date", "anlass"]
+
+
+@pytest.mark.parametrize("later_key", LATER_KEYS)
+def test_a_row_stored_before_a_key_existed_is_still_redactable(mongo_url: str, later_key: str):
+    """Strict validation validates an UPDATE too, so requiring either key would invalidate every row already in the log.
 
     The erasure's own `$set` over such a row is then refused whole, and its transaction aborts
     (`docs/backend/spec.md :: I42`).
     """
 
     async def body(database: AsyncDatabase) -> Any:
-        legacy = {key: value for key, value in recorded_row().items() if key != "at_date"}
+        legacy = {key: value for key, value in recorded_row().items() if key != later_key}
         # The bypass is the only way to reach the state the log is really in: the validator is
         # attached here, and every writer in this codebase stamps the row it builds.
         await database[Collection.AKTIONEN].insert_one(legacy, bypass_document_validation=True)
@@ -239,9 +245,9 @@ def test_a_row_stored_before_the_retention_stamp_is_still_redactable(mongo_url: 
 
     assert modified == 1
     assert row["before"] is None and row["redacted_at"] == RECORDED_AT
-    # Unstamped still: the redaction sets two keys and backfills none, so such a row stays outside
-    # the retention index and leaves at the season reset instead (`docs/datenschutz.md :: 3`).
-    assert "at_date" not in row
+    # The redaction sets two keys and backfills none: a row without a retention stamp stays outside the
+    # retention index and leaves at the season reset instead (`docs/datenschutz.md :: 3`).
+    assert later_key not in row
 
 
 def test_the_base_row_every_rejection_below_deviates_from_is_accepted(mongo_url: str):

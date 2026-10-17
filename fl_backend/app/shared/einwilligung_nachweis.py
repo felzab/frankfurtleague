@@ -7,7 +7,8 @@ the grant it ended: proof for as long as the record stands, bounded at one act p
 
 Invariants:
 - Only the person's own writes grant a choice or stamp its evidence, an admission renewing from their own
-  registration among them; no administrative write does (`docs/backend/spec.md :: I613`).
+  registration and a restore replaying their journalled withdrawal among them; no administrative write does
+  (`docs/backend/spec.md :: I613`).
 - A choice and its evidence move in one update, never one without the other.
 
 See: docs/glossary.md

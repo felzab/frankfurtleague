@@ -3,6 +3,7 @@ import { connection } from "next/server";
 
 import { requireSubjectSession } from "@/features/funktionen/resolvers";
 import { EinwilligungSection } from "@/features/konto/components/views/EinwilligungSection";
+import { KontoLoeschenSection } from "@/features/konto/components/views/KontoLoeschenSection";
 import { SicherheitSection } from "@/features/konto/components/views/SicherheitSection";
 import { KontoPanel } from "@/shared/components/ui/KontoPanel";
 
@@ -11,9 +12,10 @@ export default async function KontoPage() {
   await connection();
   const subject = await requireSubjectSession();
 
-  // A granted address whose administrator verdict lapsed owes that lane's step before its passkeys,
-  // as the landing sends it (`docs/frontend/spec.md :: I426`); here the section stands empty.
-  // eslint-disable-next-line local/admin-link -- the proxy turns it away before any season is read
+  // A granted address whose administrator verdict lapsed owes a fresh sign-in or its passkey step
+  // before its passkeys, as the landing sends it (`docs/frontend/spec.md :: I426`); here the section
+  // stands empty.
+  // eslint-disable-next-line local/admin-link -- the proxy or `fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead` turns it away before any season is read
   if (!subject.admin && subject.subjekt.verwaltung !== null) redirect("/bereich/admin");
 
   return (
@@ -21,6 +23,7 @@ export default async function KontoPage() {
       email={subject.email}
       sicherheit={<SicherheitSection />}
       einwilligung={<EinwilligungSection />}
+      loeschung={<KontoLoeschenSection />}
     />
   );
 }

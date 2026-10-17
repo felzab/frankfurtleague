@@ -1,10 +1,11 @@
+import { ORGANISATION_TITEL } from "@/core/seitenNamen";
 import { MetaOrganisationView } from "@/features/meta/components/views/MetaOrganisationView";
 import { openGraphFor } from "@/shared/utils/metadata";
 
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Organisation",
+  title: ORGANISATION_TITEL,
   description: "Die Menschen hinter der Frankfurt League und wer bei uns was macht.",
   openGraph: openGraphFor("/organisation"),
   alternates: {

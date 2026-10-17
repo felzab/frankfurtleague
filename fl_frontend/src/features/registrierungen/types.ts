@@ -3,6 +3,24 @@ import type { FLSpielerPosition, FLSpielerStufe } from "@/features/spieler/schem
 import type { FLEinladungAnsichtResponse, FLEinwilligungUmfang, FLRegistrierungBestaetigungAnsichtResponse } from "./schemas";
 
 /**
+ * One pending registration on the administrator's list: what its card shows, and nothing else of the
+ * row, so the address and the birthdate never reach the browser.
+ */
+export type AdminRegistrierungRow = {
+  id: string;
+  vorname: string;
+  nachname: string;
+  // The day the read orders by, so a cut-short list's end can be told from its card.
+  eingereicht_am: string;
+  team_id: string;
+  // Null where the club read knows no team of this id: the card says so rather than showing the id.
+  teamName: string | null;
+  saison_id: string;
+  stufe: FLSpielerStufe | null;
+  bestaetigt: boolean;
+};
+
+/**
  * What the registration page opens on. The token rides only with an invite a submission can still
  * spend: a shut window and a dead link are both read-only states, and a link handed onward from
  * either buys nothing.
@@ -36,8 +54,8 @@ export type RegistrierungFormDraft = {
  */
 export type SpielerLinkZustand = "bestaetigt" | "abgelaufen" | "ungueltig" | "gesperrt";
 
-/** A link still open, and so a registration that still holds the person the page is about to name. */
-export type SpielerBestaetigungGeoeffnet = FLRegistrierungBestaetigungAnsichtResponse & { vorname: string };
+/** A link still open, and so a registration the page can still be answered for. */
+export type SpielerBestaetigungGeoeffnet = FLRegistrierungBestaetigungAnsichtResponse;
 
 export type SpielerBestaetigungAnsicht = { zustand: "gueltig"; ansicht: SpielerBestaetigungGeoeffnet } | { zustand: SpielerLinkZustand };
 

@@ -163,27 +163,6 @@ export const NEXT_CACHE_DOUBLE = replacingPackage("next/cache", {
   ...INERT_DECLARATIONS,
 });
 
-/** Next's two invalidations that throw in a route handler, being a Server Action's alone. */
-export const ACTION_ONLY_INVALIDATIONS = ["updateTag", "refresh"];
-
-/**
- * `next/cache` as a route handler meets it: each of `ACTION_ONLY_INVALIDATIONS` throws there, as Next's
- * does, and is recorded first, since a route may catch the throw and answer as though it cleared.
- */
-export const ROUTE_NEXT_CACHE_DOUBLE = replacingPackage("next/cache", {
-  ...recorded(["revalidateTag", "revalidatePath"]),
-  ...Object.fromEntries(
-    ACTION_ONLY_INVALIDATIONS.map((name) => [
-      name,
-      (...args: unknown[]): never => {
-        cacheCalls.push({ name, args });
-        throw new Error(`${name} can only be called from within a Server Action`);
-      },
-    ]),
-  ),
-  ...INERT_DECLARATIONS,
-});
-
 /** `next/headers` for a request that carries none, for a harness that doubles its packages itself. */
 export const NEXT_HEADERS_DOUBLE = replacingPackage("next/headers", { headers: () => Promise.resolve(new Headers()) });
 
@@ -237,7 +216,11 @@ type SignInAnswers = {
   signedOut: string[];
   /** What that sign-out throws, where a case asks it to fail. */
   signOutFailure: Error | null;
-  /** Whether an account holds the address a ban signs out, which the real sign-out answers. */
+  /** Every address an erasure asked the store to delete the account of, in order. */
+  deletedAccounts: string[];
+  /** What that deletion throws, where a case asks it to fail. */
+  accountDeletionFailure: Error | null;
+  /** Whether an account holds the address a ban signs out or an erasure deletes, which the real store answers. */
   accountHeld: boolean;
   /** `isFreshlySignedIn`'s answer, whatever session it is handed. */
   fresh: boolean;
@@ -301,10 +284,21 @@ const signInStore = (answers: SignInAnswers) => ({
   // The account page's guard, answering the same session: its own lanes are the sign-in store's to judge.
   getKontoSession: () => answering(answers.served),
   getSignInDestination: () => Promise.resolve(answers.destination),
+  // The sign-in page's read, `null` wherever the landing sends the caller to sign in, as the real one judges.
+  getSignedInAddress: () =>
+    answers.session instanceof Error
+      ? Promise.reject(answers.session)
+      : Promise.resolve(answers.session === null || answers.destination === "/signin" ? null : answers.session.user.email),
+  // `null`, as the real store answers the session `served` holds: one its passkey made is offered no card.
+  getPasskeyStep: () => (answers.session instanceof Error ? Promise.reject(answers.session) : Promise.resolve(null)),
   isFreshlySignedIn: () => answers.fresh,
   endSessionsOfAddress: (address: unknown) => {
     answers.signedOut.push(String(address));
     return answering(answers.signOutFailure ?? answers.accountHeld);
+  },
+  deleteAccountFor: (address: unknown) => {
+    answers.deletedAccounts.push(String(address));
+    return answering(answers.accountDeletionFailure ?? answers.accountHeld);
   },
 });
 
@@ -349,7 +343,11 @@ export function doubleActionRequest({
   signedOut: () => readonly string[];
   /** Makes every sign-out for the rest of the case throw `failure`. */
   failSignOut: (failure: Error) => void;
-  /** Makes every sign-out for the rest of the case find no account; an account is held by default. */
+  /** Every address an erasure deleted the account of since the case began. */
+  deletedAccounts: () => readonly string[];
+  /** Makes every account deletion for the rest of the case throw `failure`. */
+  failAccountDeletion: (failure: Error) => void;
+  /** Makes every sign-out and account deletion for the rest of the case find no account; an account is held by default. */
   holdNoAccount: () => void;
   /** Why the guard refuses for the rest of the case, where it refuses. */
   setRefusal: (next: AdminRefusal) => void;
@@ -362,6 +360,8 @@ export function doubleActionRequest({
     subjectReads: 0,
     signedOut: [],
     signOutFailure: null,
+    deletedAccounts: [],
+    accountDeletionFailure: null,
     accountHeld: true,
     fresh: true,
     refusal: null,
@@ -383,6 +383,8 @@ export function doubleActionRequest({
     answers.subjectReads = 0;
     answers.signedOut.length = 0;
     answers.signOutFailure = null;
+    answers.deletedAccounts.length = 0;
+    answers.accountDeletionFailure = null;
     answers.accountHeld = true;
     answers.fresh = true;
     answers.refusal = null;
@@ -404,6 +406,8 @@ export function doubleActionRequest({
     subjectReads: () => answers.subjectReads,
     signedOut: () => [...answers.signedOut],
     failSignOut: (failure) => void (answers.signOutFailure = failure),
+    deletedAccounts: () => [...answers.deletedAccounts],
+    failAccountDeletion: (failure) => void (answers.accountDeletionFailure = failure),
     holdNoAccount: () => void (answers.accountHeld = false),
     setRefusal: (next) => void (answers.refusal = next),
   };
@@ -466,8 +470,13 @@ export function doubleToasts(): { raised: RaisedToast[] } {
     };
   // Titled as the real module titles it, so a press marked partly saved or of unknown outcome reads so
   // in every suite rather than under the raising site's title.
-  const fail = (title: string, failure?: Pick<ActionFailure, "error" | "unplacedError" | "outcome">, unklarTitle?: string): string =>
-    raise("danger")(failureToastTitle(title, failure?.outcome, unklarTitle), {
+  const fail = (
+    title: string,
+    failure?: Pick<ActionFailure, "error" | "unplacedError" | "outcome">,
+    unklarTitle?: string,
+    teilweiseTitle?: string,
+  ): string =>
+    raise("danger")(failureToastTitle(title, failure?.outcome, unklarTitle, teilweiseTitle), {
       description: failure?.unplacedError ?? failure?.error,
       outcome: failure?.outcome,
     });

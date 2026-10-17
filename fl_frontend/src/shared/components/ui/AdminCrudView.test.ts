@@ -34,6 +34,7 @@ doubleEveryAction();
    compile step as it evaluates (`docs/frontend/spec.md` §1.9). */
 const { AdminCrudFallback } = await import("./AdminCrudFallback.tsx");
 const { AdminCrudLoading } = await import("./AdminCrudLoading.tsx");
+const { AdminCrudPrivateQuery } = await import("./AdminCrudPrivateQuery.tsx");
 const { AdminCrudSearch } = await import("./AdminCrudSearch.tsx");
 const { AdminCrudShell } = await import("./AdminCrudShell.tsx");
 const { AdminCrudView } = await import("./AdminCrudView.tsx");
@@ -587,9 +588,14 @@ describe("the hold every admin CRUD region reads", () => {
   });
 });
 
-/** The classes the loaded bar opens on, beside a trigger or on a row of its own. */
+/** The classes the loaded bar opens on, beside a trigger or on a row of its own, under the holder the shell mounts. */
 const loadedBar = (attachEnd: boolean): string[] =>
-  classesAt(renderTree(underNext(h(AdminCrudSearch, { searchLabel: "Suchen", searchPlaceholder: "Suchen", attachEnd }))), 0);
+  classesAt(
+    renderTree(
+      underNext(h(AdminCrudPrivateQuery, { children: h(AdminCrudSearch, { searchLabel: "Suchen", searchPlaceholder: "Suchen", attachEnd }) })),
+    ),
+    0,
+  );
 
 /** A trigger's box, laid out and never painted, and the words that size it. */
 const BOX = /<div aria-hidden="true" class="(button[^"]*)">([\s\S]*?)<\/div>/;
@@ -781,7 +787,7 @@ describe("every admin CRUD route", () => {
 
       assert.equal(BOX.test(loading), hasTrigger, `${route}: its fallback and its page disagree on a trigger`);
       assert.deepEqual(
-        classesAt(renderTree(atRoute(route, shell.props.search)), 0),
+        classesAt(renderTree(atRoute(route, h(AdminCrudPrivateQuery, { children: shell.props.search }))), 0),
         loadedBar(hasTrigger),
         `${route}: its bar joins a trigger its shell does not pass`,
       );

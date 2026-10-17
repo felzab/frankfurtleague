@@ -19,11 +19,13 @@ from app.api.sperrliste.lookup import BanList, SperrlisteLookup, adressen_gesper
 from app.core.actor_token import (
     ACTOR_TOKEN_MAX_LENGTH,
     COMPACT_JWS_PATTERN,
+    PASSKEY_FACTOR,
     ActorClaims,
     ActorTokenKey,
     ActorTokenRefusal,
     verify_actor_token,
 )
+from app.core.adressanker import anchor_the_addresses
 from app.core.collections import Collection
 from app.core.config import BackendConfig, get_app_config
 from app.core.crud import a_write_may_stand
@@ -273,6 +275,19 @@ def verify_recent_confirmation(actor: Annotated[ActorClaims, Depends(verify_admi
         raise confirmation_required(actor, ENROLMENT_WINDOW_S)
 
 
+def get_recent_confirmation_check(actor: Annotated[ActorClaims, Depends(verify_admin_actor)]) -> Callable[[], None]:
+    """`verify_recent_confirmation`'s window on the calls a handler judges to end a grant (`docs/backend/spec.md :: I489`).
+
+    A dependency for `get_step_up_check`'s reason: the document derives the refusal from the operations running it.
+    """
+
+    def refuse_unconfirmed() -> None:
+        if confirmed_before(actor, ENROLMENT_WINDOW_S):
+            raise confirmation_required(actor, ENROLMENT_WINDOW_S)
+
+    return refuse_unconfirmed
+
+
 def verify_step_up(actor: Annotated[ActorClaims, Depends(verify_admin_actor)]) -> None:
     """Refuse a write stepped up on every call from a sign-in or confirmation older than the step-up window (`docs/backend/spec.md :: I524`).
 
@@ -298,6 +313,19 @@ def get_step_up_check(actor: Annotated[ActorClaims, Depends(verify_admin_actor)]
     def refuse_unconfirmed() -> None:
         if confirmed_before(actor, STEP_UP_WINDOW_S):
             raise confirmation_required(actor, STEP_UP_WINDOW_S)
+
+    return refuse_unconfirmed
+
+
+def get_person_confirmation_check(actor: Annotated[ActorClaims, Depends(verify_person_actor)]) -> StepUpCheck:
+    """A grant holder's own erasure asks a fresh passkey, as a revoke does: the person's lane admits a sign-in by code.
+
+    The window is I489's, judged at `iat` (`docs/backend/spec.md :: I527`).
+    """
+
+    def refuse_unconfirmed() -> None:
+        if actor.amr != (PASSKEY_FACTOR,) or confirmed_before(actor, ENROLMENT_WINDOW_S):
+            raise confirmation_required(actor, ENROLMENT_WINDOW_S)
 
     return refuse_unconfirmed
 
@@ -344,6 +372,20 @@ def person_judge(actor: ActorClaims, config: BackendConfig) -> ActorJudge:
 
         yield
 
+        # Last, and only where a write may stand, for the administrator's judge's reasons. The write may hold
+        # the person's address or pseudonym on a record their erasure, running now, never read
+        # (`docs/backend/spec.md :: I719`).
+        if not a_write_may_stand():
+            return
+
+        # On the transaction's own client, for `_lists_on`'s reason.
+        await anchor_the_addresses(
+            [actor.email],
+            adressanker_collection=session.client[config.db_base_name][Collection.ADRESSANKER],
+            schluessel=config.sperrliste_schluessel,
+            session=session,
+        )
+
     return judging_the_person
 
 
@@ -383,14 +425,31 @@ async def bind_actor(
 AKTEUR_PSEUDONYM_VERSION: Final = "akteur-v1"
 
 
+def _keyed_fold(address: str, *, schluessel: SecretStr, label: str) -> str:
+    # Folded here rather than by each caller, as `app/api/sperrliste/services.py :: adresse_hash` folds its own: a
+    # stored spelling handed in unfolded would hash to a value no other spelling of the mailbox matches.
+    return hmac.new(derive_sub_key(schluessel, label), sign_in_identifier(address).encode("utf-8"), hashlib.sha256).hexdigest()
+
+
 def akteur_pseudonym(identifier: str, *, schluessel: SecretStr) -> str:
-    """What the log records for a signed-in person: a keyed hash of the folded identifier.
+    """What the log records for a signed-in person: a keyed hash of the identifier as `sign_in_identifier` folds it.
 
     Never `adresse_hash`, whose label would make this EQUAL the person's ban-row digest and whose
     address rule raises inside a binder.
     """
 
-    return hmac.new(derive_sub_key(schluessel, AKTEUR_PSEUDONYM_VERSION), identifier.encode("utf-8"), hashlib.sha256).hexdigest()
+    return _keyed_fold(identifier, schluessel=schluessel, label=AKTEUR_PSEUDONYM_VERSION)
+
+
+# The erasure journal's label, a third beside the ban list's and the log's: under theirs a line would name a ban
+# row's digest or, on a choice, its person's log pseudonym, which an erasure's line alone names.
+LOESCHUNG_JOURNAL_VERSION: Final = "loeschung-v1"
+
+
+def loeschung_journal_hash(identifier: str, *, schluessel: SecretStr) -> str:
+    """What the erasure journal records for a person: a keyed hash of the identifier as `sign_in_identifier` folds it."""
+
+    return _keyed_fold(identifier, schluessel=schluessel, label=LOESCHUNG_JOURNAL_VERSION)
 
 
 def person_actor_binder(funktion: AktorFunktion) -> Callable[..., AsyncIterator[str]]:

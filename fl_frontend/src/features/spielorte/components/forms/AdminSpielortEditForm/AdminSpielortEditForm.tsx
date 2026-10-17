@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import { patchSpielortAction } from "@/features/spielorte/actions";
+import { patchSpielortAction, undoAdminSpielortEditAction } from "@/features/spielorte/actions";
 import { FLPatchSpielortPayloadSchema } from "@/features/spielorte/schemas";
 import { deriveSpielortDraftStatus } from "@/features/spielorte/spielortDraftStatus";
 import { ConfirmDiscardModal } from "@/shared/components/ui/ConfirmDiscardModal";
@@ -159,8 +159,7 @@ export function AdminSpielortEditForm({
         setHasSaved(true);
 
         offerUndo({
-          endpoint: "/api/admin/spielorte/undo",
-          body: undoPayload,
+          undo: () => undoAdminSpielortEditAction(undoPayload),
           message: identityTouched ? "Jedes Spiel an diesem Ort zeigt jetzt den neuen Namen und die neue Karte." : undefined,
           fallback: "Die Spielortdaten wurden aktualisiert.",
           router,

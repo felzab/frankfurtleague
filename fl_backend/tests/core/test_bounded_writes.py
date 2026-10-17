@@ -3,7 +3,7 @@ CORE · the source sweeps holding a rule judged on a read to the write that clos
 
 A snapshot re-validates no read, so a rule decided on one is held only where every writer that
 judges it also WRITES the document that read is scoped by: the season a count is taken in, or the
-club, the venue or the referee a retirement stamps. The helpers below do that, and what this module
+club, the venue or the referee a retirement stamps, or the person an erasure removes. The helpers below do that, and what this module
 proves is that every function writing the anchor is one of them, that no site can reach one of those
 rules past its helper, and that no caller can reach a helper without the transaction's session: the
 parameter is required, so an omission is a `TypeError` at the call rather than a race under a rule
@@ -25,13 +25,18 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.berechtigungen.crud import anchor_the_actors_grant, pull_the_list_to_judge
+from app.api.bewerbungen.sweep_router import pull_the_season_after
+from app.api.identitaet.crud import erase_if_still_due
+from app.api.sperrliste import crud as sperrliste_crud
 from app.api.sperrliste.admin_router import _pull_the_season_a_ban_counts_from
+from app.api.sperrliste.lookup import adressen_gesperrt, hash_gesperrt, hashes_gesperrt
 from app.api.spiele.admin_router import patch_spiel_data
 from app.api.spiele.crud import anchor_a_booked_referee, anchor_a_booked_venue, pull_booked_referee, pull_booked_venue
-from app.api.spieler.crud import refuse_a_full_squad, refuse_a_taken_rolle
+from app.api.spieler.crud import pull_a_person_to_enter, refuse_a_full_squad, refuse_a_taken_rolle
 from app.api.spieltage.admin_router import _refuse_an_out_of_order_beginn
 from app.api.teams.crud import pull_a_club_to_enter, refuse_a_full_gruppe
-from app.core.crud import ANCHOR_FIELD, anchor_in_db
+from app.core.adressanker import anchor_the_addresses
+from app.core.crud import ANCHOR_FIELD, anchor_by_id_in_db, anchor_in_db
 from tests.core.app_source import (
     APP_ROOT,
     BACKEND_ROOT,
@@ -113,6 +118,9 @@ CALLERS: dict[str, frozenset[str]] = {
             "app/api/bewerbungen/admin_router.py :: accept_and_enter_the_school",
         }
     ),
+    # The administrator's entry alone: the admission writes the person it enters, which the erasure's
+    # delete already conflicts with.
+    "pull_a_person_to_enter": frozenset({"app/api/spieler/admin_router.py :: add_the_player"}),
     # One callback for both routes that book a fixture, the replay going through the editor's own.
     "anchor_a_booked_venue": frozenset({"app/api/spiele/admin_router.py :: write_and_resolve_the_bracket"}),
     "anchor_a_booked_referee": frozenset({"app/api/spiele/admin_router.py :: write_and_resolve_the_bracket"}),
@@ -126,6 +134,7 @@ CALLERS: dict[str, frozenset[str]] = {
             "app/api/berechtigungen/admin_router.py :: judge_and_revoke",
             "app/api/berechtigungen/admin_router.py :: judge_and_change",
             "app/api/sperrliste/admin_router.py :: judge_and_ban",
+            "app/api/identitaet/person_router.py :: erase_the_address",
             # The claim writes no grant; it anchors where it queues, so a revoke or a ban conflicts with it.
             "app/api/berechtigungen/sweep_router.py :: queue_and_claim",
         }
@@ -133,11 +142,17 @@ CALLERS: dict[str, frozenset[str]] = {
     # No callback calls it: `app/core/transactions.py :: JudgedSession` runs this judge around every
     # callback, which `HOOKED_CALLERS` below answers for.
     "anchor_the_actors_grant": frozenset({"app/core/security.py :: judging_the_administrator"}),
+    # The season-after deletion pass, one pupil a transaction.
+    "erase_if_still_due": frozenset({"app/api/identitaet/sweep_router.py :: erase_the_pupil_if_still_due"}),
+    # The application sweep's two clocks the season-after rule ends, each transaction judging the season again.
+    "pull_the_season_after": frozenset(
+        {"app/api/bewerbungen/sweep_router.py :: erase_accepted", "app/api/bewerbungen/sweep_router.py :: clear_the_blocks"}
+    ),
 }
 
 # The callers no `with_transaction` is handed, each run by `transaction_session` inside every attempt
 # instead (`tests/core/test_transactions.py :: TestEveryAttemptJudgesItsActorFirst`).
-HOOKED_CALLERS: frozenset[str] = frozenset({"app/core/security.py :: judging_the_administrator"})
+HOOKED_CALLERS: frozenset[str] = frozenset({"app/core/security.py :: judging_the_administrator", "app/core/security.py :: judging_the_person"})
 
 CHOKE_POINT_FUNCTIONS = tuple(function for function, _, _ in CHOKE_POINTS)
 
@@ -145,18 +160,27 @@ CHOKE_POINT_FUNCTIONS = tuple(function for function, _, _ in CHOKE_POINTS)
 ANCHORS: tuple[tuple[Callable[..., Any], str], ...] = (
     *((function, "saisons_collection") for function in CHOKE_POINT_FUNCTIONS),
     (pull_a_club_to_enter, "teams_collection"),
+    (pull_a_person_to_enter, "spieler_collection"),
     (anchor_a_booked_venue, "spielorte_collection"),
     (anchor_a_booked_referee, "schiedsrichter_collection"),
     (_pull_the_season_a_ban_counts_from, "saisons_collection"),
     (pull_the_list_to_judge, "berechtigungen_collection"),
     (anchor_the_actors_grant, "berechtigungen_collection"),
+    (erase_if_still_due, "saisons_collection"),
+    (pull_the_season_after, "saisons_collection"),
 )
 
 ANCHORING_FUNCTIONS = tuple(function for function, _ in ANCHORS)
 
 # Every helper whose read a guarded refusal is judged on. The two booking reads sit apart from their
 # anchors, which the save takes once the whole payload is judged, so they are held here by name.
-JUDGED_READS: tuple[Callable[..., Any], ...] = (*CHOKE_POINT_FUNCTIONS, pull_a_club_to_enter, pull_booked_venue, pull_booked_referee)
+JUDGED_READS: tuple[Callable[..., Any], ...] = (
+    *CHOKE_POINT_FUNCTIONS,
+    pull_a_club_to_enter,
+    pull_a_person_to_enter,
+    pull_booked_venue,
+    pull_booked_referee,
+)
 
 # Every scope reaching a rule judged BESIDE its anchor rather than inside the helper taking it, or
 # choosing what such a rule judges: a site added beside these judges a row nothing conflicts with.
@@ -388,3 +412,176 @@ def test_every_caller_hands_the_choke_point_a_transactions_session(function: str
     for module, scope, call in app_calls():
         if callee(call) == function:
             assert carries_session(call), f"{module} :: {scope} reaches {function} without the session"
+
+
+# Every scope writing an address's anchor (`docs/backend/spec.md :: I719`): each writer an address enters a record
+# through from a payload, the erasure ahead of its steps, and the person's judge after a write.
+ADDRESS_ANCHORS: frozenset[str] = frozenset(
+    {
+        "app/api/berechtigungen/admin_router.py :: judge_and_grant",
+        "app/api/bewerbungen/admin_router.py :: correct_and_mint",
+        "app/api/bewerbungen/admin_router.py :: seat_and_mint",
+        "app/api/bewerbungen/public_router.py :: store_or_replay",
+        "app/api/registrierungen/public_router.py :: store_or_replay",
+        "app/api/schiedsrichter/admin_router.py :: judge_and_create",
+        "app/api/schiedsrichter/admin_router.py :: rename_and_fan_out",
+        "app/api/spieler/admin_router.py :: judge_and_mint_the_change",
+        "app/api/teams/admin_router.py :: rewrite_the_block",
+        "app/api/identitaet/crud.py :: erase_everything",
+        "app/core/security.py :: judging_the_person",
+    }
+)
+
+# Every question `app/api/sperrliste/lookup.py` puts to the ban list.
+BAN_LOOKUPS: tuple[Callable[..., Any], ...] = (adressen_gesperrt, hash_gesperrt, hashes_gesperrt)
+
+A_READ = "a read, storing nothing"
+THE_ERASURE = "the erasure's own step, its anchor written by `erase_everything`"
+THE_STORED_GRANTS = "judges the stored grants, anchoring each (I438), and stores no address they lack"
+STORED_ADDRESS = "mints or answers for the address the record already holds"
+THE_ACTORS_JUDGE = "the actor's judge, a read"
+THE_PERSONS_VERDICT = "a person's own sign-in verdict, a read"
+
+# A write asking the ban list of an address is how one storing a NEW address shows itself, a ban refusing exactly that,
+# so each such scope anchors or says why the address it writes was already the record's.
+ASKING_AND_ANCHORING_NOTHING: dict[str, str] = {
+    "app/api/aktionen/admin_router.py :: _as_served": A_READ,
+    "app/api/aktionen/admin_router.py :: get_aktion_by_id": A_READ,
+    "app/api/aktionen/admin_router.py :: get_aktionen": A_READ,
+    "app/api/berechtigungen/admin_router.py :: get_berechtigungen": A_READ,
+    "app/api/berechtigungen/admin_router.py :: judge_and_change": THE_STORED_GRANTS,
+    "app/api/berechtigungen/admin_router.py :: judge_and_revoke": THE_STORED_GRANTS,
+    "app/api/berechtigungen/crud.py :: live_unbarred_grant_in": THE_ACTORS_JUDGE,
+    "app/api/berechtigungen/crud.py :: live_unbarred_grant_since": THE_ACTORS_JUDGE,
+    "app/api/berechtigungen/erasure.py :: erase_grants_and_authorship_in_session": THE_ERASURE,
+    "app/api/berechtigungen/sweep_router.py :: queue_and_claim": THE_STORED_GRANTS,
+    "app/api/bewerbungen/admin_router.py :: mint_unless_gesperrt": STORED_ADDRESS,
+    "app/api/bewerbungen/admin_router.py :: refuse_a_barred_address": STORED_ADDRESS,
+    "app/api/bewerbungen/einwilligung_router.py :: _saison_ansicht": A_READ,
+    "app/api/bewerbungen/einwilligung_router.py :: answer_for_the_person": STORED_ADDRESS,
+    "app/api/bewerbungen/einwilligung_router.py :: answer_on_the_season_row": STORED_ADDRESS,
+    "app/api/bewerbungen/einwilligung_router.py :: get_einwilligung_ansicht": A_READ,
+    "app/api/bewerbungen/public_router.py :: _answer_as_the_first": "a replay, which stores nothing",
+    "app/api/bewerbungen/public_router.py :: _any_gesperrt": "the submission's question, its callers held here in turn",
+    "app/api/bewerbungen/router.py :: _as_served": A_READ,
+    "app/api/bewerbungen/router.py :: get_bewerbung_by_id": A_READ,
+    "app/api/bewerbungen/router.py :: get_bewerbungen": A_READ,
+    "app/api/bewerbungen/sweep_router.py :: remind": STORED_ADDRESS,
+    "app/api/identitaet/admin_router.py :: erase_the_address": THE_ERASURE,
+    "app/api/identitaet/admin_router.py :: get_erasure_ansicht_auf_anfrage": A_READ,
+    "app/api/identitaet/crud.py :: erase_if_still_due": THE_ERASURE,
+    "app/api/identitaet/person_router.py :: erase_the_address": THE_ERASURE,
+    "app/api/identitaet/person_router.py :: get_erasure_ansicht": A_READ,
+    "app/api/identitaet/router.py :: get_anmeldung": A_READ,
+    "app/api/identitaet/router.py :: get_gesperrt": A_READ,
+    "app/api/identitaet/router.py :: get_subjekt": A_READ,
+    "app/api/identitaet/sweep_router.py :: erase_the_pupil_if_still_due": THE_ERASURE,
+    "app/api/registrierungen/einwilligung_router.py :: answer_for_the_pupil": STORED_ADDRESS,
+    "app/api/registrierungen/einwilligung_router.py :: get_bestaetigung_ansicht": A_READ,
+    "app/api/registrierungen/person_router.py :: admit_the_pupil": "copies the address of a registration it deletes, as the erasure does",
+    "app/api/registrierungen/public_router.py :: _answer_as_the_first": "a replay, which stores nothing",
+    "app/api/registrierungen/router.py :: get_registrierungen": A_READ,
+    "app/api/registrierungen/sweep_router.py :: remind": STORED_ADDRESS,
+    "app/api/saisons/admin_router.py :: _gesperrte_empfaenger": A_READ,
+    "app/api/saisons/admin_router.py :: post_einladungen_versand": STORED_ADDRESS,
+    "app/api/saisons/admin_router.py :: preview_einladungen_versand": A_READ,
+    "app/api/schiedsrichter/admin_router.py :: judge_and_mint": STORED_ADDRESS,
+    "app/api/schiedsrichter/admin_router.py :: judge_and_remint_the_change": "re-mints the stored pending address",
+    "app/api/schiedsrichter/admin_router.py :: reactivate_and_ask": STORED_ADDRESS,
+    "app/api/schiedsrichter/adresswechsel_router.py :: answer_for_the_mailbox": "consumes the pending change the erasure removes",
+    "app/api/schiedsrichter/adresswechsel_router.py :: get_adresswechsel_ansicht": A_READ,
+    "app/api/schiedsrichter/bestaetigung_router.py :: answer_for_the_person": STORED_ADDRESS,
+    "app/api/schiedsrichter/bestaetigung_router.py :: get_bestaetigung_ansicht": A_READ,
+    "app/api/sperrliste/admin_router.py :: get_sperrliste": A_READ,
+    "app/api/sperrliste/admin_router.py :: judge_and_ban": "stores a keyed hash, its author held by the grant anchor",
+    "app/api/spieler/admin_router.py :: judge_and_remint_the_change": "re-mints the stored pending address",
+    "app/api/spieler/adresswechsel_router.py :: answer_for_the_mailbox": "consumes the pending change the erasure removes",
+    "app/api/spieler/adresswechsel_router.py :: get_adresswechsel_ansicht": A_READ,
+    "app/api/teams/admin_router.py :: get_einladung": A_READ,
+    "app/api/teams/admin_router.py :: judge_and_mint": STORED_ADDRESS,
+    "app/core/security.py :: grant_since": THE_ACTORS_JUDGE,
+    "app/core/security.py :: is_gesperrt": THE_PERSONS_VERDICT,
+    "app/core/security.py :: judging_the_administrator": THE_ACTORS_JUDGE,
+    "app/core/security.py :: verify_actor_is_admin": THE_ACTORS_JUDGE,
+    "app/core/security.py :: verify_person_is_unbarred": THE_PERSONS_VERDICT,
+}
+
+
+def test_every_scope_anchoring_an_address_is_pinned():
+    assert _app_callers_of(anchor_the_addresses.__name__) == ADDRESS_ANCHORS
+
+
+def test_the_lookups_are_every_question_the_ban_list_module_answers():
+    """Two listings: the names above, and each function of the lookup module handing a question to the list's own reads."""
+
+    module = module_of(hash_gesperrt).relative_to(BACKEND_ROOT).as_posix()
+    reads = {
+        name
+        for name, value in vars(sperrliste_crud).items()
+        if inspect.iscoroutinefunction(value) and value.__module__ == sperrliste_crud.__name__
+    }
+    answering = {scope for where, scope, call in app_calls() if where == module and callee(call) in reads}
+
+    assert answering == {lookup.__name__ for lookup in BAN_LOOKUPS}
+
+
+def _transactional_scopes() -> frozenset[str]:
+    return frozenset(callback.where for callback in transactional_callbacks(WRITE_HELPERS)) | HOOKED_CALLERS
+
+
+def _asking_the_ban_list(transactional: frozenset[str]) -> set[str]:
+    """Every scope reaching a ban-list question: each lookup's callers, then in turn the callers of each that is no transaction's callback.
+
+    A wrapper's entry above so never hides the writes calling it, a name read as any caller spells it.
+    """
+
+    asking: set[str] = set()
+    pending = [lookup.__name__ for lookup in BAN_LOOKUPS]
+    while pending:
+        for caller in _app_callers_of(pending.pop()) - asking:
+            asking.add(caller)
+            if caller not in transactional:
+                pending.append(caller.split(" :: ")[1])
+
+    return asking
+
+
+def test_every_write_asking_the_ban_list_of_an_address_anchors_it():
+    """Two listings by different routes: a new writer storing an address asks the ban list, and fails here until it anchors."""
+
+    assert _asking_the_ban_list(_transactional_scopes()) - _app_callers_of(anchor_the_addresses.__name__) == set(ASKING_AND_ANCHORING_NOTHING)
+
+
+@pytest.mark.parametrize("function", [anchor_the_addresses, anchor_by_id_in_db], ids=lambda function: function.__name__)
+def test_an_address_anchor_cannot_be_written_without_the_transactions_session(function: Callable[..., Any]):
+    session = inspect.signature(function).parameters["session"]
+
+    assert session.kind is inspect.Parameter.KEYWORD_ONLY
+    assert session.default is inspect.Parameter.empty
+
+    for module, scope, call in app_calls():
+        if callee(call) == function.__name__:
+            assert carries_session(call), f"{module} :: {scope} reaches {function.__name__} without the session"
+
+
+def _held_by_a_transaction(scope: str, transactional: frozenset[str], passed: frozenset[str] = frozenset()) -> bool:
+    """A transaction's callback, or a helper every caller of which is one in turn, its name read as any caller spells it."""
+
+    if scope in transactional:
+        return True
+
+    callers = _app_callers_of(scope.split(" :: ")[1])
+
+    return bool(callers) and all(caller not in passed and _held_by_a_transaction(caller, transactional, passed | {scope}) for caller in callers)
+
+
+def test_an_address_anchor_is_written_inside_a_transaction():
+    """As the choke points' callers are held: an anchor committed outside a transaction meets nobody.
+
+    By id through the fold and the key alone, so no caller anchors a spelling the erasure never writes.
+    """
+
+    transactional = _transactional_scopes()
+
+    assert _app_callers_of(anchor_by_id_in_db.__name__) == {"app/core/adressanker.py :: anchor_the_addresses"}
+    assert {scope for scope in ADDRESS_ANCHORS if not _held_by_a_transaction(scope, transactional)} == set()

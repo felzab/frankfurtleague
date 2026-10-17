@@ -16,8 +16,11 @@ export function CreateModal({ label, heading, children }: { label: string; headi
 
   return (
     <>
+      {/* `aria-expanded` as React Aria's own dialog trigger states it; never `aria-haspopup="dialog"`, which React
+          Aria leaves off because screen readers announce it as a menu. */}
       <Button
         onPress={modalState.open}
+        aria-expanded={modalState.isOpen}
         className={formButton({ intent: "trigger" })}>
         <Plus
           aria-hidden="true"

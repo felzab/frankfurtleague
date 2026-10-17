@@ -20,6 +20,9 @@ export const TEAMS_CRUD_COPY = {
 export const TEAM_RETIREMENT_CONSEQUENCE =
   "Seine Spiele, Saisons und Tabellen bleiben erhalten, und sein Kürzel bleibt reserviert. Das Team steht nur nicht mehr zur Auswahl.";
 
+/** Why the list's row and the editor's header both close the retirement `REQ-RETIRE-001` would refuse, in one sentence. */
+export const TEAM_NICHT_STILLLEGBAR = "Stilllegen ist nur möglich, wenn das Team in keiner laufenden oder geplanten Saison spielt.";
+
 export const KONTAKTE_CRUD_COPY = {
   searchLabel: "Kontakte suchen",
   searchPlaceholder: "z.B. Erika Mustermann oder eine E-Mail-Adresse",
@@ -28,6 +31,12 @@ export const KONTAKTE_CRUD_COPY = {
   emptyForFilters: "Keine Kontakte für diese Filter.",
   emptyOverall: "Für diese Saison wurden noch keine Kontakte hinterlegt.",
 } as const;
+
+/** The club editor's season panel, named by its heading where a sentence sends the reader to it, so a renamed panel takes the sentence with it. */
+export const SAISON_ABSCHNITT = "Saison";
+
+/** The club editor's contacts panel, named by its heading where a refusal sends the reader to it, so a renamed panel takes the refusal with it. */
+export const KONTAKTE_ABSCHNITT = "Kontakte";
 
 /**
  * The closed set, in the order every picker offers it. The ONE spelling on this surface, and here

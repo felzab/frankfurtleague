@@ -186,7 +186,8 @@ describe("where the landing takes a person", () => {
   });
 
   /* The grant is what makes an address an administrator's, so one whose verdict lapsed, past its
-     window or short of the passkey, owes the admin subtree's step rather than a person's landing. */
+     window or short of the passkey, owes a fresh sign-in or its passkey step, reached through
+     `/bereich/admin`, not a person's landing. */
   it("sends an address holding a grant whose administrator verdict lapsed to the admin subtree", async () => {
     setSubject(person({ spieler: [{ spieler_id: TEAM_A }], verwaltung: "administration", berechtigt_seit: "2026-01-01T00:00:00Z" }));
     assert.deepEqual(await redirectsOf(PersoenlichStartPage), ["/bereich/admin"]);

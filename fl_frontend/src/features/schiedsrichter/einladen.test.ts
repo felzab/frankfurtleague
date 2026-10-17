@@ -141,6 +141,17 @@ describe("the re-send the editor's panel presses", () => {
     }
   });
 
+  /* As the save reports its own link: a barred send is filed rather than failed (`docs/frontend/spec.md :: I542`). */
+  it("reports a re-sent link that did not leave as failed, and a barred one as barred", async () => {
+    mail.answerWith(() => "refused");
+    const refused = await einladeSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });
+    mail.answerWith(() => "barred");
+    const barred = await einladeSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });
+
+    assert.equal(refused.success && refused.versand, "fehlgeschlagen");
+    assert.equal(barred.success && barred.versand, "gesperrt");
+  });
+
   it("answers a re-send whose link broke off in transit as of unknown outcome", async () => {
     mail.answerWith(() => "lost");
 
@@ -305,27 +316,26 @@ describe("what the save hands the editor about the message it sent", () => {
 
     assert.equal(res.success && res.message, "Schiedsrichter bearbeitet");
     assert.equal(res.success && res.versandSatz, describeLinkMail("korrigiert@example.de", "gesendet"));
-    assert.equal(res.success && res.versandFehlgeschlagen, false);
+    assert.equal(res.success && res.versand, "gesendet");
   });
 
-  it("marks a send that did not leave, so the editor can grade its toast", async () => {
+  it("reports a send that did not leave, so the editor can grade its toast", async () => {
     mail.answerWith(() => "refused");
 
     const res = await patchSchiedsrichterAction({ ...ENTWURF, id: SCHIEDSRICHTER_ID });
 
     assert.equal(res.success && res.versandSatz, describeLinkMail("korrigiert@example.de", "fehlgeschlagen"));
-    assert.equal(res.success && res.versandFehlgeschlagen, true);
+    assert.equal(res.success && res.versand, "fehlgeschlagen");
   });
 
-  /* Outside production every send is withheld, and a warning there grades every local save as one
-     whose link failed to leave. */
-  it("marks no failure where this deployment withheld the send, and says so in the deployment's words", async () => {
+  /* Outside production every send is withheld: filed by the deployment, never a failure of the mailbox. */
+  it("reports no failure where this deployment withheld the send, and says so in the deployment's words", async () => {
     mail.answerWith(() => "withheld");
 
     const res = await patchSchiedsrichterAction({ ...ENTWURF, id: SCHIEDSRICHTER_ID });
 
     assert.equal(res.success && res.versandSatz, ZURUECKGEHALTEN);
-    assert.equal(res.success && res.versandFehlgeschlagen, false);
+    assert.equal(res.success && res.versand, "zurueckgehalten");
   });
 
   /* A link whose connection broke off may have reached the provider: `mailSchiedsrichterLink`'s own
@@ -365,16 +375,16 @@ describe("the reactivation of an unanswered referee", () => {
       mail.sent.map(({ to, tags }) => ({ to, zielId: tags?.ziel_id })),
       [{ to: "anna@example.de", zielId: SCHIEDSRICHTER_ID }],
     );
-    assert.equal(res.success && res.versandFehlgeschlagen, false);
+    assert.equal(res.success && res.versand, "gesendet");
   });
 
-  it("marks a link that did not leave, so the row can grade its toast", async () => {
+  it("reports a link that did not leave, so the row can grade its toast", async () => {
     mail.answerWith(() => "refused");
 
     const res = await reactivateSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });
 
     assert.equal(res.success && res.message, describeLinkMail("anna@example.de", "fehlgeschlagen"));
-    assert.equal(res.success && res.versandFehlgeschlagen, true);
+    assert.equal(res.success && res.versand, "fehlgeschlagen");
   });
 
   it("answers a reactivation whose link broke off in transit as of unknown outcome", async () => {

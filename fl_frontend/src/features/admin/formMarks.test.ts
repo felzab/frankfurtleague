@@ -241,7 +241,16 @@ const FORMS: Record<string, FormCase> = {
     module: "features/spieler/components/forms/AdminSpielerEditForm/AdminSpielerEditForm.tsx",
     marks: async () => {
       const { AdminSpielerEditForm } = await import("@/features/spieler/components/forms/AdminSpielerEditForm/AdminSpielerEditForm.tsx");
-      const spieler = { id: "68c1f0a2b3c4d5e6f7a8b9c0", vorname: "Lena", nachname: "Meier", inactive_since: null, geburtsdatum: null };
+      const spieler = {
+        id: "68c1f0a2b3c4d5e6f7a8b9c0",
+        vorname: "Lena",
+        nachname: "Meier",
+        inactive_since: null,
+        geburtsdatum: null,
+        email: null,
+        adresswechsel: null,
+        adresswechsel_abgelaufen: false,
+      };
       const membership = {
         team_id: TEAM_A.teamId,
         nummer: "10",
@@ -263,7 +272,6 @@ const FORMS: Record<string, FormCase> = {
             membership: withMembership ? membership : null,
           },
           teams: [TEAM_A, TEAM_B],
-          membershipCount: withMembership ? 1 : 0,
           pageHeader: { title: "Lena Meier" },
         } as never);
       const rostered = await marksOf(editor(true));
@@ -424,7 +432,7 @@ const FORMS: Record<string, FormCase> = {
             bewerbung: null,
             registrierung: null,
           },
-          rollover: { outgoingSaisonId: null, offeneSpiele: [], hasUndatierteSpieltage: false },
+          rollover: { outgoingSaisonId: null, offeneSpiele: [], hasUndatierteSpieltage: false, loeschung: null },
           swap: { teams: [], playedKnockoutSpiele: 0 },
           ersatz: { rows: [], candidates: [] },
           spielplan: {
@@ -638,7 +646,6 @@ const FORMS: Record<string, FormCase> = {
         h(BestaetigungFormPanel, {
           fassung: laufendeKontaktFassung(),
           token: "kein-echtes-token",
-          vorname: "Mira",
           schule: "Lessing-Kolleg",
           saison: "2026",
           rolle: "Ansprechperson",
@@ -733,7 +740,6 @@ const FORMS: Record<string, FormCase> = {
         team: "Lessing-Kolleg",
         schule: "Lessing-Kolleg Oberstufengymnasium",
         saison_id: "2026",
-        vorname: "Mira",
         seite: fassung.seite,
         mindestalter: 16,
         medien_mindestalter: 18,
@@ -771,7 +777,6 @@ const FORMS: Record<string, FormCase> = {
             ansicht: {
               acknowledged: 1,
               zustand: "gueltig",
-              vorname: "Anna",
               text_version: fassung.textVersion,
               mindestalter: 16,
               medien_mindestalter: 18,

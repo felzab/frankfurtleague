@@ -10,7 +10,6 @@ import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
 import {
   ALREADY_IN_SAISON,
-  ERASURE_NEEDS_RETIREMENT,
   RETIREMENT_CONSEQUENCE,
   RETIREMENT_KEEPS_SQUAD_ROWS,
   SPIELER_ANONYM_LABEL,
@@ -22,7 +21,6 @@ doubleEveryAction();
 /* Reached with `await import` and never a static import beside the harness: the JSX compile step is
    registered as `renderTest` evaluates, and a static import resolves before that. */
 const { FormAustragenSection } = await import("./components/forms/AdminSpielerEditForm/FormAustragenSection.tsx");
-const { FormLoeschenSection } = await import("./components/forms/AdminSpielerEditForm/FormLoeschenSection.tsx");
 
 /**
  * A masculine word standing for the pupil: the demonstrative on the noun, the possessive, and the
@@ -61,29 +59,6 @@ describe("the squad-row panel a player is taken out of a season on", () => {
   });
 });
 
-describe("the erasure panel", () => {
-  const shown = (isRetired: boolean): string =>
-    read(
-      acrossContexts(
-        h(FormLoeschenSection, { spielerId: "68c1f0a2b3c4d5e6f7a8b9c0", fullName: "Lena Bergmann", isRetired: isRetired, membershipCount: 2 }),
-      ),
-    );
-
-  it("names the pupil as this panel's own prose already does, in both of its arms", () => {
-    const gesperrt = shown(false);
-
-    assert.match(gesperrt, /Diese Person ist nicht stillgelegt/, "the notice heads the refusal with a masculine demonstrative");
-    assert.ok(gesperrt.includes(ERASURE_NEEDS_RETIREMENT), "the notice no longer carries the repair the action toasts");
-    // Both arms, the offered one being where the press actually stands.
-    for (const [arm, text] of [
-      ["the blocked arm", gesperrt],
-      ["the offered arm", shown(true)],
-    ] as const) {
-      assert.doesNotMatch(text, MASKULIN, `${arm}: the panel names the pupil with a masculine word`);
-    }
-  });
-});
-
 describe("the retirement dialog's second step", () => {
   it("names the pupil neutrally in the consequence it escalates to", () => {
     assert.match(RETIREMENT_CONSEQUENCE, /Die Kadereinträge dieser Person bleiben/, "the consequence stopped naming what survives");
@@ -103,12 +78,6 @@ describe("the sentences the player's own write paths answer with", () => {
     }
 
     assert.deepEqual(namedMasculine, [], "an answer names the pupil with a masculine word");
-  });
-
-  /* The repair the erasure refusal points at, which the panel above renders and the action toasts. */
-  it("names the pupil neutrally in the erasure's precondition", () => {
-    assert.doesNotMatch(ERASURE_NEEDS_RETIREMENT, MASKULIN, "the repair names the pupil with a masculine word");
-    assert.match(ERASURE_NEEDS_RETIREMENT, /in ihrer Zeile/, "the repair stopped saying which row holds the control");
   });
 });
 

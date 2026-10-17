@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
+import { FINALRUNDEN_EINTRAG, HANDLUNGSBEDARF_EINTRAG, SPIELSUCHE_EINTRAG } from "@/features/admin/constants.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 import { saisonRules } from "@/shared/testing/saisonRules.ts";
@@ -41,14 +42,14 @@ describe("what the season list says while no season runs", () => {
   /* Only an empty league leaves those pages nothing to show: before a first activation they open on the
      planned season. */
   it("asks for a season only where the league holds none", () => {
-    const ANLEGEN = /Lege eine Saison an, damit Handlungsbedarf, Finalrunden und Spielsuche etwas zeigen\./;
+    const ANLEGEN = `Lege eine Saison an, damit „${HANDLUNGSBEDARF_EINTRAG.label}“, „${FINALRUNDEN_EINTRAG.label}“ und „${SPIELSUCHE_EINTRAG.label}“ etwas zeigen.`;
 
-    assert.match(viewText([]), ANLEGEN);
+    assert.ok(viewText([]).includes(ANLEGEN), viewText([]));
     for (const saisons of [[saison("2027", "future")], [saison("2025", "past")], [saison("2025", "past"), saison("2027", "future")]]) {
       const text = viewText(saisons);
 
       assert.match(text, /Derzeit ist keine Saison aktiv/, "the notice is gone, so the absence below proves nothing");
-      assert.doesNotMatch(text, ANLEGEN, JSON.stringify(saisons.map(({ status }) => status)));
+      assert.ok(!text.includes(ANLEGEN), JSON.stringify(saisons.map(({ status }) => status)));
     }
   });
 

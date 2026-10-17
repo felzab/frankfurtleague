@@ -3,7 +3,7 @@ import { after, beforeEach, describe, it } from "node:test";
 
 import { ADMIN_EMAIL, configDouble, cookieHeader, ORIGIN, registerAuthDoubles, signInByCode } from "@/core/authDoubles.ts";
 import { beginRenderPass, itOpensAScopeThatMemoizes, leaveRenderPass, serveServerReactTo } from "@/core/cacheScope.ts";
-import { startJudgedReplicaSet } from "@/core/expiredTransactions.ts";
+import { replicaSetUrl, startJudgedReplicaSet } from "@/core/expiredTransactions.ts";
 import { overridingModule } from "@/core/exportingModule.ts";
 
 import type { CommandStartedEvent, MongoClient } from "mongodb";
@@ -22,7 +22,7 @@ const errors: string[] = [];
 
 registerAuthDoubles({
   core: {
-    config: configDouble({}, { mongodbUri: () => `${mongod.getConnectionString()}/?directConnection=true` }),
+    config: configDouble({}, { mongodbUri: () => replicaSetUrl(mongod) }),
     db: overridingModule(PRODUCTION_DB, {}),
     logging: {
       logger: { debug: () => undefined, info: () => undefined, warn: () => undefined, error: (message: string) => void errors.push(message) },

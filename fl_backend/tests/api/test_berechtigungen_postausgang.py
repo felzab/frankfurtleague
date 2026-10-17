@@ -19,13 +19,17 @@ NEU = FLBerechtigungStand(adresse="nora.neu@beispielschule.de", verwaltung="admi
 
 
 def test_an_acting_administrator_barred_when_queued_is_stored_withheld_and_still_the_applications():
-    """The actor is stored folded, the spelling a barred set holds; withheld, `urheber` alone says who made the change."""
+    """The actor is stored folded, the spelling a barred set holds; withheld, `urheber` alone says who made the change.
+
+    No reason is stored: it is the grant address's, and the grant's address here is nobody's ban.
+    """
 
     row = compose_postausgang(
         berechtigung_id=GRANT, art="erteilt", jetzt=NEU, vorher=None, geaendert_von="Anna.Admin@Frankfurtleague.de", now=NOW, gesperrt={ANNA}
     )
 
-    assert (row["geaendert_von"], row["urheber"], row["vorenthalten"], row["geaendert_am"]) == (None, "anwendung", "gesperrt", NOW)
+    assert (row["geaendert_von"], row["urheber"], row["vorenthalten"], row["geaendert_am"]) == (None, "anwendung", None, NOW)
+    assert row["jetzt"] == NEU.model_dump()
 
 
 def test_an_unbarred_actor_is_stored_folded_with_no_reason():

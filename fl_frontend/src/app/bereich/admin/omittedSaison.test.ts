@@ -118,6 +118,8 @@ const spieler = (saisons: FLSaison[]) => ({
   geburtsdatum: null,
   einwilligung: null,
   email: null,
+  adresswechsel: null,
+  adresswechsel_abgelaufen: false,
   memberships: saisons.map((entry) => ({
     saison_id: entry.id,
     team_id: OBJECT_ID,
@@ -255,27 +257,41 @@ const READ_ROUTES = Object.entries(OPENAPI.paths)
 const routeOf = (endpoint: string) =>
   READ_ROUTES.find(({ literal }) => literal === endpoint) ?? READ_ROUTES.find(({ pattern }) => pattern.test(endpoint));
 
-/** The reads among them whose omitted season means every season rather than the running one. */
-const EVERY_SEASON_WHEN_OMITTED: Record<string, string> = {
-  "/api/v0/bewerbungen": "the queue across every season, as `saisonbezug` with both values is",
+const label = (page: string) => path.relative(APP_DIR, page).split(path.sep).join("/");
+
+/**
+ * The reads whose omitted season means every season rather than the running one, by page and then
+ * endpoint: keyed by endpoint alone, any other page omitting the season on one would go unjudged.
+ */
+const EVERY_SEASON_WHEN_OMITTED: Record<string, Record<string, string>> = {
+  "bewerbungen/page.tsx": { "/api/v0/bewerbungen": "the queue across every season, as `saisonbezug` with both values is" },
+  "registrierungen/page.tsx": {
+    "/api/v0/registrierungen": "the pending registrations of every season, a planned season's stranded ones among them",
+  },
 };
 
-const label = (page: string) => path.relative(APP_DIR, page).split(path.sep).join("/");
+/** Whether one page's read is among those, sent with no season and so reading every season by design. */
+const readsEverySeason = (page: string, endpoint: string, params: Record<string, unknown>): boolean =>
+  (params.saison_id === undefined || params.saison_id === null) &&
+  EVERY_SEASON_WHEN_OMITTED[label(page)]?.[routeOf(endpoint)?.template ?? ""] !== undefined;
 
 /** Each read one page makes with no season named, against an endpoint that resolves it to the running one. */
 function omitting(page: string, pageReads: Read[]): string[] {
   return pageReads.flatMap(({ endpoint, params }) => {
     if (params.saison_id !== undefined && params.saison_id !== null) return [];
     const hit = routeOf(endpoint);
-    if (hit === undefined || !hit.takesSaison || EVERY_SEASON_WHEN_OMITTED[hit.template] !== undefined) return [];
+    if (hit === undefined || !hit.takesSaison || readsEverySeason(page, endpoint, params)) return [];
     return [`${label(page)} :: ${endpoint}`];
   });
 }
 
-/** Each read one page makes against an endpoint taking a season, naming any season but `expected`. */
+/**
+ * Each read one page makes against an endpoint taking a season, naming any season but `expected`. One
+ * reading every season by design is spared only while it names none: naming another is still a wrong season.
+ */
 function naming(page: string, pageReads: Read[], expected: string): string[] {
   return pageReads.flatMap(({ endpoint, params }) =>
-    routeOf(endpoint)?.takesSaison === true && params.saison_id !== expected
+    routeOf(endpoint)?.takesSaison === true && params.saison_id !== expected && !readsEverySeason(page, endpoint, params)
       ? [`${label(page)} :: ${endpoint} :: ${String(params.saison_id)}`]
       : [],
   );
@@ -301,6 +317,7 @@ const PAGES = filesUnder(APP_DIR, (name) => name === "page.tsx", 20);
 /** The pages that make no read in any league, and why none is theirs to make. */
 const READS_NOTHING: Record<string, string> = {
   "[...unmatched]/page.tsx": "the admin 404, answered before any read for an address no other route takes",
+  "loeschung/page.tsx": "a request by mail answered on two panels, each reading only once its own press names an address",
 };
 /* A `[saison_id]` segment names the page's subject, which `resolveSaisonIdParam` answers with no
    fallback, and a season-bearing record's editor reads the season its record carries (I359): neither
@@ -349,6 +366,14 @@ describe("the season every admin page reads", () => {
     assert.deepEqual(omitting(page, [{ endpoint: "/spiele/list/admin", params: {} }]), ["control/page.tsx :: /spiele/list/admin"]);
     assert.deepEqual(omitting(page, [{ endpoint: "/spiele/list/admin", params: { saison_id: "2026" } }]), []);
     assert.equal(naming(page, [{ endpoint: "/spiele/list/admin", params: { saison_id: "2025" } }], "2026").length, 1);
+    // A page reading every season by design is spared for naming none on its own read, and only there.
+    const everySeason = path.join(APP_DIR, "registrierungen", "page.tsx");
+    assert.deepEqual(naming(everySeason, [{ endpoint: "/registrierungen", params: {} }], "2026"), []);
+    assert.deepEqual(omitting(everySeason, [{ endpoint: "/registrierungen", params: {} }]), []);
+    assert.equal(naming(everySeason, [{ endpoint: "/registrierungen", params: { saison_id: "2025" } }], "2026").length, 1);
+    assert.equal(naming(page, [{ endpoint: "/bewerbungen", params: {} }], "2026").length, 1);
+    assert.equal(omitting(page, [{ endpoint: "/bewerbungen", params: {} }]).length, 1);
+    assert.equal(naming(everySeason, [{ endpoint: "/bewerbungen", params: {} }], "2026").length, 1);
 
     picks.length = 0;
     const row = tracked({ saison_id: "2025", gruppe: "A" });

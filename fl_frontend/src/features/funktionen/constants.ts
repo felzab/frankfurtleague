@@ -3,9 +3,18 @@ import Person from "@gravity-ui/icons/Person";
 import PersonPencil from "@gravity-ui/icons/PersonPencil";
 import Tray from "@gravity-ui/icons/Tray";
 
+import { DEIN_BEREICH_TITEL } from "@/core/seitenNamen";
+
 import type { SidemenuHint, SidemenuStructure, SidemenuStructureSubOption } from "@/shared/types/types";
 import type React from "react";
 import type { TeamSeat } from "./teamSeats";
+
+/**
+ * The erasure's `anlass` bound, mirrored from `fl_backend/app/shared/schemas/bounds.py` and paired with it by
+ * `fl_backend/tests/shared/test_frontend_mirrors.py :: MIRRORED_BOUNDS`. Bound here too because the endpoint's
+ * `REQ-VAL-001` marks an over-long box with a generic sentence rather than the bound's German.
+ */
+export const ERASURE_ANLASS_MAX_LENGTH = 200;
 
 /** `PersonIconName` is derived from this, so an `iconName` typo below is a compile error. */
 export const PERSON_SIDEMENU_ICONS = {
@@ -19,9 +28,9 @@ export type PersonIconName = keyof typeof PERSON_SIDEMENU_ICONS;
 
 /** What the bar reads on an address inside `/bereich` that no page claims, the catch-all's 404 among them. */
 export const PERSON_SHELL_FALLBACK = {
-  label: "Dein Bereich",
+  label: DEIN_BEREICH_TITEL,
   hint: {
-    lead: "Diese Adresse gehört zu keiner Seite Deines Bereichs.",
+    lead: `Diese Adresse gehört zu keiner Seite unter „${DEIN_BEREICH_TITEL}“.`,
   },
 } as const satisfies { label: string; hint: SidemenuHint };
 
@@ -32,7 +41,7 @@ export const PERSON_SHELL_FALLBACK = {
 export const PERSON_SHELL_CRASH = {
   label: PERSON_SHELL_FALLBACK.label,
   hint: {
-    lead: "Dein Bereich lässt sich gerade nicht laden.",
+    lead: `„${DEIN_BEREICH_TITEL}“ lässt sich gerade nicht laden.`,
   },
 } as const satisfies { label: string; hint: SidemenuHint };
 
@@ -156,3 +165,9 @@ export const TEAM_SIDEMENU_STRUCTURE: SidemenuStructure<TeamIconName> = [{ categ
 export function teamStructureFor(seats: readonly TeamSeat[]): SidemenuStructure<TeamIconName> {
   return seats.length === 0 ? [] : TEAM_SIDEMENU_STRUCTURE;
 }
+
+/**
+ * The most addresses one references read judges, mirroring the backend's `REFERENZEN_ADRESSEN_MAX`
+ * (`fl_backend/app/shared/schemas/bounds.py`): a larger batch is refused whole, every pass alike.
+ */
+export const REFERENZEN_ADRESSEN_MAX = 250;

@@ -143,3 +143,44 @@ describe("a press of the address change's link nobody can tell landed", () => {
     });
   }
 });
+
+describe("a re-send whose link or notice did not go out", () => {
+  /* The earlier link is dead whichever way the new one went, so a failed or held-back link is a warning, and so
+     is a failed notice, named in the title (`docs/frontend/spec.md :: I737`); one held back asks nothing. */
+  for (const [versand, hinweis, variant, title] of [
+    ["fehlgeschlagen", null, "warning", "Link nicht verschickt"],
+    ["gesperrt", null, "warning", "Link zurückgehalten"],
+    ["gesendet", "fehlgeschlagen", "warning", "Link gesendet, Hinweis nicht verschickt"],
+    ["gesperrt", "fehlgeschlagen", "warning", "Link zurückgehalten, Hinweis nicht verschickt"],
+    ["fehlgeschlagen", "fehlgeschlagen", "warning", "Link und Hinweis nicht verschickt"],
+    ["gesendet", "ungewiss", "warning", "Link gesendet, Hinweis unklar"],
+    ["gesendet", "gesperrt", "success", "Link gesendet"],
+  ] as const) {
+    it(`is titled „${title}“ where the link is ${versand} and the notice ${String(hinweis)}`, async () => {
+      answerWith(() => Promise.resolve({ success: true, message: "Nicht raus.", versand: versand, hinweis: hinweis }));
+      const before = toasts.length;
+      const { unmount } = render(
+        underNext(
+          h(FormAdresswechselSection, {
+            schiedsrichterId: "6890a1b2c3d4e5f607800001",
+            adresswechsel: OFFEN,
+            istAbgelaufen: false,
+            isDirty: false,
+          }),
+          { router: nextRouter() },
+        ),
+      );
+
+      await userEvent.setup().click(screen.getByRole("button", { name: ADRESSWECHSEL_ERNEUT }));
+      await act(answered);
+
+      await waitFor(() =>
+        assert.deepEqual(
+          toasts.slice(before).map((shown) => [shown.variant, shown.title]),
+          [[variant, title]],
+        ),
+      );
+      unmount();
+    });
+  }
+});

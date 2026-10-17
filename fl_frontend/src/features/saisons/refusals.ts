@@ -1,11 +1,13 @@
+import { SAISONS_EINTRAG } from "@/features/admin/constants";
 import { isRefusal } from "@/shared/utils/actionError";
 
-import { GRUPPEN_OFF_RULES, RECORDED_FACTS_NONE, SPIELTAGE_UNDATED } from "./constants";
+import { GRUPPEN_OFF_RULES, RECORDED_FACTS_NONE, REGELN_ABSCHNITT, SPIELPLAN_ABSCHNITT, SPIELTAGE_UNDATED } from "./constants";
 import { MAX_QUALIFIERS } from "./schemas";
 
 import type { FieldErrors } from "@/shared/utils/validation";
 
-const SAISON_ID_TAKEN = "Diese Saison-ID ist schon vergeben. Wähle eine andere oder bearbeite die vorhandene Saison.";
+// The box offers another id; editing the season already holding this one is the way out it lacks.
+const SAISON_ID_TAKEN = `Diese Saison-ID ist schon vergeben. Bearbeite die vorhandene Saison unter „${SAISONS_EINTRAG.label}“.`;
 
 /**
  * The stored-rules faults a DRAW raises as well as an edit, each worded once: the rules editor
@@ -16,7 +18,7 @@ const BRACKET_HAS_NO_SHAPE = `Die Zahl der Gruppen mal die Qualifikanten pro Gru
 const GROUP_OVER_QUALIFIES = "Eine Gruppe kann nicht mehr Teams qualifizieren, als sie fasst.";
 const DRAW_BEATS_WIN = "Ein Unentschieden darf nicht mehr Punkte bringen als ein Sieg.";
 const FORFEIT_CANNOT_DECIDE =
-  "Diese Saison spielt eine KO-Runde, in der ein Unentschieden niemanden weiterbringt. Sieger und Verlierer brauchen unterschiedliche Tore.";
+  "Sieger und Verlierer brauchen unterschiedliche Tore, denn in der KO-Runde bringt ein Unentschieden niemanden weiter.";
 // No count and no ceiling: both follow from the shape, and a figure typed into German is a second
 // bound nothing holds to the backend's own.
 const TOO_MANY_FIXTURES =
@@ -29,16 +31,16 @@ const TOO_MANY_FIXTURES =
  */
 const SPAN_BELOW_SCHEDULE =
   "Der Zeitraum dieser Saison ist zu kurz für die Spieltage, die sich aus ihren Regeln ergeben. Verlege das Enddatum nach " +
-  "hinten oder das Startdatum nach vorne; das hilft in jedem Fall.";
+  "hinten oder das Startdatum nach vorne. Das hilft in jedem Fall.";
 
 /** A stored-rules fault as the generator must report it: the rule, then where it is repaired. */
-const rulesFaultMessage = (fault: string): string => `${fault} Ändere die Zahlen im Abschnitt Regeln und speichere sie.`;
+const rulesFaultMessage = (fault: string): string => `${fault} Ändere die Zahlen im Abschnitt ${REGELN_ABSCHNITT} und speichere sie.`;
 
 /**
  * The same fault where the DRAW carried the numbers itself. `REQ-RULES-011` freezes them everywhere
  * else, so sending an admin to the rules panel would name a field they cannot type in.
  */
-const shapeFaultMessage = (fault: string): string => `${fault} Ändere die Zahlen im Abschnitt Spielplan und lege ihn erneut an.`;
+const shapeFaultMessage = (fault: string): string => `${fault} Ändere die Zahlen im Abschnitt ${SPIELPLAN_ABSCHNITT} und lege ihn erneut an.`;
 
 /** A rules refusal as the message it should render, or `null` when the code is none of these. */
 export function mapRulesRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
@@ -92,7 +94,7 @@ export function mapRulesRefusal(error: unknown): { error?: string; fieldErrors?:
         // toast can only hand the reader the condition to evaluate.
         error:
           "Für diese Saison sind Spiele angesetzt, deshalb sind Gruppen, Teams pro Gruppe und Qualifikanten pro Gruppe gesperrt. " +
-          "Lade die Seite neu; im Abschnitt Regeln steht dann, was sich noch ändern lässt.",
+          `Lade die Seite neu. Im Abschnitt ${REGELN_ABSCHNITT} steht dann, was sich noch ändern lässt.`,
       };
     // Bare too, and for `REQ-DATE-005`'s reason rather than a freeze's: the two counts make the
     // fixture total together, so neither is the field at fault.
@@ -173,7 +175,7 @@ export function mapSpielplanRefusal(error: unknown, carriedShape: boolean): stri
     case "REQ-DATE-009":
       return (
         `${SPAN_BELOW_SCHEDULE} Weniger Spieltage ergeben sich sonst nur aus kleineren Zahlen im Abschnitt ` +
-        `${carriedShape ? "Spielplan" : "Regeln"}, und nicht jede kleinere Zahl spart einen Spieltag.`
+        `${carriedShape ? SPIELPLAN_ABSCHNITT : REGELN_ABSCHNITT}, und nicht jede kleinere Zahl spart einen Spieltag.`
       );
     default:
       return null;

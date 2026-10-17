@@ -9,6 +9,7 @@ from app.api.sperrliste.lookup import BanList
 from app.api.sperrliste.schemas import FLPostSperrlistePayload, FLPostSperrlisteResponse
 from app.core.collections import Collection
 from tests.config import build_test_config
+from tests.records import record_collections
 
 _CONFIG = build_test_config()
 
@@ -43,6 +44,7 @@ async def ban_through_the_route(
         saisons_collection=database[Collection.SAISONS] if saisons is None else saisons,
         berechtigungen_collection=database[Collection.BERECHTIGUNGEN] if berechtigungen is None else berechtigungen,
         berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
+        records=record_collections(database),
         db=client,
         config=_CONFIG,
         erstellt_von=von,

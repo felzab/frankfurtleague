@@ -3,18 +3,18 @@ import { beforeEach, describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
+import { ERASED_ACTOR_MARKER } from "@/core/erasedActor.ts";
+import { GELOESCHTE_PERSON } from "@/features/berechtigungen/constants.ts";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
+import { assertLeerMarkup } from "@/shared/testing/leerGrade.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { answer, answerReadsWith, EMPTIEST_ANSWER, renderPage } from "@/shared/testing/pageHarness.ts";
 import { refusalWrappers, renderTree, textOf } from "@/shared/testing/renderTest.ts";
-
-import type { ReactElement } from "react";
 
 const { setSession } = doubleActionRequest();
 
 /* Reached with `await import` and never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { default: AdminAdministratorenPage } = await import("@/app/bereich/admin/administratoren/page.tsx");
-const { AdminCrudShell } = await import("@/shared/components/ui/AdminCrudShell.tsx");
 
 const INHABER = {
   id: "6890a1b2c3d4e5f6071b0001",
@@ -104,14 +104,6 @@ describe("the page the administrators stand on", () => {
     assert.ok(!markup.includes("<h1"), "the page raises an h1 the shell already owns");
   });
 
-  /* The box takes an address, and a `?q=` is a request line the edge logs. */
-  it("asks the shell to hold the typed query instead of writing it", () => {
-    const shell = AdminAdministratorenPage() as ReactElement<{ privateQuery?: boolean }>;
-
-    assert.equal(shell.type, AdminCrudShell);
-    assert.equal(shell.props.privateQuery, true);
-  });
-
   it("renders its chrome before the list resolves", () => {
     const markup = renderTree(PAGE);
 
@@ -138,6 +130,18 @@ describe("the page the administrators stand on", () => {
       2,
       "a withheld address keeps a name's ink",
     );
+  });
+
+  /* An erasure leaves a marker naming nobody in the granter's place, which the row's own paste check
+     must pass through to the shared words rather than print. */
+  it("names a grant's administrator erased since by that state, and never as barred", async () => {
+    zeilen = [INHABER, { ...VORSTAND, erteilt_von: ERASED_ACTOR_MARKER }];
+    const html = await renderPage(PAGE);
+    const text = textOf(html, " ");
+
+    assertLeerMarkup(html, GELOESCHTE_PERSON);
+    assert.ok(!text.includes(ERASED_ACTOR_MARKER), "the marker reached the page");
+    assert.ok(!text.includes("Gesperrte Adresse"), "an erased administrator reads as barred");
   });
 
   it("dates a grant by the Berlin day it was made on", async () => {
@@ -168,7 +172,7 @@ describe("who is offered the revoke", () => {
       revokes.every((tag) => /\bdisabled\b/.test(tag)),
       "a revoke the backend refuses is open to press",
     );
-    assert.ok(textOf(markup, " ").includes("Den Zugang entziehen kann nur der Inhaber."), "the closed revoke says not why");
+    assert.ok(textOf(markup, " ").includes("Den Zugang entziehen können nur Inhaberinnen und Inhaber."), "the closed revoke says not why");
     // Every revoke closed at once is where one name per row matters most: the overlay is each one's only stop.
     assert.deepEqual(
       refusalWrappers(markup).map(({ name }) => name),
@@ -189,13 +193,15 @@ describe("who is offered the revoke", () => {
       names.filter((name) => name.startsWith("Zugang entziehen")),
       ["Zugang entziehen: vorstand@schule.de", "Zugang entziehen: Zugang vom 27.09.2026"],
     );
-    assert.ok(!textOf(markup, " ").includes("Den Zugang entziehen kann nur der Inhaber."), "the owner's revoke is closed");
+    assert.ok(!textOf(markup, " ").includes("Den Zugang entziehen können nur Inhaberinnen und Inhaber."), "the owner's revoke is closed");
   });
 });
 
 describe("who is offered the tier change", () => {
   const stufenNamen = (html: string): string[] =>
-    buttonNames(html).filter((name) => /^(Mich zur Verwaltung herabstufen|Zum Inhaber ernennen|Zur Verwaltung herabstufen)\b/.test(name));
+    buttonNames(html).filter((name) =>
+      /^(Mich zur Verwaltung herabstufen|Zur Inhaberin oder zum Inhaber ernennen|Zur Verwaltung herabstufen)\b/.test(name),
+    );
 
   /* An owner's control alone: shown closed to anybody else, it would offer a change nothing on the page can make. */
   it("shows an administrator holding no `owner` grant no tier change at all", async () => {
@@ -212,18 +218,18 @@ describe("who is offered the tier change", () => {
 
     assert.deepEqual(stufenNamen(markup), [
       "Mich zur Verwaltung herabstufen",
-      "Zum Inhaber ernennen: vorstand@schule.de",
-      "Zum Inhaber ernennen: Zugang vom 27.09.2026",
+      "Zur Inhaberin oder zum Inhaber ernennen: vorstand@schule.de",
+      "Zur Inhaberin oder zum Inhaber ernennen: Zugang vom 27.09.2026",
     ]);
     // A barred address is made an owner by no request: its promotion stands closed, saying why.
     const gesperrt = [...markup.matchAll(/<button\b[^>]*>(?:(?!<\/button>)[\s\S])*?<\/button>/g)]
       .map(([tag]) => tag)
-      .find((tag) => tag.includes('aria-label="Zum Inhaber ernennen: Zugang vom 27.09.2026"'));
+      .find((tag) => tag.includes('aria-label="Zur Inhaberin oder zum Inhaber ernennen: Zugang vom 27.09.2026"'));
     assert.ok(gesperrt !== undefined && /\bdisabled\b/.test(gesperrt), "a promotion the backend refuses is open to press");
     assert.ok(textOf(markup, " ").includes("Diese Adresse ist gesperrt."), "the closed promotion says not why");
     assert.deepEqual(
       refusalWrappers(markup).map(({ name }) => name),
-      ["Zum Inhaber ernennen: Zugang vom 27.09.2026"],
+      ["Zur Inhaberin oder zum Inhaber ernennen: Zugang vom 27.09.2026"],
       "the closed promotion's one stop names no row",
     );
   });
@@ -240,7 +246,7 @@ describe("who is offered the tier change", () => {
     assert.deepEqual([...new Set(words)].sort(), [
       "Mich zur Verwaltung herabstufen",
       "Zugang entziehen",
-      "Zum Inhaber ernennen",
+      "Zur Inhaberin oder zum Inhaber ernennen",
       "Zur Verwaltung herabstufen",
     ]);
   });
@@ -255,7 +261,7 @@ describe("who is offered the tier change", () => {
     const markup = await renderPage(PAGE);
 
     assert.deepEqual(stufenNamen(markup), []);
-    assert.ok(textOf(markup, " ").includes("Den Zugang entziehen kann nur der Inhaber."), "the closed revoke says not why");
+    assert.ok(textOf(markup, " ").includes("Den Zugang entziehen können nur Inhaberinnen und Inhaber."), "the closed revoke says not why");
   });
 
   it("offers an owner the demotion of another owner, and no revoke of either `owner` grant", async () => {

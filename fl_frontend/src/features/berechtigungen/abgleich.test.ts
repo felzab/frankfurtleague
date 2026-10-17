@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
+import { ERASED_ACTOR_MARKER } from "@/core/erasedActor.ts";
+import { APIBadStatusError } from "@/core/errors.ts";
 import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
@@ -41,6 +43,7 @@ const aenderung = (fields: Record<string, unknown> = {}) => ({
   geaendert_von_gesperrt: false,
   geaendert_am: "2026-09-27T01:00:00Z",
   gesperrt: false,
+  geloescht: false,
   aufgegeben: false,
   ...fields,
 });
@@ -153,6 +156,33 @@ describe("one pass over the claimed changes", () => {
     assert.deepEqual(stamps(), [{ beanspruchung: "claim-1", ids: [OUTBOX_A] }]);
   });
 
+  /* The erasure's own notice, as a person erasing themselves leaves it: the address and its maker both
+     withheld, neither barred. Read off the null alone, it tells every holder of a ban nobody entered. */
+  it("mails the holders alone for an erased person's grant, naming nobody and no ban", async () => {
+    claim = claimOf([
+      aenderung({
+        art: "entzogen",
+        jetzt: null,
+        vorher: { adresse: null, verwaltung: "owner" },
+        geloescht: true,
+        geaendert_von: ERASED_ACTOR_MARKER,
+      }),
+    ]);
+
+    await runBerechtigungenAbgleich();
+
+    assert.deepEqual(mail.sent.map((sent) => sent.to).sort(), [...HOLDERS].sort());
+    for (const sent of mail.sent) {
+      assert.ok(
+        sent.text.includes("Eine nicht genannte Adresse ist nicht mehr Inhaberin oder Inhaber der Verwaltung und hat keinen Zugang mehr."),
+      );
+      assert.ok(sent.text.includes("Geändert von einer nicht genannten Adresse"));
+      assert.ok(!sent.text.includes("gesperrt"), "an erased person is told as barred");
+      assert.ok(!sent.text.includes(ERASED_ACTOR_MARKER), "the marker reached the notice");
+    }
+    assert.deepEqual(stamps(), [{ beanspruchung: "claim-1", ids: [OUTBOX_A] }]);
+  });
+
   /* The takeover a holder of the database's credentials would make: one grant's address edited from A
      to B, answered as A's removal and B's grant. Every holder, B among them, is told both; A its own loss. */
   it("tells an address repointed in the database as the old address's loss and the new one's grant", async () => {
@@ -194,7 +224,7 @@ describe("one pass over the claimed changes", () => {
     await runBerechtigungenAbgleich();
 
     assert.ok(mail.sent.length > 0);
-    assert.ok(mail.sent.every((sent) => sent.text.includes("neu@schule.de hat jetzt Zugang zur Verwaltung als Inhaber.")));
+    assert.ok(mail.sent.every((sent) => sent.text.includes("neu@schule.de hat jetzt Zugang zur Verwaltung als Inhaberin oder Inhaber.")));
   });
 
   it("tells a change of tier as the tier the address now holds", async () => {
@@ -212,7 +242,7 @@ describe("one pass over the claimed changes", () => {
     await runBerechtigungenAbgleich();
 
     assert.deepEqual(mail.sent.map((sent) => sent.to).sort(), [...HOLDERS].sort());
-    assert.ok(mail.sent.every((sent) => sent.text.includes("vorstand@schule.de ist jetzt Inhaber der Verwaltung.")));
+    assert.ok(mail.sent.every((sent) => sent.text.includes("vorstand@schule.de ist jetzt Inhaberin oder Inhaber der Verwaltung.")));
   });
 
   /* An owner's tier change made on the grants page: the address keeps its access, and the acting owner who made
@@ -231,7 +261,7 @@ describe("one pass over the claimed changes", () => {
 
     assert.deepEqual(mail.sent.map((sent) => sent.to).sort(), [...HOLDERS].sort());
     for (const { text } of mail.sent) {
-      assert.ok(text.includes("vorstand@schule.de ist nicht mehr Inhaber der Verwaltung und behält den Zugang."));
+      assert.ok(text.includes("vorstand@schule.de ist nicht mehr Inhaberin oder Inhaber der Verwaltung und behält den Zugang."));
       assert.ok(text.includes("Geändert von inhaber@schule.de"));
       assert.ok(!text.includes("direkt in der Datenbank"));
     }
@@ -239,7 +269,7 @@ describe("one pass over the claimed changes", () => {
 
   /* The case round 3 split out: a null actor on a change made in the application is a barred administrator. */
   it("tells a barred administrator's change as theirs, never as a database edit", async () => {
-    claim = claimOf([aenderung({ geaendert_von: null, geaendert_von_gesperrt: true, gesperrt: true })]);
+    claim = claimOf([aenderung({ geaendert_von: null, geaendert_von_gesperrt: true })]);
 
     await runBerechtigungenAbgleich();
 
@@ -310,6 +340,45 @@ describe("what a pass leaves for the next", () => {
       ["vorstand@schule.de"],
     );
     assert.deepEqual(stamps(), [{ beanspruchung: "claim-1", ids: [OUTBOX_A] }]);
+  });
+
+  /* An erasure committing between two passes withholds the row's address: keyed on the row alone, the later pass's
+     send is refused, and the recipient the first pass lost stays untold. */
+  it("mails a body an erasure rewrote between two passes under a key of its own, which the provider takes", async () => {
+    const ROW = "6890a1b2c3d4e5f6071a0003";
+    const angenommen = new Map<string, string>();
+    // The provider's rule for a reused key, the request that broke off having reached it: one body collapses, another is
+    // refused (https://resend.com/docs/api-reference/errors, read 2026-10-16, the source moving without us).
+    const wieDerAnbieter =
+      (sonst: (sent: { to: string }) => MailOutcome) =>
+      (sent: { to: string; subject: string; html: string; text: string; idempotencyKey?: string }): MailOutcome => {
+        const body = JSON.stringify([sent.to, sent.subject, sent.html, sent.text]);
+        const frueher = angenommen.get(sent.idempotencyKey ?? "");
+        if (frueher !== undefined) return frueher === body ? "accepted" : { refused: 409, providerErrorName: "invalid_idempotent_request" };
+        angenommen.set(sent.idempotencyKey ?? "", body);
+        return sonst(sent);
+      };
+    claim = claimOf([aenderung({ id: ROW })]);
+    mail.answerWith(wieDerAnbieter((sent) => (sent.to === "vorstand@schule.de" ? "lost" : "accepted")));
+    await runBerechtigungenAbgleich();
+
+    claim = claimOf([aenderung({ id: ROW, jetzt: { adresse: null, verwaltung: "administration" }, geloescht: true })]);
+    mail.sent.length = 0;
+    lines.length = 0;
+    mail.answerWith(wieDerAnbieter(() => "accepted"));
+    await runBerechtigungenAbgleich();
+
+    assert.deepEqual(
+      mail.sent.map((sent) => sent.to),
+      ["vorstand@schule.de"],
+    );
+    assert.ok(mail.sent[0]?.text.includes("Eine nicht genannte Adresse"), "the later pass mailed the body as the first pass read it");
+    assert.deepEqual(
+      lines.filter((line) => line.event === "berechtigung.notice_failed"),
+      [],
+      "the provider refused the later pass's send",
+    );
+    assert.deepEqual(stamps().at(-1), { beanspruchung: "claim-1", ids: [ROW] }, "the row the recipient was told of stays unstamped");
   });
 
   /* The backend counts a row's claims, so no count of this process's own gives a row up: one that did
@@ -402,6 +471,33 @@ describe("what a pass leaves for the next", () => {
     assert.deepEqual(
       lines.map((line) => [line.event, line.fields]),
       [["berechtigung.abgleich_failed", { error_code: "FE-SWEEP-002", name: "Error" }]],
+    );
+  });
+
+  /* A refusal of the whole claim and a crash read alike by their name alone: the status and code tell them apart,
+     and the trace finds the backend's own line. */
+  it("carries a refused claim's status, code and trace", async () => {
+    claim = new APIBadStatusError({
+      message: "API returned a bad status.",
+      url: "http://backend:8000",
+      statusCode: 503,
+      serverErrorCode: "DB-FAIL-001",
+      endpoint: "/berechtigungen/abgleich",
+      method: "POST",
+      readOnly: false,
+      traceId: "t".repeat(32),
+    });
+
+    await runBerechtigungenAbgleich();
+
+    assert.deepEqual(
+      lines.map((line) => [line.event, line.fields]),
+      [
+        [
+          "berechtigung.abgleich_failed",
+          { error_code: "FE-SWEEP-002", name: "APIBadStatusError", status: 503, server_error_code: "DB-FAIL-001", trace_id: "t".repeat(32) },
+        ],
+      ],
     );
   });
 

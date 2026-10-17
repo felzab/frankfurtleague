@@ -135,7 +135,7 @@ describe("what the single invite press answers", () => {
 
     const res = await press(teamId);
 
-    assert.equal(res.success, true);
+    assert.equal(res.success && res.versand, "gesendet");
     assert.equal(sentence(res), "Der Link ist an alle 2 Adressen unterwegs.");
     assert.deepEqual(
       mail.sent.map(({ to }) => to),
@@ -152,7 +152,7 @@ describe("what the single invite press answers", () => {
 
     const res = await press(teamId);
 
-    assert.equal(res.success, true);
+    assert.equal(res.success && res.versand, "zurueckgehalten");
     assert.equal(sentence(res), ZURUECKGEHALTEN);
   });
 
@@ -177,7 +177,7 @@ describe("what the single invite press answers", () => {
 
     const res = await press(teamId);
 
-    assert.equal(res.success, true);
+    assert.equal(res.success && res.versand, "gesperrt");
     assert.equal(sentence(res), "Der Link ging an niemanden raus, weil jede Adresse auf der Sperrliste steht.");
     assert.ok(!sentence(res).includes("@"), "the answer named an address");
   });
@@ -189,7 +189,8 @@ describe("what the single invite press answers", () => {
 
     const res = await press(teamId);
 
-    assert.equal(res.success, true);
+    // One link per team, and it reached a seat.
+    assert.equal(res.success && res.versand, "gesendet");
     assert.equal(sentence(res), "Der Link ist unterwegs: 1 von 2. An eine Adresse ging nichts, weil sie auf der Sperrliste steht.");
   });
 
@@ -346,7 +347,7 @@ describe("what the season-wide press answers", () => {
 
     const res = await pressSeason([zeile("aa", "t-aa", null)]);
 
-    assert.equal(res.success, true);
+    assert.deepEqual(res.success && res.versendet, ["zurueckgehalten"]);
     assert.deepEqual(res.success ? res.zeilen[0]?.zurueckgehalten : [], ["erika-aa@beispiel.de"]);
   });
 
@@ -359,6 +360,7 @@ describe("what the season-wide press answers", () => {
 
     const row = res.success ? res.zeilen[0] : undefined;
     assert.deepEqual([row?.zugestellt, row?.unerreichbar, row?.zurueckgehalten, row?.gesperrt], [[], [], [], 1]);
+    assert.deepEqual(res.success && res.versendet, ["gesperrt"]);
   });
 
   it("leaves a skipped team's row empty on all three address lists", async () => {
@@ -367,6 +369,26 @@ describe("what the season-wide press answers", () => {
     const row = res.success ? res.zeilen[0] : undefined;
     assert.deepEqual([row?.zugestellt, row?.unerreichbar, row?.zurueckgehalten], [[], [], []]);
     assert.deepEqual(mail.sent, [], "a team the endpoint skipped was mailed anyway");
+    // Passed over by the rule the preview showed: no link this press meant to send, so no grade.
+    assert.deepEqual(res.success ? res.versendet : "refused", []);
+  });
+
+  /* The armed readout counts the teams the press writes to apart from those it passes over, so a sentence counting
+     every row reads „1 von 3 Teams“ over the one team the readout announced. */
+  it("counts its sentence over the teams it meant to write to, never those the rule passed over", async () => {
+    sendWith(() => "accepted");
+
+    const einer = await pressSeason([zeile("ga", "t-ga", null), zeile("gb", null, "kein_kontaktblock"), zeile("gc", null, "bereits_gesendet")]);
+    const zwei = await pressSeason([zeile("ha", "t-ha", null), zeile("hb", "t-hb", null), zeile("hc", null, "austritt_eingetragen")]);
+
+    assert.equal(sentence(einer), "Der Link ging an das Team.");
+    assert.equal(sentence(zwei), "Registrierungslinks gesendet: 2 von 2 Teams.");
+  });
+
+  it("says a season's one team was passed over, in no failure's words", async () => {
+    const res = await pressSeason([zeile("ia", null, "keine_bestaetigte_kontaktperson")]);
+
+    assert.equal(sentence(res), "Das Team wurde übersprungen.");
   });
 
   /* The two rows a team was mailed nothing on and still owes a sentence about its old link: a commit of
@@ -383,5 +405,8 @@ describe("what the season-wide press answers", () => {
       ["bb", false, true],
       ["cc", false, null],
     ]);
+    // A team whose link was never minted got none, which the press's grade counts as failed; a commit of unknown
+    // outcome too, its link reaching nobody this press can name.
+    assert.deepEqual(res.success && res.versendet, ["fehlgeschlagen", "fehlgeschlagen", "fehlgeschlagen"]);
   });
 });

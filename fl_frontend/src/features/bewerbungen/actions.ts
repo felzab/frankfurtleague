@@ -1,7 +1,5 @@
 "use server";
 
-import { refresh } from "next/cache";
-
 import { buildBewerbungAbsageEmail, buildBewerbungBestaetigungEmail, buildBewerbungZusageEmail } from "@/core/bewerbungEmail";
 import { frontend_config } from "@/core/config";
 import { APIBadStatusError } from "@/core/errors";
@@ -10,6 +8,7 @@ import { logger } from "@/core/logging";
 import { ZURUECKGEHALTEN } from "@/features/einladungen/meldungen";
 import { trikotFarbeLabel } from "@/features/teams/constants";
 import { getTeamMemberships } from "@/features/teams/queries";
+import { linkVersandOf } from "@/features/zustellung/notifications";
 import { invalidatesOnWrite, refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
 import { formatSpielDatum } from "@/shared/utils/format";
 import { buildRefusal, LADE_DIE_SEITE_NEU, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
@@ -33,6 +32,7 @@ import { bewerbungHerkunft, bewerbungTeamName, describeAufnahme } from "./utils"
 import type { BewerbungEmail } from "@/core/bewerbungEmail";
 import type { KontaktRolle } from "@/features/teams/constants";
 import type { ActionResult } from "@/shared/types/types";
+import type { LinkVersand } from "@/shared/utils/linkVersand";
 import type { BewerbungHerkunft } from "./constants";
 import type { BewerbungBetreff } from "./notifications";
 import type {
@@ -266,24 +266,43 @@ const SITZ_LEER = buildRefusal({ reason: "Für diese Rolle steht niemand mehr in
 /** A confirmation asks somebody to confirm for a named school, and `REQ-BEWERBUNG-002` refuses to accept this row anyway. */
 const KEIN_TEAM = buildRefusal({ reason: "Diese Bewerbung nennt kein Team", repair: "Lehne die Bewerbung ab" });
 
-/** What the press cost where no message went out: the mint voided the seat's previous link on its way. */
+/** What the re-send cost where no message went out: the mint voided the seat's previous link on its way. */
 const KEIN_LINK_VERSCHICKT = buildRefusal({
   reason: "Der alte Link gilt nicht mehr, und die E-Mail mit dem neuen ging nicht raus",
   repair: VERSUCHE_ES_ERNEUT,
 });
+
+/*
+ * The correction's and the reseat's own, sending the administrator to the re-send: a second correction or reseat over
+ * the row it already moved is refused, so the re-send's „Versuche es erneut.“ would send them into that refusal.
+ */
+const KORREKTUR_OHNE_LINK =
+  "Die Adresse ist korrigiert, aber die E-Mail mit dem neuen Link ging nicht raus, und der alte Link gilt nicht mehr. Schicke den Link erneut.";
+const BESETZUNG_OHNE_LINK =
+  "Die Person steht jetzt in der Bewerbung, aber die E-Mail mit ihrem Bestätigungslink ging nicht raus. Schicke den Link erneut.";
+
+/** How a repair's link ended, in the sentence its administrator is told. */
+type Zustellung = { versand: LinkVersand; message: string };
+
+/** Where no message went out, in the words of the press that sent none: the seat's previous link is spent all the same. */
+const nichtVerschickt = (message: string): Zustellung => ({ versand: "fehlgeschlagen", message: message });
 
 /**
  * The token is minted and the deadline moved by the time this runs, so each ANSWER reports a write
  * that stands: a refused send is a message to try again rather than a write that did not happen.
  */
 async function sendeBestaetigungErneut({
+  operation,
   bewerbungId,
   saisonId,
   person,
   benanntesTeam,
   sitze,
   token,
+  ohneLink,
 }: {
+  /** The press this send belongs to, which every failure line below names. */
+  operation: string;
   bewerbungId: string;
   saisonId: string;
   person: { vorname: string; email: string };
@@ -291,14 +310,16 @@ async function sendeBestaetigungErneut({
   /** Every seat this one link answers for. Phrased here rather than by each caller, so the message and the delivery record name one set. */
   sitze: readonly KontaktRolle[];
   token: string;
-}): Promise<{ verschickt: true; message: string } | { verschickt: false; error: string }> {
+  /** What the calling press cost where no message went out, in that press's own words. */
+  ohneLink: string;
+}): Promise<Zustellung> {
   let frist: string | null;
 
   try {
     // Read AFTER the write: the deadline this message states is the one the re-send just set, and a
     // frontend clock reckoning fourteen days itself would disagree with the server across midnight.
     const gelesen = await getBewerbungById(bewerbungId);
-    if (gelesen === null) return { verschickt: false, error: KEIN_LINK_VERSCHICKT };
+    if (gelesen === null) return nichtVerschickt(ohneLink);
 
     frist = gelesen.bewerbung.bestaetigungsfrist;
   } catch (error) {
@@ -306,10 +327,10 @@ async function sendeBestaetigungErneut({
     logger.error("bewerbung.mail_failed", undefined, {
       error_code: "FE-MAIL-002",
       name: error instanceof Error ? error.name : undefined,
-      operation: "einwilligungErneutSendenAction",
+      operation: operation,
     });
 
-    return { verschickt: false, error: KEIN_LINK_VERSCHICKT };
+    return nichtVerschickt(ohneLink);
   }
 
   // Thrown rather than refused: the endpoint writes this deadline in the same update that mints the
@@ -323,7 +344,7 @@ async function sendeBestaetigungErneut({
   const sitzeText = rollenText(sitze);
 
   const outcome = await sendBewerbungMail({
-    operation: "einwilligungErneutSendenAction",
+    operation: operation,
     // No idempotency key: the token in this message is minted per press, and a key reused over a
     // changed body is refused rather than collapsed.
     auftrag: { bewerbungId: bewerbungId, anlass: "erneut" },
@@ -340,21 +361,20 @@ async function sendeBestaetigungErneut({
       }),
   });
 
-  // Filed by a deployment that mails nothing, or kept from a barred address: a refusal would offer a
-  // retry no repeat can reach (`docs/frontend/spec.md :: I542`).
-  if (outcome.withheld.length > 0) return { verschickt: true, message: ZURUECKGEHALTEN };
-  if (outcome.gesperrt > 0) return { verschickt: true, message: "Der neue Link ging nicht raus, weil die Adresse auf der Sperrliste steht." };
+  const versand = linkVersandOf(outcome);
 
-  return outcome.unreachable.length === 0
-    ? { verschickt: true, message: `Der neue Link ging an ${person.email}.` }
-    : { verschickt: false, error: KEIN_LINK_VERSCHICKT };
+  // Naming no address, as every barred send's report names none (`docs/frontend/spec.md :: I542`).
+  if (versand === "gesperrt") return { versand: versand, message: "Der neue Link ging nicht raus, weil die Adresse auf der Sperrliste steht." };
+  if (versand === "zurueckgehalten") return { versand: versand, message: ZURUECKGEHALTEN };
+
+  return versand === "gesendet" ? { versand: versand, message: `Der neue Link ging an ${person.email}.` } : nichtVerschickt(ohneLink);
 }
 
 /**
  * No confirmation step: a second link is undone by ignoring it, and the seat's own answer is what
  * the league acts on either way.
  */
-export async function einwilligungErneutSendenAction(rawPayload: FLEinwilligungErneutPayload): Promise<ActionResult> {
+export async function einwilligungErneutSendenAction(rawPayload: FLEinwilligungErneutPayload): Promise<ActionResult<{ versand: LinkVersand }>> {
   return runAdminMutation("einwilligungErneutSendenAction", { stepUp: true }, async () => {
     const validated = FLEinwilligungErneutPayloadSchema.safeParse(rawPayload);
 
@@ -395,6 +415,7 @@ export async function einwilligungErneutSendenAction(rawPayload: FLEinwilligungE
     // and its deadline, and no cached read holds an application — both triage reads are uncached.
 
     const zustellung = await sendeBestaetigungErneut({
+      operation: "einwilligungErneutSendenAction",
       bewerbungId: validated.data.id,
       saisonId: bewerbung.saison_id,
       // The address and the seats the WRITE matched, never the read above: a correction landing
@@ -403,17 +424,11 @@ export async function einwilligungErneutSendenAction(rawPayload: FLEinwilligungE
       benanntesTeam: benanntesTeam,
       sitze: erneutOperation.rollen,
       token: erneutOperation.token,
+      ohneLink: KEIN_LINK_VERSCHICKT,
     });
 
-    if (!zustellung.verschickt) {
-      // The spine refreshes a success or an unknown outcome, a throw here among them, and a refused send
-      // leaves the mint standing too: the seat's old link is spent and its deadline moved.
-      refresh();
-
-      return { success: false, error: zustellung.error };
-    }
-
-    return { success: true, message: zustellung.message };
+    // A success whichever way the send went: the mint stands, the seat's old link spent and its deadline moved.
+    return { success: true, message: zustellung.message, versand: zustellung.versand };
   });
 }
 
@@ -424,7 +439,7 @@ export async function einwilligungErneutSendenAction(rawPayload: FLEinwilligungE
  */
 export async function kontaktEmailKorrigierenAction(
   rawPayload: FLBewerbungKontaktEmailPayload,
-): Promise<ActionResult<{ verschickt?: boolean }>> {
+): Promise<ActionResult<{ versand: LinkVersand }>> {
   return runAdminMutation("kontaktEmailKorrigierenAction", { stepUp: true }, async () => {
     const validated = FLBewerbungKontaktEmailPayloadSchema.safeParse(rawPayload);
 
@@ -466,6 +481,7 @@ export async function kontaktEmailKorrigierenAction(
     let zustellung;
     try {
       zustellung = await sendeBestaetigungErneut({
+        operation: "kontaktEmailKorrigierenAction",
         bewerbungId: validated.data.id,
         saisonId: bewerbung.saison_id,
         // The address the write just stored, never the one the read still holds: the message the
@@ -474,6 +490,7 @@ export async function kontaktEmailKorrigierenAction(
         benanntesTeam: benanntesTeam,
         sitze: gepaarteSitze(bewerbung, validated.data.rolle),
         token: korrekturOperation.token,
+        ohneLink: KORREKTUR_OHNE_LINK,
       });
     } catch (error) {
       // The address is stored by the time this runs, so a throw escaping here would answer a
@@ -484,13 +501,10 @@ export async function kontaktEmailKorrigierenAction(
         name: error instanceof Error ? error.name : undefined,
         operation: "kontaktEmailKorrigierenAction",
       });
-
-      return { success: true, verschickt: false, message: KEIN_LINK_VERSCHICKT };
+      zustellung = nichtVerschickt(KORREKTUR_OHNE_LINK);
     }
 
-    return zustellung.verschickt
-      ? { success: true, verschickt: true, message: zustellung.message }
-      : { success: true, verschickt: false, message: zustellung.error };
+    return { success: true, ...zustellung };
   });
 }
 
@@ -498,7 +512,7 @@ export async function kontaktEmailKorrigierenAction(
  * **The seat stands filled whatever the message did**, as the correction's address does: a refused
  * send is a link to try again rather than a person who was never seated.
  */
-export async function besetzeKontaktSitzAction(rawPayload: FLBewerbungKontaktSitzPayload): Promise<ActionResult<{ verschickt?: boolean }>> {
+export async function besetzeKontaktSitzAction(rawPayload: FLBewerbungKontaktSitzPayload): Promise<ActionResult<{ versand: LinkVersand }>> {
   return runAdminMutation("besetzeKontaktSitzAction", { stepUp: true }, async () => {
     const validated = FLBewerbungKontaktSitzPayloadSchema.safeParse(rawPayload);
 
@@ -535,6 +549,7 @@ export async function besetzeKontaktSitzAction(rawPayload: FLBewerbungKontaktSit
     let zustellung;
     try {
       zustellung = await sendeBestaetigungErneut({
+        operation: "besetzeKontaktSitzAction",
         bewerbungId: validated.data.id,
         saisonId: gelesen.bewerbung.saison_id,
         person: { vorname: validated.data.vorname, email: validated.data.email },
@@ -543,6 +558,7 @@ export async function besetzeKontaktSitzAction(rawPayload: FLBewerbungKontaktSit
         // drops an emptied seat from the pair, and every seat this write filled was emptied.
         sitze: sitzOperation.rollen,
         token: sitzOperation.token,
+        ohneLink: BESETZUNG_OHNE_LINK,
       });
     } catch (error) {
       // The person is seated by the time this runs, so a throw escaping here would answer a write
@@ -553,12 +569,9 @@ export async function besetzeKontaktSitzAction(rawPayload: FLBewerbungKontaktSit
         name: error instanceof Error ? error.name : undefined,
         operation: "besetzeKontaktSitzAction",
       });
-
-      return { success: true, verschickt: false, message: KEIN_LINK_VERSCHICKT };
+      zustellung = nichtVerschickt(BESETZUNG_OHNE_LINK);
     }
 
-    return zustellung.verschickt
-      ? { success: true, verschickt: true, message: zustellung.message }
-      : { success: true, verschickt: false, message: zustellung.error };
+    return { success: true, ...zustellung };
   });
 }

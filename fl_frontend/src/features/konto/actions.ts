@@ -2,7 +2,7 @@
 
 import { headers } from "next/headers";
 
-import { endSessionOf, revokeOtherSessions, sendSignInCode } from "@/core/auth";
+import { endSessionOf, requestAccountDeletion, revokeOtherSessions, sendSignInCode } from "@/core/auth";
 import { asSignInIdentifier } from "@/core/emailAddress";
 import { logger } from "@/core/logging";
 import { recordWriteSent } from "@/core/requestScope";
@@ -10,16 +10,19 @@ import { isHeldBy, runKontoMutation, runKontoStepUp } from "@/shared/utils/konto
 import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal";
 import { VALIDATION_FAILED } from "@/shared/utils/validation";
 
-import type { ActionResult, QueryResult } from "@/shared/types/types";
+import type { ActionFailure, ActionResult, QueryResult } from "@/shared/types/types";
 
 /** A row another device ended first, or one that was never the holder's: to the holder, a stale list. */
 const SCHON_BEENDET = "Die Anmeldung war schon beendet. Lade die Seite neu.";
+
+/** The panel words each press's toast itself, so a success sentence here would be German nothing renders. */
+type Beendet = { success: true } | ActionFailure;
 
 /**
  * Ends one of the holder's other sign-ins. By id AND the holder's own user id, so an id belonging to
  * another person ends nothing (`docs/frontend/spec.md :: I421`).
  */
-export async function endAnmeldungAction(id: string): Promise<ActionResult> {
+export async function endAnmeldungAction(id: string): Promise<Beendet> {
   return runKontoMutation("endAnmeldungAction", async (served) => {
     // A server action's argument is whatever a caller posted, and this one reaches a store query.
     if (typeof id !== "string" || id === "") return { success: false, error: VALIDATION_FAILED };
@@ -35,17 +38,17 @@ export async function endAnmeldungAction(id: string): Promise<ActionResult> {
 
     if (ended === 0) return { success: false, error: SCHON_BEENDET };
 
-    return { success: true, message: "Abgemeldet" };
+    return { success: true };
   });
 }
 
 /** Ends every sign-in of the holder's but this device's, through the library's own in-process call. */
-export async function endAndereAnmeldungenAction(): Promise<ActionResult> {
+export async function endAndereAnmeldungenAction(): Promise<Beendet> {
   return runKontoMutation("endAndereAnmeldungenAction", async () => {
     recordWriteSent();
     await revokeOtherSessions(await headers());
 
-    return { success: true, message: "Alle anderen abgemeldet" };
+    return { success: true };
   });
 }
 
@@ -77,5 +80,25 @@ export async function sendeBestaetigungscodeAction(): Promise<ActionResult> {
     }
 
     return { success: true, message: CODE_UNTERWEGS };
+  });
+}
+
+/**
+ * What the request answers. The library answers a send that failed as one that went, so the only remedy
+ * it can offer a missing mail is a second press.
+ */
+const LOESCHLINK_UNTERWEGS =
+  "Wir haben Dir einen Link geschickt. Erst wenn Du ihn öffnest und dort bestätigst, löschen wir Dein Konto. Kommt keine E-Mail an, fordere den Link erneut an.";
+
+/**
+ * Mails the holder a link to delete their account. The account page's guard without the step-up window
+ * (`docs/frontend/spec.md :: I676`): the link goes to the session's own mailbox, and completing it
+ * takes that mailbox and the signed-in session both.
+ */
+export async function fordereKontoLoeschungAnAction(): Promise<ActionResult> {
+  return runKontoStepUp("fordereKontoLoeschungAnAction", async () => {
+    await requestAccountDeletion(await headers());
+
+    return { success: true, message: LOESCHLINK_UNTERWEGS };
   });
 }
