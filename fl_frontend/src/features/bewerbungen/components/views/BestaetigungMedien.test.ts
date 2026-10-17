@@ -44,7 +44,6 @@ const renderPanel = () =>
     h(BestaetigungFormPanel, {
       fassung: KONTAKT,
       token: "kein-echtes-token",
-      vorname: "Mira",
       schule: "Lessing-Kolleg",
       saison: "2026",
       rolle: "Trainer",
@@ -128,7 +127,6 @@ describe("the media switch, offered from the media age alone", () => {
             schule: "Lessing-Kolleg",
             rolle: "trainer",
             zugleich_rolle: null,
-            vorname: "Mira",
             text_version: KONTAKT.textVersion,
             laufende_fassung: KONTAKT.textVersion,
             mindestalter: BEWERBUNG_MIN_ALTER,

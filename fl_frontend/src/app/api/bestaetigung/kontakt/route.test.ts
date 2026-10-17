@@ -52,7 +52,6 @@ const ANSICHT = {
   schule: "Lessing-Kolleg",
   rolle: "ansprechperson",
   zugleich_rolle: null,
-  vorname: "Käthe",
   text_version: LAUFEND,
   laufende_fassung: LAUFEND,
   mindestalter: 18,
@@ -214,7 +213,7 @@ describe("the contact seat's confirmation handler", () => {
      link's state read afresh and never a guessed „bestätigt“. */
   it("answers a seat already answered with the state the link's view now reads", async () => {
     schreibAntwort = () => aRefusal("REQ-BEWERBUNG-011");
-    ansichtAntwort = () => ({ ...ANSICHT, zustand: "abgelehnt", vorname: null });
+    ansichtAntwort = () => ({ ...ANSICHT, zustand: "abgelehnt", text_version: null });
 
     const answer = await bodyOf(aRequest(gueltigerKoerper));
 

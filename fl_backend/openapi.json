@@ -7219,7 +7219,7 @@
     "/api/v0/bewerbungen/einwilligung/ansicht": {
       "post": {
         "summary": "What one confirmation link opens",
-        "description": "Answer what the page renders for the seat this token opens, and no contact record (`READ-BEWERBUNG-002`).\n\nThe seat's state, the school, the season, the role, the holder's first name and the consent wording's version,\nand `zugleich_rolle`: the second seat the same person holds, which an answer on this link writes too, or null.\n`mindestalter` is the age this link's person has to reach, over both seats where they hold two, so the page offers\nexactly the dates the answer will take. `laufende_fassung` is the label of the page the person is shown and their\nanswer must name: the applicant's where the applicant named them in every seat the link answers, else the one for a\nperson the administration seated.\nA POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no\nseat holds (`REQ-BEWERBUNG-009`): a confirmed, declined or expired link is SERVED in that state rather than refused,\nso a reopened link shows what became of it. The state is `gesperrt`, ahead of every other, wherever the ban list\nholds an address a consent on this link would be refused for (`REQ-BEWERBUNG-020`), so the page offers a barred\nperson nothing to press.\n\nThe same token may open a seat an administrator entered on a team's season row (`quelle: saison`): `schule` is then\nthe name the club carries that season, and the link is over once its seat's own deadline has passed. Before that, a\nseason that has ended or a team that has left it answers `saison_vorbei`: the link takes a Widerspruch and no consent.",
+        "description": "Answer what the page renders for the seat this token opens, and no contact record (`READ-BEWERBUNG-002`).\n\nThe seat's state, the school, the season, the role and the consent wording's version, and `zugleich_rolle`: the\nsecond seat the same person holds, which an answer on this link writes too, or null. Never the holder's name: the\nlink went to an address nobody has confirmed, which behind a typo is a stranger's.\n`mindestalter` is the age this link's person has to reach, over both seats where they hold two, so the page offers\nexactly the dates the answer will take. `laufende_fassung` is the label of the page the person is shown and their\nanswer must name: the applicant's where the applicant named them in every seat the link answers, else the one for a\nperson the administration seated.\nA POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no\nseat holds (`REQ-BEWERBUNG-009`), an open link whose seat holds nobody among them: a confirmed, declined or\nexpired link is SERVED in that state rather than refused, so a reopened link shows what became of it. The state\nis `gesperrt`, ahead of every other, wherever the ban list holds an address a consent on this link would be\nrefused for (`REQ-BEWERBUNG-020`), so the page offers a barred person nothing to press.\n\nThe same token may open a seat an administrator entered on a team's season row (`quelle: saison`): `schule` is then\nthe name the club carries that season, and the link is over once its seat's own deadline has passed. Before that, a\nseason that has ended or a team that has left it answers `saison_vorbei`: the link takes a Widerspruch and no consent.",
         "operationId": "get_einwilligung_ansicht_api_v0_bewerbungen_einwilligung_ansicht_post",
         "requestBody": {
           "content": {
@@ -7520,7 +7520,7 @@
     "/api/v0/schiedsrichter/bestaetigung/ansicht": {
       "post": {
         "summary": "What one Schiedsrichter confirmation link opens",
-        "description": "Answer what this token opens: the referee's first name, the link's state and deadline, both age floors, and the wording's version.\n\n**A first name and a role, and nothing else** (`READ-REFEREE-002`): never the full name, the school, the contact\ndetails, the fee, the birthdate or the entry's id, all of which are behind `READ-CONTACT-001`. A POST that reads, so the\ntoken travels in a body and never in a second URL.\n\nRefuses only a token no referee holds (`REQ-SCHIEDSRICHTER-002`): a confirmed or an expired link\nis SERVED in that state rather than refused, so a reopened link shows what became of it. The state is `gesperrt`,\nahead of every other, wherever the ban list holds the address the link was mailed to (`REQ-SCHIEDSRICHTER-009`),\nso the page offers a barred referee nothing to press.",
+        "description": "Answer what this token opens: the link's state and deadline, both age floors, and the wording's version.\n\n**Nothing else** (`READ-REFEREE-002`): never a name, the school, the contact details, the fee, the birthdate or the\nentry's id, all of which are behind `READ-CONTACT-001`. The link went to an address an administrator typed and nobody has\nconfirmed, which behind a typo is a stranger's. A POST that reads, so the token travels in a body and never in a second\nURL.\n\nRefuses only a token no referee holds (`REQ-SCHIEDSRICHTER-002`): a confirmed or an expired link\nis SERVED in that state rather than refused, so a reopened link shows what became of it. The state is `gesperrt`,\nahead of every other, wherever the ban list holds the address the link was mailed to (`REQ-SCHIEDSRICHTER-009`),\nso the page offers a barred referee nothing to press.",
         "operationId": "get_bestaetigung_ansicht_api_v0_schiedsrichter_bestaetigung_ansicht_post",
         "requestBody": {
           "content": {
@@ -7636,7 +7636,7 @@
     "/api/v0/schiedsrichter/adresswechsel/ansicht": {
       "post": {
         "summary": "What one Schiedsrichter address link opens",
-        "description": "Answer what this token opens: the referee's first name, the link's state and its deadline.\n\n**A first name and nothing else about the row** (`READ-REFEREE-003`): never either address, the school, the fee or the id. A POST\nthat reads, so the token travels in a body and never in a second URL.\n\nRefuses only a token no referee holds (`REQ-SCHIEDSRICHTER-002`), which an answered, replaced or discarded change is too: an\nanswer removes what the link opens. An expired link is SERVED in that state rather than refused, and the state is `gesperrt`,\nahead of every other, wherever the ban list holds the address the link was mailed to (`REQ-SCHIEDSRICHTER-009`), and\n`nicht_bestaetigbar`, behind the deadline, wherever it holds the address the change would replace (`REQ-SCHIEDSRICHTER-010`):\neach state the confirmation would be refused in.",
+        "description": "Answer what this token opens: the link's state and its deadline.\n\n**Nothing else about the row** (`READ-REFEREE-003`): never a name, either address, the school, the fee or the id. The link\nwent to an address nobody has confirmed, which behind a typo is a stranger's. A POST that reads, so the token travels in a\nbody and never in a second URL.\n\nRefuses only a token no referee holds (`REQ-SCHIEDSRICHTER-002`), which an answered, replaced or discarded change is too: an\nanswer removes what the link opens. An expired link is SERVED in that state rather than refused, and the state is `gesperrt`,\nahead of every other, wherever the ban list holds the address the link was mailed to (`REQ-SCHIEDSRICHTER-009`), and\n`nicht_bestaetigbar`, behind the deadline, wherever it holds the address the change would replace (`REQ-SCHIEDSRICHTER-010`):\neach state the confirmation would be refused in.",
         "operationId": "get_adresswechsel_ansicht_api_v0_schiedsrichter_adresswechsel_ansicht_post",
         "requestBody": {
           "content": {
@@ -11589,17 +11589,6 @@
             ],
             "title": "Zugleich Rolle"
           },
-          "vorname": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Vorname"
-          },
           "text_version": {
             "anyOf": [
               {
@@ -11634,14 +11623,13 @@
           "schule",
           "rolle",
           "zugleich_rolle",
-          "vorname",
           "text_version",
           "laufende_fassung",
           "mindestalter",
           "medien_mindestalter"
         ],
         "title": "FLBewerbungEinwilligungAnsichtResponse",
-        "description": "What the page renders for one seat, and no contact record (`READ-BEWERBUNG-002`).\n\nA leaked link's holder learns nothing its mail did not already say: a first name, a school, a\nseason, the roles one answer covers and a wording's version."
+        "description": "What the page renders for one seat, and no contact record (`READ-BEWERBUNG-002`).\n\nA leaked link's holder learns what its mail said: a school, a season, the roles one answer\ncovers and a wording's version, never a name."
       },
       "FLBewerbungEinwilligungAntwortPayload": {
         "properties": {
@@ -21467,18 +21455,6 @@
             ],
             "title": "Zustand"
           },
-          "vorname": {
-            "anyOf": [
-              {
-                "type": "string",
-                "minLength": 1
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Vorname"
-          },
           "frist": {
             "type": "string",
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -21488,11 +21464,10 @@
         "type": "object",
         "required": [
           "zustand",
-          "vorname",
           "frist"
         ],
         "title": "FLSchiedsrichterAdresswechselAnsichtResponse",
-        "description": "What one address link opens, and nothing a leaked one should not learn (`READ-REFEREE-003`).\n\nA first name and a deadline: never either address, the school, the fee or the id."
+        "description": "What one address link opens, and nothing a leaked one should not learn (`READ-REFEREE-003`).\n\nA state and a deadline: never a name, either address, the school, the fee or the id."
       },
       "FLSchiedsrichterAdresswechselMint": {
         "properties": {
@@ -21728,18 +21703,6 @@
             ],
             "title": "Zustand"
           },
-          "vorname": {
-            "anyOf": [
-              {
-                "type": "string",
-                "minLength": 1
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Vorname"
-          },
           "text_version": {
             "anyOf": [
               {
@@ -21769,14 +21732,13 @@
         "type": "object",
         "required": [
           "zustand",
-          "vorname",
           "text_version",
           "mindestalter",
           "medien_mindestalter",
           "frist"
         ],
         "title": "FLSchiedsrichterBestaetigungAnsichtResponse",
-        "description": "What one confirmation link opens, and nothing a leaked one should not learn (`READ-REFEREE-002`).\n\nA first name and a role: never the full name, the school, the contact details, the fee, the\nbirthdate or the id."
+        "description": "What one confirmation link opens, and nothing a leaked one should not learn (`READ-REFEREE-002`).\n\nNever a name, the school, the contact details, the fee, the birthdate or the id."
       },
       "FLSchiedsrichterBestaetigungPayload": {
         "properties": {
@@ -21832,18 +21794,6 @@
             "title": "Acknowledged",
             "default": 1
           },
-          "vorname": {
-            "anyOf": [
-              {
-                "type": "string",
-                "minLength": 1
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Vorname"
-          },
           "umfang": {
             "type": "string",
             "enum": [
@@ -21864,7 +21814,6 @@
         },
         "type": "object",
         "required": [
-          "vorname",
           "umfang",
           "medien",
           "bestaetigt_am"

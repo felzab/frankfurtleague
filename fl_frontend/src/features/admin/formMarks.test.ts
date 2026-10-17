@@ -646,7 +646,6 @@ const FORMS: Record<string, FormCase> = {
         h(BestaetigungFormPanel, {
           fassung: laufendeKontaktFassung(),
           token: "kein-echtes-token",
-          vorname: "Mira",
           schule: "Lessing-Kolleg",
           saison: "2026",
           rolle: "Ansprechperson",
@@ -778,7 +777,6 @@ const FORMS: Record<string, FormCase> = {
             ansicht: {
               acknowledged: 1,
               zustand: "gueltig",
-              vorname: "Anna",
               text_version: fassung.textVersion,
               mindestalter: 16,
               medien_mindestalter: 18,

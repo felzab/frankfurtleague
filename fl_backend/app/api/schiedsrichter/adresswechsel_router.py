@@ -26,7 +26,6 @@ from app.api.schiedsrichter.services import (
     find_expired_token_refusal,
     find_unknown_token_refusal,
     frist_of,
-    vorname_of,
 )
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
 from app.core.collections import Collection
@@ -61,10 +60,11 @@ async def get_adresswechsel_ansicht(
     today: str = Depends(get_german_date_str),
 ) -> FLSchiedsrichterAdresswechselAnsichtResponse:
     """
-    Answer what this token opens: the referee's first name, the link's state and its deadline.
+    Answer what this token opens: the link's state and its deadline.
 
-    **A first name and nothing else about the row** (`READ-REFEREE-003`): never either address, the school, the fee or the id. A POST
-    that reads, so the token travels in a body and never in a second URL.
+    **Nothing else about the row** (`READ-REFEREE-003`): never a name, either address, the school, the fee or the id. The link
+    went to an address nobody has confirmed, which behind a typo is a stranger's. A POST that reads, so the token travels in a
+    body and never in a second URL.
 
     Refuses only a token no referee holds (`REQ-SCHIEDSRICHTER-002`), which an answered, replaced or discarded change is too: an
     answer removes what the link opens. An expired link is SERVED in that state rather than refused, and the state is `gesperrt`,
@@ -91,7 +91,6 @@ async def get_adresswechsel_ansicht(
 
     return FLSchiedsrichterAdresswechselAnsichtResponse(
         zustand=adresswechsel_zustand_of(wechsel=wechsel, today=today, gesperrt=neue in gesperrt, ersetzte_gesperrt=ersetzte in gesperrt),
-        vorname=vorname_of(raw.get("name")),
         frist=frist,
     )
 

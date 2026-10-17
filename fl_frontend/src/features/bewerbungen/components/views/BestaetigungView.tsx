@@ -126,7 +126,6 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
         <BestaetigungFormPanel
           fassung={stand.fassung}
           token={stand.token}
-          vorname={stand.ansicht.vorname}
           schule={stand.ansicht.schule}
           saison={stand.ansicht.saison_id}
           rolle={linkRollen(stand.ansicht)}
@@ -156,7 +155,7 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
           panelRef={ergebnisRef}
           tone="erfolg">
           <p className={ABSATZ_CLASSES}>
-            Danke, <Wert>{stand.ansicht.vorname}</Wert>.{" "}
+            Danke.{" "}
             {stand.ansicht.zugleich_rolle === null ? (
               <>
                 Dein Eintrag für {saisonRow ? "das Team" : "die Schule"} <Wert>{stand.ansicht.schule}</Wert> ist bestätigt.
@@ -191,7 +190,7 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
           panelRef={ergebnisRef}
           tone="erfolg">
           <p className={ABSATZ_CLASSES}>
-            Danke für Deine Antwort, <Wert>{stand.ansicht.vorname}</Wert>.{" "}
+            Danke für Deine Antwort.{" "}
             {saisonRow
               ? "Deine Angaben haben wir aus dem Eintrag entfernt."
               : "Deine Angaben haben wir aus der Bewerbung entfernt und der Person Bescheid gesagt, die sie eingereicht hat."}

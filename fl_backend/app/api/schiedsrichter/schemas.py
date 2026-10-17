@@ -215,11 +215,10 @@ class FLSchiedsrichterAdresswechselAnsichtPayload(BaseModel):
 class FLSchiedsrichterAdresswechselAnsichtResponse(BaseAPIResponse):
     """What one address link opens, and nothing a leaked one should not learn (`READ-REFEREE-003`).
 
-    A first name and a deadline: never either address, the school, the fee or the id.
+    A state and a deadline: never a name, either address, the school, the fee or the id.
     """
 
     zustand: FLSchiedsrichterAdresswechselZustand
-    vorname: CustomNonEmptyString | None
     frist: CustomDateString
 
 
@@ -247,14 +246,10 @@ class FLSchiedsrichterBestaetigungAnsichtPayload(BaseModel):
 class FLSchiedsrichterBestaetigungAnsichtResponse(BaseAPIResponse):
     """What one confirmation link opens, and nothing a leaked one should not learn (`READ-REFEREE-002`).
 
-    A first name and a role: never the full name, the school, the contact details, the fee, the
-    birthdate or the id.
+    Never a name, the school, the contact details, the fee, the birthdate or the id.
     """
 
     zustand: FLSchiedsrichterBestaetigungZustand
-    # The first part of the stored name, which is one field rather than two on this collection. Null
-    # for the row an administrator entered without one.
-    vorname: CustomNonEmptyString | None
     # The wording the stored record cites, so a reopened link shows the version answered under
     # rather than the one the page would show today.
     text_version: CustomOptionalString
@@ -286,7 +281,6 @@ class FLSchiedsrichterBestaetigungResponse(BaseAPIResponse):
     caller holding a leaked token learns nothing it did not already post.
     """
 
-    vorname: CustomNonEmptyString | None
     umfang: FLSchiedsrichterUmfang
     medien: bool
     bestaetigt_am: CustomDateString

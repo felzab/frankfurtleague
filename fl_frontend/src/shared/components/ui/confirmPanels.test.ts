@@ -261,7 +261,6 @@ const PANELS: Record<string, Arming[]> = {
         el(C.bestaetigung, {
           fassung: laufendeKontaktFassung(),
           token: "kein-echtes-token",
-          vorname: "Mira",
           schule: "Lessing-Kolleg",
           saison: "2026",
           rolle: "Ansprechperson",
@@ -284,7 +283,6 @@ const PANELS: Record<string, Arming[]> = {
             schule: "Lessing-Kolleg",
             rolle: "ansprechperson",
             zugleich_rolle: null,
-            vorname: "Mira",
             text_version: laufendeKontaktFassung().textVersion,
             laufende_fassung: laufendeKontaktFassung().textVersion,
             mindestalter: 18,

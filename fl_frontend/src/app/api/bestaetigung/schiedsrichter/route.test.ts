@@ -38,14 +38,13 @@ const HEUTE = "2026-09-21";
 const ANSICHT = {
   acknowledged: 1,
   zustand: "gueltig" as const,
-  vorname: "Anna",
   text_version: LAUFEND,
   mindestalter: 16,
   medien_mindestalter: 18,
   frist: "2026-10-05",
 };
 
-const GESCHRIEBEN = { acknowledged: 1, vorname: "Anna", umfang: "intern" as const, medien: false, bestaetigt_am: HEUTE };
+const GESCHRIEBEN = { acknowledged: 1, umfang: "intern" as const, medien: false, bestaetigt_am: HEUTE };
 
 /** The answer the handler writes, and the view it reads back where the write refused. */
 const WRITE_OPERATION = "POST /schiedsrichter/bestaetigung";

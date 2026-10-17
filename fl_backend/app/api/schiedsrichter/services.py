@@ -252,8 +252,8 @@ def build_token_filter(*, token_hash: str) -> Mapping[str, Any]:
 def vorname_of(name: Any) -> str | None:
     """The forename inside the one `name` field this collection stores.
 
-    Split rather than stored apart, because every other referee surface reads and writes the whole
-    name; a leaked link learns this much and no more (`docs/backend/spec.md :: READ-REFEREE-002`).
+    Split rather than stored apart, as every other referee surface reads the whole name. Only the
+    account page fills a slot with it (`docs/backend/spec.md :: READ-REFEREE-002`).
     """
 
     parts = str(name).split() if isinstance(name, str) else []
@@ -641,7 +641,6 @@ def adresswechsel_zustand_of(
 # An INCLUSION, for `BESTAETIGUNG_ANSICHT_FIELDS`' reason. Both addresses are read for the ban list
 # alone, and no answer carries either.
 ADRESSWECHSEL_ANSICHT_FIELDS: Mapping[str, int] = {
-    "name": 1,
     "kontakt.email": 1,
     f"{ADRESSWECHSEL_FELD}.email": 1,
     f"{ADRESSWECHSEL_FELD}.frist": 1,
@@ -664,8 +663,6 @@ ADRESSWECHSEL_EINLADEN_FIELDS: Mapping[str, int] = {"kontakt.email": 1, f"{ADRES
 # An INCLUSION and never an exclusion: a base-tier caller holds the whole credential, so the rest
 # of the row is what must not reach them (`docs/backend/spec.md :: READ-REFEREE-002`).
 BESTAETIGUNG_ANSICHT_FIELDS: Mapping[str, int] = {
-    # Read whole and cut by `vorname_of` before the response: no `find` projection splits a string.
-    "name": 1,
     f"{EINWILLIGUNG_FELD}.bestaetigt_am": 1,
     f"{EINWILLIGUNG_FELD}.text_version": 1,
     f"{BESTAETIGUNG_FELD}.frist": 1,
@@ -679,7 +676,6 @@ BESTAETIGUNG_ANSICHT_FIELDS: Mapping[str, int] = {
 # Narrower than the view's: the answer takes its wording from the payload rather than the row. The
 # address is what the press asks the ban list of, and no answer carries it.
 BESTAETIGUNG_ANTWORT_FIELDS: Mapping[str, int] = {
-    "name": 1,
     f"{EINWILLIGUNG_FELD}.bestaetigt_am": 1,
     f"{BESTAETIGUNG_FELD}.frist": 1,
     "kontakt.email": 1,

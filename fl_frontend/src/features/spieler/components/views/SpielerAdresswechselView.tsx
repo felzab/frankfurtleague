@@ -116,7 +116,7 @@ function AntwortPanel({ frist, token, onAbschluss }: { frist: string; token: str
 
   return (
     <BestaetigungAbschnitt titel="Deine Adresse">
-      {/* Naming nobody, unlike the referee's page: whoever holds the link has proved no mailbox yet, and is owed no
+      {/* Naming nobody, as the referee's page does: whoever holds the link has proved no mailbox yet, and is owed no
           minor's first name. */}
       <p className={ABSATZ_CLASSES}>
         Die Verwaltung der Frankfurt League hat diese E-Mail-Adresse für Deinen Eintrag als Spielerin oder Spieler eingetragen. Bestätigst Du

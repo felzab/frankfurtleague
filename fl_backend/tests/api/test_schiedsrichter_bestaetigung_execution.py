@@ -276,7 +276,8 @@ class TestTheCreateIsTheInvitation:
 
         view = on_a_league(mongo_replica_set_url, body, referees=[])
 
-        assert (view.zustand, view.vorname, view.text_version) == ("gueltig", "Pierluigi", None)
+        assert (view.zustand, view.text_version) == ("gueltig", None)
+        assert "Pierluigi" not in view.model_dump_json()
 
     def test_a_banned_address_leaves_no_referee_behind(self, mongo_replica_set_url: str):
         """What the create's transaction is for: judged outside one, the row stands with a live link the caller was told had been refused."""

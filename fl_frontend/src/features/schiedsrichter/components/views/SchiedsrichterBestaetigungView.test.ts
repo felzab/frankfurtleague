@@ -52,7 +52,6 @@ const OFFEN: SchiedsrichterBestaetigungStart = {
   ansicht: {
     acknowledged: 1,
     zustand: "gueltig",
-    vorname: "Anna",
     text_version: FASSUNG,
     mindestalter: MINDESTALTER,
     medien_mindestalter: MEDIEN_ALTER,
@@ -82,7 +81,6 @@ async function tippeGeburtsdatum(user: ReturnType<typeof userEvent.setup>, datum
 const SLOTS = {
   minAlter: String(MINDESTALTER),
   medienMinAlter: String(MEDIEN_ALTER),
-  vorname: "Anna",
   kontakt: KONTAKT_EMAIL,
   loeschung: "Konto löschen",
   datenschutz: "Datenschutzerklärung",
@@ -141,14 +139,6 @@ describe("the referee's confirmation page", () => {
       if (schluessel.startsWith("klick")) continue;
 
       assert.ok(!shown.includes(words(filledSlots(absatz, SLOTS))), `the page renders the contact page's ${schluessel}`);
-    }
-  });
-
-  it("names the person once the link is open and nowhere else", () => {
-    assert.match(words(markup(OFFEN)), /Anna/);
-
-    for (const zustand of ["bestaetigt", "abgelaufen", "ungueltig", "unlesbar"] as const) {
-      assert.ok(!words(markup({ zustand })).includes("Anna"), `the ${zustand} panel names the person`);
     }
   });
 

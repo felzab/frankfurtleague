@@ -260,15 +260,13 @@ export const FLSchiedsrichterBestaetigungAnsichtPayloadSchema = z.object({
 export type FLSchiedsrichterBestaetigungAnsichtPayload = z.infer<typeof FLSchiedsrichterBestaetigungAnsichtPayloadSchema>;
 
 /**
- * What a link is told before any press: a first name, the link's standing, the wording's label and
- * the floor. The surname never travels, so a leaked link learns no name to look anything up against.
+ * What a link is told before any press: the link's standing, the wording's label and the floor. No
+ * name travels: the link went to an address nobody has confirmed (`READ-REFEREE-002`).
  */
 export const FLSchiedsrichterBestaetigungAnsichtResponseSchema = BaseAPIResponseSchema.extend({
   // The link's own standing, answered rather than refused: a spent or lapsed link stays readable, so
   // only an unknown token has nothing to answer with and reaches the page as a 409.
   zustand: z.enum(["gueltig", "bestaetigt", "abgelaufen", "gesperrt"]),
-  // Null on a row a hand-write left nameless, which is why the page names nobody outside `gueltig`.
-  vorname: z.string().nullable(),
   text_version: z.string().nullable(),
   // The floor this person has to reach, over the wire rather than retyped here: a constant of this
   // side's own would be a second number nothing compares.
@@ -315,7 +313,6 @@ export const buildSchiedsrichterBestaetigungPayloadSchema = (mindestalter: numbe
 
 /** The write's echo: what was stored for this person, and nothing they did not just send. */
 export const FLSchiedsrichterBestaetigungResponseSchema = BaseAPIResponseSchema.extend({
-  vorname: z.string().nullable(),
   umfang: FLSchiedsrichterUmfangSchema,
   medien: z.boolean(),
   bestaetigt_am: CustomDateStringSchema,
@@ -329,13 +326,12 @@ export const FLSchiedsrichterAdresswechselAnsichtPayloadSchema = z.object({
 export type FLSchiedsrichterAdresswechselAnsichtPayload = z.infer<typeof FLSchiedsrichterAdresswechselAnsichtPayloadSchema>;
 
 /**
- * What an address link is told before any press: a first name, its standing and its deadline. Never
- * either address: a leaked link learns no mailbox to write to.
+ * What an address link is told before any press: its standing and its deadline. Never a name or
+ * either address: a leaked link learns no mailbox to write to (`READ-REFEREE-003`).
  */
 export const FLSchiedsrichterAdresswechselAnsichtResponseSchema = BaseAPIResponseSchema.extend({
   // No `bestaetigt`: an answer removes what the link opens, so a reopened link is an unknown token.
   zustand: z.enum(["gueltig", "abgelaufen", "gesperrt", "nicht_bestaetigbar"]),
-  vorname: z.string().nullable(),
   frist: CustomDateStringSchema,
 });
 export type FLSchiedsrichterAdresswechselAnsichtResponse = z.infer<typeof FLSchiedsrichterAdresswechselAnsichtResponseSchema>;

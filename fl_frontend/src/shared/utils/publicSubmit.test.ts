@@ -293,7 +293,6 @@ const FORMS: Record<string, PublicForm> = {
       h(BestaetigungFormPanel, {
         fassung: laufendeKontaktFassung(),
         token: "kein-echtes-token",
-        vorname: "Mira",
         schule: "Lessing-Kolleg",
         saison: "2026",
         rolle: "Ansprechperson",
@@ -318,7 +317,6 @@ const FORMS: Record<string, PublicForm> = {
           schule: "Lessing-Kolleg",
           rolle: "ansprechperson",
           zugleich_rolle: null,
-          vorname: "Mira",
           text_version: laufendeKontaktFassung().textVersion,
           laufende_fassung: laufendeKontaktFassung().textVersion,
           mindestalter: 18,
@@ -340,7 +338,6 @@ const FORMS: Record<string, PublicForm> = {
           ansicht: {
             acknowledged: 1,
             zustand: "gueltig",
-            vorname: "Anna",
             text_version: SCHIEDSRICHTER.textVersion,
             mindestalter: 16,
             medien_mindestalter: 18,
@@ -359,8 +356,7 @@ const FORMS: Record<string, PublicForm> = {
   "the referee's address page": {
     module: "features/schiedsrichter/components/views/SchiedsrichterAdresswechselView.tsx",
     route: "/api/bestaetigung/schiedsrichter/adresse",
-    render: () =>
-      h(SchiedsrichterAdresswechselView, { start: { zustand: "gueltig", vorname: "Anna", frist: "2026-10-05", token: "kein-echtes-token" } }),
+    render: () => h(SchiedsrichterAdresswechselView, { start: { zustand: "gueltig", frist: "2026-10-05", token: "kein-echtes-token" } }),
     submit: (user) => user.click(screen.getByRole("button", { name: JA_MEINE_ADRESSE })),
   },
   "the pupil's address page": {
