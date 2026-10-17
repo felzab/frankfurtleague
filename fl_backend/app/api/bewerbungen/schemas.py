@@ -684,8 +684,8 @@ class FLBewerbungEinwilligungAnsichtPayload(BaseModel):
 class FLBewerbungEinwilligungAnsichtResponse(BaseAPIResponse):
     """What the page renders for one seat, and no contact record (`READ-BEWERBUNG-002`).
 
-    A leaked link's holder learns nothing its mail did not already say: a first name, a school, a
-    season, the roles one answer covers and a wording's version.
+    A leaked link's holder learns what its mail said: a school, a season, the roles one answer
+    covers and a wording's version, never a name.
     """
 
     quelle: FLEinwilligungQuelle
@@ -703,7 +703,6 @@ class FLBewerbungEinwilligungAnsichtResponse(BaseAPIResponse):
     # OTHER seats are one person.
     zugleich_rolle: FLKontaktRolle | None
     # Null exactly where the seat is empty -- declined or erased -- and the record went with it.
-    vorname: str | None
     text_version: str | None
     # The label the page renders and its answer must name: the applicant's page, or the one for a
     # person an administrator seated, decided from how the seat was filled (`kontakt_seite_of`).

@@ -536,7 +536,7 @@ EINWILLIGUNG_ANSICHT_FIELDS: Mapping[str, int] = {
     **_per_seat("bestaetigungen", *TOKEN_HASH_FIELDS, "abgelehnt_am"),
     # The address for the ban list alone, as the answer's read takes it: the response model declares
     # no field to carry it.
-    **_per_seat("kontakte", "vorname", "email", "einwilligung.bestaetigt_am", "einwilligung.text_version", *KONTAKT_SEITE_FIELDS),
+    **_per_seat("kontakte", "email", "einwilligung.bestaetigt_am", "einwilligung.text_version", *KONTAKT_SEITE_FIELDS),
     # A declaration naming a seat, holding nobody's details: `paired_seat` reads it, and the view
     # serves only the pair it resolves for this link's own seat.
     "kontakte.trainer_ist_zugleich": 1,
@@ -607,6 +607,15 @@ def find_unknown_token_refusal(*, seat: FLKontaktRolle | None) -> WriteRefusal |
         )
 
     return None
+
+
+def seat_opens_nobody(*, slot: Any, zustand: FLBewerbungEinwilligungZustand) -> bool:
+    """Whether an open link's seat holds nobody, emptied without a Widerspruch: the view answers it as a token no seat holds.
+
+    Told apart, it would tell a guess that a person once sat there, and offer a press `REQ-BEWERBUNG-011` refuses.
+    """
+
+    return zustand in ("gueltig", "saison_vorbei") and not isinstance(slot, Mapping)
 
 
 def _is_decided(status: Any) -> bool:
@@ -753,7 +762,7 @@ def build_saison_token_filter(*, token_hash: str) -> Mapping[str, Any]:
 # `schule`.
 SAISON_EINWILLIGUNG_FIELDS: Mapping[str, int] = {
     **_per_seat("bestaetigungen", SAISON_TOKEN_FIELD, "abgelehnt_am", "frist"),
-    **_per_seat("kontakte", "vorname", "email", "einwilligung.bestaetigt_am", "einwilligung.text_version", *KONTAKT_SEITE_FIELDS),
+    **_per_seat("kontakte", "email", "einwilligung.bestaetigt_am", "einwilligung.text_version", *KONTAKT_SEITE_FIELDS),
     "kontakte.trainer_ist_zugleich": 1,
     "saison_id": 1,
     "name": 1,

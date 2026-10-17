@@ -133,19 +133,14 @@ export async function mapSchiedsrichterBestaetigungRefusal(
 }
 
 /**
- * What one link opens, narrowed here and never at the page, which would carry the name in its
- * payload regardless: a dead link's panel names nobody, and an open link with no name left has
- * nobody to name.
+ * What one link opens, narrowed here and never at the page, which would carry the link's floors and
+ * wording in its payload regardless: a dead link's panel carries nothing of the entry.
  */
 export async function getSchiedsrichterBestaetigungAnsicht(token: string): Promise<SchiedsrichterAnsicht> {
   return runWithIncomingTrace(() =>
     postSchiedsrichterBestaetigungAnsicht({ token: token }).then(
-      (ansicht) =>
-        ansicht.zustand === "gueltig"
-          ? ansicht.vorname === null
-            ? { zustand: "ungueltig" as const }
-            : { zustand: "gueltig" as const, ansicht: { ...ansicht, vorname: ansicht.vorname } }
-          : { zustand: ansicht.zustand },
+      (ansicht): SchiedsrichterAnsicht =>
+        ansicht.zustand === "gueltig" ? { zustand: "gueltig", ansicht: ansicht } : { zustand: ansicht.zustand },
       (error: unknown) => {
         // Anything but a refusal is a failed read, which is the page's own state rather than a panel
         // calling a live link void.
@@ -157,19 +152,12 @@ export async function getSchiedsrichterBestaetigungAnsicht(token: string): Promi
   );
 }
 
-/**
- * What one address link opens, narrowed here for the consent link's reason: a dead link's panel
- * names nobody, and an open one with no name left has nobody to name.
- */
+/** What one address link opens, narrowed here for the consent link's reason: a dead link's panel carries no deadline. */
 export async function getSchiedsrichterAdresswechselAnsicht(token: string): Promise<AdresswechselAnsicht> {
   return runWithIncomingTrace(() =>
     postSchiedsrichterAdresswechselAnsicht({ token: token }).then(
       (ansicht): AdresswechselAnsicht =>
-        ansicht.zustand !== "gueltig"
-          ? { zustand: ansicht.zustand }
-          : ansicht.vorname === null
-            ? { zustand: "ungueltig" }
-            : { zustand: "gueltig", vorname: ansicht.vorname, frist: ansicht.frist },
+        ansicht.zustand !== "gueltig" ? { zustand: ansicht.zustand } : { zustand: "gueltig", frist: ansicht.frist },
       (error: unknown): AdresswechselAnsicht => {
         // The consent link's reading of a refused read: a token nothing could place.
         const zustand = mapSchiedsrichterAnsichtRefusal(error);

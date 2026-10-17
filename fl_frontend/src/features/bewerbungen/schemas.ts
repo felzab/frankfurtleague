@@ -620,8 +620,8 @@ export type FLBewerbungEinwilligungAnsichtPayload = z.infer<typeof FLBewerbungEi
 export const FLKontaktZeileSchema = z.enum(["offen", "saison_vorbei", "ausgetreten"] as const satisfies readonly KontaktZeile[]);
 
 /**
- * What a link is told before any press: school, season, seat and first name, and nothing else of
- * the person. The surname never travels, so a leaked link learns no name to look anything up against.
+ * What a link is told before any press: school, season and seat, and nothing of the person. No
+ * name travels: the link went to an address nobody has confirmed (`READ-BEWERBUNG-002`).
  */
 export const FLBewerbungEinwilligungAnsichtResponseSchema = BaseAPIResponseSchema.extend({
   // The link's own standing, answered rather than refused: a spent link stays readable, so only an
@@ -637,9 +637,6 @@ export const FLBewerbungEinwilligungAnsichtResponseSchema = BaseAPIResponseSchem
   rolle: FLKontaktRolleSchema,
   // The second seat one answer on this link writes, where the same person holds two; null otherwise.
   zugleich_rolle: FLKontaktRolleSchema.nullable(),
-  // Null once a decline has cleared the seat, which is why the page renders a name for `gueltig`
-  // alone: a dead link's panel has nobody to name and must not invent one.
-  vorname: z.string().nullable(),
   text_version: z.string().nullable(),
   // The label whose words the page renders and whose name the answer sends back: the backend picks the
   // applicant's page or the administration's by how the seat was filled, so no page of this side's choosing.

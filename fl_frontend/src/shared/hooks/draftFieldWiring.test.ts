@@ -169,7 +169,6 @@ describe("a public or single-purpose form's press over a draft its schema refuse
       h(BestaetigungFormPanel, {
         fassung: laufendeKontaktFassung(),
         token: "kein-echtes-token",
-        vorname: "Mira",
         schule: "Lessing-Kolleg",
         saison: "2026",
         rolle: "Ansprechperson",

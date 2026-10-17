@@ -16,7 +16,6 @@ const WORTE = laufendeSchiedsrichterFassung();
 const GEOEFFNET = {
   acknowledged: 1,
   zustand: "gueltig",
-  vorname: "Anna",
   text_version: WORTE.textVersion,
   mindestalter: 16,
   medien_mindestalter: 18,

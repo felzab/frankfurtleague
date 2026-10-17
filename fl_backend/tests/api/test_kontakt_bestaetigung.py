@@ -439,10 +439,10 @@ class TestTheSaveMintsForEachPersonItNewlySeats:
         response, views = on_a_league(mongo_replica_set_url, body)
 
         assert [mint.rollen for mint in response.bestaetigungen] == [["trainer"], ["ansprechperson"], ["stellvertretung"]]
-        assert [(view.quelle, view.rolle, view.vorname, view.zustand, view.schule) for view in views] == [
-            ("saison", "trainer", "Ida", "gueltig", TEAM_NAME),
-            ("saison", "ansprechperson", "Jonas", "gueltig", TEAM_NAME),
-            ("saison", "stellvertretung", "Klara", "gueltig", TEAM_NAME),
+        assert [(view.quelle, view.rolle, view.zustand, view.schule) for view in views] == [
+            ("saison", "trainer", "gueltig", TEAM_NAME),
+            ("saison", "ansprechperson", "gueltig", TEAM_NAME),
+            ("saison", "stellvertretung", "gueltig", TEAM_NAME),
         ]
 
     def test_a_trainer_holding_a_second_seat_is_minted_one_link_for_both(self, mongo_replica_set_url: str):
@@ -503,7 +503,7 @@ class TestTheSaveMintsForEachPersonItNewlySeats:
 
         assert [mint.rollen for mint in handed.bestaetigungen] == [["ansprechperson"]]
         assert code == BEWERBUNG_TOKEN_UNKNOWN
-        assert (view.rolle, view.vorname) == ("ansprechperson", "Lea")
+        assert view.rolle == "ansprechperson"
 
     def test_a_seat_the_save_empties_loses_its_link(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
@@ -890,7 +890,7 @@ class TestTheLinkConfirms:
 
         view, row, other_row = on_a_league(mongo_replica_set_url, body, rows=[other])
 
-        assert (view.schule, view.vorname) == (TEAM_NAME, "Ida")
+        assert view.schule == TEAM_NAME
         assert row["kontakte"]["trainer"]["einwilligung"]["bestaetigt_am"] == TODAY
         assert other_row["kontakte"]["trainer"]["einwilligung"]["bestaetigt_am"] is None
 
@@ -1000,6 +1000,17 @@ class TestARowsPeopleLeavingTakeTheirLinks:
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             response = await save(database, THREE)
             await erased(database, database.client, "jonas@example.com", germany_now=NOW)
+
+            return await refused(ansicht(database, response.bestaetigungen[1].token))
+
+        assert on_a_league(mongo_replica_set_url, body) == BEWERBUNG_TOKEN_UNKNOWN
+
+    def test_a_seat_emptied_beside_its_live_link_opens_nothing(self, mongo_replica_set_url: str):
+        """The state no route leaves and a hand edit can: the slot gone, its link live, no Widerspruch recorded."""
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
+            response = await save(database, THREE)
+            await database[Collection.SAISON_TEAMS].update_one({"_id": ROW_OID}, {"$set": {"kontakte.ansprechperson": None}})
 
             return await refused(ansicht(database, response.bestaetigungen[1].token))
 

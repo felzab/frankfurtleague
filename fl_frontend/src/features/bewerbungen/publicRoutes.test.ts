@@ -220,7 +220,6 @@ function renderBestaetigung(mindestalter = VERTRETUNG_MIN_ALTER) {
     h(BestaetigungFormPanel, {
       fassung: KONTAKT,
       token: "kein-echtes-token",
-      vorname: "Mira",
       schule: "Lessing-Kolleg",
       saison: "2026",
       rolle: "Ansprechperson",
@@ -249,7 +248,6 @@ const pageFor = (rolle: FLKontaktRolle, zugleich_rolle: FLKontaktRolle | null, m
         schule: "Lessing-Kolleg",
         rolle: rolle,
         zugleich_rolle: zugleich_rolle,
-        vorname: "Mira",
         text_version: KONTAKT_LABEL,
         laufende_fassung: KONTAKT_LABEL,
         mindestalter: mindestalter,
@@ -800,7 +798,6 @@ describe("which of the confirmation page's words its stamped version covers", ()
     schule: "Lessing-Kolleg",
     saison: "2026",
     rolle: "Ansprechperson",
-    vorname: "Mira",
     ablehnen: ABLEHNEN_LABEL,
     // The Ansprechperson's own floor, because `SLOTS.rolle` is that seat: a stamped paragraph is
     // compared against what THIS reader was shown, and the two seats are shown different numbers.
@@ -835,7 +832,6 @@ describe("which of the confirmation page's words its stamped version covers", ()
     renderMarkup(KlickBestaetigung, {
       absaetze: KONTAKT.absaetze,
       id: "klick-punkte",
-      vorname: SLOTS.vorname,
       schule: SLOTS.schule,
       rolle: SLOTS.rolle,
       mindestalter: VERTRETUNG_MIN_ALTER,
@@ -846,7 +842,6 @@ describe("which of the confirmation page's words its stamped version covers", ()
   const FORM_PANEL = renderMarkup(BestaetigungFormPanel, {
     fassung: KONTAKT,
     token: "kein-echtes-token",
-    vorname: SLOTS.vorname,
     schule: SLOTS.schule,
     saison: SLOTS.saison,
     rolle: SLOTS.rolle,
@@ -932,7 +927,6 @@ describe("how wide the confirmation page stands, and how many boxes it draws", (
     schule: "Lessing-Kolleg",
     rolle: "ansprechperson",
     zugleich_rolle: null,
-    vorname: "Mira",
     text_version: KONTAKT_LABEL,
     laufende_fassung: KONTAKT_LABEL,
     mindestalter: VERTRETUNG_MIN_ALTER,
@@ -940,13 +934,12 @@ describe("how wide the confirmation page stands, and how many boxes it draws", (
   } as const;
 
   /** The reader's own facts, each distinctive enough that finding one in the markup means this reader. */
-  const OWN_VALUES = ["Mira", "Lessing-Kolleg", "2026", "Ansprechperson"];
+  const OWN_VALUES = ["Lessing-Kolleg", "2026", "Ansprechperson"];
 
   const SLOTS = {
     schule: OPENED_LINK.schule,
     saison: OPENED_LINK.saison_id,
     rolle: "Ansprechperson",
-    vorname: OPENED_LINK.vorname,
     ablehnen: ABLEHNEN_LABEL,
     minAlter: String(OPENED_LINK.mindestalter),
     medienMinAlter: String(OPENED_LINK.medien_mindestalter),
@@ -1417,7 +1410,6 @@ const OFFEN = {
   schule: "Lessing-Kolleg",
   rolle: "ansprechperson",
   zugleich_rolle: null,
-  vorname: "Mira",
   text_version: KONTAKT_LABEL,
   laufende_fassung: KONTAKT_LABEL,
   mindestalter: BEWERBUNG_MIN_ALTER,
@@ -1532,7 +1524,6 @@ describe("the words the two contact pages are handed", () => {
     schule: "Lessing-Kolleg",
     rolle: "ansprechperson",
     zugleich_rolle: null,
-    vorname: "Mira",
     text_version: KONTAKT_LABEL,
     laufende_fassung: KONTAKT_LABEL,
     mindestalter: VERTRETUNG_MIN_ALTER,

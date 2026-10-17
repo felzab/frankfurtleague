@@ -27,7 +27,6 @@ from app.api.schiedsrichter.services import (
     find_medien_refusal,
     find_unknown_token_refusal,
     frist_of,
-    vorname_of,
     zustand_of,
 )
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
@@ -62,11 +61,12 @@ async def get_bestaetigung_ansicht(
     today: str = Depends(get_german_date_str),
 ) -> FLSchiedsrichterBestaetigungAnsichtResponse:
     """
-    Answer what this token opens: the referee's first name, the link's state and deadline, both age floors, and the wording's version.
+    Answer what this token opens: the link's state and deadline, both age floors, and the wording's version.
 
-    **A first name and a role, and nothing else** (`READ-REFEREE-002`): never the full name, the school, the contact
-    details, the fee, the birthdate or the entry's id, all of which are behind `READ-CONTACT-001`. A POST that reads, so the
-    token travels in a body and never in a second URL.
+    **Nothing else** (`READ-REFEREE-002`): never a name, the school, the contact details, the fee, the birthdate or the
+    entry's id, all of which are behind `READ-CONTACT-001`. The link went to an address an administrator typed and nobody has
+    confirmed, which behind a typo is a stranger's. A POST that reads, so the token travels in a body and never in a second
+    URL.
 
     Refuses only a token no referee holds (`REQ-SCHIEDSRICHTER-002`): a confirmed or an expired link
     is SERVED in that state rather than refused, so a reopened link shows what became of it. The state is `gesperrt`,
@@ -92,7 +92,6 @@ async def get_bestaetigung_ansicht(
 
     return FLSchiedsrichterBestaetigungAnsichtResponse(
         zustand=zustand_of(einwilligung=einwilligung, bestaetigung=bestaetigung, today=today, gesperrt=bool(gesperrt)),
-        vorname=vorname_of(raw.get("name")),
         text_version=None if not isinstance(einwilligung, dict) else einwilligung.get("text_version"),
         # Served rather than retyped on the page: the floor the write is judged by is the one the
         # paragraph a person reads before consenting has to state.
@@ -184,7 +183,6 @@ async def post_bestaetigung(
         # Read off the document the filter found rather than the update's echo: the echo carries the
         # whole row, and this answer is bounded to what the page renders.
         return FLSchiedsrichterBestaetigungResponse(
-            vorname=vorname_of(raw.get("name")),
             umfang=antwort_data.umfang,
             medien=antwort_data.medien,
             bestaetigt_am=today,

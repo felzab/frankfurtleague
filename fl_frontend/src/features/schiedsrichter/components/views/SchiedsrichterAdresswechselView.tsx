@@ -113,25 +113,16 @@ function AblehnenButton({ antwort }: { antwort: ReturnType<typeof useAntwort> })
   );
 }
 
-function AntwortPanel({
-  vorname,
-  frist,
-  token,
-  onAbschluss,
-}: {
-  vorname: string;
-  frist: string;
-  token: string;
-  onAbschluss: (stand: Stand) => void;
-}) {
+function AntwortPanel({ frist, token, onAbschluss }: { frist: string; token: string; onAbschluss: (stand: Stand) => void }) {
   const antwort = useAntwort(token, onAbschluss);
   const { sende, isPending, gedrueckt } = antwort;
 
   return (
     <BestaetigungAbschnitt titel="Deine Adresse">
+      {/* Naming nobody, as the pupil's page does: whoever holds the link has proved no mailbox yet. */}
       <p className={ABSATZ_CLASSES}>
-        Die Verwaltung der Frankfurt League hat diese E-Mail-Adresse für <Wert>{vorname}</Wert> als Schiedsrichterin oder Schiedsrichter
-        eingetragen. Bestätigst Du sie, schreiben wir Dir künftig hierhin und Du meldest Dich mit ihr an.
+        Die Verwaltung der Frankfurt League hat diese E-Mail-Adresse für Deinen Eintrag als Schiedsrichterin oder Schiedsrichter eingetragen.
+        Bestätigst Du sie, schreiben wir Dir künftig hierhin und Du meldest Dich mit ihr an.
       </p>
       <p className={ABSATZ_CLASSES}>
         Bis dahin gilt die bisherige Adresse. Der Link ist bis zum <Wert>{formatSpielDatum(frist)}</Wert> gültig.
@@ -191,7 +182,6 @@ export function SchiedsrichterAdresswechselView({ start }: { start: Schiedsricht
 
       {stand.zustand === "gueltig" && (
         <AntwortPanel
-          vorname={stand.vorname}
           frist={stand.frist}
           token={stand.token}
           onAbschluss={onAbschluss}

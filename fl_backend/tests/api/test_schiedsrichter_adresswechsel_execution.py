@@ -482,7 +482,7 @@ class TestAChangeReplacingABarredAddress:
 
         seen = on_a_league(mongo_replica_set_url, body)
 
-        assert (seen.zustand, seen.vorname) == ("nicht_bestaetigbar", "Ortwin")
+        assert seen.zustand == "nicht_bestaetigbar"
 
     def test_the_confirmation_is_refused_and_moves_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -566,7 +566,7 @@ class TestTheDecline:
 
 
 class TestTheView:
-    def test_it_answers_the_first_name_the_state_and_the_deadline(self, mongo_replica_set_url: str):
+    def test_it_answers_exactly_the_state_and_the_deadline(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             saved = await save(database, client, email=NEW_EMAIL)
 
@@ -574,7 +574,7 @@ class TestTheView:
 
         seen = on_a_league(mongo_replica_set_url, body)
 
-        assert (seen.zustand, seen.vorname, seen.frist) == ("gueltig", "Ortwin", bestaetigung_frist_from(today=TODAY))
+        assert seen.model_dump() == {"acknowledged": 1, "zustand": "gueltig", "frist": bestaetigung_frist_from(today=TODAY)}
 
     def test_a_lapsed_link_is_served_as_lapsed(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:

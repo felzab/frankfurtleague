@@ -8,6 +8,7 @@ from pydantic import ValidationError
 
 from app.api.bewerbungen.schemas import (
     FLBewerbungEinwilligungAnsichtPayload,
+    FLBewerbungEinwilligungAnsichtResponse,
     FLBewerbungEinwilligungAntwortPayload,
     refuse_age_outside_the_bounds,
 )
@@ -45,6 +46,7 @@ from app.api.bewerbungen.services import (
     saison_kontakt_seite,
     seat_holding,
     seat_named,
+    seat_opens_nobody,
     zustand_of,
 )
 from app.api.teams.schemas import KONTAKT_ROLLEN
@@ -182,6 +184,25 @@ class TestTheAnonymousProjectionsAreDerivedPerSeat:
         assert declared <= projected
 
 
+class TestWhatALeakedLinkLearns:
+    def test_the_view_declares_exactly_the_eleven_names_it_may_answer(self):
+        """`READ-BEWERBUNG-002` as an EQUALITY: a field added to the model reaches a caller holding nothing but a token, a name above all."""
+
+        assert set(FLBewerbungEinwilligungAnsichtResponse.model_fields) - {"acknowledged"} == {
+            "quelle",
+            "zustand",
+            "zeile",
+            "saison_id",
+            "schule",
+            "rolle",
+            "zugleich_rolle",
+            "text_version",
+            "laufende_fassung",
+            "mindestalter",
+            "medien_mindestalter",
+        }
+
+
 class TestTheDeadline:
     def test_it_is_the_bound_counted_from_the_mint(self):
         assert bestaetigungsfrist_from(today="2026-12-25") == "2027-01-08"
@@ -220,6 +241,19 @@ class TestATokenNoSeatHolds:
         assert seat is None
         assert refusal is not None
         assert refusal.error_code == BEWERBUNG_TOKEN_UNKNOWN
+
+    @pytest.mark.parametrize(
+        ("slot", "zustand", "opens_nobody"),
+        [
+            pytest.param(None, "gueltig", True, id="an open link, its seat emptied"),
+            pytest.param(None, "saison_vorbei", True, id="a closed row's link, its seat emptied"),
+            pytest.param(None, "abgelehnt", False, id="the seat a Widerspruch emptied"),
+            pytest.param(None, "abgelaufen", False, id="a lapsed link"),
+            pytest.param(kontaktperson_document("Quillhilde"), "gueltig", False, id="a seat holding its person"),
+        ],
+    )
+    def test_only_an_open_link_whose_seat_holds_nobody_reads_as_a_token_no_seat_holds(self, slot: Any, zustand: Any, opens_nobody: bool):
+        assert seat_opens_nobody(slot=slot, zustand=zustand) is opens_nobody
 
     def test_the_refusal_names_no_application_and_no_seat(self):
         refusal = find_unknown_token_refusal(seat=None)

@@ -8,8 +8,8 @@ import type {
 /** Every state the referee's link can be in but open. „ungueltig“ is this side's, for a token the read refused. */
 export type SchiedsrichterLinkZustand = "bestaetigt" | "abgelaufen" | "ungueltig" | "gesperrt";
 
-/** A link still open, and so a row that still holds the person the page is about to name. */
-export type SchiedsrichterAnsichtGeoeffnet = FLSchiedsrichterBestaetigungAnsichtResponse & { vorname: string };
+/** A link still open, and so an entry the page can still be answered for. */
+export type SchiedsrichterAnsichtGeoeffnet = FLSchiedsrichterBestaetigungAnsichtResponse;
 
 export type SchiedsrichterAnsicht = { zustand: "gueltig"; ansicht: SchiedsrichterAnsichtGeoeffnet } | { zustand: SchiedsrichterLinkZustand };
 
@@ -22,7 +22,7 @@ export type AdresswechselLinkZustand = "abgelaufen" | "ungueltig" | "gesperrt" |
 /** The states whose link the backend still takes the decline through, so the page keeps its token. */
 export type AdresswechselNurAblehnbar = Extract<AdresswechselLinkZustand, "abgelaufen" | "nicht_bestaetigbar">;
 
-export type AdresswechselAnsicht = { zustand: "gueltig"; vorname: string; frist: string } | { zustand: AdresswechselLinkZustand };
+export type AdresswechselAnsicht = { zustand: "gueltig"; frist: string } | { zustand: AdresswechselLinkZustand };
 
 // The three admin-only blocks are out: a fixture's held referee and a just-created one are each
 // composed at the call site, where a required block would be written as a null claiming the referee

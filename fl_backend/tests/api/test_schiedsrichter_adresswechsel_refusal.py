@@ -152,20 +152,21 @@ class TestTheAnswer:
 
 
 class TestWhatALeakedLinkLearns:
-    """`READ-REFEREE-003`: the holder of a leaked link learns a first name and a deadline, never either address."""
+    """`READ-REFEREE-003`: the holder of a leaked link learns a state and a deadline, never a name or either address."""
 
-    def test_the_view_declares_exactly_the_three_names_it_may_answer(self):
-        assert set(FLSchiedsrichterAdresswechselAnsichtResponse.model_fields) - {"acknowledged"} == {"zustand", "vorname", "frist"}
+    def test_the_view_declares_exactly_the_two_fields_it_may_answer(self):
+        assert set(FLSchiedsrichterAdresswechselAnsichtResponse.model_fields) - {"acknowledged"} == {"zustand", "frist"}
 
     def test_the_answer_echoes_the_press_alone(self):
         assert set(FLSchiedsrichterAdresswechselResponse.model_fields) - {"acknowledged"} == {"antwort"}
 
-    def test_the_read_projects_no_hash_and_of_the_contact_the_address_alone(self):
+    def test_the_read_projects_no_hash_no_name_and_of_the_contact_the_address_alone(self):
         """The two addresses are read for the ban list, the response model being what keeps them off the answer."""
 
         projected = set(ADRESSWECHSEL_ANSICHT_FIELDS)
 
         assert f"{ADRESSWECHSEL_FELD}.token_hash" not in projected
+        assert "name" not in projected
         assert {path for path in projected if path.startswith("kontakt")} == {"kontakt.email"}
 
 

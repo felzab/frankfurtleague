@@ -41,7 +41,6 @@ const ANSICHT = {
   schule: "Lessing-Kolleg",
   rolle: "ansprechperson" as const,
   zugleich_rolle: "trainer" as const,
-  vorname: "Mira",
   text_version: KONTAKT.textVersion,
   laufende_fassung: KONTAKT.textVersion,
   mindestalter: VERTRETUNG_MIN_ALTER,
@@ -157,7 +156,6 @@ describe("the confirmation page for a seat on a team's season row", () => {
       h(BestaetigungFormPanel, {
         fassung: KONTAKT,
         token: "kein-echtes-token",
-        vorname: "Mira",
         schule: "Lessing-Kolleg",
         saison: "2627",
         rolle: "Ansprechperson",

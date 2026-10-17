@@ -38,7 +38,7 @@ const pageStart = async (): Promise<SchiedsrichterAdresswechselStart> =>
     })) as ReactElement<{ start: SchiedsrichterAdresswechselStart }>
   ).props.start;
 
-const OFFEN: SchiedsrichterAdresswechselStart = { zustand: "gueltig", vorname: "Anna", frist: "2026-10-15", token: "abc123" };
+const OFFEN: SchiedsrichterAdresswechselStart = { zustand: "gueltig", frist: "2026-10-15", token: "abc123" };
 
 const words = (start: SchiedsrichterAdresswechselStart): string =>
   textOf(renderTree(h(SchiedsrichterAdresswechselView, { start })), " ")
@@ -73,10 +73,11 @@ describe("the referee's address page", () => {
     assert.match(screen.getByRole("button", { name: NICHT_MEINE_ADRESSE }).className, /bg-transparent/);
   });
 
-  it("names the referee, the deadline and both answers on an open link", () => {
+  /* The link went to a mailbox nobody has confirmed, so the open page names the entry and never the person. */
+  it("names the entry, the deadline and both answers on an open link", () => {
     const shown = words(OFFEN);
 
-    assert.match(shown, /für Anna als Schiedsrichterin oder Schiedsrichter eingetragen/);
+    assert.match(shown, /für Deinen Eintrag als Schiedsrichterin oder Schiedsrichter eingetragen/);
     assert.match(shown, /15\.10\.2026/);
     assert.ok(shown.includes(JA_MEINE_ADRESSE) && shown.includes(NICHT_MEINE_ADRESSE), "an answer is missing");
   });
@@ -236,7 +237,7 @@ describe("the referee's address page over a read that did not answer", () => {
 
   /* An answer off its schema is a broken contract, never a failed read: the error boundary logs it, and the reload panel would hide it. */
   it("lets a read off its contract reach the error boundary", async () => {
-    answerReadsWith(() => ({ acknowledged: 1, zustand: "verschollen", vorname: "Anna", frist: "2026-10-15" }));
+    answerReadsWith(() => ({ acknowledged: 1, zustand: "verschollen", frist: "2026-10-15" }));
 
     await assert.rejects(pageStart(), { name: "APIMalformedDataError" });
   });
