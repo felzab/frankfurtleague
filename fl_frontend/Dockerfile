@@ -5,7 +5,7 @@
 
 # The tag names the Node `package.json :: devEngines` pins (`docs/ops/spec.md :: I511`), and
 # Dependabot moves it together with the digest (`docs/ops/spec.md` §1.1).
-FROM node:26.10.0-trixie-slim@sha256:ec7758ee051e457b468b32bde57b0879010b325bb9862718e9615225ce4aaae1 AS base
+FROM node:26.12.0-trixie-slim@sha256:0d1e33586362bb9e608c4e751e7a9e7edb55c9ac11461ed5666af696cc461dd4 AS base
 
 # tini as PID 1, as Node's Docker guidance asks: node there ignores every signal it registered no
 # handler for and reaps no orphaned child
