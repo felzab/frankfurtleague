@@ -268,35 +268,40 @@ describe("what the save tells the administrator about the message it sent", () =
   }
 
   /* A notice to the address in force that failed asks the administrator to tell the person, which a clean save
-     contradicts (`docs/frontend/spec.md :: I737`). */
-  it("grades a save whose link went and whose notice failed a warning", async () => {
-    answerWith(() =>
-      Promise.resolve({
-        success: true,
-        updated_document: null,
-        message: "Schiedsrichter bearbeitet",
-        versandSatz: VERSAND_SATZ,
-        versand: "gesendet",
-        hinweis: "fehlgeschlagen",
-      }),
-    );
+     contradicts; one held back asks nothing (`docs/frontend/spec.md :: I737`). */
+  for (const [hinweis, variant, title] of [
+    ["fehlgeschlagen", "warning", "Mit Folgen gespeichert"],
+    ["zurueckgehalten", "success", "Änderung gespeichert"],
+  ] as const) {
+    it(`grades a save whose link went and whose notice is ${hinweis} a ${variant}`, async () => {
+      answerWith(() =>
+        Promise.resolve({
+          success: true,
+          updated_document: null,
+          message: "Schiedsrichter bearbeitet",
+          versandSatz: VERSAND_SATZ,
+          versand: "gesendet",
+          hinweis: hinweis,
+        }),
+      );
 
-    const user = userEvent.setup();
-    const { unmount } = renderEditor();
-    const before = toasts.length;
-    await user.type(screen.getByRole("textbox", { name: /Schule/ }), "n");
-    await user.click(screen.getAllByRole("button", { name: "Speichern" })[0]!);
-    await act(answered);
-    await waitFor(() => {
-      assert.ok(toasts.length > before, "the save raised no toast at all");
+      const user = userEvent.setup();
+      const { unmount } = renderEditor();
+      const before = toasts.length;
+      await user.type(screen.getByRole("textbox", { name: /Schule/ }), "n");
+      await user.click(screen.getAllByRole("button", { name: "Speichern" })[0]!);
+      await act(answered);
+      await waitFor(() => {
+        assert.ok(toasts.length > before, "the save raised no toast at all");
+      });
+
+      assert.deepEqual(
+        toasts.slice(before).map((raised) => [raised.variant, raised.title]),
+        [[variant, title]],
+      );
+      unmount();
     });
-
-    assert.deepEqual(
-      toasts.slice(before).map((raised) => [raised.variant, raised.title]),
-      [["warning", "Mit Folgen gespeichert"]],
-    );
-    unmount();
-  });
+  }
 
   it("falls back to the editor's own sentence where the save mailed nothing", async () => {
     answerWith(() => Promise.resolve({ success: true, updated_document: null, message: "Schiedsrichter bearbeitet" }));
