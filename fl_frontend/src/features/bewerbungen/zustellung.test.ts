@@ -712,6 +712,26 @@ describe("POST /api/mail/zustellung", () => {
     const { status } = await answerTo(signed(JSON.stringify(eventFor("email.delivered"))));
 
     assert.equal(status, 200);
+    assert.deepEqual(
+      logs.map(({ level, message, meta }) => [level, message, meta?.["error_code"]]),
+      [["error", "mail.zustellung_ungeschrieben", "FE-MAIL-003"]],
+    );
+  });
+
+  it("answers 200 and writes the same line where the tagged event's record no longer exists", async () => {
+    zielZustellungAnswer = () => {
+      throw refusedOn("POST /zustellung", "DB-COMMON-001");
+    };
+
+    const tagged = eventFor("email.delivered", { tags: { ziel: "schiedsrichter", ziel_id: ZIEL_ID, anlass: "eingang" } });
+
+    const { status } = await answerTo(signed(JSON.stringify(tagged)));
+
+    assert.equal(status, 200);
+    assert.deepEqual(
+      logs.map(({ level, message, meta }) => [level, message, meta?.["error_code"]]),
+      [["error", "mail.zustellung_ungeschrieben", "FE-MAIL-003"]],
+    );
   });
 
   /* Only the event's own answer settles it: a route the API does not serve mid-deploy, a credential or a
