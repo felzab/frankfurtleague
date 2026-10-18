@@ -1092,21 +1092,24 @@ if [[ -n "$RESOLVER_VALID" ]] && (( RESOLVER_VALID > MOVE_LIFETIME )); then
 fi
 declare -A MOVED_AFTER=() MOVED_SEEN=()
 _moved_from="$(date +%s)"
-while :; do
+while (( ${#MOVED_AFTER[@]} < 2 )); do
   for edge in local prod; do
     [[ -z "${MOVED_AFTER[$edge]:-}" ]] || continue
+    # Before each pass rather than each round, so a failing case outruns its deadline by one pass.
+    (( $(date +%s) - _moved_from < MOVE_DEADLINE )) || break 2
     mapfile -t _answers < <(moved_answers "$edge" "$MOVE_RUN")
     _run=0
     for _answer in "${_answers[@]}"; do
       [[ "${_answer%$'\r'}" == "reached "* ]] && _run=$(( _run + 1 ))
     done
-    if (( _run == MOVE_RUN )); then
-      MOVED_AFTER[$edge]=$(( $(date +%s) - _moved_from ))
+    _after=$(( $(date +%s) - _moved_from ))
+    # A run finished past the deadline is an edge slower than its arithmetic allows, not a pass.
+    if (( _run == MOVE_RUN && _after <= MOVE_DEADLINE )); then
+      MOVED_AFTER[$edge]="$_after"
       MOVED_SEEN[$edge]="${_answers[0]%$'\r'}"
       MOVED_SEEN[$edge]="${MOVED_SEEN[$edge]#reached }"
     fi
   done
-  (( ${#MOVED_AFTER[@]} < 2 && $(date +%s) - _moved_from < MOVE_DEADLINE )) || break
   sleep 0.5
 done
 for edge in local prod; do
