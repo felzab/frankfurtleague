@@ -72,22 +72,30 @@ _STUFEN = ["E1", "E2", "Q1", "Q2", "Q3", "Q4"]
 _SPIELER_ROLLEN = ["kapitaen", "co_kapitaen"]
 _SCHULFORMEN = ["gymnasium_g8", "gymnasium_g9", "gesamtschule", "privatschule_g8", "privatschule_g9", "oberstufengymnasium"]
 _TRIKOT_FARBEN = [
-    "weiss",
     "schwarz",
-    "rot",
+    "weiss",
+    "grau",
     "braun",
+    "bordeaux",
+    "rot",
+    "koralle",
     "orange",
+    "gold",
     "gelb",
+    "limette",
     "hellgruen",
     "gruen",
+    "smaragd",
     "tuerkis",
+    "cyan",
     "hellblau",
+    "meerblau",
     "blau",
     "dunkelblau",
+    "flieder",
     "violett",
     "magenta",
-    "bordeaux",
-    "grau",
+    "rosa",
 ]
 # The second member is the person's own tick on their confirmation page: no payload offers it.
 _KONTAKT_KENNTNISNAHME_UMFANG = ["kontaktdaten", "kontaktdaten_whatsapp"]
