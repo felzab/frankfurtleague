@@ -14,6 +14,7 @@ import {
   KONTAKT_TITEL,
   ORGANISATION_TITEL,
   SAISONUEBERSICHT_TITEL,
+  VERWALTUNG_TITEL,
 } from "@/core/seitenNamen.ts";
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 import {
@@ -155,6 +156,11 @@ const REGISTER: readonly Benannt[] = [
     ],
     /(?<![\p{L}\p{N}])[Dd]ein(?:em|en|es)\s+Bereich(?:e?s)?(?![\p{L}\p{N}])/u,
   ),
+  seitenName("VERWALTUNG_TITEL", VERWALTUNG_TITEL, "/bereich/admin", [
+    ADMIN,
+    "features/funktionen/utils.ts",
+    "app/bereich/admin/not-found.tsx",
+  ]),
   seitenName("ABOUT_TITEL", ABOUT_TITEL, "/about", [
     TOP_NAV,
     FOOTER,

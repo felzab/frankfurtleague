@@ -1072,7 +1072,10 @@ supplies the database URI a module reads past it** (`fl_frontend/package.json`),
 graph reaches that gate renders — a form through its slice's actions module, and every field panel
 that form composes. That environment is the base script's own, so every runner of the suite inherits
 it by invoking `pnpm test` or `pnpm run test:db` rather than spelling it — the gate's
-`scripts/gate/verify.sh :: do_unit_tests` and CI alike. `test:base` is run with a tier's patterns
+`scripts/gate/verify.sh :: do_unit_tests` and CI alike. Its `--test-timeout` bounds each case and
+each hook, never a suite's total, so a case awaiting a promise that never settles fails by name before
+CI's job timeout kills the run unnamed; a synchronous body escapes it, the runner being unable to
+interrupt one. `test:base` is run with a tier's patterns
 or with named files, and refuses to run bare (below).
 
 **A test file that runs no case fails the run, by name**: node:test counts it a pass, whether it

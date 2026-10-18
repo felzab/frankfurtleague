@@ -526,6 +526,7 @@ describe("POST /api/mail/zustellung", () => {
 
     assert.equal(logs.length, 1);
     assert.equal(logs[0]?.level, "warn");
+    assert.equal(logs[0]?.message, "mail.anmeldecode_nicht_zugestellt");
     assert.equal(logs[0]?.meta?.["error_code"], "FE-MAIL-007");
     assert.equal(logs[0]?.meta?.["stand"], "unzustellbar");
     assert.equal(logs[0]?.meta?.["nachricht_id"], MESSAGE_ID);
@@ -561,8 +562,11 @@ describe("POST /api/mail/zustellung", () => {
     assert.deepEqual(calls, [], "the notice lane reached the application's endpoint");
     assert.deepEqual(zielCalls, [], "the notice lane reached the generic endpoint");
     assert.equal(logs.length, 1);
+    assert.equal(logs[0]?.level, "warn");
+    assert.equal(logs[0]?.message, "mail.berechtigungshinweis_nicht_zugestellt");
     assert.equal(logs[0]?.meta?.["error_code"], "FE-MAIL-010");
     assert.equal(logs[0]?.meta?.["stand"], "unzustellbar");
+    assert.equal(logs[0]?.meta?.["nachricht_id"], MESSAGE_ID);
     assert.ok(!inspect(logs, { depth: null }).includes(ADDRESS), "the recipient reached the stream");
   });
 
@@ -582,6 +586,7 @@ describe("POST /api/mail/zustellung", () => {
     assert.deepEqual(zielCalls, [], "the note's lane reached the generic endpoint");
     assert.equal(logs.length, 1);
     assert.equal(logs[0]?.level, "warn");
+    assert.equal(logs[0]?.message, "mail.saisonendenotiz_nicht_zugestellt");
     assert.equal(logs[0]?.meta?.["error_code"], "FE-MAIL-013");
     assert.equal(logs[0]?.meta?.["stand"], "unzustellbar");
     assert.equal(logs[0]?.meta?.["nachricht_id"], MESSAGE_ID);
@@ -707,6 +712,26 @@ describe("POST /api/mail/zustellung", () => {
     const { status } = await answerTo(signed(JSON.stringify(eventFor("email.delivered"))));
 
     assert.equal(status, 200);
+    assert.deepEqual(
+      logs.map(({ level, message, meta }) => [level, message, meta?.["error_code"]]),
+      [["error", "mail.zustellung_ungeschrieben", "FE-MAIL-003"]],
+    );
+  });
+
+  it("answers 200 and writes the same line where the tagged event's record no longer exists", async () => {
+    zielZustellungAnswer = () => {
+      throw refusedOn("POST /zustellung", "DB-COMMON-001");
+    };
+
+    const tagged = eventFor("email.delivered", { tags: { ziel: "schiedsrichter", ziel_id: ZIEL_ID, anlass: "eingang" } });
+
+    const { status } = await answerTo(signed(JSON.stringify(tagged)));
+
+    assert.equal(status, 200);
+    assert.deepEqual(
+      logs.map(({ level, message, meta }) => [level, message, meta?.["error_code"]]),
+      [["error", "mail.zustellung_ungeschrieben", "FE-MAIL-003"]],
+    );
   });
 
   /* Only the event's own answer settles it: a route the API does not serve mid-deploy, a credential or a
