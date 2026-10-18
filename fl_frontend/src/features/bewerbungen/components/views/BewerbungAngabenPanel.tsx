@@ -281,7 +281,7 @@ export function BewerbungAngabenPanel({
             ) : (
               <span className="flex flex-row items-center gap-x-2">
                 {/* A ring rather than a filled disc, so Weiß reads as a colour instead of as a gap.
-                    The fill is the league's CI hex, which no theme token tracks. */}
+                    The fill is the palette's hex, which no theme token tracks. */}
                 <span
                   aria-hidden="true"
                   style={{ backgroundColor: trikotFarbeHex(trikot.wunschfarbe) }}

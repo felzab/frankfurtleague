@@ -641,7 +641,7 @@ async function typeIntoEvery(tree: ReactNode, pathname: string, params: Record<s
       const holds = typeable(document, typed).length > 0;
       const count = listed().length;
       for (let index = 0; index < count && control.isConnected; index += 1) {
-        // Opened again and picked in one press: a list of sixteen colours is thirty-two presses otherwise.
+        // Opened again and picked in one press: the kit colour list is two presses per colour otherwise.
         await press(`picking option ${String(index + 1)} of „${controlName}“`, async () => {
           if (!isOpen(control)) {
             fireEvent.click(control);
