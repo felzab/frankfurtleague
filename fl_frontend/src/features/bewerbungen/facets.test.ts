@@ -2,7 +2,6 @@ import "@/shared/testing/dom.ts";
 import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
-import { existsSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
@@ -11,6 +10,7 @@ import { createElement as h } from "react";
 
 import { fireEvent, render, within } from "@testing-library/react";
 
+import { filesUnder } from "@/core/treeWalk.ts";
 import { KONTAKT_ROLLEN } from "@/features/teams/constants";
 import { TEAM_FACETS } from "@/features/teams/facets";
 import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
@@ -336,10 +336,7 @@ const FEATURES_DIR = path.resolve(import.meta.dirname, "..");
 const OWN_MODULE = path.join("bewerbungen", "facets.ts");
 
 /** Every slice's facet module, found on disk so a slice added later is swept without anyone listing it here. */
-const FACET_MODULES = readdirSync(FEATURES_DIR, { withFileTypes: true })
-  .filter((entry) => entry.isDirectory())
-  .map((entry) => path.join(FEATURES_DIR, entry.name, "facets.ts"))
-  .filter((file) => existsSync(file));
+const FACET_MODULES = filesUnder(FEATURES_DIR, (name) => name === "facets.ts", 1);
 
 /** Every facet the app ships, reduced to what a URL can collide over plus where it came from. */
 const SWEPT: { param: string; label: string; source: string }[] = [];

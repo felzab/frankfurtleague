@@ -2,7 +2,6 @@ import "@/shared/testing/dom.ts";
 import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
-import { existsSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
@@ -12,6 +11,7 @@ import { createElement as h } from "react";
 import { render, screen, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
+import { filesUnder } from "@/core/treeWalk.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 
 import {
@@ -348,14 +348,11 @@ function isFacetArray(value: unknown): value is readonly Facet<never>[] {
 
 const discovered: [string, readonly Facet<never>[]][] = [];
 
-for (const slice of readdirSync(FEATURES_DIR, { withFileTypes: true })) {
-  if (!slice.isDirectory()) continue;
-  const file = path.join(FEATURES_DIR, slice.name, "facets.ts");
-  if (!existsSync(file)) continue;
-
+for (const file of filesUnder(FEATURES_DIR, (name) => name === "facets.ts", 1)) {
+  const slice = path.relative(FEATURES_DIR, path.dirname(file));
   const loaded: Record<string, unknown> = await import(pathToFileURL(file).href);
   for (const [name, value] of Object.entries(loaded)) {
-    if (isFacetArray(value)) discovered.push([`${slice.name}/${name}`, value]);
+    if (isFacetArray(value)) discovered.push([`${slice}/${name}`, value]);
   }
 
   // The spieler slice's team facet is assembled per call, so the discovered constant does not contain it.
@@ -365,7 +362,7 @@ for (const slice of readdirSync(FEATURES_DIR, { withFileTypes: true })) {
     const built: unknown = (builder as (teams: readonly { teamId: string; name: string; shorthand: string }[]) => unknown)([
       { teamId: "6890a1b2c3d4e5f607190001", name: "Helmholtz", shorthand: "HE" },
     ]);
-    if (isFacetArray(built)) discovered.push([`${slice.name}/buildSpielerFacets(...)`, built]);
+    if (isFacetArray(built)) discovered.push([`${slice}/buildSpielerFacets(...)`, built]);
   }
 }
 
