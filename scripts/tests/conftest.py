@@ -28,6 +28,8 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any, Final
 
+import pytest
+
 REPO_ROOT: Final = Path(__file__).resolve().parent.parent.parent
 
 # pytest's own, for the guard's test to run a session through it; and the refusal of a test module
@@ -44,6 +46,10 @@ IDENTITY: Final[tuple[tuple[str, str], ...]] = (
 # Not a skip condition: every script under `scripts/` is bash, so a machine without one cannot run
 # the gate at all, and a contract silently skipped is what the suites driving one exist to stop.
 BASH: Final = shutil.which("bash")
+
+WINDOWS: Final = sys.platform == "win32"
+# The runtime Git Bash's own bash runs on, which none of the launchers in front of it sits beside.
+MSYS_RUNTIME: Final = "msys-2.0.dll"
 
 _OWNED: list[Path] = []
 
@@ -278,6 +284,27 @@ def discard(root: Path) -> None:
     # Around the retry, never instead of it: a failure swallowed first leaves the tree behind.
     with contextlib.suppress(OSError):
         shutil.rmtree(root, onexc=clear_readonly)
+
+
+def _foreign_bash(found: str | None, *, windows: bool) -> str | None:
+    """Why `found` would fail cases that pass, or None where it runs them as written.
+
+    WSL's launcher reads no Windows path, and the launcher in Git's top `bin` directory puts its own
+    `/usr/bin` ahead of a case's stand-ins.
+    """
+    if not windows or found is None or (Path(found).parent / MSYS_RUNTIME).is_file():
+        return None
+    return (
+        f"{found} is the first bash on PATH and not Git Bash's own, so cases that pass would fail under it."
+        " Run pytest from Git Bash, whose PATH finds its own bash first."
+    )
+
+
+def pytest_configure() -> None:
+    """Refused before collection: under a foreign bash every case running a script fails, saying nothing of why."""
+    reason = _foreign_bash(BASH, windows=WINDOWS)
+    if reason is not None:
+        raise pytest.UsageError(reason)
 
 
 def pytest_sessionfinish() -> None:

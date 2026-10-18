@@ -50,13 +50,17 @@ def _journal_days() -> int:
 FIRST: Final = (date.fromisoformat(TODAY) - timedelta(days=_journal_days() - 1)).isoformat()
 BEFORE: Final = (date.fromisoformat(FIRST) - timedelta(days=1)).isoformat()
 
-# `logs` hands back the case's stream, or fails as the case asks; every argv is recorded.
+# `logs` hands back the case's stream, or fails as the case asks, recording its argv and the second it
+# was asked in. A held stream stands for a pass still reading long after its read began.
 STUB: Final = """#!/usr/bin/env bash
 set -u
 if [[ "${1:-}" == "compose" && " $* " == *" logs "* ]]; then
   printf '%s\\n' "$@" > "${FL_JOURNAL_ARGV}"
+  date +%s > "${FL_JOURNAL_ASKED}"
+  if [[ -n "${FL_JOURNAL_COPY_LANDS:-}" ]]; then mv -- "${FL_JOURNAL_COPY_LANDS}" "${FL_JOURNAL_LOGS}/"; fi
   if [[ -n "${FL_JOURNAL_LIVE_RC:-}" ]]; then exit "${FL_JOURNAL_LIVE_RC}"; fi
   if [[ -n "${FL_JOURNAL_LIVE:-}" ]]; then cat "${FL_JOURNAL_LIVE}"; fi
+  if [[ -n "${FL_JOURNAL_HOLD:-}" ]]; then sleep "${FL_JOURNAL_HOLD}"; fi
   exit 0
 fi
 exit 1
@@ -124,6 +128,7 @@ class _Fixture:
         self.checkout = self.root / "checkout"
         self.checkout.mkdir()
         self.argv = self.root / "argv.txt"
+        self.asked = self.root / "asked.txt"
         self.live = self.root / "live.txt"
         self.live.write_bytes(b"")
 
@@ -152,7 +157,9 @@ def _run(fixture: _Fixture, *, log_dir: Path | None = None, **overrides: str) ->
     environment = base_env()
     environment["PATH"] = str(stubs) + os.pathsep + environment["PATH"]
     environment["FL_JOURNAL_ARGV"] = str(fixture.argv)
+    environment["FL_JOURNAL_ASKED"] = str(fixture.asked)
     environment["FL_JOURNAL_LIVE"] = str(fixture.live)
+    environment["FL_JOURNAL_LOGS"] = str(log_dir or fixture.logs)
     environment.update(overrides)
     lines = (
         "#!/usr/bin/env bash",
@@ -225,6 +232,33 @@ def test_every_backend_copy_a_deploy_left_is_read_with_its_prefix_stripped() -> 
     assert fixture.day("2026-10-09") == [line("a week ago")], output
     assert fixture.day(YESTERDAY) == [line("yesterday")], output
     assert fixture.day(TODAY) == [line("today")], output
+
+
+def test_a_copy_a_deploy_writes_while_the_stream_is_read_is_read_by_that_pass() -> None:
+    """The deploy's recreate has emptied the stream by then, so the copy alone holds those lines, and the pass's stamp says it read them."""
+    fixture = _Fixture()
+    landing = fixture.root / "2026-10-16T101500-backend.log"
+    landing.write_bytes(f"{_copied(line('yesterday'), f'{YESTERDAY}T12:00:00')}\n".encode())
+
+    code, output = _run(fixture, FL_JOURNAL_COPY_LANDS=str(landing))
+
+    assert code == 0, output
+    assert fixture.day(YESTERDAY) == [line("yesterday")], output
+
+
+def test_the_pass_is_stamped_with_the_second_it_asked_for_the_stream() -> None:
+    """Stamped at its end, a pass reading across a restore's end lets the replay run over lines it missed.
+
+    Held a second, the stream tells a stamp taken after the read from one taken before it.
+    """
+    fixture = _Fixture()
+    fixture.stream(line("today"))
+    began = int(time.time())
+
+    code, output = _run(fixture, FL_JOURNAL_HOLD="1")
+
+    assert code == 0, output
+    assert began <= (fixture.logs / _pass_stamp()).stat().st_mtime <= int(fixture.asked.read_bytes()), output
 
 
 def test_a_copy_written_before_the_first_day_is_not_read() -> None:

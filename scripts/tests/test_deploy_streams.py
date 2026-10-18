@@ -372,6 +372,23 @@ def test_a_signal_inside_the_stop_window_puts_the_stopped_pair_back(signal: str,
     assert "went-on" not in output, output
 
 
+@pytest.mark.parametrize(
+    ("failing", "signal"),
+    [
+        pytest.param(">/dev/full 2>/dev/full", "HUP", id="every-write-as-after-a-dropped-session"),
+        pytest.param(">/dev/full", "INT", id="stdout-alone-as-on-a-full-disk"),
+    ],
+)
+def test_an_interrupt_with_its_writes_failing_still_puts_the_stopped_pair_back(failing: str, signal: str) -> None:
+    """Every write failing ends the run inside the error trap, leaving errexit alone to stop the put-back.
+
+    With stdout alone failing the run reaches its 130, and the error trap can stop it too.
+    """
+    code, output, fixture = _run(f"exec {failing}\n{WINDOW}", FL_DEPLOY_SIGNAL=signal, FL_DEPLOY_SIGNAL_AT="logs")
+
+    assert fixture.called() == ["stop frontend backend", "logs frontend", "start frontend backend", "reload"], (code, output)
+
+
 def _top_level(text: str) -> list[str]:
     """The script's statements at column 0, its comments and blank lines dropped."""
     return [line for line in text.splitlines() if line and not line.startswith(("#", " ", "\t"))]

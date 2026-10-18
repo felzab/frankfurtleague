@@ -42,8 +42,8 @@ done
 # Unions each day's lines into that day's file with what it already holds, so a line the size cap
 # rotated away since the last pass stays. Days are UTC, as each line's `timestamp` is.
 export_days() { # $1 the last day to write, today, as YYYY-MM-DD
-  local last="$1" first copy held day target merged live_rc=0 read_rc=0
-  local -a copies=() piped=()
+  local last="$1" first read_at stream copy held day target merged live_rc=0 read_rc=0
+  local -a copies=()
   first="$(date -u -d "${last} $(( JOURNAL_DAYS - 1 )) days ago" +%F)"
   [[ -d "$LOG_DIR" && -w "$LOG_DIR" ]] || refuse "${LOG_DIR} is missing or not writable by $(id -un), so no journal line was copied.
 The deploy creates it; docs/ops/runbooks.md §7 says how to create it by hand."
@@ -54,6 +54,16 @@ The deploy creates it; docs/ops/runbooks.md §7 says how to create it by hand."
   # `|| true`: a failure here would replace the run's own exit code with the reclaim's.
   trap 'rm -rf -- "$JOURNAL_WORK" || true' EXIT
 
+  # Before any source is read: the replay takes every line journalled before the stamp this sets to be
+  # in a day file, and a line journalled once the reads have begun may be in none.
+  read_at="$(date -u +%s)"
+  # A dot name, which the walk over the day files below does not match.
+  stream="${JOURNAL_WORK}/.stream"
+  # Read before the copies are listed: a deploy copies the stream before its recreate discards it, so
+  # a copy taken while this reads is listed below.
+  docker compose -f "$COMPOSE" logs --no-color --no-log-prefix --since "${first}T00:00:00Z" backend \
+    > "$stream" 2>/dev/null || live_rc=$?
+
   # A recreate discards the stream, so each copy a deploy took since the first day began is read too,
   # its rollback's `-failed` pair included.
   while IFS= read -r -d '' copy; do copies+=("$copy"); done \
@@ -61,18 +71,14 @@ The deploy creates it; docs/ops/runbooks.md §7 says how to create it by hand."
 
   # Everything before a line's own `{` is a copy's prefix. Every day the logs hold gets its file, an
   # empty one where no journal line falls on it; the day names that file, so its shape is checked.
-  { docker compose -f "$COMPOSE" logs --no-color --no-log-prefix --since "${first}T00:00:00Z" backend 2>/dev/null \
-      | awk -v token="$JOURNAL_TOKEN" -v first="$first" -v last="$last" -v work="$JOURNAL_WORK" '
-          { sub(/^[^{]*/, "") }
-          index($0, "{\"timestamp\": \"") != 1 { next }
-          { day = substr($0, 16, 10) }
-          day !~ /^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]$/ || day < first || day > last { next }
-          !(day in held) { held[day]; printf "" > (work "/" day) }
-          index($0, token) { print > (work "/" day) }
-        ' - "${copies[@]}"
-    piped=("${PIPESTATUS[@]}"); } || :
-  live_rc="${piped[0]}"
-  read_rc="${piped[1]}"
+  awk -v token="$JOURNAL_TOKEN" -v first="$first" -v last="$last" -v work="$JOURNAL_WORK" '
+      { sub(/^[^{]*/, "") }
+      index($0, "{\"timestamp\": \"") != 1 { next }
+      { day = substr($0, 16, 10) }
+      day !~ /^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]$/ || day < first || day > last { next }
+      !(day in held) { held[day]; printf "" > (work "/" day) }
+      index($0, token) { print > (work "/" day) }
+    ' "$stream" "${copies[@]}" || read_rc=$?
   (( read_rc == 0 )) || refuse "the logs could not be read (awk exit ${read_rc}), so no day file was written."
 
   for held in "$JOURNAL_WORK"/*; do
@@ -96,7 +102,7 @@ The deploy creates it; docs/ops/runbooks.md §7 says how to create it by hand."
   (( live_rc == 0 )) || refuse "the backend's stream could not be read (docker compose logs exit ${live_rc}), so only the
 deploy copies' lines reached the day files. The next pass that reads the stream copies every line it
 still holds, of every day a pass writes, unless its size cap rotates one away first."
-  touch -- "$PASS_STAMP"
+  touch -d "@${read_at}" -- "$PASS_STAMP"
 }
 
 require_platform linux
