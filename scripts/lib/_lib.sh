@@ -589,13 +589,13 @@ adopt_section() {
     # Every fault in this function crashes rather than naming a finding: a mangled row is the
     # gate's own handoff, and nothing in the tree could be fixed to answer for one.
     [[ "$value" =~ ^[0-9]+$ ]] \
-      || on_error 3 "${BASH_LINENO[0]}" "adopt_section: '${value}' is not a count. Arguments: name rank ms findings [advisories]."
+      || on_error 3 "${BASH_LINENO[0]}" "adopt_section: '${value}' is not a count. Arguments: name rank ms findings [advisories]." "${BASH_SOURCE[1]}"
   done
-  (( rank <= RANK_CRASHED )) || on_error 3 "${BASH_LINENO[0]}" "adopt_section: rank ${rank} is outside 0-${RANK_CRASHED}."
+  (( rank <= RANK_CRASHED )) || on_error 3 "${BASH_LINENO[0]}" "adopt_section: rank ${rank} is outside 0-${RANK_CRASHED}." "${BASH_SOURCE[1]}"
   # A row appended under an open section sorts before the section still running, and the fixed
   # order is the point of adopting rather than printing.
   (( _SECTION_OPEN < 0 )) \
-    || on_error 3 "${BASH_LINENO[0]}" "adopt_section: a section is still open. Call end_section first."
+    || on_error 3 "${BASH_LINENO[0]}" "adopt_section: a section is still open. Call end_section first." "${BASH_SOURCE[1]}"
   _CHROME=1
   _SECTION_NAMES+=("$name"); _SECTION_RANKS+=("$rank"); _SECTION_MS+=("$ms")
   _SECTION_FINDINGS+=("$findings"); _SECTION_ADVISORIES+=("$advisories")
@@ -617,7 +617,7 @@ adopt_ending() { # $1 the worker's exit status, $2 what to call that worker in a
   # Crashes for `adopt_section`'s reason: a status the handoff mangled is not something the change
   # could be fixed to answer for.
   [[ "$rc" =~ ^[0-9]+$ ]] \
-    || on_error 3 "${BASH_LINENO[0]}" "adopt_ending: '${rc}' is not an exit status."
+    || on_error 3 "${BASH_LINENO[0]}" "adopt_ending: '${rc}' is not an exit status." "${BASH_SOURCE[1]}"
   if (( rc == 130 )); then _closing interrupted; exit 130; fi
 
   # The status a kill leaves is not a number `exit` can return: on Windows `kill -9` reports 2304,
@@ -642,9 +642,11 @@ adopt_ending() { # $1 the worker's exit status, $2 what to call that worker in a
 # Graded 3, never 2: against `scripts/lib/checker_kernel.py`'s contract 2 asks for the input to be
 # fixed, and no input made a worker and its parent disagree. The fault is the handoff's.
 _contradicted() { # $1 what to call the worker, $2 its exit status, $3 what its rows lack
-  on_error 3 "${BASH_LINENO[0]}" "${1} exited ${2}, and every section row it sent home ${3}.
+  # One frame further out than `adopt_ending`'s own call: the line named is where the caller
+  # adopted the worker, not the line of `adopt_ending` that noticed.
+  on_error 3 "${BASH_LINENO[1]}" "${1} exited ${2}, and every section row it sent home ${3}.
 A status and the rows it travelled with are two accounts of one run, and these two disagree, so
-neither stands as a verdict. scripts/lib/_lib.sh :: emit_section_ledger is what fills those rows."
+neither stands as a verdict. scripts/lib/_lib.sh :: emit_section_ledger is what fills those rows." "${BASH_SOURCE[2]}"
 }
 
 # Its own ending: the check ran and its result cannot stand as a verdict. Ranked above `pass`, so
@@ -663,16 +665,11 @@ refuse() {
   exit 2
 }
 
-# `set -e` otherwise exits in silence. The values are passed in as the trap fires: `$LINENO` read
-# inside the trap body would name this file rather than the script that failed.
+# `set -e` otherwise exits in silence. A library helper passes $4, the file its line is in, read off
+# `BASH_SOURCE` at that line's frame: its caller may be a sourced file rather than the script.
 on_error() {
-  local rc="$1" line="$2" cmd="$3" file="${4-}" where="${SELF##*/}"
-  # The trap's file, since its line may be this library's: and that file's own text at the line,
-  # since inside another trap `$BASH_COMMAND` holds the command that trap interrupted.
-  if [[ -n "$file" ]]; then
-    where="${file##*/}"
-    cmd="$(sed -n "${line}{s/^[[:space:]]*//;p;}" -- "$file" 2>/dev/null)" || cmd="$3"
-  fi
+  local rc="$1" line="$2" cmd="$3" file="${4:-$SELF}"
+  local where="${file##*/}"
   # The open section failed whatever its steps reached: a row reading `pass` beside a crash
   # statement misleads anyone scanning the table rather than the prose.
   _escalate 5
@@ -690,7 +687,16 @@ exit status ${rc}" >&2
   if (( rc < 3 )); then rc=3; fi
   exit "$rc"
 }
-trap 'on_error "$?" "$LINENO" "$BASH_COMMAND" "${BASH_SOURCE[0]}"' ERR
+
+_on_err_trap() { # $1 status, $2 line, $3 `$BASH_COMMAND`, $4 the file the line belongs to
+  local text
+  # The file's own text, since inside another trap `$BASH_COMMAND` holds the command that trap
+  # interrupted. Read here rather than in `on_error`, whose explicit callers pass a message instead.
+  text="$(sed -n "${2}{s/^[[:space:]]*//;p;}" -- "$4" 2>/dev/null)" || text="$3"
+  on_error "$1" "$2" "$text" "$4"
+}
+# Expanded as the trap fires: read inside the function, `$LINENO` would name that function's line.
+trap '_on_err_trap "$?" "$LINENO" "$BASH_COMMAND" "${BASH_SOURCE[0]}"' ERR
 
 # A dropped SSH session's hangup among them: left to bash, each still runs a script's EXIT trap but
 # dies by its signal, with no statement and `quietly`'s capture left behind, a hangup exiting 129,

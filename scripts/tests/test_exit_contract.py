@@ -145,10 +145,10 @@ def test_an_ending_reached_inside_a_worker_summarises_nothing() -> None:
 SOURCED: Final = "#!/usr/bin/env bash\nboom() {\n  false # the failing line\n}\n"
 
 
-def _crash(*body: str) -> tuple[int, str]:
+def _crash(*body: str, sourced_text: str = SOURCED) -> tuple[int, str]:
     assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
     with tempfile.TemporaryDirectory() as scratch:
-        sourced = write_shell(Path(scratch) / "sourced.sh", SOURCED)
+        sourced = write_shell(Path(scratch) / "sourced.sh", sourced_text)
         script = "\n".join(("#!/usr/bin/env bash", f'source "{LIB.as_posix()}"', f'source "{sourced.as_posix()}"', *body, ""))
         done = run_shell(BASH, write_shell(Path(scratch) / "caller.sh", script), env=base_env())
     return done.returncode, done.stdout + done.stderr
@@ -163,6 +163,38 @@ def test_a_crash_names_the_file_and_the_line_that_failed() -> None:
             wrong.append(f"{how}: exited {code}, and a crash exits 3")
         if "sourced.sh failed" not in output or "line 3:  false # the failing line" not in output:
             wrong.append(f"{how}: the statement names another file or another command:\n{output}")
+    assert not wrong, "\n".join(wrong)
+
+
+# A sourced file entering the library's adopting helpers, each call on a line of its own: a crash a
+# helper raises itself names the line that called the library, in the file holding that line.
+ADOPTER: Final = """#!/usr/bin/env bash
+contradicted() {
+  adopt_section demo 2 10 0 0
+  adopt_ending 1
+}
+mangled() {
+  adopt_section demo 7 10 0 0
+}
+garbled() {
+  adopt_ending none
+}
+"""
+
+
+def test_a_crash_a_library_helper_raises_names_the_line_that_called_it() -> None:
+    """`contradicted` is the load-bearing case: its crash is raised by a helper's helper, one frame further out."""
+    wrong: list[str] = []
+    for call, says in (
+        ("contradicted", "line 4:  a worker exited 1, and every section row it sent home carries no finding."),
+        ("mangled", "line 7:  adopt_section: rank 7 is outside 0-6."),
+        ("garbled", "line 10:  adopt_ending: 'none' is not an exit status."),
+    ):
+        code, output = _crash(call, sourced_text=ADOPTER)
+        if code != 3:
+            wrong.append(f"{call}: exited {code}, and a crash exits 3")
+        if "sourced.sh failed" not in output or says not in output:
+            wrong.append(f"{call}: the statement names another file, line or message than {says!r}:\n{output}")
     assert not wrong, "\n".join(wrong)
 
 
