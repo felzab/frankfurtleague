@@ -32,6 +32,7 @@ from app.shared.schemas.bounds import (
 )
 from app.shared.schemas.custom import (
     PHONE_REGEX,
+    SINGLE_LINE_PATTERN,
     CustomDateString,
     CustomNonEmptyString,
     CustomObjectId,
@@ -577,11 +578,13 @@ class _TeamPayload(_TeamWritable):
     model_config = ConfigDict(extra="forbid")
 
     address: FLAddressPayload
-    # Stripped and CEILINGED on the WRITE side alone, a stored value still reading as it stands
-    # (`docs/backend/spec.md :: I36`). `name` reaches a league table row, so a space would show
-    # there. The ceilings are the application's: both tiers refuse alike.
-    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=TEAM_NAME_MAX_LENGTH)]
-    full_name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=TEAM_FULL_NAME_MAX_LENGTH)]
+    # Stripped and CEILINGED on the WRITE side alone, so a stored value reads as it stands
+    # (`docs/backend/spec.md :: I36`); `name` reaches a league table row, where a space would show.
+    # Ceilings and single-line class are the application's, refused alike.
+    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=TEAM_NAME_MAX_LENGTH, pattern=SINGLE_LINE_PATTERN)]
+    full_name: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=TEAM_FULL_NAME_MAX_LENGTH, pattern=SINGLE_LINE_PATTERN)
+    ]
     # Redeclared for that reason too: the width is a floor as well as a ceiling, and what it holds
     # is the whole of what a league table row names the club by.
     shorthand: Annotated[str, StringConstraints(strip_whitespace=True, min_length=TEAM_SHORTHAND_LENGTH, max_length=TEAM_SHORTHAND_LENGTH)]
