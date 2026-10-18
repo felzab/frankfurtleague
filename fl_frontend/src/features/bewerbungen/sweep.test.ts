@@ -120,6 +120,7 @@ registerDoubles({
 const { register } = await import("../../instrumentation.ts");
 const { runBewerbungSweep } = await import("./sweep.ts");
 const { FLBewerbungSweepLoeschungSchema } = await import("./schemas.ts");
+const { mailIdempotencyKey } = await import("@/core/mailIdempotencyKey.ts");
 
 /** One hour and one minute, as the arming spells them. */
 const HOUR_MS = 60 * 60 * 1000;
@@ -877,7 +878,9 @@ describe("the registration half of one pass", () => {
 
   /* No pre-notice and one note after: the row is erased by the call that answered this list, so the
      message reports rather than asks, and its body cannot change inside the provider's window. */
-  it("mails the season-end note after the erasure, on a lane no record holds, keyed on the day", async () => {
+  it("mails the season-end note after the erasure, on a lane no record holds, keyed on the day", async (t) => {
+    // Noon in Frankfurt, so the day the key carries is one this case names rather than reads off the clock.
+    t.mock.timers.enable({ apis: ["Date"], now: Date.parse("2027-06-15T10:00:00Z") });
     sweepAnswers({ saisonIds: ["2627"], benachrichtigt: { "2627": [notice(ID_UNDECIDED, "quillhilde@schule.de")] } });
     answeringAnErasedRow();
 
@@ -890,7 +893,9 @@ describe("the registration half of one pass", () => {
       ["api", "api", "api", "mail", "api"],
     );
     const note = events.find((event) => event.kind === "mail");
-    assert.match(String(note?.idempotencyKey), /^loeschung_registrierung_/);
+    // Whole: a key losing the row or the day is shared by two pupils behind one mailbox, or by two days,
+    // and the provider refuses the second body under it rather than sending it.
+    assert.equal(note?.idempotencyKey, mailIdempotencyKey(["loeschung", "registrierung", ID_UNDECIDED, "2027-06-15"], "quillhilde@schule.de"));
     assert.deepEqual(note?.tags, { saisonende: "notiz" });
     assert.deepEqual(
       lines.filter(({ level }) => level !== "info"),
