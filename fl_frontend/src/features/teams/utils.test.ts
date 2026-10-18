@@ -8,7 +8,7 @@ import { kenntnisnahme } from "@/shared/testing/kenntnisnahme.ts";
 import { FLSpielSchema } from "../spiele/schemas.ts";
 import { EINGETRAGEN_VON_OPTIONS, GRUPPEN_OPTIONS, KONTAKT_ROLLEN, TRIKOT_FARBE_OPTIONS } from "./constants.ts";
 import { buildKontakteFacets, buildTeamFacets, KONTAKTE_BESETZUNG_OPTIONS, kontakteBesetzung, TEAM_FACETS } from "./facets.ts";
-import { FLGruppenTeamSchema } from "./schemas.ts";
+import { FLGruppenTeamSchema, FLTrikotFarbeSchema } from "./schemas.ts";
 // Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
 import {
   buildEmptyKontaktperson,
@@ -794,6 +794,14 @@ describe("what a new Kenntnisnahme cites", () => {
   });
 });
 
+describe("the kit palette", () => {
+  /* The option's type refuses a colour the wire does not carry, never one the palette leaves out,
+     which would read with no name and no swatch on every row storing it. */
+  it("names and draws every colour the wire carries, once each", () => {
+    assert.deepEqual(TRIKOT_FARBE_OPTIONS.map((option) => option.value).sort(), [...FLTrikotFarbeSchema.options].sort());
+  });
+});
+
 describe("which kit colours the wish picker offers", () => {
   const alle = TRIKOT_FARBE_OPTIONS.map((option) => option.value);
   const values = (vergeben: readonly (typeof alle)[number][], value: (typeof alle)[number] | null = null) =>
@@ -816,7 +824,7 @@ describe("which kit colours the wish picker offers", () => {
     assert.equal(uebrig.length, alle.length - 2, "the exclusion dropped something other than the two assigned colours");
   });
 
-  /* Order carries the CI document's, so a school reads the same list it reads everywhere else. */
+  /* Order carries the palette's, so a school reads the same list it reads everywhere else. */
   it("keeps the palette's own order in what is left", () => {
     const uebrig = values(["rot"]);
 
@@ -832,9 +840,9 @@ describe("which kit colours the wish picker offers", () => {
     assert.ok(values(["rot", "blau"], "rot").includes("rot"), "the field's own colour was excluded from its own picker");
   });
 
-  /* The boundary the palette can cross on its own -- sixteen colours against a season capped at 64
-     teams. An empty offer is the answer there, and the field stays required: the picker offers only
-     what the season can still give. */
+  /* The boundary the palette can cross on its own: more teams than colours. An empty offer is the
+     answer there, and the field stays required: the picker offers only what the season can still
+     give. */
   it("offers nothing once the season has assigned every colour", () => {
     assert.deepEqual(values(alle), []);
   });

@@ -21,7 +21,7 @@ const KEINE_FARBE = "keine";
 
 /**
  * A ring rather than a filled disc, so Weiß reads as a colour on a light page instead of as a gap.
- * The fill is the league's CI hex, which no theme token tracks.
+ * The fill is the palette's hex, which no theme token tracks.
  */
 function Swatch({ farbe }: { farbe: FLTrikotFarbe }) {
   return (
@@ -35,7 +35,7 @@ function Swatch({ farbe }: { farbe: FLTrikotFarbe }) {
 
 /**
  * The season's kit colour for one club. Judged on CHANGE rather than on blur — a selection is
- * complete the moment it is made. Sixteen colours, in the CI document's order.
+ * complete the moment it is made.
  */
 export function TrikotFarbeSelect({
   value,

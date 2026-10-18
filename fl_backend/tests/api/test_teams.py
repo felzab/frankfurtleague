@@ -61,6 +61,18 @@ def test_rejects_an_empty_required_name(team, field):
         FLTeam.model_validate(team(**{field: ""}))
 
 
+# Written as code points: a literal one would be invisible here and in every diff of this file.
+@pytest.mark.parametrize("refused", [pytest.param(chr(0x0A), id="LF"), pytest.param(chr(0x85), id="NEL"), pytest.param(chr(0x2028), id="LS")])
+@pytest.mark.parametrize("payload", [FLPostTeamPayload, FLPatchTeamPayload])
+@pytest.mark.parametrize("field", ["name", "full_name"])
+def test_a_club_name_carrying_a_line_break_inside_is_refused(team, assert_rejects, field, payload, refused):
+    """The class the application's names refuse (`docs/frontend/spec.md :: I87`), so the editor cannot store what the form refuses."""
+
+    club = {key: value for key, value in team().items() if key in payload.model_fields}
+
+    assert_rejects(payload, {**club, field: f"Carl{refused}Schurz"}, field)
+
+
 def test_accepts_an_empty_description(team):
     """Optional prose, unlike the required names beside it: the two must not be aligned."""
     assert FLTeam.model_validate(team(description="")).description == ""
