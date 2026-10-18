@@ -8,6 +8,7 @@ an arm reordered inside `scripts/lib/_lib.sh :: finish`.
 from __future__ import annotations
 
 import ast
+import re
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -142,7 +143,7 @@ def test_an_ending_reached_inside_a_worker_summarises_nothing() -> None:
 
 # A sourced file failing on its line 3, where the script sourcing it holds other text: the library
 # is such a file to every script, and a crash in it must not be reported against the caller.
-SOURCED: Final = "#!/usr/bin/env bash\nboom() {\n  false # the failing line\n}\n"
+SOURCED: Final = "#!/usr/bin/env bash\nboom() {\n  false # the failing line\n}\nparted() {\n  false \\\n    with \\\n    arguments\n}\n"
 
 
 def _crash(*body: str, sourced_text: str = SOURCED) -> tuple[int, str]:
@@ -157,11 +158,17 @@ def _crash(*body: str, sourced_text: str = SOURCED) -> tuple[int, str]:
 def test_a_crash_names_the_file_and_the_line_that_failed() -> None:
     """Both as a statement fails and inside another trap, where `$BASH_COMMAND` still holds the command that trap interrupted."""
     wrong: list[str] = []
-    for how, body in (("called", ("boom",)), ("inside an EXIT trap", ("trap boom EXIT", "true"))):
+    for how, body, says in (
+        ("called", ("boom",), r"line 3:  false # the failing line$"),
+        ("inside an EXIT trap", ("trap boom EXIT", "true"), r"line 3:  false # the failing line$"),
+        # `parted` fails in a command continued over lines 6 to 8: whichever `$LINENO` names, that line
+        # alone is a fragment of the command.
+        ("continued over three lines", ("parted",), r"line [678]:  false with arguments$"),
+    ):
         code, output = _crash(*body)
         if code != 3:
             wrong.append(f"{how}: exited {code}, and a crash exits 3")
-        if "sourced.sh failed" not in output or "line 3:  false # the failing line" not in output:
+        if "sourced.sh failed" not in output or re.search(says, output, re.MULTILINE) is None:
             wrong.append(f"{how}: the statement names another file or another command:\n{output}")
     assert not wrong, "\n".join(wrong)
 

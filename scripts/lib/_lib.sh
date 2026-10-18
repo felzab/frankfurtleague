@@ -690,9 +690,21 @@ exit status ${rc}" >&2
 
 _on_err_trap() { # $1 status, $2 line, $3 `$BASH_COMMAND`, $4 the file the line belongs to
   local text
-  # The file's own text, since inside another trap `$BASH_COMMAND` holds the command that trap
-  # interrupted. Read here rather than in `on_error`, whose explicit callers pass a message instead.
-  text="$(sed -n "${2}{s/^[[:space:]]*//;p;}" -- "$4" 2>/dev/null)" || text="$3"
+  # The file's own whole command, since inside another trap `$BASH_COMMAND` holds the command that
+  # trap interrupted, and `$LINENO` names one physical line of a continued one. Here, not in
+  # `on_error`, whose explicit callers pass a message.
+  text="$(awk -v n="$2" '
+    { line[NR] = $0 }
+    END {
+      if (n < 1 || n > NR) exit 1
+      s = n; while (s > 1 && line[s - 1] ~ /\\$/) s--
+      e = n; while (e < NR && line[e] ~ /\\$/) e++
+      for (i = s; i <= e; i++) {
+        part = line[i]; sub(/^[[:space:]]+/, "", part); sub(/[[:space:]]*\\$/, "", part)
+        out = (i == s) ? part : out " " part
+      }
+      print out
+    }' "$4" 2>/dev/null)" || text="$3"
   on_error "$1" "$2" "$text" "$4"
 }
 # Expanded as the trap fires: read inside the function, `$LINENO` would name that function's line.
