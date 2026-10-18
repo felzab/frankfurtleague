@@ -58,6 +58,7 @@ from tests.core.app_source import (
     module_of,
     parsed,
     resolve_callee,
+    resolve_module,
     resolve_reference,
     scoped_calls,
     unfollowed_references,
@@ -1260,6 +1261,32 @@ def _driver_writes_held_as_values() -> list[str]:
     ]
 
 
+def _attributes_looked_up_on_a_writer() -> list[str]:
+    """Every `getattr` on a collection or an application module: what it reaches stands under no name any sweep reads.
+
+    A collection by the spelling every trace reads one by: a crud helper's `collection`, a dependency's `*_collection`.
+    """
+
+    return [
+        f"{path.relative_to(BACKEND_ROOT).as_posix()}:{call.lineno} `{ast.unparse(call)}`"
+        for path in sorted(APP_ROOT.rglob("*.py"))
+        for _, call in scoped_calls(parsed(path), ())
+        if isinstance(call.func, ast.Name)
+        and call.func.id == "getattr"
+        and call.args
+        and (
+            (isinstance(target := call.args[0], (ast.Name, ast.Attribute)) and _names_a_collection(target))
+            or resolve_module(target, path) is not None
+        )
+    ]
+
+
+def _names_a_collection(node: ast.Name | ast.Attribute) -> bool:
+    name = node.id if isinstance(node, ast.Name) else node.attr
+
+    return name == "collection" or name.endswith(COLLECTION_ARGUMENT_SUFFIX)
+
+
 def _steps_called_by_name() -> frozenset[str]:
     """The registered steps `erase_everything` calls by a name `resolve_callee` follows."""
 
@@ -1283,6 +1310,7 @@ def test_no_writer_is_held_as_a_value():
 
     assert unfollowed_references(WRITE_HELPERS | REMOVAL_HELPERS, skip=frozenset({CRUD})) == []
     assert _driver_writes_held_as_values() == []
+    assert _attributes_looked_up_on_a_writer() == []
     assert {where: names for where, names in held.items() if not where.startswith(ERASURE_REGISTRY)} == {
         where: names for where, (names, _) in WRITERS_HELD_ELSEWHERE.items()
     }

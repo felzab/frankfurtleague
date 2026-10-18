@@ -629,15 +629,22 @@ def resolve_reference(node: ast.Name | ast.Attribute, chain: tuple[Declaration, 
     if isinstance(node, ast.Name):
         return resolve_name(node.id, chain, module)
 
-    path = _dotted(node.value)
+    origin = resolve_module(node.value, module)
+
+    return None if origin is None else resolve_name(node.attr, (), origin)
+
+
+def resolve_module(node: ast.expr, module: Path) -> Path | None:
+    """The application module a name or a dotted path read in `module` stands for, through that module's imports."""
+
+    path = _dotted(node)
     held = None if path is None else _modules_by_name(parsed(module)).get(path[0])
     if path is None or held is None:
         return None
 
     candidate = BACKEND_ROOT.joinpath(*held.split("."), *path[1:])
-    origin = next((found for found in (candidate.with_suffix(".py"), candidate / "__init__.py") if found.exists()), None)
 
-    return None if origin is None else resolve_name(node.attr, (), origin)
+    return next((found for found in (candidate.with_suffix(".py"), candidate / "__init__.py") if found.exists()), None)
 
 
 def scoped_references(node: ast.AST, chain: tuple[Declaration, ...]) -> Iterator[tuple[tuple[Declaration, ...], ast.Name | ast.Attribute]]:
