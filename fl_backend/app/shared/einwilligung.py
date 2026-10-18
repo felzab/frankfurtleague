@@ -47,7 +47,7 @@ class Fassung:
 
     # A write judges a label against its own page's versions alone.
     seite: Seite
-    # The German day the label's pull request merged into `main`, read off git, never a deploy's day.
+    # The German day the label's words go live: the deploy first serving them, set before its pull request merges.
     gilt_ab: date
     # The order the label freezes, and the order `tests/shared/test_einwilligung.py` digests.
     absaetze: tuple[str, ...]
@@ -1552,7 +1552,7 @@ FASSUNGEN: Final[Mapping[str, Fassung]] = MappingProxyType(
         ),
         "2026-10-spielerseite-5": Fassung(
             seite="bestaetigung_spieler",
-            gilt_ab=date(2026, 10, 16),
+            gilt_ab=date(2026, 10, 18),
             absaetze=tuple(_SPIELERSEITE_5.values()),
             absaetze_nach_schluessel=_SPIELERSEITE_5,
             schalter=_MEDIEN_SCHALTER,
@@ -1565,7 +1565,7 @@ FASSUNGEN: Final[Mapping[str, Fassung]] = MappingProxyType(
         ),
         "2026-10-spielerseite-wiederkehrend-2": Fassung(
             seite="bestaetigung_spieler_wiederkehrend",
-            gilt_ab=date(2026, 10, 16),
+            gilt_ab=date(2026, 10, 18),
             absaetze=tuple(_SPIELERSEITE_WIEDERKEHREND_2.values()),
             absaetze_nach_schluessel=_SPIELERSEITE_WIEDERKEHREND_2,
             # The new pupil page's, offered nothing here: the page labels the choices it shows back with them.
@@ -1579,7 +1579,7 @@ FASSUNGEN: Final[Mapping[str, Fassung]] = MappingProxyType(
         ),
         "2026-10-schiedsrichterseite-4": Fassung(
             seite="bestaetigung_schiedsrichter",
-            gilt_ab=date(2026, 10, 16),
+            gilt_ab=date(2026, 10, 18),
             absaetze=tuple(_SCHIEDSRICHTERSEITE_4.values()),
             absaetze_nach_schluessel=_SCHIEDSRICHTERSEITE_4,
             schalter=_MEDIEN_SCHALTER,
@@ -1592,7 +1592,7 @@ FASSUNGEN: Final[Mapping[str, Fassung]] = MappingProxyType(
         ),
         "2026-10-bestaetigungsseite-8": Fassung(
             seite="bestaetigung_kontakt",
-            gilt_ab=date(2026, 10, 16),
+            gilt_ab=date(2026, 10, 18),
             absaetze=tuple(_BESTAETIGUNGSSEITE_8.values()),
             absaetze_nach_schluessel=_BESTAETIGUNGSSEITE_8,
             schalter="Die Liga darf mich auch über WhatsApp erreichen.",
@@ -1600,7 +1600,7 @@ FASSUNGEN: Final[Mapping[str, Fassung]] = MappingProxyType(
         ),
         "2026-10-bestaetigungsseite-verwaltung-2": Fassung(
             seite="bestaetigung_kontakt_verwaltung",
-            gilt_ab=date(2026, 10, 16),
+            gilt_ab=date(2026, 10, 18),
             absaetze=tuple(_BESTAETIGUNGSSEITE_VERWALTUNG_2.values()),
             absaetze_nach_schluessel=_BESTAETIGUNGSSEITE_VERWALTUNG_2,
             schalter="Die Liga darf mich auch über WhatsApp erreichen.",
@@ -1608,7 +1608,7 @@ FASSUNGEN: Final[Mapping[str, Fassung]] = MappingProxyType(
         ),
         "2026-10-bestaetigungsseite-saison-2": Fassung(
             seite="bestaetigung_kontakt_saison",
-            gilt_ab=date(2026, 10, 16),
+            gilt_ab=date(2026, 10, 18),
             absaetze=tuple(_BESTAETIGUNGSSEITE_SAISON_2.values()),
             absaetze_nach_schluessel=_BESTAETIGUNGSSEITE_SAISON_2,
             schalter="Die Liga darf mich auch über WhatsApp erreichen.",

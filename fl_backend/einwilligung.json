@@ -949,7 +949,7 @@
     "2026-10-spielerseite-5": {
       "text_version": "2026-10-spielerseite-5",
       "seite": "bestaetigung_spieler",
-      "gilt_ab": "2026-10-16",
+      "gilt_ab": "2026-10-18",
       "absaetze": [
         "Du hast Dich über den Link Deines Teams {team} ({schule}) für die Saison {saison} der Frankfurt League registriert. Auf dieser Seite bestätigst Du diese Registrierung und entscheidest, was wir mit Deinen Angaben tun dürfen. Erst danach kann Dein Team Dich in seinen Kader aufnehmen.",
         "Gespeichert sind Dein Vorname, Dein Nachname, Deine E-Mail-Adresse, Deine Rückennummer, Deine Position und Deine Stufe sowie das Geburtsdatum, das Du gleich hier einträgst. Mit Deiner E-Mail-Adresse hast Du zugleich ein Konto auf der Website: Du meldest Dich damit ohne Passwort an und siehst dort jederzeit, was wir über Dich gespeichert haben.",
@@ -1001,7 +1001,7 @@
     "2026-10-spielerseite-wiederkehrend-2": {
       "text_version": "2026-10-spielerseite-wiederkehrend-2",
       "seite": "bestaetigung_spieler_wiederkehrend",
-      "gilt_ab": "2026-10-16",
+      "gilt_ab": "2026-10-18",
       "absaetze": [
         "Du hast Dich über den Link Deines Teams {team} ({schule}) für die Saison {saison} der Frankfurt League registriert. Auf dieser Seite bestätigst Du diese Registrierung. Erst danach kann Dein Team Dich in seinen Kader aufnehmen.",
         "Gespeichert sind Dein Vorname, Dein Nachname, Deine E-Mail-Adresse, Deine Rückennummer, Deine Position, Deine Stufe und Dein Geburtsdatum. Mit Deiner E-Mail-Adresse hast Du ein Konto auf der Website: Du meldest Dich damit ohne Passwort an und siehst dort jederzeit, was wir über Dich gespeichert haben.",
@@ -1048,7 +1048,7 @@
     "2026-10-schiedsrichterseite-4": {
       "text_version": "2026-10-schiedsrichterseite-4",
       "seite": "bestaetigung_schiedsrichter",
-      "gilt_ab": "2026-10-16",
+      "gilt_ab": "2026-10-18",
       "absaetze": [
         "Die Verwaltung der Frankfurt League hat Dich als Schiedsrichterin oder Schiedsrichter eingetragen und Dir dafür diesen Link geschickt. Auf dieser Seite bestätigst Du den Eintrag und entscheidest, was wir mit Deinen Angaben tun dürfen.",
         "Gespeichert sind Dein Name, Deine E-Mail-Adresse und, falls angegeben, Deine Schule und Deine Telefonnummer, das für Dich hinterlegte Honorar je Spiel sowie das Geburtsdatum, das Du gleich hier einträgst. Mit Deiner E-Mail-Adresse hast Du zugleich ein Konto auf der Website: Du meldest Dich damit ohne Passwort an, nimmst dort Ansetzungen an oder lehnst sie ab, reichst Spielberichte ein und siehst jederzeit, was wir über Dich gespeichert haben.",
@@ -1099,7 +1099,7 @@
     "2026-10-bestaetigungsseite-8": {
       "text_version": "2026-10-bestaetigungsseite-8",
       "seite": "bestaetigung_kontakt",
-      "gilt_ab": "2026-10-16",
+      "gilt_ab": "2026-10-18",
       "absaetze": [
         "Für die Schule {schule} wurde eine Bewerbung um die Teilnahme an der Saison {saison} der Frankfurt League eingereicht. Darin bist Du als {rolle} eingetragen. Die Person, die die Bewerbung abgeschickt hat, hat dabei Deinen Namen, Deine E-Mail-Adresse und Deine Telefonnummer angegeben. Den Link zu dieser Seite hast Du bekommen, weil wir das nicht einfach so stehen lassen wollen, sondern von Dir selbst hören möchten, dass es stimmt.",
         "Gespeichert sind Dein Vorname, Dein Nachname, Deine E-Mail-Adresse und Deine Telefonnummer. Wir brauchen sie, um das Team dieser Schule während der Saison zu erreichen, also für Spielansetzungen, Absagen, Rückfragen und die Entscheidung über die Bewerbung.",
@@ -1162,7 +1162,7 @@
     "2026-10-bestaetigungsseite-verwaltung-2": {
       "text_version": "2026-10-bestaetigungsseite-verwaltung-2",
       "seite": "bestaetigung_kontakt_verwaltung",
-      "gilt_ab": "2026-10-16",
+      "gilt_ab": "2026-10-18",
       "absaetze": [
         "Die Verwaltung der Frankfurt League hat Dich für die Schule {schule} in der Saison {saison} als {rolle} eingetragen und dabei Deinen Namen, Deine E-Mail-Adresse und Deine Telefonnummer angegeben. Den Link zu dieser Seite hast Du bekommen, weil wir das nicht einfach so stehen lassen wollen, sondern von Dir selbst hören möchten, dass es stimmt.",
         "Gespeichert sind Dein Vorname, Dein Nachname, Deine E-Mail-Adresse und Deine Telefonnummer. Wir brauchen sie, um das Team dieser Schule während der Saison zu erreichen, also für Spielansetzungen, Absagen, Rückfragen und die Entscheidung über die Bewerbung.",
@@ -1225,7 +1225,7 @@
     "2026-10-bestaetigungsseite-saison-2": {
       "text_version": "2026-10-bestaetigungsseite-saison-2",
       "seite": "bestaetigung_kontakt_saison",
-      "gilt_ab": "2026-10-16",
+      "gilt_ab": "2026-10-18",
       "absaetze": [
         "Die Verwaltung der Frankfurt League hat Dich für das Team {schule} in der Saison {saison} als {rolle} eingetragen und dabei Deinen Namen, Deine E-Mail-Adresse und Deine Telefonnummer angegeben. Den Link zu dieser Seite hast Du bekommen, weil wir das nicht einfach so stehen lassen wollen, sondern von Dir selbst hören möchten, dass es stimmt.",
         "Gespeichert sind Dein Vorname, Dein Nachname, Deine E-Mail-Adresse und Deine Telefonnummer. Wir brauchen sie, um Dein Team während der Saison zu erreichen, also für Spielansetzungen, Absagen und Rückfragen.",
