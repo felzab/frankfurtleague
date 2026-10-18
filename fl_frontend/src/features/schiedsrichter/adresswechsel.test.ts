@@ -4,6 +4,7 @@ import { beforeEach, describe, it } from "node:test";
 import { NICHT_MEINE_ADRESSE } from "@/core/adresswechselAntworten.ts";
 import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
+import { readable } from "@/core/mailText.ts";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 
@@ -309,7 +310,9 @@ describe("the two messages an address change sends", () => {
     for (const teil of [mailNeu.text, mailNeu.html]) {
       assert.ok(teil.includes("Hallo, die Verwaltung"), "a part of the link mail greets otherwise");
     }
-    assert.match(hinweis.text, /Hallo Anna,/);
+    for (const teil of [readable(hinweis.html), hinweis.text]) {
+      assert.match(teil, /Hallo Anna,/, "a part of the notice greets the stored mailbox otherwise");
+    }
   });
 
   it("gives the notice no control, the stored mailbox having nothing to press", () => {
