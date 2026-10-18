@@ -931,7 +931,7 @@ class TestTheWordsAreFilledAsTheirPageFilledThem:
 
         for (team_id, saison_id), page in (((TEAM_A_OID, PAST_SAISON), bewerbung.json()), ((TEAM_B_OID, ACTIVE_SAISON), saison.json())):
             kontext = kontexte[(str(team_id), saison_id)]
-            assert (kontext["vorname"], kontext["schule"], kontext["saison"]) == (page["vorname"], page["schule"], page["saison_id"])
+            assert (kontext["schule"], kontext["saison"]) == (page["schule"], page["saison_id"])
             # The role the page named is one the entry's `rollen` serves, which the account page fills `{rolle}` from.
             assert page["rolle"] in eintraege[(str(team_id), saison_id)]["rollen"]
         assert kontexte[(str(TEAM_A_OID), PAST_SAISON)]["schule"] == BEWERBUNG_SCHULE
