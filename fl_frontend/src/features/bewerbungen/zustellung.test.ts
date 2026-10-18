@@ -526,6 +526,7 @@ describe("POST /api/mail/zustellung", () => {
 
     assert.equal(logs.length, 1);
     assert.equal(logs[0]?.level, "warn");
+    assert.equal(logs[0]?.message, "mail.anmeldecode_nicht_zugestellt");
     assert.equal(logs[0]?.meta?.["error_code"], "FE-MAIL-007");
     assert.equal(logs[0]?.meta?.["stand"], "unzustellbar");
     assert.equal(logs[0]?.meta?.["nachricht_id"], MESSAGE_ID);
@@ -561,8 +562,11 @@ describe("POST /api/mail/zustellung", () => {
     assert.deepEqual(calls, [], "the notice lane reached the application's endpoint");
     assert.deepEqual(zielCalls, [], "the notice lane reached the generic endpoint");
     assert.equal(logs.length, 1);
+    assert.equal(logs[0]?.level, "warn");
+    assert.equal(logs[0]?.message, "mail.berechtigungshinweis_nicht_zugestellt");
     assert.equal(logs[0]?.meta?.["error_code"], "FE-MAIL-010");
     assert.equal(logs[0]?.meta?.["stand"], "unzustellbar");
+    assert.equal(logs[0]?.meta?.["nachricht_id"], MESSAGE_ID);
     assert.ok(!inspect(logs, { depth: null }).includes(ADDRESS), "the recipient reached the stream");
   });
 
@@ -582,6 +586,7 @@ describe("POST /api/mail/zustellung", () => {
     assert.deepEqual(zielCalls, [], "the note's lane reached the generic endpoint");
     assert.equal(logs.length, 1);
     assert.equal(logs[0]?.level, "warn");
+    assert.equal(logs[0]?.message, "mail.saisonendenotiz_nicht_zugestellt");
     assert.equal(logs[0]?.meta?.["error_code"], "FE-MAIL-013");
     assert.equal(logs[0]?.meta?.["stand"], "unzustellbar");
     assert.equal(logs[0]?.meta?.["nachricht_id"], MESSAGE_ID);
