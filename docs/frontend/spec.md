@@ -1492,9 +1492,11 @@ where a comment quotes a rendered string, which tracks it. The wording rules:
   read at one address addresses them as `ihr`** (my rule, 2026-09-09, replacing the single named
   exception of 2026-09-04): `Euch`, `Eure`, and a plural verb. **The test is who reads the surface,
   never which file it sits in** — an invitation asking for a post a school's players make together
-  takes it, and so does a mail landing in a shared school mailbox that three contact seats read; a
-  sentence one person reads takes `Du` however many people it is ABOUT. Naming the files instead is
-  what made correct German elsewhere read as a violation. Nothing mechanical holds either side:
+  takes it, and so does a mail landing in a shared school mailbox that three contact seats read,
+  and the application's acceptance, which is written to the team rather than to the contact reading
+  it (my example, 2026-10-18); any other sentence one person reads takes `Du` however many people
+  it is ABOUT. Naming the files instead is what made correct German elsewhere read as a violation.
+  Nothing mechanical holds either side:
   `scripts/checks/docs_gate/copy_rules.py :: FORMAL_RE` matches `Sie` and the `Ihr` family alike and
   `:: INFORMAL_RE` reads the `Du` family alone, so the `Euch` family is seen by neither, and
   `:: _formal_findings` drops a match wherever `:: SENTENCE_OPENER_RE` puts it at the head of a span —
@@ -1574,7 +1576,11 @@ where a comment quotes a rendered string, which tracks it. The wording rules:
 - **No copy line calls an operation impossible that the product performs.** The tell is a scope
   word (`nie`, `kein`, `nicht mehr`) about the whole product from inside one surface. **The repair
   is to drop the scope word, never to add a second sentence naming the other route**, and **where a
-  state can be left, the sentence says so.**
+  state can be left, the sentence says so.** **A sentence stating the league's policy toward the
+  reader stands even where the product can still perform the act** (my rule, 2026-10-18): the
+  acceptance's „Beide Angaben sind aus organisatorischen Gründen nicht mehr veränderbar.“ tells a
+  school what the league will not change for it, while an administrator can still move the team's
+  group and colour.
 
 **A hint says what the thing in front of the reader is, and then at most one thing it does that the
 surface cannot show them** (my rule, 2026-08-27), said in the league's own words.
