@@ -94,7 +94,7 @@ export function spielplanBlockedReason(input: SpielplanControlInput): string | n
     // back, so only it is worded as a state.
     return saisonStatus === "active"
       ? "Der Spielplan lässt sich für laufende Saisons nicht neu anlegen."
-      : `In dieser Saison ist schon etwas eingetragen: ${RECORDED_FACTS_ANY}. Neu anlegen lässt sich der Spielplan erst wieder, wenn bei keinem Spiel mehr etwas davon eingetragen ist.`;
+      : `In dieser Saison ist schon etwas eingetragen: ${RECORDED_FACTS_ANY}. ${SPIELPLAN_NEU_ANLEGEN} lässt sich der Spielplan erst wieder, wenn bei keinem Spiel mehr etwas davon eingetragen ist.`;
   }
 
   // Nothing past the window for a replace, which draws from the panel's boxes and not the stored rules:
@@ -212,10 +212,10 @@ export function spielplanUndrawBlockedReason(input: UndrawControlInput): string 
 
   // The replace's split over the same window: a status sentence names a boundary nothing reopens, a
   // record sentence names a state an admin can leave (`blockedReasons.ts :: spielplanBlockedReason`).
-  if (saisonStatus !== "future") return "Zurücknehmen lässt sich der Spielplan nur, solange die Saison geplant ist.";
+  if (saisonStatus !== "future") return `${SPIELPLAN_ZURUECKNEHMEN} lässt sich der Spielplan nur, solange die Saison geplant ist.`;
 
   if (erfassteSpieleCount > 0)
-    return `In dieser Saison ist schon etwas eingetragen: ${RECORDED_FACTS_ANY}. Zurücknehmen lässt sich der Spielplan erst wieder, wenn bei keinem Spiel mehr etwas davon eingetragen ist.`;
+    return `In dieser Saison ist schon etwas eingetragen: ${RECORDED_FACTS_ANY}. ${SPIELPLAN_ZURUECKNEHMEN} lässt sich der Spielplan erst wieder, wenn bei keinem Spiel mehr etwas davon eingetragen ist.`;
 
   return null;
 }

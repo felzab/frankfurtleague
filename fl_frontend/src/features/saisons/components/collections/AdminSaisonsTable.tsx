@@ -8,6 +8,7 @@ import Persons from "@gravity-ui/icons/Persons";
 
 import { Table } from "@heroui/react/table";
 
+import { SPIELTAGE_EINTRAG, TEAMS_EINTRAG } from "@/features/admin/constants";
 import { SaisonBadge } from "@/features/saisons/components/ui/SaisonBadge";
 import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/AdminCrudEmpty";
 import {
@@ -94,7 +95,7 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
         <RowActionMenuItem
           id="spieltage"
           href={`/bereich/admin/spieltage?saison_id=${encodeURIComponent(saison.id)}`}
-          label="Spieltage">
+          label={SPIELTAGE_EINTRAG.label}>
           <Calendar
             aria-hidden="true"
             className="size-4 text-foreground-muted"
@@ -103,7 +104,7 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
         <RowActionMenuItem
           id="teams"
           href={`/bereich/admin/teams?saison_id=${encodeURIComponent(saison.id)}`}
-          label="Teams">
+          label={TEAMS_EINTRAG.label}>
           <Persons
             aria-hidden="true"
             className="size-4 text-foreground-muted"

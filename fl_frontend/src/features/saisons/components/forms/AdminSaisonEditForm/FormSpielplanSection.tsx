@@ -332,7 +332,7 @@ export function FormSpielplanSection({
             {isDrawing ? (
               replacesDraw ? (
                 <>
-                  Neu anlegen löscht den bisherigen Spielplan von Saison <strong>{saisonId}</strong> und legt ihn neu an.
+                  {SPIELPLAN_NEU_ANLEGEN} löscht den bisherigen Spielplan von Saison <strong>{saisonId}</strong> und legt ihn neu an.
                 </>
               ) : (
                 <>
@@ -341,7 +341,7 @@ export function FormSpielplanSection({
               )
             ) : (
               <>
-                Zurücknehmen löscht die Spieltage und Spiele, die Saison <strong>{saisonId}</strong> jetzt hält.
+                {SPIELPLAN_ZURUECKNEHMEN} löscht die Spieltage und Spiele, die Saison <strong>{saisonId}</strong> jetzt hält.
               </>
             )}
           </p>

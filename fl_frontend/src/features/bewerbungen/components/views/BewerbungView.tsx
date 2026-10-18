@@ -20,7 +20,7 @@ import type { FLBewerbungFensterResponse } from "@/features/bewerbungen/schemas"
 import type { FLTrikotFarbe } from "@/features/teams/schemas";
 
 /** Where a school goes when this page cannot take its application, whatever closed it. */
-const ZUM_KONTAKT = { href: "/kontakt", label: "Zum Kontakt" };
+const ZUM_KONTAKT = { href: "/kontakt", label: KONTAKT_TITEL };
 
 /**
  * The rest of the site, from a page reached cold. `/dashboard` carries no `?saison_id=` and redirects

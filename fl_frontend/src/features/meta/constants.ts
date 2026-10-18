@@ -1,5 +1,5 @@
 import { INSTAGRAM_HANDLE, INSTAGRAM_URL, KONTAKT_EMAIL } from "@/core/brand";
-import { ORGANISATION_TITEL } from "@/core/seitenNamen";
+import { KONTAKT_TITEL, ORGANISATION_TITEL } from "@/core/seitenNamen";
 
 import type { KontaktChannel, QaQuestion, TeamMember } from "./types";
 
@@ -96,7 +96,7 @@ export const QA_QUESTIONS: QaQuestion[] = [
     q: "Wie kann unsere Schule der Liga beitreten?",
     // Static copy cannot know whether a window is open, so it names both routes: the landing page's
     // band links the form only while one runs (`fl_frontend/src/features/bewerbungen/components/ui/BewerbungOffenBand.tsx`).
-    a: "Solange die Bewerbungen für eine Saison offen sind, führt ein Link auf der Startseite zum Bewerbungsformular. Sonst schreib uns über die Kontakt-Seite.",
+    a: `Solange die Bewerbungen für eine Saison offen sind, führt ein Link auf der Startseite zum Bewerbungsformular. Sonst schreib uns über die Seite „${KONTAKT_TITEL}“.`,
   },
   {
     id: "wetter",

@@ -1,3 +1,5 @@
+import { SPIELPLAN_ZURUECKNEHMEN } from "./constants";
+
 import type { NextPageProps } from "@/shared/types/types";
 import type { FLSpiel } from "../spiele/schemas";
 import type { FLGruppenNames } from "../teams/schemas";
@@ -333,10 +335,10 @@ export function describeSpielplanPermanenz({ holdsADraw, saisonStatus }: { holds
   // that holds an entry — the Spielplan panel's own list, which this sentence points at rather than
   // spelling a second time.
   if (saisonStatus === "future") {
-    return "Zurücknehmen lässt sich der Spielplan danach wieder hier, solange die Saison geplant ist und zu keinem ihrer Spiele etwas eingetragen wurde.";
+    return `${SPIELPLAN_ZURUECKNEHMEN} lässt sich der Spielplan danach wieder hier, solange die Saison geplant ist und zu keinem ihrer Spiele etwas eingetragen wurde.`;
   }
 
-  return "Zurücknehmen lässt sich ein Spielplan nur in einer geplanten Saison, und diese läuft schon. Es gibt in der Verwaltung keinen Weg zurück.";
+  return `${SPIELPLAN_ZURUECKNEHMEN} lässt sich ein Spielplan nur in einer geplanten Saison, und diese läuft schon. Es gibt in der Verwaltung keinen Weg zurück.`;
 }
 
 /**
