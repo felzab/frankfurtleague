@@ -58,7 +58,7 @@ from tests.core.app_source import (
     module_of,
     parsed,
     resolve_callee,
-    resolve_name,
+    resolve_reference,
     scoped_calls,
     unfollowed_references,
 )
@@ -1154,8 +1154,8 @@ class _Reference:
 
 
 @functools.cache
-def _references(path: Path) -> tuple[tuple[_Reference, ...], Mapping[str, Path]]:
-    """Every name and attribute one module reads, and each name its imports bind to an application module.
+def _references(path: Path) -> tuple[_Reference, ...]:
+    """Every name and attribute one module reads.
 
     One walk a module: each question below would otherwise walk the whole application again.
     """
@@ -1163,7 +1163,6 @@ def _references(path: Path) -> tuple[tuple[_Reference, ...], Mapping[str, Path]]
     read: list[tuple[tuple[Declaration, ...], ast.Name | ast.Attribute]] = []
     called: set[int] = set()
     handed: set[int] = set()
-    modules: dict[str, Path] = {}
     pending: list[tuple[tuple[Declaration, ...], ast.AST]] = [((), parsed(path))]
     while pending:
         chain, node = pending.pop()
@@ -1173,12 +1172,10 @@ def _references(path: Path) -> tuple[tuple[_Reference, ...], Mapping[str, Path]]
             called.add(id(node.func))
             if callee(node) == TRANSACTION_RUNNER and node.args:
                 handed.add(id(node.args[0]))
-        elif isinstance(node, (ast.Import, ast.ImportFrom)):
-            modules |= _modules_bound(node)
         inner = (*chain, node) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) else chain
         pending.extend((inner, child) for child in ast.iter_child_nodes(node))
 
-    return tuple(_Reference(chain, node, called=id(node) in called, handed=id(node) in handed) for chain, node in read), modules
+    return tuple(_Reference(chain, node, called=id(node) in called, handed=id(node) in handed) for chain, node in read)
 
 
 def _writes_itself(call: ast.Call, chain: tuple[Declaration, ...], path: Path) -> bool:
@@ -1210,20 +1207,6 @@ def _writers() -> Mapping[int, str]:
     return writing
 
 
-def _modules_bound(node: ast.Import | ast.ImportFrom) -> dict[str, Path]:
-    """Each name one import binds to an application module, which a call then reaches through an attribute."""
-
-    bound = [(alias, alias.name if isinstance(node, ast.Import) else f"{node.module}.{alias.name}") for alias in node.names]
-    held: dict[str, Path] = {}
-    for alias, dotted in bound:
-        candidate = BACKEND_ROOT.joinpath(*dotted.split("."))
-        for origin in (candidate.with_suffix(".py"), candidate / "__init__.py"):
-            if dotted.startswith("app.") and origin.exists():
-                held[alias.asname or alias.name] = origin
-
-    return held
-
-
 def _writers_held_as_values() -> dict[str, frozenset[str]]:
     """Every scope naming a writer other than at a call `resolve_callee` follows or as a transaction's callback, with the writers it names."""
 
@@ -1232,19 +1215,15 @@ def _writers_held_as_values() -> dict[str, frozenset[str]]:
     names = frozenset(writers.values())
     found: dict[str, set[str]] = {}
     for path in sorted(APP_ROOT.rglob("*.py")):
-        references, modules = _references(path)
-        for reference in references:
+        for reference in _references(path):
             node = reference.node
             if isinstance(node, ast.Name):
                 if node.id not in names or not isinstance(node.ctx, ast.Load) or reference.called or reference.handed:
                     continue
-                resolved = resolve_name(node.id, reference.chain, path)
-            elif isinstance(node.value, ast.Name) and (held := modules.get(node.value.id)):
-                # Called or not: `resolve_callee` follows no attribute, so a writer reached through its module is unseen either way.
-                declaration = next((found for found in parsed(held).body if getattr(found, "name", None) == node.attr), None)
-                resolved = (declaration, held) if isinstance(declaration, (ast.FunctionDef, ast.AsyncFunctionDef)) else None
-            else:
+            # Called or not: `resolve_callee` follows no attribute, so a writer reached through its module is unseen either way.
+            elif node.attr not in names:
                 continue
+            resolved = resolve_reference(node, reference.chain, path)
             if resolved is not None and id(resolved[0]) in writers:
                 where = f"{path.relative_to(BACKEND_ROOT).as_posix()} :: {reference.chain[-1].name if reference.chain else '<module>'}"
                 found.setdefault(where, set()).add(resolved[0].name)
@@ -1276,7 +1255,7 @@ def _driver_writes_held_as_values() -> list[str]:
     return [
         f"{path.relative_to(BACKEND_ROOT).as_posix()}:{reference.node.lineno} `{ast.unparse(reference.node)}`"
         for path in sorted(APP_ROOT.rglob("*.py"))
-        for reference in _references(path)[0]
+        for reference in _references(path)
         if isinstance(reference.node, ast.Attribute) and reference.node.attr in DRIVER_WRITES and not reference.called
     ]
 

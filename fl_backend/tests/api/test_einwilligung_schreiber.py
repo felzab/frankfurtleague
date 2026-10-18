@@ -1,6 +1,6 @@
 import ast
 import functools
-from collections.abc import Callable, Iterator, Mapping
+from collections.abc import Callable, Iterable, Iterator, Mapping
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Final
@@ -16,7 +16,7 @@ from app.api.teams.services import compose_kontakte_at_entry, compose_kontakte_h
 from app.core.config import API_VERSION
 from app.core.domain import OPERATION_SEPARATOR, RULES
 from app.shared.einwilligung_nachweis import NACHWEIS, WAHLEN, ist_erteilt
-from tests.core.app_source import Declaration, api_routes, application, parsed, resolve_callee, scoped_calls
+from tests.core.app_source import Declaration, api_routes, application, parsed, resolve_reference, scoped_references
 
 # Every write stamping a consent label, enumerated BY HAND rather than read off the routes: the case
 # below holds this list to what the application serves, so a new writer fails by its name until it
@@ -352,7 +352,9 @@ NOT_DRIVEN_HERE: Final = frozenset(
         "app/api/teams/person_router.py::patch_einwilligung",
         "app/api/teams/person_router.py::write",
         # The replay after a restore, a person's own press written again through its composer at the
-        # instant its journal line carries, driven by `fl_backend/tests/api/test_journal_replay.py`.
+        # instant its journal line carries, driven by `fl_backend/tests/api/test_journal_replay.py`; its
+        # module runs it from the command line.
+        "app/api/identitaet/wiederherstellung.py::<module>",
         "app/api/identitaet/wiederherstellung.py::_plan_widerruf",
         "app/api/identitaet/wiederherstellung.py::plan_replay",
         "app/api/identitaet/wiederherstellung.py::judged_and_rewritten",
@@ -440,45 +442,55 @@ def _key(path: Path, name: str) -> str:
     return f"{path.relative_to(APP.parent).as_posix()}::{name}"
 
 
+MODULE_SCOPE: Final = "<module>"
+
+
 @functools.cache
 def _block_composers() -> frozenset[str]:
-    """Every function under `app` the markers above find, and every caller of one, keyed as the sets key one.
+    """Every function under `app` the markers above find, and every function naming one, keyed as the sets key one.
 
     Read once a process and shared, so frozen: a set one caller reshaped would be the next caller's answer.
     """
 
+    return _composers(APP.rglob("*.py"), _key)
+
+
+def _composers(modules: Iterable[Path], key: Callable[[Path, str], str]) -> frozenset[str]:
     found: set[str] = set()
-    calls: list[tuple[str, bool, Path, tuple[Declaration, ...], ast.Call]] = []
-    for path in APP.rglob("*.py"):
+    references: list[tuple[str, bool, Path, tuple[Declaration, ...], ast.Name | ast.Attribute]] = []
+    for path in modules:
         tree = parsed(path)
         found |= {
-            _key(path, node.name)
+            key(path, node.name)
             for node in ast.walk(tree)
             if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef) and _touches_a_block(node)
         }
         aliases = {alias.asname for node in ast.walk(tree) if isinstance(node, ast.ImportFrom) for alias in node.names if alias.asname}
-        calls += [
-            (call.func.id, call.func.id in aliases, path, chain, call)
-            for chain, call in scoped_calls(tree, ())
-            if isinstance(call.func, ast.Name)
+        # Every name and attribute, never only a call's: a composer held as a value, or read off its module,
+        # writes under a name no call spells.
+        references += [
+            (node.attr, False, path, chain, node) if isinstance(node, ast.Attribute) else (node.id, node.id in aliases, path, chain, node)
+            for chain, node in scoped_references(tree, ())
+            if isinstance(node, ast.Attribute) or isinstance(node.ctx, ast.Load)
         ]
 
-    # Resolved only where the name is a writer's, or an import's alias: resolving every call in `app` costs most of the case.
+    # Resolved only where the name is a writer's, or an import's alias: resolving every reference in `app` costs most of the case.
     resolved: dict[int, str | None] = {}
     # Across modules, so a writer calling another module's composer is one too; never through a function moving no choice.
     while True:
         writers = found - WRITES_NO_CHOICE
         names = {key.rpartition("::")[2] for key in writers}
         grown: set[str] = set()
-        for name, aliased, path, chain, call in calls:
+        for name, aliased, path, chain, node in references:
             if name not in names and not aliased:
                 continue
-            if id(call) not in resolved:
-                callee = resolve_callee(call, chain, path)
-                resolved[id(call)] = None if callee is None else _key(callee[1], callee[0].name)
-            if resolved[id(call)] in writers:
-                # Every function around the call, so a writer's own `write` callback answers for it too.
-                grown |= {_key(path, caller.name) for caller in chain}
+            if id(node) not in resolved:
+                named = resolve_reference(node, chain, path)
+                resolved[id(node)] = None if named is None else key(named[1], named[0].name)
+            if resolved[id(node)] in writers:
+                # Every function around the reference, so a writer's own `write` callback answers for it too; the
+                # module where none is, which holds the composer for whoever reads it there.
+                grown |= {key(path, holder.name) for holder in chain} or {key(path, MODULE_SCOPE)}
         if not (grown := grown - found):
             return frozenset(found)
         found |= grown
@@ -493,6 +505,48 @@ def test_the_reader_of_the_composers_finds_a_writer_by_its_markers():
 
     assert "app/api/teams/services.py::compose_kontakte_herkunft" in _block_composers()
     assert "app/api/teams/services.py::kontakte_fassungen_genannt" not in _block_composers()
+
+
+# Each way a module names a composer without a call the reader could follow by its bare name.
+NAMED_NOT_CALLED: Final = """\
+import app.api.konto.services
+from app.api.konto import services as konto
+from app.api.konto.services import compose_person_move
+
+HELD = compose_person_move
+
+
+def held():
+    composer = compose_person_move
+    return composer()
+
+
+def handed(run):
+    return run(compose_person_move)
+
+
+def via():
+    return konto.compose_person_move()
+
+
+def dotted():
+    return app.api.konto.services.compose_person_move()
+
+
+def bystander():
+    return konto.__name__
+"""
+
+
+def test_the_reader_finds_a_composer_named_rather_than_called(tmp_path: Path):
+    """The control for the reader's reach: `app` holds no composer as a value, so a reader following calls alone passes the registry."""
+
+    sample = tmp_path / "sample.py"
+    sample.write_bytes(NAMED_NOT_CALLED.encode())
+    found = _composers([APP / "api" / "konto" / "services.py", sample], lambda path, name: f"{path.name}::{name}")
+
+    assert {f"sample.py::{name}" for name in ("held", "handed", "via", "dotted", MODULE_SCOPE)} <= found
+    assert "sample.py::bystander" not in found
 
 
 @pytest.mark.parametrize(
