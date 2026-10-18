@@ -36,7 +36,7 @@ export type HinweisVersand = LinkVersand | "ungewiss";
 
 /**
  * Whether an address change's notice to the stored address failed or may have, which its sentence asks the
- * administrator to make good by hand: one held back, or none stored, asks nothing (`docs/frontend/spec.md :: I737`).
+ * administrator to make good by hand: one held back, or none stored, asks nothing (`docs/frontend/spec.md :: I679`).
  */
 export function hinweisFehlt(hinweis: HinweisVersand | null | undefined): boolean {
   if (hinweis === "ungewiss") return true;

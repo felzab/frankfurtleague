@@ -153,8 +153,8 @@ in the frontend's log is the answer ([`docs/frontend/spec.md`](../frontend/spec.
 `LOESCHUNG_SWEEP` on, off by default, on the same schedule, whatever `BEWERBUNG_SWEEP` reads:
 activating a season deletes under that switch first and tells the administrator the next hourly pass
 finishes the rest, so no other switch may hold that pass back
-([`docs/frontend/spec.md`](../frontend/spec.md) I694, I768). Each pass drops the squad cache after
-its last call ([`docs/frontend/spec.md`](../frontend/spec.md) I743), and a pass beside an
+([`docs/frontend/spec.md`](../frontend/spec.md) I694, I734). Each pass drops the squad cache after
+its last call ([`docs/frontend/spec.md`](../frontend/spec.md) I705), and a pass beside an
 activation's calls deletes nobody twice, the backend
 judging each pupil again in a transaction of their own
 ([`docs/backend/spec.md`](../backend/spec.md) I691). Its per-pass line is its record

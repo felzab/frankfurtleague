@@ -138,7 +138,7 @@ async def patch_one_in_db(
         return stored
 
     # Read back, never taken from the driver: `findAndModify` answers a match it left unchanged as one it
-    # rewrote (`docs/backend/spec.md :: I765`). Inside a transaction alone, where no rival writes between
+    # rewrote (`docs/backend/spec.md :: I732`). Inside a transaction alone, where no rival writes between
     # the two reads.
     after = await read_back() if session is not None and session.in_transaction else None
     if after is None or _as_stored(after, collection) != _as_stored(before, collection):

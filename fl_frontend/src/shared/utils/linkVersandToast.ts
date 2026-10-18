@@ -44,7 +44,7 @@ const LINK_HINWEIS_UNKLAR_TITEL: VersandTitel = {
   abgelegt: "Link zurückgehalten, Hinweis unklar",
 };
 
-/** An address change's toast: its link's, and a warning titled for the notice too where that failed or may have (`docs/frontend/spec.md :: I737`). */
+/** An address change's toast: its link's, and a warning titled for the notice too where that failed or may have (`docs/frontend/spec.md :: I679`). */
 export function meldeAdresswechselVersand(
   { versand, hinweis }: { versand: LinkVersand; hinweis?: HinweisVersand | null },
   description: string,

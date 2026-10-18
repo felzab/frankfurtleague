@@ -268,7 +268,7 @@ describe("what the save tells the administrator about the message it sent", () =
   }
 
   /* A notice to the address in force that failed asks the administrator to tell the person, which a clean save
-     contradicts; one held back asks nothing (`docs/frontend/spec.md :: I737`). */
+     contradicts; one held back asks nothing (`docs/frontend/spec.md :: I679`). */
   for (const [hinweis, variant, title] of [
     ["fehlgeschlagen", "warning", "Mit Folgen gespeichert"],
     ["zurueckgehalten", "success", "Änderung gespeichert"],

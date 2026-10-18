@@ -42,7 +42,7 @@ afterEach(() => {
 
 describe("what the address request says of the link it sent", () => {
   /* The request stands whichever way its link went: a failed or held-back link is a warning titled for what
-     happened, and so is a failed notice to the stored address (`docs/frontend/spec.md :: I737`). */
+     happened, and so is a failed notice to the stored address (`docs/frontend/spec.md :: I679`). */
   for (const [versand, hinweis, variant, title] of [
     ["gesendet", "gesendet", "success", "Link gesendet"],
     ["fehlgeschlagen", "gesendet", "warning", "Link nicht verschickt"],

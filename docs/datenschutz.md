@@ -903,16 +903,16 @@ Every ruling below is the sign-up flow as it stands for the next season.
   a requested erasure, or a consent its person withdrew, a Widerspruch or an address change declined
   through its link, and its person by keyed hashes of the address alone. An erasure's line holds
   two, the journal's own and the pseudonym the action log and the day counts key that person on, so
-  a restore holding the address nowhere still finds those rows (`docs/backend/spec.md :: I666`, `:: I764`); a
+  a restore holding the address nowhere still finds those rows (`docs/backend/spec.md :: I666`, `:: I731`); a
   choice's line holds the journal's one, beside the record that act changed and its moment, a
   withdrawal's text version and the withholding values it set, and the seats a Widerspruch emptied
-  (`:: I745`). The day file keeps each line's whole log envelope, its trace and span ids among them,
+  (`:: I706`). The day file keeps each line's whole log envelope, its trace and span ids among them,
   and the trace id joins the line to the edge's access line, which names the visitor's address for
   that log's eight days. Each line is copied into its day file hourly so that a restore can run
   every erasure since its snapshot again ([section 5](#5-erasure-reaches-everyone-who-asks)) and
   replay every such choice. **A replay
   writes a choice only onto a record still holding its person, stamped with that person's own moment
-  and never a later one, and a second run writes nothing** (`docs/backend/spec.md :: I746`). A record
+  and never a later one, and a second run writes nothing** (`docs/backend/spec.md :: I710`). A record
   whose addresses none match the line's hash is listed and left as it stands; an erasure is listed for an
   administrator to run again on its page; the action log records each replay under the system,
   naming the line it replays without its person; and the listing prints no address and no key
@@ -1154,7 +1154,7 @@ the `Entry` column carries a token only where one still resolves in that file.
   the grant it ended, for as long as the record stands. Only the person's own answer grants a choice
   or stamps its evidence: their own write, on their confirmation page or their account page, an
   admission carrying their own registration's answer, or a restore replaying a withdrawal of theirs at
-  the moment they made it (`docs/backend/spec.md :: I613`, `:: I746`). An act before
+  the moment they made it (`docs/backend/spec.md :: I613`, `:: I710`). An act before
   those survives only in the log row its write left, whose image an erasure empties and which
   expires twelve months after the write ([section 6](#6-retention-is-bounded-where-a-bound-was-chosen)).
   The question to put: whether the latest act and the grant a withdrawal ended are proof enough,

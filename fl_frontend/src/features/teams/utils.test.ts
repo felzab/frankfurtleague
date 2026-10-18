@@ -797,8 +797,11 @@ describe("what a new Kenntnisnahme cites", () => {
 describe("the kit palette", () => {
   /* The option's type refuses a colour the wire does not carry, never one the palette leaves out,
      which would read with no name and no swatch on every row storing it. */
-  it("names and draws every colour the wire carries, once each", () => {
-    assert.deepEqual(TRIKOT_FARBE_OPTIONS.map((option) => option.value).sort(), [...FLTrikotFarbeSchema.options].sort());
+  it("names and draws every colour the wire carries, once each and in the wire's order", () => {
+    assert.deepEqual(
+      TRIKOT_FARBE_OPTIONS.map((option) => option.value),
+      FLTrikotFarbeSchema.options,
+    );
   });
 });
 

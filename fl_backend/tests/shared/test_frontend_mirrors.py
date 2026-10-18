@@ -1420,7 +1420,7 @@ HOP_ALLOWANCE_MS: Final = 1000
 
 
 def test_a_write_s_budget_waits_out_the_backend_s_deadline_and_its_aborts():
-    """`docs/frontend/spec.md :: I767`: a page leaving a write sooner drops its caches before the backend's commit lands.
+    """`docs/frontend/spec.md :: I733`: a page leaving a write sooner drops its caches before the backend's commit lands.
 
     Each figure is read off the source, so a renamed constant fails here rather than comparing nothing.
     """
