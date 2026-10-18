@@ -955,12 +955,66 @@ grade_security_headers "www.frankfurtleague.de"
 # --- the upstreams, found by name while both edges serve (`docs/ops/spec.md :: I9`) ----------------
 
 RESOLVE_FAILURES=0
+RESOLVER_HOME="nginx/shared/http.conf"
+# Seconds; empty until the shared resolver's `valid` is read.
+RESOLVER_VALID=""
+# Read here, not left to the moved backend below, which catches a lifetime only when its warm-up
+# reached the worker still holding the old address.
+judge_resolver() { # $1 the file, relative to the root, $2 its resolver line
+  local file="$1" line="$2" token valid="" amount
+  local -a tokens addresses=()
+  # A directive's words, where `_lib.sh`'s repo-wide IFS splits on newlines and tabs alone.
+  local IFS=$' \t'
+  # Any other `resolver` replaces the shared one for what it wraps, or is refused at load beside it.
+  if [[ "$file" != "$RESOLVER_HOME" ]]; then
+    fail "RESOLVER ${file}"
+    detail "'${line#"${line%%[![:space:]]*}"}' is not ${RESOLVER_HOME}'s, the one resolver either edge may name"
+    RESOLVE_FAILURES=$(( RESOLVE_FAILURES + 1 ))
+    return
+  fi
+  read -ra tokens <<< "${line%%;*}"
+  for token in "${tokens[@]:1}"; do
+    case "$token" in
+      valid=*) valid="${token#valid=}" ;;
+      *=*) ;;
+      *) addresses+=( "$token" ) ;;
+    esac
+  done
+  # Docker's embedded DNS alone: a second address is asked in turn and cannot find `frontend`.
+  if [[ "${addresses[*]}" != "127.0.0.11" ]]; then
+    fail "RESOLVER ${file}"
+    detail "expected Docker's embedded DNS, 127.0.0.11, alone; the line names '${addresses[*]}'"
+    RESOLVE_FAILURES=$(( RESOLVE_FAILURES + 1 ))
+  fi
+  if [[ -z "$valid" ]]; then
+    fail "RESOLVER ${file}"
+    detail "names no valid=, so a worker keeps a recreated container's old address for as long as Docker's answer says"
+    RESOLVE_FAILURES=$(( RESOLVE_FAILURES + 1 ))
+    return
+  fi
+  # nginx's time units this file could carry; a compound such as 1m30s is not read.
+  if [[ "$valid" =~ ^([0-9]+)(ms|s|m|h)?$ ]]; then
+    amount="${BASH_REMATCH[1]}"
+    case "${BASH_REMATCH[2]}" in
+      ms) RESOLVER_VALID=$(( amount / 1000 )) ;;
+      m) RESOLVER_VALID=$(( amount * 60 )) ;;
+      h) RESOLVER_VALID=$(( amount * 3600 )) ;;
+      *) RESOLVER_VALID="$amount" ;;
+    esac
+  else
+    refuse "${file}'s resolver holds valid=${valid}, a lifetime this test cannot read, so the moved backend's deadline was not held against it."
+  fi
+}
 # A literal upstream is a server group, which a variable naming the same host and port matches before
 # the resolver is asked: one such line pins every location naming that upstream to its address at load.
 for conf in "${REPO_ROOT}"/nginx/shared/*.conf "${REPO_ROOT}"/nginx/local/*.conf "${REPO_ROOT}"/nginx/prod/*.conf; do
   [[ -f "$conf" ]] || continue
   while IFS= read -r conf_line; do
     conf_line="${conf_line%$'\r'}"
+    if [[ "$conf_line" =~ ^[[:space:]]*resolver[[:space:]] ]]; then
+      judge_resolver "${conf#"${REPO_ROOT}/"}" "$conf_line"
+      continue
+    fi
     [[ "$conf_line" =~ ^[[:space:]]*proxy_pass[[:space:]] ]] || continue
     [[ "$conf_line" =~ ^[[:space:]]*proxy_pass[[:space:]]+http://\$(frontend|backend)_upstream\;$ ]] && continue
     fail "UPSTREAM ${conf#"${REPO_ROOT}/"}"
@@ -1023,6 +1077,12 @@ MOVE_RUN=10
 # Past `nginx/shared/http.conf :: resolver`'s `valid`, with room for a pass whose answers each wait
 # out their second.
 MOVE_DEADLINE=60
+# The lifetime nested inside the deadline: one as long would read as the edge never finding the move.
+if [[ -n "$RESOLVER_VALID" ]] && (( RESOLVER_VALID >= MOVE_DEADLINE )); then
+  fail "RESOLVER ${RESOLVER_HOME}"
+  detail "valid= holds an answer ${RESOLVER_VALID}s, not inside the moved backend's ${MOVE_DEADLINE}s deadline"
+  RESOLVE_FAILURES=$(( RESOLVE_FAILURES + 1 ))
+fi
 declare -A MOVED_AFTER=() MOVED_SEEN=()
 _moved_from="$(date +%s)"
 while :; do
@@ -1068,5 +1128,5 @@ ${UPSTREAM_READ} of those paths handing Next the edge's own traceparent and no X
 ${#REFUSED_WITH[@]} refused at the edge and still refused under ${#REFUSED_LABELS[@]} other spellings, an empty
 Next-Action handed to no one, server
 actions metered on their own pair and nothing else metered by it, refused in plain text an action reads, the Control API applying a reload, refusing a bad one, dumping the checkout and closed to the worker,
-every upstream named through a variable, both edges reaching a backend recreated at a new address
+every upstream named through a variable and found through Docker's DNS alone, holding an answer ${RESOLVER_VALID}s, both edges reaching a backend recreated at a new address
 without a reload, and each upstream's redirect naming itself handed back as the visitor's origin"

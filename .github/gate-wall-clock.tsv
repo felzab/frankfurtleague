@@ -921,6 +921,14 @@
 #
 # No row moves and none takes a stamp.
 #
+# `ops` gained a case in `nginx/edge_test.sh` recreating the backend at a new address and waiting
+# for both edges to reach it without a reload, past `nginx/shared/http.conf :: resolver`'s `valid`.
+# CI's `ops` job took 37 s of its 45 s on run 39153600989 (482493eca) against 18 s on run
+# 39146928210 (89df57d22) before it, one run each; in the same two runs, in that order, `db` took
+# 117 and 137 s and `frontend-units (4)` 120 and 134 s. `ops` is not the gate's longest job, so its
+# total does not move; it sits inside its row, and no row moves. The resolver check the edge test
+# gained after both runs rides the loop that already reads every `nginx/` config, unmeasured.
+#
 # The total row is the sum of the seconds above it, compared the same way where it carries a floor.
 # Its floor sums each referenced row's draws, so `--stamp` cuts one only where every row holding a
 # reference was re-stamped from the one population it reads, and `--base` refuses a total floor that

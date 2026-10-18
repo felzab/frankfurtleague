@@ -1212,9 +1212,8 @@ rule: docs/ops/spec.md I1, I174, I355, I18, I429, I430, I471, I472, I507, I508 o
   fi
 
   step "ops · nginx accepts prod.conf"
-  # `nginx -t` loads the certificates and resolves every proxy_pass host, hence the throwaway pair
-  # and loopback entries. The temp dir sits under the repo root because MSYS rewrites a
-  # POSIX-looking path (`scripts/README.md`).
+  # `nginx -t` loads the certificates, hence the throwaway pair. The temp dir sits under the repo
+  # root because MSYS rewrites a POSIX-looking path (`scripts/README.md`).
   rm -rf "${REPO_ROOT}/.tmp-nginx-check"
   # `log/` as well: `nginx -t` opens every log the file declares, and the access log's directory
   # is a bind mount `docker-compose.yml` supplies rather than a path the image carries.
@@ -1245,7 +1244,6 @@ rule: docs/ops/spec.md I1, I174, I355, I18, I429, I430, I471, I472, I507, I508 o
     # The config mounts are docker-compose.yml's, so a file dropped into `nginx/prod/` is parsed here
     # as the server would load it.
     MSYS_NO_PATHCONV=1 quietly docker run --rm --pull never \
-      --add-host frontend:127.0.0.1 --add-host backend:127.0.0.1 \
       -v "/${REPO_ROOT}/nginx/prod:/etc/nginx/conf.d:ro" \
       -v "/${REPO_ROOT}/nginx/shared:/etc/nginx/shared:ro" \
       -v "/${REPO_ROOT}/.tmp-nginx-check:/etc/nginx/certs:ro" \
