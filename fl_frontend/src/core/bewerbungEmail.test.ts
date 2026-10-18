@@ -288,11 +288,12 @@ describe("buildBewerbungZusageEmail", () => {
 
     assert.equal(factRows(mail.html).get("Trikotfarbe"), "noch nicht festgelegt");
     assert.ok(flat(mail.text).includes("Trikotfarbe: noch nicht festgelegt"));
+    // The group survives the colour being absent: an absent value is a row like any other.
+    assert.equal(factRows(mail.html).get("Gruppe"), ZUSAGE.gruppe, "the panel's group row went with the colour");
+    assert.ok(flat(mail.text).includes(`Gruppe: ${ZUSAGE.gruppe}`), "the text branch's group line went with the colour");
     for (const branch of [readable(mail.html), flat(mail.text)]) {
       assert.ok(branch.includes(EINTEILUNG_SENTENCE_WITHOUT_COLOUR), "the message does not say the colour follows");
       assert.ok(!branch.includes(ZUSAGE.trikotFarbeLabel), "a colour was named where none is assigned");
-      // The group survives the colour being absent: an absent value is a row like any other.
-      assert.ok(branch.includes(ZUSAGE.gruppe));
     }
   });
 
