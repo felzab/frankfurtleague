@@ -1590,9 +1590,10 @@ deploy copies of those thirty days still hold into the day files:
     sudo systemctl start frankfurtleague-journal.service
 
 A pass before the restore's end can have left its last hour's lines in the stream alone, so the
-replay below refuses until a pass has read the stream since. Each pass that read it touches
-`/var/log/frankfurtleague/erasure-journal.last-pass`, which the replay compares with the restore's
-end; the day files cannot say it, since a pass rewrites one only where it found a new line. The
+replay below refuses until a pass has read the stream since. Each pass that read it stamps
+`/var/log/frankfurtleague/erasure-journal.last-pass` with the second it began reading, which the
+replay compares with the restore's end, so a pass already reading as the restore ended does not
+count; the day files cannot say it, since a pass rewrites one only where it found a new line. The
 hourly passes keep the stamp's mtime inside §7's age bound, so only thirty days with no pass reading
 the stream remove it, and the replay refuses then as well.
 
