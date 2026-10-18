@@ -1,13 +1,13 @@
 import "@/shared/testing/pageHarness.ts";
 
 import assert from "node:assert/strict";
-import { existsSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
 import { createElement as h, Suspense } from "react";
 
+import { filesUnder } from "@/core/treeWalk.ts";
 import { doubleActionRequest, doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderPage } from "@/shared/testing/pageHarness.ts";
@@ -36,19 +36,21 @@ type ListPage = (props: PageProps) => ReactElement<{ createModal?: ReactNode }>;
  * `fl_frontend/src/shared/components/ui/AdminCrudView.test.ts`'s sweep over every route's shell instead.
  */
 const ROUTES: { route: string; drawn: string; Page: ListPage; createModal: ReactNode }[] = [];
-for (const entry of readdirSync(ADMIN, { withFileTypes: true })) {
-  const loading = path.join(ADMIN, entry.name, "loading.tsx");
-  if (!entry.isDirectory() || !existsSync(loading)) continue;
+// A list route's own fallback alone, `<route>/loading.tsx`: one deeper is a record's page beneath the list.
+for (const loading of filesUnder(ADMIN, (name) => name === "loading.tsx", 1).filter(
+  (file) => path.relative(ADMIN, file).split(path.sep).length === 2,
+)) {
+  const route = path.basename(path.dirname(loading));
 
   const { default: Loading } = (await import(pathToFileURL(loading).href)) as { default: () => ReactNode };
   const drawn = renderTree(h(Loading));
   if (!BOX.test(drawn)) continue;
 
-  const { default: Page } = (await import(pathToFileURL(path.join(ADMIN, entry.name, "page.tsx")).href)) as { default: ListPage };
+  const { default: Page } = (await import(pathToFileURL(path.join(ADMIN, route, "page.tsx")).href)) as { default: ListPage };
   const { createModal } = Page(PROPS).props;
-  assert.ok(createModal !== undefined, `${entry.name}: its fallback draws a trigger's box and its page's shell passes no create modal`);
+  assert.ok(createModal !== undefined, `${route}: its fallback draws a trigger's box and its page's shell passes no create modal`);
 
-  ROUTES.push({ route: entry.name, drawn, Page, createModal });
+  ROUTES.push({ route: route, drawn, Page, createModal });
 }
 
 /** The trigger's opening tag and its words, from whichever render drew it. */

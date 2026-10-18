@@ -1,13 +1,13 @@
 import "@/shared/testing/pageHarness.ts";
 
 import assert from "node:assert/strict";
-import { readdirSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
 import { SITE_URL } from "@/core/brand";
 import { registerRenderingNothing } from "@/core/exportingModule.ts";
+import { filesUnder } from "@/core/treeWalk.ts";
 
 import robots from "./robots.ts";
 import sitemap from "./sitemap.ts";
@@ -46,21 +46,16 @@ const isDynamic = (segment: string): boolean => segment.startsWith("[");
  * Every static route holding a page, read off the tree rather than listed here: a page added tomorrow
  * is compared against the sitemap on the day it lands, without anybody remembering to name it.
  */
-function staticRoutes(dir: string, segments: readonly string[] = []): { route: string; file: string }[] {
-  const entries = readdirSync(dir, { withFileTypes: true });
-  // The file travels with the route it serves: a route group names no path segment, so neither of
-  // the two can be rebuilt from the other.
-  const own = entries.some((entry) => entry.isFile() && entry.name === "page.tsx")
-    ? [{ route: `/${segments.join("/")}`, file: path.join(dir, "page.tsx") }]
-    : [];
-
-  return entries
-    .filter((entry) => entry.isDirectory() && !isDynamic(entry.name))
-    .flatMap((entry) => staticRoutes(path.join(dir, entry.name), isRouteGroup(entry.name) ? segments : [...segments, entry.name]))
-    .concat(own);
+function staticRoutes(): { route: string; file: string }[] {
+  return filesUnder(APP_DIR, (name) => name === "page.tsx", 1).flatMap((file) => {
+    const segments = path.relative(APP_DIR, path.dirname(file)).split(path.sep).filter(Boolean);
+    // The file travels with the route it serves: a route group names no path segment, so neither of
+    // the two can be rebuilt from the other.
+    return segments.some(isDynamic) ? [] : [{ route: `/${segments.filter((segment) => !isRouteGroup(segment)).join("/")}`, file: file }];
+  });
 }
 
-const FOUND = staticRoutes(APP_DIR);
+const FOUND = staticRoutes();
 
 const PUBLIC_ROUTES = FOUND.map((page) => page.route)
   .filter((route) => route !== "/bereich" && !route.startsWith("/bereich/") && !WITHHELD.includes(route))
