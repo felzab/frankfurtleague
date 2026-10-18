@@ -20,6 +20,7 @@ const events: SweepEvent[] = [];
 /** Addresses the doubled provider refuses, so a deletion notice can fail for one application alone. */
 const refused = new Set<string>();
 const withheld = new Set<string>();
+const barred = new Set<string>();
 
 /** One failure line, as an operator reads it: which half stopped, and for which season. */
 type SweepLog = { event: string; saison_id: string | undefined };
@@ -229,10 +230,11 @@ beforeEach(() => {
   lines.length = 0;
   refused.clear();
   withheld.clear();
+  barred.clear();
   // Appended as the send happens, so a send and the calls around it stay in the order they ran.
   mail.answerWith((sent) => {
     events.push({ kind: "mail", ...sent });
-    return refused.has(sent.to) ? "refused" : withheld.has(sent.to) ? "withheld" : "accepted";
+    return refused.has(sent.to) ? "refused" : withheld.has(sent.to) ? "withheld" : barred.has(sent.to) ? "barred" : "accepted";
   });
   sweepSwitch = "on";
   loeschungSwitch = "off";
@@ -796,6 +798,7 @@ describe("the line a failed call files", () => {
 /** Registration ids as the mirror demands them: `CustomObjectIdStringSchema` takes 24 hex characters and nothing else. */
 const ID_PUPIL = `${"d".repeat(23)}4`;
 const ID_UNDECIDED = `${"e".repeat(23)}5`;
+const ID_BARRED = `${"f".repeat(23)}6`;
 
 const reminder = (registrierungId: string, email: string, token: string) => ({
   registrierung_id: registrierungId,
@@ -905,18 +908,26 @@ describe("the registration half of one pass", () => {
   });
 
   /* The mailer's own line names neither the message nor the pass, and a refusal reported against the
-     erased row would be answered as a missing record. A withheld note is the mailer's line alone. */
-  it("files a refused note as one failure line, reported against no record, and a withheld one as none", async () => {
+     erased row would be answered as a missing record. A withheld or a barred note is the mailer's line alone. */
+  it("files a refused note as one failure line, reported against no record, and a withheld or a barred one as none", async () => {
     sweepAnswers({
       saisonIds: ["2627"],
-      benachrichtigt: { "2627": [notice(ID_UNDECIDED, "quillhilde@schule.de"), notice(ID_PUPIL, "zurueck@schule.de")] },
+      benachrichtigt: {
+        "2627": [notice(ID_UNDECIDED, "quillhilde@schule.de"), notice(ID_PUPIL, "zurueck@schule.de"), notice(ID_BARRED, "gesperrt@schule.de")],
+      },
     });
     answeringAnErasedRow();
     refused.add("quillhilde@schule.de");
     withheld.add("zurueck@schule.de");
+    barred.add("gesperrt@schule.de");
 
     await runBewerbungSweep();
 
+    // Every note reached the mailer, so the lines below are what its three answers left behind.
+    assert.deepEqual(
+      events.flatMap((event) => (event.kind === "mail" ? [event.to] : [])),
+      ["quillhilde@schule.de", "zurueck@schule.de", "gesperrt@schule.de"],
+    );
     assert.deepEqual(
       apiCalls().filter((call) => call.endpoint.startsWith("/zustellung/")),
       [],
