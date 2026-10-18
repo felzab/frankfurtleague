@@ -1414,6 +1414,10 @@ def test_the_two_trace_header_readers_take_the_same_headers():
 
 WRITE_BUDGET_MODULE: Final = "core/api.ts"
 
+# What the margin keeps past the aborts for the hop each way and the queue before the middleware: the
+# production hop crosses a Docker bridge no measurement has timed.
+HOP_ALLOWANCE_MS: Final = 1000
+
 
 def test_a_write_s_budget_waits_out_the_backend_s_deadline_and_its_aborts():
     """`docs/frontend/spec.md :: I767`: a page leaving a write sooner drops its caches before the backend's commit lands.
@@ -1427,7 +1431,7 @@ def test_a_write_s_budget_waits_out_the_backend_s_deadline_and_its_aborts():
 
     assert deadline is not None and margin is not None, f"{WRITE_BUDGET_MODULE} no longer declares a write's two budgets as integers"
     assert deadline == REQUEST_DEADLINE_S * 1000, "the frontend waits out a deadline other than the backend's own"
-    assert ABORT_GRACE_S * 1000 < margin, "the margin past the backend's deadline no longer outlasts its aborts"
+    assert margin - ABORT_GRACE_S * 1000 >= HOP_ALLOWANCE_MS, "the margin past the backend's aborts no longer leaves the hop its allowance"
 
 
 def test_the_two_ends_pin_an_internal_key_to_the_same_alphabet():
