@@ -67,8 +67,9 @@ interface SaisonZusage {
   readonly absaetze: readonly (readonly Lauf[])[];
   readonly fragenSatz: string;
   /* Lines of the body, never under a „-- “ of their own: the text branch's one delimiter opens the
-     league's close, and `emailShell.ts :: stuffSignatureDelimiter` stuffs a second away. */
-  readonly signatur: readonly string[];
+     league's close, and `emailShell.ts :: stuffSignatureDelimiter` stuffs a second away. At least one
+     line: the questions sentence points at it. */
+  readonly signatur: readonly [string, ...string[]];
 }
 
 /**
