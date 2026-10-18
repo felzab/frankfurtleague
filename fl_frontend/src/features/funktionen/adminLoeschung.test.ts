@@ -559,13 +559,13 @@ describe("the reveal the arming read answers", () => {
 });
 
 describe("the Anlass box", () => {
-  it("asks for the date and the request's kind, and for no name, not even the subject's", async () => {
+  it("asks for the date in digits, since a month written out is refused where it equals the person's name, and for the request's kind and no name, not even the subject's", async () => {
     await renderPage();
 
     within(panel("Person löschen")).getByRole("textbox", {
       name: "Anlass",
       description:
-        /^Nur das Datum und die Art der Anfrage\. Nenne hier keine Person beim Namen und keine Adresse, auch nicht aus dem Betreff\./,
+        /^Nur das Datum in Ziffern und die Art der Anfrage\. Nenne hier keine Person beim Namen und keine Adresse, auch nicht aus dem Betreff\./,
     });
   });
 });

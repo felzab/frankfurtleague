@@ -14,6 +14,7 @@ import { KONTAKT_EMAIL } from "@/core/brand.ts";
 import { einwilligungAnswer } from "@/core/einwilligungDocument.ts";
 import { KONTO_HREF } from "@/core/kontoHref.ts";
 import { TURNSTILE_HEADER } from "@/core/turnstileToken.ts";
+import { BEWERBUNG_TOKEN_MAX_LENGTH } from "@/features/bewerbungen/constants.ts";
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { laufendeSpielerFassung, laufendeSpielerWiederkehrendFassung } from "@/shared/testing/einwilligungAnswers.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
@@ -54,6 +55,8 @@ const { RegistrierungFormPanel } = await import("./components/views/Registrierun
 const { SpielerBestaetigungView } = await import("./components/views/SpielerBestaetigungView.tsx");
 const { AdresseGesperrt, LinkUnlesbar } = await import("@/features/bewerbungen/components/views/BestaetigungPanels.tsx");
 const { NUMMER_MAX_LENGTH, STUFE_OPTIONS } = await import("@/features/spieler/constants.ts");
+const { BLOCKED_SUBMIT_TITLE } = await import("@/shared/hooks/useDraftFieldErrors.ts");
+const { buildRegistrierungBestaetigungPayloadSchema } = await import("./schemas.ts");
 
 const { default: SpielerBestaetigungPage } = await import("@/app/(public)/bestaetigung/spieler/page.tsx");
 const { default: RegistrierungPage } = await import("@/app/(public)/registrierung/page.tsx");
@@ -560,6 +563,29 @@ describe("what the two public pages say about a refusal no box of theirs can tak
 
     await waitFor(() => assert.deepEqual(failureToasts(), [["Antwort nicht gespeichert", EIGENER_SATZ]]));
   });
+});
+
+/* No control renders the token, so its refusal reaches the pupil in the blocked press's toast or nowhere. */
+describe("a confirmation press over a token the page cannot send", () => {
+  const satz = buildRegistrierungBestaetigungPayloadSchema(MIN_ALTER, FASSUNG.seite).shape.token.safeParse("").error?.issues[0]?.message;
+
+  for (const [wie, token] of [
+    ["empty", ""],
+    ["over-long", "x".repeat(BEWERBUNG_TOKEN_MAX_LENGTH + 1)],
+  ] as const) {
+    it(`asks for the link again in the press's toast where the token is ${wie}`, async () => {
+      raised.length = 0;
+      render(h(SpielerBestaetigungView, { start: { zustand: "gueltig", ansicht: GEOEFFNET, token: token }, fassung: FASSUNG }));
+
+      await userEvent.setup().click(screen.getByRole("button", { name: /Registrierung bestätigen/ }));
+
+      assert.ok(satz !== undefined, "the payload's schema takes an empty token");
+      assert.ok(
+        raised.some((toast) => toast.title === BLOCKED_SUBMIT_TITLE && String(toast.description).includes(satz)),
+        "the blocked press's toast says nothing of the link",
+      );
+    });
+  }
 });
 
 describe("which of the confirmation page's words its stamped version covers", () => {

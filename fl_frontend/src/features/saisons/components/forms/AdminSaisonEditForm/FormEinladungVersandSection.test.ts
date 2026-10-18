@@ -641,8 +641,9 @@ describe("the season's bulk invite send", () => {
     [[], [uebersprungen(ID("b"))], "info", "Kein Registrierungslink gesendet"],
     [[], [uebersprungen(ID("b")), uebersprungen(ID("c"))], "info", "Keine Registrierungslinks gesendet"],
   ] as const) {
-    it(`titles a press whose teams' links ended ${versendet.join(", ") || "nowhere"} „${title}“`, async () => {
+    it(`titles a press whose teams' links ended ${versendet.join(", ") || "nowhere"} „${title}“, over the answer's sentence`, async () => {
       const user = userEvent.setup();
+      const message = "Das Team hat keinen neuen Link bekommen.";
       answerWith(vorschauAntwort(VORSCHAU));
       render(panel());
 
@@ -651,15 +652,15 @@ describe("the season's bulk invite send", () => {
         armed: ARMED,
         answered,
         whileArmed: () => {
-          answerWith(() => Promise.resolve({ success: true, zeilen, message: "Das Team hat keinen neuen Link bekommen.", versendet }));
+          answerWith(() => Promise.resolve({ success: true, zeilen, message, versendet }));
         },
       });
       await act(answered);
 
       await waitFor(() =>
         assert.deepEqual(
-          raised.map((toast) => [toast.variant, toast.title]),
-          [[variant, title]],
+          raised.map((toast) => [toast.variant, toast.title, toast.description]),
+          [[variant, title, message]],
         ),
       );
     });

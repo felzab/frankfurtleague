@@ -131,8 +131,8 @@ export type TrikotFarbeOption = {
 
 /**
  * The league's kit palette in its colour sheet's order, neutrals first, then round the colour wheel.
- * A swatch draws from `hex`, never a Tailwind token: the palette answers to the league's print
- * colours, which no theme scale tracks.
+ * A swatch draws from `hex`, never a Tailwind token: the colour sheet's hex codes are authoritative,
+ * and no theme scale tracks them.
  */
 export const TRIKOT_FARBE_OPTIONS: readonly TrikotFarbeOption[] = [
   { value: "schwarz", label: "Schwarz", hex: "#111111" },

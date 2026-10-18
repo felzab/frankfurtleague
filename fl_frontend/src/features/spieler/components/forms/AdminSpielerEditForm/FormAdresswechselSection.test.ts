@@ -90,15 +90,17 @@ describe("the waiting address's two controls", () => {
   }
 
   /* Graded as the request's press grades it, the earlier link being dead either way: a failed or held-back link
-     is a warning titled for what happened, and so is a failed notice (`docs/frontend/spec.md :: I737`). */
-  for (const [versand, hinweis, title] of [
-    ["fehlgeschlagen", "gesendet", "Link nicht verschickt"],
-    ["gesperrt", "gesendet", "Link zurückgehalten"],
-    ["zurueckgehalten", "gesendet", "Link zurückgehalten"],
-    ["gesendet", "fehlgeschlagen", "Link gesendet, Hinweis nicht verschickt"],
-    ["gesendet", "ungewiss", "Link gesendet, Hinweis unklar"],
+     is a warning titled for what happened, and so is a failed notice, one held back asking nothing
+     (`docs/frontend/spec.md :: I737`). */
+  for (const [versand, hinweis, variant, title] of [
+    ["fehlgeschlagen", "gesendet", "warning", "Link nicht verschickt"],
+    ["gesperrt", "gesendet", "warning", "Link zurückgehalten"],
+    ["zurueckgehalten", "gesendet", "warning", "Link zurückgehalten"],
+    ["gesendet", "fehlgeschlagen", "warning", "Link gesendet, Hinweis nicht verschickt"],
+    ["gesendet", "ungewiss", "warning", "Link gesendet, Hinweis unklar"],
+    ["gesendet", "zurueckgehalten", "success", "Link gesendet"],
   ] as const) {
-    it(`grades a re-send whose link is ${versand} and notice ${hinweis} a warning titled „${title}“`, async () => {
+    it(`grades a re-send whose link is ${versand} and notice ${hinweis} a ${variant} titled „${title}“`, async () => {
       answerWith(() => Promise.resolve({ success: true, message: "Nicht raus.", versand: versand, hinweis: hinweis }));
       const before = toasts.length;
       const { unmount } = render(panel(OFFEN));
@@ -109,7 +111,7 @@ describe("the waiting address's two controls", () => {
       await waitFor(() =>
         assert.deepEqual(
           toasts.slice(before).map((shown) => [shown.variant, shown.title]),
-          [["warning", title]],
+          [[variant, title]],
         ),
       );
       unmount();

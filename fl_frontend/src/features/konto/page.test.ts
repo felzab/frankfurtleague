@@ -427,7 +427,7 @@ describe("the account page's consent section", () => {
     [
       "a seat holder",
       { sitze: [SITZ] },
-      ["Lessing-Gymnasium", "Stellvertretung und Trainerin oder Trainer", "mindestens 18 Jahre", "Ich möchte nicht eingetragen sein"],
+      ["Jonas", "Lessing-Gymnasium", "Stellvertretung und Trainerin oder Trainer", "mindestens 18 Jahre", "Ich möchte nicht eingetragen sein"],
     ],
     ["a pupil", { spieler: SPIELER }, ["Lessing Lions", "Lessing-Gymnasium", "Alina"]],
     ["a referee", { schiedsrichter: [SCHIEDSRICHTER] }, ["Mara", FESTE_WERTE.loeschung, FESTE_WERTE.kontakt]],
@@ -438,10 +438,13 @@ describe("the account page's consent section", () => {
       answeringKonto(konto);
 
       const text = await sectionText();
+      // In the words alone, the stored data above them printing the same names. The disclosure is the
+      // record's last block, and the case's record the section's only one.
+      const worte = text.split("Was Du bestätigt hast")[1] ?? "";
 
       assert.equal(await disclosures(), 1, `${art}'s confirmed words are not shown`);
       assert.doesNotMatch(text, /\{\w+\}/, `${art}'s confirmed words spell a slot`);
-      for (const wort of erwartet) assert.ok(text.includes(wort), `${art}'s confirmed words lack „${wort}“`);
+      for (const wort of erwartet) assert.ok(worte.includes(wort), `${art}'s confirmed words lack „${wort}“`);
     });
   }
 

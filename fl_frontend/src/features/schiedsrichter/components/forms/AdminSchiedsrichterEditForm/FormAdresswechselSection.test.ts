@@ -156,6 +156,7 @@ describe("a re-send whose link or notice did not go out", () => {
     ["fehlgeschlagen", "fehlgeschlagen", "warning", "Link und Hinweis nicht verschickt"],
     ["gesendet", "ungewiss", "warning", "Link gesendet, Hinweis unklar"],
     ["gesendet", "gesperrt", "success", "Link gesendet"],
+    ["gesendet", "zurueckgehalten", "success", "Link gesendet"],
   ] as const) {
     it(`is titled „${title}“ where the link is ${versand} and the notice ${String(hinweis)}`, async () => {
       answerWith(() => Promise.resolve({ success: true, message: "Nicht raus.", versand: versand, hinweis: hinweis }));
