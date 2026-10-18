@@ -270,7 +270,7 @@ def test_a_copy_that_fails_before_the_recreate_refuses_with_nothing_left_behind(
 
 
 def test_a_refused_copy_puts_the_stopped_pair_back_and_reloads_the_edge_onto_it() -> None:
-    """The reload is the load-bearing call: a started container takes its address afresh, and nginx keeps the old one.
+    """The reload applies what the pull left under nginx/, which starting the pair again alone never would.
 
     Never `up`, which would recreate the pair from the build the pull just fetched.
     """
