@@ -50,6 +50,60 @@ const WEBSITE_SATZ = { vor: "Spielplan, Tabelle und Ergebnisse veröffentlichen 
 const wunschgegnerSatz = (gegner: string): string =>
   `Als Wunschgegner für den ersten Spieltag haben wir ${gegner} notiert. Über die Paarungen entscheidet der Spielplan.`;
 
+const einteilungSatz = (gruppe: string, farbe: string | null): string =>
+  farbe === null
+    ? `Wir haben Euch in Gruppe ${gruppe} untergebracht. Die Gruppe ist aus organisatorischen Gründen nicht mehr veränderbar. Eure Trikotfarbe teilen wir Euch noch mit.`
+    : `Wir haben Euch in Gruppe ${gruppe} untergebracht und Euch die Trikotfarbe ${farbe} zugewiesen. Beide Angaben sind aus organisatorischen Gründen nicht mehr veränderbar.`;
+
+/** One run of a season's paragraph, spelled once for both branches so the two cannot state it apart. */
+type Lauf = string | { readonly betont: string };
+
+interface SaisonZusage {
+  readonly absaetze: readonly (readonly Lauf[])[];
+  readonly fragenSatz: string;
+  /* Lines of the body, never under a „-- “ of their own: the text branch's one delimiter opens the
+     league's close, and `emailShell.ts :: stuffSignatureDelimiter` stuffs a second away. */
+  readonly signatur: readonly string[];
+}
+
+/**
+ * A season's text is added here before that season's acceptances go out, written to the team as „ihr“
+ * as the rest of the acceptance is.
+ */
+const SAISON_ZUSAGEN: ReadonlyMap<string, SaisonZusage> = new Map([
+  [
+    "2027",
+    {
+      absaetze: [
+        [
+          "Über die genauen Trikot-Regelungen für die neue Saison informieren wir Euch im Laufe der Woche. Bitte bestellt bis dahin keine eigenen Trikots.",
+        ],
+        [
+          "Wir laden Euch herzlich dazu ein, am ",
+          { betont: "Freitag, den 20. November 2026" },
+          `, zur ersten Generalversammlung der ${BRAND_NAME} zu kommen! Die Sitzung findet ab `,
+          { betont: "19:00 Uhr" },
+          " im Vereinsheim der SV 07 Heddernheim statt. Pro Schule ist eine Vertreterin oder ein Vertreter zugelassen.",
+        ],
+        [
+          "In dieser Versammlung werden wichtige Grundsteine für die Saison gelegt und essentielle Entscheidungen getroffen. Eine Teilnahme Eurer Schule ist daher enorm wichtig.",
+        ],
+      ],
+      fragenSatz:
+        "Bei Fragen oder Unklarheiten stehe ich Euch selbstverständlich jederzeit für den Verein zur Verfügung. Meine Kontaktdaten stehen unten in der Signatur.",
+      signatur: ["Sportliche Grüße", "Jonathan Kroh", "Sportliche Kommunikation", "0173 5640095"],
+    },
+  ],
+]);
+
+function absatzHtml(laeufe: readonly Lauf[]): string {
+  return laeufe.map((lauf) => (typeof lauf === "string" ? escapeHtml(lauf) : strong(escapeHtml(lauf.betont)))).join("");
+}
+
+function absatzText(laeufe: readonly Lauf[]): string {
+  return laeufe.map((lauf) => (typeof lauf === "string" ? lauf : lauf.betont)).join("");
+}
+
 /**
  * For the reader who never applied: anybody can type any address into a public form. Last in the
  * body and above the buttons, never in the grey close a reader skims -- and in `renderHtml`, so
@@ -317,6 +371,12 @@ export function buildBewerbungZusageEmail({
   // Folded for a reason `renderText` cannot cover: this one stands in the prose ALONE, so no fact line
   // it prints would ever reach it. Blank counts as unnamed, so the silence rests on no payload's trim.
   const gegner = einzeilig(wunschgegner ?? "").trim();
+  // Folded here as well as in `renderText`, as the name is: both stand in the prose too
+  // (`docs/frontend/spec.md :: I89`).
+  const gruppeText = einzeilig(gruppe);
+  const farbe = trikotFarbeLabel === null ? null : einzeilig(trikotFarbeLabel);
+  const einteilung = einteilungSatz(gruppeText, farbe);
+  const zusatz = SAISON_ZUSAGEN.get(saisonId);
 
   const nachricht: Nachricht = {
     headingVor: "Zusage für die",
@@ -327,10 +387,10 @@ export function buildBewerbungZusageEmail({
       { label: "Entscheidung", value: "Zusage" },
       { label: "Team", value: team },
       { label: "Saison", value: saisonId, akzent: true },
-      { label: "Gruppe", value: gruppe },
+      { label: "Gruppe", value: gruppeText },
       // Stated rather than guessed, and stated as a row either way: an absent colour is a fact the
       // reader has to be able to find in the same place as a named one.
-      { label: "Trikotfarbe", value: trikotFarbeLabel ?? "noch nicht festgelegt" },
+      { label: "Trikotfarbe", value: farbe ?? "noch nicht festgelegt" },
       // The one row that differs per reader: three people get this message and each is told the seat
       // they were entered for.
       { label: "Eingetragen als", value: rollenText },
@@ -341,22 +401,39 @@ export function buildBewerbungZusageEmail({
   };
 
   const html = renderHtml(nachricht, [
+    // Wording the league dictated, written to the team as „ihr“ rather than to the one contact reading
+    // it: where it and `docs/frontend/spec.md` §1.12's register rule part, the wording wins.
+    paragraph("Liebe Freundinnen und Freunde,"),
+    paragraph(`vielen Dank für Eure Bewerbung für die ${saisonPhrase(saisonId)} der ${BRAND_NAME}.`),
     paragraph(
-      `${strong(escapeHtml(team))} ist für die ${saisonPhrase(saisonId)} der ${BRAND_NAME} aufgenommen. Wir freuen uns auf die gemeinsame Saison.`,
+      `Wir freuen uns, Euch mitteilen zu können, dass Eure Bewerbung erfolgreich war. ${strong(escapeHtml(team))} ist für die ${saisonPhrase(saisonId)} aufgenommen. Herzlich willkommen!`,
     ),
+    paragraph(escapeHtml(einteilung)),
     // Unemphasised, unlike the name above it: a school skims the bold, and a club set in it would read
     // as the fixture the draw has not drawn.
     ...(gegner === "" ? [] : [paragraph(wunschgegnerSatz(escapeHtml(gegner)))]),
+    ...(zusatz?.absaetze ?? []).map((absatz) => paragraph(absatzHtml(absatz))),
     paragraph(`${WEBSITE_SATZ.vor}${link(site, site)}${WEBSITE_SATZ.nach}`),
+    ...(zusatz === undefined
+      ? []
+      : [paragraph(escapeHtml(zusatz.fragenSatz)), paragraph(zusatz.signatur.map((zeile) => escapeHtml(zeile)).join("<br />"))]),
   ]);
 
   const text = renderText(nachricht, [
-    `${team} ist für die Saison ${saisonId} der ${BRAND_NAME} aufgenommen.`,
-    "Wir freuen uns auf die gemeinsame Saison.",
+    "Liebe Freundinnen und Freunde,",
+    "",
+    `vielen Dank für Eure Bewerbung für die Saison ${saisonId} der ${BRAND_NAME}.`,
+    "",
+    "Wir freuen uns, Euch mitteilen zu können, dass Eure Bewerbung erfolgreich war.",
+    `${team} ist für die Saison ${saisonId} aufgenommen. Herzlich willkommen!`,
+    "",
+    einteilung,
     // The separating blank line rides WITH the sentence, so an unnamed opponent leaves no gap behind.
     ...(gegner === "" ? [] : ["", wunschgegnerSatz(gegner)]),
+    ...(zusatz?.absaetze ?? []).flatMap((absatz) => ["", absatzText(absatz)]),
     "",
     `${WEBSITE_SATZ.vor}${site}${WEBSITE_SATZ.nach}`,
+    ...(zusatz === undefined ? [] : ["", zusatz.fragenSatz, "", ...zusatz.signatur]),
   ]);
 
   return { subject: `Zusage: ${BRAND_NAME}, Saison ${saisonId}`, html: html, text: text };

@@ -112,7 +112,8 @@ const DELIMITER_VALUE = "Erste Zeile\n-- \nZweite Zeile";
    below on the same edit rather than when somebody remembers it. */
 const ZUSAGE = {
   teamName: "Ernst-Reuter-Schule",
-  saisonId: "2627",
+  // The season whose acceptance carries paragraphs of its own, so every sweep below reads the whole body.
+  saisonId: "2027",
   origin: ORIGIN,
   rollenText: "Ansprechperson",
   gruppe: "B",
@@ -157,6 +158,30 @@ const WEBSITE_SENTENCE = `Spielplan, Tabelle und Ergebnisse veröffentlichen wir
  * half a substring check would drop, so „wir versuchen“ could be slipped in beside a passing assertion.
  */
 const WUNSCHGEGNER_SENTENCE = `Als Wunschgegner für den ersten Spieltag haben wir ${ZUSAGE.wunschgegner} notiert. Über die Paarungen entscheidet der Spielplan.`;
+
+/** What every season's acceptance opens on, spelled out for the reason above. */
+const ZUSAGE_OPENING = [
+  "Liebe Freundinnen und Freunde,",
+  `vielen Dank für Eure Bewerbung für die Saison ${ZUSAGE.saisonId} der Frankfurt League.`,
+  "Wir freuen uns, Euch mitteilen zu können, dass Eure Bewerbung erfolgreich war.",
+  `${ZUSAGE.teamName} ist für die Saison ${ZUSAGE.saisonId} aufgenommen. Herzlich willkommen!`,
+];
+
+const EINTEILUNG_SENTENCE = `Wir haben Euch in Gruppe ${ZUSAGE.gruppe} untergebracht und Euch die Trikotfarbe ${ZUSAGE.trikotFarbeLabel} zugewiesen. Beide Angaben sind aus organisatorischen Gründen nicht mehr veränderbar.`;
+const EINTEILUNG_SENTENCE_WITHOUT_COLOUR = `Wir haben Euch in Gruppe ${ZUSAGE.gruppe} untergebracht. Die Gruppe ist aus organisatorischen Gründen nicht mehr veränderbar. Eure Trikotfarbe teilen wir Euch noch mit.`;
+
+/** Saison 2027's own paragraphs, above and below the website sentence every season's acceptance carries. */
+const SAISON_2027_ABOVE = [
+  "Über die genauen Trikot-Regelungen für die neue Saison informieren wir Euch im Laufe der Woche. Bitte bestellt bis dahin keine eigenen Trikots.",
+  "Wir laden Euch herzlich dazu ein, am Freitag, den 20. November 2026, zur ersten Generalversammlung der Frankfurt League zu kommen! Die Sitzung findet ab 19:00 Uhr im Vereinsheim der SV 07 Heddernheim statt. Pro Schule ist eine Vertreterin oder ein Vertreter zugelassen.",
+  "In dieser Versammlung werden wichtige Grundsteine für die Saison gelegt und essentielle Entscheidungen getroffen. Eine Teilnahme Eurer Schule ist daher enorm wichtig.",
+];
+const SAISON_2027_BELOW =
+  "Bei Fragen oder Unklarheiten stehe ich Euch selbstverständlich jederzeit für den Verein zur Verfügung. Meine Kontaktdaten stehen unten in der Signatur.";
+const SAISON_2027_SIGNATURE = ["Sportliche Grüße", "Jonathan Kroh", "Sportliche Kommunikation", "0173 5640095"];
+
+/** A season with no paragraphs of its own. */
+const LATER_SEASON = "2028";
 
 /** The second control both decisions carry: one page that is a dead end for neither of their readers. */
 const LIGA_AKTION = { label: "Laufende Saison", href: `${ORIGIN}/dashboard` };
@@ -222,15 +247,17 @@ describe("buildBewerbungZusageEmail", () => {
     );
   });
 
-  it("leaves the prose the sentences the panel does not carry, and none it does", () => {
+  it("leaves the prose the sentences the panel does not carry, restating only the group and colour it fixes", () => {
     const prose = readable(proseSection(buildBewerbungZusageEmail(ZUSAGE).html));
 
-    assert.ok(prose.includes(`${ZUSAGE.teamName} ist für die Saison ${ZUSAGE.saisonId} der Frankfurt League aufgenommen.`));
-    assert.ok(prose.includes("Wir freuen uns auf die gemeinsame Saison."));
-    assert.ok(prose.includes(WEBSITE_SENTENCE));
+    for (const sentence of [...ZUSAGE_OPENING, EINTEILUNG_SENTENCE, WEBSITE_SENTENCE]) {
+      assert.ok(prose.includes(sentence), `the prose lost „${sentence}“`);
+    }
     // Stated once. A fact restated in prose is the burial the panel exists to undo.
-    for (const stated of ["Gruppe", "Trikotfarbe", "Eingetragen als"]) {
-      assert.ok(!prose.includes(stated), `„${stated}“ is stated in the panel and again in the prose`);
+    assert.ok(!prose.includes("Eingetragen als"), "„Eingetragen als“ is stated in the panel and again in the prose");
+    // Except in the one sentence telling the school they are fixed, which has to say what is.
+    for (const stated of ["Gruppe", "Trikotfarbe"]) {
+      assert.equal(prose.split(stated).length - 1, 1, `„${stated}“ is restated outside the sentence fixing it`);
     }
   });
 
@@ -241,8 +268,9 @@ describe("buildBewerbungZusageEmail", () => {
       ZUSAGE.teamName,
       `Zusage für die Saison ${ZUSAGE.saisonId}`,
       KONTAKT_EMAIL,
-      `${ZUSAGE.teamName} ist für die Saison ${ZUSAGE.saisonId} der Frankfurt League aufgenommen.`,
-      "Wir freuen uns auf die gemeinsame Saison.",
+      ...ZUSAGE_OPENING,
+      // The form for an assigned colour; the open one has the case below.
+      EINTEILUNG_SENTENCE,
       WEBSITE_SENTENCE,
       ...FOOTER_SENTENCES,
     ]) {
@@ -261,6 +289,7 @@ describe("buildBewerbungZusageEmail", () => {
     assert.equal(factRows(mail.html).get("Trikotfarbe"), "noch nicht festgelegt");
     assert.ok(flat(mail.text).includes("Trikotfarbe: noch nicht festgelegt"));
     for (const branch of [readable(mail.html), flat(mail.text)]) {
+      assert.ok(branch.includes(EINTEILUNG_SENTENCE_WITHOUT_COLOUR), "the message does not say the colour follows");
       assert.ok(!branch.includes(ZUSAGE.trikotFarbeLabel), "a colour was named where none is assigned");
       // The group survives the colour being absent: an absent value is a row like any other.
       assert.ok(branch.includes(ZUSAGE.gruppe));
@@ -288,10 +317,7 @@ describe("buildBewerbungZusageEmail", () => {
     }
     // Silence, not a gap: the paragraphs the sentence sits between meet exactly as they do in a
     // message that never carried one, so the omission leaves nothing for a reader to wonder about.
-    assert.ok(
-      without.text.includes(`Wir freuen uns auf die gemeinsame Saison.\n\n${WEBSITE_SENTENCE}`),
-      "the absent sentence left a blank line",
-    );
+    assert.ok(without.text.includes(`${EINTEILUNG_SENTENCE}\n\n${SAISON_2027_ABOVE[0]}`), "the absent sentence left a blank line");
     assert.ok(!/<p [^>]*>\s*<\/p>/.test(without.html), "the absent sentence left an empty paragraph");
 
     /* A null and a blank are one case. Which of the two reaches this module is the payload's business,
@@ -311,6 +337,43 @@ describe("buildBewerbungZusageEmail", () => {
       "the team name lost its emphasis, so this test proves nothing",
     );
     assert.ok(!emphasised.some((inner) => inner.includes(ZUSAGE.wunschgegner)), "the wish is shouted as loudly as the decision");
+  });
+
+  /* A later season's acceptance carrying these would invite its schools to an assembly already held,
+     under a name and a number that need not be that season's. */
+  it("carries Saison 2027's own paragraphs and signature on a 2027 acceptance and on no other season's", () => {
+    const mail = buildBewerbungZusageEmail(ZUSAGE);
+    const later = buildBewerbungZusageEmail({ ...ZUSAGE, saisonId: LATER_SEASON });
+    const signature = SAISON_2027_SIGNATURE.join("\n");
+
+    // Whole and in order, around the website sentence: a paragraph moved or dropped fails here.
+    assert.ok(
+      flat(readable(mail.html)).includes([...SAISON_2027_ABOVE, WEBSITE_SENTENCE, SAISON_2027_BELOW, ...SAISON_2027_SIGNATURE].join(" ")),
+      "the markup branch lost a 2027 paragraph or its order",
+    );
+    assert.ok(
+      mail.text.includes([...SAISON_2027_ABOVE, WEBSITE_SENTENCE, SAISON_2027_BELOW, signature].join("\n\n")),
+      "the text branch lost a 2027 paragraph or its order",
+    );
+    // The signature one line each in the markup too, which the readable comparison above cannot see.
+    assert.ok(mail.html.includes(`>${SAISON_2027_SIGNATURE.join("<br />")}</p>`), "the markup branch runs the signature together");
+    // The date and the time in the emphasis grade, as every message sets its deadline.
+    const emphasised = [...mail.html.matchAll(/<strong[^>]*>([\s\S]*?)<\/strong>/g)].map((match) => match[1] ?? "");
+    for (const wann of ["Freitag, den 20. November 2026", "19:00 Uhr"]) {
+      assert.ok(emphasised.includes(wann), `„${wann}“ is not emphasised`);
+    }
+
+    for (const branch of [flat(readable(later.html)), flat(later.text)]) {
+      for (const line of [...SAISON_2027_ABOVE, SAISON_2027_BELOW, ...SAISON_2027_SIGNATURE]) {
+        assert.ok(!branch.includes(line), `a Saison ${LATER_SEASON} acceptance carries „${line}“`);
+      }
+    }
+    // Silence, not a gap, as for an unnamed opponent.
+    assert.ok(
+      later.text.includes(`${EINTEILUNG_SENTENCE}\n\n${WUNSCHGEGNER_SENTENCE}\n\n${WEBSITE_SENTENCE}\n\n${IGNORE_SENTENCE}`),
+      "the absent paragraphs left a blank line",
+    );
+    assert.ok(!/<p [^>]*>\s*<\/p>/.test(later.html), "the absent paragraphs left an empty paragraph");
   });
 
   it("escapes the team name in the markup branch and leaves the text branch alone", () => {
@@ -760,6 +823,22 @@ describe("no value can open a line of its own in the text branch", () => {
 
     assert.ok(!forgedLine(zusage.text), "a named opponent forged a fact line");
     assert.ok(zusage.text.includes(`Echte Schule ${FORGED_OPENER} notiert`), "the named opponent was not carried onto one line");
+  });
+
+  /* Each stands in the prose as well as in its row, and `renderText`'s fold reaches only the row
+     (`docs/frontend/spec.md :: I89`). */
+  it("folds the group and the colour, which the prose states too", () => {
+    for (const [feld, zusage, getragen] of [
+      ["gruppe", buildBewerbungZusageEmail({ ...ZUSAGE, gruppe: NAME_WITH_A_BREAK }), `Gruppe Echte Schule ${FORGED_OPENER} untergebracht`],
+      [
+        "trikotFarbeLabel",
+        buildBewerbungZusageEmail({ ...ZUSAGE, trikotFarbeLabel: NAME_WITH_A_BREAK }),
+        `Trikotfarbe Echte Schule ${FORGED_OPENER} zugewiesen`,
+      ],
+    ] as const) {
+      assert.ok(!forgedLine(zusage.text), `${feld} forged a fact line in the prose`);
+      assert.ok(zusage.text.includes(getragen), `${feld} was not carried onto one line`);
+    }
   });
 
   /* A field the builders do NOT fold on their way in, so this is what pins the guard in `zeile`
