@@ -50,6 +50,11 @@ const WEBSITE_SATZ = { vor: "Spielplan, Tabelle und Ergebnisse veröffentlichen 
 const wunschgegnerSatz = (gegner: string): string =>
   `Als Wunschgegner für den ersten Spieltag haben wir ${gegner} notiert. Über die Paarungen entscheidet der Spielplan.`;
 
+/**
+ * The league's dictated wording and its policy towards schools, kept over `docs/frontend/spec.md :: 1.12`'s rule
+ * against calling a performed operation impossible: an administrator's group swap and colour edit are the
+ * league's own corrections.
+ */
 const einteilungSatz = (gruppe: string, farbe: string | null): string =>
   farbe === null
     ? `Wir haben Euch in Gruppe ${gruppe} untergebracht. Die Gruppe ist aus organisatorischen Gründen nicht mehr veränderbar. Eure Trikotfarbe teilen wir Euch noch mit.`
@@ -67,8 +72,9 @@ interface SaisonZusage {
 }
 
 /**
- * A season's text is added here before that season's acceptances go out, written to the team as „ihr“
- * as the rest of the acceptance is.
+ * A season's text is added here before that season's acceptances go out. Wording the league dictated, to the
+ * team as „ihr“: where it parts from `docs/frontend/spec.md :: 1.12`, „Generalversammlung“, „Versammlung“ and
+ * „Sitzung“ for one meeting included, the wording wins.
  */
 const SAISON_ZUSAGEN: ReadonlyMap<string, SaisonZusage> = new Map([
   [
@@ -293,8 +299,9 @@ function faktZeile(fakt: Fakt, oben: number, unten: number): string {
 }
 
 /**
- * The facts a reader must not have to hunt for, panelled above the prose that no longer repeats them.
- * The gap below is a wrapper cell's padding: Outlook honours that where it ignores a table's margin.
+ * The facts a reader must not have to hunt for, panelled above the prose, which restates one only to say
+ * something about it. The gap below is a wrapper cell's padding: Outlook honours that where it ignores a
+ * table's margin.
  */
 function renderFakten(fakten: readonly Fakt[]): string {
   const letzte = fakten.length - 1;
