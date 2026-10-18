@@ -124,7 +124,8 @@ export type TrikotFarbeOption = {
   readonly label: string;
   /**
    * The swatch's fill, copied from the league's colour sheet and authoritative over any eyeballed
-   * match. A changed hex recolours every row already stored under its slug.
+   * match. A changed hex recolours every row already stored under its slug, and contradicts every
+   * acceptance mail already sent, which states the hex to the school.
    */
   readonly hex: string;
 };

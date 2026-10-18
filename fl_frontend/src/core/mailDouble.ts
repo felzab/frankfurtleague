@@ -5,7 +5,15 @@ import { registerDoubles } from "./exportingModule.ts";
 import { recordWriteSent } from "./requestScope.ts";
 
 /** One message handed to the mailer, as `fl_frontend/src/core/mail.ts :: OutboundMail` carries it. */
-export type SentMail = { to: string; subject: string; html: string; text: string; tags?: Record<string, string>; idempotencyKey?: string };
+export type SentMail = {
+  to: string;
+  subject: string;
+  html: string;
+  text: string;
+  tags?: Record<string, string>;
+  idempotencyKey?: string;
+  absender?: { readonly name: string; readonly antwortAn: string };
+};
 
 /** What `fl_frontend/src/core/mail.ts :: sendSperreNotice` is handed: the address and the ban's own facts. */
 type SperreFacts = { to: string; grund: string; gesperrtBisSaisonId: string; origin: string };

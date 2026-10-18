@@ -65,6 +65,23 @@ function proseSection(html: string): string {
   return afterHeading.slice(afterHeading.indexOf("<p "), afterHeading.indexOf("<hr"));
 }
 
+/** Every panel's rows, wherever the message sets it: the acceptance sets two among its prose. */
+function panelSection(html: string): string {
+  return [...html.matchAll(/<table [^>]*class="fl-panel"[^>]*>([\s\S]*?)<\/table>/g)].map((hit) => hit[1] ?? "").join("\n");
+}
+
+/** The body's paragraphs in order, past the panels and their titles: the prose a reader meets between them. */
+function prosaAbsaetze(html: string): string[] {
+  const body = html.slice(html.indexOf("</h1>"), html.indexOf("<hr")).replace(/<table [^>]*class="fl-panel"[\s\S]*?<\/table>/g, "");
+
+  return [...body.matchAll(/<p (?![^>]*text-transform:uppercase)[^>]*>([\s\S]*?)<\/p>/g)].map((hit) => readable(hit[1] ?? ""));
+}
+
+/** The titles set over the panels among the prose, in order: headings, so a screen reader can jump between them. */
+function panelTitel(html: string): string[] {
+  return [...html.matchAll(/<h2 [^>]*>([\s\S]*?)<\/h2>/g)].map((hit) => readable(hit[1] ?? ""));
+}
+
 /**
  * The panel read back as the label-and-value pairs a reader sees, in order. Rows are matched without
  * nesting, so the wrapper cell that carries the panel's own spacing is stepped over rather than
@@ -74,7 +91,7 @@ function factList(html: string): [string, string][] {
   // Stripped so the keys stay the nouns the text branch prints; a missing colon is its own assertion.
   const label = (cell: string | undefined): string => (cell ?? "").replace(/:$/, "");
 
-  const rows = [...factSection(html).matchAll(/<tr>((?:(?!<tr[ >])[\s\S])*?)<\/tr>/g)].map((row) =>
+  const rows = [...panelSection(html).matchAll(/<tr>((?:(?!<tr[ >])[\s\S])*?)<\/tr>/g)].map((row) =>
     [...(row[1] ?? "").matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map((cell) => readable(cell[1] ?? "")),
   );
 
@@ -118,6 +135,7 @@ const ZUSAGE = {
   rollenText: "Ansprechperson",
   gruppe: "B",
   trikotFarbeLabel: "Hellgrün",
+  trikotFarbeHex: "#75db06",
   wunschgegner: "Wöhlerschule",
 } satisfies BewerbungZusageData;
 const ABSAGE = {
@@ -128,8 +146,11 @@ const ABSAGE = {
   grund: "Die Saison ist voll: 16 Teams stehen schon fest.",
 } satisfies BewerbungAbsageData;
 
-/** The field a hostile NAME cannot stand in for: `emailShell.ts :: mailOrigin` refuses one, so it has a URL-shaped case of its own below. */
-const NOT_FROM_THE_SENDER = ["origin"];
+/**
+ * The fields a hostile NAME cannot stand in for: `emailShell.ts :: mailOrigin` refuses an origin, and a hex of
+ * any other shape is dropped. Each has cases of its own below.
+ */
+const NOT_FROM_THE_SENDER = ["origin", "trikotFarbeHex"];
 
 /**
  * One fixture per interpolated string, each carrying the hostile value in a different field. Read
@@ -170,15 +191,25 @@ const ZUSAGE_OPENING = [
 const EINTEILUNG_SENTENCE = `Wir haben Euch in Gruppe ${ZUSAGE.gruppe} untergebracht und Euch die Trikotfarbe ${ZUSAGE.trikotFarbeLabel} zugewiesen. Beide Angaben sind aus organisatorischen Gründen nicht mehr veränderbar.`;
 const EINTEILUNG_SENTENCE_WITHOUT_COLOUR = `Wir haben Euch in Gruppe ${ZUSAGE.gruppe} untergebracht. Die Gruppe ist aus organisatorischen Gründen nicht mehr veränderbar. Eure Trikotfarbe teilen wir Euch noch mit.`;
 
-/** Saison 2027's own paragraphs, above and below the website sentence every season's acceptance carries. */
-const SAISON_2027_ABOVE = [
-  "Über die genauen Trikot-Regelungen für die neue Saison informieren wir Euch im Laufe der Woche. Bitte bestellt bis dahin keine eigenen Trikots.",
+/** Saison 2027's meeting as its panel states it, title first, one fact to the line as the text branch sets it. */
+const SAISON_2027_VERSAMMLUNG = [
+  "Erste Generalversammlung",
+  "Wann: Freitag, 20. November 2026, 19:00 Uhr",
+  "Wo: Vereinsheim der SV 07 Heddernheim",
+  "Wer: eine Vertreterin oder ein Vertreter pro Schule",
+];
+/** Saison 2027's own paragraphs: the invitation under the meeting's panel, the jersey note under the team's. */
+const SAISON_2027_EINLADUNG = [
   "Wir laden Euch herzlich dazu ein, am Freitag, den 20. November 2026, zur ersten Generalversammlung der Frankfurt League zu kommen! Die Sitzung findet ab 19:00 Uhr im Vereinsheim der SV 07 Heddernheim statt. Pro Schule ist eine Vertreterin oder ein Vertreter zugelassen.",
   "In dieser Versammlung werden wichtige Grundsteine für die Saison gelegt und essentielle Entscheidungen getroffen. Eine Teilnahme Eurer Schule ist daher enorm wichtig.",
 ];
+const SAISON_2027_TRIKOT =
+  "Über die genauen Trikot-Regelungen für die neue Saison informieren wir Euch im Laufe der Woche. Bitte bestellt bis dahin keine eigenen Trikots.";
 const SAISON_2027_BELOW =
   "Bei Fragen oder Unklarheiten stehe ich Euch selbstverständlich jederzeit für den Verein zur Verfügung. Meine Kontaktdaten stehen unten in der Signatur.";
-const SAISON_2027_SIGNATURE = ["Sportliche Grüße", "Jonathan Kroh", "Sportliche Kommunikation", "0173 5640095"];
+const SAISON_2027_SIGNATURE = ["Sportliche Grüße", "Jonathan Kroh", "Sportliche Kommunikation, Frankfurt League", "0173 5640095"];
+/** The close of a message a person signs, which names who reads the replies in place of the no-reply note. */
+const SAISON_2027_ANTWORT = `Antworten auf diese E-Mail erreichen Jonathan Kroh. Unsere Adresse ist ${KONTAKT_EMAIL}.`;
 
 /** A season with no paragraphs of its own. */
 const LATER_SEASON = "2028";
@@ -202,19 +233,22 @@ const RECIPIENT_SENTENCE = {
   einreichende: "Diese E-Mail geht nur an die Person, die die Bewerbung eingereicht hat.",
 };
 
+const NO_REPLY_SENTENCE = `Antworten an die Absenderadresse liest niemand. Unsere Adresse ist ${KONTAKT_EMAIL}.`;
+
 /** The closing sentences of a message that reached all three seats, which is either decision. */
 const FOOTER_SENTENCES = [RECIPIENT_SENTENCE.kontaktpersonen, "Antworten an die Absenderadresse liest niemand."];
+const ZUSAGE_FOOTER_SENTENCES = [RECIPIENT_SENTENCE.kontaktpersonen, SAISON_2027_ANTWORT];
 
 /** Spelled out here for the reason above: copy checked against its own source moves with it. */
 const IGNORE_SENTENCE =
   "Du weißt nichts von einer Bewerbung bei der Frankfurt League? Dann ignoriere diese E-Mail einfach. Für Dich ist nichts zu tun.";
 
 /** The text branch's close as a block, the delimiter included: its order is part of what it says. */
-const textFooter = (empfaenger: keyof typeof RECIPIENT_SENTENCE): string =>
+const textFooter = (empfaenger: keyof typeof RECIPIENT_SENTENCE, antwort: string = NO_REPLY_SENTENCE): string =>
   [
     "-- ",
     RECIPIENT_SENTENCE[empfaenger],
-    `Antworten an die Absenderadresse liest niemand. Unsere Adresse ist ${KONTAKT_EMAIL}.`,
+    antwort,
     `Datenschutzerklärung: ${ORIGIN}/datenschutz`,
     `Impressum: ${ORIGIN}/impressum`,
     `${VEREIN_NAME}, ${VEREIN_ANSCHRIFT}`,
@@ -225,34 +259,103 @@ const textFooter = (empfaenger: keyof typeof RECIPIENT_SENTENCE): string =>
  * takes. Paired here rather than per case, so no sweep below can check one message against another's.
  */
 const MESSAGES = [
-  { name: "Zusage", build: () => buildBewerbungZusageEmail(ZUSAGE), empfaenger: "kontaktpersonen", saisonId: ZUSAGE.saisonId },
-  { name: "Absage", build: () => buildBewerbungAbsageEmail(ABSAGE), empfaenger: "kontaktpersonen", saisonId: ABSAGE.saisonId },
+  {
+    name: "Zusage",
+    build: () => buildBewerbungZusageEmail(ZUSAGE),
+    empfaenger: "kontaktpersonen",
+    saisonId: ZUSAGE.saisonId,
+    antwort: SAISON_2027_ANTWORT,
+  },
+  {
+    name: "Absage",
+    build: () => buildBewerbungAbsageEmail(ABSAGE),
+    empfaenger: "kontaktpersonen",
+    saisonId: ABSAGE.saisonId,
+    antwort: NO_REPLY_SENTENCE,
+  },
 ] as const;
 
-const allMessages = () => MESSAGES.map((message) => ({ ...message, mail: message.build(), footer: textFooter(message.empfaenger) }));
+const allMessages = () =>
+  MESSAGES.map((message) => ({ ...message, mail: message.build(), footer: textFooter(message.empfaenger, message.antwort) }));
 
 describe("buildBewerbungZusageEmail", () => {
-  it("states its facts in the panel, in the order they are laid out", () => {
+  /* The decision is public before the message arrives, so the meeting leads and the team's details
+     follow, each panel under its own title. No row for the decision or the season: the heading states both. */
+  it("states the meeting's panel first and the team's second, each under its title", () => {
+    const mail = buildBewerbungZusageEmail(ZUSAGE);
+
+    assert.deepEqual(panelTitel(mail.html), ["Erste Generalversammlung", "Eure Einteilung"]);
     assert.deepEqual(
-      [...factRows(buildBewerbungZusageEmail(ZUSAGE).html)],
+      [...factRows(mail.html)],
       [
-        ["Entscheidung", "Zusage"],
+        ...SAISON_2027_VERSAMMLUNG.slice(1).map((zeile) => zeile.split(": ") as [string, string]),
         ["Team", ZUSAGE.teamName],
-        ["Saison", ZUSAGE.saisonId],
         ["Gruppe", ZUSAGE.gruppe],
-        ["Trikotfarbe", ZUSAGE.trikotFarbeLabel],
+        ["Trikotfarbe", `${ZUSAGE.trikotFarbeLabel} (${ZUSAGE.trikotFarbeHex})`],
         // The one row that differs per reader: three people are told one decision, each their own place in it.
         ["Eingetragen als", ZUSAGE.rollenText],
       ],
     );
+    // The text branch sets each panel as a block under its title, so a reader of either branch meets one layout.
+    assert.ok(mail.text.includes(SAISON_2027_VERSAMMLUNG.join("\n")), "the text branch lost the meeting's block");
+    assert.ok(
+      mail.text.includes(
+        [
+          "Eure Einteilung",
+          `Team: ${ZUSAGE.teamName}`,
+          `Gruppe: ${ZUSAGE.gruppe}`,
+          `Trikotfarbe: ${ZUSAGE.trikotFarbeLabel} (${ZUSAGE.trikotFarbeHex})`,
+          `Eingetragen als: ${ZUSAGE.rollenText}`,
+        ].join("\n"),
+      ),
+      "the text branch lost the team's block",
+    );
   });
 
-  it("leaves the prose the sentences the panel does not carry, restating only the group and colour it fixes", () => {
-    const prose = readable(proseSection(buildBewerbungZusageEmail(ZUSAGE).html));
+  /* Every other case reads the message flattened, so a paragraph moved past a panel, or two run
+     together, would pass them. Asserted in both branches, in the order the message is laid out. */
+  it("lays out welcome, meeting, team and signature in that order, broken where the league broke it", () => {
+    const mail = buildBewerbungZusageEmail(ZUSAGE);
+    const [anrede, dank, erfolg, aufgenommen] = ZUSAGE_OPENING;
+    const ordnung = [
+      anrede,
+      `${dank} ${erfolg} ${aufgenommen}`,
+      ...SAISON_2027_EINLADUNG,
+      EINTEILUNG_SENTENCE,
+      SAISON_2027_TRIKOT,
+      WUNSCHGEGNER_SENTENCE,
+      WEBSITE_SENTENCE,
+      SAISON_2027_BELOW,
+      ...SAISON_2027_SIGNATURE,
+      IGNORE_SENTENCE,
+    ];
 
-    for (const sentence of [...ZUSAGE_OPENING, EINTEILUNG_SENTENCE, WEBSITE_SENTENCE]) {
-      assert.ok(prose.includes(sentence), `the prose lost „${sentence}“`);
-    }
+    assert.deepEqual(prosaAbsaetze(mail.html), ordnung, "the markup branch moves, drops or merges a paragraph");
+    // The panels between them: the meeting's under the welcome, the team's above the sentence fixing it.
+    const html = readable(mail.html);
+    const vor = (erst: string, dann: string) => assert.ok(html.indexOf(erst) < html.indexOf(dann), `„${erst}“ fell below „${dann}“`);
+    vor(aufgenommen, "Erste Generalversammlung");
+    vor("Wer:", SAISON_2027_EINLADUNG[0] ?? "");
+    vor(SAISON_2027_EINLADUNG[1] ?? "", "Eure Einteilung");
+    vor("Eingetragen als:", EINTEILUNG_SENTENCE);
+
+    assert.ok(
+      mail.text.includes(
+        [[anrede].join("\n"), [dank, erfolg, aufgenommen].join("\n"), SAISON_2027_VERSAMMLUNG.join("\n"), ...SAISON_2027_EINLADUNG].join(
+          "\n\n",
+        ),
+      ),
+      "the text branch moves or merges a paragraph of the opening or the invitation",
+    );
+    assert.ok(
+      mail.text.includes([EINTEILUNG_SENTENCE, SAISON_2027_TRIKOT, WUNSCHGEGNER_SENTENCE, WEBSITE_SENTENCE, SAISON_2027_BELOW].join("\n\n")),
+      "the text branch moves a paragraph below the team's block",
+    );
+  });
+
+  it("leaves the prose the sentences the panels do not carry, restating only the group and colour it fixes", () => {
+    const prose = prosaAbsaetze(buildBewerbungZusageEmail(ZUSAGE).html).join(" ");
+
     // Stated once. A fact restated in prose is the burial the panel exists to undo.
     assert.ok(!prose.includes("Eingetragen als"), "„Eingetragen als“ is stated in the panel and again in the prose");
     // Except in the one sentence telling the school they are fixed, which has to say what is.
@@ -261,44 +364,63 @@ describe("buildBewerbungZusageEmail", () => {
     }
   });
 
-  /* Every other case reads the opening flattened, so a greeting moved down or two of its paragraphs
-     run together would pass them. */
-  it("opens on the league's wording in its order, broken where the league broke it", () => {
-    const mail = buildBewerbungZusageEmail(ZUSAGE);
-    const [anrede, dank, erfolg, aufgenommen] = ZUSAGE_OPENING;
-    const absaetze = [...proseSection(mail.html).matchAll(/<p [^>]*>([\s\S]*?)<\/p>/g)].map((hit) => readable(hit[1] ?? ""));
-
-    assert.ok(
-      mail.text.includes([anrede, dank, `${erfolg}\n${aufgenommen}`, EINTEILUNG_SENTENCE].join("\n\n")),
-      "the text branch moves or merges a paragraph of the opening",
-    );
-    assert.deepEqual(
-      absaetze.slice(0, 4),
-      [anrede, dank, `${erfolg} ${aufgenommen}`, EINTEILUNG_SENTENCE],
-      "the markup branch moves or merges a paragraph of the opening",
-    );
-  });
-
   it("carries every fact in both branches", () => {
     const mail = buildBewerbungZusageEmail(ZUSAGE);
 
     for (const fact of [
       ZUSAGE.teamName,
-      `Zusage für die Saison ${ZUSAGE.saisonId}`,
-      KONTAKT_EMAIL,
+      `Willkommen in der Saison ${ZUSAGE.saisonId}`,
       ...ZUSAGE_OPENING,
       // The form for an assigned colour; the open one has the case below.
       EINTEILUNG_SENTENCE,
       WEBSITE_SENTENCE,
-      ...FOOTER_SENTENCES,
+      ...ZUSAGE_FOOTER_SENTENCES,
     ]) {
       assert.ok(readable(mail.html).includes(fact), `HTML branch is missing: ${fact}`);
       assert.ok(flat(mail.text).includes(fact), `text branch is missing: ${fact}`);
     }
   });
 
-  it("carries its own decision word in the subject", () => {
-    assert.equal(buildBewerbungZusageEmail(ZUSAGE).subject, `Zusage: Frankfurt League, Saison ${ZUSAGE.saisonId}`);
+  it("names the welcome and the meeting in the subject, and a season without a meeting the league", () => {
+    assert.equal(
+      buildBewerbungZusageEmail(ZUSAGE).subject,
+      `Willkommen in der Saison ${ZUSAGE.saisonId}: Einladung zur Generalversammlung am 20. November`,
+    );
+    assert.equal(
+      buildBewerbungZusageEmail({ ...ZUSAGE, saisonId: LATER_SEASON }).subject,
+      `Willkommen: Frankfurt League, Saison ${LATER_SEASON}`,
+    );
+  });
+
+  /* A person on the sender line is somebody a reader answers, and the sending address is read by nobody:
+     the name and the reply address travel together, and the close names who reads the reply. */
+  it("comes from Jonathan Kroh on a 2027 acceptance, replies reaching the league inbox, and from the league on any other", () => {
+    const mail = buildBewerbungZusageEmail(ZUSAGE);
+    const later = buildBewerbungZusageEmail({ ...ZUSAGE, saisonId: LATER_SEASON });
+
+    assert.deepEqual(mail.absender, { name: "Jonathan Kroh, Frankfurt League", antwortAn: KONTAKT_EMAIL });
+    for (const branch of [readable(mail.html), flat(mail.text)]) {
+      assert.ok(branch.includes(SAISON_2027_ANTWORT), "the close does not name who reads the reply");
+      assert.ok(!branch.includes(NO_REPLY_SENTENCE.slice(0, 40)), "the close calls a reply address nobody reads");
+    }
+
+    assert.equal(later.absender, undefined, "a season nobody signs names a sender");
+    assert.ok(flat(later.text).includes(NO_REPLY_SENTENCE), "a season nobody signs lost the no-reply note");
+  });
+
+  it("closes a 2027 acceptance on a signature card: a rule, the name, the role, a dialable number", () => {
+    const mail = buildBewerbungZusageEmail(ZUSAGE);
+    const karte = /<td class="fl-rule" style="border-top:1px solid [^"]*">([\s\S]*?)<\/td>/.exec(mail.html)?.[1] ?? "";
+    const [, name = "", rolle = "", telefon = ""] = SAISON_2027_SIGNATURE;
+
+    assert.ok(karte !== "", "the signature stands under no rule of its own");
+    assert.match(karte, new RegExp(`<p class="fl-head" style="[^"]*font-weight:700;">${name}</p>`), "the name is not set in the strong grade");
+    assert.ok(readable(karte).includes(`${name} ${rolle} ${telefon}`), "the card lost a line or its order");
+    assert.ok(karte.includes(`href="tel:+491735640095"`), "the number is not a link a phone dials");
+    assert.ok(
+      mail.text.includes(SAISON_2027_SIGNATURE.join("\n").replace("Grüße\n", "Grüße\n\n")),
+      "the text branch lost the signature's lines",
+    );
   });
 
   it("states that no kit colour is set rather than naming one", () => {
@@ -312,6 +434,45 @@ describe("buildBewerbungZusageEmail", () => {
     for (const branch of [readable(mail.html), flat(mail.text)]) {
       assert.ok(branch.includes(EINTEILUNG_SENTENCE_WITHOUT_COLOUR), "the message does not say the colour follows");
       assert.ok(!branch.includes(ZUSAGE.trikotFarbeLabel), "a colour was named where none is assigned");
+      // The fixture still carries a hex here, so this is the label's absence taking the hex with it.
+      assert.ok(!branch.includes(ZUSAGE.trikotFarbeHex), "a hex was stated where no colour is assigned");
+    }
+    assert.ok(!mail.html.includes(`background-color:${ZUSAGE.trikotFarbeHex}`), "a square was drawn where no colour is assigned");
+  });
+
+  it("states the kit colour's hex in both branches and draws it in the panel's row", () => {
+    const mail = buildBewerbungZusageEmail(ZUSAGE);
+    const row = [...panelSection(mail.html).matchAll(/<tr>((?:(?!<tr[ >])[\s\S])*?)<\/tr>/g)]
+      .map((hit) => hit[1] ?? "")
+      .find((cells) => cells.includes("Trikotfarbe:"));
+    const square = /<span class="fl-ghost" style="([^"]*)"><\/span>/.exec(row ?? "")?.[1] ?? "";
+
+    assert.ok(flat(mail.text).includes(`Trikotfarbe: ${ZUSAGE.trikotFarbeLabel} (${ZUSAGE.trikotFarbeHex})`), "the text branch lost the hex");
+    assert.ok(square.includes(`background-color:${ZUSAGE.trikotFarbeHex};`), "the colour row draws no square in the colour");
+    // An empty span without a box is drawn by no client, and without its border Weiß vanishes into the panel.
+    assert.ok(square.includes("display:inline-block;width:12px;height:12px;"), "the square lost its box");
+    assert.ok(square.includes("border:1px solid "), "the square lost the border that keeps a light colour visible");
+    assert.equal(mail.html.split(`background-color:${ZUSAGE.trikotFarbeHex}`).length - 1, 1, "the square is drawn outside its row");
+    assert.ok(!prosaAbsaetze(mail.html).join(" ").includes(ZUSAGE.trikotFarbeHex), "the hex was added to the league's sentence");
+  });
+
+  /* Each end of the pattern has a case: a declaration appended after a real hex, and one put before it. */
+  it("draws and states no hex of any other shape, naming the colour alone", () => {
+    for (const hex of [
+      "#75db06;background-image:url(https://example.invalid/x)",
+      "x;background-image:url(https://example.invalid/x);#75db06",
+      "#75db06\n",
+      "red",
+      "#75db0",
+      "transparent",
+    ]) {
+      const mail = buildBewerbungZusageEmail({ ...ZUSAGE, trikotFarbeHex: hex });
+      const styles = [...mail.html.matchAll(/style="([^"]*)"/g)].map((hit) => hit[1] ?? "");
+
+      assert.ok(!panelSection(mail.html).includes("display:inline-block"), `„${hex}“ drew a square`);
+      assert.ok(!styles.some((style) => style.includes("example.invalid")), `„${hex}“ reached a style attribute`);
+      assert.equal(factRows(mail.html).get("Trikotfarbe"), ZUSAGE.trikotFarbeLabel, `„${hex}“ was stated as if it were the hex`);
+      assert.ok(mail.text.split("\n").includes(`Trikotfarbe: ${ZUSAGE.trikotFarbeLabel}`), `„${hex}“ reached the text branch's colour line`);
     }
   });
 
@@ -336,7 +497,7 @@ describe("buildBewerbungZusageEmail", () => {
     }
     // Silence, not a gap: the paragraphs the sentence sits between meet exactly as they do in a
     // message that never carried one, so the omission leaves nothing for a reader to wonder about.
-    assert.ok(without.text.includes(`${EINTEILUNG_SENTENCE}\n\n${SAISON_2027_ABOVE[0]}`), "the absent sentence left a blank line");
+    assert.ok(without.text.includes(`${SAISON_2027_TRIKOT}\n\n${WEBSITE_SENTENCE}`), "the absent sentence left a blank line");
     assert.ok(!/<p [^>]*>\s*<\/p>/.test(without.html), "the absent sentence left an empty paragraph");
 
     /* A null and a blank are one case. Which of the two reaches this module is the payload's business,
@@ -363,19 +524,8 @@ describe("buildBewerbungZusageEmail", () => {
   it("carries Saison 2027's own paragraphs and signature on a 2027 acceptance and on no other season's", () => {
     const mail = buildBewerbungZusageEmail(ZUSAGE);
     const later = buildBewerbungZusageEmail({ ...ZUSAGE, saisonId: LATER_SEASON });
-    const signature = SAISON_2027_SIGNATURE.join("\n");
 
-    // Whole and in order, around the website sentence: a paragraph moved or dropped fails here.
-    assert.ok(
-      flat(readable(mail.html)).includes([...SAISON_2027_ABOVE, WEBSITE_SENTENCE, SAISON_2027_BELOW, ...SAISON_2027_SIGNATURE].join(" ")),
-      "the markup branch lost a 2027 paragraph or its order",
-    );
-    assert.ok(
-      mail.text.includes([...SAISON_2027_ABOVE, WEBSITE_SENTENCE, SAISON_2027_BELOW, signature].join("\n\n")),
-      "the text branch lost a 2027 paragraph or its order",
-    );
-    // The signature one line each in the markup too, which the readable comparison above cannot see.
-    assert.ok(mail.html.includes(`>${SAISON_2027_SIGNATURE.join("<br />")}</p>`), "the markup branch runs the signature together");
+    // Their order is the layout case's; this one holds what is a 2027 acceptance's alone.
     // The date and the time in the emphasis grade, as every message sets its deadline.
     const emphasised = [...mail.html.matchAll(/<strong[^>]*>([\s\S]*?)<\/strong>/g)].map((match) => match[1] ?? "");
     for (const wann of ["Freitag, den 20. November 2026", "19:00 Uhr"]) {
@@ -383,10 +533,17 @@ describe("buildBewerbungZusageEmail", () => {
     }
 
     for (const branch of [flat(readable(later.html)), flat(later.text)]) {
-      for (const line of [...SAISON_2027_ABOVE, SAISON_2027_BELOW, ...SAISON_2027_SIGNATURE]) {
+      for (const line of [
+        ...SAISON_2027_VERSAMMLUNG,
+        ...SAISON_2027_EINLADUNG,
+        SAISON_2027_TRIKOT,
+        SAISON_2027_BELOW,
+        ...SAISON_2027_SIGNATURE,
+      ]) {
         assert.ok(!branch.includes(line), `a Saison ${LATER_SEASON} acceptance carries „${line}“`);
       }
     }
+    assert.deepEqual(panelTitel(later.html), ["Eure Einteilung"], `a Saison ${LATER_SEASON} acceptance panels a meeting`);
     // Silence, not a gap, as for an unnamed opponent.
     assert.ok(
       later.text.includes(`${EINTEILUNG_SENTENCE}\n\n${WUNSCHGEGNER_SENTENCE}\n\n${WEBSITE_SENTENCE}\n\n${IGNORE_SENTENCE}`),
@@ -435,6 +592,12 @@ describe("buildBewerbungAbsageEmail", () => {
     for (const stated of ["Angegebener Grund", "Eingetragen als", ABSAGE.grund]) {
       assert.ok(!prose.includes(stated), `„${stated}“ is stated in the panel and again in the prose`);
     }
+  });
+
+  /* The panel readers find a panel wherever it stands, because the acceptance sets two among its prose;
+     this one opens on its panel, and that position is what this case holds. */
+  it("opens its body on the panel, directly under the heading", () => {
+    assert.ok(factSection(buildBewerbungAbsageEmail(ABSAGE).html).includes(`class="fl-panel"`), "the panel does not open the body");
   });
 
   it("carries every fact in both branches", () => {
@@ -539,10 +702,12 @@ describe("both decisions", () => {
 
       /* The panel splits the phrase across two cells: „Saison“ is a category name like „Team“ or
          „Gruppe“ and is set like one, and the colour marks the year -- the half that is the fact. */
-      const line = [...factSection(mail.html).matchAll(/<tr>((?:(?!<tr[ >])[\s\S])*?)<\/tr>/g)]
+      const line = [...panelSection(mail.html).matchAll(/<tr>((?:(?!<tr[ >])[\s\S])*?)<\/tr>/g)]
         .map((hit) => hit[1] ?? "")
         .find((row) => row.includes(">Saison:</td>"));
 
+      // The acceptance's panels carry no season row, which its layout case pins: its heading states the season.
+      if (name === "Zusage") continue;
       assert.ok(line !== undefined, `${name}'s panel has no season row`);
       assert.equal([...(line ?? "").matchAll(new RegExp(`color:${BRAND_COLOR};`, "g"))].length, 1, `${name} brands its season row twice`);
 
@@ -624,7 +789,7 @@ describe("both decisions", () => {
      column looks broken while the markup is fine. */
   it("close every panel label with a colon and set it in the value's own grade", () => {
     for (const { name, mail } of allMessages()) {
-      const rows = [...factSection(mail.html).matchAll(/<tr>((?:(?!<tr[ >])[\s\S])*?)<\/tr>/g)].map((hit) => hit[1] ?? "");
+      const rows = [...panelSection(mail.html).matchAll(/<tr>((?:(?!<tr[ >])[\s\S])*?)<\/tr>/g)].map((hit) => hit[1] ?? "");
       const cells = rows.flatMap((row) => [...row.matchAll(/<td[^>]*style="([^"]*)"[^>]*>([\s\S]*?)<\/td>/g)]);
 
       assert.ok(cells.length >= 6, `${name} renders no panel cells, so this test proves nothing`);
@@ -645,12 +810,12 @@ describe("both decisions", () => {
      sizes to its own content and the values start at a different x per row. */
   it("give the label column one width every paired row shares", () => {
     for (const { name, mail } of allMessages()) {
-      const pairs = [...factSection(mail.html).matchAll(/<td width="(\d+%)" valign="top"/g)].map((hit) => hit[1]);
+      const pairs = [...panelSection(mail.html).matchAll(/<td width="(\d+%)" valign="top"/g)].map((hit) => hit[1]);
 
       assert.ok(pairs.length >= 2, `${name} has no paired rows, so this test proves nothing`);
       assert.equal(new Set(pairs).size, 1, `${name} gives its rows different label widths`);
       // Top, not middle: a value that wraps must leave its label on the first line.
-      assert.ok(!factSection(mail.html).includes(`valign="middle"`), `${name} centres a cell that may wrap`);
+      assert.ok(!panelSection(mail.html).includes(`valign="middle"`), `${name} centres a cell that may wrap`);
     }
   });
 
@@ -757,7 +922,8 @@ describe("both decisions", () => {
       ...hostileVariants(ZUSAGE, "Zusage", DELIMITER_VALUE).map((variant) => ({
         field: variant.field,
         mail: buildBewerbungZusageEmail(variant.data),
-        footer: textFooter("kontaktpersonen"),
+        // A season no entry names is signed by nobody, and closes on the no-reply note.
+        footer: variant.field === "Zusage.saisonId" ? textFooter("kontaktpersonen") : textFooter("kontaktpersonen", SAISON_2027_ANTWORT),
       })),
       ...hostileVariants(ABSAGE, "Absage", DELIMITER_VALUE).map((variant) => ({
         field: variant.field,
