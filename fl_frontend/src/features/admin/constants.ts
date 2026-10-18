@@ -15,6 +15,8 @@ import PersonXmark from "@gravity-ui/icons/PersonXmark";
 import Sliders from "@gravity-ui/icons/Sliders";
 import Tray from "@gravity-ui/icons/Tray";
 
+import { VERWALTUNG_TITEL } from "@/core/seitenNamen";
+
 import type { SidemenuHint, SidemenuStructure, SidemenuStructureSubOption } from "@/shared/types/types";
 import type React from "react";
 
@@ -47,9 +49,6 @@ export const ADMIN_SIDEMENU_ICONS = {
 } as const satisfies Record<string, React.ElementType>;
 
 export type AdminIconName = keyof typeof ADMIN_SIDEMENU_ICONS;
-
-/** The administration's own name, which its bar reads and its hint names, as the other areas' do. */
-const VERWALTUNG_TITEL = "Verwaltung";
 
 /**
  * What the bar reads on an address that belongs to no section, the catch-all's 404 among them. The area's name, never a

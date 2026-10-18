@@ -10,7 +10,7 @@ export default function PersoenlichNotFound() {
     <ShellNotFound
       message={`Diese Seite gehört nicht zu „${DEIN_BEREICH_TITEL}“, oder die Adresse stimmt nicht.`}
       href="/bereich"
-      linkLabel="Zur Übersicht"
+      linkLabel={DEIN_BEREICH_TITEL}
     />
   );
 }

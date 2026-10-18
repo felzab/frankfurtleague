@@ -7,6 +7,9 @@ export const SAISONUEBERSICHT_TITEL = "Saisonübersicht";
 /** The signed-in person's area, which a contact person's mail sends them to as well. */
 export const DEIN_BEREICH_TITEL = "Dein Bereich";
 
+/** The administration's own name, which `/bereich/admin` carries rather than the section it redirects to. */
+export const VERWALTUNG_TITEL = "Verwaltung";
+
 export const ABOUT_TITEL = "About";
 
 /** The organisers' page, which the privacy notice and the about page's answer name as well. */
