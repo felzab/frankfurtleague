@@ -232,9 +232,9 @@ describe("what the save tells the administrator about the message it sent", () =
     );
   });
 
-  /* A link that did not go out, failed or held back by the ban list, is collateral rather than a clean
-     save: the referee has no working link, and nobody else is told. */
-  for (const versand of ["fehlgeschlagen", "gesperrt"] as const) {
+  /* A link that did not go out is collateral rather than a clean save: the referee has no working link, and
+     nobody else is told. */
+  for (const versand of ["fehlgeschlagen", "gesperrt", "zurueckgehalten"] as const) {
     it(`grades a save whose link is ${versand} a warning`, async () => {
       answerWith(() =>
         Promise.resolve({

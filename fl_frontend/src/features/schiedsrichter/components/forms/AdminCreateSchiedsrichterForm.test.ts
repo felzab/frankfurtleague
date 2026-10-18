@@ -47,9 +47,9 @@ async function create(versand: string): Promise<void> {
 }
 
 describe("what the referee create says of the link it sent", () => {
-  /* The referee stands whatever the link did, and one whose link failed or was held back by the ban list
-     holds no way to confirm: never announced as a clean create. */
-  for (const versand of ["fehlgeschlagen", "gesperrt"]) {
+  /* The referee stands whatever the link did, and one whose link did not go out holds no way to confirm:
+     never announced as a clean create. */
+  for (const versand of ["fehlgeschlagen", "gesperrt", "zurueckgehalten"]) {
     it(`grades a create whose link is ${versand} a warning, its sentence the body`, async () => {
       await create(versand);
 

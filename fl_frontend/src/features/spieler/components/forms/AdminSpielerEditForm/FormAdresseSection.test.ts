@@ -47,6 +47,7 @@ describe("what the address request says of the link it sent", () => {
     ["gesendet", "gesendet", "success", "Link gesendet"],
     ["fehlgeschlagen", "gesendet", "warning", "Link nicht verschickt"],
     ["gesperrt", "gesendet", "warning", "Link zurückgehalten"],
+    ["zurueckgehalten", "gesendet", "warning", "Link zurückgehalten"],
     ["gesendet", "fehlgeschlagen", "warning", "Link gesendet, Hinweis nicht verschickt"],
     ["gesendet", "ungewiss", "warning", "Link gesendet, Hinweis unklar"],
   ] as const) {

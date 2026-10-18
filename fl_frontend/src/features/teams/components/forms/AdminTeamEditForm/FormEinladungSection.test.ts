@@ -197,25 +197,27 @@ describe("the team's invite panel", () => {
 
   /* The ban list or a deployment that mails nothing held the link back from every seat: no seat holds
      it, so the press is never announced as sent. */
-  it("titles a mailed link the ban list held back as a warning, never a sent link", async () => {
-    const user = userEvent.setup();
-    answerWith(mintAntwort);
-    render(panel());
+  for (const versand of ["gesperrt", "zurueckgehalten"] as const) {
+    it(`titles a mailed link held back (${versand}) as a warning, never a sent link`, async () => {
+      const user = userEvent.setup();
+      answerWith(mintAntwort);
+      render(panel());
 
-    await user.click(screen.getByRole("button", { name: "Registrierungslink anlegen" }));
-    await act(answered);
-    answerWith(() => Promise.resolve({ success: true, message: "Der Link ging an niemanden raus.", versand: "gesperrt" }));
-    const mailing = await screen.findByRole("button", { name: "Link per E-Mail senden" });
-    const before = raised.length;
-    await user.click(mailing);
-    await act(answered);
+      await user.click(screen.getByRole("button", { name: "Registrierungslink anlegen" }));
+      await act(answered);
+      answerWith(() => Promise.resolve({ success: true, message: "Der Link ging an niemanden raus.", versand: versand }));
+      const mailing = await screen.findByRole("button", { name: "Link per E-Mail senden" });
+      const before = raised.length;
+      await user.click(mailing);
+      await act(answered);
 
-    await waitFor(() => assert.equal(raised.length, before + 1));
-    assert.deepEqual(
-      raised.slice(before).map((toast) => [toast.variant, toast.title]),
-      [["warning", "Registrierungslink zurückgehalten"]],
-    );
-  });
+      await waitFor(() => assert.equal(raised.length, before + 1));
+      assert.deepEqual(
+        raised.slice(before).map((toast) => [toast.variant, toast.title]),
+        [["warning", "Registrierungslink zurückgehalten"]],
+      );
+    });
+  }
 
   /* The store keeps a hash, so a reload cannot serve the value back. The panel states the row and
      its delivery state; the mail press is absent because there is nothing left to put in a message. */

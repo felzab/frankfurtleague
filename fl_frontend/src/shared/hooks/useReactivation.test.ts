@@ -62,9 +62,9 @@ describe("what a reactivation tells the reader", () => {
     assert.deepEqual(raised[0]?.description, "Nummer, Rolle, Position und Stufe sind wiederhergestellt.");
   });
 
-  /* The return landed and its link failed or was held back by the ban list: graded as the save grades
-     the same send, since the person holds no working link and nothing else says so. */
-  for (const versand of ["fehlgeschlagen", "gesperrt"] as const) {
+  /* The return landed and its link did not go out: graded as the save grades the same send, since the
+     person holds no working link and nothing else says so. */
+  for (const versand of ["fehlgeschlagen", "gesperrt", "zurueckgehalten"] as const) {
     it(`warns where the row came back and its link is ${versand}`, async () => {
       await press(async () => ({ success: true, message: "Der Bestätigungslink ging nicht raus.", versand: versand }));
 
