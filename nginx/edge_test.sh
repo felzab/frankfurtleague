@@ -230,11 +230,13 @@ BASE="http://${ADDR%$'\r'}"
 
 # nginx accepts a connection before the worker serves, so retrying on connect is what separates
 # "not up yet" from "refuses this request". It carries no marker, so the grading below ignores it.
+
+# Any status is an answer: an edge answering 502 everywhere is a configuration defect the cases below
+# name, exit 1, where waiting for a 200 would refuse it as no verdict.
 _up=0
 for _ in $(seq 1 50); do
-  if curl -fs -o /dev/null --max-time 2 -H "Host: localhost" "${BASE}/healthprobe" 2>/dev/null; then
-    _up=1; break
-  fi
+  _status="$(curl -s -o /dev/null -w '%{http_code}' --max-time 2 -H "Host: localhost" "${BASE}/healthprobe" 2>/dev/null || true)"
+  if [[ -n "$_status" && "$_status" != 000 ]]; then _up=1; break; fi
   sleep 0.2
 done
 (( _up )) || refuse "the edge test's nginx never answered on ${BASE}."
