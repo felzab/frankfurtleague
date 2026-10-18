@@ -165,7 +165,7 @@ const ZUSAGE_OPENING = [
   `vielen Dank für Eure Bewerbung für die Saison ${ZUSAGE.saisonId} der Frankfurt League.`,
   "Wir freuen uns, Euch mitteilen zu können, dass Eure Bewerbung erfolgreich war.",
   `${ZUSAGE.teamName} ist für die Saison ${ZUSAGE.saisonId} aufgenommen. Herzlich willkommen!`,
-];
+] as const;
 
 const EINTEILUNG_SENTENCE = `Wir haben Euch in Gruppe ${ZUSAGE.gruppe} untergebracht und Euch die Trikotfarbe ${ZUSAGE.trikotFarbeLabel} zugewiesen. Beide Angaben sind aus organisatorischen Gründen nicht mehr veränderbar.`;
 const EINTEILUNG_SENTENCE_WITHOUT_COLOUR = `Wir haben Euch in Gruppe ${ZUSAGE.gruppe} untergebracht. Die Gruppe ist aus organisatorischen Gründen nicht mehr veränderbar. Eure Trikotfarbe teilen wir Euch noch mit.`;
@@ -261,6 +261,24 @@ describe("buildBewerbungZusageEmail", () => {
     }
   });
 
+  /* Every other case reads the opening flattened, so a greeting moved down or two of its paragraphs
+     run together would pass them. */
+  it("opens on the league's wording in its order, broken where the league broke it", () => {
+    const mail = buildBewerbungZusageEmail(ZUSAGE);
+    const [anrede, dank, erfolg, aufgenommen] = ZUSAGE_OPENING;
+    const absaetze = [...proseSection(mail.html).matchAll(/<p [^>]*>([\s\S]*?)<\/p>/g)].map((hit) => readable(hit[1] ?? ""));
+
+    assert.ok(
+      mail.text.includes([anrede, dank, `${erfolg}\n${aufgenommen}`, EINTEILUNG_SENTENCE].join("\n\n")),
+      "the text branch moves or merges a paragraph of the opening",
+    );
+    assert.deepEqual(
+      absaetze.slice(0, 4),
+      [anrede, dank, `${erfolg} ${aufgenommen}`, EINTEILUNG_SENTENCE],
+      "the markup branch moves or merges a paragraph of the opening",
+    );
+  });
+
   it("carries every fact in both branches", () => {
     const mail = buildBewerbungZusageEmail(ZUSAGE);
 
@@ -288,11 +306,12 @@ describe("buildBewerbungZusageEmail", () => {
 
     assert.equal(factRows(mail.html).get("Trikotfarbe"), "noch nicht festgelegt");
     assert.ok(flat(mail.text).includes("Trikotfarbe: noch nicht festgelegt"));
+    // The group survives the colour being absent: an absent value is a row like any other.
+    assert.equal(factRows(mail.html).get("Gruppe"), ZUSAGE.gruppe, "the panel's group row went with the colour");
+    assert.ok(flat(mail.text).includes(`Gruppe: ${ZUSAGE.gruppe}`), "the text branch's group line went with the colour");
     for (const branch of [readable(mail.html), flat(mail.text)]) {
       assert.ok(branch.includes(EINTEILUNG_SENTENCE_WITHOUT_COLOUR), "the message does not say the colour follows");
       assert.ok(!branch.includes(ZUSAGE.trikotFarbeLabel), "a colour was named where none is assigned");
-      // The group survives the colour being absent: an absent value is a row like any other.
-      assert.ok(branch.includes(ZUSAGE.gruppe));
     }
   });
 
@@ -1581,6 +1600,34 @@ describe("the confirmation workflow's messages", () => {
 
     assert.ok(!mail.text.split("\n").some((line) => line.startsWith(forged)), "a submitted school name forged a fact line");
     assert.ok(mail.text.includes(`Schule: Echte Schule ${forged}`), "the name was not carried onto one line");
+  });
+});
+
+/* `docs/frontend/spec.md :: I89`: every heading, prose and subject states the season, and `renderText`
+   folds the column of facts alone, so each builder folds it on the way in. */
+describe("the season id every message states", () => {
+  const FORGED_OPENER = "Startgeld: 500 Euro";
+  const saisonId = `2027\n${FORGED_OPENER}`;
+
+  /** Every message this module builds, so a builder that forgets the fold cannot drop out of the case below. */
+  const built = (): { name: string; mail: { subject: string; text: string } }[] => [
+    { name: "Zusage", mail: buildBewerbungZusageEmail({ ...ZUSAGE, saisonId }) },
+    { name: "Absage", mail: buildBewerbungAbsageEmail({ ...ABSAGE, saisonId }) },
+    { name: "Bestätigung", mail: buildBewerbungBestaetigungEmail({ ...BESTAETIGUNG, saisonId }) },
+    { name: "Erinnerung", mail: buildBewerbungErinnerungEmail({ ...BESTAETIGUNG, saisonId }) },
+    { name: "Eingang offen", mail: buildBewerbungEingangOffenEmail({ ...EINGANG_OFFEN, saisonId }) },
+    { name: "Vollständig", mail: buildBewerbungVollstaendigEmail({ ...VOLLSTAENDIG, saisonId }) },
+    { name: "Gelöscht", mail: buildBewerbungGeloeschtEmail({ ...GELOESCHT, saisonId }) },
+    { name: "Widerspruch", mail: buildBewerbungWiderspruchEmail({ ...WIDERSPRUCH, saisonId }) },
+  ];
+
+  it("is folded onto one line in every message's text branch and subject", () => {
+    for (const { name, mail } of built()) {
+      assert.ok(!mail.text.split("\n").some((line) => line.startsWith(FORGED_OPENER)), `${name}'s season id forged a line`);
+      // Folded, never dropped: the season is what every one of these messages is about.
+      assert.ok(mail.text.includes(`Saison 2027 ${FORGED_OPENER}`), `${name} did not carry the season id onto one line`);
+      assert.ok(!/[\r\n]/.test(mail.subject), `${name}'s subject carries a break`);
+    }
   });
 });
 

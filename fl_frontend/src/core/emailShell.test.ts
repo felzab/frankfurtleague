@@ -120,7 +120,8 @@ const FIXTURES: Record<string, (origin: string) => { html: string; text: string 
   buildBewerbungZusageEmail: (origin) =>
     buildBewerbungZusageEmail({
       teamName: "Ernst-Reuter-Schule",
-      saisonId: "2627",
+      // The season whose acceptance carries paragraphs of its own, so every sweep below reads the whole body.
+      saisonId: "2027",
       origin: origin,
       rollenText: "Ansprechperson",
       gruppe: "B",
