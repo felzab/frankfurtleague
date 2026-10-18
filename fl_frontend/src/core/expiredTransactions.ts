@@ -135,10 +135,45 @@ export async function closeInTurn(closes: readonly (() => Promise<unknown>)[]): 
 /** A db suite's replica set, and where the suite hands the close of each client it opens on it. */
 export type JudgedReplicaSet = { mongod: StartedMongoDBContainer; closing: (close: () => Promise<unknown>) => void };
 
+/** testcontainers' own bound, which reaches the replica set's health check and nothing before it. */
+export const HEALTHY_WITHIN_MS = 60_000;
+
+/**
+ * The whole start's, the image pull and the container's creation among it: every db file awaits the start
+ * at module level, where `--test-timeout` bounds nothing, so it stays under that bound to fail no later
+ * than a stalled case would.
+ */
+export const STARTED_WITHIN_MS = 100_000;
+
+/** `started` as it settles, or a failure naming the start once `STARTED_WITHIN_MS` has passed. */
+async function startedInTime<T>(started: Promise<T>): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  const overdue = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      reject(
+        new Error(
+          `this file's replica set did not start within ${String(STARTED_WITHIN_MS / 1000)} s: read Docker's state, then the image pull`,
+        ),
+      );
+    }, STARTED_WITHIN_MS);
+  });
+  try {
+    return await Promise.race([started, overdue]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /** A db suite's one way to a replica set (`docs/frontend/spec.md` §1.9). */
 export async function startJudgedReplicaSet(): Promise<JudgedReplicaSet> {
   const closes: (() => Promise<unknown>)[] = [];
-  const mongod = await new MongoDBContainer("mongo:8.3.11").start();
+  // A race beside the library's bound rather than instead of it: `withStartupTimeout` waits on the
+  // health check alone, and the Docker calls before it (the pull, the create, the start) carry none.
+  const mongod = await startedInTime(
+    new MongoDBContainer("mongo:8.3.11@sha256:d731d77bfd7afd66bd487bdf627b5bf7ce4c3602ec461d635977021db529ebbc")
+      .withStartupTimeout(HEALTHY_WITHIN_MS)
+      .start(),
+  );
   await watchExpiredTransactions(mongod);
 
   // Registered last, since no earlier place helps: a file failing while it loads runs no hook at all,

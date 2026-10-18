@@ -512,7 +512,7 @@
 # every run their stamps count carries the rule.
 #
 # `scripts` gained four cases in `scripts/tests/test_image_pins.py`: every tag an exact release,
-# 0.01 s; the frontend db tier's tag held to the backend pin's, 0.06 s; the db job's pull step run
+# 0.01 s; the frontend db tier's image held to the backend pin, 0.06 s; the db job's pull step run
 # over the real conftest, 0.08-0.11 s; and the frontend builder's excludes held to what its `deps`
 # stage copies, under 5 ms, three runs each, measured locally on 2026-09-25 on a
 # sixteen-core Windows machine carrying a fleet of agent sessions, so upper bounds. They ride a

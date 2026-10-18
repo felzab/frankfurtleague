@@ -50,9 +50,10 @@ nothing here until a pull request moves it, while the tag is what `.github/depen
 move by hand, no ecosystem reading a shell string. **Each tag names the exact release its digest
 is**, the runtime bases included: a series tag (`mongo:8`) is a label no reader can hold to one
 release. `local.sh`'s
-copy and the backend's database test tier run the local stack's own mongo, digest included, so a
+copy and both database test tiers run the local stack's own mongo, digest included, so a
 `docker-compose` update moving the stack alone fails. `scripts/tests/test_image_pins.py` holds every
-such reference to that form, and the copy and the tier to the stack (I367).
+such reference to that form, the copy and the backend's tier to the stack, and the frontend's tier
+to the backend's (I367).
 
 **The toolchain an image bakes in is the one the checkout declares**, so what CI tested is what
 production runs. The frontend base's Node is the release `fl_frontend/package.json :: devEngines`
@@ -75,14 +76,6 @@ rebuilt under the same tags whenever the image it is built `FROM` is refreshed
 read 2026-09-25), so a correct pin's digest and its tag's current one routinely differ, and a
 registry comparison would refuse pins that are right. The tag is an unverified label that Dependabot
 keeps beside the digest it rewrites, and a hand edit moving one without the other goes unnoticed.
-
-**The frontend's database test tier names mongo by tag alone**, the release
-`fl_backend/tests/conftest.py :: MONGO_IMAGE` pins, at the one start its files reach a replica set
-through (`fl_frontend/src/core/expiredTransactions.ts :: startJudgedReplicaSet`):
-`@testcontainers/mongodb` reads the server's version off the tag, and a digest reference hands it
-the digest instead, so its health check falls back to the `mongo` shell a MongoDB 8 image does not
-carry and the container never reports healthy. The backend's tier takes the digest, its library
-waiting on the server's log line rather than on a shell.
 
 **A recreated nginx needs no connector restart**, so nothing is owed after the manual recreate §3
 sends a reader to: the connector resolves its origin on every new connection and holds no address
@@ -1420,7 +1413,7 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | I354 | The commit hook commits no file's unstaged half, writes no partly staged file's working copy, and never stashes, hides or resets the working tree (§1.6)                      | `scripts/tests/test_pre_commit_format.py`                                                                                                                                                                                                                                                               |
 | I355 | nginx loads its configuration through directory mounts, and a deploy or `--status` finding it holding anything but this checkout's files ends in a finding (§1.2)             | `scripts/ops/deploy.sh :: edge_reads_checkout`, over nginx's own dump, after every reload and in `--status`; `scripts/checks/check_compose_model.py :: edge_mounts` holds both stacks' mounts                                                                                                           |
 | I365 | A pushed image has passed the images scope's three assertions, and `:latest` moves only onto one whose layers and user match the checked image                                | `.github/workflows/publish.yml`'s check step, calling the images scope's assertions in `scripts/lib/_lib.sh`, and its comparison step; `scripts/tests/test_image_assertions.py` runs both steps' own text                                                                                               |
-| I367 | Every base, stack, script-run and test-tier image this repository does not build is pinned by tag and digest, the frontend db tier's `mongo` alone excepted                   | `scripts/tests/test_image_pins.py`, over both Dockerfiles, both compose files, `scripts/gate/selfcheck.sh`, `scripts/ops/local.sh` and `fl_backend/tests/conftest.py`, and holding the frontend db tier's tag to the backend's                                                                          |
+| I367 | Every base, stack, script-run and test-tier image this repository does not build is pinned by tag and digest                                                                  | `scripts/tests/test_image_pins.py`, over both Dockerfiles, both compose files, `scripts/gate/selfcheck.sh`, `scripts/ops/local.sh` and `fl_backend/tests/conftest.py`, and holding the frontend db tier's image to the backend's                                                                        |
 | I429 | Each application service reads its own package's `.env` and no other file, the one the deploy's readers are handed                                                            | `scripts/checks/check_compose_model.py :: env_files`, over the models `docker compose config` renders from the gate's stand-ins                                                                                                                                                                         |
 | I430 | Each application service is handed every secret file its schema requires on that stack, and none it never reads                                                               | `scripts/checks/check_compose_model.py :: frontend_files` over `:: frontend_schema_files`, which reads `fl_frontend/src/core/config.ts`; `scripts/checks/check_compose_model.py :: backend_files` over `:: backend_schema_files`, which reads `fl_backend/app/core/config.py`                           |
 | I471 | Only nginx shares a network with the connector, and only nginx with the application pair, in both stacks                                                                      | `scripts/checks/check_compose_model.py :: networks`, over the models `docker compose config` renders                                                                                                                                                                                                    |

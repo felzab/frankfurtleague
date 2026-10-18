@@ -1585,7 +1585,8 @@ where a comment quotes a rendered string, which tracks it. The wording rules:
   state can be left, the sentence says so.** **The acceptance's „Beide Angaben sind aus
   organisatorischen Gründen nicht mehr veränderbar.“ stands as the league's policy toward the
   school**, although an administrator can still move the team's group and colour (my example,
-  2026-10-18).
+  2026-10-18), **and so does its sentence for a team with no colour yet, „Die Gruppe ist aus
+  organisatorischen Gründen nicht mehr veränderbar.“** (my example, 2026-10-18).
 
 **A hint says what the thing in front of the reader is, and then at most one thing it does that the
 surface cannot show them** (my rule, 2026-08-27), said in the league's own words.
