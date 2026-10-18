@@ -1005,23 +1005,63 @@ judge_resolver() { # $1 the file, relative to the root, $2 its resolver line
     refuse "${file}'s resolver holds valid=${valid}, a lifetime this test cannot read, so the moved backend's deadline was not held against it."
   fi
 }
-# A literal upstream is a server group, which a variable naming the same host and port matches before
-# the resolver is asked: one such line pins every location naming that upstream to its address at load.
+# Each file's directives as `<file>\t<directive>`, split as nginx's tokeniser splits: at `;`, at `{`,
+# at a `}` opening a word, and a `#` opening a word ending the line. A line-anchored read passes a
+# one-line location's `proxy_pass`.
+conf_directives() { # $@ the files
+  awk '
+    BEGIN { sq = sprintf("%c", 39) }
+    FNR == 1 { emit(); file = FILENAME; q = "" }
+    {
+      sub(/\r$/, "")
+      n = length($0)
+      for (i = 1; i <= n; i++) {
+        c = substr($0, i, 1)
+        # A quoted word ends only at its own quote; a backslash keeps the next character.
+        if (q != "") {
+          buf = buf c
+          if (c == "\\" && i < n) { i++; buf = buf substr($0, i, 1) } else if (c == q) q = ""
+          continue
+        }
+        if (buf == "" || buf ~ /[ \t]$/) {
+          if (c == "#") break
+          if (c == "\"" || c == sq) { q = c; buf = buf c; continue }
+          if (c == "}") { emit(); continue }
+        }
+        # `${name}` keeps its brace, as nginx keeps it.
+        if (c == ";" || (c == "{" && substr($0, i - 1, 1) != "$")) { emit(); continue }
+        if (c == "\\" && i < n) { buf = buf c; i++; buf = buf substr($0, i, 1); continue }
+        buf = buf c
+      }
+      if (buf != "") buf = buf " "
+    }
+    END { emit() }
+    function emit() {
+      gsub(/[ \t]+/, " ", buf); sub(/^ /, "", buf); sub(/ $/, "", buf)
+      if (buf != "") print file "\t" buf
+      buf = ""
+    }
+  ' "$@"
+}
+CONF_FILES=()
 for conf in "${REPO_ROOT}"/nginx/shared/*.conf "${REPO_ROOT}"/nginx/local/*.conf "${REPO_ROOT}"/nginx/prod/*.conf; do
-  [[ -f "$conf" ]] || continue
-  while IFS= read -r conf_line; do
-    conf_line="${conf_line%$'\r'}"
-    if [[ "$conf_line" =~ ^[[:space:]]*resolver[[:space:]] ]]; then
-      judge_resolver "${conf#"${REPO_ROOT}/"}" "$conf_line"
-      continue
-    fi
-    [[ "$conf_line" =~ ^[[:space:]]*proxy_pass[[:space:]] ]] || continue
-    [[ "$conf_line" =~ ^[[:space:]]*proxy_pass[[:space:]]+http://\$(frontend|backend)_upstream\;$ ]] && continue
-    fail "UPSTREAM ${conf#"${REPO_ROOT}/"}"
-    detail "'${conf_line#"${conf_line%%[![:space:]]*}"}' names no upstream variable, so nginx resolves it once, as it loads"
-    RESOLVE_FAILURES=$(( RESOLVE_FAILURES + 1 ))
-  done < "$conf"
+  if [[ -f "$conf" ]]; then CONF_FILES+=( "$conf" ); fi
 done
+CONF_DIRECTIVES="$(conf_directives "${CONF_FILES[@]}")" \
+  || refuse "awk could not read the directives of nginx/'s configuration, so no upstream or resolver was judged."
+# A literal upstream is a server group, which a variable naming the same host and port matches before
+# the resolver is asked: one such directive pins every location naming that upstream to its address at load.
+while IFS=$'\t' read -r conf directive; do
+  case "$directive" in
+    "resolver "*) judge_resolver "${conf#"${REPO_ROOT}/"}" "$directive" ;;
+    "proxy_pass "*)
+      [[ "$directive" =~ ^proxy_pass\ http://\$(frontend|backend)_upstream$ ]] && continue
+      fail "UPSTREAM ${conf#"${REPO_ROOT}/"}"
+      detail "'${directive}' names no upstream variable, so nginx resolves it once, as it loads"
+      RESOLVE_FAILURES=$(( RESOLVE_FAILURES + 1 ))
+      ;;
+  esac
+done <<< "$CONF_DIRECTIVES"
 
 # The stub's redirect naming `frontend:3000`, which a variable `proxy_pass` hands the visitor as sent
 # unless `proxy_redirect` names it.
