@@ -194,6 +194,13 @@ mangled() {
 garbled() {
   adopt_ending none
 }
+uncounted() {
+  adopt_section demo 4 ten 0 0
+}
+unclosed() {
+  section demo
+  adopt_section demo 2 10 0 0
+}
 """
 
 
@@ -204,6 +211,8 @@ def test_a_crash_a_library_helper_raises_names_the_line_that_called_it() -> None
         ("contradicted", "line 4:  a worker exited 1, and every section row it sent home carries no finding."),
         ("mangled", "line 7:  adopt_section: rank 7 is outside 0-6."),
         ("garbled", "line 10:  adopt_ending: 'none' is not an exit status."),
+        ("uncounted", "line 13:  adopt_section: 'ten' is not a count. Arguments: name rank ms findings [advisories]."),
+        ("unclosed", "line 17:  adopt_section: a section is still open. Call end_section first."),
     ):
         code, output = _crash(call, sourced_text=ADOPTER)
         if code != 3:
