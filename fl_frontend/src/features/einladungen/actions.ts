@@ -264,7 +264,8 @@ export async function postEinladungVersandAction(
       const { team_id, team_name, uebersprungen, einladung_id, token, ersetzt_link, hatte_link } = zeile;
 
       if (uebersprungen !== null || einladung_id === null || token === null) {
-        if (uebersprungen === "kontakte_gesperrt") versendet.push("gesperrt");
+        // The league's own failure alone grades a skip. `kontakte_gesperrt` is a pass-over the preview showed, no
+        // link minted or held back, so it adds no grade (`docs/backend/spec.md :: I544`).
         if (uebersprungen === "erzeugung_fehlgeschlagen" || uebersprungen === "erzeugung_ungewiss") versendet.push("fehlgeschlagen");
         zeilen.push({
           team_id: team_id,

@@ -94,6 +94,7 @@ describe("the waiting address's two controls", () => {
   for (const [versand, hinweis, title] of [
     ["fehlgeschlagen", "gesendet", "Link nicht verschickt"],
     ["gesperrt", "gesendet", "Link zurückgehalten"],
+    ["zurueckgehalten", "gesendet", "Link zurückgehalten"],
     ["gesendet", "fehlgeschlagen", "Link gesendet, Hinweis nicht verschickt"],
     ["gesendet", "ungewiss", "Link gesendet, Hinweis unklar"],
   ] as const) {

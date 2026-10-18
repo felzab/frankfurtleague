@@ -738,9 +738,9 @@ describe("the editor's shape", () => {
     );
   });
 
-  /* A seat whose link did not go out, failed or held back by the ban list, holds no working link and
-     nobody else is told, so the save is collateral rather than clean. */
-  for (const versand of ["fehlgeschlagen", "gesperrt"] as const) {
+  /* A seat whose link did not go out holds no working link and nobody else is told, so the save is
+     collateral rather than clean. */
+  for (const versand of ["fehlgeschlagen", "gesperrt", "zurueckgehalten"] as const) {
     it(`grades a save whose link is ${versand} a warning`, async () => {
       await saveOver(BLOCK, { ...SAVED, versandSatz: "Der Bestätigungslink ging nicht raus.", versand: versand });
 

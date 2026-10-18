@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { registerHooks } from "node:module";
 import path from "node:path";
 import { describe, it } from "node:test";
+import { pathToFileURL } from "node:url";
 
 import { asDataUrl, registerDoubles, replacingModule } from "./exportingModule.ts";
 import { assertEveryTokenIsRead, schemeTokens } from "./schemeReader.ts";
+import { filesUnder } from "./treeWalk.ts";
 
 import type * as EmailShell from "./emailShell.ts";
 
@@ -100,15 +102,15 @@ function controlSection(html: string): string {
  * Every mail module beside this file, each `*Email.ts` building on the shell: read off the directory,
  * so a module written tomorrow joins the register below without anyone listing it.
  */
-const MAIL_MODULES = readdirSync(import.meta.dirname).filter(
-  (file) => file.endsWith("Email.ts") && /from "\.\/emailShell(\.ts)?"/.test(readFileSync(path.join(import.meta.dirname, file), "utf8")),
+const MAIL_MODULES = filesUnder(import.meta.dirname, (name) => name.endsWith("Email.ts"), 1).filter((file) =>
+  /from "\.\/emailShell(\.ts)?"/.test(readFileSync(file, "utf8")),
 );
 
 /**
  * Every builder the mail modules export, read off the module namespace rather than matched in
  * their source: a name no pattern anticipates would drop out of both sides of the register at once.
  */
-const BUILT_MESSAGES = (await Promise.all(MAIL_MODULES.map(async (file) => Object.keys(await import(`./${file}`)))))
+const BUILT_MESSAGES = (await Promise.all(MAIL_MODULES.map(async (file) => Object.keys(await import(pathToFileURL(file).href)))))
   .flat()
   .filter((name) => name.startsWith("build"))
   .sort();

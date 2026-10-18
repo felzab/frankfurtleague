@@ -375,13 +375,20 @@ describe("what the season-wide press answers", () => {
 
   /* The armed readout counts the teams the press writes to apart from those it passes over, so a sentence counting
      every row reads „1 von 3 Teams“ over the one team the readout announced. */
-  it("counts its sentence over the teams it meant to write to, never those the rule passed over", async () => {
+  it("counts its sentence and its grade over the teams it meant to write to, never those the rule passed over", async () => {
     sendWith(() => "accepted");
 
-    const einer = await pressSeason([zeile("ga", "t-ga", null), zeile("gb", null, "kein_kontaktblock"), zeile("gc", null, "bereits_gesendet")]);
+    const einer = await pressSeason([
+      zeile("ga", "t-ga", null),
+      zeile("gb", null, "kein_kontaktblock"),
+      zeile("gc", null, "bereits_gesendet"),
+      zeile("gd", null, "kontakte_gesperrt"),
+    ]);
     const zwei = await pressSeason([zeile("ha", "t-ha", null), zeile("hb", "t-hb", null), zeile("hc", null, "austritt_eingetragen")]);
 
     assert.equal(sentence(einer), "Der Link ging an das Team.");
+    // A team whose every confirmed address is barred included: the plan minted it nothing, so no link was held back.
+    assert.deepEqual(einer.success && einer.versendet, ["gesendet"]);
     assert.equal(sentence(zwei), "Registrierungslinks gesendet: 2 von 2 Teams.");
   });
 

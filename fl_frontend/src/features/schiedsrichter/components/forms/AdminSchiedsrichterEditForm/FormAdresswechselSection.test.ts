@@ -150,6 +150,7 @@ describe("a re-send whose link or notice did not go out", () => {
   for (const [versand, hinweis, variant, title] of [
     ["fehlgeschlagen", null, "warning", "Link nicht verschickt"],
     ["gesperrt", null, "warning", "Link zurückgehalten"],
+    ["zurueckgehalten", null, "warning", "Link zurückgehalten"],
     ["gesendet", "fehlgeschlagen", "warning", "Link gesendet, Hinweis nicht verschickt"],
     ["gesperrt", "fehlgeschlagen", "warning", "Link zurückgehalten, Hinweis nicht verschickt"],
     ["fehlgeschlagen", "fehlgeschlagen", "warning", "Link und Hinweis nicht verschickt"],

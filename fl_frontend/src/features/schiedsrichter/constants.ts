@@ -110,9 +110,9 @@ export function bookedSchiedsrichterName({ schiedsrichter_id, name }: { schiedsr
 }
 
 /**
- * A SECOND spelling of the rule the confirmation read applies to the same stored `name`, no mint
- * response answering a forename: the two differing would greet a referee by one name and title
- * their page with another.
+ * The forename the address change's notice greets a referee by, cut here because the mint answers none. It splits
+ * as `fl_backend/app/api/schiedsrichter/services.py :: vorname_of` does for the account page, so one person is never
+ * called by two names.
  */
 export function schiedsrichterVorname(name: string | null): string | null {
   const erster = (name ?? "").trim().split(/\s+/u)[0] ?? "";
