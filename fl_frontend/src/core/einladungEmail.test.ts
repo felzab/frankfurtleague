@@ -97,6 +97,16 @@ describe("buildEinladungEmail", () => {
     assert.ok(mail.text.endsWith(`\n${TEXT_SCHLUSS}`), "the club name pushed the footer out of the close");
   });
 
+  /* The link stands alone on its line, so one reading „-- “ survives the fold as a delimiter line:
+     the stuffing in `renderText` is all that keeps it from opening a second signature block. */
+  it("keeps the link it is handed from opening a second signature block", () => {
+    const mail = buildEinladungEmail({ ...daten, link: "-- " });
+
+    assert.equal([...mail.text.matchAll(/^-- $/gm)].length, 1, "the link stands as a second signature delimiter");
+    assert.ok(mail.text.split("\n").includes(" -- "), "the link was dropped rather than carried");
+    assert.ok(mail.text.endsWith(`\n${TEXT_SCHLUSS}`), "the link pushed the footer out of the close");
+  });
+
   /* `docs/frontend/spec.md :: I89`: this message carries no column of facts, so every value its prose,
      its first line and its subject print is folded by the builder or by nothing. */
   it("folds every value it prints onto one line, in the text branch and the subject", () => {
