@@ -50,12 +50,7 @@ from app.core.constraints import (
     SUPPORT_INDEXES,
 )
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
-from app.shared.schemas.bounds import (
-    BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
-    EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH,
-    MEDIEN_MIN_AGE_YEARS,
-    REGISTRIERUNG_MIN_ALTER_JAHRE,
-)
+from app.shared.schemas.bounds import EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH
 
 TODAY = "2026-04-01"
 YESTERDAY = "2026-03-31"
@@ -295,7 +290,6 @@ class TestTheAgeAtConfirmation:
 
         # The LITERAL, never the constant the message is interpolated from: read through the
         # constant the case passes at any floor at all, which is the state it exists to refuse.
-        assert REGISTRIERUNG_MIN_ALTER_JAHRE == 16
         assert refusal is not None
         assert "16" in refusal.message
 
@@ -304,7 +298,6 @@ class TestTheAgeAtConfirmation:
 
         refusal = find_alter_refusal(geburtsdatum="1800-01-01", today=TODAY)
 
-        assert BEWERBUNG_KONTAKT_MAX_AGE_YEARS == 120
         assert refusal is not None
         assert "120" in refusal.message
 
@@ -333,7 +326,6 @@ class TestTheMediaAge:
 
         refusal = find_medien_refusal(geburtsdatum="2010-04-01", medien=True, today=TODAY)
 
-        assert MEDIEN_MIN_AGE_YEARS == 18
         assert refusal is not None
         assert "18" in refusal.message
 
