@@ -131,6 +131,12 @@ describe("the referee's confirmation page", () => {
     }
   });
 
+  /* `Gefuellt` leaves an unfilled slot standing, so a slot the page supplies no value for is spelled at
+     a referee in the middle of a consent sentence. */
+  it("renders no slot as its own literal", () => {
+    assert.doesNotMatch(words(markup(OFFEN)), /\{\w+\}/, "the consent text spells a placeholder at its reader");
+  });
+
   /* The label stamps the words the confirming person read, so a paragraph of the contact page on
      this screen is a record citing a text its person was never shown. */
   it("renders no paragraph of the contact person's label", () => {

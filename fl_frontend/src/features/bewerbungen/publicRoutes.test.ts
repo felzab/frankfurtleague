@@ -1595,6 +1595,19 @@ describe("the words the two contact pages are handed", () => {
     }
   });
 
+  /* `Gefuellt` leaves an unfilled slot standing, so a slot the page supplies no value for is spelled at
+     the contact person in the middle of a consent sentence. */
+  it("renders no slot as its own literal, on every contact page", async () => {
+    for (const fassung of [KONTAKT, laufendeKontaktVerwaltungFassung(), laufendeKontaktSaisonFassung()]) {
+      backend({ ansichtNennt: fassung.textVersion });
+      const start = await bestaetigungStart();
+      const html = renderMarkup(BestaetigungView, { start });
+
+      assert.equal(start.zustand, "gueltig", `${fassung.textVersion}'s link opened no words to judge`);
+      assert.doesNotMatch(textOf(html, " "), /\{\w+\}/, `${fassung.textVersion}'s consent text spells a placeholder at its reader`);
+    }
+  });
+
   /* The view names the label, so a page running list without the contact pages opens the link all the same. */
   it("takes the label from the link's view rather than the running list", async () => {
     backend({ laufend: {} });
