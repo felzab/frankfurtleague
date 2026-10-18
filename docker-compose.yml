@@ -140,7 +140,7 @@ services:
   nginx:
     # Tag and digest (`docs/ops/spec.md` §1.1). The local stack, `nginx/edge_test.sh` and
     # `scripts/gate/verify.sh`'s `nginx -t` read this line.
-    image: nginx:1.31.6-alpine@sha256:df221db836e1754089190208cee7eeda94f233197056426eda74a43ab1abeac2
+    image: nginx:1.31.7-alpine@sha256:892bb2152464f0c5d8972593a5f5afaf8054552580b699d95f8ff4af08c2d33d
     restart: unless-stopped
     # nginx's Control API, through which `deploy.sh` reloads and reads back the loaded configuration
     # (https://nginx.org/en/docs/switches.html, `-l`, from 1.31.5). A socket, never a port: a port
@@ -210,7 +210,7 @@ services:
     # Pinned by tag and digest (`docs/ops/spec.md` §1.1), against the vendor's own `:latest --pull
     # always` example: the component holding the site's one route in would otherwise drift per host,
     # silently.
-    image: cloudflare/cloudflared:2026.10.0@sha256:9b49eed8f62806d5d45ddf59ecefb5710429598ea6d3fcccd2af938f621b2b07
+    image: cloudflare/cloudflared:2026.10.1@sha256:a15a3b50b8dabd57ac2090e9484c0247dba9dfa1f0df4d298d4317f9d69eb2d5
     restart: unless-stopped
     # `--no-autoupdate` because the pin above is the version policy: a connector that replaces its
     # own binary is the unpinned tag again, arrived at from inside the container.
