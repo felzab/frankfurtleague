@@ -31,7 +31,6 @@ from tests.core.app_source import (
     handed_callbacks,
     module_of,
     parsed,
-    resolve_callee,
     resolve_reference,
     scoped_calls,
     scoped_references,
@@ -53,8 +52,8 @@ DRIVER_REMOVALS = frozenset({"bulk_write", "delete_many", "delete_one", "find_on
 DECLARING_OPERATIONS_FLOOR = 40
 
 
-def _parents(declaration: Declaration) -> dict[int, ast.AST]:
-    return {id(child): node for node in ast.walk(declaration) for child in ast.iter_child_nodes(node)}
+def _parents(tree: ast.AST) -> dict[int, ast.AST]:
+    return {id(child): node for node in ast.walk(tree) for child in ast.iter_child_nodes(node)}
 
 
 def _caught_names(handler: ast.ExceptHandler) -> set[str]:
@@ -122,15 +121,29 @@ def _step(path: Path, lineno: int) -> tuple[bool, tuple[Site, ...]]:
     # Every name and attribute rather than a call's bare callee alone: a raising helper held as a value,
     # `fetch = pull_one_from_db`, or read off its module raises under a name no call spells.
     for chain, node in scoped_references(declaration, (declaration,)):
-        if (isinstance(node, ast.Name) and not isinstance(node.ctx, ast.Load)) or _caught(node, parents):
+        if _caught(node, parents):
             continue
         if (held := calls.get(id(node))) is not None and _cannot_miss(held[1], held[0], path):
             continue
-        resolved = resolve_reference(node, chain, path)
-        if resolved is not None and not _only_compared(node, parents, chain, path):
-            reached.append((resolved[1], resolved[0].lineno))
+        if (followed := _followed(node, parents, chain, path)) is not None:
+            reached.append((followed[1], followed[0].lineno))
 
     return raises, tuple(reached)
+
+
+def _followed(
+    node: ast.Name | ast.Attribute, parents: dict[int, ast.AST], chain: tuple[Declaration, ...], path: Path
+) -> tuple[Declaration, Path] | None:
+    """The declaration a name or attribute read stands for, where the read may call it.
+
+    A binding is no read, and a function only compared is never called.
+    """
+
+    if isinstance(node, ast.Name) and not isinstance(node.ctx, ast.Load):
+        return None
+    resolved = resolve_reference(node, chain, path)
+
+    return None if resolved is None or _only_compared(node, parents, chain, path) else resolved
 
 
 def _only_compared(node: ast.Name | ast.Attribute, parents: dict[int, ast.AST], chain: tuple[Declaration, ...], path: Path) -> bool:
@@ -235,38 +248,68 @@ def _removes_itself(call: ast.Call) -> bool:
 
 
 @functools.cache
-def _removers() -> frozenset[int]:
-    """Every application function whose own body removes a document, or calls by a name `resolve_callee` follows one that does."""
+def _removal_graph(path: Path) -> tuple[frozenset[int], frozenset[tuple[int, int]]]:
+    """One module's functions whose own body removes a document, and each pair of a function and one it reads.
 
+    Read rather than called, for the reason `_step` follows a raise that way.
+    """
+
+    tree = parsed(path)
+    parents = _parents(tree)
+    removing = frozenset(id(chain[-1]) for chain, call in scoped_calls(tree, ()) if chain and _removes_itself(call))
+    reads = frozenset(
+        (id(chain[-1]), id(followed[0]))
+        for chain, node in scoped_references(tree, ())
+        if chain and (followed := _followed(node, parents, chain, path)) is not None
+    )
+
+    return removing, reads
+
+
+@functools.cache
+def _app_modules() -> tuple[Path, ...]:
+    return tuple(sorted(APP_ROOT.rglob("*.py")))
+
+
+@functools.cache
+def _removers_among(modules: tuple[Path, ...]) -> frozenset[int]:
     removing: set[int] = set()
-    calling: dict[int, set[int]] = {}
-    for path in sorted(APP_ROOT.rglob("*.py")):
-        for chain, call in scoped_calls(parsed(path), ()):
-            if not chain:
-                continue
-            if _removes_itself(call):
-                removing.add(id(chain[-1]))
-            elif (resolved := resolve_callee(call, chain, path)) is not None:
-                calling.setdefault(id(chain[-1]), set()).add(id(resolved[0]))
+    reads: set[tuple[int, int]] = set()
+    for module in modules:
+        own, read = _removal_graph(module)
+        removing |= own
+        reads |= read
 
-    while grown := {holder for holder, called in calling.items() if holder not in removing and called & removing}:
+    while grown := {holder for holder, read in reads if holder not in removing and read in removing}:
         removing |= grown
 
     return frozenset(removing)
 
 
-def _may_remove_from(node: ast.AST, collection: str, chain: tuple[Declaration, ...], path: Path) -> bool:
-    """A driver removal on `collection`, a call reaching any removal, or an unresolved call handed `collection`.
+def _removers(path: Path) -> frozenset[int]:
+    """Every function, in the application or in `path`, whose own body removes a document or reads one that does."""
+
+    modules = _app_modules()
+
+    return _removers_among(modules if path in modules else (*modules, path))
+
+
+def _may_remove_from(node: ast.AST, collection: str, chain: tuple[Declaration, ...], path: Path, parents: dict[int, ast.AST]) -> bool:
+    """A driver removal on `collection`, a read of a function reaching any removal, or an unresolved call handed `collection`.
 
     Judged by what a function reaches, not what it is handed: a closure removes from a collection never passed to it.
     """
 
+    if isinstance(node, (ast.Name, ast.Attribute)):
+        followed = _followed(node, parents, chain, path)
+        return followed is not None and id(followed[0]) in _removers(path)
     if not isinstance(node, ast.Call):
         return False
     if isinstance(node.func, ast.Attribute) and isinstance(node.func.value, ast.Name) and node.func.value.id == collection:
         return node.func.attr in DRIVER_REMOVALS
-    if (resolved := resolve_callee(node, chain, path)) is not None:
-        return id(resolved[0]) in _removers()
+    # A callee that resolves is judged as the read it also is.
+    if isinstance(node.func, (ast.Name, ast.Attribute)) and resolve_reference(node.func, chain, path) is not None:
+        return False
 
     return any(isinstance(value, ast.Name) and value.id == collection for value in [*node.args, *(keyword.value for keyword in node.keywords)])
 
@@ -316,12 +359,13 @@ def _cannot_miss(call: ast.Call, chain: tuple[Declaration, ...], path: Path) -> 
     else:
         return False
     read_session = _keyword(read, "session")
+    parents = _parents(holder)
 
     return (
         isinstance(read_from, ast.Name)
         and read_from.id == written_to.id
         and not [binding for binding in _bindings(written_to.id, holder) if not isinstance(binding, ast.arg)]
-        and not any(_may_remove_from(node, written_to.id, chain, path) for node in _own_nodes(holder))
+        and not any(_may_remove_from(node, written_to.id, chain, path, parents) for node in _own_nodes(holder))
         and isinstance(read_session, ast.Name)
         and read_session.id == session.id
     )
@@ -446,3 +490,47 @@ def test_a_raising_helper_is_reached_however_it_is_named(tmp_path: Path, body: s
     holder = next(node for node in parsed(module).body if isinstance(node, ast.FunctionDef) and node.name == "holder")
 
     assert _can_raise(module, holder.lineno) is raises
+
+
+# `holder` names a remover one way per variant: `drop` removes here, `erase_counts_in_session` in the application.
+NAMED_REMOVER = """\
+from app.core import drosselung
+
+
+def drop(rows):
+    rows.delete_one({{}})
+
+
+def compares(run):
+    return run is None
+
+
+def through_its_module():
+    return drosselung.erase_counts_in_session
+
+
+def holder():
+    {body}
+"""
+
+
+@pytest.mark.parametrize(
+    ("body", "removes"),
+    [
+        ("drop(None)", True),
+        ("purge = drop\n    purge(None)", True),
+        ("drosselung.erase_counts_in_session(None, '', None)", True),
+        ("through_its_module()", True),
+        ("compares(drop)", False),
+        ("return None", False),
+    ],
+)
+def test_a_remover_is_reached_however_it_is_named(tmp_path: Path, body: str, removes: bool):
+    """The written collection is handed to nothing here, so each verdict is the reference's: a remover found makes the write missable."""
+
+    module = tmp_path / "removing.py"
+    module.write_bytes(NAMED_REMOVER.format(body=body).encode())
+    holder = next(node for node in parsed(module).body if isinstance(node, ast.FunctionDef) and node.name == "holder")
+    parents = _parents(holder)
+
+    assert any(_may_remove_from(node, "written", (holder,), module, parents) for node in _own_nodes(holder)) is removes
