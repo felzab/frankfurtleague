@@ -13,7 +13,7 @@
 # - `docs/logging/spec.md` L7 and L10, on every location proxying to the frontend.
 # - `docs/ops/spec.md` I2, each security header sent once, as written, on every location's response.
 # - `docs/ops/spec.md` I352, no visitor named in the container's own streams.
-# - `docs/ops/spec.md` I507, and §1.3's server-action pair.
+# - `docs/ops/spec.md` I9, I507, and §1.3's server-action pair.
 #
 #   ./nginx/edge_test.sh --verbose   print the access line every case was graded on
 #   ./nginx/edge_test.sh --help
@@ -49,13 +49,21 @@ EM="admin.probe@frankfurtleague.de"
 
 CONTAINER="fl-edge-$$"
 PROD_CONTAINER="fl-edge-prod-$$"
+# A user-defined network, as both stacks' are: only one carries Docker's embedded DNS, which the edge
+# resolves its upstreams through, and no hosts-file entry reaches nginx's resolver.
+NETWORK="fl-edge-net-$$"
+# `backend` before the case moving it, then after: the second started while the first holds its
+# address, so the two can never share one.
+BACKEND_GONE="fl-edge-backend-$$"
+BACKEND_MOVED="fl-edge-backend-moved-$$"
 # Under the repo root because MSYS rewrites a POSIX-looking path (`scripts/README.md`), and named
 # for this run because two runs sharing a path would delete each other's stub.
 SCRATCH_NAME=".tmp-edge-$$"
 SCRATCH="${REPO_ROOT}/${SCRATCH_NAME}"
 
 cleanup() {
-  docker rm -f "$CONTAINER" "$PROD_CONTAINER" >/dev/null 2>&1 || true
+  docker rm -f "$CONTAINER" "$PROD_CONTAINER" "$BACKEND_GONE" "$BACKEND_MOVED" >/dev/null 2>&1 || true
+  docker network rm "$NETWORK" >/dev/null 2>&1 || true
   rm -rf "$SCRATCH" || true
 }
 trap cleanup EXIT
@@ -76,9 +84,8 @@ while IFS= read -r written_line; do
 done < "${REPO_ROOT}/nginx/shared/security_headers.conf"
 (( ${#SECURITY_HEADERS[@]} > 0 )) || refuse "nginx/shared/security_headers.conf yielded no header to compare."
 
-# The stub answers as `frontend` from inside the same nginx, so each case is graded on a real 200
-# rather than a 502 that never reached a location. Nothing answers as `backend`, whose 502 the
-# stream check below needs.
+# The stub answers as `frontend`, the edge's own alias on the network, from inside the same nginx, so
+# each case is graded on a real 200 rather than a 502 that never reached a location.
 
 # It answers with the two headers it was handed, so the header block below reads what reached Next,
 # and with its own copy of every security header, which the edge must not pass beside its own.
@@ -97,8 +104,20 @@ STUB
   # Setting no header, so it forwards every one the edge sent as the edge sent it, to the listener
   # the empty `Next-Action` case starts.
   printf '%s\n' '    location = /next-action-relay { proxy_pass http://127.0.0.1:3001; }'
+  # A redirect naming the upstream itself, which the edge must hand the visitor as its own origin.
+  printf '%s\n' '    location = /location-probe { return 302 http://frontend:3000/landed; }'
   printf '%s\n' '    location / { return 200 "stub\n"; }' '}'
 } > "${SCRATCH}/zz-upstream-stub.conf"
+# The backend the last case starts at a new address, answering with a mark the edge cannot have
+# minted and a redirect naming itself, which reaches the visitor rewritten as the frontend's does.
+cat > "${SCRATCH}/backend-moved.conf" <<'MOVED'
+server {
+    listen 8000;
+    access_log off;
+    add_header X-Moved-Backend reached always;
+    location / { return 302 http://backend:8000/landed; }
+}
+MOVED
 # The relay's listener answers only after recording the head's blank line: one answering first, as a
 # piped `nc` does, lets the stub's nginx, which reads an upstream's answer whatever it has sent, close
 # before writing the request.
@@ -178,10 +197,19 @@ done
 [[ -n "$EDGE_IMAGE" ]] || refuse "the local stack's model names no image for nginx, so there is no release to serve."
 if verbose; then info "the model starts ${EDGE_IMAGE} with: ${EDGE_COMMAND[*]} ${EDGE_TMPFS[*]}"; fi
 
+quietly docker network create "$NETWORK" \
+  || refuse "could not create the edge test's network ${NETWORK}. Docker's own reason is above."
+# Before either edge, as compose orders the pair before nginx: a configuration resolving its upstreams
+# at load still starts, and fails only the case aimed at it. Listening nowhere, it gives the stream
+# check its 502.
+docker run -d --name "$BACKEND_GONE" --network "$NETWORK" --network-alias backend \
+  "$EDGE_IMAGE" sleep 3600 >/dev/null \
+  || refuse "could not start the stand-in answering as backend."
+
 # The leading slash on each `-v` subject is `scripts/gate/verify.sh`'s nginx step's MSYS exclusion.
 MSYS_NO_PATHCONV=1 docker run -d --name "$CONTAINER" \
   -p 127.0.0.1:0:80 \
-  --add-host frontend:127.0.0.1 --add-host backend:127.0.0.1 \
+  --network "$NETWORK" --network-alias frontend \
   "${LOCAL_MOUNTS[@]}" \
   "${EDGE_TMPFS[@]}" \
   "${EDGE_PRIVILEGES[@]}" \
@@ -520,8 +548,8 @@ grade_security_headers() { # $1 what the request was, the headers already read
 # One request into EVERY location `nginx/shared/site.conf` declares, the list read off that file so a
 # location added there is probed without this one learning it.
 HEADER_PATHS=()
-# Set for a location whose `proxy_pass` names the backend: nothing answers as `backend` here, so
-# what it hands upstream is not read.
+# Set for a location whose `proxy_pass` names the backend: nothing listens as `backend` until the
+# last case, so what it hands upstream is not read.
 declare -A TO_BACKEND=()
 # The status a location answers itself with, forwarding nothing: graded on that status and on Next
 # never seeing the request, rather than on the headers it would hand upstream.
@@ -529,7 +557,7 @@ declare -A REFUSED_WITH=()
 # Whether the location being read added a path, so a named location's `return` marks none.
 _probed=0
 while IFS= read -r location_line; do
-  if [[ "$location_line" =~ ^[[:space:]]*proxy_pass[[:space:]]+http://backend: ]]; then
+  if [[ "$location_line" =~ ^[[:space:]]*proxy_pass[[:space:]]+http://\$backend_upstream\; ]]; then
     TO_BACKEND[$(( ${#HEADER_PATHS[@]} - 1 ))]=1
     continue
   fi
@@ -884,7 +912,8 @@ if verbose; then detail "as nginx: ${CONTROL_WORKER//$'\r'/}"; fi
 # --- the block production alone serves -----------------------------------------------------------
 
 # `nginx/prod/` mounted as production mounts it, behind a certificate made for this run: the www
-# redirect is the one block outside `nginx/shared/site.conf` that includes the header set.
+# redirect is the one block outside `nginx/shared/site.conf` that includes the header set, and the
+# HTTPS block wraps that file in the stapling it alone declares.
 mkdir -p "${SCRATCH}/certs" "${SCRATCH}/log-prod"
 # Relative output paths, for `scripts/gate/verify.sh`'s nginx step's reason: a Windows openssl
 # cannot open an MSYS-style absolute path.
@@ -893,7 +922,7 @@ MSYS2_ARG_CONV_EXCL="/CN" quietly openssl req -x509 -newkey rsa:2048 -nodes -day
   || refuse "could not generate a throwaway certificate for nginx/prod/."
 MSYS_NO_PATHCONV=1 docker run -d --name "$PROD_CONTAINER" \
   -p 127.0.0.1:0:443 \
-  --add-host frontend:127.0.0.1 --add-host backend:127.0.0.1 \
+  --network "$NETWORK" \
   "${EDGE_PRIVILEGES[@]}" \
   -v "/${REPO_ROOT}/nginx/prod:/etc/nginx/conf.d:ro" \
   -v "/${REPO_ROOT}/nginx/shared:/etc/nginx/shared:ro" \
@@ -923,8 +952,99 @@ if [[ "$WWW_STATUS" != 301 || "${SENT_VALUE[location]:-}" != "https://frankfurtl
 fi
 grade_security_headers "www.frankfurtleague.de"
 
-if (( HEADER_FAILURES + REFUSED_FAILURES + ACTION_FAILURES + CONTROL_FAILURES > 0 )); then
-  die "${HEADER_FAILURES} header, ${REFUSED_FAILURES} refusal, ${ACTION_FAILURES} server-action and ${CONTROL_FAILURES} Control API cases failed.
+# --- the upstreams, found by name while both edges serve (`docs/ops/spec.md :: I9`) ----------------
+
+RESOLVE_FAILURES=0
+# A literal upstream is a server group, which a variable naming the same host and port matches before
+# the resolver is asked: one such line pins every location naming that upstream to its address at load.
+for conf in "${REPO_ROOT}"/nginx/shared/*.conf "${REPO_ROOT}"/nginx/local/*.conf "${REPO_ROOT}"/nginx/prod/*.conf; do
+  [[ -f "$conf" ]] || continue
+  while IFS= read -r conf_line; do
+    conf_line="${conf_line%$'\r'}"
+    [[ "$conf_line" =~ ^[[:space:]]*proxy_pass[[:space:]] ]] || continue
+    [[ "$conf_line" =~ ^[[:space:]]*proxy_pass[[:space:]]+http://\$(frontend|backend)_upstream\;$ ]] && continue
+    fail "UPSTREAM ${conf#"${REPO_ROOT}/"}"
+    detail "'${conf_line#"${conf_line%%[![:space:]]*}"}' names no upstream variable, so nginx resolves it once, as it loads"
+    RESOLVE_FAILURES=$(( RESOLVE_FAILURES + 1 ))
+  done < "$conf"
+done
+
+# The stub's redirect naming `frontend:3000`, which a variable `proxy_pass` hands the visitor as sent
+# unless `proxy_redirect` names it.
+rm -f "${SCRATCH}/headers-location"
+curl -s -o /dev/null -D "${SCRATCH}/headers-location" --max-time 5 -H "Host: localhost" "${BASE}/location-probe" || true
+read_headers "${SCRATCH}/headers-location"
+if [[ "${SENT_VALUE[location]:-}" != "http://localhost/landed" ]]; then
+  fail "REDIRECT the frontend's own name"
+  detail "expected Location: http://localhost/landed, nginx sent '${SENT_VALUE[location]:-}'"
+  RESOLVE_FAILURES=$(( RESOLVE_FAILURES + 1 ))
+fi
+
+# The production block reaching the frontend: a `resolver` of its own there replaces the shared one
+# for every location it wraps, and a public one finds no `frontend`.
+PROD_SITE="https://frankfurtleague.de:${PROD_ADDR##*:}"
+PROD_RESOLVE=( --resolve "frankfurtleague.de:${PROD_ADDR##*:}:127.0.0.1" )
+PROD_STATUS="$(curl -sk -o /dev/null -D "${SCRATCH}/headers-prod-site" -w '%{http_code}' --max-time 10 \
+  "${PROD_RESOLVE[@]}" "${PROD_SITE}/" || true)"
+read_headers "${SCRATCH}/headers-prod-site"
+if [[ "$PROD_STATUS" != 200 || -z "${SENT_VALUE[x-seen-traceparent]:-}" ]]; then
+  fail "UPSTREAM frankfurtleague.de/"
+  detail "expected the frontend stub's 200 through nginx/prod/, nginx answered '${PROD_STATUS}'"
+  RESOLVE_FAILURES=$(( RESOLVE_FAILURES + 1 ))
+fi
+
+# The backend recreated as compose recreates it, under its name at another address, and neither edge
+# reloaded. The old container goes once the new one holds its address, so the two never share one.
+
+# Asked first, so the worker answering holds the old address when it moves, as a serving edge does.
+curl -s -o /dev/null --max-time 5 -H "Host: localhost" "${BASE}/api/v0/system/is_live" || true
+curl -sk -o /dev/null --max-time 5 "${PROD_RESOLVE[@]}" "${PROD_SITE}/api/v0/system/is_live" || true
+MSYS_NO_PATHCONV=1 docker run -d --name "$BACKEND_MOVED" --network "$NETWORK" --network-alias backend \
+  -v "/${SCRATCH}/backend-moved.conf:/etc/nginx/conf.d/backend-moved.conf:ro" \
+  "$EDGE_IMAGE" >/dev/null \
+  || refuse "could not start the backend the last case moves to."
+docker rm -f "$BACKEND_GONE" >/dev/null \
+  || refuse "could not remove the backend the last case moves from."
+# Past `nginx/shared/http.conf :: resolver`'s `valid`, the longest a worker keeps the old address.
+MOVE_DEADLINE=30
+declare -A MOVED_PROBE=( [local]="${BASE}/api/v0/system/is_live" [prod]="${PROD_SITE}/api/v0/system/is_live" )
+declare -A MOVED_LOCATION=( [local]="http://localhost/landed" [prod]="https://frankfurtleague.de/landed" )
+declare -A MOVED_AFTER=()
+_moved_from="$(date +%s)"
+while :; do
+  for edge in local prod; do
+    [[ -z "${MOVED_AFTER[$edge]:-}" ]] || continue
+    rm -f "${SCRATCH}/headers-moved-${edge}"
+    # The local edge serves `localhost` alone; the production one is named by the address it resolves.
+    moved_to=( -H "Host: localhost" )
+    [[ "$edge" == local ]] || moved_to=( "${PROD_RESOLVE[@]}" )
+    # Two seconds a try: a connect to the address the old container gave up waits, not refuses.
+    curl -sk -o /dev/null -D "${SCRATCH}/headers-moved-${edge}" --max-time 2 "${moved_to[@]}" \
+      "${MOVED_PROBE[$edge]}" 2>/dev/null || true
+    read_headers "${SCRATCH}/headers-moved-${edge}"
+    if [[ -n "${SENT_VALUE[x-moved-backend]:-}" ]]; then MOVED_AFTER[$edge]=$(( $(date +%s) - _moved_from )); fi
+  done
+  (( ${#MOVED_AFTER[@]} < 2 && $(date +%s) - _moved_from < MOVE_DEADLINE )) || break
+  sleep 0.5
+done
+for edge in local prod; do
+  if [[ -z "${MOVED_AFTER[$edge]:-}" ]]; then
+    fail "MOVED backend, the ${edge} edge"
+    detail "never reached the backend started at a new address in ${MOVE_DEADLINE}s without a reload"
+    RESOLVE_FAILURES=$(( RESOLVE_FAILURES + 1 ))
+    continue
+  fi
+  read_headers "${SCRATCH}/headers-moved-${edge}"
+  if [[ "${SENT_VALUE[location]:-}" != "${MOVED_LOCATION[$edge]}" ]]; then
+    fail "REDIRECT the backend's own name, the ${edge} edge"
+    detail "expected Location: ${MOVED_LOCATION[$edge]}, nginx sent '${SENT_VALUE[location]:-}'"
+    RESOLVE_FAILURES=$(( RESOLVE_FAILURES + 1 ))
+  fi
+  if verbose; then info "the ${edge} edge reached the moved backend after ${MOVED_AFTER[$edge]}s"; fi
+done
+
+if (( HEADER_FAILURES + REFUSED_FAILURES + ACTION_FAILURES + CONTROL_FAILURES + RESOLVE_FAILURES > 0 )); then
+  die "${HEADER_FAILURES} header, ${REFUSED_FAILURES} refusal, ${ACTION_FAILURES} server-action, ${CONTROL_FAILURES} Control API and ${RESOLVE_FAILURES} upstream cases failed.
 Each is what nginx SENT or ANSWERED, or what reached Next through it."
 fi
 
@@ -933,4 +1053,6 @@ ${#HEADER_PATHS[@]} paths and the www redirect each sending the security headers
 ${UPSTREAM_READ} of those paths handing Next the edge's own traceparent and no X-FL-Actor,
 ${#REFUSED_WITH[@]} refused at the edge and still refused under ${#REFUSED_LABELS[@]} other spellings, an empty
 Next-Action handed to no one, server
-actions metered on their own pair and nothing else metered by it, refused in plain text an action reads, and the Control API applying a reload, refusing a bad one, dumping the checkout and closed to the worker"
+actions metered on their own pair and nothing else metered by it, refused in plain text an action reads, the Control API applying a reload, refusing a bad one, dumping the checkout and closed to the worker,
+every upstream named through a variable, both edges reaching a backend recreated at a new address
+without a reload, and each upstream's redirect naming itself handed back as the visitor's origin"

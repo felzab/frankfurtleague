@@ -111,10 +111,11 @@ the machine is outside the repository. What it does tell you:
   variable or the file.
 - **Both application containers are stopped for their logs' copy just before the recreate** (§7),
   and a run ending in between puts them back on its way out, a failed copy, an interrupt and a
-  dropped SSH session alike: it starts them, reloads nginx onto them and waits for each to be
+  dropped SSH session alike: it starts them, reloads nginx and waits for each to be
   healthy (`scripts/ops/deploy.sh :: start_stopped_again`). **A failed copy ends the run at exit 2,
-  and at 1 where the start, the reload or a health wait answered badly**, the site then out of
-  service. Killed outright, or interrupted again while it puts them back, the run leaves them
+  and at 1 where the start, the reload or a health wait answered badly**: a bad start or health
+  wait leaves the site out of service, and a refused reload leaves nginx on a configuration not this
+  checkout's ([`spec.md`](spec.md) I355). Killed outright, or interrupted again while it puts them back, the run leaves them
   stopped, which `./scripts/ops/deploy.sh --status` reports as not running, and
   `restart: unless-stopped` never starts a container `stop` stopped, not even after the daemon
   restarts
@@ -130,13 +131,14 @@ the machine is outside the repository. What it does tell you:
 
 - **Only the application containers are recreated**, and nginx is reloaded once they are healthy
   (`scripts/ops/deploy.sh :: serve_through_nginx`), through nginx's Control API, which answers whether
-  the reload applied. The edge keeps running across the swap, so from the stop before the copy until
-  the reload a deploy that succeeds answers 502 rather than refusing the connection: an estimated 10
-  to 30 seconds on an idle site, and about eleven minutes where the stop runs to the grace periods
+  the reload applied. The edge keeps running across the swap and finds the new containers by name
+  ([`spec.md`](spec.md) I9), so from the stop before the copy until the new pair answers a deploy
+  that succeeds answers 502 rather than refusing the connection: an estimated 10 to 30 seconds on an
+  idle site, and about eleven minutes where the stop runs to the grace periods
   (`docker-compose.yml :: stop_grace_period`), each copy to its bound
-  (`scripts/ops/deploy.sh :: copy_streams`), each health wait to its last poll
-  (`scripts/ops/deploy.sh :: HEALTH_WAIT_BACKEND`, `:: HEALTH_WAIT_FRONTEND`) and the reload to
-  its own (`:: edge_control`). The reload is also what applies a file the pull changed
+  (`scripts/ops/deploy.sh :: copy_streams`) and each health wait to its last poll
+  (`scripts/ops/deploy.sh :: HEALTH_WAIT_BACKEND`, `:: HEALTH_WAIT_FRONTEND`). The reload is what
+  applies a file the pull changed
   under `nginx/prod/` or `nginx/shared/`, both mounted as directories so the running container reads
   what the pull wrote ([`spec.md`](spec.md) §1.2); a pull that changed nginx's own service definition
   makes the same `up` recreate it instead. **A reload nginx refuses ends the run in a finding carrying
@@ -148,7 +150,7 @@ the machine is outside the repository. What it does tell you:
 - **A build that fails the health wait is put back automatically** — to the images the application services
   were running when the deploy began, by image id rather than by tag (`scripts/ops/deploy.sh :: roll_back`) —
   and the script names the build now serving. **That path is not seconds**: the 502 runs until the restored
-  pair is healthy and nginx has been reloaded again, up to about twenty-two minutes where the deploy's
+  pair answers, up to about twenty-two minutes where the deploy's
   stop, copies and health waits and the rollback's own all run to their bounds. **The failed build's
   own two streams are copied off first** (`scripts/ops/deploy.sh :: copy_streams`), under the deploy's stamp and a `-failed` suffix in
   `/var/log/frankfurtleague/` (§7); that copy warns rather than refusing where it cannot be made, the site
@@ -198,7 +200,8 @@ the machine is outside the repository. What it does tell you:
   that nginx is running, reloaded and holding the checkout's configuration, the security headers as they
   are actually served, and the liveness probe through the edge. `./scripts/ops/deploy.sh --status` reads the
   probe and the configuration nginx holds too — every other row it prints comes from a container, and a
-  healthy pair is no statement about what the edge in front of it resolves to or loads.
+  healthy pair is no statement about whether the edge in front of it reaches the pair or what it
+  loads.
 
 ## 2. Before deploying a change to the database's constraints
 

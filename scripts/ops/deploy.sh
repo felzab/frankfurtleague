@@ -304,8 +304,7 @@ any actor the backend trusts. Give it to the frontend's user alone (docs/ops/run
   fi
 }
 
-# nginx's Control API, by the image's own curl. Every call is bounded, as every `curl` here is: the
-# reload runs with the replaced containers' addresses answering 502 until it lands.
+# nginx's Control API, by the image's own curl. Every call is bounded, as every `curl` here is.
 edge_control() {
   docker compose -f "$COMPOSE" exec -T nginx curl -sS --max-time 30 --unix-socket "$EDGE_CONTROL_SOCKET" "$@"
 }
@@ -447,18 +446,18 @@ Ask it directly:  docker compose -f ${COMPOSE} ps"
     detail "Check:  docker compose -f ${COMPOSE} logs nginx"
     return 1
   fi
-  # A container compose replaced loaded its configuration after the application pair existed, so it
-  # resolved the new addresses as it started and has nothing to re-read.
+  # A container compose replaced loaded the checkout's configuration as it started, so it has nothing
+  # to re-read.
   if [[ "$before" != "$after" ]]; then
-    ok "started, so it resolved the containers this deploy created as it loaded"
+    ok "started, so it loaded the checkout's configuration as it came up"
     # The `up` returns before nginx opens its socket; an answer never arriving is the read's to report.
     edge_control_opened || true
     edge_reads_checkout
     return
   fi
-  # nginx resolves `frontend` and `backend` once, as it loads its configuration: the proxy_pass names
-  # in `nginx/shared/site.conf` are plain, so a container recreated at a new address is invisible to a proxy
-  # that kept running, and only a reload re-resolves them.
+  # A running nginx finds the recreated pair by name without this (`docs/ops/spec.md :: I9`): the
+  # reload applies what the pull changed under `nginx/prod/` and `nginx/shared/`, and its new workers
+  # hold no address cached from before the recreate.
 
   # The Control API rather than `nginx -s reload`, which answers 0 once the signal is sent: this answers
   # 200 once the configuration applied, and 422 with nginx's own lines where the master rolled it back.
@@ -468,9 +467,8 @@ Ask it directly:  docker compose -f ${COMPOSE} ps"
   body="${reply%$'\n'*}"
   if (( reload_rc )); then
     warn "nginx's Control API could not be asked to reload it (exit ${reload_rc}), so nothing here says
-whether it applied the configuration, and it may still be proxying to the addresses of the
-containers this deploy replaced.
-Recreate it, which loads the checkout and resolves the new containers:  docker compose -f ${COMPOSE} up -d --force-recreate nginx"
+whether it applied the configuration.
+Recreate it, which loads the checkout:  docker compose -f ${COMPOSE} up -d --force-recreate nginx"
     return 2
   fi
   case "$status" in
@@ -478,14 +476,14 @@ Recreate it, which loads the checkout and resolves the new containers:  docker c
       # An applied reload's lines are warnings, replayed under `--verbose` as every command's own
       # output is (`docs/ops/spec.md` §1.7).
       if verbose && [[ -n "$body" ]]; then printf '%s\n' "$body" | detail; fi
-      ok "reloaded, so it is proxying to the containers this deploy created"
+      ok "reloaded onto the checkout's configuration"
       edge_reads_checkout
       ;;
     422)
       # The reply undecoded where it cannot be decoded: nginx's reason is worth more escaped than lost.
       printf '%s' "$body" | decode_json "$EDGE_RELOAD_LOGS" | detail || printf '%s\n' "$body" | detail
-      fail "nginx refused to apply the configuration it has mounted and kept serving the one it had, so it
-is still proxying to the addresses of the containers this deploy replaced. Its own lines are above."
+      fail "nginx refused to apply the configuration it has mounted and kept serving the one it had, which
+is not this checkout's. Its own lines are above."
       detail "Fix nginx/prod/ or nginx/shared/ as they say, then recreate it:  docker compose -f ${COMPOSE} up -d --force-recreate nginx"
       return 1
       ;;
@@ -596,26 +594,28 @@ Then reload the edge:  ${EDGE_RELOAD_TYPED}"
     return 1
   fi
   ok "${named} started again, on the build they were running"
-  # A started container takes its address afresh, and nginx resolves its upstreams only as it loads.
+  # nginx finds the pair started again by name (`docs/ops/spec.md :: I9`): the reload applies what the
+  # pull left under nginx/prod/ and nginx/shared/, and its new workers hold no address from before
+  # the stop.
   reply="$(edge_control -X PATCH -w '\n%{http_code}' http://localhost/1/control/config 2>/dev/null)" || reload_rc=$?
   status="${reply##*$'\n'}"
   if (( reload_rc )); then
     worst=2
-    warn "nginx's Control API could not be asked to reload it (exit ${reload_rc}), so it may still be
-proxying to the addresses ${named} had before the stop.
+    warn "nginx's Control API could not be asked to reload it (exit ${reload_rc}), so nothing here says
+whether it holds the configuration the pull left in nginx/prod/ and nginx/shared/.
 Reload it:  ${EDGE_RELOAD_TYPED}"
   elif [[ "$status" == 200 ]]; then
     ok "nginx reloaded, so it is proxying to the containers started again"
   elif [[ "$status" == 422 ]]; then
     worst=1
     warn "nginx refused the configuration the pull left in nginx/prod/ or nginx/shared/ and kept the one it
-had, so it may still be proxying to the addresses ${named} had before the stop. Its own lines:
+had, which is not this checkout's. Its own lines:
 ${reply%$'\n'*}
 Fix what they name, then reload it:  ${EDGE_RELOAD_TYPED}"
   else
     worst=2
     warn "nginx's Control API answered the reload with '${status}', which is neither applied nor refused,
-so nothing here says whether it is proxying to ${named} again.
+so nothing here says which configuration it holds.
 Reload it:  ${EDGE_RELOAD_TYPED}"
   fi
   for svc in "${STOPPED_SERVICES[@]}"; do
@@ -811,8 +811,8 @@ Deploy the build both packages have:  ./scripts/ops/deploy.sh ${RUNNING_BE}"
   fi
 
   step "The site, as the internet reaches it"
-  # Every row above is read from a container, and nginx resolves its upstreams once as it loads: a
-  # healthy pair says nothing about whether the edge is still pointed at it. This asks the edge.
+  # Every row above is read from a container, and a healthy pair says nothing about whether the edge
+  # reaches it. This asks the edge.
   status_code="$(curl -s -o /dev/null -w '%{http_code}' --max-redirs 0 --max-time 10 "$PROBE_URL" 2>/dev/null || true)"
   if [[ "$status_code" == "200" ]]; then
     ok "the edge answers the liveness probe"
@@ -1252,8 +1252,8 @@ if (( ! HEALTHY && ! UP_RC )); then
     # on a verdict about the new one, and this run reached none.
     refuse "${ASKED}, so nothing here says whether
 the new version is healthy — and the containers WERE recreated, so the site's state is unknown too.
-nginx has NOT been reloaded, so it is still resolving the containers this deploy replaced and every
-request through it answers 502 whether the new build is healthy or not.
+nginx has NOT been reloaded, so it may not hold the configuration the pull left in nginx/prod/ and
+nginx/shared/, though it finds whichever containers are running by name.
 No rollback runs on that: it would be undoing a build nothing here has judged.
 Reload the edge first, which answers 200 once applied:
   ${EDGE_RELOAD_TYPED}
