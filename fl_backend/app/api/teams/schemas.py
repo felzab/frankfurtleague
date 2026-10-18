@@ -69,25 +69,33 @@ FLAustrittType = Literal["disqualifikation", "rueckzug"]
 FLSchulform = Literal["gymnasium_g8", "gymnasium_g9", "gesamtschule", "privatschule_g8", "privatschule_g9", "oberstufengymnasium"]
 
 
-# The CI document's palette, slugged for `FLSchulform`'s reason: two of its colours are named in
-# German there, and the badge renders a swatch rather than either spelling.
+# The league's kit palette, slugged for `FLSchulform`'s reason. A slug is never renamed or dropped:
+# stored rows and the action log's images hold it.
 FLTrikotFarbe = Literal[
-    "weiss",
     "schwarz",
-    "rot",
+    "weiss",
+    "grau",
     "braun",
+    "bordeaux",
+    "rot",
+    "koralle",
     "orange",
+    "gold",
     "gelb",
+    "limette",
     "hellgruen",
     "gruen",
+    "smaragd",
     "tuerkis",
+    "cyan",
     "hellblau",
+    "meerblau",
     "blau",
     "dunkelblau",
+    "flieder",
     "violett",
     "magenta",
-    "bordeaux",
-    "grau",
+    "rosa",
 ]
 
 

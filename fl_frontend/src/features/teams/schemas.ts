@@ -91,28 +91,36 @@ export const FLSchulformSchema = z.enum(
 export type FLSchulform = z.infer<typeof FLSchulformSchema>;
 
 /**
- * Mirrors `FLTrikotFarbe` — the league's sixteen CI colours. The slug is what travels; its German name
- * and its swatch are `fl_frontend/src/features/teams/constants.ts :: TRIKOT_FARBE_OPTIONS`.
+ * Mirrors `FLTrikotFarbe` — the league's kit palette. The slug is what travels; its German name and
+ * its swatch are `fl_frontend/src/features/teams/constants.ts :: TRIKOT_FARBE_OPTIONS`.
  */
 export const FLTrikotFarbeSchema = z.enum(
   [
-    "weiss",
     "schwarz",
-    "rot",
+    "weiss",
+    "grau",
     "braun",
+    "bordeaux",
+    "rot",
+    "koralle",
     "orange",
+    "gold",
     "gelb",
+    "limette",
     "hellgruen",
     "gruen",
+    "smaragd",
     "tuerkis",
+    "cyan",
     "hellblau",
+    "meerblau",
     "blau",
     "dunkelblau",
+    "flieder",
     "violett",
     "magenta",
-    "bordeaux",
-    "grau",
-    // Named rather than enumerated, for `FLSchulformSchema`'s reason: sixteen slugs is not an answer.
+    "rosa",
+    // Named rather than enumerated, for `FLSchulformSchema`'s reason: a list of slugs is not an answer.
   ],
   { error: "Bitte wähle eine Trikotfarbe." },
 );

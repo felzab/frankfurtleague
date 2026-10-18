@@ -1191,13 +1191,13 @@ class TestTheColourTheSchoolWants:
 
         offered = get_args(FLTrikotFarbe)
 
-        assert len(offered) == 16
+        assert len(offered) == 24
         for colour in offered:
             trikot = {"vorhandener_satz": "12 rote Trikots", "wunschfarbe": colour}
             assert FLPostBewerbungPayload.model_validate(submission(trikot=trikot)).trikot.wunschfarbe == colour
 
     def test_a_colour_the_league_does_not_offer_is_refused(self):
-        """Required did not become unchecked: the value is still one of the sixteen."""
+        """Required did not become unchecked: the value is still one the palette offers."""
 
         with pytest.raises(ValidationError):
             FLPostBewerbungPayload.model_validate(submission(trikot={"vorhandener_satz": "", "wunschfarbe": "zorbanaxgruen"}))

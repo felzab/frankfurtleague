@@ -402,6 +402,6 @@ export function offeredTrikotFarben({
   value: FLTrikotFarbe | null;
 }): readonly TrikotFarbeOption[] {
   // The exclusion and nothing else, so the picker never offers a colour the season has given away.
-  // A season holding all sixteen therefore offers nothing, which the required wish has no answer for.
+  // A season holding every colour therefore offers nothing, which the required wish has no answer for.
   return TRIKOT_FARBE_OPTIONS.filter((option) => option.value === value || !vergeben.includes(option.value));
 }
