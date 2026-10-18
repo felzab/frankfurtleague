@@ -39,6 +39,8 @@ from tests.core.app_source import (
 
 NOT_FOUND = "404"
 EXCEPTION = DocumentNotFoundException.__name__
+# A handler naming any of these catches the miss: `except Exception` absorbs it as surely as its own name.
+CAUGHT_BY = frozenset(ancestor.__name__ for ancestor in DocumentNotFoundException.__mro__)
 ID_KEY = "_id"
 
 # The driver's own calls that can take a document away, a bulk write among them.
@@ -53,17 +55,23 @@ def _parents(declaration: Declaration) -> dict[int, ast.AST]:
     return {id(child): node for node in ast.walk(declaration) for child in ast.iter_child_nodes(node)}
 
 
-def _names_the_exception(handler: ast.ExceptHandler) -> bool:
+def _caught_names(handler: ast.ExceptHandler) -> set[str]:
     caught = handler.type
     names = caught.elts if isinstance(caught, ast.Tuple) else [caught] if caught is not None else []
 
-    return any(isinstance(name, ast.Name) and name.id == EXCEPTION for name in names)
+    return {name.id for name in names if isinstance(name, ast.Name)}
+
+
+def _names_the_exception(handler: ast.ExceptHandler) -> bool:
+    return EXCEPTION in _caught_names(handler)
 
 
 def _absorbs(handler: ast.ExceptHandler) -> bool:
-    """A handler catching the exception and never handing it on."""
+    """A handler catching the exception, by its own class, an ancestor's or a bare `except`, and never handing it on."""
 
-    return _names_the_exception(handler) and not any(isinstance(node, ast.Raise) and node.exc is None for node in ast.walk(handler))
+    catches = handler.type is None or bool(_caught_names(handler) & CAUGHT_BY)
+
+    return catches and not any(isinstance(node, ast.Raise) and node.exc is None for node in ast.walk(handler))
 
 
 def _caught(node: ast.AST, parents: dict[int, ast.AST]) -> bool:

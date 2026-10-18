@@ -35,7 +35,6 @@ from app.core.dependencies import (
     get_germany_now,
 )
 from app.core.exception_handlers import DATABASE_FAILED, DUPLICATE_KEY_RESPONSE, STORED_DATA_INVALID, UNKNOWN_OUTCOME
-from app.core.exceptions import DocumentNotFoundException
 from app.core.logging import fl_logger
 from app.core.recording import log_stamp
 from app.core.security import bind_system_actor, verify_access_system
@@ -234,10 +233,6 @@ async def post_loeschung_lauf(
                     stamp=stamp,
                     now=germany_now,
                 )
-            except DocumentNotFoundException:
-                # A registry step finding its row gone: another writer was first, and the pupil is judged again next pass.
-                uebersprungen += 1
-                continue
             # Any class, or the next pass stops at this pupil again and holds back everyone behind them
             # (`docs/backend/spec.md :: I717`); not `BaseException`, so a cancellation still ends the call.
             except Exception as failure:
@@ -260,6 +255,8 @@ async def post_loeschung_lauf(
                 fehlgeschlagen += 1
                 continue
 
+            # The one skip: judged again in its own transaction, a pupil another call deleted first reads as gone, since a
+            # rival committing after the snapshot sends the attempt round rather than leaving a step a row to miss.
             if erased is None:
                 uebersprungen += 1
                 continue
