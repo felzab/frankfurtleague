@@ -35,7 +35,7 @@ const { default: AdminLayout } = await import("@/app/bereich/admin/layout.tsx");
 const { PersonAreaBoundary } = await import("@/features/funktionen/components/providers/PersonAreaBoundary.tsx");
 const { TeamAreaBoundary } = await import("@/features/funktionen/components/providers/TeamAreaBoundary.tsx");
 const { AdminAreaBoundary } = await import("@/features/admin/components/providers/AdminAreaBoundary.tsx");
-const { PERSON_SHELL_CRASH, PERSON_SHELL_FALLBACK, PERSON_SIDEMENU_ENTRIES, TEAM_SHELL_FALLBACK, TEAM_SHELL_REFUSAL, TEAM_SIDEMENU_ENTRIES } =
+const { PERSON_SHELL_CRASH, PERSON_SHELL_FALLBACK, PERSON_SIDEMENU_ENTRIES, TEAM_LANDING_ENTRY, TEAM_SHELL_FALLBACK, TEAM_SHELL_REFUSAL } =
   await import("@/features/funktionen/constants.ts");
 
 const TEAM = { team_id: "6890a1b2c3d4e5f607250011", saison_id: "2526" };
@@ -270,7 +270,7 @@ describe("the bar over an area's crash panel", () => {
   /* A failing read says nothing of the seats held, so the bar heads the landing by its own entry: the
      refusal's words would tell a seat holder they hold none, and a missing page's call the landing no page. */
   it("heads the team's landing by its own entry", async () => {
-    const [landing] = TEAM_SIDEMENU_ENTRIES;
+    const landing = TEAM_LANDING_ENTRY;
     const shown = await crashBarHint(TeamAreaBoundary, `/bereich/team/${TEAM.team_id}/${TEAM.saison_id}`, landing.label, TEAM);
 
     assert.ok(shown.includes(landing.hint.lead), "the crash panel's bar reads no hint of the landing's own");
