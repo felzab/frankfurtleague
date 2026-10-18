@@ -41,7 +41,7 @@ const WRITE_ANSWER_MARGIN_MS = 2000;
 
 /**
  * What a call that may write needs left of its request's deadline: sent with less, the request could stop waiting while
- * the backend still commits, and drop its caches before that write lands (`docs/frontend/spec.md :: I767`).
+ * the backend still commits, and drop its caches before that write lands (`docs/frontend/spec.md :: I733`).
  */
 export const WRITE_NEEDS_MS = BACKEND_REQUEST_DEADLINE_MS + WRITE_ANSWER_MARGIN_MS;
 

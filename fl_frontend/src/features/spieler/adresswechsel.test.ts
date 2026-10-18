@@ -175,7 +175,7 @@ describe("the request for a pupil's new address", () => {
     assert.match(refused.success ? (refused.message ?? "") : "", /Melde Dich selbst bei der Person/);
   });
 
-  /* The panel grades its toast on it (`docs/frontend/spec.md :: I737`): the sentence asks the administrator to tell the
+  /* The panel grades its toast on it (`docs/frontend/spec.md :: I679`): the sentence asks the administrator to tell the
      person, which a clean press would contradict. */
   it("reports a notice to the stored address that did not leave, beside a link that did", async () => {
     mail.answerWith(({ to }) => (to === BISHER ? "refused" : "accepted"));

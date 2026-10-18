@@ -595,7 +595,7 @@ KEEPING_WRITES: dict[str, tuple[Callable[[AsyncDatabase, AsyncMongoClient], Awai
 
 
 class TestAWriteKeepingTheirSeatInsideTheErasureLeavesNothing:
-    """`docs/backend/spec.md :: I765`: nothing anchors a kept seat, the row being what the erasure writes.
+    """`docs/backend/spec.md :: I732`: nothing anchors a kept seat, the row being what the erasure writes.
 
     So a write leaving the row unchanged, which writes nothing the erasure writes, files no log row either.
     """

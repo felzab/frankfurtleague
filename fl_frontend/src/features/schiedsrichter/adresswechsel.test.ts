@@ -144,7 +144,7 @@ describe("the save moving a confirmed referee's address", () => {
     );
   });
 
-  /* The editor grades its toast on it (`docs/frontend/spec.md :: I737`): the sentence asks the administrator to tell the
+  /* The editor grades its toast on it (`docs/frontend/spec.md :: I679`): the sentence asks the administrator to tell the
      person, which a clean save would contradict. */
   it("reports a notice to the address in force that did not leave, beside a link that did", async () => {
     mail.answerWith(({ to }) => (to === BISHER ? "refused" : "accepted"));

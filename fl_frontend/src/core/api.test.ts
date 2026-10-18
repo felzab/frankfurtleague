@@ -471,7 +471,7 @@ describe("the request's deadline over a chain of calls", () => {
   });
 });
 
-/* `docs/frontend/spec.md :: I767`: sent with less left, the request could stop waiting while the backend still commits,
+/* `docs/frontend/spec.md :: I733`: sent with less left, the request could stop waiting while the backend still commits,
    and the spine would drop the caches that write feeds before it lands. */
 describe("a write sent only while the request can wait out the backend's own deadline", () => {
   let clock = 0;

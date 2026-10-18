@@ -65,7 +65,7 @@ export async function runLoeschungSweep(): Promise<void> {
 async function sweepLoeschung(): Promise<void> {
   const lauf = await loeschungLaufen(postLoeschungLauf);
   // On every pass, one deleting nobody included: a press's call its deadline cut may delete in the backend after the
-  // press dropped this tag, and no pass's count shows those pupils (`docs/frontend/spec.md :: I743`).
+  // press dropped this tag, and no pass's count shows those pupils (`docs/frontend/spec.md :: I705`).
   await revalidateOverLoopback(["spieler"]);
 
   // Counts and the season the rule kept, never a person: the backend's own lines name a failed person's id.

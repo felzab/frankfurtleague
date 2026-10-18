@@ -428,7 +428,7 @@ describe("the budgets a request's calls nest inside", () => {
     });
   }
 
-  /* `docs/frontend/spec.md :: I767`: a deadline at or under what a write needs left would send no write at all. */
+  /* `docs/frontend/spec.md :: I733`: a deadline at or under what a write needs left would send no write at all. */
   it("leaves a write room inside the request's deadline and inside the work behind a response", () => {
     assert.ok(WRITE_NEEDS_MS < REQUEST_DEADLINE_MS, "no request could send a write");
     assert.ok(WRITE_NEEDS_MS < AFTER_RESPONSE_DEADLINE_MS, "no work behind a response could send a write");

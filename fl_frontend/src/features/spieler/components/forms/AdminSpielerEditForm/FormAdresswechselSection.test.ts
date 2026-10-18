@@ -91,7 +91,7 @@ describe("the waiting address's two controls", () => {
 
   /* Graded as the request's press grades it, the earlier link being dead either way: a failed or held-back link
      is a warning titled for what happened, and so is a failed notice, one held back asking nothing
-     (`docs/frontend/spec.md :: I737`). */
+     (`docs/frontend/spec.md :: I679`). */
   for (const [versand, hinweis, variant, title] of [
     ["fehlgeschlagen", "gesendet", "warning", "Link nicht verschickt"],
     ["gesperrt", "gesendet", "warning", "Link zurückgehalten"],

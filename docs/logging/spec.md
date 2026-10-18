@@ -189,7 +189,7 @@ part of a stream copied out while it runs**: an hourly pass on the host unions t
 day (`scripts/ops/export_journal.sh`), under the deploy copies' thirty days
 ([`docs/ops/runbooks.md`](../ops/runbooks.md) §7), because a restore runs each erasure and each
 person's own choice again from them past both the recreate and the size cap
-(`docs/backend/spec.md :: I666`, `:: I745`).
+(`docs/backend/spec.md :: I666`, `:: I706`).
 
 **The logs live and die with the container, so a deploy starts the application services from empty.**
 `stop` and `start` keep the file because the container survives; anything that **replaces** a container

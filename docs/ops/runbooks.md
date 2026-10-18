@@ -859,7 +859,7 @@ person nothing. **Erasing an administrator's address tells every
 administrator, as a revoke does**: the grant's end goes out with the other changes of access, the
 notice naming no address (`docs/backend/spec.md :: I659`). On the same page „Überall abmelden“ ends
 every session of an address without erasing or barring it; past the step-up window its second press
-asks the passkey first, as the ban's does (`docs/frontend/spec.md :: I748`).
+asks the passkey first, as the ban's does (`docs/frontend/spec.md :: I723`).
 
 **Answer as soon as what you need is gathered, and where it will take longer say so in the first
 reply rather than after it.** Where the answer needs the Datenschutzexperte, the person is told that
@@ -1146,7 +1146,7 @@ x /var/log/frankfurtleague/nginx
 erasure a person or an administrator asks for leaves one line in the backend's stream, and so does
 every consent a person withdraws on their own record, every Widerspruch made through a seat's link
 and every address change declined through its link
-([`../backend/spec.md`](../backend/spec.md#2-invariants) I666, I745); a restore runs each erasure
+([`../backend/spec.md`](../backend/spec.md#2-invariants) I666, I706); a restore runs each erasure
 again and replays each of those choices from those lines (§13). The stream loses them at the next recreate, or sooner once its size cap
 rotates them away; the day files keep them for this directory's thirty days, counted from each
 file's last change, which is what the published notice states: a pass that adds nothing to a day
@@ -1308,7 +1308,7 @@ ends:
 **Activating a season runs the same deletion first, inside the press, but only as far as the
 press's own deadline reaches** (`fl_frontend/src/core/requestScope.ts :: REQUEST_DEADLINE_MS`): the
 press sends no deletion call it could not wait out to its answer
-([`../frontend/spec.md`](../frontend/spec.md#2-invariants) I767). Wherever more pupils are due than
+([`../frontend/spec.md`](../frontend/spec.md#2-invariants) I733). Wherever more pupils are due than
 that, the run stops there: the press files the warning `loeschung.umstellung_cut_short`, which
 needs nothing from you, and its message tells the administrator the hourly pass finishes the rest.
 `loeschung.umstellung_failed`, an error under `FE-SWEEP-001`, is a call that failed rather than ran
@@ -1588,7 +1588,7 @@ stream, and so did every consent a person withdrew, every Widerspruch made throu
 every address change declined through its link, each naming its person by a keyed hash and never
 by an address, an erasure's line also by the pseudonym the log keys their signed-in rows by, whether
 its commit landed or lost its answer ([`../backend/spec.md`](../backend/spec.md#2-invariants) I666,
-I745). §7's day files keep those lines outside the database for thirty days. **Once the restore has
+I706). §7's day files keep those lines outside the database for thirty days. **Once the restore has
 completed, run the export once more**, which reads every journal line the backend's stream and the
 deploy copies of those thirty days still hold into the day files:
 
@@ -1635,7 +1635,7 @@ the export wrote no file for. Each line is listed by its act and its record, nev
   address no league record holds going with the account sweep within the hour (§5). Held nowhere,
   the address leaves its pseudonym: where that still marks log rows or day counts, which a restore
   brings back with the snapshot, the listing says how many, with the rows' ids, and reads `to replay`
-  ([`../backend/spec.md`](../backend/spec.md#2-invariants) I764); a line naming no pseudonym reads
+  ([`../backend/spec.md`](../backend/spec.md#2-invariants) I731); a line naming no pseudonym reads
   `nothing to run`.
 - **A choice** reads `to replay`; `already done` where the restored record already stands as the
   choice left it, or the restored site set it since: the choice granted again by evidence later than
@@ -1655,9 +1655,9 @@ unreadable, naming files and never a value, or a validator not this build's; and
 **Then replay them: the same command with `--apply`.** Each line standing to be replayed is judged
 again in a transaction of its own. A choice is written as its person's own press wrote it, the same
 update and the same log redaction, its evidence stamped with the instant on its line, the moment the
-person acted and never the replay's ([`../backend/spec.md`](../backend/spec.md#2-invariants) I746).
+person acted and never the replay's ([`../backend/spec.md`](../backend/spec.md#2-invariants) I710).
 An erasure held nowhere has its pseudonym's log rows marked and its day counts erased, as the erasure
-did, the log keeping one row for them under „Pseudonyme“ (I764). The action log records each under
+did, the log keeping one row for them under „Pseudonyme“ (I731). The action log records each under
 the system, its call reading `REPLAY` and the line's act, record and journalling instant, never its
 person nor the journal's token, and a second run writes nothing. **A record left for review is
 written by nothing**: read it beside the person's mail thread and settle it by hand, the listing
