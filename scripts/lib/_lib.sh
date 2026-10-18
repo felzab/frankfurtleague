@@ -18,6 +18,9 @@ _caller="${BASH_SOURCE[1]-${BASH_SOURCE[0]-$0}}"
 SELF="$(cd "$(dirname "$_caller")" && pwd)/$(basename "$_caller")"
 unset _caller
 
+# `BASH_SOURCE` keeps a path as it was given, so a relative one names a file from here: every script
+# and this file are entered before the `cd` below, and a file sourced after it takes an absolute path.
+_STARTED_IN="$PWD"
 cd "$REPO_ROOT"
 
 # --- Image naming -----------------------------------------------------------------------------------
@@ -693,7 +696,10 @@ _on_err_trap() { # $1 status, $2 line, $3 `$BASH_COMMAND`, $4 the file the line 
   # The file's own whole command, since inside another trap `$BASH_COMMAND` holds the command that
   # trap interrupted, and `$LINENO` names one physical line of a continued one. Here, not in
   # `on_error`, whose explicit callers pass a message.
-  text="$(awk -v n="$2" '
+  text="$(
+    # Read from where a relative `$4` was given rather than joined to that directory: under Git
+    # Bash an absolute path may open with a drive letter, which a test for a leading slash misses.
+    cd -- "$_STARTED_IN" && awk -v n="$2" '
     # A line holding only a comment never continues, whatever its last character: bash reads that
     # backslash as text, so the line below it starts a command of its own.
     function continues(l) { return l ~ /\\$/ && l !~ /^[[:space:]]*#/ }

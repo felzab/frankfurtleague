@@ -222,6 +222,29 @@ def test_a_crash_a_library_helper_raises_names_the_line_that_called_it() -> None
     assert not wrong, "\n".join(wrong)
 
 
+def test_a_crash_inside_a_trap_names_its_command_when_the_script_was_started_by_a_relative_path() -> None:
+    """Inside a trap the file's own text is the only account of the command, read off a path given before the library's `cd`."""
+    assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
+    script = "\n".join(
+        (
+            "#!/usr/bin/env bash",
+            f'source "{LIB.as_posix()}"',
+            "boom() {",
+            "  false in the trap",
+            "}",
+            "trap boom EXIT",
+            "true the interrupted command",
+            "",
+        )
+    )
+    with tempfile.TemporaryDirectory() as scratch:
+        write_shell(Path(scratch) / "caller.sh", script)
+        done = run_shell(BASH, Path("caller.sh"), env=base_env(), cwd=Path(scratch))
+    output = done.stdout + done.stderr
+    assert done.returncode == 3, f"exited {done.returncode}, and a crash exits 3:\n{output}"
+    assert re.search(r"^ *line 4:  false in the trap$", output, re.MULTILINE), f"the statement names another command:\n{output}"
+
+
 def test_every_exit_code_the_kernel_declares_is_reached_by_a_fixture() -> None:
     """A code nothing here ends with is a branch of the contract that no reader is being held to."""
     reached = {ending.code for ending in ENDINGS}
