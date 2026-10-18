@@ -8,6 +8,8 @@ import {
   closeJudgingExpiredTransactions,
   expiredTransactionKills,
   expiredTransactionsRefusal,
+  HEALTHY_WITHIN_MS,
+  STARTED_WITHIN_MS,
   teardownFailure,
 } from "./expiredTransactions.ts";
 import { filesUnder } from "./treeWalk.ts";
@@ -140,6 +142,22 @@ describe("every db suite", () => {
 
     assert.ok(code.length >= 1000, `the walk read ${String(code.length)} modules, under its floor of 1000`);
     assert.deepEqual(starting, []);
+  });
+});
+
+/* Each inside the next: a health check outlasting the start's race is never the failure named, and a
+   start outlasting the bound on each case stalls a file longer than any case of it may. */
+describe("a db suite's replica set's start", () => {
+  it("bounds its health check inside its whole start, and its whole start inside the bound on each case", () => {
+    const { scripts } = JSON.parse(readFileSync(path.join(FRONTEND, "package.json"), "utf8")) as { scripts: Record<string, string> };
+    const perCase = Number(/--test-timeout=(\d+)/.exec(scripts["test:base"] ?? "")?.[1]);
+
+    assert.ok(Number.isInteger(perCase), "`test:base` sets no `--test-timeout`");
+    assert.ok(
+      HEALTHY_WITHIN_MS < STARTED_WITHIN_MS,
+      `the health check's ${String(HEALTHY_WITHIN_MS)} ms outlasts the start's ${String(STARTED_WITHIN_MS)} ms`,
+    );
+    assert.ok(STARTED_WITHIN_MS < perCase, `the start's ${String(STARTED_WITHIN_MS)} ms outlasts each case's ${String(perCase)} ms`);
   });
 });
 
