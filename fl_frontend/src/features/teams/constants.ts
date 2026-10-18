@@ -122,32 +122,43 @@ export function schulformLabel(schulform: FLSchulform): string {
 export type TrikotFarbeOption = {
   readonly value: FLTrikotFarbe;
   readonly label: string;
-  /** The swatch's fill, taken from the league's CI document and authoritative over any eyeballed match. */
+  /**
+   * The swatch's fill, copied from the league's colour sheet and authoritative over any eyeballed
+   * match. A changed hex recolours every row already stored under its slug.
+   */
   readonly hex: string;
 };
 
 /**
- * The league's sixteen CI colours, in the CI document's own order and with its own names. A surface
- * draws the swatch from `hex` rather than from a Tailwind token: the palette answers to the league's
- * print colours, which no theme scale tracks.
+ * The league's kit palette in its colour sheet's order, neutrals first, then round the colour wheel.
+ * A swatch draws from `hex`, never a Tailwind token: the palette answers to the league's print
+ * colours, which no theme scale tracks.
  */
 export const TRIKOT_FARBE_OPTIONS: readonly TrikotFarbeOption[] = [
-  { value: "weiss", label: "Weiß", hex: "#ffffff" },
   { value: "schwarz", label: "Schwarz", hex: "#111111" },
-  { value: "rot", label: "Rot", hex: "#e52521" },
+  { value: "weiss", label: "Weiß", hex: "#f5f5f5" },
+  { value: "grau", label: "Grau", hex: "#8a9199" },
   { value: "braun", label: "Braun", hex: "#7a4a28" },
+  { value: "bordeaux", label: "Bordeaux", hex: "#8e2430" },
+  { value: "rot", label: "Rot", hex: "#e52521" },
+  { value: "koralle", label: "Koralle", hex: "#ff5f37" },
   { value: "orange", label: "Orange", hex: "#f47b20" },
-  { value: "gelb", label: "Gelb", hex: "#f2c230" },
-  { value: "hellgruen", label: "Hellgrün", hex: "#8fc752" },
-  { value: "gruen", label: "Grün", hex: "#16a05d" },
+  { value: "gold", label: "Gold", hex: "#e9a928" },
+  { value: "gelb", label: "Gelb", hex: "#fff84f" },
+  { value: "limette", label: "Limette", hex: "#a8c83a" },
+  { value: "hellgruen", label: "Hellgrün", hex: "#75db06" },
+  { value: "gruen", label: "Grün", hex: "#0e7615" },
+  { value: "smaragd", label: "Smaragd", hex: "#008f68" },
   { value: "tuerkis", label: "Türkis", hex: "#00a6a6" },
-  { value: "hellblau", label: "Hellblau", hex: "#19a7d8" },
+  { value: "cyan", label: "Cyan", hex: "#1ba8c8" },
+  { value: "hellblau", label: "Hellblau", hex: "#74d3fc" },
+  { value: "meerblau", label: "Meerblau", hex: "#5a87d6" },
   { value: "blau", label: "Blau", hex: "#2455c3" },
   { value: "dunkelblau", label: "Dunkelblau", hex: "#142b63" },
+  { value: "flieder", label: "Flieder", hex: "#d49cf1" },
   { value: "violett", label: "Violett", hex: "#7138b5" },
-  { value: "magenta", label: "Magenta", hex: "#c72c91" },
-  { value: "bordeaux", label: "Bordeaux", hex: "#8e2430" },
-  { value: "grau", label: "Grau", hex: "#8a9199" },
+  { value: "magenta", label: "Magenta", hex: "#c52a87" },
+  { value: "rosa", label: "Rosa", hex: "#e14b9a" },
 ];
 
 const trikotFarbeOption = (farbe: FLTrikotFarbe): TrikotFarbeOption | undefined => TRIKOT_FARBE_OPTIONS.find((o) => o.value === farbe);

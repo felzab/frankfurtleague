@@ -3,7 +3,7 @@ import z from "zod";
 import { BaseAPIResponseSchema } from "@/core/schemas";
 import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
 import { SPERRLISTE_GRUND_MAX_LENGTH } from "@/features/sperrliste/constants";
-import { CustomDateStringSchema, CustomObjectIdStringSchema, KontaktEmailSchema } from "@/shared/schemas";
+import { CustomDateStringSchema, CustomObjectIdStringSchema, einzeiligerName, KontaktEmailSchema } from "@/shared/schemas";
 
 /**
  * One ban, as the list serves it. **No address field, and none can be added**: the collection keeps a
@@ -46,14 +46,17 @@ export const FLPostSperrlistePayloadSchema = z.object({
   // `KontaktEmailSchema` and never `z.email()`, whose alphabet refuses the umlaut domain the API
   // converts: an address this turned away is one that would never have been banned.
   email: KontaktEmailSchema,
-  // Trimmed before either bound counts it, as the API is: it refuses a reason of spaces alone, and
-  // one over the ceiling, with a `REQ-VAL-001` marking the box with a generic sentence, so a looser
-  // mirror loses the bound's German.
-  grund: z
-    .string()
-    .trim()
-    .nonempty({ error: "Bitte gib einen Grund ein." })
-    .max(SPERRLISTE_GRUND_MAX_LENGTH, { error: `Der Grund darf höchstens ${String(SPERRLISTE_GRUND_MAX_LENGTH)} Zeichen lang sein.` })
+  // Trimmed before any bound counts it, as at the API, which refuses a blank reason, one over the
+  // ceiling and one holding a line break with a generic `REQ-VAL-001` sentence: a looser mirror
+  // loses each bound's German.
+  grund: einzeiligerName(
+    z
+      .string()
+      .trim()
+      .nonempty({ error: "Bitte gib einen Grund ein." })
+      .max(SPERRLISTE_GRUND_MAX_LENGTH, { error: `Der Grund darf höchstens ${String(SPERRLISTE_GRUND_MAX_LENGTH)} Zeichen lang sein.` }),
+    "Der Grund",
+  )
     // The reason is served, copied whole into a removal's action-log image, and outlives the
     // person's erasure, so an address typed here survives everywhere the stored hash keeps one out.
     .refine((grund) => !ADRESSE_IM_GRUND_REGEX.test(grund), { error: "Der Grund darf keine E-Mail-Adresse enthalten." }),

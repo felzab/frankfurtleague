@@ -10,6 +10,7 @@ import { FLEinwilligungNachweiseSchema } from "@/features/spieler/schemas";
 import {
   CustomDateStringSchema,
   CustomObjectIdStringSchema,
+  einzeiligerName,
   ExternalUrlSchema,
   FLAddressPayloadSchema,
   FLAddressSchema,
@@ -91,28 +92,36 @@ export const FLSchulformSchema = z.enum(
 export type FLSchulform = z.infer<typeof FLSchulformSchema>;
 
 /**
- * Mirrors `FLTrikotFarbe` — the league's sixteen CI colours. The slug is what travels; its German name
- * and its swatch are `fl_frontend/src/features/teams/constants.ts :: TRIKOT_FARBE_OPTIONS`.
+ * Mirrors `FLTrikotFarbe` — the league's kit palette. The slug is what travels; its German name and
+ * its swatch are `fl_frontend/src/features/teams/constants.ts :: TRIKOT_FARBE_OPTIONS`.
  */
 export const FLTrikotFarbeSchema = z.enum(
   [
-    "weiss",
     "schwarz",
-    "rot",
+    "weiss",
+    "grau",
     "braun",
+    "bordeaux",
+    "rot",
+    "koralle",
     "orange",
+    "gold",
     "gelb",
+    "limette",
     "hellgruen",
     "gruen",
+    "smaragd",
     "tuerkis",
+    "cyan",
     "hellblau",
+    "meerblau",
     "blau",
     "dunkelblau",
+    "flieder",
     "violett",
     "magenta",
-    "bordeaux",
-    "grau",
-    // Named rather than enumerated, for `FLSchulformSchema`'s reason: sixteen slugs is not an answer.
+    "rosa",
+    // Named rather than enumerated, for `FLSchulformSchema`'s reason: a list of slugs is not an answer.
   ],
   { error: "Bitte wähle eine Trikotfarbe." },
 );
@@ -343,12 +352,15 @@ export type FLTeamsSingleResponse = z.infer<typeof FLTeamsSingleResponseSchema>;
 
 /** Shared by create and patch: the patch replaces them wholesale, so both carry the same field set. */
 const teamPayloadFields = {
-  // The ceilings are the application's, so both tiers refuse alike.
-  name: z
-    .string()
-    .trim()
-    .nonempty({ error: "Bitte gib einen Namen ein." })
-    .max(TEAM_NAME_MAX_LENGTH, { error: `Der Name darf höchstens ${String(TEAM_NAME_MAX_LENGTH)} Zeichen lang sein.` }),
+  // The ceilings and the single-line class are the application's, so both tiers refuse alike.
+  name: einzeiligerName(
+    z
+      .string()
+      .trim()
+      .nonempty({ error: "Bitte gib einen Namen ein." })
+      .max(TEAM_NAME_MAX_LENGTH, { error: `Der Name darf höchstens ${String(TEAM_NAME_MAX_LENGTH)} Zeichen lang sein.` }),
+    "Der Name",
+  ),
   // Held unique across every club, retired ones included (`fl_backend/app/core/constraints.py :: uniq_shorthand`).
   shorthand: z
     .string()
@@ -357,13 +369,16 @@ const teamPayloadFields = {
   description: z
     .string()
     .max(DESCRIPTION_MAX_LENGTH, { error: `Die Beschreibung darf höchstens ${String(DESCRIPTION_MAX_LENGTH)} Zeichen lang sein.` }),
-  full_name: z
-    .string()
-    .trim()
-    .nonempty({ error: "Bitte gib den vollständigen Namen ein." })
-    .max(TEAM_FULL_NAME_MAX_LENGTH, {
-      error: `Der vollständige Name darf höchstens ${String(TEAM_FULL_NAME_MAX_LENGTH)} Zeichen lang sein.`,
-    }),
+  full_name: einzeiligerName(
+    z
+      .string()
+      .trim()
+      .nonempty({ error: "Bitte gib den vollständigen Namen ein." })
+      .max(TEAM_FULL_NAME_MAX_LENGTH, {
+        error: `Der vollständige Name darf höchstens ${String(TEAM_FULL_NAME_MAX_LENGTH)} Zeichen lang sein.`,
+      }),
+    "Der vollständige Name",
+  ),
   website_url: ExternalUrlSchema.max(TEAM_WEBSITE_URL_MAX_LENGTH, {
     error: `Die Adresse darf höchstens ${String(TEAM_WEBSITE_URL_MAX_LENGTH)} Zeichen lang sein.`,
   }).nullable(),

@@ -5,9 +5,11 @@ import { FLEinwilligungStandSchema } from "@/features/spieler/schemas";
 
 import {
   FLAustrittSchema,
+  FLCreateTeamFormPayloadSchema,
   FLKontaktKenntnisnahmePayloadSchema,
   FLKontaktKenntnisnahmeSchema,
   FLPatchSaisonTeamPayloadSchema,
+  FLPatchTeamPayloadSchema,
   FLPatchTeamResponseSchema,
   FLPostTeamPayloadSchema,
   FLReplaceSaisonTeamResponseSchema,
@@ -377,6 +379,43 @@ describe("the write payloads' floors, against the stripped floors at the API", (
      club whose stored reason is blank fails the list it appears in (`docs/backend/spec.md :: I36`). */
   it("leaves the read schema taking a stored reason of spaces alone", () => {
     assert.equal(FLAustrittSchema.safeParse({ type: "rueckzug", grund: SPACES, datum: "2026-03-12" }).success, true);
+  });
+});
+
+describe("a club's two names, against the single-line class the application's refuse", () => {
+  // The two the create form and the editor validate, each spelled with what its payload adds.
+  const FORMS = [
+    ["the create form", FLCreateTeamFormPayloadSchema, { saison_id: "2026", gruppe: "A" }],
+    ["the editor", FLPatchTeamPayloadSchema, { id: "0123456789abcdef01234567" }],
+  ] as const;
+  const MESSAGES = {
+    name: "Der Name darf keine Zeilenumbrüche oder Steuerzeichen enthalten.",
+    full_name: "Der vollständige Name darf keine Zeilenumbrüche oder Steuerzeichen enthalten.",
+  } as const;
+
+  /* By codepoint, so this file carries no invisible byte: the next line `trim` keeps, and the line
+     separator that breaks a rendered name (`docs/frontend/spec.md :: I87`). */
+  for (const [was, character] of [
+    ["a next line", String.fromCodePoint(0x85)],
+    ["a line separator", String.fromCodePoint(0x2028)],
+  ] as const) {
+    for (const [form, schema, extra] of FORMS) {
+      for (const field of ["name", "full_name"] as const) {
+        it(`refuses ${field} broken by ${was} in ${form}, with the field's own message`, () => {
+          const result = schema.safeParse({ ...postTeam({ [field]: `Carl${character}Schurz` }), ...extra });
+
+          assert.deepEqual(result.success ? [] : result.error.issues.map((issue) => [issue.path.join("."), issue.message]), [
+            [field, MESSAGES[field]],
+          ]);
+        });
+      }
+    }
+  }
+
+  it("takes both names unbroken in either form", () => {
+    for (const [, schema, extra] of FORMS) {
+      assert.equal(schema.safeParse({ ...postTeam({ name: "Carl Schurz", full_name: "Carl-Schurz-Schule" }), ...extra }).success, true);
+    }
   });
 });
 

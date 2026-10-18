@@ -10673,22 +10673,30 @@
               {
                 "type": "string",
                 "enum": [
-                  "weiss",
                   "schwarz",
-                  "rot",
+                  "weiss",
+                  "grau",
                   "braun",
+                  "bordeaux",
+                  "rot",
+                  "koralle",
                   "orange",
+                  "gold",
                   "gelb",
+                  "limette",
                   "hellgruen",
                   "gruen",
+                  "smaragd",
                   "tuerkis",
+                  "cyan",
                   "hellblau",
+                  "meerblau",
                   "blau",
                   "dunkelblau",
+                  "flieder",
                   "violett",
                   "magenta",
-                  "bordeaux",
-                  "grau"
+                  "rosa"
                 ]
               },
               {
@@ -10761,22 +10769,30 @@
               {
                 "type": "string",
                 "enum": [
-                  "weiss",
                   "schwarz",
-                  "rot",
+                  "weiss",
+                  "grau",
                   "braun",
+                  "bordeaux",
+                  "rot",
+                  "koralle",
                   "orange",
+                  "gold",
                   "gelb",
+                  "limette",
                   "hellgruen",
                   "gruen",
+                  "smaragd",
                   "tuerkis",
+                  "cyan",
                   "hellblau",
+                  "meerblau",
                   "blau",
                   "dunkelblau",
+                  "flieder",
                   "violett",
                   "magenta",
-                  "bordeaux",
-                  "grau"
+                  "rosa"
                 ]
               },
               {
@@ -13024,22 +13040,30 @@
               {
                 "type": "string",
                 "enum": [
-                  "weiss",
                   "schwarz",
-                  "rot",
+                  "weiss",
+                  "grau",
                   "braun",
+                  "bordeaux",
+                  "rot",
+                  "koralle",
                   "orange",
+                  "gold",
                   "gelb",
+                  "limette",
                   "hellgruen",
                   "gruen",
+                  "smaragd",
                   "tuerkis",
+                  "cyan",
                   "hellblau",
+                  "meerblau",
                   "blau",
                   "dunkelblau",
+                  "flieder",
                   "violett",
                   "magenta",
-                  "bordeaux",
-                  "grau"
+                  "rosa"
                 ]
               },
               {
@@ -13076,22 +13100,30 @@
             "items": {
               "type": "string",
               "enum": [
-                "weiss",
                 "schwarz",
-                "rot",
+                "weiss",
+                "grau",
                 "braun",
+                "bordeaux",
+                "rot",
+                "koralle",
                 "orange",
+                "gold",
                 "gelb",
+                "limette",
                 "hellgruen",
                 "gruen",
+                "smaragd",
                 "tuerkis",
+                "cyan",
                 "hellblau",
+                "meerblau",
                 "blau",
                 "dunkelblau",
+                "flieder",
                 "violett",
                 "magenta",
-                "bordeaux",
-                "grau"
+                "rosa"
               ]
             },
             "type": "array",
@@ -13116,22 +13148,30 @@
           "wunschfarbe": {
             "type": "string",
             "enum": [
-              "weiss",
               "schwarz",
-              "rot",
+              "weiss",
+              "grau",
               "braun",
+              "bordeaux",
+              "rot",
+              "koralle",
               "orange",
+              "gold",
               "gelb",
+              "limette",
               "hellgruen",
               "gruen",
+              "smaragd",
               "tuerkis",
+              "cyan",
               "hellblau",
+              "meerblau",
               "blau",
               "dunkelblau",
+              "flieder",
               "violett",
               "magenta",
-              "bordeaux",
-              "grau"
+              "rosa"
             ],
             "title": "Wunschfarbe"
           }
@@ -17399,22 +17439,30 @@
               {
                 "type": "string",
                 "enum": [
-                  "weiss",
                   "schwarz",
-                  "rot",
+                  "weiss",
+                  "grau",
                   "braun",
+                  "bordeaux",
+                  "rot",
+                  "koralle",
                   "orange",
+                  "gold",
                   "gelb",
+                  "limette",
                   "hellgruen",
                   "gruen",
+                  "smaragd",
                   "tuerkis",
+                  "cyan",
                   "hellblau",
+                  "meerblau",
                   "blau",
                   "dunkelblau",
+                  "flieder",
                   "violett",
                   "magenta",
-                  "bordeaux",
-                  "grau"
+                  "rosa"
                 ]
               },
               {
@@ -18087,6 +18135,7 @@
             "type": "string",
             "maxLength": 60,
             "minLength": 1,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
             "title": "Name"
           },
           "shorthand": {
@@ -18104,6 +18153,7 @@
             "type": "string",
             "maxLength": 120,
             "minLength": 1,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
             "title": "Full Name"
           },
           "schulform": {
@@ -18882,6 +18932,7 @@
             "type": "string",
             "maxLength": 60,
             "minLength": 1,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
             "title": "Name"
           },
           "shorthand": {
@@ -18899,6 +18950,7 @@
             "type": "string",
             "maxLength": 120,
             "minLength": 1,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
             "title": "Full Name"
           },
           "schulform": {
@@ -20269,22 +20321,30 @@
               {
                 "type": "string",
                 "enum": [
-                  "weiss",
                   "schwarz",
-                  "rot",
+                  "weiss",
+                  "grau",
                   "braun",
+                  "bordeaux",
+                  "rot",
+                  "koralle",
                   "orange",
+                  "gold",
                   "gelb",
+                  "limette",
                   "hellgruen",
                   "gruen",
+                  "smaragd",
                   "tuerkis",
+                  "cyan",
                   "hellblau",
+                  "meerblau",
                   "blau",
                   "dunkelblau",
+                  "flieder",
                   "violett",
                   "magenta",
-                  "bordeaux",
-                  "grau"
+                  "rosa"
                 ]
               },
               {
@@ -21160,22 +21220,30 @@
               {
                 "type": "string",
                 "enum": [
-                  "weiss",
                   "schwarz",
-                  "rot",
+                  "weiss",
+                  "grau",
                   "braun",
+                  "bordeaux",
+                  "rot",
+                  "koralle",
                   "orange",
+                  "gold",
                   "gelb",
+                  "limette",
                   "hellgruen",
                   "gruen",
+                  "smaragd",
                   "tuerkis",
+                  "cyan",
                   "hellblau",
+                  "meerblau",
                   "blau",
                   "dunkelblau",
+                  "flieder",
                   "violett",
                   "magenta",
-                  "bordeaux",
-                  "grau"
+                  "rosa"
                 ]
               },
               {
@@ -25679,22 +25747,30 @@
               {
                 "type": "string",
                 "enum": [
-                  "weiss",
                   "schwarz",
-                  "rot",
+                  "weiss",
+                  "grau",
                   "braun",
+                  "bordeaux",
+                  "rot",
+                  "koralle",
                   "orange",
+                  "gold",
                   "gelb",
+                  "limette",
                   "hellgruen",
                   "gruen",
+                  "smaragd",
                   "tuerkis",
+                  "cyan",
                   "hellblau",
+                  "meerblau",
                   "blau",
                   "dunkelblau",
+                  "flieder",
                   "violett",
                   "magenta",
-                  "bordeaux",
-                  "grau"
+                  "rosa"
                 ]
               },
               {
