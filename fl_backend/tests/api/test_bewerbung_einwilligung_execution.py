@@ -28,6 +28,7 @@ from app.api.einwilligung.services import FASSUNG_UNZULAESSIG, SELBST_MEDIEN_ALT
 from app.api.saisons.cache import invalidate_saison_cache
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.api.teams.schemas import KONTAKT_ROLLEN
+from app.api.teams.services import compose_bestaetigungen_mit, compose_kontakt_bestaetigung
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
@@ -588,6 +589,32 @@ class TestTheMediaConsent:
         response = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW["trainer"]))
 
         assert response.medien_mindestalter == MEDIEN_MIN_AGE_YEARS
+
+    def test_the_view_of_a_season_rows_link_answers_the_same_age(self, mongo_replica_set_url: str):
+        """A link no application holds is answered off the season row, by a response of its own."""
+
+        raw = "raw-token-for-the-season-row"
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
+            await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, "active"))
+            await database[Collection.SAISON_TEAMS].insert_one(
+                documents.saison_team_document(
+                    SAISON_ID,
+                    CLUB_OID,
+                    CLUB_NAME,
+                    "AD",
+                    kontakte=kontakte(),
+                    bestaetigungen=compose_bestaetigungen_mit(
+                        stored_bestaetigungen=None, minted={"trainer": compose_kontakt_bestaetigung(token_hash=hash_token(raw), today=TODAY)}
+                    ),
+                )
+            )
+
+            return await ansicht(database, raw)
+
+        response = on_a_league(mongo_replica_set_url, body)
+
+        assert (response.quelle, response.medien_mindestalter) == ("saison", MEDIEN_MIN_AGE_YEARS)
 
     def test_a_confirmation_giving_medien_from_a_person_of_age_stores_it_on_the_seat_with_its_evidence(self, mongo_replica_set_url: str):
 
