@@ -232,7 +232,7 @@ export function FormPersonLoeschenSection() {
               or upper case, never a nickname or transliteration from a mail's subject: the hint asks for the request's kind. */}
           <Hint
             mode="field"
-            text="Nur das Datum und die Art der Anfrage. Nenne hier keine Person beim Namen und keine Adresse, auch nicht aus dem Betreff. Der Anlass steht zwölf Monate im Änderungsprotokoll."
+            text="Nur das Datum in Ziffern und die Art der Anfrage. Nenne hier keine Person beim Namen und keine Adresse, auch nicht aus dem Betreff. Der Anlass steht zwölf Monate im Änderungsprotokoll."
           />
         </TextField>
 
