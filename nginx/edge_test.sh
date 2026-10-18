@@ -1053,14 +1053,15 @@ fi
 declare -A MOVED_PROBE=( [local]="${BASE}/api/v0/system/is_live" [prod]="${PROD_SITE}/api/v0/system/is_live" )
 declare -A MOVED_LOCATION=( [local]="http://localhost/landed" [prod]="https://frankfurtleague.de/landed" )
 # One line per answer: its mark and its Location. A connection each, HTTP/1.1 since HTTP/2 shares
-# one, so answers spread over the workers' caches; a second each, a connect to a vacated address
-# waiting rather than refusing.
+# one, so answers spread over the workers' caches; MOVE_WAIT seconds each, a connect to a vacated
+# address waiting rather than refusing.
+MOVE_WAIT=1
 moved_answers() { # $1 the edge, $2 how many
   local edge="$1" _k
   local -a ask=( -H "Host: localhost" )
   [[ "$edge" == local ]] || ask=( "${PROD_RESOLVE[@]}" )
   for (( _k = 0; _k < $2; _k++ )); do ask+=( -o /dev/null "${MOVED_PROBE[$edge]}" ); done
-  curl -sk --http1.1 --max-time 1 -H "Connection: close" -w '%header{x-moved-backend} %header{location}\n' \
+  curl -sk --http1.1 --max-time "$MOVE_WAIT" -H "Connection: close" -w '%header{x-moved-backend} %header{location}\n' \
     "${ask[@]}" 2>/dev/null || true
 }
 # Asked first and often, so every worker holds the old address as it moves, as a serving edge's do.
@@ -1074,32 +1075,41 @@ docker rm -f "$BACKEND_GONE" >/dev/null \
 # Done only when a run of answers all come from the new backend: a worker still holding the old
 # address breaks the run, so an edge keeping Docker's own TTL never finishes.
 MOVE_RUN=10
-# Past `nginx/shared/http.conf :: resolver`'s `valid`, with room for a pass whose answers each wait
-# out their second.
-MOVE_DEADLINE=60
-# The lifetime nested inside the deadline: one as long would read as the edge never finding the move.
-if [[ -n "$RESOLVER_VALID" ]] && (( RESOLVER_VALID >= MOVE_DEADLINE )); then
+# The longest `nginx/shared/http.conf :: resolver`'s `valid` may hold an answer for this deadline;
+# every worker took its answer before the move.
+MOVE_LIFETIME=10
+# nginx dates an answer in whole seconds, as this loop reads its clock.
+MOVE_CLOCK=1
+# A pass begun on the old address runs at most MOVE_RUN x MOVE_WAIT: 10 + 1 + 10 x 1 = 21 s. Only
+# answers sent inside the lifetime wait, so most of that pass is margin.
+MOVE_DEADLINE=$(( MOVE_LIFETIME + MOVE_CLOCK + MOVE_RUN * MOVE_WAIT ))
+# The lifetime nested inside the deadline with the pass's room left over: a longer one would read as
+# the edge never finding the move.
+if [[ -n "$RESOLVER_VALID" ]] && (( RESOLVER_VALID > MOVE_LIFETIME )); then
   fail "RESOLVER ${RESOLVER_HOME}"
-  detail "valid= holds an answer ${RESOLVER_VALID}s, not inside the moved backend's ${MOVE_DEADLINE}s deadline"
+  detail "valid= holds an answer ${RESOLVER_VALID}s, past the ${MOVE_LIFETIME}s the moved backend's ${MOVE_DEADLINE}s deadline leaves it"
   RESOLVE_FAILURES=$(( RESOLVE_FAILURES + 1 ))
 fi
 declare -A MOVED_AFTER=() MOVED_SEEN=()
 _moved_from="$(date +%s)"
-while :; do
+while (( ${#MOVED_AFTER[@]} < 2 )); do
   for edge in local prod; do
     [[ -z "${MOVED_AFTER[$edge]:-}" ]] || continue
+    # Before each pass rather than each round, so a failing case outruns its deadline by one pass.
+    (( $(date +%s) - _moved_from < MOVE_DEADLINE )) || break 2
     mapfile -t _answers < <(moved_answers "$edge" "$MOVE_RUN")
     _run=0
     for _answer in "${_answers[@]}"; do
       [[ "${_answer%$'\r'}" == "reached "* ]] && _run=$(( _run + 1 ))
     done
-    if (( _run == MOVE_RUN )); then
-      MOVED_AFTER[$edge]=$(( $(date +%s) - _moved_from ))
+    _after=$(( $(date +%s) - _moved_from ))
+    # A run finished past the deadline is an edge slower than its arithmetic allows, not a pass.
+    if (( _run == MOVE_RUN && _after <= MOVE_DEADLINE )); then
+      MOVED_AFTER[$edge]="$_after"
       MOVED_SEEN[$edge]="${_answers[0]%$'\r'}"
       MOVED_SEEN[$edge]="${MOVED_SEEN[$edge]#reached }"
     fi
   done
-  (( ${#MOVED_AFTER[@]} < 2 && $(date +%s) - _moved_from < MOVE_DEADLINE )) || break
   sleep 0.5
 done
 for edge in local prod; do
