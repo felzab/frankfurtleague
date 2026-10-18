@@ -666,15 +666,21 @@ refuse() {
 # `set -e` otherwise exits in silence. The values are passed in as the trap fires: `$LINENO` read
 # inside the trap body would name this file rather than the script that failed.
 on_error() {
-  local rc="$1" line="$2" cmd="$3"
+  local rc="$1" line="$2" cmd="$3" file="${4-}" where="${SELF##*/}"
+  # The trap's file, since its line may be this library's: and that file's own text at the line,
+  # since inside another trap `$BASH_COMMAND` holds the command that trap interrupted.
+  if [[ -n "$file" ]]; then
+    where="${file##*/}"
+    cmd="$(sed -n "${line}{s/^[[:space:]]*//;p;}" -- "$file" 2>/dev/null)" || cmd="$3"
+  fi
   # The open section failed whatever its steps reached: a row reading `pass` beside a crash
   # statement misleads anyone scanning the table rather than the prose.
   _escalate 5
   # Outside the fold, for `refuse`'s reason.
   end_section
-  _annotate "${SELF##*/} failed at line ${line}: ${cmd} (exit status ${rc})"
+  _annotate "${where} failed at line ${line}: ${cmd} (exit status ${rc})"
   printf '\n' >&2
-  _emit "$C_RED" "   ✗" "${SELF##*/} failed
+  _emit "$C_RED" "   ✗" "${where} failed
 line ${line}:  ${cmd}
 exit status ${rc}" >&2
   printf '\n' >&2
@@ -684,7 +690,7 @@ exit status ${rc}" >&2
   if (( rc < 3 )); then rc=3; fi
   exit "$rc"
 }
-trap 'on_error "$?" "$LINENO" "$BASH_COMMAND"' ERR
+trap 'on_error "$?" "$LINENO" "$BASH_COMMAND" "${BASH_SOURCE[0]}"' ERR
 
 # A dropped SSH session's hangup among them: left to bash, each still runs a script's EXIT trap but
 # dies by its signal, with no statement and `quietly`'s capture left behind, a hangup exiting 129,

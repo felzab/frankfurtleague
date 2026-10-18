@@ -140,6 +140,32 @@ def test_an_ending_reached_inside_a_worker_summarises_nothing() -> None:
         assert statement not in output, f"a worker printed the {statement!r} statement"
 
 
+# A sourced file failing on its line 3, where the script sourcing it holds other text: the library
+# is such a file to every script, and a crash in it must not be reported against the caller.
+SOURCED: Final = "#!/usr/bin/env bash\nboom() {\n  false # the failing line\n}\n"
+
+
+def _crash(*body: str) -> tuple[int, str]:
+    assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
+    with tempfile.TemporaryDirectory() as scratch:
+        sourced = write_shell(Path(scratch) / "sourced.sh", SOURCED)
+        script = "\n".join(("#!/usr/bin/env bash", f'source "{LIB.as_posix()}"', f'source "{sourced.as_posix()}"', *body, ""))
+        done = run_shell(BASH, write_shell(Path(scratch) / "caller.sh", script), env=base_env())
+    return done.returncode, done.stdout + done.stderr
+
+
+def test_a_crash_names_the_file_and_the_line_that_failed() -> None:
+    """Both as a statement fails and inside another trap, where `$BASH_COMMAND` still holds the command that trap interrupted."""
+    wrong: list[str] = []
+    for how, body in (("called", ("boom",)), ("inside an EXIT trap", ("trap boom EXIT", "true"))):
+        code, output = _crash(*body)
+        if code != 3:
+            wrong.append(f"{how}: exited {code}, and a crash exits 3")
+        if "sourced.sh failed" not in output or "line 3:  false # the failing line" not in output:
+            wrong.append(f"{how}: the statement names another file or another command:\n{output}")
+    assert not wrong, "\n".join(wrong)
+
+
 def test_every_exit_code_the_kernel_declares_is_reached_by_a_fixture() -> None:
     """A code nothing here ends with is a branch of the contract that no reader is being held to."""
     reached = {ending.code for ending in ENDINGS}
