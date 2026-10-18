@@ -90,6 +90,22 @@ export const PersonNameSchema = z
   .nonempty({ error: "Bitte gib einen Namen ein." })
   .regex(PERSON_NAME_REGEX, { error: "Ein Name darf nur Buchstaben, Leerzeichen, Bindestriche und Apostrophe enthalten." });
 
+// `fl_backend/app/shared/schemas/custom.py :: SINGLE_LINE_PATTERN` negated, and named rather than written into the
+// refinement below so `fl_backend/tests/shared/test_frontend_mirrors.py :: UNPAIRABLE_PATTERNS` can pair the two spellings.
+const NICHT_EINZEILIG = /[\x00\n\v\f\r\u0085\u2028\u2029]/;
+
+/**
+ * A name is a name: none of them belongs in one, and refusing the class is cheaper than
+ * reasoning about each renderer downstream (`docs/frontend/spec.md :: I87`). CR and LF forge a fact
+ * line in a decision mail besides (`:: I46`).
+ */
+// One asymmetry, fail-closed: `strip()` drops U+0085 where `trim()` keeps it, so a value PADDED
+// with one is taken by the API and refused here.
+export const einzeiligerName = (schema: z.ZodString, feld: string) =>
+  schema.refine((wert) => !NICHT_EINZEILIG.test(wert), {
+    error: `${feld} darf keine Zeilenumbrüche oder Steuerzeichen enthalten.`,
+  });
+
 export const FLAddressSchema = z.object({
   strasse: z.string().nonempty({ error: "Bitte gib eine Straße ein." }),
   hausnummer: z.string().regex(HAUSNUMMER_REGEX, { error: HAUSNUMMER_ERROR }),

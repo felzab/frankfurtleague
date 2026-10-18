@@ -865,7 +865,7 @@ UNPAIRABLE_PATTERNS: Final = (
         "`MODELLED_ESCAPES` covers no codepoint escape, and every spelling of this class is written as codepoint escapes",
     ),
     Unpairable(
-        "features/bewerbungen/schemas.ts",
+        "shared/schemas.ts",
         "NICHT_EINZEILIG",
         "app/shared/schemas/custom.py :: SINGLE_LINE_PATTERN",
         "the same codepoint escapes, and this spelling is the class NEGATED: the form refuses the value it matches",

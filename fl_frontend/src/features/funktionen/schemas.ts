@@ -10,10 +10,10 @@ import {
   FLSelbstErasureSpielerSchema,
   FLSubjektResponseSchema,
 } from "@/core/schemas";
-import { einzeiligerName, FLKontaktRolleSchema } from "@/features/bewerbungen/schemas";
+import { FLKontaktRolleSchema } from "@/features/bewerbungen/schemas";
 import { FLRegistrierungSchema } from "@/features/registrierungen/schemas";
 import { ADRESSE_IM_GRUND_REGEX } from "@/features/sperrliste/schemas";
-import { addressSchema, CustomDateStringSchema, CustomObjectIdStringSchema } from "@/shared/schemas";
+import { addressSchema, CustomDateStringSchema, CustomObjectIdStringSchema, einzeiligerName } from "@/shared/schemas";
 
 import { ERASURE_ANLASS_MAX_LENGTH, REFERENZEN_ADRESSEN_MAX } from "./constants";
 
