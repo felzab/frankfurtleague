@@ -32,7 +32,9 @@ from tests.core.app_source import (
     module_of,
     parsed,
     resolve_callee,
+    resolve_reference,
     scoped_calls,
+    scoped_references,
     session_handoffs,
     session_parameters,
 )
@@ -103,7 +105,7 @@ Site = tuple[Path, int]
 
 @functools.cache
 def _step(path: Path, lineno: int) -> tuple[bool, tuple[Site, ...]]:
-    """Whether one declaration raises the miss in its own body unabsorbed, and the declarations its uncaught calls reach."""
+    """Whether one declaration raises the miss in its own body unabsorbed, and the declarations its uncaught references name."""
 
     declaration = next(
         node for node in ast.walk(parsed(path)) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.lineno == lineno
@@ -115,15 +117,48 @@ def _step(path: Path, lineno: int) -> tuple[bool, tuple[Site, ...]]:
         for node in ast.walk(declaration)
         if isinstance(node, ast.Raise) and _raises_here(node)
     )
+    calls = {id(call.func): (chain, call) for chain, call in scoped_calls(declaration, (declaration,))}
     reached: list[Site] = []
-    for chain, call in scoped_calls(declaration, (declaration,)):
-        resolved = resolve_callee(call, chain, path)
-        if resolved is None or _caught(call, parents) or _cannot_miss(call, chain, path):
+    # Every name and attribute rather than a call's bare callee alone: a raising helper held as a value,
+    # `fetch = pull_one_from_db`, or read off its module raises under a name no call spells.
+    for chain, node in scoped_references(declaration, (declaration,)):
+        if (isinstance(node, ast.Name) and not isinstance(node.ctx, ast.Load)) or _caught(node, parents):
             continue
-        target, target_path = resolved
-        reached.append((target_path, target.lineno))
+        if (held := calls.get(id(node))) is not None and _cannot_miss(held[1], held[0], path):
+            continue
+        resolved = resolve_reference(node, chain, path)
+        if resolved is not None and not _only_compared(node, parents, chain, path):
+            reached.append((resolved[1], resolved[0].lineno))
 
     return raises, tuple(reached)
+
+
+def _only_compared(node: ast.Name | ast.Attribute, parents: dict[int, ast.AST], chain: tuple[Declaration, ...], path: Path) -> bool:
+    """An argument whose receiving function reads its parameter in comparisons alone, so never calls it.
+
+    `app/api/identitaet/crud.py :: _runs` asks whether a step belongs to the erasure's scope by its
+    function, and `resolve_subject` hands it steps that raise the miss.
+    """
+
+    parent = parents.get(id(node))
+    call = parents.get(id(parent)) if isinstance(parent, ast.keyword) else parent
+    if not isinstance(call, ast.Call) or not isinstance(call.func, (ast.Name, ast.Attribute)) or node is call.func:
+        return False
+    receiver = resolve_reference(call.func, chain, path)
+    if receiver is None:
+        return False
+
+    target = receiver[0]
+    positional = [argument.arg for argument in [*target.args.posonlyargs, *target.args.args]]
+    index = next((index for index, argument in enumerate(call.args) if argument is node), None)
+    parameter = parent.arg if isinstance(parent, ast.keyword) else positional[index] if index is not None and index < len(positional) else None
+    if parameter is None:
+        return False
+
+    within = _parents(target)
+    reads = [read for read in ast.walk(target) if isinstance(read, ast.Name) and read.id == parameter and isinstance(read.ctx, ast.Load)]
+
+    return bool(reads) and all(isinstance(within.get(id(read)), ast.Compare) for read in reads)
 
 
 @functools.cache
@@ -368,3 +403,46 @@ def test_a_cycle_of_calls_is_followed_once_and_still_reaches_a_raise(tmp_path: P
 
     assert _can_raise(module, first.lineno) is raises
     assert _can_raise(module, second.lineno) is raises
+
+
+# `holder` names a raising helper one way per variant: `helper` raises here, `pull_one_from_db` in the application.
+NAMED_HELPER = f"""\
+from app.core import crud
+
+
+def helper():
+    raise {EXCEPTION}()
+
+
+def compares(run):
+    return run is None
+
+
+def calls(run):
+    return run()
+
+
+def holder():
+    {{body}}
+"""
+
+
+@pytest.mark.parametrize(
+    ("body", "raises"),
+    [
+        ("helper()", True),
+        ("fetch = helper\n    return fetch()", True),
+        ("return crud.pull_one_from_db", True),
+        ("return calls(helper)", True),
+        ("return compares(helper)", False),
+        ("return None", False),
+    ],
+)
+def test_a_raising_helper_is_reached_however_it_is_named(tmp_path: Path, body: str, raises: bool):
+    """Held as a value, read off its module or handed on, it may be called; a function only compared is not."""
+
+    module = tmp_path / "named.py"
+    module.write_bytes(NAMED_HELPER.format(body=body).encode())
+    holder = next(node for node in parsed(module).body if isinstance(node, ast.FunctionDef) and node.name == "holder")
+
+    assert _can_raise(module, holder.lineno) is raises

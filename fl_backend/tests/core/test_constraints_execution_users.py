@@ -1,12 +1,16 @@
 import secrets
 from collections.abc import Awaitable, Callable
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
 import pytest
+from pydantic import SecretStr
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
+from app.core import constraints
 from app.core.constraints import probe_collmod_privilege, probe_privileges, report_identity
+from tests.config import build_test_config
 from tests.database import on_the_seed_loop
 from tests.worker import worker_database
 
@@ -99,6 +103,57 @@ def test_the_privilege_probe_says_denied_for_a_readwrite_user(mongo_url: str):
             await database.command("dropUser", username)
 
     assert on_a_fresh_client(mongo_url, body).startswith("DENIED")
+
+
+def as_user(url: str, username: str, password: str) -> str:
+    """The url with this user's credentials in place of the server's own, authenticated against this module's database."""
+
+    parts = urlsplit(url)
+    query = "&".join(filter(None, [parts.query, f"authSource={DATABASE_NAME}"]))
+
+    return urlunsplit(parts._replace(netloc=f"{username}:{password}@{parts.netloc.rpartition('@')[2]}", query=query))
+
+
+WRITES = ["find", "insert", "update", "remove", "createIndex", "createCollection"]
+
+
+@pytest.mark.parametrize(
+    ("actions", "denied"),
+    [
+        pytest.param([*WRITES, "listCollections"], "collMod", id="collMod"),
+        pytest.param([*WRITES, "collMod"], "listCollections", id="listCollections"),
+    ],
+)
+def test_the_check_exits_2_and_reads_not_clean_where_a_privilege_is_denied(
+    mongo_url: str, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], actions: list[str], denied: str
+):
+    """The run and not the probe alone: an operator reads the exit and the closing line, and a FAIL above a clean one is missed."""
+    username = f"limited_{secrets.token_hex(4)}"
+    rolename = f"short_of_{denied}_{secrets.token_hex(4)}"
+    password = secrets.token_hex(16)
+
+    async def body(database: AsyncDatabase) -> int:
+        await database.command(
+            "createRole", rolename, privileges=[{"resource": {"db": DATABASE_NAME, "collection": ""}, "actions": actions}], roles=[]
+        )
+        await database.command("createUser", username, pwd=password, roles=[{"role": rolename, "db": DATABASE_NAME}])
+        configured = build_test_config().model_copy(
+            update={"mongodb_uri": SecretStr(as_user(mongo_url, username, password)), "db_base_name": DATABASE_NAME}
+        )
+        monkeypatch.setattr(constraints, "get_config", lambda: configured)
+        try:
+            return await constraints._run(check=True)
+        finally:
+            await database.command("dropUser", username)
+            await database.command("dropRole", rolename)
+
+    exit_code = on_a_fresh_client(mongo_url, body)
+    out = capsys.readouterr().out
+
+    assert exit_code == 2
+    assert f"FAIL  {denied}" in out
+    assert "NOT clean. Grant the privileges marked FAIL above before applying." in out
+    assert "Clean —" not in out
 
 
 def test_the_identity_report_names_the_user_and_its_roles(mongo_url: str):

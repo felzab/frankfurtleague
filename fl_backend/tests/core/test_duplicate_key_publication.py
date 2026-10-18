@@ -1264,7 +1264,8 @@ def _driver_writes_held_as_values() -> list[str]:
 def _attributes_looked_up_on_a_writer() -> list[str]:
     """Every `getattr` on a collection or an application module: what it reaches stands under no name any sweep reads.
 
-    A collection by the spelling every trace reads one by: a crud helper's `collection`, a dependency's `*_collection`.
+    A collection as the traces spell one: a crud helper's `collection`, a dependency's `*_collection`, a database
+    handle's subscript.
     """
 
     return [
@@ -1274,17 +1275,26 @@ def _attributes_looked_up_on_a_writer() -> list[str]:
         if isinstance(call.func, ast.Name)
         and call.func.id == "getattr"
         and call.args
-        and (
-            (isinstance(target := call.args[0], (ast.Name, ast.Attribute)) and _names_a_collection(target))
-            or resolve_module(target, path) is not None
-        )
+        and (_names_a_collection(target := call.args[0]) or resolve_module(target, path) is not None)
     ]
 
 
-def _names_a_collection(node: ast.Name | ast.Attribute) -> bool:
-    name = node.id if isinstance(node, ast.Name) else node.attr
+def _names_a_collection(node: ast.expr) -> bool:
+    if isinstance(node, ast.Subscript):
+        return _names_a_database(node.value)
 
-    return name == "collection" or name.endswith(COLLECTION_ARGUMENT_SUFFIX)
+    return _spelled(node) == "collection" or _spelled(node).endswith(COLLECTION_ARGUMENT_SUFFIX)
+
+
+def _names_a_database(node: ast.expr) -> bool:
+    if isinstance(node, ast.Subscript):
+        return _spelled(node.value) == "client" or _spelled(node.value).endswith("_client")
+
+    return _spelled(node) in {"db", "database"}
+
+
+def _spelled(node: ast.expr) -> str:
+    return node.id if isinstance(node, ast.Name) else node.attr if isinstance(node, ast.Attribute) else ""
 
 
 def _steps_called_by_name() -> frozenset[str]:

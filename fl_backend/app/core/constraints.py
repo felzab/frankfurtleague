@@ -2288,6 +2288,16 @@ async def _run(check: bool) -> int:
                 blocking += unservable.groups
                 print(f"          first offenders: {unservable.examples}")
 
+        # Judged after the data, so one run names every gap; a refused grant outranks the data, which the
+        # same run can count, and answers what a refused `find` answers above.
+        if any(verdict != "granted" for _, verdict in privileges):
+            print(
+                "\n  NOT clean. Grant the privileges marked FAIL above"
+                + (", and correct the data," if blocking else "")
+                + " before applying.\n"
+            )
+            return 2
+
         print("\n  Clean — safe to apply.\n" if blocking == 0 else "\n  NOT clean. Correct the data above before applying.\n")
         return 0 if blocking == 0 else 1
 
