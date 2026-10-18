@@ -5,6 +5,7 @@ import { NICHT_MEINE_ADRESSE } from "@/core/adresswechselAntworten.ts";
 import { assertRedactedAtTheEdge } from "@/core/edgeRedaction.ts";
 import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
+import { readable } from "@/core/mailText.ts";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 
@@ -132,7 +133,11 @@ describe("the request for a pupil's new address", () => {
       assert.ok(!teil.includes("Mirabel"), "a part of the link mail names the pupil");
       assert.ok(teil.includes("Hallo, die Verwaltung"), "a part of the link mail greets otherwise");
     }
-    assert.match(hinweis()?.text ?? "", /Hallo Mirabel,/);
+    const notice = hinweis();
+    assert.ok(notice !== undefined, "the stored address was told nothing, so its greeting is judged over nothing");
+    for (const teil of [readable(notice.html), notice.text]) {
+      assert.match(teil, /Hallo Mirabel,/, "a part of the notice greets the stored mailbox otherwise");
+    }
   });
 
   it("files the link's delivery under the pupil's address change", async () => {
