@@ -11,6 +11,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { KONTAKT_EMAIL } from "@/core/brand.ts";
+import { BEWERBUNG_TOKEN_MAX_LENGTH } from "@/features/bewerbungen/constants.ts";
 import {
   SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE,
   SCHIEDSRICHTER_UMFANG_FRAGE,
@@ -36,6 +37,8 @@ const fetchMock = doubleFetch();
 const { SchiedsrichterBestaetigungView } = await import("./SchiedsrichterBestaetigungView.tsx");
 const { AdresseGesperrt, LinkUnlesbar } = await import("@/features/bewerbungen/components/views/BestaetigungPanels.tsx");
 const { unshownRefusal } = await import("@/shared/hooks/useServerFieldErrors.ts");
+const { BLOCKED_SUBMIT_TITLE } = await import("@/shared/hooks/useDraftFieldErrors.ts");
+const { buildSchiedsrichterBestaetigungPayloadSchema } = await import("@/features/schiedsrichter/schemas.ts");
 
 const TOKEN = "abc123";
 /** The floor this fixture's read serves: the page judges by it, the one the link was minted under. */
@@ -355,6 +358,28 @@ describe("what the press sends", () => {
     const zeile = await screen.findByText("Name im Spielplan");
     assert.equal(zeile.nextElementSibling?.textContent, "nicht erlaubt");
   });
+});
+
+/* No control renders the token, so its refusal reaches the referee in the blocked press's toast or nowhere. */
+describe("a press over a token the page cannot send", () => {
+  const satz = buildSchiedsrichterBestaetigungPayloadSchema(MINDESTALTER).shape.token.safeParse("").error?.issues[0]?.message;
+
+  for (const [wie, token] of [
+    ["empty", ""],
+    ["over-long", "x".repeat(BEWERBUNG_TOKEN_MAX_LENGTH + 1)],
+  ] as const) {
+    it(`asks for the link again in the press's toast where the token is ${wie}`, async () => {
+      render(h(SchiedsrichterBestaetigungView, { start: { ...OFFEN, token: token } }));
+
+      await userEvent.setup().click(screen.getByRole("button", { name: "Eintrag bestätigen" }));
+
+      assert.ok(satz !== undefined, "the payload's schema takes an empty token");
+      assert.ok(
+        toasts.some((toast) => toast.title === BLOCKED_SUBMIT_TITLE && String(toast.description).includes(satz)),
+        "the blocked press's toast says nothing of the link",
+      );
+    });
+  }
 });
 
 describe("what a link to a barred address opens on", () => {
