@@ -130,8 +130,13 @@ the machine is outside the repository. What it does tell you:
 
 - **Only the application containers are recreated**, and nginx is reloaded once they are healthy
   (`scripts/ops/deploy.sh :: serve_through_nginx`), through nginx's Control API, which answers whether
-  the reload applied. The edge keeps running across the swap, so a deploy that succeeds costs seconds
-  of 502 rather than a refused connection. The reload is also what applies a file the pull changed
+  the reload applied. The edge keeps running across the swap, so from the stop before the copy until
+  the reload a deploy that succeeds answers 502 rather than refusing the connection: an estimated 10
+  to 30 seconds on an idle site, and about eleven minutes where the stop runs to the grace periods
+  (`docker-compose.yml :: stop_grace_period`), each copy to its bound
+  (`scripts/ops/deploy.sh :: copy_streams`), each health wait to its last poll
+  (`scripts/ops/deploy.sh :: HEALTH_WAIT_BACKEND`, `:: HEALTH_WAIT_FRONTEND`) and the reload to
+  its own (`:: edge_control`). The reload is also what applies a file the pull changed
   under `nginx/prod/` or `nginx/shared/`, both mounted as directories so the running container reads
   what the pull wrote ([`spec.md`](spec.md) §1.2); a pull that changed nginx's own service definition
   makes the same `up` recreate it instead. **A reload nginx refuses ends the run in a finding carrying
@@ -143,9 +148,9 @@ the machine is outside the repository. What it does tell you:
 - **A build that fails the health wait is put back automatically** — to the images the application services
   were running when the deploy began, by image id rather than by tag (`scripts/ops/deploy.sh :: roll_back`) —
   and the script names the build now serving. **That path is not seconds**: the 502 runs until the restored
-  pair is healthy and nginx has been reloaded again, up to about eleven minutes where both health waits run
-  to their timeouts and the rollback's do the same. **The failed build's own two streams are copied off
-  first** (`scripts/ops/deploy.sh :: copy_streams`), under the deploy's stamp and a `-failed` suffix in
+  pair is healthy and nginx has been reloaded again, up to about twenty-two minutes where the deploy's
+  stop, copies and health waits and the rollback's own all run to their bounds. **The failed build's
+  own two streams are copied off first** (`scripts/ops/deploy.sh :: copy_streams`), under the deploy's stamp and a `-failed` suffix in
   `/var/log/frankfurtleague/` (§7); that copy warns rather than refusing where it cannot be made, the site
   being down by then. **An interrupt during that copy leaves the failed build stopped and nothing put
   back**, the failed build not being started again after failing its health wait: finish the rollback

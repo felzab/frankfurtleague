@@ -50,8 +50,9 @@ EDGE_RELOAD_TYPED="docker compose -f ${COMPOSE} exec -T nginx curl -s -w '\n%{ht
 # How many times, 0.2 s apart, a freshly started nginx is given to open that socket.
 EDGE_START_POLLS=50
 
-# Every wait on a service's health, in seconds: `docs/ops/runbooks.md` §1 states the outage reached
-# where a deploy's two waits and its rollback's two all run out.
+# Every wait on a service's health, in seconds: `docs/ops/runbooks.md` §1's outage bounds sum these
+# with the stops' grace periods and the copies' and the reload's own bounds, so a change here
+# moves them.
 HEALTH_WAIT_BACKEND="150"
 HEALTH_WAIT_FRONTEND="180"
 # Every production service `.github/workflows/publish.yml` does not build, held to
@@ -553,9 +554,9 @@ between the copy and the recreate is in no file. The copy is taken all the same.
     # otherwise leave a short `.log` reading as the build's whole stream.
     partial="${target}.partial"
     copy_rc=0
-    # Bounded, as every `curl` here is: the rollback runs this with the site down, and a daemon that
-    # stopped mid-stream would hold that outage open. 120s is the `docker-compose.yml :: x-logging`
-    # cap at a 256 KB/s floor.
+    # Bounded, as every `curl` here is: both calls run with the pair stopped and the site answering
+    # 502, and a stalled daemon would hold that open (`docs/ops/runbooks.md` §1). 120s is the
+    # `docker-compose.yml :: x-logging` cap at a 256 KB/s floor.
     timeout 120 docker compose -f "$COMPOSE" logs --no-color --timestamps "$svc" > "$partial" 2>/dev/null || copy_rc=$?
     if (( copy_rc )); then
       rm -f "$partial" 2>/dev/null || true
