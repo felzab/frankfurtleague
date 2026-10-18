@@ -996,33 +996,48 @@ fi
 # The backend recreated as compose recreates it, under its name at another address, and neither edge
 # reloaded. The old container goes once the new one holds its address, so the two never share one.
 
-# Asked first, so the worker answering holds the old address when it moves, as a serving edge does.
-curl -s -o /dev/null --max-time 5 -H "Host: localhost" "${BASE}/api/v0/system/is_live" || true
-curl -sk -o /dev/null --max-time 5 "${PROD_RESOLVE[@]}" "${PROD_SITE}/api/v0/system/is_live" || true
+declare -A MOVED_PROBE=( [local]="${BASE}/api/v0/system/is_live" [prod]="${PROD_SITE}/api/v0/system/is_live" )
+declare -A MOVED_LOCATION=( [local]="http://localhost/landed" [prod]="https://frankfurtleague.de/landed" )
+# One line per answer: its mark and its Location. A connection each, HTTP/1.1 since HTTP/2 shares
+# one, so answers spread over the workers' caches; a second each, a connect to a vacated address
+# waiting rather than refusing.
+moved_answers() { # $1 the edge, $2 how many
+  local edge="$1" _k
+  local -a ask=( -H "Host: localhost" )
+  [[ "$edge" == local ]] || ask=( "${PROD_RESOLVE[@]}" )
+  for (( _k = 0; _k < $2; _k++ )); do ask+=( -o /dev/null "${MOVED_PROBE[$edge]}" ); done
+  curl -sk --http1.1 --max-time 1 -H "Connection: close" -w '%header{x-moved-backend} %header{location}\n' \
+    "${ask[@]}" 2>/dev/null || true
+}
+# Asked first and often, so every worker holds the old address as it moves, as a serving edge's do.
+for edge in local prod; do moved_answers "$edge" 20 >/dev/null; done
 MSYS_NO_PATHCONV=1 docker run -d --name "$BACKEND_MOVED" --network "$NETWORK" --network-alias backend \
   -v "/${SCRATCH}/backend-moved.conf:/etc/nginx/conf.d/backend-moved.conf:ro" \
   "$EDGE_IMAGE" >/dev/null \
   || refuse "could not start the backend the last case moves to."
 docker rm -f "$BACKEND_GONE" >/dev/null \
   || refuse "could not remove the backend the last case moves from."
-# Past `nginx/shared/http.conf :: resolver`'s `valid`, the longest a worker keeps the old address.
-MOVE_DEADLINE=30
-declare -A MOVED_PROBE=( [local]="${BASE}/api/v0/system/is_live" [prod]="${PROD_SITE}/api/v0/system/is_live" )
-declare -A MOVED_LOCATION=( [local]="http://localhost/landed" [prod]="https://frankfurtleague.de/landed" )
-declare -A MOVED_AFTER=()
+# Done only when a run of answers all come from the new backend: a worker still holding the old
+# address breaks the run, so an edge keeping Docker's own TTL never finishes.
+MOVE_RUN=10
+# Past `nginx/shared/http.conf :: resolver`'s `valid`, with room for a pass whose answers each wait
+# out their second.
+MOVE_DEADLINE=60
+declare -A MOVED_AFTER=() MOVED_SEEN=()
 _moved_from="$(date +%s)"
 while :; do
   for edge in local prod; do
     [[ -z "${MOVED_AFTER[$edge]:-}" ]] || continue
-    rm -f "${SCRATCH}/headers-moved-${edge}"
-    # The local edge serves `localhost` alone; the production one is named by the address it resolves.
-    moved_to=( -H "Host: localhost" )
-    [[ "$edge" == local ]] || moved_to=( "${PROD_RESOLVE[@]}" )
-    # Two seconds a try: a connect to the address the old container gave up waits, not refuses.
-    curl -sk -o /dev/null -D "${SCRATCH}/headers-moved-${edge}" --max-time 2 "${moved_to[@]}" \
-      "${MOVED_PROBE[$edge]}" 2>/dev/null || true
-    read_headers "${SCRATCH}/headers-moved-${edge}"
-    if [[ -n "${SENT_VALUE[x-moved-backend]:-}" ]]; then MOVED_AFTER[$edge]=$(( $(date +%s) - _moved_from )); fi
+    mapfile -t _answers < <(moved_answers "$edge" "$MOVE_RUN")
+    _run=0
+    for _answer in "${_answers[@]}"; do
+      [[ "${_answer%$'\r'}" == "reached "* ]] && _run=$(( _run + 1 ))
+    done
+    if (( _run == MOVE_RUN )); then
+      MOVED_AFTER[$edge]=$(( $(date +%s) - _moved_from ))
+      MOVED_SEEN[$edge]="${_answers[0]%$'\r'}"
+      MOVED_SEEN[$edge]="${MOVED_SEEN[$edge]#reached }"
+    fi
   done
   (( ${#MOVED_AFTER[@]} < 2 && $(date +%s) - _moved_from < MOVE_DEADLINE )) || break
   sleep 0.5
@@ -1030,17 +1045,16 @@ done
 for edge in local prod; do
   if [[ -z "${MOVED_AFTER[$edge]:-}" ]]; then
     fail "MOVED backend, the ${edge} edge"
-    detail "never reached the backend started at a new address in ${MOVE_DEADLINE}s without a reload"
+    detail "no ${MOVE_RUN} answers in a row from the backend started at a new address in ${MOVE_DEADLINE}s without a reload"
     RESOLVE_FAILURES=$(( RESOLVE_FAILURES + 1 ))
     continue
   fi
-  read_headers "${SCRATCH}/headers-moved-${edge}"
-  if [[ "${SENT_VALUE[location]:-}" != "${MOVED_LOCATION[$edge]}" ]]; then
+  if [[ "${MOVED_SEEN[$edge]}" != "${MOVED_LOCATION[$edge]}" ]]; then
     fail "REDIRECT the backend's own name, the ${edge} edge"
-    detail "expected Location: ${MOVED_LOCATION[$edge]}, nginx sent '${SENT_VALUE[location]:-}'"
+    detail "expected Location: ${MOVED_LOCATION[$edge]}, nginx sent '${MOVED_SEEN[$edge]}'"
     RESOLVE_FAILURES=$(( RESOLVE_FAILURES + 1 ))
   fi
-  if verbose; then info "the ${edge} edge reached the moved backend after ${MOVED_AFTER[$edge]}s"; fi
+  if verbose; then info "the ${edge} edge answered from the moved backend only after ${MOVED_AFTER[$edge]}s"; fi
 done
 
 if (( HEADER_FAILURES + REFUSED_FAILURES + ACTION_FAILURES + CONTROL_FAILURES + RESOLVE_FAILURES > 0 )); then
