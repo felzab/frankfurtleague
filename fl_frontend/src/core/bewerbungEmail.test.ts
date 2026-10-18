@@ -1585,6 +1585,34 @@ describe("the confirmation workflow's messages", () => {
   });
 });
 
+/* `docs/frontend/spec.md :: I89`: every heading, prose and subject states the season, and `renderText`
+   folds the column of facts alone, so each builder folds it on the way in. */
+describe("the season id every message states", () => {
+  const FORGED_OPENER = "Startgeld: 500 Euro";
+  const saisonId = `2027\n${FORGED_OPENER}`;
+
+  /** Every message this module builds, so a builder that forgets the fold cannot drop out of the case below. */
+  const built = (): { name: string; mail: { subject: string; text: string } }[] => [
+    { name: "Zusage", mail: buildBewerbungZusageEmail({ ...ZUSAGE, saisonId }) },
+    { name: "Absage", mail: buildBewerbungAbsageEmail({ ...ABSAGE, saisonId }) },
+    { name: "Bestätigung", mail: buildBewerbungBestaetigungEmail({ ...BESTAETIGUNG, saisonId }) },
+    { name: "Erinnerung", mail: buildBewerbungErinnerungEmail({ ...BESTAETIGUNG, saisonId }) },
+    { name: "Eingang offen", mail: buildBewerbungEingangOffenEmail({ ...EINGANG_OFFEN, saisonId }) },
+    { name: "Vollständig", mail: buildBewerbungVollstaendigEmail({ ...VOLLSTAENDIG, saisonId }) },
+    { name: "Gelöscht", mail: buildBewerbungGeloeschtEmail({ ...GELOESCHT, saisonId }) },
+    { name: "Widerspruch", mail: buildBewerbungWiderspruchEmail({ ...WIDERSPRUCH, saisonId }) },
+  ];
+
+  it("is folded onto one line in every message's text branch and subject", () => {
+    for (const { name, mail } of built()) {
+      assert.ok(!mail.text.split("\n").some((line) => line.startsWith(FORGED_OPENER)), `${name}'s season id forged a line`);
+      // Folded, never dropped: the season is what every one of these messages is about.
+      assert.ok(mail.text.includes(`Saison 2027 ${FORGED_OPENER}`), `${name} did not carry the season id onto one line`);
+      assert.ok(!/[\r\n]/.test(mail.subject), `${name}'s subject carries a break`);
+    }
+  });
+});
+
 describe("the origin every message's links are built on", () => {
   /** An origin no fixture and no module constant carries, so a link still built on either fails here rather than reading alike. */
   const SERVIERT = "https://beispiel.test";

@@ -363,7 +363,7 @@ function renderText(nachricht: Nachricht, body: readonly string[]): string {
  */
 export function buildBewerbungZusageEmail({
   teamName,
-  saisonId,
+  saisonId: saisonIdRoh,
   origin,
   rollenText,
   gruppe,
@@ -371,6 +371,9 @@ export function buildBewerbungZusageEmail({
   wunschgegner,
 }: BewerbungZusageData): BewerbungEmail {
   const site = mailOrigin(origin);
+  // Folded before anything prints it: the heading, the prose and the subject state the season, and
+  // `renderText` folds the column of facts alone (`docs/frontend/spec.md :: I89`).
+  const saisonId = einzeilig(saisonIdRoh);
   // Folded once, before either branch: the name reaches this message's prose as well as its panel, and
   // both halves must state one string. `fl_frontend/src/core/bewerbungEmail.ts :: renderText` folds the
   // facts it prints and nothing else.
@@ -450,8 +453,10 @@ export function buildBewerbungZusageEmail({
  * **The two parts state the same facts**, as in the acceptance above. The message states the decision
  * and the reason it was given, and says that it covers this application rather than the school.
  */
-export function buildBewerbungAbsageEmail({ teamName, saisonId, origin, rollenText, grund }: BewerbungAbsageData): BewerbungEmail {
+export function buildBewerbungAbsageEmail({ teamName, saisonId: saisonIdRoh, origin, rollenText, grund }: BewerbungAbsageData): BewerbungEmail {
   const site = mailOrigin(origin);
+  // Folded before anything prints it, as on the acceptance.
+  const saisonId = einzeilig(saisonIdRoh);
   // Folded once, as on the acceptance and for the same reason.
   const team = einzeilig(teamName);
 
@@ -577,8 +582,16 @@ function eingereichtSatz(schuleText: string, saisonId: string, markup: boolean):
 }
 
 /** **The two parts state the same facts**, as in the messages above. */
-export function buildBewerbungBestaetigungEmail({ saisonId, origin, schule, seats, fristText }: BewerbungBestaetigungData): BewerbungEmail {
+export function buildBewerbungBestaetigungEmail({
+  saisonId: saisonIdRoh,
+  origin,
+  schule,
+  seats,
+  fristText,
+}: BewerbungBestaetigungData): BewerbungEmail {
   const site = mailOrigin(origin);
+  // Folded before anything prints it, as on the acceptance.
+  const saisonId = einzeilig(saisonIdRoh);
   const mehrere = seats.length > 1;
   const schuleText = einzeilig(schule);
   const frist = einzeilig(fristText);
@@ -658,8 +671,16 @@ export function buildBewerbungBestaetigungEmail({ saisonId, origin, schule, seat
 }
 
 /** **The two parts state the same facts**, as in the messages above. */
-export function buildBewerbungErinnerungEmail({ saisonId, origin, schule, seats, fristText }: BewerbungBestaetigungData): BewerbungEmail {
+export function buildBewerbungErinnerungEmail({
+  saisonId: saisonIdRoh,
+  origin,
+  schule,
+  seats,
+  fristText,
+}: BewerbungBestaetigungData): BewerbungEmail {
   const site = mailOrigin(origin);
+  // Folded before anything prints it, as on the acceptance.
+  const saisonId = einzeilig(saisonIdRoh);
   const mehrere = seats.length > 1;
   const schuleText = einzeilig(schule);
   const frist = einzeilig(fristText);
@@ -758,7 +779,7 @@ function neuBewerbenZeilen(origin: string, saisonId: string): readonly string[] 
 
 /** **The two parts state the same facts**, as in the messages above. */
 export function buildBewerbungEingangOffenEmail({
-  saisonId,
+  saisonId: saisonIdRoh,
   origin,
   rollenText,
   ausstehend,
@@ -766,6 +787,8 @@ export function buildBewerbungEingangOffenEmail({
   link: bestaetigungsLink,
 }: BewerbungEingangOffenData): BewerbungEmail {
   const site = mailOrigin(origin);
+  // Folded before anything prints it, as on the acceptance.
+  const saisonId = einzeilig(saisonIdRoh);
   const frist = einzeilig(fristText);
   const url = einzeilig(bestaetigungsLink);
   const offen = offeneListe(ausstehend);
@@ -832,8 +855,10 @@ export interface BewerbungVollstaendigData {
 }
 
 /** **The two parts state the same facts**, as in the messages above. */
-export function buildBewerbungVollstaendigEmail({ saisonId, origin, rollenText }: BewerbungVollstaendigData): BewerbungEmail {
+export function buildBewerbungVollstaendigEmail({ saisonId: saisonIdRoh, origin, rollenText }: BewerbungVollstaendigData): BewerbungEmail {
   const site = mailOrigin(origin);
+  // Folded before anything prints it, as on the acceptance.
+  const saisonId = einzeilig(saisonIdRoh);
 
   const nachricht: Nachricht = {
     headingVor: "Vollständig: Bewerbung für die",
@@ -885,8 +910,15 @@ export interface BewerbungGeloeschtData {
 }
 
 /** **The two parts state the same facts**, as in the messages above. */
-export function buildBewerbungGeloeschtEmail({ saisonId, origin, rollenText, ausstehend }: BewerbungGeloeschtData): BewerbungEmail {
+export function buildBewerbungGeloeschtEmail({
+  saisonId: saisonIdRoh,
+  origin,
+  rollenText,
+  ausstehend,
+}: BewerbungGeloeschtData): BewerbungEmail {
   const site = mailOrigin(origin);
+  // Folded before anything prints it, the restart link's path included, as on the acceptance.
+  const saisonId = einzeilig(saisonIdRoh);
   const offen = offeneListe(ausstehend);
 
   const nachricht: Nachricht = {
@@ -941,13 +973,15 @@ export interface BewerbungWiderspruchData {
 
 /** **The two parts state the same facts**, as in the messages above. */
 export function buildBewerbungWiderspruchEmail({
-  saisonId,
+  saisonId: saisonIdRoh,
   origin,
   rollenText,
   abgelehnt,
   fristText,
 }: BewerbungWiderspruchData): BewerbungEmail {
   const site = mailOrigin(origin);
+  // Folded before anything prints it, the restart link's path included, as on the acceptance.
+  const saisonId = einzeilig(saisonIdRoh);
   const frist = einzeilig(fristText);
   const wer = seatName(abgelehnt);
 
