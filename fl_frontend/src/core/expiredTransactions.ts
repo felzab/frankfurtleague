@@ -169,7 +169,11 @@ export async function startJudgedReplicaSet(): Promise<JudgedReplicaSet> {
   const closes: (() => Promise<unknown>)[] = [];
   // A race beside the library's bound rather than instead of it: `withStartupTimeout` waits on the
   // health check alone, and the Docker calls before it (the pull, the create, the start) carry none.
-  const mongod = await startedInTime(new MongoDBContainer("mongo:8.3.11").withStartupTimeout(HEALTHY_WITHIN_MS).start());
+  const mongod = await startedInTime(
+    new MongoDBContainer("mongo:8.3.11@sha256:d731d77bfd7afd66bd487bdf627b5bf7ce4c3602ec461d635977021db529ebbc")
+      .withStartupTimeout(HEALTHY_WITHIN_MS)
+      .start(),
+  );
   await watchExpiredTransactions(mongod);
 
   // Registered last, since no earlier place helps: a file failing while it loads runs no hook at all,
