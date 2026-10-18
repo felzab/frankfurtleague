@@ -929,6 +929,28 @@
 # total does not move; it sits inside its row, and no row moves. The resolver check the edge test
 # gained after both runs rides the loop that already reads every `nginx/` config, unmeasured.
 #
+# `db` gained eight modules over the erasures, the pupils' sentinel and the address change, each run
+# once alone, measured locally on 2026-10-18 on a sixteen-core Windows machine at about 60 percent
+# CPU from other agent sessions, so single runs and upper bounds. Each figure is pytest's own span
+# over the module's db-marked cases, and holds 2.6-3.2 s of its first case's setup starting the
+# servers, which the gate starts once a run:
+#
+# - `fl_backend/tests/api/test_erasure_auf_anfrage.py`, 38 cases, 14.5 s
+# - `fl_backend/tests/api/test_funktionen_erasure.py`, 32 cases, 13.6 s
+# - `fl_backend/tests/api/test_spieler_adresswechsel_execution.py`, 55 cases, 8.0 s
+# - `fl_backend/tests/api/test_erasure_isolation.py`, 15 cases, 7.1 s
+# - `fl_backend/tests/api/test_berechtigungen_erasure_execution.py`, 12 cases, 5.3 s
+# - `fl_backend/tests/api/test_identitaet_referenzen_execution.py`, 21 cases, 4.7 s
+# - `fl_backend/tests/api/test_aktionen_redaction_execution.py`, 5 cases, 4.7 s
+# - `fl_backend/tests/api/test_spieler_sentinel.py`, 17 cases, 4.6 s
+#
+# Together 62.5 s, about 40 s with each module's server start taken out, which the tier spreads over
+# its workers a module at a time. The row's stamp predates all eight, so its budget was cut from runs
+# without them. On run 39157909162, testing the merge of 2cc7c4ff9 on 2026-10-18, the `db` job
+# spanned about 140 s by its log's first and last lines against the row's 160 s budget, the backend's
+# tier taking 113 s and the frontend's db-tier files 66 s beside it. No row moves and none takes a
+# stamp.
+#
 # The total row is the sum of the seconds above it, compared the same way where it carries a floor.
 # Its floor sums each referenced row's draws, so `--stamp` cuts one only where every row holding a
 # reference was re-stamped from the one population it reads, and `--base` refuses a total floor that
