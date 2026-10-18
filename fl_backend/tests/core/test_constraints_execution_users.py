@@ -1,14 +1,17 @@
+import re
 import secrets
 from collections.abc import Awaitable, Callable
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
 import pytest
+from bson import ObjectId
 from pydantic import SecretStr
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.core import constraints
+from app.core.collections import Collection
 from app.core.constraints import probe_collmod_privilege, probe_privileges, report_identity
 from tests.config import build_test_config
 from tests.database import on_the_seed_loop
@@ -118,6 +121,13 @@ WRITES = ["find", "insert", "update", "remove", "createIndex", "createCollection
 
 
 @pytest.mark.parametrize(
+    ("offending", "closing"),
+    [
+        pytest.param(False, "NOT clean. Grant the privileges marked FAIL above before applying.", id="clean-data"),
+        pytest.param(True, "NOT clean. Grant the privileges marked FAIL above, and correct the data, before applying.", id="offending-data"),
+    ],
+)
+@pytest.mark.parametrize(
     ("actions", "denied"),
     [
         pytest.param([*WRITES, "listCollections"], "collMod", id="collMod"),
@@ -125,7 +135,13 @@ WRITES = ["find", "insert", "update", "remove", "createIndex", "createCollection
     ],
 )
 def test_the_check_exits_2_and_reads_not_clean_where_a_privilege_is_denied(
-    mongo_url: str, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], actions: list[str], denied: str
+    mongo_url: str,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    actions: list[str],
+    denied: str,
+    offending: bool,
+    closing: str,
 ):
     """The run and not the probe alone: an operator reads the exit and the closing line, and a FAIL above a clean one is missed."""
     username = f"limited_{secrets.token_hex(4)}"
@@ -133,6 +149,10 @@ def test_the_check_exits_2_and_reads_not_clean_where_a_privilege_is_denied(
     password = secrets.token_hex(16)
 
     async def body(database: AsyncDatabase) -> int:
+        if offending:
+            # Accepted: the database is unconstrained, as before a first apply, and a bare id is short of
+            # every field the validator requires.
+            await database[Collection.AKTIONEN].insert_one({"_id": ObjectId()})
         await database.command(
             "createRole", rolename, privileges=[{"resource": {"db": DATABASE_NAME, "collection": ""}, "actions": actions}], roles=[]
         )
@@ -152,7 +172,9 @@ def test_the_check_exits_2_and_reads_not_clean_where_a_privilege_is_denied(
 
     assert exit_code == 2
     assert f"FAIL  {denied}" in out
-    assert "NOT clean. Grant the privileges marked FAIL above before applying." in out
+    # The validator section's row, which a verdict returned before the data sections would never print.
+    assert bool(re.search(rf"^ +FAIL  {Collection.AKTIONEN} +1 of +1$", out, re.MULTILINE)) == offending
+    assert closing in out
     assert "Clean —" not in out
 
 
