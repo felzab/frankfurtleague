@@ -6,6 +6,7 @@ import {
   ASIDE_TEXT,
   BRAND_NAME,
   brandPhrase,
+  einzeilig,
   escapeHtml,
   FALLBACK_SATZ,
   fallbackBloecke,
@@ -94,10 +95,18 @@ export function buildEinladungEmail(data: EinladungEmailData): EinladungEmail {
   // Through `mailOrigin` once, for the close: the link itself is spelled by its own module and
   // arrives finished, so a second derivation here could send the two halves to different hosts.
   const site = mailOrigin(data.origin);
+  // Folded once, before either part or the subject prints them: this message has no column of facts
+  // to fold them on the way (`docs/frontend/spec.md :: I89`).
+  const fakten: EinladungEmailData = {
+    teamName: einzeilig(data.teamName),
+    saisonId: einzeilig(data.saisonId),
+    link: einzeilig(data.link),
+    origin: site,
+  };
 
   return {
-    subject: `${UEBERSCHRIFT} für ${data.teamName}: ${BRAND_NAME}, Saison ${data.saisonId}`,
-    html: renderHtml({ ...data, origin: site }),
-    text: renderText({ ...data, origin: site }),
+    subject: `${UEBERSCHRIFT} für ${fakten.teamName}: ${BRAND_NAME}, Saison ${fakten.saisonId}`,
+    html: renderHtml(fakten),
+    text: renderText(fakten),
   };
 }

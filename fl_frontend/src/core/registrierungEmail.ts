@@ -8,6 +8,7 @@ import {
   ASIDE_TEXT,
   BRAND_NAME,
   brandPhrase,
+  einzeilig,
   escapeHtml,
   FALLBACK_SATZ,
   fallbackBloecke,
@@ -82,6 +83,19 @@ export interface RegistrierungAbsageEmailData extends RegistrierungNotizEmailDat
 }
 
 /**
+ * Every value a link message prints, folded once before either part or the subject reads it: no
+ * column of facts folds them on the way to the prose (`docs/frontend/spec.md :: I89`).
+ */
+function linkDaten(data: RegistrierungLinkEmailData): RegistrierungLinkEmailData {
+  return { ...data, teamName: einzeilig(data.teamName), saisonId: einzeilig(data.saisonId) };
+}
+
+/** A note's values, folded for the same reason. A decline's `grund` is a fixed choice and prints no caller text. */
+function notizDaten<Data extends RegistrierungNotizEmailData>(data: Data): Data {
+  return { ...data, vorname: einzeilig(data.vorname), teamName: einzeilig(data.teamName), saisonId: einzeilig(data.saisonId) };
+}
+
+/**
  * One control, as the sign-in message carries one (`fl_frontend/src/core/authEmail.ts :: aktionen`):
  * the message exists for this link alone, and a second destination competes with the one press a
  * reader came for.
@@ -117,7 +131,8 @@ const bestaetigungSaetze = ({ teamName, saisonId, fristTage }: RegistrierungLink
  * **The number is the mirrored constant's, never a word here**: the mail and the page would
  * otherwise state two deadlines, and one would not move.
  */
-export function buildRegistrierungBestaetigungEmail(data: RegistrierungLinkEmailData): RegistrierungEmail {
+export function buildRegistrierungBestaetigungEmail(eingang: RegistrierungLinkEmailData): RegistrierungEmail {
+  const data = linkDaten(eingang);
   // Through `mailOrigin` once, and the link minted on what it answered: a raw `AUTH_URL` with a
   // trailing slash would otherwise put `//bestaetigung/spieler` in every registering pupil's mail,
   // which the edge's noindex prefix does not match.
@@ -181,7 +196,8 @@ const erinnerungSaetze = ({ teamName, saisonId, fristTage }: RegistrierungLinkEm
  * It says that the deadline has not moved, because a reminder that merely repeats the request reads
  * as a fresh clock — and the row is erased on the day the first message named.
  */
-export function buildRegistrierungErinnerungEmail(data: RegistrierungLinkEmailData): RegistrierungEmail {
+export function buildRegistrierungErinnerungEmail(eingang: RegistrierungLinkEmailData): RegistrierungEmail {
+  const data = linkDaten(eingang);
   const site = mailOrigin(data.origin);
   const url = spielerBestaetigungsLink(site, data.token);
   const [anrede, frist, zweiLinks] = erinnerungSaetze(data);
@@ -236,7 +252,8 @@ const saisonendeSaetze = ({ vorname, teamName, saisonId }: RegistrierungNotizEma
  * **After the fact and never before it**: a pre-notice would ask a reader to act on a deadline
  * they have no control over.
  */
-export function buildRegistrierungSaisonendeEmail(data: RegistrierungNotizEmailData): RegistrierungEmail {
+export function buildRegistrierungSaisonendeEmail(eingang: RegistrierungNotizEmailData): RegistrierungEmail {
+  const data = notizDaten(eingang);
   const site = mailOrigin(data.origin);
   const [anrede, geloescht, naechste] = saisonendeSaetze(data);
 
@@ -289,7 +306,8 @@ const absageSaetze = ({ vorname, teamName, saisonId, grund }: RegistrierungAbsag
  * **It names no other person**: the reason it states is the stored choice, so whoever holds the
  * mailbox learns that an address is taken and never by whom.
  */
-export function buildRegistrierungAbsageEmail(data: RegistrierungAbsageEmailData): RegistrierungEmail {
+export function buildRegistrierungAbsageEmail(eingang: RegistrierungAbsageEmailData): RegistrierungEmail {
+  const data = notizDaten(eingang);
   const site = mailOrigin(data.origin);
   const [anrede, weiter, loeschung] = absageSaetze(data);
 

@@ -128,6 +128,34 @@ describe("what every message of the registration flow carries", () => {
   });
 });
 
+/* `docs/frontend/spec.md :: I89`: these messages carry no column of facts, so every value the prose
+   and the subject print is folded by its builder or by nothing. */
+describe("no value can open a line of its own in the text part", () => {
+  const FORGED_OPENER = "Startgeld: 500 Euro";
+  const wert = `Wert\n${FORGED_OPENER}`;
+
+  /** Each builder with the break in each value it prints, one value at a time. */
+  const faelle = (): { name: string; mail: { subject: string; text: string } }[] => [
+    ...(["teamName", "saisonId"] as const).flatMap((feld) => [
+      { name: `the confirmation link's ${feld}`, mail: buildRegistrierungBestaetigungEmail({ ...LINK_DATEN, [feld]: wert }) },
+      { name: `the reminder's ${feld}`, mail: buildRegistrierungErinnerungEmail({ ...LINK_DATEN, [feld]: wert }) },
+    ]),
+    ...(["vorname", "teamName", "saisonId"] as const).flatMap((feld) => [
+      { name: `the season-end note's ${feld}`, mail: buildRegistrierungSaisonendeEmail({ ...NOTIZ_DATEN, [feld]: wert }) },
+      { name: `the decline note's ${feld}`, mail: buildRegistrierungAbsageEmail({ ...NOTIZ_DATEN, grund: null, [feld]: wert }) },
+    ]),
+  ];
+
+  it("folds every value a message prints onto one line, in the text part and the subject", () => {
+    for (const { name, mail } of faelle()) {
+      assert.ok(!mail.text.split("\n").some((line) => line.startsWith(FORGED_OPENER)), `${name} forged a line`);
+      // Folded, never dropped: a name the reader typed is what the message is about.
+      assert.ok(mail.text.includes(`Wert ${FORGED_OPENER}`), `${name} was not carried onto one line`);
+      assert.ok(!/[\r\n]/.test(mail.subject), `${name} put a break in the subject`);
+    }
+  });
+});
+
 describe("what the confirmation link's own message says", () => {
   const MAIL = MESSAGES.bestaetigung;
 
