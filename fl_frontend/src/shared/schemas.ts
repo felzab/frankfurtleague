@@ -99,7 +99,7 @@ const NICHT_EINZEILIG = /[\x00\n\v\f\r\u0085\u2028\u2029]/;
  * reasoning about each renderer downstream (`docs/frontend/spec.md :: I87`). CR and LF forge a fact
  * line in a decision mail besides (`:: I46`).
  */
-// One asymmetry, fail-closed: `strip()` drops U+0085 where `trim()` keeps it, so a value PADDED
+// One asymmetry, fail-closed: the API's `strip_whitespace` drops U+0085 where `trim()` keeps it, so a value PADDED
 // with one is taken by the API and refused here.
 export const einzeiligerName = (schema: z.ZodString, feld: string) =>
   schema.refine((wert) => !NICHT_EINZEILIG.test(wert), {
