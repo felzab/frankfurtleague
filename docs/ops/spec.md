@@ -715,7 +715,7 @@ error quotes the line it could not read.
 host lacks** (`scripts/ops/deploy.sh :: fetch_edge_images`), under the `missing` policy `up` itself
 applies, so a tag the host holds is never refreshed under a running edge. A failed fetch refuses at
 exit 2 with nothing recreated; left to the `up` that reloads nginx, it would arrive once the
-application pair was replaced, nginx still proxying to the containers it replaced.
+application pair was replaced, leaving nginx unreloaded on the configuration it had.
 
 **A pair the deploy refuses leaves the host's `:latest` tags as it found them**: a pinned run moves
 them only once `scripts/ops/deploy.sh :: compare_pulled_pair` accepts the pair, and a bare run puts

@@ -171,8 +171,8 @@ environment file that line is a value. Ask it yourself, where the answer is not 
 }
 
 # Before either application image moves: the `up` that reloads nginx would otherwise fetch a missing
-# edge image after the pair was replaced, and a fetch failing there leaves nginx proxying to the
-# containers it replaced.
+# edge image after the pair was replaced, and a fetch failing there leaves nginx unreloaded, on the
+# configuration it had rather than the pull's.
 fetch_edge_images() {
   local rc=0
   # `missing`, the policy `up` applies, so a tag this host holds is not refreshed under a running
@@ -605,7 +605,7 @@ Then reload the edge:  ${EDGE_RELOAD_TYPED}"
 whether it holds the configuration the pull left in nginx/prod/ and nginx/shared/.
 Reload it:  ${EDGE_RELOAD_TYPED}"
   elif [[ "$status" == 200 ]]; then
-    ok "nginx reloaded, so it is proxying to the containers started again"
+    ok "nginx reloaded onto the checkout's configuration"
   elif [[ "$status" == 422 ]]; then
     worst=1
     warn "nginx refused the configuration the pull left in nginx/prod/ or nginx/shared/ and kept the one it
