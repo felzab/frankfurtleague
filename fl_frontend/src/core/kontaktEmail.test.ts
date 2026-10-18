@@ -153,6 +153,29 @@ describe("the message a seated contact person is mailed", () => {
   });
 });
 
+/* `docs/frontend/spec.md :: I89`: this message carries no column of facts, so every value the prose
+   and the subject print is folded by its builder or by nothing. */
+describe("no value can open a line of its own in the text part", () => {
+  const FORGED_OPENER = "Startgeld: 500 Euro";
+  const wert = `Wert\n${FORGED_OPENER}`;
+
+  /** The builder with the break in each value it prints, one value at a time. */
+  const faelle = (): { name: string; mail: { subject: string; text: string } }[] =>
+    (["rollenText", "schule", "saisonId", "fristText"] as const).map((feld) => ({
+      name: `the message's ${feld}`,
+      mail: buildKontaktBestaetigungEmail({ ...daten, [feld]: wert }),
+    }));
+
+  it("folds every value the message prints onto one line, in the text part and the subject", () => {
+    for (const { name, mail } of faelle()) {
+      assert.ok(!mail.text.split("\n").some((line) => line.startsWith(FORGED_OPENER)), `${name} forged a line`);
+      // Folded, never dropped: the seat, the school, the season and the deadline are what the reader confirms.
+      assert.ok(mail.text.includes(`Wert ${FORGED_OPENER}`), `${name} was not carried onto one line`);
+      assert.ok(!/[\r\n]/.test(mail.subject), `${name} put a break in the subject`);
+    }
+  });
+});
+
 /* A closed row's link opens a page taking the Widerspruch alone, so a message asking for a confirmation
    sends its reader to a press that page does not have. */
 describe("the message a person seated on a closed season row is mailed", () => {
