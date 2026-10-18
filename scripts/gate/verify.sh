@@ -1416,7 +1416,7 @@ Re-run without \`-n auto --dist loadfile --maxprocesses ${GATE_WIDTH_DB_PYTEST}\
   case "$FRONTEND_DB_RC" in
     0) ;;
     1) die "fl_frontend db-tier tests failed.
-testcontainers starts and removes the mongo release \`fl_backend/tests/conftest.py :: MONGO_IMAGE\` pins itself; a failure here is the code, not the daemon." ;;
+testcontainers starts and removes the mongo \`fl_backend/tests/conftest.py :: MONGO_IMAGE\` pins itself; a failure here is the code, not the daemon." ;;
     130) on_interrupt ;;
     *) on_error "$FRONTEND_DB_RC" "${LINENO}" "pnpm run test:db" ;;
   esac
