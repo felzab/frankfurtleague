@@ -178,12 +178,11 @@ const LISTED: Readonly<Record<string, Record<string, unknown>>> = {
   [`/spieler/kader/${OBJECT_ID}/2026`]: { team_id: OBJECT_ID, saison_id: "2026", erlaubte_stufen: ["Q1"], kader: [KADER_ZEILE] },
 };
 
-/** What a read answers wherever its schema takes it: a link still valid, a window running, a person named. */
+/** What a read answers wherever its schema takes it: a link still valid, a window running. */
 const OPEN: Readonly<Record<string, unknown>> = {
   zustand: "gueltig",
   laeuft: true,
   offen: true,
-  vorname: "Ada",
   kader_frei: true,
   team_eingetragen: true,
   saison_id: "2026",
