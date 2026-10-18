@@ -1605,6 +1605,8 @@ the stream remove it, and the replay refuses then as well.
 **`python -m app.core.constraints --check` BEFORE anything else** (§2). A snapshot taken before a
 constraint landed restores rows the current validators reject, and the validators are attached strict,
 so such a row refuses any erasure or replay below that writes over it rather than removing it.
+Its privileges must read `ok` for `listCollections` too: the replay reads every stored validator
+through it, and without it judges no line, exiting 2 on a database it cannot read.
 
 **Then, once `--check` is clean, attach this build's constraints again**, from the checkout:
 

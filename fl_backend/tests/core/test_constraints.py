@@ -1,4 +1,5 @@
 import asyncio
+import inspect
 from collections.abc import Mapping
 from datetime import datetime
 from functools import partial
@@ -26,6 +27,7 @@ from app.api.bewerbungen.schemas import (
     FLBewerbungBestaetigung,
     FLBewerbungBestaetigungen,
     FLBewerbungEntscheidung,
+    FLBewerbungEntscheidungZeile,
     FLBewerbungKader,
     FLBewerbungSchule,
     FLBewerbungStatus,
@@ -37,6 +39,7 @@ from app.api.registrierungen.schemas import (
     FLRegistrierungBestaetigung,
     FLRegistrierungEinwilligung,
     FLRegistrierungEntscheidung,
+    FLRegistrierungEntscheidungZeile,
     FLRegistrierungStatus,
 )
 from app.api.saisons.schemas import (
@@ -968,6 +971,89 @@ def test_a_row_model_refuses_nothing_its_field_annotations_leave_out():
     }
 
     assert not unread, f"{sorted(unread)} refuse on a read, and no annotation the report mirrors carries them"
+
+
+def nested_models(annotation: Any) -> set[type[BaseModel]]:
+    """Every model an annotation names, through optionals, unions, lists and `Annotated`."""
+
+    if isinstance(annotation, type) and issubclass(annotation, BaseModel):
+        return {annotation}
+
+    return set[type[BaseModel]]().union(*(nested_models(argument) for argument in get_args(annotation)))
+
+
+def _field_schema(field: FieldInfo) -> Any:
+    return TypeAdapter(Annotated[field.annotation, *field.metadata] if field.metadata else field.annotation).core_schema
+
+
+def _stored(schema: Mapping[str, Any]) -> Any:
+    """The schema a stored value meets, null aside: a read admitting null where the row requires a value refuses nothing more."""
+
+    return validating(schema["schema"] if schema["type"] == "nullable" else schema)
+
+
+def refuses_beyond(model: type[BaseModel], row: type[BaseModel]) -> list[str]:
+    """What a subclass of a row's model refuses that the row does not: a bound of a field it declares itself, or a validator of its own."""
+
+    own = inspect.get_annotations(model)
+    bounded = [
+        name
+        for name, field in model.model_fields.items()
+        if name in own
+        and bounds(schema := _field_schema(field))
+        and (name not in row.model_fields or _stored(schema) != _stored(_field_schema(row.model_fields[name])))
+    ]
+    decorators = model.__pydantic_decorators__
+    inherited = row.__pydantic_decorators__
+    validators = [
+        name
+        for name, decorator in {**decorators.field_validators, **decorators.model_validators}.items()
+        if name not in {**inherited.field_validators, **inherited.model_validators}
+        and getattr(decorator.func, "__func__", decorator.func) not in RESHAPING_FUNCTIONS
+    ]
+
+    return bounded + validators
+
+
+def test_every_model_a_mirrored_field_nests_is_judged_at_a_row():
+    """`bounds` passes over a nested model as a row of its own, so a model no row lists has its bounds judged nowhere.
+
+    A read's subclass of its path's row stands where it refuses nothing more.
+    """
+
+    rows: dict[tuple[Collection, tuple[str, ...]], set[type[BaseModel]]] = {}
+    for collection, path, models, _ in MIRRORED_MODELS:
+        rows.setdefault((collection, path), set()).update(models if isinstance(models, tuple) else (models,))
+
+    unjudged = [
+        f"{'.'.join((collection, *path, key))}: {nested.__name__}"
+        for collection, path, models, not_stored in MIRRORED_MODELS
+        for key, declaring in stored_fields(models).items()
+        if key not in not_stored
+        for _, field in declaring
+        for nested in sorted(nested_models(field.annotation), key=lambda model: model.__name__)
+        if nested not in (listed := rows.get((collection, (*path, key)), set()))
+        and not any(issubclass(nested, row) and not refuses_beyond(nested, row) for row in listed)
+    ]
+
+    assert unjudged == []
+
+
+class _EntscheidungMitGrund(FLBewerbungEntscheidung):
+    grund: Annotated[str, StringConstraints(max_length=200)]
+
+
+class _EntscheidungMitKurzemVon(FLRegistrierungEntscheidung):
+    von: Annotated[str, StringConstraints(min_length=1, max_length=8)] | None
+
+
+def test_a_subclass_refuses_beyond_its_row_by_a_bounded_field_of_its_own():
+    """The control: a reader judging nothing would pass every served subclass above, and one comparing nullability as a bound would fail one."""
+
+    assert refuses_beyond(_EntscheidungMitGrund, FLBewerbungEntscheidung) == ["grund"]
+    assert refuses_beyond(_EntscheidungMitKurzemVon, FLRegistrierungEntscheidung) == ["von"]
+    assert refuses_beyond(FLBewerbungEntscheidungZeile, FLBewerbungEntscheidung) == []
+    assert refuses_beyond(FLRegistrierungEntscheidungZeile, FLRegistrierungEntscheidung) == []
 
 
 @pytest.mark.parametrize("collection", sorted(COLLECTION_VALIDATORS))

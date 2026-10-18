@@ -589,6 +589,75 @@ def resolve_name(name: str, chain: tuple[Declaration, ...], module: Path) -> tup
     return (found, module) if found is not None else _imported_declaration(name, tree)
 
 
+@functools.cache
+def _modules_by_name(tree: ast.Module) -> dict[str, str]:
+    """Each name a module's imports bind under `app`, to the dotted path it stands for.
+
+    `import app.a.b` binds `app` alone, so a read walks the rest of the path as attributes.
+    """
+
+    bound: dict[str, str] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name.split(".")[0] == "app":
+                    bound.setdefault(alias.asname or "app", alias.name if alias.asname else "app")
+        elif isinstance(node, ast.ImportFrom) and (node.module or "").split(".")[0] == "app":
+            for alias in node.names:
+                bound.setdefault(alias.asname or alias.name, f"{node.module}.{alias.name}")
+
+    return bound
+
+
+def _dotted(node: ast.expr) -> list[str] | None:
+    if isinstance(node, ast.Name):
+        return [node.id]
+    if not isinstance(node, ast.Attribute):
+        return None
+
+    inner = _dotted(node.value)
+
+    return None if inner is None else [*inner, node.attr]
+
+
+def resolve_reference(node: ast.Name | ast.Attribute, chain: tuple[Declaration, ...], module: Path) -> tuple[Declaration, Path] | None:
+    """The declaration a name, or an attribute of a module an import binds, stands for wherever it is read.
+
+    `resolve_callee` follows a call's bare name alone, blind to a value held or handed on and to a module's attribute.
+    """
+
+    if isinstance(node, ast.Name):
+        return resolve_name(node.id, chain, module)
+
+    origin = resolve_module(node.value, module)
+
+    return None if origin is None else resolve_name(node.attr, (), origin)
+
+
+def resolve_module(node: ast.expr, module: Path) -> Path | None:
+    """The application module a name or a dotted path read in `module` stands for, through that module's imports."""
+
+    path = _dotted(node)
+    held = None if path is None else _modules_by_name(parsed(module)).get(path[0])
+    if path is None or held is None:
+        return None
+
+    candidate = BACKEND_ROOT.joinpath(*held.split("."), *path[1:])
+
+    return next((found for found in (candidate.with_suffix(".py"), candidate / "__init__.py") if found.exists()), None)
+
+
+def scoped_references(node: ast.AST, chain: tuple[Declaration, ...]) -> Iterator[tuple[tuple[Declaration, ...], ast.Name | ast.Attribute]]:
+    """Every name and attribute read under `node`, with every function around it, as `scoped_calls` pairs a call."""
+
+    for child in ast.iter_child_nodes(node):
+        if isinstance(child, (ast.Name, ast.Attribute)):
+            yield chain, child
+
+        inner = (*chain, child) if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)) else chain
+        yield from scoped_references(child, inner)
+
+
 @dataclass(frozen=True)
 class Binding:
     """What one call binds to one parameter."""

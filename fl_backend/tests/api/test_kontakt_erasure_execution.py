@@ -34,6 +34,7 @@ from app.shared.schemas.kontakt import CustomEmail
 from tests import documents
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.erasure import erased
+from tests.wire import commands_sent
 from tests.worker import worker_database
 
 from .test_erasure_auf_anfrage import revealed
@@ -1402,3 +1403,34 @@ def test_the_reveal_lists_exactly_the_seats_the_erasure_then_clears(mongo_replic
     # Against the table above as well as the count: two figures agreeing on zero agree on nothing.
     assert named == sum(EXPECTED_SLOTS.values())
     assert named == response.kontakt_sitze
+
+
+# The erasure clears every row naming the person in one transaction with no share, so this, a round trip
+# each, bounds how many rows a person may hold inside the request's deadline.
+COMMANDS_A_CLEARED_ROW = 3
+
+# Two erasures apart by this many rows naming the person.
+EXTRA_ROWS = 10
+
+
+def an_extra_row(position: int) -> ObjectId:
+    return ObjectId(f"6890a1b2c3d4e5f6079{position:05d}")
+
+
+@pytest.mark.db
+def test_each_row_the_erasure_clears_costs_the_commands_counted_for_it(mongo_replica_set_url: str):
+    """A command added per row passes every other case, and shrinks the person whose erasure still finishes inside the deadline."""
+
+    def counted(rows: int) -> int:
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> int:
+            await database[Collection.SAISON_TEAMS].insert_many(
+                [a_row_naming(an_extra_row(position), ERASED_EMAIL) for position in range(rows)]
+            )
+
+            return await commands_sent(mongo_replica_set_url, DATABASE_NAME, call_erasure)
+
+        return on_a_league(mongo_replica_set_url, body)
+
+    few, more = counted(EXTRA_ROWS), counted(2 * EXTRA_ROWS)
+
+    assert (more - few) / EXTRA_ROWS == COMMANDS_A_CLEARED_ROW

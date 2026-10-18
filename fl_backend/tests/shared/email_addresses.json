@@ -210,6 +210,18 @@
     "folded": "anna@m\u00fcnchen.de/x"
   },
   {
+    "case": "an umlaut domain holding a soft hyphen a URL parser would drop",
+    "typed": "anna@m\u00fcn\u00adchen.de",
+    "stored": null,
+    "folded": "anna@m\u00fcn\u00adchen.de"
+  },
+  {
+    "case": "an umlaut domain holding a tab a URL parser would drop",
+    "typed": "anna@m\u00fcn\tchen.de",
+    "stored": null,
+    "folded": "anna@m\u00fcn\tchen.de"
+  },
+  {
     "case": "a Unicode 16 letter in the domain, which the URL parser the fold reads first refuses",
     "typed": "anna@\ud81b\udd43x.de",
     "stored": "anna@xn--x-7p6m.de",

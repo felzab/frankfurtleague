@@ -2110,15 +2110,34 @@ async def probe_read_privilege(db: AsyncDatabase) -> str:
     return "granted"
 
 
+async def probe_list_collections_privilege(db: AsyncDatabase) -> str:
+    """Asked for the replay after a restore, which reads every stored validator through `listCollections`.
+
+    The call `app/api/identitaet/wiederherstellung.py :: stale_validators` makes, so the verdict is the replay's own.
+    """
+
+    try:
+        await (await db.list_collections(filter={"name": next(iter(COLLECTION_VALIDATORS), ABSENT_COLLECTION_NAME)})).to_list()
+    except OperationFailure as failure:
+        if classify_failure(failure) == "authorization":
+            return f"DENIED -- {failure_message(failure)}"
+        raise
+
+    return "granted"
+
+
 async def probe_privileges(db: AsyncDatabase) -> list[tuple[str, str]]:
-    """Two of the privileges this module needs, each asked INDEPENDENTLY, so one report names both gaps.
+    """Three of the privileges this module and the replay need, each asked INDEPENDENTLY, so one report names every gap.
 
     A check aborting on the first refusal hides the next until that one is fixed.
     """
-    # Three go unprobed. Only a FRESH database reaches `create` and the `listCollections`
-    # `create_collection` sends ahead of it; `apply_constraints` issues `createIndex` on every boot.
-    # Asking for any of the three is exercising it, and this may not write.
-    return [("find", await probe_read_privilege(db)), ("collMod", await probe_collmod_privilege(db))]
+    # Two go unprobed: only a FRESH database reaches `create`, and `apply_constraints` issues
+    # `createIndex` on every boot. Asking for either is exercising it, and this may not write.
+    return [
+        ("find", await probe_read_privilege(db)),
+        ("collMod", await probe_collmod_privilege(db)),
+        ("listCollections", await probe_list_collections_privilege(db)),
+    ]
 
 
 def failure_message(failure: OperationFailure) -> str:
@@ -2203,10 +2222,10 @@ async def _run(check: bool) -> int:
         print(f"  Authenticated as: {identity}")
         print(f"  Roles the server sees: {', '.join(roles) or '(none)'}\n")
 
-        print("  Privileges — two of the actions this module needs, asked separately")
+        print("  Privileges — three of the actions this module and the replay need, asked separately")
         privileges = await probe_privileges(database)
         for action, verdict in privileges:
-            print(f"    {'ok  ' if verdict == 'granted' else 'FAIL'}  {action:<10} {verdict}")
+            print(f"    {'ok  ' if verdict == 'granted' else 'FAIL'}  {action:<15} {verdict}")
 
         # Everything below reads documents, so a second failure would say what the row above does.
         if any(verdict != "granted" for action, verdict in privileges if action == "find"):
@@ -2285,7 +2304,7 @@ def _main() -> int:
         prog="python -m app.core.constraints",
         description="Report or apply the database constraints declared in this module.",
     )
-    parser.add_argument("--check", action="store_true", help="report violations and the collMod privilege; writes nothing")
+    parser.add_argument("--check", action="store_true", help="report violations and the privileges; writes nothing")
     parser.add_argument("--apply", action="store_true", help="apply every validator and every index, exactly as startup does")
     arguments = parser.parse_args()
 
