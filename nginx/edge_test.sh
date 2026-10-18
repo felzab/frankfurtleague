@@ -988,7 +988,7 @@ judge_resolver() { # $1 the file, relative to the root, $2 its resolver line
   fi
   if [[ -z "$valid" ]]; then
     fail "RESOLVER ${file}"
-    detail "names no valid=, so a worker keeps a recreated container's old address for as long as Docker's answer says"
+    detail "names no valid=, so nothing in the configuration bounds how long a worker keeps a recreated container's old address"
     RESOLVE_FAILURES=$(( RESOLVE_FAILURES + 1 ))
     return
   fi
